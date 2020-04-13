@@ -1,9 +1,9 @@
 package holder
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/tc/model"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -37,11 +37,11 @@ func TestFileBasedSessionManager_UpdateGlobalSessionStatus(t *testing.T) {
 	sessionManager := NewFileBasedSessionManager("root.data")
 	sessionManager.AddGlobalSession(gs)
 	gs.Status = meta.GlobalStatusFinished
-	sessionManager.UpdateGlobalSessionStatus(gs,meta.GlobalStatusFinished)
+	sessionManager.UpdateGlobalSessionStatus(gs, meta.GlobalStatusFinished)
 
 	expected := sessionManager.FindGlobalSession(gs.Xid)
 	assert.NotNil(t,gs)
-	assert.Equal(t,meta.GlobalStatusFinished,expected.Status)
+	assert.Equal(t, meta.GlobalStatusFinished,expected.Status)
 
 	sessionManager.RemoveGlobalSession(gs)
 }
@@ -75,7 +75,7 @@ func TestFileBasedSessionManager_UpdateBranchSessionStatus(t *testing.T) {
 	sessionManager := NewFileBasedSessionManager("root.data")
 	sessionManager.AddGlobalSession(gs)
 	sessionManager.AddBranchSession(gs,bs)
-	sessionManager.UpdateBranchSessionStatus(bs,meta.BranchStatusPhasetwoCommitted)
+	sessionManager.UpdateBranchSessionStatus(bs, meta.BranchStatusPhasetwoCommitted)
 	sessionManager.RemoveBranchSession(gs,bs)
 	sessionManager.RemoveGlobalSession(gs)
 }

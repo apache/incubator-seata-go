@@ -2,11 +2,11 @@ package session
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/util"
+	"github.com/pkg/errors"
 	"vimagination.zapto.org/byteio"
 )
 
@@ -45,7 +45,7 @@ func NewBranchSessionByGlobal(gs GlobalSession,
 	bs := NewBranchSession()
 	bs.SetXid(gs.Xid)
 	bs.SetTransactionId(gs.TransactionId)
-	bs.SetBranchId(util.GeneratorUUID())
+	bs.SetBranchId(uuid.GeneratorUUID())
 	bs.SetBranchType(branchType)
 	bs.SetResourceId(resourceId)
 	bs.SetLockKey(lockKeys)

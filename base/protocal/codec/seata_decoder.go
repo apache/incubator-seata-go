@@ -2,8 +2,8 @@ package codec
 
 import (
 	"bytes"
-	"github.com/dk-lockdown/seata-golang/meta"
-	"github.com/dk-lockdown/seata-golang/protocal"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"vimagination.zapto.org/byteio"
 )
 
@@ -211,21 +211,21 @@ func RegisterRMRequestDecoder(in []byte) (interface{},int) {
 func RegisterRMResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractIdentifyResponseDecoder(in)
 	abstractIdentifyResponse := resp.(protocal.AbstractIdentifyResponse)
-	msg := protocal.RegisterRMResponse{AbstractIdentifyResponse:abstractIdentifyResponse}
+	msg := protocal.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
 	return msg,totalReadN
 }
 
 func RegisterTMRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractIdentifyRequestDecoder(in)
 	abstractIdentifyRequest := req.(protocal.AbstractIdentifyRequest)
-	msg := protocal.RegisterTMRequest{AbstractIdentifyRequest:abstractIdentifyRequest}
+	msg := protocal.RegisterTMRequest{AbstractIdentifyRequest: abstractIdentifyRequest}
 	return msg,totalReadN
 }
 
 func RegisterTMResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractIdentifyResponseDecoder(in)
 	abstractIdentifyResponse := resp.(protocal.AbstractIdentifyResponse)
-	msg := protocal.RegisterRMResponse{AbstractIdentifyResponse:abstractIdentifyResponse}
+	msg := protocal.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
 	return msg,totalReadN
 }
 
@@ -402,14 +402,14 @@ func AbstractGlobalEndResponseDecoder(in []byte) (interface{},int) {
 func BranchCommitRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractBranchEndRequestDecoder(in)
 	abstractBranchEndRequest := req.(protocal.AbstractBranchEndRequest)
-	msg := protocal.BranchCommitRequest{AbstractBranchEndRequest:abstractBranchEndRequest}
+	msg := protocal.BranchCommitRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
 	return msg,totalReadN
 }
 
 func BranchCommitResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractBranchEndResponseDecoder(in)
 	abstractBranchEndResponse := resp.(protocal.AbstractBranchEndResponse)
-	msg := protocal.BranchCommitResponse{AbstractBranchEndResponse:abstractBranchEndResponse}
+	msg := protocal.BranchCommitResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
 	return msg,totalReadN
 }
 
@@ -544,14 +544,14 @@ func BranchReportResponseDecoder(in []byte) (interface{},int) {
 func BranchRollbackRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractBranchEndRequestDecoder(in)
 	abstractBranchEndRequest := req.(protocal.AbstractBranchEndRequest)
-	msg := protocal.BranchRollbackRequest{AbstractBranchEndRequest:abstractBranchEndRequest}
+	msg := protocal.BranchRollbackRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
 	return msg,totalReadN
 }
 
 func BranchRollbackResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractBranchEndResponseDecoder(in)
 	abstractBranchEndResponse := resp.(protocal.AbstractBranchEndResponse)
-	msg := protocal.BranchRollbackResponse{AbstractBranchEndResponse:abstractBranchEndResponse}
+	msg := protocal.BranchRollbackResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
 	return msg,totalReadN
 }
 
@@ -625,21 +625,21 @@ func GlobalBeginResponseDecoder(in []byte) (interface{},int) {
 func GlobalCommitRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractGlobalEndRequestDecoder(in)
 	abstractGlobalEndRequest := req.(protocal.AbstractGlobalEndRequest)
-	msg := protocal.GlobalCommitRequest{AbstractGlobalEndRequest:abstractGlobalEndRequest}
+	msg := protocal.GlobalCommitRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg,totalReadN
 }
 
 func GlobalCommitResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractGlobalEndResponseDecoder(in)
 	abstractGlobalEndResponse := resp.(protocal.AbstractGlobalEndResponse)
-	msg := protocal.GlobalCommitResponse{AbstractGlobalEndResponse:abstractGlobalEndResponse}
+	msg := protocal.GlobalCommitResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg,totalReadN
 }
 
 func GlobalLockQueryRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := BranchRegisterRequestDecoder(in)
 	branchRegisterRequest := req.(protocal.BranchRegisterRequest)
-	msg := protocal.GlobalLockQueryRequest{BranchRegisterRequest:branchRegisterRequest}
+	msg := protocal.GlobalLockQueryRequest{BranchRegisterRequest: branchRegisterRequest}
 	return msg,totalReadN
 }
 
@@ -714,35 +714,35 @@ func GlobalReportRequestDecoder(in []byte) (interface{},int) {
 func GlobalReportResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractGlobalEndResponseDecoder(in)
 	abstractGlobalEndResponse := resp.(protocal.AbstractGlobalEndResponse)
-	msg := protocal.GlobalReportResponse{AbstractGlobalEndResponse:abstractGlobalEndResponse}
+	msg := protocal.GlobalReportResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg,totalReadN
 }
 
 func GlobalRollbackRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractGlobalEndRequestDecoder(in)
 	abstractGlobalEndRequest := req.(protocal.AbstractGlobalEndRequest)
-	msg := protocal.GlobalRollbackRequest{AbstractGlobalEndRequest:abstractGlobalEndRequest}
+	msg := protocal.GlobalRollbackRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg,totalReadN
 }
 
 func GlobalRollbackResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractGlobalEndResponseDecoder(in)
 	abstractGlobalEndResponse := resp.(protocal.AbstractGlobalEndResponse)
-	msg := protocal.GlobalRollbackResponse{AbstractGlobalEndResponse:abstractGlobalEndResponse}
+	msg := protocal.GlobalRollbackResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg,totalReadN
 }
 
 func GlobalStatusRequestDecoder(in []byte) (interface{},int) {
 	req,totalReadN := AbstractGlobalEndRequestDecoder(in)
 	abstractGlobalEndRequest := req.(protocal.AbstractGlobalEndRequest)
-	msg := protocal.GlobalStatusRequest{AbstractGlobalEndRequest:abstractGlobalEndRequest}
+	msg := protocal.GlobalStatusRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg,totalReadN
 }
 
 func GlobalStatusResponseDecoder(in []byte) (interface{},int) {
 	resp,totalReadN := AbstractGlobalEndResponseDecoder(in)
 	abstractGlobalEndResponse := resp.(protocal.AbstractGlobalEndResponse)
-	msg := protocal.GlobalStatusResponse{AbstractGlobalEndResponse:abstractGlobalEndResponse}
+	msg := protocal.GlobalStatusResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg,totalReadN
 }
 

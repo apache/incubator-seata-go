@@ -34,3 +34,16 @@ func (t BranchType) String() string {
 		return fmt.Sprintf("%d", t)
 	}
 }
+
+func ValueOfBranchType(branchType string) BranchType {
+	switch branchType {
+	case "AT":
+		return BranchTypeAT
+	case "TCC":
+		return BranchTypeTCC
+	case "SAGA":
+		return BranchTypeSAGA
+	default:
+		return 0
+	}
+}

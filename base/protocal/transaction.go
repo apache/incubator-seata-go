@@ -1,7 +1,7 @@
 package protocal
 
 import (
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/meta"
 )
 
 type AbstractTransactionResponse struct {
@@ -60,10 +60,10 @@ func (resp BranchRegisterResponse) GetTypeCode() int16 {
 }
 
 type BranchReportRequest struct {
-	Xid 			string
+	Xid             string
 	BranchId        int64
 	ResourceId      string
-	Status			meta.BranchStatus
+	Status          meta.BranchStatus
 	ApplicationData []byte
 	BranchType      meta.BranchType
 }
@@ -218,7 +218,7 @@ func (resp GlobalRollbackResponse) GetTypeCode() int16 {
 
 type UndoLogDeleteRequest struct {
 	ResourceId string
-	SaveDays int16
+	SaveDays   int16
 	BranchType meta.BranchType
 }
 

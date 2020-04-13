@@ -1,6 +1,6 @@
 package event
 
-import "github.com/dk-lockdown/seata-golang/meta"
+import "github.com/dk-lockdown/seata-golang/base/meta"
 
 const (
 	RoleTC = "tc"
@@ -9,12 +9,12 @@ const (
 )
 
 type GlobalTransactionEvent struct {
-	id int64
-	role string
-	name string
+	id        int64
+	role      string
+	name      string
 	beginTime int64
-	endTime int64
-	status meta.GlobalStatus
+	endTime   int64
+	status    meta.GlobalStatus
 }
 
 func NewGlobalTransactionEvent(id int64,role string,name string,beginTime int64,endTime int64,status meta.GlobalStatus) GlobalTransactionEvent {

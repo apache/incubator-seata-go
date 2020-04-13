@@ -1,11 +1,11 @@
 package holder
 
 import (
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
 )
 
 type Reloadable interface {
@@ -101,7 +101,7 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 }
 
 func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWriteStore, unhandledBranchSessions map[int64]*session.BranchSession) {
-	maxRecoverId := util.UUID
+	maxRecoverId := uuid.UUID
 	for _,store := range stores {
 		logOperation := store.LogOperation
 		sessionStorable := store.SessionRequest
@@ -204,9 +204,9 @@ func setMaxId(maxRecoverId int64) {
 	var currentId int64
 	// will be recover multi-thread later
 	for{
-		currentId = util.UUID
+		currentId = uuid.UUID
 		if currentId < maxRecoverId {
-			if util.SetUUID(currentId,maxRecoverId) {
+			if uuid.SetUUID(currentId,maxRecoverId) {
 				break
 			}
 		}

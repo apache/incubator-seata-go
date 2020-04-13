@@ -2,14 +2,14 @@ package server
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
-	"github.com/dk-lockdown/seata-golang/protocal"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/event"
 	"github.com/dk-lockdown/seata-golang/tc/holder"
 	"github.com/dk-lockdown/seata-golang/tc/lock"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
 )
 
 /**
@@ -86,7 +86,7 @@ func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession,branc
 	}
 	if !result {
 		return &meta.TransactionException{
-			Code:    meta.TransactionExceptionCodeLockKeyConflict,
+			Code: meta.TransactionExceptionCodeLockKeyConflict,
 			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchId = %s",
 				globalSession.Xid,branchSession.BranchId),
 		}
@@ -177,9 +177,9 @@ func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 	}
 	if globalSession.Status != meta.GlobalStatusBegin {
 		return &meta.TransactionException{
-			Code:    meta.TransactionExceptionCodeGlobalTransactionStatusInvalid,
+			Code: meta.TransactionExceptionCodeGlobalTransactionStatusInvalid,
 			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d while expecting %d",
-				globalSession.Xid,globalSession.Status,meta.GlobalStatusBegin),
+				globalSession.Xid,globalSession.Status, meta.GlobalStatusBegin),
 		}
 	}
 	return nil
@@ -210,7 +210,7 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 	bs := gs.GetBranch(branchId)
 	if bs == nil {
 		return &meta.TransactionException{
-			Code:    meta.TransactionExceptionCodeBranchTransactionNotExist,
+			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Could not found branch session xid = %s branchId = %d",
 				xid,branchId),
 		}
@@ -238,7 +238,7 @@ func (core *DefaultCore) branchCommit(globalSession *session.GlobalSession, bran
 	resp, err := core.branchCommitSend(request,globalSession,branchSession)
 	if err != nil {
 		return 0,&meta.TransactionException{
-			Code:    meta.TransactionExceptionCodeBranchTransactionNotExist,
+			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Send branch commit failed, xid = %s branchId = %d",
 				branchSession.Xid,branchSession.BranchId),
 		}
@@ -267,7 +267,7 @@ func (core *DefaultCore) branchRollback(globalSession *session.GlobalSession, br
 	resp, err := core.branchRollbackSend(request,globalSession,branchSession)
 	if err != nil {
 		return 0,&meta.TransactionException{
-			Code:    meta.TransactionExceptionCodeBranchTransactionNotExist,
+			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Send branch rollback failed, xid = %s branchId = %d",
 				branchSession.Xid,branchSession.BranchId),
 		}
@@ -298,7 +298,7 @@ func (core *DefaultCore) Commit(xid string) (meta.GlobalStatus, error) {
 		}
 		lock.GetLockManager().ReleaseGlobalSessionLock(gs)
 		if gs.Status == meta.GlobalStatusBegin {
-			changeGlobalSessionStatus(gs,meta.GlobalStatusCommitting)
+			changeGlobalSessionStatus(gs, meta.GlobalStatusCommitting)
 			return true
 		}
 		return false
@@ -387,7 +387,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 		endCommitted(globalSession)
 
 		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime,
-			int64(util.CurrentTimeMillis()),globalSession.Status)
+			int64(time.CurrentTimeMillis()),globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 
 		logging.Logger.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
@@ -408,7 +408,7 @@ func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
 		}
 		lock.GetLockManager().ReleaseGlobalSessionLock(gs)
 		if gs.Status == meta.GlobalStatusBegin {
-			changeGlobalSessionStatus(gs,meta.GlobalStatusRollbacking)
+			changeGlobalSessionStatus(gs, meta.GlobalStatusRollbacking)
 			return true
 		}
 		return false
@@ -481,7 +481,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		endRollbacked(globalSession)
 
 		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime,
-			int64(util.CurrentTimeMillis()),globalSession.Status)
+			int64(time.CurrentTimeMillis()),globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 
 		logging.Logger.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
@@ -516,9 +516,9 @@ func (core *DefaultCore) doGlobalReport(globalSession *session.GlobalSession,xid
 
 func endRollbacked(globalSession *session.GlobalSession) {
 	if isTimeoutGlobalStatus(globalSession.Status) {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusTimeoutRollbacked)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbacked)
 	} else {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusRollbacked)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusRollbacked)
 	}
 	lock.GetLockManager().ReleaseGlobalSessionLock(globalSession)
 	holder.GetSessionHolder().RootSessionManager.RemoveGlobalSession(globalSession)
@@ -526,9 +526,9 @@ func endRollbacked(globalSession *session.GlobalSession) {
 
 func endRollBackFailed(globalSession *session.GlobalSession) {
 	if isTimeoutGlobalStatus(globalSession.Status) {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusTimeoutRollbackFailed)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbackFailed)
 	} else {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusRollbackFailed)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusRollbackFailed)
 	}
 	lock.GetLockManager().ReleaseGlobalSessionLock(globalSession)
 	holder.GetSessionHolder().RootSessionManager.RemoveGlobalSession(globalSession)
@@ -537,9 +537,9 @@ func endRollBackFailed(globalSession *session.GlobalSession) {
 func queueToRetryRollback(globalSession *session.GlobalSession) {
 	holder.GetSessionHolder().RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 	if isTimeoutGlobalStatus(globalSession.Status) {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusTimeoutRollbackRetrying)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbackRetrying)
 	} else {
-		changeGlobalSessionStatus(globalSession,meta.GlobalStatusRollbackRetrying)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusRollbackRetrying)
 	}
 }
 
@@ -551,30 +551,30 @@ func isTimeoutGlobalStatus(status meta.GlobalStatus) bool {
 }
 
 func endCommitted(globalSession *session.GlobalSession) {
-	changeGlobalSessionStatus(globalSession,meta.GlobalStatusCommitted)
+	changeGlobalSessionStatus(globalSession, meta.GlobalStatusCommitted)
 	lock.GetLockManager().ReleaseGlobalSessionLock(globalSession)
 	holder.GetSessionHolder().RootSessionManager.RemoveGlobalSession(globalSession)
 }
 
 func queueToRetryCommit(globalSession *session.GlobalSession) {
 	holder.GetSessionHolder().RetryCommittingSessionManager.AddGlobalSession(globalSession)
-	changeGlobalSessionStatus(globalSession,meta.GlobalStatusCommitRetrying)
+	changeGlobalSessionStatus(globalSession, meta.GlobalStatusCommitRetrying)
 }
 
 func endCommitFailed(globalSession *session.GlobalSession) {
-	changeGlobalSessionStatus(globalSession,meta.GlobalStatusCommitFailed)
+	changeGlobalSessionStatus(globalSession, meta.GlobalStatusCommitFailed)
 	lock.GetLockManager().ReleaseGlobalSessionLock(globalSession)
 	holder.GetSessionHolder().RootSessionManager.RemoveGlobalSession(globalSession)
 }
 
 func asyncCommit(globalSession *session.GlobalSession) {
 	holder.GetSessionHolder().AsyncCommittingSessionManager.AddGlobalSession(globalSession)
-	changeGlobalSessionStatus(globalSession,meta.GlobalStatusAsyncCommitting)
+	changeGlobalSessionStatus(globalSession, meta.GlobalStatusAsyncCommitting)
 }
 
 func changeGlobalSessionStatus(globalSession *session.GlobalSession, status meta.GlobalStatus) {
 	globalSession.Status = status
-	holder.GetSessionHolder().RootSessionManager.UpdateGlobalSessionStatus(globalSession,meta.GlobalStatusAsyncCommitting)
+	holder.GetSessionHolder().RootSessionManager.UpdateGlobalSessionStatus(globalSession, meta.GlobalStatusAsyncCommitting)
 }
 
 func removeBranchSession(globalSession *session.GlobalSession,branchSession *session.BranchSession) {

@@ -1,9 +1,9 @@
 package holder
 
 import (
+	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
 )
 
 type DefaultSessionManager struct {
@@ -54,7 +54,7 @@ func (sessionManager *DefaultSessionManager) AllSessions() []*session.GlobalSess
 func (sessionManager *DefaultSessionManager) FindGlobalSessions(condition model.SessionCondition) []*session.GlobalSession {
 	var sessions = make([]*session.GlobalSession,0)
 	for _,session := range sessionManager.SessionMap {
-		if int64(util.CurrentTimeMillis()) - session.BeginTime > condition.OverTimeAliveMills {
+		if int64(time.CurrentTimeMillis()) - session.BeginTime > condition.OverTimeAliveMills {
 			sessions = append(sessions, session)
 		}
 	}

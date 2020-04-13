@@ -1,6 +1,7 @@
-package util
+package uuid
 
 import (
+	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"sync/atomic"
 )
 
@@ -40,7 +41,7 @@ func Init(svrNodeId int) {
 	var base uint64 = 1546272000000
 	serverNodeId = svrNodeId
 	atomic.CompareAndSwapInt64(&UUID,UUID,UUID_INTERNAL*int64(serverNodeId))
-	current := CurrentTimeMillis()
-	id := atomic.AddInt64(&UUID, int64((current - base)/UnixTimeUnitOffset))
+	current := time.CurrentTimeMillis()
+	id := atomic.AddInt64(&UUID, int64((current - base)/time.UnixTimeUnitOffset))
 	initUUID = id
 }

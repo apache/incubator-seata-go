@@ -1,9 +1,9 @@
 package session
 
 import (
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/dk-lockdown/seata-golang/meta"
-	"github.com/dk-lockdown/seata-golang/util"
 	"testing"
 )
 
@@ -23,7 +23,7 @@ func TestBranchSession_Encode_Decode(t *testing.T) {
 
 func branchSessionProvider() *BranchSession {
 	bs := NewBranchSession().
-		SetTransactionId(util.GeneratorUUID()).
+		SetTransactionId(uuid.GeneratorUUID()).
 		SetBranchId(1).
 		SetResourceGroupId("my_test_tx_group").
 		SetResourceId("tb_1").

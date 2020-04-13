@@ -2,12 +2,13 @@ package session
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
-	"github.com/dk-lockdown/seata-golang/common"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/common"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/time"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/util"
+	"github.com/pkg/errors"
 	"sort"
 	"sync"
 	"vimagination.zapto.org/byteio"
@@ -43,7 +44,7 @@ func NewGlobalSession() *GlobalSession {
 	gs := &GlobalSession{
 		BranchSessions: make(map[*BranchSession]bool),
 	}
-	gs.TransactionId = util.GeneratorUUID()
+	gs.TransactionId = uuid.GeneratorUUID()
 	gs.Xid = common.XID.GenerateXID(gs.TransactionId)
 	return gs
 }
@@ -128,11 +129,11 @@ func (gs *GlobalSession) IsSaga() bool {
 }
 
 func (gs *GlobalSession) IsTimeout() bool {
-	return (util.CurrentTimeMillis() - uint64(gs.BeginTime)) > uint64(gs.Timeout)
+	return (time.CurrentTimeMillis() - uint64(gs.BeginTime)) > uint64(gs.Timeout)
 }
 
 func (gs *GlobalSession) IsRollbackingDead() bool {
-	return (util.CurrentTimeMillis() - uint64(gs.BeginTime)) > uint64(2 * 6000)
+	return (time.CurrentTimeMillis() - uint64(gs.BeginTime)) > uint64(2 * 6000)
 }
 
 func (gs *GlobalSession) GetSortedBranches() []*BranchSession {
@@ -173,7 +174,7 @@ func (gs *GlobalSession) HasBranch() bool {
 
 func (gs *GlobalSession) Begin() {
 	gs.Status = meta.GlobalStatusBegin
-	gs.BeginTime = int64(util.CurrentTimeMillis())
+	gs.BeginTime = int64(time.CurrentTimeMillis())
 	gs.Active = true
 }
 

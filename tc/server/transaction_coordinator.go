@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/dk-lockdown/seata-golang/meta"
-	"github.com/dk-lockdown/seata-golang/rm"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/client/rm"
+	"github.com/dk-lockdown/seata-golang/client/tm"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/tm"
 )
 
 type ITransactionCoordinatorInbound interface {

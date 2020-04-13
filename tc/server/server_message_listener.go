@@ -1,8 +1,8 @@
 package server
 
 import (
+	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dubbogo/getty"
-	"github.com/dk-lockdown/seata-golang/protocal"
 )
 
 type IServerMessageListener interface {

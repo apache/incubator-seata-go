@@ -1,11 +1,11 @@
 package holder
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/dk-lockdown/seata-golang/common"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/common"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -40,7 +40,7 @@ func globalSessionsProvider() []*session.GlobalSession {
 	result := make([]*session.GlobalSession,0)
 	gs1 := session.NewGlobalSession().
 		SetApplicationId("demo-app").
-		SetTransactionId(util.GeneratorUUID()).
+		SetTransactionId(uuid.GeneratorUUID()).
 		SetTransactionServiceGroup("my_test_tx_group").
 		SetTransactionName("test").
 		SetTimeout(6000)
@@ -48,7 +48,7 @@ func globalSessionsProvider() []*session.GlobalSession {
 
 	gs2 := session.NewGlobalSession().
 		SetApplicationId("demo-app").
-		SetTransactionId(util.GeneratorUUID()).
+		SetTransactionId(uuid.GeneratorUUID()).
 		SetTransactionServiceGroup("my_test_tx_group").
 		SetTransactionName("test").
 		SetTimeout(6000)
@@ -65,7 +65,7 @@ func globalSessionProvider() *session.GlobalSession {
 
 	gs := session.NewGlobalSession().
 		SetApplicationId("demo-app").
-		SetTransactionId(util.GeneratorUUID()).
+		SetTransactionId(uuid.GeneratorUUID()).
 		SetTransactionServiceGroup("my_test_tx_group").
 		SetTransactionName("test").
 		SetTimeout(6000)

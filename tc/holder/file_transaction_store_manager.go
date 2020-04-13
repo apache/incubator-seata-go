@@ -1,11 +1,11 @@
 package holder
 
 import (
-	"os"
-	"github.com/dk-lockdown/seata-golang/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -54,7 +54,7 @@ func (storeManager * FileTransactionStoreManager) InitFile(fullFileName string) 
 	storeManager.currFullFileName = fullFileName
 	storeManager.hisFullFileName = fullFileName + HisDataFilenamePostfix
 	storeManager.currFileChannel,_ = os.OpenFile(fullFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
-	storeManager.TrxStartTimeMills = int64(util.CurrentTimeMillis())
+	storeManager.TrxStartTimeMills = int64(time.CurrentTimeMillis())
 }
 
 func (storeManager * FileTransactionStoreManager) writeDataFrame(data []byte) {
@@ -82,10 +82,10 @@ func (storeManager * FileTransactionStoreManager) WriteSession(logOperation LogO
 		return false
 	}
 	storeManager.writeDataFrame(data)
-	storeManager.LastModifiedTime = int64(util.CurrentTimeMillis())
+	storeManager.LastModifiedTime = int64(time.CurrentTimeMillis())
 	curFileTrxNum = atomic.AddInt64(&FileTrxNum,1)
 	if curFileTrxNum %PerFileBlockSize == 0 &&
-		int64(util.CurrentTimeMillis()) - storeManager.TrxStartTimeMills > MaxTrxTimeoutMills {
+		int64(time.CurrentTimeMillis()) - storeManager.TrxStartTimeMills > MaxTrxTimeoutMills {
 		storeManager.saveHistory()
 	}
 	return true

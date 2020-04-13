@@ -2,8 +2,8 @@ package codec
 
 import (
 	"bytes"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/protocal"
+	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"vimagination.zapto.org/byteio"
 )
 

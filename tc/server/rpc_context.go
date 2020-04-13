@@ -2,9 +2,9 @@ package server
 
 import (
 	"errors"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dubbogo/getty"
-	"github.com/dk-lockdown/seata-golang/meta"
-	"github.com/dk-lockdown/seata-golang/model"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,13 +13,13 @@ import (
 const IpPortSplitChar = ":"
 
 type RpcContext struct {
-	ClientRole meta.TransactionRole
-	Version string
-	ApplicationId string
+	ClientRole              meta.TransactionRole
+	Version                 string
+	ApplicationId           string
 	TransactionServiceGroup string
-	ClientId string
-	session getty.Session
-	ResourceSets *model.Set
+	ClientId                string
+	session                 getty.Session
+	ResourceSets            *model.Set
 
 	/**
 	 * <getty.Session,*RpcContext>

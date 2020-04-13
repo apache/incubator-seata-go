@@ -1,10 +1,10 @@
 package lock
 
 import (
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/model"
+	"github.com/dk-lockdown/seata-golang/base/model"
+	"github.com/dk-lockdown/seata-golang/pkg/hashcode"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
 	"github.com/pkg/errors"
 	"strconv"
 	"sync"
@@ -93,7 +93,7 @@ func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSessi
 
 		cTableLockMap := tableLockMap.(*sync.Map)
 
-		bucketId := util.String(rowLock.Pk) % BucketPerTable
+		bucketId := hashcode.String(rowLock.Pk) % BucketPerTable
 		bucketKey := strconv.Itoa(bucketId)
 		bucketLockMap,_ := cTableLockMap.LoadOrStore(bucketKey,&sync.Map{})
 
@@ -166,7 +166,7 @@ func  (ml *MemoryLocker) isLockableByRowLocks(rowLocks []*RowLock) bool {
 		}
 		cTableLockMap := tableLockMap.(*sync.Map)
 
-		bucketId := util.String(rowLock.Pk) % BucketPerTable
+		bucketId := hashcode.String(rowLock.Pk) % BucketPerTable
 		bucketKey := strconv.Itoa(bucketId)
 		bucketLockMap,ok := cTableLockMap.Load(bucketKey)
 		if !ok {

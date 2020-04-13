@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"github.com/dk-lockdown/seata-golang/common"
+	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 	"strings"
 )
@@ -36,7 +36,7 @@ func collectRowLocksByLockKeyResourceIdXid(lockKey string,
 	resourceId string,
 	xid string) []*RowLock {
 
-	return collectRowLocks(lockKey,resourceId,xid,common.XID.GetTransactionId(xid),0)
+	return collectRowLocks(lockKey,resourceId,xid, common.XID.GetTransactionId(xid),0)
 }
 
 func collectRowLocks(lockKey string,

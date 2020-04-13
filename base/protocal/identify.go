@@ -2,7 +2,7 @@ package protocal
 
 type AbstractResultMessage struct {
 	ResultCode ResultCode
-	Msg string
+	Msg        string
 }
 
 type AbstractIdentifyRequest struct {

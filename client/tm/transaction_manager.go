@@ -1,6 +1,6 @@
 package tm
 
-import "github.com/dk-lockdown/seata-golang/meta"
+import "github.com/dk-lockdown/seata-golang/base/meta"
 
 type ITransactionManager interface {
 	/**

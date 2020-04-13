@@ -1,12 +1,12 @@
 package lock
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/dk-lockdown/seata-golang/common"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/common"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dk-lockdown/seata-golang/util"
+	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 )
@@ -19,7 +19,7 @@ func TestLockManager_AcquireLock(t *testing.T) {
 }
 
 func TestLockManager_IsLockable(t *testing.T) {
-	transId := util.GeneratorUUID()
+	transId := uuid.GeneratorUUID()
 	ok := GetLockManager().IsLockable(common.XID.GenerateXID(transId),"tb_1","tb_1:13")
 	assert.Equal(t,ok,true)
 }
@@ -64,7 +64,7 @@ func TestLockManager_IsLockable2(t *testing.T) {
 	result1 := GetLockManager().IsLockable(bs.Xid,bs.ResourceId,bs.LockKey)
 	assert.True(t,result1)
 	GetLockManager().AcquireLock(bs)
-	bs.SetTransactionId(util.GeneratorUUID())
+	bs.SetTransactionId(uuid.GeneratorUUID())
 	result2 := GetLockManager().IsLockable(bs.Xid,bs.ResourceId,bs.LockKey)
 	assert.False(t,result2)
 }
@@ -100,8 +100,8 @@ func branchSessionsProvider() []*session.BranchSession {
 
 func baseBranchSessionsProvider(resourceId string, lockKey1 string, lockKey2 string) []*session.BranchSession {
 	var branchSessions = make([]*session.BranchSession,0)
-	transId := util.GeneratorUUID()
-	transId2 := util.GeneratorUUID()
+	transId := uuid.GeneratorUUID()
+	transId2 := uuid.GeneratorUUID()
 	bs := session.NewBranchSession().
 		SetXid(common.XID.GenerateXID(transId)).
 		SetTransactionId(transId).
@@ -135,7 +135,7 @@ func branchSessionProvider() *session.BranchSession {
 	common.XID.IpAddress="127.0.0.1"
 	common.XID.Port=9876
 
-	transId := util.GeneratorUUID()
+	transId := uuid.GeneratorUUID()
 	bs := session.NewBranchSession().
 		SetXid(common.XID.GenerateXID(transId)).
 		SetTransactionId(transId).

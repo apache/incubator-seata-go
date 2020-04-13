@@ -9,5 +9,6 @@
 - [X] Memory Session Manager
 - [ ] DB Session Manager  
 - [ ] ETCD Session Manager  
+- [ ] Metrics Collector
 - [ ] TC
 - [ ] RM

@@ -2,10 +2,10 @@ package server
 
 import (
 	"bytes"
+	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
 	"github.com/dubbogo/getty"
 	"github.com/pkg/errors"
-	"github.com/dk-lockdown/seata-golang/protocal"
-	"github.com/dk-lockdown/seata-golang/protocal/codec"
 	"vimagination.zapto.org/byteio"
 )
 

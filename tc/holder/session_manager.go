@@ -2,8 +2,8 @@ package holder
 
 import (
 	"errors"
-	"github.com/dk-lockdown/seata-golang/logging"
-	"github.com/dk-lockdown/seata-golang/meta"
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
