@@ -80,7 +80,7 @@ func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name
 		if gtx.Xid == "" {
 			return errors.New("xid should not be empty")
 		}
-		logging.Logger.Debugf("Ignore Begin(): just involved in global transaction [{}]", gtx.Xid)
+		logging.Logger.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid != "" {

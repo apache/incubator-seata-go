@@ -1,7 +1,8 @@
-package proxy
+package tm
 
 import (
 	"context"
+	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -21,14 +22,14 @@ func (svc *ZooService) ManageAnimal(ctx context.Context,dog *Dog,cat *Cat) (bool
 	return true,nil
 }
 
-func (svc *ZooService) TransactionMethods() map[string]bool {
+func (svc *ZooService) ProxyMethods() map[string]bool {
 	mp := make(map[string]bool)
 	mp["ManageAnimal"] = true
 	return mp
 }
 
 type TestService struct {
-	GlobalTransactionService
+	proxy.ProxyService
 	ManageAnimal func(ctx context.Context,dog *Dog,cat *Cat) (bool,error)
 }
 
@@ -42,8 +43,8 @@ func init() {
 	}
 }
 
-func (svc *TestService) GetProxiedService() GlobalTransactionService {
-	return svc.GlobalTransactionService
+func (svc *TestService) GetProxyService() proxy.ProxyService {
+	return svc.ProxyService
 }
 
 func (svc *TestService) GetMethodTransactionInfo(methodName string) TransactionInfo {
@@ -52,9 +53,9 @@ func (svc *TestService) GetMethodTransactionInfo(methodName string) TransactionI
 
 func TestProxy_Implement(t *testing.T) {
 	zooSvc := &ZooService{}
-	ServiceMap.Register(zooSvc)
+	proxy.ServiceMap.Register(zooSvc)
 
-	ts := &TestService{GlobalTransactionService:zooSvc}
+	ts := &TestService{ProxyService: zooSvc}
 	Implement(ts)
 	result, err := ts.ManageAnimal(context.Background(),&Dog{},&Cat{})
 	assert.True(t,result)

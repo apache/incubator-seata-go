@@ -1,14 +1,15 @@
-package proxy
+package tm
 
 import (
 	"context"
 	context2 "github.com/dk-lockdown/seata-golang/client/context"
+	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"reflect"
 )
 
 type GlobalTransactionProxyService interface {
-	GetProxiedService() GlobalTransactionService
+	GetProxyService() proxy.ProxyService
 	GetMethodTransactionInfo(methodName string) TransactionInfo
 }
 
@@ -29,11 +30,11 @@ func Implement(v GlobalTransactionProxyService) {
 		logging.Logger.Errorf("%s must be a struct ptr", valueOf.String())
 		return
 	}
-	proxiedService := v.GetProxiedService()
+	proxiedService := v.GetProxyService()
 	pxdService := reflect.ValueOf(proxiedService)
 	serviceName := reflect.Indirect(pxdService).Type().Name()
 
-	makeCallProxy := func(serviceName, methodName string,info TransactionInfo) func(in []reflect.Value) []reflect.Value {
+	makeCallProxy := func(serviceName, methodName string,transactionInfo TransactionInfo) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			var (
 				args         = make([]interface{},0)
@@ -52,7 +53,7 @@ func Implement(v GlobalTransactionProxyService) {
 				args = append(args,in[i].Interface())
 			}
 
-			returnValues,_ = Invoke(invCtx,serviceName,methodName,args)
+			returnValues = proxy.Invoke(invCtx,serviceName,methodName,args)
 
 			return returnValues
 		}
