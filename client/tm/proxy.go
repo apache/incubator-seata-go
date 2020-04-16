@@ -5,12 +5,13 @@ import (
 	context2 "github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/pkg/errors"
 	"reflect"
 )
 
 type GlobalTransactionProxyService interface {
 	GetProxyService() proxy.ProxyService
-	GetMethodTransactionInfo(methodName string) TransactionInfo
+	GetMethodTransactionInfo(methodName string) *TransactionInfo
 }
 
 var (
@@ -34,12 +35,18 @@ func Implement(v GlobalTransactionProxyService) {
 	pxdService := reflect.ValueOf(proxiedService)
 	serviceName := reflect.Indirect(pxdService).Type().Name()
 
-	makeCallProxy := func(serviceName, methodName string,transactionInfo TransactionInfo) func(in []reflect.Value) []reflect.Value {
+	makeCallProxy := func(serviceName, methodName string,txInfo *TransactionInfo) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			var (
 				args         = make([]interface{},0)
 				returnValues = make([]reflect.Value,0)
+				suspendedResourcesHolder *SuspendedResourcesHolder
 			)
+
+			if txInfo == nil {
+				panic(errors.New("transactionInfo does not exist"))
+			}
+			method := proxy.GetMethod(serviceName,methodName)
 
 			inNum := len(in)
 			invCtx := &context2.RootContext{Context: context.Background()}
@@ -53,7 +60,61 @@ func Implement(v GlobalTransactionProxyService) {
 				args = append(args,in[i].Interface())
 			}
 
-			returnValues = proxy.Invoke(invCtx,serviceName,methodName,args)
+			tx := GetCurrentOrCreate(invCtx)
+			defer tx.Resume(suspendedResourcesHolder,invCtx)
+
+			switch txInfo.Propagation {
+			case NOT_SUPPORTED:
+				suspendedResourcesHolder,_ = tx.Suspend(true,invCtx)
+				returnValues = proxy.Invoke(method,invCtx,serviceName,methodName,args)
+				return returnValues
+			case REQUIRES_NEW:
+				suspendedResourcesHolder,_ = tx.Suspend(true,invCtx)
+				break
+			case SUPPORTS:
+				if !invCtx.InGlobalTransaction() {
+					returnValues = proxy.Invoke(method,invCtx,serviceName,methodName,args)
+					return returnValues
+				}
+				break
+			case REQUIRED:
+				break
+			case NEVER:
+				if invCtx.InGlobalTransaction() {
+					return proxy.ReturnWithError(method,errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s",invCtx.GetXID()))
+				} else {
+					returnValues = proxy.Invoke(method,invCtx,serviceName,methodName,args)
+					return returnValues
+				}
+			case MANDATORY:
+				if !invCtx.InGlobalTransaction() {
+					return proxy.ReturnWithError(method,errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
+				}
+				break
+			default:
+				return proxy.ReturnWithError(method,errors.Errorf("Not Supported Propagation: %s",txInfo.Propagation.String()))
+			}
+
+			beginErr := tx.BeginWithTimeoutAndName(txInfo.TimeOut,txInfo.Name,invCtx)
+			return proxy.ReturnWithError(method,errors.WithStack(beginErr))
+
+			returnValues = proxy.Invoke(method,invCtx,serviceName,methodName,args)
+
+			errValue := returnValues[len(returnValues)-1]
+
+			//todo 只要出错就回滚，未来可以优化一下，某些错误才回滚，某些错误的情况下，可以提交
+			if errValue.IsValid() && !errValue.IsNil() {
+				rollbackErr := tx.Rollback(invCtx)
+				if rollbackErr != nil {
+					return proxy.ReturnWithError(method,errors.WithStack(rollbackErr))
+				}
+				return proxy.ReturnWithError(method,errors.New("rollback failure"))
+			}
+
+			commitErr := tx.Commit(invCtx)
+			if commitErr != nil {
+				return proxy.ReturnWithError(method,errors.WithStack(commitErr))
+			}
 
 			return returnValues
 		}
@@ -79,3 +140,4 @@ func Implement(v GlobalTransactionProxyService) {
 		}
 	}
 }
+

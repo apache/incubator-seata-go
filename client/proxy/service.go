@@ -218,6 +218,13 @@ func suiteMethod(method reflect.Method) *MethodType {
 	return &MethodType{method: method, argsType: argsType, returnValuesType: returnValuesType, ctxType: ctxType}
 }
 
+func SuiteContext(m *MethodType,ctx context.Context) reflect.Value {
+	if contextv := reflect.ValueOf(ctx); contextv.IsValid() {
+		return contextv
+	}
+	return reflect.Zero(m.ctxType)
+}
+
 // Is this an exported - upper case - name
 func isExported(name string) bool {
 	s, _ := utf8.DecodeRuneInString(name)
@@ -234,7 +241,7 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 	return isExported(t.Name()) || t.PkgPath() == ""
 }
 
-func Invoke(ctx *context2.RootContext,serviceName string,methodName string,args []interface{}) []reflect.Value {
+func Invoke(methodType *MethodType,ctx *context2.RootContext,serviceName string,methodName string,args []interface{}) []reflect.Value {
 	svc := ServiceMap.GetService(serviceName)
 	if svc == nil {
 		logging.Logger.Errorf("cannot find service [%s]", serviceName)
@@ -270,9 +277,28 @@ func Invoke(ctx *context2.RootContext,serviceName string,methodName string,args 
 	return returnValues
 }
 
-func SuiteContext(m *MethodType,ctx context.Context) reflect.Value {
-	if contextv := reflect.ValueOf(ctx); contextv.IsValid() {
-		return contextv
+func GetMethod(serviceName, methodName string) *MethodType {
+	svc := ServiceMap.GetService(serviceName)
+	if svc == nil {
+		logging.Logger.Errorf("cannot find service [%s]", serviceName)
+		panic(errors.Errorf("cannot find service [%s]", serviceName))
 	}
-	return reflect.Zero(m.ctxType)
+
+	// get method
+	method := svc.Method()[methodName]
+	if method == nil {
+		logging.Logger.Errorf("cannot find method [%s] of service [%s]", methodName, serviceName)
+		panic(errors.Errorf("cannot find method [%s] of service [%s]", methodName, serviceName))
+	}
+	return method
+}
+
+func ReturnWithError(method *MethodType,err error) []reflect.Value {
+	var result = make([]reflect.Value,0)
+	returnValuesLen := len(method.returnValuesType)
+	for i := 0;i < returnValuesLen - 1; i++ {
+		result = append(result,reflect.Zero(method.returnValuesType[i]))
+	}
+	result = append(result,reflect.ValueOf(err))
+	return result
 }

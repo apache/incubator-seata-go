@@ -33,10 +33,10 @@ type TestService struct {
 	ManageAnimal func(ctx context.Context,dog *Dog,cat *Cat) (bool,error)
 }
 
-var methodTransactionInfo = make(map[string]TransactionInfo)
+var methodTransactionInfo = make(map[string]*TransactionInfo)
 
 func init() {
-	methodTransactionInfo["ManageAnimal"] = TransactionInfo{
+	methodTransactionInfo["ManageAnimal"] = &TransactionInfo{
 		TimeOut:     60000,
 		Name:        "",
 		Propagation: REQUIRED,
@@ -47,7 +47,7 @@ func (svc *TestService) GetProxyService() proxy.ProxyService {
 	return svc.ProxyService
 }
 
-func (svc *TestService) GetMethodTransactionInfo(methodName string) TransactionInfo {
+func (svc *TestService) GetMethodTransactionInfo(methodName string) *TransactionInfo {
 	return methodTransactionInfo[methodName]
 }
 
