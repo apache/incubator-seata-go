@@ -1,14 +1,20 @@
 package lock
 
 import (
+	"strconv"
+	"sync"
+	"sync/atomic"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/pkg/hashcode"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/pkg/errors"
-	"strconv"
-	"sync"
-	"sync/atomic"
 )
 
 const BucketPerTable = 128

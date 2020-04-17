@@ -1,9 +1,12 @@
 package getty
 
 import (
-	"github.com/dubbogo/getty"
 	"sync"
 	"time"
+)
+
+import (
+	"github.com/dubbogo/getty"
 )
 
 var (

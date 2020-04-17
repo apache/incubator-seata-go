@@ -3,9 +3,12 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"strings"
 )
 
 const (

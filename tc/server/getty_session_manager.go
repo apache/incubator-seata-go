@@ -1,15 +1,21 @@
 package server
 
 import (
+	"strconv"
+	"strings"
+	"sync"
+)
+
+import (
+	"github.com/dubbogo/getty"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dubbogo/getty"
-	"github.com/pkg/errors"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 var (

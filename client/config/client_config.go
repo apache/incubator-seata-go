@@ -2,10 +2,13 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path"
+)
+
+import (
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type ClientConfig struct {

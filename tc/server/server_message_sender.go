@@ -1,9 +1,15 @@
 package server
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dubbogo/getty"
 	"time"
+)
+
+import (
+	"github.com/dubbogo/getty"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/protocal"
 )
 
 type IServerMessageSender interface {

@@ -1,14 +1,20 @@
 package tm
 
 import (
-	context2 "github.com/dk-lockdown/seata-golang/client/context"
 	"fmt"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/context"
+	context2 "github.com/dk-lockdown/seata-golang/client/context"
 	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/pkg/errors"
 )
 
 const (

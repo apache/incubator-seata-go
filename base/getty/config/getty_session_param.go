@@ -1,8 +1,11 @@
 package config
 
 import (
-	"github.com/pkg/errors"
 	"time"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 type GettySessionParam struct {

@@ -1,8 +1,11 @@
 package session
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGlobalSession_Encode_Decode(t *testing.T) {

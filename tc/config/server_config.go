@@ -2,11 +2,14 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path"
 	"time"
+)
+
+import (
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 var (

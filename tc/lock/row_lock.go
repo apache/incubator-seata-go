@@ -1,9 +1,12 @@
 package lock
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"strings"
 )
 
 type RowLock struct {

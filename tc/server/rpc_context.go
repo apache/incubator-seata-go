@@ -2,12 +2,18 @@ package server
 
 import (
 	"errors"
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dubbogo/getty"
 	"strconv"
 	"strings"
 	"sync"
+)
+
+import (
+	"github.com/dubbogo/getty"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/base/model"
 )
 
 const IpPortSplitChar = ":"

@@ -1,15 +1,21 @@
 package holder
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/pkg/time"
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
+)
+
+import (
 	"vimagination.zapto.org/byteio"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/time"
+	"github.com/dk-lockdown/seata-golang/tc/model"
+	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
 var FileTrxNum int64 = 0

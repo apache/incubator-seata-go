@@ -2,16 +2,22 @@ package session
 
 import (
 	"bytes"
+	"sort"
+	"sync"
+)
+
+import (
+	"github.com/pkg/errors"
+	"vimagination.zapto.org/byteio"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/pkg/errors"
-	"sort"
-	"sync"
-	"vimagination.zapto.org/byteio"
 )
 
 type GlobalSession struct {

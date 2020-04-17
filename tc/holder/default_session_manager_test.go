@@ -1,12 +1,18 @@
 package holder
 
 import (
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T) {

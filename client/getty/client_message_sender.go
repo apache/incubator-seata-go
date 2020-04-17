@@ -1,8 +1,11 @@
 package getty
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"time"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/protocal"
 )
 
 type IClientMessageSender interface {

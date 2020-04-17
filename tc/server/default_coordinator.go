@@ -2,6 +2,17 @@ package server
 
 import (
 	"fmt"
+	"sync"
+	"time"
+)
+
+import (
+	"github.com/dubbogo/getty"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
+)
+
+import (
 	getty2 "github.com/dk-lockdown/seata-golang/base/getty"
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
@@ -13,11 +24,6 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/holder"
 	"github.com/dk-lockdown/seata-golang/tc/lock"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/dubbogo/getty"
-	"github.com/pkg/errors"
-	"go.uber.org/atomic"
-	"sync"
-	"time"
 )
 
 const (

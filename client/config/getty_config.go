@@ -1,13 +1,19 @@
 package config
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/getty/config"
-	"github.com/dubbogo/getty"
-	"github.com/pkg/errors"
 	"time"
 )
 
-    // GettyConfig
+import (
+	"github.com/dubbogo/getty"
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/getty/config"
+)
+
+// GettyConfig
 	//Config holds supported types by the multiconfig package
 type GettyConfig struct {
 	ReconnectInterval int `default:"0" yaml:"reconnect_interval" json:"reconnect_interval,omitempty"`

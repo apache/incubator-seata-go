@@ -2,9 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/tc/config"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +12,12 @@ import (
 import (
 	"github.com/dubbogo/getty"
 	"github.com/dubbogo/gost/sync"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/tc/config"
 )
 
 var (

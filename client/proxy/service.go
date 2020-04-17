@@ -2,14 +2,20 @@ package proxy
 
 import (
 	"context"
-	context2 "github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 	"sync"
 	"unicode"
 	"unicode/utf8"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	context2 "github.com/dk-lockdown/seata-golang/client/context"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 )
 
 const (

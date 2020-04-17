@@ -2,12 +2,18 @@ package session
 
 import (
 	"bytes"
+)
+
+import (
+	"github.com/pkg/errors"
+	"vimagination.zapto.org/byteio"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/pkg/errors"
-	"vimagination.zapto.org/byteio"
 )
 
 type BranchSession struct{

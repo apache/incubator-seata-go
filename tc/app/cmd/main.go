@@ -2,6 +2,9 @@ package main
 
 import (
 	"os"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/server"
 )

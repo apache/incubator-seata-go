@@ -1,14 +1,20 @@
 package lock
 
 import (
+	"sync"
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-	"github.com/stretchr/testify/assert"
-	"sync"
-	"testing"
 )
 
 func TestLockManager_AcquireLock(t *testing.T) {

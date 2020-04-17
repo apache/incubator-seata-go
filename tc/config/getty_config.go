@@ -1,10 +1,16 @@
 package config
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/getty/config"
+	"time"
+)
+
+import (
 	"github.com/dubbogo/getty"
 	"github.com/pkg/errors"
-	"time"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/getty/config"
 )
 
 // Config holds supported types by the multiconfig package

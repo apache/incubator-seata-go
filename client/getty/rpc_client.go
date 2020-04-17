@@ -1,18 +1,24 @@
 package getty
 
 import (
+	"math/rand"
+	"strings"
+	"sync"
+	"time"
+)
+
+import (
+	"github.com/dubbogo/getty"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
+)
+
+import (
 	getty2 "github.com/dk-lockdown/seata-golang/base/getty"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dubbogo/getty"
-	"github.com/pkg/errors"
-	"go.uber.org/atomic"
-	"math/rand"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
