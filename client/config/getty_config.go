@@ -7,12 +7,25 @@ import (
 	"time"
 )
 
-// Config holds supported types by the multiconfig package
+    // GettyConfig
+	//Config holds supported types by the multiconfig package
 type GettyConfig struct {
+	ReconnectInterval int `default:"0" yaml:"reconnect_interval" json:"reconnect_interval,omitempty"`
+
+	// getty_session pool
+	ConnectionNum int `default:"16" yaml:"connection_number" json:"connection_number,omitempty"`
+
+	// heartbeat
+	HeartbeatPrd string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
+	HeartbeatPeriod time.Duration
+
 	// getty_session
-	SessionTmt     string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
+	SessionTmt string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
 	SessionTimeout time.Duration
-	SessionNumber  int `default:"1000" yaml:"session_number" json:"session_number,omitempty"`
+
+	// Connection Pool
+	PoolSize int `default:"2" yaml:"pool_size" json:"pool_size,omitempty"`
+	PoolTTL  int `default:"180" yaml:"pool_ttl" json:"pool_ttl,omitempty"`
 
 	// grpool
 	GrPoolSize  int `default:"0" yaml:"gr_pool_size" json:"gr_pool_size,omitempty"`
@@ -26,6 +39,10 @@ type GettyConfig struct {
 // CheckValidity ...
 func (c *GettyConfig) CheckValidity() error {
 	var err error
+
+	if c.HeartbeatPeriod, err = time.ParseDuration(c.HeartbeatPrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(HeartbeatPeriod{%#v})", c.HeartbeatPrd)
+	}
 
 	if c.SessionTimeout, err = time.ParseDuration(c.SessionTmt); err != nil {
 		return errors.WithMessagef(err, "time.ParseDuration(SessionTimeout{%#v})", c.SessionTimeout)
@@ -42,11 +59,15 @@ func (c *GettyConfig) CheckValidity() error {
 // GetDefaultGettyConfig ...
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
-		SessionTmt:    "180s",
-		SessionNumber: 700,
-		GrPoolSize:    120,
-		QueueNumber:   6,
-		QueueLen:      64,
+		ReconnectInterval: 0,
+		ConnectionNum:     16,
+		HeartbeatPrd:      "30s",
+		SessionTmt:        "180s",
+		PoolSize:          4,
+		PoolTTL:           600,
+		GrPoolSize:        200,
+		QueueLen:          64,
+		QueueNumber:       10,
 		GettySessionParam: config.GettySessionParam{
 			CompressEncoding: false,
 			TcpNoDelay:       true,
@@ -59,7 +80,7 @@ func GetDefaultGettyConfig() GettyConfig {
 			TcpWriteTmt:      "5s",
 			WaitTmt:          "1s",
 			MaxMsgLen:        102400,
-			SessionName:      "server",
+			SessionName:      "client",
 		},
 	}
 }

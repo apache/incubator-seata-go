@@ -2,6 +2,8 @@ package tm
 
 import (
 	"context"
+	"github.com/dk-lockdown/seata-golang/client/config"
+	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -52,6 +54,9 @@ func (svc *TestService) GetMethodTransactionInfo(methodName string) *Transaction
 }
 
 func TestProxy_Implement(t *testing.T) {
+	config.InitConfWithDefault("testService")
+	getty2.InitRpcClient()
+	NewTMClient()
 	zooSvc := &ZooService{}
 	proxy.ServiceMap.Register(zooSvc)
 

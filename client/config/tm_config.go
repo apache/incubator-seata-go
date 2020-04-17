@@ -7,7 +7,11 @@ type TMConfig struct {
 
 var tmConfig TMConfig
 
-func GetTmConfig() TMConfig {
+func GetTMConfig() TMConfig {
+	return tmConfig
+}
+
+func GetDefaultTmConfig() TMConfig {
 	return TMConfig{
 		CommitRetryCount:   5,
 		RollbackRetryCount: 5,

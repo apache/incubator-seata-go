@@ -38,6 +38,31 @@ type ServerConfig struct {
 	StoreConfig                      StoreConfig `required:"true" yaml:"store_config" json:"store_config,omitempty"`
 }
 
+func (c *ServerConfig) CheckValidity() error {
+	var err error
+	if conf.TimeoutRetryPeriod, err = time.ParseDuration(conf.TimeoutRetryPrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(TimeoutRetryPrd{%#v})", conf.TimeoutRetryPrd)
+	}
+
+	if conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.RollbackingRetryPrd);err != nil {
+		return errors.WithMessagef(err,"time.ParseDuration(RollbackingRetryPrd{%#v})", conf.RollbackingRetryPrd)
+	}
+
+	if conf.CommittingRetryPeriod, err = time.ParseDuration(conf.CommittingRetryPrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(CommittingRetryPrd{%#v})", conf.CommittingRetryPrd)
+	}
+
+	if conf.AsynCommittingRetryPeriod, err = time.ParseDuration(conf.AsynCommittingRetryPrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(AsynCommittingRetryPrd{%#v})", conf.AsynCommittingRetryPrd)
+	}
+
+	if conf.LogDeletePeriod, err = time.ParseDuration(conf.LogDeletePrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(LogDeletePrd{%#v})", conf.LogDeletePrd)
+	}
+
+	return errors.WithStack(c.GettyConfig.CheckValidity())
+}
+
 
 func InitConf(confFile string) error {
 	var err error
@@ -59,45 +84,7 @@ func InitConf(confFile string) error {
 		return errors.WithMessagef(err,fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
 
-	if conf.TimeoutRetryPeriod, err = time.ParseDuration(conf.TimeoutRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(TimeoutRetryPrd{%#v})", conf.TimeoutRetryPrd)
-	}
-
-	conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.RollbackingRetryPrd)
-	if err != nil {
-		return errors.WithMessagef(err,"time.ParseDuration(RollbackingRetryPrd{%#v})", conf.RollbackingRetryPrd)
-	}
-	if conf.CommittingRetryPeriod, err = time.ParseDuration(conf.CommittingRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(CommittingRetryPrd{%#v})", conf.CommittingRetryPrd)
-	}
-
-	if conf.AsynCommittingRetryPeriod, err = time.ParseDuration(conf.AsynCommittingRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(AsynCommittingRetryPrd{%#v})", conf.AsynCommittingRetryPrd)
-	}
-
-	if conf.LogDeletePeriod, err = time.ParseDuration(conf.LogDeletePrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(LogDeletePrd{%#v})", conf.LogDeletePrd)
-	}
-
-	conf.GettyConfig.SessionTimeout, err = time.ParseDuration(conf.GettyConfig.SessionTmt)
-	if err != nil {
-		return errors.WithMessagef(err,fmt.Sprintf("time.ParseDuration(SessionTimeout{%#v}) = error{%v}", conf.GettyConfig.SessionTmt, err))
-	}
-	if conf.GettyConfig.GettySessionParam.KeepAlivePeriod, err = time.ParseDuration(conf.GettyConfig.GettySessionParam.KeepAlivePrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(KeepAlivePeriod{%#v})", conf.GettyConfig.GettySessionParam.KeepAlivePrd)
-	}
-
-	if conf.GettyConfig.GettySessionParam.TcpReadTimeout, err = time.ParseDuration(conf.GettyConfig.GettySessionParam.TcpReadTmt); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(TcpReadTimeout{%#v})", conf.GettyConfig.GettySessionParam.TcpReadTmt)
-	}
-
-	if conf.GettyConfig.GettySessionParam.TcpWriteTimeout, err = time.ParseDuration(conf.GettyConfig.GettySessionParam.TcpWriteTmt); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(TcpWriteTimeout{%#v})", conf.GettyConfig.GettySessionParam.TcpWriteTmt)
-	}
-
-	if conf.GettyConfig.GettySessionParam.WaitTimeout, err = time.ParseDuration(conf.GettyConfig.GettySessionParam.WaitTmt); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(WaitTimeout{%#v})", conf.GettyConfig.GettySessionParam.WaitTmt)
-	}
+	(&conf).CheckValidity()
 
 	storeConfig = conf.StoreConfig
 	return nil

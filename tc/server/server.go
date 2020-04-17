@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"net"
@@ -72,7 +73,7 @@ func (s *Server) newSession(session getty.Session) error {
 
 	session.SetName(conf.GettyConfig.GettySessionParam.SessionName)
 	session.SetMaxMsgLen(conf.GettyConfig.GettySessionParam.MaxMsgLen)
-	session.SetPkgHandler(RpcServerPkgHandler)
+	session.SetPkgHandler(readwriter.RpcPkgHandler)
 	session.SetEventListener(s.rpcHandler)
 	session.SetWQLen(conf.GettyConfig.GettySessionParam.PkgWQSize)
 	session.SetReadTimeout(conf.GettyConfig.GettySessionParam.TcpReadTimeout)

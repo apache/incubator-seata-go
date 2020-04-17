@@ -96,7 +96,9 @@ func Implement(v GlobalTransactionProxyService) {
 			}
 
 			beginErr := tx.BeginWithTimeoutAndName(txInfo.TimeOut,txInfo.Name,invCtx)
-			return proxy.ReturnWithError(method,errors.WithStack(beginErr))
+			if beginErr != nil {
+				return proxy.ReturnWithError(method, errors.WithStack(beginErr))
+			}
 
 			returnValues = proxy.Invoke(method,invCtx,serviceName,methodName,args)
 

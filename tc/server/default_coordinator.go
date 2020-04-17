@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	getty2 "github.com/dk-lockdown/seata-golang/base/getty"
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
@@ -23,22 +24,6 @@ const (
 	RPC_REQUEST_TIMEOUT = 30 * time.Second
 	ALWAYS_RETRY_BOUNDARY = 0
 )
-
-// MessageFuture ...
-type MessageFuture struct {
-	id        int32
-	err       error
-	response  interface{}
-	done      chan bool
-}
-
-// NewMessageFuture ...
-func NewMessageFuture(message protocal.RpcMessage) *MessageFuture {
-	return &MessageFuture{
-		id:   message.Id,
-		done: make(chan bool),
-	}
-}
 
 type DefaultCoordinator struct {
 	conf config.ServerConfig
@@ -76,17 +61,17 @@ func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
 
 
 func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {
-	logging.Logger.Infof("got session:%s", session.Stat())
+	logging.Logger.Infof("got getty_session:%s", session.Stat())
 	return nil
 }
 
 func (coordinator *DefaultCoordinator) OnError(session getty.Session, err error) {
 	session.Close()
-	logging.Logger.Infof("session{%s} got error{%v}, will be closed.", session.Stat(), err)
+	logging.Logger.Infof("getty_session{%s} got error{%v}, will be closed.", session.Stat(), err)
 }
 
 func (coordinator *DefaultCoordinator) OnClose(session getty.Session) {
-	logging.Logger.Info("session{%s} is closing......", session.Stat())
+	logging.Logger.Info("getty_session{%s} is closing......", session.Stat())
 }
 
 func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg interface{}) {
@@ -122,9 +107,9 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 		} else {
 			resp,loaded := coordinator.futures.Load(rpcMessage.Id)
 			if loaded {
-				response := resp.(*MessageFuture)
-				response.response = rpcMessage.Body
-				response.done <- true
+				response := resp.(*getty2.MessageFuture)
+				response.Response = rpcMessage.Body
+				response.Done <- true
 				coordinator.futures.Delete(rpcMessage.Id)
 			}
 		}
@@ -287,10 +272,10 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string,session g
 		Compressor:  0,
 		Body:        msg,
 	}
-	resp := NewMessageFuture(rpcMessage)
+	resp := getty2.NewMessageFuture(rpcMessage)
 	coordinator.futures.Store(rpcMessage.Id, resp)
 	//config timeout
-	err = session.WritePkg(rpcMessage, 60000)
+	err = session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 	if err != nil {
 		coordinator.futures.Delete(rpcMessage.Id)
 	}
@@ -300,10 +285,10 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string,session g
 		case <-getty.GetTimeWheel().After(timeout):
 			coordinator.futures.Delete(rpcMessage.Id)
 			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", address, rpcMessage)
-		case <-resp.done:
-			err = resp.err
+		case <-resp.Done:
+			err = resp.Err
 		}
-		return resp.response, err
+		return resp.Response, err
 	}
 	return nil,err
 }

@@ -1,4 +1,4 @@
-package server
+package readwriter
 
 import (
 	"bytes"
@@ -34,12 +34,12 @@ import (
  */
 
 var (
-	RpcServerPkgHandler = &RpcServerPackageHandler{}
+	RpcPkgHandler = &RpcPackageHandler{}
 )
 
-type RpcServerPackageHandler struct{}
+type RpcPackageHandler struct{}
 
-func (p *RpcServerPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
+func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
 	r := byteio.BigEndianReader{Reader:bytes.NewReader(data)}
 
 	b0,_ := r.ReadByte()
@@ -88,7 +88,7 @@ func (p *RpcServerPackageHandler) Read(ss getty.Session, data []byte) (interface
 	return rpcMessage, int(fullLength), nil
 }
 
-func (p *RpcServerPackageHandler) Write(ss getty.Session, pkg interface{})  ([]byte, error) {
+func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{})  ([]byte, error) {
 	var result = make([]byte,0)
 	msg := pkg.(protocal.RpcMessage)
 

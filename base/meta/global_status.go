@@ -98,7 +98,7 @@ const (
 	/**
 	 * The Finished.
 	 */
-	// Not managed in session MAP any more
+	// Not managed in getty_session MAP any more
 	GlobalStatusFinished
 )
 

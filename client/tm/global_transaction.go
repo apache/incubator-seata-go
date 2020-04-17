@@ -6,6 +6,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/context"
+	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/pkg/errors"
 )
@@ -120,8 +121,10 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context.RootContext) error {
 		status, err := gtx.transactionManager.Commit(gtx.Xid)
 		if err != nil {
 			logging.Logger.Errorf("Failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+		} else {
+			gtx.Status = status
+			break
 		}
-		gtx.Status = status
 		retry--
 		if retry == 0 {
 			return errors.New("Failed to report global commit")
@@ -150,8 +153,10 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 		status, err := gtx.transactionManager.Rollback(gtx.Xid)
 		if err != nil {
 			logging.Logger.Errorf("Failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+		} else {
+			gtx.Status = status
+			break
 		}
-		gtx.Status = status
 		retry--
 		if retry == 0 {
 			return errors.New("Failed to report global rollback")
@@ -234,11 +239,11 @@ func (gtx *DefaultGlobalTransaction) GetLocalStatus() meta.GlobalStatus {
 
 func CreateNew() *DefaultGlobalTransaction {
 	return &DefaultGlobalTransaction{
-		conf:               config.GetTmConfig(),
+		conf:               config.GetTMConfig(),
 		Xid:                "",
 		Status:             meta.GlobalStatusUnknown,
 		Role:               Launcher,
-		transactionManager: nil,
+		transactionManager: &DefaultTransactionManager{rpcClient:getty2.RpcClient},
 	}
 }
 
@@ -248,11 +253,11 @@ func GetCurrent(ctx *context2.RootContext) *DefaultGlobalTransaction {
 		return nil
 	}
 	return &DefaultGlobalTransaction{
-		conf:               config.TMConfig{},
+		conf:               config.GetTMConfig(),
 		Xid:                xid,
 		Status:             meta.GlobalStatusBegin,
 		Role:               Participant,
-		transactionManager: nil,
+		transactionManager: &DefaultTransactionManager{rpcClient:getty2.RpcClient},
 	}
 }
 

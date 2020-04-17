@@ -10,5 +10,5 @@
 - [ ] DB Session Manager  
 - [ ] ETCD Session Manager  
 - [ ] Metrics Collector
-- [ ] TC
+- [X] TM
 - [ ] RM
