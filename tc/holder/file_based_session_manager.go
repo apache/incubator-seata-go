@@ -82,14 +82,9 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 	if len(sessionManager.SessionMap) > 0 {
 		for _,globalSession := range sessionManager.SessionMap {
 			switch globalSession.Status {
-			case meta.GlobalStatusUnknown:
-			case meta.GlobalStatusCommitted:
-			case meta.GlobalStatusCommitFailed:
-			case meta.GlobalStatusRollbacked:
-			case meta.GlobalStatusRollbackFailed:
-			case meta.GlobalStatusTimeoutRollbacked:
-			case meta.GlobalStatusTimeoutRollbackFailed:
-			case meta.GlobalStatusFinished:
+			case meta.GlobalStatusUnknown,meta.GlobalStatusCommitted,meta.GlobalStatusCommitFailed,meta.GlobalStatusRollbacked,
+			meta.GlobalStatusRollbackFailed,meta.GlobalStatusTimeoutRollbacked,meta.GlobalStatusTimeoutRollbackFailed,
+			meta.GlobalStatusFinished:
 				// Remove all sessions finished
 				delete(sessionManager.SessionMap, globalSession.Xid)
 				break
@@ -107,8 +102,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 		sessionStorable := store.SessionRequest
 		maxRecoverId = getMaxId(maxRecoverId, sessionStorable)
 		switch logOperation {
-		case LogOperationGlobalAdd:
-		case LogOperationGlobalUpdate:
+		case LogOperationGlobalAdd,LogOperationGlobalUpdate:
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
 				if globalSession.TransactionId == int64(0) {
@@ -133,8 +127,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 				delete(sessionManager.SessionMap, globalSession.Xid)
 				break
 			}
-		case LogOperationBranchAdd:
-		case LogOperationBranchUpdate:
+		case LogOperationBranchAdd,LogOperationBranchUpdate:
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
 				if branchSession.TransactionId == int64(0) {

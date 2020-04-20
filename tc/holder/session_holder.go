@@ -49,14 +49,9 @@ func (sessionHolder SessionHolder) reload() {
 		if reloadedSessions != nil && len(reloadedSessions) > 0 {
 			for _,globalSession := range reloadedSessions {
 				switch globalSession.Status {
-				case meta.GlobalStatusUnknown:
-				case meta.GlobalStatusCommitted:
-				case meta.GlobalStatusCommitFailed:
-				case meta.GlobalStatusRollbacked:
-				case meta.GlobalStatusRollbackFailed:
-				case meta.GlobalStatusTimeoutRollbacked:
-				case meta.GlobalStatusTimeoutRollbackFailed:
-				case meta.GlobalStatusFinished:
+				case meta.GlobalStatusUnknown,meta.GlobalStatusCommitted,meta.GlobalStatusCommitFailed,meta.GlobalStatusRollbacked,
+				meta.GlobalStatusRollbackFailed,meta.GlobalStatusTimeoutRollbacked,meta.GlobalStatusTimeoutRollbackFailed,
+				meta.GlobalStatusFinished:
 					logging.Logger.Errorf("Reloaded Session should NOT be %s",globalSession.Status.String())
 					break
 				case meta.GlobalStatusAsyncCommitting:
@@ -68,14 +63,11 @@ func (sessionHolder SessionHolder) reload() {
 						lock.GetLockManager().AcquireLock(branchSession)
 					}
 					switch globalSession.Status {
-					case meta.GlobalStatusCommitting:
-					case meta.GlobalStatusCommitRetrying:
+					case meta.GlobalStatusCommitting,meta.GlobalStatusCommitRetrying:
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
 						break
-					case meta.GlobalStatusRollbacking:
-					case meta.GlobalStatusRollbackRetrying:
-					case meta.GlobalStatusTimeoutRollbacking:
-					case meta.GlobalStatusTimeoutRollbackRetrying:
+					case meta.GlobalStatusRollbacking,meta.GlobalStatusRollbackRetrying,meta.GlobalStatusTimeoutRollbacking,
+					meta.GlobalStatusTimeoutRollbackRetrying:
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 						break
 					case meta.GlobalStatusBegin:

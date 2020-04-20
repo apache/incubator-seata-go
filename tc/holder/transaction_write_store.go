@@ -39,14 +39,10 @@ func (transactionWriteStore *TransactionWriteStore) Decode(src []byte) {
 func (transactionWriteStore *TransactionWriteStore) getSessionInstanceByOperation() (session.SessionStorable,error) {
 	var sessionStorable session.SessionStorable
 	switch transactionWriteStore.LogOperation {
-	case LogOperationGlobalAdd:
-	case LogOperationGlobalUpdate:
-	case LogOperationGlobalRemove:
+	case LogOperationGlobalAdd,LogOperationGlobalUpdate,LogOperationGlobalRemove:
 		sessionStorable = session.NewGlobalSession()
 		break
-	case LogOperationBranchAdd:
-	case LogOperationBranchUpdate:
-	case LogOperationBranchRemove:
+	case LogOperationBranchAdd,LogOperationBranchUpdate,LogOperationBranchRemove:
 		sessionStorable = session.NewBranchSession()
 		break
 	default:
