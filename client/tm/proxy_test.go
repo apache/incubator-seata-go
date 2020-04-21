@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -24,14 +23,8 @@ func (svc *ZooService) ManageAnimal(ctx context.Context,dog *Dog,cat *Cat) (bool
 	return true,nil
 }
 
-func (svc *ZooService) ProxyMethods() map[string]bool {
-	mp := make(map[string]bool)
-	mp["ManageAnimal"] = true
-	return mp
-}
-
 type TestService struct {
-	proxy.ProxyService
+	*ZooService
 	ManageAnimal func(ctx context.Context,dog *Dog,cat *Cat) (bool,error)
 }
 
@@ -45,8 +38,8 @@ func init() {
 	}
 }
 
-func (svc *TestService) GetProxyService() proxy.ProxyService {
-	return svc.ProxyService
+func (svc *TestService) GetProxyService() interface{} {
+	return svc.ZooService
 }
 
 func (svc *TestService) GetMethodTransactionInfo(methodName string) *TransactionInfo {
@@ -58,9 +51,8 @@ func TestProxy_Implement(t *testing.T) {
 	getty2.InitRpcClient()
 	NewTMClient()
 	zooSvc := &ZooService{}
-	proxy.ServiceMap.Register(zooSvc)
 
-	ts := &TestService{ProxyService: zooSvc}
+	ts := &TestService{ZooService: zooSvc}
 	Implement(ts)
 	result, err := ts.ManageAnimal(context.Background(),&Dog{},&Cat{})
 	assert.True(t,result)

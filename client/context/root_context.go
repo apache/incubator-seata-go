@@ -24,6 +24,20 @@ type RootContext struct {
 	localMap map[string]interface{}
 }
 
+func NewRootContext(ctx context.Context) *RootContext {
+	rootCtx := &RootContext{
+		Context:  ctx,
+		localMap: make(map[string]interface{}),
+	}
+
+	xId := ctx.Value(KEY_XID)
+	if xId != nil {
+		xid := xId.(string)
+		rootCtx.Bind(xid)
+	}
+	return rootCtx
+}
+
 func (c *RootContext) Set(key string, value interface{}) {
 	if c.localMap == nil {
 		c.localMap = make(map[string]interface{})
