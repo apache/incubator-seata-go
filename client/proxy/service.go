@@ -100,13 +100,6 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 		}
 	}
 
-
-	// The latest return type of the method must be error.
-	if returnType := methodType.Out(outNum - 1); returnType != typeOfError {
-		logging.Logger.Warnf("the latest return type %s of method %q is not error", returnType, methodName)
-		return nil
-	}
-
 	// returnValuesType
 	for num := 0; num < outNum; num++ {
 		returnValuesType = append(returnValuesType, methodType.Out(num))
@@ -151,7 +144,7 @@ func Invoke(methodDesc *MethodDescriptor, ctx *context2.RootContext, args []inte
 	for i := 0; i < len(args); i++ {
 		t := reflect.ValueOf(args[i])
 		if methodDesc.ArgsType[i].String() == "context.Context" {
-			t = SuiteContext(methodDesc,ctx.Context)
+			t = SuiteContext(methodDesc,ctx)
 		}
 		if !t.IsValid() {
 			at := methodDesc.ArgsType[i]

@@ -50,7 +50,7 @@ func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		SessionTmt:    "180s",
 		SessionNumber: 700,
-		GrPoolSize:    120,
+		GrPoolSize:    200,
 		QueueNumber:   6,
 		QueueLen:      64,
 		GettySessionParam: config.GettySessionParam{

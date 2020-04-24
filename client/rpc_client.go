@@ -35,10 +35,11 @@ func setClientGrpool() {
 }
 
 func NewRpcClient() *RpcClient {
+	setClientGrpool()
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
-		rpcHandler:   getty2.RpcClient,
+		rpcHandler:   getty2.InitRpcRemoteClient(),
 	}
 	rpcClient.init()
 	return rpcClient

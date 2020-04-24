@@ -84,26 +84,26 @@ type IResourceManager interface {
 	 *
 	 * @param resource The resource to be managed.
 	 */
-	registerResource(resource model.IResource)
+	RegisterResource(resource model.IResource)
 
 	/**
 	 * Unregister a Resource from the Resource Manager.
 	 *
 	 * @param resource The resource to be removed.
 	 */
-	unregisterResource(resource model.IResource)
+	UnregisterResource(resource model.IResource)
 
 	/**
 	 * Get all resources managed by this manager.
 	 *
 	 * @return resourceId -> Resource Map
 	 */
-	getManagedResources() map[string]model.IResource
+	GetManagedResources() map[string]model.IResource
 
 	/**
 	 * Get the BranchType.
 	 *
 	 * @return The BranchType of ResourceManager.
 	 */
-	getBranchType() meta.BranchType
+	GetBranchType() meta.BranchType
 }

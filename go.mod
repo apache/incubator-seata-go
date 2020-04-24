@@ -5,6 +5,7 @@ go 1.13.3
 require (
 	github.com/dubbogo/getty v1.3.3
 	github.com/dubbogo/gost v1.6.0
+	github.com/gin-gonic/gin v1.6.2
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.5.1

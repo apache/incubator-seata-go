@@ -25,7 +25,6 @@ var (
 )
 
 func Implement(v GlobalTransactionProxyService) {
-	// check parameters, incoming interface must be a elem's pointer.
 	valueOf := reflect.ValueOf(v)
 	logging.Logger.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
 

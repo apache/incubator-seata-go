@@ -23,7 +23,7 @@ type GettySessionParam struct {
 	TcpWriteTimeout  time.Duration
 	WaitTmt      	 string `default:"7s" yaml:"wait_timeout" json:"wait_timeout,omitempty"`
 	WaitTimeout      time.Duration
-	MaxMsgLen        int    `default:"1024" yaml:"max_msg_len" json:"max_msg_len,omitempty"`
+	MaxMsgLen        int    `default:"4096" yaml:"max_msg_len" json:"max_msg_len,omitempty"`
 	SessionName      string `default:"rpc" yaml:"session_name" json:"session_name,omitempty"`
 }
 

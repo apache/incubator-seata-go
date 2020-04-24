@@ -41,7 +41,7 @@ type Server struct {
 }
 
 func NewServer() *Server {
-
+	SetServerGrpool()
 	s := &Server{
 		conf: config.GetServerConfig(),
 	}

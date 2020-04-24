@@ -11,4 +11,5 @@
 - [ ] ETCD Session Manager  
 - [ ] Metrics Collector
 - [X] TM
-- [ ] RM
+- [X] RM TCC
+- [ ] RM AT

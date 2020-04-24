@@ -1,6 +1,7 @@
 package getty
 
 import (
+	"github.com/dk-lockdown/seata-golang/client/model"
 	"math/rand"
 	"strings"
 	"sync"
@@ -25,47 +26,59 @@ const (
 	RPC_REQUEST_TIMEOUT = 30 * time.Second
 )
 
-var RpcClient *Client
+var rpcRemoteClient *RpcRemoteClient
 
-func InitRpcClient() {
-	RpcClient = &Client{
+func InitRpcRemoteClient() *RpcRemoteClient {
+	rpcRemoteClient = &RpcRemoteClient{
 		conf:        config.GetClientConfig(),
 		idGenerator: atomic.Uint32{},
 		futures:     &sync.Map{},
+		TCCBranchRollbackRequestChannel: make(chan model.RpcRMMessage),
+		TCCBranchCommitRequestChannel: make(chan model.RpcRMMessage),
 	}
+	return rpcRemoteClient
 }
 
-type Client struct {
+func GetRpcRemoteClient() *RpcRemoteClient {
+	return rpcRemoteClient
+}
+
+type RpcRemoteClient struct {
 	conf config.ClientConfig
 	idGenerator atomic.Uint32
 	futures *sync.Map
+	TCCBranchCommitRequestChannel chan model.RpcRMMessage
+	TCCBranchRollbackRequestChannel chan model.RpcRMMessage
 }
 
 // OnOpen ...
-func (client *Client) OnOpen(session getty.Session) error {
-	request := protocal.RegisterTMRequest{AbstractIdentifyRequest:protocal.AbstractIdentifyRequest{
-		ApplicationId:           client.conf.ApplicationId,
-		TransactionServiceGroup: client.conf.TransactionServiceGroup,
-	}}
-	_, err := client.sendAsyncRequestWithResponse("",session,request,RPC_REQUEST_TIMEOUT)
-	if err != nil {
-		clientSessionManager.RegisterGettySession(session, session.RemoteAddr())
-	}
+func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
+	go func() {
+		request := protocal.RegisterTMRequest{AbstractIdentifyRequest:protocal.AbstractIdentifyRequest{
+			ApplicationId:           client.conf.ApplicationId,
+			TransactionServiceGroup: client.conf.TransactionServiceGroup,
+		}}
+		_, err := client.sendAsyncRequestWithResponse("",session,request,RPC_REQUEST_TIMEOUT)
+		if err == nil {
+			clientSessionManager.RegisterGettySession(session, session.RemoteAddr())
+		}
+	}()
+
 	return nil
 }
 
 // OnError ...
-func (client *Client) OnError(session getty.Session, err error) {
+func (client *RpcRemoteClient) OnError(session getty.Session, err error) {
 	clientSessionManager.ReleaseGettySession(session,session.RemoteAddr())
 }
 
 // OnClose ...
-func (client *Client) OnClose(session getty.Session) {
+func (client *RpcRemoteClient) OnClose(session getty.Session) {
 	clientSessionManager.ReleaseGettySession(session,session.RemoteAddr())
 }
 
 // OnMessage ...
-func (client *Client) OnMessage(session getty.Session, pkg interface{}) {
+func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{}) {
 	logging.Logger.Info("received message:{%v}", pkg)
 	rpcMessage,ok := pkg.(protocal.RpcMessage)
 	if ok {
@@ -78,7 +91,8 @@ func (client *Client) OnMessage(session getty.Session, pkg interface{}) {
 	if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
 		rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
 		logging.Logger.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
-		// todo transaction branch things
+
+		client.onMessage(rpcMessage,session.RemoteAddr())
 	} else {
 		resp,loaded := client.futures.Load(rpcMessage.Id)
 		if loaded {
@@ -91,42 +105,67 @@ func (client *Client) OnMessage(session getty.Session, pkg interface{}) {
 }
 
 // OnCron ...
-func (client *Client) OnCron(session getty.Session) {
+func (client *RpcRemoteClient) OnCron(session getty.Session) {
 	client.defaultSendRequest(session,protocal.HeartBeatMessagePing)
 }
 
-func (client *Client) SendMsgWithResponse(msg interface{}) (interface{},error) {
+
+func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage,serverAddress string) {
+	msg := rpcMessage.Body.(protocal.MessageTypeAware)
+	logging.Logger.Infof("onMessage: %v",msg)
+	switch msg.GetTypeCode() {
+	case protocal.TypeBranchCommit:
+		client.TCCBranchCommitRequestChannel <- model.RpcRMMessage{
+			RpcMessage:    rpcMessage,
+			ServerAddress: serverAddress,
+		}
+	case protocal.TypeBranchRollback:
+		client.TCCBranchRollbackRequestChannel <- model.RpcRMMessage{
+			RpcMessage:    rpcMessage,
+			ServerAddress: serverAddress,
+		}
+	case protocal.TypeRmDeleteUndolog:
+		break
+	default:
+		break
+	}
+}
+
+//*************************************
+// ClientMessageSender
+//*************************************
+func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{},error) {
 	return client.SendMsgWithResponseAndTimeout(msg, RPC_REQUEST_TIMEOUT)
 }
 
-func (client *Client) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{},error) {
 	validAddress := loadBalance(client.conf.TransactionServiceGroup)
 	ss := clientSessionManager.AcquireGettySession(validAddress)
 	return client.sendAsyncRequestWithResponse(validAddress,ss,msg,timeout)
 }
 
 
-func (client *Client) SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{},error) {
 	return client.sendAsyncRequestWithResponse(serverAddress,clientSessionManager.AcquireGettySession(serverAddress),msg,timeout)
 }
 
-func (client *Client) SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{}) {
+func (client *RpcRemoteClient) SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{}) {
 	client.defaultSendResponse(request,clientSessionManager.AcquireGettySession(serverAddress),msg)
 }
 
-func (client *Client) sendAsyncRequestWithResponse(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) sendAsyncRequestWithResponse(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
 	if timeout <= time.Duration(0) {
 		return nil,errors.New("timeout should more than 0ms")
 	}
 	return client.sendAsyncRequest(address,session,msg,timeout)
 }
 
-func (client *Client) sendAsyncRequestWithoutResponse(session getty.Session,msg interface{}) error {
+func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Session,msg interface{}) error {
 	_,err := client.sendAsyncRequest("",session,msg,time.Duration(0))
 	return err
 }
 
-func (client *Client) sendAsyncRequest(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) sendAsyncRequest(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
 	var err error
 	if session == nil {
 		logging.Logger.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -141,10 +180,11 @@ func (client *Client) sendAsyncRequest(address string,session getty.Session,msg 
 	resp := getty2.NewMessageFuture(rpcMessage)
 	client.futures.Store(rpcMessage.Id, resp)
 	//config timeout
-	err = session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	err = session.WritePkg(rpcMessage, time.Duration(0))
 	if err != nil {
 		client.futures.Delete(rpcMessage.Id)
 	}
+	logging.Logger.Infof("send message : %v,session:%s",rpcMessage,session.Stat())
 
 	if timeout > time.Duration(0) {
 		select {
@@ -159,13 +199,36 @@ func (client *Client) sendAsyncRequest(address string,session getty.Session,msg 
 	return nil,err
 }
 
-func (client *Client) RegisterResource (resourceId string,resourceGroupId string) {
+func (client *RpcRemoteClient) RegisterResource (resourceId string,resourceGroupId string) {
 	message := protocal.RegisterRMRequest{
 		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
+			Version: client.conf.SeataVersion,
 			ApplicationId: client.conf.ApplicationId,
 			TransactionServiceGroup: client.conf.TransactionServiceGroup,
 		},
 		ResourceIds:             resourceId,
+	}
+	ticker := time.NewTicker(time.Duration(CHECK_ALIVE_INTERNAL) * time.Millisecond)
+	defer ticker.Stop()
+	addressList := getAddressList(client.conf.TransactionServiceGroup)
+	for i :=0; i < MAX_CHECK_ALIVE_RETRY; i++ {
+		<-ticker.C
+		exists := true
+		for _,serverAddress := range addressList {
+			sessionToServer,ok := sessions.Load(serverAddress)
+			if ok {
+				session := sessionToServer.(getty.Session)
+				if session.IsClosed() {
+					exists = false
+				}
+			} else {
+				exists = false
+			}
+		}
+
+		if exists {
+			break
+		}
 	}
 	sessions.Range(func (key interface{},value interface{}) bool {
 		rmSession := value.(getty.Session)
@@ -177,7 +240,7 @@ func (client *Client) RegisterResource (resourceId string,resourceGroupId string
 	})
 }
 
-func (client *Client) defaultSendRequest(session getty.Session, msg interface{}) {
+func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg interface{}) {
 	rpcMessage := protocal.RpcMessage{
 		Id:          int32(client.idGenerator.Inc()),
 		Codec:       codec.SEATA,
@@ -193,7 +256,7 @@ func (client *Client) defaultSendRequest(session getty.Session, msg interface{})
 	session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 }
 
-func (client *Client) defaultSendResponse(request protocal.RpcMessage, session getty.Session, msg interface{}) {
+func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, session getty.Session, msg interface{}) {
 	resp := protocal.RpcMessage{
 		Id:          request.Id,
 		Codec:       request.Codec,
@@ -206,14 +269,21 @@ func (client *Client) defaultSendResponse(request protocal.RpcMessage, session g
 	} else {
 		resp.MessageType = protocal.MSGTYPE_RESPONSE
 	}
+
 	session.WritePkg(resp,time.Duration(0))
+	logging.Logger.Infof("send message:%v,session:%v",resp,session.Stat())
 }
 
 
 func loadBalance(transactionServiceGroup string) string {
-	addressList := strings.Split(transactionServiceGroup,",")
+	addressList := getAddressList(transactionServiceGroup)
 	if len(addressList) == 1 {
 		return addressList[0]
 	}
 	return addressList[rand.Intn(len(addressList))]
+}
+
+func getAddressList(transactionServiceGroup string) []string {
+	addressList := strings.Split(transactionServiceGroup,",")
+	return addressList
 }

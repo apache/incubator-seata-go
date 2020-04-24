@@ -67,7 +67,7 @@ func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		ReconnectInterval: 0,
 		ConnectionNum:     16,
-		HeartbeatPrd:      "30s",
+		HeartbeatPrd:      "10s",
 		SessionTmt:        "180s",
 		PoolSize:          4,
 		PoolTTL:           600,
@@ -85,7 +85,7 @@ func GetDefaultGettyConfig() GettyConfig {
 			TcpReadTmt:       "1s",
 			TcpWriteTmt:      "5s",
 			WaitTmt:          "1s",
-			MaxMsgLen:        102400,
+			MaxMsgLen:        4096,
 			SessionName:      "client",
 		},
 	}

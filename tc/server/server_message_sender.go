@@ -27,7 +27,7 @@ type IServerMessageSender interface {
 	 * Sync call to RM
 	 *
 	 * @param resourceId Resource ID
-	 * @param clientId   Client ID
+	 * @param clientId   RpcRemoteClient ID
 	 * @param message    Request message
 	 * @return Response message
 	 * @throws IOException .
@@ -39,7 +39,7 @@ type IServerMessageSender interface {
 	 * Sync call to RM with timeout.
 	 *
 	 * @param resourceId Resource ID
-	 * @param clientId   Client ID
+	 * @param clientId   RpcRemoteClient ID
 	 * @param message    Request message
 	 * @param timeout    timeout of the call
 	 * @return Response message

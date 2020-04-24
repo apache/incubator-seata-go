@@ -55,15 +55,16 @@ func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session get
 	if ok && ss == session {
 		sessions.Delete(serverAddress)
 	}
+	session.Close()
 }
 
 func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session,serverAddress string) {
-	sessionToServer,ok := sessions.Load(serverAddress)
-	if ok {
-		session := sessionToServer.(getty.Session)
-		if !session.IsClosed() {
-			return
-		}
-	}
+	//sessionToServer,ok := sessions.Load(serverAddress)
+	//if ok {
+	//	session := sessionToServer.(getty.Session)
+	//	if !session.IsClosed() {
+	//		return
+	//	}
+	//}
 	sessions.Store(serverAddress,session)
 }

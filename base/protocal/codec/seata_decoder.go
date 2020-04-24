@@ -266,6 +266,7 @@ func AbstractTransactionResponseDecoder(in []byte) (interface{},int) {
 func AbstractBranchEndRequestDecoder(in []byte) (interface{},int) {
 	var (
 		length16 uint16 = 0
+		length32 uint32 = 0
 		readN = 0
 		totalReadN = 0
 	)
@@ -293,10 +294,10 @@ func AbstractBranchEndRequestDecoder(in []byte) (interface{},int) {
 		totalReadN += readN
 	}
 
-	length16, readN, _ = r.ReadUint16()
+	length32, readN, _ = r.ReadUint32()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ApplicationData = make([]byte,int(length16))
+		msg.ApplicationData = make([]byte,int(length32))
 		readN,_ := r.Read(msg.ApplicationData)
 		totalReadN += readN
 	}

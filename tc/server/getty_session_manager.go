@@ -207,7 +207,7 @@ func (manager *GettySessionManager) GetGettySession(resourceId string,clientId s
 
 	clientIdInfo := strings.Split(clientId,ClientIdSplitChar)
 	if clientIdInfo == nil || len(clientIdInfo) != 3 {
-		return nil,errors.Errorf("Invalid Client ID:%d",clientId)
+		return nil,errors.Errorf("Invalid RpcRemoteClient ID:%d",clientId)
 	}
 	targetApplicationId := clientIdInfo[0]
 	targetIP := clientIdInfo[1]

@@ -14,6 +14,7 @@ import (
 type ClientConfig struct {
 	ApplicationId		    string
 	TransactionServiceGroup string
+	SeataVersion            string
 	GettyConfig             GettyConfig
 	TMConfig                TMConfig
 }
@@ -27,6 +28,7 @@ func GetClientConfig() ClientConfig {
 func GetDefaultClientConfig(applicationId string) ClientConfig {
 	return ClientConfig{
 		ApplicationId:           applicationId,
+		SeataVersion:            "1.1.0",
 		TransactionServiceGroup: "127.0.0.1:8091",
 		GettyConfig:             GetDefaultGettyConfig(),
 		TMConfig:                GetDefaultTmConfig(),

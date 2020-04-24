@@ -249,7 +249,7 @@ func CreateNew() *DefaultGlobalTransaction {
 		Xid:                "",
 		Status:             meta.GlobalStatusUnknown,
 		Role:               Launcher,
-		transactionManager: &DefaultTransactionManager{rpcClient:getty2.RpcClient},
+		transactionManager: &DefaultTransactionManager{rpcClient:getty2.GetRpcRemoteClient()},
 	}
 }
 
@@ -263,7 +263,7 @@ func GetCurrent(ctx *context2.RootContext) *DefaultGlobalTransaction {
 		Xid:                xid,
 		Status:             meta.GlobalStatusBegin,
 		Role:               Participant,
-		transactionManager: &DefaultTransactionManager{rpcClient:getty2.RpcClient},
+		transactionManager: &DefaultTransactionManager{rpcClient:getty2.GetRpcRemoteClient()},
 	}
 }
 
