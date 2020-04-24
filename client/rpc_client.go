@@ -1,4 +1,4 @@
-package tm
+package client
 
 import (
 	"fmt"
@@ -20,10 +20,10 @@ import (
 
 var clientGrpool *gxsync.TaskPool
 
-type TMClient struct {
+type RpcClient struct {
 	conf config.ClientConfig
 	gettyClients []getty.Client
-	rpcHandler *getty2.Client
+	rpcHandler *getty2.RpcRemoteClient
 }
 
 func setClientGrpool() {
@@ -34,17 +34,17 @@ func setClientGrpool() {
 	}
 }
 
-func NewTMClient() *TMClient {
-	tm := &TMClient{
+func NewRpcClient() *RpcClient {
+	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
 		rpcHandler:   getty2.RpcClient,
 	}
-	tm.init()
-	return tm
+	rpcClient.init()
+	return rpcClient
 }
 
-func (c *TMClient) init() {
+func (c *RpcClient) init() {
 	addressList := strings.Split(c.conf.TransactionServiceGroup,",")
 	for _,address := range addressList {
 		gettyClient := getty.NewTCPClient(
@@ -57,7 +57,7 @@ func (c *TMClient) init() {
 	}
 }
 
-func (c *TMClient) newSession(session getty.Session) error {
+func (c *RpcClient) newSession(session getty.Session) error {
 	var (
 		ok      bool
 		tcpConn *net.TCPConn

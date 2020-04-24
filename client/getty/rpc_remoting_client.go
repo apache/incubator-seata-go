@@ -159,6 +159,24 @@ func (client *Client) sendAsyncRequest(address string,session getty.Session,msg 
 	return nil,err
 }
 
+func (client *Client) RegisterResource (resourceId string,resourceGroupId string) {
+	message := protocal.RegisterRMRequest{
+		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
+			ApplicationId: client.conf.ApplicationId,
+			TransactionServiceGroup: client.conf.TransactionServiceGroup,
+		},
+		ResourceIds:             resourceId,
+	}
+	sessions.Range(func (key interface{},value interface{}) bool {
+		rmSession := value.(getty.Session)
+		err := client.sendAsyncRequestWithoutResponse(rmSession,message)
+		if err != nil {
+			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", rmSession, resourceId)
+		}
+		return true
+	})
+}
+
 func (client *Client) defaultSendRequest(session getty.Session, msg interface{}) {
 	rpcMessage := protocal.RpcMessage{
 		Id:          int32(client.idGenerator.Inc()),
