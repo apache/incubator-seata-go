@@ -66,7 +66,7 @@ func (c *GettyConfig) CheckValidity() error {
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		ReconnectInterval: 0,
-		ConnectionNum:     16,
+		ConnectionNum:     1,
 		HeartbeatPrd:      "10s",
 		SessionTmt:        "180s",
 		PoolSize:          4,

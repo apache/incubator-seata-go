@@ -81,7 +81,7 @@ func (coordinator *DefaultCoordinator) OnClose(session getty.Session) {
 }
 
 func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg interface{}) {
-	logging.Logger.Info("received message:{%v},session:", pkg,session.Stat())
+	logging.Logger.Info("received message:{%v}", pkg)
 	rpcMessage,ok := pkg.(protocal.RpcMessage)
 	if ok {
 		_,isRegTM := rpcMessage.Body.(protocal.RegisterTMRequest)
@@ -282,7 +282,6 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string,session g
 	coordinator.futures.Store(rpcMessage.Id, resp)
 	//config timeout
 	err = session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
-	logging.Logger.Infof("send message : %v,session:%s",rpcMessage,session.Stat())
 	if err != nil {
 		coordinator.futures.Delete(rpcMessage.Id)
 	}

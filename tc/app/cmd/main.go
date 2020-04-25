@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"os"
 )
 
@@ -25,6 +24,5 @@ func main() {
 	uuid.Init(1)
 	srv := server.NewServer()
 	conf := config.GetServerConfig()
-	go http.ListenAndServe("0.0.0.0:6060", nil)
 	srv.Start(conf.Host+":"+conf.Port)
 }

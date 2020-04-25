@@ -271,7 +271,6 @@ func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, 
 	}
 
 	session.WritePkg(resp,time.Duration(0))
-	logging.Logger.Infof("send message:%v,session:%v",resp,session.Stat())
 }
 
 
