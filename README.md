@@ -13,3 +13,4 @@
 - [X] TM
 - [X] RM TCC
 - [ ] RM AT
+- [ ] Read config from Config Center
