@@ -15,22 +15,22 @@ type ServiceA struct {
 
 func (svc *ServiceA) Try(ctx *context.BusinessActionContext) (bool,error) {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service A Tried!")
+	fmt.Println(word)
+	fmt.Println("Service A Tried!")
 	return true,nil
 }
 
 func (svc *ServiceA) Confirm(ctx *context.BusinessActionContext) bool {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service A confirmed!")
+	fmt.Println(word)
+	fmt.Println("Service A confirmed!")
 	return true
 }
 
 func (svc *ServiceA) Cancel(ctx *context.BusinessActionContext) bool {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service A canceled!")
+	fmt.Println(word)
+	fmt.Println("Service A canceled!")
 	return true
 }
 

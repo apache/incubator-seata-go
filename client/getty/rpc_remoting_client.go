@@ -35,6 +35,7 @@ func InitRpcRemoteClient() *RpcRemoteClient {
 		futures:     &sync.Map{},
 		TCCBranchRollbackRequestChannel: make(chan model.RpcRMMessage),
 		TCCBranchCommitRequestChannel: make(chan model.RpcRMMessage),
+		GettySessionOnOpenChannel: make(chan string),
 	}
 	return rpcRemoteClient
 }
@@ -49,6 +50,7 @@ type RpcRemoteClient struct {
 	futures *sync.Map
 	TCCBranchCommitRequestChannel chan model.RpcRMMessage
 	TCCBranchRollbackRequestChannel chan model.RpcRMMessage
+	GettySessionOnOpenChannel chan string
 }
 
 // OnOpen ...
@@ -61,6 +63,7 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 		_, err := client.sendAsyncRequestWithResponse("",session,request,RPC_REQUEST_TIMEOUT)
 		if err == nil {
 			clientSessionManager.RegisterGettySession(session, session.RemoteAddr())
+			client.GettySessionOnOpenChannel <- session.RemoteAddr()
 		}
 	}()
 
@@ -199,45 +202,15 @@ func (client *RpcRemoteClient) sendAsyncRequest(address string,session getty.Ses
 	return nil,err
 }
 
-func (client *RpcRemoteClient) RegisterResource (resourceId string,resourceGroupId string) {
-	message := protocal.RegisterRMRequest{
-		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
-			Version: client.conf.SeataVersion,
-			ApplicationId: client.conf.ApplicationId,
-			TransactionServiceGroup: client.conf.TransactionServiceGroup,
-		},
-		ResourceIds:             resourceId,
-	}
-	ticker := time.NewTicker(time.Duration(CHECK_ALIVE_INTERNAL) * time.Millisecond)
-	defer ticker.Stop()
-	addressList := getAddressList(client.conf.TransactionServiceGroup)
-	for i :=0; i < MAX_CHECK_ALIVE_RETRY; i++ {
-		<-ticker.C
-		exists := true
-		for _,serverAddress := range addressList {
-			sessionToServer,ok := sessions.Load(serverAddress)
-			if ok {
-				session := sessionToServer.(getty.Session)
-				if session.IsClosed() {
-					exists = false
-				}
-			} else {
-				exists = false
-			}
-		}
-
-		if exists {
-			break
-		}
-	}
-	sessions.Range(func (key interface{},value interface{}) bool {
-		rmSession := value.(getty.Session)
-		err := client.sendAsyncRequestWithoutResponse(rmSession,message)
+func (client *RpcRemoteClient) RegisterResource(serverAddress string,request protocal.RegisterRMRequest) {
+	session,ok := sessions.Load(serverAddress)
+	if ok {
+		rmSession := session.(getty.Session)
+		err := client.sendAsyncRequestWithoutResponse(rmSession,request)
 		if err != nil {
-			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", rmSession, resourceId)
+			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", rmSession, request.ResourceIds)
 		}
-		return true
-	})
+	}
 }
 
 func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg interface{}) {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -15,22 +16,22 @@ type ServiceC struct {
 
 func (svc *ServiceC) Try(ctx *context.BusinessActionContext) (bool,error) {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service C Tried!")
-	return true,nil
+	fmt.Println(word)
+	fmt.Println("Service C Tried!")
+	return true,errors.New("there is a error")
 }
 
 func (svc *ServiceC) Confirm(ctx *context.BusinessActionContext) bool {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service C confirmed!")
+	fmt.Println(word)
+	fmt.Println("Service C confirmed!")
 	return true
 }
 
 func (svc *ServiceC) Cancel(ctx *context.BusinessActionContext) bool {
 	word := ctx.ActionContext["hello"]
-	fmt.Print(word)
-	fmt.Print("Service C canceled!")
+	fmt.Println(word)
+	fmt.Println("Service C canceled!")
 	return true
 }
 

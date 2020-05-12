@@ -109,7 +109,7 @@ type BranchRollbackResponse struct {
 }
 
 func (resp BranchRollbackResponse) GetTypeCode() int16 {
-	return TypeGlobalRollbackResult
+	return TypeBranchRollbackResult
 }
 
 type GlobalBeginRequest struct {

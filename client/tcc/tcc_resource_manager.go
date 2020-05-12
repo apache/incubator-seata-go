@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/getty"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -23,6 +25,7 @@ import (
 
 var (
 	TCC_ACTION_CONTEXT = "actionContext"
+	DBKEYS_SPLIT_CHAR = ","
 )
 
 var tccResourceManager TCCResourceManager
@@ -34,6 +37,7 @@ func InitTCCResourceManager() {
 	}
 	go tccResourceManager.handleBranchCommit()
 	go tccResourceManager.handleBranchRollback()
+	go tccResourceManager.handleRegisterRM()
 }
 
 type TCCResourceManager struct {
@@ -43,7 +47,10 @@ type TCCResourceManager struct {
 
 func (resourceManager TCCResourceManager) RegisterResource(resource model.IResource) {
 	resourceManager.tccResourceCache[resource.GetResourceId()] = resource
-	resourceManager.AbstractResourceManager.RegisterResource(resource)
+}
+
+func (resourceManager TCCResourceManager) UnregisterResource(resource model.IResource) {
+
 }
 
 func (resourceManager TCCResourceManager) GetManagedResources() map[string]model.IResource {
@@ -160,6 +167,13 @@ func (resourceManager TCCResourceManager) handleBranchRollback() {
 	}
 }
 
+func (resourceManager TCCResourceManager) handleRegisterRM() {
+	for {
+		serverAddress := <- resourceManager.RpcClient.GettySessionOnOpenChannel
+		resourceManager.doRegisterResource(serverAddress)
+	}
+}
+
 func (resourceManager TCCResourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
@@ -208,4 +222,34 @@ func (resourceManager TCCResourceManager) doBranchRollback(request protocal.Bran
 	resp.BranchStatus = status
 	resp.ResultCode = protocal.ResultCodeSuccess
 	return resp
+}
+
+func  (resourceManager TCCResourceManager) doRegisterResource(serverAddress string) {
+	if resourceManager.tccResourceCache == nil || len(resourceManager.tccResourceCache) == 0 {
+		return
+	}
+	message := protocal.RegisterRMRequest{
+		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
+			Version:                 config.GetClientConfig().SeataVersion,
+			ApplicationId:           config.GetClientConfig().ApplicationId,
+			TransactionServiceGroup: config.GetClientConfig().TransactionServiceGroup,
+		},
+		ResourceIds: resourceManager.getMergedResourceKeys(),
+	}
+
+	resourceManager.AbstractResourceManager.RpcClient.RegisterResource(serverAddress,message)
+}
+
+func (resourceManager TCCResourceManager) getMergedResourceKeys() string {
+	var builder strings.Builder
+	if resourceManager.tccResourceCache != nil && len(resourceManager.tccResourceCache) > 0 {
+		for key, _ := range resourceManager.tccResourceCache {
+			builder.WriteString(key)
+			builder.WriteString(DBKEYS_SPLIT_CHAR)
+		}
+		resourceKeys := builder.String()
+		resourceKeys = resourceKeys[:len(resourceKeys)-1]
+		return resourceKeys
+	}
+	return ""
 }

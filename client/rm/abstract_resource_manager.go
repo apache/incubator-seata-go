@@ -6,7 +6,6 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/client/getty"
 )
@@ -59,12 +58,4 @@ func (resourceManager AbstractResourceManager) BranchReport(branchType meta.Bran
 func (resourceManager AbstractResourceManager) LockQuery(branchType meta.BranchType, resourceId string, xid string,
 	lockKeys string) (bool, error) {
 	return false,nil
-}
-
-func (resourceManager AbstractResourceManager) RegisterResource(resource model.IResource) {
-	resourceManager.RpcClient.RegisterResource(resource.GetResourceId(),resource.GetResourceGroupId())
-}
-
-func (resourceManager AbstractResourceManager) UnregisterResource(resource model.IResource) {
-
 }
