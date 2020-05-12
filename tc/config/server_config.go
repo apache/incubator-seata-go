@@ -89,6 +89,6 @@ func InitConf(confFile string) error {
 
 	(&conf).CheckValidity()
 
-	storeConfig = conf.StoreConfig
+	SetStoreConfig(conf.StoreConfig)
 	return nil
 }

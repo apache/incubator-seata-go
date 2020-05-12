@@ -3,9 +3,13 @@ module github.com/dk-lockdown/seata-golang
 go 1.13.3
 
 require (
+	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
 	github.com/dubbogo/getty v1.3.3
 	github.com/dubbogo/gost v1.6.0
 	github.com/gin-gonic/gin v1.6.2
+	github.com/go-playground/assert/v2 v2.0.1
+	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-xorm/xorm v0.7.9
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.5.1
@@ -15,4 +19,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.8
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
+	xorm.io/builder v0.3.6
 )

@@ -1,5 +1,11 @@
 package config
 
+import (
+	"github.com/Davmuz/gqt"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-xorm/xorm"
+)
+
 const (
 	DefaultFileDir              = "root.data"
 	DefaultMaxBranchSessionSize = 1024 * 16
@@ -38,13 +44,26 @@ type FileStoreConfig struct {
 }
 
 type DBStoreConfig struct {
-
+	LogQueryLimit int `default:"100" yaml:"log_query_limit" json:"log_query_limit"`
+	DSN string `yaml:"dsn" json:"dsn"`
+	GqtPath string `yaml:"gqt_path" json:"gqt_path"`
+	Engine *xorm.Engine
 }
 
 var storeConfig StoreConfig
 
 func GetStoreConfig() StoreConfig {
 	return storeConfig
+}
+
+func SetStoreConfig(storeConf StoreConfig) {
+	storeConfig = storeConf
+	engine, err := xorm.NewEngine("mysql",storeConfig.DBStoreConfig.DSN)
+	if err != nil {
+		panic(err)
+	}
+	storeConfig.DBStoreConfig.Engine = engine
+	gqt.Add(storeConfig.DBStoreConfig.GqtPath, "*.sql")
 }
 
 func GetDefaultFileStoreConfig() FileStoreConfig{

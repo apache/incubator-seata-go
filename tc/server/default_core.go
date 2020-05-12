@@ -166,6 +166,8 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 		core.ATCore.branchSessionLock(gs, bs)
 	}
 	gs.Add(bs)
+	holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs,bs)
+	bs.Status = meta.BranchStatusRegistered
 
 	logging.Logger.Infof("Successfully register branch xid = %s, branchId = %d",gs.Xid,bs.BranchId)
 	return bs.BranchId,nil
@@ -191,7 +193,7 @@ func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.GlobalSession,error) {
 	gs := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(xid,withBranchSessions)
 	if gs == nil {
-		logging.Logger.Errorf("Could not found global transaction xid = %s",gs.Xid)
+		logging.Logger.Errorf("Could not found global transaction xid = %s",xid)
 		return nil,&meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
 			Message: fmt.Sprintf("Could not found global transaction xid = %s",gs.Xid),

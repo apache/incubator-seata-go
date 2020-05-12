@@ -52,6 +52,7 @@ func NewGlobalSession() *GlobalSession {
 	}
 	gs.TransactionId = uuid.GeneratorUUID()
 	gs.Xid = common.XID.GenerateXID(gs.TransactionId)
+	gs.Active = true
 	return gs
 }
 

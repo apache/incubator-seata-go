@@ -14,7 +14,7 @@ var (
 
 func GeneratorUUID() int64 {
 	id := atomic.AddInt64(&UUID,1)
-	if id >= getMaxUUID() {
+	if id >= GetMaxUUID() {
 		if UUID >= id {
 			newId := id - UUID_INTERNAL
 			atomic.CompareAndSwapInt64(&UUID,id, newId)
@@ -28,7 +28,7 @@ func SetUUID(expect int64, update int64) bool {
 	return atomic.CompareAndSwapInt64(&UUID,expect, update)
 }
 
-func getMaxUUID() int64 {
+func GetMaxUUID() int64 {
 	return UUID_INTERNAL * (int64(serverNodeId) +1)
 }
 

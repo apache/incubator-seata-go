@@ -8,13 +8,6 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
-type Reloadable interface {
-	/**
-	 * Reload states.
-	 */
-	Reload()
-}
-
 type FileBasedSessionManager struct {
 	conf config.FileStoreConfig
 	DefaultSessionManager
@@ -64,7 +57,7 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 }
 
 func (sessionManager *FileBasedSessionManager) restoreSessionsToUnhandledBranchBuffer(isHistory bool,unhandledBranchSessions map[int64]*session.BranchSession) {
-	transactionStoreManager, ok := sessionManager.TransactionStoreManager.(ReloadableStore)
+	transactionStoreManager, ok := sessionManager.TransactionStoreManager.(IReloadableStore)
 	if !ok {
 		return
 	}

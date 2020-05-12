@@ -9,6 +9,8 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
+const LOCK_SPLIT = "^^^"
+
 type RowLock struct {
 	Xid string
 

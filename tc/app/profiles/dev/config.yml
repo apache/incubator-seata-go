@@ -1,5 +1,7 @@
 host: "127.0.0.1"
 port: "8091"
+max_rollback_retry_timeout: -1
+max_commit_retry_timeout: -1
 timeout_retry_period: "1s"
 rollbacking_retry_period: "1s"
 committing_retry_period: "1s"
@@ -27,3 +29,8 @@ getty_config:
 store_config:
   max_global_session_size: 512
   max_branch_session_size: 16384
+  mode: db
+  db:
+    log_query_limit: 100
+    dsn: "root:123456@tcp(127.0.0.1:3306)/seata2?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+    gqt_path: "/Users/scottlewis/dksl/git/1/seata-golang/tc/app/profiles/sql"

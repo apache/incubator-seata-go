@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/dk-lockdown/seata-golang/tc/holder"
+	"github.com/dk-lockdown/seata-golang/tc/lock"
 	"os"
 )
 
@@ -22,6 +24,8 @@ func main() {
 	confFile := os.Getenv(APP_CONF_FILE)
 	config.InitConf(confFile)
 	uuid.Init(1)
+	lock.Init()
+	holder.Init()
 	srv := server.NewServer()
 	conf := config.GetServerConfig()
 	srv.Start(conf.Host+":"+conf.Port)

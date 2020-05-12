@@ -54,6 +54,14 @@ func (t LogOperation) String() string {
 	}
 }
 
+type Reloadable interface {
+	/**
+	 * Reload states.
+	 */
+	Reload()
+}
+
+
 type ITransactionStoreManager interface {
 	/**
 	 * Write session boolean.

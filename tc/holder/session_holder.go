@@ -8,6 +8,12 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
+var(
+	ASYNC_COMMITTING_SESSION_MANAGER_NAME = "async.commit.data"
+	RETRY_COMMITTING_SESSION_MANAGER_NAME = "retry.commit.data"
+	RETRY_ROLLBACKING_SESSION_MANAGER_NAME = "retry.rollback.data"
+)
+
 type SessionHolder struct {
 	RootSessionManager             ISessionManager
 	AsyncCommittingSessionManager  ISessionManager
@@ -17,15 +23,25 @@ type SessionHolder struct {
 
 var sessionHolder SessionHolder
 
-func init() {
-	sessionHolder = SessionHolder{
-		RootSessionManager:             NewFileBasedSessionManager(config.GetDefaultFileStoreConfig()),
-		AsyncCommittingSessionManager:  NewDefaultSessionManager("default"),
-		RetryCommittingSessionManager:  NewDefaultSessionManager("default"),
-		RetryRollbackingSessionManager: NewDefaultSessionManager("default"),
+func Init() {
+	if config.GetStoreConfig().StoreMode == "file" {
+		sessionHolder = SessionHolder{
+			RootSessionManager:             NewFileBasedSessionManager(config.GetStoreConfig().FileStoreConfig),
+			AsyncCommittingSessionManager:  NewDefaultSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME),
+			RetryCommittingSessionManager:  NewDefaultSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME),
+			RetryRollbackingSessionManager: NewDefaultSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME),
+		}
+		sessionHolder.reload()
 	}
-
-	sessionHolder.reload()
+	if config.GetStoreConfig().StoreMode == "db" {
+		sessionHolder = SessionHolder{
+			RootSessionManager:             NewDataBaseSessionManager("",config.GetStoreConfig().DBStoreConfig),
+			AsyncCommittingSessionManager:  NewDataBaseSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
+			RetryCommittingSessionManager:  NewDataBaseSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
+			RetryRollbackingSessionManager: NewDataBaseSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
+		}
+		sessionHolder.reload()
+	}
 }
 
 func GetSessionHolder() SessionHolder {
