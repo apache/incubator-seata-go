@@ -49,17 +49,14 @@ func (s *Set) Clear() {
 
 // IsEmpty checks for emptiness
 func (s *Set) IsEmpty() bool {
-	if s.Len() == 0 {
-		return true
-	}
-	return false
+	return s.Len() == 0
 }
 
 // Set returns a slice of all items
 func (s *Set) List() []string {
 	s.RLock()
 	defer s.RUnlock()
-	list := make([]string, 0)
+	list := make([]string, 0, len(s.m))
 	for item := range s.m {
 		list = append(list, item)
 	}
