@@ -37,7 +37,9 @@ func (s *Set) Has(item string) bool {
 
 // Len returns the number of items in a set.
 func (s *Set) Len() int {
-	return len(s.List())
+	s.RLock()
+	defer s.RUnlock()
+	return len(s.m)
 }
 
 // Clear removes all items from the set
