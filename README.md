@@ -13,4 +13,5 @@
 - [X] TM
 - [X] RM TCC
 - [ ] RM AT
+- [ ] Client merged request
 - [ ] Read config from Config Center
