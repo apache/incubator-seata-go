@@ -2,10 +2,16 @@ package tm
 
 import (
 	"context"
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/client"
 	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type Dog struct {
