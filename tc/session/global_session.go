@@ -107,15 +107,21 @@ func (gs *GlobalSession) SetActive(active bool) *GlobalSession {
 }
 
 func (gs *GlobalSession) Add(branchSession *BranchSession) {
+	gs.Lock()
+	defer gs.Unlock()
 	branchSession.Status = meta.BranchStatusRegistered
 	gs.BranchSessions[branchSession] = true
 }
 
 func (gs *GlobalSession) Remove(branchSession *BranchSession) {
+	gs.Lock()
+	defer gs.Unlock()
 	delete(gs.BranchSessions, branchSession)
 }
 
 func (gs *GlobalSession) CanBeCommittedAsync() bool {
+	gs.Lock()
+	defer gs.Unlock()
 	for branchSession := range gs.BranchSessions {
 		if branchSession.BranchType == meta.BranchTypeTCC {
 			return false
@@ -125,6 +131,8 @@ func (gs *GlobalSession) CanBeCommittedAsync() bool {
 }
 
 func (gs *GlobalSession) IsSaga() bool {
+	gs.Lock()
+	defer gs.Unlock()
 	for branchSession := range gs.BranchSessions {
 		if branchSession.BranchType == meta.BranchTypeSAGA {
 			return true
@@ -144,6 +152,8 @@ func (gs *GlobalSession) IsRollbackingDead() bool {
 }
 
 func (gs *GlobalSession) GetSortedBranches() []*BranchSession {
+	gs.Lock()
+	defer gs.Unlock()
 	var branchSessions = make([]*BranchSession, 0)
 
 	for branchSession := range gs.BranchSessions {
