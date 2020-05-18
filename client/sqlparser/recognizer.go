@@ -124,11 +124,11 @@ type IWhereRecognizer interface {
 	GetWhereCondition() string
 }
 
-type SQLSelectRecognizer interface {
+type ISQLSelectRecognizer interface {
 	IWhereRecognizer
 }
 
-type SQLInsertRecognizer interface {
+type ISQLInsertRecognizer interface {
 	ISQLRecognizer
 
 	/**
@@ -146,11 +146,11 @@ type SQLInsertRecognizer interface {
 	GetInsertRows() [][]string
 }
 
-type SQLDeleteRecognizer interface {
+type ISQLDeleteRecognizer interface {
 	IWhereRecognizer
 }
 
-type SQLUpdateRecognizer interface {
+type ISQLUpdateRecognizer interface {
 	IWhereRecognizer
 
 	/**
