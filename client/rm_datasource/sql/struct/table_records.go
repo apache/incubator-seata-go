@@ -6,7 +6,7 @@ import (
 )
 
 type TableRecords struct {
-	TableMeta TableMeta
+	TableMeta TableMeta `json:"-"`
 	TableName string
 	Rows []Row
 }
@@ -40,7 +40,7 @@ func BuildRecords(meta TableMeta,resultSet *sql.Rows) TableRecords {
 	for resultSet.Next() {
 		values := make([]interface{},0, len(columns))
 		resultSet.Scan(values...)
-		fileds := make([]Field,0,len(columns))
+		fields := make([]Field,0,len(columns))
 		for i,col := range columns {
 			filed := Field{
 				Name:    col,
@@ -50,9 +50,9 @@ func BuildRecords(meta TableMeta,resultSet *sql.Rows) TableRecords {
 			if strings.ToLower(col) == strings.ToLower(meta.GetPkName()) {
 				filed.KeyType = PRIMARY_KEY
 			}
-			fileds = append(fileds,filed)
+			fields = append(fields,filed)
 		}
-		row := Row{Fields:fileds}
+		row := Row{Fields:fields}
 		rows = append(rows, row)
 	}
 	records.Rows = rows

@@ -7,25 +7,25 @@ type Row struct {
 }
 
 func (row Row) PrimaryKeys() []Field {
-	fileds := make([]Field,0)
-	for _,field := range fileds {
+	fields := make([]Field,0)
+	for _,field := range fields {
 		if field.KeyType == PRIMARY_KEY {
-			fileds = append(fileds,field)
+			fields = append(fields,field)
 		}
 	}
-	if len(fileds) > 1 {
+	if len(fields) > 1 {
 		panic(errors.New("Multi-PK"))
 	}
-	return fileds
+	return fields
 }
 
 func (row Row) NonPrimaryKeys() []Field {
-	fileds := make([]Field,0)
-	for _,field := range fileds {
+	fields := make([]Field,0)
+	for _,field := range fields {
 		if field.KeyType != PRIMARY_KEY {
-			fileds = append(fileds,field)
+			fields = append(fields,field)
 		}
 	}
-	return fileds
+	return fields
 }
 
