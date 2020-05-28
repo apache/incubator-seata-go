@@ -2,11 +2,24 @@ package cache
 
 import (
 	"database/sql"
+)
+
+import (
 	_struct "github.com/dk-lockdown/seata-golang/client/rm_datasource/sql/struct"
 )
 
 type ITableMetaCache interface {
-	GetTableMeta(db *sql.DB,tableName,resourceId string) (_struct.TableMeta,error)
+	GetTableMeta(tx *sql.Tx,tableName,resourceId string) (_struct.TableMeta,error)
 
-	Refresh(db *sql.DB,resourceId string)
+	Refresh(tx *sql.Tx,resourceId string)
+}
+
+var tableMetaCache ITableMetaCache
+
+func SetTableMetaCache(tableMetaCache ITableMetaCache) {
+	tableMetaCache = tableMetaCache
+}
+
+func GetTableMetaCache() ITableMetaCache {
+	return tableMetaCache
 }

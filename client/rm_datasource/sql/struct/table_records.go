@@ -8,19 +8,19 @@ import (
 type TableRecords struct {
 	TableMeta TableMeta `json:"-"`
 	TableName string
-	Rows []Row
+	Rows []*Row
 }
 
 func NewTableRecords(meta TableMeta) TableRecords {
 	return TableRecords{
 		TableMeta: meta,
 		TableName: meta.TableName,
-		Rows:      make([]Row,0),
+		Rows:      make([]*Row,0),
 	}
 }
 
-func (records TableRecords) PkRows() []Field {
-	pkRows := make([]Field,0)
+func (records TableRecords) PkRows() []*Field {
+	pkRows := make([]*Field,0)
 	pk := records.TableMeta.GetPkName()
 	for _,row := range records.Rows {
 		for _,field := range row.Fields {
@@ -36,13 +36,13 @@ func (records TableRecords) PkRows() []Field {
 func BuildRecords(meta TableMeta,resultSet *sql.Rows) TableRecords {
 	records := NewTableRecords(meta)
 	columns,_ := resultSet.Columns()
-	rows := make([]Row,0)
+	rows := make([]*Row,0)
 	for resultSet.Next() {
 		values := make([]interface{},0, len(columns))
 		resultSet.Scan(values...)
-		fields := make([]Field,0,len(columns))
+		fields := make([]*Field,0,len(columns))
 		for i,col := range columns {
-			filed := Field{
+			filed := &Field{
 				Name:    col,
 				Type:	 meta.AllColumns[col].DataType,
 				Value:   values[i],
@@ -52,7 +52,7 @@ func BuildRecords(meta TableMeta,resultSet *sql.Rows) TableRecords {
 			}
 			fields = append(fields,filed)
 		}
-		row := Row{Fields:fields}
+		row := &Row{Fields:fields}
 		rows = append(rows, row)
 	}
 	records.Rows = rows

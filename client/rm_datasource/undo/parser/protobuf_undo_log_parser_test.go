@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"github.com/dk-lockdown/seata-golang/base/sql_type"
 	_struct "github.com/dk-lockdown/seata-golang/client/rm_datasource/sql/struct"
@@ -10,21 +11,21 @@ import (
 	"testing"
 )
 
-func getBranchUndoLog() undo.BranchUndoLog {
-	var branchUndoLog = undo.BranchUndoLog{
+func getBranchUndoLog() *undo.BranchUndoLog {
+	var branchUndoLog = &undo.BranchUndoLog{
 		Xid:         ":0:2000042948",
 		BranchId:    2000042936,
-		SqlUndoLogs: []undo.SqlUndoLog{
+		SqlUndoLogs: []*undo.SqlUndoLog{
 			{
 				SqlType:     sqlparser.SQLType_INSERT,
 				TableName:   "user",
-				BeforeImage: _struct.TableRecords{},
-				AfterImage:  _struct.TableRecords{
+				BeforeImage: nil,
+				AfterImage:  &_struct.TableRecords{
 					TableMeta: _struct.TableMeta{},
 					TableName: "user",
-					Rows:      []_struct.Row{
+					Rows:      []*_struct.Row{
 						{
-							Fields: []_struct.Field{
+							Fields: []*_struct.Field{
 								{
 									Name:    "id",
 									KeyType: _struct.PRIMARY_KEY,
@@ -35,13 +36,13 @@ func getBranchUndoLog() undo.BranchUndoLog {
 									Name:    "name",
 									KeyType: _struct.NULL,
 									Type:    sql_type.VARCHAR,
-									Value:   "scott",
+									Value:   []byte("scott"),
 								},
 								{
 									Name:    "age",
 									KeyType: _struct.NULL,
 									Type:    sql_type.INTEGER,
-									Value:   28,
+									Value:   int64(28),
 								},
 								{
 									Name:    "avatar",
@@ -80,13 +81,14 @@ func getBranchUndoLog() undo.BranchUndoLog {
 }
 
 func TestJsonUndoLogParser_Encode(t *testing.T) {
-	data := JsonUndoLogParser{}.Encode(getBranchUndoLog())
+	data := ProtoBufUndoLogParser{}.Encode(getBranchUndoLog())
 	fmt.Printf("%s\n",data)
 	assert.NotEqual(t,data,nil)
 }
 
 func TestJsonUndoLogParser_Decode(t *testing.T) {
-	var data = []byte(`{"Xid":":0:2000042948","BranchId":2000042936,"SqlUndoLogs":[{"SqlType":1,"TableName":"user","BeforeImage":{"TableName":"","Rows":null},"AfterImage":{"TableName":"user","Rows":[{"Fields":[{"Name":"id","KeyType":1,"Type":-5,"Value":2000001},{"Name":"name","KeyType":0,"Type":12,"Value":"scott"},{"Name":"age","KeyType":0,"Type":4,"Value":28},{"Name":"avatar","KeyType":0,"Type":2004,"Value":"ASgBIAAQSkZJRgABAQAAcABwAAABHwB0RXhpZgAATU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAHlpAAQAAAABAAAATgAAAAAAAABwAAAAAQAAUTgAAAE5AAJgAgAEAAAAAQAAAxhgAwAEAAAAAQAAAnEAAAAAARMAOFBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAAAOEJJTQQlAAAAAAAQLB10J3EATgQXgAloFAhCfgEeD1RJQ0NfUFJPRklMRQABAQAAD2RhcHBsAhAAAG1udHJSR0IgWFlaIAccAAIAFAAXAAUAMGFjc3BBUFBMAAAAAEFQUEwAAAAAAAAAAAAAAAAAAAAAAAAKKgABAAAAAC0tYXBwbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEWRlc2MAAAFQAAAAYmRzY20AAAFMAAAEfmNwcnQAAAY4AAAAI3d0cHQAAAZcAAAAFHJYWVoAAAZwAAAAFGdYWVoAAAZ8AAAAFGJYWVoAAAZoAAAAFHJUUkMAAAZUAAAIDGE="}]}]}}]}`)
-	undoLog := JsonUndoLogParser{}.Decode(data)
+	branchUndoLog := getBranchUndoLog()
+	data := ProtoBufUndoLogParser{}.Encode(branchUndoLog)
+	undoLog := ProtoBufUndoLogParser{}.Decode(data)
 	assert.Equal(t,undoLog.BranchId,int64(2000042936))
 }

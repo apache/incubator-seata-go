@@ -8,8 +8,8 @@ import (
 type SqlUndoLog struct {
 	SqlType sqlparser.SQLType
 	TableName string
-	BeforeImage _struct.TableRecords
-	AfterImage _struct.TableRecords
+	BeforeImage *_struct.TableRecords
+	AfterImage *_struct.TableRecords
 }
 
 type BranchUndoLog struct {
@@ -17,5 +17,5 @@ type BranchUndoLog struct {
 
 	BranchId int64
 
-	SqlUndoLogs []SqlUndoLog
+	SqlUndoLogs []*SqlUndoLog
 }

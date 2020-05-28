@@ -8,7 +8,7 @@ type IUndoLogParser interface {
 	// return the default content if undo log is empty
 	GetDefaultContent() []byte
 
-	Encode(branchUndoLog undo.BranchUndoLog) []byte
+	Encode(branchUndoLog *undo.BranchUndoLog) []byte
 
-	Decode(bytes []byte) undo.BranchUndoLog
+	Decode(data []byte) *undo.BranchUndoLog
 }

@@ -1,0 +1,18 @@
+syntax = "proto3";
+package undo;
+
+message PbField {
+    string Name = 1;
+    int32 KeyType = 2;
+    sint32 Type = 3;
+    bytes Value = 4;
+}
+
+message PbRow {
+    repeated PbField Fields = 1;
+}
+
+message PbTableRecords {
+    string TableName = 1;
+    repeated PbRow Rows = 2;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+package undo;
+
+import "table_records.proto";
+
+message PbSqlUndoLog {
+    int32 SqlType = 1;
+    string TableName = 2;
+    PbTableRecords BeforeImage = 3;
+    PbTableRecords AfterImage = 4;
+}
+
+message PbBranchUndoLog {
+    string Xid = 1;
+    int64 BranchId = 2;
+    repeated PbSqlUndoLog SqlUndoLogs = 3;
+}

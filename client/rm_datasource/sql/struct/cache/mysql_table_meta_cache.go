@@ -22,25 +22,32 @@ import (
 
 var EXPIRE_TIME = 900 * 1000 * time.Microsecond
 
-type DB struct {
-	*sql.DB
+type Tx struct {
+	*sql.Tx
 	config *mysql.Config
 }
 
-func NewDB(db *sql.DB, dsn string) *DB {
+func newTx(tx *sql.Tx, dsn string) *Tx {
 	config,_ := mysql.ParseDSN(dsn)
-	return &DB{
-		DB:     db,
+	return &Tx{
+		Tx:     tx,
 		config: config,
 	}
 }
 
 type MysqlTableMetaCache struct {
-	tableMetaCache cache.Cache
+	tableMetaCache *cache.Cache
 	dsn string
 }
 
-func(cache *MysqlTableMetaCache) GetTableMeta(db *sql.DB,tableName,resourceId string) (_struct.TableMeta,error) {
+func NewMysqlTableMetaCache(dsn string) ITableMetaCache {
+	return &MysqlTableMetaCache{
+		tableMetaCache: cache.New(EXPIRE_TIME, 10*EXPIRE_TIME),
+		dsn:            dsn,
+	}
+}
+
+func(cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx,tableName,resourceId string) (_struct.TableMeta,error) {
 	if tableName == "" {
 		return _struct.TableMeta{},errors.New("TableMeta cannot be fetched without tableName")
 	}
@@ -50,7 +57,7 @@ func(cache *MysqlTableMetaCache) GetTableMeta(db *sql.DB,tableName,resourceId st
 		meta := tMeta.(_struct.TableMeta)
 		return meta,nil
 	} else {
-		ndb := NewDB(db,cache.dsn)
+		ndb := newTx(tx,cache.dsn)
 		meta,err := cache.FetchSchema(ndb,tableName)
 		if err != nil {
 			return _struct.TableMeta{},errors.WithStack(err)
@@ -60,12 +67,12 @@ func(cache *MysqlTableMetaCache) GetTableMeta(db *sql.DB,tableName,resourceId st
 	}
 }
 
-func(cache *MysqlTableMetaCache) Refresh(db *sql.DB,resourceId string) {
+func(cache *MysqlTableMetaCache) Refresh(tx *sql.Tx,resourceId string) {
 	for k,v := range cache.tableMetaCache.Items() {
 		meta := v.Object.(_struct.TableMeta)
 		key := cache.GetCacheKey(meta.TableName,resourceId)
 		if k == key {
-			ndb := NewDB(db,cache.dsn)
+			ndb := newTx(tx,cache.dsn)
 			tMeta,err := cache.FetchSchema(ndb,meta.TableName)
 			if err != nil {
 				logging.Logger.Errorf("get table meta error:%s", err.Error())
@@ -89,23 +96,23 @@ func (cache *MysqlTableMetaCache) GetCacheKey(tableName string,resourceId string
 	return fmt.Sprintf("%s.%s",resourceId,defaultTableName)
 }
 
-func (cache *MysqlTableMetaCache) FetchSchema(db *DB, tableName string) (_struct.TableMeta,error) {
+func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (_struct.TableMeta,error) {
 	tm := _struct.TableMeta{TableName:tableName,
 		AllColumns:make(map[string]_struct.ColumnMeta),
 		AllIndexes:make(map[string]_struct.IndexMeta),
 	}
-	columns,err := GetColumns(db,tableName)
+	columns,err := GetColumns(tx,tableName)
 	if err != nil {
 		return _struct.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
 	}
 	for _,column := range columns {
 		tm.AllColumns[column.ColumnName] = column
 	}
-	indexs,err := GetIndexes(db,tableName)
+	indexes,err := GetIndexes(tx,tableName)
 	if err != nil {
 		return _struct.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
 	}
-	for _,index := range indexs {
+	for _,index := range indexes {
 		col := tm.AllColumns[index.ColumnName]
 		idx,ok := tm.AllIndexes[index.IndexName]
 		if ok {
@@ -120,8 +127,8 @@ func (cache *MysqlTableMetaCache) FetchSchema(db *DB, tableName string) (_struct
 	return tm,nil
 }
 
-func GetColumns(db *DB, tableName string) ([]_struct.ColumnMeta, error) {
-	args := []interface{}{db.config.DBName, tableName}
+func GetColumns(tx *Tx, tableName string) ([]_struct.ColumnMeta, error) {
+	args := []interface{}{tx.config.DBName, tableName}
 	//`TABLE_CATALOG`,	`TABLE_SCHEMA`,	`TABLE_NAME`,	`COLUMN_NAME`,	`ORDINAL_POSITION`,	`COLUMN_DEFAULT`,
 	//`IS_NULLABLE`, `DATA_TYPE`,	`CHARACTER_MAXIMUM_LENGTH`,	`CHARACTER_OCTET_LENGTH`,	`NUMERIC_PRECISION`,
 	//`NUMERIC_SCALE`, `DATETIME_PRECISION`, `CHARACTER_SET_NAME`,	`COLLATION_NAME`,	`COLUMN_TYPE`,	`COLUMN_KEY',
@@ -130,7 +137,7 @@ func GetColumns(db *DB, tableName string) ([]_struct.ColumnMeta, error) {
 		"`NUMERIC_PRECISION`, `NUMERIC_SCALE`, `IS_NULLABLE`, `COLUMN_COMMENT`, `COLUMN_DEFAULT`, `CHARACTER_OCTET_LENGTH`, " +
 		"`ORDINAL_POSITION`, `COLUMN_KEY', `EXTRA`  FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
-	rows, err := db.Query(s,args)
+	rows, err := tx.Query(s,args)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +183,8 @@ func GetColumns(db *DB, tableName string) ([]_struct.ColumnMeta, error) {
 	return result,nil
 }
 
-func GetIndexes(db *DB, tableName string) ([]_struct.IndexMeta,error) {
-	args := []interface{}{db.config.DBName, tableName}
+func GetIndexes(tx *Tx, tableName string) ([]_struct.IndexMeta,error) {
+	args := []interface{}{tx.config.DBName, tableName}
 
 	//`TABLE_CATALOG`, `TABLE_SCHEMA`, `TABLE_NAME`, `NON_UNIQUE`, `INDEX_SCHEMA`, `INDEX_NAME`, `SEQ_IN_INDEX`,
 	//`COLUMN_NAME`, `COLLATION`, `CARDINALITY`, `SUB_PART`, `PACKED`, `NULLABLE`, `INDEX_TYPE`, `COMMENT`,
@@ -185,7 +192,7 @@ func GetIndexes(db *DB, tableName string) ([]_struct.IndexMeta,error) {
 	s := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `SEQ_IN_INDEX`, `COLLATION`, `CARDINALITY` " +
 		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
-	rows, err := db.Query(s,args)
+	rows, err := tx.Query(s,args)
 	if err != nil {
 		return nil, err
 	}

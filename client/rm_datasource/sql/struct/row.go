@@ -3,11 +3,11 @@ package _struct
 import "github.com/pkg/errors"
 
 type Row struct {
-	Fields []Field
+	Fields []*Field
 }
 
-func (row Row) PrimaryKeys() []Field {
-	fields := make([]Field,0)
+func (row Row) PrimaryKeys() []*Field {
+	fields := make([]*Field,0)
 	for _,field := range fields {
 		if field.KeyType == PRIMARY_KEY {
 			fields = append(fields,field)
@@ -19,8 +19,8 @@ func (row Row) PrimaryKeys() []Field {
 	return fields
 }
 
-func (row Row) NonPrimaryKeys() []Field {
-	fields := make([]Field,0)
+func (row Row) NonPrimaryKeys() []*Field {
+	fields := make([]*Field,0)
 	for _,field := range fields {
 		if field.KeyType != PRIMARY_KEY {
 			fields = append(fields,field)
