@@ -200,10 +200,7 @@ func (storeManager * FileTransactionStoreManager) parseDataFile(file *os.File, r
 	fileSize := fi.Size()
 	reader := byteio.BigEndianReader{Reader:file}
 	offset := currentOffset
-	for {
-		if offset >= fileSize {
-			break
-		}
+	for offset < fileSize {
 		file.Seek(offset, 0)
 		dataLength, n, _ := reader.ReadUint32()
 		if n < 4 {

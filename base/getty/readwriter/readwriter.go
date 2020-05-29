@@ -145,9 +145,7 @@ func headMapDecode(data []byte) map[string]string {
 	r := byteio.BigEndianReader{Reader:bytes.NewReader(data)}
 
 	readLength := 0
-	for {
-		if readLength >= size { break }
-
+	for readLength < size {
 		var key, value string
 		lengthK,_,_ := r.ReadUint16()
 		if lengthK < 0 {
