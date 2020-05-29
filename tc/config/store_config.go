@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/Davmuz/gqt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
 )
@@ -46,7 +45,6 @@ type FileStoreConfig struct {
 type DBStoreConfig struct {
 	LogQueryLimit int `default:"100" yaml:"log_query_limit" json:"log_query_limit"`
 	DSN string `yaml:"dsn" json:"dsn"`
-	GqtPath string `yaml:"gqt_path" json:"gqt_path"`
 	Engine *xorm.Engine
 }
 
@@ -63,7 +61,6 @@ func SetStoreConfig(storeConf StoreConfig) {
 		panic(err)
 	}
 	storeConfig.DBStoreConfig.Engine = engine
-	gqt.Add(storeConfig.DBStoreConfig.GqtPath, "*.sql")
 }
 
 func GetDefaultFileStoreConfig() FileStoreConfig{

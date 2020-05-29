@@ -33,4 +33,3 @@ store_config:
   db:
     log_query_limit: 100
     dsn: "root:123456@tcp(127.0.0.1:3306)/seata2?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-    gqt_path: "/Users/scottlewis/dksl/git/1/seata-golang/tc/app/profiles/sql"

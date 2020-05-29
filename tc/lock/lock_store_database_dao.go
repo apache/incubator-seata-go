@@ -1,7 +1,6 @@
 package lock
 
 import (
-	"github.com/Davmuz/gqt"
 	"github.com/go-xorm/xorm"
 	"xorm.io/builder"
 )
@@ -11,6 +10,11 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/model"
 )
 
+const (
+	QueryLockDO = "select row_key, xid, transaction_id, branch_id, resource_id, table_name, pk, gmt_create, gmt_modified from lock_table"
+	BatchDeleteLockByBranchId = `delete from lock_table where xid = ? AND branch_id = ?`
+	GetLockDOCount = "select count(1) as total from lock_table"
+)
 type ILockStore interface {
 	AcquireLockByLockDO(lockDO *model.LockDO) bool
 	AcquireLock(lockDOs []*model.LockDO) bool
@@ -34,9 +38,7 @@ func (dao *LockStoreDataBaseDao) AcquireLockByLockDO(lockDO *model.LockDO) bool 
 func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 	locks,rowKeys := distinctByKey(lockDOs)
 	var existedRowLocks []*model.LockDO
-	err := dao.engine.SQL(gqt.Get("_queryLockDO")).
-		Where(builder.In("row_key",rowKeys)).
-		Find(&existedRowLocks)
+	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key",rowKeys)).Find(&existedRowLocks)
 	if err != nil {
 		logging.Logger.Errorf(err.Error())
 	}
@@ -130,8 +132,7 @@ func (dao *LockStoreDataBaseDao) UnLock(lockDOs []*model.LockDO) bool {
 }
 
 func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchId(xid string, branchId int64) bool {
-	_,err := dao.engine.Exec(gqt.Get("_batchDeleteLockByBranch"),
-		xid, branchId)
+	_,err := dao.engine.Exec(BatchDeleteLockByBranchId, xid, branchId)
 
 	if err != nil {
 		logging.Logger.Errorf(err.Error())
@@ -159,9 +160,7 @@ func (dao *LockStoreDataBaseDao) IsLockable(lockDOs []*model.LockDO) bool {
 	for _,lockDO := range lockDOs {
 		rowKeys = append(rowKeys,lockDO.RowKey)
 	}
-	err := dao.engine.SQL(gqt.Get("_queryLockDO")).
-		Where(builder.In("row_key",rowKeys)).
-		Find(&existedRowLocks)
+	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key",rowKeys)).Find(&existedRowLocks)
 	if err != nil {
 		logging.Logger.Errorf(err.Error())
 	}
@@ -176,6 +175,6 @@ func (dao *LockStoreDataBaseDao) IsLockable(lockDOs []*model.LockDO) bool {
 
 func (dao *LockStoreDataBaseDao) GetLockCount() int64 {
 	var total int64
-	dao.engine.SQL(gqt.Get("_getLockDOCount")).Cols("total").Get(&total)
+	dao.engine.SQL(GetLockDOCount).Cols("total").Get(&total)
 	return total
 }
