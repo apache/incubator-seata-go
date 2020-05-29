@@ -2,10 +2,9 @@
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: ''
-assignees: ''
-
 ---
+
+- [ ] I have searched the [issues](https://github.com/dk-lockdown/seata-golang/issues) of this repository and believe that this is not a duplicate.
 
 **Describe the bug**
 A clear and concise description of what the bug is.
