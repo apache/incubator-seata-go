@@ -12,3 +12,7 @@ type IUndoLogParser interface {
 
 	Decode(data []byte) *undo.BranchUndoLog
 }
+
+func GetUndoLogParser() IUndoLogParser {
+	return ProtoBufUndoLogParser{}
+}

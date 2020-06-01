@@ -3,19 +3,20 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/sqlparser"
+	"github.com/pkg/errors"
 	"reflect"
 	"time"
 )
 
 import (
-	proto "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"vimagination.zapto.org/byteio"
 )
 
 import (
 	_struct "github.com/dk-lockdown/seata-golang/client/rm_datasource/sql/struct"
 	"github.com/dk-lockdown/seata-golang/client/rm_datasource/undo"
+	"github.com/dk-lockdown/seata-golang/client/sqlparser"
 )
 
 type MysqlFieldValueType byte
@@ -102,8 +103,7 @@ func convertField(field *_struct.Field) *PbField {
 		w.WriteByte(byte(MysqlFieldValueType_Time))
 		w.Write(b)
 	default:
-		fmt.Printf("unsupport types:%s,%v",reflect.TypeOf(field.Value).String(),field.Value)
-		break
+		panic(errors.Errorf("unsupport types:%s,%v",reflect.TypeOf(field.Value).String(),field.Value))
 	}
 	pbField.Value = buf.Bytes()
 	return pbField

@@ -12,10 +12,18 @@ type SqlUndoLog struct {
 	AfterImage *_struct.TableRecords
 }
 
+func (undoLog *SqlUndoLog) SetTableMeta(tableMeta _struct.TableMeta) {
+	if undoLog.BeforeImage != nil {
+		undoLog.BeforeImage.TableMeta = tableMeta
+	}
+	if undoLog.AfterImage != nil {
+		undoLog.AfterImage.TableMeta = tableMeta
+	}
+}
+
 type BranchUndoLog struct {
 	Xid string
-
 	BranchId int64
-
 	SqlUndoLogs []*SqlUndoLog
 }
+
