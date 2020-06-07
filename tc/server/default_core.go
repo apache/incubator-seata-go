@@ -579,7 +579,7 @@ func asyncCommit(globalSession *session.GlobalSession) {
 
 func changeGlobalSessionStatus(globalSession *session.GlobalSession, status meta.GlobalStatus) {
 	globalSession.Status = status
-	holder.GetSessionHolder().RootSessionManager.UpdateGlobalSessionStatus(globalSession, meta.GlobalStatusAsyncCommitting)
+	holder.GetSessionHolder().RootSessionManager.UpdateGlobalSessionStatus(globalSession, status)
 }
 
 func removeBranchSession(globalSession *session.GlobalSession,branchSession *session.BranchSession) {
