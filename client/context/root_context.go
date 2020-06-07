@@ -131,3 +131,8 @@ func (c *RootContext) InGlobalTransaction() bool {
 	return c.localMap[KEY_XID] != nil
 }
 
+func (c *RootContext) RequireGlobalLock() bool {
+	_, exists := c.localMap[KEY_GLOBAL_LOCK_FLAG]
+	return exists
+}
+

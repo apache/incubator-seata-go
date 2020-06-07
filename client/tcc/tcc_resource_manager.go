@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/getty"
 	"strconv"
-	"strings"
 )
 
 import (
@@ -16,7 +14,6 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/dk-lockdown/seata-golang/client/rm"
@@ -25,7 +22,6 @@ import (
 
 var (
 	TCC_ACTION_CONTEXT = "actionContext"
-	DBKEYS_SPLIT_CHAR = ","
 )
 
 var tccResourceManager TCCResourceManager
@@ -33,33 +29,18 @@ var tccResourceManager TCCResourceManager
 func InitTCCResourceManager() {
 	tccResourceManager = TCCResourceManager{
 		AbstractResourceManager: rm.NewAbstractResourceManager(getty.GetRpcRemoteClient()),
-		tccResourceCache:        make(map[string]model.IResource),
 	}
 	go tccResourceManager.handleBranchCommit()
 	go tccResourceManager.handleBranchRollback()
-	go tccResourceManager.handleRegisterRM()
 }
 
 type TCCResourceManager struct {
 	rm.AbstractResourceManager
-	tccResourceCache map[string]model.IResource
-}
-
-func (resourceManager TCCResourceManager) RegisterResource(resource model.IResource) {
-	resourceManager.tccResourceCache[resource.GetResourceId()] = resource
-}
-
-func (resourceManager TCCResourceManager) UnregisterResource(resource model.IResource) {
-
-}
-
-func (resourceManager TCCResourceManager) GetManagedResources() map[string]model.IResource {
-	return resourceManager.tccResourceCache
 }
 
 func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchType, xid string, branchId int64,
 	resourceId string, applicationData []byte) (meta.BranchStatus, error) {
-	resource := resourceManager.tccResourceCache[resourceId]
+	resource := resourceManager.ResourceCache[resourceId]
 	if resource == nil {
 		logging.Logger.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
 		return 0,errors.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
@@ -88,7 +69,7 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 
 func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchType, xid string, branchId int64,
 	resourceId string, applicationData []byte) (meta.BranchStatus, error) {
-	resource := resourceManager.tccResourceCache[resourceId]
+	resource := resourceManager.ResourceCache[resourceId]
 	if resource == nil {
 		return 0,errors.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
 	}
@@ -167,13 +148,6 @@ func (resourceManager TCCResourceManager) handleBranchRollback() {
 	}
 }
 
-func (resourceManager TCCResourceManager) handleRegisterRM() {
-	for {
-		serverAddress := <- resourceManager.RpcClient.GettySessionOnOpenChannel
-		resourceManager.doRegisterResource(serverAddress)
-	}
-}
-
 func (resourceManager TCCResourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
@@ -222,34 +196,4 @@ func (resourceManager TCCResourceManager) doBranchRollback(request protocal.Bran
 	resp.BranchStatus = status
 	resp.ResultCode = protocal.ResultCodeSuccess
 	return resp
-}
-
-func  (resourceManager TCCResourceManager) doRegisterResource(serverAddress string) {
-	if resourceManager.tccResourceCache == nil || len(resourceManager.tccResourceCache) == 0 {
-		return
-	}
-	message := protocal.RegisterRMRequest{
-		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
-			Version:                 config.GetClientConfig().SeataVersion,
-			ApplicationId:           config.GetClientConfig().ApplicationId,
-			TransactionServiceGroup: config.GetClientConfig().TransactionServiceGroup,
-		},
-		ResourceIds: resourceManager.getMergedResourceKeys(),
-	}
-
-	resourceManager.AbstractResourceManager.RpcClient.RegisterResource(serverAddress,message)
-}
-
-func (resourceManager TCCResourceManager) getMergedResourceKeys() string {
-	var builder strings.Builder
-	if resourceManager.tccResourceCache != nil && len(resourceManager.tccResourceCache) > 0 {
-		for key, _ := range resourceManager.tccResourceCache {
-			builder.WriteString(key)
-			builder.WriteString(DBKEYS_SPLIT_CHAR)
-		}
-		resourceKeys := builder.String()
-		resourceKeys = resourceKeys[:len(resourceKeys)-1]
-		return resourceKeys
-	}
-	return ""
 }

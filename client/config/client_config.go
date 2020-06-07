@@ -12,11 +12,12 @@ import (
 )
 
 type ClientConfig struct {
-	ApplicationId		    string
-	TransactionServiceGroup string
-	SeataVersion            string
-	GettyConfig             GettyConfig
-	TMConfig                TMConfig
+	ApplicationId		    string `yaml:"application_id" json:"application_id,omitempty"`
+	TransactionServiceGroup string `yaml:"transaction_service_group" json:"transaction_service_group,omitempty"`
+	SeataVersion            string `yaml:"seata_version" json:"seata_version,omitempty"`
+	GettyConfig             GettyConfig `yaml:"getty" json:"getty,omitempty"`
+	TMConfig                TMConfig `yaml:"tm" json:"tm,omitempty"`
+	ATConfig                ATConfig `yaml:"at" json:"at,omitempty"`
 }
 
 var clientConfig ClientConfig
@@ -51,13 +52,14 @@ func InitConf(confFile string) error {
 	if err != nil {
 		return errors.WithMessagef(err,fmt.Sprintf("ioutil.ReadFile(file:%s) = error:%s", confFile, err))
 	}
-	err = yaml.Unmarshal(confFileStream, &tmConfig)
+	err = yaml.Unmarshal(confFileStream, &clientConfig)
 	if err != nil {
 		return errors.WithMessagef(err,fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
 
 	(&clientConfig).GettyConfig.CheckValidity()
-
+	(&clientConfig).ATConfig.CheckValidity()
+	tmConfig = clientConfig.TMConfig
 	return nil
 }
 

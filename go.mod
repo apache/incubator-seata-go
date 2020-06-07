@@ -4,6 +4,7 @@ go 1.13.3
 
 require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
 	github.com/dubbogo/getty v1.3.3
 	github.com/dubbogo/gost v1.6.0
