@@ -3,25 +3,25 @@ package model
 import "time"
 
 type BranchTransactionDO struct {
-	Xid string
+	Xid string `xorm:"xid"`
 
-	TransactionId int64
+	TransactionId int64 `xorm:"transaction_id"`
 
-	BranchId int64
+	BranchId int64 `xorm:"branch_id"`
 
-	ResourceGroupId string
+	ResourceGroupId string `xorm:"resource_group_id"`
 
-	ResourceId string
+	ResourceId string `xorm:"resource_id"`
 
-	BranchType string
+	BranchType string `xorm:"branch_type"`
 
-	Status int32
+	Status int32 `xorm:"status"`
 
-	ClientId string
+	ClientId string `xorm:"client_id"`
 
-	ApplicationData []byte
+	ApplicationData []byte `xorm:"application_data"`
 
-	GmtCreate time.Time
+	GmtCreate time.Time `xorm:"gmt_create"`
 
-	GmtModified time.Time
+	GmtModified time.Time `xorm:"gmt_modified"`
 }

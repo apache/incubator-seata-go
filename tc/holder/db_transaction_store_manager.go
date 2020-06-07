@@ -104,8 +104,9 @@ func (storeManager *DBTransactionStoreManager) readSessionByStatuses(statuses []
 		branchTransactions,ok := branchTransactionMap[branchTransactionDO.Xid]
 		if ok {
 			branchTransactions = append(branchTransactions,branchTransactionDO)
+			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
 		} else {
-			branchTransactions = make([]*model.BranchTransactionDO,0)
+			branchTransactions =make([]*model.BranchTransactionDO,0)
 			branchTransactions = append(branchTransactions,branchTransactionDO)
 			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
 		}

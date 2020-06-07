@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/dk-lockdown/seata-golang/tc/holder"
 	"github.com/dk-lockdown/seata-golang/tc/lock"
-	"os"
 )
 
 import (
@@ -17,12 +16,11 @@ import (
 )
 
 const (
-	APP_CONF_FILE     = "APP_CONF_FILE"
+	APP_CONF_FILE     = "/Users/scottlewis/dksl/git/1/seata-golang/tc/app/profiles/dev/config.yml"
 )
 
 func main() {
-	confFile := os.Getenv(APP_CONF_FILE)
-	config.InitConf(confFile)
+	config.InitConf(APP_CONF_FILE)
 	uuid.Init(1)
 	lock.Init()
 	holder.Init()

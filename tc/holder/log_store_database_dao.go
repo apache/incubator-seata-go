@@ -124,7 +124,7 @@ func (dao *LogStoreDataBaseDAO) DeleteGlobalTransactionDO(globalTransaction mode
 
 func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXid(xid string) []*model.BranchTransactionDO {
 	var branchTransactionDos []*model.BranchTransactionDO
-	err :=dao.engine.SQL(QueryBranchTransactionDOByXid).Find(&branchTransactionDos)
+	err :=dao.engine.SQL(QueryBranchTransactionDOByXid,xid).Find(&branchTransactionDos)
 	if err != nil {
 		logging.Logger.Errorf(err.Error())
 	}
