@@ -60,5 +60,9 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx,error) {
 		ResourceId: db.GetResourceId(),
 		Context:    tx2.NewTxContext(ctx),
 	}
-	return &Tx{tx: proxyTx},nil
+	return &Tx{
+		tx: proxyTx,
+		reportRetryCount: db.conf.ReportRetryCount,
+		reportSuccessEnable: db.conf.ReportSuccessEnable,
+	},nil
 }
