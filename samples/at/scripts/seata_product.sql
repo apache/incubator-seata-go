@@ -14,6 +14,9 @@
  Date: 07/06/2020 23:08:54
 */
 
+CREATE database if NOT EXISTS `seata_product` default character set utf8mb4 collate utf8mb4_unicode_ci;
+use `seata_product`;
+
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
