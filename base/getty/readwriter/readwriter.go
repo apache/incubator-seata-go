@@ -46,35 +46,35 @@ var (
 type RpcPackageHandler struct{}
 
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	r := byteio.BigEndianReader{Reader:bytes.NewReader(data)}
+	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 
-	b0,_ := r.ReadByte()
-	b1,_ := r.ReadByte()
+	b0, _ := r.ReadByte()
+	b1, _ := r.ReadByte()
 
 	if b0 != protocal.MAGIC_CODE_BYTES[0] || b1 != protocal.MAGIC_CODE_BYTES[1] {
-		return nil,0,errors.Errorf("Unknown magic code: %b,%b",b0,b1)
+		return nil, 0, errors.Errorf("Unknown magic code: %b,%b", b0, b1)
 	}
 
 	r.ReadByte()
 	// TODO  check version compatible here
 
-	fullLength,_,_ := r.ReadInt32()
-	headLength,_,_ := r.ReadInt16()
-	messageType,_ := r.ReadByte()
-	codecType,_ := r.ReadByte()
-	compressorType,_ := r.ReadByte()
-	requestId,_,_ := r.ReadInt32()
+	fullLength, _, _ := r.ReadInt32()
+	headLength, _, _ := r.ReadInt16()
+	messageType, _ := r.ReadByte()
+	codecType, _ := r.ReadByte()
+	compressorType, _ := r.ReadByte()
+	requestId, _, _ := r.ReadInt32()
 
 	rpcMessage := protocal.RpcMessage{
-		Codec:codecType,
-		Id:requestId,
-		Compressor:compressorType,
-		MessageType:messageType,
+		Codec:       codecType,
+		Id:          requestId,
+		Compressor:  compressorType,
+		MessageType: messageType,
 	}
 
 	headMapLength := headLength - protocal.V1_HEAD_LENGTH
 	if headMapLength > 0 {
-		rpcMessage.HeadMap = headMapDecode(data[protocal.V1_HEAD_LENGTH+1:headMapLength])
+		rpcMessage.HeadMap = headMapDecode(data[protocal.V1_HEAD_LENGTH+1 : headMapLength])
 	}
 
 	if messageType == protocal.MSGTYPE_HEARTBEAT_REQUEST {
@@ -86,7 +86,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		if bodyLength > 0 {
 			//todo compress
 
-			msg,_ := codec.MessageDecoder(codecType,data[headLength:])
+			msg, _ := codec.MessageDecoder(codecType, data[headLength:])
 			rpcMessage.Body = msg
 		}
 	}
@@ -94,8 +94,8 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	return rpcMessage, int(fullLength), nil
 }
 
-func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{})  ([]byte, error) {
-	var result = make([]byte,0)
+func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, error) {
+	var result = make([]byte, 0)
 	msg := pkg.(protocal.RpcMessage)
 
 	fullLength := protocal.V1_HEAD_LENGTH
@@ -113,7 +113,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{})  ([]byte, e
 	w.WriteInt32(msg.Id)
 
 	if msg.HeadMap != nil && len(msg.HeadMap) > 0 {
-		headMapBytes,headMapLength := headMapEncode(msg.HeadMap)
+		headMapBytes, headMapLength := headMapEncode(msg.HeadMap)
 		headLength += headMapLength
 		fullLength += headMapLength
 		w.Write(headMapBytes)
@@ -121,20 +121,19 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{})  ([]byte, e
 
 	if msg.MessageType != protocal.MSGTYPE_HEARTBEAT_REQUEST &&
 		msg.MessageType != protocal.MSGTYPE_HEARTBEAT_RESPONSE {
-		bodyBytes := codec.MessageEncoder(msg.Codec,msg.Body)
+		bodyBytes := codec.MessageEncoder(msg.Codec, msg.Body)
 		fullLength += len(bodyBytes)
 		w.Write(bodyBytes)
 	}
 
 	fullLen := int32(fullLength)
 	headLen := int16(headLength)
-	result = append(result, []byte{ byte(fullLen>>26),byte(fullLen>>16),byte(fullLen>>8),byte(fullLen) }...)
-	result = append(result, []byte{ byte(headLen>>8),byte(headLen) }...)
-	result = append(result,b.Bytes()...)
+	result = append(result, []byte{byte(fullLen >> 24), byte(fullLen >> 16), byte(fullLen >> 8), byte(fullLen)}...)
+	result = append(result, []byte{byte(headLen >> 8), byte(headLen)}...)
+	result = append(result, b.Bytes()...)
 
 	return result, nil
 }
-
 
 func headMapDecode(data []byte) map[string]string {
 	mp := make(map[string]string)
@@ -142,27 +141,27 @@ func headMapDecode(data []byte) map[string]string {
 	if size == 0 {
 		return mp
 	}
-	r := byteio.BigEndianReader{Reader:bytes.NewReader(data)}
+	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 
 	readLength := 0
 	for readLength < size {
 		var key, value string
-		lengthK,_,_ := r.ReadUint16()
+		lengthK, _, _ := r.ReadUint16()
 		if lengthK < 0 {
 			break
 		} else if lengthK == 0 {
 			key = ""
 		} else {
-			key,_,_ = r.ReadString(int(lengthK))
+			key, _, _ = r.ReadString(int(lengthK))
 		}
 
-		lengthV,_,_ := r.ReadUint16()
+		lengthV, _, _ := r.ReadUint16()
 		if lengthV < 0 {
 			break
 		} else if lengthV == 0 {
 			value = ""
 		} else {
-			value,_,_ = r.ReadString(int(lengthV))
+			value, _, _ = r.ReadString(int(lengthV))
 		}
 
 		mp[key] = value
@@ -171,11 +170,11 @@ func headMapDecode(data []byte) map[string]string {
 	return mp
 }
 
-func headMapEncode(data map[string]string) ([]byte,int) {
+func headMapEncode(data map[string]string) ([]byte, int) {
 	var b bytes.Buffer
 
 	w := byteio.BigEndianWriter{Writer: &b}
-	for k,v := range data{
+	for k, v := range data {
 		if k == "" {
 			w.WriteUint16(0)
 		} else {
@@ -190,5 +189,5 @@ func headMapEncode(data map[string]string) ([]byte,int) {
 			w.WriteString(v)
 		}
 	}
-	return b.Bytes(),b.Len()
+	return b.Bytes(), b.Len()
 }
