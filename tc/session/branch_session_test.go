@@ -28,16 +28,17 @@ func TestBranchSession_Encode_Decode(t *testing.T) {
 }
 
 func branchSessionProvider() *BranchSession {
-	bs := NewBranchSession().
-		SetTransactionId(uuid.GeneratorUUID()).
-		SetBranchId(1).
-		SetResourceGroupId("my_test_tx_group").
-		SetResourceId("tb_1").
-		SetLockKey("t_1").
-		SetBranchType(meta.BranchTypeAT).
-		SetStatus(meta.BranchStatusUnknown).
-		SetClientId("c1").
-		SetApplicationData([]byte("{\"data\":\"test\"}"))
+	bs := NewBranchSession(
+		WithBsTransactionId(uuid.GeneratorUUID()),
+		WithBsBranchId(1),
+		WithBsResourceGroupId("my_test_tx_group"),
+		WithBsResourceId("tb_1"),
+		WithBsLockKey("t_1"),
+		WithBsBranchType(meta.BranchTypeAT),
+		WithBsStatus(meta.BranchStatusUnknown),
+		WithBsClientId("c1"),
+		WithBsApplicationData([]byte("{\"data\":\"test\"}")),
+		)
 
 	return bs
 }

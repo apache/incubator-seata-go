@@ -23,7 +23,7 @@ var PerFileBlockSize int64 = 65535 * 8
 var HisDataFilenamePostfix = ".1"
 var MaxTrxTimeoutMills int64 = 30 * 60 * 1000
 
-type IReloadableStore interface {
+type ReloadableStore interface {
 	/**
 	 * Read write holder.
 	 *
@@ -43,7 +43,7 @@ type IReloadableStore interface {
 }
 
 type FileTransactionStoreManager struct {
-	SessionManager ISessionManager
+	SessionManager SessionManager
 
 	currFullFileName string
 	hisFullFileName string

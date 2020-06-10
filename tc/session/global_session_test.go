@@ -23,12 +23,13 @@ func TestGlobalSession_Encode_Decode(t *testing.T) {
 }
 
 func globalSessionProvider() *GlobalSession{
-	gs := NewGlobalSession().
-		SetApplicationId("demo-app").
-		SetTransactionServiceGroup("my_test_tx_group").
-		SetTransactionName("test").
-		SetTimeout(6000).
-		SetActive(true)
+	gs := NewGlobalSession(
+		WithGsApplicationId("demo-app"),
+		WithGsTransactionServiceGroup("my_test_tx_group"),
+		WithGsTransactionName("test"),
+		WithGsTimeout(6000),
+		WithGsActive(true),
+	)
 
 	return gs
 }

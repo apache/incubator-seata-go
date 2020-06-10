@@ -160,30 +160,32 @@ func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO,branchTrans
 }
 
 func convertGlobalTransaction(globalTransactionDO *model.GlobalTransactionDO) *session.GlobalSession {
-	globalSession := session.NewGlobalSession().
-		SetXid(globalTransactionDO.Xid).
-		SetApplicationId(globalTransactionDO.ApplicationId).
-		SetTransactionId(globalTransactionDO.TransactionId).
-		SetTransactionName(globalTransactionDO.TransactionName).
-		SetTransactionServiceGroup(globalTransactionDO.TransactionServiceGroup).
-		SetStatus(meta.GlobalStatus(globalTransactionDO.Status)).
-		SetTimeout(globalTransactionDO.Timeout).
-		SetBeginTime(globalTransactionDO.BeginTime).
-		SetApplicationData(globalTransactionDO.ApplicationData)
+	globalSession := session.NewGlobalSession(
+		session.WithGsXid(globalTransactionDO.Xid),
+		session.WithGsApplicationId(globalTransactionDO.ApplicationId),
+		session.WithGsTransactionId(globalTransactionDO.TransactionId),
+		session.WithGsTransactionName(globalTransactionDO.TransactionName),
+		session.WithGsTransactionServiceGroup(globalTransactionDO.TransactionServiceGroup),
+		session.WithGsStatus(meta.GlobalStatus(globalTransactionDO.Status)),
+		session.WithGsTimeout(globalTransactionDO.Timeout),
+		session.WithGsBeginTime(globalTransactionDO.BeginTime),
+		session.WithGsApplicationData(globalTransactionDO.ApplicationData),
+	)
 	return globalSession
 }
 
 func convertBranchSession(branchTransactionDO *model.BranchTransactionDO) *session.BranchSession {
-	branchSession := session.NewBranchSession().
-		SetXid(branchTransactionDO.Xid).
-		SetTransactionId(branchTransactionDO.TransactionId).
-		SetApplicationData(branchTransactionDO.ApplicationData).
-		SetBranchId(branchTransactionDO.BranchId).
-		SetBranchType(meta.ValueOfBranchType(branchTransactionDO.BranchType)).
-		SetResourceId(branchTransactionDO.ResourceId).
-		SetClientId(branchTransactionDO.ClientId).
-		SetResourceGroupId(branchTransactionDO.ResourceGroupId).
-		SetStatus(meta.BranchStatus(branchTransactionDO.Status))
+	branchSession := session.NewBranchSession(
+		session.WithBsXid(branchTransactionDO.Xid),
+		session.WithBsTransactionId(branchTransactionDO.TransactionId),
+		session.WithBsApplicationData(branchTransactionDO.ApplicationData),
+		session.WithBsBranchId(branchTransactionDO.BranchId),
+		session.WithBsBranchType(meta.ValueOfBranchType(branchTransactionDO.BranchType)),
+		session.WithBsResourceId(branchTransactionDO.ResourceId),
+		session.WithBsClientId(branchTransactionDO.ClientId),
+		session.WithBsResourceGroupId(branchTransactionDO.ResourceGroupId),
+		session.WithBsStatus(meta.BranchStatus(branchTransactionDO.Status)),
+	)
 	return branchSession
 }
 

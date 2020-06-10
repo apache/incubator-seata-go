@@ -15,10 +15,10 @@ import (
 type DataBaseSessionManager struct {
 	TaskName string
 	conf config.DBStoreConfig
-	TransactionStoreManager ITransactionStoreManager
+	TransactionStoreManager TransactionStoreManager
 }
 
-func NewDataBaseSessionManager(taskName string,conf config.DBStoreConfig) ISessionManager {
+func NewDataBaseSessionManager(taskName string,conf config.DBStoreConfig) SessionManager {
 	logStore := &LogStoreDataBaseDAO{engine:conf.Engine}
 	transactionStoreManager := &DBTransactionStoreManager{
 		logQueryLimit: conf.LogQueryLimit,

@@ -15,7 +15,7 @@ const (
 	BatchDeleteLockByBranchId = `delete from lock_table where xid = ? AND branch_id = ?`
 	GetLockDOCount = "select count(1) as total from lock_table"
 )
-type ILockStore interface {
+type LockStore interface {
 	AcquireLockByLockDO(lockDO *model.LockDO) bool
 	AcquireLock(lockDOs []*model.LockDO) bool
 	UnLockByLockDO(lockDO *model.LockDO) bool

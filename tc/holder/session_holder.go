@@ -15,10 +15,10 @@ var(
 )
 
 type SessionHolder struct {
-	RootSessionManager             ISessionManager
-	AsyncCommittingSessionManager  ISessionManager
-	RetryCommittingSessionManager  ISessionManager
-	RetryRollbackingSessionManager ISessionManager
+	RootSessionManager             SessionManager
+	AsyncCommittingSessionManager  SessionManager
+	RetryCommittingSessionManager  SessionManager
+	RetryRollbackingSessionManager SessionManager
 }
 
 var sessionHolder SessionHolder
@@ -87,7 +87,7 @@ func (sessionHolder SessionHolder) reload() {
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 						break
 					case meta.GlobalStatusBegin:
-						globalSession.SetActive(true)
+						globalSession.Active = true
 						break
 					default:
 						logging.Logger.Errorf("NOT properly handled %s",globalSession.Status)

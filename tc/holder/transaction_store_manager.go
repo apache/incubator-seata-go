@@ -55,59 +55,29 @@ func (t LogOperation) String() string {
 }
 
 type Reloadable interface {
-	/**
-	 * Reload states.
-	 */
+	// Reload states.
 	Reload()
 }
 
 
-type ITransactionStoreManager interface {
-	/**
-	 * Write session boolean.
-	 *
-	 * @param logOperation the log operation
-	 * @param session      the session
-	 * @return the boolean
-	 */
+type TransactionStoreManager interface {
+	// Write session boolean.
 	WriteSession(logOperation LogOperation, session session.SessionStorable) bool
 
 
-	/**
-	 * Read global session global session.
-	 *
-	 * @param xid the xid
-	 * @return the global session
-	 */
+	// Read global session global session.
 	ReadSession(xid string) *session.GlobalSession
 
-	/**
-	 * Read session global session.
-	 *
-	 * @param xid the xid
-	 * @param withBranchSessions the withBranchSessions
-	 * @return the global session
-	 */
+	// Read session global session.
 	ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession
 
-	/**
-	 * Read session by status list.
-	 *
-	 * @param sessionCondition the session condition
-	 * @return the list
-	 */
+	// Read session by status list.
 	ReadSessionWithSessionCondition(sessionCondition model.SessionCondition) []*session.GlobalSession
 
-	/**
-	 * Shutdown.
-	 */
+	// Shutdown.
 	Shutdown()
 
-	/**
-	 * Gets current max session id.
-	 *
-	 * @return the current max session id
-	 */
+	// Gets current max session id.
 	GetCurrentMaxSessionId() int64
 }
 

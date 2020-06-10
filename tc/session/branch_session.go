@@ -2,6 +2,7 @@ package session
 
 import (
 	"bytes"
+	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 )
 
 import (
@@ -12,7 +13,6 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 )
 
@@ -38,77 +38,89 @@ type BranchSession struct{
 	ApplicationData []byte
 }
 
-func NewBranchSession() *BranchSession {
-	return &BranchSession{}
+type BranchSessionOption func(session *BranchSession)
+
+func WithBsXid(xid string) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.Xid = xid
+	}
 }
 
-func NewBranchSessionByGlobal(gs GlobalSession,
-								branchType meta.BranchType,
-								resourceId string,
-								applicationData []byte,
-								lockKeys string,
-								clientId string) *BranchSession {
-	bs := NewBranchSession()
-	bs.SetXid(gs.Xid)
-	bs.SetTransactionId(gs.TransactionId)
-	bs.SetBranchId(uuid.GeneratorUUID())
-	bs.SetBranchType(branchType)
-	bs.SetResourceId(resourceId)
-	bs.SetLockKey(lockKeys)
-	bs.SetClientId(clientId)
-	bs.SetApplicationData(applicationData)
-	return bs
+func WithBsTransactionId(transactionId int64) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.TransactionId = transactionId
+	}
 }
 
-
-func (bs *BranchSession) SetXid(xid string) *BranchSession {
-	bs.Xid = xid
-	return bs
+func WithBsBranchId(branchId int64) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.BranchId = branchId
+	}
 }
 
-func (bs *BranchSession) SetTransactionId(transactionId int64) *BranchSession {
-	bs.TransactionId = transactionId
-	return bs
+func WithBsResourceGroupId(resourceGroupId string) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.ResourceGroupId = resourceGroupId
+	}
 }
 
-func (bs *BranchSession) SetBranchId(branchId int64) *BranchSession {
-	bs.BranchId = branchId
-	return bs
+func WithBsResourceId(resourceId string) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.ResourceId = resourceId
+	}
 }
 
-
-func (bs *BranchSession) SetResourceGroupId(ResourceGroupId string) *BranchSession {
-	bs.ResourceGroupId = ResourceGroupId
-	return bs
+func WithBsLockKey(lockKey string) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.LockKey = lockKey
+	}
 }
 
-func (bs *BranchSession) SetResourceId(resourceId string) *BranchSession {
-	bs.ResourceId = resourceId
-	return bs
+func WithBsBranchType(branchType meta.BranchType) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.BranchType = branchType
+	}
 }
 
-func (bs *BranchSession) SetLockKey(lockKey string) *BranchSession {
-	bs.LockKey = lockKey
-	return bs
+func WithBsStatus(status meta.BranchStatus) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.Status = status
+	}
 }
 
-func (bs *BranchSession) SetBranchType(branchType meta.BranchType) *BranchSession {
-	bs.BranchType = branchType
-	return bs
+func WithBsClientId(clientId string) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.ClientId = clientId
+	}
 }
 
-func (bs *BranchSession) SetStatus(status meta.BranchStatus) *BranchSession {
-	bs.Status = status
-	return bs
+func WithBsApplicationData(applicationData []byte) BranchSessionOption {
+	return func(session *BranchSession) {
+		session.ApplicationData = applicationData
+	}
 }
 
-func (bs *BranchSession) SetClientId(clientId string) *BranchSession {
-	bs.ClientId = clientId
-	return bs
+func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
+	session := &BranchSession{
+		BranchId: uuid.GeneratorUUID(),
+		Status: meta.BranchStatusUnknown,
+	}
+	for _, o := range opts {
+		o(session)
+	}
+	return session
 }
 
-func (bs *BranchSession) SetApplicationData(applicationData []byte) *BranchSession {
-	bs.ApplicationData = applicationData
+func NewBranchSessionByGlobal(gs GlobalSession, opts ...BranchSessionOption) *BranchSession {
+	bs := &BranchSession{
+		Xid: gs.Xid,
+		TransactionId: gs.TransactionId,
+		BranchId: uuid.GeneratorUUID(),
+		Status: meta.BranchStatusUnknown,
+	}
+	for _, o := range opts {
+		o(bs)
+	}
 	return bs
 }
 

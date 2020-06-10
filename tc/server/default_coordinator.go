@@ -33,7 +33,7 @@ const (
 
 type DefaultCoordinator struct {
 	conf config.ServerConfig
-	core ITransactionCoordinator
+	core TransactionCoordinator
 	idGenerator atomic.Uint32
 	futures *sync.Map
 	timeoutCheckTicker *time.Ticker
@@ -65,7 +65,9 @@ func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
 	return coordinator
 }
 
-
+///////////////////////////////////////////////////
+// EventListener
+///////////////////////////////////////////////////
 func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {
 	logging.Logger.Infof("got getty_session:%s", session.Stat())
 	return nil
@@ -104,6 +106,11 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 				coordinator.OnRegRmMessage(rpcMessage,session)
 			} else {
 				if SessionManager.IsRegistered(session) {
+					defer func() {
+						if err := recover(); err != nil {
+							logging.Logger.Errorf("Catch Exception while do RPC, request: %v,err: %w",rpcMessage,err)
+						}
+					}()
 					coordinator.OnTrxMessage(rpcMessage,session)
 				} else {
 					session.Close()
@@ -237,12 +244,12 @@ func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceId str
 }
 
 
-func (coordinator *DefaultCoordinator) SendSyncRequestByGettySession(session getty.Session, message interface{}) (interface{},error) {
-	return coordinator.SendSyncRequestByGettySessionWithTimeout(session,message,RPC_REQUEST_TIMEOUT)
+func (coordinator *DefaultCoordinator) SendSyncRequestByGetty(session getty.Session, message interface{}) (interface{},error) {
+	return coordinator.SendSyncRequestByGettyWithTimeout(session,message,RPC_REQUEST_TIMEOUT)
 }
 
 
-func (coordinator *DefaultCoordinator) SendSyncRequestByGettySessionWithTimeout(session getty.Session, message interface{}, timeout time.Duration) (interface{},error) {
+func (coordinator *DefaultCoordinator) SendSyncRequestByGettyWithTimeout(session getty.Session, message interface{}, timeout time.Duration) (interface{},error) {
 	if session == nil {
 		return nil,errors.New("rm client is not connected")
 	}

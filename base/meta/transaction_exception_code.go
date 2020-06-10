@@ -102,9 +102,12 @@ const (
 type TransactionException struct {
 	Code TransactionExceptionCode
 	Message string
+	Err error
 }
 
 //Error 隐式继承 builtin.error 接口
 func (e TransactionException) Error() string {
 	return "TransactionException: " + e.Message
 }
+
+func (e TransactionException) Unwrap() error { return e.Err }
