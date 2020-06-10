@@ -13,7 +13,7 @@ type FileBasedSessionManager struct {
 	DefaultSessionManager
 }
 
-func NewFileBasedSessionManager(conf config.FileStoreConfig) ISessionManager {
+func NewFileBasedSessionManager(conf config.FileStoreConfig) SessionManager {
 	transactionStoreManager := &FileTransactionStoreManager{}
 	transactionStoreManager.InitFile(conf.FileDir)
 	sessionManager := DefaultSessionManager{
@@ -57,7 +57,7 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 }
 
 func (sessionManager *FileBasedSessionManager) restoreSessionsToUnhandledBranchBuffer(isHistory bool,unhandledBranchSessions map[int64]*session.BranchSession) {
-	transactionStoreManager, ok := sessionManager.TransactionStoreManager.(IReloadableStore)
+	transactionStoreManager, ok := sessionManager.TransactionStoreManager.(ReloadableStore)
 	if !ok {
 		return
 	}

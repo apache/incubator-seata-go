@@ -11,7 +11,7 @@ type DefaultSessionManager struct {
 	SessionMap              map[string]*session.GlobalSession
 }
 
-func NewDefaultSessionManager(name string) ISessionManager {
+func NewDefaultSessionManager(name string) SessionManager {
 	return &DefaultSessionManager{
 		AbstractSessionManager: AbstractSessionManager {
 			TransactionStoreManager:  &AbstractTransactionStoreManager{},
@@ -61,6 +61,6 @@ func (sessionManager *DefaultSessionManager) FindGlobalSessions(condition model.
 	return sessions
 }
 
-func (sessionManager *DefaultSessionManager) SetTransactionStoreManager(transactionStoreManager ITransactionStoreManager) {
+func (sessionManager *DefaultSessionManager) SetTransactionStoreManager(transactionStoreManager TransactionStoreManager) {
 	sessionManager.TransactionStoreManager = transactionStoreManager
 }

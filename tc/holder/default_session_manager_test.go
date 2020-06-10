@@ -11,7 +11,6 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
@@ -44,21 +43,19 @@ func globalSessionsProvider() []*session.GlobalSession {
 	common.XID.Port=9876
 
 	result := make([]*session.GlobalSession,0)
-	gs1 := session.NewGlobalSession().
-		SetApplicationId("demo-app").
-		SetTransactionId(uuid.GeneratorUUID()).
-		SetTransactionServiceGroup("my_test_tx_group").
-		SetTransactionName("test").
-		SetTimeout(6000)
-	gs1.SetXid(common.XID.GenerateXID(gs1.TransactionId))
+	gs1 := session.NewGlobalSession(
+		session.WithGsApplicationId("demo-app"),
+		session.WithGsTransactionServiceGroup("my_test_tx_group"),
+		session.WithGsTransactionName("test"),
+		session.WithGsTimeout(6000),
+	)
 
-	gs2 := session.NewGlobalSession().
-		SetApplicationId("demo-app").
-		SetTransactionId(uuid.GeneratorUUID()).
-		SetTransactionServiceGroup("my_test_tx_group").
-		SetTransactionName("test").
-		SetTimeout(6000)
-	gs2.SetXid(common.XID.GenerateXID(gs2.TransactionId))
+	gs2 := session.NewGlobalSession(
+		session.WithGsApplicationId("demo-app"),
+		session.WithGsTransactionServiceGroup("my_test_tx_group"),
+		session.WithGsTransactionName("test"),
+		session.WithGsTimeout(6000),
+	)
 
 	result = append(result,gs1)
 	result = append(result,gs2)
@@ -69,25 +66,25 @@ func globalSessionProvider() *session.GlobalSession {
 	common.XID.IpAddress="127.0.0.1"
 	common.XID.Port=9876
 
-	gs := session.NewGlobalSession().
-		SetApplicationId("demo-app").
-		SetTransactionId(uuid.GeneratorUUID()).
-		SetTransactionServiceGroup("my_test_tx_group").
-		SetTransactionName("test").
-		SetTimeout(6000)
-	gs.SetXid(common.XID.GenerateXID(gs.TransactionId))
+	gs := session.NewGlobalSession(
+		session.WithGsApplicationId("demo-app"),
+		session.WithGsTransactionServiceGroup("my_test_tx_group"),
+		session.WithGsTransactionName("test"),
+		session.WithGsTimeout(6000),
+	)
 	return gs
 }
 
 func branchSessionProvider(globalSession *session.GlobalSession) *session.BranchSession {
-	bs := session.NewBranchSession().
-		SetTransactionId(globalSession.TransactionId).
-		SetBranchId(1).
-		SetResourceGroupId("my_test_tx_group").
-		SetResourceId("tb_1").
-		SetLockKey("t_1").
-		SetBranchType(meta.BranchTypeAT).
-		SetApplicationData([]byte("{\"data\":\"test\"}"))
+	bs := session.NewBranchSession(
+		session.WithBsTransactionId(globalSession.TransactionId),
+		session.WithBsBranchId(1),
+		session.WithBsResourceGroupId("my_test_tx_group"),
+		session.WithBsResourceId("tb_1"),
+		session.WithBsLockKey("t_1"),
+		session.WithBsBranchType(meta.BranchTypeAT),
+		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),
+	)
 
 	return bs
 }

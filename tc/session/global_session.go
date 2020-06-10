@@ -46,65 +46,82 @@ type GlobalSession struct {
 	BranchSessions map[*BranchSession]bool
 }
 
-func NewGlobalSession() *GlobalSession {
+type GlobalSessionOption func(session *GlobalSession)
+
+func WithGsXid(xid string) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.Xid = xid
+	}
+}
+
+func WithGsTransactionId(transactionId int64) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.TransactionId = transactionId
+	}
+}
+
+func WithGsStatus(status meta.GlobalStatus) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.Status = status
+	}
+}
+
+func WithGsApplicationId(applicationId string) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.ApplicationId = applicationId
+	}
+}
+
+func WithGsTransactionServiceGroup(transactionServiceGroup string) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.TransactionServiceGroup = transactionServiceGroup
+	}
+}
+
+func WithGsTransactionName(transactionName string) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.TransactionName = transactionName
+	}
+}
+
+func WithGsTimeout(timeout int32) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.Timeout = timeout
+	}
+}
+
+func WithGsBeginTime(beginTime int64) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.BeginTime = beginTime
+	}
+}
+
+func WithGsApplicationData(applicationData []byte) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.ApplicationData = applicationData
+	}
+}
+
+func WithGsActive(active bool) GlobalSessionOption {
+	return func(session *GlobalSession) {
+		session.Active = active
+	}
+}
+
+
+func NewGlobalSession(opts ...GlobalSessionOption) *GlobalSession {
 	gs := &GlobalSession{
 		BranchSessions: make(map[*BranchSession]bool),
+		TransactionId: uuid.GeneratorUUID(),
+		Active: true,
 	}
-	gs.TransactionId = uuid.GeneratorUUID()
 	gs.Xid = common.XID.GenerateXID(gs.TransactionId)
-	gs.Active = true
+	for _,o := range opts {
+		o(gs)
+	}
 	return gs
 }
 
-func (gs *GlobalSession) SetXid(xid string) *GlobalSession {
-	gs.Xid = xid
-	return gs
-}
-
-func (gs *GlobalSession) SetTransactionId(transactionId int64) *GlobalSession {
-	gs.TransactionId = transactionId
-	return gs
-}
-
-func (gs *GlobalSession) SetStatus(status meta.GlobalStatus) *GlobalSession {
-	gs.Status = status
-	return gs
-}
-
-func (gs *GlobalSession) SetApplicationId(applicationId string) *GlobalSession {
-	gs.ApplicationId = applicationId
-	return gs
-}
-
-func (gs *GlobalSession) SetTransactionServiceGroup(transactionServiceGroup string) *GlobalSession {
-	gs.TransactionServiceGroup = transactionServiceGroup
-	return gs
-}
-
-func (gs *GlobalSession) SetTransactionName(transactionName string) *GlobalSession {
-	gs.TransactionName = transactionName
-	return gs
-}
-
-func (gs *GlobalSession) SetTimeout(timeout int32) *GlobalSession {
-	gs.Timeout = timeout
-	return gs
-}
-
-func (gs *GlobalSession) SetBeginTime(beginTime int64) *GlobalSession {
-	gs.BeginTime = beginTime
-	return gs
-}
-
-func (gs *GlobalSession) SetApplicationData(applicationData []byte) *GlobalSession {
-	gs.ApplicationData = applicationData
-	return gs
-}
-
-func (gs *GlobalSession) SetActive(active bool) *GlobalSession {
-	gs.Active = active
-	return gs
-}
 
 func (gs *GlobalSession) Add(branchSession *BranchSession) {
 	branchSession.Status = meta.BranchStatusRegistered

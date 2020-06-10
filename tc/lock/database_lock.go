@@ -16,49 +16,46 @@ import (
 )
 
 type DataBaseLocker struct {
-	LockStore ILockStore
+	LockStore LockStore
 }
 
-func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) (bool, error) {
+func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
 		logging.Logger.Errorf("branchSession can't be null for memory/file locker.")
-		return false, errors.New("branchSession can't be null for memory/file locker.")
+		panic(errors.New("branchSession can't be null for memory/file locker."))
 	}
 
 	lockKey := branchSession.LockKey
 	if lockKey == "" {
-		return true,nil
+		return true
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
-	if locks == nil { return true,nil }
+	if locks == nil { return true }
 
-	return locker.LockStore.AcquireLock(convertToLockDO(locks)),nil
+	return locker.LockStore.AcquireLock(convertToLockDO(locks))
 }
 
-func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) (bool, error) {
+func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
 		logging.Logger.Info("branchSession can't be null for memory/file locker.")
-		return false,errors.New("branchSession can't be null for memory/file locker")
+		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
 
-	return locker.LockStore.UnLock(convertToLockDO(locks)),nil
+	return locker.LockStore.UnLock(convertToLockDO(locks))
 }
 
-func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) (bool, error) {
+func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
 	branchSessions := globalSession.GetSortedBranches()
 	releaseLockResult := true
 	for _,branchSession := range branchSessions {
-		ok, err := locker.ReleaseLock(branchSession)
-		if err != nil {
-			return ok,err
-		}
+		ok := locker.ReleaseLock(branchSession)
 		if !ok { releaseLockResult = false }
 
 	}
-	return releaseLockResult, nil
+	return releaseLockResult
 }
 
 func (locker *DataBaseLocker) IsLockable(xid string, resourceId string, lockKey string) bool {

@@ -55,7 +55,7 @@ import (
  */
 
 type AbstractCore struct {
-	MessageSender IServerMessageSender
+	MessageSender ServerMessageSender
 }
 
 type ATCore struct {
@@ -73,7 +73,7 @@ type DefaultCore struct {
 	coreMap map[meta.BranchType]interface{}
 }
 
-func NewCore(sender IServerMessageSender) ITransactionCoordinator {
+func NewCore(sender ServerMessageSender) TransactionCoordinator {
 	return &DefaultCore{
 		AbstractCore: AbstractCore{ MessageSender: sender },
 		ATCore:       ATCore{},
@@ -83,14 +83,11 @@ func NewCore(sender IServerMessageSender) ITransactionCoordinator {
 }
 
 func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession,branchSession *session.BranchSession) error {
-	result,err :=lock.GetLockManager().AcquireLock(branchSession)
-	if err != nil {
-		return err
-	}
+	result :=lock.GetLockManager().AcquireLock(branchSession)
 	if !result {
-		return &meta.TransactionException{
+		return meta.TransactionException{
 			Code: meta.TransactionExceptionCodeLockKeyConflict,
-			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchId = %s",
+			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchId = %d",
 				globalSession.Xid,branchSession.BranchId),
 		}
 	}
@@ -98,8 +95,8 @@ func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession,branc
 }
 
 func (core *ATCore) branchSessionUnlock(branchSession *session.BranchSession) error {
-	_, err := lock.GetLockManager().ReleaseLock(branchSession)
-	return err
+	lock.GetLockManager().ReleaseLock(branchSession)
+	return nil
 }
 
 func (core *ATCore) LockQuery(branchType meta.BranchType,
@@ -122,11 +119,12 @@ func (core *SAGACore) doGlobalReport(globalSession *session.GlobalSession, xid s
 }
 
 func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup string, name string, timeout int32) (string, error) {
-	gs := session.NewGlobalSession().
-		SetApplicationId(applicationId).
-		SetTransactionServiceGroup(transactionServiceGroup).
-		SetTransactionName(name).
-		SetTimeout(timeout)
+	gs := session.NewGlobalSession(
+		session.WithGsApplicationId(applicationId),
+		session.WithGsTransactionServiceGroup(transactionServiceGroup),
+		session.WithGsTransactionName(name),
+		session.WithGsTimeout(timeout),
+	)
 
 	gs.Begin()
 	err := holder.GetSessionHolder().RootSessionManager.AddGlobalSession(gs)
@@ -134,8 +132,10 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 		return "",err
 	}
 
-	evt := event.NewGlobalTransactionEvent(gs.TransactionId, event.RoleTC,gs.TransactionName,gs.BeginTime,0,gs.Status)
-	event.EventBus.GlobalTransactionEventChannel <- evt
+	go func() {
+		evt := event.NewGlobalTransactionEvent(gs.TransactionId, event.RoleTC, gs.TransactionName, gs.BeginTime, 0, gs.Status)
+		event.EventBus.GlobalTransactionEventChannel <- evt
+	}()
 
 	logging.Logger.Infof("Successfully begin global transaction xid = {}",gs.Xid)
 	return gs.Xid, nil
@@ -160,7 +160,14 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 		return 0,err
 	}
 
-	bs := session.NewBranchSessionByGlobal(*gs,branchType,resourceId,applicationData,lockKeys,clientId)
+	bs := session.NewBranchSessionByGlobal(*gs,
+		session.WithBsBranchType(branchType),
+		session.WithBsResourceId(resourceId),
+		session.WithBsApplicationData(applicationData),
+		session.WithBsLockKey(lockKeys),
+		session.WithBsClientId(clientId),
+	)
+
 
 	if branchType == meta.BranchTypeAT {
 		core.ATCore.branchSessionLock(gs, bs)
@@ -175,13 +182,13 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 
 func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 	if !globalSession.Active {
-		return &meta.TransactionException{
+		return meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotActive,
 			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d",globalSession.Xid,globalSession.Status),
 		}
 	}
 	if globalSession.Status != meta.GlobalStatusBegin {
-		return &meta.TransactionException{
+		return meta.TransactionException{
 			Code: meta.TransactionExceptionCodeGlobalTransactionStatusInvalid,
 			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d while expecting %d",
 				globalSession.Xid,globalSession.Status, meta.GlobalStatusBegin),
@@ -332,8 +339,10 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 		err error
 	)
 
-	evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime,0,globalSession.Status)
-	event.EventBus.GlobalTransactionEventChannel <- evt
+	go func() {
+		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+		event.EventBus.GlobalTransactionEventChannel <- evt
+	}()
 
 	if globalSession.IsSaga() {
 		success,err = core.SAGACore.doGlobalCommit(globalSession,retrying)
@@ -391,9 +400,11 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	if success {
 		endCommitted(globalSession)
 
-		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime,
-			int64(time.CurrentTimeMillis()),globalSession.Status)
-		event.EventBus.GlobalTransactionEventChannel <- evt
+		go func() {
+			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
+				int64(time.CurrentTimeMillis()), globalSession.Status)
+			event.EventBus.GlobalTransactionEventChannel <- evt
+		}()
 
 		logging.Logger.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
 	}
@@ -433,8 +444,11 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		err error
 	)
 
-	evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime, 0,globalSession.Status)
-	event.EventBus.GlobalTransactionEventChannel <- evt
+	go func() {
+		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+		event.EventBus.GlobalTransactionEventChannel <- evt
+	}()
+
 
 	if globalSession.IsSaga() {
 		success,err = core.SAGACore.doGlobalRollback(globalSession,retrying)
@@ -485,9 +499,11 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 	if success {
 		endRollbacked(globalSession)
 
-		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC,globalSession.TransactionName,globalSession.BeginTime,
-			int64(time.CurrentTimeMillis()),globalSession.Status)
-		event.EventBus.GlobalTransactionEventChannel <- evt
+		go func() {
+			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
+				int64(time.CurrentTimeMillis()), globalSession.Status)
+			event.EventBus.GlobalTransactionEventChannel <- evt
+		}()
 
 		logging.Logger.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
 	}

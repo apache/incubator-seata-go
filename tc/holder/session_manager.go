@@ -11,94 +11,40 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
-type ISessionManager interface {
-	/**
-	 * Add global session.
-	 *
-	 * @param session the session
-	 * @throws TransactionException the transaction exception
-	 */
+type SessionManager interface {
+	// Add global session.
 	AddGlobalSession(session *session.GlobalSession) error
 
-	/**
-	 * Find global session global session.
-	 *
-	 * @param xid the xid
-	 * @return the global session
-	 */
+	// Find global session global session.
 	 FindGlobalSession(xid string) *session.GlobalSession
 
-	/**
-	 * Find global session global session.
-	 *
-	 * @param xid the xid
-	 * @param withBranchSessions the withBranchSessions
-	 * @return the global session
-	 */
+	// Find global session global session.
 	FindGlobalSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession
 
-	/**
-	 * Update global session status.
-	 *
-	 * @param session the session
-	 * @param status  the status
-	 * @throws TransactionException the transaction exception
-	 */
+	// Update global session status.
 	UpdateGlobalSessionStatus(session *session.GlobalSession, status meta.GlobalStatus) error
 
-	/**
-	 * Remove global session.
-	 *
-	 * @param session the session
-	 * @throws TransactionException the transaction exception
-	 */
+	// Remove global session.
 	RemoveGlobalSession(session *session.GlobalSession) error
 
-	/**
-	 * Add branch session.
-	 *
-	 * @param globalSession the global session
-	 * @param session       the session
-	 * @throws TransactionException the transaction exception
-	 */
+	// Add branch session.
 	AddBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error
 
-	/**
-	 * Update branch session status.
-	 *
-	 * @param session the session
-	 * @param status  the status
-	 * @throws TransactionException the transaction exception
-	 */
+	// Update branch session status.
 	UpdateBranchSessionStatus(session *session.BranchSession, status meta.BranchStatus) error
 
-	/**
-	 * Remove branch session.
-	 *
-	 * @param globalSession the global session
-	 * @param session       the session
-	 * @throws TransactionException the transaction exception
-	 */
+	// Remove branch session.
 	RemoveBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error
 
-	/**
-	 * All sessions collection.
-	 *
-	 * @return the collection
-	 */
+	// All sessions collection.
 	AllSessions() []*session.GlobalSession
 
-	/**
-	 * Find global sessions list.
-	 *
-	 * @param condition the condition
-	 * @return the list
-	 */
+	// Find global sessions list.
 	FindGlobalSessions(condition model.SessionCondition) []*session.GlobalSession
 }
 
 type AbstractSessionManager struct {
-	TransactionStoreManager ITransactionStoreManager
+	TransactionStoreManager TransactionStoreManager
 	Name string
 }
 

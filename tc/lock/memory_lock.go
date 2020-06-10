@@ -28,45 +28,42 @@ type MemoryLocker struct {
 }
 
 
-func (ml *MemoryLocker) AcquireLock(branchSession *session.BranchSession) (bool, error) {
+func (ml *MemoryLocker) AcquireLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
 		logging.Logger.Errorf("branchSession can't be null for memory/file locker.")
-		return false, errors.New("branchSession can't be null for memory/file locker.")
+		panic(errors.New("branchSession can't be null for memory/file locker."))
 	}
 
 	lockKey := branchSession.LockKey
 	if lockKey == "" {
-		return true,nil
+		return true
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
-	if locks == nil { return true,nil }
+	if locks == nil { return true }
 	return ml.acquireLockByRowLocks(branchSession,locks)
 }
 
 
-func (ml *MemoryLocker) ReleaseLock(branchSession *session.BranchSession) (bool, error) {
+func (ml *MemoryLocker) ReleaseLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
 		logging.Logger.Info("branchSession can't be null for memory/file locker.")
-		return false,errors.New("branchSession can't be null for memory/file locker")
+		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
 	return ml.releaseLockByRowLocks(branchSession,locks)
 }
 
-func (ml *MemoryLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) (bool, error) {
+func (ml *MemoryLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
 	branchSessions := globalSession.GetSortedBranches()
 	releaseLockResult := true
 	for _,branchSession := range branchSessions {
-		ok, err := ml.ReleaseLock(branchSession)
-		if err != nil {
-			return ok,err
-		}
+		ok := ml.ReleaseLock(branchSession)
 		if !ok { releaseLockResult = false }
 
 	}
-	return releaseLockResult, nil
+	return releaseLockResult
 }
 
 func (ml *MemoryLocker) IsLockable(xid string, resourceId string, lockKey string) bool {
@@ -85,8 +82,8 @@ func  (ml *MemoryLocker) GetLockKeyCount() int64 {
 }
 
 // AcquireLock 申请锁资源，resourceId -> tableName -> bucketId -> pk -> transactionId
-func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSession,rowLocks []*RowLock) (bool, error) {
-	if rowLocks == nil { return true, nil }
+func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSession,rowLocks []*RowLock) bool {
+	if rowLocks == nil { return true }
 
 	resourceId := branchSession.ResourceId
 	transactionId := branchSession.TransactionId
@@ -121,16 +118,16 @@ func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSessi
 		} else {
 			logging.Logger.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk,previousLockTransactionId)
 			// branchSession unlock
-			_,err := ml.ReleaseLock(branchSession)
-			return false,err
+			ml.ReleaseLock(branchSession)
+			return false
 		}
 	}
 
-	return true, nil
+	return true
 }
 
-func (ml *MemoryLocker) releaseLockByRowLocks(branchSession *session.BranchSession,rowLocks []*RowLock) (bool,error) {
-	if rowLocks == nil { return false, nil }
+func (ml *MemoryLocker) releaseLockByRowLocks(branchSession *session.BranchSession,rowLocks []*RowLock) bool {
+	if rowLocks == nil { return false }
 
 	releaseLock := func (key, value interface{}) bool {
 		cBucketLockMap := key.(*sync.Map)
@@ -150,7 +147,7 @@ func (ml *MemoryLocker) releaseLockByRowLocks(branchSession *session.BranchSessi
 
 	ml.BucketHolder.Range(releaseLock)
 
-	return true, nil
+	return true
 }
 
 func  (ml *MemoryLocker) isLockableByRowLocks(rowLocks []*RowLock) bool {
