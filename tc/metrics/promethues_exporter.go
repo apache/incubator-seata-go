@@ -41,7 +41,7 @@ func  (exporter *promHttpExporter) Flush(writer io.Writer) {
 func flushHistogram(tracker map[string]bool, buf *strings.Builder, histogram *Histogram) {
 	keys,vals := histogram.SortedLabels()
 	labels := makeLabelStr(keys,vals)
-	name := histogram.Name
+	name := strings.ReplaceAll(histogram.Name,".","_")
 	// min
 	flushGauge(tracker, buf, name+"_min", labels, histogram.Min())
 	// max
@@ -51,7 +51,7 @@ func flushHistogram(tracker map[string]bool, buf *strings.Builder, histogram *Hi
 func flushCounter(tracker map[string]bool, buf *strings.Builder, counter *Counter) {
 	keys,vals := counter.SortedLabels()
 	labels := makeLabelStr(keys,vals)
-	name := counter.Name
+	name := strings.ReplaceAll(counter.Name,".","_")
 	// type
 	if !tracker[name] {
 		buf.WriteString("# TYPE ")
