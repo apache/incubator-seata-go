@@ -9,7 +9,7 @@
 - [X] Memory Session Manager
 - [X] DB Session Manager (only support mysql) 
 - [ ] ETCD Session Manager  
-- [ ] Metrics Collector
+- [X] Metrics Collector
 - [X] TM
 - [X] RM TCC
 - [X] RM AT

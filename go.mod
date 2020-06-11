@@ -26,6 +26,8 @@ require (
 	github.com/pingcap/log v0.0.0-20200117041106-d28c14d3b1cd // indirect
 	github.com/pingcap/parser v0.0.0-20200424075042-8222d8b724a4
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
+	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1 // indirect

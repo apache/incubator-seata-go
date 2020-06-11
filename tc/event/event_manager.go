@@ -7,5 +7,5 @@ type EventManager struct {
 var EventBus EventManager
 
 func init() {
-	EventBus = EventManager{GlobalTransactionEventChannel:make(chan GlobalTransactionEvent,1000)}
+	EventBus = EventManager{GlobalTransactionEventChannel:make(chan GlobalTransactionEvent)}
 }

@@ -1,17 +1,15 @@
 package main
 
 import (
-	"github.com/dk-lockdown/seata-golang/tc/holder"
-	"github.com/dk-lockdown/seata-golang/tc/lock"
-)
-
-import (
 	_ "net/http/pprof"
 )
 
 import (
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
+	"github.com/dk-lockdown/seata-golang/tc/holder"
+	"github.com/dk-lockdown/seata-golang/tc/lock"
+	_ "github.com/dk-lockdown/seata-golang/tc/metrics"
 	"github.com/dk-lockdown/seata-golang/tc/server"
 )
 
