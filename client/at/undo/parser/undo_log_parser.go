@@ -2,7 +2,7 @@ package parser
 
 import "github.com/dk-lockdown/seata-golang/client/at/undo"
 
-type IUndoLogParser interface {
+type UndoLogParser interface {
 	GetName() string
 
 	// return the default content if undo log is empty
@@ -13,6 +13,6 @@ type IUndoLogParser interface {
 	Decode(data []byte) *undo.BranchUndoLog
 }
 
-func GetUndoLogParser() IUndoLogParser {
+func GetUndoLogParser() UndoLogParser {
 	return ProtoBufUndoLogParser{}
 }

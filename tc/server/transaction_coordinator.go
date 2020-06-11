@@ -8,8 +8,8 @@ import (
 )
 
 type TransactionCoordinatorInbound interface {
-	tm.ITransactionManager
-	rm.IResourceManagerOutbound
+	tm.TransactionManager
+	rm.ResourceManagerOutbound
 }
 
 type TransactionCoordinatorOutbound interface {

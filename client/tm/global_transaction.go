@@ -26,33 +26,28 @@ type SuspendedResourcesHolder struct {
 	Xid string
 }
 
-type IGlobalTransaction interface {
-	Begin(ctx context.RootContext) error
-	BeginWithTimeout(timeout int32, ctx context.RootContext) error
-	BeginWithTimeoutAndName(timeout int32, name string, ctx context.RootContext) error
-	Commit(ctx context.RootContext) error
-	Rollback(ctx context.RootContext) error
-	Suspend(unbindXid bool,ctx context.RootContext) (*SuspendedResourcesHolder,error)
-	Resume(suspendedResourcesHolder *SuspendedResourcesHolder,ctx context.RootContext) error
-	GetStatus(ctx context.RootContext) (meta.GlobalStatus, error)
-	GetXid(ctx context.RootContext) string
-	GlobalReport(globalStatus meta.GlobalStatus, ctx context.RootContext) error
+type GlobalTransaction interface {
+	Begin(ctx *context.RootContext) error
+	BeginWithTimeout(timeout int32, ctx *context.RootContext) error
+	BeginWithTimeoutAndName(timeout int32, name string, ctx *context.RootContext) error
+	Commit(ctx *context.RootContext) error
+	Rollback(ctx *context.RootContext) error
+	Suspend(unbindXid bool,ctx *context.RootContext) (*SuspendedResourcesHolder,error)
+	Resume(suspendedResourcesHolder *SuspendedResourcesHolder,ctx *context.RootContext) error
+	GetStatus(ctx *context.RootContext) (meta.GlobalStatus, error)
+	GetXid(ctx *context.RootContext) string
+	GlobalReport(globalStatus meta.GlobalStatus, ctx *context.RootContext) error
 	GetLocalStatus() meta.GlobalStatus
 }
 
 type GlobalTransactionRole byte
 
 const (
-	/**
-	 * The Launcher.
-	 */
-	// The one begins the current global transaction.
+	// The Launcher. The one begins the current global transaction.
 	Launcher GlobalTransactionRole = iota
 
-	/**
-	 * The Participant.
-	 */
-	// The one just joins into a existing global transaction.
+
+	// The Participant. The one just joins into a existing global transaction.
 	Participant
 )
 
@@ -72,7 +67,7 @@ type DefaultGlobalTransaction struct {
 	Xid                string
 	Status             meta.GlobalStatus
 	Role               GlobalTransactionRole
-	transactionManager ITransactionManager
+	transactionManager TransactionManager
 }
 
 func (gtx *DefaultGlobalTransaction) Begin(ctx *context.RootContext) error {
@@ -195,7 +190,7 @@ func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedR
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) GetStatus(ctx context.RootContext) (meta.GlobalStatus,error) {
+func (gtx *DefaultGlobalTransaction) GetStatus(ctx *context.RootContext) (meta.GlobalStatus,error) {
 	if gtx.Xid == "" {
 		return meta.GlobalStatusUnknown, nil
 	}

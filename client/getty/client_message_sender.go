@@ -8,44 +8,17 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 )
 
-type IClientMessageSender interface {
+type ClientMessageSender interface {
 
-	/**
-	 * Send msg with response object.
-	 *
-	 * @param msg the msg
-	 * @return the object
-	 * @throws TimeoutException the timeout exception
-	 */
+    // Send msg with response object.
 	SendMsgWithResponse(msg interface{}) (interface{},error)
 
-	/**
-	 * Send msg with response object.
-	 *
-	 * @param msg     the msg
-	 * @param timeout the timeout
-	 * @return the object
-	 * @throws TimeoutException the timeout exception
-	 */
+	// Send msg with response object.
 	SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{},error)
 
-	/**
-	 * Send msg with response object.
-	 *
-	 * @param serverAddress the server address
-	 * @param msg           the msg
-	 * @param timeout       the timeout
-	 * @return the object
-	 * @throws TimeoutException the timeout exception
-	 */
+	// Send msg with response object.
 	SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{},error)
 
-	/**
-	 * Send response.
-	 *
-	 * @param request       the msg id
-	 * @param serverAddress the server address
-	 * @param msg           the msg
-	 */
+	// Send response.
 	SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{})
 }
