@@ -1,9 +1,6 @@
 package main
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
-	"github.com/dk-lockdown/seata-golang/client/context"
 	"net/http"
 )
 
@@ -12,8 +9,11 @@ import (
 )
 
 import (
+	"github.com/dk-lockdown/seata-golang/client"
 	"github.com/dk-lockdown/seata-golang/client/at/exec"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
 	"github.com/dk-lockdown/seata-golang/client/config"
+	"github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/samples/at/order_svc/dao"
 )
 

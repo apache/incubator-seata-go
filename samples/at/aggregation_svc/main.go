@@ -1,11 +1,14 @@
 package main
 
 import (
+	"github.com/gin-gonic/gin"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/client"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/tm"
 	"github.com/dk-lockdown/seata-golang/samples/at/aggregation_svc/svc"
-	"github.com/gin-gonic/gin"
 )
 
 var configPath="/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregation_svc/conf/client.yml"
