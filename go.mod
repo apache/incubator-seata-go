@@ -1,4 +1,4 @@
-module github.com/dk-lockdown/seata-golang
+module github.com/xiaobudongzhang/seata-golang
 
 go 1.13.3
 

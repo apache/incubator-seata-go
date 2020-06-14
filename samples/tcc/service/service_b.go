@@ -5,8 +5,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/client/tcc"
+	"github.com/xiaobudongzhang/seata-golang/client/context"
+	"github.com/xiaobudongzhang/seata-golang/client/tcc"
 )
 
 type ServiceB struct {

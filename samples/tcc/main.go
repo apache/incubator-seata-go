@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/dk-lockdown/seata-golang/samples/tcc/service"
+	"github.com/xiaobudongzhang/seata-golang/samples/tcc/service"
 	"github.com/gin-gonic/gin"
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/tcc"
-	"github.com/dk-lockdown/seata-golang/client/tm"
+	"github.com/xiaobudongzhang/seata-golang/client"
+	"github.com/xiaobudongzhang/seata-golang/client/config"
+	"github.com/xiaobudongzhang/seata-golang/client/tcc"
+	"github.com/xiaobudongzhang/seata-golang/client/tm"
 )
 
 func main() {

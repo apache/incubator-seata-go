@@ -1,8 +1,8 @@
 package dao
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/exec"
-	"github.com/dk-lockdown/seata-golang/client/context"
+	"github.com/xiaobudongzhang/seata-golang/client/at/exec"
+	"github.com/xiaobudongzhang/seata-golang/client/context"
 )
 
 const (

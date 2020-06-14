@@ -9,12 +9,12 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/at/exec"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/samples/at/order_svc/dao"
+	"github.com/xiaobudongzhang/seata-golang/client"
+	"github.com/xiaobudongzhang/seata-golang/client/at/exec"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sql/struct/cache"
+	"github.com/xiaobudongzhang/seata-golang/client/config"
+	"github.com/xiaobudongzhang/seata-golang/client/context"
+	"github.com/xiaobudongzhang/seata-golang/samples/at/order_svc/dao"
 )
 
 const configPath="/Users/scottlewis/dksl/git/1/seata-golang/samples/at/order_svc/conf/client.yml"
