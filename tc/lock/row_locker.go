@@ -2,11 +2,9 @@ package lock
 
 import (
 	"strings"
-)
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/common"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/xiaobudongzhang/seata-golang/base/common"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 const LOCK_SPLIT = "^^^"
@@ -29,19 +27,18 @@ type RowLock struct {
 	Feature string
 }
 
-
 func collectRowLocksByBranchSession(branchSession *session.BranchSession) []*RowLock {
 	if branchSession == nil || branchSession.LockKey == "" {
 		return nil
 	}
-	return collectRowLocks(branchSession.LockKey,branchSession.ResourceId,branchSession.Xid,branchSession.TransactionId,branchSession.BranchId)
+	return collectRowLocks(branchSession.LockKey, branchSession.ResourceId, branchSession.Xid, branchSession.TransactionId, branchSession.BranchId)
 }
 
 func collectRowLocksByLockKeyResourceIdXid(lockKey string,
 	resourceId string,
 	xid string) []*RowLock {
 
-	return collectRowLocks(lockKey,resourceId,xid, common.XID.GetTransactionId(xid),0)
+	return collectRowLocks(lockKey, resourceId, xid, common.XID.GetTransactionId(xid), 0)
 }
 
 func collectRowLocks(lockKey string,
@@ -49,21 +46,27 @@ func collectRowLocks(lockKey string,
 	xid string,
 	transactionId int64,
 	branchId int64) []*RowLock {
-	var locks = make([]*RowLock,0)
-	tableGroupedLockKeys := strings.Split(lockKey,";")
+	var locks = make([]*RowLock, 0)
+	tableGroupedLockKeys := strings.Split(lockKey, ";")
 	for _, tableGroupedLockKey := range tableGroupedLockKeys {
-		idx := strings.Index(tableGroupedLockKey,":")
-		if idx < 0 { return nil }
+		idx := strings.Index(tableGroupedLockKey, ":")
+		if idx < 0 {
+			return nil
+		}
 
 		tableName := tableGroupedLockKey[0:idx]
 		mergedPKs := tableGroupedLockKey[idx+1:]
 
-		if mergedPKs == "" { return nil }
+		if mergedPKs == "" {
+			return nil
+		}
 
-		pks := strings.Split(mergedPKs,",")
-		if len(pks) == 0 { return nil }
+		pks := strings.Split(mergedPKs, ",")
+		if len(pks) == 0 {
+			return nil
+		}
 
-		for _,pk := range pks {
+		for _, pk := range pks {
 			if pk != "" {
 				rowLock := &RowLock{
 					Xid:           xid,
@@ -73,7 +76,7 @@ func collectRowLocks(lockKey string,
 					TableName:     tableName,
 					Pk:            pk,
 				}
-				locks = append(locks,rowLock)
+				locks = append(locks, rowLock)
 			}
 		}
 	}

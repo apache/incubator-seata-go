@@ -1,19 +1,19 @@
 package tcc
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/proxy"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/client/proxy"
 )
 
 type TCCResource struct {
-	ResourceGroupId string
-	AppName string
-	ActionName string
-	PrepareMethodName string
-	CommitMethodName string
-	CommitMethod *proxy.MethodDescriptor
+	ResourceGroupId    string
+	AppName            string
+	ActionName         string
+	PrepareMethodName  string
+	CommitMethodName   string
+	CommitMethod       *proxy.MethodDescriptor
 	RollbackMethodName string
-	RollbackMethod *proxy.MethodDescriptor
+	RollbackMethod     *proxy.MethodDescriptor
 }
 
 func (resource *TCCResource) GetResourceGroupId() string {

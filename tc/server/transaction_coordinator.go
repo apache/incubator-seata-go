@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/rm"
-	"github.com/dk-lockdown/seata-golang/client/tm"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/client/rm"
+	"github.com/xiaobudongzhang/seata-golang/client/tm"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 type TransactionCoordinatorInbound interface {
@@ -18,7 +18,6 @@ type TransactionCoordinatorOutbound interface {
 
 	// Rollback a branch transaction.
 	branchRollback(globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error)
-
 }
 
 type TransactionCoordinator interface {

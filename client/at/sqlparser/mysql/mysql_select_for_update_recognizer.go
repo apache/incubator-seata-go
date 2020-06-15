@@ -1,18 +1,19 @@
 package mysql
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	"strings"
+
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/format"
-	"strings"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
 )
 
 type MysqlSelectForUpdateRecognizer struct {
 	originalSQL string
-	selectStmt *ast.SelectStmt
+	selectStmt  *ast.SelectStmt
 }
 
-func NewMysqlSelectForUpdateRecognizer(originalSQL string,selectStmt *ast.SelectStmt) *MysqlSelectForUpdateRecognizer {
+func NewMysqlSelectForUpdateRecognizer(originalSQL string, selectStmt *ast.SelectStmt) *MysqlSelectForUpdateRecognizer {
 	recognizer := &MysqlSelectForUpdateRecognizer{
 		originalSQL: originalSQL,
 		selectStmt:  selectStmt,
@@ -32,7 +33,7 @@ func (recognizer *MysqlSelectForUpdateRecognizer) GetTableAlias() string {
 func (recognizer *MysqlSelectForUpdateRecognizer) GetTableName() string {
 	var sb strings.Builder
 	table := recognizer.selectStmt.From.TableRefs.Left.(*ast.TableSource)
-	table.Source.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags,&sb))
+	table.Source.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
 	return sb.String()
 }
 

@@ -5,15 +5,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-import (
 	"github.com/dubbogo/getty"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/base/model"
 )
 
 const IpPortSplitChar = ":"
@@ -53,7 +48,7 @@ func (context *RpcContext) Release() {
 		context.ClientTMHolderMap = nil
 	}
 	if context.ClientRole == meta.RMROLE && context.ClientRMHolderMap != nil {
-		context.ClientRMHolderMap.Range(func (key interface{}, value interface{}) bool {
+		context.ClientRMHolderMap.Range(func(key interface{}, value interface{}) bool {
 			m := value.(*sync.Map)
 			m.Delete(clientPort)
 			return true
@@ -71,7 +66,7 @@ func (context *RpcContext) HoldInClientGettySessions(clientTMHolderMap *sync.Map
 	}
 	context.ClientTMHolderMap = clientTMHolderMap
 	clientPort := getClientPortFromGettySession(context.session)
-	context.ClientTMHolderMap.Store(clientPort,context)
+	context.ClientTMHolderMap.Store(clientPort, context)
 	return nil
 }
 
@@ -80,26 +75,26 @@ func (context *RpcContext) HoldInIdentifiedGettySessions(clientIDHolderMap *sync
 		return errors.New("illegal state")
 	}
 	context.ClientIDHolderMap = clientIDHolderMap
-	context.ClientIDHolderMap.Store(context.session,context)
+	context.ClientIDHolderMap.Store(context.session, context)
 	return nil
 }
 
-func (context *RpcContext) HoldInResourceManagerGettySessions(resourceId string,portMap *sync.Map) {
+func (context *RpcContext) HoldInResourceManagerGettySessions(resourceId string, portMap *sync.Map) {
 	if context.ClientRMHolderMap == nil {
 		context.ClientRMHolderMap = &sync.Map{}
 	}
 	clientPort := getClientPortFromGettySession(context.session)
-	portMap.Store(clientPort,context)
-	context.ClientRMHolderMap.Store(resourceId,portMap)
+	portMap.Store(clientPort, context)
+	context.ClientRMHolderMap.Store(resourceId, portMap)
 }
 
-func (context *RpcContext) HoldInResourceManagerGettySessionsWithoutPortMap(resourceId string,clientPort int) {
+func (context *RpcContext) HoldInResourceManagerGettySessionsWithoutPortMap(resourceId string, clientPort int) {
 	if context.ClientRMHolderMap == nil {
 		context.ClientRMHolderMap = &sync.Map{}
 	}
-	portMap,_ := context.ClientRMHolderMap.LoadOrStore(resourceId,&sync.Map{})
+	portMap, _ := context.ClientRMHolderMap.LoadOrStore(resourceId, &sync.Map{})
 	pm := portMap.(*sync.Map)
-	pm.Store(clientPort,context)
+	pm.Store(clientPort, context)
 }
 
 func (context *RpcContext) AddResource(resource string) {
@@ -116,7 +111,7 @@ func (context *RpcContext) AddResources(resources *model.Set) {
 		if context.ResourceSets == nil {
 			context.ResourceSets = model.NewSet()
 		}
-		for _,resource := range resources.List() {
+		for _, resource := range resources.List() {
 			context.ResourceSets.Add(resource)
 		}
 	}
@@ -124,8 +119,8 @@ func (context *RpcContext) AddResources(resources *model.Set) {
 
 func getClientIpFromGettySession(session getty.Session) string {
 	clientIp := session.RemoteAddr()
-	if strings.Contains(clientIp,IpPortSplitChar) {
-		idx := strings.Index(clientIp,IpPortSplitChar)
+	if strings.Contains(clientIp, IpPortSplitChar) {
+		idx := strings.Index(clientIp, IpPortSplitChar)
 		clientIp = clientIp[:idx]
 	}
 	return clientIp
@@ -134,9 +129,9 @@ func getClientIpFromGettySession(session getty.Session) string {
 func getClientPortFromGettySession(session getty.Session) int {
 	address := session.RemoteAddr()
 	port := 0
-	if strings.Contains(address,IpPortSplitChar) {
-		idx := strings.LastIndex(address,IpPortSplitChar)
-		port,_ = strconv.Atoi(address[idx+1:])
+	if strings.Contains(address, IpPortSplitChar) {
+		idx := strings.LastIndex(address, IpPortSplitChar)
+		port, _ = strconv.Atoi(address[idx+1:])
 	}
 	return port
 }

@@ -2,23 +2,18 @@ package mysql
 
 import (
 	"strings"
-)
 
-import (
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/format"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
 )
 
 type MysqlDeleteRecognizer struct {
 	originalSQL string
-	deleteStmt *ast.DeleteStmt
+	deleteStmt  *ast.DeleteStmt
 }
 
-func NewMysqlDeleteRecognizer(originalSQL string,deleteStmt *ast.DeleteStmt) *MysqlDeleteRecognizer {
+func NewMysqlDeleteRecognizer(originalSQL string, deleteStmt *ast.DeleteStmt) *MysqlDeleteRecognizer {
 	recognizer := &MysqlDeleteRecognizer{
 		originalSQL: originalSQL,
 		deleteStmt:  deleteStmt,
@@ -36,7 +31,7 @@ func (recognizer *MysqlDeleteRecognizer) GetTableAlias() string {
 
 func (recognizer *MysqlDeleteRecognizer) GetTableName() string {
 	var sb strings.Builder
-	recognizer.deleteStmt.TableRefs.TableRefs.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags,&sb))
+	recognizer.deleteStmt.TableRefs.TableRefs.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
 	return sb.String()
 }
 

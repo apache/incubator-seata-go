@@ -2,19 +2,14 @@ package config
 
 import (
 	"time"
-)
 
-import (
 	"github.com/dubbogo/getty"
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/base/getty/config"
+	"github.com/xiaobudongzhang/seata-golang/base/getty/config"
 )
 
 // GettyConfig
-	//Config holds supported types by the multiconfig package
+//Config holds supported types by the multiconfig package
 type GettyConfig struct {
 	ReconnectInterval int `default:"0" yaml:"reconnect_interval" json:"reconnect_interval,omitempty"`
 
@@ -22,11 +17,11 @@ type GettyConfig struct {
 	ConnectionNum int `default:"16" yaml:"connection_number" json:"connection_number,omitempty"`
 
 	// heartbeat
-	HeartbeatPrd string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
+	HeartbeatPrd    string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
 	HeartbeatPeriod time.Duration
 
 	// getty_session
-	SessionTmt string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
+	SessionTmt     string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
 	SessionTimeout time.Duration
 
 	// Connection Pool

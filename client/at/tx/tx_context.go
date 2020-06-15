@@ -2,28 +2,29 @@ package tx
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	"github.com/pkg/errors"
 	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/xiaobudongzhang/seata-golang/base/model"
+	"github.com/xiaobudongzhang/seata-golang/client/at/undo"
+	"github.com/xiaobudongzhang/seata-golang/client/context"
 )
 
 type TxContext struct {
 	*context.RootContext
-	Xid string
-	BranchId int64
+	Xid                 string
+	BranchId            int64
 	IsGlobalLockRequire bool
 
-	LockKeysBuffer *model.Set
+	LockKeysBuffer     *model.Set
 	SqlUndoItemsBuffer []*undo.SqlUndoLog
 }
 
-func NewTxContext(ctx *context.RootContext) *TxContext{
+func NewTxContext(ctx *context.RootContext) *TxContext {
 	txContext := &TxContext{
-		RootContext:         ctx,
-		LockKeysBuffer:      model.NewSet(),
-		SqlUndoItemsBuffer:  make([]*undo.SqlUndoLog,0),
+		RootContext:        ctx,
+		LockKeysBuffer:     model.NewSet(),
+		SqlUndoItemsBuffer: make([]*undo.SqlUndoLog, 0),
 	}
 	txContext.Xid = ctx.GetXID()
 	return txContext
@@ -42,7 +43,7 @@ func (ctx *TxContext) AppendLockKey(lockKey string) {
 
 func (ctx *TxContext) AppendUndoItem(sqlUndoLog *undo.SqlUndoLog) {
 	if ctx.SqlUndoItemsBuffer == nil {
-		ctx.SqlUndoItemsBuffer = make([]*undo.SqlUndoLog,0)
+		ctx.SqlUndoItemsBuffer = make([]*undo.SqlUndoLog, 0)
 	}
 	ctx.SqlUndoItemsBuffer = append(ctx.SqlUndoItemsBuffer, sqlUndoLog)
 }
@@ -72,8 +73,8 @@ func (ctx *TxContext) BuildLockKeys() string {
 	}
 	var sb strings.Builder
 	lockKeys := ctx.LockKeysBuffer.List()
-	for _,lockKey := range lockKeys {
-		fmt.Fprintf(&sb,"%s;",lockKey)
+	for _, lockKey := range lockKeys {
+		fmt.Fprintf(&sb, "%s;", lockKey)
 	}
 	return sb.String()
 }

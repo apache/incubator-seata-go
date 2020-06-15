@@ -1,8 +1,8 @@
 package rm
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/base/model"
 )
 
 type ResourceManagerInbound interface {

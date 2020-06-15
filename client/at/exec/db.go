@@ -2,24 +2,22 @@ package exec
 
 import (
 	"database/sql"
-	tx2 "github.com/dk-lockdown/seata-golang/client/at/tx"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
 	"strings"
+
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	tx2 "github.com/xiaobudongzhang/seata-golang/client/at/tx"
+	"github.com/xiaobudongzhang/seata-golang/client/config"
+	"github.com/xiaobudongzhang/seata-golang/client/context"
 )
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-)
-
-type DB struct{
+type DB struct {
 	*sql.DB
-	conf        config.ATConfig
+	conf            config.ATConfig
 	ResourceGroupId string
 }
 
-func NewDB(conf config.ATConfig) (*DB,error) {
-	db, err := sql.Open("mysql",conf.DSN)
+func NewDB(conf config.ATConfig) (*DB, error) {
+	db, err := sql.Open("mysql", conf.DSN)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +30,7 @@ func NewDB(conf config.ATConfig) (*DB,error) {
 		ResourceGroupId: "",
 	}
 	dataSourceManager.RegisterResource(newDB)
-	return newDB,nil
+	return newDB, nil
 }
 
 func (db *DB) GetResourceGroupId() string {
@@ -40,8 +38,8 @@ func (db *DB) GetResourceGroupId() string {
 }
 
 func (db *DB) GetResourceId() string {
-	fromIndex := strings.Index(db.conf.DSN,"@")
-	endIndex := strings.Index(db.conf.DSN,"?")
+	fromIndex := strings.Index(db.conf.DSN, "@")
+	endIndex := strings.Index(db.conf.DSN, "?")
 	return db.conf.DSN[fromIndex:endIndex]
 }
 
@@ -49,10 +47,10 @@ func (db *DB) GetBranchType() meta.BranchType {
 	return meta.BranchTypeAT
 }
 
-func (db *DB) Begin(ctx *context.RootContext) (*Tx,error) {
-	tx,err := db.DB.Begin()
+func (db *DB) Begin(ctx *context.RootContext) (*Tx, error) {
+	tx, err := db.DB.Begin()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	proxyTx := &tx2.ProxyTx{
 		Tx:         tx,
@@ -61,8 +59,8 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx,error) {
 		Context:    tx2.NewTxContext(ctx),
 	}
 	return &Tx{
-		tx: proxyTx,
-		reportRetryCount: db.conf.ReportRetryCount,
+		tx:                  proxyTx,
+		reportRetryCount:    db.conf.ReportRetryCount,
 		reportSuccessEnable: db.conf.ReportSuccessEnable,
-	},nil
+	}, nil
 }

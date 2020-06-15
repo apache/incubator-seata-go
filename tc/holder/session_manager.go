@@ -2,13 +2,11 @@ package holder
 
 import (
 	"errors"
-)
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
+	"github.com/xiaobudongzhang/seata-golang/tc/model"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 type SessionManager interface {
@@ -16,7 +14,7 @@ type SessionManager interface {
 	AddGlobalSession(session *session.GlobalSession) error
 
 	// Find global session global session.
-	 FindGlobalSession(xid string) *session.GlobalSession
+	FindGlobalSession(xid string) *session.GlobalSession
 
 	// Find global session global session.
 	FindGlobalSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession
@@ -45,48 +43,47 @@ type SessionManager interface {
 
 type AbstractSessionManager struct {
 	TransactionStoreManager TransactionStoreManager
-	Name string
+	Name                    string
 }
 
-func (sessionManager *AbstractSessionManager) AddGlobalSession(session *session.GlobalSession) error{
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationGlobalAdd.String())
-	sessionManager.writeSession(LogOperationGlobalAdd,session)
+func (sessionManager *AbstractSessionManager) AddGlobalSession(session *session.GlobalSession) error {
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationGlobalAdd.String())
+	sessionManager.writeSession(LogOperationGlobalAdd, session)
 	return nil
 }
 
 func (sessionManager *AbstractSessionManager) UpdateGlobalSessionStatus(session *session.GlobalSession, status meta.GlobalStatus) error {
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationGlobalUpdate.String())
-	sessionManager.writeSession(LogOperationGlobalUpdate,session)
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationGlobalUpdate.String())
+	sessionManager.writeSession(LogOperationGlobalUpdate, session)
 	return nil
 }
 
-func (sessionManager *AbstractSessionManager) RemoveGlobalSession(session *session.GlobalSession) error{
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationGlobalRemove.String())
-	sessionManager.writeSession(LogOperationGlobalRemove,session)
+func (sessionManager *AbstractSessionManager) RemoveGlobalSession(session *session.GlobalSession) error {
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationGlobalRemove.String())
+	sessionManager.writeSession(LogOperationGlobalRemove, session)
 	return nil
 }
 
-func (sessionManager *AbstractSessionManager) AddBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error{
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationBranchAdd.String())
-	sessionManager.writeSession(LogOperationBranchAdd,session)
+func (sessionManager *AbstractSessionManager) AddBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error {
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationBranchAdd.String())
+	sessionManager.writeSession(LogOperationBranchAdd, session)
 	return nil
 }
 
-func (sessionManager *AbstractSessionManager) UpdateBranchSessionStatus(session *session.BranchSession, status meta.BranchStatus) error{
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationBranchUpdate.String())
-	sessionManager.writeSession(LogOperationBranchUpdate,session)
+func (sessionManager *AbstractSessionManager) UpdateBranchSessionStatus(session *session.BranchSession, status meta.BranchStatus) error {
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationBranchUpdate.String())
+	sessionManager.writeSession(LogOperationBranchUpdate, session)
 	return nil
 }
 
-func (sessionManager *AbstractSessionManager) RemoveBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error{
-	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s",sessionManager.Name, session, LogOperationBranchRemove.String())
-	sessionManager.writeSession(LogOperationBranchRemove,session)
+func (sessionManager *AbstractSessionManager) RemoveBranchSession(globalSession *session.GlobalSession, session *session.BranchSession) error {
+	logging.Logger.Debugf("MANAGER[%s] SESSION[%v] %s", sessionManager.Name, session, LogOperationBranchRemove.String())
+	sessionManager.writeSession(LogOperationBranchRemove, session)
 	return nil
 }
-
 
 func (sessionManager *AbstractSessionManager) writeSession(logOperation LogOperation, sessionStorable session.SessionStorable) error {
-	result := sessionManager.TransactionStoreManager.WriteSession(logOperation,sessionStorable)
+	result := sessionManager.TransactionStoreManager.WriteSession(logOperation, sessionStorable)
 	if !result {
 		if logOperation == LogOperationGlobalAdd {
 			return &meta.TransactionException{
@@ -124,7 +121,7 @@ func (sessionManager *AbstractSessionManager) writeSession(logOperation LogOpera
 				Message: "Fail to remove branch session",
 			}
 		}
-		return errors.New("Unknown LogOperation:"+logOperation.String())
+		return errors.New("Unknown LogOperation:" + logOperation.String())
 	}
 	return nil
 }

@@ -7,23 +7,18 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-)
 
-import (
 	"github.com/dubbogo/getty"
-	"github.com/dubbogo/gost/sync"
-)
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/tc/config"
+	gxsync "github.com/dubbogo/gost/sync"
+	"github.com/xiaobudongzhang/seata-golang/base/getty/readwriter"
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
+	"github.com/xiaobudongzhang/seata-golang/tc/config"
 )
 
 var (
 	srvGrpool *gxsync.TaskPool
 )
-
 
 func SetServerGrpool() {
 	srvConf := config.GetServerConfig()

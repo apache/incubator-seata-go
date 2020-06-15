@@ -1,6 +1,6 @@
 package getty
 
-import "github.com/dk-lockdown/seata-golang/base/protocal"
+import "github.com/xiaobudongzhang/seata-golang/base/protocal"
 
 // MessageFuture ...
 type MessageFuture struct {

@@ -3,20 +3,16 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"reflect"
 	"time"
-)
 
-import (
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"vimagination.zapto.org/byteio"
-)
 
-import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
+	_struct "github.com/xiaobudongzhang/seata-golang/client/at/sql/struct"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/undo"
 )
 
 type MysqlFieldValueType byte
@@ -32,7 +28,6 @@ const (
 const timeFormat = "2006-01-02 15:04:05.999999"
 
 type ProtoBufUndoLogParser struct {
-
 }
 
 func (parser ProtoBufUndoLogParser) GetName() string {
@@ -54,7 +49,7 @@ func (parser ProtoBufUndoLogParser) Encode(branchUndoLog *undo.BranchUndoLog) []
 
 func (parser ProtoBufUndoLogParser) Decode(data []byte) *undo.BranchUndoLog {
 	var pbBranchUndoLog = &PbBranchUndoLog{}
-	err := proto.Unmarshal(data,pbBranchUndoLog)
+	err := proto.Unmarshal(data, pbBranchUndoLog)
 	if err != nil {
 		panic(err)
 	}
@@ -64,9 +59,9 @@ func (parser ProtoBufUndoLogParser) Decode(data []byte) *undo.BranchUndoLog {
 
 func convertField(field *_struct.Field) *PbField {
 	pbField := &PbField{
-		Name:                 field.Name,
-		KeyType:              int32(field.KeyType),
-		Type:                 field.Type,
+		Name:    field.Name,
+		KeyType: int32(field.KeyType),
+		Type:    field.Type,
 	}
 	if field.Value == nil {
 		return pbField
@@ -104,7 +99,7 @@ func convertField(field *_struct.Field) *PbField {
 		w.WriteByte(byte(MysqlFieldValueType_Time))
 		w.Write(b)
 	default:
-		panic(errors.Errorf("unsupport types:%s,%v",reflect.TypeOf(field.Value).String(),field.Value))
+		panic(errors.Errorf("unsupport types:%s,%v", reflect.TypeOf(field.Value).String(), field.Value))
 	}
 	pbField.Value = buf.Bytes()
 	return pbField
@@ -119,8 +114,8 @@ func convertPbField(pbField *PbField) *_struct.Field {
 	if pbField.Value == nil {
 		return field
 	}
-	r := byteio.BigEndianReader{Reader:bytes.NewReader(pbField.Value)}
-	valueType,_ := r.ReadByte()
+	r := byteio.BigEndianReader{Reader: bytes.NewReader(pbField.Value)}
+	valueType, _ := r.ReadByte()
 
 	switch MysqlFieldValueType(valueType) {
 	case MysqlFieldValueType_Int64:
@@ -146,52 +141,52 @@ func convertPbField(pbField *PbField) *_struct.Field {
 		field.Value = t
 		break
 	default:
-		fmt.Printf("unsupport types:%v",valueType)
+		fmt.Printf("unsupport types:%v", valueType)
 		break
 	}
 	return field
 }
 
 func convertRow(row *_struct.Row) *PbRow {
-	pbFields := make([]*PbField,0)
-	for _,field := range row.Fields {
+	pbFields := make([]*PbField, 0)
+	for _, field := range row.Fields {
 		pbField := convertField(field)
-		pbFields = append(pbFields,pbField)
+		pbFields = append(pbFields, pbField)
 	}
 	pbRow := &PbRow{
-		Fields:               pbFields,
+		Fields: pbFields,
 	}
 	return pbRow
 }
 
 func convertPbRow(pbRow *PbRow) *_struct.Row {
-	fields := make([]*_struct.Field,0)
-	for _,pbField := range pbRow.Fields {
+	fields := make([]*_struct.Field, 0)
+	for _, pbField := range pbRow.Fields {
 		field := convertPbField(pbField)
-		fields = append(fields,field)
+		fields = append(fields, field)
 	}
-	row := &_struct.Row{Fields:fields}
+	row := &_struct.Row{Fields: fields}
 	return row
 }
 
 func convertTableRecords(records *_struct.TableRecords) *PbTableRecords {
-	pbRows := make([]*PbRow,0)
-	for _,row := range records.Rows {
+	pbRows := make([]*PbRow, 0)
+	for _, row := range records.Rows {
 		pbRow := convertRow(row)
 		pbRows = append(pbRows, pbRow)
 	}
 	pbRecords := &PbTableRecords{
-		TableName:            records.TableName,
-		Rows:				  pbRows,
+		TableName: records.TableName,
+		Rows:      pbRows,
 	}
 	return pbRecords
 }
 
 func convertPbTableRecords(pbRecords *PbTableRecords) *_struct.TableRecords {
-	rows := make([]*_struct.Row,0)
-	for _,pbRow := range pbRecords.Rows {
+	rows := make([]*_struct.Row, 0)
+	for _, pbRow := range pbRecords.Rows {
 		row := convertPbRow(pbRow)
-		rows = append(rows,row)
+		rows = append(rows, row)
 	}
 	records := &_struct.TableRecords{
 		TableName: pbRecords.TableName,
@@ -202,8 +197,8 @@ func convertPbTableRecords(pbRecords *PbTableRecords) *_struct.TableRecords {
 
 func convertSqlUndoLog(undoLog *undo.SqlUndoLog) *PbSqlUndoLog {
 	pbSqlUndoLog := &PbSqlUndoLog{
-		SqlType:              int32(undoLog.SqlType),
-		TableName:            undoLog.TableName,
+		SqlType:   int32(undoLog.SqlType),
+		TableName: undoLog.TableName,
 	}
 	if undoLog.BeforeImage != nil {
 		beforeImage := convertTableRecords(undoLog.BeforeImage)
@@ -234,29 +229,29 @@ func convertPbSqlUndoLog(pbSqlUndoLog *PbSqlUndoLog) *undo.SqlUndoLog {
 }
 
 func convertBranchSqlUndoLog(branchUndoLog *undo.BranchUndoLog) *PbBranchUndoLog {
-	sqlUndoLogs := make([]*PbSqlUndoLog,0)
-	for _,sqlUndoLog := range branchUndoLog.SqlUndoLogs {
+	sqlUndoLogs := make([]*PbSqlUndoLog, 0)
+	for _, sqlUndoLog := range branchUndoLog.SqlUndoLogs {
 		pbSqlUndoLog := convertSqlUndoLog(sqlUndoLog)
-		sqlUndoLogs = append(sqlUndoLogs,pbSqlUndoLog)
+		sqlUndoLogs = append(sqlUndoLogs, pbSqlUndoLog)
 	}
 	pbBranchUndoLog := &PbBranchUndoLog{
-		Xid:                  branchUndoLog.Xid,
-		BranchId:             branchUndoLog.BranchId,
-		SqlUndoLogs:          sqlUndoLogs,
+		Xid:         branchUndoLog.Xid,
+		BranchId:    branchUndoLog.BranchId,
+		SqlUndoLogs: sqlUndoLogs,
 	}
 	return pbBranchUndoLog
 }
 
 func convertPbBranchSqlUndoLog(pbBranchUndoLog *PbBranchUndoLog) *undo.BranchUndoLog {
-	sqlUndoLogs := make([]*undo.SqlUndoLog,0)
-	for _,sqlUndoLog := range pbBranchUndoLog.SqlUndoLogs {
+	sqlUndoLogs := make([]*undo.SqlUndoLog, 0)
+	for _, sqlUndoLog := range pbBranchUndoLog.SqlUndoLogs {
 		sqlUndoLog := convertPbSqlUndoLog(sqlUndoLog)
-		sqlUndoLogs = append(sqlUndoLogs,sqlUndoLog)
+		sqlUndoLogs = append(sqlUndoLogs, sqlUndoLog)
 	}
 	branchUndoLog := &undo.BranchUndoLog{
-		Xid:                  pbBranchUndoLog.Xid,
-		BranchId:             pbBranchUndoLog.BranchId,
-		SqlUndoLogs:          sqlUndoLogs,
+		Xid:         pbBranchUndoLog.Xid,
+		BranchId:    pbBranchUndoLog.BranchId,
+		SqlUndoLogs: sqlUndoLogs,
 	}
 	return branchUndoLog
 }

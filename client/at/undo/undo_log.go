@@ -1,8 +1,8 @@
 package undo
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	_struct "github.com/xiaobudongzhang/seata-golang/client/at/sql/struct"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
 )
 
 type SqlUndoLog struct {
@@ -22,8 +22,7 @@ func (undoLog *SqlUndoLog) SetTableMeta(tableMeta _struct.TableMeta) {
 }
 
 type BranchUndoLog struct {
-	Xid string
-	BranchId int64
+	Xid         string
+	BranchId    int64
 	SqlUndoLogs []*SqlUndoLog
 }
-

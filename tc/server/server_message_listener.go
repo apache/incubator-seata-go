@@ -2,10 +2,7 @@ package server
 
 import (
 	"github.com/dubbogo/getty"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/xiaobudongzhang/seata-golang/base/protocal"
 )
 
 type ServerMessageListener interface {

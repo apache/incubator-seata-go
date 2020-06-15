@@ -2,17 +2,11 @@ package lock
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
-
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
+	"github.com/xiaobudongzhang/seata-golang/tc/model"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 type DataBaseLocker struct {
@@ -31,7 +25,9 @@ func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) 
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
-	if locks == nil { return true }
+	if locks == nil {
+		return true
+	}
 
 	return locker.LockStore.AcquireLock(convertToLockDO(locks))
 }
@@ -50,9 +46,11 @@ func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) 
 func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
 	branchSessions := globalSession.GetSortedBranches()
 	releaseLockResult := true
-	for _,branchSession := range branchSessions {
+	for _, branchSession := range branchSessions {
 		ok := locker.ReleaseLock(branchSession)
-		if !ok { releaseLockResult = false }
+		if !ok {
+			releaseLockResult = false
+		}
 
 	}
 	return releaseLockResult
@@ -72,11 +70,11 @@ func (locker *DataBaseLocker) GetLockKeyCount() int64 {
 }
 
 func convertToLockDO(locks []*RowLock) []*model.LockDO {
-	lockDOs := make([]*model.LockDO,0)
+	lockDOs := make([]*model.LockDO, 0)
 	if locks == nil || len(locks) == 0 {
 		return lockDOs
 	}
-	for _,lock := range locks {
+	for _, lock := range locks {
 		lockDO := &model.LockDO{
 			Xid:           lock.Xid,
 			TransactionId: lock.TransactionId,
@@ -84,13 +82,13 @@ func convertToLockDO(locks []*RowLock) []*model.LockDO {
 			ResourceId:    lock.ResourceId,
 			TableName:     lock.TableName,
 			Pk:            lock.Pk,
-			RowKey:        getRowKey(lock.ResourceId,lock.TableName,lock.Pk),
+			RowKey:        getRowKey(lock.ResourceId, lock.TableName, lock.Pk),
 		}
 		lockDOs = append(lockDOs, lockDO)
 	}
 	return lockDOs
 }
 
-func getRowKey(resourceId string,tableName string,pk string) string {
-	return fmt.Sprintf("%s^^^%s^^^%s",resourceId,tableName,pk)
+func getRowKey(resourceId string, tableName string, pk string) string {
+	return fmt.Sprintf("%s^^^%s^^^%s", resourceId, tableName, pk)
 }

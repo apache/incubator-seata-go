@@ -4,18 +4,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-import (
 	"github.com/dubbogo/getty"
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/base/model"
+	"github.com/xiaobudongzhang/seata-golang/base/protocal"
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
 )
 
 var (
@@ -42,11 +37,11 @@ type GettySessionManager struct {
 var SessionManager GettySessionManager
 
 func init() {
-	SessionManager = GettySessionManager{IdentifiedSessions:&sync.Map{}}
+	SessionManager = GettySessionManager{IdentifiedSessions: &sync.Map{}}
 }
 
 func (manager *GettySessionManager) IsRegistered(session getty.Session) bool {
-	_,ok := manager.IdentifiedSessions.Load(session)
+	_, ok := manager.IdentifiedSessions.Load(session)
 	return ok
 }
 
@@ -58,7 +53,7 @@ func (manager *GettySessionManager) GetRoleFromGettySession(session getty.Sessio
 	return 0
 }
 
-func (manager *GettySessionManager)  GetContextFromIdentified(session getty.Session) *RpcContext {
+func (manager *GettySessionManager) GetContextFromIdentified(session getty.Session) *RpcContext {
 	context, ok := manager.IdentifiedSessions.Load(session)
 	if ok {
 		rpcContext := context.(*RpcContext)
@@ -67,70 +62,72 @@ func (manager *GettySessionManager)  GetContextFromIdentified(session getty.Sess
 	return nil
 }
 
-func (manager *GettySessionManager) RegisterTmGettySession(request protocal.RegisterTMRequest,session getty.Session) {
+func (manager *GettySessionManager) RegisterTmGettySession(request protocal.RegisterTMRequest, session getty.Session) {
 	//todo check version
-	rpcContext := buildGettySessionHolder(meta.TMROLE,request.Version,request.ApplicationId,request.TransactionServiceGroup,"",session)
+	rpcContext := buildGettySessionHolder(meta.TMROLE, request.Version, request.ApplicationId, request.TransactionServiceGroup, "", session)
 	rpcContext.HoldInIdentifiedGettySessions(manager.IdentifiedSessions)
 	clientIdentified := rpcContext.ApplicationId + ClientIdSplitChar + getClientIpFromGettySession(session)
-	clientIdentifiedMap,_ := tm_sessions.LoadOrStore(clientIdentified,&sync.Map{})
+	clientIdentifiedMap, _ := tm_sessions.LoadOrStore(clientIdentified, &sync.Map{})
 	cMap := clientIdentifiedMap.(*sync.Map)
 	rpcContext.HoldInClientGettySessions(cMap)
 }
 
-func (manager *GettySessionManager) RegisterRmGettySession(resourceManagerRequest protocal.RegisterRMRequest,session getty.Session){
+func (manager *GettySessionManager) RegisterRmGettySession(resourceManagerRequest protocal.RegisterRMRequest, session getty.Session) {
 	//todo check version
 	var rpcContext *RpcContext
 	dbKeySet := dbKeyToSet(resourceManagerRequest.ResourceIds)
-	context,ok := manager.IdentifiedSessions.Load(session)
+	context, ok := manager.IdentifiedSessions.Load(session)
 	if ok {
 		rpcContext = context.(*RpcContext)
 		rpcContext.AddResources(dbKeySet)
 	} else {
-		rpcContext = buildGettySessionHolder(meta.RMROLE,resourceManagerRequest.Version,resourceManagerRequest.ApplicationId,
-			resourceManagerRequest.TransactionServiceGroup,resourceManagerRequest.ResourceIds,session)
+		rpcContext = buildGettySessionHolder(meta.RMROLE, resourceManagerRequest.Version, resourceManagerRequest.ApplicationId,
+			resourceManagerRequest.TransactionServiceGroup, resourceManagerRequest.ResourceIds, session)
 		rpcContext.HoldInIdentifiedGettySessions(manager.IdentifiedSessions)
 	}
-	if dbKeySet == nil || dbKeySet.IsEmpty() { return }
-	for _,resourceId := range dbKeySet.List() {
-		applicationMap,_ := rm_sessions.LoadOrStore(resourceId,&sync.Map{})
-		aMap,_ := applicationMap.(*sync.Map)
-		ipMap,_ := aMap.LoadOrStore(resourceManagerRequest.ApplicationId,&sync.Map{})
-		iMap,_ := ipMap.(*sync.Map)
+	if dbKeySet == nil || dbKeySet.IsEmpty() {
+		return
+	}
+	for _, resourceId := range dbKeySet.List() {
+		applicationMap, _ := rm_sessions.LoadOrStore(resourceId, &sync.Map{})
+		aMap, _ := applicationMap.(*sync.Map)
+		ipMap, _ := aMap.LoadOrStore(resourceManagerRequest.ApplicationId, &sync.Map{})
+		iMap, _ := ipMap.(*sync.Map)
 		clientIp := getClientIpFromGettySession(session)
-		portMap,_ := iMap.LoadOrStore(clientIp,&sync.Map{})
-		pMap,_ := portMap.(*sync.Map)
+		portMap, _ := iMap.LoadOrStore(clientIp, &sync.Map{})
+		pMap, _ := portMap.(*sync.Map)
 
-		rpcContext.HoldInResourceManagerGettySessions(resourceId,pMap)
+		rpcContext.HoldInResourceManagerGettySessions(resourceId, pMap)
 		// 老实讲，我不知道为什么要写这么一个方法，双重保证？
-		manager.updateGettySessionsResource(resourceId,clientIp,resourceManagerRequest.ApplicationId)
+		manager.updateGettySessionsResource(resourceId, clientIp, resourceManagerRequest.ApplicationId)
 	}
 }
 
-func (manager *GettySessionManager) updateGettySessionsResource(resourceId string,clientIp string,applicationId string) {
-	applicationMap,_ := rm_sessions.Load(resourceId)
-	aMap,_ := applicationMap.(*sync.Map)
-	ipMap,_ := aMap.Load(applicationId)
-	iMap,_ := ipMap.(*sync.Map)
-	portMap,_ := iMap.Load(clientIp)
-	pMap,_ := portMap.(*sync.Map)
+func (manager *GettySessionManager) updateGettySessionsResource(resourceId string, clientIp string, applicationId string) {
+	applicationMap, _ := rm_sessions.Load(resourceId)
+	aMap, _ := applicationMap.(*sync.Map)
+	ipMap, _ := aMap.Load(applicationId)
+	iMap, _ := ipMap.(*sync.Map)
+	portMap, _ := iMap.Load(clientIp)
+	pMap, _ := portMap.(*sync.Map)
 
-	rm_sessions.Range(func (key interface{},value interface{}) bool {
-		resourceKey,ok := key.(string)
+	rm_sessions.Range(func(key interface{}, value interface{}) bool {
+		resourceKey, ok := key.(string)
 		if ok && resourceKey != resourceId {
-			appMap,_ := value.(*sync.Map)
+			appMap, _ := value.(*sync.Map)
 
-			clientIpMap,clientIpMapLoaded := appMap.Load(applicationId)
+			clientIpMap, clientIpMapLoaded := appMap.Load(applicationId)
 			if clientIpMapLoaded {
-				cipMap,_ := clientIpMap.(*sync.Map)
+				cipMap, _ := clientIpMap.(*sync.Map)
 				clientPortMap, clientPortMapLoaded := cipMap.Load(clientIp)
 				if clientPortMapLoaded {
 					cpMap := clientPortMap.(*sync.Map)
-					cpMap.Range(func (key interface{},value interface{}) bool{
-						port,_ := key.(int)
-						rpcContext,_ := value.(*RpcContext)
-						_, ok := pMap.LoadOrStore(port,rpcContext)
+					cpMap.Range(func(key interface{}, value interface{}) bool {
+						port, _ := key.(int)
+						rpcContext, _ := value.(*RpcContext)
+						_, ok := pMap.LoadOrStore(port, rpcContext)
 						if ok {
-							rpcContext.HoldInResourceManagerGettySessionsWithoutPortMap(resourceId,port)
+							rpcContext.HoldInResourceManagerGettySessionsWithoutPortMap(resourceId, port)
 						}
 						return true
 					})
@@ -148,7 +145,7 @@ func (manager *GettySessionManager) GetSameClientGettySession(session getty.Sess
 
 	rpcContext := manager.GetContextFromIdentified(session)
 	if rpcContext == nil {
-		logging.Logger.Errorf("rpcContext is null,channel:{%v},active:{%t}",session,!session.IsClosed())
+		logging.Logger.Errorf("rpcContext is null,channel:{%v},active:{%t}", session, !session.IsClosed())
 	}
 	if !rpcContext.session.IsClosed() {
 		return rpcContext.session
@@ -162,12 +159,12 @@ func (manager *GettySessionManager) GetSameClientGettySession(session getty.Sess
 			return nil
 		}
 		clientMap := clientRpcMap.(*sync.Map)
-		return getGettySessionFromSameClientMap(clientMap,clientPort)
+		return getGettySessionFromSameClientMap(clientMap, clientPort)
 	} else if rpcContext.ClientRole == meta.RMROLE {
 		var sameClientSession getty.Session
-		rpcContext.ClientRMHolderMap.Range(func (key interface{},value interface{}) bool {
+		rpcContext.ClientRMHolderMap.Range(func(key interface{}, value interface{}) bool {
 			clientRmMap := value.(*sync.Map)
-			sameClientSession = getGettySessionFromSameClientMap(clientRmMap,clientPort)
+			sameClientSession = getGettySessionFromSameClientMap(clientRmMap, clientPort)
 			if sameClientSession != nil {
 				return false
 			}
@@ -178,11 +175,11 @@ func (manager *GettySessionManager) GetSameClientGettySession(session getty.Sess
 	return nil
 }
 
-func getGettySessionFromSameClientMap(clientGettySessionMap *sync.Map,exclusivePort int) getty.Session {
+func getGettySessionFromSameClientMap(clientGettySessionMap *sync.Map, exclusivePort int) getty.Session {
 	var session getty.Session
 	if clientGettySessionMap != nil {
-		clientGettySessionMap.Range(func (key interface{},value interface{}) bool {
-			port,ok := key.(int)
+		clientGettySessionMap.Range(func(key interface{}, value interface{}) bool {
+			port, ok := key.(int)
 			if ok {
 				if port == exclusivePort {
 					clientGettySessionMap.Delete(key)
@@ -202,56 +199,56 @@ func getGettySessionFromSameClientMap(clientGettySessionMap *sync.Map,exclusiveP
 	return session
 }
 
-func (manager *GettySessionManager) GetGettySession(resourceId string,clientId string) (getty.Session,error) {
+func (manager *GettySessionManager) GetGettySession(resourceId string, clientId string) (getty.Session, error) {
 	var resultSession getty.Session
 
-	clientIdInfo := strings.Split(clientId,ClientIdSplitChar)
+	clientIdInfo := strings.Split(clientId, ClientIdSplitChar)
 	if clientIdInfo == nil || len(clientIdInfo) != 3 {
-		return nil,errors.Errorf("Invalid RpcRemoteClient ID:%d",clientId)
+		return nil, errors.Errorf("Invalid RpcRemoteClient ID:%d", clientId)
 	}
 	targetApplicationId := clientIdInfo[0]
 	targetIP := clientIdInfo[1]
-	targetPort,_ := strconv.Atoi(clientIdInfo[2])
+	targetPort, _ := strconv.Atoi(clientIdInfo[2])
 
-	applicationMap,ok := rm_sessions.Load(resourceId)
+	applicationMap, ok := rm_sessions.Load(resourceId)
 	if targetApplicationId == "" || !ok || applicationMap == nil {
-		logging.Logger.Infof("No channel is available for resource[%s]",resourceId)
+		logging.Logger.Infof("No channel is available for resource[%s]", resourceId)
 	}
-	appMap,_ := applicationMap.(*sync.Map)
+	appMap, _ := applicationMap.(*sync.Map)
 
-	clientIpMap,clientIpMapLoaded := appMap.Load(targetApplicationId)
+	clientIpMap, clientIpMapLoaded := appMap.Load(targetApplicationId)
 	if clientIpMapLoaded {
-		ipMap,_ := clientIpMap.(*sync.Map)
+		ipMap, _ := clientIpMap.(*sync.Map)
 
-		portMap,portMapLoaded := ipMap.Load(targetIP)
+		portMap, portMapLoaded := ipMap.Load(targetIP)
 		if portMapLoaded {
-			pMap,_ := portMap.(*sync.Map)
-			context,contextLoaded := pMap.Load(targetPort)
+			pMap, _ := portMap.(*sync.Map)
+			context, contextLoaded := pMap.Load(targetPort)
 			// Firstly, try to find the original channel through which the branch was registered.
 			if contextLoaded {
 				rpcContext := context.(*RpcContext)
 				if !rpcContext.session.IsClosed() {
 					resultSession = rpcContext.session
-					logging.Logger.Debugf("Just got exactly the one %v for %s",rpcContext.session,clientId)
+					logging.Logger.Debugf("Just got exactly the one %v for %s", rpcContext.session, clientId)
 				} else {
 					pMap.Delete(targetPort)
-					logging.Logger.Infof("Removed inactive %d",rpcContext.session)
+					logging.Logger.Infof("Removed inactive %d", rpcContext.session)
 				}
 			}
 
 			// The original channel was broken, try another one.
 			if resultSession == nil {
-				pMap.Range(func (key interface{},value interface{}) bool {
+				pMap.Range(func(key interface{}, value interface{}) bool {
 					rpcContext := value.(*RpcContext)
 
 					if !rpcContext.session.IsClosed() {
 						resultSession = rpcContext.session
-						logging.Logger.Infof("Choose %v on the same IP[%s] as alternative of %s",rpcContext.session,targetIP,clientId)
+						logging.Logger.Infof("Choose %v on the same IP[%s] as alternative of %s", rpcContext.session, targetIP, clientId)
 						//跳出 range 循环
 						return false
 					} else {
 						pMap.Delete(key)
-						logging.Logger.Infof("Removed inactive %d",rpcContext.session)
+						logging.Logger.Infof("Removed inactive %d", rpcContext.session)
 					}
 					return true
 				})
@@ -260,86 +257,98 @@ func (manager *GettySessionManager) GetGettySession(resourceId string,clientId s
 
 		// No channel on the this app node, try another one.
 		if resultSession == nil {
-			ipMap.Range(func (key interface{},value interface{}) bool {
+			ipMap.Range(func(key interface{}, value interface{}) bool {
 				ip := key.(string)
-				if ip == targetIP { return true }
+				if ip == targetIP {
+					return true
+				}
 
-				portMapOnOtherIP,_ := value.(*sync.Map)
-				if portMapOnOtherIP == nil { return true }
+				portMapOnOtherIP, _ := value.(*sync.Map)
+				if portMapOnOtherIP == nil {
+					return true
+				}
 
-				portMapOnOtherIP.Range(func (key interface{},value interface {}) bool {
+				portMapOnOtherIP.Range(func(key interface{}, value interface{}) bool {
 					rpcContext := value.(*RpcContext)
 
 					if !rpcContext.session.IsClosed() {
 						resultSession = rpcContext.session
-						logging.Logger.Infof("Choose %v on the same application[%s] as alternative of %s",rpcContext.session,targetApplicationId,clientId)
+						logging.Logger.Infof("Choose %v on the same application[%s] as alternative of %s", rpcContext.session, targetApplicationId, clientId)
 						//跳出 range 循环
 						return false
 					} else {
 						portMapOnOtherIP.Delete(key)
-						logging.Logger.Infof("Removed inactive %d",rpcContext.session)
+						logging.Logger.Infof("Removed inactive %d", rpcContext.session)
 					}
 					return true
 				})
 
-				if resultSession != nil { return false }
+				if resultSession != nil {
+					return false
+				}
 				return true
 			})
 		}
 	}
 
 	if resultSession == nil {
-		resultSession = tryOtherApp(appMap,targetApplicationId)
+		resultSession = tryOtherApp(appMap, targetApplicationId)
 		if resultSession == nil {
-			logging.Logger.Infof("No channel is available for resource[%s] as alternative of %s",resourceId,clientId)
+			logging.Logger.Infof("No channel is available for resource[%s] as alternative of %s", resourceId, clientId)
 		} else {
 			logging.Logger.Infof("Choose %v on the same resource[%s] as alternative of %s", resultSession, resourceId, clientId)
 		}
 	}
-	return resultSession,nil
+	return resultSession, nil
 }
 
-func tryOtherApp(applicationMap *sync.Map,myApplicationId string) getty.Session {
+func tryOtherApp(applicationMap *sync.Map, myApplicationId string) getty.Session {
 	var chosenChannel getty.Session
-	applicationMap.Range(func (key interface{},value interface{}) bool {
+	applicationMap.Range(func(key interface{}, value interface{}) bool {
 		applicationId := key.(string)
-		if myApplicationId != "" && applicationId == myApplicationId {return true}
+		if myApplicationId != "" && applicationId == myApplicationId {
+			return true
+		}
 
-		targetIPMap,_ := value.(*sync.Map)
-		targetIPMap.Range(func (key interface{},value interface{}) bool {
-			if value == nil { return true }
-			portMap,_ := value.(*sync.Map)
+		targetIPMap, _ := value.(*sync.Map)
+		targetIPMap.Range(func(key interface{}, value interface{}) bool {
+			if value == nil {
+				return true
+			}
+			portMap, _ := value.(*sync.Map)
 
-			portMap.Range(func (key interface{},value interface{}) bool {
+			portMap.Range(func(key interface{}, value interface{}) bool {
 				rpcContext := value.(*RpcContext)
 				if !rpcContext.session.IsClosed() {
 					chosenChannel = rpcContext.session
 					return false
 				} else {
 					portMap.Delete(key)
-					logging.Logger.Infof("Removed inactive %d",rpcContext.session)
+					logging.Logger.Infof("Removed inactive %d", rpcContext.session)
 				}
 				return true
 			})
-			if chosenChannel != nil { return false }
+			if chosenChannel != nil {
+				return false
+			}
 			return true
 		})
-		if chosenChannel != nil { return false }
+		if chosenChannel != nil {
+			return false
+		}
 		return true
 	})
 	return chosenChannel
 }
 
-
-
-func buildGettySessionHolder(role meta.TransactionRole,version string,applicationId string,
-	txServiceGroup string,dbKeys string,session getty.Session) *RpcContext {
+func buildGettySessionHolder(role meta.TransactionRole, version string, applicationId string,
+	txServiceGroup string, dbKeys string, session getty.Session) *RpcContext {
 	return &RpcContext{
 		ClientRole:              role,
 		Version:                 version,
 		ApplicationId:           applicationId,
 		TransactionServiceGroup: txServiceGroup,
-		ClientId:                buildClientId(applicationId,session),
+		ClientId:                buildClientId(applicationId, session),
 		session:                 session,
 		ResourceSets:            dbKeyToSet(dbKeys),
 	}
@@ -349,9 +358,9 @@ func dbKeyToSet(dbKey string) *model.Set {
 	if dbKey == "" {
 		return nil
 	}
-	keys := strings.Split(dbKey,DbkeysSplitChar)
+	keys := strings.Split(dbKey, DbkeysSplitChar)
 	set := model.NewSet()
-	for _,key := range keys {
+	for _, key := range keys {
 		set.Add(key)
 	}
 	return set
@@ -361,13 +370,12 @@ func buildClientId(applicationId string, session getty.Session) string {
 	return applicationId + ClientIdSplitChar + session.RemoteAddr()
 }
 
-
 func (manager *GettySessionManager) GetRmSessions() map[string]getty.Session {
 	sessions := make(map[string]getty.Session)
-	rm_sessions.Range(func (key interface{},value interface{}) bool {
-		resourceId,_ := key.(string)
+	rm_sessions.Range(func(key interface{}, value interface{}) bool {
+		resourceId, _ := key.(string)
 		applicationMap := value.(*sync.Map)
-		session := tryOtherApp(applicationMap,"")
+		session := tryOtherApp(applicationMap, "")
 		if session == nil {
 			return false
 		}

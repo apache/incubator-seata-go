@@ -2,27 +2,28 @@ package parser
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/base/sql_type"
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	"github.com/go-playground/assert/v2"
 	"testing"
+
+	"github.com/go-playground/assert/v2"
+	"github.com/xiaobudongzhang/seata-golang/base/sql_type"
+	_struct "github.com/xiaobudongzhang/seata-golang/client/at/sql/struct"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/undo"
 )
 
 func getBranchUndoLog() *undo.BranchUndoLog {
 	var branchUndoLog = &undo.BranchUndoLog{
-		Xid:         ":0:2000042948",
-		BranchId:    2000042936,
+		Xid:      ":0:2000042948",
+		BranchId: 2000042936,
 		SqlUndoLogs: []*undo.SqlUndoLog{
 			{
 				SqlType:     sqlparser.SQLType_INSERT,
 				TableName:   "user",
 				BeforeImage: nil,
-				AfterImage:  &_struct.TableRecords{
+				AfterImage: &_struct.TableRecords{
 					TableMeta: _struct.TableMeta{},
 					TableName: "user",
-					Rows:      []*_struct.Row{
+					Rows: []*_struct.Row{
 						{
 							Fields: []*_struct.Field{
 								{
@@ -81,13 +82,13 @@ func getBranchUndoLog() *undo.BranchUndoLog {
 
 func TestJsonUndoLogParser_Encode(t *testing.T) {
 	data := ProtoBufUndoLogParser{}.Encode(getBranchUndoLog())
-	fmt.Printf("%s\n",data)
-	assert.NotEqual(t,data,nil)
+	fmt.Printf("%s\n", data)
+	assert.NotEqual(t, data, nil)
 }
 
 func TestJsonUndoLogParser_Decode(t *testing.T) {
 	branchUndoLog := getBranchUndoLog()
 	data := ProtoBufUndoLogParser{}.Encode(branchUndoLog)
 	undoLog := ProtoBufUndoLogParser{}.Decode(data)
-	assert.Equal(t,undoLog.BranchId,int64(2000042936))
+	assert.Equal(t, undoLog.BranchId, int64(2000042936))
 }

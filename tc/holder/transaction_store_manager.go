@@ -2,11 +2,9 @@ package holder
 
 import (
 	"fmt"
-)
 
-import (
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/xiaobudongzhang/seata-golang/tc/model"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 type LogOperation byte
@@ -59,11 +57,9 @@ type Reloadable interface {
 	Reload()
 }
 
-
 type TransactionStoreManager interface {
 	// Write session boolean.
 	WriteSession(logOperation LogOperation, session session.SessionStorable) bool
-
 
 	// Read global session global session.
 	ReadSession(xid string) *session.GlobalSession
@@ -82,19 +78,15 @@ type TransactionStoreManager interface {
 }
 
 type AbstractTransactionStoreManager struct {
-
 }
 
 func (transactionStoreManager *AbstractTransactionStoreManager) WriteSession(logOperation LogOperation, session session.SessionStorable) bool {
 	return true
 }
 
-
-
 func (transactionStoreManager *AbstractTransactionStoreManager) ReadSession(xid string) *session.GlobalSession {
 	return nil
 }
-
 
 func (transactionStoreManager *AbstractTransactionStoreManager) ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
 	return nil
@@ -108,9 +100,6 @@ func (transactionStoreManager *AbstractTransactionStoreManager) Shutdown() {
 
 }
 
-
 func (transactionStoreManager *AbstractTransactionStoreManager) GetCurrentMaxSessionId() int64 {
 	return 0
 }
-
-

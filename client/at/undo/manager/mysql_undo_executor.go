@@ -4,16 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
-)
 
-import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
+	_struct "github.com/xiaobudongzhang/seata-golang/client/at/sql/struct"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/undo"
 )
 
 const (
@@ -28,7 +24,7 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	beforeImage := undoLog.BeforeImage
 	beforeImageRows := beforeImage.Rows
 
-	if beforeImageRows == nil || len(beforeImageRows)==0 {
+	if beforeImageRows == nil || len(beforeImageRows) == 0 {
 		panic(errors.New("invalid undo log"))
 	}
 
@@ -36,40 +32,40 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	fields := row.NonPrimaryKeys()
 	pkField := row.PrimaryKeys()[0]
 	// PK is at last one.
-	fields = append(fields,pkField)
+	fields = append(fields, pkField)
 
-	var sb,sb1 strings.Builder
+	var sb, sb1 strings.Builder
 	var size = len(fields)
-	for i,field := range fields {
-		fmt.Fprintf(&sb,"`%s`", field.Name)
-		fmt.Fprint(&sb1,"?")
+	for i, field := range fields {
+		fmt.Fprintf(&sb, "`%s`", field.Name)
+		fmt.Fprint(&sb1, "?")
 		if i < size-1 {
-			fmt.Fprint(&sb,", ")
-			fmt.Fprint(&sb1,", ")
+			fmt.Fprint(&sb, ", ")
+			fmt.Fprint(&sb1, ", ")
 		}
 	}
 	insertColumns := sb.String()
 	insertValues := sb.String()
 
-	return fmt.Sprintf(InsertSqlTemplate,undoLog.TableName,insertColumns,insertValues)
+	return fmt.Sprintf(InsertSqlTemplate, undoLog.TableName, insertColumns, insertValues)
 }
 
 func InsertBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	afterImage := undoLog.AfterImage
 	afterImageRows := afterImage.Rows
-	if afterImageRows == nil || len(afterImageRows)==0 {
+	if afterImageRows == nil || len(afterImageRows) == 0 {
 		panic(errors.New("invalid undo log"))
 	}
 	row := afterImageRows[0]
 	pkField := row.PrimaryKeys()[0]
-	return fmt.Sprintf(DeleteSqlTemplate,undoLog.TableName,pkField.Name)
+	return fmt.Sprintf(DeleteSqlTemplate, undoLog.TableName, pkField.Name)
 }
 
 func UpdateBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	beforeImage := undoLog.BeforeImage
 	beforeImageRows := beforeImage.Rows
 
-	if beforeImageRows == nil || len(beforeImageRows)==0 {
+	if beforeImageRows == nil || len(beforeImageRows) == 0 {
 		panic(errors.New("invalid undo log"))
 	}
 
@@ -79,15 +75,15 @@ func UpdateBuildUndoSql(undoLog undo.SqlUndoLog) string {
 
 	var sb strings.Builder
 	var size = len(nonPkFields)
-	for i,field := range nonPkFields {
-		fmt.Fprintf(&sb,"`%s` = ?",field.Name)
+	for i, field := range nonPkFields {
+		fmt.Fprintf(&sb, "`%s` = ?", field.Name)
 		if i < size-1 {
 			fmt.Fprint(&sb, ", ")
 		}
 	}
 	updateColumns := sb.String()
 
-	return fmt.Sprintf(UpdateSqlTemplate,undoLog.TableName,updateColumns,pkField.Name)
+	return fmt.Sprintf(UpdateSqlTemplate, undoLog.TableName, updateColumns, pkField.Name)
 }
 
 type MysqlUndoExecutor struct {
@@ -95,7 +91,7 @@ type MysqlUndoExecutor struct {
 }
 
 func NewMysqlUndoExecutor(undoLog undo.SqlUndoLog) MysqlUndoExecutor {
-	return MysqlUndoExecutor{sqlUndoLog:undoLog}
+	return MysqlUndoExecutor{sqlUndoLog: undoLog}
 }
 
 func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
@@ -115,7 +111,7 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 		undoRows = *executor.sqlUndoLog.BeforeImage
 		break
 	default:
-		panic(errors.Errorf("unsupport sql type:%s",executor.sqlUndoLog.SqlType.String()))
+		panic(errors.Errorf("unsupport sql type:%s", executor.sqlUndoLog.SqlType.String()))
 	}
 
 	// PK is at last one.
@@ -123,14 +119,14 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 	// UPDATE a SET x=?, y=?, z=? WHERE pk = ?
 	// DELETE FROM a WHERE pk = ?
 	//todo 后镜数据和当前数据比较，判断是否可以回滚数据
-	stmt,err := tx.Prepare(undoSql)
+	stmt, err := tx.Prepare(undoSql)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	for _,row := range undoRows.Rows {
-		var args = make([]interface{},0)
+	for _, row := range undoRows.Rows {
+		var args = make([]interface{}, 0)
 		var pkValue interface{}
 
 		for _, field := range row.Fields {
@@ -142,8 +138,8 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 				}
 			}
 		}
-		args = append(args,pkValue)
-		_,err = stmt.Exec(args...)
+		args = append(args, pkValue)
+		_, err = stmt.Exec(args...)
 		if err != nil {
 			return err
 		}

@@ -2,23 +2,18 @@ package mysql
 
 import (
 	"strings"
-)
 
-import (
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/format"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
 )
 
 type MysqlInsertRecognizer struct {
 	originalSQL string
-	insertStmt *ast.InsertStmt
+	insertStmt  *ast.InsertStmt
 }
 
-func NewMysqlInsertRecognizer(originalSQL string,insertStmt *ast.InsertStmt) *MysqlInsertRecognizer {
+func NewMysqlInsertRecognizer(originalSQL string, insertStmt *ast.InsertStmt) *MysqlInsertRecognizer {
 	recognizer := &MysqlInsertRecognizer{
 		originalSQL: originalSQL,
 		insertStmt:  insertStmt,
@@ -36,7 +31,7 @@ func (recognizer *MysqlInsertRecognizer) GetTableAlias() string {
 
 func (recognizer *MysqlInsertRecognizer) GetTableName() string {
 	var sb strings.Builder
-	recognizer.insertStmt.Table.TableRefs.Left.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags,&sb))
+	recognizer.insertStmt.Table.TableRefs.Left.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
 	return sb.String()
 }
 
@@ -45,23 +40,23 @@ func (recognizer *MysqlInsertRecognizer) GetOriginalSQL() string {
 }
 
 func (recognizer *MysqlInsertRecognizer) GetInsertColumns() []string {
-	result := make([]string,0)
-	for _,col := range recognizer.insertStmt.Columns {
-		result = append(result,col.Name.String())
+	result := make([]string, 0)
+	for _, col := range recognizer.insertStmt.Columns {
+		result = append(result, col.Name.String())
 	}
 	return result
 }
 
 func (recognizer *MysqlInsertRecognizer) GetInsertRows() [][]string {
-	var rows = make([][]string,0)
-	for _,dataRow := range recognizer.insertStmt.Lists {
-		var row = make([]string,0)
-		for _,dataField := range dataRow {
+	var rows = make([][]string, 0)
+	for _, dataRow := range recognizer.insertStmt.Lists {
+		var row = make([]string, 0)
+		for _, dataField := range dataRow {
 			var sb strings.Builder
-			dataField.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags,&sb))
-			row = append(row,sb.String())
+			dataField.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
+			row = append(row, sb.String())
 		}
-		rows = append(rows,row)
+		rows = append(rows, row)
 	}
 
 	return rows

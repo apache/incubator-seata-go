@@ -2,83 +2,80 @@ package exec
 
 import (
 	"database/sql"
-)
 
-import (
 	p "github.com/pingcap/parser"
 	"github.com/pingcap/parser/ast"
+
 	_ "github.com/pingcap/parser/test_driver"
 	"github.com/pkg/errors"
-)
+	"github.com/xiaobudongzhang/seata-golang/base/meta"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser/mysql"
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser/mysql"
-	tx2 "github.com/dk-lockdown/seata-golang/client/at/tx"
-	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	tx2 "github.com/xiaobudongzhang/seata-golang/client/at/tx"
+	"github.com/xiaobudongzhang/seata-golang/client/at/undo/manager"
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
 )
 
 type Tx struct {
-	tx *tx2.ProxyTx
-	reportRetryCount int
+	tx                  *tx2.ProxyTx
+	reportRetryCount    int
 	reportSuccessEnable bool
 }
 
 func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt(query,"","")
-	stmt,ok := act.(*ast.SelectStmt)
+	act, _ := parser.ParseOneStmt(query, "", "")
+	stmt, ok := act.(*ast.SelectStmt)
 	if ok && stmt.LockTp == ast.SelectLockForUpdate {
 		executor := &SelectForUpdateExecutor{
 			tx:            tx.tx,
-			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query,stmt),
+			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query, stmt),
 			values:        args,
 		}
 		return executor.Execute()
 	} else {
-		return tx.tx.Tx.Query(query,args)
+		return tx.tx.Tx.Query(query, args)
 	}
 }
 
 func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt(query,"","")
-	deleteStmt,isDelete := act.(*ast.DeleteStmt)
+	act, _ := parser.ParseOneStmt(query, "", "")
+	deleteStmt, isDelete := act.(*ast.DeleteStmt)
 	if isDelete {
 		executor := &DeleteExecutor{
 			tx:            tx.tx,
-			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query,deleteStmt),
+			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query, deleteStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	insertStmt,isInsert := act.(*ast.InsertStmt)
+	insertStmt, isInsert := act.(*ast.InsertStmt)
 	if isInsert {
 		executor := &InsertExecutor{
 			tx:            tx.tx,
-			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query,insertStmt),
+			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query, insertStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	updateStmt,isUpdate := act.(*ast.UpdateStmt)
+	updateStmt, isUpdate := act.(*ast.UpdateStmt)
 	if isUpdate {
 		executor := &UpdateExecutor{
 			tx:            tx.tx,
-			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query,updateStmt),
+			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query, updateStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	return tx.tx.Tx.Exec(query,args)
+	return tx.tx.Tx.Exec(query, args)
 }
 
 func (tx *Tx) Commit() error {
-	branchId,err := tx.register()
+	branchId, err := tx.register()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -120,9 +117,9 @@ func (tx *Tx) Rollback() error {
 	return err
 }
 
-func (tx *Tx) register() (int64,error) {
-	return dataSourceManager.BranchRegister(meta.BranchTypeAT,tx.tx.ResourceId,"",tx.tx.Context.Xid,
-		nil,tx.tx.Context.BuildLockKeys())
+func (tx *Tx) register() (int64, error) {
+	return dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.tx.ResourceId, "", tx.tx.Context.Xid,
+		nil, tx.tx.Context.BuildLockKeys())
 }
 
 func (tx *Tx) report(commitDone bool) error {
@@ -131,17 +128,17 @@ func (tx *Tx) report(commitDone bool) error {
 		var err error
 		if commitDone {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.tx.Context.Xid, tx.tx.Context.BranchId,
-				meta.BranchStatusPhaseoneDone,nil)
+				meta.BranchStatusPhaseoneDone, nil)
 		} else {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.tx.Context.Xid, tx.tx.Context.BranchId,
-				meta.BranchStatusPhaseoneFailed,nil)
+				meta.BranchStatusPhaseoneFailed, nil)
 		}
 		if err != nil {
 			logging.Logger.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
-				tx.tx.Context.BranchId,tx.tx.Context.Xid,commitDone,retry)
-			retry = retry -1
+				tx.tx.Context.BranchId, tx.tx.Context.Xid, commitDone, retry)
+			retry = retry - 1
 			if retry == 0 {
-				return errors.WithMessagef(err,"Failed to report branch status %t",commitDone)
+				return errors.WithMessagef(err, "Failed to report branch status %t", commitDone)
 			}
 		}
 	}

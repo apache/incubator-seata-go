@@ -1,9 +1,10 @@
 package lock
 
 import (
-	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/tc/session"
 	"sync"
+
+	"github.com/xiaobudongzhang/seata-golang/tc/config"
+	"github.com/xiaobudongzhang/seata-golang/tc/session"
 )
 
 var lockManager LockManager
@@ -31,8 +32,8 @@ type LockManager interface {
 
 func Init() {
 	if config.GetStoreConfig().StoreMode == "db" {
-		lockStore := &LockStoreDataBaseDao{engine:config.GetStoreConfig().DBStoreConfig.Engine}
-		lockManager = &DataBaseLocker{LockStore:lockStore}
+		lockStore := &LockStoreDataBaseDao{engine: config.GetStoreConfig().DBStoreConfig.Engine}
+		lockManager = &DataBaseLocker{LockStore: lockStore}
 	} else {
 		lockManager = &MemoryLocker{
 			LockMap:      &sync.Map{},

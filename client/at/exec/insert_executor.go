@@ -4,18 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
-)
 
-import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
-	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
+	_struct "github.com/xiaobudongzhang/seata-golang/client/at/sql/struct"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sql/struct/cache"
+	"github.com/xiaobudongzhang/seata-golang/client/at/sqlparser"
+	"github.com/xiaobudongzhang/seata-golang/client/at/tx"
+
+	sql2 "github.com/xiaobudongzhang/seata-golang/pkg/sql"
 )
 
 type InsertExecutor struct {
@@ -25,24 +22,24 @@ type InsertExecutor struct {
 }
 
 func (executor *InsertExecutor) Execute() (sql.Result, error) {
-	beforeImage,err := executor.BeforeImage()
+	beforeImage, err := executor.BeforeImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	result, err := executor.tx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.tx.Exec(executor.sqlRecognizer.GetOriginalSQL(), executor.values...)
 	if err != nil {
-		return result,err
+		return result, err
 	}
-	afterImage,err := executor.AfterImage()
+	afterImage, err := executor.AfterImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	executor.PrepareUndoLog(beforeImage,afterImage)
-	return result,err
+	executor.PrepareUndoLog(beforeImage, afterImage)
+	return result, err
 }
 
 func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.TableRecords) {
-	if len(afterImage.Rows)== 0 {
+	if len(afterImage.Rows) == 0 {
 		return
 	}
 
@@ -51,61 +48,61 @@ func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.
 	lockKeys := buildLockKey(lockKeyRecords)
 	executor.tx.AppendLockKey(lockKeys)
 
-	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
+	sqlUndoLog := buildUndoItem(executor.sqlRecognizer, beforeImage, afterImage)
 	executor.tx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *InsertExecutor) BeforeImage() (*_struct.TableRecords,error) {
-	return nil,nil
+func (executor *InsertExecutor) BeforeImage() (*_struct.TableRecords, error) {
+	return nil, nil
 }
 
-func (executor *InsertExecutor) AfterImage() (*_struct.TableRecords,error) {
+func (executor *InsertExecutor) AfterImage() (*_struct.TableRecords, error) {
 	pkValues := executor.GetPkValuesByColumn()
-	afterImage,err := executor.BuildTableRecords(pkValues)
+	afterImage, err := executor.BuildTableRecords(pkValues)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return afterImage,nil
+	return afterImage, nil
 }
 
-func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*_struct.TableRecords,error) {
-	tableMeta,err := executor.getTableMeta()
+func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*_struct.TableRecords, error) {
+	tableMeta, err := executor.getTableMeta()
 	if err != nil {
 		panic(err)
 	}
 	var sb strings.Builder
-	fmt.Fprint(&sb,"SELECT * FROM ")
-	fmt.Fprint(&sb,executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&sb," WHERE `%s` IN ",tableMeta.GetPkName())
-	fmt.Fprint(&sb,sql2.AppendInParam(len(pkValues)))
+	fmt.Fprint(&sb, "SELECT * FROM ")
+	fmt.Fprint(&sb, executor.sqlRecognizer.GetTableName())
+	fmt.Fprintf(&sb, " WHERE `%s` IN ", tableMeta.GetPkName())
+	fmt.Fprint(&sb, sql2.AppendInParam(len(pkValues)))
 
-	rows,err := executor.tx.Query(sb.String(),pkValues...)
+	rows, err := executor.tx.Query(sb.String(), pkValues...)
 	if err != nil {
-		return nil,errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
-	return _struct.BuildRecords(tableMeta,rows),nil
+	return _struct.BuildRecords(tableMeta, rows), nil
 }
 
 func (executor *InsertExecutor) GetPkValuesByColumn() []interface{} {
-	pkValues := make([]interface{},0)
+	pkValues := make([]interface{}, 0)
 	columnLen := executor.GetColumnLen()
 	pkIndex := executor.GetPkIndex()
-	for i,value := range executor.values {
-		if i % columnLen ==  pkIndex {
-			pkValues = append(pkValues,value)
+	for i, value := range executor.values {
+		if i%columnLen == pkIndex {
+			pkValues = append(pkValues, value)
 		}
 	}
 	return pkValues
 }
 
-func(executor *InsertExecutor) GetPkIndex() int {
+func (executor *InsertExecutor) GetPkIndex() int {
 	insertColumns := executor.sqlRecognizer.GetInsertColumns()
-	tableMeta,err := executor.getTableMeta()
+	tableMeta, err := executor.getTableMeta()
 	if err != nil {
 		panic(err)
 	}
-	if insertColumns != nil && len(insertColumns)>0 {
-		for i,columnName := range insertColumns {
+	if insertColumns != nil && len(insertColumns) > 0 {
+		for i, columnName := range insertColumns {
 			if tableMeta.GetPkName() == columnName {
 				return i
 			}
@@ -113,7 +110,7 @@ func(executor *InsertExecutor) GetPkIndex() int {
 	}
 	allColumns := tableMeta.AllColumns
 	var idx = 0
-	for _,column := range allColumns {
+	for _, column := range allColumns {
 		if tableMeta.GetPkName() == column.ColumnName {
 			return idx
 		}
@@ -127,7 +124,7 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	if insertColumns != nil {
 		return len(insertColumns)
 	}
-	tableMeta,err := cache.GetTableMetaCache().GetTableMeta(executor.tx.Tx,
+	tableMeta, err := cache.GetTableMetaCache().GetTableMeta(executor.tx.Tx,
 		executor.sqlRecognizer.GetTableName(),
 		executor.tx.ResourceId)
 	if err != nil {
@@ -136,7 +133,7 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	return len(tableMeta.AllColumns)
 }
 
-func (executor *InsertExecutor) getTableMeta() (_struct.TableMeta,error) {
+func (executor *InsertExecutor) getTableMeta() (_struct.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.tx.Tx,executor.sqlRecognizer.GetTableName(),executor.tx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.tx.Tx, executor.sqlRecognizer.GetTableName(), executor.tx.ResourceId)
 }

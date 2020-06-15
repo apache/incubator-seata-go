@@ -2,17 +2,12 @@ package readwriter
 
 import (
 	"bytes"
-)
 
-import (
 	"github.com/dubbogo/getty"
 	"github.com/pkg/errors"
+	"github.com/xiaobudongzhang/seata-golang/base/protocal"
+	"github.com/xiaobudongzhang/seata-golang/base/protocal/codec"
 	"vimagination.zapto.org/byteio"
-)
-
-import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
 )
 
 /**

@@ -4,26 +4,23 @@ import (
 	"fmt"
 	"net"
 	"strings"
-)
 
-import (
 	"github.com/dubbogo/getty"
-	gxsync "github.com/dubbogo/gost/sync"
-)
 
-import (
-	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	gxsync "github.com/dubbogo/gost/sync"
+	"github.com/xiaobudongzhang/seata-golang/base/getty/readwriter"
+	"github.com/xiaobudongzhang/seata-golang/client/config"
+
+	getty2 "github.com/xiaobudongzhang/seata-golang/client/getty"
+	"github.com/xiaobudongzhang/seata-golang/pkg/logging"
 )
 
 var clientGrpool *gxsync.TaskPool
 
 type RpcClient struct {
-	conf config.ClientConfig
+	conf         config.ClientConfig
 	gettyClients []getty.Client
-	rpcHandler *getty2.RpcRemoteClient
+	rpcHandler   *getty2.RpcRemoteClient
 }
 
 func setClientGrpool() {
@@ -46,8 +43,8 @@ func NewRpcClient() *RpcClient {
 }
 
 func (c *RpcClient) init() {
-	addressList := strings.Split(c.conf.TransactionServiceGroup,",")
-	for _,address := range addressList {
+	addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
 			getty.WithConnectionNumber((int)(c.conf.GettyConfig.ConnectionNum)),
