@@ -3,17 +3,17 @@ package exec
 import (
 	"database/sql"
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 )
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
 )
 
 type SelectForUpdateExecutor struct {
-	tx            *tx.ProxyTx
+	proxyTx       *proxy_tx.ProxyTx
 	sqlRecognizer sqlparser.ISQLSelectRecognizer
 	values        []interface{}
 }
@@ -23,18 +23,18 @@ func (executor *SelectForUpdateExecutor) Execute() (*sql.Rows, error) {
 	if err != nil {
 		return nil,err
 	}
-	rows,err := executor.tx.Query(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	rows,err := executor.proxyTx.Query(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
 	if err != nil {
 		return nil,err
 	}
-	selectPKRows := _struct.BuildRecords(tableMeta,rows)
+	selectPKRows := schema.BuildRecords(tableMeta,rows)
 	lockKeys := buildLockKey(selectPKRows)
 	if lockKeys == "" {
 		return rows,err
 	} else {
-		if executor.tx.Context.InGlobalTransaction() {
+		if executor.proxyTx.Context.InGlobalTransaction() {
 			lockable,err := dataSourceManager.LockQuery(meta.BranchTypeAT,
-				executor.tx.ResourceId,executor.tx.Context.Xid,lockKeys)
+				executor.proxyTx.ResourceId,executor.proxyTx.Context.Xid,lockKeys)
 			if !lockable && err != nil {
 				return nil,err
 			}
@@ -43,7 +43,7 @@ func (executor *SelectForUpdateExecutor) Execute() (*sql.Rows, error) {
 	return rows,err
 }
 
-func (executor *SelectForUpdateExecutor) getTableMeta() (_struct.TableMeta,error) {
+func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta,error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.tx.Tx,executor.sqlRecognizer.GetTableName(),executor.tx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
 }

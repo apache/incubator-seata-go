@@ -1,18 +1,18 @@
 package undo
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 )
 
 type SqlUndoLog struct {
 	SqlType     sqlparser.SQLType
 	TableName   string
-	BeforeImage *_struct.TableRecords
-	AfterImage  *_struct.TableRecords
+	BeforeImage *schema.TableRecords
+	AfterImage  *schema.TableRecords
 }
 
-func (undoLog *SqlUndoLog) SetTableMeta(tableMeta _struct.TableMeta) {
+func (undoLog *SqlUndoLog) SetTableMeta(tableMeta schema.TableMeta) {
 	if undoLog.BeforeImage != nil {
 		undoLog.BeforeImage.TableMeta = tableMeta
 	}

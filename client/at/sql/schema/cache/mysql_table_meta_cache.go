@@ -16,11 +16,11 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/sql_type"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 )
 
-var EXPIRE_TIME = 900 * 1000 * time.Microsecond
+var EXPIRE_TIME = 15 * time.Minute
 
 type Tx struct {
 	*sql.Tx
@@ -47,20 +47,20 @@ func NewMysqlTableMetaCache(dsn string) ITableMetaCache {
 	}
 }
 
-func(cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx,tableName,resourceId string) (_struct.TableMeta,error) {
+func(cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx,tableName,resourceId string) (schema.TableMeta,error) {
 	if tableName == "" {
-		return _struct.TableMeta{},errors.New("TableMeta cannot be fetched without tableName")
+		return schema.TableMeta{},errors.New("TableMeta cannot be fetched without tableName")
 	}
 	cacheKey := cache.GetCacheKey(tableName,resourceId)
 	tMeta,found := cache.tableMetaCache.Get(cacheKey)
 	if found {
-		meta := tMeta.(_struct.TableMeta)
+		meta := tMeta.(schema.TableMeta)
 		return meta,nil
 	} else {
 		ndb := newTx(tx,cache.dsn)
 		meta,err := cache.FetchSchema(ndb,tableName)
 		if err != nil {
-			return _struct.TableMeta{},errors.WithStack(err)
+			return schema.TableMeta{},errors.WithStack(err)
 		}
 		cache.tableMetaCache.Set(cacheKey,meta,EXPIRE_TIME)
 		return meta,nil
@@ -69,7 +69,7 @@ func(cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx,tableName,resourceId st
 
 func(cache *MysqlTableMetaCache) Refresh(tx *sql.Tx,resourceId string) {
 	for k,v := range cache.tableMetaCache.Items() {
-		meta := v.Object.(_struct.TableMeta)
+		meta := v.Object.(schema.TableMeta)
 		key := cache.GetCacheKey(meta.TableName,resourceId)
 		if k == key {
 			ndb := newTx(tx,cache.dsn)
@@ -96,21 +96,21 @@ func (cache *MysqlTableMetaCache) GetCacheKey(tableName string,resourceId string
 	return fmt.Sprintf("%s.%s",resourceId,defaultTableName)
 }
 
-func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (_struct.TableMeta,error) {
-	tm := _struct.TableMeta{TableName:tableName,
-		AllColumns:make(map[string]_struct.ColumnMeta),
-		AllIndexes:make(map[string]_struct.IndexMeta),
+func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.TableMeta,error) {
+	tm := schema.TableMeta{TableName: tableName,
+		AllColumns:make(map[string]schema.ColumnMeta),
+		AllIndexes:make(map[string]schema.IndexMeta),
 	}
 	columns,err := GetColumns(tx,tableName)
 	if err != nil {
-		return _struct.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
+		return schema.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
 	}
 	for _,column := range columns {
 		tm.AllColumns[column.ColumnName] = column
 	}
 	indexes,err := GetIndexes(tx,tableName)
 	if err != nil {
-		return _struct.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
+		return schema.TableMeta{},errors.Wrapf(err,"Could not found any index in the table: %s",tableName)
 	}
 	for _,index := range indexes {
 		col := tm.AllColumns[index.ColumnName]
@@ -123,13 +123,13 @@ func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (_struct
 		}
 	}
 	if len(tm.AllIndexes) == 0 {
-		return _struct.TableMeta{},errors.Errorf("Could not found any index in the table: %s", tableName)
+		return schema.TableMeta{},errors.Errorf("Could not found any index in the table: %s", tableName)
 	}
 
 	return tm,nil
 }
 
-func GetColumns(tx *Tx, tableName string) ([]_struct.ColumnMeta, error) {
+func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 	var tn = tableName
 	if strings.Contains(tableName,".") {
 		idx := strings.LastIndex(tableName,".")
@@ -151,9 +151,9 @@ func GetColumns(tx *Tx, tableName string) ([]_struct.ColumnMeta, error) {
 	}
 	defer rows.Close()
 
-	result := make([]_struct.ColumnMeta,0)
+	result := make([]schema.ColumnMeta,0)
 	for rows.Next() {
-		col := _struct.ColumnMeta{}
+		col := schema.ColumnMeta{}
 
 		var tableCat, tableSchem, tableName, columnName, dataType, isNullable, remark, colDefault, colKey, extra sql.NullString
 		var columnSize, decimalDigits, numPreRadix, charOctetLength, ordinalPosition sql.NullInt32
@@ -191,7 +191,7 @@ func GetColumns(tx *Tx, tableName string) ([]_struct.ColumnMeta, error) {
 	return result,nil
 }
 
-func GetIndexes(tx *Tx, tableName string) ([]_struct.IndexMeta,error) {
+func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta,error) {
 	var tn = tableName
 	if strings.Contains(tableName,".") {
 		idx := strings.LastIndex(tableName,".")
@@ -212,10 +212,10 @@ func GetIndexes(tx *Tx, tableName string) ([]_struct.IndexMeta,error) {
 	}
 	defer rows.Close()
 
-	result := make([]_struct.IndexMeta,0)
+	result := make([]schema.IndexMeta,0)
 	for rows.Next() {
-		index := _struct.IndexMeta{
-			Values: make([]_struct.ColumnMeta,0),
+		index := schema.IndexMeta{
+			Values: make([]schema.ColumnMeta,0),
 		}
 		var indexName, columnName, nonUnique, indexType, collation sql.NullString
 		var ordinalPosition, cardinality sql.NullInt32
@@ -230,11 +230,11 @@ func GetIndexes(tx *Tx, tableName string) ([]_struct.IndexMeta,error) {
 		index.AscOrDesc = collation.String
 		index.Cardinality = cardinality.Int32
 		if "primary" == strings.ToLower(indexName.String) {
-			index.IndexType = _struct.IndexType_PRIMARY
+			index.IndexType = schema.IndexType_PRIMARY
 		} else if !index.NonUnique {
-			index.IndexType = _struct.IndexType_UNIQUE
+			index.IndexType = schema.IndexType_UNIQUE
 		} else {
-			index.IndexType = _struct.IndexType_NORMAL
+			index.IndexType = schema.IndexType_NORMAL
 		}
 
 		result = append(result,index)

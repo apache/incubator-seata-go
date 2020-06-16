@@ -1,4 +1,4 @@
-package _struct
+package schema
 
 import (
 	"github.com/pkg/errors"

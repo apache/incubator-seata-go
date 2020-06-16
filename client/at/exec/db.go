@@ -2,14 +2,14 @@ package exec
 
 import (
 	"database/sql"
-	tx2 "github.com/dk-lockdown/seata-golang/client/at/tx"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
 	"strings"
 )
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
+	tx2 "github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
+	"github.com/dk-lockdown/seata-golang/client/config"
+	"github.com/dk-lockdown/seata-golang/client/context"
 )
 
 type DB struct{
@@ -18,14 +18,7 @@ type DB struct{
 	ResourceGroupId string
 }
 
-func NewDB(conf config.ATConfig) (*DB,error) {
-	db, err := sql.Open("mysql",conf.DSN)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(conf.Active)
-	db.SetMaxIdleConns(conf.Idle)
-	db.SetConnMaxLifetime(conf.IdleTimeout)
+func NewDB(conf config.ATConfig,db *sql.DB) (*DB,error) {
 	newDB := &DB{
 		DB:              db,
 		conf:            conf,
@@ -42,7 +35,7 @@ func (db *DB) GetResourceGroupId() string {
 func (db *DB) GetResourceId() string {
 	fromIndex := strings.Index(db.conf.DSN,"@")
 	endIndex := strings.Index(db.conf.DSN,"?")
-	return db.conf.DSN[fromIndex:endIndex]
+	return db.conf.DSN[fromIndex+1:endIndex]
 }
 
 func (db *DB) GetBranchType() meta.BranchType {
@@ -61,8 +54,8 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx,error) {
 		Context:    tx2.NewTxContext(ctx),
 	}
 	return &Tx{
-		tx: proxyTx,
-		reportRetryCount: db.conf.ReportRetryCount,
+		proxyTx:             proxyTx,
+		reportRetryCount:    db.conf.ReportRetryCount,
 		reportSuccessEnable: db.conf.ReportSuccessEnable,
 	},nil
 }

@@ -6,12 +6,12 @@ import (
 )
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
 )
 
-func buildLockKey(lockKeyRecords *_struct.TableRecords) string {
+func buildLockKey(lockKeyRecords *schema.TableRecords) string {
 	if lockKeyRecords.Rows == nil || len(lockKeyRecords.Rows)== 0 {
 		return ""
 	}
@@ -30,7 +30,7 @@ func buildLockKey(lockKeyRecords *_struct.TableRecords) string {
 	return sb.String()
 }
 
-func buildUndoItem(recognizer sqlparser.ISQLRecognizer,beforeImage, afterImage *_struct.TableRecords) *undo.SqlUndoLog {
+func buildUndoItem(recognizer sqlparser.ISQLRecognizer,beforeImage, afterImage *schema.TableRecords) *undo.SqlUndoLog {
 	sqlType := recognizer.GetSQLType()
 	tableName := recognizer.GetTableName()
 

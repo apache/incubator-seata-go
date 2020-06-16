@@ -2,12 +2,18 @@ package parser
 
 import (
 	"fmt"
+	"testing"
+)
+
+import (
+	"github.com/go-playground/assert/v2"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/sql_type"
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	"github.com/go-playground/assert/v2"
-	"testing"
 )
 
 func getBranchUndoLog() *undo.BranchUndoLog {
@@ -19,33 +25,33 @@ func getBranchUndoLog() *undo.BranchUndoLog {
 				SqlType:     sqlparser.SQLType_INSERT,
 				TableName:   "user",
 				BeforeImage: nil,
-				AfterImage:  &_struct.TableRecords{
-					TableMeta: _struct.TableMeta{},
+				AfterImage:  &schema.TableRecords{
+					TableMeta: schema.TableMeta{},
 					TableName: "user",
-					Rows:      []*_struct.Row{
+					Rows:      []*schema.Row{
 						{
-							Fields: []*_struct.Field{
+							Fields: []*schema.Field{
 								{
 									Name:    "id",
-									KeyType: _struct.PRIMARY_KEY,
+									KeyType: schema.PRIMARY_KEY,
 									Type:    sql_type.BIGINT,
 									Value:   int64(2000001),
 								},
 								{
 									Name:    "name",
-									KeyType: _struct.NULL,
+									KeyType: schema.NULL,
 									Type:    sql_type.VARCHAR,
 									Value:   []byte("scott"),
 								},
 								{
 									Name:    "age",
-									KeyType: _struct.NULL,
+									KeyType: schema.NULL,
 									Type:    sql_type.INTEGER,
 									Value:   int64(28),
 								},
 								{
 									Name:    "avatar",
-									KeyType: _struct.NULL,
+									KeyType: schema.NULL,
 									Type:    sql_type.BLOB,
 									Value: []byte{1, 40, 1, 32, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 112, 0, 112,
 										0, 0, 1, 31, 0, 116, 69, 120, 105, 102, 0, 0, 77, 77, 0, 42, 0, 0, 0, 8, 0, 4,

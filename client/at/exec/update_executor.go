@@ -3,7 +3,7 @@ package exec
 import (
 	"database/sql"
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
 	"github.com/pkg/errors"
 	"strings"
@@ -11,13 +11,13 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/mysql"
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
 )
 
 type UpdateExecutor struct {
-	tx            *tx.ProxyTx
+	proxyTx       *proxy_tx.ProxyTx
 	sqlRecognizer sqlparser.ISQLUpdateRecognizer
 	values        []interface{}
 }
@@ -27,7 +27,7 @@ func (executor *UpdateExecutor) Execute() (sql.Result, error) {
 	if err != nil {
 		return nil,err
 	}
-	result, err := executor.tx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
 	if err != nil {
 		return result,err
 	}
@@ -39,7 +39,7 @@ func (executor *UpdateExecutor) Execute() (sql.Result, error) {
 	return result,err
 }
 
-func (executor *UpdateExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.TableRecords) {
+func (executor *UpdateExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
 	if len(beforeImage.Rows)== 0 && len(afterImage.Rows)== 0 {
 		return
 	}
@@ -47,13 +47,13 @@ func (executor *UpdateExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.
 	var lockKeyRecords = afterImage
 
 	lockKeys := buildLockKey(lockKeyRecords)
-	executor.tx.AppendLockKey(lockKeys)
+	executor.proxyTx.AppendLockKey(lockKeys)
 
 	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
-	executor.tx.AppendUndoLog(sqlUndoLog)
+	executor.proxyTx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *UpdateExecutor) BeforeImage() (*_struct.TableRecords,error) {
+func (executor *UpdateExecutor) BeforeImage() (*schema.TableRecords,error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		return nil,err
@@ -61,7 +61,7 @@ func (executor *UpdateExecutor) BeforeImage() (*_struct.TableRecords,error) {
 	return executor.buildTableRecords(tableMeta)
 }
 
-func (executor *UpdateExecutor) AfterImage(beforeImage *_struct.TableRecords) (*_struct.TableRecords,error) {
+func (executor *UpdateExecutor) AfterImage(beforeImage *schema.TableRecords) (*schema.TableRecords,error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		return nil,err
@@ -71,19 +71,19 @@ func (executor *UpdateExecutor) AfterImage(beforeImage *_struct.TableRecords) (*
 	for _,field := range beforeImage.PkFields() {
 		args = append(args,field.Value)
 	}
-	rows,err := executor.tx.Query(afterImageSql,args...)
+	rows,err := executor.proxyTx.Query(afterImageSql,args...)
 	if err != nil {
 		return nil,errors.WithStack(err)
 	}
-	return _struct.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta,rows),nil
 }
 
-func (executor *UpdateExecutor) getTableMeta() (_struct.TableMeta,error) {
+func (executor *UpdateExecutor) getTableMeta() (schema.TableMeta,error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.tx.Tx,executor.sqlRecognizer.GetTableName(),executor.tx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
 }
 
-func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta _struct.TableMeta) string {
+func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) string {
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
@@ -102,7 +102,7 @@ func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta _struct.TableMeta)
 	return b.String()
 }
 
-func (executor *UpdateExecutor) buildAfterImageSql(tableMeta _struct.TableMeta,beforeImage *_struct.TableRecords) string {
+func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta,beforeImage *schema.TableRecords) string {
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
@@ -122,12 +122,12 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta _struct.TableMeta,b
 	return b.String()
 }
 
-func (executor *UpdateExecutor) buildTableRecords(tableMeta _struct.TableMeta) (*_struct.TableRecords,error) {
+func (executor *UpdateExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords,error) {
 	sql := executor.buildBeforeImageSql(tableMeta)
 	argsCount := strings.Count(sql,"?")
-	rows,err := executor.tx.Query(sql,executor.values[len(executor.values)-argsCount:]...)
+	rows,err := executor.proxyTx.Query(sql,executor.values[len(executor.values)-argsCount:]...)
 	if err != nil {
 		return nil,errors.WithStack(err)
 	}
-	return _struct.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta,rows),nil
 }

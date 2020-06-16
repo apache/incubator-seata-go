@@ -14,10 +14,9 @@ import (
 )
 
 // GettyConfig
-	//Config holds supported types by the multiconfig package
+//Config holds supported types by the multiconfig package
 type GettyConfig struct {
 	ReconnectInterval int `default:"0" yaml:"reconnect_interval" json:"reconnect_interval,omitempty"`
-
 	// getty_session pool
 	ConnectionNum int `default:"16" yaml:"connection_number" json:"connection_number,omitempty"`
 

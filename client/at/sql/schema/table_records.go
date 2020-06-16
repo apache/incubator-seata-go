@@ -1,4 +1,4 @@
-package _struct
+package schema
 
 import (
 	"database/sql"

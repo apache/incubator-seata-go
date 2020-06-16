@@ -14,7 +14,7 @@ import (
 )
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
 )
@@ -62,7 +62,7 @@ func (parser ProtoBufUndoLogParser) Decode(data []byte) *undo.BranchUndoLog {
 	return convertPbBranchSqlUndoLog(pbBranchUndoLog)
 }
 
-func convertField(field *_struct.Field) *PbField {
+func convertField(field *schema.Field) *PbField {
 	pbField := &PbField{
 		Name:                 field.Name,
 		KeyType:              int32(field.KeyType),
@@ -110,10 +110,10 @@ func convertField(field *_struct.Field) *PbField {
 	return pbField
 }
 
-func convertPbField(pbField *PbField) *_struct.Field {
-	field := &_struct.Field{
+func convertPbField(pbField *PbField) *schema.Field {
+	field := &schema.Field{
 		Name:    pbField.Name,
-		KeyType: _struct.KeyType(pbField.KeyType),
+		KeyType: schema.KeyType(pbField.KeyType),
 		Type:    pbField.Type,
 	}
 	if pbField.Value == nil {
@@ -152,7 +152,7 @@ func convertPbField(pbField *PbField) *_struct.Field {
 	return field
 }
 
-func convertRow(row *_struct.Row) *PbRow {
+func convertRow(row *schema.Row) *PbRow {
 	pbFields := make([]*PbField,0)
 	for _,field := range row.Fields {
 		pbField := convertField(field)
@@ -164,17 +164,17 @@ func convertRow(row *_struct.Row) *PbRow {
 	return pbRow
 }
 
-func convertPbRow(pbRow *PbRow) *_struct.Row {
-	fields := make([]*_struct.Field,0)
+func convertPbRow(pbRow *PbRow) *schema.Row {
+	fields := make([]*schema.Field,0)
 	for _,pbField := range pbRow.Fields {
 		field := convertPbField(pbField)
 		fields = append(fields,field)
 	}
-	row := &_struct.Row{Fields:fields}
+	row := &schema.Row{Fields:fields}
 	return row
 }
 
-func convertTableRecords(records *_struct.TableRecords) *PbTableRecords {
+func convertTableRecords(records *schema.TableRecords) *PbTableRecords {
 	pbRows := make([]*PbRow,0)
 	for _,row := range records.Rows {
 		pbRow := convertRow(row)
@@ -187,13 +187,13 @@ func convertTableRecords(records *_struct.TableRecords) *PbTableRecords {
 	return pbRecords
 }
 
-func convertPbTableRecords(pbRecords *PbTableRecords) *_struct.TableRecords {
-	rows := make([]*_struct.Row,0)
+func convertPbTableRecords(pbRecords *PbTableRecords) *schema.TableRecords {
+	rows := make([]*schema.Row,0)
 	for _,pbRow := range pbRecords.Rows {
 		row := convertPbRow(pbRow)
 		rows = append(rows,row)
 	}
-	records := &_struct.TableRecords{
+	records := &schema.TableRecords{
 		TableName: pbRecords.TableName,
 		Rows:      rows,
 	}

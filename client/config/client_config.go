@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"io/ioutil"
 	"path"
 )
@@ -24,6 +25,14 @@ var clientConfig ClientConfig
 
 func GetClientConfig() ClientConfig {
 	return clientConfig
+}
+
+func GetTMConfig() TMConfig {
+	return clientConfig.TMConfig
+}
+
+func GetATConfig() ATConfig {
+	return clientConfig.ATConfig
 }
 
 func GetDefaultClientConfig(applicationId string) ClientConfig {
@@ -58,13 +67,14 @@ func InitConf(confFile string) error {
 	}
 
 	(&clientConfig).GettyConfig.CheckValidity()
-	(&clientConfig).ATConfig.CheckValidity()
-	tmConfig = clientConfig.TMConfig
+
+	if clientConfig.ATConfig.DSN != "" {
+		cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(clientConfig.ATConfig.DSN))
+	}
 	return nil
 }
 
 func InitConfWithDefault(applicationId string) {
 	clientConfig = GetDefaultClientConfig(applicationId)
 	(&clientConfig).GettyConfig.CheckValidity()
-	tmConfig = clientConfig.TMConfig
 }

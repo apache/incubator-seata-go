@@ -1,7 +1,10 @@
-package tx
+package proxy_tx
 
 import (
 	"database/sql"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
 )
 

@@ -13,15 +13,15 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
+	tx2 "github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser/mysql"
-	tx2 "github.com/dk-lockdown/seata-golang/client/at/tx"
 	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 )
 
 type Tx struct {
-	tx *tx2.ProxyTx
-	reportRetryCount int
+	proxyTx             *tx2.ProxyTx
+	reportRetryCount    int
 	reportSuccessEnable bool
 }
 
@@ -31,13 +31,13 @@ func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	stmt,ok := act.(*ast.SelectStmt)
 	if ok && stmt.LockTp == ast.SelectLockForUpdate {
 		executor := &SelectForUpdateExecutor{
-			tx:            tx.tx,
+			proxyTx:       tx.proxyTx,
 			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query,stmt),
 			values:        args,
 		}
 		return executor.Execute()
 	} else {
-		return tx.tx.Tx.Query(query,args)
+		return tx.proxyTx.Tx.Query(query,args)
 	}
 }
 
@@ -47,7 +47,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	deleteStmt,isDelete := act.(*ast.DeleteStmt)
 	if isDelete {
 		executor := &DeleteExecutor{
-			tx:            tx.tx,
+			proxyTx:       tx.proxyTx,
 			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query,deleteStmt),
 			values:        args,
 		}
@@ -57,7 +57,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	insertStmt,isInsert := act.(*ast.InsertStmt)
 	if isInsert {
 		executor := &InsertExecutor{
-			tx:            tx.tx,
+			proxyTx:       tx.proxyTx,
 			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query,insertStmt),
 			values:        args,
 		}
@@ -67,14 +67,14 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	updateStmt,isUpdate := act.(*ast.UpdateStmt)
 	if isUpdate {
 		executor := &UpdateExecutor{
-			tx:            tx.tx,
+			proxyTx:       tx.proxyTx,
 			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query,updateStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	return tx.tx.Tx.Exec(query,args)
+	return tx.proxyTx.Tx.Exec(query,args)
 }
 
 func (tx *Tx) Commit() error {
@@ -82,10 +82,10 @@ func (tx *Tx) Commit() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	tx.tx.Context.BranchId = branchId
+	tx.proxyTx.Context.BranchId = branchId
 
-	if tx.tx.Context.HasUndoLog() {
-		err = manager.GetUndoLogManager().FlushUndoLogs(tx.tx)
+	if tx.proxyTx.Context.HasUndoLog() {
+		err = manager.GetUndoLogManager().FlushUndoLogs(tx.proxyTx)
 		if err != nil {
 			err1 := tx.report(false)
 			if err1 != nil {
@@ -93,7 +93,7 @@ func (tx *Tx) Commit() error {
 			}
 			return errors.WithStack(err)
 		}
-		err = tx.tx.Commit()
+		err = tx.proxyTx.Commit()
 		if err != nil {
 			err1 := tx.report(false)
 			if err1 != nil {
@@ -102,27 +102,27 @@ func (tx *Tx) Commit() error {
 			return errors.WithStack(err)
 		}
 	} else {
-		return tx.tx.Commit()
+		return tx.proxyTx.Commit()
 	}
 	if tx.reportSuccessEnable {
 		tx.report(true)
 	}
-	tx.tx.Context.Reset()
+	tx.proxyTx.Context.Reset()
 	return nil
 }
 
 func (tx *Tx) Rollback() error {
-	err := tx.tx.Rollback()
-	if tx.tx.Context.InGlobalTransaction() && tx.tx.Context.IsBranchRegistered() {
+	err := tx.proxyTx.Rollback()
+	if tx.proxyTx.Context.InGlobalTransaction() && tx.proxyTx.Context.IsBranchRegistered() {
 		tx.report(false)
 	}
-	tx.tx.Context.Reset()
+	tx.proxyTx.Context.Reset()
 	return err
 }
 
 func (tx *Tx) register() (int64,error) {
-	return dataSourceManager.BranchRegister(meta.BranchTypeAT,tx.tx.ResourceId,"",tx.tx.Context.Xid,
-		nil,tx.tx.Context.BuildLockKeys())
+	return dataSourceManager.BranchRegister(meta.BranchTypeAT,tx.proxyTx.ResourceId,"",tx.proxyTx.Context.Xid,
+		nil,tx.proxyTx.Context.BuildLockKeys())
 }
 
 func (tx *Tx) report(commitDone bool) error {
@@ -130,15 +130,15 @@ func (tx *Tx) report(commitDone bool) error {
 	for retry > 0 {
 		var err error
 		if commitDone {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.tx.Context.Xid, tx.tx.Context.BranchId,
+			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
 				meta.BranchStatusPhaseoneDone,nil)
 		} else {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.tx.Context.Xid, tx.tx.Context.BranchId,
+			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
 				meta.BranchStatusPhaseoneFailed,nil)
 		}
 		if err != nil {
 			logging.Logger.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
-				tx.tx.Context.BranchId,tx.tx.Context.Xid,commitDone,retry)
+				tx.proxyTx.Context.BranchId,tx.proxyTx.Context.Xid,commitDone,retry)
 			retry = retry -1
 			if retry == 0 {
 				return errors.WithMessagef(err,"Failed to report branch status %t",commitDone)

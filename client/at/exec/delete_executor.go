@@ -12,14 +12,14 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/mysql"
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
+	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
 )
 
 type DeleteExecutor struct {
-	tx            *tx.ProxyTx
+	proxyTx       *proxy_tx.ProxyTx
 	sqlRecognizer sqlparser.ISQLDeleteRecognizer
 	values        []interface{}
 }
@@ -29,7 +29,7 @@ func (executor *DeleteExecutor) Execute() (sql.Result, error) {
 	if err != nil {
 		return nil,err
 	}
-	result, err := executor.tx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
 	if err != nil {
 		return result,err
 	}
@@ -41,7 +41,7 @@ func (executor *DeleteExecutor) Execute() (sql.Result, error) {
 	return result,err
 }
 
-func (executor *DeleteExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.TableRecords) {
+func (executor *DeleteExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
 	if len(beforeImage.Rows)== 0 {
 		return
 	}
@@ -49,13 +49,13 @@ func (executor *DeleteExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.
 	var lockKeyRecords = beforeImage
 
 	lockKeys := buildLockKey(lockKeyRecords)
-	executor.tx.AppendLockKey(lockKeys)
+	executor.proxyTx.AppendLockKey(lockKeys)
 
 	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
-	executor.tx.AppendUndoLog(sqlUndoLog)
+	executor.proxyTx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *DeleteExecutor) BeforeImage() (*_struct.TableRecords,error) {
+func (executor *DeleteExecutor) BeforeImage() (*schema.TableRecords,error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		return nil,err
@@ -63,16 +63,16 @@ func (executor *DeleteExecutor) BeforeImage() (*_struct.TableRecords,error) {
 	return executor.buildTableRecords(tableMeta)
 }
 
-func (executor *DeleteExecutor) AfterImage() (*_struct.TableRecords,error) {
+func (executor *DeleteExecutor) AfterImage() (*schema.TableRecords,error) {
 	return nil,nil
 }
 
-func (executor *DeleteExecutor) getTableMeta() (_struct.TableMeta,error) {
+func (executor *DeleteExecutor) getTableMeta() (schema.TableMeta,error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.tx.Tx,executor.sqlRecognizer.GetTableName(),executor.tx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
 }
 
-func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta _struct.TableMeta) string {
+func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) string {
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
@@ -91,10 +91,10 @@ func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta _struct.TableMeta)
 	return b.String()
 }
 
-func (executor *DeleteExecutor) buildTableRecords(tableMeta _struct.TableMeta) (*_struct.TableRecords,error) {
-	rows,err := executor.tx.Query(executor.buildBeforeImageSql(tableMeta),executor.values...)
+func (executor *DeleteExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords,error) {
+	rows,err := executor.proxyTx.Query(executor.buildBeforeImageSql(tableMeta),executor.values...)
 	if err != nil {
 		return nil,errors.WithStack(err)
 	}
-	return _struct.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta,rows),nil
 }

@@ -5,12 +5,6 @@ type TMConfig struct {
 	RollbackRetryCount int32 `default:"5" yaml:"rollback_retry_count" json:"rollback_retry_count,omitempty"`
 }
 
-var tmConfig TMConfig
-
-func GetTMConfig() TMConfig {
-	return tmConfig
-}
-
 func GetDefaultTmConfig() TMConfig {
 	return TMConfig{
 		CommitRetryCount:   5,

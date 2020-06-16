@@ -11,15 +11,15 @@ import (
 )
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/struct/cache"
+	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
 	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
 )
 
 type InsertExecutor struct {
-	tx            *tx.ProxyTx
+	proxyTx       *proxy_tx.ProxyTx
 	sqlRecognizer sqlparser.ISQLInsertRecognizer
 	values        []interface{}
 }
@@ -29,7 +29,7 @@ func (executor *InsertExecutor) Execute() (sql.Result, error) {
 	if err != nil {
 		return nil,err
 	}
-	result, err := executor.tx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
 	if err != nil {
 		return result,err
 	}
@@ -41,7 +41,7 @@ func (executor *InsertExecutor) Execute() (sql.Result, error) {
 	return result,err
 }
 
-func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.TableRecords) {
+func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
 	if len(afterImage.Rows)== 0 {
 		return
 	}
@@ -49,17 +49,17 @@ func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *_struct.
 	var lockKeyRecords = afterImage
 
 	lockKeys := buildLockKey(lockKeyRecords)
-	executor.tx.AppendLockKey(lockKeys)
+	executor.proxyTx.AppendLockKey(lockKeys)
 
 	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
-	executor.tx.AppendUndoLog(sqlUndoLog)
+	executor.proxyTx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *InsertExecutor) BeforeImage() (*_struct.TableRecords,error) {
+func (executor *InsertExecutor) BeforeImage() (*schema.TableRecords,error) {
 	return nil,nil
 }
 
-func (executor *InsertExecutor) AfterImage() (*_struct.TableRecords,error) {
+func (executor *InsertExecutor) AfterImage() (*schema.TableRecords,error) {
 	pkValues := executor.GetPkValuesByColumn()
 	afterImage,err := executor.BuildTableRecords(pkValues)
 	if err != nil {
@@ -68,7 +68,7 @@ func (executor *InsertExecutor) AfterImage() (*_struct.TableRecords,error) {
 	return afterImage,nil
 }
 
-func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*_struct.TableRecords,error) {
+func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*schema.TableRecords,error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		panic(err)
@@ -79,11 +79,11 @@ func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*_str
 	fmt.Fprintf(&sb," WHERE `%s` IN ",tableMeta.GetPkName())
 	fmt.Fprint(&sb,sql2.AppendInParam(len(pkValues)))
 
-	rows,err := executor.tx.Query(sb.String(),pkValues...)
+	rows,err := executor.proxyTx.Query(sb.String(),pkValues...)
 	if err != nil {
 		return nil,errors.WithStack(err)
 	}
-	return _struct.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta,rows),nil
 }
 
 func (executor *InsertExecutor) GetPkValuesByColumn() []interface{} {
@@ -127,16 +127,16 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	if insertColumns != nil {
 		return len(insertColumns)
 	}
-	tableMeta,err := cache.GetTableMetaCache().GetTableMeta(executor.tx.Tx,
+	tableMeta,err := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
 		executor.sqlRecognizer.GetTableName(),
-		executor.tx.ResourceId)
+		executor.proxyTx.ResourceId)
 	if err != nil {
 		panic(err)
 	}
 	return len(tableMeta.AllColumns)
 }
 
-func (executor *InsertExecutor) getTableMeta() (_struct.TableMeta,error) {
+func (executor *InsertExecutor) getTableMeta() (schema.TableMeta,error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.tx.Tx,executor.sqlRecognizer.GetTableName(),executor.tx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
 }

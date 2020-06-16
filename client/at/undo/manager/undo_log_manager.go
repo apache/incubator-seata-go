@@ -6,11 +6,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/tx"
+	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 )
 
 type UndoLogManager interface {
-	FlushUndoLogs(tx *tx.ProxyTx) error
+	FlushUndoLogs(tx *proxy_tx.ProxyTx) error
 
 	Undo(db *sql.DB,xid string,branchId int64,resourceId string) error
 

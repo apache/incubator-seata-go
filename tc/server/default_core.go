@@ -17,18 +17,18 @@ import (
 
 /**
  *  +--------------------+-----------------------+--------------------+
- *  |                    |Method(InBound)        |Method(OutBound)    |
+ *  |         TC         |Method(InBound)        |Method(OutBound)    |
  *  +--------------------+-----------------------+--------------------+
  *  |	                 |Begin                  |                    |
  *  |                    |BranchRegister         |                    |
- *  |         TC         |BranchReport           |                    |
- *  |      (AT&TCC)      |(GlobalReport)         |branchCommit        |
+ *  |       AT&TCC       |BranchReport           |branchCommit        |
  *  |    (DefaultCore)   |Commit                 |branchRollback      |
  *  |                    |Rollback               |                    |
  *  |                    |GetStatus              |                    |
  *  +--------------------+-----------------------+--------------------+
  *  |	      AT         |LockQuery              |                    |
  *  +--------------------+-----------------------+--------------------+
+ *  |                    |(GlobalReport)         |                    |
  *  |                    |doGlobalCommit         |                    |
  *  |        SAGA        |doGlobalRollBack       |                    |
  *  |                    |doGlobalReport         |                    |

@@ -31,9 +31,6 @@ tm:
   rollback_retry_count: 5
 at:
   dsn: "root:123456@tcp(127.0.0.1:3306)/seata_order?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-  active: 10
-  idle: 10
-  idle_timeout: "4h"
   report_retry_count: 5
   report_success_enable: false
 

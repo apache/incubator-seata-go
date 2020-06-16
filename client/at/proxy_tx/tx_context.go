@@ -1,12 +1,18 @@
-package tx
+package proxy_tx
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	"github.com/pkg/errors"
 	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/base/model"
+	"github.com/dk-lockdown/seata-golang/client/at/undo"
+	"github.com/dk-lockdown/seata-golang/client/context"
 )
 
 type TxContext struct {

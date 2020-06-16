@@ -11,7 +11,7 @@ import (
 )
 
 import (
-	_struct "github.com/dk-lockdown/seata-golang/client/at/sql/struct"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
 )
@@ -100,7 +100,7 @@ func NewMysqlUndoExecutor(undoLog undo.SqlUndoLog) MysqlUndoExecutor {
 
 func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 	var undoSql string
-	var undoRows _struct.TableRecords
+	var undoRows schema.TableRecords
 	switch executor.sqlUndoLog.SqlType {
 	case sqlparser.SQLType_INSERT:
 		undoSql = InsertBuildUndoSql(executor.sqlUndoLog)
@@ -134,7 +134,7 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 		var pkValue interface{}
 
 		for _, field := range row.Fields {
-			if field.KeyType == _struct.PRIMARY_KEY {
+			if field.KeyType == schema.PRIMARY_KEY {
 				pkValue = field.Value
 			} else {
 				if executor.sqlUndoLog.SqlType != sqlparser.SQLType_INSERT {

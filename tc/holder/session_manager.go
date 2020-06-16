@@ -16,7 +16,7 @@ type SessionManager interface {
 	AddGlobalSession(session *session.GlobalSession) error
 
 	// Find global session global session.
-	 FindGlobalSession(xid string) *session.GlobalSession
+	FindGlobalSession(xid string) *session.GlobalSession
 
 	// Find global session global session.
 	FindGlobalSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession
