@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/go-xorm/xorm"
 	"io/ioutil"
 	"path"
 	"time"
@@ -18,6 +19,10 @@ var (
 
 func GetServerConfig() ServerConfig {
 	return conf
+}
+
+func GetStoreConfig() StoreConfig {
+	return conf.StoreConfig
 }
 
 type ServerConfig struct {
@@ -88,7 +93,13 @@ func InitConf(confFile string) error {
 	}
 
 	(&conf).CheckValidity()
+	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
+		engine, err := xorm.NewEngine("mysql",conf.StoreConfig.DBStoreConfig.DSN)
+		if err != nil {
+			panic(err)
+		}
+		conf.StoreConfig.DBStoreConfig.Engine = engine
+	}
 
-	SetStoreConfig(conf.StoreConfig)
 	return nil
 }

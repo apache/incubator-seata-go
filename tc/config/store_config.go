@@ -48,21 +48,6 @@ type DBStoreConfig struct {
 	Engine *xorm.Engine
 }
 
-var storeConfig StoreConfig
-
-func GetStoreConfig() StoreConfig {
-	return storeConfig
-}
-
-func SetStoreConfig(storeConf StoreConfig) {
-	storeConfig = storeConf
-	engine, err := xorm.NewEngine("mysql",storeConfig.DBStoreConfig.DSN)
-	if err != nil {
-		panic(err)
-	}
-	storeConfig.DBStoreConfig.Engine = engine
-}
-
 func GetDefaultFileStoreConfig() FileStoreConfig{
 	return FileStoreConfig{
 		FileDir:                  DefaultFileDir,
