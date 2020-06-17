@@ -29,6 +29,7 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/stretchr/testify v1.5.1
+	github.com/urfave/cli/v2 v2.2.0
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1 // indirect
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 // indirect

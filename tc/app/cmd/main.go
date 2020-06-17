@@ -2,9 +2,15 @@ package main
 
 import (
 	_ "net/http/pprof"
+	"os"
 )
 
 import (
+	"github.com/urfave/cli/v2"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/holder"
@@ -13,16 +19,42 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/server"
 )
 
-const (
-	APP_CONF_FILE     = "/Users/scottlewis/dksl/git/1/seata-golang/tc/app/profiles/dev/config.yml"
-)
-
 func main() {
-	config.InitConf(APP_CONF_FILE)
-	uuid.Init(1)
-	lock.Init()
-	holder.Init()
-	srv := server.NewServer()
-	conf := config.GetServerConfig()
-	srv.Start(conf.Host+":"+conf.Port)
+	app := &cli.App{
+		Commands: []*cli.Command{
+			{
+				Name:  "start",
+				Usage: "start seata golang tc server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load configuration from `FILE`",
+					},
+					&cli.StringFlag{
+						Name:  "serverNode, n",
+						Value: "1",
+						Usage: "server node id, such as 1, 2, 3. default is 1",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					configPath := c.String("config")
+					serverNode := c.Int("serverNode")
+
+					config.InitConf(configPath)
+					uuid.Init(serverNode)
+					lock.Init()
+					holder.Init()
+					srv := server.NewServer()
+					conf := config.GetServerConfig()
+					srv.Start(conf.Host + ":" + conf.Port)
+					return nil
+				},
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		logging.Logger.Fatal(err)
+	}
 }
