@@ -1,11 +1,14 @@
 package main
 
 import (
+	"github.com/dk-lockdown/seata-golang/base/common"
 	_ "net/http/pprof"
 	"os"
+	"strconv"
 )
 
 import (
+	gxnet "github.com/dubbogo/gost/net"
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,13 +42,17 @@ func main() {
 				Action: func(c *cli.Context) error {
 					configPath := c.String("config")
 					serverNode := c.Int("serverNode")
+					ip, _ := gxnet.GetLocalIP()
 
 					config.InitConf(configPath)
+					conf := config.GetServerConfig()
+					port,_ := strconv.Atoi(conf.Port)
+					common.XID.Init(ip, port)
+
 					uuid.Init(serverNode)
 					lock.Init()
 					holder.Init()
 					srv := server.NewServer()
-					conf := config.GetServerConfig()
 					srv.Start(conf.Host + ":" + conf.Port)
 					return nil
 				},

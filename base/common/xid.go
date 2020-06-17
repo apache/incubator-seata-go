@@ -7,11 +7,16 @@ import (
 )
 
 type XId struct {
-	Port      int
 	IpAddress string
+	Port      int
 }
 
 var XID = &XId{}
+
+func (xId *XId) Init(ipAddress string, port int) {
+	xId.IpAddress = ipAddress
+	xId.Port = port
+}
 
 func (xId *XId) GenerateXID(tranId int64) string {
 	return fmt.Sprintf("%s:%d:%d", xId.IpAddress, xId.Port, tranId)
