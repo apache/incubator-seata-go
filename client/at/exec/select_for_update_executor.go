@@ -2,13 +2,14 @@ package exec
 
 import (
 	"database/sql"
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
+	"time"
 )
 
 import (
+	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
 )
 
@@ -18,7 +19,7 @@ type SelectForUpdateExecutor struct {
 	values        []interface{}
 }
 
-func (executor *SelectForUpdateExecutor) Execute() (*sql.Rows, error) {
+func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration,lockRetryTimes int) (*sql.Rows, error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		return nil,err
@@ -33,9 +34,17 @@ func (executor *SelectForUpdateExecutor) Execute() (*sql.Rows, error) {
 		return rows,err
 	} else {
 		if executor.proxyTx.Context.InGlobalTransaction() {
-			lockable,err := dataSourceManager.LockQuery(meta.BranchTypeAT,
-				executor.proxyTx.ResourceId,executor.proxyTx.Context.Xid,lockKeys)
-			if !lockable && err != nil {
+			var lockable bool
+			var err error
+			for i := 0; i < lockRetryTimes; i++ {
+				lockable, err = dataSourceManager.LockQuery(meta.BranchTypeAT,
+					executor.proxyTx.ResourceId, executor.proxyTx.Context.Xid, lockKeys)
+				if lockable && err == nil {
+					break
+				}
+				time.Sleep(lockRetryInterval)
+			}
+			if err != nil {
 				return nil,err
 			}
 		}

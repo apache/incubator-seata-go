@@ -67,6 +67,7 @@ func InitConf(confFile string) error {
 	}
 
 	(&clientConfig).GettyConfig.CheckValidity()
+	(&clientConfig).ATConfig.CheckValidity()
 
 	if clientConfig.ATConfig.DSN != "" {
 		cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(clientConfig.ATConfig.DSN))

@@ -2,6 +2,7 @@ package exec
 
 import (
 	"database/sql"
+	"time"
 )
 
 import (
@@ -23,6 +24,8 @@ type Tx struct {
 	proxyTx             *tx2.ProxyTx
 	reportRetryCount    int
 	reportSuccessEnable bool
+	lockRetryInterval   time.Duration
+	lockRetryTimes      int
 }
 
 func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -35,7 +38,7 @@ func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query,stmt),
 			values:        args,
 		}
-		return executor.Execute()
+		return executor.Execute(tx.lockRetryInterval,tx.lockRetryTimes)
 	} else {
 		return tx.proxyTx.Tx.Query(query,args)
 	}

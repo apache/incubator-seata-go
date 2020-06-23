@@ -57,5 +57,7 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx,error) {
 		proxyTx:             proxyTx,
 		reportRetryCount:    db.conf.ReportRetryCount,
 		reportSuccessEnable: db.conf.ReportSuccessEnable,
+		lockRetryInterval:   db.conf.LockRetryInterval,
+		lockRetryTimes:      db.conf.LockRetryTimes,
 	},nil
 }
