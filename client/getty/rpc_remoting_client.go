@@ -1,7 +1,6 @@
 package getty
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/model"
 	"math/rand"
 	"strings"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
 	"github.com/dk-lockdown/seata-golang/client/config"
+	"github.com/dk-lockdown/seata-golang/client/model"
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 )
 

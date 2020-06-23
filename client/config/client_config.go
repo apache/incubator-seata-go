@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"io/ioutil"
 	"path"
 )
@@ -10,6 +9,10 @@ import (
 import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+)
+
+import (
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 )
 
 type ClientConfig struct {

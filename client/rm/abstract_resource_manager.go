@@ -1,16 +1,19 @@
 package rm
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/pkg/errors"
 	"strings"
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
+	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/client/config"
+	"github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/client/getty"
 )
 
