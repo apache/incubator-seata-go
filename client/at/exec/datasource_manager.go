@@ -2,16 +2,19 @@ package exec
 
 import (
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
-	"github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
+	"github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/client/rm"
+	"github.com/dk-lockdown/seata-golang/pkg/logging"
 )
 
 type DataSourceManager struct {

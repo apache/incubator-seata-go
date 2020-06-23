@@ -3,17 +3,20 @@ package exec
 import (
 	"database/sql"
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
-	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
-	"github.com/pkg/errors"
 	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/mysql"
 	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
+	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
 )
 
 type UpdateExecutor struct {
