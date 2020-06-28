@@ -126,7 +126,7 @@ func getBusinessActionContext(xid string, branchId int64, resourceId string, app
 
 func (resourceManager TCCResourceManager) handleBranchCommit() {
 	for {
-		rpcRMMessage := <- resourceManager.RpcClient.TCCBranchCommitRequestChannel
+		rpcRMMessage := <- resourceManager.RpcClient.BranchCommitRequestChannel
 		rpcMessage := rpcRMMessage.RpcMessage
 		serviceAddress := rpcRMMessage.ServerAddress
 
@@ -138,7 +138,7 @@ func (resourceManager TCCResourceManager) handleBranchCommit() {
 
 func (resourceManager TCCResourceManager) handleBranchRollback() {
 	for {
-		rpcRMMessage := <- resourceManager.RpcClient.TCCBranchRollbackRequestChannel
+		rpcRMMessage := <- resourceManager.RpcClient.BranchRollbackRequestChannel
 		rpcMessage := rpcRMMessage.RpcMessage
 		serviceAddress := rpcRMMessage.ServerAddress
 

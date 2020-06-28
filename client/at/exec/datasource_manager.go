@@ -93,7 +93,7 @@ func (resourceManager DataSourceManager) getDB(resourceId string) *DB {
 
 func (resourceManager DataSourceManager) handleBranchCommit() {
 	for {
-		rpcRMMessage := <- resourceManager.RpcClient.TCCBranchCommitRequestChannel
+		rpcRMMessage := <- resourceManager.RpcClient.BranchCommitRequestChannel
 		rpcMessage := rpcRMMessage.RpcMessage
 		serviceAddress := rpcRMMessage.ServerAddress
 
@@ -105,7 +105,7 @@ func (resourceManager DataSourceManager) handleBranchCommit() {
 
 func (resourceManager DataSourceManager) handleBranchRollback() {
 	for {
-		rpcRMMessage := <- resourceManager.RpcClient.TCCBranchRollbackRequestChannel
+		rpcRMMessage := <- resourceManager.RpcClient.BranchRollbackRequestChannel
 		rpcMessage := rpcRMMessage.RpcMessage
 		serviceAddress := rpcRMMessage.ServerAddress
 

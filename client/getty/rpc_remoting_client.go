@@ -30,12 +30,12 @@ var rpcRemoteClient *RpcRemoteClient
 
 func InitRpcRemoteClient() *RpcRemoteClient {
 	rpcRemoteClient = &RpcRemoteClient{
-		conf:        config.GetClientConfig(),
-		idGenerator: atomic.Uint32{},
-		futures:     &sync.Map{},
-		TCCBranchRollbackRequestChannel: make(chan model.RpcRMMessage),
-		TCCBranchCommitRequestChannel: make(chan model.RpcRMMessage),
-		GettySessionOnOpenChannel: make(chan string),
+		conf:                         config.GetClientConfig(),
+		idGenerator:                  atomic.Uint32{},
+		futures:                      &sync.Map{},
+		BranchRollbackRequestChannel: make(chan model.RpcRMMessage),
+		BranchCommitRequestChannel:   make(chan model.RpcRMMessage),
+		GettySessionOnOpenChannel:    make(chan string),
 	}
 	return rpcRemoteClient
 }
@@ -45,12 +45,12 @@ func GetRpcRemoteClient() *RpcRemoteClient {
 }
 
 type RpcRemoteClient struct {
-	conf config.ClientConfig
-	idGenerator atomic.Uint32
-	futures *sync.Map
-	TCCBranchCommitRequestChannel chan model.RpcRMMessage
-	TCCBranchRollbackRequestChannel chan model.RpcRMMessage
-	GettySessionOnOpenChannel chan string
+	conf                         config.ClientConfig
+	idGenerator                  atomic.Uint32
+	futures                      *sync.Map
+	BranchCommitRequestChannel   chan model.RpcRMMessage
+	BranchRollbackRequestChannel chan model.RpcRMMessage
+	GettySessionOnOpenChannel    chan string
 }
 
 // OnOpen ...
@@ -118,12 +118,12 @@ func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage,serverAd
 	logging.Logger.Infof("onMessage: %v",msg)
 	switch msg.GetTypeCode() {
 	case protocal.TypeBranchCommit:
-		client.TCCBranchCommitRequestChannel <- model.RpcRMMessage{
+		client.BranchCommitRequestChannel <- model.RpcRMMessage{
 			RpcMessage:    rpcMessage,
 			ServerAddress: serverAddress,
 		}
 	case protocal.TypeBranchRollback:
-		client.TCCBranchRollbackRequestChannel <- model.RpcRMMessage{
+		client.BranchRollbackRequestChannel <- model.RpcRMMessage{
 			RpcMessage:    rpcMessage,
 			ServerAddress: serverAddress,
 		}
