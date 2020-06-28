@@ -5,7 +5,7 @@ max_commit_retry_timeout: -1
 timeout_retry_period: "1s"
 rollbacking_retry_period: "1s"
 committing_retry_period: "1s"
-aync_committing_retry_period: "1s"
+aync_committing_retry_period: "1m"
 log_delete_period: "24h"
 getty_config:
   session_timeout : "20s"
