@@ -74,6 +74,7 @@ func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {
 }
 
 func (coordinator *DefaultCoordinator) OnError(session getty.Session, err error) {
+	SessionManager.ReleaseGettySession(session)
 	session.Close()
 	logging.Logger.Infof("getty_session{%s} got error{%v}, will be closed.", session.Stat(), err)
 }
@@ -147,11 +148,11 @@ func (coordinator *DefaultCoordinator) OnTrxMessage(rpcMessage protocal.RpcMessa
 			resp := coordinator.handleTrxMessage(msg,*rpcContext)
 			resultMessage.Msgs = append(resultMessage.Msgs,resp)
 		}
-		coordinator.SendResponse(rpcMessage,rpcContext.session,resultMessage)
+		coordinator.SendResponse(rpcMessage,rpcContext.Session,resultMessage)
 	} else {
 		message := rpcMessage.Body.(protocal.MessageTypeAware)
 		resp := coordinator.handleTrxMessage(message,*rpcContext)
-		coordinator.SendResponse(rpcMessage,rpcContext.session,resp)
+		coordinator.SendResponse(rpcMessage,rpcContext.Session,resp)
 	}
 }
 

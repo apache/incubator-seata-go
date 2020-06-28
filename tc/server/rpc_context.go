@@ -1,13 +1,6 @@
 package server
 
 import (
-	"errors"
-	"strconv"
-	"strings"
-	"sync"
-)
-
-import (
 	"github.com/dubbogo/getty"
 )
 
@@ -19,87 +12,67 @@ import (
 const IpPortSplitChar = ":"
 
 type RpcContext struct {
-	ClientRole              meta.TransactionRole
 	Version                 string
-	ApplicationId           string
 	TransactionServiceGroup string
+	ClientRole              meta.TransactionRole
+	ApplicationId           string
 	ClientId                string
-	session                 getty.Session
 	ResourceSets            *model.Set
-
-	/**
-	 * <getty.Session,*RpcContext>
-	 */
-	ClientIDHolderMap *sync.Map
-
-	/**
-	 * <int,RpcContext>
-	 */
-	ClientTMHolderMap *sync.Map
-
-	/**
-	 * resourceId -> int -> RpcContext>
-	 */
-	ClientRMHolderMap *sync.Map
+	Session                 getty.Session
 }
 
-func (context *RpcContext) Release() {
-	clientPort := getClientPortFromGettySession(context.session)
-	if context.ClientIDHolderMap != nil {
-		context.ClientIDHolderMap = nil
-	}
-	if context.ClientRole == meta.TMROLE && context.ClientTMHolderMap != nil {
-		context.ClientTMHolderMap.Delete(clientPort)
-		context.ClientTMHolderMap = nil
-	}
-	if context.ClientRole == meta.RMROLE && context.ClientRMHolderMap != nil {
-		context.ClientRMHolderMap.Range(func (key interface{}, value interface{}) bool {
-			m := value.(*sync.Map)
-			m.Delete(clientPort)
-			return true
-		})
-		context.ClientRMHolderMap = nil
-	}
-	if context.ResourceSets != nil {
-		context.ResourceSets.Clear()
+type RpcContextOption func(ctx *RpcContext)
+
+func WithRpcContextVersion(version string) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.Version = version
 	}
 }
 
-func (context *RpcContext) HoldInClientGettySessions(clientTMHolderMap *sync.Map) error {
-	if context.ClientTMHolderMap != nil {
-		return errors.New("illegal state")
+func WithRpcContextTxServiceGroup(txServiceGroup string) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.TransactionServiceGroup = txServiceGroup
 	}
-	context.ClientTMHolderMap = clientTMHolderMap
-	clientPort := getClientPortFromGettySession(context.session)
-	context.ClientTMHolderMap.Store(clientPort,context)
-	return nil
 }
 
-func (context *RpcContext) HoldInIdentifiedGettySessions(clientIDHolderMap *sync.Map) error {
-	if context.ClientIDHolderMap != nil {
-		return errors.New("illegal state")
+func WithRpcContextClientRole(clientRole meta.TransactionRole) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.ClientRole = clientRole
 	}
-	context.ClientIDHolderMap = clientIDHolderMap
-	context.ClientIDHolderMap.Store(context.session,context)
-	return nil
 }
 
-func (context *RpcContext) HoldInResourceManagerGettySessions(resourceId string,portMap *sync.Map) {
-	if context.ClientRMHolderMap == nil {
-		context.ClientRMHolderMap = &sync.Map{}
+func WithRpcContextApplicationId(applicationId string) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.ApplicationId = applicationId
 	}
-	clientPort := getClientPortFromGettySession(context.session)
-	portMap.Store(clientPort,context)
-	context.ClientRMHolderMap.Store(resourceId,portMap)
 }
 
-func (context *RpcContext) HoldInResourceManagerGettySessionsWithoutPortMap(resourceId string,clientPort int) {
-	if context.ClientRMHolderMap == nil {
-		context.ClientRMHolderMap = &sync.Map{}
+func WithRpcContextClientId(clientId string) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.ClientId = clientId
 	}
-	portMap,_ := context.ClientRMHolderMap.LoadOrStore(resourceId,&sync.Map{})
-	pm := portMap.(*sync.Map)
-	pm.Store(clientPort,context)
+}
+
+func WithRpcContextResourceSet(resourceSet *model.Set) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.ResourceSets = resourceSet
+	}
+}
+
+func WithRpcContextSession(session getty.Session) RpcContextOption {
+	return func(ctx *RpcContext) {
+		ctx.Session = session
+	}
+}
+
+func NewRpcContext(opts ...RpcContextOption) *RpcContext {
+	ctx := &RpcContext{
+		ResourceSets: model.NewSet(),
+	}
+	for _, o := range opts {
+		o(ctx)
+	}
+	return ctx
 }
 
 func (context *RpcContext) AddResource(resource string) {
@@ -120,23 +93,4 @@ func (context *RpcContext) AddResources(resources *model.Set) {
 			context.ResourceSets.Add(resource)
 		}
 	}
-}
-
-func getClientIpFromGettySession(session getty.Session) string {
-	clientIp := session.RemoteAddr()
-	if strings.Contains(clientIp,IpPortSplitChar) {
-		idx := strings.Index(clientIp,IpPortSplitChar)
-		clientIp = clientIp[:idx]
-	}
-	return clientIp
-}
-
-func getClientPortFromGettySession(session getty.Session) int {
-	address := session.RemoteAddr()
-	port := 0
-	if strings.Contains(address,IpPortSplitChar) {
-		idx := strings.LastIndex(address,IpPortSplitChar)
-		port,_ = strconv.Atoi(address[idx+1:])
-	}
-	return port
 }
