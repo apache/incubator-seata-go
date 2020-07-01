@@ -28,6 +28,7 @@ func (dao *Dao) AllocateInventory(ctx *context.RootContext,reqs []*AllocateInven
 		_,err := tx.Exec(allocateInventorySql,req.Qty,req.Qty,req.ProductSysNo,req.Qty)
 		if err != nil {
 			tx.Rollback()
+			panic(err)
 		}
 	}
 	err = tx.Commit()
