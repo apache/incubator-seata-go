@@ -1,5 +1,5 @@
 syntax = "proto3";
-package undo;
+package parser;
 
 import "table_records.proto";
 

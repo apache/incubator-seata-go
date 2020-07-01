@@ -3,6 +3,7 @@ package exec
 import (
 	"database/sql"
 	"fmt"
+	"github.com/dk-lockdown/seata-golang/base/mysql"
 	"strings"
 )
 
@@ -71,11 +72,22 @@ func (executor *InsertExecutor) AfterImage() (*schema.TableRecords,error) {
 func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*schema.TableRecords,error) {
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
-		panic(err)
+		return nil,err
 	}
 	var sb strings.Builder
-	fmt.Fprint(&sb,"SELECT * FROM ")
-	fmt.Fprint(&sb,executor.sqlRecognizer.GetTableName())
+	fmt.Fprint(&sb,"SELECT ")
+	var i = 0
+	columnCount := len(tableMeta.AllColumns)
+	for _,columnMeta := range tableMeta.AllColumns {
+		fmt.Fprint(&sb, mysql.CheckAndReplace(columnMeta.ColumnName))
+		i = i + 1
+		if i < columnCount {
+			fmt.Fprint(&sb,",")
+		} else {
+			fmt.Fprint(&sb," ")
+		}
+	}
+	fmt.Fprintf(&sb,"FROM %s ", executor.sqlRecognizer.GetTableName())
 	fmt.Fprintf(&sb," WHERE `%s` IN ",tableMeta.GetPkName())
 	fmt.Fprint(&sb,sql2.AppendInParam(len(pkValues)))
 
@@ -100,10 +112,8 @@ func (executor *InsertExecutor) GetPkValuesByColumn() []interface{} {
 
 func(executor *InsertExecutor) GetPkIndex() int {
 	insertColumns := executor.sqlRecognizer.GetInsertColumns()
-	tableMeta,err := executor.getTableMeta()
-	if err != nil {
-		panic(err)
-	}
+	tableMeta,_ := executor.getTableMeta()
+
 	if insertColumns != nil && len(insertColumns)>0 {
 		for i,columnName := range insertColumns {
 			if tableMeta.GetPkName() == columnName {
@@ -127,12 +137,10 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	if insertColumns != nil {
 		return len(insertColumns)
 	}
-	tableMeta,err := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
+	tableMeta,_ := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
 		executor.sqlRecognizer.GetTableName(),
 		executor.proxyTx.ResourceId)
-	if err != nil {
-		panic(err)
-	}
+
 	return len(tableMeta.AllColumns)
 }
 

@@ -90,10 +90,11 @@ func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) 
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
+	columnCount := len(tableMeta.AllColumns)
 	for _,columnMeta := range tableMeta.AllColumns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnMeta.ColumnName))
 		i = i + 1
-		if i != len(tableMeta.AllColumns) {
+		if i != columnCount {
 			fmt.Fprint(&b,",")
 		} else {
 			fmt.Fprint(&b," ")
@@ -109,8 +110,8 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta,be
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
-	columnCount := len(executor.sqlRecognizer.GetUpdateColumns())
-	for _,columnName := range executor.sqlRecognizer.GetUpdateColumns() {
+	columnCount := len(beforeImage.Columns)
+	for _,columnName := range beforeImage.Columns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnName))
 		i = i + 1
 		if i < columnCount {

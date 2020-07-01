@@ -182,6 +182,7 @@ func convertTableRecords(records *schema.TableRecords) *PbTableRecords {
 	}
 	pbRecords := &PbTableRecords{
 		TableName:            records.TableName,
+		Columns:              records.Columns,
 		Rows:				  pbRows,
 	}
 	return pbRecords
@@ -195,6 +196,7 @@ func convertPbTableRecords(pbRecords *PbTableRecords) *schema.TableRecords {
 	}
 	records := &schema.TableRecords{
 		TableName: pbRecords.TableName,
+		Columns:   pbRecords.Columns,
 		Rows:      rows,
 	}
 	return records

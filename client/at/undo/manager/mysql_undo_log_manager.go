@@ -120,7 +120,11 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB,xid string,branchId int64,res
 			}
 
 			sqlUndoLog.SetTableMeta(tableMeta)
-			NewMysqlUndoExecutor(*sqlUndoLog).Execute(tx)
+			err1 := NewMysqlUndoExecutor(*sqlUndoLog).Execute(tx)
+			if err1 != nil {
+				tx.Rollback()
+				return errors.WithStack(err1)
+			}
 		}
 	}
 

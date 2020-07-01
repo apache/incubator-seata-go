@@ -76,10 +76,11 @@ func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) 
 	var b strings.Builder
 	fmt.Fprint(&b,"SELECT ")
 	var i = 0
+	columnCount := len(tableMeta.AllColumns)
 	for _,columnMeta := range tableMeta.AllColumns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnMeta.ColumnName))
 		i = i + 1
-		if i != len(tableMeta.AllColumns) {
+		if i < columnCount {
 			fmt.Fprint(&b,",")
 		} else {
 			fmt.Fprint(&b," ")
