@@ -52,28 +52,36 @@ func collectRowLocks(lockKey string,
 	var locks = make([]*RowLock,0)
 	tableGroupedLockKeys := strings.Split(lockKey,";")
 	for _, tableGroupedLockKey := range tableGroupedLockKeys {
-		idx := strings.Index(tableGroupedLockKey,":")
-		if idx < 0 { return nil }
+		if tableGroupedLockKey != "" {
+			idx := strings.Index(tableGroupedLockKey, ":")
+			if idx < 0 {
+				return nil
+			}
 
-		tableName := tableGroupedLockKey[0:idx]
-		mergedPKs := tableGroupedLockKey[idx+1:]
+			tableName := tableGroupedLockKey[0:idx]
+			mergedPKs := tableGroupedLockKey[idx+1:]
 
-		if mergedPKs == "" { return nil }
+			if mergedPKs == "" {
+				return nil
+			}
 
-		pks := strings.Split(mergedPKs,",")
-		if len(pks) == 0 { return nil }
+			pks := strings.Split(mergedPKs, ",")
+			if len(pks) == 0 {
+				return nil
+			}
 
-		for _,pk := range pks {
-			if pk != "" {
-				rowLock := &RowLock{
-					Xid:           xid,
-					TransactionId: transactionId,
-					BranchId:      branchId,
-					ResourceId:    resourceId,
-					TableName:     tableName,
-					Pk:            pk,
+			for _, pk := range pks {
+				if pk != "" {
+					rowLock := &RowLock{
+						Xid:           xid,
+						TransactionId: transactionId,
+						BranchId:      branchId,
+						ResourceId:    resourceId,
+						TableName:     tableName,
+						Pk:            pk,
+					}
+					locks = append(locks, rowLock)
 				}
-				locks = append(locks,rowLock)
 			}
 		}
 	}

@@ -42,20 +42,24 @@ func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) 
 		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
-	locks := collectRowLocksByBranchSession(branchSession)
+	return locker.releaseLockByXidBranchId(branchSession.Xid,branchSession.BranchId)
+}
 
-	return locker.LockStore.UnLock(convertToLockDO(locks))
+func (locker *DataBaseLocker) releaseLockByXidBranchId(xid string, branchId int64) bool {
+	return locker.LockStore.UnLockByXidAndBranchId(xid,branchId)
+}
+
+func (locker *DataBaseLocker) releaseLockByXidBranchIds(xid string, branchIds []int64) bool {
+	return locker.LockStore.UnLockByXidAndBranchIds(xid,branchIds)
 }
 
 func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
+	var branchIds = make([]int64,0)
 	branchSessions := globalSession.GetSortedBranches()
-	releaseLockResult := true
 	for _,branchSession := range branchSessions {
-		ok := locker.ReleaseLock(branchSession)
-		if !ok { releaseLockResult = false }
-
+		branchIds = append(branchIds,branchSession.BranchId)
 	}
-	return releaseLockResult
+	return locker.releaseLockByXidBranchIds(globalSession.Xid,branchIds)
 }
 
 func (locker *DataBaseLocker) IsLockable(xid string, resourceId string, lockKey string) bool {

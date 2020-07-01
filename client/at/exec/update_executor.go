@@ -43,7 +43,8 @@ func (executor *UpdateExecutor) Execute() (sql.Result, error) {
 }
 
 func (executor *UpdateExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
-	if len(beforeImage.Rows)== 0 && len(afterImage.Rows)== 0 {
+	if len(beforeImage.Rows)== 0 &&
+		(afterImage == nil || len(afterImage.Rows)== 0) {
 		return
 	}
 
@@ -65,6 +66,10 @@ func (executor *UpdateExecutor) BeforeImage() (*schema.TableRecords,error) {
 }
 
 func (executor *UpdateExecutor) AfterImage(beforeImage *schema.TableRecords) (*schema.TableRecords,error) {
+	if beforeImage.Rows == nil || len(beforeImage.Rows) == 0 {
+		return nil,nil
+	}
+
 	tableMeta,err := executor.getTableMeta()
 	if err != nil {
 		return nil,err
