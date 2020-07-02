@@ -1,6 +1,6 @@
 module github.com/dk-lockdown/seata-golang
 
-go 1.13.3
+go 1.14
 
 require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
