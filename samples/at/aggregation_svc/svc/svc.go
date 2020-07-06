@@ -73,7 +73,10 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 	req1.Header.Set("xid",rootContext.GetXID())
 
 	client := &http.Client{}
-	client.Do(req1)
+	_,err1 := client.Do(req1)
+	if err1 != nil {
+		return err1
+	}
 
 	q2 := &rq2{
 		Req:reqs,
@@ -87,7 +90,10 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("xid",rootContext.GetXID())
 
-	client.Do(req2)
+	_, err2 := client.Do(req2)
+	if err2 != nil {
+		return err2
+	}
 
 	if rollback {
 		return errors.New("there is a error")

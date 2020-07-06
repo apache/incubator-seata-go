@@ -61,7 +61,11 @@ func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.Br
 		return 0,errors.WithStack(err)
 	}
 	response := resp.(protocal.BranchRegisterResponse)
-	return response.BranchId,nil
+	if response.ResultCode == protocal.ResultCodeSuccess {
+		return response.BranchId, nil
+	} else {
+		return 0, errors.New(response.Msg)
+	}
 }
 
 
