@@ -16,36 +16,35 @@ import (
 type SerializerType byte
 
 const (
-	SEATA = byte(0x1)
+	SEATA    = byte(0x1)
 	PROTOBUF = byte(0x2)
-	KRYO = byte(0x4)
-	FST = byte(0x8)
+	KRYO     = byte(0x4)
+	FST      = byte(0x8)
 )
 
 type Encoder func(in interface{}) []byte
 
-type Decoder func(in []byte) (interface{},int)
+type Decoder func(in []byte) (interface{}, int)
 
-func MessageEncoder(codecType byte,in interface{}) []byte {
+func MessageEncoder(codecType byte, in interface{}) []byte {
 	switch codecType {
 	case SEATA:
 		return SeataEncoder(in)
 	default:
-		logging.Logger.Errorf("not support codecType, %s",codecType)
+		logging.Logger.Errorf("not support codecType, %s", codecType)
 		return nil
 	}
 }
 
-func MessageDecoder(codecType byte,in []byte) (interface{},int) {
+func MessageDecoder(codecType byte, in []byte) (interface{}, int) {
 	switch codecType {
 	case SEATA:
 		return SeataDecoder(in)
 	default:
-		logging.Logger.Errorf("not support codecType, %s",codecType)
-		return nil,0
+		logging.Logger.Errorf("not support codecType, %s", codecType)
+		return nil, 0
 	}
 }
-
 
 func SeataEncoder(in interface{}) []byte {
 	var result = make([]byte, 0)
@@ -56,21 +55,21 @@ func SeataEncoder(in interface{}) []byte {
 	typeC := uint16(typeCode)
 	if encoder != nil {
 		body := encoder(in)
-		result = append(result,[]byte{ byte(typeC >> 8), byte(typeC) }...)
-		result = append(result,body...)
+		result = append(result, []byte{byte(typeC >> 8), byte(typeC)}...)
+		result = append(result, body...)
 	}
-	return  result
+	return result
 }
 
-func SeataDecoder(in []byte) (interface{},int) {
-	r := byteio.BigEndianReader{Reader:bytes.NewReader(in)}
-	typeCode, _ ,_ := r.ReadInt16()
+func SeataDecoder(in []byte) (interface{}, int) {
+	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
+	typeCode, _, _ := r.ReadInt16()
 
 	decoder := getMessageDecoder(typeCode)
 	if decoder != nil {
 		return decoder(in[2:])
 	}
-	return nil,0
+	return nil, 0
 }
 
 func getMessageEncoder(typeCode int16) Encoder {
@@ -103,7 +102,7 @@ func getMessageEncoder(typeCode int16) Encoder {
 		if encoder != nil {
 			return encoder
 		}
-		logging.Logger.Errorf("not support typeCode, %d",typeCode)
+		logging.Logger.Errorf("not support typeCode, %d", typeCode)
 		return nil
 	}
 }
@@ -160,7 +159,6 @@ func getMergeResponseMessageEncoder(typeCode int16) Encoder {
 	return nil
 }
 
-
 func getMessageDecoder(typeCode int16) Decoder {
 	switch typeCode {
 	case protocal.TypeSeataMerge:
@@ -191,7 +189,7 @@ func getMessageDecoder(typeCode int16) Decoder {
 		if Decoder != nil {
 			return Decoder
 		}
-		logging.Logger.Errorf("not support typeCode, %d",typeCode)
+		logging.Logger.Errorf("not support typeCode, %d", typeCode)
 		return nil
 	}
 }

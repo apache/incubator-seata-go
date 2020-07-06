@@ -12,25 +12,25 @@ import (
 )
 
 func buildLockKey(lockKeyRecords *schema.TableRecords) string {
-	if lockKeyRecords.Rows == nil || len(lockKeyRecords.Rows)== 0 {
+	if lockKeyRecords.Rows == nil || len(lockKeyRecords.Rows) == 0 {
 		return ""
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb,lockKeyRecords.TableName)
-	fmt.Fprint(&sb,":")
+	fmt.Fprintf(&sb, lockKeyRecords.TableName)
+	fmt.Fprint(&sb, ":")
 	fields := lockKeyRecords.PkFields()
 	length := len(fields)
-	for i,field := range fields {
-		fmt.Fprint(&sb,field.Value)
-		if i < length - 1  {
-			fmt.Fprint(&sb,",")
+	for i, field := range fields {
+		fmt.Fprint(&sb, field.Value)
+		if i < length-1 {
+			fmt.Fprint(&sb, ",")
 		}
 	}
 	return sb.String()
 }
 
-func buildUndoItem(recognizer sqlparser.ISQLRecognizer,beforeImage, afterImage *schema.TableRecords) *undo.SqlUndoLog {
+func buildUndoItem(recognizer sqlparser.ISQLRecognizer, beforeImage, afterImage *schema.TableRecords) *undo.SqlUndoLog {
 	sqlType := recognizer.GetSQLType()
 	tableName := recognizer.GetTableName()
 

@@ -41,8 +41,8 @@ func Implement(v GlobalTransactionProxyService) {
 	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			var (
-				args         = make([]interface{},0)
-				returnValues = make([]reflect.Value,0)
+				args                     = make([]interface{}, 0)
+				returnValues             = make([]reflect.Value, 0)
 				suspendedResourcesHolder *SuspendedResourcesHolder
 			)
 
@@ -52,7 +52,7 @@ func Implement(v GlobalTransactionProxyService) {
 			}
 
 			inNum := len(in)
-			if inNum + 1 != methodDesc.ArgsNum {
+			if inNum+1 != methodDesc.ArgsNum {
 				// testing phase, this problem should be resolved
 				panic(errors.New("args does not match"))
 			}
@@ -62,22 +62,22 @@ func Implement(v GlobalTransactionProxyService) {
 				if in[i].Type().String() == "context.Context" {
 					if !in[i].IsNil() {
 						// the user declared context as method's parameter
-						invCtx =  context2.NewRootContext(in[i].Interface().(context.Context))
+						invCtx = context2.NewRootContext(in[i].Interface().(context.Context))
 					}
 				}
-				args = append(args,in[i].Interface())
+				args = append(args, in[i].Interface())
 			}
 
 			tx := GetCurrentOrCreate(invCtx)
-			defer tx.Resume(suspendedResourcesHolder,invCtx)
+			defer tx.Resume(suspendedResourcesHolder, invCtx)
 
 			switch txInfo.Propagation {
 			case NOT_SUPPORTED:
-				suspendedResourcesHolder,_ = tx.Suspend(true,invCtx)
+				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
 				return returnValues
 			case REQUIRES_NEW:
-				suspendedResourcesHolder,_ = tx.Suspend(true,invCtx)
+				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				break
 			case SUPPORTS:
 				if !invCtx.InGlobalTransaction() {
@@ -89,21 +89,21 @@ func Implement(v GlobalTransactionProxyService) {
 				break
 			case NEVER:
 				if invCtx.InGlobalTransaction() {
-					return proxy.ReturnWithError(methodDesc,errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s",invCtx.GetXID()))
+					return proxy.ReturnWithError(methodDesc, errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s", invCtx.GetXID()))
 				} else {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
 			case MANDATORY:
 				if !invCtx.InGlobalTransaction() {
-					return proxy.ReturnWithError(methodDesc,errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
+					return proxy.ReturnWithError(methodDesc, errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
 				}
 				break
 			default:
-				return proxy.ReturnWithError(methodDesc,errors.Errorf("Not Supported Propagation: %s",txInfo.Propagation.String()))
+				return proxy.ReturnWithError(methodDesc, errors.Errorf("Not Supported Propagation: %s", txInfo.Propagation.String()))
 			}
 
-			beginErr := tx.BeginWithTimeoutAndName(txInfo.TimeOut,txInfo.Name,invCtx)
+			beginErr := tx.BeginWithTimeoutAndName(txInfo.TimeOut, txInfo.Name, invCtx)
 			if beginErr != nil {
 				return proxy.ReturnWithError(methodDesc, errors.WithStack(beginErr))
 			}
@@ -116,14 +116,14 @@ func Implement(v GlobalTransactionProxyService) {
 			if errValue.IsValid() && !errValue.IsNil() {
 				rollbackErr := tx.Rollback(invCtx)
 				if rollbackErr != nil {
-					return proxy.ReturnWithError(methodDesc,errors.WithStack(rollbackErr))
+					return proxy.ReturnWithError(methodDesc, errors.WithStack(rollbackErr))
 				}
-				return proxy.ReturnWithError(methodDesc,errors.New("rollback failure"))
+				return proxy.ReturnWithError(methodDesc, errors.New("rollback failure"))
 			}
 
 			commitErr := tx.Commit(invCtx)
 			if commitErr != nil {
-				return proxy.ReturnWithError(methodDesc,errors.WithStack(commitErr))
+				return proxy.ReturnWithError(methodDesc, errors.WithStack(commitErr))
 			}
 
 			return returnValues
@@ -144,12 +144,11 @@ func Implement(v GlobalTransactionProxyService) {
 				continue
 			}
 
-			methodDescriptor := proxy.Register(proxyService,methodName)
+			methodDescriptor := proxy.Register(proxyService, methodName)
 
 			// do method proxy here:
-			f.Set(reflect.MakeFunc(f.Type(), makeCallProxy(methodDescriptor,v.GetMethodTransactionInfo(methodName))))
+			f.Set(reflect.MakeFunc(f.Type(), makeCallProxy(methodDescriptor, v.GetMethodTransactionInfo(methodName))))
 			logging.Logger.Debugf("set method [%s]", methodName)
 		}
 	}
 }
-

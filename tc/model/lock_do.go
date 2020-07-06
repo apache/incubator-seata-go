@@ -21,4 +21,3 @@ type LockDO struct {
 
 	GmtModified time.Time `xorm:"updated"`
 }
-

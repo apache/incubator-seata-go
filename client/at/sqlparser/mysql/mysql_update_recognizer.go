@@ -15,13 +15,13 @@ import (
 
 type MysqlUpdateRecognizer struct {
 	originalSQL string
-	updateStmt *ast.UpdateStmt
+	updateStmt  *ast.UpdateStmt
 }
 
-func NewMysqlUpdateRecognizer(originalSQL string,updateStmt *ast.UpdateStmt) *MysqlUpdateRecognizer {
+func NewMysqlUpdateRecognizer(originalSQL string, updateStmt *ast.UpdateStmt) *MysqlUpdateRecognizer {
 	recognizer := &MysqlUpdateRecognizer{
 		originalSQL: originalSQL,
-		updateStmt: updateStmt,
+		updateStmt:  updateStmt,
 	}
 	return recognizer
 }
@@ -36,8 +36,9 @@ func (recognizer *MysqlUpdateRecognizer) GetTableAlias() string {
 
 func (recognizer *MysqlUpdateRecognizer) GetTableName() string {
 	var sb strings.Builder
-	recognizer.updateStmt.TableRefs.TableRefs.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags,&sb))
-	return sb.String()}
+	recognizer.updateStmt.TableRefs.TableRefs.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
+	return sb.String()
+}
 
 func (recognizer *MysqlUpdateRecognizer) GetOriginalSQL() string {
 	return recognizer.originalSQL
@@ -50,19 +51,19 @@ func (recognizer *MysqlUpdateRecognizer) GetWhereCondition() string {
 }
 
 func (recognizer *MysqlUpdateRecognizer) GetUpdateColumns() []string {
-	columns := make([]string,0)
-	for _,assignment := range recognizer.updateStmt.List {
-		columns = append(columns,assignment.Column.Name.String())
+	columns := make([]string, 0)
+	for _, assignment := range recognizer.updateStmt.List {
+		columns = append(columns, assignment.Column.Name.String())
 	}
 	return columns
 }
 
 func (recognizer *MysqlUpdateRecognizer) GetUpdateValues() []string {
-	values := make([]string,0)
-	for _,assignment := range recognizer.updateStmt.List {
+	values := make([]string, 0)
+	for _, assignment := range recognizer.updateStmt.List {
 		var sb strings.Builder
 		assignment.Expr.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
-		values = append(values,sb.String())
+		values = append(values, sb.String())
 	}
 	return values
 }

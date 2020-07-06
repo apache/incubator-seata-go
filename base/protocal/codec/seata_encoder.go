@@ -40,21 +40,20 @@ func AbstractResultMessageEncoder(in interface{}) []byte {
 		}
 	}
 
-
 	return b.Bytes()
 }
 
 func MergedWarpMessageEncoder(in interface{}) []byte {
 	var (
-		b bytes.Buffer
-		result = make([]byte,0)
+		b      bytes.Buffer
+		result = make([]byte, 0)
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.MergedWarpMessage)
+	req, _ := in.(protocal.MergedWarpMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
-	for _,msg := range req.Msgs {
+	for _, msg := range req.Msgs {
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
@@ -64,26 +63,26 @@ func MergedWarpMessageEncoder(in interface{}) []byte {
 	}
 
 	size := uint32(b.Len())
-	result = append(result,[]byte{ byte(size>>24),byte(size>>16),byte(size>>8),byte(size) }...)
+	result = append(result, []byte{byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size)}...)
 	result = append(result, b.Bytes()...)
 
-	if len(req.Msgs)>20 {
-		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs),size)
+	if len(req.Msgs) > 20 {
+		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
 	}
 	return result
 }
 
 func MergeResultMessageEncoder(in interface{}) []byte {
 	var (
-		b bytes.Buffer
-		result = make([]byte,0)
+		b      bytes.Buffer
+		result = make([]byte, 0)
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.MergeResultMessage)
+	req, _ := in.(protocal.MergeResultMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
-	for _,msg := range req.Msgs {
+	for _, msg := range req.Msgs {
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
@@ -93,11 +92,11 @@ func MergeResultMessageEncoder(in interface{}) []byte {
 	}
 
 	size := uint32(b.Len())
-	result = append(result,[]byte{ byte(size>>24),byte(size>>16),byte(size>>8),byte(size) }...)
+	result = append(result, []byte{byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size)}...)
 	result = append(result, b.Bytes()...)
 
-	if len(req.Msgs)>20 {
-		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs),size)
+	if len(req.Msgs) > 20 {
+		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
 	}
 	return result
 }
@@ -184,7 +183,7 @@ func RegisterRMRequestEncoder(in interface{}) []byte {
 		w.WriteInt32(zero32)
 	}
 
-	result := append(data,b.Bytes()...)
+	result := append(data, b.Bytes()...)
 	return result
 }
 
@@ -207,7 +206,7 @@ func AbstractTransactionResponseEncoder(in interface{}) []byte {
 	resp := in.(protocal.AbstractTransactionResponse)
 	data := AbstractResultMessageEncoder(resp.AbstractResultMessage)
 
-	result := append(data,byte(resp.TransactionExceptionCode))
+	result := append(data, byte(resp.TransactionExceptionCode))
 
 	return result
 }
@@ -220,7 +219,7 @@ func AbstractBranchEndRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.AbstractBranchEndRequest)
+	req, _ := in.(protocal.AbstractBranchEndRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -250,7 +249,7 @@ func AbstractBranchEndRequestEncoder(in interface{}) []byte {
 }
 
 func AbstractBranchEndResponseEncoder(in interface{}) []byte {
-	resp,_ := in.(protocal.AbstractBranchEndResponse)
+	resp, _ := in.(protocal.AbstractBranchEndResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	var (
@@ -269,7 +268,7 @@ func AbstractBranchEndResponseEncoder(in interface{}) []byte {
 	w.WriteInt64(resp.BranchId)
 	w.WriteByte(byte(resp.BranchStatus))
 
-	result := append(data,b.Bytes()...)
+	result := append(data, b.Bytes()...)
 
 	return result
 }
@@ -281,7 +280,7 @@ func AbstractGlobalEndRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.AbstractGlobalEndRequest)
+	req, _ := in.(protocal.AbstractGlobalEndRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -303,7 +302,7 @@ func AbstractGlobalEndResponseEncoder(in interface{}) []byte {
 	resp := in.(protocal.AbstractGlobalEndResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
-	result := append(data,byte(resp.GlobalStatus))
+	result := append(data, byte(resp.GlobalStatus))
 
 	return result
 }
@@ -322,11 +321,11 @@ func BranchRegisterRequestEncoder(in interface{}) []byte {
 	var (
 		zero32 int32 = 0
 		zero16 int16 = 0
-		b bytes.Buffer
+		b      bytes.Buffer
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.BranchRegisterRequest)
+	req, _ := in.(protocal.BranchRegisterRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -376,7 +375,7 @@ func BranchRegisterResponseEncoder(in interface{}) []byte {
 		byte(c >> 8),
 		byte(c),
 	}
-	result := append(data,branchIdBytes...)
+	result := append(data, branchIdBytes...)
 
 	return result
 }
@@ -389,7 +388,7 @@ func BranchReportRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.BranchReportRequest)
+	req, _ := in.(protocal.BranchReportRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -442,7 +441,7 @@ func GlobalBeginRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.GlobalBeginRequest)
+	req, _ := in.(protocal.GlobalBeginRequest)
 
 	w.WriteInt32(req.Timeout)
 	if req.TransactionName != "" {
@@ -478,7 +477,7 @@ func GlobalBeginResponseEncoder(in interface{}) []byte {
 		w.WriteInt16(zero16)
 	}
 
-	result := append(data,b.Bytes()...)
+	result := append(data, b.Bytes()...)
 
 	return result
 }
@@ -498,24 +497,24 @@ func GlobalLockQueryRequestEncoder(in interface{}) []byte {
 }
 
 func GlobalLockQueryResponseEncoder(in interface{}) []byte {
-	resp,_ := in.(protocal.GlobalLockQueryResponse)
+	resp, _ := in.(protocal.GlobalLockQueryResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	var result []byte
 	if resp.Lockable {
-		result = append(data,byte(0),byte(1))
+		result = append(data, byte(0), byte(1))
 	} else {
-		result = append(data,byte(0),byte(0))
+		result = append(data, byte(0), byte(0))
 	}
 
 	return result
 }
 
 func GlobalReportRequestEncoder(in interface{}) []byte {
-	req,_ := in.(protocal.GlobalReportRequest)
+	req, _ := in.(protocal.GlobalReportRequest)
 	data := AbstractGlobalEndRequestEncoder(req.AbstractGlobalEndRequest)
 
-	result := append(data,byte(req.GlobalStatus))
+	result := append(data, byte(req.GlobalStatus))
 	return result
 }
 
@@ -551,7 +550,7 @@ func UndoLogDeleteRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req,_ := in.(protocal.UndoLogDeleteRequest)
+	req, _ := in.(protocal.UndoLogDeleteRequest)
 
 	w.WriteByte(byte(req.BranchType))
 	if req.ResourceId != "" {

@@ -46,7 +46,7 @@ func main() {
 
 					config.InitConf(configPath)
 					conf := config.GetServerConfig()
-					port,_ := strconv.Atoi(conf.Port)
+					port, _ := strconv.Atoi(conf.Port)
 					common.XID.Init(ip, port)
 
 					uuid.Init(serverNode)

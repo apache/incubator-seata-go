@@ -12,7 +12,6 @@ import (
 	"github.com/dk-lockdown/seata-golang/pkg/logging"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
-
 )
 
 type DataBaseLocker struct {
@@ -31,7 +30,9 @@ func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) 
 	}
 
 	locks := collectRowLocksByBranchSession(branchSession)
-	if locks == nil { return true }
+	if locks == nil {
+		return true
+	}
 
 	return locker.LockStore.AcquireLock(convertToLockDO(locks))
 }
@@ -42,24 +43,24 @@ func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) 
 		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
-	return locker.releaseLockByXidBranchId(branchSession.Xid,branchSession.BranchId)
+	return locker.releaseLockByXidBranchId(branchSession.Xid, branchSession.BranchId)
 }
 
 func (locker *DataBaseLocker) releaseLockByXidBranchId(xid string, branchId int64) bool {
-	return locker.LockStore.UnLockByXidAndBranchId(xid,branchId)
+	return locker.LockStore.UnLockByXidAndBranchId(xid, branchId)
 }
 
 func (locker *DataBaseLocker) releaseLockByXidBranchIds(xid string, branchIds []int64) bool {
-	return locker.LockStore.UnLockByXidAndBranchIds(xid,branchIds)
+	return locker.LockStore.UnLockByXidAndBranchIds(xid, branchIds)
 }
 
 func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
-	var branchIds = make([]int64,0)
+	var branchIds = make([]int64, 0)
 	branchSessions := globalSession.GetSortedBranches()
-	for _,branchSession := range branchSessions {
-		branchIds = append(branchIds,branchSession.BranchId)
+	for _, branchSession := range branchSessions {
+		branchIds = append(branchIds, branchSession.BranchId)
 	}
-	return locker.releaseLockByXidBranchIds(globalSession.Xid,branchIds)
+	return locker.releaseLockByXidBranchIds(globalSession.Xid, branchIds)
 }
 
 func (locker *DataBaseLocker) IsLockable(xid string, resourceId string, lockKey string) bool {
@@ -76,11 +77,11 @@ func (locker *DataBaseLocker) GetLockKeyCount() int64 {
 }
 
 func convertToLockDO(locks []*RowLock) []*model.LockDO {
-	lockDOs := make([]*model.LockDO,0)
+	lockDOs := make([]*model.LockDO, 0)
 	if locks == nil || len(locks) == 0 {
 		return lockDOs
 	}
-	for _,lock := range locks {
+	for _, lock := range locks {
 		lockDO := &model.LockDO{
 			Xid:           lock.Xid,
 			TransactionId: lock.TransactionId,
@@ -88,13 +89,13 @@ func convertToLockDO(locks []*RowLock) []*model.LockDO {
 			ResourceId:    lock.ResourceId,
 			TableName:     lock.TableName,
 			Pk:            lock.Pk,
-			RowKey:        getRowKey(lock.ResourceId,lock.TableName,lock.Pk),
+			RowKey:        getRowKey(lock.ResourceId, lock.TableName, lock.Pk),
 		}
 		lockDOs = append(lockDOs, lockDO)
 	}
 	return lockDOs
 }
 
-func getRowKey(resourceId string,tableName string,pk string) string {
-	return fmt.Sprintf("%s^^^%s^^^%s",resourceId,tableName,pk)
+func getRowKey(resourceId string, tableName string, pk string) string {
+	return fmt.Sprintf("%s^^^%s^^^%s", resourceId, tableName, pk)
 }

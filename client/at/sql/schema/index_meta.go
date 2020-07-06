@@ -10,14 +10,14 @@ const (
 )
 
 type IndexMeta struct {
-	Values []ColumnMeta
-	NonUnique bool
-	IndexQualifier string
-	IndexName string
-	ColumnName string
-	Type int16
-	IndexType IndexType
-	AscOrDesc string
-	Cardinality int32
+	Values          []ColumnMeta
+	NonUnique       bool
+	IndexQualifier  string
+	IndexName       string
+	ColumnName      string
+	Type            int16
+	IndexType       IndexType
+	AscOrDesc       string
+	Cardinality     int32
 	OrdinalPosition int32
 }

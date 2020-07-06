@@ -19,19 +19,19 @@ type SelectForUpdateExecutor struct {
 	values        []interface{}
 }
 
-func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration,lockRetryTimes int) (*sql.Rows, error) {
-	tableMeta,err := executor.getTableMeta()
+func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration, lockRetryTimes int) (*sql.Rows, error) {
+	tableMeta, err := executor.getTableMeta()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	rows,err := executor.proxyTx.Query(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	rows, err := executor.proxyTx.Query(executor.sqlRecognizer.GetOriginalSQL(), executor.values...)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	selectPKRows := schema.BuildRecords(tableMeta,rows)
+	selectPKRows := schema.BuildRecords(tableMeta, rows)
 	lockKeys := buildLockKey(selectPKRows)
 	if lockKeys == "" {
-		return rows,err
+		return rows, err
 	} else {
 		if executor.proxyTx.Context.InGlobalTransaction() {
 			var lockable bool
@@ -45,14 +45,14 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 				time.Sleep(lockRetryInterval)
 			}
 			if err != nil {
-				return nil,err
+				return nil, err
 			}
 		}
 	}
-	return rows,err
+	return rows, err
 }
 
-func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta,error) {
+func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
 }

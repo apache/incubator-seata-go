@@ -34,7 +34,7 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	beforeImage := undoLog.BeforeImage
 	beforeImageRows := beforeImage.Rows
 
-	if beforeImageRows == nil || len(beforeImageRows)==0 {
+	if beforeImageRows == nil || len(beforeImageRows) == 0 {
 		return ""
 	}
 
@@ -42,40 +42,40 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	fields := row.NonPrimaryKeys()
 	pkField := row.PrimaryKeys()[0]
 	// PK is at last one.
-	fields = append(fields,pkField)
+	fields = append(fields, pkField)
 
-	var sb,sb1 strings.Builder
+	var sb, sb1 strings.Builder
 	var size = len(fields)
-	for i,field := range fields {
-		fmt.Fprintf(&sb,"`%s`", field.Name)
-		fmt.Fprint(&sb1,"?")
+	for i, field := range fields {
+		fmt.Fprintf(&sb, "`%s`", field.Name)
+		fmt.Fprint(&sb1, "?")
 		if i < size-1 {
-			fmt.Fprint(&sb,", ")
-			fmt.Fprint(&sb1,", ")
+			fmt.Fprint(&sb, ", ")
+			fmt.Fprint(&sb1, ", ")
 		}
 	}
 	insertColumns := sb.String()
 	insertValues := sb.String()
 
-	return fmt.Sprintf(InsertSqlTemplate,undoLog.TableName,insertColumns,insertValues)
+	return fmt.Sprintf(InsertSqlTemplate, undoLog.TableName, insertColumns, insertValues)
 }
 
 func InsertBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	afterImage := undoLog.AfterImage
 	afterImageRows := afterImage.Rows
-	if afterImageRows == nil || len(afterImageRows)==0 {
+	if afterImageRows == nil || len(afterImageRows) == 0 {
 		return ""
 	}
 	row := afterImageRows[0]
 	pkField := row.PrimaryKeys()[0]
-	return fmt.Sprintf(DeleteSqlTemplate,undoLog.TableName,pkField.Name)
+	return fmt.Sprintf(DeleteSqlTemplate, undoLog.TableName, pkField.Name)
 }
 
 func UpdateBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	beforeImage := undoLog.BeforeImage
 	beforeImageRows := beforeImage.Rows
 
-	if beforeImageRows == nil || len(beforeImageRows)==0 {
+	if beforeImageRows == nil || len(beforeImageRows) == 0 {
 		return ""
 	}
 
@@ -85,15 +85,15 @@ func UpdateBuildUndoSql(undoLog undo.SqlUndoLog) string {
 
 	var sb strings.Builder
 	var size = len(nonPkFields)
-	for i,field := range nonPkFields {
-		fmt.Fprintf(&sb,"`%s` = ?",field.Name)
+	for i, field := range nonPkFields {
+		fmt.Fprintf(&sb, "`%s` = ?", field.Name)
 		if i < size-1 {
 			fmt.Fprint(&sb, ", ")
 		}
 	}
 	updateColumns := sb.String()
 
-	return fmt.Sprintf(UpdateSqlTemplate,undoLog.TableName,updateColumns,pkField.Name)
+	return fmt.Sprintf(UpdateSqlTemplate, undoLog.TableName, updateColumns, pkField.Name)
 }
 
 type MysqlUndoExecutor struct {
@@ -101,7 +101,7 @@ type MysqlUndoExecutor struct {
 }
 
 func NewMysqlUndoExecutor(undoLog undo.SqlUndoLog) MysqlUndoExecutor {
-	return MysqlUndoExecutor{sqlUndoLog:undoLog}
+	return MysqlUndoExecutor{sqlUndoLog: undoLog}
 }
 
 func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
@@ -129,7 +129,7 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 		undoRows = *executor.sqlUndoLog.BeforeImage
 		break
 	default:
-		panic(errors.Errorf("unsupport sql type:%s",executor.sqlUndoLog.SqlType.String()))
+		panic(errors.Errorf("unsupport sql type:%s", executor.sqlUndoLog.SqlType.String()))
 	}
 
 	if undoSql == "" {
@@ -140,14 +140,14 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 	// INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
 	// UPDATE a SET x=?, y=?, z=? WHERE pk = ?
 	// DELETE FROM a WHERE pk = ?
-	stmt,err := tx.Prepare(undoSql)
+	stmt, err := tx.Prepare(undoSql)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	for _,row := range undoRows.Rows {
-		var args = make([]interface{},0)
+	for _, row := range undoRows.Rows {
+		var args = make([]interface{}, 0)
 		var pkValue interface{}
 
 		for _, field := range row.Fields {
@@ -159,8 +159,8 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 				}
 			}
 		}
-		args = append(args,pkValue)
-		_,err = stmt.Exec(args...)
+		args = append(args, pkValue)
+		_, err = stmt.Exec(args...)
 		if err != nil {
 			return err
 		}
@@ -168,68 +168,68 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 	return nil
 }
 
-func (executor MysqlUndoExecutor) dataValidationAndGoOn(tx *sql.Tx) (bool,error) {
-	beforeEqualsAfterResult := cmp.Equal(executor.sqlUndoLog.BeforeImage,executor.sqlUndoLog.AfterImage)
+func (executor MysqlUndoExecutor) dataValidationAndGoOn(tx *sql.Tx) (bool, error) {
+	beforeEqualsAfterResult := cmp.Equal(executor.sqlUndoLog.BeforeImage, executor.sqlUndoLog.AfterImage)
 	if beforeEqualsAfterResult {
 		logging.Logger.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
-		return false,nil
+		return false, nil
 	}
-	currentRecords,err := executor.queryCurrentRecords(tx)
+	currentRecords, err := executor.queryCurrentRecords(tx)
 	if err != nil {
-		return false,err
+		return false, err
 	}
-	afterEqualsCurrentResult := cmp.Equal(executor.sqlUndoLog.AfterImage,currentRecords)
+	afterEqualsCurrentResult := cmp.Equal(executor.sqlUndoLog.AfterImage, currentRecords)
 	if !afterEqualsCurrentResult {
 		// If current data is not equivalent to the after data, then compare the current data with the before
 		// data, too. No need continue to undo if current data is equivalent to the before data snapshot
-		beforeEqualsCurrentResult := cmp.Equal(executor.sqlUndoLog.BeforeImage,currentRecords)
+		beforeEqualsCurrentResult := cmp.Equal(executor.sqlUndoLog.BeforeImage, currentRecords)
 		if beforeEqualsCurrentResult {
 			logging.Logger.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
-			return false,nil
+			return false, nil
 		} else {
-			oldRows,_ := json.Marshal(executor.sqlUndoLog.AfterImage.Rows)
-			newRows,_ := json.Marshal(currentRecords.Rows)
+			oldRows, _ := json.Marshal(executor.sqlUndoLog.AfterImage.Rows)
+			newRows, _ := json.Marshal(currentRecords.Rows)
 			logging.Logger.Errorf("check dirty datas failed, old and new data are not equal, tableName:[%s], oldRows:[%s], newRows:[%s].",
 				executor.sqlUndoLog.TableName, string(oldRows), string(newRows))
 			return false, errors.New("Has dirty records when undo.")
 		}
 	}
-	return true,nil
+	return true, nil
 }
 
-func (executor MysqlUndoExecutor) queryCurrentRecords(tx *sql.Tx) (*schema.TableRecords,error){
+func (executor MysqlUndoExecutor) queryCurrentRecords(tx *sql.Tx) (*schema.TableRecords, error) {
 	undoRecords := executor.sqlUndoLog.GetUndoRows()
 	tableMeta := undoRecords.TableMeta
 	pkName := tableMeta.GetPkName()
 
 	pkFields := undoRecords.PkFields()
 	if pkFields == nil || len(pkFields) == 0 {
-		return nil,nil
+		return nil, nil
 	}
 
-	var pkValues = make([]interface{},0)
-	for _,field := range pkFields {
-		pkValues = append(pkValues,field.Value)
+	var pkValues = make([]interface{}, 0)
+	for _, field := range pkFields {
+		pkValues = append(pkValues, field.Value)
 	}
 
 	var b strings.Builder
 	var i = 0
 	columnCount := len(undoRecords.Columns)
-	for _,columnName := range undoRecords.Columns {
+	for _, columnName := range undoRecords.Columns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnName))
 		i = i + 1
 		if i < columnCount {
-			fmt.Fprint(&b,",")
+			fmt.Fprint(&b, ",")
 		} else {
-			fmt.Fprint(&b," ")
+			fmt.Fprint(&b, " ")
 		}
 	}
 
 	inCondition := sql2.AppendInParam(len(pkValues))
 	selectSql := fmt.Sprintf(SelectSqlTemplate, b.String(), tableMeta.TableName, pkName, inCondition)
-	rows,err := tx.Query(selectSql,pkValues...)
+	rows, err := tx.Query(selectSql, pkValues...)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return schema.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta, rows), nil
 }

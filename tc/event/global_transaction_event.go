@@ -17,7 +17,7 @@ type GlobalTransactionEvent struct {
 	status    meta.GlobalStatus
 }
 
-func NewGlobalTransactionEvent(id int64,role string,name string,beginTime int64,endTime int64,status meta.GlobalStatus) GlobalTransactionEvent {
+func NewGlobalTransactionEvent(id int64, role string, name string, beginTime int64, endTime int64, status meta.GlobalStatus) GlobalTransactionEvent {
 	return GlobalTransactionEvent{
 		id,
 		role,

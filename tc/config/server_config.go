@@ -52,8 +52,8 @@ func (c *ServerConfig) CheckValidity() error {
 		return errors.WithMessagef(err, "time.ParseDuration(TimeoutRetryPrd{%#v})", conf.TimeoutRetryPrd)
 	}
 
-	if conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.RollbackingRetryPrd);err != nil {
-		return errors.WithMessagef(err,"time.ParseDuration(RollbackingRetryPrd{%#v})", conf.RollbackingRetryPrd)
+	if conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.RollbackingRetryPrd); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(RollbackingRetryPrd{%#v})", conf.RollbackingRetryPrd)
 	}
 
 	if conf.CommittingRetryPeriod, err = time.ParseDuration(conf.CommittingRetryPrd); err != nil {
@@ -71,30 +71,29 @@ func (c *ServerConfig) CheckValidity() error {
 	return errors.WithStack(c.GettyConfig.CheckValidity())
 }
 
-
 func InitConf(confFile string) error {
 	var err error
 
 	if confFile == "" {
-		return errors.WithMessagef(err,fmt.Sprintf("application configure file name is nil"))
+		return errors.WithMessagef(err, fmt.Sprintf("application configure file name is nil"))
 	}
 	if path.Ext(confFile) != ".yml" {
-		return errors.WithMessagef(err,fmt.Sprintf("application configure file name{%v} suffix must be .yml", confFile))
+		return errors.WithMessagef(err, fmt.Sprintf("application configure file name{%v} suffix must be .yml", confFile))
 	}
 
 	conf = ServerConfig{}
 	confFileStream, err := ioutil.ReadFile(confFile)
 	if err != nil {
-		return errors.WithMessagef(err,fmt.Sprintf("ioutil.ReadFile(file:%s) = error:%s", confFile, err))
+		return errors.WithMessagef(err, fmt.Sprintf("ioutil.ReadFile(file:%s) = error:%s", confFile, err))
 	}
 	err = yaml.Unmarshal(confFileStream, &conf)
 	if err != nil {
-		return errors.WithMessagef(err,fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
+		return errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
 
 	(&conf).CheckValidity()
 	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
-		engine, err := xorm.NewEngine("mysql",conf.StoreConfig.DBStoreConfig.DSN)
+		engine, err := xorm.NewEngine("mysql", conf.StoreConfig.DBStoreConfig.DSN)
 		if err != nil {
 			panic(err)
 		}

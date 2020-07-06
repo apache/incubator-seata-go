@@ -28,21 +28,21 @@ func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
 	sessionManager.AddGlobalSession(gs)
 	expected := sessionManager.FindGlobalSession(gs.Xid)
 
-	assert.NotNil(t,expected)
-	assert.Equal(t,gs.TransactionId,expected.TransactionId)
-	assert.Equal(t,gs.ApplicationId,expected.ApplicationId)
-	assert.Equal(t,gs.TransactionServiceGroup,expected.TransactionServiceGroup)
-	assert.Equal(t,gs.TransactionName,expected.TransactionName)
-	assert.Equal(t,gs.Status,expected.Status)
+	assert.NotNil(t, expected)
+	assert.Equal(t, gs.TransactionId, expected.TransactionId)
+	assert.Equal(t, gs.ApplicationId, expected.ApplicationId)
+	assert.Equal(t, gs.TransactionServiceGroup, expected.TransactionServiceGroup)
+	assert.Equal(t, gs.TransactionName, expected.TransactionName)
+	assert.Equal(t, gs.Status, expected.Status)
 
 	sessionManager.RemoveGlobalSession(gs)
 }
 
 func globalSessionsProvider() []*session.GlobalSession {
-	common.XID.IpAddress="127.0.0.1"
-	common.XID.Port=9876
+	common.XID.IpAddress = "127.0.0.1"
+	common.XID.Port = 9876
 
-	result := make([]*session.GlobalSession,0)
+	result := make([]*session.GlobalSession, 0)
 	gs1 := session.NewGlobalSession(
 		session.WithGsApplicationId("demo-app"),
 		session.WithGsTransactionServiceGroup("my_test_tx_group"),
@@ -57,14 +57,14 @@ func globalSessionsProvider() []*session.GlobalSession {
 		session.WithGsTimeout(6000),
 	)
 
-	result = append(result,gs1)
-	result = append(result,gs2)
+	result = append(result, gs1)
+	result = append(result, gs2)
 	return result
 }
 
 func globalSessionProvider() *session.GlobalSession {
-	common.XID.IpAddress="127.0.0.1"
-	common.XID.Port=9876
+	common.XID.IpAddress = "127.0.0.1"
+	common.XID.Port = 9876
 
 	gs := session.NewGlobalSession(
 		session.WithGsApplicationId("demo-app"),

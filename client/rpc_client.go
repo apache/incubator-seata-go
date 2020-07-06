@@ -21,9 +21,9 @@ import (
 var clientGrpool *gxsync.TaskPool
 
 type RpcClient struct {
-	conf config.ClientConfig
+	conf         config.ClientConfig
 	gettyClients []getty.Client
-	rpcHandler *getty2.RpcRemoteClient
+	rpcHandler   *getty2.RpcRemoteClient
 }
 
 func setClientGrpool() {
@@ -46,8 +46,8 @@ func NewRpcClient() *RpcClient {
 }
 
 func (c *RpcClient) init() {
-	addressList := strings.Split(c.conf.TransactionServiceGroup,",")
-	for _,address := range addressList {
+	addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
 			getty.WithConnectionNumber((int)(c.conf.GettyConfig.ConnectionNum)),

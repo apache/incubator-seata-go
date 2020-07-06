@@ -8,8 +8,8 @@ const (
 )
 
 type Field struct {
-	Name string
+	Name    string
 	KeyType KeyType
-	Type int32
-	Value interface{}
+	Type    int32
+	Value   interface{}
 }

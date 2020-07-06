@@ -10,9 +10,8 @@ import (
 
 type DBTransactionStoreManager struct {
 	logQueryLimit int
-	LogStore ILogStore
+	LogStore      ILogStore
 }
-
 
 func (storeManager *DBTransactionStoreManager) WriteSession(logOperation LogOperation, session session.SessionStorable) bool {
 	if LogOperationGlobalAdd == logOperation {
@@ -52,12 +51,12 @@ func (storeManager *DBTransactionStoreManager) WriteSession(logOperation LogOper
 		}
 		return true
 	}
-	logging.Logger.Errorf("Unknown LogOperation:%v",logOperation)
+	logging.Logger.Errorf("Unknown LogOperation:%v", logOperation)
 	return false
 }
 
 func (storeManager *DBTransactionStoreManager) ReadSession(xid string) *session.GlobalSession {
-	return storeManager.ReadSessionWithBranchSessions(xid,true)
+	return storeManager.ReadSessionWithBranchSessions(xid, true)
 }
 
 func (storeManager *DBTransactionStoreManager) ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
@@ -71,7 +70,7 @@ func (storeManager *DBTransactionStoreManager) ReadSessionWithBranchSessions(xid
 		branchTransactionDOs = storeManager.LogStore.QueryBranchTransactionDOByXid(globalTransactionDO.Xid)
 	}
 
-	return getGlobalSession(globalTransactionDO,branchTransactionDOs)
+	return getGlobalSession(globalTransactionDO, branchTransactionDOs)
 }
 
 func (storeManager *DBTransactionStoreManager) ReadSessionByTransactionId(transactionId int64) *session.GlobalSession {
@@ -82,39 +81,39 @@ func (storeManager *DBTransactionStoreManager) ReadSessionByTransactionId(transa
 
 	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXid(globalTransactionDO.Xid)
 
-	return getGlobalSession(globalTransactionDO,branchTransactionDOs)
+	return getGlobalSession(globalTransactionDO, branchTransactionDOs)
 }
 
 func (storeManager *DBTransactionStoreManager) readSessionByStatuses(statuses []meta.GlobalStatus) []*session.GlobalSession {
-	states := make([]int,0)
-	for _,status := range statuses {
+	states := make([]int, 0)
+	for _, status := range statuses {
 		states = append(states, int(status))
 	}
-	globalTransactionDOs := storeManager.LogStore.QueryGlobalTransactionDOByStatuses(states,storeManager.logQueryLimit)
+	globalTransactionDOs := storeManager.LogStore.QueryGlobalTransactionDOByStatuses(states, storeManager.logQueryLimit)
 	if globalTransactionDOs == nil || len(globalTransactionDOs) == 0 {
 		return nil
 	}
-	xids := make([]string,0)
-	for _,globalTransactionDO := range globalTransactionDOs {
-		xids= append(xids, globalTransactionDO.Xid)
+	xids := make([]string, 0)
+	for _, globalTransactionDO := range globalTransactionDOs {
+		xids = append(xids, globalTransactionDO.Xid)
 	}
 	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXids(xids)
 	branchTransactionMap := make(map[string][]*model.BranchTransactionDO)
-	for _,branchTransactionDO := range branchTransactionDOs {
-		branchTransactions,ok := branchTransactionMap[branchTransactionDO.Xid]
+	for _, branchTransactionDO := range branchTransactionDOs {
+		branchTransactions, ok := branchTransactionMap[branchTransactionDO.Xid]
 		if ok {
-			branchTransactions = append(branchTransactions,branchTransactionDO)
+			branchTransactions = append(branchTransactions, branchTransactionDO)
 			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
 		} else {
-			branchTransactions =make([]*model.BranchTransactionDO,0)
-			branchTransactions = append(branchTransactions,branchTransactionDO)
+			branchTransactions = make([]*model.BranchTransactionDO, 0)
+			branchTransactions = append(branchTransactions, branchTransactionDO)
 			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
 		}
 	}
-	globalSessions := make([]*session.GlobalSession,0)
-	for _,globalTransaction := range globalTransactionDOs {
-		globalSession := getGlobalSession(globalTransaction,branchTransactionMap[globalTransaction.Xid])
-		globalSessions = append(globalSessions,globalSession)
+	globalSessions := make([]*session.GlobalSession, 0)
+	for _, globalTransaction := range globalTransactionDOs {
+		globalSession := getGlobalSession(globalTransaction, branchTransactionMap[globalTransaction.Xid])
+		globalSessions = append(globalSessions, globalSession)
 	}
 	return globalSessions
 }
@@ -123,14 +122,14 @@ func (storeManager *DBTransactionStoreManager) ReadSessionWithSessionCondition(s
 	if sessionCondition.Xid != "" {
 		globalSession := storeManager.ReadSession(sessionCondition.Xid)
 		if globalSession != nil {
-			globalSessions := make([]*session.GlobalSession,0)
+			globalSessions := make([]*session.GlobalSession, 0)
 			globalSessions = append(globalSessions, globalSession)
 			return globalSessions
 		}
 	} else if sessionCondition.TransactionId != 0 {
 		globalSession := storeManager.ReadSessionByTransactionId(sessionCondition.TransactionId)
 		if globalSession != nil {
-			globalSessions := make([]*session.GlobalSession,0)
+			globalSessions := make([]*session.GlobalSession, 0)
 			globalSessions = append(globalSessions, globalSession)
 			return globalSessions
 		}
@@ -145,14 +144,14 @@ func (storeManager *DBTransactionStoreManager) Shutdown() {
 
 }
 
-func (storeManager *DBTransactionStoreManager) GetCurrentMaxSessionId() int64{
-	return storeManager.LogStore.GetCurrentMaxSessionId(uuid.GetMaxUUID(),uuid.GetInitUUID())
+func (storeManager *DBTransactionStoreManager) GetCurrentMaxSessionId() int64 {
+	return storeManager.LogStore.GetCurrentMaxSessionId(uuid.GetMaxUUID(), uuid.GetInitUUID())
 }
 
-func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO,branchTransactionDOs []*model.BranchTransactionDO) *session.GlobalSession {
+func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO, branchTransactionDOs []*model.BranchTransactionDO) *session.GlobalSession {
 	globalSession := convertGlobalTransaction(globalTransactionDO)
 	if branchTransactionDOs != nil && len(branchTransactionDOs) > 0 {
-		for _,branchTransactionDO := range branchTransactionDOs {
+		for _, branchTransactionDO := range branchTransactionDOs {
 			globalSession.Add(convertBranchSession(branchTransactionDO))
 		}
 	}
@@ -190,9 +189,9 @@ func convertBranchSession(branchTransactionDO *model.BranchTransactionDO) *sessi
 }
 
 func convertGlobalTransactionDO(sessionStorable session.SessionStorable) *model.GlobalTransactionDO {
-	globalSession,ok := sessionStorable.(*session.GlobalSession)
+	globalSession, ok := sessionStorable.(*session.GlobalSession)
 	if sessionStorable == nil || !ok {
-		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v",sessionStorable)
+		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
 		return nil
 	}
 	globalTransactionDO := &model.GlobalTransactionDO{
@@ -210,9 +209,9 @@ func convertGlobalTransactionDO(sessionStorable session.SessionStorable) *model.
 }
 
 func convertBranchTransactionDO(sessionStorable session.SessionStorable) *model.BranchTransactionDO {
-	branchSession,ok := sessionStorable.(*session.BranchSession)
+	branchSession, ok := sessionStorable.(*session.BranchSession)
 	if sessionStorable == nil || !ok {
-		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v",sessionStorable)
+		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
 		return nil
 	}
 

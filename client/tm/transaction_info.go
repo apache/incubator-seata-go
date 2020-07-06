@@ -56,7 +56,7 @@ func (t Propagation) String() string {
 }
 
 type TransactionInfo struct {
-	TimeOut int32
-	Name string
+	TimeOut     int32
+	Name        string
 	Propagation Propagation
 }

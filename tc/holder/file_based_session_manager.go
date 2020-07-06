@@ -19,9 +19,9 @@ func NewFileBasedSessionManager(conf config.FileStoreConfig) SessionManager {
 	sessionManager := DefaultSessionManager{
 		AbstractSessionManager: AbstractSessionManager{
 			TransactionStoreManager: transactionStoreManager,
-			Name: conf.FileDir,
+			Name:                    conf.FileDir,
 		},
-		SessionMap:             make(map[string]*session.GlobalSession),
+		SessionMap: make(map[string]*session.GlobalSession),
 	}
 	transactionStoreManager.SessionManager = &sessionManager
 	return &FileBasedSessionManager{
@@ -30,20 +30,20 @@ func NewFileBasedSessionManager(conf config.FileStoreConfig) SessionManager {
 	}
 }
 
-func (sessionManager *FileBasedSessionManager)  Reload() {
+func (sessionManager *FileBasedSessionManager) Reload() {
 	sessionManager.restoreSessions()
 	sessionManager.washSessions()
 }
 
 func (sessionManager *FileBasedSessionManager) restoreSessions() {
 	unhandledBranchBuffer := make(map[int64]*session.BranchSession)
-	sessionManager.restoreSessionsToUnhandledBranchBuffer(true,unhandledBranchBuffer)
-	sessionManager.restoreSessionsToUnhandledBranchBuffer(false,unhandledBranchBuffer)
+	sessionManager.restoreSessionsToUnhandledBranchBuffer(true, unhandledBranchBuffer)
+	sessionManager.restoreSessionsToUnhandledBranchBuffer(false, unhandledBranchBuffer)
 	if len(unhandledBranchBuffer) > 0 {
-		for _,branchSession := range unhandledBranchBuffer {
+		for _, branchSession := range unhandledBranchBuffer {
 			found := sessionManager.SessionMap[branchSession.Xid]
 			if found == nil {
-				logging.Logger.Infof("GlobalSession Does Not Exists For BranchSession [%d/%s]",branchSession.BranchId,branchSession.Xid)
+				logging.Logger.Infof("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
 			} else {
 				existingBranch := found.GetBranch(branchSession.BranchId)
 				if existingBranch == nil {
@@ -56,15 +56,15 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 	}
 }
 
-func (sessionManager *FileBasedSessionManager) restoreSessionsToUnhandledBranchBuffer(isHistory bool,unhandledBranchSessions map[int64]*session.BranchSession) {
+func (sessionManager *FileBasedSessionManager) restoreSessionsToUnhandledBranchBuffer(isHistory bool, unhandledBranchSessions map[int64]*session.BranchSession) {
 	transactionStoreManager, ok := sessionManager.TransactionStoreManager.(ReloadableStore)
 	if !ok {
 		return
 	}
 	for {
 		if transactionStoreManager.HasRemaining(isHistory) {
-			stores := transactionStoreManager.ReadWriteStore(sessionManager.conf.SessionReloadReadSize,isHistory)
-			sessionManager.restore(stores,unhandledBranchSessions)
+			stores := transactionStoreManager.ReadWriteStore(sessionManager.conf.SessionReloadReadSize, isHistory)
+			sessionManager.restore(stores, unhandledBranchSessions)
 		} else {
 			break
 		}
@@ -73,11 +73,11 @@ func (sessionManager *FileBasedSessionManager) restoreSessionsToUnhandledBranchB
 
 func (sessionManager *FileBasedSessionManager) washSessions() {
 	if len(sessionManager.SessionMap) > 0 {
-		for _,globalSession := range sessionManager.SessionMap {
+		for _, globalSession := range sessionManager.SessionMap {
 			switch globalSession.Status {
-			case meta.GlobalStatusUnknown,meta.GlobalStatusCommitted,meta.GlobalStatusCommitFailed,meta.GlobalStatusRollbacked,
-			meta.GlobalStatusRollbackFailed,meta.GlobalStatusTimeoutRollbacked,meta.GlobalStatusTimeoutRollbackFailed,
-			meta.GlobalStatusFinished:
+			case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
+				meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
+				meta.GlobalStatusFinished:
 				// Remove all sessions finished
 				delete(sessionManager.SessionMap, globalSession.Xid)
 				break
@@ -90,12 +90,12 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 
 func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWriteStore, unhandledBranchSessions map[int64]*session.BranchSession) {
 	maxRecoverId := uuid.UUID
-	for _,store := range stores {
+	for _, store := range stores {
 		logOperation := store.LogOperation
 		sessionStorable := store.SessionRequest
 		maxRecoverId = getMaxId(maxRecoverId, sessionStorable)
 		switch logOperation {
-		case LogOperationGlobalAdd,LogOperationGlobalUpdate:
+		case LogOperationGlobalAdd, LogOperationGlobalUpdate:
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
 				if globalSession.TransactionId == int64(0) {
@@ -120,7 +120,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 				delete(sessionManager.SessionMap, globalSession.Xid)
 				break
 			}
-		case LogOperationBranchAdd,LogOperationBranchUpdate:
+		case LogOperationBranchAdd, LogOperationBranchUpdate:
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
 				if branchSession.TransactionId == int64(0) {
@@ -149,11 +149,11 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 				}
 				foundGlobalSession := sessionManager.SessionMap[branchSession.Xid]
 				if foundGlobalSession == nil {
-					logging.Logger.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]",branchSession.BranchId,branchSession.Xid)
+					logging.Logger.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
 				} else {
 					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchId)
 					if existingBranch == nil {
-						logging.Logger.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]",branchSession.BranchId,branchSession.Xid)
+						logging.Logger.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
 					} else {
 						foundGlobalSession.Remove(existingBranch)
 					}
@@ -189,10 +189,10 @@ func getMaxId(maxRecoverId int64, sessionStorable session.SessionStorable) int64
 func setMaxId(maxRecoverId int64) {
 	var currentId int64
 	// will be recover multi-thread later
-	for{
+	for {
 		currentId = uuid.UUID
 		if currentId < maxRecoverId {
-			if uuid.SetUUID(currentId,maxRecoverId) {
+			if uuid.SetUUID(currentId, maxRecoverId) {
 				break
 			}
 		}

@@ -20,24 +20,24 @@ import (
 func TestLockManager_AcquireLock(t *testing.T) {
 	bs := branchSessionProvider()
 	ok := GetLockManager().AcquireLock(bs)
-	assert.Equal(t,ok,true)
+	assert.Equal(t, ok, true)
 }
 
 func TestLockManager_IsLockable(t *testing.T) {
 	transId := uuid.GeneratorUUID()
-	ok := GetLockManager().IsLockable(common.XID.GenerateXID(transId),"tb_1","tb_1:13")
-	assert.Equal(t,ok,true)
+	ok := GetLockManager().IsLockable(common.XID.GenerateXID(transId), "tb_1", "tb_1:13")
+	assert.Equal(t, ok, true)
 }
 
 func TestLockManager_AcquireLock_Fail(t *testing.T) {
 	sessions := branchSessionsProvider()
 	result1 := GetLockManager().AcquireLock(sessions[0])
 	result2 := GetLockManager().AcquireLock(sessions[1])
-	assert.True(t,result1)
-	assert.False(t,result2)
+	assert.True(t, result1)
+	assert.False(t, result2)
 }
 
-func  TestLockManager_AcquireLock_DeadLock(t *testing.T) {
+func TestLockManager_AcquireLock_DeadLock(t *testing.T) {
 	sessions := deadlockBranchSessionsProvider()
 	defer func() {
 		GetLockManager().ReleaseLock(sessions[0])
@@ -49,44 +49,44 @@ func  TestLockManager_AcquireLock_DeadLock(t *testing.T) {
 	go func(session *session.BranchSession) {
 		defer wg.Done()
 		result := GetLockManager().AcquireLock(session)
-		logging.Logger.Infof("1: %v",result)
+		logging.Logger.Infof("1: %v", result)
 	}(sessions[0])
 
 	go func(session *session.BranchSession) {
 		defer wg.Done()
 		result := GetLockManager().AcquireLock(session)
-		logging.Logger.Infof("2: %v",result)
+		logging.Logger.Infof("2: %v", result)
 	}(sessions[1])
 	wg.Wait()
-	assert.True(t,true)
+	assert.True(t, true)
 }
 
 func TestLockManager_IsLockable2(t *testing.T) {
 	bs := branchSessionProvider()
 	bs.LockKey = "t:4"
-	result1 := GetLockManager().IsLockable(bs.Xid,bs.ResourceId,bs.LockKey)
-	assert.True(t,result1)
+	result1 := GetLockManager().IsLockable(bs.Xid, bs.ResourceId, bs.LockKey)
+	assert.True(t, result1)
 	GetLockManager().AcquireLock(bs)
 	bs.TransactionId = uuid.GeneratorUUID()
-	result2 := GetLockManager().IsLockable(bs.Xid,bs.ResourceId,bs.LockKey)
-	assert.False(t,result2)
+	result2 := GetLockManager().IsLockable(bs.Xid, bs.ResourceId, bs.LockKey)
+	assert.False(t, result2)
 }
 
-func  TestLockManager_AcquireLock_SessionHolder(t *testing.T) {
+func TestLockManager_AcquireLock_SessionHolder(t *testing.T) {
 	sessions := duplicatePkBranchSessionsProvider()
 	result1 := GetLockManager().AcquireLock(sessions[0])
-	assert.True(t,result1)
-	assert.Equal(t,int64(4),GetLockManager().GetLockKeyCount())
+	assert.True(t, result1)
+	assert.Equal(t, int64(4), GetLockManager().GetLockKeyCount())
 	result2 := GetLockManager().ReleaseLock(sessions[0])
-	assert.True(t,result2)
-	assert.Equal(t,int64(0),GetLockManager().GetLockKeyCount())
+	assert.True(t, result2)
+	assert.Equal(t, int64(0), GetLockManager().GetLockKeyCount())
 
 	result3 := GetLockManager().AcquireLock(sessions[1])
-	assert.True(t,result3)
-	assert.Equal(t,int64(4),GetLockManager().GetLockKeyCount())
+	assert.True(t, result3)
+	assert.Equal(t, int64(4), GetLockManager().GetLockKeyCount())
 	result4 := GetLockManager().ReleaseLock(sessions[1])
-	assert.True(t,result4)
-	assert.Equal(t,int64(0),GetLockManager().GetLockKeyCount())
+	assert.True(t, result4)
+	assert.Equal(t, int64(0), GetLockManager().GetLockKeyCount())
 }
 
 func deadlockBranchSessionsProvider() []*session.BranchSession {
@@ -102,7 +102,7 @@ func branchSessionsProvider() []*session.BranchSession {
 }
 
 func baseBranchSessionsProvider(resourceId string, lockKey1 string, lockKey2 string) []*session.BranchSession {
-	var branchSessions = make([]*session.BranchSession,0)
+	var branchSessions = make([]*session.BranchSession, 0)
 	transId := uuid.GeneratorUUID()
 	transId2 := uuid.GeneratorUUID()
 	bs := session.NewBranchSession(
@@ -131,14 +131,14 @@ func baseBranchSessionsProvider(resourceId string, lockKey1 string, lockKey2 str
 		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),
 	)
 
-	branchSessions = append(branchSessions,bs)
-	branchSessions = append(branchSessions,bs1)
+	branchSessions = append(branchSessions, bs)
+	branchSessions = append(branchSessions, bs1)
 	return branchSessions
 }
 
 func branchSessionProvider() *session.BranchSession {
-	common.XID.IpAddress="127.0.0.1"
-	common.XID.Port=9876
+	common.XID.IpAddress = "127.0.0.1"
+	common.XID.Port = 9876
 
 	transId := uuid.GeneratorUUID()
 	bs := session.NewBranchSession(

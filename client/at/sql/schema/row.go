@@ -7,10 +7,10 @@ type Row struct {
 }
 
 func (row *Row) PrimaryKeys() []*Field {
-	fields := make([]*Field,0)
-	for _,field := range row.Fields {
+	fields := make([]*Field, 0)
+	for _, field := range row.Fields {
 		if field.KeyType == PRIMARY_KEY {
-			fields = append(fields,field)
+			fields = append(fields, field)
 		}
 	}
 	if len(fields) > 1 {
@@ -20,12 +20,11 @@ func (row *Row) PrimaryKeys() []*Field {
 }
 
 func (row *Row) NonPrimaryKeys() []*Field {
-	fields := make([]*Field,0)
-	for _,field := range row.Fields {
+	fields := make([]*Field, 0)
+	for _, field := range row.Fields {
 		if field.KeyType != PRIMARY_KEY {
-			fields = append(fields,field)
+			fields = append(fields, field)
 		}
 	}
 	return fields
 }
-

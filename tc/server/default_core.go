@@ -75,20 +75,20 @@ type DefaultCore struct {
 
 func NewCore(sender ServerMessageSender) TransactionCoordinator {
 	return &DefaultCore{
-		AbstractCore: AbstractCore{ MessageSender: sender },
+		AbstractCore: AbstractCore{MessageSender: sender},
 		ATCore:       ATCore{},
 		SAGACore:     SAGACore{},
 		coreMap:      make(map[meta.BranchType]interface{}),
 	}
 }
 
-func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession,branchSession *session.BranchSession) error {
-	result :=lock.GetLockManager().AcquireLock(branchSession)
+func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession, branchSession *session.BranchSession) error {
+	result := lock.GetLockManager().AcquireLock(branchSession)
 	if !result {
 		return meta.TransactionException{
 			Code: meta.TransactionExceptionCodeLockKeyConflict,
 			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchId = %d",
-				globalSession.Xid,branchSession.BranchId),
+				globalSession.Xid, branchSession.BranchId),
 		}
 	}
 	return nil
@@ -103,15 +103,15 @@ func (core *ATCore) LockQuery(branchType meta.BranchType,
 	resourceId string,
 	xid string,
 	lockKeys string) bool {
-	return lock.GetLockManager().IsLockable(xid,resourceId,lockKeys)
+	return lock.GetLockManager().IsLockable(xid, resourceId, lockKeys)
 }
 
 func (core *SAGACore) doGlobalCommit(globalSession *session.GlobalSession, retrying bool) (bool, error) {
-	return true,nil
+	return true, nil
 }
 
 func (core *SAGACore) doGlobalRollback(globalSession *session.GlobalSession, retrying bool) (bool, error) {
-	return true,nil
+	return true, nil
 }
 
 func (core *SAGACore) doGlobalReport(globalSession *session.GlobalSession, xid string, param meta.GlobalStatus) error {
@@ -129,7 +129,7 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 	gs.Begin()
 	err := holder.GetSessionHolder().RootSessionManager.AddGlobalSession(gs)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	go func() {
@@ -137,10 +137,9 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}()
 
-	logging.Logger.Infof("Successfully begin global transaction xid = {}",gs.Xid)
+	logging.Logger.Infof("Successfully begin global transaction xid = {}", gs.Xid)
 	return gs.Xid, nil
 }
-
 
 func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 	resourceId string,
@@ -148,16 +147,16 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 	xid string,
 	applicationData []byte,
 	lockKeys string) (int64, error) {
-	gs,err := assertGlobalSessionNotNull(xid,false)
+	gs, err := assertGlobalSessionNotNull(xid, false)
 	if err != nil {
-		return 0,err
+		return 0, err
 	}
 	defer gs.Unlock()
 	gs.Lock()
 
 	err1 := globalSessionStatusCheck(gs)
 	if err1 != nil {
-		return 0,err
+		return 0, err
 	}
 
 	bs := session.NewBranchSessionByGlobal(*gs,
@@ -168,45 +167,44 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 		session.WithBsClientId(clientId),
 	)
 
-
 	if branchType == meta.BranchTypeAT {
 		core.ATCore.branchSessionLock(gs, bs)
 	}
 	gs.Add(bs)
-	holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs,bs)
+	holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs, bs)
 	bs.Status = meta.BranchStatusRegistered
 
-	logging.Logger.Infof("Successfully register branch xid = %s, branchId = %d",gs.Xid,bs.BranchId)
-	return bs.BranchId,nil
+	logging.Logger.Infof("Successfully register branch xid = %s, branchId = %d", gs.Xid, bs.BranchId)
+	return bs.BranchId, nil
 }
 
 func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 	if !globalSession.Active {
 		return meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotActive,
-			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d",globalSession.Xid,globalSession.Status),
+			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d", globalSession.Xid, globalSession.Status),
 		}
 	}
 	if globalSession.Status != meta.GlobalStatusBegin {
 		return meta.TransactionException{
 			Code: meta.TransactionExceptionCodeGlobalTransactionStatusInvalid,
 			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d while expecting %d",
-				globalSession.Xid,globalSession.Status, meta.GlobalStatusBegin),
+				globalSession.Xid, globalSession.Status, meta.GlobalStatusBegin),
 		}
 	}
 	return nil
 }
 
-func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.GlobalSession,error) {
-	gs := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(xid,withBranchSessions)
+func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.GlobalSession, error) {
+	gs := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(xid, withBranchSessions)
 	if gs == nil {
-		logging.Logger.Errorf("Could not found global transaction xid = %s",xid)
-		return nil,&meta.TransactionException{
+		logging.Logger.Errorf("Could not found global transaction xid = %s", xid)
+		return nil, &meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
-			Message: fmt.Sprintf("Could not found global transaction xid = %s",gs.Xid),
+			Message: fmt.Sprintf("Could not found global transaction xid = %s", gs.Xid),
 		}
 	}
-	return gs,nil
+	return gs, nil
 }
 
 func (core *DefaultCore) BranchReport(branchType meta.BranchType,
@@ -214,7 +212,7 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 	branchId int64,
 	status meta.BranchStatus,
 	applicationData []byte) error {
-	gs,err := assertGlobalSessionNotNull(xid,true)
+	gs, err := assertGlobalSessionNotNull(xid, true)
 	if err != nil {
 		return nil
 	}
@@ -224,19 +222,19 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 		return &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Could not found branch session xid = %s branchId = %d",
-				xid,branchId),
+				xid, branchId),
 		}
 	}
 
 	bs.Status = status
-	holder.GetSessionHolder().RootSessionManager.UpdateBranchSessionStatus(bs,status)
+	holder.GetSessionHolder().RootSessionManager.UpdateBranchSessionStatus(bs, status)
 
-	logging.Logger.Infof("Successfully branch report xid = %s, branchId = %d",xid,bs.BranchId)
+	logging.Logger.Infof("Successfully branch report xid = %s, branchId = %d", xid, bs.BranchId)
 	return nil
 }
 
 func (core *DefaultCore) LockQuery(branchType meta.BranchType, resourceId string, xid string, lockKeys string) (bool, error) {
-	return true,nil
+	return true, nil
 }
 
 func (core *DefaultCore) branchCommit(globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
@@ -247,22 +245,22 @@ func (core *DefaultCore) branchCommit(globalSession *session.GlobalSession, bran
 	request.ApplicationData = branchSession.ApplicationData
 	request.BranchType = branchSession.BranchType
 
-	resp, err := core.branchCommitSend(request,globalSession,branchSession)
+	resp, err := core.branchCommitSend(request, globalSession, branchSession)
 	if err != nil {
-		return 0,&meta.TransactionException{
+		return 0, &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Send branch commit failed, xid = %s branchId = %d",
-				branchSession.Xid,branchSession.BranchId),
+				branchSession.Xid, branchSession.BranchId),
 		}
 	}
-	return resp,err
+	return resp, err
 }
 
 func (core *DefaultCore) branchCommitSend(request protocal.BranchCommitRequest,
-	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus,error) {
-	resp,err := core.MessageSender.SendSyncRequest(branchSession.ResourceId,branchSession.ClientId,request)
+	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
+	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceId, branchSession.ClientId, request)
 	if err != nil {
-		return 0,err
+		return 0, err
 	}
 	response := resp.(protocal.BranchCommitResponse)
 	return response.BranchStatus, nil
@@ -276,22 +274,22 @@ func (core *DefaultCore) branchRollback(globalSession *session.GlobalSession, br
 	request.ApplicationData = branchSession.ApplicationData
 	request.BranchType = branchSession.BranchType
 
-	resp, err := core.branchRollbackSend(request,globalSession,branchSession)
+	resp, err := core.branchRollbackSend(request, globalSession, branchSession)
 	if err != nil {
-		return 0,&meta.TransactionException{
+		return 0, &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
 			Message: fmt.Sprintf("Send branch rollback failed, xid = %s branchId = %d",
-				branchSession.Xid,branchSession.BranchId),
+				branchSession.Xid, branchSession.BranchId),
 		}
 	}
-	return resp,err
+	return resp, err
 }
 
 func (core *DefaultCore) branchRollbackSend(request protocal.BranchRollbackRequest,
-	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus,error) {
-	resp,err := core.MessageSender.SendSyncRequest(branchSession.ResourceId,branchSession.ClientId,request)
+	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
+	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceId, branchSession.ClientId, request)
 	if err != nil {
-		return 0,err
+		return 0, err
 	}
 	response := resp.(protocal.BranchRollbackResponse)
 	return response.BranchStatus, nil
@@ -302,7 +300,7 @@ func (core *DefaultCore) Commit(xid string) (meta.GlobalStatus, error) {
 	if globalSession == nil {
 		return meta.GlobalStatusFinished, nil
 	}
-	shouldCommit := func (gs *session.GlobalSession) bool {
+	shouldCommit := func(gs *session.GlobalSession) bool {
 		gs.Lock()
 		defer gs.Unlock()
 		if gs.Active {
@@ -317,26 +315,26 @@ func (core *DefaultCore) Commit(xid string) (meta.GlobalStatus, error) {
 	}(globalSession)
 
 	if !shouldCommit {
-		return globalSession.Status,nil
+		return globalSession.Status, nil
 	}
 
 	if globalSession.CanBeCommittedAsync() {
 		asyncCommit(globalSession)
 		return meta.GlobalStatusCommitted, nil
 	} else {
-		_,err := core.doGlobalCommit(globalSession,false)
+		_, err := core.doGlobalCommit(globalSession, false)
 		if err != nil {
-			return 0,err
+			return 0, err
 		}
 	}
 
-	return globalSession.Status,nil
+	return globalSession.Status, nil
 }
 
 func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, retrying bool) (bool, error) {
 	var (
 		success = true
-		err error
+		err     error
 	)
 
 	go func() {
@@ -345,56 +343,56 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	}()
 
 	if globalSession.IsSaga() {
-		success,err = core.SAGACore.doGlobalCommit(globalSession,retrying)
+		success, err = core.SAGACore.doGlobalCommit(globalSession, retrying)
 	} else {
-		for _,bs := range globalSession.GetSortedBranches() {
+		for _, bs := range globalSession.GetSortedBranches() {
 			if bs.Status == meta.BranchStatusPhaseoneFailed {
-				removeBranchSession(globalSession,bs)
+				removeBranchSession(globalSession, bs)
 				continue
 			}
-			branchStatus,err1 := core.branchCommit(globalSession,bs)
+			branchStatus, err1 := core.branchCommit(globalSession, bs)
 			if err1 != nil {
 				logging.Logger.Errorf("Exception committing branch %v", bs)
 				if !retrying {
 					queueToRetryCommit(globalSession)
 				}
-				return false,err1
+				return false, err1
 			}
 			switch branchStatus {
 			case meta.BranchStatusPhasetwoCommitted:
-				removeBranchSession(globalSession,bs)
+				removeBranchSession(globalSession, bs)
 				continue
 			case meta.BranchStatusPhasetwoCommitFailedUnretryable:
 				{
 					// 二阶段提交失败且不能 Retry，不能异步提交，则移除 GlobalSession，Why?
 					if globalSession.CanBeCommittedAsync() {
-						logging.Logger.Errorf("By [%s], failed to commit branch %v",bs.Status.String(),bs)
+						logging.Logger.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
 						continue
 					} else {
 						endCommitFailed(globalSession)
-						logging.Logger.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed",globalSession.Xid,bs.BranchId)
-						return false,nil
+						logging.Logger.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed", globalSession.Xid, bs.BranchId)
+						return false, nil
 					}
 				}
 			default:
 				{
 					if !retrying {
 						queueToRetryCommit(globalSession)
-						return false,nil
+						return false, nil
 					}
 					if globalSession.CanBeCommittedAsync() {
-						logging.Logger.Errorf("By [%s], failed to commit branch %v",bs.Status.String(),bs)
+						logging.Logger.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
 						continue
 					} else {
-						logging.Logger.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.",globalSession.Xid,bs.BranchId)
-						return false,nil
+						logging.Logger.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.", globalSession.Xid, bs.BranchId)
+						return false, nil
 					}
 				}
 			}
 		}
 		if globalSession.HasBranch() {
 			logging.Logger.Infof("Global[%d] committing is NOT done.", globalSession.Xid)
-			return false,nil
+			return false, nil
 		}
 	}
 	if success {
@@ -408,7 +406,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 
 		logging.Logger.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
 	}
-	return success,err
+	return success, err
 }
 
 func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
@@ -416,11 +414,11 @@ func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
 	if globalSession == nil {
 		return meta.GlobalStatusFinished, nil
 	}
-	shouldRollBack := func (gs *session.GlobalSession) bool {
+	shouldRollBack := func(gs *session.GlobalSession) bool {
 		gs.Lock()
 		defer gs.Unlock()
 		if gs.Active {
-			gs.Active = false  // Highlight: Firstly, close the session, then no more branch can be registered.
+			gs.Active = false // Highlight: Firstly, close the session, then no more branch can be registered.
 		}
 		lock.GetLockManager().ReleaseGlobalSessionLock(gs)
 		if gs.Status == meta.GlobalStatusBegin {
@@ -431,17 +429,17 @@ func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
 	}(globalSession)
 
 	if !shouldRollBack {
-		return globalSession.Status,nil
+		return globalSession.Status, nil
 	}
 
-	core.doGlobalRollback(globalSession,false)
-	return globalSession.Status,nil
+	core.doGlobalRollback(globalSession, false)
+	return globalSession.Status, nil
 }
 
 func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, retrying bool) (bool, error) {
 	var (
 		success = true
-		err error
+		err     error
 	)
 
 	go func() {
@@ -449,38 +447,37 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}()
 
-
 	if globalSession.IsSaga() {
-		success,err = core.SAGACore.doGlobalRollback(globalSession,retrying)
+		success, err = core.SAGACore.doGlobalRollback(globalSession, retrying)
 	} else {
-		for _,bs := range globalSession.GetSortedBranches() {
+		for _, bs := range globalSession.GetSortedBranches() {
 			if bs.Status == meta.BranchStatusPhaseoneFailed {
 				removeBranchSession(globalSession, bs)
 				continue
 			}
-			branchStatus,err1 := core.branchRollback(globalSession,bs)
+			branchStatus, err1 := core.branchRollback(globalSession, bs)
 			if err1 != nil {
-				logging.Logger.Errorf("Exception rollbacking branch xid=%d branchId=%d", globalSession.Xid,bs.BranchId)
+				logging.Logger.Errorf("Exception rollbacking branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
-				return false,err1
+				return false, err1
 			}
 			switch branchStatus {
 			case meta.BranchStatusPhasetwoRollbacked:
-				removeBranchSession(globalSession,bs)
-				logging.Logger.Infof("Successfully rollback branch xid=%d branchId=%d", globalSession.Xid,bs.BranchId)
+				removeBranchSession(globalSession, bs)
+				logging.Logger.Infof("Successfully rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				continue
 			case meta.BranchStatusPhasetwoRollbackFailedUnretryable:
 				endRollBackFailed(globalSession)
-				logging.Logger.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchId=%d",globalSession.Xid,bs.BranchId)
-				return false,nil
+				logging.Logger.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				return false, nil
 			default:
-				logging.Logger.Infof("ResultCodeFailed to rollback branch xid=%d branchId=%d", globalSession.Xid,bs.BranchId)
+				logging.Logger.Infof("ResultCodeFailed to rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
-				return false,nil
+				return false, nil
 			}
 		}
 
@@ -507,30 +504,30 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 
 		logging.Logger.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
 	}
-	return success,err
+	return success, err
 }
 
 func (core *DefaultCore) GetStatus(xid string) (meta.GlobalStatus, error) {
 	gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(xid)
 	if gs == nil {
-		return meta.GlobalStatusFinished,nil
+		return meta.GlobalStatusFinished, nil
 	} else {
-		return gs.Status,nil
+		return gs.Status, nil
 	}
 }
 
 func (core *DefaultCore) GlobalReport(xid string, globalStatus meta.GlobalStatus) (meta.GlobalStatus, error) {
 	gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(xid)
 	if gs == nil {
-		return globalStatus,nil
+		return globalStatus, nil
 	}
-	core.doGlobalReport(gs,xid,globalStatus)
-	return gs.Status,nil
+	core.doGlobalReport(gs, xid, globalStatus)
+	return gs.Status, nil
 }
 
-func (core *DefaultCore) doGlobalReport(globalSession *session.GlobalSession,xid string,globalStatus meta.GlobalStatus) error {
+func (core *DefaultCore) doGlobalReport(globalSession *session.GlobalSession, xid string, globalStatus meta.GlobalStatus) error {
 	if globalSession.IsSaga() {
-		return core.SAGACore.doGlobalReport(globalSession,xid,globalStatus)
+		return core.SAGACore.doGlobalReport(globalSession, xid, globalStatus)
 	}
 	return nil
 }
@@ -598,8 +595,8 @@ func changeGlobalSessionStatus(globalSession *session.GlobalSession, status meta
 	holder.GetSessionHolder().RootSessionManager.UpdateGlobalSessionStatus(globalSession, status)
 }
 
-func removeBranchSession(globalSession *session.GlobalSession,branchSession *session.BranchSession) {
+func removeBranchSession(globalSession *session.GlobalSession, branchSession *session.BranchSession) {
 	lock.GetLockManager().ReleaseLock(branchSession)
 	globalSession.Remove(branchSession)
-	holder.GetSessionHolder().RootSessionManager.RemoveBranchSession(globalSession,branchSession)
+	holder.GetSessionHolder().RootSessionManager.RemoveBranchSession(globalSession, branchSession)
 }

@@ -24,7 +24,6 @@ var (
 	srvGrpool *gxsync.TaskPool
 )
 
-
 func SetServerGrpool() {
 	srvConf := config.GetServerConfig()
 	if srvConf.GettyConfig.GrPoolSize > 1 {

@@ -100,9 +100,9 @@ const (
 )
 
 type TransactionException struct {
-	Code TransactionExceptionCode
+	Code    TransactionExceptionCode
 	Message string
-	Err error
+	Err     error
 }
 
 //Error 隐式继承 builtin.error 接口

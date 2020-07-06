@@ -13,16 +13,16 @@ import (
 
 func TestMysqlSelectForUpdateRecognizer_GetTableName(t *testing.T) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt("select * from user u where u.id = ? for update","","")
+	act, _ := parser.ParseOneStmt("select * from user u where u.id = ? for update", "", "")
 	stmt := act.(*ast.SelectStmt)
-	recognizer := NewMysqlSelectForUpdateRecognizer("select * from user u where u.id = ? for update",stmt)
-	assert.Equal(t,"`user`",recognizer.GetTableName())
+	recognizer := NewMysqlSelectForUpdateRecognizer("select * from user u where u.id = ? for update", stmt)
+	assert.Equal(t, "`user`", recognizer.GetTableName())
 }
 
 func TestMysqlSelectForUpdateRecognizer_GetTableAlias(t *testing.T) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt("select * from user u where u.id = ? for update","","")
+	act, _ := parser.ParseOneStmt("select * from user u where u.id = ? for update", "", "")
 	stmt := act.(*ast.SelectStmt)
-	recognizer := NewMysqlSelectForUpdateRecognizer("select * from user u where u.id = ? for update",stmt)
-	assert.Equal(t,"u",recognizer.GetTableAlias())
+	recognizer := NewMysqlSelectForUpdateRecognizer("select * from user u where u.id = ? for update", stmt)
+	assert.Equal(t, "u", recognizer.GetTableAlias())
 }

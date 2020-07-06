@@ -14,18 +14,18 @@ import (
 
 func TestMysqlDeleteRecognizer_GetTableName(t *testing.T) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt("delete from user where id > ?","","")
+	act, _ := parser.ParseOneStmt("delete from user where id > ?", "", "")
 	stmt := act.(*ast.DeleteStmt)
-	recognizer := NewMysqlDeleteRecognizer("delete from user where id > ?",stmt)
-	assert.Equal(t,"`user`",recognizer.GetTableName())
+	recognizer := NewMysqlDeleteRecognizer("delete from user where id > ?", stmt)
+	assert.Equal(t, "`user`", recognizer.GetTableName())
 }
 
 func TestMysqlDeleteRecognizer_GetWhereCondition(t *testing.T) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt("delete from user where id > ?","","")
+	act, _ := parser.ParseOneStmt("delete from user where id > ?", "", "")
 	stmt := act.(*ast.DeleteStmt)
-	recognizer := NewMysqlDeleteRecognizer("delete from user where id > ?",stmt)
+	recognizer := NewMysqlDeleteRecognizer("delete from user where id > ?", stmt)
 	whereCondition := recognizer.GetWhereCondition()
 	fmt.Println(whereCondition)
-	assert.NotEmpty(t,whereCondition)
+	assert.NotEmpty(t, whereCondition)
 }

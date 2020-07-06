@@ -1,7 +1,7 @@
 package config
 
 type TMConfig struct {
-	CommitRetryCount int32 `default:"5" yaml:"commit_retry_count" json:"commit_retry_count,omitempty"`
+	CommitRetryCount   int32 `default:"5" yaml:"commit_retry_count" json:"commit_retry_count,omitempty"`
 	RollbackRetryCount int32 `default:"5" yaml:"rollback_retry_count" json:"rollback_retry_count,omitempty"`
 }
 

@@ -6,14 +6,14 @@ import (
 )
 
 type TCCResource struct {
-	ResourceGroupId string
-	AppName string
-	ActionName string
-	PrepareMethodName string
-	CommitMethodName string
-	CommitMethod *proxy.MethodDescriptor
+	ResourceGroupId    string
+	AppName            string
+	ActionName         string
+	PrepareMethodName  string
+	CommitMethodName   string
+	CommitMethod       *proxy.MethodDescriptor
 	RollbackMethodName string
-	RollbackMethod *proxy.MethodDescriptor
+	RollbackMethod     *proxy.MethodDescriptor
 }
 
 func (resource *TCCResource) GetResourceGroupId() string {

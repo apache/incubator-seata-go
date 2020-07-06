@@ -29,19 +29,18 @@ type RowLock struct {
 	Feature string
 }
 
-
 func collectRowLocksByBranchSession(branchSession *session.BranchSession) []*RowLock {
 	if branchSession == nil || branchSession.LockKey == "" {
 		return nil
 	}
-	return collectRowLocks(branchSession.LockKey,branchSession.ResourceId,branchSession.Xid,branchSession.TransactionId,branchSession.BranchId)
+	return collectRowLocks(branchSession.LockKey, branchSession.ResourceId, branchSession.Xid, branchSession.TransactionId, branchSession.BranchId)
 }
 
 func collectRowLocksByLockKeyResourceIdXid(lockKey string,
 	resourceId string,
 	xid string) []*RowLock {
 
-	return collectRowLocks(lockKey,resourceId,xid, common.XID.GetTransactionId(xid),0)
+	return collectRowLocks(lockKey, resourceId, xid, common.XID.GetTransactionId(xid), 0)
 }
 
 func collectRowLocks(lockKey string,
@@ -49,8 +48,8 @@ func collectRowLocks(lockKey string,
 	xid string,
 	transactionId int64,
 	branchId int64) []*RowLock {
-	var locks = make([]*RowLock,0)
-	tableGroupedLockKeys := strings.Split(lockKey,";")
+	var locks = make([]*RowLock, 0)
+	tableGroupedLockKeys := strings.Split(lockKey, ";")
 	for _, tableGroupedLockKey := range tableGroupedLockKeys {
 		if tableGroupedLockKey != "" {
 			idx := strings.Index(tableGroupedLockKey, ":")

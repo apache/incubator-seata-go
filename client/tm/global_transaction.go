@@ -32,8 +32,8 @@ type GlobalTransaction interface {
 	BeginWithTimeoutAndName(timeout int32, name string, ctx *context.RootContext) error
 	Commit(ctx *context.RootContext) error
 	Rollback(ctx *context.RootContext) error
-	Suspend(unbindXid bool,ctx *context.RootContext) (*SuspendedResourcesHolder,error)
-	Resume(suspendedResourcesHolder *SuspendedResourcesHolder,ctx *context.RootContext) error
+	Suspend(unbindXid bool, ctx *context.RootContext) (*SuspendedResourcesHolder, error)
+	Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *context.RootContext) error
 	GetStatus(ctx *context.RootContext) (meta.GlobalStatus, error)
 	GetXid(ctx *context.RootContext) string
 	GlobalReport(globalStatus meta.GlobalStatus, ctx *context.RootContext) error
@@ -45,7 +45,6 @@ type GlobalTransactionRole byte
 const (
 	// The Launcher. The one begins the current global transaction.
 	Launcher GlobalTransactionRole = iota
-
 
 	// The Participant. The one just joins into a existing global transaction.
 	Participant
@@ -107,7 +106,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context.RootContext) error {
 	defer func() {
 		ctxXid := ctx.GetXID()
 		if ctxXid != "" && gtx.Xid == ctxXid {
-			gtx.Suspend(true,ctx)
+			gtx.Suspend(true, ctx)
 		}
 	}()
 	if gtx.Role == Participant {
@@ -139,7 +138,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 	defer func() {
 		ctxXid := ctx.GetXID()
 		if ctxXid != "" && gtx.Xid == ctxXid {
-			gtx.Suspend(true,ctx)
+			gtx.Suspend(true, ctx)
 		}
 	}()
 	if gtx.Role == Participant {
@@ -167,18 +166,18 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool,ctx *context.RootContext) (*SuspendedResourcesHolder,error) {
+func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool, ctx *context.RootContext) (*SuspendedResourcesHolder, error) {
 	xid := ctx.GetXID()
 	if xid != "" && unbindXid {
 		ctx.Unbind()
-		logging.Logger.Debugf("Suspending current transaction,xid = %s",xid)
+		logging.Logger.Debugf("Suspending current transaction,xid = %s", xid)
 	} else {
 		xid = ""
 	}
-	return &SuspendedResourcesHolder{Xid:xid},nil
+	return &SuspendedResourcesHolder{Xid: xid}, nil
 }
 
-func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedResourcesHolder,ctx *context.RootContext) error {
+func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *context.RootContext) error {
 	if suspendedResourcesHolder == nil {
 		return nil
 	}
@@ -190,13 +189,13 @@ func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedR
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) GetStatus(ctx *context.RootContext) (meta.GlobalStatus,error) {
+func (gtx *DefaultGlobalTransaction) GetStatus(ctx *context.RootContext) (meta.GlobalStatus, error) {
 	if gtx.Xid == "" {
 		return meta.GlobalStatusUnknown, nil
 	}
-	status,err := gtx.transactionManager.GetStatus(gtx.Xid)
+	status, err := gtx.transactionManager.GetStatus(gtx.Xid)
 	if err != nil {
-		return 0,errors.WithStack(err)
+		return 0, errors.WithStack(err)
 	}
 
 	gtx.Status = status
@@ -211,7 +210,7 @@ func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus
 	defer func() {
 		ctxXid := ctx.GetXID()
 		if ctxXid != "" && gtx.Xid == ctxXid {
-			gtx.Suspend(true,ctx)
+			gtx.Suspend(true, ctx)
 		}
 	}()
 
@@ -223,7 +222,7 @@ func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus
 		return errors.New("globalStatus should not be zero")
 	}
 
-	status,err := gtx.transactionManager.GlobalReport(gtx.Xid,globalStatus)
+	status, err := gtx.transactionManager.GlobalReport(gtx.Xid, globalStatus)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -237,14 +236,13 @@ func (gtx *DefaultGlobalTransaction) GetLocalStatus() meta.GlobalStatus {
 	return gtx.Status
 }
 
-
 func CreateNew() *DefaultGlobalTransaction {
 	return &DefaultGlobalTransaction{
 		conf:               config.GetTMConfig(),
 		Xid:                "",
 		Status:             meta.GlobalStatusUnknown,
 		Role:               Launcher,
-		transactionManager: &DefaultTransactionManager{rpcClient:getty2.GetRpcRemoteClient()},
+		transactionManager: &DefaultTransactionManager{rpcClient: getty2.GetRpcRemoteClient()},
 	}
 }
 
@@ -258,7 +256,7 @@ func GetCurrent(ctx *context2.RootContext) *DefaultGlobalTransaction {
 		Xid:                xid,
 		Status:             meta.GlobalStatusBegin,
 		Role:               Participant,
-		transactionManager: &DefaultTransactionManager{rpcClient:getty2.GetRpcRemoteClient()},
+		transactionManager: &DefaultTransactionManager{rpcClient: getty2.GetRpcRemoteClient()},
 	}
 }
 

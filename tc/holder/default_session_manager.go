@@ -8,14 +8,14 @@ import (
 
 type DefaultSessionManager struct {
 	AbstractSessionManager
-	SessionMap              map[string]*session.GlobalSession
+	SessionMap map[string]*session.GlobalSession
 }
 
 func NewDefaultSessionManager(name string) SessionManager {
 	return &DefaultSessionManager{
-		AbstractSessionManager: AbstractSessionManager {
-			TransactionStoreManager:  &AbstractTransactionStoreManager{},
-			Name: name,
+		AbstractSessionManager: AbstractSessionManager{
+			TransactionStoreManager: &AbstractTransactionStoreManager{},
+			Name:                    name,
 		},
 		SessionMap: make(map[string]*session.GlobalSession),
 	}
@@ -27,7 +27,6 @@ func (sessionManager *DefaultSessionManager) AddGlobalSession(session *session.G
 	return nil
 }
 
-
 func (sessionManager *DefaultSessionManager) FindGlobalSession(xid string) *session.GlobalSession {
 	return sessionManager.SessionMap[xid]
 }
@@ -36,25 +35,24 @@ func (sessionManager *DefaultSessionManager) FindGlobalSessionWithBranchSessions
 	return sessionManager.SessionMap[xid]
 }
 
-func (sessionManager *DefaultSessionManager) RemoveGlobalSession(session *session.GlobalSession) error{
+func (sessionManager *DefaultSessionManager) RemoveGlobalSession(session *session.GlobalSession) error {
 	sessionManager.AbstractSessionManager.RemoveGlobalSession(session)
-	delete(sessionManager.SessionMap,session.Xid)
+	delete(sessionManager.SessionMap, session.Xid)
 	return nil
 }
 
 func (sessionManager *DefaultSessionManager) AllSessions() []*session.GlobalSession {
-	var sessions = make([]*session.GlobalSession,0)
-	for _,session := range sessionManager.SessionMap {
-		sessions = append(sessions,session)
+	var sessions = make([]*session.GlobalSession, 0)
+	for _, session := range sessionManager.SessionMap {
+		sessions = append(sessions, session)
 	}
 	return sessions
 }
 
-
 func (sessionManager *DefaultSessionManager) FindGlobalSessions(condition model.SessionCondition) []*session.GlobalSession {
-	var sessions = make([]*session.GlobalSession,0)
-	for _,session := range sessionManager.SessionMap {
-		if int64(time.CurrentTimeMillis()) - session.BeginTime > condition.OverTimeAliveMills {
+	var sessions = make([]*session.GlobalSession, 0)
+	for _, session := range sessionManager.SessionMap {
+		if int64(time.CurrentTimeMillis())-session.BeginTime > condition.OverTimeAliveMills {
 			sessions = append(sessions, session)
 		}
 	}

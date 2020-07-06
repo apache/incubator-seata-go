@@ -64,5 +64,3 @@ func (s *Set) List() []string {
 	}
 	return list
 }
-
-

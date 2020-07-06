@@ -11,7 +11,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/samples/at/aggregation_svc/svc"
 )
 
-var configPath="/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregation_svc/conf/client.yml"
+var configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregation_svc/conf/client.yml"
 
 func main() {
 	r := gin.Default()
@@ -21,7 +21,7 @@ func main() {
 
 	r.GET("/createSoCommit", func(c *gin.Context) {
 
-		svc.ProxySvc.CreateSo(c,false)
+		svc.ProxySvc.CreateSo(c, false)
 
 		c.JSON(200, gin.H{
 			"success": true,
@@ -31,7 +31,7 @@ func main() {
 
 	r.GET("/createSoRollback", func(c *gin.Context) {
 
-		svc.ProxySvc.CreateSo(c,true)
+		svc.ProxySvc.CreateSo(c, true)
 
 		c.JSON(200, gin.H{
 			"success": true,

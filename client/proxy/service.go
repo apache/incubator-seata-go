@@ -40,16 +40,16 @@ type ServiceDescriptor struct {
 }
 
 // Register
-func Register(service interface{},methodName string) *MethodDescriptor {
+func Register(service interface{}, methodName string) *MethodDescriptor {
 	serviceType := reflect.TypeOf(service)
 	serviceValue := reflect.ValueOf(service)
 	svcName := reflect.Indirect(serviceValue).Type().Name()
 
-	svcDesc, _ := serviceDescriptorMap.LoadOrStore(svcName,&ServiceDescriptor{
-		Name: svcName,
-		ReflectType: serviceType,
+	svcDesc, _ := serviceDescriptorMap.LoadOrStore(svcName, &ServiceDescriptor{
+		Name:         svcName,
+		ReflectType:  serviceType,
 		ReflectValue: serviceValue,
-		Methods: sync.Map{},
+		Methods:      sync.Map{},
 	})
 	svcDescriptor := svcDesc.(*ServiceDescriptor)
 	methodDesc, methodExist := svcDescriptor.Methods.Load(methodName)
@@ -84,7 +84,7 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 	}
 
 	var (
-		ctxType reflect.Type
+		ctxType                    reflect.Type
 		argsType, returnValuesType []reflect.Type
 	)
 
@@ -111,12 +111,12 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 	}
 
 	return &MethodDescriptor{
-		Method: method,
-		CtxType: ctxType,
-		ArgsType: argsType,
-		ArgsNum: inNum,
+		Method:           method,
+		CtxType:          ctxType,
+		ArgsType:         argsType,
+		ArgsNum:          inNum,
 		ReturnValuesType: returnValuesType,
-		ReturnValuesNum: outNum,
+		ReturnValuesNum:  outNum,
 	}
 }
 
@@ -144,7 +144,7 @@ func Invoke(methodDesc *MethodDescriptor, ctx *context2.RootContext, args []inte
 	for i := 0; i < len(args); i++ {
 		t := reflect.ValueOf(args[i])
 		if methodDesc.ArgsType[i].String() == "context.Context" {
-			t = SuiteContext(methodDesc,ctx)
+			t = SuiteContext(methodDesc, ctx)
 		}
 		if !t.IsValid() {
 			at := methodDesc.ArgsType[i]
@@ -168,11 +168,11 @@ func SuiteContext(methodDesc *MethodDescriptor, ctx context.Context) reflect.Val
 	return reflect.Zero(methodDesc.CtxType)
 }
 
-func ReturnWithError(methodDesc *MethodDescriptor,err error) []reflect.Value {
-	var result = make([]reflect.Value,0)
-	for i := 0;i < methodDesc.ReturnValuesNum - 1; i++ {
-		result = append(result,reflect.Zero(methodDesc.ReturnValuesType[i]))
+func ReturnWithError(methodDesc *MethodDescriptor, err error) []reflect.Value {
+	var result = make([]reflect.Value, 0)
+	for i := 0; i < methodDesc.ReturnValuesNum-1; i++ {
+		result = append(result, reflect.Zero(methodDesc.ReturnValuesType[i]))
 	}
-	result = append(result,reflect.ValueOf(err))
+	result = append(result, reflect.ValueOf(err))
 	return result
 }

@@ -22,25 +22,25 @@ import (
 var (
 	TCC_ACTION_NAME = "TccActionName"
 
-	TRY_METHOD = "Try"
+	TRY_METHOD     = "Try"
 	CONFIRM_METHOD = "Confirm"
-	CANCEL_METHOD = "Cancel"
+	CANCEL_METHOD  = "Cancel"
 
 	ACTION_START_TIME = "action-start-time"
-	ACTION_NAME = "actionName"
-	PREPARE_METHOD = "sys::prepare"
-	COMMIT_METHOD = "sys::commit"
-	ROLLBACK_METHOD = "sys::rollback"
-	HOST_NAME = "host-name"
+	ACTION_NAME       = "actionName"
+	PREPARE_METHOD    = "sys::prepare"
+	COMMIT_METHOD     = "sys::commit"
+	ROLLBACK_METHOD   = "sys::rollback"
+	HOST_NAME         = "host-name"
 
 	TCC_METHOD_ARGUMENTS = "arguments"
-	TCC_METHOD_RESULT = "result"
+	TCC_METHOD_RESULT    = "result"
 
 	businessActionContextType = reflect.TypeOf(&context.BusinessActionContext{})
 )
 
 type TccService interface {
-	Try(ctx *context.BusinessActionContext) (bool,error)
+	Try(ctx *context.BusinessActionContext) (bool, error)
 	Confirm(ctx *context.BusinessActionContext) bool
 	Cancel(ctx *context.BusinessActionContext) bool
 }
@@ -62,7 +62,7 @@ func ImplementTCC(v TccProxyService) {
 		return
 	}
 	proxyService := v.GetTccService()
-	makeCallProxy := func(methodDesc *proxy.MethodDescriptor,resource *TCCResource) func(in []reflect.Value) []reflect.Value {
+	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			businessContextValue := in[0]
 			businessActionContext := businessContextValue.Interface().(*context.BusinessActionContext)
@@ -70,12 +70,12 @@ func ImplementTCC(v TccProxyService) {
 			businessActionContext.Xid = rootContext.GetXID()
 			businessActionContext.ActionName = resource.ActionName
 			if !rootContext.InGlobalTransaction() {
-				args := make([]interface{},0)
+				args := make([]interface{}, 0)
 				args = append(args, businessActionContext)
-				return proxy.Invoke(methodDesc,nil,args)
+				return proxy.Invoke(methodDesc, nil, args)
 			}
 
-			returnValues,_ := proceed(methodDesc,businessActionContext,resource)
+			returnValues, _ := proceed(methodDesc, businessActionContext, resource)
 			return returnValues
 		}
 	}
@@ -99,7 +99,6 @@ func ImplementTCC(v TccProxyService) {
 			cancelMethodDesc := proxy.Register(proxyService, CANCEL_METHOD)
 			tryMethodDesc := proxy.Register(proxyService, methodName)
 
-
 			tccResource := &TCCResource{
 				ResourceGroupId:    "",
 				AppName:            "",
@@ -120,24 +119,24 @@ func ImplementTCC(v TccProxyService) {
 	}
 }
 
-func proceed(methodDesc *proxy.MethodDescriptor, ctx *context.BusinessActionContext,resource *TCCResource) ([]reflect.Value,error) {
+func proceed(methodDesc *proxy.MethodDescriptor, ctx *context.BusinessActionContext, resource *TCCResource) ([]reflect.Value, error) {
 	var (
-		args         = make([]interface{},0)
+		args = make([]interface{}, 0)
 	)
 
-	branchId,err := doTccActionLogStore(ctx,resource)
+	branchId, err := doTccActionLogStore(ctx, resource)
 	if err != nil {
-		return nil,errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
 	ctx.BranchId = branchId
 
 	args = append(args, ctx)
-	returnValues := proxy.Invoke(methodDesc,nil,args)
+	returnValues := proxy.Invoke(methodDesc, nil, args)
 
-	return returnValues,nil
+	return returnValues, nil
 }
 
-func doTccActionLogStore(ctx *context.BusinessActionContext,resource *TCCResource) (string,error) {
+func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResource) (string, error) {
 	ctx.ActionContext[ACTION_START_TIME] = time.CurrentTimeMillis()
 	ctx.ActionContext[PREPARE_METHOD] = resource.PrepareMethodName
 	ctx.ActionContext[COMMIT_METHOD] = resource.CommitMethodName
@@ -153,16 +152,16 @@ func doTccActionLogStore(ctx *context.BusinessActionContext,resource *TCCResourc
 	applicationContext := make(map[string]interface{})
 	applicationContext[TCC_ACTION_CONTEXT] = ctx.ActionContext
 
-	applicationData,err := json.Marshal(applicationContext)
+	applicationData, err := json.Marshal(applicationContext)
 	if err != nil {
-		logging.Logger.Errorf("marshal applicationContext failed:%v",applicationContext)
-		return "",err
+		logging.Logger.Errorf("marshal applicationContext failed:%v", applicationContext)
+		return "", err
 	}
 
-	branchId,err := tccResourceManager.BranchRegister(meta.BranchTypeTCC,ctx.ActionName,"",ctx.Xid,applicationData,"")
+	branchId, err := tccResourceManager.BranchRegister(meta.BranchTypeTCC, ctx.ActionName, "", ctx.Xid, applicationData, "")
 	if err != nil {
 		logging.Logger.Errorf("TCC branch Register error, xid: %s", ctx.Xid)
-		return "",errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
-	return strconv.FormatInt(branchId,10),nil
+	return strconv.FormatInt(branchId, 10), nil
 }

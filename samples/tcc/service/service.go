@@ -11,63 +11,61 @@ import (
 )
 
 type Service struct {
-
 }
 
 func (svc *Service) TCCCommitted(ctx context.Context) error {
 	rootContext := ctx.(*context2.RootContext)
 	businessActionContextA := &context2.BusinessActionContext{
-		RootContext: rootContext,
+		RootContext:   rootContext,
 		ActionContext: make(map[string]interface{}),
 	}
 	// 业务参数全部放到 ActionContext 里
 	businessActionContextA.ActionContext["hello"] = "hello world,this is from BusinessActionContext A"
 
 	businessActionContextB := &context2.BusinessActionContext{
-		RootContext: rootContext,
+		RootContext:   rootContext,
 		ActionContext: make(map[string]interface{}),
 	}
 	businessActionContextB.ActionContext["hello"] = "hello world,this is from BusinessActionContext B"
 
 	resultA, err := TccProxyServiceA.Try(businessActionContextA)
-	fmt.Printf("result A is :%v",resultA)
-	if err!= nil {
+	fmt.Printf("result A is :%v", resultA)
+	if err != nil {
 		return err
 	}
 
 	resultB, err := TccProxyServiceB.Try(businessActionContextB)
-	fmt.Printf("result B is :%v",resultB)
-	if err!= nil {
+	fmt.Printf("result B is :%v", resultB)
+	if err != nil {
 		return err
 	}
 
 	return nil
 }
 
-
 func (svc *Service) TCCCanceled(ctx context.Context) error {
 	rootContext := ctx.(*context2.RootContext)
 	businessActionContextA := &context2.BusinessActionContext{
-		RootContext: rootContext,
+		RootContext:   rootContext,
 		ActionContext: make(map[string]interface{}),
 	}
 	businessActionContextA.ActionContext["hello"] = "hello world,this is from BusinessActionContext A"
 
 	businessActionContextC := &context2.BusinessActionContext{
-		RootContext: rootContext,
+		RootContext:   rootContext,
 		ActionContext: make(map[string]interface{}),
 	}
 	businessActionContextC.ActionContext["hello"] = "hello world,this is from BusinessActionContext C"
 
 	resultA, err := TccProxyServiceA.Try(businessActionContextA)
-	fmt.Printf("result A is :%v",resultA)
-	if err!= nil {
+	fmt.Printf("result A is :%v", resultA)
+	if err != nil {
 		return err
 	}
 
 	resultC, err := TccProxyServiceC.Try(businessActionContextC)
-	fmt.Printf("result C is :%v",resultC)
-	if err!= nil {
+	fmt.Printf("result C is :%v", resultC)
+	if err != nil {
 		return err
 	}
 
@@ -79,7 +77,7 @@ var service = &Service{}
 type ProxyService struct {
 	*Service
 	TCCCommitted func(ctx context.Context) error
-	TCCCanceled func(ctx context.Context) error
+	TCCCanceled  func(ctx context.Context) error
 }
 
 func (svc *ProxyService) GetProxyService() interface{} {
@@ -89,7 +87,6 @@ func (svc *ProxyService) GetProxyService() interface{} {
 func (svc *ProxyService) GetMethodTransactionInfo(methodName string) *tm.TransactionInfo {
 	return methodTransactionInfo[methodName]
 }
-
 
 var methodTransactionInfo = make(map[string]*tm.TransactionInfo)
 
@@ -107,5 +104,5 @@ func init() {
 }
 
 var ProxySvc = &ProxyService{
-	Service:      service,
+	Service: service,
 }

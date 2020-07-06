@@ -17,10 +17,9 @@ import (
 )
 
 type Svc struct {
-
 }
 
-func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
+func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
 	rootContext := ctx.(*context2.RootContext)
 	soMasters := []*dao.SoMaster{
 		{
@@ -51,7 +50,7 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 
 	reqs := []*dao2.AllocateInventoryReq{{
 		ProductSysNo: 1,
-		Qty: 2,
+		Qty:          2,
 	}}
 
 	type rq1 struct {
@@ -62,7 +61,7 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 		Req []*dao2.AllocateInventoryReq
 	}
 
-	q1 := &rq1{Req:soMasters}
+	q1 := &rq1{Req: soMasters}
 	soReq, err := json.Marshal(q1)
 	fmt.Println(string(soReq))
 	req1, err := http.NewRequest("POST", "http://localhost:8002/createSo", bytes.NewBuffer(soReq))
@@ -70,16 +69,16 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 		panic(err)
 	}
 	req1.Header.Set("Content-Type", "application/json")
-	req1.Header.Set("xid",rootContext.GetXID())
+	req1.Header.Set("xid", rootContext.GetXID())
 
 	client := &http.Client{}
-	_,err1 := client.Do(req1)
+	_, err1 := client.Do(req1)
 	if err1 != nil {
 		return err1
 	}
 
 	q2 := &rq2{
-		Req:reqs,
+		Req: reqs,
 	}
 	ivtReq, _ := json.Marshal(q2)
 	fmt.Println(string(ivtReq))
@@ -88,7 +87,7 @@ func (svc *Svc) CreateSo(ctx context.Context,rollback bool) error {
 		panic(err)
 	}
 	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("xid",rootContext.GetXID())
+	req2.Header.Set("xid", rootContext.GetXID())
 
 	_, err2 := client.Do(req2)
 	if err2 != nil {
@@ -105,7 +104,7 @@ var service = &Svc{}
 
 type ProxyService struct {
 	*Svc
-	CreateSo func(ctx context.Context,rollback bool) error
+	CreateSo func(ctx context.Context, rollback bool) error
 }
 
 var methodTransactionInfo = make(map[string]*tm.TransactionInfo)
@@ -127,5 +126,5 @@ func (svc *ProxyService) GetMethodTransactionInfo(methodName string) *tm.Transac
 }
 
 var ProxySvc = &ProxyService{
-	Svc:      service,
+	Svc: service,
 }

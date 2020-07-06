@@ -21,11 +21,11 @@ type GettyConfig struct {
 	ConnectionNum int `default:"16" yaml:"connection_number" json:"connection_number,omitempty"`
 
 	// heartbeat
-	HeartbeatPrd string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
+	HeartbeatPrd    string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
 	HeartbeatPeriod time.Duration
 
 	// getty_session
-	SessionTmt string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
+	SessionTmt     string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
 	SessionTimeout time.Duration
 
 	// Connection Pool

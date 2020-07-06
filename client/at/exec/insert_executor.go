@@ -26,24 +26,24 @@ type InsertExecutor struct {
 }
 
 func (executor *InsertExecutor) Execute() (sql.Result, error) {
-	beforeImage,err := executor.BeforeImage()
+	beforeImage, err := executor.BeforeImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(), executor.values...)
 	if err != nil {
-		return result,err
+		return result, err
 	}
-	afterImage,err := executor.AfterImage()
+	afterImage, err := executor.AfterImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	executor.PrepareUndoLog(beforeImage,afterImage)
-	return result,err
+	executor.PrepareUndoLog(beforeImage, afterImage)
+	return result, err
 }
 
 func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
-	if len(afterImage.Rows)== 0 {
+	if len(afterImage.Rows) == 0 {
 		return
 	}
 
@@ -52,70 +52,70 @@ func (executor *InsertExecutor) PrepareUndoLog(beforeImage, afterImage *schema.T
 	lockKeys := buildLockKey(lockKeyRecords)
 	executor.proxyTx.AppendLockKey(lockKeys)
 
-	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
+	sqlUndoLog := buildUndoItem(executor.sqlRecognizer, beforeImage, afterImage)
 	executor.proxyTx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *InsertExecutor) BeforeImage() (*schema.TableRecords,error) {
-	return nil,nil
+func (executor *InsertExecutor) BeforeImage() (*schema.TableRecords, error) {
+	return nil, nil
 }
 
-func (executor *InsertExecutor) AfterImage() (*schema.TableRecords,error) {
+func (executor *InsertExecutor) AfterImage() (*schema.TableRecords, error) {
 	pkValues := executor.GetPkValuesByColumn()
-	afterImage,err := executor.BuildTableRecords(pkValues)
+	afterImage, err := executor.BuildTableRecords(pkValues)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return afterImage,nil
+	return afterImage, nil
 }
 
-func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*schema.TableRecords,error) {
-	tableMeta,err := executor.getTableMeta()
+func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*schema.TableRecords, error) {
+	tableMeta, err := executor.getTableMeta()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	var sb strings.Builder
-	fmt.Fprint(&sb,"SELECT ")
+	fmt.Fprint(&sb, "SELECT ")
 	var i = 0
 	columnCount := len(tableMeta.AllColumns)
-	for _,columnMeta := range tableMeta.AllColumns {
+	for _, columnMeta := range tableMeta.AllColumns {
 		fmt.Fprint(&sb, mysql.CheckAndReplace(columnMeta.ColumnName))
 		i = i + 1
 		if i < columnCount {
-			fmt.Fprint(&sb,",")
+			fmt.Fprint(&sb, ",")
 		} else {
-			fmt.Fprint(&sb," ")
+			fmt.Fprint(&sb, " ")
 		}
 	}
-	fmt.Fprintf(&sb,"FROM %s ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&sb," WHERE `%s` IN ",tableMeta.GetPkName())
-	fmt.Fprint(&sb,sql2.AppendInParam(len(pkValues)))
+	fmt.Fprintf(&sb, "FROM %s ", executor.sqlRecognizer.GetTableName())
+	fmt.Fprintf(&sb, " WHERE `%s` IN ", tableMeta.GetPkName())
+	fmt.Fprint(&sb, sql2.AppendInParam(len(pkValues)))
 
-	rows,err := executor.proxyTx.Query(sb.String(),pkValues...)
+	rows, err := executor.proxyTx.Query(sb.String(), pkValues...)
 	if err != nil {
-		return nil,errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
-	return schema.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta, rows), nil
 }
 
 func (executor *InsertExecutor) GetPkValuesByColumn() []interface{} {
-	pkValues := make([]interface{},0)
+	pkValues := make([]interface{}, 0)
 	columnLen := executor.GetColumnLen()
 	pkIndex := executor.GetPkIndex()
-	for i,value := range executor.values {
-		if i % columnLen ==  pkIndex {
-			pkValues = append(pkValues,value)
+	for i, value := range executor.values {
+		if i%columnLen == pkIndex {
+			pkValues = append(pkValues, value)
 		}
 	}
 	return pkValues
 }
 
-func(executor *InsertExecutor) GetPkIndex() int {
+func (executor *InsertExecutor) GetPkIndex() int {
 	insertColumns := executor.sqlRecognizer.GetInsertColumns()
-	tableMeta,_ := executor.getTableMeta()
+	tableMeta, _ := executor.getTableMeta()
 
-	if insertColumns != nil && len(insertColumns)>0 {
-		for i,columnName := range insertColumns {
+	if insertColumns != nil && len(insertColumns) > 0 {
+		for i, columnName := range insertColumns {
 			if tableMeta.GetPkName() == columnName {
 				return i
 			}
@@ -123,7 +123,7 @@ func(executor *InsertExecutor) GetPkIndex() int {
 	}
 	allColumns := tableMeta.AllColumns
 	var idx = 0
-	for _,column := range allColumns {
+	for _, column := range allColumns {
 		if tableMeta.GetPkName() == column.ColumnName {
 			return idx
 		}
@@ -137,14 +137,14 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	if insertColumns != nil {
 		return len(insertColumns)
 	}
-	tableMeta,_ := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
+	tableMeta, _ := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
 		executor.sqlRecognizer.GetTableName(),
 		executor.proxyTx.ResourceId)
 
 	return len(tableMeta.AllColumns)
 }
 
-func (executor *InsertExecutor) getTableMeta() (schema.TableMeta,error) {
+func (executor *InsertExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
 }

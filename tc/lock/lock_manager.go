@@ -31,8 +31,8 @@ type LockManager interface {
 
 func Init() {
 	if config.GetStoreConfig().StoreMode == "db" {
-		lockStore := &LockStoreDataBaseDao{engine:config.GetStoreConfig().DBStoreConfig.Engine}
-		lockManager = &DataBaseLocker{LockStore:lockStore}
+		lockStore := &LockStoreDataBaseDao{engine: config.GetStoreConfig().DBStoreConfig.Engine}
+		lockManager = &DataBaseLocker{LockStore: lockStore}
 	} else {
 		lockManager = &MemoryLocker{
 			LockMap:      &sync.Map{},

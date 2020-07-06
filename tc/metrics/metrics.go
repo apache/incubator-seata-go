@@ -137,66 +137,65 @@ var (
 	COUNTER_COMMITTED = &Counter{
 		Counter: metrics.NewCounter(),
 		Name:    SEATA_TRANSACTION,
-		Labels:    map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_COUNTER,
-			STATUS_KEY:STATUS_VALUE_COMMITTED,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_COUNTER,
+			STATUS_KEY: STATUS_VALUE_COMMITTED,
 		},
 	}
 	COUNTER_ROLLBACKED = &Counter{
 		Counter: metrics.NewCounter(),
 		Name:    SEATA_TRANSACTION,
-		Labels:    map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_COUNTER,
-			STATUS_KEY:STATUS_VALUE_ROLLBACKED,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_COUNTER,
+			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
 		},
 	}
 	SUMMARY_COMMITTED = &Summary{
 		Meter: metrics.NewMeter(),
-		Name:    SEATA_TRANSACTION,
-		Labels:  map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_SUMMARY,
-			STATUS_KEY:STATUS_VALUE_COMMITTED,
+		Name:  SEATA_TRANSACTION,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_SUMMARY,
+			STATUS_KEY: STATUS_VALUE_COMMITTED,
 		},
 	}
 	SUMMARY_ROLLBACKED = &Summary{
 		Meter: metrics.NewMeter(),
-		Name:    SEATA_TRANSACTION,
-		Labels:  map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_SUMMARY,
-			STATUS_KEY:STATUS_VALUE_ROLLBACKED,
+		Name:  SEATA_TRANSACTION,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_SUMMARY,
+			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
 		},
 	}
 	TIMER_COMMITTED = &Histogram{
 		Histogram: metrics.NewHistogram(metrics.NewExpDecaySample(1028, 0.015)),
-		Name:    SEATA_TRANSACTION,
-		Labels:  map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_TIMER,
-			STATUS_KEY:STATUS_VALUE_COMMITTED,
+		Name:      SEATA_TRANSACTION,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_TIMER,
+			STATUS_KEY: STATUS_VALUE_COMMITTED,
 		},
 	}
 	TIMER_ROLLBACK = &Histogram{
 		Histogram: metrics.NewHistogram(metrics.NewExpDecaySample(1028, 0.015)),
-		Name:    SEATA_TRANSACTION,
-		Labels:  map[string]string{
-			ROLE_KEY:ROLE_VALUE_TC,
-			METER_KEY:METER_VALUE_TIMER,
-			STATUS_KEY:STATUS_VALUE_ROLLBACKED,
+		Name:      SEATA_TRANSACTION,
+		Labels: map[string]string{
+			ROLE_KEY:   ROLE_VALUE_TC,
+			METER_KEY:  METER_VALUE_TIMER,
+			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
 		},
 	}
 )
 
 type MetricsSubscriber struct {
-
 }
 
 func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 	for {
-		gtv := <- event.EventBus.GlobalTransactionEventChannel
+		gtv := <-event.EventBus.GlobalTransactionEventChannel
 		switch gtv.GetStatus() {
 		case meta.GlobalStatusBegin:
 			COUNTER_ACTIVE.Inc(1)
@@ -205,13 +204,13 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_COMMITTED.Inc(1)
 			SUMMARY_COMMITTED.Mark(1)
-			TIMER_COMMITTED.Update(gtv.GetEndTime()-gtv.GetBeginTime())
+			TIMER_COMMITTED.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 			break
 		case meta.GlobalStatusRollbacked:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_ROLLBACKED.Inc(1)
 			SUMMARY_ROLLBACKED.Mark(1)
-			TIMER_ROLLBACK.Update(gtv.GetEndTime()-gtv.GetBeginTime())
+			TIMER_ROLLBACK.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 			break
 		case meta.GlobalStatusCommitFailed:
 			COUNTER_ACTIVE.Dec(1)

@@ -16,7 +16,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/config"
 )
 
-type BranchSession struct{
+type BranchSession struct {
 	Xid string
 
 	TransactionId int64
@@ -103,7 +103,7 @@ func WithBsApplicationData(applicationData []byte) BranchSessionOption {
 func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
 	session := &BranchSession{
 		BranchId: uuid.GeneratorUUID(),
-		Status: meta.BranchStatusUnknown,
+		Status:   meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {
 		o(session)
@@ -113,10 +113,10 @@ func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
 
 func NewBranchSessionByGlobal(gs GlobalSession, opts ...BranchSessionOption) *BranchSession {
 	bs := &BranchSession{
-		Xid: gs.Xid,
+		Xid:           gs.Xid,
 		TransactionId: gs.TransactionId,
-		BranchId: uuid.GeneratorUUID(),
-		Status: meta.BranchStatusUnknown,
+		BranchId:      uuid.GeneratorUUID(),
+		Status:        meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {
 		o(bs)
@@ -134,7 +134,7 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 		zero16 int16 = 0
 	)
 
-	size := calBranchSessionSize(len(bs.ResourceId),len(bs.LockKey),len(bs.ClientId),len(bs.ApplicationData),len(bs.Xid))
+	size := calBranchSessionSize(len(bs.ResourceId), len(bs.LockKey), len(bs.ClientId), len(bs.ApplicationData), len(bs.Xid))
 
 	if size > config.GetStoreConfig().MaxBranchSessionSize {
 		if bs.LockKey == "" {
@@ -151,14 +151,14 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 	w.WriteInt64(bs.BranchId)
 	if bs.ResourceId != "" {
 		w.WriteUint32(uint32(len(bs.ResourceId)))
-		w.WriteString( bs.ResourceId)
+		w.WriteString(bs.ResourceId)
 	} else {
 		w.WriteInt32(zero32)
 	}
 
 	if bs.LockKey != "" {
 		w.WriteUint32(uint32(len(bs.LockKey)))
-		w.WriteString( bs.LockKey)
+		w.WriteString(bs.LockKey)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -179,7 +179,7 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 
 	if bs.Xid != "" {
 		w.WriteUint32(uint32(len(bs.Xid)))
-		w.WriteString( bs.Xid)
+		w.WriteString(bs.Xid)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -193,28 +193,36 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 func (bs *BranchSession) Decode(b []byte) {
 	var length32 uint32 = 0
 	var length16 uint16 = 0
-	r := byteio.BigEndianReader{Reader:bytes.NewReader(b)}
+	r := byteio.BigEndianReader{Reader: bytes.NewReader(b)}
 
 	bs.TransactionId, _, _ = r.ReadInt64()
 	bs.BranchId, _, _ = r.ReadInt64()
 
 	length32, _, _ = r.ReadUint32()
-	if length32 > 0 { bs.ResourceId, _, _ = r.ReadString(int(length32)) }
-
-	length32, _, _ = r.ReadUint32()
-	if length32 > 0 { bs.LockKey, _, _ = r.ReadString(int(length32)) }
-
-	length16, _, _ = r.ReadUint16()
-	if length16 > 0 { bs.ClientId, _, _ = r.ReadString(int(length16)) }
+	if length32 > 0 {
+		bs.ResourceId, _, _ = r.ReadString(int(length32))
+	}
 
 	length32, _, _ = r.ReadUint32()
 	if length32 > 0 {
-		bs.ApplicationData = make([]byte,int(length32))
+		bs.LockKey, _, _ = r.ReadString(int(length32))
+	}
+
+	length16, _, _ = r.ReadUint16()
+	if length16 > 0 {
+		bs.ClientId, _, _ = r.ReadString(int(length16))
+	}
+
+	length32, _, _ = r.ReadUint32()
+	if length32 > 0 {
+		bs.ApplicationData = make([]byte, int(length32))
 		r.Read(bs.ApplicationData)
 	}
 
 	length32, _, _ = r.ReadUint32()
-	if length32 > 0 { bs.Xid, _, _ = r.ReadString(int(length32)) }
+	if length32 > 0 {
+		bs.Xid, _, _ = r.ReadString(int(length32))
+	}
 
 	branchType, _ := r.ReadByte()
 	bs.BranchType = meta.BranchType(branchType)
@@ -227,16 +235,16 @@ func calBranchSessionSize(resourceIdLen int,
 	lockKeyLen int,
 	clientIdLen int,
 	applicationDataLen int,
-	xidLen int) int{
+	xidLen int) int {
 
 	size := 8 + // transactionId
-		8  + // branchId
-		4  + // resourceIdBytes.length
-		4  + // lockKeyBytes.length
-		2  + // clientIdBytes.length
-		4  + // applicationDataBytes.length
-		4  + // xidBytes.size
-		1  + // statusCode
+		8 + // branchId
+		4 + // resourceIdBytes.length
+		4 + // lockKeyBytes.length
+		2 + // clientIdBytes.length
+		4 + // applicationDataBytes.length
+		4 + // xidBytes.size
+		1 + // statusCode
 		resourceIdLen +
 		lockKeyLen +
 		clientIdLen +

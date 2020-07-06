@@ -89,7 +89,7 @@ func (context *RpcContext) AddResources(resources *model.Set) {
 		if context.ResourceSets == nil {
 			context.ResourceSets = model.NewSet()
 		}
-		for _,resource := range resources.List() {
+		for _, resource := range resources.List() {
 			context.ResourceSets.Add(resource)
 		}
 	}

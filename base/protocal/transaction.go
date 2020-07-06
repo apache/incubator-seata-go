@@ -26,10 +26,9 @@ type AbstractBranchEndResponse struct {
 }
 
 type AbstractGlobalEndRequest struct {
-	Xid string
+	Xid       string
 	ExtraData []byte
 }
-
 
 type AbstractGlobalEndResponse struct {
 	AbstractTransactionResponse
@@ -113,7 +112,7 @@ func (resp BranchRollbackResponse) GetTypeCode() int16 {
 }
 
 type GlobalBeginRequest struct {
-	Timeout int32
+	Timeout         int32
 	TransactionName string
 }
 
@@ -124,7 +123,7 @@ func (req GlobalBeginRequest) GetTypeCode() int16 {
 type GlobalBeginResponse struct {
 	AbstractTransactionResponse
 
-	Xid string
+	Xid       string
 	ExtraData []byte
 }
 

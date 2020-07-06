@@ -18,7 +18,6 @@ type TransactionCoordinatorOutbound interface {
 
 	// Rollback a branch transaction.
 	branchRollback(globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error)
-
 }
 
 type TransactionCoordinator interface {

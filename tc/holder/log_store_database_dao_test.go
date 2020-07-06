@@ -16,13 +16,13 @@ var dsn = "root:123456@tcp(127.0.0.1:3306)/seata2?timeout=1s&readTimeout=1s&writ
 var gqtPath = "/Users/scottlewis/dksl/git/1/seata-golang/tc/app/profiles/sql"
 
 func TestLogStoreDataBaseDAO_InsertGlobalTransactionDO(t *testing.T) {
-	engine,err := xorm.NewEngine("mysql",dsn)
+	engine, err := xorm.NewEngine("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	gqt.Add(gqtPath, "*.sql")
-	logStore := &LogStoreDataBaseDAO{engine:engine}
-	
+	logStore := &LogStoreDataBaseDAO{engine: engine}
+
 	globalTransactionDO := model.GlobalTransactionDO{
 		Xid:                     ":0:2000042921",
 		TransactionId:           2000042921,
@@ -38,26 +38,26 @@ func TestLogStoreDataBaseDAO_InsertGlobalTransactionDO(t *testing.T) {
 }
 
 func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByTransactionId(t *testing.T) {
-	engine,err := xorm.NewEngine("mysql",dsn)
+	engine, err := xorm.NewEngine("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	gqt.Add(gqtPath, "*.sql")
-	logStore := &LogStoreDataBaseDAO{engine:engine}
+	logStore := &LogStoreDataBaseDAO{engine: engine}
 
 	globalTransactionDO := logStore.QueryGlobalTransactionDOByTransactionId(2000042921)
-	assert.Equal(t,globalTransactionDO.TransactionId,int64(2000042921))
+	assert.Equal(t, globalTransactionDO.TransactionId, int64(2000042921))
 }
 
 func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByStatuses(t *testing.T) {
-	engine,err := xorm.NewEngine("mysql",dsn)
+	engine, err := xorm.NewEngine("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	gqt.Add(gqtPath, "*.sql")
-	logStore := &LogStoreDataBaseDAO{engine:engine}
+	logStore := &LogStoreDataBaseDAO{engine: engine}
 
-	globalTransactionDOs := logStore.QueryGlobalTransactionDOByStatuses([]int{1},100)
+	globalTransactionDOs := logStore.QueryGlobalTransactionDOByStatuses([]int{1}, 100)
 
-	assert.Equal(t,globalTransactionDOs[0].TransactionId,int64(2000042921))
+	assert.Equal(t, globalTransactionDOs[0].TransactionId, int64(2000042921))
 }

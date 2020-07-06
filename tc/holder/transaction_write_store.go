@@ -10,20 +10,20 @@ import (
 
 type TransactionWriteStore struct {
 	SessionRequest session.SessionStorable
-	LogOperation LogOperation
+	LogOperation   LogOperation
 }
 
-func (transactionWriteStore *TransactionWriteStore) Encode() ([]byte, error){
-	bySessionRequest,err := transactionWriteStore.SessionRequest.Encode()
+func (transactionWriteStore *TransactionWriteStore) Encode() ([]byte, error) {
+	bySessionRequest, err := transactionWriteStore.SessionRequest.Encode()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	byOpCode := transactionWriteStore.LogOperation
 
-	var result = make([]byte,0)
-	result = append(result,bySessionRequest...)
-	result = append(result,byte(byOpCode))
-	return result,nil
+	var result = make([]byte, 0)
+	result = append(result, bySessionRequest...)
+	result = append(result, byte(byOpCode))
+	return result, nil
 }
 
 func (transactionWriteStore *TransactionWriteStore) Decode(src []byte) {
@@ -36,17 +36,17 @@ func (transactionWriteStore *TransactionWriteStore) Decode(src []byte) {
 	transactionWriteStore.SessionRequest = sessionRequest
 }
 
-func (transactionWriteStore *TransactionWriteStore) getSessionInstanceByOperation() (session.SessionStorable,error) {
+func (transactionWriteStore *TransactionWriteStore) getSessionInstanceByOperation() (session.SessionStorable, error) {
 	var sessionStorable session.SessionStorable
 	switch transactionWriteStore.LogOperation {
-	case LogOperationGlobalAdd,LogOperationGlobalUpdate,LogOperationGlobalRemove:
+	case LogOperationGlobalAdd, LogOperationGlobalUpdate, LogOperationGlobalRemove:
 		sessionStorable = session.NewGlobalSession()
 		break
-	case LogOperationBranchAdd,LogOperationBranchUpdate,LogOperationBranchRemove:
+	case LogOperationBranchAdd, LogOperationBranchUpdate, LogOperationBranchRemove:
 		sessionStorable = session.NewBranchSession()
 		break
 	default:
-		return nil,errors.New("incorrect logOperation.")
+		return nil, errors.New("incorrect logOperation.")
 	}
-	return sessionStorable,nil
+	return sessionStorable, nil
 }

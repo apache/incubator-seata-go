@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	DefaultFileDir              = "root.data"
-	DefaultMaxBranchSessionSize = 1024 * 16
-	DefaultMaxGlobalSessionSize = 512
-	DefaultWriteBufferSize      = 1024 * 16
+	DefaultFileDir                      = "root.data"
+	DefaultMaxBranchSessionSize         = 1024 * 16
+	DefaultMaxGlobalSessionSize         = 512
+	DefaultWriteBufferSize              = 1024 * 16
 	DefualtServiceSessionReloadReadSize = 100
 )
 
@@ -43,12 +43,12 @@ type FileStoreConfig struct {
 }
 
 type DBStoreConfig struct {
-	LogQueryLimit int `default:"100" yaml:"log_query_limit" json:"log_query_limit"`
-	DSN string `yaml:"dsn" json:"dsn"`
-	Engine *xorm.Engine
+	LogQueryLimit int    `default:"100" yaml:"log_query_limit" json:"log_query_limit"`
+	DSN           string `yaml:"dsn" json:"dsn"`
+	Engine        *xorm.Engine
 }
 
-func GetDefaultFileStoreConfig() FileStoreConfig{
+func GetDefaultFileStoreConfig() FileStoreConfig {
 	return FileStoreConfig{
 		FileDir:                  DefaultFileDir,
 		FileWriteBufferCacheSize: DefaultWriteBufferSize,
@@ -56,4 +56,3 @@ func GetDefaultFileStoreConfig() FileStoreConfig{
 		SessionReloadReadSize:    DefualtServiceSessionReloadReadSize,
 	}
 }
-

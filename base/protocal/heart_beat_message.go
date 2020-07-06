@@ -7,7 +7,7 @@ type HeartBeatMessage struct {
 var HeartBeatMessagePing = HeartBeatMessage{true}
 var HeartBeatMessagePong = HeartBeatMessage{false}
 
-func (msg HeartBeatMessage) ToString () string {
+func (msg HeartBeatMessage) ToString() string {
 	if msg.Ping {
 		return "services ping"
 	} else {

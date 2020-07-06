@@ -23,7 +23,7 @@ func (exporter *promHttpExporter) ServeHTTP(rsp http.ResponseWriter, req *http.R
 	exporter.Flush(rsp)
 }
 
-func  (exporter *promHttpExporter) Flush(writer io.Writer) {
+func (exporter *promHttpExporter) Flush(writer io.Writer) {
 	w := writer
 	var sb strings.Builder
 	tracker := make(map[string]bool)
@@ -39,9 +39,9 @@ func  (exporter *promHttpExporter) Flush(writer io.Writer) {
 }
 
 func flushHistogram(tracker map[string]bool, buf *strings.Builder, histogram *Histogram) {
-	keys,vals := histogram.SortedLabels()
-	labels := makeLabelStr(keys,vals)
-	name := strings.ReplaceAll(histogram.Name,".","_")
+	keys, vals := histogram.SortedLabels()
+	labels := makeLabelStr(keys, vals)
+	name := strings.ReplaceAll(histogram.Name, ".", "_")
 	// min
 	flushGauge(tracker, buf, name+"_min", labels, histogram.Min())
 	// max
@@ -49,9 +49,9 @@ func flushHistogram(tracker map[string]bool, buf *strings.Builder, histogram *Hi
 }
 
 func flushCounter(tracker map[string]bool, buf *strings.Builder, counter *Counter) {
-	keys,vals := counter.SortedLabels()
-	labels := makeLabelStr(keys,vals)
-	name := strings.ReplaceAll(counter.Name,".","_")
+	keys, vals := counter.SortedLabels()
+	labels := makeLabelStr(keys, vals)
+	name := strings.ReplaceAll(counter.Name, ".", "_")
 	// type
 	if !tracker[name] {
 		buf.WriteString("# TYPE ")
@@ -60,13 +60,12 @@ func flushCounter(tracker map[string]bool, buf *strings.Builder, counter *Counte
 		tracker[name] = true
 	}
 
-
 	// metric
 	buf.WriteString(name)
 	buf.WriteString("{")
 	buf.WriteString(labels)
 	buf.WriteString("} ")
-	buf.WriteString(strconv.FormatInt(counter.Count(),10))
+	buf.WriteString(strconv.FormatInt(counter.Count(), 10))
 	buf.WriteString("\n")
 }
 
@@ -84,7 +83,7 @@ func flushGauge(tracker map[string]bool, buf *strings.Builder, name string, labe
 	buf.WriteString("{")
 	buf.WriteString(labels)
 	buf.WriteString("} ")
-	buf.WriteString(strconv.FormatInt(val,10))
+	buf.WriteString(strconv.FormatInt(val, 10))
 	buf.WriteString("\n")
 }
 
@@ -99,7 +98,6 @@ func makeLabelStr(keys, values []string) (out string) {
 	}
 	return
 }
-
 
 func init() {
 	promReg := prometheus.NewRegistry()

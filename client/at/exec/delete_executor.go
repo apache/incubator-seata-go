@@ -25,24 +25,24 @@ type DeleteExecutor struct {
 }
 
 func (executor *DeleteExecutor) Execute() (sql.Result, error) {
-	beforeImage,err := executor.BeforeImage()
+	beforeImage, err := executor.BeforeImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(),executor.values...)
+	result, err := executor.proxyTx.Exec(executor.sqlRecognizer.GetOriginalSQL(), executor.values...)
 	if err != nil {
-		return result,err
+		return result, err
 	}
-	afterImage,err := executor.AfterImage()
+	afterImage, err := executor.AfterImage()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	executor.PrepareUndoLog(beforeImage,afterImage)
-	return result,err
+	executor.PrepareUndoLog(beforeImage, afterImage)
+	return result, err
 }
 
 func (executor *DeleteExecutor) PrepareUndoLog(beforeImage, afterImage *schema.TableRecords) {
-	if len(beforeImage.Rows)== 0 {
+	if len(beforeImage.Rows) == 0 {
 		return
 	}
 
@@ -51,51 +51,51 @@ func (executor *DeleteExecutor) PrepareUndoLog(beforeImage, afterImage *schema.T
 	lockKeys := buildLockKey(lockKeyRecords)
 	executor.proxyTx.AppendLockKey(lockKeys)
 
-	sqlUndoLog := buildUndoItem(executor.sqlRecognizer,beforeImage,afterImage)
+	sqlUndoLog := buildUndoItem(executor.sqlRecognizer, beforeImage, afterImage)
 	executor.proxyTx.AppendUndoLog(sqlUndoLog)
 }
 
-func (executor *DeleteExecutor) BeforeImage() (*schema.TableRecords,error) {
-	tableMeta,err := executor.getTableMeta()
+func (executor *DeleteExecutor) BeforeImage() (*schema.TableRecords, error) {
+	tableMeta, err := executor.getTableMeta()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	return executor.buildTableRecords(tableMeta)
 }
 
-func (executor *DeleteExecutor) AfterImage() (*schema.TableRecords,error) {
-	return nil,nil
+func (executor *DeleteExecutor) AfterImage() (*schema.TableRecords, error) {
+	return nil, nil
 }
 
-func (executor *DeleteExecutor) getTableMeta() (schema.TableMeta,error) {
+func (executor *DeleteExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx,executor.sqlRecognizer.GetTableName(),executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
 }
 
 func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) string {
 	var b strings.Builder
-	fmt.Fprint(&b,"SELECT ")
+	fmt.Fprint(&b, "SELECT ")
 	var i = 0
 	columnCount := len(tableMeta.AllColumns)
-	for _,columnMeta := range tableMeta.AllColumns {
+	for _, columnMeta := range tableMeta.AllColumns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnMeta.ColumnName))
 		i = i + 1
 		if i < columnCount {
-			fmt.Fprint(&b,",")
+			fmt.Fprint(&b, ",")
 		} else {
-			fmt.Fprint(&b," ")
+			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b," FROM %s WHERE ",executor.sqlRecognizer.GetTableName())
-	fmt.Fprint(&b,executor.sqlRecognizer.GetWhereCondition())
-	fmt.Fprint(&b," FOR UPDATE")
+	fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
+	fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+	fmt.Fprint(&b, " FOR UPDATE")
 	return b.String()
 }
 
-func (executor *DeleteExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords,error) {
-	rows,err := executor.proxyTx.Query(executor.buildBeforeImageSql(tableMeta),executor.values...)
+func (executor *DeleteExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords, error) {
+	rows, err := executor.proxyTx.Query(executor.buildBeforeImageSql(tableMeta), executor.values...)
 	if err != nil {
-		return nil,errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
-	return schema.BuildRecords(tableMeta,rows),nil
+	return schema.BuildRecords(tableMeta, rows), nil
 }

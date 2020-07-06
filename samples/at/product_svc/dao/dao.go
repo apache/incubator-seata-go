@@ -16,16 +16,16 @@ type Dao struct {
 
 type AllocateInventoryReq struct {
 	ProductSysNo int64
-	Qty int32
+	Qty          int32
 }
 
-func (dao *Dao) AllocateInventory(ctx *context.RootContext,reqs []*AllocateInventoryReq) {
-	tx,err := dao.Begin(ctx)
+func (dao *Dao) AllocateInventory(ctx *context.RootContext, reqs []*AllocateInventoryReq) {
+	tx, err := dao.Begin(ctx)
 	if err != nil {
 		panic(err)
 	}
-	for _,req := range reqs {
-		_,err := tx.Exec(allocateInventorySql,req.Qty,req.Qty,req.ProductSysNo,req.Qty)
+	for _, req := range reqs {
+		_, err := tx.Exec(allocateInventorySql, req.Qty, req.Qty, req.ProductSysNo, req.Qty)
 		if err != nil {
 			tx.Rollback()
 			panic(err)

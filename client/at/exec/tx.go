@@ -30,58 +30,58 @@ type Tx struct {
 
 func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt(query,"","")
-	stmt,ok := act.(*ast.SelectStmt)
+	act, _ := parser.ParseOneStmt(query, "", "")
+	stmt, ok := act.(*ast.SelectStmt)
 	if ok && stmt.LockTp == ast.SelectLockForUpdate {
 		executor := &SelectForUpdateExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query,stmt),
+			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query, stmt),
 			values:        args,
 		}
-		return executor.Execute(tx.lockRetryInterval,tx.lockRetryTimes)
+		return executor.Execute(tx.lockRetryInterval, tx.lockRetryTimes)
 	} else {
-		return tx.proxyTx.Tx.Query(query,args)
+		return tx.proxyTx.Tx.Query(query, args)
 	}
 }
 
 func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	var parser = p.New()
-	act,_ := parser.ParseOneStmt(query,"","")
-	deleteStmt,isDelete := act.(*ast.DeleteStmt)
+	act, _ := parser.ParseOneStmt(query, "", "")
+	deleteStmt, isDelete := act.(*ast.DeleteStmt)
 	if isDelete {
 		executor := &DeleteExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query,deleteStmt),
+			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query, deleteStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	insertStmt,isInsert := act.(*ast.InsertStmt)
+	insertStmt, isInsert := act.(*ast.InsertStmt)
 	if isInsert {
 		executor := &InsertExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query,insertStmt),
+			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query, insertStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	updateStmt,isUpdate := act.(*ast.UpdateStmt)
+	updateStmt, isUpdate := act.(*ast.UpdateStmt)
 	if isUpdate {
 		executor := &UpdateExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query,updateStmt),
+			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query, updateStmt),
 			values:        args,
 		}
 		return executor.Execute()
 	}
 
-	return tx.proxyTx.Tx.Exec(query,args)
+	return tx.proxyTx.Tx.Exec(query, args)
 }
 
 func (tx *Tx) Commit() error {
-	branchId,err := tx.register()
+	branchId, err := tx.register()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -123,9 +123,9 @@ func (tx *Tx) Rollback() error {
 	return err
 }
 
-func (tx *Tx) register() (int64,error) {
-	return dataSourceManager.BranchRegister(meta.BranchTypeAT,tx.proxyTx.ResourceId,"",tx.proxyTx.Context.Xid,
-		nil,tx.proxyTx.Context.BuildLockKeys())
+func (tx *Tx) register() (int64, error) {
+	return dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceId, "", tx.proxyTx.Context.Xid,
+		nil, tx.proxyTx.Context.BuildLockKeys())
 }
 
 func (tx *Tx) report(commitDone bool) error {
@@ -134,17 +134,17 @@ func (tx *Tx) report(commitDone bool) error {
 		var err error
 		if commitDone {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
-				meta.BranchStatusPhaseoneDone,nil)
+				meta.BranchStatusPhaseoneDone, nil)
 		} else {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
-				meta.BranchStatusPhaseoneFailed,nil)
+				meta.BranchStatusPhaseoneFailed, nil)
 		}
 		if err != nil {
 			logging.Logger.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
-				tx.proxyTx.Context.BranchId,tx.proxyTx.Context.Xid,commitDone,retry)
-			retry = retry -1
+				tx.proxyTx.Context.BranchId, tx.proxyTx.Context.Xid, commitDone, retry)
+			retry = retry - 1
 			if retry == 0 {
-				return errors.WithMessagef(err,"Failed to report branch status %t",commitDone)
+				return errors.WithMessagef(err, "Failed to report branch status %t", commitDone)
 			}
 		}
 	}

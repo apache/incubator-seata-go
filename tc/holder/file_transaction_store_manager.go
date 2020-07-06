@@ -45,25 +45,25 @@ type ReloadableStore interface {
 type FileTransactionStoreManager struct {
 	SessionManager SessionManager
 
-	currFullFileName string
-	hisFullFileName string
-	currFileChannel *os.File
-	LastModifiedTime int64
+	currFullFileName  string
+	hisFullFileName   string
+	currFileChannel   *os.File
+	LastModifiedTime  int64
 	TrxStartTimeMills int64
 	sync.Mutex
 
-	recoverHisOffset int64
+	recoverHisOffset  int64
 	recoverCurrOffset int64
 }
 
-func (storeManager * FileTransactionStoreManager) InitFile(fullFileName string) {
+func (storeManager *FileTransactionStoreManager) InitFile(fullFileName string) {
 	storeManager.currFullFileName = fullFileName
 	storeManager.hisFullFileName = fullFileName + HisDataFilenamePostfix
-	storeManager.currFileChannel,_ = os.OpenFile(fullFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+	storeManager.currFileChannel, _ = os.OpenFile(fullFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
 	storeManager.TrxStartTimeMills = int64(time.CurrentTimeMillis())
 }
 
-func (storeManager * FileTransactionStoreManager) writeDataFrame(data []byte) {
+func (storeManager *FileTransactionStoreManager) writeDataFrame(data []byte) {
 	dataLength := uint32(len(data))
 	dataLengthBytes := [4]byte{
 		byte(dataLength >> 24),
@@ -75,7 +75,7 @@ func (storeManager * FileTransactionStoreManager) writeDataFrame(data []byte) {
 	storeManager.currFileChannel.Write(data)
 }
 
-func (storeManager * FileTransactionStoreManager) WriteSession(logOperation LogOperation, session session.SessionStorable) bool {
+func (storeManager *FileTransactionStoreManager) WriteSession(logOperation LogOperation, session session.SessionStorable) bool {
 	storeManager.Lock()
 	defer storeManager.Unlock()
 	var curFileTrxNum int64 = 0
@@ -89,45 +89,45 @@ func (storeManager * FileTransactionStoreManager) WriteSession(logOperation LogO
 	}
 	storeManager.writeDataFrame(data)
 	storeManager.LastModifiedTime = int64(time.CurrentTimeMillis())
-	curFileTrxNum = atomic.AddInt64(&FileTrxNum,1)
-	if curFileTrxNum %PerFileBlockSize == 0 &&
-		int64(time.CurrentTimeMillis()) - storeManager.TrxStartTimeMills > MaxTrxTimeoutMills {
+	curFileTrxNum = atomic.AddInt64(&FileTrxNum, 1)
+	if curFileTrxNum%PerFileBlockSize == 0 &&
+		int64(time.CurrentTimeMillis())-storeManager.TrxStartTimeMills > MaxTrxTimeoutMills {
 		storeManager.saveHistory()
 	}
 	return true
 }
 
-func (storeManager * FileTransactionStoreManager) ReadSession(xid string) *session.GlobalSession {
+func (storeManager *FileTransactionStoreManager) ReadSession(xid string) *session.GlobalSession {
 	return nil
 }
 
-func (storeManager * FileTransactionStoreManager) ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
+func (storeManager *FileTransactionStoreManager) ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
 	return nil
 }
 
-func (storeManager * FileTransactionStoreManager) ReadSessionWithSessionCondition(sessionCondition model.SessionCondition) []*session.GlobalSession {
+func (storeManager *FileTransactionStoreManager) ReadSessionWithSessionCondition(sessionCondition model.SessionCondition) []*session.GlobalSession {
 	return nil
 }
 
-func (storeManager * FileTransactionStoreManager) Shutdown() {
+func (storeManager *FileTransactionStoreManager) Shutdown() {
 	storeManager.currFileChannel.Close()
 }
 
-func (storeManager * FileTransactionStoreManager) GetCurrentMaxSessionId() int64{
+func (storeManager *FileTransactionStoreManager) GetCurrentMaxSessionId() int64 {
 	return int64(0)
 }
 
-func (storeManager * FileTransactionStoreManager) saveHistory() {
+func (storeManager *FileTransactionStoreManager) saveHistory() {
 	storeManager.findTimeoutAndSave()
-	os.Rename(storeManager.currFullFileName,storeManager.hisFullFileName)
+	os.Rename(storeManager.currFullFileName, storeManager.hisFullFileName)
 	storeManager.InitFile(storeManager.currFullFileName)
 }
 
-func (storeManager * FileTransactionStoreManager) findTimeoutAndSave() (bool,error) {
+func (storeManager *FileTransactionStoreManager) findTimeoutAndSave() (bool, error) {
 	globalSessionsOverMaxTimeout := storeManager.SessionManager.FindGlobalSessions(model.SessionCondition{OverTimeAliveMills: MaxTrxTimeoutMills})
 
 	if globalSessionsOverMaxTimeout == nil {
-		return true,nil
+		return true, nil
 	}
 
 	for _, globalSession := range globalSessionsOverMaxTimeout {
@@ -135,33 +135,33 @@ func (storeManager * FileTransactionStoreManager) findTimeoutAndSave() (bool,err
 			SessionRequest: globalSession,
 			LogOperation:   LogOperationGlobalAdd,
 		}
-		data,err := globalWriteStore.Encode()
+		data, err := globalWriteStore.Encode()
 		if err != nil {
-			return false,err
+			return false, err
 		}
 		storeManager.writeDataFrame(data)
 
 		branchSessIonsOverMaXTimeout := globalSession.GetSortedBranches()
 		if len(branchSessIonsOverMaXTimeout) > 0 {
-			for _,branchSession := range branchSessIonsOverMaXTimeout {
-				branchWriteStore :=  &TransactionWriteStore{
+			for _, branchSession := range branchSessIonsOverMaXTimeout {
+				branchWriteStore := &TransactionWriteStore{
 					SessionRequest: branchSession,
 					LogOperation:   LogOperationBranchAdd,
 				}
-				data,err := branchWriteStore.Encode()
+				data, err := branchWriteStore.Encode()
 				if err != nil {
-					return false,err
+					return false, err
 				}
 				storeManager.writeDataFrame(data)
 			}
 		}
 	}
-	return true,nil
+	return true, nil
 }
 
-func (storeManager * FileTransactionStoreManager) ReadWriteStore(readSize int, isHistory bool) []*TransactionWriteStore {
+func (storeManager *FileTransactionStoreManager) ReadWriteStore(readSize int, isHistory bool) []*TransactionWriteStore {
 	var (
-		file *os.File
+		file          *os.File
 		currentOffset int64
 	)
 	if isHistory {
@@ -172,12 +172,12 @@ func (storeManager * FileTransactionStoreManager) ReadWriteStore(readSize int, i
 		currentOffset = storeManager.recoverCurrOffset
 	}
 
-	return storeManager.parseDataFile(file,readSize,currentOffset)
+	return storeManager.parseDataFile(file, readSize, currentOffset)
 }
 
-func (storeManager * FileTransactionStoreManager) HasRemaining(isHistory bool) bool {
+func (storeManager *FileTransactionStoreManager) HasRemaining(isHistory bool) bool {
 	var (
-		file *os.File
+		file          *os.File
 		currentOffset int64
 	)
 	if isHistory {
@@ -189,16 +189,16 @@ func (storeManager * FileTransactionStoreManager) HasRemaining(isHistory bool) b
 	}
 	defer file.Close()
 
-	fi,_ := file.Stat()
+	fi, _ := file.Stat()
 	return currentOffset < fi.Size()
 }
 
-func (storeManager * FileTransactionStoreManager) parseDataFile(file *os.File, readSize int, currentOffset int64) []*TransactionWriteStore {
+func (storeManager *FileTransactionStoreManager) parseDataFile(file *os.File, readSize int, currentOffset int64) []*TransactionWriteStore {
 	defer file.Close()
-	var result = make([]*TransactionWriteStore,0)
-	fi,_ := file.Stat()
+	var result = make([]*TransactionWriteStore, 0)
+	fi, _ := file.Stat()
 	fileSize := fi.Size()
-	reader := byteio.BigEndianReader{Reader:file}
+	reader := byteio.BigEndianReader{Reader: file}
 	offset := currentOffset
 	for offset < fileSize {
 		file.Seek(offset, 0)
@@ -231,5 +231,5 @@ func (storeManager * FileTransactionStoreManager) parseDataFile(file *os.File, r
 }
 
 func isHisFile(path string) bool {
-	return strings.HasSuffix(path,HisDataFilenamePostfix)
+	return strings.HasSuffix(path, HisDataFilenamePostfix)
 }

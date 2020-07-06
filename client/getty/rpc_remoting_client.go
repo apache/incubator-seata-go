@@ -56,11 +56,11 @@ type RpcRemoteClient struct {
 // OnOpen ...
 func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 	go func() {
-		request := protocal.RegisterTMRequest{AbstractIdentifyRequest:protocal.AbstractIdentifyRequest{
+		request := protocal.RegisterTMRequest{AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
 			ApplicationId:           client.conf.ApplicationId,
 			TransactionServiceGroup: client.conf.TransactionServiceGroup,
 		}}
-		_, err := client.sendAsyncRequestWithResponse("",session,request,RPC_REQUEST_TIMEOUT)
+		_, err := client.sendAsyncRequestWithResponse("", session, request, RPC_REQUEST_TIMEOUT)
 		if err == nil {
 			clientSessionManager.RegisterGettySession(session, session.RemoteAddr())
 			client.GettySessionOnOpenChannel <- session.RemoteAddr()
@@ -72,20 +72,20 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 
 // OnError ...
 func (client *RpcRemoteClient) OnError(session getty.Session, err error) {
-	clientSessionManager.ReleaseGettySession(session,session.RemoteAddr())
+	clientSessionManager.ReleaseGettySession(session, session.RemoteAddr())
 }
 
 // OnClose ...
 func (client *RpcRemoteClient) OnClose(session getty.Session) {
-	clientSessionManager.ReleaseGettySession(session,session.RemoteAddr())
+	clientSessionManager.ReleaseGettySession(session, session.RemoteAddr())
 }
 
 // OnMessage ...
 func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{}) {
 	logging.Logger.Info("received message:{%v}", pkg)
-	rpcMessage,ok := pkg.(protocal.RpcMessage)
+	rpcMessage, ok := pkg.(protocal.RpcMessage)
 	if ok {
-		heartBeat,isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
+		heartBeat, isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
 		if isHeartBeat && heartBeat == protocal.HeartBeatMessagePong {
 			logging.Logger.Debugf("received PONG from %s", session.RemoteAddr())
 		}
@@ -95,9 +95,9 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 		rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
 		logging.Logger.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
 
-		client.onMessage(rpcMessage,session.RemoteAddr())
+		client.onMessage(rpcMessage, session.RemoteAddr())
 	} else {
-		resp,loaded := client.futures.Load(rpcMessage.Id)
+		resp, loaded := client.futures.Load(rpcMessage.Id)
 		if loaded {
 			response := resp.(*getty2.MessageFuture)
 			response.Response = rpcMessage.Body
@@ -109,13 +109,12 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 
 // OnCron ...
 func (client *RpcRemoteClient) OnCron(session getty.Session) {
-	client.defaultSendRequest(session,protocal.HeartBeatMessagePing)
+	client.defaultSendRequest(session, protocal.HeartBeatMessagePing)
 }
 
-
-func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage,serverAddress string) {
+func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage, serverAddress string) {
 	msg := rpcMessage.Body.(protocal.MessageTypeAware)
-	logging.Logger.Infof("onMessage: %v",msg)
+	logging.Logger.Infof("onMessage: %v", msg)
 	switch msg.GetTypeCode() {
 	case protocal.TypeBranchCommit:
 		client.BranchCommitRequestChannel <- model.RpcRMMessage{
@@ -137,38 +136,37 @@ func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage,serverAd
 //*************************************
 // ClientMessageSender
 //*************************************
-func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{},error) {
+func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{}, error) {
 	return client.SendMsgWithResponseAndTimeout(msg, RPC_REQUEST_TIMEOUT)
 }
 
-func (client *RpcRemoteClient) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{}, error) {
 	validAddress := loadBalance(client.conf.TransactionServiceGroup)
 	ss := clientSessionManager.AcquireGettySession(validAddress)
-	return client.sendAsyncRequestWithResponse(validAddress,ss,msg,timeout)
+	return client.sendAsyncRequestWithResponse(validAddress, ss, msg, timeout)
 }
 
-
-func (client *RpcRemoteClient) SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{},error) {
-	return client.sendAsyncRequestWithResponse(serverAddress,clientSessionManager.AcquireGettySession(serverAddress),msg,timeout)
+func (client *RpcRemoteClient) SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{}, error) {
+	return client.sendAsyncRequestWithResponse(serverAddress, clientSessionManager.AcquireGettySession(serverAddress), msg, timeout)
 }
 
 func (client *RpcRemoteClient) SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{}) {
-	client.defaultSendResponse(request,clientSessionManager.AcquireGettySession(serverAddress),msg)
+	client.defaultSendResponse(request, clientSessionManager.AcquireGettySession(serverAddress), msg)
 }
 
-func (client *RpcRemoteClient) sendAsyncRequestWithResponse(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) sendAsyncRequestWithResponse(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	if timeout <= time.Duration(0) {
-		return nil,errors.New("timeout should more than 0ms")
+		return nil, errors.New("timeout should more than 0ms")
 	}
-	return client.sendAsyncRequest(address,session,msg,timeout)
+	return client.sendAsyncRequest(address, session, msg, timeout)
 }
 
-func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Session,msg interface{}) error {
-	_,err := client.sendAsyncRequest("",session,msg,time.Duration(0))
+func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Session, msg interface{}) error {
+	_, err := client.sendAsyncRequest("", session, msg, time.Duration(0))
 	return err
 }
 
-func (client *RpcRemoteClient) sendAsyncRequest(address string,session getty.Session,msg interface{},timeout time.Duration) (interface{},error) {
+func (client *RpcRemoteClient) sendAsyncRequest(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil {
 		logging.Logger.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -187,7 +185,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(address string,session getty.Ses
 	if err != nil {
 		client.futures.Delete(rpcMessage.Id)
 	}
-	logging.Logger.Infof("send message : %v,session:%s",rpcMessage,session.Stat())
+	logging.Logger.Infof("send message : %v,session:%s", rpcMessage, session.Stat())
 
 	if timeout > time.Duration(0) {
 		select {
@@ -199,14 +197,14 @@ func (client *RpcRemoteClient) sendAsyncRequest(address string,session getty.Ses
 		}
 		return resp.Response, err
 	}
-	return nil,err
+	return nil, err
 }
 
-func (client *RpcRemoteClient) RegisterResource(serverAddress string,request protocal.RegisterRMRequest) {
-	session,ok := sessions.Load(serverAddress)
+func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {
+	session, ok := sessions.Load(serverAddress)
 	if ok {
 		rmSession := session.(getty.Session)
-		err := client.sendAsyncRequestWithoutResponse(rmSession,request)
+		err := client.sendAsyncRequestWithoutResponse(rmSession, request)
 		if err != nil {
 			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", rmSession, request.ResourceIds)
 		}
@@ -215,12 +213,12 @@ func (client *RpcRemoteClient) RegisterResource(serverAddress string,request pro
 
 func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg interface{}) {
 	rpcMessage := protocal.RpcMessage{
-		Id:          int32(client.idGenerator.Inc()),
-		Codec:       codec.SEATA,
-		Compressor:  0,
-		Body:        msg,
+		Id:         int32(client.idGenerator.Inc()),
+		Codec:      codec.SEATA,
+		Compressor: 0,
+		Body:       msg,
 	}
-	_,ok := msg.(protocal.HeartBeatMessage)
+	_, ok := msg.(protocal.HeartBeatMessage)
 	if ok {
 		rpcMessage.MessageType = protocal.MSGTYPE_HEARTBEAT_REQUEST
 	} else {
@@ -231,21 +229,20 @@ func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg int
 
 func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, session getty.Session, msg interface{}) {
 	resp := protocal.RpcMessage{
-		Id:          request.Id,
-		Codec:       request.Codec,
-		Compressor:  request.Compressor,
-		Body:        msg,
+		Id:         request.Id,
+		Codec:      request.Codec,
+		Compressor: request.Compressor,
+		Body:       msg,
 	}
-	_,ok := msg.(protocal.HeartBeatMessage)
+	_, ok := msg.(protocal.HeartBeatMessage)
 	if ok {
 		resp.MessageType = protocal.MSGTYPE_HEARTBEAT_RESPONSE
 	} else {
 		resp.MessageType = protocal.MSGTYPE_RESPONSE
 	}
 
-	session.WritePkg(resp,time.Duration(0))
+	session.WritePkg(resp, time.Duration(0))
 }
-
 
 func loadBalance(transactionServiceGroup string) string {
 	addressList := getAddressList(transactionServiceGroup)
@@ -256,6 +253,6 @@ func loadBalance(transactionServiceGroup string) string {
 }
 
 func getAddressList(transactionServiceGroup string) []string {
-	addressList := strings.Split(transactionServiceGroup,",")
+	addressList := strings.Split(transactionServiceGroup, ",")
 	return addressList
 }

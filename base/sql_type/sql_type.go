@@ -7,79 +7,79 @@ import "strings"
 type SqlType int32
 
 const (
-	BIT   SqlType   =  -7
+	BIT SqlType = -7
 
-	TINYINT         =  -6
+	TINYINT = -6
 
-	SMALLINT        =   5
+	SMALLINT = 5
 
-	INTEGER         =   4
+	INTEGER = 4
 
-	BIGINT          =  -5
+	BIGINT = -5
 
-	FLOAT           =   6
+	FLOAT = 6
 
-	REAL            =   7
+	REAL = 7
 
-	DOUBLE          =   8
+	DOUBLE = 8
 
-	NUMERIC         =   2
+	NUMERIC = 2
 
-	DECIMAL         =   3
+	DECIMAL = 3
 
-	CHAR            =   1
+	CHAR = 1
 
-	VARCHAR         =  12
+	VARCHAR = 12
 
-	LONGVARCHAR     =  -1
+	LONGVARCHAR = -1
 
-	DATE            =  91
+	DATE = 91
 
-	TIME            =  92
+	TIME = 92
 
-	TIMESTAMP       =  93
+	TIMESTAMP = 93
 
-	BINARY          =  -2
+	BINARY = -2
 
-	VARBINARY       =  -3
+	VARBINARY = -3
 
-	LONGVARBINARY   =  -4
+	LONGVARBINARY = -4
 
-	NULL            =   0
+	NULL = 0
 
-	OTHER           = 1111
+	OTHER = 1111
 
-	JAVA_OBJECT     = 2000
+	JAVA_OBJECT = 2000
 
-	DISTINCT        = 2001
+	DISTINCT = 2001
 
-	STRUCT          = 2002
+	STRUCT = 2002
 
-	ARRAY           = 2003
+	ARRAY = 2003
 
-	BLOB            = 2004
+	BLOB = 2004
 
-	CLOB            = 2005
+	CLOB = 2005
 
-	REF             = 2006
+	REF = 2006
 
-	DATALINK        = 70
+	DATALINK = 70
 
-	BOOLEAN         = 16
+	BOOLEAN = 16
 
-	ROWID           = -8
+	ROWID = -8
 
-	NCHAR           = -15
+	NCHAR = -15
 
-	NVARCHAR        = -9
+	NVARCHAR = -9
 
-	LONGNVARCHAR    = -16
+	LONGNVARCHAR = -16
 
-	NCLOB           = 2011
+	NCLOB = 2011
 
-	SQLXML          = 2009
+	SQLXML = 2009
 
-	REF_CURSOR      = 2012
+	REF_CURSOR = 2012
 
 	TIME_WITH_TIMEZONE = 2013
 
@@ -87,45 +87,45 @@ const (
 )
 
 var SqlTypes = map[string]int32{
-	"BIT"           :-7,
-	"TINYINT"       :-6,
-	"SMALLINT"      :5,
-	"INTEGER"       :4,
-	"BIGINT"        :-5,
-	"FLOAT"         :6,
-	"REAL"          :7,
-	"DOUBLE"        :8,
-	"NUMERIC"       :2,
-	"DECIMAL"       :3,
-	"CHAR"          :1,
-	"VARCHAR"       :12,
-	"LONGVARCHAR"   :-1,
-	"DATE"          :91,
-	"TIME"          :92,
-	"TIMESTAMP"     :93,
-	"BINARY"        :-2,
-	"VARBINARY"     :-3,
-	"LONGVARBINARY" :-4,
-	"NULL"          :0,
-	"OTHER"         :1111,
-	"JAVA_OBJECT"   :2000,
-	"DISTINCT"      :2001,
-	"STRUCT"        :2002,
-	"ARRAY"         :2003,
-	"BLOB"          :2004,
-	"CLOB"          :2005,
-	"REF"           :2006,
-	"DATALINK"      :70,
-	"BOOLEAN"       :16,
-	"ROWID"         :-8,
-	"NCHAR"         :-15,
-	"NVARCHAR"      :-9,
-	"LONGNVARCHAR"  :-16,
-	"NCLOB"         :2011,
-	"SQLXML"        :2009,
-	"REF_CURSOR"    :2012,
-	"TIME_WITH_TIMEZONE":2013,
-	"TIMESTAMP_WITH_TIMEZONE":2014,
+	"BIT":                     -7,
+	"TINYINT":                 -6,
+	"SMALLINT":                5,
+	"INTEGER":                 4,
+	"BIGINT":                  -5,
+	"FLOAT":                   6,
+	"REAL":                    7,
+	"DOUBLE":                  8,
+	"NUMERIC":                 2,
+	"DECIMAL":                 3,
+	"CHAR":                    1,
+	"VARCHAR":                 12,
+	"LONGVARCHAR":             -1,
+	"DATE":                    91,
+	"TIME":                    92,
+	"TIMESTAMP":               93,
+	"BINARY":                  -2,
+	"VARBINARY":               -3,
+	"LONGVARBINARY":           -4,
+	"NULL":                    0,
+	"OTHER":                   1111,
+	"JAVA_OBJECT":             2000,
+	"DISTINCT":                2001,
+	"STRUCT":                  2002,
+	"ARRAY":                   2003,
+	"BLOB":                    2004,
+	"CLOB":                    2005,
+	"REF":                     2006,
+	"DATALINK":                70,
+	"BOOLEAN":                 16,
+	"ROWID":                   -8,
+	"NCHAR":                   -15,
+	"NVARCHAR":                -9,
+	"LONGNVARCHAR":            -16,
+	"NCLOB":                   2011,
+	"SQLXML":                  2009,
+	"REF_CURSOR":              2012,
+	"TIME_WITH_TIMEZONE":      2013,
+	"TIMESTAMP_WITH_TIMEZONE": 2014,
 }
 
 func GetSqlType(dataType string) int32 {

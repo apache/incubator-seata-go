@@ -8,9 +8,9 @@ import (
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
-var(
-	ASYNC_COMMITTING_SESSION_MANAGER_NAME = "async.commit.data"
-	RETRY_COMMITTING_SESSION_MANAGER_NAME = "retry.commit.data"
+var (
+	ASYNC_COMMITTING_SESSION_MANAGER_NAME  = "async.commit.data"
+	RETRY_COMMITTING_SESSION_MANAGER_NAME  = "retry.commit.data"
 	RETRY_ROLLBACKING_SESSION_MANAGER_NAME = "retry.rollback.data"
 )
 
@@ -35,10 +35,10 @@ func Init() {
 	}
 	if config.GetStoreConfig().StoreMode == "db" {
 		sessionHolder = SessionHolder{
-			RootSessionManager:             NewDataBaseSessionManager("",config.GetStoreConfig().DBStoreConfig),
-			AsyncCommittingSessionManager:  NewDataBaseSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
-			RetryCommittingSessionManager:  NewDataBaseSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
-			RetryRollbackingSessionManager: NewDataBaseSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME,config.GetStoreConfig().DBStoreConfig),
+			RootSessionManager:             NewDataBaseSessionManager("", config.GetStoreConfig().DBStoreConfig),
+			AsyncCommittingSessionManager:  NewDataBaseSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
+			RetryCommittingSessionManager:  NewDataBaseSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
+			RetryRollbackingSessionManager: NewDataBaseSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
 		}
 		sessionHolder.reload()
 	}
@@ -63,34 +63,34 @@ func (sessionHolder SessionHolder) reload() {
 
 		reloadedSessions := sessionHolder.RootSessionManager.AllSessions()
 		if reloadedSessions != nil && len(reloadedSessions) > 0 {
-			for _,globalSession := range reloadedSessions {
+			for _, globalSession := range reloadedSessions {
 				switch globalSession.Status {
-				case meta.GlobalStatusUnknown,meta.GlobalStatusCommitted,meta.GlobalStatusCommitFailed,meta.GlobalStatusRollbacked,
-				meta.GlobalStatusRollbackFailed,meta.GlobalStatusTimeoutRollbacked,meta.GlobalStatusTimeoutRollbackFailed,
-				meta.GlobalStatusFinished:
-					logging.Logger.Errorf("Reloaded Session should NOT be %s",globalSession.Status.String())
+				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
+					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
+					meta.GlobalStatusFinished:
+					logging.Logger.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
 					break
 				case meta.GlobalStatusAsyncCommitting:
 					sessionHolder.AsyncCommittingSessionManager.AddGlobalSession(globalSession)
 					break
 				default:
 					branchSessions := globalSession.GetSortedBranches()
-					for _,branchSession := range branchSessions {
+					for _, branchSession := range branchSessions {
 						lock.GetLockManager().AcquireLock(branchSession)
 					}
 					switch globalSession.Status {
-					case meta.GlobalStatusCommitting,meta.GlobalStatusCommitRetrying:
+					case meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying:
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
 						break
-					case meta.GlobalStatusRollbacking,meta.GlobalStatusRollbackRetrying,meta.GlobalStatusTimeoutRollbacking,
-					meta.GlobalStatusTimeoutRollbackRetrying:
+					case meta.GlobalStatusRollbacking, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollbacking,
+						meta.GlobalStatusTimeoutRollbackRetrying:
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 						break
 					case meta.GlobalStatusBegin:
 						globalSession.Active = true
 						break
 					default:
-						logging.Logger.Errorf("NOT properly handled %s",globalSession.Status)
+						logging.Logger.Errorf("NOT properly handled %s", globalSession.Status)
 						break
 					}
 					break
