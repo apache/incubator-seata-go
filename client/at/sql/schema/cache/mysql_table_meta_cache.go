@@ -130,12 +130,7 @@ func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.
 }
 
 func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
-	var tn = tableName
-	if strings.Contains(tableName,".") {
-		idx := strings.LastIndex(tableName,".")
-		tName := tableName[idx+1:]
-		tn = strings.Trim(tName,"`")
-	}
+	var tn = escape(tableName,"`")
 	args := []interface{}{tx.config.DBName, tn}
 	//`TABLE_CATALOG`,	`TABLE_SCHEMA`,	`TABLE_NAME`,	`COLUMN_NAME`,	`ORDINAL_POSITION`,	`COLUMN_DEFAULT`,
 	//`IS_NULLABLE`, `DATA_TYPE`,	`CHARACTER_MAXIMUM_LENGTH`,	`CHARACTER_OCTET_LENGTH`,	`NUMERIC_PRECISION`,
@@ -192,12 +187,7 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 }
 
 func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta,error) {
-	var tn = tableName
-	if strings.Contains(tableName,".") {
-		idx := strings.LastIndex(tableName,".")
-		tName := tableName[idx+1:]
-		tn = strings.Trim(tName,"`")
-	}
+	var tn = escape(tableName,"`")
 	args := []interface{}{tx.config.DBName, tn}
 
 	//`TABLE_CATALOG`, `TABLE_SCHEMA`, `TABLE_NAME`, `NON_UNIQUE`, `INDEX_SCHEMA`, `INDEX_NAME`, `SEQ_IN_INDEX`,
@@ -240,4 +230,16 @@ func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta,error) {
 		result = append(result,index)
 	}
 	return result,nil
+}
+
+func escape(tableName,cutset string) string {
+	var tn = tableName
+	if strings.Contains(tableName,".") {
+		idx := strings.LastIndex(tableName,".")
+		tName := tableName[idx+1:]
+		tn = strings.Trim(tName,cutset)
+	} else {
+		tn = strings.Trim(tableName,cutset)
+	}
+	return tn
 }
