@@ -81,6 +81,19 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 func (tx *Tx) Commit() error {
+	var err error
+	for retryCount := 0; retryCount < tx.lockRetryTimes; retryCount++ {
+		err = tx.doCommit()
+		if err == nil {
+			break
+		}
+		logging.Logger.Errorf("commit err: %v", err)
+		time.Sleep(tx.lockRetryInterval)
+	}
+	return err
+}
+
+func (tx *Tx) doCommit() error {
 	branchId, err := tx.register()
 	if err != nil {
 		return errors.WithStack(err)
