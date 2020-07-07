@@ -81,19 +81,6 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 func (tx *Tx) Commit() error {
-	var err error
-	for retryCount := 0; retryCount < tx.lockRetryTimes; retryCount++ {
-		err = tx.doCommit()
-		if err == nil {
-			break
-		}
-		logging.Logger.Errorf("commit err: %v", err)
-		time.Sleep(tx.lockRetryInterval)
-	}
-	return err
-}
-
-func (tx *Tx) doCommit() error {
 	branchId, err := tx.register()
 	if err != nil {
 		return errors.WithStack(err)
@@ -120,10 +107,6 @@ func (tx *Tx) doCommit() error {
 	} else {
 		return tx.proxyTx.Commit()
 	}
-	if tx.reportSuccessEnable {
-		tx.report(true)
-	}
-	tx.proxyTx.Context.Reset()
 	return nil
 }
 
@@ -137,8 +120,18 @@ func (tx *Tx) Rollback() error {
 }
 
 func (tx *Tx) register() (int64, error) {
-	return dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceId, "", tx.proxyTx.Context.Xid,
-		nil, tx.proxyTx.Context.BuildLockKeys())
+	var branchId int64
+	var err error
+	for retryCount := 0; retryCount < tx.lockRetryTimes; retryCount++ {
+		branchId, err = dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceId, "", tx.proxyTx.Context.Xid,
+			nil, tx.proxyTx.Context.BuildLockKeys())
+		if err == nil {
+			break
+		}
+		logging.Logger.Errorf("branch register err: %v", err)
+		time.Sleep(tx.lockRetryInterval)
+	}
+	return branchId, err
 }
 
 func (tx *Tx) report(commitDone bool) error {
