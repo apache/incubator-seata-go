@@ -34,7 +34,9 @@ func (executor *InsertExecutor) Execute() (sql.Result, error) {
 	if err != nil {
 		return result, err
 	}
-	afterImage, err := executor.AfterImage()
+
+	afterImage, err := executor.AfterImage(result)
+
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +62,15 @@ func (executor *InsertExecutor) BeforeImage() (*schema.TableRecords, error) {
 	return nil, nil
 }
 
-func (executor *InsertExecutor) AfterImage() (*schema.TableRecords, error) {
+func (executor *InsertExecutor) AfterImage(result sql.Result) (*schema.TableRecords, error) {
+	var afterImage *schema.TableRecords
+	var err error
 	pkValues := executor.GetPkValuesByColumn()
-	afterImage, err := executor.BuildTableRecords(pkValues)
+	if executor.GetPkIndex() >= 0 {
+		afterImage, err = executor.BuildTableRecords(pkValues)
+	} else {
+		afterImage, err = executor.BuildTableRecords([]interface{}{result.LastInsertId()})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +137,7 @@ func (executor *InsertExecutor) GetPkIndex() int {
 		}
 		idx = idx + 1
 	}
-	return 0
+	return -1
 }
 
 func (executor *InsertExecutor) GetColumnLen() int {
