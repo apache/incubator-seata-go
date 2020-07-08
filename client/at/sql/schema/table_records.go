@@ -9,7 +9,6 @@ import (
 type TableRecords struct {
 	TableMeta TableMeta `json:"-"`
 	TableName string
-	Columns   []string
 	Rows      []*Row
 }
 
@@ -63,7 +62,6 @@ func BuildRecords(meta TableMeta, resultSet *sql.Rows) *TableRecords {
 		row := &Row{Fields: fields}
 		rows = append(rows, row)
 	}
-	records.Columns = columns
 	records.Rows = rows
 	return records
 }

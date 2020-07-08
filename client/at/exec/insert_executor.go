@@ -69,7 +69,7 @@ func (executor *InsertExecutor) AfterImage(result sql.Result) (*schema.TableReco
 	if executor.GetPkIndex() >= 0 {
 		afterImage, err = executor.BuildTableRecords(pkValues)
 	} else {
-		pk,_ := result.LastInsertId()
+		pk, _ := result.LastInsertId()
 		afterImage, err = executor.BuildTableRecords([]interface{}{pk})
 	}
 	if err != nil {
@@ -86,9 +86,9 @@ func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*sche
 	var sb strings.Builder
 	fmt.Fprint(&sb, "SELECT ")
 	var i = 0
-	columnCount := len(tableMeta.AllColumns)
-	for _, columnMeta := range tableMeta.AllColumns {
-		fmt.Fprint(&sb, mysql.CheckAndReplace(columnMeta.ColumnName))
+	columnCount := len(tableMeta.Columns)
+	for _, column := range tableMeta.Columns {
+		fmt.Fprint(&sb, mysql.CheckAndReplace(column))
 		i = i + 1
 		if i < columnCount {
 			fmt.Fprint(&sb, ",")
@@ -125,18 +125,19 @@ func (executor *InsertExecutor) GetPkIndex() int {
 
 	if insertColumns != nil && len(insertColumns) > 0 {
 		for i, columnName := range insertColumns {
-			if tableMeta.GetPkName() == columnName {
+			if strings.EqualFold(tableMeta.GetPkName(), columnName) {
 				return i
 			}
 		}
-	}
-	allColumns := tableMeta.AllColumns
-	var idx = 0
-	for _, column := range allColumns {
-		if tableMeta.GetPkName() == column.ColumnName {
-			return idx
+	} else {
+		allColumns := tableMeta.Columns
+		var idx = 0
+		for _, column := range allColumns {
+			if strings.EqualFold(tableMeta.GetPkName(), column) {
+				return idx
+			}
+			idx = idx + 1
 		}
-		idx = idx + 1
 	}
 	return -1
 }
@@ -150,7 +151,7 @@ func (executor *InsertExecutor) GetColumnLen() int {
 		executor.sqlRecognizer.GetTableName(),
 		executor.proxyTx.ResourceId)
 
-	return len(tableMeta.AllColumns)
+	return len(tableMeta.Columns)
 }
 
 func (executor *InsertExecutor) getTableMeta() (schema.TableMeta, error) {

@@ -214,8 +214,8 @@ func (executor MysqlUndoExecutor) queryCurrentRecords(tx *sql.Tx) (*schema.Table
 
 	var b strings.Builder
 	var i = 0
-	columnCount := len(undoRecords.Columns)
-	for _, columnName := range undoRecords.Columns {
+	columnCount := len(tableMeta.Columns)
+	for _, columnName := range tableMeta.Columns {
 		fmt.Fprint(&b, mysql.CheckAndReplace(columnName))
 		i = i + 1
 		if i < columnCount {

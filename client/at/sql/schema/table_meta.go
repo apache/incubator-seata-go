@@ -6,6 +6,7 @@ import (
 
 type TableMeta struct {
 	TableName  string
+	Columns    []string
 	AllColumns map[string]ColumnMeta
 	AllIndexes map[string]IndexMeta
 }

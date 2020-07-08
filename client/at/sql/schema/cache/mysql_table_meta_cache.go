@@ -101,13 +101,16 @@ func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.
 		AllColumns: make(map[string]schema.ColumnMeta),
 		AllIndexes: make(map[string]schema.IndexMeta),
 	}
-	columns, err := GetColumns(tx, tableName)
+	columnMetas, err := GetColumns(tx, tableName)
 	if err != nil {
 		return schema.TableMeta{}, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
 	}
-	for _, column := range columns {
+	columns := make([]string, 0)
+	for _, column := range columnMetas {
 		tm.AllColumns[column.ColumnName] = column
+		columns = append(columns, column.ColumnName)
 	}
+	tm.Columns = columns
 	indexes, err := GetIndexes(tx, tableName)
 	if err != nil {
 		return schema.TableMeta{}, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
