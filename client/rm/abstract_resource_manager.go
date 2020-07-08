@@ -64,6 +64,12 @@ func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.Br
 	if response.ResultCode == protocal.ResultCodeSuccess {
 		return response.BranchId, nil
 	} else {
+		if response.TransactionExceptionCode == meta.TransactionExceptionCodeGlobalTransactionNotExist {
+			return 0, &meta.TransactionException{
+				Message: response.Msg,
+				Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
+			}
+		}
 		return 0, errors.New(response.Msg)
 	}
 }

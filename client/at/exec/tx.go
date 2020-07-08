@@ -129,6 +129,12 @@ func (tx *Tx) register() (int64, error) {
 			break
 		}
 		logging.Logger.Errorf("branch register err: %v", err)
+		var tex meta.TransactionException
+		if errors.As(err, &tex) {
+			if tex.Code == meta.TransactionExceptionCodeGlobalTransactionNotExist {
+				break
+			}
+		}
 		time.Sleep(tx.lockRetryInterval)
 	}
 	return branchId, err
