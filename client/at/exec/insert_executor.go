@@ -69,7 +69,8 @@ func (executor *InsertExecutor) AfterImage(result sql.Result) (*schema.TableReco
 	if executor.GetPkIndex() >= 0 {
 		afterImage, err = executor.BuildTableRecords(pkValues)
 	} else {
-		afterImage, err = executor.BuildTableRecords([]interface{}{result.LastInsertId()})
+		pk,_ := result.LastInsertId()
+		afterImage, err = executor.BuildTableRecords([]interface{}{pk})
 	}
 	if err != nil {
 		return nil, err
