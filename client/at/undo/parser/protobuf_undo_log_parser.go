@@ -39,7 +39,7 @@ func (parser ProtoBufUndoLogParser) GetName() string {
 }
 
 func (parser ProtoBufUndoLogParser) GetDefaultContent() []byte {
-	return nil
+	return []byte("[]")
 }
 
 func (parser ProtoBufUndoLogParser) Encode(branchUndoLog *undo.BranchUndoLog) []byte {
