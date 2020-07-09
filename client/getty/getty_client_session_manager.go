@@ -1,7 +1,6 @@
 package getty
 
 import (
-	"sync"
 	"time"
 )
 
@@ -14,8 +13,7 @@ var (
 
 	CHECK_ALIVE_INTERNAL = 100
 
-	// string -> getty_session
-	sessions = sync.Map{}
+	sessions = make(map[getty.Session]bool)
 
 	clientSessionManager = &GettyClientSessionManager{}
 )
@@ -23,47 +21,37 @@ var (
 type GettyClientSessionManager struct {
 }
 
-func (sessionManager *GettyClientSessionManager) AcquireGettySession(serverAddress string) getty.Session {
-	sessionToServer, ok := sessions.Load(serverAddress)
-	if ok {
-		session := sessionToServer.(getty.Session)
-		if !session.IsClosed() {
-			return session
+func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Session {
+	// map 遍历是随机的
+	for session := range sessions {
+		if session.IsClosed() {
+			sessionManager.ReleaseGettySession(session)
 		}
+		return session
 	}
 	ticker := time.NewTicker(time.Duration(CHECK_ALIVE_INTERNAL) * time.Millisecond)
 	defer ticker.Stop()
 	for i := 0; i < MAX_CHECK_ALIVE_RETRY; i++ {
 		<-ticker.C
-		sessionToServer, ok := sessions.Load(serverAddress)
-		if ok {
-			session := sessionToServer.(getty.Session)
-			if !session.IsClosed() {
-				return session
-			}
-		}
+		return sessionManager.AcquireGettySession()
 	}
 	return nil
 }
 
-func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session, serverAddress string) {
-	if session == nil && serverAddress == "" {
-		return
+func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddress(serverAddress string) getty.Session {
+	ss := sessionManager.AcquireGettySession()
+	if ss.RemoteAddr() == serverAddress {
+		return ss
+	} else {
+		return sessionManager.AcquireGettySessionByServerAddress(serverAddress)
 	}
-	ss, ok := sessions.Load(serverAddress)
-	if ok && ss == session {
-		sessions.Delete(serverAddress)
-	}
+}
+
+func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
+	delete(sessions, session)
 	session.Close()
 }
 
-func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session, serverAddress string) {
-	//sessionToServer,ok := sessions.Load(serverAddress)
-	//if ok {
-	//	session := sessionToServer.(getty.Session)
-	//	if !session.IsClosed() {
-	//		return
-	//	}
-	//}
-	sessions.Store(serverAddress, session)
+func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session) {
+	sessions[session] = true
 }

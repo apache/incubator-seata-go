@@ -60,9 +60,9 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 			ApplicationId:           client.conf.ApplicationId,
 			TransactionServiceGroup: client.conf.TransactionServiceGroup,
 		}}
-		_, err := client.sendAsyncRequestWithResponse("", session, request, RPC_REQUEST_TIMEOUT)
+		_, err := client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
 		if err == nil {
-			clientSessionManager.RegisterGettySession(session, session.RemoteAddr())
+			clientSessionManager.RegisterGettySession(session)
 			client.GettySessionOnOpenChannel <- session.RemoteAddr()
 		}
 	}()
@@ -72,12 +72,12 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 
 // OnError ...
 func (client *RpcRemoteClient) OnError(session getty.Session, err error) {
-	clientSessionManager.ReleaseGettySession(session, session.RemoteAddr())
+	clientSessionManager.ReleaseGettySession(session)
 }
 
 // OnClose ...
 func (client *RpcRemoteClient) OnClose(session getty.Session) {
-	clientSessionManager.ReleaseGettySession(session, session.RemoteAddr())
+	clientSessionManager.ReleaseGettySession(session)
 }
 
 // OnMessage ...
@@ -141,32 +141,27 @@ func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{}
 }
 
 func (client *RpcRemoteClient) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{}, error) {
-	validAddress := loadBalance(client.conf.TransactionServiceGroup)
-	ss := clientSessionManager.AcquireGettySession(validAddress)
-	return client.sendAsyncRequestWithResponse(validAddress, ss, msg, timeout)
-}
-
-func (client *RpcRemoteClient) SendMsgByServerAddressWithResponseAndTimeout(serverAddress string, msg interface{}, timeout time.Duration) (interface{}, error) {
-	return client.sendAsyncRequestWithResponse(serverAddress, clientSessionManager.AcquireGettySession(serverAddress), msg, timeout)
+	ss := clientSessionManager.AcquireGettySession()
+	return client.sendAsyncRequestWithResponse(ss, msg, timeout)
 }
 
 func (client *RpcRemoteClient) SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{}) {
-	client.defaultSendResponse(request, clientSessionManager.AcquireGettySession(serverAddress), msg)
+	client.defaultSendResponse(request, clientSessionManager.AcquireGettySessionByServerAddress(serverAddress), msg)
 }
 
-func (client *RpcRemoteClient) sendAsyncRequestWithResponse(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
+func (client *RpcRemoteClient) sendAsyncRequestWithResponse(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	if timeout <= time.Duration(0) {
 		return nil, errors.New("timeout should more than 0ms")
 	}
-	return client.sendAsyncRequest(address, session, msg, timeout)
+	return client.sendAsyncRequest(session, msg, timeout)
 }
 
 func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Session, msg interface{}) error {
-	_, err := client.sendAsyncRequest("", session, msg, time.Duration(0))
+	_, err := client.sendAsyncRequest(session, msg, time.Duration(0))
 	return err
 }
 
-func (client *RpcRemoteClient) sendAsyncRequest(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
+func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil {
 		logging.Logger.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -191,7 +186,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(address string, session getty.Se
 		select {
 		case <-getty.GetTimeWheel().After(timeout):
 			client.futures.Delete(rpcMessage.Id)
-			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", address, rpcMessage)
+			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", session.RemoteAddr(), rpcMessage)
 		case <-resp.Done:
 			err = resp.Err
 		}
@@ -201,12 +196,11 @@ func (client *RpcRemoteClient) sendAsyncRequest(address string, session getty.Se
 }
 
 func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {
-	session, ok := sessions.Load(serverAddress)
-	if ok {
-		rmSession := session.(getty.Session)
-		err := client.sendAsyncRequestWithoutResponse(rmSession, request)
+	session := clientSessionManager.AcquireGettySessionByServerAddress(serverAddress)
+	if session != nil {
+		err := client.sendAsyncRequestWithoutResponse(session, request)
 		if err != nil {
-			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", rmSession, request.ResourceIds)
+			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", session, request.ResourceIds)
 		}
 	}
 }
