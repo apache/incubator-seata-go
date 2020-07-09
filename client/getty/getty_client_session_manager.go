@@ -76,11 +76,11 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddr
 
 func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
 	sessions.Delete(session)
-	atomic.AddInt32(&sessionSize,-1)
+	atomic.AddInt32(&sessionSize, -1)
 	session.Close()
 }
 
 func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session) {
-	sessions.Store(session,true)
-	atomic.AddInt32(&sessionSize,1)
+	sessions.Store(session, true)
+	atomic.AddInt32(&sessionSize, 1)
 }
