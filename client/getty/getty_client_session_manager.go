@@ -24,20 +24,24 @@ type GettyClientSessionManager struct {
 func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Session {
 	// map 遍历是随机的
 	for session := range sessions {
-		if !session.IsClosed() {
+		if session.IsClosed() {
 			sessionManager.ReleaseGettySession(session)
-		}
-		return session
-	}
-	ticker := time.NewTicker(time.Duration(CHECK_ALIVE_INTERNAL) * time.Millisecond)
-	defer ticker.Stop()
-	for i := 0; i < MAX_CHECK_ALIVE_RETRY; i++ {
-		<-ticker.C
-		for session := range sessions {
-			if !session.IsClosed() {
-				sessionManager.ReleaseGettySession(session)
-			}
+		} else {
 			return session
+		}
+	}
+	if len(sessions) == 0 {
+		ticker := time.NewTicker(time.Duration(CHECK_ALIVE_INTERNAL) * time.Millisecond)
+		defer ticker.Stop()
+		for i := 0; i < MAX_CHECK_ALIVE_RETRY; i++ {
+			<-ticker.C
+			for session := range sessions {
+				if session.IsClosed() {
+					sessionManager.ReleaseGettySession(session)
+				} else {
+					return session
+				}
+			}
 		}
 	}
 	return nil
