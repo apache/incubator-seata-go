@@ -33,18 +33,26 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Ses
 	defer ticker.Stop()
 	for i := 0; i < MAX_CHECK_ALIVE_RETRY; i++ {
 		<-ticker.C
-		return sessionManager.AcquireGettySession()
+		for session := range sessions {
+			if session.IsClosed() {
+				sessionManager.ReleaseGettySession(session)
+			}
+			return session
+		}
 	}
 	return nil
 }
 
 func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddress(serverAddress string) getty.Session {
 	ss := sessionManager.AcquireGettySession()
-	if ss.RemoteAddr() == serverAddress {
-		return ss
-	} else {
-		return sessionManager.AcquireGettySessionByServerAddress(serverAddress)
+	if ss != nil {
+		if ss.RemoteAddr() == serverAddress {
+			return ss
+		} else {
+			return sessionManager.AcquireGettySessionByServerAddress(serverAddress)
+		}
 	}
+	return nil
 }
 
 func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
