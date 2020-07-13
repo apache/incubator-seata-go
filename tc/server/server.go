@@ -16,7 +16,7 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 )
 
@@ -82,7 +82,7 @@ func (s *Server) newSession(session getty.Session) error {
 	session.SetWriteTimeout(conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 	session.SetCronPeriod((int)(conf.GettyConfig.SessionTimeout.Nanoseconds() / 1e6))
 	session.SetWaitTime(conf.GettyConfig.GettySessionParam.WaitTimeout)
-	logging.Logger.Debugf("app accepts new session:%s\n", session.Stat())
+	log.Debugf("app accepts new session:%s\n", session.Stat())
 
 	session.SetTaskPool(srvGrpool)
 
@@ -98,14 +98,14 @@ func (s *Server) Start(addr string) {
 		getty.WithLocalAddress(addr),
 	)
 	tcpServer.RunEventLoop(s.newSession)
-	logging.Logger.Debugf("s bind addr{%s} ok!", addr)
+	log.Debugf("s bind addr{%s} ok!", addr)
 	s.tcpServer = tcpServer
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
 		sig := <-c
-		logging.Logger.Info("get a signal %s", sig.String())
+		log.Info("get a signal %s", sig.String())
 		switch sig {
 		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
 			s.Stop()

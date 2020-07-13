@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 )
 
@@ -56,7 +56,7 @@ func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByXid(xid string) *model
 		return &globalTransactionDO
 	}
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	return nil
 }
@@ -69,7 +69,7 @@ func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByTransactionId(transact
 		return &globalTransactionDO
 	}
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByStatuses(statuses []in
 		Find(&globalTransactionDOs)
 
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	return globalTransactionDOs
 }
@@ -125,7 +125,7 @@ func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXid(xid string) []*mod
 	var branchTransactionDos []*model.BranchTransactionDO
 	err := dao.engine.SQL(QueryBranchTransactionDOByXid, xid).Find(&branchTransactionDos)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	return branchTransactionDos
 }
@@ -137,7 +137,7 @@ func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXids(xids []string) []
 		OrderBy("gmt_create asc").
 		Find(&branchTransactionDos)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	return branchTransactionDos
 }
@@ -186,13 +186,13 @@ func (dao *LogStoreDataBaseDAO) GetCurrentMaxSessionId(high int64, low int64) in
 		Cols("maxTransactionId").
 		Get(&maxTransactionId)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	_, err = dao.engine.SQL(QueryMaxBranchId, high, low).
 		Cols("maxBranchId").
 		Get(&maxBranchId)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	if maxTransactionId > maxBranchId {
 		return maxTransactionId

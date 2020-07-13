@@ -17,7 +17,7 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/sql_type"
 	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 var EXPIRE_TIME = 15 * time.Minute
@@ -75,11 +75,11 @@ func (cache *MysqlTableMetaCache) Refresh(tx *sql.Tx, resourceId string) {
 			ndb := newTx(tx, cache.dsn)
 			tMeta, err := cache.FetchSchema(ndb, meta.TableName)
 			if err != nil {
-				logging.Logger.Errorf("get table meta error:%s", err.Error())
+				log.Errorf("get table meta error:%s", err.Error())
 			}
 			if !cmp.Equal(tMeta, meta) {
 				cache.tableMetaCache.Set(key, tMeta, EXPIRE_TIME)
-				logging.Logger.Info("table meta change was found, update table meta cache automatically.")
+				log.Info("table meta change was found, update table meta cache automatically.")
 			}
 		}
 	}

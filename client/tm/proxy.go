@@ -12,7 +12,7 @@ import (
 import (
 	context2 "github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 type GlobalTransactionProxyService interface {
@@ -26,14 +26,14 @@ var (
 
 func Implement(v GlobalTransactionProxyService) {
 	valueOf := reflect.ValueOf(v)
-	logging.Logger.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
+	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
 
 	valueOfElem := valueOf.Elem()
 	typeOf := valueOfElem.Type()
 
 	// check incoming interface, incoming interface's elem must be a struct.
 	if typeOf.Kind() != reflect.Struct {
-		logging.Logger.Errorf("%s must be a struct ptr", valueOf.String())
+		log.Errorf("%s must be a struct ptr", valueOf.String())
 		return
 	}
 	proxyService := v.GetProxyService()
@@ -140,7 +140,7 @@ func Implement(v GlobalTransactionProxyService) {
 
 			// The latest return type of the method must be error.
 			if returnType := t.Type.Out(outNum - 1); returnType != typError {
-				logging.Logger.Warnf("the latest return type %s of method %q is not error", returnType, t.Name)
+				log.Warnf("the latest return type %s of method %q is not error", returnType, t.Name)
 				continue
 			}
 
@@ -148,7 +148,7 @@ func Implement(v GlobalTransactionProxyService) {
 
 			// do method proxy here:
 			f.Set(reflect.MakeFunc(f.Type(), makeCallProxy(methodDescriptor, v.GetMethodTransactionInfo(methodName))))
-			logging.Logger.Debugf("set method [%s]", methodName)
+			log.Debugf("set method [%s]", methodName)
 		}
 	}
 }

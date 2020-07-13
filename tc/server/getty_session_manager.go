@@ -15,7 +15,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 var (
@@ -160,7 +160,7 @@ func (manager *GettySessionManager) GetSameClientGettySession(session getty.Sess
 			}
 		}
 	} else {
-		logging.Logger.Errorf("session {%v} never registered!", session)
+		log.Errorf("session {%v} never registered!", session)
 	}
 
 	return nil
@@ -212,10 +212,10 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 				ss := session.(getty.Session)
 				if ss.IsClosed() {
 					pMap.Delete(targetPort)
-					logging.Logger.Infof("Removed inactive %d", ss)
+					log.Infof("Removed inactive %d", ss)
 				} else {
 					resultSession = ss
-					logging.Logger.Debugf("Just got exactly the one %v for %s", ss, clientId)
+					log.Debugf("Just got exactly the one %v for %s", ss, clientId)
 				}
 			}
 
@@ -226,10 +226,10 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 
 					if ss.IsClosed() {
 						pMap.Delete(key)
-						logging.Logger.Infof("Removed inactive %d", ss)
+						log.Infof("Removed inactive %d", ss)
 					} else {
 						resultSession = ss
-						logging.Logger.Infof("Choose %v on the same IP[%s] as alternative of %s", ss, targetIP, clientId)
+						log.Infof("Choose %v on the same IP[%s] as alternative of %s", ss, targetIP, clientId)
 						//跳出 range 循环
 						return false
 					}
@@ -256,10 +256,10 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 
 					if ss.IsClosed() {
 						portMapOnOtherIP.Delete(key)
-						logging.Logger.Infof("Removed inactive %d", ss)
+						log.Infof("Removed inactive %d", ss)
 					} else {
 						resultSession = ss
-						logging.Logger.Infof("Choose %v on the same application[%s] as alternative of %s", ss, targetApplicationId, clientId)
+						log.Infof("Choose %v on the same application[%s] as alternative of %s", ss, targetApplicationId, clientId)
 						//跳出 range 循环
 						return false
 					}
@@ -317,7 +317,7 @@ func getRMGettySessionFromIpMap(ipMap *sync.Map) getty.Session {
 			session := key.(getty.Session)
 			if session.IsClosed() {
 				portMap.Delete(key)
-				logging.Logger.Infof("Removed inactive %d", session)
+				log.Infof("Removed inactive %d", session)
 			} else {
 				role, loaded := session_transactionroles.Load(session)
 				if loaded {

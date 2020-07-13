@@ -7,7 +7,7 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/event"
 	"github.com/dk-lockdown/seata-golang/tc/holder"
@@ -137,7 +137,7 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}()
 
-	logging.Logger.Infof("Successfully begin global transaction xid = {}", gs.Xid)
+	log.Infof("Successfully begin global transaction xid = {}", gs.Xid)
 	return gs.Xid, nil
 }
 
@@ -174,7 +174,7 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 	holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs, bs)
 	bs.Status = meta.BranchStatusRegistered
 
-	logging.Logger.Infof("Successfully register branch xid = %s, branchId = %d", gs.Xid, bs.BranchId)
+	log.Infof("Successfully register branch xid = %s, branchId = %d", gs.Xid, bs.BranchId)
 	return bs.BranchId, nil
 }
 
@@ -198,7 +198,7 @@ func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.GlobalSession, error) {
 	gs := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(xid, withBranchSessions)
 	if gs == nil {
-		logging.Logger.Errorf("Could not found global transaction xid = %s", xid)
+		log.Errorf("Could not found global transaction xid = %s", xid)
 		return nil, &meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
 			Message: fmt.Sprintf("Could not found global transaction xid = %s", gs.Xid),
@@ -229,7 +229,7 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 	bs.Status = status
 	holder.GetSessionHolder().RootSessionManager.UpdateBranchSessionStatus(bs, status)
 
-	logging.Logger.Infof("Successfully branch report xid = %s, branchId = %d", xid, bs.BranchId)
+	log.Infof("Successfully branch report xid = %s, branchId = %d", xid, bs.BranchId)
 	return nil
 }
 
@@ -352,7 +352,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 			}
 			branchStatus, err1 := core.branchCommit(globalSession, bs)
 			if err1 != nil {
-				logging.Logger.Errorf("Exception committing branch %v", bs)
+				log.Errorf("Exception committing branch %v", bs)
 				if !retrying {
 					queueToRetryCommit(globalSession)
 				}
@@ -366,11 +366,11 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 				{
 					// 二阶段提交失败且不能 Retry，不能异步提交，则移除 GlobalSession，Why?
 					if globalSession.CanBeCommittedAsync() {
-						logging.Logger.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
+						log.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
 						continue
 					} else {
 						endCommitFailed(globalSession)
-						logging.Logger.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed", globalSession.Xid, bs.BranchId)
+						log.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed", globalSession.Xid, bs.BranchId)
 						return false, nil
 					}
 				}
@@ -381,17 +381,17 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 						return false, nil
 					}
 					if globalSession.CanBeCommittedAsync() {
-						logging.Logger.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
+						log.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
 						continue
 					} else {
-						logging.Logger.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.", globalSession.Xid, bs.BranchId)
+						log.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.", globalSession.Xid, bs.BranchId)
 						return false, nil
 					}
 				}
 			}
 		}
 		if globalSession.HasBranch() {
-			logging.Logger.Infof("Global[%d] committing is NOT done.", globalSession.Xid)
+			log.Infof("Global[%d] committing is NOT done.", globalSession.Xid)
 			return false, nil
 		}
 	}
@@ -404,7 +404,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 			event.EventBus.GlobalTransactionEventChannel <- evt
 		}()
 
-		logging.Logger.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
+		log.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
 	}
 	return success, err
 }
@@ -457,7 +457,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			}
 			branchStatus, err1 := core.branchRollback(globalSession, bs)
 			if err1 != nil {
-				logging.Logger.Errorf("Exception rollbacking branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Errorf("Exception rollbacking branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
@@ -466,14 +466,14 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			switch branchStatus {
 			case meta.BranchStatusPhasetwoRollbacked:
 				removeBranchSession(globalSession, bs)
-				logging.Logger.Infof("Successfully rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("Successfully rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				continue
 			case meta.BranchStatusPhasetwoRollbackFailedUnretryable:
 				endRollBackFailed(globalSession)
-				logging.Logger.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				return false, nil
 			default:
-				logging.Logger.Infof("ResultCodeFailed to rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("ResultCodeFailed to rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
@@ -489,7 +489,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		// failure due to data changes.
 		gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(globalSession.Xid)
 		if gs != nil && gs.HasBranch() {
-			logging.Logger.Infof("Global[%d] rollbacking is NOT done.", globalSession.Xid)
+			log.Infof("Global[%d] rollbacking is NOT done.", globalSession.Xid)
 			return false, nil
 		}
 	}
@@ -502,7 +502,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			event.EventBus.GlobalTransactionEventChannel <- evt
 		}()
 
-		logging.Logger.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
+		log.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
 	}
 	return success, err
 }

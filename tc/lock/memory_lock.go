@@ -13,7 +13,7 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/model"
 	"github.com/dk-lockdown/seata-golang/pkg/hashcode"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
 
@@ -29,7 +29,7 @@ type MemoryLocker struct {
 
 func (ml *MemoryLocker) AcquireLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
-		logging.Logger.Errorf("branchSession can't be null for memory/file locker.")
+		log.Errorf("branchSession can't be null for memory/file locker.")
 		panic(errors.New("branchSession can't be null for memory/file locker."))
 	}
 
@@ -47,7 +47,7 @@ func (ml *MemoryLocker) AcquireLock(branchSession *session.BranchSession) bool {
 
 func (ml *MemoryLocker) ReleaseLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
-		logging.Logger.Info("branchSession can't be null for memory/file locker.")
+		log.Info("branchSession can't be null for memory/file locker.")
 		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
@@ -120,7 +120,7 @@ func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSessi
 			// Locked by me before
 			continue
 		} else {
-			logging.Logger.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
+			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
 			// branchSession unlock
 			ml.ReleaseLock(branchSession)
 			return false
@@ -190,7 +190,7 @@ func (ml *MemoryLocker) isLockableByRowLocks(rowLocks []*RowLock) bool {
 			// Locked by me before
 			continue
 		} else {
-			logging.Logger.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
+			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
 			return false
 		}
 	}

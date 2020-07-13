@@ -17,7 +17,7 @@ import (
 	tx2 "github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 	"github.com/dk-lockdown/seata-golang/client/at/sqlparser/mysql"
 	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 type Tx struct {
@@ -128,7 +128,7 @@ func (tx *Tx) register() (int64, error) {
 		if err == nil {
 			break
 		}
-		logging.Logger.Errorf("branch register err: %v", err)
+		log.Errorf("branch register err: %v", err)
 		var tex meta.TransactionException
 		if errors.As(err, &tex) {
 			if tex.Code == meta.TransactionExceptionCodeGlobalTransactionNotExist {
@@ -152,7 +152,7 @@ func (tx *Tx) report(commitDone bool) error {
 				meta.BranchStatusPhaseoneFailed, nil)
 		}
 		if err != nil {
-			logging.Logger.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
+			log.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
 				tx.proxyTx.Context.BranchId, tx.proxyTx.Context.Xid, commitDone, retry)
 			retry = retry - 1
 			if retry == 0 {

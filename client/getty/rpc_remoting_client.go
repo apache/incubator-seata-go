@@ -19,7 +19,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	"github.com/dk-lockdown/seata-golang/client/model"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 const (
@@ -82,18 +82,18 @@ func (client *RpcRemoteClient) OnClose(session getty.Session) {
 
 // OnMessage ...
 func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{}) {
-	logging.Logger.Info("received message:{%v}", pkg)
+	log.Info("received message:{%v}", pkg)
 	rpcMessage, ok := pkg.(protocal.RpcMessage)
 	if ok {
 		heartBeat, isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
 		if isHeartBeat && heartBeat == protocal.HeartBeatMessagePong {
-			logging.Logger.Debugf("received PONG from %s", session.RemoteAddr())
+			log.Debugf("received PONG from %s", session.RemoteAddr())
 		}
 	}
 
 	if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
 		rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
-		logging.Logger.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
+		log.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
 
 		client.onMessage(rpcMessage, session.RemoteAddr())
 	} else {
@@ -114,7 +114,7 @@ func (client *RpcRemoteClient) OnCron(session getty.Session) {
 
 func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage, serverAddress string) {
 	msg := rpcMessage.Body.(protocal.MessageTypeAware)
-	logging.Logger.Infof("onMessage: %v", msg)
+	log.Infof("onMessage: %v", msg)
 	switch msg.GetTypeCode() {
 	case protocal.TypeBranchCommit:
 		client.BranchCommitRequestChannel <- model.RpcRMMessage{
@@ -164,7 +164,7 @@ func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Ses
 func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil {
-		logging.Logger.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 	}
 	rpcMessage := protocal.RpcMessage{
 		Id:          int32(client.idGenerator.Inc()),
@@ -180,7 +180,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 	if err != nil {
 		client.futures.Delete(rpcMessage.Id)
 	}
-	logging.Logger.Infof("send message : %v,session:%s", rpcMessage, session.Stat())
+	log.Infof("send message : %v,session:%s", rpcMessage, session.Stat())
 
 	if timeout > time.Duration(0) {
 		select {
@@ -200,7 +200,7 @@ func (client *RpcRemoteClient) RegisterResource(serverAddress string, request pr
 	if session != nil {
 		err := client.sendAsyncRequestWithoutResponse(session, request)
 		if err != nil {
-			logging.Logger.Errorf("register resource failed, session:{},resourceId:{}", session, request.ResourceIds)
+			log.Errorf("register resource failed, session:{},resourceId:{}", session, request.ResourceIds)
 		}
 	}
 }

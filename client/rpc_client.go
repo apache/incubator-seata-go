@@ -15,7 +15,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
 	"github.com/dk-lockdown/seata-golang/client/config"
 	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 var clientGrpool *gxsync.TaskPool
@@ -89,7 +89,7 @@ func (c *RpcClient) newSession(session getty.Session) error {
 	session.SetWriteTimeout(c.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 	session.SetCronPeriod((int)(c.conf.GettyConfig.HeartbeatPeriod.Nanoseconds() / 1e6))
 	session.SetWaitTime(c.conf.GettyConfig.GettySessionParam.WaitTimeout)
-	logging.Logger.Debugf("client new session:%s\n", session.Stat())
+	log.Debugf("client new session:%s\n", session.Stat())
 
 	session.SetTaskPool(clientGrpool)
 

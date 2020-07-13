@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dk-lockdown/seata-golang/base/mysql"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
 	"github.com/google/go-cmp/cmp"
 	"strings"
@@ -171,7 +171,7 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 func (executor MysqlUndoExecutor) dataValidationAndGoOn(tx *sql.Tx) (bool, error) {
 	beforeEqualsAfterResult := cmp.Equal(executor.sqlUndoLog.BeforeImage, executor.sqlUndoLog.AfterImage)
 	if beforeEqualsAfterResult {
-		logging.Logger.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
+		log.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
 		return false, nil
 	}
 	currentRecords, err := executor.queryCurrentRecords(tx)
@@ -184,12 +184,12 @@ func (executor MysqlUndoExecutor) dataValidationAndGoOn(tx *sql.Tx) (bool, error
 		// data, too. No need continue to undo if current data is equivalent to the before data snapshot
 		beforeEqualsCurrentResult := cmp.Equal(executor.sqlUndoLog.BeforeImage, currentRecords)
 		if beforeEqualsCurrentResult {
-			logging.Logger.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
+			log.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
 			return false, nil
 		} else {
 			oldRows, _ := json.Marshal(executor.sqlUndoLog.AfterImage.Rows)
 			newRows, _ := json.Marshal(currentRecords.Rows)
-			logging.Logger.Errorf("check dirty datas failed, old and new data are not equal, tableName:[%s], oldRows:[%s], newRows:[%s].",
+			log.Errorf("check dirty datas failed, old and new data are not equal, tableName:[%s], oldRows:[%s], newRows:[%s].",
 				executor.sqlUndoLog.TableName, string(oldRows), string(newRows))
 			return false, errors.New("Has dirty records when undo.")
 		}

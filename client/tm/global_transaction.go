@@ -14,7 +14,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/client/context"
 	context2 "github.com/dk-lockdown/seata-golang/client/context"
 	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 const (
@@ -82,7 +82,7 @@ func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name
 		if gtx.Xid == "" {
 			return errors.New("xid should not be empty")
 		}
-		logging.Logger.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid != "" {
@@ -98,7 +98,7 @@ func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name
 	gtx.Xid = xid
 	gtx.Status = meta.GlobalStatusBegin
 	ctx.Bind(xid)
-	logging.Logger.Infof("Begin new global transaction [%s]", xid)
+	log.Infof("Begin new global transaction [%s]", xid)
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context.RootContext) error {
 		}
 	}()
 	if gtx.Role == Participant {
-		logging.Logger.Debugf("Ignore Commit(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Commit(): just involved in global transaction [%s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid == "" {
@@ -120,7 +120,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context.RootContext) error {
 	for retry > 0 {
 		status, err := gtx.transactionManager.Commit(gtx.Xid)
 		if err != nil {
-			logging.Logger.Errorf("Failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("Failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -130,7 +130,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context.RootContext) error {
 			return errors.New("Failed to report global commit")
 		}
 	}
-	logging.Logger.Infof("[%s] commit status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] commit status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 
@@ -142,7 +142,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 		}
 	}()
 	if gtx.Role == Participant {
-		logging.Logger.Debugf("Ignore Rollback(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Rollback(): just involved in global transaction [%s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid == "" {
@@ -152,7 +152,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 	for retry > 0 {
 		status, err := gtx.transactionManager.Rollback(gtx.Xid)
 		if err != nil {
-			logging.Logger.Errorf("Failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("Failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -162,7 +162,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context.RootContext) error {
 			return errors.New("Failed to report global rollback")
 		}
 	}
-	logging.Logger.Infof("[%s] rollback status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] rollback status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 
@@ -170,7 +170,7 @@ func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool, ctx *context.RootCo
 	xid := ctx.GetXID()
 	if xid != "" && unbindXid {
 		ctx.Unbind()
-		logging.Logger.Debugf("Suspending current transaction,xid = %s", xid)
+		log.Debugf("Suspending current transaction,xid = %s", xid)
 	} else {
 		xid = ""
 	}
@@ -184,7 +184,7 @@ func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedR
 	xid := suspendedResourcesHolder.Xid
 	if xid != "" {
 		ctx.Bind(xid)
-		logging.Logger.Debugf("Resumimg the transaction,xid = %s", xid)
+		log.Debugf("Resumimg the transaction,xid = %s", xid)
 	}
 	return nil
 }
@@ -228,7 +228,7 @@ func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus
 	}
 
 	gtx.Status = status
-	logging.Logger.Infof("[%s] report status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] report status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 

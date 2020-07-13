@@ -17,7 +17,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/base/protocal"
 	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	time2 "github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/event"
@@ -69,22 +69,22 @@ func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
 // EventListener
 ///////////////////////////////////////////////////
 func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {
-	logging.Logger.Infof("got getty_session:%s", session.Stat())
+	log.Infof("got getty_session:%s", session.Stat())
 	return nil
 }
 
 func (coordinator *DefaultCoordinator) OnError(session getty.Session, err error) {
 	SessionManager.ReleaseGettySession(session)
 	session.Close()
-	logging.Logger.Infof("getty_session{%s} got error{%v}, will be closed.", session.Stat(), err)
+	log.Infof("getty_session{%s} got error{%v}, will be closed.", session.Stat(), err)
 }
 
 func (coordinator *DefaultCoordinator) OnClose(session getty.Session) {
-	logging.Logger.Info("getty_session{%s} is closing......", session.Stat())
+	log.Info("getty_session{%s} is closing......", session.Stat())
 }
 
 func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg interface{}) {
-	logging.Logger.Info("received message:{%v}", pkg)
+	log.Info("received message:{%v}", pkg)
 	rpcMessage, ok := pkg.(protocal.RpcMessage)
 	if ok {
 		_, isRegTM := rpcMessage.Body.(protocal.RegisterTMRequest)
@@ -101,7 +101,7 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 
 		if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
 			rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
-			logging.Logger.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
+			log.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
 			_, isRegRM := rpcMessage.Body.(protocal.RegisterRMRequest)
 			if isRegRM {
 				coordinator.OnRegRmMessage(rpcMessage, session)
@@ -109,13 +109,13 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 				if SessionManager.IsRegistered(session) {
 					defer func() {
 						if err := recover(); err != nil {
-							logging.Logger.Errorf("Catch Exception while do RPC, request: %v,err: %w", rpcMessage, err)
+							log.Errorf("Catch Exception while do RPC, request: %v,err: %w", rpcMessage, err)
 						}
 					}()
 					coordinator.OnTrxMessage(rpcMessage, session)
 				} else {
 					session.Close()
-					logging.Logger.Infof("close a unhandled connection! [%v]", session)
+					log.Infof("close a unhandled connection! [%v]", session)
 				}
 			}
 		} else {
@@ -139,7 +139,7 @@ func (coordinator *DefaultCoordinator) OnCron(session getty.Session) {
 /////////////////////////////////////////////////////////////
 func (coordinator *DefaultCoordinator) OnTrxMessage(rpcMessage protocal.RpcMessage, session getty.Session) {
 	rpcContext := SessionManager.GetContextFromIdentified(session)
-	logging.Logger.Debugf("server received:%v,clientIp:%s,vgroup:%s", rpcMessage.Body, session.RemoteAddr(), rpcContext.TransactionServiceGroup)
+	log.Debugf("server received:%v,clientIp:%s,vgroup:%s", rpcMessage.Body, session.RemoteAddr(), rpcContext.TransactionServiceGroup)
 
 	warpMessage, isWarpMessage := rpcMessage.Body.(protocal.MergedWarpMessage)
 	if isWarpMessage {
@@ -196,7 +196,7 @@ func (coordinator *DefaultCoordinator) OnRegRmMessage(rpcMessage protocal.RpcMes
 
 	//version things
 	SessionManager.RegisterRmGettySession(message, session)
-	logging.Logger.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
+	log.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
 
 	coordinator.SendResponse(rpcMessage, session, protocal.RegisterRMResponse{AbstractIdentifyResponse: protocal.AbstractIdentifyResponse{Identified: true}})
 }
@@ -206,14 +206,14 @@ func (coordinator *DefaultCoordinator) OnRegTmMessage(rpcMessage protocal.RpcMes
 
 	//version things
 	SessionManager.RegisterTmGettySession(message, session)
-	logging.Logger.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
+	log.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
 
 	coordinator.SendResponse(rpcMessage, session, protocal.RegisterTMResponse{AbstractIdentifyResponse: protocal.AbstractIdentifyResponse{Identified: true}})
 }
 
 func (coordinator *DefaultCoordinator) OnCheckMessage(rpcMessage protocal.RpcMessage, session getty.Session) {
 	coordinator.SendResponse(rpcMessage, session, protocal.HeartBeatMessagePong)
-	logging.Logger.Debugf("received PING from %s", session.RemoteAddr())
+	log.Debugf("received PING from %s", session.RemoteAddr())
 }
 
 /////////////////////////////////////////////////////////////
@@ -272,7 +272,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequestWithoutResponse(session g
 func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil {
-		logging.Logger.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 	}
 	rpcMessage := protocal.RpcMessage{
 		Id:          int32(coordinator.idGenerator.Inc()),
@@ -330,11 +330,11 @@ func (coordinator *DefaultCoordinator) doGlobalBegin(request protocal.GlobalBegi
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Xid = xid
@@ -351,11 +351,11 @@ func (coordinator *DefaultCoordinator) doGlobalStatus(request protocal.GlobalSta
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.GlobalStatus = globalStatus
@@ -372,11 +372,11 @@ func (coordinator *DefaultCoordinator) doGlobalReport(request protocal.GlobalRep
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.GlobalStatus = globalStatus
@@ -393,11 +393,11 @@ func (coordinator *DefaultCoordinator) doGlobalCommit(request protocal.GlobalCom
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.GlobalStatus = globalStatus
@@ -420,11 +420,11 @@ func (coordinator *DefaultCoordinator) doGlobalRollback(request protocal.GlobalR
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.GlobalStatus = globalStatus
@@ -441,11 +441,11 @@ func (coordinator *DefaultCoordinator) doBranchRegister(request protocal.BranchR
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.BranchId = branchId
@@ -462,11 +462,11 @@ func (coordinator *DefaultCoordinator) doBranchReport(request protocal.BranchRep
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.ResultCode = protocal.ResultCodeSuccess
@@ -482,11 +482,11 @@ func (coordinator *DefaultCoordinator) doLockCheck(request protocal.GlobalLockQu
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Lockable = result
@@ -534,9 +534,9 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 	if allSessions == nil && len(allSessions) <= 0 {
 		return
 	}
-	logging.Logger.Debugf("Transaction Timeout Check Begin: %d", len(allSessions))
+	log.Debugf("Transaction Timeout Check Begin: %d", len(allSessions))
 	for _, globalSession := range allSessions {
-		logging.Logger.Debugf("%s %s %d %d", globalSession.Xid, globalSession.Status.String(), globalSession.BeginTime, globalSession.Timeout)
+		log.Debugf("%s %s %d %d", globalSession.Xid, globalSession.Status.String(), globalSession.BeginTime, globalSession.Timeout)
 		shouldTimout := func(gs *session.GlobalSession) bool {
 			globalSession.Lock()
 			defer globalSession.Unlock()
@@ -555,10 +555,10 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 		if !shouldTimout {
 			continue
 		}
-		logging.Logger.Infof("Global transaction[%s] is timeout and will be rolled back.", globalSession.Status)
+		log.Infof("Global transaction[%s] is timeout and will be rolled back.", globalSession.Status)
 		holder.GetSessionHolder().RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 	}
-	logging.Logger.Debug("Transaction Timeout Check End.")
+	log.Debug("Transaction Timeout Check End.")
 }
 
 func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
@@ -576,12 +576,12 @@ func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
 				lock.GetLockManager().ReleaseGlobalSessionLock(rollbackingSession)
 			}
 			holder.GetSessionHolder().RetryRollbackingSessionManager.RemoveGlobalSession(rollbackingSession)
-			logging.Logger.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollbackingSession.Xid)
+			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollbackingSession.Xid)
 			continue
 		}
 		_, err := coordinator.core.doGlobalRollback(rollbackingSession, true)
 		if err != nil {
-			logging.Logger.Infof("Failed to retry rollbacking [%s]", rollbackingSession.Xid)
+			log.Infof("Failed to retry rollbacking [%s]", rollbackingSession.Xid)
 		}
 	}
 }
@@ -602,12 +602,12 @@ func (coordinator *DefaultCoordinator) handleRetryCommitting() {
 	for _, committingSession := range committingSessions {
 		if isRetryTimeout(int64(now), coordinator.conf.MaxCommitRetryTimeout, committingSession.BeginTime) {
 			holder.GetSessionHolder().RetryCommittingSessionManager.RemoveGlobalSession(committingSession)
-			logging.Logger.Errorf("GlobalSession commit retry timeout and removed [%s]", committingSession.Xid)
+			log.Errorf("GlobalSession commit retry timeout and removed [%s]", committingSession.Xid)
 			continue
 		}
 		_, err := coordinator.core.doGlobalCommit(committingSession, true)
 		if err != nil {
-			logging.Logger.Infof("Failed to retry committing [%s]", committingSession.Xid)
+			log.Infof("Failed to retry committing [%s]", committingSession.Xid)
 		}
 	}
 }
@@ -623,7 +623,7 @@ func (coordinator *DefaultCoordinator) handleAsyncCommitting() {
 		}
 		_, err := coordinator.core.doGlobalCommit(asyncCommittingSession, true)
 		if err != nil {
-			logging.Logger.Infof("Failed to async committing [%s]", asyncCommittingSession.Xid)
+			log.Infof("Failed to async committing [%s]", asyncCommittingSession.Xid)
 		}
 	}
 }
@@ -638,7 +638,7 @@ func (coordinator *DefaultCoordinator) undoLogDelete() {
 		}
 		err := coordinator.SendASyncRequest(session, deleteRequest)
 		if err != nil {
-			logging.Logger.Errorf("Failed to async delete undo log resourceId = %s", resourceId)
+			log.Errorf("Failed to async delete undo log resourceId = %s", resourceId)
 		}
 	}
 }

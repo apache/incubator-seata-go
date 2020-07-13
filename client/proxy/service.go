@@ -10,7 +10,7 @@ import (
 
 import (
 	context2 "github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 var (
@@ -95,7 +95,7 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 		argsType = append(argsType, methodType.In(index))
 		// need not be a pointer.
 		if !isExportedOrBuiltinType(methodType.In(index)) {
-			logging.Logger.Errorf("argument type of method %q is not exported %v", methodName, methodType.In(index))
+			log.Errorf("argument type of method %q is not exported %v", methodName, methodType.In(index))
 			return nil
 		}
 	}
@@ -105,7 +105,7 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 		returnValuesType = append(returnValuesType, methodType.Out(num))
 		// need not be a pointer.
 		if !isExportedOrBuiltinType(methodType.Out(num)) {
-			logging.Logger.Errorf("reply type of method %s not exported{%v}", methodName, methodType.Out(num))
+			log.Errorf("reply type of method %s not exported{%v}", methodName, methodType.Out(num))
 			return nil
 		}
 	}

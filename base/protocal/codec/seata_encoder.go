@@ -10,7 +10,7 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 func AbstractResultMessageEncoder(in interface{}) []byte {
@@ -67,7 +67,7 @@ func MergedWarpMessageEncoder(in interface{}) []byte {
 	result = append(result, b.Bytes()...)
 
 	if len(req.Msgs) > 20 {
-		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
+		log.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
 	}
 	return result
 }
@@ -96,7 +96,7 @@ func MergeResultMessageEncoder(in interface{}) []byte {
 	result = append(result, b.Bytes()...)
 
 	if len(req.Msgs) > 20 {
-		logging.Logger.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
+		log.Debugf("msg in one packet: %s ,buffer size: %s", len(req.Msgs), size)
 	}
 	return result
 }

@@ -14,7 +14,7 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
@@ -209,7 +209,7 @@ func (gs *GlobalSession) Encode() ([]byte, error) {
 	size := calGlobalSessionSize(len(gs.ApplicationId), len(gs.TransactionServiceGroup), len(gs.TransactionName), len(gs.Xid), len(gs.ApplicationData))
 
 	if size > config.GetStoreConfig().MaxGlobalSessionSize {
-		logging.Logger.Errorf("global session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxGlobalSessionSize)
+		log.Errorf("global session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxGlobalSessionSize)
 		//todo compress
 		return nil, errors.New("global session size exceeded.")
 	}

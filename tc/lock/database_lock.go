@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
@@ -20,7 +20,7 @@ type DataBaseLocker struct {
 
 func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
-		logging.Logger.Errorf("branchSession can't be null for memory/file locker.")
+		log.Errorf("branchSession can't be null for memory/file locker.")
 		panic(errors.New("branchSession can't be null for memory/file locker."))
 	}
 
@@ -39,7 +39,7 @@ func (locker *DataBaseLocker) AcquireLock(branchSession *session.BranchSession) 
 
 func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) bool {
 	if branchSession == nil {
-		logging.Logger.Info("branchSession can't be null for memory/file locker.")
+		log.Info("branchSession can't be null for memory/file locker.")
 		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 

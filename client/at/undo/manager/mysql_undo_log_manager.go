@@ -16,7 +16,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
 	"github.com/dk-lockdown/seata-golang/client/at/undo"
 	parser2 "github.com/dk-lockdown/seata-golang/client/at/undo/parser"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
 )
 
@@ -53,7 +53,7 @@ type MysqlUndoLogManager struct {
 func (manager MysqlUndoLogManager) FlushUndoLogs(tx *proxy_tx.ProxyTx) error {
 	defer func() {
 		if err := recover(); err != nil {
-			logging.Logger.Error(err)
+			log.Error(err)
 		}
 	}()
 	ctx := tx.Context
@@ -68,7 +68,7 @@ func (manager MysqlUndoLogManager) FlushUndoLogs(tx *proxy_tx.ProxyTx) error {
 
 	parser := parser2.GetUndoLogParser()
 	undoLogContent := parser.Encode(branchUndoLog)
-	logging.Logger.Debugf("Flushing UNDO LOG: %s", string(undoLogContent))
+	log.Debugf("Flushing UNDO LOG: %s", string(undoLogContent))
 
 	return manager.insertUndoLogWithNormal(tx.Tx, xid, branchId, buildContext(parser.GetName()), undoLogContent)
 }
@@ -98,7 +98,7 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, 
 		rows.Scan(&branchId, &xid, &context, &rollbackInfo, &state)
 
 		if State(state) != Normal {
-			logging.Logger.Infof("xid %s branch %d, ignore %s undo_log", xid, branchId, State(state).String())
+			log.Infof("xid %s branch %d, ignore %s undo_log", xid, branchId, State(state).String())
 			return nil
 		}
 
@@ -133,7 +133,7 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, 
 			tx.Rollback()
 			return errors.WithStack(err)
 		}
-		logging.Logger.Infof("xid %s branch %d, undo_log deleted with %s", xid, branchId,
+		log.Infof("xid %s branch %d, undo_log deleted with %s", xid, branchId,
 			GlobalFinished.String())
 		tx.Commit()
 	} else {
@@ -150,7 +150,7 @@ func (manager MysqlUndoLogManager) DeleteUndoLog(db *sql.DB, xid string, branchI
 		return err
 	}
 	affectCount, _ := result.RowsAffected()
-	logging.Logger.Infof("%d undo log deleted by xid:%s and branchId:%d", affectCount, xid, branchId)
+	log.Infof("%d undo log deleted by xid:%s and branchId:%d", affectCount, xid, branchId)
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (manager MysqlUndoLogManager) BatchDeleteUndoLog(db *sql.DB, xids []string,
 		return err
 	}
 	affectCount, _ := result.RowsAffected()
-	logging.Logger.Infof("%d undo log deleted by xids:%v and branchIds:%v", affectCount, xids, branchIds)
+	log.Infof("%d undo log deleted by xids:%v and branchIds:%v", affectCount, xids, branchIds)
 	return nil
 }
 

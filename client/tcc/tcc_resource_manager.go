@@ -17,7 +17,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
 	"github.com/dk-lockdown/seata-golang/client/rm"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 var (
@@ -42,12 +42,12 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 	resourceId string, applicationData []byte) (meta.BranchStatus, error) {
 	resource := resourceManager.ResourceCache[resourceId]
 	if resource == nil {
-		logging.Logger.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
+		log.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
 		return 0, errors.Errorf("TCC resource is not exist, resourceId: %s", resourceId)
 	}
 	tccResource := resource.(*TCCResource)
 	if tccResource.CommitMethod == nil {
-		logging.Logger.Errorf("TCC resource is not available, resourceId: %s", resourceId)
+		log.Errorf("TCC resource is not available, resourceId: %s", resourceId)
 		return 0, errors.Errorf("TCC resource is not available, resourceId: %s", resourceId)
 	}
 
@@ -56,7 +56,7 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.CommitMethod, nil, args)
-	logging.Logger.Infof("TCC resource commit result : %v, xid: %s, branchId: %d, resourceId: %s", returnValues, xid, branchId, resourceId)
+	log.Infof("TCC resource commit result : %v, xid: %s, branchId: %d, resourceId: %s", returnValues, xid, branchId, resourceId)
 	if returnValues != nil && len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
@@ -83,7 +83,7 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.RollbackMethod, nil, args)
-	logging.Logger.Infof("TCC resource rollback result : %v, xid: %s, branchId: %d, resourceId: %s", returnValues, xid, branchId, resourceId)
+	log.Infof("TCC resource rollback result : %v, xid: %s, branchId: %d, resourceId: %s", returnValues, xid, branchId, resourceId)
 	if returnValues != nil && len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
@@ -106,7 +106,7 @@ func getBusinessActionContext(xid string, branchId int64, resourceId string, app
 	if len(applicationData) > 0 {
 		err := json.Unmarshal(applicationData, &tccContext)
 		if err != nil {
-			logging.Logger.Errorf("getBusinessActionContext, unmarshal applicationData err=%v", err)
+			log.Errorf("getBusinessActionContext, unmarshal applicationData err=%v", err)
 		}
 	}
 
@@ -151,7 +151,7 @@ func (resourceManager TCCResourceManager) handleBranchRollback() {
 func (resourceManager TCCResourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
-	logging.Logger.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
+	log.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	status, err := resourceManager.BranchCommit(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
 		trxException, ok := err.(meta.TransactionException)
@@ -159,11 +159,11 @@ func (resourceManager TCCResourceManager) doBranchCommit(request protocal.Branch
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Xid = request.Xid
@@ -176,7 +176,7 @@ func (resourceManager TCCResourceManager) doBranchCommit(request protocal.Branch
 func (resourceManager TCCResourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
 	var resp = protocal.BranchRollbackResponse{}
 
-	logging.Logger.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
+	log.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
 	status, err := resourceManager.BranchRollback(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
 		trxException, ok := err.(meta.TransactionException)
@@ -184,11 +184,11 @@ func (resourceManager TCCResourceManager) doBranchRollback(request protocal.Bran
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Xid = request.Xid

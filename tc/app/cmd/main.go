@@ -13,7 +13,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/holder"
@@ -62,6 +62,6 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		logging.Logger.Fatal(err)
+		log.Fatal(err)
 	}
 }

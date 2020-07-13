@@ -12,7 +12,7 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 )
 
@@ -138,7 +138,7 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 
 	if size > config.GetStoreConfig().MaxBranchSessionSize {
 		if bs.LockKey == "" {
-			logging.Logger.Errorf("branch session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxBranchSessionSize)
+			log.Errorf("branch session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxBranchSessionSize)
 			//todo compress
 			return nil, errors.New("branch session size exceeded.")
 		}

@@ -12,7 +12,7 @@ import (
 import (
 	"github.com/dk-lockdown/seata-golang/base/common"
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/session"
 )
@@ -49,13 +49,13 @@ func TestLockManager_AcquireLock_DeadLock(t *testing.T) {
 	go func(session *session.BranchSession) {
 		defer wg.Done()
 		result := GetLockManager().AcquireLock(session)
-		logging.Logger.Infof("1: %v", result)
+		log.Infof("1: %v", result)
 	}(sessions[0])
 
 	go func(session *session.BranchSession) {
 		defer wg.Done()
 		result := GetLockManager().AcquireLock(session)
-		logging.Logger.Infof("2: %v", result)
+		log.Infof("2: %v", result)
 	}(sessions[1])
 	wg.Wait()
 	assert.True(t, true)

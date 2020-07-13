@@ -2,7 +2,7 @@ package holder
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/session"
@@ -43,7 +43,7 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 		for _, branchSession := range unhandledBranchBuffer {
 			found := sessionManager.SessionMap[branchSession.Xid]
 			if found == nil {
-				logging.Logger.Infof("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
+				log.Infof("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
 			} else {
 				existingBranch := found.GetBranch(branchSession.BranchId)
 				if existingBranch == nil {
@@ -99,7 +99,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
 				if globalSession.TransactionId == int64(0) {
-					logging.Logger.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
+					log.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
 					break
 				}
 				foundGlobalSession := sessionManager.SessionMap[globalSession.Xid]
@@ -114,7 +114,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
 				if globalSession.TransactionId == int64(0) {
-					logging.Logger.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
+					log.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
 					break
 				}
 				delete(sessionManager.SessionMap, globalSession.Xid)
@@ -124,7 +124,7 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
 				if branchSession.TransactionId == int64(0) {
-					logging.Logger.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
+					log.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
 					break
 				}
 				foundGlobalSession := sessionManager.SessionMap[branchSession.Xid]
@@ -144,16 +144,16 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
 				if branchSession.TransactionId == int64(0) {
-					logging.Logger.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
+					log.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
 					break
 				}
 				foundGlobalSession := sessionManager.SessionMap[branchSession.Xid]
 				if foundGlobalSession == nil {
-					logging.Logger.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
+					log.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
 				} else {
 					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchId)
 					if existingBranch == nil {
-						logging.Logger.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
+						log.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
 					} else {
 						foundGlobalSession.Remove(existingBranch)
 					}

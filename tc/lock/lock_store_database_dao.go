@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 )
 
@@ -41,7 +41,7 @@ func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 	var existedRowLocks []*model.LockDO
 	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key", rowKeys)).Find(&existedRowLocks)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	currentXID := locks[0].Xid
 	canLock := true
@@ -49,7 +49,7 @@ func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 	unrepeatedLockDOs := make([]*model.LockDO, 0)
 	for _, rowLock := range existedRowLocks {
 		if rowLock.Xid != currentXID {
-			logging.Logger.Infof("Global lock on [{%s}:{%s}] is holding by xid {%s} branchId {%d}", "lock_table", rowLock.Pk, rowLock.Xid,
+			log.Infof("Global lock on [{%s}:{%s}] is holding by xid {%s} branchId {%d}", "lock_table", rowLock.Pk, rowLock.Xid,
 				rowLock.BranchId)
 			canLock = false
 			break
@@ -75,7 +75,7 @@ func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 
 	_, err = dao.engine.Table("lock_table").Insert(unrepeatedLockDOs)
 	if err != nil {
-		logging.Logger.Errorf("Global locks batch acquire failed, %v", unrepeatedLockDOs)
+		log.Errorf("Global locks batch acquire failed, %v", unrepeatedLockDOs)
 		return false
 	}
 	return true
@@ -125,7 +125,7 @@ func (dao *LockStoreDataBaseDao) UnLock(lockDOs []*model.LockDO) bool {
 		Delete(&lock)
 
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 		return false
 	}
 	return true
@@ -135,7 +135,7 @@ func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchId(xid string, branchId int
 	_, err := dao.engine.Exec(BatchDeleteLockByBranchId, xid, branchId)
 
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 		return false
 	}
 	return true
@@ -148,7 +148,7 @@ func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchIds(xid string, branchIds [
 		Delete(&lock)
 
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 		return false
 	}
 	return true
@@ -162,7 +162,7 @@ func (dao *LockStoreDataBaseDao) IsLockable(lockDOs []*model.LockDO) bool {
 	}
 	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key", rowKeys)).Find(&existedRowLocks)
 	if err != nil {
-		logging.Logger.Errorf(err.Error())
+		log.Errorf(err.Error())
 	}
 	currentXID := lockDOs[0].Xid
 	for _, rowLock := range existedRowLocks {

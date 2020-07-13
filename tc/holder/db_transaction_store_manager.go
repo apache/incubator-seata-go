@@ -2,7 +2,7 @@ package holder
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/uuid"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
@@ -51,7 +51,7 @@ func (storeManager *DBTransactionStoreManager) WriteSession(logOperation LogOper
 		}
 		return true
 	}
-	logging.Logger.Errorf("Unknown LogOperation:%v", logOperation)
+	log.Errorf("Unknown LogOperation:%v", logOperation)
 	return false
 }
 
@@ -191,7 +191,7 @@ func convertBranchSession(branchTransactionDO *model.BranchTransactionDO) *sessi
 func convertGlobalTransactionDO(sessionStorable session.SessionStorable) *model.GlobalTransactionDO {
 	globalSession, ok := sessionStorable.(*session.GlobalSession)
 	if sessionStorable == nil || !ok {
-		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
+		log.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
 		return nil
 	}
 	globalTransactionDO := &model.GlobalTransactionDO{
@@ -211,7 +211,7 @@ func convertGlobalTransactionDO(sessionStorable session.SessionStorable) *model.
 func convertBranchTransactionDO(sessionStorable session.SessionStorable) *model.BranchTransactionDO {
 	branchSession, ok := sessionStorable.(*session.BranchSession)
 	if sessionStorable == nil || !ok {
-		logging.Logger.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
+		log.Errorf("the parameter of SessionStorable is not available, SessionStorable:%v", sessionStorable)
 		return nil
 	}
 

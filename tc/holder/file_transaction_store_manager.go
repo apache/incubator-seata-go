@@ -12,7 +12,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/time"
 	"github.com/dk-lockdown/seata-golang/tc/model"
 	"github.com/dk-lockdown/seata-golang/tc/session"
@@ -84,7 +84,7 @@ func (storeManager *FileTransactionStoreManager) WriteSession(logOperation LogOp
 		LogOperation:   logOperation,
 	}).Encode()
 	if err != nil {
-		logging.Logger.Info(err.Error())
+		log.Info(err.Error())
 		return false
 	}
 	storeManager.writeDataFrame(data)

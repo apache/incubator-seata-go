@@ -15,7 +15,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
 	"github.com/dk-lockdown/seata-golang/client/context"
 	"github.com/dk-lockdown/seata-golang/client/proxy"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/pkg/time"
 )
 
@@ -51,14 +51,14 @@ type TccProxyService interface {
 
 func ImplementTCC(v TccProxyService) {
 	valueOf := reflect.ValueOf(v)
-	logging.Logger.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
+	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
 
 	valueOfElem := valueOf.Elem()
 	typeOf := valueOfElem.Type()
 
 	// check incoming interface, incoming interface's elem must be a struct.
 	if typeOf.Kind() != reflect.Struct {
-		logging.Logger.Errorf("%s must be a struct ptr", valueOf.String())
+		log.Errorf("%s must be a struct ptr", valueOf.String())
 		return
 	}
 	proxyService := v.GetTccService()
@@ -114,7 +114,7 @@ func ImplementTCC(v TccProxyService) {
 
 			// do method proxy here:
 			f.Set(reflect.MakeFunc(f.Type(), makeCallProxy(tryMethodDesc, tccResource)))
-			logging.Logger.Debugf("set method [%s]", methodName)
+			log.Debugf("set method [%s]", methodName)
 		}
 	}
 }
@@ -146,7 +146,7 @@ func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResour
 	if err == nil {
 		ctx.ActionContext[HOST_NAME] = ip
 	} else {
-		logging.Logger.Warn("getLocalIP error")
+		log.Warn("getLocalIP error")
 	}
 
 	applicationContext := make(map[string]interface{})
@@ -154,13 +154,13 @@ func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResour
 
 	applicationData, err := json.Marshal(applicationContext)
 	if err != nil {
-		logging.Logger.Errorf("marshal applicationContext failed:%v", applicationContext)
+		log.Errorf("marshal applicationContext failed:%v", applicationContext)
 		return "", err
 	}
 
 	branchId, err := tccResourceManager.BranchRegister(meta.BranchTypeTCC, ctx.ActionName, "", ctx.Xid, applicationData, "")
 	if err != nil {
-		logging.Logger.Errorf("TCC branch Register error, xid: %s", ctx.Xid)
+		log.Errorf("TCC branch Register error, xid: %s", ctx.Xid)
 		return "", errors.WithStack(err)
 	}
 	return strconv.FormatInt(branchId, 10), nil

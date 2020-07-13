@@ -14,7 +14,7 @@ import (
 	"github.com/dk-lockdown/seata-golang/client/at/undo/manager"
 	"github.com/dk-lockdown/seata-golang/client/getty"
 	"github.com/dk-lockdown/seata-golang/client/rm"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 type DataSourceManager struct {
@@ -72,9 +72,9 @@ func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchTy
 	db := resourceManager.getDB(resourceId)
 	err := undoLogManager.Undo(db.DB, xid, branchId, db.GetResourceId())
 	if err != nil {
-		logging.Logger.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchId:[%d], resourceId:[%s], applicationData:[%v]",
+		log.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchId:[%d], resourceId:[%s], applicationData:[%v]",
 			branchType, xid, branchId, resourceId, applicationData)
-		logging.Logger.Error(err)
+		log.Error(err)
 		return meta.BranchStatusPhasetwoCommitFailedRetryable, nil
 	}
 	return meta.BranchStatusPhasetwoRollbacked, nil
@@ -117,7 +117,7 @@ func (resourceManager DataSourceManager) handleBranchRollback() {
 func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
-	logging.Logger.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
+	log.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	status, err := resourceManager.BranchCommit(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
 		trxException, ok := err.(meta.TransactionException)
@@ -125,11 +125,11 @@ func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchC
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Xid = request.Xid
@@ -142,7 +142,7 @@ func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchC
 func (resourceManager DataSourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
 	var resp = protocal.BranchRollbackResponse{}
 
-	logging.Logger.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
+	log.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
 	status, err := resourceManager.BranchRollback(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
 		trxException, ok := err.(meta.TransactionException)
@@ -150,11 +150,11 @@ func (resourceManager DataSourceManager) doBranchRollback(request protocal.Branc
 		if ok {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			logging.Logger.Errorf("Catch TransactionException while do RPC, request: %v", request)
+			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
 			return resp
 		}
 		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		logging.Logger.Errorf("Catch RuntimeException while do RPC, request: %v", request)
+		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
 	resp.Xid = request.Xid

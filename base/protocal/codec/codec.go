@@ -10,7 +10,7 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 )
 
 type SerializerType byte
@@ -31,7 +31,7 @@ func MessageEncoder(codecType byte, in interface{}) []byte {
 	case SEATA:
 		return SeataEncoder(in)
 	default:
-		logging.Logger.Errorf("not support codecType, %s", codecType)
+		log.Errorf("not support codecType, %s", codecType)
 		return nil
 	}
 }
@@ -41,7 +41,7 @@ func MessageDecoder(codecType byte, in []byte) (interface{}, int) {
 	case SEATA:
 		return SeataDecoder(in)
 	default:
-		logging.Logger.Errorf("not support codecType, %s", codecType)
+		log.Errorf("not support codecType, %s", codecType)
 		return nil, 0
 	}
 }
@@ -102,7 +102,7 @@ func getMessageEncoder(typeCode int16) Encoder {
 		if encoder != nil {
 			return encoder
 		}
-		logging.Logger.Errorf("not support typeCode, %d", typeCode)
+		log.Errorf("not support typeCode, %d", typeCode)
 		return nil
 	}
 }
@@ -189,7 +189,7 @@ func getMessageDecoder(typeCode int16) Decoder {
 		if Decoder != nil {
 			return Decoder
 		}
-		logging.Logger.Errorf("not support typeCode, %d", typeCode)
+		log.Errorf("not support typeCode, %d", typeCode)
 		return nil
 	}
 }

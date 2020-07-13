@@ -2,7 +2,7 @@ package holder
 
 import (
 	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/logging"
+	"github.com/dk-lockdown/seata-golang/pkg/log"
 	"github.com/dk-lockdown/seata-golang/tc/config"
 	"github.com/dk-lockdown/seata-golang/tc/lock"
 	"github.com/dk-lockdown/seata-golang/tc/session"
@@ -68,7 +68,7 @@ func (sessionHolder SessionHolder) reload() {
 				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
 					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
 					meta.GlobalStatusFinished:
-					logging.Logger.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
+					log.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
 					break
 				case meta.GlobalStatusAsyncCommitting:
 					sessionHolder.AsyncCommittingSessionManager.AddGlobalSession(globalSession)
@@ -90,7 +90,7 @@ func (sessionHolder SessionHolder) reload() {
 						globalSession.Active = true
 						break
 					default:
-						logging.Logger.Errorf("NOT properly handled %s", globalSession.Status)
+						log.Errorf("NOT properly handled %s", globalSession.Status)
 						break
 					}
 					break
