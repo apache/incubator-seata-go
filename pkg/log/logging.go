@@ -78,3 +78,7 @@ func Panicf(format string, v ...interface{}) {
 		log.Panicf(format, v)
 	}
 }
+
+func SetSeataLoggerLogLevel(level LogLevel) {
+	seataLogger.LogLevel = level
+}
