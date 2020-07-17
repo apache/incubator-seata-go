@@ -274,6 +274,10 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 		}
 	}
 
+	if resultSession == nil {
+		return nil, errors.New("there is no suitable getty session")
+	}
+
 	return resultSession, nil
 }
 
