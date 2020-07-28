@@ -13,6 +13,7 @@ import (
 
 import (
 	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
+	"github.com/shima-park/agollo"
 )
 
 type ClientConfig struct {
