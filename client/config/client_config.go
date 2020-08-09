@@ -83,7 +83,7 @@ func InitConfWithDefault(applicationId string) {
 	(&clientConfig).GettyConfig.CheckValidity()
 }
 
-func InitEtcdConf(serverAddr string, appId string, nameSpace string) error {
+func InitApolloConf(serverAddr string, appId string, nameSpace string) error {
 
 	a, err := agollo.New(serverAddr, appId, agollo.AutoFetchOnCacheMiss())
 	if err != nil {
