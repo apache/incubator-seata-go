@@ -1,3 +1,4 @@
+ref: https://github.com/seata-golang/seata-golang/issues/<issueID>
 
 ### Ⅰ. Describe what this PR did
 
