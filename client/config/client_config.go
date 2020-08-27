@@ -8,12 +8,12 @@ import (
 
 import (
 	"github.com/pkg/errors"
+	"github.com/shima-park/agollo"
 	"gopkg.in/yaml.v2"
 )
 
 import (
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
-	"github.com/shima-park/agollo"
 )
 
 type ClientConfig struct {
