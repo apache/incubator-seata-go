@@ -13,6 +13,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
+	"github.com/shima-park/agollo"
 )
 
 type ClientConfig struct {
@@ -80,4 +81,31 @@ func InitConf(confFile string) error {
 func InitConfWithDefault(applicationId string) {
 	clientConfig = GetDefaultClientConfig(applicationId)
 	(&clientConfig).GettyConfig.CheckValidity()
+}
+
+func InitApolloConf(serverAddr string, appId string, nameSpace string) error {
+
+	a, err := agollo.New(serverAddr, appId, agollo.AutoFetchOnCacheMiss())
+	if err != nil {
+		return errors.WithMessagef(err, fmt.Sprintf("get etcd error:%s", err))
+	}
+
+	var config = a.Get("content", agollo.WithNamespace(nameSpace))
+	return initCommonConf([]byte(config))
+}
+func initCommonConf(confStream []byte) error {
+	var err error
+	err = yaml.Unmarshal(confStream, &clientConfig)
+	fmt.Println("config", clientConfig)
+	if err != nil {
+		return errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
+	}
+
+	(&clientConfig).GettyConfig.CheckValidity()
+	(&clientConfig).ATConfig.CheckValidity()
+
+	if clientConfig.ATConfig.DSN != "" {
+		cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(clientConfig.ATConfig.DSN))
+	}
+	return nil
 }
