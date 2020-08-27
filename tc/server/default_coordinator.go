@@ -13,17 +13,17 @@ import (
 )
 
 import (
-	getty2 "github.com/dk-lockdown/seata-golang/base/getty"
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	time2 "github.com/dk-lockdown/seata-golang/pkg/time"
-	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/tc/event"
-	"github.com/dk-lockdown/seata-golang/tc/holder"
-	"github.com/dk-lockdown/seata-golang/tc/lock"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	getty2 "github.com/transaction-wg/seata-golang/base/getty"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/base/protocal/codec"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	time2 "github.com/transaction-wg/seata-golang/pkg/time"
+	"github.com/transaction-wg/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/tc/event"
+	"github.com/transaction-wg/seata-golang/tc/holder"
+	"github.com/transaction-wg/seata-golang/tc/lock"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 const (

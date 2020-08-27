@@ -1,6 +1,6 @@
 package model
 
-import "github.com/dk-lockdown/seata-golang/base/meta"
+import "github.com/transaction-wg/seata-golang/base/meta"
 
 type SessionCondition struct {
 	TransactionId      int64

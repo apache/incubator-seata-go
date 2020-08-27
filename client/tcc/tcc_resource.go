@@ -1,8 +1,8 @@
 package tcc
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/proxy"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/client/proxy"
 )
 
 type TCCResource struct {

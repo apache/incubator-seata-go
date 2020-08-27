@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/base/common"
 	_ "net/http/pprof"
 	"os"
 	"strconv"
@@ -13,13 +13,13 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	"github.com/dk-lockdown/seata-golang/pkg/uuid"
-	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/tc/holder"
-	"github.com/dk-lockdown/seata-golang/tc/lock"
-	_ "github.com/dk-lockdown/seata-golang/tc/metrics"
-	"github.com/dk-lockdown/seata-golang/tc/server"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/uuid"
+	"github.com/transaction-wg/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/tc/holder"
+	"github.com/transaction-wg/seata-golang/tc/lock"
+	_ "github.com/transaction-wg/seata-golang/tc/metrics"
+	"github.com/transaction-wg/seata-golang/tc/server"
 )
 
 func main() {

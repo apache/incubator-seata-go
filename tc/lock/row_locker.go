@@ -5,8 +5,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/common"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 const LOCK_SPLIT = "^^^"

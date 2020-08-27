@@ -11,13 +11,13 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/client/proxy"
-	"github.com/dk-lockdown/seata-golang/client/rm"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/client/getty"
+	"github.com/transaction-wg/seata-golang/client/proxy"
+	"github.com/transaction-wg/seata-golang/client/rm"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 var (

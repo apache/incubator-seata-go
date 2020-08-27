@@ -9,8 +9,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 type SerializerType byte

@@ -1,8 +1,8 @@
 package lock
 
 import (
-	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/tc/session"
 	"sync"
 )
 

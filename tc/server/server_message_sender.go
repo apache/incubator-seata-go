@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/base/protocal"
 )
 
 type ServerMessageSender interface {

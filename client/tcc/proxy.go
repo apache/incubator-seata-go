@@ -12,11 +12,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/client/proxy"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	"github.com/dk-lockdown/seata-golang/pkg/time"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/client/proxy"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/time"
 )
 
 var (

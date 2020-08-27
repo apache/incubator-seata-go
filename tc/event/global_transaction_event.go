@@ -1,6 +1,6 @@
 package event
 
-import "github.com/dk-lockdown/seata-golang/base/meta"
+import "github.com/transaction-wg/seata-golang/base/meta"
 
 const (
 	RoleTC = "tc"

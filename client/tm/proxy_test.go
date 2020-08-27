@@ -10,8 +10,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client"
+	"github.com/transaction-wg/seata-golang/client/config"
 )
 
 type Dog struct {

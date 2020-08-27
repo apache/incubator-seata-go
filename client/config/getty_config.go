@@ -10,7 +10,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/getty/config"
+	"github.com/transaction-wg/seata-golang/base/getty/config"
 )
 
 // GettyConfig

@@ -1,7 +1,7 @@
 package holder
 
 import (
-	"github.com/dk-lockdown/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/tc/config"
 	"testing"
 )
 
@@ -10,8 +10,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/tc/model"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/tc/model"
 )
 
 func TestFileBasedSessionManager_AddGlobalSession(t *testing.T) {

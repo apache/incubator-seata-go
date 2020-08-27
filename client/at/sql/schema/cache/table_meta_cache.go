@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
 )
 
 type ITableMetaCache interface {

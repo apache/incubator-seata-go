@@ -6,10 +6,10 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	tx2 "github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	tx2 "github.com/transaction-wg/seata-golang/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client/context"
 )
 
 type DB struct {

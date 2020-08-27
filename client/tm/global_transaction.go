@@ -9,12 +9,12 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	context2 "github.com/dk-lockdown/seata-golang/client/context"
-	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client/context"
+	context2 "github.com/transaction-wg/seata-golang/client/context"
+	getty2 "github.com/transaction-wg/seata-golang/client/getty"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 const (

@@ -15,9 +15,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/sql_type"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/base/sql_type"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 var EXPIRE_TIME = 15 * time.Minute

@@ -10,7 +10,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
 )
 
 type MysqlInsertRecognizer struct {

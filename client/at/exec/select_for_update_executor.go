@@ -6,11 +6,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
+	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
 )
 
 type SelectForUpdateExecutor struct {

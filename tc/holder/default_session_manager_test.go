@@ -9,9 +9,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/common"
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T) {

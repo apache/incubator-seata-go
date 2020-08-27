@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 type TransactionWriteStore struct {

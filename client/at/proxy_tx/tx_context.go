@@ -10,9 +10,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/model"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	"github.com/dk-lockdown/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/base/model"
+	"github.com/transaction-wg/seata-golang/client/at/undo"
+	"github.com/transaction-wg/seata-golang/client/context"
 )
 
 type TxContext struct {

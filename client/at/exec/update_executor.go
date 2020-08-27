@@ -11,12 +11,12 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/mysql"
-	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
+	"github.com/transaction-wg/seata-golang/base/mysql"
+	"github.com/transaction-wg/seata-golang/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
+	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 )
 
 type UpdateExecutor struct {

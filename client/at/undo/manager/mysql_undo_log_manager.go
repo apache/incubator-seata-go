@@ -3,7 +3,7 @@ package manager
 import (
 	"database/sql"
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
 	"strings"
 	"time"
 )
@@ -13,11 +13,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/proxy_tx"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
-	parser2 "github.com/dk-lockdown/seata-golang/client/at/undo/parser"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
+	"github.com/transaction-wg/seata-golang/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/client/at/undo"
+	parser2 "github.com/transaction-wg/seata-golang/client/at/undo/parser"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 )
 
 const (

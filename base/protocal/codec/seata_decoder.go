@@ -9,8 +9,8 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/base/protocal"
 )
 
 func AbstractResultMessageDecoder(in []byte) (interface{}, int) {

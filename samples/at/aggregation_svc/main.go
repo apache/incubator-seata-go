@@ -5,10 +5,10 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/tm"
-	"github.com/dk-lockdown/seata-golang/samples/at/aggregation_svc/svc"
+	"github.com/transaction-wg/seata-golang/client"
+	"github.com/transaction-wg/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client/tm"
+	"github.com/transaction-wg/seata-golang/samples/at/aggregation_svc/svc"
 )
 
 var configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregation_svc/conf/client.yml"

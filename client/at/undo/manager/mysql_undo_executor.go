@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/dk-lockdown/seata-golang/base/mysql"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	sql2 "github.com/dk-lockdown/seata-golang/pkg/sql"
+	"github.com/transaction-wg/seata-golang/base/mysql"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 	"github.com/google/go-cmp/cmp"
 	"strings"
 )
@@ -16,9 +16,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema"
-	"github.com/dk-lockdown/seata-golang/client/at/sqlparser"
-	"github.com/dk-lockdown/seata-golang/client/at/undo"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
+	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
+	"github.com/transaction-wg/seata-golang/client/at/undo"
 )
 
 const (

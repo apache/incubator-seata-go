@@ -5,11 +5,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/uuid"
-	"github.com/dk-lockdown/seata-golang/tc/config"
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/uuid"
+	"github.com/transaction-wg/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/tc/model"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 type DataBaseSessionManager struct {

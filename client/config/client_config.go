@@ -12,7 +12,7 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client/at/sql/schema/cache"
+	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
 )
 
 type ClientConfig struct {

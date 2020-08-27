@@ -14,12 +14,12 @@ import (
 )
 
 import (
-	getty2 "github.com/dk-lockdown/seata-golang/base/getty"
-	"github.com/dk-lockdown/seata-golang/base/protocal"
-	"github.com/dk-lockdown/seata-golang/base/protocal/codec"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/model"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	getty2 "github.com/transaction-wg/seata-golang/base/getty"
+	"github.com/transaction-wg/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/base/protocal/codec"
+	"github.com/transaction-wg/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client/model"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 const (

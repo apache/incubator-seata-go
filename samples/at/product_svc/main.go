@@ -11,11 +11,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/client"
-	"github.com/dk-lockdown/seata-golang/client/at/exec"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	"github.com/dk-lockdown/seata-golang/client/context"
-	"github.com/dk-lockdown/seata-golang/samples/at/product_svc/dao"
+	"github.com/transaction-wg/seata-golang/client"
+	"github.com/transaction-wg/seata-golang/client/at/exec"
+	"github.com/transaction-wg/seata-golang/client/config"
+	"github.com/transaction-wg/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/samples/at/product_svc/dao"
 )
 
 const configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/product_svc/conf/client.yml"

@@ -10,11 +10,11 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/common"
-	"github.com/dk-lockdown/seata-golang/base/meta"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	"github.com/dk-lockdown/seata-golang/pkg/uuid"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/uuid"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 func TestLockManager_AcquireLock(t *testing.T) {

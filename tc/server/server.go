@@ -15,9 +15,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	"github.com/dk-lockdown/seata-golang/tc/config"
+	"github.com/transaction-wg/seata-golang/base/getty/readwriter"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/tc/config"
 )
 
 var (

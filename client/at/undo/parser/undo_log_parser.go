@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/dk-lockdown/seata-golang/client/at/undo"
+import "github.com/transaction-wg/seata-golang/client/at/undo"
 
 type UndoLogParser interface {
 	GetName() string

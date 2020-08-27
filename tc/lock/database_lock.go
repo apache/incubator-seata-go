@@ -9,9 +9,9 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/pkg/log"
-	"github.com/dk-lockdown/seata-golang/tc/model"
-	"github.com/dk-lockdown/seata-golang/tc/session"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/tc/model"
+	"github.com/transaction-wg/seata-golang/tc/session"
 )
 
 type DataBaseLocker struct {

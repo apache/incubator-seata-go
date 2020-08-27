@@ -1,4 +1,4 @@
-module github.com/dk-lockdown/seata-golang
+module github.com/transaction-wg/seata-golang
 
 go 1.14
 

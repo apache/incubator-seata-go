@@ -12,10 +12,10 @@ import (
 )
 
 import (
-	"github.com/dk-lockdown/seata-golang/base/getty/readwriter"
-	"github.com/dk-lockdown/seata-golang/client/config"
-	getty2 "github.com/dk-lockdown/seata-golang/client/getty"
-	"github.com/dk-lockdown/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/base/getty/readwriter"
+	"github.com/transaction-wg/seata-golang/client/config"
+	getty2 "github.com/transaction-wg/seata-golang/client/getty"
+	"github.com/transaction-wg/seata-golang/pkg/log"
 )
 
 var clientGrpool *gxsync.TaskPool
