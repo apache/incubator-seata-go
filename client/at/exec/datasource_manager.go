@@ -120,9 +120,9 @@ func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchC
 	log.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	status, err := resourceManager.BranchCommit(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
-		trxException, ok := err.(meta.TransactionException)
 		resp.ResultCode = protocal.ResultCodeFailed
-		if ok {
+		var trxException *meta.TransactionException
+		if errors.As(err, &trxException) {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
 			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
@@ -145,9 +145,9 @@ func (resourceManager DataSourceManager) doBranchRollback(request protocal.Branc
 	log.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
 	status, err := resourceManager.BranchRollback(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
 	if err != nil {
-		trxException, ok := err.(meta.TransactionException)
 		resp.ResultCode = protocal.ResultCodeFailed
-		if ok {
+		var trxException *meta.TransactionException
+		if errors.As(err, &trxException) {
 			resp.TransactionExceptionCode = trxException.Code
 			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
 			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
