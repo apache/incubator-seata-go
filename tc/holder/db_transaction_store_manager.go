@@ -10,7 +10,7 @@ import (
 
 type DBTransactionStoreManager struct {
 	logQueryLimit int
-	LogStore      ILogStore
+	LogStore      LogStore
 }
 
 func (storeManager *DBTransactionStoreManager) WriteSession(logOperation LogOperation, session session.SessionStorable) bool {

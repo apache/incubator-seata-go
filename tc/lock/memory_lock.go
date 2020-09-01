@@ -83,7 +83,7 @@ func (ml *MemoryLocker) GetLockKeyCount() int64 {
 	return ml.LockKeyCount
 }
 
-// AcquireLock 申请锁资源，resourceId -> tableName -> bucketId -> pk -> transactionId
+// acquireLockByRowLocks 申请锁资源，resourceId -> tableName -> bucketId -> pk -> transactionId
 func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSession, rowLocks []*RowLock) bool {
 	if rowLocks == nil {
 		return true

@@ -11,11 +11,11 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/mysql"
 	"github.com/transaction-wg/seata-golang/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
+	"github.com/transaction-wg/seata-golang/pkg/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 )
 

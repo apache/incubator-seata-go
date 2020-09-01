@@ -2,8 +2,8 @@ package holder
 
 import (
 	"github.com/Davmuz/gqt"
-	"github.com/transaction-wg/seata-golang/tc/model"
 	"github.com/go-playground/assert/v2"
+	"github.com/transaction-wg/seata-golang/tc/model"
 	"testing"
 )
 

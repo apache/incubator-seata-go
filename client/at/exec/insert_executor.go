@@ -3,7 +3,7 @@ package exec
 import (
 	"database/sql"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/base/mysql"
+	"github.com/transaction-wg/seata-golang/pkg/mysql"
 	"strings"
 )
 

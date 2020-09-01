@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/base/mysql"
-	"github.com/transaction-wg/seata-golang/pkg/log"
-	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 	"github.com/google/go-cmp/cmp"
+	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/mysql"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 	"strings"
 )
 

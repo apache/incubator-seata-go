@@ -7,7 +7,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/getty"
+	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
 )
 

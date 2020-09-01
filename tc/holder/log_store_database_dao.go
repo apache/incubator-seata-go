@@ -29,7 +29,7 @@ const (
 	QueryMaxBranchId          = "select max(branch_id) as maxBranchId from branch_table where branch_id < ? and branch_id > ?"
 )
 
-type ILogStore interface {
+type LogStore interface {
 	QueryGlobalTransactionDOByXid(xid string) *model.GlobalTransactionDO
 	QueryGlobalTransactionDOByTransactionId(transactionId int64) *model.GlobalTransactionDO
 	QueryGlobalTransactionDOByStatuses(statuses []int, limit int) []*model.GlobalTransactionDO

@@ -4,9 +4,9 @@ go 1.14
 
 require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
+	github.com/apache/dubbo-getty v1.3.9
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
-	github.com/dubbogo/getty v1.3.7
 	github.com/dubbogo/gost v1.9.0
 	github.com/gin-gonic/gin v1.6.2
 	github.com/go-playground/assert/v2 v2.0.1
@@ -14,7 +14,6 @@ require (
 	github.com/go-xorm/xorm v0.7.9
 	github.com/golang/protobuf v1.3.4
 	github.com/google/go-cmp v0.2.0
-	github.com/juju/testing v0.0.0-20200608005635-e4eedbc6f7aa // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
@@ -39,6 +38,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
+	mosn.io/pkg v0.0.0-20200828072719-b1321a2b1ab8
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 	xorm.io/builder v0.3.6
@@ -47,3 +47,5 @@ require (
 replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
 
 replace go.etcd.io/bbolt => github.com/coreos/bbolt v1.3.4
+
+replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.3.9

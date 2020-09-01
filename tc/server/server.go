@@ -10,7 +10,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/getty"
+	getty "github.com/apache/dubbo-getty"
 	"github.com/dubbogo/gost/sync"
 )
 

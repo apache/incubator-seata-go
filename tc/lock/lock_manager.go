@@ -9,21 +9,22 @@ import (
 var lockManager LockManager
 
 type LockManager interface {
-	// Acquire lock boolean.
+	// AcquireLock Acquire lock boolean.
 	AcquireLock(branchSession *session.BranchSession) bool
 
-	// Unlock boolean.
+	// ReleaseLock Unlock boolean.
 	ReleaseLock(branchSession *session.BranchSession) bool
 
-	// GlobalSession 是没有锁的，所有的锁都在 BranchSession 上，因为 BranchSession 才
-	// 持有资源，释放 GlobalSession 锁是指释放它所有的 BranchSession 上的锁
-	// Un lock boolean.
+	// GlobalSession 是没有锁的，所有的锁都在 BranchSession 上，因为
+	// BranchSession 才持有资源，释放 GlobalSession 锁是指释放它所有
+	// 的 BranchSession 上的锁.
+	// ReleaseGlobalSessionLock Unlock boolean.
 	ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool
 
-	// Is lockable boolean.
+	// IsLockable Is lockable boolean.
 	IsLockable(xid string, resourceId string, lockKey string) bool
 
-	// Clean all locks.
+	// CleanAllLocks Clean all locks.
 	CleanAllLocks()
 
 	GetLockKeyCount() int64

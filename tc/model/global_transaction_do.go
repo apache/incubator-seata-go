@@ -2,6 +2,7 @@ package model
 
 import "time"
 
+// GlobalTransactionDO for persist GlobalTransaction.
 type GlobalTransactionDO struct {
 	Xid string `xorm:"xid"`
 

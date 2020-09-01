@@ -3,6 +3,7 @@ package cache
 import (
 	"database/sql"
 	"fmt"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/sql"
 	"strings"
 	"time"
 )
@@ -15,7 +16,6 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/sql_type"
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
 	"github.com/transaction-wg/seata-golang/pkg/log"
 )
@@ -166,7 +166,7 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 		col.TableName = tableName.String
 		col.ColumnName = strings.Trim(columnName.String, "` ")
 		col.DataTypeName = dataType.String
-		col.DataType = sql_type.GetSqlType(dataType.String)
+		col.DataType = sql2.GetSqlType(dataType.String)
 		col.ColumnSize = columnSize.Int32
 		col.DecimalDigits = decimalDigits.Int32
 		col.NumPrecRadix = numPreRadix.Int32

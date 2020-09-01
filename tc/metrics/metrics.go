@@ -6,6 +6,7 @@ import (
 
 import (
 	"github.com/rcrowley/go-metrics"
+	"mosn.io/pkg/utils"
 )
 
 import (
@@ -232,5 +233,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 
 func init() {
 	subscriber := &MetricsSubscriber{}
-	go subscriber.ProcessGlobalTransactionEvent()
+	utils.GoWithRecover(func() {
+		subscriber.ProcessGlobalTransactionEvent()
+	}, nil)
 }

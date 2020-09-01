@@ -2,6 +2,7 @@ package model
 
 import "time"
 
+// LockDO for persist Lock.
 type LockDO struct {
 	Xid string `xorm:"xid"`
 

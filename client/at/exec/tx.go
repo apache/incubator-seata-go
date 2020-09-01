@@ -129,7 +129,7 @@ func (tx *Tx) register() (int64, error) {
 			break
 		}
 		log.Errorf("branch register err: %v", err)
-		var tex meta.TransactionException
+		var tex *meta.TransactionException
 		if errors.As(err, &tex) {
 			if tex.Code == meta.TransactionExceptionCodeGlobalTransactionNotExist {
 				break

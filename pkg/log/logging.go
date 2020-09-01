@@ -1,84 +1,35 @@
 package log
 
-var loggers = make([]Logger,0)
-
-func AddLogger(logger Logger) {
-	l := append(loggers, logger)
-	loggers = l
-}
+import getty "github.com/apache/dubbo-getty"
 
 func Debug(v ...interface{}) {
-	for _, log := range loggers {
-		log.Debug(v)
-	}
+	getty.GetLogger().Debug(v)
 }
 
 func Debugf(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Debugf(format, v)
-	}
+	getty.GetLogger().Debugf(format, v)
 }
 
 func Info(v ...interface{}) {
-	for _, log := range loggers {
-		log.Info(v)
-	}
+	getty.GetLogger().Info(v)
 }
 
 func Infof(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Infof(format, v)
-	}
+	getty.GetLogger().Infof(format, v)
 }
 
 func Warn(v ...interface{}) {
-	for _, log := range loggers {
-		log.Warn(v)
-	}
+	getty.GetLogger().Warn(v)
 }
 
 func Warnf(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Warnf(format, v)
-	}
+	getty.GetLogger().Warnf(format, v)
 }
 
 func Error(v ...interface{}) {
-	for _, log := range loggers {
-		log.Error(v)
-	}
+	getty.GetLogger().Error(v)
 }
 
 func Errorf(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Errorf(format, v)
-	}
-}
-
-func Fatal(v ...interface{}) {
-	for _, log := range loggers {
-		log.Fatal(v)
-	}
-}
-
-func Fatalf(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Fatalf(format, v)
-	}
-}
-
-func Panic(v ...interface{}) {
-	for _, log := range loggers {
-		log.Panic(v)
-	}
-}
-
-func Panicf(format string, v ...interface{}) {
-	for _, log := range loggers {
-		log.Panicf(format, v)
-	}
-}
-
-func SetSeataLoggerLogLevel(level LogLevel) {
-	seataLogger.LogLevel = level
+	getty.GetLogger().Errorf(format, v)
 }

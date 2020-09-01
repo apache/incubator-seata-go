@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/transaction-wg/seata-golang/samples/tcc/service"
 	"github.com/gin-gonic/gin"
+	"github.com/transaction-wg/seata-golang/samples/tcc/service"
 )
 
 import (

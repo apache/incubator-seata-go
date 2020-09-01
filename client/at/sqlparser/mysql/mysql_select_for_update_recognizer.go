@@ -1,9 +1,9 @@
 package mysql
 
 import (
-	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/format"
+	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
 	"strings"
 )
 

@@ -64,13 +64,7 @@ func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.Br
 	if response.ResultCode == protocal.ResultCodeSuccess {
 		return response.BranchId, nil
 	} else {
-		if response.TransactionExceptionCode == meta.TransactionExceptionCodeGlobalTransactionNotExist {
-			return 0, &meta.TransactionException{
-				Message: response.Msg,
-				Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
-			}
-		}
-		return 0, errors.New(response.Msg)
+		return 0, response.GetError()
 	}
 }
 
@@ -88,7 +82,7 @@ func (resourceManager AbstractResourceManager) BranchReport(branchType meta.Bran
 	}
 	response := resp.(protocal.BranchReportResponse)
 	if response.ResultCode == protocal.ResultCodeFailed {
-		return errors.Errorf("Response[ %s ]", response.Msg)
+		return response.GetError()
 	}
 	return nil
 }

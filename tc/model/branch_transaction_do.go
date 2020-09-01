@@ -2,6 +2,7 @@ package model
 
 import "time"
 
+// BranchTransactionDO for persist BranchTransaction.
 type BranchTransactionDO struct {
 	Xid string `xorm:"xid"`
 

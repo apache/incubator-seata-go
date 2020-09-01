@@ -43,7 +43,7 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 		for _, branchSession := range unhandledBranchBuffer {
 			found := sessionManager.SessionMap[branchSession.Xid]
 			if found == nil {
-				log.Infof("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
+				log.Warnf("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
 			} else {
 				existingBranch := found.GetBranch(branchSession.BranchId)
 				if existingBranch == nil {

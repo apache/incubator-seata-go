@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/dubbogo/getty"
+	getty "github.com/apache/dubbo-getty"
 )
 
 import (

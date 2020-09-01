@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"github.com/transaction-wg/seata-golang/pkg/sql"
 	"testing"
 )
 
@@ -10,7 +11,6 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/sql_type"
 	"github.com/transaction-wg/seata-golang/client/at/sql/schema"
 	"github.com/transaction-wg/seata-golang/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/client/at/undo"
@@ -34,25 +34,25 @@ func getBranchUndoLog() *undo.BranchUndoLog {
 								{
 									Name:    "id",
 									KeyType: schema.PRIMARY_KEY,
-									Type:    sql_type.BIGINT,
+									Type:    sql.BIGINT,
 									Value:   int64(2000001),
 								},
 								{
 									Name:    "name",
 									KeyType: schema.NULL,
-									Type:    sql_type.VARCHAR,
+									Type:    sql.VARCHAR,
 									Value:   []byte("scott"),
 								},
 								{
 									Name:    "age",
 									KeyType: schema.NULL,
-									Type:    sql_type.INTEGER,
+									Type:    sql.INTEGER,
 									Value:   int64(28),
 								},
 								{
 									Name:    "avatar",
 									KeyType: schema.NULL,
-									Type:    sql_type.BLOB,
+									Type:    sql.BLOB,
 									Value: []byte{1, 40, 1, 32, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 112, 0, 112,
 										0, 0, 1, 31, 0, 116, 69, 120, 105, 102, 0, 0, 77, 77, 0, 42, 0, 0, 0, 8, 0, 4,
 										1, 26, 0, 5, 0, 0, 0, 1, 0, 0, 0, 62, 1, 27, 0, 5, 0, 0, 0, 1, 0, 0, 0, 70, 1, 40,

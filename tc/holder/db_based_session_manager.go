@@ -81,7 +81,9 @@ func (sessionManager *DataBaseSessionManager) AddBranchSession(globalSession *se
 	}
 	ret := sessionManager.TransactionStoreManager.WriteSession(LogOperationBranchAdd, session)
 	if !ret {
-		return errors.New("addBranchSession failed.")
+		return meta.NewTransactionException(nil,
+			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeFailedToAddBranch),
+			meta.WithMessage("addBranchSession failed."))
 	}
 	return nil
 }
@@ -92,7 +94,7 @@ func (sessionManager *DataBaseSessionManager) UpdateBranchSessionStatus(session 
 	}
 	ret := sessionManager.TransactionStoreManager.WriteSession(LogOperationBranchUpdate, session)
 	if !ret {
-		return errors.New("addBranchSession failed.")
+		return errors.New("updateBranchSessionStatus failed.")
 	}
 	return nil
 }

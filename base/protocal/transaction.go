@@ -9,6 +9,13 @@ type AbstractTransactionResponse struct {
 	TransactionExceptionCode meta.TransactionExceptionCode
 }
 
+func (resp AbstractTransactionResponse) GetError() error {
+	return &meta.TransactionException{
+		Code:    resp.TransactionExceptionCode,
+		Message: resp.Msg,
+	}
+}
+
 type AbstractBranchEndRequest struct {
 	Xid             string
 	BranchId        int64
