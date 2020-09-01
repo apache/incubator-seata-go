@@ -6,7 +6,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/tc/model"
 	"github.com/transaction-wg/seata-golang/tc/session"
 )

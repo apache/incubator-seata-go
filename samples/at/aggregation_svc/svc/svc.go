@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/client/tm"
+	"github.com/transaction-wg/seata-golang/pkg/tm"
 	"net/http"
 )
 
 import (
-	context2 "github.com/transaction-wg/seata-golang/client/context"
+	context2 "github.com/transaction-wg/seata-golang/pkg/context"
 	"github.com/transaction-wg/seata-golang/samples/at/order_svc/dao"
 	dao2 "github.com/transaction-wg/seata-golang/samples/at/product_svc/dao"
 )

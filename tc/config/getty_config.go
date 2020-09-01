@@ -16,9 +16,9 @@ import (
 // Config holds supported types by the multiconfig package
 type GettyConfig struct {
 	// getty_session
-	SessionTmt     string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
-	SessionTimeout time.Duration
-	SessionNumber  int `default:"1000" yaml:"session_number" json:"session_number,omitempty"`
+	Session_Timeout string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
+	SessionTimeout  time.Duration
+	SessionNumber   int `default:"1000" yaml:"session_number" json:"session_number,omitempty"`
 
 	// grpool
 	GrPoolSize  int `default:"0" yaml:"gr_pool_size" json:"gr_pool_size,omitempty"`
@@ -33,7 +33,7 @@ type GettyConfig struct {
 func (c *GettyConfig) CheckValidity() error {
 	var err error
 
-	if c.SessionTimeout, err = time.ParseDuration(c.SessionTmt); err != nil {
+	if c.SessionTimeout, err = time.ParseDuration(c.Session_Timeout); err != nil {
 		return errors.WithMessagef(err, "time.ParseDuration(SessionTimeout{%#v})", c.SessionTimeout)
 	}
 
@@ -48,11 +48,11 @@ func (c *GettyConfig) CheckValidity() error {
 // GetDefaultGettyConfig ...
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
-		SessionTmt:    "180s",
-		SessionNumber: 700,
-		GrPoolSize:    200,
-		QueueNumber:   6,
-		QueueLen:      64,
+		Session_Timeout: "180s",
+		SessionNumber:   700,
+		GrPoolSize:      200,
+		QueueNumber:     6,
+		QueueLen:        64,
 		GettySessionParam: config.GettySessionParam{
 			CompressEncoding: false,
 			TcpNoDelay:       true,

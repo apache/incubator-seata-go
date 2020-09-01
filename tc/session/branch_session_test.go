@@ -10,7 +10,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/uuid"
+	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 )
 
 func TestBranchSession_Encode_Decode(t *testing.T) {

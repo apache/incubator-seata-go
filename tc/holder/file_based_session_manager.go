@@ -2,8 +2,8 @@ package holder
 
 import (
 	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/log"
-	"github.com/transaction-wg/seata-golang/pkg/uuid"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 	"github.com/transaction-wg/seata-golang/tc/config"
 	"github.com/transaction-wg/seata-golang/tc/session"
 )

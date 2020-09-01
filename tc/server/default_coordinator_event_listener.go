@@ -7,7 +7,7 @@ import (
 import (
 	getty2 "github.com/transaction-wg/seata-golang/base/getty"
 	"github.com/transaction-wg/seata-golang/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {

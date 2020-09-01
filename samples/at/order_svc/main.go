@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"github.com/transaction-wg/seata-golang/pkg"
 	"net/http"
 	"time"
 )
@@ -11,10 +12,9 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/client"
-	"github.com/transaction-wg/seata-golang/client/at/exec"
-	"github.com/transaction-wg/seata-golang/client/config"
-	"github.com/transaction-wg/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/pkg/at/exec"
+	"github.com/transaction-wg/seata-golang/pkg/config"
+	"github.com/transaction-wg/seata-golang/pkg/context"
 	"github.com/transaction-wg/seata-golang/samples/at/order_svc/dao"
 )
 
@@ -23,7 +23,7 @@ const configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/order_s
 func main() {
 	r := gin.Default()
 	config.InitConf(configPath)
-	client.NewRpcClient()
+	pkg.NewRpcClient()
 	exec.InitDataResourceManager()
 
 	sqlDB, err := sql.Open("mysql", config.GetATConfig().DSN)

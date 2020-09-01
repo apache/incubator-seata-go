@@ -10,7 +10,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 func AbstractResultMessageEncoder(in interface{}) []byte {

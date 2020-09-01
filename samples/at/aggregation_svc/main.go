@@ -2,12 +2,12 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/transaction-wg/seata-golang/pkg"
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/client"
-	"github.com/transaction-wg/seata-golang/client/config"
-	"github.com/transaction-wg/seata-golang/client/tm"
+	"github.com/transaction-wg/seata-golang/pkg/config"
+	"github.com/transaction-wg/seata-golang/pkg/tm"
 	"github.com/transaction-wg/seata-golang/samples/at/aggregation_svc/svc"
 )
 
@@ -16,7 +16,7 @@ var configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregati
 func main() {
 	r := gin.Default()
 	config.InitConf(configPath)
-	client.NewRpcClient()
+	pkg.NewRpcClient()
 	tm.Implement(svc.ProxySvc)
 
 	r.GET("/createSoCommit", func(c *gin.Context) {

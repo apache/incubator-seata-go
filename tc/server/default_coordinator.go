@@ -16,8 +16,8 @@ import (
 	"github.com/transaction-wg/seata-golang/base/meta"
 	"github.com/transaction-wg/seata-golang/base/protocal"
 	"github.com/transaction-wg/seata-golang/base/protocal/codec"
-	"github.com/transaction-wg/seata-golang/pkg/log"
-	time2 "github.com/transaction-wg/seata-golang/pkg/time"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	time2 "github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/tc/config"
 	"github.com/transaction-wg/seata-golang/tc/event"
 	"github.com/transaction-wg/seata-golang/tc/holder"
@@ -50,7 +50,7 @@ func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
 		timeoutCheckTicker:     time.NewTicker(conf.TimeoutRetryPeriod),
 		retryRollbackingTicker: time.NewTicker(conf.RollbackingRetryPeriod),
 		retryCommittingTicker:  time.NewTicker(conf.CommittingRetryPeriod),
-		asyncCommittingTicker:  time.NewTicker(conf.AsynCommittingRetryPeriod),
+		asyncCommittingTicker:  time.NewTicker(conf.AsyncCommittingRetryPeriod),
 		undoLogDeleteTicker:    time.NewTicker(conf.LogDeletePeriod),
 	}
 	core := NewCore(coordinator)

@@ -9,8 +9,8 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/client/at/exec"
-	"github.com/transaction-wg/seata-golang/client/context"
+	"github.com/transaction-wg/seata-golang/pkg/at/exec"
+	"github.com/transaction-wg/seata-golang/pkg/context"
 )
 
 const (

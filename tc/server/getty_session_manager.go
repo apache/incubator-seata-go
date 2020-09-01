@@ -15,7 +15,7 @@ import (
 	"github.com/transaction-wg/seata-golang/base/meta"
 	"github.com/transaction-wg/seata-golang/base/model"
 	"github.com/transaction-wg/seata-golang/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 var (
@@ -275,7 +275,7 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 	}
 
 	if resultSession == nil {
-		return nil, errors.New("there is no suitable getty session")
+		return nil, errors.New("there is no suitable client session")
 	}
 
 	return resultSession, nil

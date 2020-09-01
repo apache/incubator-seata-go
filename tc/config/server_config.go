@@ -31,15 +31,15 @@ type ServerConfig struct {
 	MaxRollbackRetryTimeout          int64  `default:"-1" yaml:"max_rollback_retry_timeout" json:"max_rollback_retry_timeout,omitempty"`
 	RollbackRetryTimeoutUnlockEnable bool   `default:"false" yaml:"rollback_retry_timeout_unlock_enable" json:"rollback_retry_timeout_unlock_enable,omitempty"`
 	MaxCommitRetryTimeout            int64  `default:"-1" yaml:"max_commit_retry_timeout" json:"max_commit_retry_timeout,omitempty"`
-	TimeoutRetryPrd                  string `default:"1s" yaml:"timeout_retry_period" json:"timeout_retry_period,omitempty"`
+	Timeout_Retry_Period             string `default:"1s" yaml:"timeout_retry_period" json:"timeout_retry_period,omitempty"`
 	TimeoutRetryPeriod               time.Duration
-	RollbackingRetryPrd              string `default:"1s" yaml:"rollbacking_retry_period" json:"rollbacking_retry_period,omitempty"`
+	Rollbacking_Retry_Period         string `default:"1s" yaml:"rollbacking_retry_period" json:"rollbacking_retry_period,omitempty"`
 	RollbackingRetryPeriod           time.Duration
-	CommittingRetryPrd               string `default:"1s" yaml:"committing_retry_period" json:"committing_retry_period,omitempty"`
+	Committing_Retry_Period          string `default:"1s" yaml:"committing_retry_period" json:"committing_retry_period,omitempty"`
 	CommittingRetryPeriod            time.Duration
-	AsynCommittingRetryPrd           string `default:"1s" yaml:"aync_committing_retry_period" json:"aync_committing_retry_period,omitempty"`
-	AsynCommittingRetryPeriod        time.Duration
-	LogDeletePrd                     string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
+	Async_Committing_Retry_Period    string `default:"1s" yaml:"async_committing_retry_period" json:"async_committing_retry_period,omitempty"`
+	AsyncCommittingRetryPeriod       time.Duration
+	Log_Delete_Period                string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
 	LogDeletePeriod                  time.Duration
 	GettyConfig                      GettyConfig `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
 	UndoConfig                       UndoConfig  `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
@@ -48,24 +48,24 @@ type ServerConfig struct {
 
 func (c *ServerConfig) CheckValidity() error {
 	var err error
-	if conf.TimeoutRetryPeriod, err = time.ParseDuration(conf.TimeoutRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(TimeoutRetryPrd{%#v})", conf.TimeoutRetryPrd)
+	if conf.TimeoutRetryPeriod, err = time.ParseDuration(conf.Timeout_Retry_Period); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(Timeout_Retry_Period{%#v})", conf.Timeout_Retry_Period)
 	}
 
-	if conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.RollbackingRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(RollbackingRetryPrd{%#v})", conf.RollbackingRetryPrd)
+	if conf.RollbackingRetryPeriod, err = time.ParseDuration(conf.Rollbacking_Retry_Period); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(Rollbacking_Retry_Period{%#v})", conf.Rollbacking_Retry_Period)
 	}
 
-	if conf.CommittingRetryPeriod, err = time.ParseDuration(conf.CommittingRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(CommittingRetryPrd{%#v})", conf.CommittingRetryPrd)
+	if conf.CommittingRetryPeriod, err = time.ParseDuration(conf.Committing_Retry_Period); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(Committing_Retry_Period{%#v})", conf.Committing_Retry_Period)
 	}
 
-	if conf.AsynCommittingRetryPeriod, err = time.ParseDuration(conf.AsynCommittingRetryPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(AsynCommittingRetryPrd{%#v})", conf.AsynCommittingRetryPrd)
+	if conf.AsyncCommittingRetryPeriod, err = time.ParseDuration(conf.Async_Committing_Retry_Period); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(Async_Committing_Retry_Period{%#v})", conf.Async_Committing_Retry_Period)
 	}
 
-	if conf.LogDeletePeriod, err = time.ParseDuration(conf.LogDeletePrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(LogDeletePrd{%#v})", conf.LogDeletePrd)
+	if conf.LogDeletePeriod, err = time.ParseDuration(conf.Log_Delete_Period); err != nil {
+		return errors.WithMessagef(err, "time.ParseDuration(Log_Delete_Period{%#v})", conf.Log_Delete_Period)
 	}
 
 	return errors.WithStack(c.GettyConfig.CheckValidity())

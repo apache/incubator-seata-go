@@ -16,7 +16,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/base/getty/readwriter"
-	"github.com/transaction-wg/seata-golang/pkg/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/tc/config"
 )
 
