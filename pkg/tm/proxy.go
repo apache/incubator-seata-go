@@ -72,20 +72,20 @@ func Implement(v GlobalTransactionProxyService) {
 			defer tx.Resume(suspendedResourcesHolder, invCtx)
 
 			switch txInfo.Propagation {
+			case REQUIRED:
+				break
+			case REQUIRES_NEW:
+				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
+				break
 			case NOT_SUPPORTED:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
 				return returnValues
-			case REQUIRES_NEW:
-				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
-				break
 			case SUPPORTS:
 				if !invCtx.InGlobalTransaction() {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
-				break
-			case REQUIRED:
 				break
 			case NEVER:
 				if invCtx.InGlobalTransaction() {
