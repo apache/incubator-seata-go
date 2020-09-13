@@ -147,7 +147,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
 	if gtx.Xid == "" {
 		return errors.New("xid should not be empty")
 	}
-	retry := gtx.conf.CommitRetryCount
+	retry := gtx.conf.RollbackRetryCount
 	for retry > 0 {
 		status, err := gtx.transactionManager.Rollback(gtx.Xid)
 		if err != nil {
