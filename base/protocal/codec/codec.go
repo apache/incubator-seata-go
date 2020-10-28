@@ -123,6 +123,8 @@ func getMergeRequestMessageEncoder(typeCode int16) Encoder {
 		return BranchRegisterRequestEncoder
 	case protocal.TypeBranchStatusReport:
 		return BranchReportRequestEncoder
+	case protocal.TypeRmDeleteUndolog:
+		return UndoLogDeleteRequestEncoder
 	case protocal.TypeGlobalReport:
 		return GlobalReportRequestEncoder
 	default:
@@ -210,6 +212,8 @@ func getMergeRequestMessageDecoder(typeCode int16) Decoder {
 		return BranchRegisterRequestDecoder
 	case protocal.TypeBranchStatusReport:
 		return BranchReportRequestDecoder
+	case protocal.TypeRmDeleteUndolog:
+		return UndoLogDeleteRequestDecoder
 	case protocal.TypeGlobalReport:
 		return GlobalReportRequestDecoder
 	default:
