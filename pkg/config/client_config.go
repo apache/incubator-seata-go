@@ -53,10 +53,10 @@ func InitConf(confFile string) error {
 	var err error
 
 	if confFile == "" {
-		return errors.WithMessagef(err, fmt.Sprintf("application configure file name is nil"))
+		return errors.New(fmt.Sprintf("application configure file name is nil"))
 	}
 	if path.Ext(confFile) != ".yml" {
-		return errors.WithMessagef(err, fmt.Sprintf("application configure file name{%v} suffix must be .yml", confFile))
+		return errors.New(fmt.Sprintf("application configure file name{%v} suffix must be .yml", confFile))
 	}
 
 	clientConfig = ClientConfig{}
