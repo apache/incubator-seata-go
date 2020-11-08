@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"mosn.io/pkg/utils"
 )
 
 import (
 	"github.com/transaction-wg/seata-golang/base/meta"
 	"github.com/transaction-wg/seata-golang/base/protocal"
+	"github.com/transaction-wg/seata-golang/base/runtime"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/tc/event"
@@ -134,7 +134,7 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeBeginFailed))
 	}
 
-	utils.GoWithRecover(func() {
+	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gs.TransactionId, event.RoleTC, gs.TransactionName, gs.BeginTime, 0, gs.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
@@ -347,7 +347,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 		err     error
 	)
 
-	utils.GoWithRecover(func() {
+	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
@@ -408,7 +408,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	if success {
 		endCommitted(globalSession)
 
-		utils.GoWithRecover(func() {
+		runtime.GoWithRecover(func() {
 			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
 				int64(time.CurrentTimeMillis()), globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt
@@ -452,7 +452,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		err     error
 	)
 
-	utils.GoWithRecover(func() {
+	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
@@ -506,7 +506,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 	if success {
 		endRollBacked(globalSession)
 
-		utils.GoWithRecover(func() {
+		runtime.GoWithRecover(func() {
 			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
 				int64(time.CurrentTimeMillis()), globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt

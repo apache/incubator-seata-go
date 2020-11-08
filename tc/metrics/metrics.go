@@ -6,11 +6,11 @@ import (
 
 import (
 	"github.com/rcrowley/go-metrics"
-	"mosn.io/pkg/utils"
 )
 
 import (
 	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/base/runtime"
 	"github.com/transaction-wg/seata-golang/tc/event"
 )
 
@@ -233,7 +233,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 
 func init() {
 	subscriber := &MetricsSubscriber{}
-	utils.GoWithRecover(func() {
+	runtime.GoWithRecover(func() {
 		subscriber.ProcessGlobalTransactionEvent()
 	}, nil)
 }
