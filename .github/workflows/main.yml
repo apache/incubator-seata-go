@@ -12,7 +12,7 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+  # This workflow contains a single job called "lint"
   lint:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
@@ -31,4 +31,4 @@ jobs:
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
           go get -u golang.org/x/lint/golint 
-          make lint
+          golint ./...
