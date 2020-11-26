@@ -18,7 +18,7 @@ import (
 	"github.com/transaction-wg/seata-golang/samples/at/product_svc/dao"
 )
 
-const configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/product_svc/conf/client.yml"
+const configPath = "./conf/client.yml"
 
 func main() {
 	r := gin.Default()
