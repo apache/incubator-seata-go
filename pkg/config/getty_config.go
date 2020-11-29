@@ -5,7 +5,6 @@ import (
 )
 
 import (
-	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
 )
 
@@ -24,19 +23,6 @@ type GettyConfig struct {
 	HeartbeatPrd    string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
 	HeartbeatPeriod time.Duration
 
-	// getty_session
-	SessionTmt     string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
-	SessionTimeout time.Duration
-
-	// Connection Pool
-	PoolSize int `default:"2" yaml:"pool_size" json:"pool_size,omitempty"`
-	PoolTTL  int `default:"180" yaml:"pool_ttl" json:"pool_ttl,omitempty"`
-
-	// grpool
-	GrPoolSize  int `default:"0" yaml:"gr_pool_size" json:"gr_pool_size,omitempty"`
-	QueueLen    int `default:"0" yaml:"queue_len" json:"queue_len,omitempty"`
-	QueueNumber int `default:"0" yaml:"queue_number" json:"queue_number,omitempty"`
-
 	// getty_session tcp parameters
 	GettySessionParam config.GettySessionParam `required:"true" yaml:"getty_session_param" json:"getty_session_param,omitempty"`
 }
@@ -49,15 +35,6 @@ func (c *GettyConfig) CheckValidity() error {
 		return errors.WithMessagef(err, "time.ParseDuration(HeartbeatPeriod{%#v})", c.HeartbeatPrd)
 	}
 
-	if c.SessionTimeout, err = time.ParseDuration(c.SessionTmt); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(SessionTimeout{%#v})", c.SessionTimeout)
-	}
-
-	if c.SessionTimeout >= time.Duration(getty.MaxWheelTimeSpan) {
-		return errors.WithMessagef(err, "session_timeout %s should be less than %s",
-			c.SessionTimeout, time.Duration(getty.MaxWheelTimeSpan))
-	}
-
 	return errors.WithStack(c.GettySessionParam.CheckValidity())
 }
 
@@ -67,12 +44,6 @@ func GetDefaultGettyConfig() GettyConfig {
 		ReconnectInterval: 0,
 		ConnectionNum:     1,
 		HeartbeatPrd:      "10s",
-		SessionTmt:        "180s",
-		PoolSize:          4,
-		PoolTTL:           600,
-		GrPoolSize:        200,
-		QueueLen:          64,
-		QueueNumber:       10,
 		GettySessionParam: config.GettySessionParam{
 			CompressEncoding: false,
 			TcpNoDelay:       true,

@@ -9,8 +9,6 @@ async_committing_retry_period: "1m"
 log_delete_period: "24h"
 getty_config:
   session_timeout : "20s"
-  session_number : 700
-  gr_pool_size: 200
   getty_session_param:
     compress_encoding : false
     tcp_no_delay : true

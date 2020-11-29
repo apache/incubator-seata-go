@@ -4,10 +4,10 @@ go 1.14
 
 require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
-	github.com/apache/dubbo-getty v1.3.9
+	github.com/apache/dubbo-getty v1.4.0-rc1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
-	github.com/dubbogo/gost v1.9.0
+	github.com/dubbogo/gost v1.9.6
 	github.com/gin-gonic/gin v1.6.2
 	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-sql-driver/mysql v1.4.1
@@ -48,4 +48,4 @@ replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
 
 replace go.etcd.io/bbolt => github.com/coreos/bbolt v1.3.4
 
-replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.3.9
+replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.4.0-rc1

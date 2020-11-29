@@ -18,12 +18,6 @@ type GettyConfig struct {
 	// getty_session
 	Session_Timeout string `default:"60s" yaml:"session_timeout" json:"session_timeout,omitempty"`
 	SessionTimeout  time.Duration
-	SessionNumber   int `default:"1000" yaml:"session_number" json:"session_number,omitempty"`
-
-	// grpool
-	GrPoolSize  int `default:"0" yaml:"gr_pool_size" json:"gr_pool_size,omitempty"`
-	QueueLen    int `default:"0" yaml:"queue_len" json:"queue_len,omitempty"`
-	QueueNumber int `default:"0" yaml:"queue_number" json:"queue_number,omitempty"`
 
 	// getty_session tcp parameters
 	GettySessionParam config.GettySessionParam `required:"true" yaml:"getty_session_param" json:"getty_session_param,omitempty"`
@@ -49,10 +43,6 @@ func (c *GettyConfig) CheckValidity() error {
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		Session_Timeout: "180s",
-		SessionNumber:   700,
-		GrPoolSize:      200,
-		QueueNumber:     6,
-		QueueLen:        64,
 		GettySessionParam: config.GettySessionParam{
 			CompressEncoding: false,
 			TcpNoDelay:       true,

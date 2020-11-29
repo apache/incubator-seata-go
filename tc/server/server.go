@@ -20,19 +20,6 @@ import (
 	"github.com/transaction-wg/seata-golang/tc/config"
 )
 
-var (
-	srvGrpool *gxsync.TaskPool
-)
-
-func SetServerGrpool() {
-	srvConf := config.GetServerConfig()
-	if srvConf.GettyConfig.GrPoolSize > 1 {
-		srvGrpool = gxsync.NewTaskPool(gxsync.WithTaskPoolTaskPoolSize(srvConf.GettyConfig.GrPoolSize),
-			gxsync.WithTaskPoolTaskQueueLength(srvConf.GettyConfig.QueueLen),
-			gxsync.WithTaskPoolTaskQueueNumber(srvConf.GettyConfig.QueueNumber))
-	}
-}
-
 type Server struct {
 	conf       config.ServerConfig
 	tcpServer  getty.Server
@@ -40,7 +27,6 @@ type Server struct {
 }
 
 func NewServer() *Server {
-	SetServerGrpool()
 	s := &Server{
 		conf: config.GetServerConfig(),
 	}
@@ -84,8 +70,6 @@ func (s *Server) newSession(session getty.Session) error {
 	session.SetWaitTime(conf.GettyConfig.GettySessionParam.WaitTimeout)
 	log.Debugf("app accepts new session:%s\n", session.Stat())
 
-	session.SetTaskPool(srvGrpool)
-
 	return nil
 }
 
@@ -96,6 +80,7 @@ func (s *Server) Start(addr string) {
 
 	tcpServer = getty.NewTCPServer(
 		getty.WithLocalAddress(addr),
+		getty.WithServerTaskPool(gxsync.NewTaskPoolSimple(0)),
 	)
 	tcpServer.RunEventLoop(s.newSession)
 	log.Debugf("s bind addr{%s} ok!", addr)
