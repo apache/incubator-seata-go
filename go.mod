@@ -6,16 +6,14 @@ require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
 	github.com/apache/dubbo-getty v1.4.0-rc1
 	github.com/bwmarrin/snowflake v0.3.0
-	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
 	github.com/dubbogo/gost v1.9.6
 	github.com/gin-gonic/gin v1.6.2
 	github.com/go-playground/assert/v2 v2.0.1
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-xorm/xorm v0.7.9
 	github.com/golang/protobuf v1.3.4
 	github.com/google/go-cmp v0.2.0
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
@@ -41,7 +39,8 @@ require (
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
-	xorm.io/builder v0.3.6
+	xorm.io/builder v0.3.7
+	xorm.io/xorm v1.0.5
 )
 
 replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4

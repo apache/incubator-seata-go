@@ -1,21 +1,17 @@
 package main
 
 import (
-	"database/sql"
-	"github.com/transaction-wg/seata-golang/pkg"
 	"net/http"
 	"time"
-)
 
-import (
-	"github.com/gin-gonic/gin"
-)
-
-import (
+	"github.com/transaction-wg/seata-golang/pkg"
 	"github.com/transaction-wg/seata-golang/pkg/at/exec"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/context"
 	"github.com/transaction-wg/seata-golang/samples/at/order_svc/dao"
+
+	"github.com/gin-gonic/gin"
+	"xorm.io/xorm"
 )
 
 const configPath = "./conf/client.yml"
@@ -26,20 +22,19 @@ func main() {
 	pkg.NewRpcClient()
 	exec.InitDataResourceManager()
 
-	sqlDB, err := sql.Open("mysql", config.GetATConfig().DSN)
+	eng, err := xorm.NewEngine("mysql", config.GetATConfig().DSN)
 	if err != nil {
 		panic(err)
 	}
-	sqlDB.SetMaxOpenConns(10)
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetConnMaxLifetime(4 * time.Hour)
-
-	db, err := exec.NewDB(config.GetATConfig(), sqlDB)
+	eng.SetMaxOpenConns(10)
+	eng.SetMaxIdleConns(10)
+	eng.SetConnMaxLifetime(4 * time.Hour)
+	mydb, err := exec.NewDBWithXORM(config.GetATConfig(), eng)
 	if err != nil {
 		panic(err)
 	}
 	d := &dao.Dao{
-		DB: db,
+		DB: mydb,
 	}
 
 	r.POST("/createSo", func(c *gin.Context) {

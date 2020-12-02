@@ -3,29 +3,44 @@ package exec
 import (
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/transaction-wg/seata-golang/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/context"
+
+	"xorm.io/xorm"
 )
 
 type DB struct {
 	*sql.DB
+
+	//xorm中注册了runtime.SetFinalizer,所以此处需要持有指针以防被回收
+	eng *xorm.Engine
+
 	conf            config.ATConfig
 	ResourceGroupId string
 }
 
-func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
-	newDB := &DB{
-		DB:              db,
+func NewDB(conf config.ATConfig, stdDB *sql.DB) (*DB, error) {
+	db := &DB{
+		DB:              stdDB,
 		conf:            conf,
 		ResourceGroupId: "",
 	}
-	dataSourceManager.RegisterResource(newDB)
-	return newDB, nil
+	dataSourceManager.RegisterResource(db)
+	return db, nil
+}
+
+func NewDBWithXORM(conf config.ATConfig, eng *xorm.Engine) (*DB, error) {
+	db := &DB{
+		eng:             eng,
+		DB:              eng.DB().DB,
+		conf:            conf,
+		ResourceGroupId: "",
+	}
+	dataSourceManager.RegisterResource(db)
+	return db, nil
 }
 
 func (db *DB) GetResourceGroupId() string {
