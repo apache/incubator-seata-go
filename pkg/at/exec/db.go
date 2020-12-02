@@ -14,12 +14,15 @@ import (
 
 type DB struct {
 	*sql.DB
-	eng             *xorm.Engine
+
+	//xorm中注册了runtime.SetFinalizer,所以此处需要持有指针以防被回收
+	eng *xorm.Engine
+
 	conf            config.ATConfig
 	ResourceGroupId string
 }
 
-func NewWithStandard(conf config.ATConfig, stdDB *sql.DB) (*DB, error) {
+func NewDB(conf config.ATConfig, stdDB *sql.DB) (*DB, error) {
 	db := &DB{
 		DB:              stdDB,
 		conf:            conf,
@@ -29,7 +32,7 @@ func NewWithStandard(conf config.ATConfig, stdDB *sql.DB) (*DB, error) {
 	return db, nil
 }
 
-func NewWithXORM(conf config.ATConfig, eng *xorm.Engine) (*DB, error) {
+func NewDBWithXORM(conf config.ATConfig, eng *xorm.Engine) (*DB, error) {
 	db := &DB{
 		eng:             eng,
 		DB:              eng.DB().DB,

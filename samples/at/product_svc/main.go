@@ -34,7 +34,7 @@ func main() {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(4 * time.Hour)
 
-	db, err := exec.NewWithStandard(config.GetATConfig(), sqlDB)
+	db, err := exec.NewDB(config.GetATConfig(), sqlDB)
 	if err != nil {
 		panic(err)
 	}
