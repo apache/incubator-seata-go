@@ -18,24 +18,13 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
-var clientGrpool *gxsync.TaskPool
-
 type RpcClient struct {
 	conf         config.ClientConfig
 	gettyClients []getty.Client
 	rpcHandler   *getty2.RpcRemoteClient
 }
 
-func setClientGrpool() {
-	clientConf := config.GetClientConfig()
-	if clientConf.GettyConfig.GrPoolSize > 1 {
-		clientGrpool = gxsync.NewTaskPool(gxsync.WithTaskPoolTaskPoolSize(clientConf.GettyConfig.GrPoolSize), gxsync.WithTaskPoolTaskQueueLength(clientConf.GettyConfig.QueueLen),
-			gxsync.WithTaskPoolTaskQueueNumber(clientConf.GettyConfig.QueueNumber))
-	}
-}
-
 func NewRpcClient() *RpcClient {
-	setClientGrpool()
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
@@ -52,6 +41,7 @@ func (c *RpcClient) init() {
 			getty.WithServerAddress(address),
 			getty.WithConnectionNumber((int)(c.conf.GettyConfig.ConnectionNum)),
 			getty.WithReconnectInterval(c.conf.GettyConfig.ReconnectInterval),
+			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)
 		go gettyClient.RunEventLoop(c.newSession)
 		c.gettyClients = append(c.gettyClients, gettyClient)
@@ -90,8 +80,6 @@ func (c *RpcClient) newSession(session getty.Session) error {
 	session.SetCronPeriod((int)(c.conf.GettyConfig.HeartbeatPeriod.Nanoseconds() / 1e6))
 	session.SetWaitTime(c.conf.GettyConfig.GettySessionParam.WaitTimeout)
 	log.Debugf("client new session:%s\n", session.Stat())
-
-	session.SetTaskPool(clientGrpool)
 
 	return nil
 }
