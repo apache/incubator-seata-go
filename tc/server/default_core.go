@@ -208,7 +208,7 @@ func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.G
 		log.Errorf("Could not found global transaction xid = %s", xid)
 		return nil, &meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
-			Message: fmt.Sprintf("Could not found global transaction xid = %s", gs.Xid),
+			Message: fmt.Sprintf("Could not found global transaction xid = %s", xid),
 		}
 	}
 	return gs, nil
