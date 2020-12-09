@@ -105,6 +105,7 @@ func (tx *Tx) Commit() error {
 			return errors.WithStack(err)
 		}
 	} else {
+		log.Error("no undolog")
 		return tx.proxyTx.Commit()
 	}
 	return nil
@@ -112,7 +113,12 @@ func (tx *Tx) Commit() error {
 
 func (tx *Tx) Rollback() error {
 	err := tx.proxyTx.Rollback()
-	if tx.proxyTx.Context.InGlobalTransaction() && tx.proxyTx.Context.IsBranchRegistered() {
+	if tx.proxyTx.Context.InGlobalTransaction() {
+		branchId, err := tx.register()
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		tx.proxyTx.Context.BranchId = branchId
 		tx.report(false)
 	}
 	tx.proxyTx.Context.Reset()
@@ -154,10 +160,10 @@ func (tx *Tx) report(commitDone bool) error {
 		if err != nil {
 			log.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
 				tx.proxyTx.Context.BranchId, tx.proxyTx.Context.Xid, commitDone, retry)
-			retry = retry - 1
-			if retry == 0 {
-				return errors.WithMessagef(err, "Failed to report branch status %t", commitDone)
-			}
+		}
+		retry = retry - 1
+		if retry == 0 {
+			return errors.WithMessagef(err, "Failed to report branch status %t", commitDone)
 		}
 	}
 	return nil

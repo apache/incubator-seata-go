@@ -72,9 +72,13 @@ func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
 	req1.Header.Set("xid", rootContext.GetXID())
 
 	client := &http.Client{}
-	_, err1 := client.Do(req1)
+	result1, err1 := client.Do(req1)
 	if err1 != nil {
 		return err1
+	}
+
+	if result1.StatusCode == 400 {
+		return errors.New("err")
 	}
 
 	q2 := &rq2{
@@ -89,9 +93,13 @@ func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("xid", rootContext.GetXID())
 
-	_, err2 := client.Do(req2)
+	result2, err2 := client.Do(req2)
 	if err2 != nil {
 		return err2
+	}
+
+	if result2.StatusCode == 400 {
+		return errors.New("err")
 	}
 
 	if rollback {

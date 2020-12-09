@@ -19,20 +19,21 @@ type AllocateInventoryReq struct {
 	Qty          int32
 }
 
-func (dao *Dao) AllocateInventory(ctx *context.RootContext, reqs []*AllocateInventoryReq) {
+func (dao *Dao) AllocateInventory(ctx *context.RootContext, reqs []*AllocateInventoryReq) error {
 	tx, err := dao.Begin(ctx)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	for _, req := range reqs {
 		_, err := tx.Exec(allocateInventorySql, req.Qty, req.Qty, req.ProductSysNo, req.Qty)
 		if err != nil {
 			tx.Rollback()
-			panic(err)
+			return err
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }

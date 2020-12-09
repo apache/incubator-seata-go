@@ -54,12 +54,19 @@ func main() {
 		rootContext := &context.RootContext{Context: c}
 		rootContext.Bind(c.Request.Header.Get("Xid"))
 
-		d.CreateSO(rootContext, q.Req)
+		_, err := d.CreateSO(rootContext, q.Req)
 
-		c.JSON(200, gin.H{
-			"success": true,
-			"message": "success",
-		})
+		if err != nil {
+			c.JSON(400, gin.H{
+				"success": false,
+				"message": "fail",
+			})
+		} else {
+			c.JSON(200, gin.H{
+				"success": true,
+				"message": "success",
+			})
+		}
 	})
 	r.Run(":8002")
 }

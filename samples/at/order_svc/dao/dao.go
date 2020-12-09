@@ -1,6 +1,8 @@
 package dao
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,6 +26,8 @@ const (
 type Dao struct {
 	*exec.DB
 }
+
+var count int32 = 0
 
 //现实中涉及金额可能使用长整形，这里使用 float64 仅作测试，不具有参考意义
 
@@ -67,20 +71,21 @@ type SoItem struct {
 	Quantity      int32   `json:"quantity"`
 }
 
-func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) []uint64 {
+func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uint64, error) {
 	result := make([]uint64, 0, len(soMasters))
 	tx, err := dao.Begin(ctx)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	for _, soMaster := range soMasters {
+		log.Info(atomic.AddInt32(&count, 1))
 		soid := NextSnowflakeId()
 		_, err = tx.Exec(insertSoMaster, soid, soid, soMaster.BuyerUserSysNo, soMaster.SellerCompanyCode, soMaster.ReceiveDivisionSysNo,
 			soMaster.ReceiveAddress, soMaster.ReceiveZip, soMaster.ReceiveContact, soMaster.ReceiveContactPhone, soMaster.StockSysNo,
 			soMaster.PaymentType, soMaster.SoAmt, soMaster.Status, soMaster.AppId, soMaster.Memo)
 		if err != nil {
 			tx.Rollback()
-			return result
+			return nil, err
 		}
 		soItems := soMaster.SoItems
 		for _, soItem := range soItems {
@@ -89,16 +94,16 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) []uint
 				soItem.DealPrice, soItem.Quantity)
 			if err != nil {
 				tx.Rollback()
-				return result
+				return nil, err
 			}
 		}
 		result = append(result, soid)
 	}
 	err = tx.Commit()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return result
+	return result, nil
 }
 
 func NextSnowflakeId() uint64 {
