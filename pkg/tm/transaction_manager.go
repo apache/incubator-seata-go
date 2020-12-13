@@ -1,6 +1,6 @@
 package tm
 
-import "github.com/transaction-wg/seata-golang/base/meta"
+import "github.com/transaction-wg/seata-golang/pkg/base/meta"
 
 type TransactionManager interface {
 	// GlobalStatus_Begin a new global transaction.

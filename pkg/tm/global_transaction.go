@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	context2 "github.com/transaction-wg/seata-golang/pkg/context"

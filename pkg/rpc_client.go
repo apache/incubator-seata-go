@@ -12,7 +12,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/getty/readwriter"
+	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"

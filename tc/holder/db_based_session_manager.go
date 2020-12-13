@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 	"github.com/transaction-wg/seata-golang/tc/config"
 	"github.com/transaction-wg/seata-golang/tc/model"

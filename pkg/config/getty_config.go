@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/getty/config"
+	"github.com/transaction-wg/seata-golang/pkg/base/getty/config"
 )
 
 // GettyConfig

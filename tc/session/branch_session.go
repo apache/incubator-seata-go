@@ -11,7 +11,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/tc/config"
 )

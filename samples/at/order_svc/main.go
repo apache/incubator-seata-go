@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"github.com/transaction-wg/seata-golang/pkg"
 	"net/http"
 	"time"
 )
@@ -12,6 +11,7 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg"
 	"github.com/transaction-wg/seata-golang/pkg/at/exec"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/context"

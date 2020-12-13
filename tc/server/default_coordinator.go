@@ -12,10 +12,10 @@ import (
 )
 
 import (
-	getty2 "github.com/transaction-wg/seata-golang/base/getty"
-	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/base/protocal"
-	"github.com/transaction-wg/seata-golang/base/protocal/codec"
+	getty2 "github.com/transaction-wg/seata-golang/pkg/base/getty"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal/codec"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	time2 "github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/tc/config"

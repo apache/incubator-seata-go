@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/transaction-wg/seata-golang/pkg"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/tm"
 	"github.com/transaction-wg/seata-golang/samples/at/aggregation_svc/svc"

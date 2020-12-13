@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/transaction-wg/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	_ "net/http/pprof"
 	"os"
 	"strconv"

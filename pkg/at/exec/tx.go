@@ -13,10 +13,10 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/at/sqlparser/mysql"
 	"github.com/transaction-wg/seata-golang/pkg/at/undo/manager"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 

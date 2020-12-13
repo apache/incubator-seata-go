@@ -2,14 +2,14 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/transaction-wg/seata-golang/pkg"
-	"github.com/transaction-wg/seata-golang/samples/tcc/service"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg"
 	"github.com/transaction-wg/seata-golang/pkg/config"
 	"github.com/transaction-wg/seata-golang/pkg/tcc"
 	"github.com/transaction-wg/seata-golang/pkg/tm"
+	"github.com/transaction-wg/seata-golang/samples/tcc/service"
 )
 
 func main() {

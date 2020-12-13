@@ -1,6 +1,6 @@
 package model
 
-import "github.com/transaction-wg/seata-golang/base/meta"
+import "github.com/transaction-wg/seata-golang/pkg/base/meta"
 
 // SessionCondition for query GlobalSession
 type SessionCondition struct {

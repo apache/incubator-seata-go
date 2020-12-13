@@ -9,9 +9,9 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/at/undo/manager"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/rm"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"

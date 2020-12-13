@@ -5,9 +5,9 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/base/protocal"
-	"github.com/transaction-wg/seata-golang/base/runtime"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
+	"github.com/transaction-wg/seata-golang/pkg/base/runtime"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/tc/event"

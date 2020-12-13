@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/common"
+	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	"github.com/transaction-wg/seata-golang/tc/session"
 )
 

@@ -10,7 +10,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/getty/config"
+	"github.com/transaction-wg/seata-golang/pkg/base/getty/config"
 )
 
 // Config holds supported types by the multiconfig package

@@ -5,8 +5,8 @@ import (
 )
 
 import (
-	getty2 "github.com/transaction-wg/seata-golang/base/getty"
-	"github.com/transaction-wg/seata-golang/base/protocal"
+	getty2 "github.com/transaction-wg/seata-golang/pkg/base/getty"
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 

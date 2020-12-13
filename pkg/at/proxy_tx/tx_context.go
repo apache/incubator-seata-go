@@ -10,8 +10,8 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/base/model"
 	"github.com/transaction-wg/seata-golang/pkg/at/undo"
+	"github.com/transaction-wg/seata-golang/pkg/base/model"
 	"github.com/transaction-wg/seata-golang/pkg/context"
 )
 

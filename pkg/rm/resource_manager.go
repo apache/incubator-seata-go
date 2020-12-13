@@ -1,8 +1,8 @@
 package rm
 
 import (
-	"github.com/transaction-wg/seata-golang/base/meta"
-	"github.com/transaction-wg/seata-golang/base/model"
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/base/model"
 )
 
 type ResourceManagerInbound interface {
