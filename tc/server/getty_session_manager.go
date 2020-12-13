@@ -118,7 +118,7 @@ func (manager *GettySessionManager) RegisterTmGettySession(request protocal.Regi
 	pMap := portMap.(*sync.Map)
 	pMap.Store(port, session)
 
-	session_transactionroles.Store(session, meta.RMROLE)
+	session_transactionroles.Store(session, meta.TMROLE)
 	identified_sessions.Store(session, request.ApplicationId)
 }
 
@@ -134,7 +134,7 @@ func (manager *GettySessionManager) RegisterRmGettySession(request protocal.Regi
 	pMap := portMap.(*sync.Map)
 	pMap.Store(port, session)
 
-	session_transactionroles.Store(session, meta.TMROLE)
+	session_transactionroles.Store(session, meta.RMROLE)
 	identified_sessions.Store(session, request.ApplicationId)
 	client_resources.Store(request.ApplicationId, request.ResourceIds)
 }
