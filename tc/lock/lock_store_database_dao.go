@@ -39,7 +39,9 @@ func (dao *LockStoreDataBaseDao) AcquireLockByLockDO(lockDO *model.LockDO) bool 
 func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 	locks, rowKeys := distinctByKey(lockDOs)
 	var existedRowLocks []*model.LockDO
-	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key", rowKeys)).Find(&existedRowLocks)
+	err := dao.engine.Table("lock_table").
+		Where(builder.In("row_key", rowKeys)).
+		Find(&existedRowLocks)
 	if err != nil {
 		log.Errorf(err.Error())
 	}
@@ -160,7 +162,9 @@ func (dao *LockStoreDataBaseDao) IsLockable(lockDOs []*model.LockDO) bool {
 	for _, lockDO := range lockDOs {
 		rowKeys = append(rowKeys, lockDO.RowKey)
 	}
-	err := dao.engine.SQL(QueryLockDO).Where(builder.In("row_key", rowKeys)).Find(&existedRowLocks)
+	err := dao.engine.Table("lock_table").
+		Where(builder.In("row_key", rowKeys)).
+		Find(&existedRowLocks)
 	if err != nil {
 		log.Errorf(err.Error())
 	}

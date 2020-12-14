@@ -2,12 +2,17 @@ package server
 
 import (
 	getty "github.com/apache/dubbo-getty"
+	"time"
 )
 
 import (
 	getty2 "github.com/transaction-wg/seata-golang/pkg/base/getty"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
+)
+
+const (
+	CronPeriod = 20e9
 )
 
 func (coordinator *DefaultCoordinator) OnOpen(session getty.Session) error {
@@ -73,5 +78,9 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 }
 
 func (coordinator *DefaultCoordinator) OnCron(session getty.Session) {
-
+	active := session.GetActive()
+	if CronPeriod < time.Since(active).Nanoseconds() {
+		log.Infof("OnCorn session{%s} timeout{%s}", session.Stat(), time.Since(active).String())
+		session.Close()
+	}
 }

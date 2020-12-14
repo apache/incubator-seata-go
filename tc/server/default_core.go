@@ -170,12 +170,15 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 	)
 
 	if branchType == meta.BranchTypeAT {
-		core.ATCore.branchSessionLock(gs, bs)
+		err2 := core.ATCore.branchSessionLock(gs, bs)
+		if err2 != nil {
+			return 0, err2
+		}
 	}
 	gs.Add(bs)
-	err2 := holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs, bs)
-	if err2 != nil {
-		return 0, meta.NewTransactionException(err2,
+	err3 := holder.GetSessionHolder().RootSessionManager.AddBranchSession(gs, bs)
+	if err3 != nil {
+		return 0, meta.NewTransactionException(err3,
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeBranchRegisterFailed),
 			meta.WithMessage(fmt.Sprintf("Branch register failed,xid = %s, branchId = %d", gs.Xid, bs.BranchId)))
 	}
@@ -430,7 +433,6 @@ func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
 		if gs.Active {
 			gs.Active = false // Highlight: Firstly, close the session, then no more branch can be registered.
 		}
-		lock.GetLockManager().ReleaseGlobalSessionLock(gs)
 		if gs.Status == meta.GlobalStatusBegin {
 			changeGlobalSessionStatus(gs, meta.GlobalStatusRollbacking)
 			return true

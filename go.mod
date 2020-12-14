@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/Davmuz/gqt v0.0.0-20161229104334-7589d282c7c3
 	github.com/apache/dubbo-getty v1.4.0-rc1
-	github.com/bwmarrin/snowflake v0.3.0
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
 	github.com/dubbogo/gost v1.9.6
 	github.com/gin-gonic/gin v1.6.2
@@ -14,6 +13,7 @@ require (
 	github.com/go-xorm/xorm v0.7.9
 	github.com/golang/protobuf v1.3.4
 	github.com/google/go-cmp v0.2.0
+	github.com/google/uuid v1.1.2
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect

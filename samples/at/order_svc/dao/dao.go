@@ -1,13 +1,11 @@
 package dao
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
-	"sync/atomic"
 	"time"
 )
 
 import (
-	"github.com/bwmarrin/snowflake"
+	"github.com/google/uuid"
 )
 
 import (
@@ -26,8 +24,6 @@ const (
 type Dao struct {
 	*exec.DB
 }
-
-var count int32 = 0
 
 //现实中涉及金额可能使用长整形，这里使用 float64 仅作测试，不具有参考意义
 
@@ -78,8 +74,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 		return nil, err
 	}
 	for _, soMaster := range soMasters {
-		log.Info(atomic.AddInt32(&count, 1))
-		soid := NextSnowflakeId()
+		soid := NextId()
 		_, err = tx.Exec(insertSoMaster, soid, soid, soMaster.BuyerUserSysNo, soMaster.SellerCompanyCode, soMaster.ReceiveDivisionSysNo,
 			soMaster.ReceiveAddress, soMaster.ReceiveZip, soMaster.ReceiveContact, soMaster.ReceiveContactPhone, soMaster.StockSysNo,
 			soMaster.PaymentType, soMaster.SoAmt, soMaster.Status, soMaster.AppId, soMaster.Memo)
@@ -89,7 +84,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 		}
 		soItems := soMaster.SoItems
 		for _, soItem := range soItems {
-			soItemId := NextSnowflakeId()
+			soItemId := NextId()
 			_, err = tx.Exec(insertSoItem, soItemId, soid, soItem.ProductSysNo, soItem.ProductName, soItem.CostPrice, soItem.OriginalPrice,
 				soItem.DealPrice, soItem.Quantity)
 			if err != nil {
@@ -106,10 +101,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 	return result, nil
 }
 
-func NextSnowflakeId() uint64 {
-	node, err := snowflake.NewNode(1)
-	if err != nil {
-		panic(err)
-	}
-	return uint64(node.Generate())
+func NextId() uint64 {
+	id, _ := uuid.NewUUID()
+	return uint64(id.ID())
 }
