@@ -44,18 +44,18 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	// PK is at last one.
 	fields = append(fields, pkField)
 
-	var sb, sb1 strings.Builder
+	var sbCols, sbVals strings.Builder
 	var size = len(fields)
 	for i, field := range fields {
-		fmt.Fprintf(&sb, "`%s`", field.Name)
-		fmt.Fprint(&sb1, "?")
+		fmt.Fprintf(&sbCols, "`%s`", field.Name)
+		fmt.Fprint(&sbVals, "?")
 		if i < size-1 {
-			fmt.Fprint(&sb, ", ")
-			fmt.Fprint(&sb1, ", ")
+			fmt.Fprint(&sbCols, ", ")
+			fmt.Fprint(&sbVals, ", ")
 		}
 	}
-	insertColumns := sb.String()
-	insertValues := sb.String()
+	insertColumns := sbCols.String()
+	insertValues := sbVals.String()
 
 	return fmt.Sprintf(InsertSqlTemplate, undoLog.TableName, insertColumns, insertValues)
 }
