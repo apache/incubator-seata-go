@@ -169,6 +169,9 @@ func (executor MysqlUndoExecutor) Execute(tx *sql.Tx) error {
 }
 
 func (executor MysqlUndoExecutor) dataValidationAndGoOn(tx *sql.Tx) (bool, error) {
+	if executor.sqlUndoLog.BeforeImage != nil && executor.sqlUndoLog.AfterImage == nil {
+		return true, nil
+	}
 	beforeEqualsAfterResult := cmp.Equal(executor.sqlUndoLog.BeforeImage, executor.sqlUndoLog.AfterImage)
 	if beforeEqualsAfterResult {
 		log.Info("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
