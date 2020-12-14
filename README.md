@@ -1,7 +1,8 @@
 # seata-golang
 
 **钉钉群号 33069364**
-![33069364](https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png)
+
+<img src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
 
 
 ### 一个朴素的想法
