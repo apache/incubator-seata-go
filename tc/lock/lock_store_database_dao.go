@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	QueryLockDO               = "select row_key, xid, transaction_id, branch_id, resource_id, table_name, pk, gmt_create, gmt_modified from lock_table"
 	BatchDeleteLockByBranchId = `delete from lock_table where xid = ? AND branch_id = ?`
 	GetLockDOCount            = "select count(1) as total from lock_table"
 )
