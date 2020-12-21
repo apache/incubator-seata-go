@@ -18,5 +18,5 @@ vendor/
 root.data
 root.data.1
 trace.out
-tc/app/cmd/cmd
-tc/app/cmd/trace.out
+cmd/tc/cmd
+cmd/tc/trace.out
