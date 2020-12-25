@@ -1,117 +1,115 @@
 package protocal
 
-type MessageType int16
-
 const (
 	/**
 	 * The constant TYPE_GLOBAL_BEGIN.
 	 */
-	TypeGlobalBegin = 1
+	TypeGlobalBegin int16 = 1
 	/**
 	 * The constant TYPE_GLOBAL_BEGIN_RESULT.
 	 */
-	TypeGlobalBeginResult = 2
+	TypeGlobalBeginResult int16 = 2
 	/**
 	 * The constant TYPE_GLOBAL_COMMIT.
 	 */
-	TypeGlobalCommit = 7
+	TypeGlobalCommit int16 = 7
 	/**
 	 * The constant TYPE_GLOBAL_COMMIT_RESULT.
 	 */
-	TypeGlobalCommitResult = 8
+	TypeGlobalCommitResult int16 = 8
 	/**
 	 * The constant TYPE_GLOBAL_ROLLBACK.
 	 */
-	TypeGlobalRollback = 9
+	TypeGlobalRollback int16 = 9
 	/**
 	 * The constant TYPE_GLOBAL_ROLLBACK_RESULT.
 	 */
-	TypeGlobalRollbackResult = 10
+	TypeGlobalRollbackResult int16 = 10
 	/**
 	 * The constant TYPE_GLOBAL_STATUS.
 	 */
-	TypeGlobalStatus = 15
+	TypeGlobalStatus int16 = 15
 	/**
 	 * The constant TYPE_GLOBAL_STATUS_RESULT.
 	 */
-	TypeGlobalStatusResult = 16
+	TypeGlobalStatusResult int16 = 16
 	/**
 	 * The constant TYPE_GLOBAL_REPORT.
 	 */
-	TypeGlobalReport = 17
+	TypeGlobalReport int16 = 17
 	/**
 	 * The constant TYPE_GLOBAL_REPORT_RESULT.
 	 */
-	TypeGlobalReportResult = 18
+	TypeGlobalReportResult int16 = 18
 	/**
 	 * The constant TYPE_GLOBAL_LOCK_QUERY.
 	 */
-	TypeGlobalLockQuery = 21
+	TypeGlobalLockQuery int16 = 21
 	/**
 	 * The constant TYPE_GLOBAL_LOCK_QUERY_RESULT.
 	 */
-	TypeGlobalLockQueryResult = 22
+	TypeGlobalLockQueryResult int16 = 22
 
 	/**
 	 * The constant TYPE_BRANCH_COMMIT.
 	 */
-	TypeBranchCommit = 3
+	TypeBranchCommit int16 = 3
 	/**
 	 * The constant TYPE_BRANCH_COMMIT_RESULT.
 	 */
-	TypeBranchCommitResult = 4
+	TypeBranchCommitResult int16 = 4
 	/**
 	 * The constant TYPE_BRANCH_ROLLBACK.
 	 */
-	TypeBranchRollback = 5
+	TypeBranchRollback int16 = 5
 	/**
 	 * The constant TYPE_BRANCH_ROLLBACK_RESULT.
 	 */
-	TypeBranchRollbackResult = 6
+	TypeBranchRollbackResult int16 = 6
 	/**
 	 * The constant TYPE_BRANCH_REGISTER.
 	 */
-	TypeBranchRegister = 11
+	TypeBranchRegister int16 = 11
 	/**
 	 * The constant TYPE_BRANCH_REGISTER_RESULT.
 	 */
-	TypeBranchRegisterResult = 12
+	TypeBranchRegisterResult int16 = 12
 	/**
 	 * The constant TYPE_BRANCH_STATUS_REPORT.
 	 */
-	TypeBranchStatusReport = 13
+	TypeBranchStatusReport int16 = 13
 	/**
 	 * The constant TYPE_BRANCH_STATUS_REPORT_RESULT.
 	 */
-	TypeBranchStatusReportResult = 14
+	TypeBranchStatusReportResult int16 = 14
 
 	/**
 	 * The constant TYPE_SEATA_MERGE.
 	 */
-	TypeSeataMerge = 59
+	TypeSeataMerge int16 = 59
 	/**
 	 * The constant TYPE_SEATA_MERGE_RESULT.
 	 */
-	TypeSeataMergeResult = 60
+	TypeSeataMergeResult int16 = 60
 
 	/**
 	 * The constant TYPE_REG_CLT.
 	 */
-	TypeRegClt = 101
+	TypeRegClt int16 = 101
 	/**
 	 * The constant TYPE_REG_CLT_RESULT.
 	 */
-	TypeRegCltResult = 102
+	TypeRegCltResult int16 = 102
 	/**
 	 * The constant TYPE_REG_RM.
 	 */
-	TypeRegRm = 103
+	TypeRegRm int16 = 103
 	/**
 	 * The constant TYPE_REG_RM_RESULT.
 	 */
-	TypeRegRmResult = 104
+	TypeRegRmResult int16 = 104
 	/**
 	 * The constant TYPE_RM_DELETE_UNDOLOG.
 	 */
-	TypeRmDeleteUndolog = 111
+	TypeRmDeleteUndolog int16 = 111
 )

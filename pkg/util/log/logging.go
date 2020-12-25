@@ -109,60 +109,60 @@ func SetLoggerCallerDisable() error {
 
 // Debug ...
 func Debug(v ...interface{}) {
-	log.Debug(v)
+	log.Debug(v...)
 }
 
 // Debugf ...
 func Debugf(format string, v ...interface{}) {
-	log.Debugf(format, v)
+	log.Debugf(format, v...)
 }
 
 // Info ...
 func Info(v ...interface{}) {
-	log.Info(v)
+	log.Info(v...)
 }
 
 // Infof ...
 func Infof(format string, v ...interface{}) {
-	log.Infof(format, v)
+	log.Infof(format, v...)
 }
 
 // Warn ...
 func Warn(v ...interface{}) {
-	log.Warn(v)
+	log.Warn(v...)
 }
 
 // Warnf ...
 func Warnf(format string, v ...interface{}) {
-	log.Warnf(format, v)
+	log.Warnf(format, v...)
 }
 
 // Error ...
 func Error(v ...interface{}) {
-	log.Error(v)
+	log.Error(v...)
 }
 
 // Errorf ...
 func Errorf(format string, v ...interface{}) {
-	log.Errorf(format, v)
+	log.Errorf(format, v...)
 }
 
 // Panic ...
 func Panic(v ...interface{}) {
-	log.Panic(v)
+	log.Panic(v...)
 }
 
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
-	log.Panicf(format, v)
+	log.Panicf(format, v...)
 }
 
 // Fatal ...
 func Fatal(v ...interface{}) {
-	log.Fatal(v)
+	log.Fatal(v...)
 }
 
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
-	log.Fatalf(format, v)
+	log.Fatalf(format, v...)
 }

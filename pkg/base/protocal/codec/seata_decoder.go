@@ -53,7 +53,8 @@ func MergedWarpMessageDecoder(in []byte) (interface{}, int) {
 	totalReadN += readN
 	result.Msgs = make([]protocal.MessageTypeAware, 0)
 	for index := 0; index < int(size16); index++ {
-		typeCode, _, _ := r.ReadInt16()
+		typeCode16 := in[totalReadN : totalReadN+2]
+		typeCode := int16(uint16(typeCode16[1]) | uint16(typeCode16[0])<<8)
 		totalReadN += 2
 		decoder := getMessageDecoder(typeCode)
 		if decoder != nil {
@@ -82,7 +83,8 @@ func MergeResultMessageDecoder(in []byte) (interface{}, int) {
 	result.Msgs = make([]protocal.MessageTypeAware, 0)
 
 	for index := 0; index < int(size16); index++ {
-		typeCode, _, _ := r.ReadInt16()
+		typeCode16 := in[totalReadN : totalReadN+2]
+		typeCode := int16(uint16(typeCode16[1]) | uint16(typeCode16[0])<<8)
 		totalReadN += 2
 		decoder := getMessageDecoder(typeCode)
 		if decoder != nil {

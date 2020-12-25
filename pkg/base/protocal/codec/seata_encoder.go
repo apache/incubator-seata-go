@@ -53,7 +53,8 @@ func MergedWarpMessageEncoder(in interface{}) []byte {
 	req, _ := in.(protocal.MergedWarpMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
-	for _, msg := range req.Msgs {
+	for i := 0; i < len(req.Msgs); i++ {
+		msg := req.Msgs[i]
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
@@ -82,7 +83,8 @@ func MergeResultMessageEncoder(in interface{}) []byte {
 	req, _ := in.(protocal.MergeResultMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
-	for _, msg := range req.Msgs {
+	for i := 0; i < len(req.Msgs); i++ {
+		msg := req.Msgs[i]
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
