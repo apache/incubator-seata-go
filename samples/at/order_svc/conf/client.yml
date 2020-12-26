@@ -1,6 +1,7 @@
 application_id: "order-svc"
 transaction_service_group: "127.0.0.1:8091"
-seata_version: "1.1.0"
+enable-client-batch-send-request: true
+seata_version: "1.2.0"
 # tcp
 getty:
   reconnect_interval: 0
@@ -24,7 +25,7 @@ tm:
   commit_retry_count: 5
   rollback_retry_count: 5
 at:
-  dsn: "root:123456@tcp(127.0.0.1:3306)/seata_order?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+  dsn: "root:123456@tcp(127.0.0.1:3306)/seata_order?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
   report_retry_count: 5
   report_success_enable: false
   lock_retry_interval: 10ms

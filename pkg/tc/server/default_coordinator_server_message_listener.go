@@ -20,11 +20,11 @@ func (coordinator *DefaultCoordinator) OnTrxMessage(rpcMessage protocal.RpcMessa
 			resp := coordinator.handleTrxMessage(msg, *rpcContext)
 			resultMessage.Msgs = append(resultMessage.Msgs, resp)
 		}
-		coordinator.SendResponse(rpcMessage, rpcContext.Session, resultMessage)
+		coordinator.SendResponse(rpcMessage, session, resultMessage)
 	} else {
 		message := rpcMessage.Body.(protocal.MessageTypeAware)
 		resp := coordinator.handleTrxMessage(message, *rpcContext)
-		coordinator.SendResponse(rpcMessage, rpcContext.Session, resp)
+		coordinator.SendResponse(rpcMessage, session, resp)
 	}
 }
 

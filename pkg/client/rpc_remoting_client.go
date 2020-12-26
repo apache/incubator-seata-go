@@ -33,9 +33,14 @@ func InitRpcRemoteClient() *RpcRemoteClient {
 		conf:                         config.GetClientConfig(),
 		idGenerator:                  atomic.Uint32{},
 		futures:                      &sync.Map{},
+		mergeMsgMap:                  &sync.Map{},
+		rpcMessageChannel:            make(chan protocal.RpcMessage, 100),
 		BranchRollbackRequestChannel: make(chan model.RpcRMMessage),
 		BranchCommitRequestChannel:   make(chan model.RpcRMMessage),
 		GettySessionOnOpenChannel:    make(chan string),
+	}
+	if rpcRemoteClient.conf.EnableClientBatchSendRequest {
+		go rpcRemoteClient.processMergedMessage()
 	}
 	return rpcRemoteClient
 }
@@ -48,6 +53,8 @@ type RpcRemoteClient struct {
 	conf                         config.ClientConfig
 	idGenerator                  atomic.Uint32
 	futures                      *sync.Map
+	mergeMsgMap                  *sync.Map
+	rpcMessageChannel            chan protocal.RpcMessage
 	BranchCommitRequestChannel   chan model.RpcRMMessage
 	BranchRollbackRequestChannel chan model.RpcRMMessage
 	GettySessionOnOpenChannel    chan string
@@ -57,6 +64,7 @@ type RpcRemoteClient struct {
 func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 	go func() {
 		request := protocal.RegisterTMRequest{AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
+			Version:                 client.conf.SeataVersion,
 			ApplicationId:           client.conf.ApplicationId,
 			TransactionServiceGroup: client.conf.TransactionServiceGroup,
 		}}
@@ -88,6 +96,7 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 		heartBeat, isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
 		if isHeartBeat && heartBeat == protocal.HeartBeatMessagePong {
 			log.Debugf("received PONG from %s", session.RemoteAddr())
+			return
 		}
 	}
 
@@ -97,12 +106,32 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 
 		client.onMessage(rpcMessage, session.RemoteAddr())
 	} else {
-		resp, loaded := client.futures.Load(rpcMessage.Id)
-		if loaded {
-			response := resp.(*getty2.MessageFuture)
-			response.Response = rpcMessage.Body
-			response.Done <- true
-			client.futures.Delete(rpcMessage.Id)
+		mergedResult, isMergedResult := rpcMessage.Body.(protocal.MergeResultMessage)
+		if isMergedResult {
+			mm, loaded := client.mergeMsgMap.Load(rpcMessage.Id)
+			if loaded {
+				mergedMessage := mm.(protocal.MergedWarpMessage)
+				log.Infof("rpcMessageId: %d,rpcMessage :%v,result :%v", rpcMessage.Id, mergedMessage, mergedResult)
+				for i := 0; i < len(mergedMessage.Msgs); i++ {
+					msgId := mergedMessage.MsgIds[i]
+					resp, loaded := client.futures.Load(msgId)
+					if loaded {
+						response := resp.(*getty2.MessageFuture)
+						response.Response = mergedResult.Msgs[i]
+						response.Done <- true
+						client.futures.Delete(msgId)
+					}
+				}
+				client.mergeMsgMap.Delete(rpcMessage.Id)
+			}
+		} else {
+			resp, loaded := client.futures.Load(rpcMessage.Id)
+			if loaded {
+				response := resp.(*getty2.MessageFuture)
+				response.Response = rpcMessage.Body
+				response.Done <- true
+				client.futures.Delete(rpcMessage.Id)
+			}
 		}
 	}
 }
@@ -137,6 +166,9 @@ func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage, serverA
 // ClientMessageSender
 //*************************************
 func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{}, error) {
+	if client.conf.EnableClientBatchSendRequest {
+		return client.sendAsyncRequest2(msg, RPC_REQUEST_TIMEOUT)
+	}
 	return client.SendMsgWithResponseAndTimeout(msg, RPC_REQUEST_TIMEOUT)
 }
 
@@ -163,7 +195,7 @@ func (client *RpcRemoteClient) sendAsyncRequestWithoutResponse(session getty.Ses
 
 func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
-	if session == nil {
+	if session == nil || session.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 	}
 	rpcMessage := protocal.RpcMessage{
@@ -195,14 +227,52 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 	return nil, err
 }
 
-func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {
-	session := clientSessionManager.AcquireGettySessionByServerAddress(serverAddress)
-	if session != nil {
-		err := client.sendAsyncRequestWithoutResponse(session, request)
-		if err != nil {
-			log.Errorf("register resource failed, session:{},resourceId:{}", session, request.ResourceIds)
-		}
+func (client *RpcRemoteClient) sendAsyncRequest2(msg interface{}, timeout time.Duration) (interface{}, error) {
+	var err error
+	rpcMessage := protocal.RpcMessage{
+		Id:          int32(client.idGenerator.Inc()),
+		MessageType: protocal.MSGTYPE_RESQUEST,
+		Codec:       codec.SEATA,
+		Compressor:  0,
+		Body:        msg,
 	}
+	resp := getty2.NewMessageFuture(rpcMessage)
+	client.futures.Store(rpcMessage.Id, resp)
+
+	client.rpcMessageChannel <- rpcMessage
+
+	log.Infof("send message : %v", rpcMessage)
+
+	if timeout > time.Duration(0) {
+		select {
+		case <-getty.GetTimeWheel().After(timeout):
+			client.futures.Delete(rpcMessage.Id)
+			return nil, errors.Errorf("wait response timeout, request:%v", rpcMessage)
+		case <-resp.Done:
+			err = resp.Err
+		}
+		return resp.Response, err
+	}
+	return nil, err
+}
+
+func (client *RpcRemoteClient) sendAsync(session getty.Session, msg interface{}) error {
+	var err error
+	if session == nil || session.IsClosed() {
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+	}
+	rpcMessage := protocal.RpcMessage{
+		Id:          int32(client.idGenerator.Inc()),
+		MessageType: protocal.MSGTYPE_RESQUEST_ONEWAY,
+		Codec:       codec.SEATA,
+		Compressor:  0,
+		Body:        msg,
+	}
+	log.Infof("store message,id %d: %v", rpcMessage.Id, msg)
+	client.mergeMsgMap.Store(rpcMessage.Id, msg)
+	//config timeout
+	err = session.WritePkg(rpcMessage, time.Duration(0))
+	return err
 }
 
 func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg interface{}) {
@@ -238,6 +308,16 @@ func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, 
 	session.WritePkg(resp, time.Duration(0))
 }
 
+func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {
+	session := clientSessionManager.AcquireGettySessionByServerAddress(serverAddress)
+	if session != nil {
+		err := client.sendAsyncRequestWithoutResponse(session, request)
+		if err != nil {
+			log.Errorf("register resource failed, session:{},resourceId:{}", session, request.ResourceIds)
+		}
+	}
+}
+
 func loadBalance(transactionServiceGroup string) string {
 	addressList := getAddressList(transactionServiceGroup)
 	if len(addressList) == 1 {
@@ -249,4 +329,50 @@ func loadBalance(transactionServiceGroup string) string {
 func getAddressList(transactionServiceGroup string) []string {
 	addressList := strings.Split(transactionServiceGroup, ",")
 	return addressList
+}
+
+func (client *RpcRemoteClient) processMergedMessage() {
+	ticker := time.NewTicker(5 * time.Millisecond)
+	mergedMessage := protocal.MergedWarpMessage{
+		Msgs:   make([]protocal.MessageTypeAware, 0),
+		MsgIds: make([]int32, 0),
+	}
+	for {
+		select {
+		case rpcMessage := <-client.rpcMessageChannel:
+			message := rpcMessage.Body.(protocal.MessageTypeAware)
+			mergedMessage.Msgs = append(mergedMessage.Msgs, message)
+			mergedMessage.MsgIds = append(mergedMessage.MsgIds, rpcMessage.Id)
+			if len(mergedMessage.Msgs) == 20 {
+				client.sendMergedMessage(mergedMessage)
+				mergedMessage = protocal.MergedWarpMessage{
+					Msgs:   make([]protocal.MessageTypeAware, 0),
+					MsgIds: make([]int32, 0),
+				}
+			}
+		case <-ticker.C:
+			if len(mergedMessage.Msgs) > 0 {
+				client.sendMergedMessage(mergedMessage)
+				mergedMessage = protocal.MergedWarpMessage{
+					Msgs:   make([]protocal.MessageTypeAware, 0),
+					MsgIds: make([]int32, 0),
+				}
+			}
+		}
+	}
+}
+
+func (client *RpcRemoteClient) sendMergedMessage(mergedMessage protocal.MergedWarpMessage) {
+	ss := clientSessionManager.AcquireGettySession()
+	err := client.sendAsync(ss, mergedMessage)
+	if err != nil {
+		for _, id := range mergedMessage.MsgIds {
+			resp, loaded := client.futures.Load(id)
+			if loaded {
+				response := resp.(*getty2.MessageFuture)
+				response.Done <- true
+				client.futures.Delete(id)
+			}
+		}
+	}
 }

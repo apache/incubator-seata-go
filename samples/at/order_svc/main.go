@@ -30,8 +30,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	sqlDB.SetMaxOpenConns(10)
-	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetMaxIdleConns(20)
 	sqlDB.SetConnMaxLifetime(4 * time.Hour)
 
 	db, err := exec.NewDB(config.GetATConfig(), sqlDB)

@@ -11,7 +11,6 @@ import (
 )
 
 import (
-
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"
 )
 

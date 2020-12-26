@@ -31,19 +31,19 @@ type ServerConfig struct {
 	MaxRollbackRetryTimeout          int64  `default:"-1" yaml:"max_rollback_retry_timeout" json:"max_rollback_retry_timeout,omitempty"`
 	RollbackRetryTimeoutUnlockEnable bool   `default:"false" yaml:"rollback_retry_timeout_unlock_enable" json:"rollback_retry_timeout_unlock_enable,omitempty"`
 	MaxCommitRetryTimeout            int64  `default:"-1" yaml:"max_commit_retry_timeout" json:"max_commit_retry_timeout,omitempty"`
-	Timeout_Retry_Period          string `default:"1s" yaml:"timeout_retry_period" json:"timeout_retry_period,omitempty"`
-	TimeoutRetryPeriod            time.Duration
-	Rollbacking_Retry_Period      string `default:"1s" yaml:"rollbacking_retry_period" json:"rollbacking_retry_period,omitempty"`
-	RollbackingRetryPeriod        time.Duration
-	Committing_Retry_Period       string `default:"1s" yaml:"committing_retry_period" json:"committing_retry_period,omitempty"`
-	CommittingRetryPeriod         time.Duration
-	Async_Committing_Retry_Period string `default:"1s" yaml:"async_committing_retry_period" json:"async_committing_retry_period,omitempty"`
-	AsyncCommittingRetryPeriod    time.Duration
-	Log_Delete_Period             string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
-	LogDeletePeriod               time.Duration
-	GettyConfig                   GettyConfig `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
-	UndoConfig                    UndoConfig  `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
-	StoreConfig                   StoreConfig `required:"true" yaml:"store_config" json:"store_config,omitempty"`
+	Timeout_Retry_Period             string `default:"1s" yaml:"timeout_retry_period" json:"timeout_retry_period,omitempty"`
+	TimeoutRetryPeriod               time.Duration
+	Rollbacking_Retry_Period         string `default:"1s" yaml:"rollbacking_retry_period" json:"rollbacking_retry_period,omitempty"`
+	RollbackingRetryPeriod           time.Duration
+	Committing_Retry_Period          string `default:"1s" yaml:"committing_retry_period" json:"committing_retry_period,omitempty"`
+	CommittingRetryPeriod            time.Duration
+	Async_Committing_Retry_Period    string `default:"1s" yaml:"async_committing_retry_period" json:"async_committing_retry_period,omitempty"`
+	AsyncCommittingRetryPeriod       time.Duration
+	Log_Delete_Period                string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
+	LogDeletePeriod                  time.Duration
+	GettyConfig                      GettyConfig `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
+	UndoConfig                       UndoConfig  `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
+	StoreConfig                      StoreConfig `required:"true" yaml:"store_config" json:"store_config,omitempty"`
 }
 
 func (c *ServerConfig) CheckValidity() error {
