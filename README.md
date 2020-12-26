@@ -18,7 +18,7 @@
 - [X] TM
 - [X] RM TCC
 - [X] RM AT
-- [ ] Client merged request
+- [X] Client merged request
 - [ ] Read config from Config Center
 - [ ] Unit Test
 
