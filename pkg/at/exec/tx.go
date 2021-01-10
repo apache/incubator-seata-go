@@ -83,6 +83,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 func (tx *Tx) Commit() error {
 	branchId, err := tx.register()
 	if err != nil {
+		err = tx.proxyTx.Rollback()
 		return errors.WithStack(err)
 	}
 	tx.proxyTx.Context.BranchId = branchId
