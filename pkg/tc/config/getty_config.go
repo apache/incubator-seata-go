@@ -50,7 +50,6 @@ func GetDefaultGettyConfig() GettyConfig {
 			KeepAlivePrd:     "180s",
 			TcpRBufSize:      262144,
 			TcpWBufSize:      65536,
-			PkgWQSize:        512,
 			TcpReadTmt:       "1s",
 			TcpWriteTmt:      "5s",
 			WaitTmt:          "1s",

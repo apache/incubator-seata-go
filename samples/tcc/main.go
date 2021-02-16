@@ -5,10 +5,10 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg"
-	"github.com/transaction-wg/seata-golang/pkg/config"
-	"github.com/transaction-wg/seata-golang/pkg/tcc"
-	"github.com/transaction-wg/seata-golang/pkg/tm"
+	"github.com/transaction-wg/seata-golang/pkg/client"
+	"github.com/transaction-wg/seata-golang/pkg/client/config"
+	"github.com/transaction-wg/seata-golang/pkg/client/tcc"
+	"github.com/transaction-wg/seata-golang/pkg/client/tm"
 	"github.com/transaction-wg/seata-golang/samples/tcc/service"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	r := gin.Default()
 
 	config.InitConfWithDefault("testService")
-	pkg.NewRpcClient()
+	client.NewRpcClient()
 	tcc.InitTCCResourceManager()
 
 	tm.Implement(service.ProxySvc)

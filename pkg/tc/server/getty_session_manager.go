@@ -275,7 +275,7 @@ func (manager *GettySessionManager) GetGettySession(resourceId string, clientId 
 	}
 
 	if resultSession == nil {
-		return nil, errors.New("there is no suitable client session")
+		return nil, errors.New("there is no suitable rpc_client session")
 	}
 
 	return resultSession, nil

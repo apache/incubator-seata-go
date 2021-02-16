@@ -55,7 +55,7 @@ const (
 
 	/**
 	 * All branches can be async committed. The committing is NOT done yet, but it can be seen as committed for TM/RM
-	 * client.
+	 * rpc_client.
 	 */
 	GlobalStatusAsyncCommitting
 

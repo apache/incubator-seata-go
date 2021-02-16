@@ -42,7 +42,7 @@ func (coordinator *DefaultCoordinator) SendSyncRequestByGetty(session getty.Sess
 
 func (coordinator *DefaultCoordinator) SendSyncRequestByGettyWithTimeout(session getty.Session, message interface{}, timeout time.Duration) (interface{}, error) {
 	if session == nil {
-		return nil, errors.New("rm client is not connected")
+		return nil, errors.New("rm rpc_client is not connected")
 	}
 	return coordinator.sendAsyncRequestWithResponse("", session, message, timeout)
 }

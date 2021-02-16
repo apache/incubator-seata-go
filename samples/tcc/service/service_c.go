@@ -6,8 +6,8 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/context"
-	"github.com/transaction-wg/seata-golang/pkg/tcc"
+	"github.com/transaction-wg/seata-golang/pkg/client/context"
+	"github.com/transaction-wg/seata-golang/pkg/client/tcc"
 )
 
 type ServiceC struct {

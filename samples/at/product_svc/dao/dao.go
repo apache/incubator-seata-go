@@ -1,8 +1,8 @@
 package dao
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/at/exec"
-	"github.com/transaction-wg/seata-golang/pkg/context"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/exec"
+	"github.com/transaction-wg/seata-golang/pkg/client/context"
 )
 
 const (

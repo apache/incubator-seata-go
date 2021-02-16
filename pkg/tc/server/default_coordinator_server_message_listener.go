@@ -68,7 +68,7 @@ func (coordinator *DefaultCoordinator) OnRegRmMessage(rpcMessage protocal.RpcMes
 
 	//version things
 	SessionManager.RegisterRmGettySession(message, session)
-	log.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
+	log.Debugf("checkAuth for rpc_client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
 
 	coordinator.SendResponse(rpcMessage, session, protocal.RegisterRMResponse{AbstractIdentifyResponse: protocal.AbstractIdentifyResponse{Identified: true}})
 }
@@ -78,7 +78,7 @@ func (coordinator *DefaultCoordinator) OnRegTmMessage(rpcMessage protocal.RpcMes
 
 	//version things
 	SessionManager.RegisterTmGettySession(message, session)
-	log.Debugf("checkAuth for client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
+	log.Debugf("checkAuth for rpc_client:%s,vgroup:%s,applicationId:%s", session.RemoteAddr(), message.TransactionServiceGroup, message.ApplicationId)
 
 	coordinator.SendResponse(rpcMessage, session, protocal.RegisterTMResponse{AbstractIdentifyResponse: protocal.AbstractIdentifyResponse{Identified: true}})
 }
