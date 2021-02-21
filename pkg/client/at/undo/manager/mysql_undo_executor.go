@@ -8,8 +8,8 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 )
 
 import (
