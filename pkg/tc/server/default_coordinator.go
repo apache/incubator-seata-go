@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 	"sync"
 	"time"
 )
@@ -23,6 +22,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/tc/lock"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 	time2 "github.com/transaction-wg/seata-golang/pkg/util/time"
 )
 
