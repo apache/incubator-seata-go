@@ -1,7 +1,6 @@
 package rpc_client
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 	"math/rand"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal/codec"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 )
 
 const (
