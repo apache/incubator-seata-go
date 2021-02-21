@@ -3,7 +3,7 @@ module github.com/transaction-wg/seata-golang
 go 1.14
 
 require (
-	github.com/apache/dubbo-getty v1.4.2
+	github.com/apache/dubbo-getty v1.4.3
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
 	github.com/dubbogo/gost v1.10.1
 	github.com/gin-gonic/gin v1.6.2
@@ -47,4 +47,4 @@ replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
 
 replace go.etcd.io/bbolt => github.com/coreos/bbolt v1.3.4
 
-replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.4.2
+replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.4.3

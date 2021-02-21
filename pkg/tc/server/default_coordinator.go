@@ -91,7 +91,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 	resp := getty2.NewMessageFuture(rpcMessage)
 	coordinator.futures.Store(rpcMessage.Id, resp)
 	//config timeout
-	err = session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	_, _, err = session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 	if err != nil {
 		coordinator.futures.Delete(rpcMessage.Id)
 	}

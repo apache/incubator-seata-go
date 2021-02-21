@@ -19,4 +19,5 @@ root.data
 root.data.1
 trace.out
 cmd/tc/cmd
+cmd/tc/tc
 cmd/tc/trace.out

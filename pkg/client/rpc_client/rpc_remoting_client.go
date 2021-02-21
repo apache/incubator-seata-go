@@ -207,7 +207,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 	resp := getty2.NewMessageFuture(rpcMessage)
 	client.futures.Store(rpcMessage.Id, resp)
 	//config timeout
-	err = session.WritePkg(rpcMessage, time.Duration(0))
+	_, _, err = session.WritePkg(rpcMessage, time.Duration(0))
 	if err != nil {
 		client.futures.Delete(rpcMessage.Id)
 	}
@@ -270,7 +270,7 @@ func (client *RpcRemoteClient) sendAsync(session getty.Session, msg interface{})
 	log.Infof("store message,id %d: %v", rpcMessage.Id, msg)
 	client.mergeMsgMap.Store(rpcMessage.Id, msg)
 	//config timeout
-	err = session.WritePkg(rpcMessage, time.Duration(0))
+	_, _, err = session.WritePkg(rpcMessage, time.Duration(0))
 	return err
 }
 
