@@ -1,6 +1,7 @@
 package rpc_client
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 	"math/rand"
 	"strings"
 	"sync"
@@ -270,8 +271,15 @@ func (client *RpcRemoteClient) sendAsync(session getty.Session, msg interface{})
 	log.Infof("store message,id %d: %v", rpcMessage.Id, msg)
 	client.mergeMsgMap.Store(rpcMessage.Id, msg)
 	//config timeout
-	_, _, err = session.WritePkg(rpcMessage, time.Duration(0))
-	return err
+	pkgLen, sendLen, err := session.WritePkg(rpcMessage, time.Duration(0))
+	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
+		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
+		runtime.GoWithRecover(func() {
+			session.Close()
+		}, nil)
+		return errors.Wrap(err, "pkg not send completely!")
+	}
+	return nil
 }
 
 func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg interface{}) {
@@ -287,7 +295,13 @@ func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg int
 	} else {
 		rpcMessage.MessageType = protocal.MSGTYPE_RESQUEST
 	}
-	session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	pkgLen, sendLen, err := session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
+		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
+		runtime.GoWithRecover(func() {
+			session.Close()
+		}, nil)
+	}
 }
 
 func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, session getty.Session, msg interface{}) {
@@ -304,7 +318,13 @@ func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, 
 		resp.MessageType = protocal.MSGTYPE_RESPONSE
 	}
 
-	session.WritePkg(resp, time.Duration(0))
+	pkgLen, sendLen, err := session.WritePkg(resp, time.Duration(0))
+	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
+		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
+		runtime.GoWithRecover(func() {
+			session.Close()
+		}, nil)
+	}
 }
 
 func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {

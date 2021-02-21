@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
 	"sync"
 	"time"
 )
@@ -91,9 +92,14 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 	resp := getty2.NewMessageFuture(rpcMessage)
 	coordinator.futures.Store(rpcMessage.Id, resp)
 	//config timeout
-	_, _, err = session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
-	if err != nil {
+	pkgLen, sendLen, err := session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
+		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
 		coordinator.futures.Delete(rpcMessage.Id)
+		runtime.GoWithRecover(func() {
+			session.Close()
+		}, nil)
+		return nil, errors.Wrap(err, "pkg not send completely!")
 	}
 
 	if timeout > time.Duration(0) {
@@ -122,7 +128,13 @@ func (coordinator *DefaultCoordinator) defaultSendResponse(request protocal.RpcM
 	} else {
 		resp.MessageType = protocal.MSGTYPE_RESPONSE
 	}
-	session.WritePkg(resp, time.Duration(0))
+	pkgLen, sendLen, err := session.WritePkg(resp, time.Duration(0))
+	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
+		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
+		runtime.GoWithRecover(func() {
+			session.Close()
+		}, nil)
+	}
 }
 
 func (coordinator *DefaultCoordinator) processTimeoutCheck() {
