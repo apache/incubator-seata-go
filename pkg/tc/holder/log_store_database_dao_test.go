@@ -24,10 +24,10 @@ func TestLogStoreDataBaseDAO_InsertGlobalTransactionDO(t *testing.T) {
 	logStore := &LogStoreDataBaseDAO{engine: engine}
 
 	globalTransactionDO := model.GlobalTransactionDO{
-		Xid:                     ":0:2000042921",
-		TransactionId:           2000042921,
+		XID:                     ":0:2000042921",
+		TransactionID:           2000042921,
 		Status:                  1,
-		ApplicationId:           "order_aggregation_service",
+		ApplicationID:           "order_aggregation_service",
 		TransactionServiceGroup: "order_aggregation_service_group",
 		TransactionName:         "createSo(boolean)",
 		Timeout:                 60000,
@@ -37,15 +37,15 @@ func TestLogStoreDataBaseDAO_InsertGlobalTransactionDO(t *testing.T) {
 	logStore.InsertGlobalTransactionDO(globalTransactionDO)
 }
 
-func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByTransactionId(t *testing.T) {
+func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByTransactionID(t *testing.T) {
 	engine, err := xorm.NewEngine("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	logStore := &LogStoreDataBaseDAO{engine: engine}
 
-	globalTransactionDO := logStore.QueryGlobalTransactionDOByTransactionId(2000042921)
-	assert.Equal(t, globalTransactionDO.TransactionId, int64(2000042921))
+	globalTransactionDO := logStore.QueryGlobalTransactionDOByTransactionID(2000042921)
+	assert.Equal(t, globalTransactionDO.TransactionID, int64(2000042921))
 }
 
 func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByStatuses(t *testing.T) {
@@ -57,5 +57,5 @@ func TestLogStoreDataBaseDAO_QueryGlobalTransactionDOByStatuses(t *testing.T) {
 
 	globalTransactionDOs := logStore.QueryGlobalTransactionDOByStatuses([]int{1}, 100)
 
-	assert.Equal(t, globalTransactionDOs[0].TransactionId, int64(2000042921))
+	assert.Equal(t, globalTransactionDOs[0].TransactionID, int64(2000042921))
 }

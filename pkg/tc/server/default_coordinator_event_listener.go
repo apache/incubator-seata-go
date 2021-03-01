@@ -48,7 +48,7 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 
 		if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
 			rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
-			log.Debugf("msgId:%s, body:%v", rpcMessage.Id, rpcMessage.Body)
+			log.Debugf("msgID:%s, body:%v", rpcMessage.ID, rpcMessage.Body)
 			_, isRegRM := rpcMessage.Body.(protocal.RegisterRMRequest)
 			if isRegRM {
 				coordinator.OnRegRmMessage(rpcMessage, session)
@@ -66,12 +66,12 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 				}
 			}
 		} else {
-			resp, loaded := coordinator.futures.Load(rpcMessage.Id)
+			resp, loaded := coordinator.futures.Load(rpcMessage.ID)
 			if loaded {
 				response := resp.(*getty2.MessageFuture)
 				response.Response = rpcMessage.Body
 				response.Done <- true
-				coordinator.futures.Delete(rpcMessage.Id)
+				coordinator.futures.Delete(rpcMessage.ID)
 			}
 		}
 	}

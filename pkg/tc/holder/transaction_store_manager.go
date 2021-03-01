@@ -76,7 +76,7 @@ type TransactionStoreManager interface {
 	Shutdown()
 
 	// Gets current max session id.
-	GetCurrentMaxSessionId() int64
+	GetCurrentMaxSessionID() int64
 }
 
 type AbstractTransactionStoreManager struct {
@@ -102,6 +102,6 @@ func (transactionStoreManager *AbstractTransactionStoreManager) Shutdown() {
 
 }
 
-func (transactionStoreManager *AbstractTransactionStoreManager) GetCurrentMaxSessionId() int64 {
+func (transactionStoreManager *AbstractTransactionStoreManager) GetCurrentMaxSessionID() int64 {
 	return 0
 }

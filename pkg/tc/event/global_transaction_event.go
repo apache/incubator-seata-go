@@ -28,7 +28,7 @@ func NewGlobalTransactionEvent(id int64, role string, name string, beginTime int
 	}
 }
 
-func (event GlobalTransactionEvent) GetId() int64 { return event.id }
+func (event GlobalTransactionEvent) GetID() int64 { return event.id }
 
 func (event GlobalTransactionEvent) GetRole() string { return event.role }
 

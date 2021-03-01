@@ -60,26 +60,26 @@ func (storeManager *DBTransactionStoreManager) ReadSession(xid string) *session.
 }
 
 func (storeManager *DBTransactionStoreManager) ReadSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
-	globalTransactionDO := storeManager.LogStore.QueryGlobalTransactionDOByXid(xid)
+	globalTransactionDO := storeManager.LogStore.QueryGlobalTransactionDOByXID(xid)
 	if globalTransactionDO == nil {
 		return nil
 	}
 
 	var branchTransactionDOs []*model.BranchTransactionDO
 	if withBranchSessions {
-		branchTransactionDOs = storeManager.LogStore.QueryBranchTransactionDOByXid(globalTransactionDO.Xid)
+		branchTransactionDOs = storeManager.LogStore.QueryBranchTransactionDOByXID(globalTransactionDO.XID)
 	}
 
 	return getGlobalSession(globalTransactionDO, branchTransactionDOs)
 }
 
-func (storeManager *DBTransactionStoreManager) ReadSessionByTransactionId(transactionId int64) *session.GlobalSession {
-	globalTransactionDO := storeManager.LogStore.QueryGlobalTransactionDOByTransactionId(transactionId)
+func (storeManager *DBTransactionStoreManager) ReadSessionByTransactionID(transactionID int64) *session.GlobalSession {
+	globalTransactionDO := storeManager.LogStore.QueryGlobalTransactionDOByTransactionID(transactionID)
 	if globalTransactionDO == nil {
 		return nil
 	}
 
-	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXid(globalTransactionDO.Xid)
+	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXID(globalTransactionDO.XID)
 
 	return getGlobalSession(globalTransactionDO, branchTransactionDOs)
 }
@@ -95,39 +95,39 @@ func (storeManager *DBTransactionStoreManager) readSessionByStatuses(statuses []
 	}
 	xids := make([]string, 0)
 	for _, globalTransactionDO := range globalTransactionDOs {
-		xids = append(xids, globalTransactionDO.Xid)
+		xids = append(xids, globalTransactionDO.XID)
 	}
-	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXids(xids)
+	branchTransactionDOs := storeManager.LogStore.QueryBranchTransactionDOByXIDs(xids)
 	branchTransactionMap := make(map[string][]*model.BranchTransactionDO)
 	for _, branchTransactionDO := range branchTransactionDOs {
-		branchTransactions, ok := branchTransactionMap[branchTransactionDO.Xid]
+		branchTransactions, ok := branchTransactionMap[branchTransactionDO.XID]
 		if ok {
 			branchTransactions = append(branchTransactions, branchTransactionDO)
-			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
+			branchTransactionMap[branchTransactionDO.XID] = branchTransactions
 		} else {
 			branchTransactions = make([]*model.BranchTransactionDO, 0)
 			branchTransactions = append(branchTransactions, branchTransactionDO)
-			branchTransactionMap[branchTransactionDO.Xid] = branchTransactions
+			branchTransactionMap[branchTransactionDO.XID] = branchTransactions
 		}
 	}
 	globalSessions := make([]*session.GlobalSession, 0)
 	for _, globalTransaction := range globalTransactionDOs {
-		globalSession := getGlobalSession(globalTransaction, branchTransactionMap[globalTransaction.Xid])
+		globalSession := getGlobalSession(globalTransaction, branchTransactionMap[globalTransaction.XID])
 		globalSessions = append(globalSessions, globalSession)
 	}
 	return globalSessions
 }
 
 func (storeManager *DBTransactionStoreManager) ReadSessionWithSessionCondition(sessionCondition model.SessionCondition) []*session.GlobalSession {
-	if sessionCondition.Xid != "" {
-		globalSession := storeManager.ReadSession(sessionCondition.Xid)
+	if sessionCondition.XID != "" {
+		globalSession := storeManager.ReadSession(sessionCondition.XID)
 		if globalSession != nil {
 			globalSessions := make([]*session.GlobalSession, 0)
 			globalSessions = append(globalSessions, globalSession)
 			return globalSessions
 		}
-	} else if sessionCondition.TransactionId != 0 {
-		globalSession := storeManager.ReadSessionByTransactionId(sessionCondition.TransactionId)
+	} else if sessionCondition.TransactionID != 0 {
+		globalSession := storeManager.ReadSessionByTransactionID(sessionCondition.TransactionID)
 		if globalSession != nil {
 			globalSessions := make([]*session.GlobalSession, 0)
 			globalSessions = append(globalSessions, globalSession)
@@ -144,8 +144,8 @@ func (storeManager *DBTransactionStoreManager) Shutdown() {
 
 }
 
-func (storeManager *DBTransactionStoreManager) GetCurrentMaxSessionId() int64 {
-	return storeManager.LogStore.GetCurrentMaxSessionId(uuid.GetMaxUUID(), uuid.GetInitUUID())
+func (storeManager *DBTransactionStoreManager) GetCurrentMaxSessionID() int64 {
+	return storeManager.LogStore.GetCurrentMaxSessionID(uuid.GetMaxUUID(), uuid.GetInitUUID())
 }
 
 func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO, branchTransactionDOs []*model.BranchTransactionDO) *session.GlobalSession {
@@ -160,9 +160,9 @@ func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO, branchTran
 
 func convertGlobalTransaction(globalTransactionDO *model.GlobalTransactionDO) *session.GlobalSession {
 	globalSession := session.NewGlobalSession(
-		session.WithGsXid(globalTransactionDO.Xid),
-		session.WithGsApplicationId(globalTransactionDO.ApplicationId),
-		session.WithGsTransactionId(globalTransactionDO.TransactionId),
+		session.WithGsXID(globalTransactionDO.XID),
+		session.WithGsApplicationID(globalTransactionDO.ApplicationID),
+		session.WithGsTransactionID(globalTransactionDO.TransactionID),
 		session.WithGsTransactionName(globalTransactionDO.TransactionName),
 		session.WithGsTransactionServiceGroup(globalTransactionDO.TransactionServiceGroup),
 		session.WithGsStatus(meta.GlobalStatus(globalTransactionDO.Status)),
@@ -175,14 +175,14 @@ func convertGlobalTransaction(globalTransactionDO *model.GlobalTransactionDO) *s
 
 func convertBranchSession(branchTransactionDO *model.BranchTransactionDO) *session.BranchSession {
 	branchSession := session.NewBranchSession(
-		session.WithBsXid(branchTransactionDO.Xid),
-		session.WithBsTransactionId(branchTransactionDO.TransactionId),
+		session.WithBsXid(branchTransactionDO.XID),
+		session.WithBsTransactionID(branchTransactionDO.TransactionID),
 		session.WithBsApplicationData(branchTransactionDO.ApplicationData),
-		session.WithBsBranchId(branchTransactionDO.BranchId),
+		session.WithBsBranchID(branchTransactionDO.BranchID),
 		session.WithBsBranchType(meta.ValueOfBranchType(branchTransactionDO.BranchType)),
-		session.WithBsResourceId(branchTransactionDO.ResourceId),
-		session.WithBsClientId(branchTransactionDO.ClientId),
-		session.WithBsResourceGroupId(branchTransactionDO.ResourceGroupId),
+		session.WithBsResourceID(branchTransactionDO.ResourceID),
+		session.WithBsClientID(branchTransactionDO.ClientID),
+		session.WithBsResourceGroupID(branchTransactionDO.ResourceGroupID),
 		session.WithBsStatus(meta.BranchStatus(branchTransactionDO.Status)),
 	)
 	return branchSession
@@ -195,10 +195,10 @@ func convertGlobalTransactionDO(sessionStorable session.SessionStorable) *model.
 		return nil
 	}
 	globalTransactionDO := &model.GlobalTransactionDO{
-		Xid:                     globalSession.Xid,
-		TransactionId:           globalSession.TransactionId,
+		XID:                     globalSession.XID,
+		TransactionID:           globalSession.TransactionID,
 		Status:                  int32(globalSession.Status),
-		ApplicationId:           globalSession.ApplicationId,
+		ApplicationID:           globalSession.ApplicationID,
 		TransactionServiceGroup: globalSession.TransactionServiceGroup,
 		TransactionName:         globalSession.TransactionName,
 		Timeout:                 globalSession.Timeout,
@@ -216,14 +216,14 @@ func convertBranchTransactionDO(sessionStorable session.SessionStorable) *model.
 	}
 
 	branchSessionDO := &model.BranchTransactionDO{
-		Xid:             branchSession.Xid,
-		TransactionId:   branchSession.TransactionId,
-		BranchId:        branchSession.BranchId,
-		ResourceGroupId: branchSession.ResourceGroupId,
-		ResourceId:      branchSession.ResourceId,
+		XID:             branchSession.XID,
+		TransactionID:   branchSession.TransactionID,
+		BranchID:        branchSession.BranchID,
+		ResourceGroupID: branchSession.ResourceGroupID,
+		ResourceID:      branchSession.ResourceID,
 		BranchType:      branchSession.BranchType.String(),
 		Status:          int32(branchSession.Status),
-		ClientId:        branchSession.ClientId,
+		ClientID:        branchSession.ClientID,
 		ApplicationData: branchSession.ApplicationData,
 	}
 	return branchSessionDO

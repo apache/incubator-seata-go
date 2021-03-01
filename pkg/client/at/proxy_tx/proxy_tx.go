@@ -11,7 +11,7 @@ import (
 type ProxyTx struct {
 	*sql.Tx
 	DSN        string
-	ResourceId string
+	ResourceID string
 	Context    *TxContext
 }
 
@@ -35,6 +35,6 @@ func (tx *ProxyTx) AppendLockKey(lockKey string) {
 	tx.Context.AppendLockKey(lockKey)
 }
 
-func (tx *ProxyTx) GetResourceId() string {
-	return tx.ResourceId
+func (tx *ProxyTx) GetResourceID() string {
+	return tx.ResourceID
 }

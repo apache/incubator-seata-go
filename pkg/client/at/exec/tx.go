@@ -81,12 +81,12 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 func (tx *Tx) Commit() error {
-	branchId, err := tx.register()
+	branchID, err := tx.register()
 	if err != nil {
 		err = tx.proxyTx.Rollback()
 		return errors.WithStack(err)
 	}
-	tx.proxyTx.Context.BranchId = branchId
+	tx.proxyTx.Context.BranchID = branchID
 
 	if tx.proxyTx.Context.HasUndoLog() {
 		err = manager.GetUndoLogManager().FlushUndoLogs(tx.proxyTx)
@@ -115,11 +115,11 @@ func (tx *Tx) Commit() error {
 func (tx *Tx) Rollback() error {
 	err := tx.proxyTx.Rollback()
 	if tx.proxyTx.Context.InGlobalTransaction() {
-		branchId, err := tx.register()
+		branchID, err := tx.register()
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		tx.proxyTx.Context.BranchId = branchId
+		tx.proxyTx.Context.BranchID = branchID
 		tx.report(false)
 	}
 	tx.proxyTx.Context.Reset()
@@ -127,10 +127,10 @@ func (tx *Tx) Rollback() error {
 }
 
 func (tx *Tx) register() (int64, error) {
-	var branchId int64
+	var branchID int64
 	var err error
 	for retryCount := 0; retryCount < tx.lockRetryTimes; retryCount++ {
-		branchId, err = dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceId, "", tx.proxyTx.Context.Xid,
+		branchID, err = dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceID, "", tx.proxyTx.Context.XID,
 			nil, tx.proxyTx.Context.BuildLockKeys())
 		if err == nil {
 			break
@@ -144,7 +144,7 @@ func (tx *Tx) register() (int64, error) {
 		}
 		time.Sleep(tx.lockRetryInterval)
 	}
-	return branchId, err
+	return branchID, err
 }
 
 func (tx *Tx) report(commitDone bool) error {
@@ -152,15 +152,15 @@ func (tx *Tx) report(commitDone bool) error {
 	for retry > 0 {
 		var err error
 		if commitDone {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
+			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
 				meta.BranchStatusPhaseoneDone, nil)
 		} else {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.Xid, tx.proxyTx.Context.BranchId,
+			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
 				meta.BranchStatusPhaseoneFailed, nil)
 		}
 		if err != nil {
 			log.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",
-				tx.proxyTx.Context.BranchId, tx.proxyTx.Context.Xid, commitDone, retry)
+				tx.proxyTx.Context.BranchID, tx.proxyTx.Context.XID, commitDone, retry)
 		}
 		retry = retry - 1
 		if retry == 0 {

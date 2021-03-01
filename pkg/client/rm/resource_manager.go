@@ -7,21 +7,21 @@ import (
 
 type ResourceManagerInbound interface {
 	// Commit a branch transaction.
-	BranchCommit(branchType meta.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (meta.BranchStatus, error)
+	BranchCommit(branchType meta.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (meta.BranchStatus, error)
 
 	// Rollback a branch transaction.
-	BranchRollback(branchType meta.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (meta.BranchStatus, error)
+	BranchRollback(branchType meta.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (meta.BranchStatus, error)
 }
 
 type ResourceManagerOutbound interface {
 	// Branch register long.
-	BranchRegister(branchType meta.BranchType, resourceId string, clientId string, xid string, applicationData []byte, lockKeys string) (int64, error)
+	BranchRegister(branchType meta.BranchType, resourceID string, clientID string, xid string, applicationData []byte, lockKeys string) (int64, error)
 
 	// Branch report.
-	BranchReport(branchType meta.BranchType, xid string, branchId int64, status meta.BranchStatus, applicationData []byte) error
+	BranchReport(branchType meta.BranchType, xid string, branchID int64, status meta.BranchStatus, applicationData []byte) error
 
 	// Lock query boolean.
-	LockQuery(branchType meta.BranchType, resourceId string, xid string, lockKeys string) (bool, error)
+	LockQuery(branchType meta.BranchType, resourceID string, xid string, lockKeys string) (bool, error)
 }
 
 type ResourceManager interface {

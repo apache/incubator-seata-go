@@ -144,8 +144,8 @@ func (sessionManager *DataBaseSessionManager) FindGlobalSessions(condition model
 }
 
 func (sessionManager *DataBaseSessionManager) Reload() {
-	maxSessionId := sessionManager.TransactionStoreManager.GetCurrentMaxSessionId()
-	if maxSessionId > uuid.UUID {
-		uuid.SetUUID(uuid.UUID, maxSessionId)
+	maxSessionID := sessionManager.TransactionStoreManager.GetCurrentMaxSessionID()
+	if maxSessionID > uuid.UUID {
+		uuid.SetUUID(uuid.UUID, maxSessionID)
 	}
 }

@@ -2,7 +2,7 @@ package protocal
 
 type MergedWarpMessage struct {
 	Msgs   []MessageTypeAware
-	MsgIds []int32
+	MsgIDs []int32
 }
 
 func (req MergedWarpMessage) GetTypeCode() int16 {

@@ -41,11 +41,11 @@ func (sessionManager *FileBasedSessionManager) restoreSessions() {
 	sessionManager.restoreSessionsToUnhandledBranchBuffer(false, unhandledBranchBuffer)
 	if len(unhandledBranchBuffer) > 0 {
 		for _, branchSession := range unhandledBranchBuffer {
-			found := sessionManager.SessionMap[branchSession.Xid]
+			found := sessionManager.SessionMap[branchSession.XID]
 			if found == nil {
-				log.Warnf("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchId, branchSession.Xid)
+				log.Warnf("GlobalSession Does Not Exists For BranchSession [%d/%s]", branchSession.BranchID, branchSession.XID)
 			} else {
-				existingBranch := found.GetBranch(branchSession.BranchId)
+				existingBranch := found.GetBranch(branchSession.BranchID)
 				if existingBranch == nil {
 					found.Add(branchSession)
 				} else {
@@ -79,7 +79,7 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 				meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
 				meta.GlobalStatusFinished:
 				// Remove all sessions finished
-				delete(sessionManager.SessionMap, globalSession.Xid)
+				delete(sessionManager.SessionMap, globalSession.XID)
 				break
 			default:
 				break
@@ -89,22 +89,22 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 }
 
 func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWriteStore, unhandledBranchSessions map[int64]*session.BranchSession) {
-	maxRecoverId := uuid.UUID
+	maxRecoverID := uuid.UUID
 	for _, store := range stores {
 		logOperation := store.LogOperation
 		sessionStorable := store.SessionRequest
-		maxRecoverId = getMaxId(maxRecoverId, sessionStorable)
+		maxRecoverID = getMaxID(maxRecoverID, sessionStorable)
 		switch logOperation {
 		case LogOperationGlobalAdd, LogOperationGlobalUpdate:
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
-				if globalSession.TransactionId == int64(0) {
-					log.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
+				if globalSession.TransactionID == int64(0) {
+					log.Errorf("Restore globalSession from file failed, the transactionID is zero , xid:%s", globalSession.XID)
 					break
 				}
-				foundGlobalSession := sessionManager.SessionMap[globalSession.Xid]
+				foundGlobalSession := sessionManager.SessionMap[globalSession.XID]
 				if foundGlobalSession == nil {
-					sessionManager.SessionMap[globalSession.Xid] = globalSession
+					sessionManager.SessionMap[globalSession.XID] = globalSession
 				} else {
 					foundGlobalSession.Status = globalSession.Status
 				}
@@ -113,25 +113,25 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 		case LogOperationGlobalRemove:
 			{
 				globalSession := sessionStorable.(*session.GlobalSession)
-				if globalSession.TransactionId == int64(0) {
-					log.Errorf("Restore globalSession from file failed, the transactionId is zero , xid:%s", globalSession.Xid)
+				if globalSession.TransactionID == int64(0) {
+					log.Errorf("Restore globalSession from file failed, the transactionID is zero , xid:%s", globalSession.XID)
 					break
 				}
-				delete(sessionManager.SessionMap, globalSession.Xid)
+				delete(sessionManager.SessionMap, globalSession.XID)
 				break
 			}
 		case LogOperationBranchAdd, LogOperationBranchUpdate:
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
-				if branchSession.TransactionId == int64(0) {
-					log.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
+				if branchSession.TransactionID == int64(0) {
+					log.Errorf("Restore branchSession from file failed, the transactionID is zero , xid:%s", branchSession.XID)
 					break
 				}
-				foundGlobalSession := sessionManager.SessionMap[branchSession.Xid]
+				foundGlobalSession := sessionManager.SessionMap[branchSession.XID]
 				if foundGlobalSession == nil {
-					unhandledBranchSessions[branchSession.BranchId] = branchSession
+					unhandledBranchSessions[branchSession.BranchID] = branchSession
 				} else {
-					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchId)
+					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchID)
 					if existingBranch == nil {
 						foundGlobalSession.Add(branchSession)
 					} else {
@@ -143,17 +143,17 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 		case LogOperationBranchRemove:
 			{
 				branchSession := sessionStorable.(*session.BranchSession)
-				if branchSession.TransactionId == int64(0) {
-					log.Errorf("Restore branchSession from file failed, the transactionId is zero , xid:%s", branchSession.Xid)
+				if branchSession.TransactionID == int64(0) {
+					log.Errorf("Restore branchSession from file failed, the transactionID is zero , xid:%s", branchSession.XID)
 					break
 				}
-				foundGlobalSession := sessionManager.SessionMap[branchSession.Xid]
+				foundGlobalSession := sessionManager.SessionMap[branchSession.XID]
 				if foundGlobalSession == nil {
-					log.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
+					log.Infof("GlobalSession To Be Updated (Remove Branch) Does Not Exists [%d/%s]", branchSession.BranchID, branchSession.XID)
 				} else {
-					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchId)
+					existingBranch := foundGlobalSession.GetBranch(branchSession.BranchID)
 					if existingBranch == nil {
-						log.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]", branchSession.BranchId, branchSession.Xid)
+						log.Infof("BranchSession To Be Updated Does Not Exists [%d/%s]", branchSession.BranchID, branchSession.XID)
 					} else {
 						foundGlobalSession.Remove(existingBranch)
 					}
@@ -164,35 +164,35 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 			break
 		}
 	}
-	setMaxId(maxRecoverId)
+	setMaxID(maxRecoverID)
 }
 
-func getMaxId(maxRecoverId int64, sessionStorable session.SessionStorable) int64 {
-	var currentId int64 = 0
+func getMaxID(maxRecoverID int64, sessionStorable session.SessionStorable) int64 {
+	var currentID int64 = 0
 	var gs, ok1 = sessionStorable.(*session.GlobalSession)
 	if ok1 {
-		currentId = gs.TransactionId
+		currentID = gs.TransactionID
 	}
 
 	var bs, ok2 = sessionStorable.(*session.BranchSession)
 	if ok2 {
-		currentId = bs.BranchId
+		currentID = bs.BranchID
 	}
 
-	if maxRecoverId > currentId {
-		return maxRecoverId
+	if maxRecoverID > currentID {
+		return maxRecoverID
 	} else {
-		return currentId
+		return currentID
 	}
 }
 
-func setMaxId(maxRecoverId int64) {
-	var currentId int64
+func setMaxID(maxRecoverID int64) {
+	var currentID int64
 	// will be recover multi-thread later
 	for {
-		currentId = uuid.UUID
-		if currentId < maxRecoverId {
-			if uuid.SetUUID(currentId, maxRecoverId) {
+		currentID = uuid.UUID
+		if currentID < maxRecoverID {
+			if uuid.SetUUID(currentID, maxRecoverID) {
 				break
 			}
 		}

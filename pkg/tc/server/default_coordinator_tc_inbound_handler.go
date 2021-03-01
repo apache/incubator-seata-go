@@ -14,7 +14,7 @@ import (
 
 func (coordinator *DefaultCoordinator) doGlobalBegin(request protocal.GlobalBeginRequest, ctx RpcContext) protocal.GlobalBeginResponse {
 	var resp = protocal.GlobalBeginResponse{}
-	xid, err := coordinator.core.Begin(ctx.ApplicationId, ctx.TransactionServiceGroup, request.TransactionName, request.Timeout)
+	xid, err := coordinator.core.Begin(ctx.ApplicationID, ctx.TransactionServiceGroup, request.TransactionName, request.Timeout)
 	if err != nil {
 		trxException, ok := err.(*meta.TransactionException)
 		resp.ResultCode = protocal.ResultCodeFailed
@@ -35,7 +35,7 @@ func (coordinator *DefaultCoordinator) doGlobalBegin(request protocal.GlobalBegi
 
 func (coordinator *DefaultCoordinator) doGlobalStatus(request protocal.GlobalStatusRequest, ctx RpcContext) protocal.GlobalStatusResponse {
 	var resp = protocal.GlobalStatusResponse{}
-	globalStatus, err := coordinator.core.GetStatus(request.Xid)
+	globalStatus, err := coordinator.core.GetStatus(request.XID)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -56,7 +56,7 @@ func (coordinator *DefaultCoordinator) doGlobalStatus(request protocal.GlobalSta
 
 func (coordinator *DefaultCoordinator) doGlobalReport(request protocal.GlobalReportRequest, ctx RpcContext) protocal.GlobalReportResponse {
 	var resp = protocal.GlobalReportResponse{}
-	globalStatus, err := coordinator.core.GlobalReport(request.Xid, request.GlobalStatus)
+	globalStatus, err := coordinator.core.GlobalReport(request.XID, request.GlobalStatus)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -77,7 +77,7 @@ func (coordinator *DefaultCoordinator) doGlobalReport(request protocal.GlobalRep
 
 func (coordinator *DefaultCoordinator) doGlobalCommit(request protocal.GlobalCommitRequest, ctx RpcContext) protocal.GlobalCommitResponse {
 	var resp = protocal.GlobalCommitResponse{}
-	globalStatus, err := coordinator.core.Commit(request.Xid)
+	globalStatus, err := coordinator.core.Commit(request.XID)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -98,10 +98,10 @@ func (coordinator *DefaultCoordinator) doGlobalCommit(request protocal.GlobalCom
 
 func (coordinator *DefaultCoordinator) doGlobalRollback(request protocal.GlobalRollbackRequest, ctx RpcContext) protocal.GlobalRollbackResponse {
 	var resp = protocal.GlobalRollbackResponse{}
-	globalStatus, err := coordinator.core.Rollback(request.Xid)
+	globalStatus, err := coordinator.core.Rollback(request.XID)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
-		globalSession := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(request.Xid, false)
+		globalSession := holder.GetSessionHolder().FindGlobalSessionWithBranchSessions(request.XID, false)
 		if globalSession == nil {
 			resp.GlobalStatus = meta.GlobalStatusFinished
 		} else {
@@ -126,7 +126,7 @@ func (coordinator *DefaultCoordinator) doGlobalRollback(request protocal.GlobalR
 
 func (coordinator *DefaultCoordinator) doBranchRegister(request protocal.BranchRegisterRequest, ctx RpcContext) protocal.BranchRegisterResponse {
 	var resp = protocal.BranchRegisterResponse{}
-	branchId, err := coordinator.core.BranchRegister(request.BranchType, request.ResourceId, ctx.ClientId, request.Xid, request.ApplicationData, request.LockKey)
+	branchID, err := coordinator.core.BranchRegister(request.BranchType, request.ResourceID, ctx.ClientID, request.XID, request.ApplicationData, request.LockKey)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -140,14 +140,14 @@ func (coordinator *DefaultCoordinator) doBranchRegister(request protocal.BranchR
 		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
-	resp.BranchId = branchId
+	resp.BranchID = branchID
 	resp.ResultCode = protocal.ResultCodeSuccess
 	return resp
 }
 
 func (coordinator *DefaultCoordinator) doBranchReport(request protocal.BranchReportRequest, ctx RpcContext) protocal.BranchReportResponse {
 	var resp = protocal.BranchReportResponse{}
-	err := coordinator.core.BranchReport(request.BranchType, request.Xid, request.BranchId, request.Status, request.ApplicationData)
+	err := coordinator.core.BranchReport(request.BranchType, request.XID, request.BranchID, request.Status, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -167,7 +167,7 @@ func (coordinator *DefaultCoordinator) doBranchReport(request protocal.BranchRep
 
 func (coordinator *DefaultCoordinator) doLockCheck(request protocal.GlobalLockQueryRequest, ctx RpcContext) protocal.GlobalLockQueryResponse {
 	var resp = protocal.GlobalLockQueryResponse{}
-	result, err := coordinator.core.LockQuery(request.BranchType, request.ResourceId, request.Xid, request.LockKey)
+	result, err := coordinator.core.LockQuery(request.BranchType, request.ResourceID, request.XID, request.LockKey)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException

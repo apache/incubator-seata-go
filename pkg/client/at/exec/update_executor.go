@@ -88,7 +88,7 @@ func (executor *UpdateExecutor) AfterImage(beforeImage *schema.TableRecords) (*s
 
 func (executor *UpdateExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }
 
 func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) string {

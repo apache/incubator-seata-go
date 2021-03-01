@@ -34,7 +34,7 @@ func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
 			PaymentType:          1,
 			SoAmt:                430.5,
 			Status:               10,
-			AppId:                "dk-order",
+			AppID:                "dk-order",
 			SoItems: []*dao.SoItem{
 				{
 					ProductSysNo:  1,

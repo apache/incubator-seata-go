@@ -88,8 +88,8 @@ func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession, bran
 	if !result {
 		return &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeLockKeyConflict,
-			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchId = %d",
-				globalSession.Xid, branchSession.BranchId),
+			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchID = %d",
+				globalSession.XID, branchSession.BranchID),
 		}
 	}
 	return nil
@@ -101,10 +101,10 @@ func (core *ATCore) branchSessionUnlock(branchSession *session.BranchSession) er
 }
 
 func (core *ATCore) LockQuery(branchType meta.BranchType,
-	resourceId string,
+	resourceID string,
 	xid string,
 	lockKeys string) bool {
-	return lock.GetLockManager().IsLockable(xid, resourceId, lockKeys)
+	return lock.GetLockManager().IsLockable(xid, resourceID, lockKeys)
 }
 
 func (core *SAGACore) doGlobalCommit(globalSession *session.GlobalSession, retrying bool) (bool, error) {
@@ -119,9 +119,9 @@ func (core *SAGACore) doGlobalReport(globalSession *session.GlobalSession, xid s
 	return nil
 }
 
-func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup string, name string, timeout int32) (string, error) {
+func (core *DefaultCore) Begin(applicationID string, transactionServiceGroup string, name string, timeout int32) (string, error) {
 	gs := session.NewGlobalSession(
-		session.WithGsApplicationId(applicationId),
+		session.WithGsApplicationID(applicationID),
 		session.WithGsTransactionServiceGroup(transactionServiceGroup),
 		session.WithGsTransactionName(name),
 		session.WithGsTimeout(timeout),
@@ -135,17 +135,17 @@ func (core *DefaultCore) Begin(applicationId string, transactionServiceGroup str
 	}
 
 	runtime.GoWithRecover(func() {
-		evt := event.NewGlobalTransactionEvent(gs.TransactionId, event.RoleTC, gs.TransactionName, gs.BeginTime, 0, gs.Status)
+		evt := event.NewGlobalTransactionEvent(gs.TransactionID, event.RoleTC, gs.TransactionName, gs.BeginTime, 0, gs.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
-	log.Infof("Successfully begin global transaction xid = {}", gs.Xid)
-	return gs.Xid, nil
+	log.Infof("Successfully begin global transaction xid = {}", gs.XID)
+	return gs.XID, nil
 }
 
 func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
-	resourceId string,
-	clientId string,
+	resourceID string,
+	clientID string,
 	xid string,
 	applicationData []byte,
 	lockKeys string) (int64, error) {
@@ -163,10 +163,10 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 
 	bs := session.NewBranchSessionByGlobal(*gs,
 		session.WithBsBranchType(branchType),
-		session.WithBsResourceId(resourceId),
+		session.WithBsResourceID(resourceID),
 		session.WithBsApplicationData(applicationData),
 		session.WithBsLockKey(lockKeys),
-		session.WithBsClientId(clientId),
+		session.WithBsClientID(clientID),
 	)
 
 	if branchType == meta.BranchTypeAT {
@@ -180,26 +180,26 @@ func (core *DefaultCore) BranchRegister(branchType meta.BranchType,
 	if err3 != nil {
 		return 0, meta.NewTransactionException(err3,
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeBranchRegisterFailed),
-			meta.WithMessage(fmt.Sprintf("Branch register failed,xid = %s, branchId = %d", gs.Xid, bs.BranchId)))
+			meta.WithMessage(fmt.Sprintf("Branch register failed,xid = %s, branchID = %d", gs.XID, bs.BranchID)))
 	}
 	bs.Status = meta.BranchStatusRegistered
 
-	log.Infof("Successfully register branch xid = %s, branchId = %d", gs.Xid, bs.BranchId)
-	return bs.BranchId, nil
+	log.Infof("Successfully register branch xid = %s, branchID = %d", gs.XID, bs.BranchID)
+	return bs.BranchID, nil
 }
 
 func globalSessionStatusCheck(globalSession *session.GlobalSession) error {
 	if !globalSession.Active {
 		return &meta.TransactionException{
 			Code:    meta.TransactionExceptionCodeGlobalTransactionNotActive,
-			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d", globalSession.Xid, globalSession.Status),
+			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d", globalSession.XID, globalSession.Status),
 		}
 	}
 	if globalSession.Status != meta.GlobalStatusBegin {
 		return &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeGlobalTransactionStatusInvalid,
 			Message: fmt.Sprintf("Could not register branch into global session xid = %s status = %d while expecting %d",
-				globalSession.Xid, globalSession.Status, meta.GlobalStatusBegin),
+				globalSession.XID, globalSession.Status, meta.GlobalStatusBegin),
 		}
 	}
 	return nil
@@ -219,7 +219,7 @@ func assertGlobalSessionNotNull(xid string, withBranchSessions bool) (*session.G
 
 func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 	xid string,
-	branchId int64,
+	branchID int64,
 	status meta.BranchStatus,
 	applicationData []byte) error {
 	gs, err := assertGlobalSessionNotNull(xid, true)
@@ -227,12 +227,12 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 		return nil
 	}
 
-	bs := gs.GetBranch(branchId)
+	bs := gs.GetBranch(branchID)
 	if bs == nil {
 		return &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeBranchTransactionNotExist,
-			Message: fmt.Sprintf("Could not found branch session xid = %s branchId = %d",
-				xid, branchId),
+			Message: fmt.Sprintf("Could not found branch session xid = %s branchID = %d",
+				xid, branchID),
 		}
 	}
 
@@ -241,22 +241,22 @@ func (core *DefaultCore) BranchReport(branchType meta.BranchType,
 	if err1 != nil {
 		return meta.NewTransactionException(err1,
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeBranchReportFailed),
-			meta.WithMessage(fmt.Sprintf("Branch report failed,xid = %s, branchId = %d", xid, bs.BranchId)))
+			meta.WithMessage(fmt.Sprintf("Branch report failed,xid = %s, branchID = %d", xid, bs.BranchID)))
 	}
 
-	log.Infof("Successfully branch report xid = %s, branchId = %d", xid, bs.BranchId)
+	log.Infof("Successfully branch report xid = %s, branchID = %d", xid, bs.BranchID)
 	return nil
 }
 
-func (core *DefaultCore) LockQuery(branchType meta.BranchType, resourceId string, xid string, lockKeys string) (bool, error) {
+func (core *DefaultCore) LockQuery(branchType meta.BranchType, resourceID string, xid string, lockKeys string) (bool, error) {
 	return true, nil
 }
 
 func (core *DefaultCore) branchCommit(globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
 	request := protocal.BranchCommitRequest{}
-	request.Xid = branchSession.Xid
-	request.BranchId = branchSession.BranchId
-	request.ResourceId = branchSession.ResourceId
+	request.XID = branchSession.XID
+	request.BranchID = branchSession.BranchID
+	request.ResourceID = branchSession.ResourceID
 	request.ApplicationData = branchSession.ApplicationData
 	request.BranchType = branchSession.BranchType
 
@@ -264,15 +264,15 @@ func (core *DefaultCore) branchCommit(globalSession *session.GlobalSession, bran
 	if err != nil {
 		return 0, meta.NewTransactionException(err,
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeFailedToSendBranchCommitRequest),
-			meta.WithMessage(fmt.Sprintf("Send branch commit failed, xid = %s branchId = %d",
-				branchSession.Xid, branchSession.BranchId)))
+			meta.WithMessage(fmt.Sprintf("Send branch commit failed, xid = %s branchID = %d",
+				branchSession.XID, branchSession.BranchID)))
 	}
 	return resp, err
 }
 
 func (core *DefaultCore) branchCommitSend(request protocal.BranchCommitRequest,
 	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
-	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceId, branchSession.ClientId, request)
+	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceID, branchSession.ClientID, request)
 	if err != nil {
 		return 0, err
 	}
@@ -282,9 +282,9 @@ func (core *DefaultCore) branchCommitSend(request protocal.BranchCommitRequest,
 
 func (core *DefaultCore) branchRollback(globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
 	request := protocal.BranchRollbackRequest{}
-	request.Xid = branchSession.Xid
-	request.BranchId = branchSession.BranchId
-	request.ResourceId = branchSession.ResourceId
+	request.XID = branchSession.XID
+	request.BranchID = branchSession.BranchID
+	request.ResourceID = branchSession.ResourceID
 	request.ApplicationData = branchSession.ApplicationData
 	request.BranchType = branchSession.BranchType
 
@@ -292,15 +292,15 @@ func (core *DefaultCore) branchRollback(globalSession *session.GlobalSession, br
 	if err != nil {
 		return 0, meta.NewTransactionException(err,
 			meta.WithTransactionExceptionCode(meta.TransactionExceptionCodeFailedToSendBranchRollbackRequest),
-			meta.WithMessage(fmt.Sprintf("Send branch rollback failed, xid = %s branchId = %d",
-				branchSession.Xid, branchSession.BranchId)))
+			meta.WithMessage(fmt.Sprintf("Send branch rollback failed, xid = %s branchID = %d",
+				branchSession.XID, branchSession.BranchID)))
 	}
 	return resp, err
 }
 
 func (core *DefaultCore) branchRollbackSend(request protocal.BranchRollbackRequest,
 	globalSession *session.GlobalSession, branchSession *session.BranchSession) (meta.BranchStatus, error) {
-	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceId, branchSession.ClientId, request)
+	resp, err := core.MessageSender.SendSyncRequest(branchSession.ResourceID, branchSession.ClientID, request)
 	if err != nil {
 		return 0, err
 	}
@@ -351,7 +351,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	)
 
 	runtime.GoWithRecover(func() {
-		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+		evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
@@ -383,7 +383,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 						continue
 					} else {
 						endCommitFailed(globalSession)
-						log.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed", globalSession.Xid, bs.BranchId)
+						log.Errorf("Finally, failed to commit global[%d] since branch[%d] commit failed", globalSession.XID, bs.BranchID)
 						return false, nil
 					}
 				}
@@ -397,14 +397,14 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 						log.Errorf("By [%s], failed to commit branch %v", bs.Status.String(), bs)
 						continue
 					} else {
-						log.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.", globalSession.Xid, bs.BranchId)
+						log.Errorf("ResultCodeFailed to commit global[%d] since branch[%d] commit failed, will retry later.", globalSession.XID, bs.BranchID)
 						return false, nil
 					}
 				}
 			}
 		}
 		if globalSession.HasBranch() {
-			log.Infof("Global[%d] committing is NOT done.", globalSession.Xid)
+			log.Infof("Global[%d] committing is NOT done.", globalSession.XID)
 			return false, nil
 		}
 	}
@@ -412,12 +412,12 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 		endCommitted(globalSession)
 
 		runtime.GoWithRecover(func() {
-			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
+			evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
 				int64(time.CurrentTimeMillis()), globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt
 		}, nil)
 
-		log.Infof("Global[%d] committing is successfully done.", globalSession.Xid)
+		log.Infof("Global[%d] committing is successfully done.", globalSession.XID)
 	}
 	return success, err
 }
@@ -455,7 +455,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 	)
 
 	runtime.GoWithRecover(func() {
-		evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+		evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
@@ -469,7 +469,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			}
 			branchStatus, err1 := core.branchRollback(globalSession, bs)
 			if err1 != nil {
-				log.Errorf("Exception rollbacking branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Errorf("Exception rollbacking branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
@@ -478,14 +478,14 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			switch branchStatus {
 			case meta.BranchStatusPhasetwoRollbacked:
 				removeBranchSession(globalSession, bs)
-				log.Infof("Successfully rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("Successfully rollback branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				continue
 			case meta.BranchStatusPhasetwoRollbackFailedUnretryable:
 				endRollBackFailed(globalSession)
-				log.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				return false, nil
 			default:
-				log.Infof("ResultCodeFailed to rollback branch xid=%d branchId=%d", globalSession.Xid, bs.BranchId)
+				log.Infof("ResultCodeFailed to rollback branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
@@ -499,9 +499,9 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		// 2. New branch transaction has data association with rollback branch transaction
 		// The second query can solve the first problem, and if it is the second problem, it may cause a rollback
 		// failure due to data changes.
-		gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(globalSession.Xid)
+		gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(globalSession.XID)
 		if gs != nil && gs.HasBranch() {
-			log.Infof("Global[%d] rollbacking is NOT done.", globalSession.Xid)
+			log.Infof("Global[%d] rollbacking is NOT done.", globalSession.XID)
 			return false, nil
 		}
 	}
@@ -509,12 +509,12 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		endRollBacked(globalSession)
 
 		runtime.GoWithRecover(func() {
-			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
+			evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
 				int64(time.CurrentTimeMillis()), globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt
 		}, nil)
 
-		log.Infof("Successfully rollback global, xid = %d", globalSession.Xid)
+		log.Infof("Successfully rollback global, xid = %d", globalSession.XID)
 	}
 	return success, err
 }

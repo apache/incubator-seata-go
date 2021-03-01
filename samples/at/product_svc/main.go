@@ -53,7 +53,7 @@ func main() {
 		}
 
 		rootContext := &context.RootContext{Context: c}
-		rootContext.Bind(c.Request.Header.Get("Xid"))
+		rootContext.Bind(c.Request.Header.Get("XID"))
 
 		err := d.AllocateInventory(rootContext, q.Req)
 

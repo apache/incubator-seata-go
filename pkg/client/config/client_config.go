@@ -17,7 +17,7 @@ import (
 )
 
 type ClientConfig struct {
-	ApplicationId                string      `yaml:"application_id" json:"application_id,omitempty"`
+	ApplicationID                string      `yaml:"application_id" json:"application_id,omitempty"`
 	TransactionServiceGroup      string      `yaml:"transaction_service_group" json:"transaction_service_group,omitempty"`
 	EnableClientBatchSendRequest bool        `yaml:"enable-rpc_client-batch-send-request" json:"enable-rpc_client-batch-send-request,omitempty"`
 	SeataVersion                 string      `yaml:"seata_version" json:"seata_version,omitempty"`
@@ -40,9 +40,9 @@ func GetATConfig() ATConfig {
 	return clientConfig.ATConfig
 }
 
-func GetDefaultClientConfig(applicationId string) ClientConfig {
+func GetDefaultClientConfig(applicationID string) ClientConfig {
 	return ClientConfig{
-		ApplicationId:           applicationId,
+		ApplicationID:           applicationID,
 		SeataVersion:            "1.1.0",
 		TransactionServiceGroup: "127.0.0.1:8091",
 		GettyConfig:             GetDefaultGettyConfig(),
@@ -79,14 +79,14 @@ func InitConf(confFile string) error {
 	return nil
 }
 
-func InitConfWithDefault(applicationId string) {
-	clientConfig = GetDefaultClientConfig(applicationId)
+func InitConfWithDefault(applicationID string) {
+	clientConfig = GetDefaultClientConfig(applicationID)
 	(&clientConfig).GettyConfig.CheckValidity()
 }
 
-func InitApolloConf(serverAddr string, appId string, nameSpace string) error {
+func InitApolloConf(serverAddr string, appID string, nameSpace string) error {
 
-	a, err := agollo.New(serverAddr, appId, agollo.AutoFetchOnCacheMiss())
+	a, err := agollo.New(serverAddr, appID, agollo.AutoFetchOnCacheMiss())
 	if err != nil {
 		return errors.WithMessagef(err, fmt.Sprintf("get etcd error:%s", err))
 	}

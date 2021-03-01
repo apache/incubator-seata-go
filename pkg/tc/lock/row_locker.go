@@ -12,13 +12,13 @@ import (
 const LOCK_SPLIT = "^^^"
 
 type RowLock struct {
-	Xid string
+	XID string
 
-	TransactionId int64
+	TransactionID int64
 
-	BranchId int64
+	BranchID int64
 
-	ResourceId string
+	ResourceID string
 
 	TableName string
 
@@ -33,21 +33,21 @@ func collectRowLocksByBranchSession(branchSession *session.BranchSession) []*Row
 	if branchSession == nil || branchSession.LockKey == "" {
 		return nil
 	}
-	return collectRowLocks(branchSession.LockKey, branchSession.ResourceId, branchSession.Xid, branchSession.TransactionId, branchSession.BranchId)
+	return collectRowLocks(branchSession.LockKey, branchSession.ResourceID, branchSession.XID, branchSession.TransactionID, branchSession.BranchID)
 }
 
-func collectRowLocksByLockKeyResourceIdXid(lockKey string,
-	resourceId string,
+func collectRowLocksByLockKeyResourceIDAndXID(lockKey string,
+	resourceID string,
 	xid string) []*RowLock {
 
-	return collectRowLocks(lockKey, resourceId, xid, common.XID.GetTransactionId(xid), 0)
+	return collectRowLocks(lockKey, resourceID, xid, common.GetTransactionID(xid), 0)
 }
 
 func collectRowLocks(lockKey string,
-	resourceId string,
+	resourceID string,
 	xid string,
-	transactionId int64,
-	branchId int64) []*RowLock {
+	transactionID int64,
+	branchID int64) []*RowLock {
 	var locks = make([]*RowLock, 0)
 	tableGroupedLockKeys := strings.Split(lockKey, ";")
 	for _, tableGroupedLockKey := range tableGroupedLockKeys {
@@ -72,10 +72,10 @@ func collectRowLocks(lockKey string,
 			for _, pk := range pks {
 				if pk != "" {
 					rowLock := &RowLock{
-						Xid:           xid,
-						TransactionId: transactionId,
-						BranchId:      branchId,
-						ResourceId:    resourceId,
+						XID:           xid,
+						TransactionID: transactionID,
+						BranchID:      branchID,
+						ResourceID:    resourceID,
 						TableName:     tableName,
 						Pk:            pk,
 					}

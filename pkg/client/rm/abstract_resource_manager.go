@@ -36,7 +36,7 @@ func NewAbstractResourceManager(client *rpc_client.RpcRemoteClient) AbstractReso
 }
 
 func (resourceManager AbstractResourceManager) RegisterResource(resource model.IResource) {
-	resourceManager.ResourceCache[resource.GetResourceId()] = resource
+	resourceManager.ResourceCache[resource.GetResourceID()] = resource
 }
 
 func (resourceManager AbstractResourceManager) UnregisterResource(resource model.IResource) {
@@ -47,12 +47,12 @@ func (resourceManager AbstractResourceManager) GetManagedResources() map[string]
 	return resourceManager.ResourceCache
 }
 
-func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.BranchType, resourceId string,
-	clientId string, xid string, applicationData []byte, lockKeys string) (int64, error) {
+func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.BranchType, resourceID string,
+	clientID string, xid string, applicationData []byte, lockKeys string) (int64, error) {
 	request := protocal.BranchRegisterRequest{
-		Xid:             xid,
+		XID:             xid,
 		BranchType:      branchType,
-		ResourceId:      resourceId,
+		ResourceID:      resourceID,
 		LockKey:         lockKeys,
 		ApplicationData: applicationData,
 	}
@@ -62,17 +62,17 @@ func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.Br
 	}
 	response := resp.(protocal.BranchRegisterResponse)
 	if response.ResultCode == protocal.ResultCodeSuccess {
-		return response.BranchId, nil
+		return response.BranchID, nil
 	} else {
 		return 0, response.GetError()
 	}
 }
 
-func (resourceManager AbstractResourceManager) BranchReport(branchType meta.BranchType, xid string, branchId int64,
+func (resourceManager AbstractResourceManager) BranchReport(branchType meta.BranchType, xid string, branchID int64,
 	status meta.BranchStatus, applicationData []byte) error {
 	request := protocal.BranchReportRequest{
-		Xid:             xid,
-		BranchId:        branchId,
+		XID:             xid,
+		BranchID:        branchID,
 		Status:          status,
 		ApplicationData: applicationData,
 	}
@@ -87,7 +87,7 @@ func (resourceManager AbstractResourceManager) BranchReport(branchType meta.Bran
 	return nil
 }
 
-func (resourceManager AbstractResourceManager) LockQuery(ctx *context.RootContext, branchType meta.BranchType, resourceId string, xid string,
+func (resourceManager AbstractResourceManager) LockQuery(ctx *context.RootContext, branchType meta.BranchType, resourceID string, xid string,
 	lockKeys string) (bool, error) {
 	return false, nil
 }
@@ -106,10 +106,10 @@ func (resourceManager AbstractResourceManager) doRegisterResource(serverAddress 
 	message := protocal.RegisterRMRequest{
 		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
 			Version:                 config.GetClientConfig().SeataVersion,
-			ApplicationId:           config.GetClientConfig().ApplicationId,
+			ApplicationID:           config.GetClientConfig().ApplicationID,
 			TransactionServiceGroup: config.GetClientConfig().TransactionServiceGroup,
 		},
-		ResourceIds: resourceManager.getMergedResourceKeys(),
+		ResourceIDs: resourceManager.getMergedResourceKeys(),
 	}
 
 	resourceManager.RpcClient.RegisterResource(serverAddress, message)

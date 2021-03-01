@@ -68,8 +68,8 @@ func (ml *MemoryLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSe
 	return releaseLockResult
 }
 
-func (ml *MemoryLocker) IsLockable(xid string, resourceId string, lockKey string) bool {
-	locks := collectRowLocksByLockKeyResourceIdXid(lockKey, resourceId, xid)
+func (ml *MemoryLocker) IsLockable(xid string, resourceID string, lockKey string) bool {
+	locks := collectRowLocksByLockKeyResourceIDAndXID(lockKey, resourceID, xid)
 	return ml.isLockableByRowLocks(locks)
 }
 
@@ -83,16 +83,16 @@ func (ml *MemoryLocker) GetLockKeyCount() int64 {
 	return ml.LockKeyCount
 }
 
-// acquireLockByRowLocks 申请锁资源，resourceId -> tableName -> bucketId -> pk -> transactionId
+// acquireLockByRowLocks 申请锁资源，resourceID -> tableName -> bucketID -> pk -> transactionID
 func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSession, rowLocks []*RowLock) bool {
 	if rowLocks == nil {
 		return true
 	}
 
-	resourceId := branchSession.ResourceId
-	transactionId := branchSession.TransactionId
+	resourceID := branchSession.ResourceID
+	transactionID := branchSession.TransactionID
 
-	dbLockMap, _ := ml.LockMap.LoadOrStore(resourceId, &sync.Map{})
+	dbLockMap, _ := ml.LockMap.LoadOrStore(resourceID, &sync.Map{})
 
 	cDbLockMap := dbLockMap.(*sync.Map)
 	for _, rowLock := range rowLocks {
@@ -100,13 +100,13 @@ func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSessi
 
 		cTableLockMap := tableLockMap.(*sync.Map)
 
-		bucketId := hashcode.String(rowLock.Pk) % BucketPerTable
-		bucketKey := strconv.Itoa(bucketId)
+		bucketID := hashcode.String(rowLock.Pk) % BucketPerTable
+		bucketKey := strconv.Itoa(bucketID)
 		bucketLockMap, _ := cTableLockMap.LoadOrStore(bucketKey, &sync.Map{})
 
 		cBucketLockMap := bucketLockMap.(*sync.Map)
 
-		previousLockTransactionId, loaded := cBucketLockMap.LoadOrStore(rowLock.Pk, transactionId)
+		previousLockTransactionID, loaded := cBucketLockMap.LoadOrStore(rowLock.Pk, transactionID)
 		if !loaded {
 
 			//No existing rowLock, and now locked by myself
@@ -116,11 +116,11 @@ func (ml *MemoryLocker) acquireLockByRowLocks(branchSession *session.BranchSessi
 			sKeysInHolder.Add(rowLock.Pk)
 
 			atomic.AddInt64(&ml.LockKeyCount, 1)
-		} else if previousLockTransactionId == transactionId {
+		} else if previousLockTransactionID == transactionID {
 			// Locked by me before
 			continue
 		} else {
-			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
+			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionID)
 			// branchSession unlock
 			ml.ReleaseLock(branchSession)
 			return false
@@ -140,8 +140,8 @@ func (ml *MemoryLocker) releaseLockByRowLocks(branchSession *session.BranchSessi
 		keys := value.(*model.Set)
 
 		for _, key := range keys.List() {
-			transId, ok := cBucketLockMap.Load(key)
-			if ok && transId == branchSession.TransactionId {
+			transID, ok := cBucketLockMap.Load(key)
+			if ok && transID == branchSession.TransactionID {
 				cBucketLockMap.Delete(key)
 				// keys.List() 是一个新的 slice，移除 key 并不会导致错误发生
 				keys.Remove(key)
@@ -161,10 +161,10 @@ func (ml *MemoryLocker) isLockableByRowLocks(rowLocks []*RowLock) bool {
 		return true
 	}
 
-	resourceId := rowLocks[0].ResourceId
-	transactionId := rowLocks[0].TransactionId
+	resourceID := rowLocks[0].ResourceID
+	transactionID := rowLocks[0].TransactionID
 
-	dbLockMap, ok := ml.LockMap.Load(resourceId)
+	dbLockMap, ok := ml.LockMap.Load(resourceID)
 	if !ok {
 		return true
 	}
@@ -177,20 +177,20 @@ func (ml *MemoryLocker) isLockableByRowLocks(rowLocks []*RowLock) bool {
 		}
 		cTableLockMap := tableLockMap.(*sync.Map)
 
-		bucketId := hashcode.String(rowLock.Pk) % BucketPerTable
-		bucketKey := strconv.Itoa(bucketId)
+		bucketID := hashcode.String(rowLock.Pk) % BucketPerTable
+		bucketKey := strconv.Itoa(bucketID)
 		bucketLockMap, ok := cTableLockMap.Load(bucketKey)
 		if !ok {
 			continue
 		}
 		cBucketLockMap := bucketLockMap.(*sync.Map)
 
-		previousLockTransactionId, ok := cBucketLockMap.Load(rowLock.Pk)
-		if !ok || previousLockTransactionId == transactionId {
+		previousLockTransactionID, ok := cBucketLockMap.Load(rowLock.Pk)
+		if !ok || previousLockTransactionID == transactionID {
 			// Locked by me before
 			continue
 		} else {
-			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionId)
+			log.Infof("Global rowLock on [%s:%s] is holding by %d", rowLock.TableName, rowLock.Pk, previousLockTransactionID)
 			return false
 		}
 	}

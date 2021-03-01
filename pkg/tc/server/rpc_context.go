@@ -15,8 +15,8 @@ type RpcContext struct {
 	Version                 string
 	TransactionServiceGroup string
 	ClientRole              meta.TransactionRole
-	ApplicationId           string
-	ClientId                string
+	ApplicationID           string
+	ClientID                string
 	ResourceSets            *model.Set
 	Session                 getty.Session
 }
@@ -41,15 +41,15 @@ func WithRpcContextClientRole(clientRole meta.TransactionRole) RpcContextOption 
 	}
 }
 
-func WithRpcContextApplicationId(applicationId string) RpcContextOption {
+func WithRpcContextApplicationID(applicationID string) RpcContextOption {
 	return func(ctx *RpcContext) {
-		ctx.ApplicationId = applicationId
+		ctx.ApplicationID = applicationID
 	}
 }
 
-func WithRpcContextClientId(clientId string) RpcContextOption {
+func WithRpcContextClientID(clientID string) RpcContextOption {
 	return func(ctx *RpcContext) {
-		ctx.ClientId = clientId
+		ctx.ClientID = clientID
 	}
 }
 

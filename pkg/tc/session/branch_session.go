@@ -17,15 +17,15 @@ import (
 )
 
 type BranchSession struct {
-	Xid string
+	XID string
 
-	TransactionId int64
+	TransactionID int64
 
-	BranchId int64
+	BranchID int64
 
-	ResourceGroupId string
+	ResourceGroupID string
 
-	ResourceId string
+	ResourceID string
 
 	LockKey string
 
@@ -33,7 +33,7 @@ type BranchSession struct {
 
 	Status meta.BranchStatus
 
-	ClientId string
+	ClientID string
 
 	ApplicationData []byte
 }
@@ -42,31 +42,31 @@ type BranchSessionOption func(session *BranchSession)
 
 func WithBsXid(xid string) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.Xid = xid
+		session.XID = xid
 	}
 }
 
-func WithBsTransactionId(transactionId int64) BranchSessionOption {
+func WithBsTransactionID(transactionID int64) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.TransactionId = transactionId
+		session.TransactionID = transactionID
 	}
 }
 
-func WithBsBranchId(branchId int64) BranchSessionOption {
+func WithBsBranchID(branchID int64) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.BranchId = branchId
+		session.BranchID = branchID
 	}
 }
 
-func WithBsResourceGroupId(resourceGroupId string) BranchSessionOption {
+func WithBsResourceGroupID(resourceGroupID string) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.ResourceGroupId = resourceGroupId
+		session.ResourceGroupID = resourceGroupID
 	}
 }
 
-func WithBsResourceId(resourceId string) BranchSessionOption {
+func WithBsResourceID(resourceID string) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.ResourceId = resourceId
+		session.ResourceID = resourceID
 	}
 }
 
@@ -88,9 +88,9 @@ func WithBsStatus(status meta.BranchStatus) BranchSessionOption {
 	}
 }
 
-func WithBsClientId(clientId string) BranchSessionOption {
+func WithBsClientID(clientID string) BranchSessionOption {
 	return func(session *BranchSession) {
-		session.ClientId = clientId
+		session.ClientID = clientID
 	}
 }
 
@@ -102,7 +102,7 @@ func WithBsApplicationData(applicationData []byte) BranchSessionOption {
 
 func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
 	session := &BranchSession{
-		BranchId: uuid.GeneratorUUID(),
+		BranchID: uuid.GeneratorUUID(),
 		Status:   meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {
@@ -113,9 +113,9 @@ func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
 
 func NewBranchSessionByGlobal(gs GlobalSession, opts ...BranchSessionOption) *BranchSession {
 	bs := &BranchSession{
-		Xid:           gs.Xid,
-		TransactionId: gs.TransactionId,
-		BranchId:      uuid.GeneratorUUID(),
+		XID:           gs.XID,
+		TransactionID: gs.TransactionID,
+		BranchID:      uuid.GeneratorUUID(),
 		Status:        meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {
@@ -125,7 +125,7 @@ func NewBranchSessionByGlobal(gs GlobalSession, opts ...BranchSessionOption) *Br
 }
 
 func (bs *BranchSession) CompareTo(session *BranchSession) int {
-	return int(bs.BranchId - session.BranchId)
+	return int(bs.BranchID - session.BranchID)
 }
 
 func (bs *BranchSession) Encode() ([]byte, error) {
@@ -134,7 +134,7 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 		zero16 int16 = 0
 	)
 
-	size := calBranchSessionSize(len(bs.ResourceId), len(bs.LockKey), len(bs.ClientId), len(bs.ApplicationData), len(bs.Xid))
+	size := calBranchSessionSize(len(bs.ResourceID), len(bs.LockKey), len(bs.ClientID), len(bs.ApplicationData), len(bs.XID))
 
 	if size > config.GetStoreConfig().MaxBranchSessionSize {
 		if bs.LockKey == "" {
@@ -147,11 +147,11 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 	var b bytes.Buffer
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	w.WriteInt64(bs.TransactionId)
-	w.WriteInt64(bs.BranchId)
-	if bs.ResourceId != "" {
-		w.WriteUint32(uint32(len(bs.ResourceId)))
-		w.WriteString(bs.ResourceId)
+	w.WriteInt64(bs.TransactionID)
+	w.WriteInt64(bs.BranchID)
+	if bs.ResourceID != "" {
+		w.WriteUint32(uint32(len(bs.ResourceID)))
+		w.WriteString(bs.ResourceID)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -163,9 +163,9 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 		w.WriteInt32(zero32)
 	}
 
-	if bs.ClientId != "" {
-		w.WriteUint16(uint16(len(bs.ClientId)))
-		w.WriteString(bs.ClientId)
+	if bs.ClientID != "" {
+		w.WriteUint16(uint16(len(bs.ClientID)))
+		w.WriteString(bs.ClientID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -177,9 +177,9 @@ func (bs *BranchSession) Encode() ([]byte, error) {
 		w.WriteInt32(zero32)
 	}
 
-	if bs.Xid != "" {
-		w.WriteUint32(uint32(len(bs.Xid)))
-		w.WriteString(bs.Xid)
+	if bs.XID != "" {
+		w.WriteUint32(uint32(len(bs.XID)))
+		w.WriteString(bs.XID)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -195,12 +195,12 @@ func (bs *BranchSession) Decode(b []byte) {
 	var length16 uint16 = 0
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(b)}
 
-	bs.TransactionId, _, _ = r.ReadInt64()
-	bs.BranchId, _, _ = r.ReadInt64()
+	bs.TransactionID, _, _ = r.ReadInt64()
+	bs.BranchID, _, _ = r.ReadInt64()
 
 	length32, _, _ = r.ReadUint32()
 	if length32 > 0 {
-		bs.ResourceId, _, _ = r.ReadString(int(length32))
+		bs.ResourceID, _, _ = r.ReadString(int(length32))
 	}
 
 	length32, _, _ = r.ReadUint32()
@@ -210,7 +210,7 @@ func (bs *BranchSession) Decode(b []byte) {
 
 	length16, _, _ = r.ReadUint16()
 	if length16 > 0 {
-		bs.ClientId, _, _ = r.ReadString(int(length16))
+		bs.ClientID, _, _ = r.ReadString(int(length16))
 	}
 
 	length32, _, _ = r.ReadUint32()
@@ -221,7 +221,7 @@ func (bs *BranchSession) Decode(b []byte) {
 
 	length32, _, _ = r.ReadUint32()
 	if length32 > 0 {
-		bs.Xid, _, _ = r.ReadString(int(length32))
+		bs.XID, _, _ = r.ReadString(int(length32))
 	}
 
 	branchType, _ := r.ReadByte()
@@ -231,23 +231,23 @@ func (bs *BranchSession) Decode(b []byte) {
 	bs.Status = meta.BranchStatus(status)
 }
 
-func calBranchSessionSize(resourceIdLen int,
+func calBranchSessionSize(resourceIDLen int,
 	lockKeyLen int,
-	clientIdLen int,
+	clientIDLen int,
 	applicationDataLen int,
 	xidLen int) int {
 
-	size := 8 + // transactionId
-		8 + // branchId
-		4 + // resourceIdBytes.length
+	size := 8 + // transactionID
+		8 + // branchID
+		4 + // resourceIDBytes.length
 		4 + // lockKeyBytes.length
-		2 + // clientIdBytes.length
+		2 + // clientIDBytes.length
 		4 + // applicationDataBytes.length
 		4 + // xidBytes.size
 		1 + // statusCode
-		resourceIdLen +
+		resourceIDLen +
 		lockKeyLen +
-		clientIdLen +
+		clientIDLen +
 		applicationDataLen +
 		xidLen +
 		1

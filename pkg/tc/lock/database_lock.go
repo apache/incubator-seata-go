@@ -43,28 +43,28 @@ func (locker *DataBaseLocker) ReleaseLock(branchSession *session.BranchSession) 
 		panic(errors.New("branchSession can't be null for memory/file locker"))
 	}
 
-	return locker.releaseLockByXidBranchId(branchSession.Xid, branchSession.BranchId)
+	return locker.releaseLockByXidBranchID(branchSession.XID, branchSession.BranchID)
 }
 
-func (locker *DataBaseLocker) releaseLockByXidBranchId(xid string, branchId int64) bool {
-	return locker.LockStore.UnLockByXidAndBranchId(xid, branchId)
+func (locker *DataBaseLocker) releaseLockByXidBranchID(xid string, branchID int64) bool {
+	return locker.LockStore.UnLockByXIDAndBranchID(xid, branchID)
 }
 
-func (locker *DataBaseLocker) releaseLockByXidBranchIds(xid string, branchIds []int64) bool {
-	return locker.LockStore.UnLockByXidAndBranchIds(xid, branchIds)
+func (locker *DataBaseLocker) releaseLockByXidBranchIDs(xid string, branchIDs []int64) bool {
+	return locker.LockStore.UnLockByXIDAndBranchIDs(xid, branchIDs)
 }
 
 func (locker *DataBaseLocker) ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool {
-	var branchIds = make([]int64, 0)
+	var branchIDs = make([]int64, 0)
 	branchSessions := globalSession.GetSortedBranches()
 	for _, branchSession := range branchSessions {
-		branchIds = append(branchIds, branchSession.BranchId)
+		branchIDs = append(branchIDs, branchSession.BranchID)
 	}
-	return locker.releaseLockByXidBranchIds(globalSession.Xid, branchIds)
+	return locker.releaseLockByXidBranchIDs(globalSession.XID, branchIDs)
 }
 
-func (locker *DataBaseLocker) IsLockable(xid string, resourceId string, lockKey string) bool {
-	locks := collectRowLocksByLockKeyResourceIdXid(lockKey, resourceId, xid)
+func (locker *DataBaseLocker) IsLockable(xid string, resourceID string, lockKey string) bool {
+	locks := collectRowLocksByLockKeyResourceIDAndXID(lockKey, resourceID, xid)
 	return locker.LockStore.IsLockable(convertToLockDO(locks))
 }
 
@@ -83,19 +83,19 @@ func convertToLockDO(locks []*RowLock) []*model.LockDO {
 	}
 	for _, lock := range locks {
 		lockDO := &model.LockDO{
-			Xid:           lock.Xid,
-			TransactionId: lock.TransactionId,
-			BranchId:      lock.BranchId,
-			ResourceId:    lock.ResourceId,
+			Xid:           lock.XID,
+			TransactionID: lock.TransactionID,
+			BranchID:      lock.BranchID,
+			ResourceID:    lock.ResourceID,
 			TableName:     lock.TableName,
 			Pk:            lock.Pk,
-			RowKey:        getRowKey(lock.ResourceId, lock.TableName, lock.Pk),
+			RowKey:        getRowKey(lock.ResourceID, lock.TableName, lock.Pk),
 		}
 		lockDOs = append(lockDOs, lockDO)
 	}
 	return lockDOs
 }
 
-func getRowKey(resourceId string, tableName string, pk string) string {
-	return fmt.Sprintf("%s^^^%s^^^%s", resourceId, tableName, pk)
+func getRowKey(resourceID string, tableName string, pk string) string {
+	return fmt.Sprintf("%s^^^%s^^^%s", resourceID, tableName, pk)
 }

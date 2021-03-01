@@ -38,7 +38,7 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 			var err error
 			for i := 0; i < lockRetryTimes; i++ {
 				lockable, err = dataSourceManager.LockQuery(meta.BranchTypeAT,
-					executor.proxyTx.ResourceId, executor.proxyTx.Context.Xid, lockKeys)
+					executor.proxyTx.ResourceID, executor.proxyTx.Context.XID, lockKeys)
 				if lockable && err == nil {
 					break
 				}
@@ -54,5 +54,5 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 
 func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }

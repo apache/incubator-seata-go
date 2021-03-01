@@ -116,7 +116,7 @@ func AbstractIdentifyRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ApplicationId, readN, _ = r.ReadString(int(length16))
+		msg.ApplicationID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -187,7 +187,7 @@ func RegisterRMRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ApplicationId, readN, _ = r.ReadString(int(length16))
+		msg.ApplicationID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -209,7 +209,7 @@ func RegisterRMRequestDecoder(in []byte) (interface{}, int) {
 	length32, readN, _ = r.ReadUint32()
 	totalReadN += readN
 	if length32 > 0 {
-		msg.ResourceIds, readN, _ = r.ReadString(int(length32))
+		msg.ResourceIDs, readN, _ = r.ReadString(int(length32))
 		totalReadN += readN
 	}
 
@@ -279,11 +279,11 @@ func AbstractBranchEndRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
-	msg.BranchId, _, _ = r.ReadInt64()
+	msg.BranchID, _, _ = r.ReadInt64()
 	totalReadN += 8
 	branchType, _ := r.ReadByte()
 	totalReadN += 1
@@ -292,7 +292,7 @@ func AbstractBranchEndRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ResourceId, readN, _ = r.ReadString(int(length16))
+		msg.ResourceID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -335,11 +335,11 @@ func AbstractBranchEndResponseDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
-	msg.BranchId, _, _ = r.ReadInt64()
+	msg.BranchID, _, _ = r.ReadInt64()
 	totalReadN += 8
 	branchStatus, _ := r.ReadByte()
 	totalReadN += 1
@@ -361,7 +361,7 @@ func AbstractGlobalEndRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -436,7 +436,7 @@ func BranchRegisterRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -447,7 +447,7 @@ func BranchRegisterRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ResourceId, readN, _ = r.ReadString(int(length16))
+		msg.ResourceID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -494,7 +494,7 @@ func BranchRegisterResponseDecoder(in []byte) (interface{}, int) {
 	totalReadN += 1
 	msg.TransactionExceptionCode = meta.TransactionExceptionCode(exceptionCode)
 
-	msg.BranchId, readN, _ = r.ReadInt64()
+	msg.BranchID, readN, _ = r.ReadInt64()
 	totalReadN += readN
 
 	return msg, totalReadN
@@ -513,18 +513,18 @@ func BranchReportRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
-	msg.BranchId, _, _ = r.ReadInt64()
+	msg.BranchID, _, _ = r.ReadInt64()
 	branchStatus, _ := r.ReadByte()
 	msg.Status = meta.BranchStatus(branchStatus)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ResourceId, readN, _ = r.ReadString(int(length16))
+		msg.ResourceID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -701,7 +701,7 @@ func GlobalReportRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.Xid, readN, _ = r.ReadString(int(length16))
+		msg.XID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 
@@ -771,7 +771,7 @@ func UndoLogDeleteRequestDecoder(in []byte) (interface{}, int) {
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
 	if length16 > 0 {
-		msg.ResourceId, readN, _ = r.ReadString(int(length16))
+		msg.ResourceID, readN, _ = r.ReadString(int(length16))
 		totalReadN += readN
 	}
 

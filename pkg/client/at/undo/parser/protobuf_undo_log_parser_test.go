@@ -19,7 +19,7 @@ import (
 func getBranchUndoLog() *undo.BranchUndoLog {
 	var branchUndoLog = &undo.BranchUndoLog{
 		Xid:      ":0:2000042948",
-		BranchId: 2000042936,
+		BranchID: 2000042936,
 		SqlUndoLogs: []*undo.SqlUndoLog{
 			{
 				SqlType:     sqlparser.SQLType_INSERT,
@@ -95,5 +95,5 @@ func TestJsonUndoLogParser_Decode(t *testing.T) {
 	branchUndoLog := getBranchUndoLog()
 	data := ProtoBufUndoLogParser{}.Encode(branchUndoLog)
 	undoLog := ProtoBufUndoLogParser{}.Decode(data)
-	assert.Equal(t, undoLog.BranchId, int64(2000042936))
+	assert.Equal(t, undoLog.BranchID, int64(2000042936))
 }

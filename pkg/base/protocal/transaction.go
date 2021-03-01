@@ -17,23 +17,23 @@ func (resp AbstractTransactionResponse) GetError() error {
 }
 
 type AbstractBranchEndRequest struct {
-	Xid             string
-	BranchId        int64
+	XID             string
+	BranchID        int64
 	BranchType      meta.BranchType
-	ResourceId      string
+	ResourceID      string
 	ApplicationData []byte
 }
 
 type AbstractBranchEndResponse struct {
 	AbstractTransactionResponse
 
-	Xid          string
-	BranchId     int64
+	XID          string
+	BranchID     int64
 	BranchStatus meta.BranchStatus
 }
 
 type AbstractGlobalEndRequest struct {
-	Xid       string
+	XID       string
 	ExtraData []byte
 }
 
@@ -44,9 +44,9 @@ type AbstractGlobalEndResponse struct {
 }
 
 type BranchRegisterRequest struct {
-	Xid             string
+	XID             string
 	BranchType      meta.BranchType
-	ResourceId      string
+	ResourceID      string
 	LockKey         string
 	ApplicationData []byte
 }
@@ -58,7 +58,7 @@ func (req BranchRegisterRequest) GetTypeCode() int16 {
 type BranchRegisterResponse struct {
 	AbstractTransactionResponse
 
-	BranchId int64
+	BranchID int64
 }
 
 func (resp BranchRegisterResponse) GetTypeCode() int16 {
@@ -66,9 +66,9 @@ func (resp BranchRegisterResponse) GetTypeCode() int16 {
 }
 
 type BranchReportRequest struct {
-	Xid             string
-	BranchId        int64
-	ResourceId      string
+	XID             string
+	BranchID        int64
+	ResourceID      string
 	Status          meta.BranchStatus
 	ApplicationData []byte
 	BranchType      meta.BranchType
@@ -223,7 +223,7 @@ func (resp GlobalRollbackResponse) GetTypeCode() int16 {
 }
 
 type UndoLogDeleteRequest struct {
-	ResourceId string
+	ResourceID string
 	SaveDays   int16
 	BranchType meta.BranchType
 }

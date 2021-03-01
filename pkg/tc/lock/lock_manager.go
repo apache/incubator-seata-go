@@ -25,7 +25,7 @@ type LockManager interface {
 	ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool
 
 	// IsLockable Is lockable boolean.
-	IsLockable(xid string, resourceId string, lockKey string) bool
+	IsLockable(xid string, resourceID string, lockKey string) bool
 
 	// CleanAllLocks Clean all locks.
 	CleanAllLocks()

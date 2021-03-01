@@ -4,7 +4,7 @@ import "github.com/transaction-wg/seata-golang/pkg/base/meta"
 
 type TransactionManager interface {
 	// GlobalStatus_Begin a new global transaction.
-	Begin(applicationId string, transactionServiceGroup string, name string, timeout int32) (string, error)
+	Begin(applicationID string, transactionServiceGroup string, name string, timeout int32) (string, error)
 
 	// Global commit.
 	Commit(xid string) (meta.GlobalStatus, error)

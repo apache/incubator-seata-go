@@ -23,13 +23,13 @@ import (
 type GlobalSession struct {
 	sync.Mutex
 
-	Xid string
+	XID string
 
-	TransactionId int64
+	TransactionID int64
 
 	Status meta.GlobalStatus
 
-	ApplicationId string
+	ApplicationID string
 
 	TransactionServiceGroup string
 
@@ -48,15 +48,15 @@ type GlobalSession struct {
 
 type GlobalSessionOption func(session *GlobalSession)
 
-func WithGsXid(xid string) GlobalSessionOption {
+func WithGsXID(xid string) GlobalSessionOption {
 	return func(session *GlobalSession) {
-		session.Xid = xid
+		session.XID = xid
 	}
 }
 
-func WithGsTransactionId(transactionId int64) GlobalSessionOption {
+func WithGsTransactionID(transactionID int64) GlobalSessionOption {
 	return func(session *GlobalSession) {
-		session.TransactionId = transactionId
+		session.TransactionID = transactionID
 	}
 }
 
@@ -66,9 +66,9 @@ func WithGsStatus(status meta.GlobalStatus) GlobalSessionOption {
 	}
 }
 
-func WithGsApplicationId(applicationId string) GlobalSessionOption {
+func WithGsApplicationID(applicationID string) GlobalSessionOption {
 	return func(session *GlobalSession) {
-		session.ApplicationId = applicationId
+		session.ApplicationID = applicationID
 	}
 }
 
@@ -111,10 +111,10 @@ func WithGsActive(active bool) GlobalSessionOption {
 func NewGlobalSession(opts ...GlobalSessionOption) *GlobalSession {
 	gs := &GlobalSession{
 		BranchSessions: make(map[*BranchSession]bool),
-		TransactionId:  uuid.GeneratorUUID(),
+		TransactionID:  uuid.GeneratorUUID(),
 		Active:         true,
 	}
-	gs.Xid = common.XID.GenerateXID(gs.TransactionId)
+	gs.XID = common.GetXID().GenerateXID(gs.TransactionID)
 	for _, o := range opts {
 		o(gs)
 	}
@@ -179,11 +179,11 @@ func (p BranchSessionSlice) Len() int           { return len(p) }
 func (p BranchSessionSlice) Less(i, j int) bool { return p[i].CompareTo(p[j]) > 0 }
 func (p BranchSessionSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func (gs *GlobalSession) GetBranch(branchId int64) *BranchSession {
+func (gs *GlobalSession) GetBranch(branchID int64) *BranchSession {
 	gs.Lock()
 	defer gs.Unlock()
 	for branchSession := range gs.BranchSessions {
-		if branchSession.BranchId == branchId {
+		if branchSession.BranchID == branchID {
 			return branchSession
 		}
 	}
@@ -206,7 +206,7 @@ func (gs *GlobalSession) Encode() ([]byte, error) {
 		zero16 int16 = 0
 	)
 
-	size := calGlobalSessionSize(len(gs.ApplicationId), len(gs.TransactionServiceGroup), len(gs.TransactionName), len(gs.Xid), len(gs.ApplicationData))
+	size := calGlobalSessionSize(len(gs.ApplicationID), len(gs.TransactionServiceGroup), len(gs.TransactionName), len(gs.XID), len(gs.ApplicationData))
 
 	if size > config.GetStoreConfig().MaxGlobalSessionSize {
 		log.Errorf("global session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxGlobalSessionSize)
@@ -217,13 +217,13 @@ func (gs *GlobalSession) Encode() ([]byte, error) {
 	var b bytes.Buffer
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	w.WriteInt64(gs.TransactionId)
+	w.WriteInt64(gs.TransactionID)
 	w.WriteInt32(gs.Timeout)
 
-	// applicationId 长度不会超过 256
-	if gs.ApplicationId != "" {
-		w.WriteUint16(uint16(len(gs.ApplicationId)))
-		w.WriteString(gs.ApplicationId)
+	// applicationID 长度不会超过 256
+	if gs.ApplicationID != "" {
+		w.WriteUint16(uint16(len(gs.ApplicationID)))
+		w.WriteString(gs.ApplicationID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -242,9 +242,9 @@ func (gs *GlobalSession) Encode() ([]byte, error) {
 		w.WriteInt16(zero16)
 	}
 
-	if gs.Xid != "" {
-		w.WriteUint32(uint32(len(gs.Xid)))
-		w.WriteString(gs.Xid)
+	if gs.XID != "" {
+		w.WriteUint32(uint32(len(gs.XID)))
+		w.WriteString(gs.XID)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -267,12 +267,12 @@ func (gs *GlobalSession) Decode(b []byte) {
 	var length16 uint16 = 0
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(b)}
 
-	gs.TransactionId, _, _ = r.ReadInt64()
+	gs.TransactionID, _, _ = r.ReadInt64()
 	gs.Timeout, _, _ = r.ReadInt32()
 
 	length16, _, _ = r.ReadUint16()
 	if length16 > 0 {
-		gs.ApplicationId, _, _ = r.ReadString(int(length16))
+		gs.ApplicationID, _, _ = r.ReadString(int(length16))
 	}
 
 	length16, _, _ = r.ReadUint16()
@@ -287,7 +287,7 @@ func (gs *GlobalSession) Decode(b []byte) {
 
 	length32, _, _ = r.ReadUint32()
 	if length32 > 0 {
-		gs.Xid, _, _ = r.ReadString(int(length32))
+		gs.XID, _, _ = r.ReadString(int(length32))
 	}
 
 	length32, _, _ = r.ReadUint32()
@@ -302,23 +302,23 @@ func (gs *GlobalSession) Decode(b []byte) {
 	gs.Status = meta.GlobalStatus(status)
 }
 
-func calGlobalSessionSize(applicationIdLen int,
+func calGlobalSessionSize(applicationIDLen int,
 	serviceGroupLen int,
 	txNameLen int,
 	xidLen int,
 	applicationDataLen int,
 ) int {
 
-	size := 8 + // transactionId
+	size := 8 + // transactionID
 		4 + // timeout
-		2 + // byApplicationIdBytes.length
+		2 + // byApplicationIDBytes.length
 		2 + // byServiceGroupBytes.length
 		2 + // byTxNameBytes.length
 		4 + // xidBytes.length
 		4 + // applicationDataBytes.length
 		8 + // beginTime
 		1 + // statusCode
-		applicationIdLen +
+		applicationIDLen +
 		serviceGroupLen +
 		txNameLen +
 		xidLen +

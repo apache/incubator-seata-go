@@ -119,9 +119,9 @@ func AbstractIdentifyRequestEncoder(in interface{}) []byte {
 		w.WriteInt16(zero16)
 	}
 
-	if req.ApplicationId != "" {
-		w.WriteInt16(int16(len(req.ApplicationId)))
-		w.WriteString(req.ApplicationId)
+	if req.ApplicationID != "" {
+		w.WriteInt16(int16(len(req.ApplicationID)))
+		w.WriteString(req.ApplicationID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -178,9 +178,9 @@ func RegisterRMRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	if req.ResourceIds != "" {
-		w.WriteInt32(int32(len(req.ResourceIds)))
-		w.WriteString(req.ResourceIds)
+	if req.ResourceIDs != "" {
+		w.WriteInt32(int32(len(req.ResourceIDs)))
+		w.WriteString(req.ResourceIDs)
 	} else {
 		w.WriteInt32(zero32)
 	}
@@ -223,19 +223,19 @@ func AbstractBranchEndRequestEncoder(in interface{}) []byte {
 
 	req, _ := in.(protocal.AbstractBranchEndRequest)
 
-	if req.Xid != "" {
-		w.WriteInt16(int16(len(req.Xid)))
-		w.WriteString(req.Xid)
+	if req.XID != "" {
+		w.WriteInt16(int16(len(req.XID)))
+		w.WriteString(req.XID)
 	} else {
 		w.WriteInt16(zero16)
 	}
 
-	w.WriteInt64(req.BranchId)
+	w.WriteInt64(req.BranchID)
 	w.WriteByte(byte(req.BranchType))
 
-	if req.ResourceId != "" {
-		w.WriteInt16(int16(len(req.ResourceId)))
-		w.WriteString(req.ResourceId)
+	if req.ResourceID != "" {
+		w.WriteInt16(int16(len(req.ResourceID)))
+		w.WriteString(req.ResourceID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -260,14 +260,14 @@ func AbstractBranchEndResponseEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	if resp.Xid != "" {
-		w.WriteInt16(int16(len(resp.Xid)))
-		w.WriteString(resp.Xid)
+	if resp.XID != "" {
+		w.WriteInt16(int16(len(resp.XID)))
+		w.WriteString(resp.XID)
 	} else {
 		w.WriteInt16(zero16)
 	}
 
-	w.WriteInt64(resp.BranchId)
+	w.WriteInt64(resp.BranchID)
 	w.WriteByte(byte(resp.BranchStatus))
 
 	result := append(data, b.Bytes()...)
@@ -284,9 +284,9 @@ func AbstractGlobalEndRequestEncoder(in interface{}) []byte {
 
 	req, _ := in.(protocal.AbstractGlobalEndRequest)
 
-	if req.Xid != "" {
-		w.WriteInt16(int16(len(req.Xid)))
-		w.WriteString(req.Xid)
+	if req.XID != "" {
+		w.WriteInt16(int16(len(req.XID)))
+		w.WriteString(req.XID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -329,18 +329,18 @@ func BranchRegisterRequestEncoder(in interface{}) []byte {
 
 	req, _ := in.(protocal.BranchRegisterRequest)
 
-	if req.Xid != "" {
-		w.WriteInt16(int16(len(req.Xid)))
-		w.WriteString(req.Xid)
+	if req.XID != "" {
+		w.WriteInt16(int16(len(req.XID)))
+		w.WriteString(req.XID)
 	} else {
 		w.WriteInt16(zero16)
 	}
 
 	w.WriteByte(byte(req.BranchType))
 
-	if req.ResourceId != "" {
-		w.WriteInt16(int16(len(req.ResourceId)))
-		w.WriteString(req.ResourceId)
+	if req.ResourceID != "" {
+		w.WriteInt16(int16(len(req.ResourceID)))
+		w.WriteString(req.ResourceID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -366,8 +366,8 @@ func BranchRegisterResponseEncoder(in interface{}) []byte {
 	resp := in.(protocal.BranchRegisterResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
-	c := uint64(resp.BranchId)
-	branchIdBytes := []byte{
+	c := uint64(resp.BranchID)
+	branchIDBytes := []byte{
 		byte(c >> 56),
 		byte(c >> 48),
 		byte(c >> 40),
@@ -377,7 +377,7 @@ func BranchRegisterResponseEncoder(in interface{}) []byte {
 		byte(c >> 8),
 		byte(c),
 	}
-	result := append(data, branchIdBytes...)
+	result := append(data, branchIDBytes...)
 
 	return result
 }
@@ -392,19 +392,19 @@ func BranchReportRequestEncoder(in interface{}) []byte {
 
 	req, _ := in.(protocal.BranchReportRequest)
 
-	if req.Xid != "" {
-		w.WriteInt16(int16(len(req.Xid)))
-		w.WriteString(req.Xid)
+	if req.XID != "" {
+		w.WriteInt16(int16(len(req.XID)))
+		w.WriteString(req.XID)
 	} else {
 		w.WriteInt16(zero16)
 	}
 
-	w.WriteInt64(req.BranchId)
+	w.WriteInt64(req.BranchID)
 	w.WriteByte(byte(req.Status))
 
-	if req.ResourceId != "" {
-		w.WriteInt16(int16(len(req.ResourceId)))
-		w.WriteString(req.ResourceId)
+	if req.ResourceID != "" {
+		w.WriteInt16(int16(len(req.ResourceID)))
+		w.WriteString(req.ResourceID)
 	} else {
 		w.WriteInt16(zero16)
 	}
@@ -555,9 +555,9 @@ func UndoLogDeleteRequestEncoder(in interface{}) []byte {
 	req, _ := in.(protocal.UndoLogDeleteRequest)
 
 	w.WriteByte(byte(req.BranchType))
-	if req.ResourceId != "" {
-		w.WriteInt16(int16(len(req.ResourceId)))
-		w.WriteString(req.ResourceId)
+	if req.ResourceID != "" {
+		w.WriteInt16(int16(len(req.ResourceID)))
+		w.WriteString(req.ResourceID)
 	} else {
 		w.WriteInt16(zero16)
 	}

@@ -33,6 +33,6 @@ func (undoLog *SqlUndoLog) GetUndoRows() *schema.TableRecords {
 
 type BranchUndoLog struct {
 	Xid         string
-	BranchId    int64
+	BranchID    int64
 	SqlUndoLogs []*SqlUndoLog
 }
