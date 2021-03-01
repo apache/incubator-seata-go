@@ -8,7 +8,7 @@ type AbstractResultMessage struct {
 type AbstractIdentifyRequest struct {
 	Version string
 
-	ApplicationId string
+	ApplicationID string
 
 	TransactionServiceGroup string
 

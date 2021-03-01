@@ -47,11 +47,11 @@ func NewMysqlTableMetaCache(dsn string) ITableMetaCache {
 	}
 }
 
-func (cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx, tableName, resourceId string) (schema.TableMeta, error) {
+func (cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx, tableName, resourceID string) (schema.TableMeta, error) {
 	if tableName == "" {
 		return schema.TableMeta{}, errors.New("TableMeta cannot be fetched without tableName")
 	}
-	cacheKey := cache.GetCacheKey(tableName, resourceId)
+	cacheKey := cache.GetCacheKey(tableName, resourceID)
 	tMeta, found := cache.tableMetaCache.Get(cacheKey)
 	if found {
 		meta := tMeta.(schema.TableMeta)
@@ -67,10 +67,10 @@ func (cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx, tableName, resourceId
 	}
 }
 
-func (cache *MysqlTableMetaCache) Refresh(tx *sql.Tx, resourceId string) {
+func (cache *MysqlTableMetaCache) Refresh(tx *sql.Tx, resourceID string) {
 	for k, v := range cache.tableMetaCache.Items() {
 		meta := v.Object.(schema.TableMeta)
-		key := cache.GetCacheKey(meta.TableName, resourceId)
+		key := cache.GetCacheKey(meta.TableName, resourceID)
 		if k == key {
 			ndb := newTx(tx, cache.dsn)
 			tMeta, err := cache.FetchSchema(ndb, meta.TableName)
@@ -85,7 +85,7 @@ func (cache *MysqlTableMetaCache) Refresh(tx *sql.Tx, resourceId string) {
 	}
 }
 
-func (cache *MysqlTableMetaCache) GetCacheKey(tableName string, resourceId string) string {
+func (cache *MysqlTableMetaCache) GetCacheKey(tableName string, resourceID string) string {
 	var defaultTableName string
 	tableNameWithCatalog := strings.Split(strings.ReplaceAll(tableName, "`", ""), ".")
 	if len(tableNameWithCatalog) > 1 {
@@ -93,7 +93,7 @@ func (cache *MysqlTableMetaCache) GetCacheKey(tableName string, resourceId strin
 	} else {
 		defaultTableName = tableNameWithCatalog[0]
 	}
-	return fmt.Sprintf("%s.%s", resourceId, defaultTableName)
+	return fmt.Sprintf("%s.%s", resourceID, defaultTableName)
 }
 
 func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.TableMeta, error) {

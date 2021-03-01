@@ -19,7 +19,7 @@ import (
  * <pre>
  * 0     1     2     3     4     5     6     7     8     9    10     11    12    13    14    15    16
  * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- * |   magic   |Proto|     Full length       |    Head   | Msg |Seria|Compr|     RequestId         |
+ * |   magic   |Proto|     Full length       |    Head   | Msg |Seria|Compr|     RequestID         |
  * |   code    |colVer|    (head+body)       |   Length  |Type |lizer|ess  |                       |
  * +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+
  * |                                                                                               |
@@ -63,11 +63,11 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	messageType, _ := r.ReadByte()
 	codecType, _ := r.ReadByte()
 	compressorType, _ := r.ReadByte()
-	requestId, _, _ := r.ReadInt32()
+	requestID, _, _ := r.ReadInt32()
 
 	rpcMessage := protocal.RpcMessage{
 		Codec:       codecType,
-		Id:          requestId,
+		ID:          requestID,
 		Compressor:  compressorType,
 		MessageType: messageType,
 	}
@@ -110,7 +110,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	w.WriteByte(msg.MessageType)
 	w.WriteByte(msg.Codec)
 	w.WriteByte(msg.Compressor)
-	w.WriteInt32(msg.Id)
+	w.WriteInt32(msg.ID)
 
 	if msg.HeadMap != nil && len(msg.HeadMap) > 0 {
 		headMapBytes, headMapLength := headMapEncode(msg.HeadMap)

@@ -240,7 +240,7 @@ func convertBranchSqlUndoLog(branchUndoLog *undo.BranchUndoLog) *PbBranchUndoLog
 	}
 	pbBranchUndoLog := &PbBranchUndoLog{
 		Xid:         branchUndoLog.Xid,
-		BranchId:    branchUndoLog.BranchId,
+		BranchID:    branchUndoLog.BranchID,
 		SqlUndoLogs: sqlUndoLogs,
 	}
 	return pbBranchUndoLog
@@ -254,7 +254,7 @@ func convertPbBranchSqlUndoLog(pbBranchUndoLog *PbBranchUndoLog) *undo.BranchUnd
 	}
 	branchUndoLog := &undo.BranchUndoLog{
 		Xid:         pbBranchUndoLog.Xid,
-		BranchId:    pbBranchUndoLog.BranchId,
+		BranchID:    pbBranchUndoLog.BranchID,
 		SqlUndoLogs: sqlUndoLogs,
 	}
 	return branchUndoLog

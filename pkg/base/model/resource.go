@@ -9,7 +9,7 @@ type IResource interface {
 	 *
 	 * @return resource group id.
 	 */
-	GetResourceGroupId() string
+	GetResourceGroupID() string
 
 	/**
 	 * Get the resource id.
@@ -17,7 +17,7 @@ type IResource interface {
 	 *
 	 * @return resource id.
 	 */
-	GetResourceId() string
+	GetResourceID() string
 
 	/**
 	 * get resource type, BranchType_AT, BranchType_TCC, BranchType_SAGA and XA

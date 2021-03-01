@@ -23,7 +23,7 @@ func NewDefaultSessionManager(name string) SessionManager {
 
 func (sessionManager *DefaultSessionManager) AddGlobalSession(session *session.GlobalSession) error {
 	sessionManager.AbstractSessionManager.AddGlobalSession(session)
-	sessionManager.SessionMap[session.Xid] = session
+	sessionManager.SessionMap[session.XID] = session
 	return nil
 }
 
@@ -37,7 +37,7 @@ func (sessionManager *DefaultSessionManager) FindGlobalSessionWithBranchSessions
 
 func (sessionManager *DefaultSessionManager) RemoveGlobalSession(session *session.GlobalSession) error {
 	sessionManager.AbstractSessionManager.RemoveGlobalSession(session)
-	delete(sessionManager.SessionMap, session.Xid)
+	delete(sessionManager.SessionMap, session.XID)
 	return nil
 }
 

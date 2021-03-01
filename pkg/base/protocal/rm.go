@@ -2,7 +2,7 @@ package protocal
 
 type RegisterRMRequest struct {
 	AbstractIdentifyRequest
-	ResourceIds string
+	ResourceIDs string
 }
 
 func (req RegisterRMRequest) GetTypeCode() int16 {

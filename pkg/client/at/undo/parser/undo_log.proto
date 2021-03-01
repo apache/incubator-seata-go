@@ -12,6 +12,6 @@ message PbSqlUndoLog {
 
 message PbBranchUndoLog {
     string Xid = 1;
-    int64 BranchId = 2;
+    int64 BranchID = 2;
     repeated PbSqlUndoLog SqlUndoLogs = 3;
 }

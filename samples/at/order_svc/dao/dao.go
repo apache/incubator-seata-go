@@ -29,7 +29,7 @@ type Dao struct {
 
 type SoMaster struct {
 	SysNo                int64   `json:"sysNo"`
-	SoId                 string  `json:"soId"`
+	SoID                 string  `json:"soID"`
 	BuyerUserSysNo       int64   `json:"buyerUserSysNo"`
 	SellerCompanyCode    string  `json:"sellerCompanyCode"`
 	ReceiveDivisionSysNo int64   `json:"receiveDivisionSysNo"`
@@ -46,7 +46,7 @@ type SoMaster struct {
 	PaymentDate  time.Time `json:"paymentDate"`
 	DeliveryDate time.Time `json:"deliveryDate"`
 	ReceiveDate  time.Time `json:"receiveDate"`
-	AppId        string    `json:"appId"`
+	AppID        string    `json:"appID"`
 	Memo         string    `json:"memo"`
 	CreateUser   string    `json:"createUser"`
 	GmtCreate    time.Time `json:"gmtCreate"`
@@ -74,18 +74,18 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 		return nil, err
 	}
 	for _, soMaster := range soMasters {
-		soid := NextId()
+		soid := NextID()
 		_, err = tx.Exec(insertSoMaster, soid, soid, soMaster.BuyerUserSysNo, soMaster.SellerCompanyCode, soMaster.ReceiveDivisionSysNo,
 			soMaster.ReceiveAddress, soMaster.ReceiveZip, soMaster.ReceiveContact, soMaster.ReceiveContactPhone, soMaster.StockSysNo,
-			soMaster.PaymentType, soMaster.SoAmt, soMaster.Status, soMaster.AppId, soMaster.Memo)
+			soMaster.PaymentType, soMaster.SoAmt, soMaster.Status, soMaster.AppID, soMaster.Memo)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
 		}
 		soItems := soMaster.SoItems
 		for _, soItem := range soItems {
-			soItemId := NextId()
-			_, err = tx.Exec(insertSoItem, soItemId, soid, soItem.ProductSysNo, soItem.ProductName, soItem.CostPrice, soItem.OriginalPrice,
+			soItemID := NextID()
+			_, err = tx.Exec(insertSoItem, soItemID, soid, soItem.ProductSysNo, soItem.ProductName, soItem.CostPrice, soItem.OriginalPrice,
 				soItem.DealPrice, soItem.Quantity)
 			if err != nil {
 				tx.Rollback()
@@ -101,7 +101,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 	return result, nil
 }
 
-func NextId() uint64 {
+func NextID() uint64 {
 	id, _ := uuid.NewUUID()
 	return uint64(id.ID())
 }

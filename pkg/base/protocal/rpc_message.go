@@ -1,7 +1,7 @@
 package protocal
 
 type RpcMessage struct {
-	Id          int32
+	ID          int32
 	MessageType byte
 	Codec       byte
 	Compressor  byte

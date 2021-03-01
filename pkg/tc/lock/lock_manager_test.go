@@ -24,8 +24,8 @@ func TestLockManager_AcquireLock(t *testing.T) {
 }
 
 func TestLockManager_IsLockable(t *testing.T) {
-	transId := uuid.GeneratorUUID()
-	ok := GetLockManager().IsLockable(common.XID.GenerateXID(transId), "tb_1", "tb_1:13")
+	transID := uuid.GeneratorUUID()
+	ok := GetLockManager().IsLockable(common.GetXID().GenerateXID(transID), "tb_1", "tb_1:13")
 	assert.Equal(t, ok, true)
 }
 
@@ -64,11 +64,11 @@ func TestLockManager_AcquireLock_DeadLock(t *testing.T) {
 func TestLockManager_IsLockable2(t *testing.T) {
 	bs := branchSessionProvider()
 	bs.LockKey = "t:4"
-	result1 := GetLockManager().IsLockable(bs.Xid, bs.ResourceId, bs.LockKey)
+	result1 := GetLockManager().IsLockable(bs.XID, bs.ResourceID, bs.LockKey)
 	assert.True(t, result1)
 	GetLockManager().AcquireLock(bs)
-	bs.TransactionId = uuid.GeneratorUUID()
-	result2 := GetLockManager().IsLockable(bs.Xid, bs.ResourceId, bs.LockKey)
+	bs.TransactionID = uuid.GeneratorUUID()
+	result2 := GetLockManager().IsLockable(bs.XID, bs.ResourceID, bs.LockKey)
 	assert.False(t, result2)
 }
 
@@ -101,33 +101,33 @@ func branchSessionsProvider() []*session.BranchSession {
 	return baseBranchSessionsProvider("tb_1", "t:1,2", "t:1,2")
 }
 
-func baseBranchSessionsProvider(resourceId string, lockKey1 string, lockKey2 string) []*session.BranchSession {
+func baseBranchSessionsProvider(resourceID string, lockKey1 string, lockKey2 string) []*session.BranchSession {
 	var branchSessions = make([]*session.BranchSession, 0)
-	transId := uuid.GeneratorUUID()
-	transId2 := uuid.GeneratorUUID()
+	transID := uuid.GeneratorUUID()
+	transID2 := uuid.GeneratorUUID()
 	bs := session.NewBranchSession(
-		session.WithBsXid(common.XID.GenerateXID(transId)),
-		session.WithBsTransactionId(transId),
-		session.WithBsBranchId(1),
-		session.WithBsResourceGroupId("my_test_tx_group"),
-		session.WithBsResourceId(resourceId),
+		session.WithBsXid(common.GetXID().GenerateXID(transID)),
+		session.WithBsTransactionID(transID),
+		session.WithBsBranchID(1),
+		session.WithBsResourceGroupID("my_test_tx_group"),
+		session.WithBsResourceID(resourceID),
 		session.WithBsLockKey(lockKey1),
 		session.WithBsBranchType(meta.BranchTypeAT),
 		session.WithBsStatus(meta.BranchStatusUnknown),
-		session.WithBsClientId("c1"),
+		session.WithBsClientID("c1"),
 		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),
 	)
 
 	bs1 := session.NewBranchSession(
-		session.WithBsXid(common.XID.GenerateXID(transId2)),
-		session.WithBsTransactionId(transId2),
-		session.WithBsBranchId(1),
-		session.WithBsResourceGroupId("my_test_tx_group"),
-		session.WithBsResourceId(resourceId),
+		session.WithBsXid(common.GetXID().GenerateXID(transID2)),
+		session.WithBsTransactionID(transID2),
+		session.WithBsBranchID(1),
+		session.WithBsResourceGroupID("my_test_tx_group"),
+		session.WithBsResourceID(resourceID),
 		session.WithBsLockKey(lockKey2),
 		session.WithBsBranchType(meta.BranchTypeAT),
 		session.WithBsStatus(meta.BranchStatusUnknown),
-		session.WithBsClientId("c1"),
+		session.WithBsClientID("c1"),
 		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),
 	)
 
@@ -137,20 +137,19 @@ func baseBranchSessionsProvider(resourceId string, lockKey1 string, lockKey2 str
 }
 
 func branchSessionProvider() *session.BranchSession {
-	common.XID.IpAddress = "127.0.0.1"
-	common.XID.Port = 9876
+	common.GetXID().Init("127.0.0.1", 9876)
 
-	transId := uuid.GeneratorUUID()
+	transID := uuid.GeneratorUUID()
 	bs := session.NewBranchSession(
-		session.WithBsXid(common.XID.GenerateXID(transId)),
-		session.WithBsTransactionId(transId),
-		session.WithBsBranchId(1),
-		session.WithBsResourceGroupId("my_test_tx_group"),
-		session.WithBsResourceId("tb_1"),
+		session.WithBsXid(common.GetXID().GenerateXID(transID)),
+		session.WithBsTransactionID(transID),
+		session.WithBsBranchID(1),
+		session.WithBsResourceGroupID("my_test_tx_group"),
+		session.WithBsResourceID("tb_1"),
 		session.WithBsLockKey("tb_1:13"),
 		session.WithBsBranchType(meta.BranchTypeAT),
 		session.WithBsStatus(meta.BranchStatusUnknown),
-		session.WithBsClientId("c1"),
+		session.WithBsClientID("c1"),
 		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),
 	)
 

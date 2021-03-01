@@ -24,12 +24,12 @@ func (coordinator *DefaultCoordinator) SendResponse(request protocal.RpcMessage,
 	}
 }
 
-func (coordinator *DefaultCoordinator) SendSyncRequest(resourceId string, clientId string, message interface{}) (interface{}, error) {
-	return coordinator.SendSyncRequestWithTimeout(resourceId, clientId, message, RPC_REQUEST_TIMEOUT)
+func (coordinator *DefaultCoordinator) SendSyncRequest(resourceID string, clientID string, message interface{}) (interface{}, error) {
+	return coordinator.SendSyncRequestWithTimeout(resourceID, clientID, message, RPC_REQUEST_TIMEOUT)
 }
 
-func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceId string, clientId string, message interface{}, timeout time.Duration) (interface{}, error) {
-	session, err := SessionManager.GetGettySession(resourceId, clientId)
+func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceID string, clientID string, message interface{}, timeout time.Duration) (interface{}, error) {
+	session, err := SessionManager.GetGettySession(resourceID, clientID)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

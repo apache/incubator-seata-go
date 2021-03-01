@@ -13,7 +13,7 @@ import (
 const (
 	QueryGlobalTransactionDOByXid = `select xid, transaction_id, status, application_id, transaction_service_group, transaction_name,
 		timeout, begin_time, application_data, gmt_create, gmt_modified from global_table where xid = ?`
-	QueryGlobalTransactionDOByTransactionId = `select xid, transaction_id, status, application_id, transaction_service_group, transaction_name,
+	QueryGlobalTransactionDOByTransactionID = `select xid, transaction_id, status, application_id, transaction_service_group, transaction_name,
 		timeout, begin_time, application_data, gmt_create, gmt_modified from global_table where transaction_id = ?`
 	InsertGlobalTransactionDO = `insert into global_table (xid, transaction_id, status, application_id, transaction_service_group,
         transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
@@ -25,30 +25,30 @@ const (
         status, client_id, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(6), now(6))`
 	UpdateBranchTransactionDO = "update branch_table set status = ?, gmt_modified = now(6) where xid = ? and branch_id = ?"
 	DeleteBranchTransactionDO = "delete from branch_table where xid = ? and branch_id = ?"
-	QueryMaxTransactionId     = "select max(transaction_id) as maxTransactioId from global_table where transaction_id < ? and transaction_id > ?"
-	QueryMaxBranchId          = "select max(branch_id) as maxBranchId from branch_table where branch_id < ? and branch_id > ?"
+	QueryMaxTransactionID     = "select max(transaction_id) as maxTransactioID from global_table where transaction_id < ? and transaction_id > ?"
+	QueryMaxBranchID          = "select max(branch_id) as maxBranchID from branch_table where branch_id < ? and branch_id > ?"
 )
 
 type LogStore interface {
-	QueryGlobalTransactionDOByXid(xid string) *model.GlobalTransactionDO
-	QueryGlobalTransactionDOByTransactionId(transactionId int64) *model.GlobalTransactionDO
+	QueryGlobalTransactionDOByXID(xid string) *model.GlobalTransactionDO
+	QueryGlobalTransactionDOByTransactionID(transactionID int64) *model.GlobalTransactionDO
 	QueryGlobalTransactionDOByStatuses(statuses []int, limit int) []*model.GlobalTransactionDO
 	InsertGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool
 	UpdateGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool
 	DeleteGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool
-	QueryBranchTransactionDOByXid(xid string) []*model.BranchTransactionDO
-	QueryBranchTransactionDOByXids(xids []string) []*model.BranchTransactionDO
+	QueryBranchTransactionDOByXID(xid string) []*model.BranchTransactionDO
+	QueryBranchTransactionDOByXIDs(xids []string) []*model.BranchTransactionDO
 	InsertBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool
 	UpdateBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool
 	DeleteBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool
-	GetCurrentMaxSessionId(high int64, low int64) int64
+	GetCurrentMaxSessionID(high int64, low int64) int64
 }
 
 type LogStoreDataBaseDAO struct {
 	engine *xorm.Engine
 }
 
-func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByXid(xid string) *model.GlobalTransactionDO {
+func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByXID(xid string) *model.GlobalTransactionDO {
 	var globalTransactionDO model.GlobalTransactionDO
 	has, err := dao.engine.SQL(QueryGlobalTransactionDOByXid, xid).
 		Get(&globalTransactionDO)
@@ -61,9 +61,9 @@ func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByXid(xid string) *model
 	return nil
 }
 
-func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByTransactionId(transactionId int64) *model.GlobalTransactionDO {
+func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByTransactionID(transactionID int64) *model.GlobalTransactionDO {
 	var globalTransactionDO model.GlobalTransactionDO
-	has, err := dao.engine.SQL(QueryGlobalTransactionDOByTransactionId, transactionId).
+	has, err := dao.engine.SQL(QueryGlobalTransactionDOByTransactionID, transactionID).
 		Get(&globalTransactionDO)
 	if has {
 		return &globalTransactionDO
@@ -90,10 +90,10 @@ func (dao *LogStoreDataBaseDAO) QueryGlobalTransactionDOByStatuses(statuses []in
 
 func (dao *LogStoreDataBaseDAO) InsertGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool {
 	_, err := dao.engine.Exec(InsertGlobalTransactionDO,
-		globalTransaction.Xid,
-		globalTransaction.TransactionId,
+		globalTransaction.XID,
+		globalTransaction.TransactionID,
 		globalTransaction.Status,
-		globalTransaction.ApplicationId,
+		globalTransaction.ApplicationID,
 		globalTransaction.TransactionServiceGroup,
 		globalTransaction.TransactionName,
 		globalTransaction.Timeout,
@@ -106,7 +106,7 @@ func (dao *LogStoreDataBaseDAO) InsertGlobalTransactionDO(globalTransaction mode
 }
 
 func (dao *LogStoreDataBaseDAO) UpdateGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool {
-	_, err := dao.engine.Exec(UpdateGlobalTransactionDO, globalTransaction.Status, globalTransaction.Xid)
+	_, err := dao.engine.Exec(UpdateGlobalTransactionDO, globalTransaction.Status, globalTransaction.XID)
 	if err == nil {
 		return true
 	}
@@ -114,14 +114,14 @@ func (dao *LogStoreDataBaseDAO) UpdateGlobalTransactionDO(globalTransaction mode
 }
 
 func (dao *LogStoreDataBaseDAO) DeleteGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool {
-	_, err := dao.engine.Exec(DeleteGlobalTransactionDO, globalTransaction.Xid)
+	_, err := dao.engine.Exec(DeleteGlobalTransactionDO, globalTransaction.XID)
 	if err == nil {
 		return true
 	}
 	return false
 }
 
-func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXid(xid string) []*model.BranchTransactionDO {
+func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXID(xid string) []*model.BranchTransactionDO {
 	var branchTransactionDos []*model.BranchTransactionDO
 	err := dao.engine.SQL(QueryBranchTransactionDOByXid, xid).Find(&branchTransactionDos)
 	if err != nil {
@@ -130,7 +130,7 @@ func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXid(xid string) []*mod
 	return branchTransactionDos
 }
 
-func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXids(xids []string) []*model.BranchTransactionDO {
+func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXIDs(xids []string) []*model.BranchTransactionDO {
 	var branchTransactionDos []*model.BranchTransactionDO
 	err := dao.engine.Table("branch_table").
 		Where(builder.In("xid", xids)).
@@ -144,14 +144,14 @@ func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXids(xids []string) []
 
 func (dao *LogStoreDataBaseDAO) InsertBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
 	_, err := dao.engine.Exec(InsertBranchTransactionDO,
-		branchTransaction.Xid,
-		branchTransaction.BranchId,
-		branchTransaction.TransactionId,
-		branchTransaction.ResourceGroupId,
-		branchTransaction.ResourceId,
+		branchTransaction.XID,
+		branchTransaction.BranchID,
+		branchTransaction.TransactionID,
+		branchTransaction.ResourceGroupID,
+		branchTransaction.ResourceID,
 		branchTransaction.BranchType,
 		branchTransaction.Status,
-		branchTransaction.ClientId,
+		branchTransaction.ClientID,
 		branchTransaction.ApplicationData)
 	if err == nil {
 		return true
@@ -162,8 +162,8 @@ func (dao *LogStoreDataBaseDAO) InsertBranchTransactionDO(branchTransaction mode
 func (dao *LogStoreDataBaseDAO) UpdateBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
 	_, err := dao.engine.Exec(UpdateBranchTransactionDO,
 		branchTransaction.Status,
-		branchTransaction.Xid,
-		branchTransaction.BranchId)
+		branchTransaction.XID,
+		branchTransaction.BranchID)
 	if err == nil {
 		return true
 	}
@@ -172,30 +172,30 @@ func (dao *LogStoreDataBaseDAO) UpdateBranchTransactionDO(branchTransaction mode
 
 func (dao *LogStoreDataBaseDAO) DeleteBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
 	_, err := dao.engine.Exec(DeleteBranchTransactionDO,
-		branchTransaction.Xid,
-		branchTransaction.BranchId)
+		branchTransaction.XID,
+		branchTransaction.BranchID)
 	if err == nil {
 		return true
 	}
 	return false
 }
 
-func (dao *LogStoreDataBaseDAO) GetCurrentMaxSessionId(high int64, low int64) int64 {
-	var maxTransactionId, maxBranchId int64
-	_, err := dao.engine.SQL(QueryMaxTransactionId, high, low).
-		Cols("maxTransactionId").
-		Get(&maxTransactionId)
+func (dao *LogStoreDataBaseDAO) GetCurrentMaxSessionID(high int64, low int64) int64 {
+	var maxTransactionID, maxBranchID int64
+	_, err := dao.engine.SQL(QueryMaxTransactionID, high, low).
+		Cols("maxTransactionID").
+		Get(&maxTransactionID)
 	if err != nil {
 		log.Errorf(err.Error())
 	}
-	_, err = dao.engine.SQL(QueryMaxBranchId, high, low).
-		Cols("maxBranchId").
-		Get(&maxBranchId)
+	_, err = dao.engine.SQL(QueryMaxBranchID, high, low).
+		Cols("maxBranchID").
+		Get(&maxBranchID)
 	if err != nil {
 		log.Errorf(err.Error())
 	}
-	if maxTransactionId > maxBranchId {
-		return maxTransactionId
+	if maxTransactionID > maxBranchID {
+		return maxTransactionID
 	}
-	return maxBranchId
+	return maxBranchID
 }

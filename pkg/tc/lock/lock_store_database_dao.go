@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	BatchDeleteLockByBranchId = `delete from lock_table where xid = ? AND branch_id = ?`
+	BatchDeleteLockByBranchID = `delete from lock_table where xid = ? AND branch_id = ?`
 	GetLockDOCount            = "select count(1) as total from lock_table"
 )
 
@@ -20,8 +20,8 @@ type LockStore interface {
 	AcquireLock(lockDOs []*model.LockDO) bool
 	UnLockByLockDO(lockDO *model.LockDO) bool
 	UnLock(lockDOs []*model.LockDO) bool
-	UnLockByXidAndBranchId(xid string, branchId int64) bool
-	UnLockByXidAndBranchIds(xid string, branchIds []int64) bool
+	UnLockByXIDAndBranchID(xid string, branchID int64) bool
+	UnLockByXIDAndBranchIDs(xid string, branchIDs []int64) bool
 	IsLockable(lockDOs []*model.LockDO) bool
 	GetLockCount() int64
 }
@@ -50,8 +50,8 @@ func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 	unrepeatedLockDOs := make([]*model.LockDO, 0)
 	for _, rowLock := range existedRowLocks {
 		if rowLock.Xid != currentXID {
-			log.Infof("Global lock on [{%s}:{%s}] is holding by xid {%s} branchId {%d}", "lock_table", rowLock.Pk, rowLock.Xid,
-				rowLock.BranchId)
+			log.Infof("Global lock on [{%s}:{%s}] is holding by xid {%s} branchID {%d}", "lock_table", rowLock.Pk, rowLock.Xid,
+				rowLock.BranchID)
 			canLock = false
 			break
 		}
@@ -132,8 +132,8 @@ func (dao *LockStoreDataBaseDao) UnLock(lockDOs []*model.LockDO) bool {
 	return true
 }
 
-func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchId(xid string, branchId int64) bool {
-	_, err := dao.engine.Exec(BatchDeleteLockByBranchId, xid, branchId)
+func (dao *LockStoreDataBaseDao) UnLockByXIDAndBranchID(xid string, branchID int64) bool {
+	_, err := dao.engine.Exec(BatchDeleteLockByBranchID, xid, branchID)
 
 	if err != nil {
 		log.Errorf(err.Error())
@@ -142,10 +142,10 @@ func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchId(xid string, branchId int
 	return true
 }
 
-func (dao *LockStoreDataBaseDao) UnLockByXidAndBranchIds(xid string, branchIds []int64) bool {
+func (dao *LockStoreDataBaseDao) UnLockByXIDAndBranchIDs(xid string, branchIDs []int64) bool {
 	var lock = model.LockDO{}
 	_, err := dao.engine.Table("lock_table").
-		Where(builder.In("branch_id", branchIds).And(builder.Eq{"xid": xid})).
+		Where(builder.In("branch_id", branchIDs).And(builder.Eq{"xid": xid})).
 		Delete(&lock)
 
 	if err != nil {

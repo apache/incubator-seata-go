@@ -30,9 +30,9 @@ func NewRootContext(ctx context.Context) *RootContext {
 		localMap: make(map[string]interface{}),
 	}
 
-	xId := ctx.Value(KEY_XID)
-	if xId != nil {
-		xid := xId.(string)
+	xID := ctx.Value(KEY_XID)
+	if xID != nil {
+		xid := xID.(string)
 		rootCtx.Bind(xid)
 	}
 	return rootCtx
@@ -51,14 +51,14 @@ func (c *RootContext) Get(key string) (value interface{}, exists bool) {
 }
 
 func (c *RootContext) GetXID() string {
-	xId := c.localMap[KEY_XID]
-	xid, ok := xId.(string)
+	xID := c.localMap[KEY_XID]
+	xid, ok := xID.(string)
 	if ok && xid != "" {
 		return xid
 	}
 
-	xIdType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
-	xidType, success := xIdType.(string)
+	xIDType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xidType, success := xIDType.(string)
 
 	if success && xidType != "" && strings.Contains(xidType, "_") {
 		return strings.Split(xidType, "_")[0]
@@ -68,8 +68,8 @@ func (c *RootContext) GetXID() string {
 }
 
 func (c *RootContext) GetXIDInterceptorType() string {
-	xIdType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
-	xidType, _ := xIdType.(string)
+	xIDType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xidType, _ := xIDType.(string)
 	return xidType
 }
 
@@ -100,8 +100,8 @@ func (c *RootContext) BindGlobalLockFlag() {
 }
 
 func (c *RootContext) Unbind() string {
-	xId := c.localMap[KEY_XID]
-	xid, ok := xId.(string)
+	xID := c.localMap[KEY_XID]
+	xid, ok := xID.(string)
 	if ok && xid != "" {
 		log.Debugf("unbind %s", xid)
 		delete(c.localMap, KEY_XID)
@@ -112,12 +112,12 @@ func (c *RootContext) Unbind() string {
 }
 
 func (c *RootContext) UnbindInterceptorType() string {
-	xIdType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
-	xidType, ok := xIdType.(string)
-	if ok && xidType != "" {
+	xidType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xt, ok := xidType.(string)
+	if ok && xt != "" {
 		log.Debugf("unbind inteceptor type %s", xidType)
 		delete(c.localMap, KEY_XID_INTERCEPTOR_TYPE)
-		return xidType
+		return xt
 	}
 	return ""
 }

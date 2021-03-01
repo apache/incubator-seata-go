@@ -83,19 +83,19 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 	}
 	rpcMessage := protocal.RpcMessage{
-		Id:          int32(coordinator.idGenerator.Inc()),
+		ID:          int32(coordinator.idGenerator.Inc()),
 		MessageType: protocal.MSGTYPE_RESQUEST_ONEWAY,
 		Codec:       codec.SEATA,
 		Compressor:  0,
 		Body:        msg,
 	}
 	resp := getty2.NewMessageFuture(rpcMessage)
-	coordinator.futures.Store(rpcMessage.Id, resp)
+	coordinator.futures.Store(rpcMessage.ID, resp)
 	//config timeout
 	pkgLen, sendLen, err := session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
 	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
 		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
-		coordinator.futures.Delete(rpcMessage.Id)
+		coordinator.futures.Delete(rpcMessage.ID)
 		runtime.GoWithRecover(func() {
 			session.Close()
 		}, nil)
@@ -105,7 +105,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 	if timeout > time.Duration(0) {
 		select {
 		case <-getty.GetTimeWheel().After(timeout):
-			coordinator.futures.Delete(rpcMessage.Id)
+			coordinator.futures.Delete(rpcMessage.ID)
 			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", address, rpcMessage)
 		case <-resp.Done:
 			err = resp.Err
@@ -117,7 +117,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 
 func (coordinator *DefaultCoordinator) defaultSendResponse(request protocal.RpcMessage, session getty.Session, msg interface{}) {
 	resp := protocal.RpcMessage{
-		Id:         request.Id,
+		ID:         request.ID,
 		Codec:      request.Codec,
 		Compressor: request.Compressor,
 		Body:       msg,
@@ -179,7 +179,7 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 	}
 	log.Debugf("Transaction Timeout Check Begin: %d", len(allSessions))
 	for _, globalSession := range allSessions {
-		log.Debugf("%s %s %d %d", globalSession.Xid, globalSession.Status.String(), globalSession.BeginTime, globalSession.Timeout)
+		log.Debugf("%s %s %d %d", globalSession.XID, globalSession.Status.String(), globalSession.BeginTime, globalSession.Timeout)
 		shouldTimout := func(gs *session.GlobalSession) bool {
 			globalSession.Lock()
 			defer globalSession.Unlock()
@@ -191,7 +191,7 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 				globalSession.Active = false
 			}
 			changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbacking)
-			evt := event.NewGlobalTransactionEvent(globalSession.TransactionId, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+			evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt
 			return true
 		}(globalSession)
@@ -219,12 +219,12 @@ func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
 				lock.GetLockManager().ReleaseGlobalSessionLock(rollbackingSession)
 			}
 			holder.GetSessionHolder().RetryRollbackingSessionManager.RemoveGlobalSession(rollbackingSession)
-			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollbackingSession.Xid)
+			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollbackingSession.XID)
 			continue
 		}
 		_, err := coordinator.core.doGlobalRollback(rollbackingSession, true)
 		if err != nil {
-			log.Infof("Failed to retry rollbacking [%s]", rollbackingSession.Xid)
+			log.Infof("Failed to retry rollbacking [%s]", rollbackingSession.XID)
 		}
 	}
 }
@@ -245,12 +245,12 @@ func (coordinator *DefaultCoordinator) handleRetryCommitting() {
 	for _, committingSession := range committingSessions {
 		if isRetryTimeout(int64(now), coordinator.conf.MaxCommitRetryTimeout, committingSession.BeginTime) {
 			holder.GetSessionHolder().RetryCommittingSessionManager.RemoveGlobalSession(committingSession)
-			log.Errorf("GlobalSession commit retry timeout and removed [%s]", committingSession.Xid)
+			log.Errorf("GlobalSession commit retry timeout and removed [%s]", committingSession.XID)
 			continue
 		}
 		_, err := coordinator.core.doGlobalCommit(committingSession, true)
 		if err != nil {
-			log.Infof("Failed to retry committing [%s]", committingSession.Xid)
+			log.Infof("Failed to retry committing [%s]", committingSession.XID)
 		}
 	}
 }
@@ -266,7 +266,7 @@ func (coordinator *DefaultCoordinator) handleAsyncCommitting() {
 		}
 		_, err := coordinator.core.doGlobalCommit(asyncCommittingSession, true)
 		if err != nil {
-			log.Infof("Failed to async committing [%s]", asyncCommittingSession.Xid)
+			log.Infof("Failed to async committing [%s]", asyncCommittingSession.XID)
 		}
 	}
 }
@@ -274,14 +274,14 @@ func (coordinator *DefaultCoordinator) handleAsyncCommitting() {
 func (coordinator *DefaultCoordinator) undoLogDelete() {
 	saveDays := coordinator.conf.UndoConfig.LogSaveDays
 	for key, session := range SessionManager.GetRmSessions() {
-		resourceId := key
+		resourceID := key
 		deleteRequest := protocal.UndoLogDeleteRequest{
-			ResourceId: resourceId,
+			ResourceID: resourceID,
 			SaveDays:   saveDays,
 		}
 		err := coordinator.SendASyncRequest(session, deleteRequest)
 		if err != nil {
-			log.Errorf("Failed to async delete undo log resourceId = %s", resourceId)
+			log.Errorf("Failed to async delete undo log resourceID = %s", resourceID)
 		}
 	}
 }

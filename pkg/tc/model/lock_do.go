@@ -6,11 +6,11 @@ import "time"
 type LockDO struct {
 	Xid string `xorm:"xid"`
 
-	TransactionId int64 `xorm:"transaction_id"`
+	TransactionID int64 `xorm:"transaction_id"`
 
-	BranchId int64 `xorm:"branch_id"`
+	BranchID int64 `xorm:"branch_id"`
 
-	ResourceId string `xorm:"resource_id"`
+	ResourceID string `xorm:"resource_id"`
 
 	TableName string `xorm:"table_name"`
 

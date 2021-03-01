@@ -26,11 +26,11 @@ func TestFileBasedSessionManager_FindGlobalSession(t *testing.T) {
 	gs := globalSessionProvider()
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
-	expected := sessionManager.FindGlobalSession(gs.Xid)
+	expected := sessionManager.FindGlobalSession(gs.XID)
 
 	assert.NotNil(t, expected)
-	assert.Equal(t, gs.TransactionId, expected.TransactionId)
-	assert.Equal(t, gs.ApplicationId, expected.ApplicationId)
+	assert.Equal(t, gs.TransactionID, expected.TransactionID)
+	assert.Equal(t, gs.ApplicationID, expected.ApplicationID)
 	assert.Equal(t, gs.TransactionServiceGroup, expected.TransactionServiceGroup)
 	assert.Equal(t, gs.TransactionName, expected.TransactionName)
 	assert.Equal(t, gs.Status, expected.Status)
@@ -45,7 +45,7 @@ func TestFileBasedSessionManager_UpdateGlobalSessionStatus(t *testing.T) {
 	gs.Status = meta.GlobalStatusFinished
 	sessionManager.UpdateGlobalSessionStatus(gs, meta.GlobalStatusFinished)
 
-	expected := sessionManager.FindGlobalSession(gs.Xid)
+	expected := sessionManager.FindGlobalSession(gs.XID)
 	assert.NotNil(t, gs)
 	assert.Equal(t, meta.GlobalStatusFinished, expected.Status)
 
@@ -59,7 +59,7 @@ func TestFileBasedSessionManager_RemoveGlobalSession(t *testing.T) {
 	sessionManager.AddGlobalSession(gs)
 	sessionManager.RemoveGlobalSession(gs)
 
-	expected := sessionManager.FindGlobalSession(gs.Xid)
+	expected := sessionManager.FindGlobalSession(gs.XID)
 	assert.Nil(t, expected)
 }
 

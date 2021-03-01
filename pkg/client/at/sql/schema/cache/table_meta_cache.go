@@ -9,9 +9,9 @@ import (
 )
 
 type ITableMetaCache interface {
-	GetTableMeta(tx *sql.Tx, tableName, resourceId string) (schema.TableMeta, error)
+	GetTableMeta(tx *sql.Tx, tableName, resourceID string) (schema.TableMeta, error)
 
-	Refresh(tx *sql.Tx, resourceId string)
+	Refresh(tx *sql.Tx, resourceID string)
 }
 
 var tableMetaCache ITableMetaCache

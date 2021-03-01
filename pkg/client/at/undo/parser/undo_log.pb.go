@@ -84,8 +84,8 @@ func (m *PbSqlUndoLog) GetAfterImage() *PbTableRecords {
 }
 
 type PbBranchUndoLog struct {
-	Xid                  string          `protobuf:"bytes,1,opt,name=Xid,proto3" json:"Xid,omitempty"`
-	BranchId             int64           `protobuf:"varint,2,opt,name=BranchId,proto3" json:"BranchId,omitempty"`
+	Xid                  string          `protobuf:"bytes,1,opt,name=XID,proto3" json:"XID,omitempty"`
+	BranchID             int64           `protobuf:"varint,2,opt,name=BranchID,proto3" json:"BranchID,omitempty"`
 	SqlUndoLogs          []*PbSqlUndoLog `protobuf:"bytes,3,rep,name=SqlUndoLogs,proto3" json:"SqlUndoLogs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
@@ -124,9 +124,9 @@ func (m *PbBranchUndoLog) GetXid() string {
 	return ""
 }
 
-func (m *PbBranchUndoLog) GetBranchId() int64 {
+func (m *PbBranchUndoLog) GetBranchID() int64 {
 	if m != nil {
-		return m.BranchId
+		return m.BranchID
 	}
 	return 0
 }

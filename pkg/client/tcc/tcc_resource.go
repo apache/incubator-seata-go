@@ -6,7 +6,7 @@ import (
 )
 
 type TCCResource struct {
-	ResourceGroupId    string
+	ResourceGroupID    string
 	AppName            string
 	ActionName         string
 	PrepareMethodName  string
@@ -16,11 +16,11 @@ type TCCResource struct {
 	RollbackMethod     *proxy.MethodDescriptor
 }
 
-func (resource *TCCResource) GetResourceGroupId() string {
-	return resource.ResourceGroupId
+func (resource *TCCResource) GetResourceGroupID() string {
+	return resource.ResourceGroupID
 }
 
-func (resource *TCCResource) GetResourceId() string {
+func (resource *TCCResource) GetResourceID() string {
 	return resource.ActionName
 }
 

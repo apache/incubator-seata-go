@@ -17,8 +17,8 @@ import (
 
 type TxContext struct {
 	*context.RootContext
-	Xid                 string
-	BranchId            int64
+	XID                 string
+	BranchID            int64
 	IsGlobalLockRequire bool
 
 	LockKeysBuffer     *model.Set
@@ -31,12 +31,12 @@ func NewTxContext(ctx *context.RootContext) *TxContext {
 		LockKeysBuffer:     model.NewSet(),
 		SqlUndoItemsBuffer: make([]*undo.SqlUndoLog, 0),
 	}
-	txContext.Xid = ctx.GetXID()
+	txContext.XID = ctx.GetXID()
 	return txContext
 }
 
 func (ctx *TxContext) InGlobalTransaction() bool {
-	return ctx.Xid != ""
+	return ctx.XID != ""
 }
 
 func (ctx *TxContext) AppendLockKey(lockKey string) {
@@ -58,9 +58,9 @@ func (ctx *TxContext) Bind(xid string) {
 		panic(errors.New("xid should not be null"))
 	}
 	if !ctx.InGlobalTransaction() {
-		ctx.Xid = xid
+		ctx.XID = xid
 	} else {
-		if ctx.Xid != xid {
+		if ctx.XID != xid {
 			panic(errors.New("should never happen"))
 		}
 	}
@@ -85,9 +85,9 @@ func (ctx *TxContext) BuildLockKeys() string {
 }
 
 func (ctx *TxContext) IsBranchRegistered() bool {
-	return ctx.BranchId > 0
+	return ctx.BranchID > 0
 }
 
 func (ctx *TxContext) Reset() {
-	ctx.Xid = ""
+	ctx.XID = ""
 }

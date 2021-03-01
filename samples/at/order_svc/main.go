@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetMaxIdleConns(20)
+	sqlDB.SetMaxIDleConns(20)
 	sqlDB.SetConnMaxLifetime(4 * time.Hour)
 
 	db, err := exec.NewDB(config.GetATConfig(), sqlDB)
@@ -52,7 +52,7 @@ func main() {
 			return
 		}
 		rootContext := &context.RootContext{Context: c}
-		rootContext.Bind(c.Request.Header.Get("Xid"))
+		rootContext.Bind(c.Request.Header.Get("XID"))
 
 		_, err := d.CreateSO(rootContext, q.Req)
 

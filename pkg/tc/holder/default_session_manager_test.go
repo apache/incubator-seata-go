@@ -26,11 +26,11 @@ func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
 	gs := globalSessionProvider()
 	sessionManager := NewDefaultSessionManager("default")
 	sessionManager.AddGlobalSession(gs)
-	expected := sessionManager.FindGlobalSession(gs.Xid)
+	expected := sessionManager.FindGlobalSession(gs.XID)
 
 	assert.NotNil(t, expected)
-	assert.Equal(t, gs.TransactionId, expected.TransactionId)
-	assert.Equal(t, gs.ApplicationId, expected.ApplicationId)
+	assert.Equal(t, gs.TransactionID, expected.TransactionID)
+	assert.Equal(t, gs.ApplicationID, expected.ApplicationID)
 	assert.Equal(t, gs.TransactionServiceGroup, expected.TransactionServiceGroup)
 	assert.Equal(t, gs.TransactionName, expected.TransactionName)
 	assert.Equal(t, gs.Status, expected.Status)
@@ -39,19 +39,18 @@ func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
 }
 
 func globalSessionsProvider() []*session.GlobalSession {
-	common.XID.IpAddress = "127.0.0.1"
-	common.XID.Port = 9876
+	common.GetXID().Init("127.0.0.1", 9876)
 
 	result := make([]*session.GlobalSession, 0)
 	gs1 := session.NewGlobalSession(
-		session.WithGsApplicationId("demo-cmd"),
+		session.WithGsApplicationID("demo-cmd"),
 		session.WithGsTransactionServiceGroup("my_test_tx_group"),
 		session.WithGsTransactionName("test"),
 		session.WithGsTimeout(6000),
 	)
 
 	gs2 := session.NewGlobalSession(
-		session.WithGsApplicationId("demo-cmd"),
+		session.WithGsApplicationID("demo-cmd"),
 		session.WithGsTransactionServiceGroup("my_test_tx_group"),
 		session.WithGsTransactionName("test"),
 		session.WithGsTimeout(6000),
@@ -63,11 +62,10 @@ func globalSessionsProvider() []*session.GlobalSession {
 }
 
 func globalSessionProvider() *session.GlobalSession {
-	common.XID.IpAddress = "127.0.0.1"
-	common.XID.Port = 9876
+	common.GetXID().Init("127.0.0.1", 9876)
 
 	gs := session.NewGlobalSession(
-		session.WithGsApplicationId("demo-cmd"),
+		session.WithGsApplicationID("demo-cmd"),
 		session.WithGsTransactionServiceGroup("my_test_tx_group"),
 		session.WithGsTransactionName("test"),
 		session.WithGsTimeout(6000),
@@ -77,10 +75,10 @@ func globalSessionProvider() *session.GlobalSession {
 
 func branchSessionProvider(globalSession *session.GlobalSession) *session.BranchSession {
 	bs := session.NewBranchSession(
-		session.WithBsTransactionId(globalSession.TransactionId),
-		session.WithBsBranchId(1),
-		session.WithBsResourceGroupId("my_test_tx_group"),
-		session.WithBsResourceId("tb_1"),
+		session.WithBsTransactionID(globalSession.TransactionID),
+		session.WithBsBranchID(1),
+		session.WithBsResourceGroupID("my_test_tx_group"),
+		session.WithBsResourceID("tb_1"),
 		session.WithBsLockKey("t_1"),
 		session.WithBsBranchType(meta.BranchTypeAT),
 		session.WithBsApplicationData([]byte("{\"data\":\"test\"}")),

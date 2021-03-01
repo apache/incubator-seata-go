@@ -149,12 +149,12 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	}
 	tableMeta, _ := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
 		executor.sqlRecognizer.GetTableName(),
-		executor.proxyTx.ResourceId)
+		executor.proxyTx.ResourceID)
 
 	return len(tableMeta.Columns)
 }
 
 func (executor *InsertExecutor) getTableMeta() (schema.TableMeta, error) {
 	tableMetaCache := cache.GetTableMetaCache()
-	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceId)
+	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }

@@ -57,12 +57,12 @@ func (manager MysqlUndoLogManager) FlushUndoLogs(tx *proxy_tx.ProxyTx) error {
 		}
 	}()
 	ctx := tx.Context
-	xid := ctx.Xid
-	branchId := ctx.BranchId
+	xid := ctx.XID
+	branchID := ctx.BranchID
 
 	branchUndoLog := &undo.BranchUndoLog{
 		Xid:         xid,
-		BranchId:    branchId,
+		BranchID:    branchID,
 		SqlUndoLogs: ctx.SqlUndoItemsBuffer,
 	}
 
@@ -70,16 +70,16 @@ func (manager MysqlUndoLogManager) FlushUndoLogs(tx *proxy_tx.ProxyTx) error {
 	undoLogContent := parser.Encode(branchUndoLog)
 	log.Debugf("Flushing UNDO LOG: %s", string(undoLogContent))
 
-	return manager.insertUndoLogWithNormal(tx.Tx, xid, branchId, buildContext(parser.GetName()), undoLogContent)
+	return manager.insertUndoLogWithNormal(tx.Tx, xid, branchID, buildContext(parser.GetName()), undoLogContent)
 }
 
-func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, resourceId string) error {
+func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchID int64, resourceID string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 
-	rows, err := tx.Query(SelectUndoLogSql, branchId, xid)
+	rows, err := tx.Query(SelectUndoLogSql, branchID, xid)
 	if err != nil {
 		return err
 	}
@@ -90,15 +90,15 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, 
 	for rows.Next() {
 		exists = true
 
-		var branchId int64
+		var branchID int64
 		var xid, context string
 		var rollbackInfo []byte
 		var state int32
 
-		rows.Scan(&branchId, &xid, &context, &rollbackInfo, &state)
+		rows.Scan(&branchID, &xid, &context, &rollbackInfo, &state)
 
 		if State(state) != Normal {
-			log.Infof("xid %s branch %d, ignore %s undo_log", xid, branchId, State(state).String())
+			log.Infof("xid %s branch %d, ignore %s undo_log", xid, branchID, State(state).String())
 			return nil
 		}
 
@@ -112,7 +112,7 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, 
 	for _, branchUndoLog := range undoLogs {
 		sqlUndoLogs := branchUndoLog.SqlUndoLogs
 		for _, sqlUndoLog := range sqlUndoLogs {
-			tableMeta, err := cache.GetTableMetaCache().GetTableMeta(tx, sqlUndoLog.TableName, resourceId)
+			tableMeta, err := cache.GetTableMetaCache().GetTableMeta(tx, sqlUndoLog.TableName, resourceID)
 			if err != nil {
 				tx.Rollback()
 				return errors.WithStack(err)
@@ -128,52 +128,52 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchId int64, 
 	}
 
 	if exists {
-		_, err := tx.Exec(DeleteUndoLogSql, xid, branchId)
+		_, err := tx.Exec(DeleteUndoLogSql, xid, branchID)
 		if err != nil {
 			tx.Rollback()
 			return errors.WithStack(err)
 		}
-		log.Infof("xid %s branch %d, undo_log deleted with %s", xid, branchId,
+		log.Infof("xid %s branch %d, undo_log deleted with %s", xid, branchID,
 			GlobalFinished.String())
 		tx.Commit()
 	} else {
-		manager.insertUndoLogWithGlobalFinished(tx, xid, branchId,
+		manager.insertUndoLogWithGlobalFinished(tx, xid, branchID,
 			buildContext(parser2.GetUndoLogParser().GetName()), parser2.GetUndoLogParser().GetDefaultContent())
 		tx.Commit()
 	}
 	return nil
 }
 
-func (manager MysqlUndoLogManager) DeleteUndoLog(db *sql.DB, xid string, branchId int64) error {
-	result, err := db.Exec(DeleteUndoLogSql, xid, branchId)
+func (manager MysqlUndoLogManager) DeleteUndoLog(db *sql.DB, xid string, branchID int64) error {
+	result, err := db.Exec(DeleteUndoLogSql, xid, branchID)
 	if err != nil {
 		return err
 	}
 	affectCount, _ := result.RowsAffected()
-	log.Infof("%d undo log deleted by xid:%s and branchId:%d", affectCount, xid, branchId)
+	log.Infof("%d undo log deleted by xid:%s and branchID:%d", affectCount, xid, branchID)
 	return nil
 }
 
-func (manager MysqlUndoLogManager) BatchDeleteUndoLog(db *sql.DB, xids []string, branchIds []int64) error {
-	if xids == nil || branchIds == nil || len(xids) == 0 || len(branchIds) == 0 {
+func (manager MysqlUndoLogManager) BatchDeleteUndoLog(db *sql.DB, xids []string, branchIDs []int64) error {
+	if xids == nil || branchIDs == nil || len(xids) == 0 || len(branchIDs) == 0 {
 		return nil
 	}
 	xidSize := len(xids)
-	branchIdSize := len(branchIds)
-	batchDeleteSql := toBatchDeleteUndoLogSql(xidSize, branchIdSize)
-	var args = make([]interface{}, 0, xidSize+branchIdSize)
+	branchIDSize := len(branchIDs)
+	batchDeleteSql := toBatchDeleteUndoLogSql(xidSize, branchIDSize)
+	var args = make([]interface{}, 0, xidSize+branchIDSize)
 	for _, xid := range xids {
 		args = append(args, xid)
 	}
-	for _, branchId := range branchIds {
-		args = append(args, branchId)
+	for _, branchID := range branchIDs {
+		args = append(args, branchID)
 	}
 	result, err := db.Exec(batchDeleteSql, args...)
 	if err != nil {
 		return err
 	}
 	affectCount, _ := result.RowsAffected()
-	log.Infof("%d undo log deleted by xids:%v and branchIds:%v", affectCount, xids, branchIds)
+	log.Infof("%d undo log deleted by xids:%v and branchIDs:%v", affectCount, xids, branchIDs)
 	return nil
 }
 
@@ -182,28 +182,28 @@ func (manager MysqlUndoLogManager) DeleteUndoLogByLogCreated(db *sql.DB, logCrea
 	return result, err
 }
 
-func toBatchDeleteUndoLogSql(xidSize int, branchIdSize int) string {
+func toBatchDeleteUndoLogSql(xidSize int, branchIDSize int) string {
 	var sb strings.Builder
 	fmt.Fprint(&sb, "DELETE FROM undo_log WHERE xid in ")
 	fmt.Fprint(&sb, sql2.AppendInParam(xidSize))
 	fmt.Fprint(&sb, " AND branch_id in ")
-	fmt.Fprint(&sb, sql2.AppendInParam(branchIdSize))
+	fmt.Fprint(&sb, sql2.AppendInParam(branchIDSize))
 	return sb.String()
 }
 
-func (manager MysqlUndoLogManager) insertUndoLogWithNormal(tx *sql.Tx, xid string, branchId int64,
+func (manager MysqlUndoLogManager) insertUndoLogWithNormal(tx *sql.Tx, xid string, branchID int64,
 	rollbackCtx string, undoLogContent []byte) error {
-	return manager.insertUndoLog(tx, xid, branchId, rollbackCtx, undoLogContent, Normal)
+	return manager.insertUndoLog(tx, xid, branchID, rollbackCtx, undoLogContent, Normal)
 }
 
-func (manager MysqlUndoLogManager) insertUndoLogWithGlobalFinished(tx *sql.Tx, xid string, branchId int64,
+func (manager MysqlUndoLogManager) insertUndoLogWithGlobalFinished(tx *sql.Tx, xid string, branchID int64,
 	rollbackCtx string, undoLogContent []byte) error {
-	return manager.insertUndoLog(tx, xid, branchId, rollbackCtx, undoLogContent, GlobalFinished)
+	return manager.insertUndoLog(tx, xid, branchID, rollbackCtx, undoLogContent, GlobalFinished)
 }
 
-func (manager MysqlUndoLogManager) insertUndoLog(tx *sql.Tx, xid string, branchId int64,
+func (manager MysqlUndoLogManager) insertUndoLog(tx *sql.Tx, xid string, branchID int64,
 	rollbackCtx string, undoLogContent []byte, state State) error {
-	_, err := tx.Exec(InsertUndoLogSql, branchId, xid, rollbackCtx, undoLogContent, state)
+	_, err := tx.Exec(InsertUndoLogSql, branchID, xid, rollbackCtx, undoLogContent, state)
 	return err
 }
 

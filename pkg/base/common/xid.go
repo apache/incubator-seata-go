@@ -6,23 +6,27 @@ import (
 	"strings"
 )
 
-type XId struct {
+type XID struct {
 	IpAddress string
 	Port      int
 }
 
-var XID = &XId{}
+var xID = &XID{}
 
-func (xId *XId) Init(ipAddress string, port int) {
-	xId.IpAddress = ipAddress
-	xId.Port = port
+func GetXID() *XID {
+	return xID
 }
 
-func (xId *XId) GenerateXID(tranId int64) string {
-	return fmt.Sprintf("%s:%d:%d", xId.IpAddress, xId.Port, tranId)
+func (xid *XID) Init(ipAddress string, port int) {
+	xid.IpAddress = ipAddress
+	xid.Port = port
 }
 
-func (xId *XId) GetTransactionId(xid string) int64 {
+func (xid *XID) GenerateXID(tranID int64) string {
+	return fmt.Sprintf("%s:%d:%d", xid.IpAddress, xid.Port, tranID)
+}
+
+func GetTransactionID(xid string) int64 {
 	if xid == "" {
 		return -1
 	}
@@ -31,6 +35,6 @@ func (xId *XId) GetTransactionId(xid string) int64 {
 	if len(xid) == idx+1 {
 		return -1
 	}
-	tranId, _ := strconv.ParseInt(xid[idx+1:], 10, 64)
-	return tranId
+	tranID, _ := strconv.ParseInt(xid[idx+1:], 10, 64)
+	return tranID
 }

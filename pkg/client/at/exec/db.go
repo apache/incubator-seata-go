@@ -15,24 +15,24 @@ import (
 type DB struct {
 	*sql.DB
 	conf            config.ATConfig
-	ResourceGroupId string
+	ResourceGroupID string
 }
 
 func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 	newDB := &DB{
 		DB:              db,
 		conf:            conf,
-		ResourceGroupId: "",
+		ResourceGroupID: "",
 	}
 	dataSourceManager.RegisterResource(newDB)
 	return newDB, nil
 }
 
-func (db *DB) GetResourceGroupId() string {
-	return db.ResourceGroupId
+func (db *DB) GetResourceGroupID() string {
+	return db.ResourceGroupID
 }
 
-func (db *DB) GetResourceId() string {
+func (db *DB) GetResourceID() string {
 	fromIndex := strings.Index(db.conf.DSN, "@")
 	endIndex := strings.Index(db.conf.DSN, "?")
 	return db.conf.DSN[fromIndex+1 : endIndex]
@@ -50,7 +50,7 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx, error) {
 	proxyTx := &tx2.ProxyTx{
 		Tx:         tx,
 		DSN:        db.conf.DSN,
-		ResourceId: db.GetResourceId(),
+		ResourceID: db.GetResourceID(),
 		Context:    tx2.NewTxContext(ctx),
 	}
 	return &Tx{

@@ -31,12 +31,12 @@ func InitDataResourceManager() {
 	go dataSourceManager.handleBranchRollback()
 }
 
-func (resourceManager DataSourceManager) LockQuery(branchType meta.BranchType, resourceId string, xid string,
+func (resourceManager DataSourceManager) LockQuery(branchType meta.BranchType, resourceID string, xid string,
 	lockKeys string) (bool, error) {
 	request := protocal.GlobalLockQueryRequest{
 		BranchRegisterRequest: protocal.BranchRegisterRequest{
-			Xid:        xid,
-			ResourceId: resourceId,
+			XID:        xid,
+			ResourceID: resourceID,
 			LockKey:    lockKeys,
 		}}
 
@@ -53,27 +53,27 @@ func (resourceManager DataSourceManager) LockQuery(branchType meta.BranchType, r
 	return response.Lockable, nil
 }
 
-func (resourceManager DataSourceManager) BranchCommit(branchType meta.BranchType, xid string, branchId int64,
-	resourceId string, applicationData []byte) (meta.BranchStatus, error) {
+func (resourceManager DataSourceManager) BranchCommit(branchType meta.BranchType, xid string, branchID int64,
+	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
 	//todo 改为异步批量操作
 	undoLogManager := manager.GetUndoLogManager()
-	db := resourceManager.getDB(resourceId)
-	err := undoLogManager.DeleteUndoLog(db.DB, xid, branchId)
+	db := resourceManager.getDB(resourceID)
+	err := undoLogManager.DeleteUndoLog(db.DB, xid, branchID)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
 	return meta.BranchStatusPhasetwoCommitted, nil
 }
 
-func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchType, xid string, branchId int64,
-	resourceId string, applicationData []byte) (meta.BranchStatus, error) {
+func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchType, xid string, branchID int64,
+	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
 	//todo 使用前镜数据覆盖当前数据
 	undoLogManager := manager.GetUndoLogManager()
-	db := resourceManager.getDB(resourceId)
-	err := undoLogManager.Undo(db.DB, xid, branchId, db.GetResourceId())
+	db := resourceManager.getDB(resourceID)
+	err := undoLogManager.Undo(db.DB, xid, branchID, db.GetResourceID())
 	if err != nil {
-		log.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchId:[%d], resourceId:[%s], applicationData:[%v]",
-			branchType, xid, branchId, resourceId, applicationData)
+		log.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchID:[%d], resourceID:[%s], applicationData:[%v]",
+			branchType, xid, branchID, resourceID, applicationData)
 		log.Error(err)
 		return meta.BranchStatusPhasetwoCommitFailedRetryable, nil
 	}
@@ -84,8 +84,8 @@ func (resourceManager DataSourceManager) GetBranchType() meta.BranchType {
 	return meta.BranchTypeAT
 }
 
-func (resourceManager DataSourceManager) getDB(resourceId string) *DB {
-	resource := resourceManager.ResourceCache[resourceId]
+func (resourceManager DataSourceManager) getDB(resourceID string) *DB {
+	resource := resourceManager.ResourceCache[resourceID]
 	db := resource.(*DB)
 	return db
 }
@@ -117,8 +117,8 @@ func (resourceManager DataSourceManager) handleBranchRollback() {
 func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
-	log.Infof("Branch committing: %s %d %s %s", request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
-	status, err := resourceManager.BranchCommit(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
+	log.Infof("Branch committing: %s %d %s %s", request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
+	status, err := resourceManager.BranchCommit(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -132,8 +132,8 @@ func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchC
 		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
-	resp.Xid = request.Xid
-	resp.BranchId = request.BranchId
+	resp.XID = request.XID
+	resp.BranchID = request.BranchID
 	resp.BranchStatus = status
 	resp.ResultCode = protocal.ResultCodeSuccess
 	return resp
@@ -142,8 +142,8 @@ func (resourceManager DataSourceManager) doBranchCommit(request protocal.BranchC
 func (resourceManager DataSourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
 	var resp = protocal.BranchRollbackResponse{}
 
-	log.Infof("Branch rollbacking: %s %d %s", request.Xid, request.BranchId, request.ResourceId)
-	status, err := resourceManager.BranchRollback(request.BranchType, request.Xid, request.BranchId, request.ResourceId, request.ApplicationData)
+	log.Infof("Branch rollbacking: %s %d %s", request.XID, request.BranchID, request.ResourceID)
+	status, err := resourceManager.BranchRollback(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
 		var trxException *meta.TransactionException
@@ -157,8 +157,8 @@ func (resourceManager DataSourceManager) doBranchRollback(request protocal.Branc
 		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
 		return resp
 	}
-	resp.Xid = request.Xid
-	resp.BranchId = request.BranchId
+	resp.XID = request.XID
+	resp.BranchID = request.BranchID
 	resp.BranchStatus = status
 	resp.ResultCode = protocal.ResultCodeSuccess
 	return resp

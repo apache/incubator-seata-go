@@ -67,7 +67,7 @@ func ImplementTCC(v TccProxyService) {
 			businessContextValue := in[0]
 			businessActionContext := businessContextValue.Interface().(*context.BusinessActionContext)
 			rootContext := businessActionContext.RootContext
-			businessActionContext.Xid = rootContext.GetXID()
+			businessActionContext.XID = rootContext.GetXID()
 			businessActionContext.ActionName = resource.ActionName
 			if !rootContext.InGlobalTransaction() {
 				args := make([]interface{}, 0)
@@ -100,7 +100,7 @@ func ImplementTCC(v TccProxyService) {
 			tryMethodDesc := proxy.Register(proxyService, methodName)
 
 			tccResource := &TCCResource{
-				ResourceGroupId:    "",
+				ResourceGroupID:    "",
 				AppName:            "",
 				ActionName:         actionName,
 				PrepareMethodName:  TRY_METHOD,
@@ -124,11 +124,11 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *context.BusinessActionCont
 		args = make([]interface{}, 0)
 	)
 
-	branchId, err := doTccActionLogStore(ctx, resource)
+	branchID, err := doTccActionLogStore(ctx, resource)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	ctx.BranchId = branchId
+	ctx.BranchID = branchID
 
 	args = append(args, ctx)
 	returnValues := proxy.Invoke(methodDesc, nil, args)
@@ -158,10 +158,10 @@ func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResour
 		return "", err
 	}
 
-	branchId, err := tccResourceManager.BranchRegister(meta.BranchTypeTCC, ctx.ActionName, "", ctx.Xid, applicationData, "")
+	branchID, err := tccResourceManager.BranchRegister(meta.BranchTypeTCC, ctx.ActionName, "", ctx.XID, applicationData, "")
 	if err != nil {
-		log.Errorf("TCC branch Register error, xid: %s", ctx.Xid)
+		log.Errorf("TCC branch Register error, xid: %s", ctx.XID)
 		return "", errors.WithStack(err)
 	}
-	return strconv.FormatInt(branchId, 10), nil
+	return strconv.FormatInt(branchID, 10), nil
 }

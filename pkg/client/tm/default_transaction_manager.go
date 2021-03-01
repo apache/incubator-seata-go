@@ -14,7 +14,7 @@ type DefaultTransactionManager struct {
 	rpcClient *rpc_client.RpcRemoteClient
 }
 
-func (manager DefaultTransactionManager) Begin(applicationId string, transactionServiceGroup string, name string, timeout int32) (string, error) {
+func (manager DefaultTransactionManager) Begin(applicationID string, transactionServiceGroup string, name string, timeout int32) (string, error) {
 	request := protocal.GlobalBeginRequest{
 		Timeout:         timeout,
 		TransactionName: name,
@@ -28,7 +28,7 @@ func (manager DefaultTransactionManager) Begin(applicationId string, transaction
 }
 
 func (manager DefaultTransactionManager) Commit(xid string) (meta.GlobalStatus, error) {
-	globalCommit := protocal.GlobalCommitRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{Xid: xid}}
+	globalCommit := protocal.GlobalCommitRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{XID: xid}}
 	resp, err := manager.syncCall(globalCommit)
 	if err != nil {
 		return 0, errors.WithStack(err)
@@ -38,7 +38,7 @@ func (manager DefaultTransactionManager) Commit(xid string) (meta.GlobalStatus, 
 }
 
 func (manager DefaultTransactionManager) Rollback(xid string) (meta.GlobalStatus, error) {
-	globalRollback := protocal.GlobalRollbackRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{Xid: xid}}
+	globalRollback := protocal.GlobalRollbackRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{XID: xid}}
 	resp, err := manager.syncCall(globalRollback)
 	if err != nil {
 		return 0, errors.WithStack(err)
@@ -48,7 +48,7 @@ func (manager DefaultTransactionManager) Rollback(xid string) (meta.GlobalStatus
 }
 
 func (manager DefaultTransactionManager) GetStatus(xid string) (meta.GlobalStatus, error) {
-	queryGlobalStatus := protocal.GlobalStatusRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{Xid: xid}}
+	queryGlobalStatus := protocal.GlobalStatusRequest{AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{XID: xid}}
 	resp, err := manager.syncCall(queryGlobalStatus)
 	if err != nil {
 		return 0, errors.WithStack(err)
@@ -59,7 +59,7 @@ func (manager DefaultTransactionManager) GetStatus(xid string) (meta.GlobalStatu
 
 func (manager DefaultTransactionManager) GlobalReport(xid string, globalStatus meta.GlobalStatus) (meta.GlobalStatus, error) {
 	globalReport := protocal.GlobalReportRequest{
-		AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{Xid: xid},
+		AbstractGlobalEndRequest: protocal.AbstractGlobalEndRequest{XID: xid},
 		GlobalStatus:             globalStatus,
 	}
 	resp, err := manager.syncCall(globalReport)
