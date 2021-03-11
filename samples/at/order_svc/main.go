@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetMaxIDleConns(20)
+	sqlDB.SetMaxIdleConns(20)
 	sqlDB.SetConnMaxLifetime(4 * time.Hour)
 
 	db, err := exec.NewDB(config.GetATConfig(), sqlDB)
