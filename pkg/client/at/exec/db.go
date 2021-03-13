@@ -2,13 +2,13 @@ package exec
 
 import (
 	"database/sql"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"strings"
 )
 
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/client/context"
 )
