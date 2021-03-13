@@ -8,6 +8,7 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/client/context"
 )
@@ -24,6 +25,7 @@ func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 		conf:            conf,
 		ResourceGroupID: "",
 	}
+	cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(conf.DSN))
 	dataSourceManager.RegisterResource(newDB)
 	return newDB, nil
 }
