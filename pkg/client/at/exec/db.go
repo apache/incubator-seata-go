@@ -2,6 +2,7 @@ package exec
 
 import (
 	"database/sql"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"strings"
 )
 
@@ -24,6 +25,7 @@ func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 		conf:            conf,
 		ResourceGroupID: "",
 	}
+	cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(conf.DSN))
 	dataSourceManager.RegisterResource(newDB)
 	return newDB, nil
 }

@@ -147,9 +147,7 @@ func (executor *InsertExecutor) GetColumnLen() int {
 	if insertColumns != nil {
 		return len(insertColumns)
 	}
-	tableMeta, _ := cache.GetTableMetaCache().GetTableMeta(executor.proxyTx.Tx,
-		executor.sqlRecognizer.GetTableName(),
-		executor.proxyTx.ResourceID)
+	tableMeta, _ := executor.getTableMeta()
 
 	return len(tableMeta.Columns)
 }
