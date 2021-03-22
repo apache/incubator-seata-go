@@ -22,6 +22,10 @@
 - [ ] Read config from Config Center
 - [ ] Unit Test
 
+### mysql driver
+
+mysql driver 集成 seata-golang 的工作已经完成，该 driver 基于 https://github.com/go-sql-driver/mysql 开发，开发者可以使用该 driver 对接到各种 orm 中，使用更方便。driver 的项目地址：https://github.com/opentrx/mysql。 参考 demo：https://github.com/opentrx/seata-go-samples。
+
 ### 运行 TC
 
 + 编译
