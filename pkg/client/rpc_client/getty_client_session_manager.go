@@ -83,10 +83,12 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddr
 
 func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
 	allSessions.Delete(session)
-	m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
-	sMap := m.(*sync.Map)
-	sMap.Delete(session)
-	session.Close()
+	if !session.IsClosed() {
+		m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
+		sMap := m.(*sync.Map)
+		sMap.Delete(session)
+		session.Close()
+	}
 	atomic.AddInt32(&sessionSize, -1)
 }
 
