@@ -58,6 +58,10 @@ func (coordinator *DefaultCoordinator) handleTrxMessage(msg protocal.MessageType
 		req := msg.(protocal.BranchReportRequest)
 		resp := coordinator.doBranchReport(req, ctx)
 		return resp
+	case protocal.TypeGlobalLockQuery:
+		req := msg.(protocal.GlobalLockQueryRequest)
+		resp := coordinator.doLockCheck(req, ctx)
+		return resp
 	default:
 		return nil
 	}
