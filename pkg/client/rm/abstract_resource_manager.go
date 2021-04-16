@@ -2,17 +2,11 @@ package rm
 
 import (
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/base/model"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/client/context"
 	"github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
 )
@@ -103,11 +97,12 @@ func (resourceManager AbstractResourceManager) doRegisterResource(serverAddress 
 	if resourceManager.ResourceCache == nil || len(resourceManager.ResourceCache) == 0 {
 		return
 	}
+	cfg := resourceManager.RpcClient.GetConf()
 	message := protocal.RegisterRMRequest{
 		AbstractIdentifyRequest: protocal.AbstractIdentifyRequest{
-			Version:                 config.GetClientConfig().SeataVersion,
-			ApplicationID:           config.GetClientConfig().ApplicationID,
-			TransactionServiceGroup: config.GetClientConfig().TransactionServiceGroup,
+			Version:                 cfg.SeataVersion,
+			ApplicationID:           cfg.ApplicationID,
+			TransactionServiceGroup: cfg.TransactionServiceGroup,
 		},
 		ResourceIDs: resourceManager.getMergedResourceKeys(),
 	}

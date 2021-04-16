@@ -3,9 +3,7 @@ package exec
 import (
 	"database/sql"
 	"time"
-)
 
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
@@ -14,9 +12,10 @@ import (
 )
 
 type SelectForUpdateExecutor struct {
-	proxyTx       *proxy_tx.ProxyTx
-	sqlRecognizer sqlparser.ISQLSelectRecognizer
-	values        []interface{}
+	proxyTx           *proxy_tx.ProxyTx
+	sqlRecognizer     sqlparser.ISQLSelectRecognizer
+	values            []interface{}
+	dataSourceManager *DataSourceManager
 }
 
 func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration, lockRetryTimes int) (*sql.Rows, error) {
@@ -37,7 +36,7 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 			var lockable bool
 			var err error
 			for i := 0; i < lockRetryTimes; i++ {
-				lockable, err = dataSourceManager.LockQuery(meta.BranchTypeAT,
+				lockable, err = executor.dataSourceManager.LockQuery(meta.BranchTypeAT,
 					executor.proxyTx.ResourceID, executor.proxyTx.Context.XID, lockKeys)
 				if lockable && err == nil {
 					break

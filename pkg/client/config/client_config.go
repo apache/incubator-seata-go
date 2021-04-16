@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-)
 
-import (
 	"github.com/pkg/errors"
 	"github.com/shima-park/agollo"
 	"gopkg.in/yaml.v2"
@@ -100,4 +98,30 @@ func initCommonConf(confStream []byte) error {
 	(&clientConfig).ATConfig.CheckValidity()
 
 	return nil
+}
+
+func ParseConf(confFile string) (*ClientConfig, error) {
+	var err error
+
+	if confFile == "" {
+		return nil, errors.New(fmt.Sprintf("application configure file name is nil"))
+	}
+	if path.Ext(confFile) != ".yml" {
+		return nil, errors.New(fmt.Sprintf("application configure file name{%v} suffix must be .yml", confFile))
+	}
+
+	confFileStream, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		return nil, errors.WithMessagef(err, fmt.Sprintf("ioutil.ReadFile(file:%s) = error:%s", confFile, err))
+	}
+
+	clientConfig := &ClientConfig{}
+	if err = yaml.Unmarshal(confFileStream, clientConfig); err != nil {
+		return nil, errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
+	}
+
+	clientConfig.GettyConfig.CheckValidity()
+	clientConfig.ATConfig.CheckValidity()
+
+	return clientConfig, nil
 }

@@ -2,13 +2,8 @@ package exec
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
@@ -30,6 +25,17 @@ func InitDataResourceManager() {
 	go dataSourceManager.handleBranchCommit()
 	go dataSourceManager.handleBranchRollback()
 }
+
+func NewDataResourceManager(client *rpc_client.RpcRemoteClient) *DataSourceManager{
+	dataSourceManager := &DataSourceManager{
+		AbstractResourceManager: rm.NewAbstractResourceManager(client),
+	}
+	go dataSourceManager.handleBranchCommit()
+	go dataSourceManager.handleBranchRollback()
+
+	return dataSourceManager
+}
+
 
 func (resourceManager DataSourceManager) LockQuery(branchType meta.BranchType, resourceID string, xid string,
 	lockKeys string) (bool, error) {

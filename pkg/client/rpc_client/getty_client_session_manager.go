@@ -4,9 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 )
 
@@ -15,22 +13,25 @@ var (
 
 	CHECK_ALIVE_INTERNAL = 100
 
-	allSessions = sync.Map{}
+	//allSessions = sync.Map{}
 
 	// serverAddress -> rpc_client.Session -> bool
-	serverSessions = sync.Map{}
+	//serverSessions = sync.Map{}
 
 	sessionSize int32 = 0
 
 	clientSessionManager = &GettyClientSessionManager{}
 )
 
-type GettyClientSessionManager struct{}
+type GettyClientSessionManager struct {
+	allSessions    sync.Map
+	serverSessions sync.Map
+}
 
 func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Session {
 	// map 遍历是随机的
 	var session getty.Session
-	allSessions.Range(func(key, value interface{}) bool {
+	sessionManager.allSessions.Range(func(key, value interface{}) bool {
 		session = key.(getty.Session)
 		if session.IsClosed() {
 			sessionManager.ReleaseGettySession(session)
@@ -47,7 +48,7 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Ses
 		defer ticker.Stop()
 		for i := 0; i < MAX_CHECK_ALIVE_RETRY; i++ {
 			<-ticker.C
-			allSessions.Range(func(key, value interface{}) bool {
+			sessionManager.allSessions.Range(func(key, value interface{}) bool {
 				session = key.(getty.Session)
 				if session.IsClosed() {
 					sessionManager.ReleaseGettySession(session)
@@ -65,7 +66,7 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Ses
 }
 
 func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddress(serverAddress string) getty.Session {
-	m, _ := serverSessions.LoadOrStore(serverAddress, &sync.Map{})
+	m, _ := sessionManager.serverSessions.LoadOrStore(serverAddress, &sync.Map{})
 	sMap := m.(*sync.Map)
 
 	var session getty.Session
@@ -82,9 +83,9 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddr
 }
 
 func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
-	allSessions.Delete(session)
+	sessionManager.allSessions.Delete(session)
 	if !session.IsClosed() {
-		m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
+		m, _ := sessionManager.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 		sMap := m.(*sync.Map)
 		sMap.Delete(session)
 		session.Close()
@@ -93,8 +94,8 @@ func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session get
 }
 
 func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session) {
-	allSessions.Store(session, true)
-	m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
+	sessionManager.allSessions.Store(session, true)
+	m, _ := sessionManager.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 	sMap := m.(*sync.Map)
 	sMap.Store(session, true)
 	atomic.AddInt32(&sessionSize, 1)

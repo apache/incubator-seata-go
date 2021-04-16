@@ -3,16 +3,11 @@ package exec
 import (
 	"database/sql"
 	"time"
-)
 
-import (
 	p "github.com/pingcap/parser"
 	"github.com/pingcap/parser/ast"
 	_ "github.com/pingcap/parser/test_driver"
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser/mysql"
@@ -26,6 +21,7 @@ type Tx struct {
 	reportSuccessEnable bool
 	lockRetryInterval   time.Duration
 	lockRetryTimes      int
+	dataSourceManager   *DataSourceManager
 }
 
 func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -34,9 +30,10 @@ func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	stmt, ok := act.(*ast.SelectStmt)
 	if ok && stmt.LockTp == ast.SelectLockForUpdate {
 		executor := &SelectForUpdateExecutor{
-			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query, stmt),
-			values:        args,
+			proxyTx:           tx.proxyTx,
+			sqlRecognizer:     mysql.NewMysqlSelectForUpdateRecognizer(query, stmt),
+			values:            args,
+			dataSourceManager: tx.dataSourceManager,
 		}
 		return executor.Execute(tx.lockRetryInterval, tx.lockRetryTimes)
 	} else {
@@ -130,7 +127,7 @@ func (tx *Tx) register() (int64, error) {
 	var branchID int64
 	var err error
 	for retryCount := 0; retryCount < tx.lockRetryTimes; retryCount++ {
-		branchID, err = dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceID, "", tx.proxyTx.Context.XID,
+		branchID, err = tx.dataSourceManager.BranchRegister(meta.BranchTypeAT, tx.proxyTx.ResourceID, "", tx.proxyTx.Context.XID,
 			nil, tx.proxyTx.Context.BuildLockKeys())
 		if err == nil {
 			break
@@ -152,10 +149,10 @@ func (tx *Tx) report(commitDone bool) error {
 	for retry > 0 {
 		var err error
 		if commitDone {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
+			err = tx.dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
 				meta.BranchStatusPhaseoneDone, nil)
 		} else {
-			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
+			err = tx.dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
 				meta.BranchStatusPhaseoneFailed, nil)
 		}
 		if err != nil {

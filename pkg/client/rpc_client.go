@@ -4,14 +4,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
@@ -81,4 +76,18 @@ func (c *RpcClient) newSession(session getty.Session) error {
 	log.Debugf("rpc_client new session:%s\n", session.Stat())
 
 	return nil
+}
+
+func (c *RpcClient) GetRpcHandler() *getty2.RpcRemoteClient {
+	return c.rpcHandler
+}
+
+func NewRpcClientWithConf(cfg config.ClientConfig) *RpcClient {
+	rpcClient := &RpcClient{
+		conf:         cfg,
+		gettyClients: make([]getty.Client, 0),
+		rpcHandler:   getty2.NewRpcRemoteClient(cfg),
+	}
+	rpcClient.init()
+	return rpcClient
 }

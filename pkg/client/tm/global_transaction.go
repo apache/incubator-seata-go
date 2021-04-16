@@ -2,13 +2,8 @@ package tm
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	context2 "github.com/transaction-wg/seata-golang/pkg/client/context"
@@ -263,6 +258,38 @@ func GetCurrentOrCreate(ctx *context2.RootContext) *DefaultGlobalTransaction {
 	tx := GetCurrent(ctx)
 	if tx == nil {
 		return CreateNew()
+	}
+	return tx
+}
+
+func CreateNewWithConf(cfg config.ClientConfig) *DefaultGlobalTransaction {
+	return &DefaultGlobalTransaction{
+		conf:               cfg.TMConfig,
+		Xid:                "",
+		Status:             meta.GlobalStatusUnknown,
+		Role:               Launcher,
+		transactionManager: &DefaultTransactionManager{rpcClient: rpc_client.GetRpcRemoteClientFromPool(cfg.ApplicationID)},
+	}
+}
+
+func GetCurrentWithConf(ctx *context2.RootContext, cfg config.ClientConfig) *DefaultGlobalTransaction {
+	xid := ctx.GetXID()
+	if xid == "" {
+		return nil
+	}
+	return &DefaultGlobalTransaction{
+		conf:               cfg.TMConfig,
+		Xid:                xid,
+		Status:             meta.GlobalStatusBegin,
+		Role:               Participant,
+		transactionManager: &DefaultTransactionManager{rpcClient: rpc_client.GetRpcRemoteClientFromPool(cfg.ApplicationID)},
+	}
+}
+
+func GetCurrentOrCreateWithConf(ctx *context2.RootContext, cfg config.ClientConfig) *DefaultGlobalTransaction {
+	tx := GetCurrentWithConf(ctx, cfg)
+	if tx == nil {
+		return CreateNewWithConf(cfg)
 	}
 	return tx
 }

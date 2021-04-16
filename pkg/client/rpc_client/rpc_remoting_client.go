@@ -5,21 +5,16 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
-	"go.uber.org/atomic"
-)
-
-import (
 	getty2 "github.com/transaction-wg/seata-golang/pkg/base/getty"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal/codec"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -27,6 +22,7 @@ const (
 )
 
 var rpcRemoteClient *RpcRemoteClient
+var rpcRemoteClientPool = make(map[string]*RpcRemoteClient)
 
 func InitRpcRemoteClient() *RpcRemoteClient {
 	rpcRemoteClient = &RpcRemoteClient{
@@ -38,6 +34,7 @@ func InitRpcRemoteClient() *RpcRemoteClient {
 		BranchRollbackRequestChannel: make(chan RpcRMMessage),
 		BranchCommitRequestChannel:   make(chan RpcRMMessage),
 		GettySessionOnOpenChannel:    make(chan string),
+		clientSessionManager:         &GettyClientSessionManager{},
 	}
 	if rpcRemoteClient.conf.EnableClientBatchSendRequest {
 		go rpcRemoteClient.processMergedMessage()
@@ -49,6 +46,34 @@ func GetRpcRemoteClient() *RpcRemoteClient {
 	return rpcRemoteClient
 }
 
+func NewRpcRemoteClient(cfg config.ClientConfig) *RpcRemoteClient {
+
+	if rpcRemoteClient, ok := rpcRemoteClientPool[cfg.ApplicationID]; ok {
+		return rpcRemoteClient
+	}
+
+	rpcRemoteClient := &RpcRemoteClient{
+		conf:                         cfg,
+		idGenerator:                  atomic.Uint32{},
+		futures:                      &sync.Map{},
+		mergeMsgMap:                  &sync.Map{},
+		rpcMessageChannel:            make(chan protocal.RpcMessage, 100),
+		BranchRollbackRequestChannel: make(chan RpcRMMessage),
+		BranchCommitRequestChannel:   make(chan RpcRMMessage),
+		GettySessionOnOpenChannel:    make(chan string),
+		clientSessionManager:         &GettyClientSessionManager{},
+	}
+	if rpcRemoteClient.conf.EnableClientBatchSendRequest {
+		go rpcRemoteClient.processMergedMessage()
+	}
+	rpcRemoteClientPool[cfg.ApplicationID] = rpcRemoteClient
+	return rpcRemoteClient
+}
+
+func GetRpcRemoteClientFromPool(appId string) *RpcRemoteClient {
+	return rpcRemoteClientPool[appId]
+}
+
 type RpcRemoteClient struct {
 	conf                         config.ClientConfig
 	idGenerator                  atomic.Uint32
@@ -58,6 +83,7 @@ type RpcRemoteClient struct {
 	BranchCommitRequestChannel   chan RpcRMMessage
 	BranchRollbackRequestChannel chan RpcRMMessage
 	GettySessionOnOpenChannel    chan string
+	clientSessionManager         *GettyClientSessionManager
 }
 
 // OnOpen ...
@@ -70,7 +96,7 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 		}}
 		_, err := client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
 		if err == nil {
-			clientSessionManager.RegisterGettySession(session)
+			client.clientSessionManager.RegisterGettySession(session)
 			client.GettySessionOnOpenChannel <- session.RemoteAddr()
 		}
 	}()
@@ -80,12 +106,12 @@ func (client *RpcRemoteClient) OnOpen(session getty.Session) error {
 
 // OnError ...
 func (client *RpcRemoteClient) OnError(session getty.Session, err error) {
-	clientSessionManager.ReleaseGettySession(session)
+	client.clientSessionManager.ReleaseGettySession(session)
 }
 
 // OnClose ...
 func (client *RpcRemoteClient) OnClose(session getty.Session) {
-	clientSessionManager.ReleaseGettySession(session)
+	client.clientSessionManager.ReleaseGettySession(session)
 }
 
 // OnMessage ...
@@ -173,12 +199,12 @@ func (client *RpcRemoteClient) SendMsgWithResponse(msg interface{}) (interface{}
 }
 
 func (client *RpcRemoteClient) SendMsgWithResponseAndTimeout(msg interface{}, timeout time.Duration) (interface{}, error) {
-	ss := clientSessionManager.AcquireGettySession()
+	ss := client.clientSessionManager.AcquireGettySession()
 	return client.sendAsyncRequestWithResponse(ss, msg, timeout)
 }
 
 func (client *RpcRemoteClient) SendResponse(request protocal.RpcMessage, serverAddress string, msg interface{}) {
-	client.defaultSendResponse(request, clientSessionManager.AcquireGettySessionByServerAddress(serverAddress), msg)
+	client.defaultSendResponse(request, client.clientSessionManager.AcquireGettySessionByServerAddress(serverAddress), msg)
 }
 
 func (client *RpcRemoteClient) sendAsyncRequestWithResponse(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
@@ -328,7 +354,7 @@ func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, 
 }
 
 func (client *RpcRemoteClient) RegisterResource(serverAddress string, request protocal.RegisterRMRequest) {
-	session := clientSessionManager.AcquireGettySessionByServerAddress(serverAddress)
+	session := client.clientSessionManager.AcquireGettySessionByServerAddress(serverAddress)
 	if session != nil {
 		err := client.sendAsyncRequestWithoutResponse(session, request)
 		if err != nil {
@@ -382,7 +408,7 @@ func (client *RpcRemoteClient) processMergedMessage() {
 }
 
 func (client *RpcRemoteClient) sendMergedMessage(mergedMessage protocal.MergedWarpMessage) {
-	ss := clientSessionManager.AcquireGettySession()
+	ss := client.clientSessionManager.AcquireGettySession()
 	err := client.sendAsync(ss, mergedMessage)
 	if err != nil {
 		for _, id := range mergedMessage.MsgIDs {
@@ -394,4 +420,8 @@ func (client *RpcRemoteClient) sendMergedMessage(mergedMessage protocal.MergedWa
 			}
 		}
 	}
+}
+
+func (client *RpcRemoteClient) GetConf() *config.ClientConfig {
+	return &client.conf
 }

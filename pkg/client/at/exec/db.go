@@ -3,9 +3,7 @@ package exec
 import (
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
@@ -15,8 +13,9 @@ import (
 
 type DB struct {
 	*sql.DB
-	conf            config.ATConfig
-	ResourceGroupID string
+	conf              config.ATConfig
+	ResourceGroupID   string
+	dataSourceManager *DataSourceManager
 }
 
 func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
@@ -24,6 +23,18 @@ func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 		DB:              db,
 		conf:            conf,
 		ResourceGroupID: "",
+	}
+	cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(conf.DSN))
+	dataSourceManager.RegisterResource(newDB)
+	return newDB, nil
+}
+
+func NewDBWithDataSourceManager(conf config.ATConfig, db *sql.DB, dataSourceManager *DataSourceManager) (*DB, error) {
+	newDB := &DB{
+		DB:                db,
+		conf:              conf,
+		ResourceGroupID:   "",
+		dataSourceManager: dataSourceManager,
 	}
 	cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(conf.DSN))
 	dataSourceManager.RegisterResource(newDB)
@@ -61,5 +72,13 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx, error) {
 		reportSuccessEnable: db.conf.ReportSuccessEnable,
 		lockRetryInterval:   db.conf.LockRetryInterval,
 		lockRetryTimes:      db.conf.LockRetryTimes,
+		dataSourceManager:   db.getDataSourceManager(),
 	}, nil
+}
+
+func (db *DB) getDataSourceManager() *DataSourceManager {
+	if db.dataSourceManager != nil {
+		return db.dataSourceManager
+	}
+	return &dataSourceManager
 }
