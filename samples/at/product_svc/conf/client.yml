@@ -23,7 +23,7 @@ tm:
   commit_retry_count: 5
   rollback_retry_count: 5
 at:
-  dsn: "root:123456@tcp(127.0.0.1:3306)/seata_product?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+  dsn: "root:root@tcp(127.0.0.1:3306)/seata_product?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
   report_retry_count: 5
   report_success_enable: false
   lock_retry_interval: 10ms

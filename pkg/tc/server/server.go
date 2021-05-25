@@ -2,9 +2,14 @@ package server
 
 import (
 	"fmt"
+	gxnet "github.com/dubbogo/gost/net"
+	"github.com/nacos-group/nacos-sdk-go/common/logger"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -84,7 +89,8 @@ func (s *Server) Start(addr string) {
 	tcpServer.RunEventLoop(s.newSession)
 	log.Debugf("s bind addr{%s} ok!", addr)
 	s.tcpServer = tcpServer
-
+	//向注册中心注册实例
+	registryInstance()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
@@ -100,6 +106,22 @@ func (s *Server) Start(addr string) {
 			return
 		}
 	}
+}
+
+func registryInstance() {
+	registryConfig := config.GetRegistryConfig()
+	reg, err := extension.GetRegistry(registryConfig.Mode)
+	if err != nil {
+		logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
+		panic(err.Error())
+	}
+	ip, _ := gxnet.GetLocalIP()
+	conf := config.GetServerConfig()
+	port, _ := strconv.Atoi(conf.Port)
+	reg.Register(&registry.Address{
+		IP:   ip,
+		Port: port,
+	})
 }
 
 func (s *Server) Stop() {

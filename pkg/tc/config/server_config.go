@@ -24,6 +24,9 @@ func GetServerConfig() ServerConfig {
 func GetStoreConfig() StoreConfig {
 	return conf.StoreConfig
 }
+func GetRegistryConfig() RegistryConfig {
+	return conf.RegistryConfig
+}
 
 type ServerConfig struct {
 	Host                             string `default:"127.0.0.1" yaml:"host" json:"host,omitempty"`
@@ -41,9 +44,10 @@ type ServerConfig struct {
 	AsyncCommittingRetryPeriod       time.Duration
 	Log_Delete_Period                string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
 	LogDeletePeriod                  time.Duration
-	GettyConfig                      GettyConfig `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
-	UndoConfig                       UndoConfig  `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
-	StoreConfig                      StoreConfig `required:"true" yaml:"store_config" json:"store_config,omitempty"`
+	GettyConfig                      GettyConfig    `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
+	UndoConfig                       UndoConfig     `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
+	StoreConfig                      StoreConfig    `required:"true" yaml:"store_config" json:"store_config,omitempty"`
+	RegistryConfig                   RegistryConfig `yaml:"registry_config" json:"registry_config,omitempty"` //注册中心配置信息
 }
 
 func (c *ServerConfig) CheckValidity() error {

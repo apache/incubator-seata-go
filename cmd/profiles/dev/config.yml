@@ -1,5 +1,5 @@
 host: "127.0.0.1"
-port: "8091"
+port: "8088"
 max_rollback_retry_timeout: -1
 max_commit_retry_timeout: -1
 timeout_retry_period: "1s"
@@ -31,4 +31,15 @@ store_config:
   db:
     log_query_limit: 100
     # 数据库seata创建脚本位于 `/scripts/server/db/` 下
-    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+    dsn: "root:root@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+
+registry_config:
+  type: nacos
+  nacos:
+    application: seata-server
+    server_addr: 127.0.0.1:8848
+    group: SEATA_GROUP
+    namespace:
+    cluster: default
+    username:
+    password:

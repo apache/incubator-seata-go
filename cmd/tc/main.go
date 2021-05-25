@@ -12,6 +12,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common"
+	_ "github.com/transaction-wg/seata-golang/pkg/base/registry/nacos"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/holder"
 	"github.com/transaction-wg/seata-golang/pkg/tc/lock"
