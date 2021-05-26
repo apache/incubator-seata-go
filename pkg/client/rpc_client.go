@@ -2,6 +2,8 @@ package client
 
 import (
 	"fmt"
+	"github.com/nacos-group/nacos-sdk-go/common/logger"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"net"
 	"strings"
 )
@@ -14,6 +16,7 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
+
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
@@ -36,6 +39,8 @@ func NewRpcClient() *RpcClient {
 
 func (c *RpcClient) init() {
 	addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	//通过注册中心获取服务地址信息
+	//addressList := getAvailServerList()
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
@@ -46,6 +51,21 @@ func (c *RpcClient) init() {
 		go gettyClient.RunEventLoop(c.newSession)
 		c.gettyClients = append(c.gettyClients, gettyClient)
 	}
+}
+
+func getAvailServerList() []string {
+	registryConfig := config.GetRegistryConfig()
+	reg, err := extension.GetRegistry(registryConfig.Mode)
+	if err != nil {
+		logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
+		panic(err.Error())
+	}
+	addrs, err := reg.Lookup()
+	if err != nil {
+		logger.Errorf("no hava avail server list", err.Error())
+		return nil
+	}
+	return addrs
 }
 
 func (c *RpcClient) newSession(session getty.Session) error {

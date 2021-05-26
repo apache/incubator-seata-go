@@ -9,6 +9,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
+	clientConfig "github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"net"
 	"strconv"
@@ -25,37 +26,57 @@ type nacosRegistry struct {
 
 func (nr *nacosRegistry) Register(addr *registry.Address) error {
 	registryConfig := config.GetRegistryConfig()
-	serviceName := registryConfig.NacosConfig.Application
-	param := createRegisterParam(serviceName, addr)
+
+	param := createRegisterParam(registryConfig, addr)
 	isRegistry, err := nr.namingClient.RegisterInstance(param)
 	if err != nil {
 		return err
 	}
 	if !isRegistry {
-		return errors.New("registry [" + serviceName + "] to  nacos failed")
+		return errors.New("registry [" + registryConfig.NacosConfig.Application + "] to  nacos failed")
 	}
 	return nil
 }
 
 //创建服务注册信息
-func createRegisterParam(serviceName string, addr *registry.Address) vo.RegisterInstanceParam {
+func createRegisterParam(registryConfig config.RegistryConfig, addr *registry.Address) vo.RegisterInstanceParam {
+	serviceName := registryConfig.NacosConfig.Application
 	params := make(map[string]string)
 
 	instance := vo.RegisterInstanceParam{
 		Ip:          addr.IP,
-		Port:        uint64(addr.Port),
+		Port:        addr.Port,
 		Metadata:    params,
 		Weight:      1,
 		Enable:      true,
 		Healthy:     true,
 		Ephemeral:   true,
 		ServiceName: serviceName,
+		ClusterName: registryConfig.NacosConfig.Cluster, // default value is DEFAULT
+		GroupName:   registryConfig.NacosConfig.Group,   // default value is DEFAULT_GROUP
 	}
 	return instance
 }
 
 func (nr *nacosRegistry) UnRegister(addr *registry.Address) error {
 	return nil
+}
+func (nr *nacosRegistry) Lookup() ([]string, error) {
+	registryConfig := clientConfig.GetRegistryConfig()
+	clusterName := registryConfig.NacosConfig.Cluster
+	instances, err := nr.namingClient.SelectAllInstances(vo.SelectAllInstancesParam{
+		ServiceName: registryConfig.NacosConfig.Application,
+		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
+		Clusters:    []string{clusterName},            // default value is DEFAULT
+	})
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]string, 0)
+	for _, instance := range instances {
+		addrs = append(addrs, instance.Ip+":"+strconv.FormatUint(instance.Port, 10))
+	}
+	return addrs, nil
 }
 
 // newNacosRegistry will create new instance
@@ -77,6 +98,9 @@ func newNacosRegistry() (registry.Registry, error) {
 //获取Nacos配置信息
 func getNacosConfig() (map[string]interface{}, error) {
 	registryConfig := config.GetRegistryConfig()
+	if registryConfig.Mode == "" {
+		registryConfig = clientConfig.GetRegistryConfig()
+	}
 	configMap := make(map[string]interface{}, 2)
 	addr := registryConfig.NacosConfig.ServerAddr
 

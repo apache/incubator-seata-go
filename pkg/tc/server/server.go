@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -81,9 +82,11 @@ func (s *Server) Start(addr string) {
 	var (
 		tcpServer getty.Server
 	)
-
+	//直接使用addr绑定有ip，如果是127.0.0.1,则通过网卡正式ip不能访问
+	addrs := strings.Split(addr, ":")
 	tcpServer = getty.NewTCPServer(
-		getty.WithLocalAddress(addr),
+		//getty.WithLocalAddress(addr),
+		getty.WithLocalAddress(":"+addrs[1]),
 		getty.WithServerTaskPool(gxsync.NewTaskPoolSimple(0)),
 	)
 	tcpServer.RunEventLoop(s.newSession)
@@ -120,7 +123,7 @@ func registryInstance() {
 	port, _ := strconv.Atoi(conf.Port)
 	reg.Register(&registry.Address{
 		IP:   ip,
-		Port: port,
+		Port: uint64(port),
 	})
 }
 

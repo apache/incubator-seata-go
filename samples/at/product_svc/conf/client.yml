@@ -29,3 +29,10 @@ at:
   lock_retry_interval: 10ms
   lock_retry_times: 30
 
+registry_config:
+  type: file
+  nacos:
+    server_addr: 127.0.0.1:8848
+    application: seata-server
+    group: SEATA_GROUP
+    cluster: default
