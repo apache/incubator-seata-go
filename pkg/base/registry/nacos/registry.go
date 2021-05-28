@@ -83,6 +83,7 @@ func (nr *nacosRegistry) Lookup() ([]string, error) {
 		ServiceName: registryConfig.NacosConfig.Application,
 		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
 		Clusters:    []string{clusterName},            // default value is DEFAULT
+		HealthyOnly: true,
 	})
 	if err != nil {
 		return nil, err
