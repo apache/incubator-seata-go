@@ -2,10 +2,6 @@ package server
 
 import (
 	"fmt"
-	gxnet "github.com/dubbogo/gost/net"
-	"github.com/nacos-group/nacos-sdk-go/common/logger"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
-	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	"net"
 	"os"
 	"os/signal"
@@ -17,11 +13,15 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+	gxnet "github.com/dubbogo/gost/net"
 	"github.com/dubbogo/gost/sync"
+	"github.com/nacos-group/nacos-sdk-go/common/logger"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
+	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )

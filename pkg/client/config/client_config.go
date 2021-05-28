@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"io/ioutil"
 	"path"
 )
@@ -11,6 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shima-park/agollo"
 	"gopkg.in/yaml.v2"
+)
+
+import (
+	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 )
 
 type ClientConfig struct {

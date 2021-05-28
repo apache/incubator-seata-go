@@ -2,20 +2,19 @@ package client
 
 import (
 	"fmt"
-	"github.com/nacos-group/nacos-sdk-go/common/logger"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"net"
 )
 
 import (
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
+	"github.com/nacos-group/nacos-sdk-go/common/logger"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
-
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )

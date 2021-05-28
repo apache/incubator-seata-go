@@ -3,22 +3,23 @@ package nacos
 import (
 	"encoding/json"
 	"errors"
+	"log"
+	"net"
+	"strconv"
+	"strings"
+)
+import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
-	"log"
-
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
+)
+import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	clientConfig "github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
-
-	"net"
-	"strconv"
-	"strings"
 )
 
 func init() {
