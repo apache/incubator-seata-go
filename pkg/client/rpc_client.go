@@ -5,7 +5,6 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/common/logger"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"net"
-	"strings"
 )
 
 import (
@@ -38,9 +37,12 @@ func NewRpcClient() *RpcClient {
 }
 
 func (c *RpcClient) init() {
-	addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	//addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
 	//通过注册中心获取服务地址信息
-	//addressList := getAvailServerList()
+	addressList := getAvailServerList()
+	if len(addressList) == 0 {
+		log.Warn("no have valid seata server list")
+	}
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
@@ -62,7 +64,7 @@ func getAvailServerList() []string {
 	}
 	addrs, err := reg.Lookup()
 	if err != nil {
-		logger.Errorf("no hava avail server list", err.Error())
+		logger.Errorf("no hava valid server list", err.Error())
 		return nil
 	}
 	return addrs

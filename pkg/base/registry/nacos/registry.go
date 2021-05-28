@@ -1,16 +1,21 @@
 package nacos
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
+	"log"
+
+	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	clientConfig "github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
+
 	"net"
 	"strconv"
 	"strings"
@@ -23,7 +28,15 @@ func init() {
 type nacosRegistry struct {
 	namingClient naming_client.INamingClient
 }
+type nacosEventListener struct {
+}
 
+func (nr *nacosEventListener) OnEvent(service []*registry.Service) error {
+	data, err := json.Marshal(service)
+
+	log.Print("servie info change：" + string(data))
+	return err
+}
 func (nr *nacosRegistry) Register(addr *registry.Address) error {
 	registryConfig := config.GetRegistryConfig()
 
@@ -61,10 +74,12 @@ func createRegisterParam(registryConfig config.RegistryConfig, addr *registry.Ad
 func (nr *nacosRegistry) UnRegister(addr *registry.Address) error {
 	return nil
 }
+
+//noinspection ALL
 func (nr *nacosRegistry) Lookup() ([]string, error) {
 	registryConfig := clientConfig.GetRegistryConfig()
 	clusterName := registryConfig.NacosConfig.Cluster
-	instances, err := nr.namingClient.SelectAllInstances(vo.SelectAllInstancesParam{
+	instances, err := nr.namingClient.SelectInstances(vo.SelectInstancesParam{
 		ServiceName: registryConfig.NacosConfig.Application,
 		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
 		Clusters:    []string{clusterName},            // default value is DEFAULT
@@ -76,7 +91,35 @@ func (nr *nacosRegistry) Lookup() ([]string, error) {
 	for _, instance := range instances {
 		addrs = append(addrs, instance.Ip+":"+strconv.FormatUint(instance.Port, 10))
 	}
+	//订阅服务
+	nr.Subscribe(&nacosEventListener{})
 	return addrs, nil
+}
+func (nr *nacosRegistry) Subscribe(notifyListener registry.EventListener) error {
+	registryConfig := clientConfig.GetRegistryConfig()
+	clusterName := registryConfig.NacosConfig.Cluster
+	err := nr.namingClient.Subscribe(&vo.SubscribeParam{
+		ServiceName: registryConfig.NacosConfig.Application,
+		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
+		Clusters:    []string{clusterName},            // default value is DEFAULT
+		SubscribeCallback: func(services []model.SubscribeService, err error) {
+			serviceList := make([]*registry.Service, 0)
+			for _, s := range services {
+				serviceList = append(serviceList, &registry.Service{
+					IP:   s.Ip,
+					Port: s.Port,
+					Name: s.ServiceName,
+				})
+			}
+			notifyListener.OnEvent(serviceList)
+		},
+	})
+
+	return err
+}
+
+func (nr *nacosRegistry) UnSubscribe(notifyListener registry.EventListener) error {
+	return nil
 }
 
 // newNacosRegistry will create new instance

@@ -29,6 +29,13 @@ func (nr *fileRegistry) Lookup() ([]string, error) {
 	addressList := strings.Split(config.GetClientConfig().TransactionServiceGroup, ",")
 	return addressList, nil
 }
+func (nr *fileRegistry) Subscribe(notifyListener registry.EventListener) error {
+	return nil
+}
+
+func (nr *fileRegistry) UnSubscribe(notifyListener registry.EventListener) error {
+	return nil
+}
 
 // newNacosRegistry will create new instance
 func newFileRegistry() (registry.Registry, error) {
