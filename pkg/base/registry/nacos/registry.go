@@ -3,7 +3,6 @@ package nacos
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	clientConfig "github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 func init() {
@@ -35,8 +35,7 @@ type nacosEventListener struct {
 
 func (nr *nacosEventListener) OnEvent(service []*registry.Service) error {
 	data, err := json.Marshal(service)
-
-	log.Print("servie info change：" + string(data))
+	log.Info("servie info change：" + string(data))
 	return err
 }
 func (nr *nacosRegistry) Register(addr *registry.Address) error {
