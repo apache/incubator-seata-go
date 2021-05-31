@@ -11,11 +11,11 @@ import (
 import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 import (
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
