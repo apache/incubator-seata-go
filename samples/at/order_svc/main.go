@@ -18,11 +18,9 @@ import (
 	"github.com/transaction-wg/seata-golang/samples/at/order_svc/dao"
 )
 
-const configPath = "D:/develop/ability/seata-golang/samples/at/order_svc/conf/client.yml"
-
 func main() {
 	r := gin.Default()
-	config.InitConf(configPath)
+	config.InitConf()
 	client.NewRpcClient()
 	exec.InitDataResourceManager()
 

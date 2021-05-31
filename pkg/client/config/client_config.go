@@ -1,8 +1,10 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 )
 
@@ -13,6 +15,7 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 )
 
@@ -28,7 +31,14 @@ type ClientConfig struct {
 }
 
 var clientConfig ClientConfig
+var (
+	confFile string
+)
 
+func init() {
+	fs := flag.NewFlagSet("config", flag.ContinueOnError)
+	fs.StringVar(&confFile, "conConf", os.Getenv(constant.CONF_CLIENT_FILE_PATH), "default client config path")
+}
 func GetRegistryConfig() config.RegistryConfig {
 	return clientConfig.RegistryConfig
 }
@@ -54,7 +64,7 @@ func GetDefaultClientConfig(applicationID string) ClientConfig {
 	}
 }
 
-func InitConf(confFile string) error {
+func InitConf() error {
 	var err error
 
 	if confFile == "" {

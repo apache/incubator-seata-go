@@ -11,11 +11,9 @@ import (
 	"github.com/transaction-wg/seata-golang/samples/at/aggregation_svc/svc"
 )
 
-var configPath = "D:/develop/ability/seata-golang/samples/at/aggregation_svc/conf/client.yml"
-
 func main() {
 	r := gin.Default()
-	config.InitConf(configPath)
+	config.InitConf()
 	client.NewRpcClient()
 	tm.Implement(svc.ProxySvc)
 

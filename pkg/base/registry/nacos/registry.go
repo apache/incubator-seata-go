@@ -15,6 +15,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 import (
+	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
