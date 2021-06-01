@@ -15,28 +15,21 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	baseConfig "github.com/transaction-wg/seata-golang/pkg/base/config"
 	"github.com/transaction-wg/seata-golang/pkg/base/config_center"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 )
 
 func init() {
-	extension.SetConfigCenter("nacos", newNacosConfigCenterFactory)
+	extension.SetConfigCenter(constant.NACOS_KEY, newNacosConfigCenterFactory)
 }
 
 type nacosConfigCenter struct {
 	client config_client.IConfigClient
 }
 
-func (nc *nacosConfigCenter) AddListener(listener config_center.ConfigurationListener) {
-	configCenterConfig := config.GetConfigCenterConfig()
-	dataId := configCenterConfig.NacosConfig.DataId
-	if dataId == "" {
-		dataId = constant.NACOS_DEFAULT_DATA_ID
-	}
-	group := configCenterConfig.NacosConfig.Group
-	if group == "" {
-		group = constant.NACOS_DEFAULT_GROUP
-	}
+func (nc *nacosConfigCenter) AddListener(conf *baseConfig.ConfigCenterConfig, listener config_center.ConfigurationListener) {
+	dataId := getDataId(conf)
+	group := getGroup(conf)
 	_ = nc.client.ListenConfig(vo.ConfigParam{
 		DataId: dataId,
 		Group:  group,
@@ -46,24 +39,33 @@ func (nc *nacosConfigCenter) AddListener(listener config_center.ConfigurationLis
 	})
 }
 
-func (nc *nacosConfigCenter) GetConfig() string {
-	configCenterConfig := config.GetConfigCenterConfig()
-	dataId := configCenterConfig.NacosConfig.DataId
-	if dataId == "" {
-		dataId = constant.NACOS_DEFAULT_DATA_ID
-	}
-	group := configCenterConfig.NacosConfig.Group
+func getGroup(conf *baseConfig.ConfigCenterConfig) string {
+	group := conf.NacosConfig.Group
 	if group == "" {
 		group = constant.NACOS_DEFAULT_GROUP
 	}
+	return group
+}
+
+func getDataId(conf *baseConfig.ConfigCenterConfig) string {
+	dataId := conf.NacosConfig.DataId
+	if dataId == "" {
+		dataId = constant.NACOS_DEFAULT_DATA_ID
+	}
+	return dataId
+}
+
+func (nc *nacosConfigCenter) GetConfig(conf *baseConfig.ConfigCenterConfig) string {
+	dataId := getDataId(conf)
+	group := getGroup(conf)
 	config, _ := nc.client.GetConfig(vo.ConfigParam{
 		DataId: dataId,
 		Group:  group})
 	return config
 }
 
-func newNacosConfigCenterFactory() (factory config_center.DynamicConfigurationFactory, e error) {
-	nacosConfig, err := getNacosConfig()
+func newNacosConfigCenterFactory(conf *baseConfig.ConfigCenterConfig) (factory config_center.DynamicConfigurationFactory, e error) {
+	nacosConfig, err := getNacosConfig(conf)
 	if err != nil {
 		return &nacosConfigCenter{}, err
 	}
@@ -78,10 +80,9 @@ func newNacosConfigCenterFactory() (factory config_center.DynamicConfigurationFa
 }
 
 //获取Nacos配置信息
-func getNacosConfig() (map[string]interface{}, error) {
-	configCenterConfig := config.GetConfigCenterConfig()
+func getNacosConfig(conf *baseConfig.ConfigCenterConfig) (map[string]interface{}, error) {
 	configMap := make(map[string]interface{}, 2)
-	addr := configCenterConfig.NacosConfig.ServerAddr
+	addr := conf.NacosConfig.ServerAddr
 
 	addresses := strings.Split(addr, ",")
 	serverConfigs := make([]nacosConstant.ServerConfig, 0, len(addresses))
@@ -99,8 +100,8 @@ func getNacosConfig() (map[string]interface{}, error) {
 	configMap[nacosConstant.KEY_SERVER_CONFIGS] = serverConfigs
 
 	var clientConfig nacosConstant.ClientConfig
-	clientConfig.Username = configCenterConfig.NacosConfig.UserName
-	clientConfig.Password = configCenterConfig.NacosConfig.Password
+	clientConfig.Username = conf.NacosConfig.UserName
+	clientConfig.Password = conf.NacosConfig.Password
 	configMap[nacosConstant.KEY_CLIENT_CONFIG] = clientConfig
 
 	return configMap, nil

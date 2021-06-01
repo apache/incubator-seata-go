@@ -11,6 +11,7 @@ import (
 )
 
 import (
+	_ "github.com/transaction-wg/seata-golang/pkg/base/config_center/nacos"
 	_ "github.com/transaction-wg/seata-golang/pkg/base/registry/nacos"
 	"github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/exec"

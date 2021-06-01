@@ -39,9 +39,8 @@ registry_config:
 
 config_center:
   type: nacos
-  nacos:
+  nacos: #默认seata,获取nacos数据id为seata，分组为SEATA_GROUP下面的配置信息，配置信息统一放在一起
     server_addr: 127.0.0.1:8848
-    data_id: seata //默认seata,获取nacos数据id为seata，分组为SEATA_GROUP下面的配置信息，配置信息统一放在一起
     group: SEATA_GROUP
     cluster: default
 
