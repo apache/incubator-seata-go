@@ -8,7 +8,7 @@ type RegistryConfig struct {
 type NacosConfig struct {
 	Application string `yaml:"application" json:"application,omitempty"`
 	ServerAddr  string `yaml:"server_addr" json:"server_addr,omitempty"`
-	Group       string `yaml:"group" json:"group,omitempty"`
+	Group       string `default:"SEATA_GROUP" yaml:"group" json:"group,omitempty"`
 	Namespace   string `yaml:"namespace" json:"namespace,omitempty"`
 	Cluster     string `yaml:"cluster" json:"cluster,omitempty"`
 	UserName    string `yaml:"username" json:"username,omitempty"`

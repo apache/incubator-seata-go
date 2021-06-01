@@ -15,7 +15,6 @@ import (
 	getty "github.com/apache/dubbo-getty"
 	gxnet "github.com/dubbogo/gost/net"
 	"github.com/dubbogo/gost/sync"
-	"github.com/nacos-group/nacos-sdk-go/common/logger"
 )
 
 import (
@@ -115,7 +114,7 @@ func registryInstance() {
 	registryConfig := config.GetRegistryConfig()
 	reg, err := extension.GetRegistry(registryConfig.Mode)
 	if err != nil {
-		logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
+		log.Error("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
 		panic(err.Error())
 	}
 	ip, _ := gxnet.GetLocalIP()

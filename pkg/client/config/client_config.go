@@ -20,14 +20,15 @@ import (
 )
 
 type ClientConfig struct {
-	ApplicationID                string                `yaml:"application_id" json:"application_id,omitempty"`
-	TransactionServiceGroup      string                `yaml:"transaction_service_group" json:"transaction_service_group,omitempty"`
-	EnableClientBatchSendRequest bool                  `yaml:"enable-rpc_client-batch-send-request" json:"enable-rpc_client-batch-send-request,omitempty"`
-	SeataVersion                 string                `yaml:"seata_version" json:"seata_version,omitempty"`
-	GettyConfig                  GettyConfig           `yaml:"getty" json:"getty,omitempty"`
-	TMConfig                     TMConfig              `yaml:"tm" json:"tm,omitempty"`
-	ATConfig                     ATConfig              `yaml:"at" json:"at,omitempty"`
-	RegistryConfig               config.RegistryConfig `yaml:"registry_config" json:"registry_config,omitempty"` //注册中心配置信息
+	ApplicationID                string                    `yaml:"application_id" json:"application_id,omitempty"`
+	TransactionServiceGroup      string                    `yaml:"transaction_service_group" json:"transaction_service_group,omitempty"`
+	EnableClientBatchSendRequest bool                      `yaml:"enable-rpc_client-batch-send-request" json:"enable-rpc_client-batch-send-request,omitempty"`
+	SeataVersion                 string                    `yaml:"seata_version" json:"seata_version,omitempty"`
+	GettyConfig                  GettyConfig               `yaml:"getty" json:"getty,omitempty"`
+	TMConfig                     TMConfig                  `yaml:"tm" json:"tm,omitempty"`
+	ATConfig                     ATConfig                  `yaml:"at" json:"at,omitempty"`
+	RegistryConfig               config.RegistryConfig     `yaml:"registry_config" json:"registry_config,omitempty"` //注册中心配置信息
+	ConfigCenterConfig           config.ConfigCenterConfig `yaml:"config_center" json:"config_center,omitempty"`     //注册中心配置信息
 }
 
 var clientConfig ClientConfig
