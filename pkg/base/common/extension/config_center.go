@@ -1,8 +1,11 @@
 package extension
 
 import (
-	"errors"
 	"sync"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -26,7 +29,7 @@ func GetConfigCenter(name string, conf *config.ConfigCenterConfig) (config_cente
 	configCenter := configCenters[name]
 	configCentersMu.RUnlock()
 	if configCenter == nil {
-		return nil, errors.New("config center for " + name + " is not existing, make sure you have import the package.")
+		return nil, errors.Errorf("config center for " + name + " is not existing, make sure you have import the package.")
 	}
 	return configCenter(conf)
 }

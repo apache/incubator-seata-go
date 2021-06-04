@@ -28,3 +28,18 @@ at:
   report_success_enable: false
   lock_retry_interval: 10ms
   lock_retry_times: 30
+
+registry_config:
+  type: nacos
+  nacos:
+    server_addr: 127.0.0.1:8848
+    application: seata-server
+    group: SEATA_GROUP
+    cluster: default
+
+config_center:
+  type: nacos
+  nacos: #默认seata,获取nacos数据id为seata，分组为SEATA_GROUP下面的配置信息，配置信息统一放在一起
+    server_addr: 127.0.0.1:8848
+    group: SEATA_GROUP
+    cluster: default

@@ -1,8 +1,10 @@
 package extension
 
 import (
-	"errors"
 	"sync"
+)
+import (
+	"github.com/pkg/errors"
 )
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
@@ -27,7 +29,7 @@ func GetRegistry(name string) (registry.Registry, error) {
 	registry := registrys[name]
 	registrysMu.RUnlock()
 	if registry == nil {
-		return nil, errors.New("registry for " + name + " is not existing, make sure you have import the package.")
+		return nil, errors.Errorf("registry for " + name + " is not existing, make sure you have import the package.")
 	}
 	return registry()
 

@@ -2,7 +2,6 @@ package nacos
 
 import (
 	"encoding/json"
-	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/pkg/errors"
 )
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
@@ -47,7 +47,7 @@ func (nr *nacosRegistry) Register(addr *registry.Address) error {
 		return err
 	}
 	if !isRegistry {
-		return errors.New("registry [" + registryConfig.NacosConfig.Application + "] to  nacos failed")
+		return errors.Errorf("registry [" + registryConfig.NacosConfig.Application + "] to  nacos failed")
 	}
 	return nil
 }
