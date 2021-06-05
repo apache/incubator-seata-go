@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"time"
 )
@@ -86,6 +87,15 @@ func (c *ServerConfig) CheckValidity() error {
 	return errors.WithStack(c.GettyConfig.CheckValidity())
 }
 
+// LoadFromEnv provides env variable fallback for config.
+// Credential configs, such as db password, can be provided by env variables.
+func (c *ServerConfig) LoadFromEnv() {
+	// store config
+	if c.StoreConfig.DBStoreConfig.DSN == "" {
+		c.StoreConfig.DBStoreConfig.DSN = os.Getenv("SEATA_STORE_DB_DSN")
+	}
+}
+
 func InitConf(confFile string) error {
 	var err error
 
@@ -105,8 +115,10 @@ func InitConf(confFile string) error {
 	if err != nil {
 		return errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
+
 	//加载获取远程配置
 	loadConfigCenterConfig(&conf.ConfigCenterConfig)
+
 	(&conf).CheckValidity()
 	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
 		engine, err := xorm.NewEngine("mysql", conf.StoreConfig.DBStoreConfig.DSN)
