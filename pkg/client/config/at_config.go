@@ -10,6 +10,7 @@ import (
 
 type ATConfig struct {
 	DSN                 string `yaml:"dsn" json:"dsn,omitempty"`
+	DBType              string `yaml:"db_type" json:"db_type,omitempty"`
 	ReportRetryCount    int    `default:"5" yaml:"report_retry_count" json:"report_retry_count,omitempty"`
 	ReportSuccessEnable bool   `default:"false" yaml:"report_success_enable" json:"report_success_enable,omitempty"`
 	LockRetryItv        string `default:"10ms" yaml:"lock_retry_interval" json:"lock_retry_interval,omitempty"`

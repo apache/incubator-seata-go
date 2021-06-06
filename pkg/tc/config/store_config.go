@@ -3,6 +3,7 @@ package config
 import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
+	_ "github.com/lib/pq"
 )
 
 const (
@@ -45,6 +46,7 @@ type FileStoreConfig struct {
 type DBStoreConfig struct {
 	LogQueryLimit int    `default:"100" yaml:"log_query_limit" json:"log_query_limit"`
 	DSN           string `yaml:"dsn" json:"dsn"`
+	DBType        string `default:"mysql" yaml:"db_type" json:"db_type"`
 	Engine        *xorm.Engine
 }
 

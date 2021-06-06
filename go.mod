@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/imdario/mergo v0.3.12
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/lib/pq v1.1.1 // indirect
+	github.com/lib/pq v1.10.2
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/nacos-group/nacos-sdk-go v1.0.7

@@ -2,6 +2,8 @@ package exec
 
 import (
 	"database/sql"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+
 	"strings"
 )
 
@@ -34,7 +36,29 @@ func (db *DB) GetResourceGroupID() string {
 	return db.ResourceGroupID
 }
 
+func (db *DB) GetDBType() string {
+	dbType := db.conf.DBType
+	if dbType == "" {
+		db.conf.DBType = constant.MYSQL
+	}
+	return db.conf.DBType
+}
+
 func (db *DB) GetResourceID() string {
+	dbType := db.GetDBType()
+	if constant.POSTGRESQL == dbType {
+		return db.getPGResourceId()
+	} else {
+		return db.getDefaultResourceId()
+	}
+
+}
+
+//id生成准则？：连接信息+库
+func (db *DB) getPGResourceId() string {
+	return db.conf.DSN
+}
+func (db *DB) getDefaultResourceId() string {
 	fromIndex := strings.Index(db.conf.DSN, "@")
 	endIndex := strings.Index(db.conf.DSN, "?")
 	return db.conf.DSN[fromIndex+1 : endIndex]

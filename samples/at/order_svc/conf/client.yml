@@ -23,7 +23,9 @@ tm:
   commit_retry_count: 5
   rollback_retry_count: 5
 at:
-  dsn: "root:root@tcp(127.0.0.1:3306)/seata_order?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+  # dsn: "root:root@tcp(127.0.0.1:3306)/seata_order?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+  dsn: "host=192.168.68.128 port=5432 user=postgres password=123456 dbname=seata_order sslmode=disable" #postgresql
+  db_type: "postgres"
   report_retry_count: 5
   report_success_enable: false
   lock_retry_interval: 10ms
