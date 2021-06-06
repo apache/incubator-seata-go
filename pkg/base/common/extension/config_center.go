@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"sync"
 )
 
@@ -9,7 +10,6 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"github.com/transaction-wg/seata-golang/pkg/base/config_center"
 )
 
@@ -21,6 +21,12 @@ var (
 func SetConfigCenter(name string, v func(conf *config.ConfigCenterConfig) (config_center.DynamicConfigurationFactory, error)) {
 	configCentersMu.Lock()
 	defer configCentersMu.Unlock()
+	if v == nil {
+		panic("configCenter: Register  configCenter is nil")
+	}
+	if _, dup := configCenters[name]; dup {
+		panic("configCenter: Register called twice for configCenter " + name)
+	}
 	configCenters[name] = v
 }
 

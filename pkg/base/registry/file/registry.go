@@ -1,12 +1,15 @@
 package file
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
-	"log"
-	"strings"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 func init() {
@@ -18,7 +21,7 @@ type fileRegistry struct {
 
 func (nr *fileRegistry) Register(addr *registry.Address) error {
 	//文件不需要注册
-	log.Print("file register")
+	log.Info("file register")
 	return nil
 }
 

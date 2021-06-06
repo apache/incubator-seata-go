@@ -105,7 +105,7 @@ func (nr *nacosRegistry) Subscribe(notifyListener registry.EventListener) error 
 		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
 		Clusters:    []string{clusterName},            // default value is DEFAULT
 		SubscribeCallback: func(services []model.SubscribeService, err error) {
-			serviceList := make([]*registry.Service, 0)
+			serviceList := make([]*registry.Service, 0, len(services))
 			for _, s := range services {
 				serviceList = append(serviceList, &registry.Service{
 					IP:   s.Ip,
