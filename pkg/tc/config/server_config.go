@@ -115,10 +115,9 @@ func InitConf(confFile string) error {
 	if err != nil {
 		return errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
-
+	(&conf).LoadFromEnv()
 	//加载获取远程配置
 	loadConfigCenterConfig(&conf.ConfigCenterConfig)
-
 	(&conf).CheckValidity()
 	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
 		engine, err := xorm.NewEngine("mysql", conf.StoreConfig.DBStoreConfig.DSN)
