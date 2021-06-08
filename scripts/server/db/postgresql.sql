@@ -1,204 +1,115 @@
---
--- PostgreSQL database dump
---
+/*
+ Navicat PostgreSQL Data Transfer
 
--- Dumped from database version 10.17
--- Dumped by pg_dump version 13.3
+ Source Server         : postgres
+ Source Server Type    : PostgreSQL
+ Source Server Version : 100017
+ Source Host           : 172.18.150.90:5432
+ Source Catalog        : seata
+ Source Schema         : public
 
--- Started on 2021-06-05 10:24:59
+ Target Server Type    : PostgreSQL
+ Target Server Version : 100017
+ File Encoding         : 65001
 
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET idle_in_transaction_session_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET client_min_messages = warning;
-SET row_security = off;
-
---
--- TOC entry 3 (class 2615 OID 2200)
--- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
---
-
-CREATE SCHEMA public;
+ Date: 08/06/2021 14:44:59
+*/
 
 
-ALTER SCHEMA public OWNER TO postgres;
+-- ----------------------------
+-- Table structure for branch_table
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."branch_table";
+CREATE TABLE "public"."branch_table" (
+  "branch_id" int8 NOT NULL,
+  "xid" varchar(128) COLLATE "pg_catalog"."default" NOT NULL,
+  "transaction_id" int8,
+  "resource_group_id" varchar(32) COLLATE "pg_catalog"."default",
+  "resource_id" varchar(256) COLLATE "pg_catalog"."default",
+  "branch_type" varchar(8) COLLATE "pg_catalog"."default",
+  "status" int4,
+  "client_id" varchar(64) COLLATE "pg_catalog"."default",
+  "application_data" varchar(2000) COLLATE "pg_catalog"."default",
+  "gmt_create" timestamp(6),
+  "gmt_modified" timestamp(6)
+)
+;
 
---
--- TOC entry 3691 (class 0 OID 0)
--- Dependencies: 3
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
---
+-- ----------------------------
+-- Records of branch_table
+-- ----------------------------
 
-COMMENT ON SCHEMA public IS 'standard public schema';
+-- ----------------------------
+-- Table structure for global_table
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."global_table";
+CREATE TABLE "public"."global_table" (
+  "xid" varchar(128) COLLATE "pg_catalog"."default" NOT NULL,
+  "transaction_id" int8,
+  "status" int4 NOT NULL,
+  "application_id" varchar(32) COLLATE "pg_catalog"."default",
+  "transaction_service_group" varchar(32) COLLATE "pg_catalog"."default",
+  "transaction_name" varchar(128) COLLATE "pg_catalog"."default",
+  "timeout" int4,
+  "begin_time" int8,
+  "application_data" varchar(2000) COLLATE "pg_catalog"."default",
+  "gmt_create" timestamp(6),
+  "gmt_modified" timestamp(6)
+)
+;
 
+-- ----------------------------
+-- Records of global_table
+-- ----------------------------
 
-SET default_tablespace = '';
+-- ----------------------------
+-- Table structure for lock_table
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."lock_table";
+CREATE TABLE "public"."lock_table" (
+  "row_key" varchar(128) COLLATE "pg_catalog"."default" NOT NULL,
+  "xid" varchar(96) COLLATE "pg_catalog"."default",
+  "transaction_id" int8,
+  "branch_id" int8 NOT NULL,
+  "resource_id" varchar(256) COLLATE "pg_catalog"."default",
+  "table_name" varchar(32) COLLATE "pg_catalog"."default",
+  "pk" varchar(36) COLLATE "pg_catalog"."default",
+  "gmt_create" timestamp(6),
+  "gmt_modified" timestamp(6)
+)
+;
 
---
--- TOC entry 197 (class 1259 OID 16491)
--- Name: branch_table; Type: TABLE; Schema: public; Owner: postgres
---
+-- ----------------------------
+-- Records of lock_table
+-- ----------------------------
 
-CREATE TABLE public.branch_table (
-    branch_id bigint NOT NULL,
-    xid character varying(128) NOT NULL,
-    transaction_id bigint,
-    resource_group_id character varying(32),
-    resource_id character varying(256),
-    branch_type character varying(8),
-    status integer,
-    client_id character varying(64),
-    application_data character varying(2000),
-    gmt_create timestamp without time zone,
-    gmt_modified timestamp without time zone
-);
+-- ----------------------------
+-- Uniques structure for table branch_table
+-- ----------------------------
+ALTER TABLE "public"."branch_table" ADD CONSTRAINT "idx_xid" UNIQUE ("xid");
 
+-- ----------------------------
+-- Primary Key structure for table branch_table
+-- ----------------------------
+ALTER TABLE "public"."branch_table" ADD CONSTRAINT "branch_table_pkey" PRIMARY KEY ("branch_id");
 
-ALTER TABLE public.branch_table OWNER TO postgres;
+-- ----------------------------
+-- Uniques structure for table global_table
+-- ----------------------------
+ALTER TABLE "public"."global_table" ADD CONSTRAINT "idx_gmt_modified_status" UNIQUE ("gmt_modified", "status");
+ALTER TABLE "public"."global_table" ADD CONSTRAINT "idx_transaction_id" UNIQUE ("transaction_id");
 
---
--- TOC entry 196 (class 1259 OID 16479)
--- Name: global_table; Type: TABLE; Schema: public; Owner: postgres
---
+-- ----------------------------
+-- Primary Key structure for table global_table
+-- ----------------------------
+ALTER TABLE "public"."global_table" ADD CONSTRAINT "global_table_pkey" PRIMARY KEY ("xid");
 
-CREATE TABLE public.global_table (
-    xid character varying(128) NOT NULL,
-    transaction_id bigint,
-    status integer NOT NULL,
-    application_id character varying(32),
-    transaction_service_group character varying(32),
-    transaction_name character varying(128),
-    timeout integer,
-    begin_time bigint,
-    application_data character varying(2000),
-    gmt_create timestamp without time zone,
-    gmt_modified timestamp without time zone
-);
+-- ----------------------------
+-- Uniques structure for table lock_table
+-- ----------------------------
+ALTER TABLE "public"."lock_table" ADD CONSTRAINT "idx_branch_id" UNIQUE ("branch_id");
 
-
-ALTER TABLE public.global_table OWNER TO postgres;
-
---
--- TOC entry 198 (class 1259 OID 16501)
--- Name: lock_table; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.lock_table (
-    row_key character varying(128) NOT NULL,
-    xid character varying(96),
-    transaction_id bigint,
-    branch_id bigint NOT NULL,
-    resource_id character varying(256),
-    table_name character varying(32),
-    pk character varying(36),
-    gmt_create timestamp without time zone,
-    gmt_modified timestamp without time zone
-);
-
-
-ALTER TABLE public.lock_table OWNER TO postgres;
-
---
--- TOC entry 3684 (class 0 OID 16491)
--- Dependencies: 197
--- Data for Name: branch_table; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.branch_table (branch_id, xid, transaction_id, resource_group_id, resource_id, branch_type, status, client_id, application_data, gmt_create, gmt_modified) FROM stdin;
-\.
-
-
---
--- TOC entry 3683 (class 0 OID 16479)
--- Dependencies: 196
--- Data for Name: global_table; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.global_table (xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified) FROM stdin;
-\.
-
-
---
--- TOC entry 3685 (class 0 OID 16501)
--- Dependencies: 198
--- Data for Name: lock_table; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.lock_table (row_key, xid, transaction_id, branch_id, resource_id, table_name, pk, gmt_create, gmt_modified) FROM stdin;
-\.
-
-
---
--- TOC entry 3555 (class 2606 OID 16498)
--- Name: branch_table branch_table_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.branch_table
-    ADD CONSTRAINT branch_table_pkey PRIMARY KEY (branch_id);
-
-
---
--- TOC entry 3549 (class 2606 OID 16486)
--- Name: global_table global_table_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.global_table
-    ADD CONSTRAINT global_table_pkey PRIMARY KEY (xid);
-
-
---
--- TOC entry 3559 (class 2606 OID 16510)
--- Name: lock_table idx_branch_id; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.lock_table
-    ADD CONSTRAINT idx_branch_id UNIQUE (branch_id);
-
-
---
--- TOC entry 3551 (class 2606 OID 16488)
--- Name: global_table idx_gmt_modified_status; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.global_table
-    ADD CONSTRAINT idx_gmt_modified_status UNIQUE (gmt_modified, status);
-
-
---
--- TOC entry 3553 (class 2606 OID 16490)
--- Name: global_table idx_transaction_id; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.global_table
-    ADD CONSTRAINT idx_transaction_id UNIQUE (transaction_id);
-
-
---
--- TOC entry 3557 (class 2606 OID 16500)
--- Name: branch_table idx_xid; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.branch_table
-    ADD CONSTRAINT idx_xid UNIQUE (xid);
-
-
---
--- TOC entry 3561 (class 2606 OID 16508)
--- Name: lock_table lock_table_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.lock_table
-    ADD CONSTRAINT lock_table_pkey PRIMARY KEY (row_key);
-
-
--- Completed on 2021-06-05 10:24:59
-
---
--- PostgreSQL database dump complete
---
-
+-- ----------------------------
+-- Primary Key structure for table lock_table
+-- ----------------------------
+ALTER TABLE "public"."lock_table" ADD CONSTRAINT "lock_table_pkey" PRIMARY KEY ("row_key");

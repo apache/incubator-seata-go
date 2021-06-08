@@ -2,12 +2,11 @@ package exec
 
 import (
 	"database/sql"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
-
 	"strings"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
@@ -37,11 +36,13 @@ func (db *DB) GetResourceGroupID() string {
 }
 
 func (db *DB) GetDBType() string {
-	dbType := db.conf.DBType
-	if dbType == "" {
-		db.conf.DBType = constant.MYSQL
+	//DB类型获取，postgres连接指定采用postgres://的形式
+	dbType := db.conf.DSN
+	//判断是否存在指定字符串
+	if strings.Contains(dbType, "postgres://") {
+		return constant.POSTGRESQL
 	}
-	return db.conf.DBType
+	return constant.MYSQL
 }
 
 func (db *DB) GetResourceID() string {
@@ -54,9 +55,30 @@ func (db *DB) GetResourceID() string {
 
 }
 
-//id生成准则？：连接信息+库
+//pg资源id获取需要考虑schema
 func (db *DB) getPGResourceId() string {
-	return db.conf.DSN
+	dsn := db.conf.DSN
+
+	if strings.Contains(dsn, "?") {
+		var builder strings.Builder
+		index := strings.Index(dsn, "?")
+		builder.WriteString(dsn[0:index])
+		paramUrl := dsn[index+1 : len(dsn)]
+		urlParams := strings.Split(paramUrl, "&")
+		var paramBuilder strings.Builder
+		for _, param := range urlParams {
+			if strings.Contains(param, "search_path") {
+				paramBuilder.WriteString(param)
+				break
+			}
+		}
+		if paramBuilder.Len() > 0 {
+			builder.WriteString("?")
+			builder.WriteString(paramBuilder.String())
+		}
+		return builder.String()
+	}
+	return dsn
 }
 func (db *DB) getDefaultResourceId() string {
 	fromIndex := strings.Index(db.conf.DSN, "@")
