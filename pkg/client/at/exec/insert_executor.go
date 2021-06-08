@@ -153,6 +153,6 @@ func (executor *InsertExecutor) GetColumnLen() int {
 }
 
 func (executor *InsertExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := cache.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }

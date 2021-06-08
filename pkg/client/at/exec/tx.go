@@ -21,6 +21,7 @@ import (
 )
 
 type Tx struct {
+	db                  *DB
 	proxyTx             *tx2.ProxyTx
 	reportRetryCount    int
 	reportSuccessEnable bool

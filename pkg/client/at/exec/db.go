@@ -26,7 +26,12 @@ func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 		conf:            conf,
 		ResourceGroupID: "",
 	}
-	cache.SetTableMetaCache(cache.NewMysqlTableMetaCache(conf.DSN))
+	//todo 先根据类型加载对应的表元数据缓存信息
+	if constant.POSTGRESQL == newDB.GetDBType() {
+		cache.SetTableMetaCache(newDB.GetDBType(), cache.NewMysqlTableMetaCache(conf.DSN))
+	} else {
+		cache.SetTableMetaCache(newDB.GetDBType(), cache.NewPostgresqlTableMetaCache(conf.DSN))
+	}
 	dataSourceManager.RegisterResource(newDB)
 	return newDB, nil
 }
@@ -97,6 +102,7 @@ func (db *DB) Begin(ctx *context.RootContext) (*Tx, error) {
 	}
 	proxyTx := &tx2.ProxyTx{
 		Tx:         tx,
+		DBType:     db.GetDBType(),
 		DSN:        db.conf.DSN,
 		ResourceID: db.GetResourceID(),
 		Context:    tx2.NewTxContext(ctx),

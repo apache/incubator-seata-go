@@ -112,7 +112,7 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchID int64, 
 	for _, branchUndoLog := range undoLogs {
 		sqlUndoLogs := branchUndoLog.SqlUndoLogs
 		for _, sqlUndoLog := range sqlUndoLogs {
-			tableMeta, err := cache.GetTableMetaCache().GetTableMeta(tx, sqlUndoLog.TableName, resourceID)
+			tableMeta, err := cache.GetTableMetaCache("mysql").GetTableMeta(tx, sqlUndoLog.TableName, resourceID)
 			if err != nil {
 				tx.Rollback()
 				return errors.WithStack(err)

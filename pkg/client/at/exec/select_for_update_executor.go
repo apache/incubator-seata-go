@@ -53,6 +53,6 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 }
 
 func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := cache.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }
