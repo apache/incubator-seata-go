@@ -13,10 +13,10 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser/mysql"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
@@ -90,7 +90,7 @@ func (tx *Tx) Commit() error {
 	tx.proxyTx.Context.BranchID = branchID
 
 	if tx.proxyTx.Context.HasUndoLog() {
-		err = manager.GetUndoLogManager().FlushUndoLogs(tx.proxyTx)
+		err = extension.GetUndoLogManager(tx.proxyTx.DBType).FlushUndoLogs(tx.proxyTx)
 		if err != nil {
 			err1 := tx.report(false)
 			if err1 != nil {

@@ -3,6 +3,7 @@ package exec
 import (
 	"database/sql"
 	"fmt"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
 
@@ -13,7 +14,6 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 )
@@ -68,7 +68,7 @@ func (executor *DeleteExecutor) AfterImage() (*schema.TableRecords, error) {
 }
 
 func (executor *DeleteExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache(executor.proxyTx.DBType)
+	tableMetaCache := extension.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }
 
