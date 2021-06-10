@@ -19,6 +19,7 @@ import (
 	_ "github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager/postgres"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type PostgresqlTableMetaCache struct {
@@ -118,7 +119,7 @@ func (cache *PostgresqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (sc
 }
 
 func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
-	var tn = escape(tableName, "`")
+	var tn = stringUtil.Escape(tableName, "`")
 	args := []interface{}{tx.GetSchema(), tn}
 	//POSTGRESQL查找表列信息sql语法
 	s := "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, " +
@@ -171,12 +172,33 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 }
 
 func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta, error) {
-	var tn = escape(tableName, "`")
+	var tn = stringUtil.Escape(tableName, "`")
 	args := []interface{}{tx.GetSchema(), tn}
 
 	//pgsql查找索引信息
-	s := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `SEQ_IN_INDEX`, `COLLATION`, `CARDINALITY` " +
-		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	//todo 更好的查找索引方式？
+	s := `select
+    i.relname as index_name,
+    a.attname as column_name,
+    pi.indexdef as index_info
+from
+    pg_class t,
+    pg_class i,
+    pg_index ix,
+		pg_indexes pi,
+    pg_attribute a
+where
+    t.oid = ix.indrelid
+    and i.oid = ix.indexrelid
+    and a.attrelid = t.oid
+    and a.attnum = ANY(ix.indkey)
+    and t.relkind = 'r'
+		and pi.indexname = i.relname
+		and pi.schemaname = $1
+		and t.relname = $2
+order by
+    t.relname,
+    i.relname`
 
 	rows, err := tx.Query(s, args...)
 	if err != nil {
@@ -189,40 +211,24 @@ func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta, error) {
 		index := schema.IndexMeta{
 			Values: make([]schema.ColumnMeta, 0),
 		}
-		var indexName, columnName, nonUnique, indexType, collation sql.NullString
-		var ordinalPosition, cardinality sql.NullInt32
-		err = rows.Scan(&indexName, &columnName, &nonUnique, &indexType, &ordinalPosition, &collation, &cardinality)
+		var indexName, columnName, indexInfo sql.NullString
+		err = rows.Scan(&indexName, &columnName, &indexInfo)
 
 		index.IndexName = indexName.String
 		index.ColumnName = columnName.String
-		if "yes" == strings.ToLower(nonUnique.String) || nonUnique.String == "1" {
+		if !strings.Contains(indexInfo.String, "UNIQUE") {
 			index.NonUnique = true
 		}
-		index.OrdinalPosition = ordinalPosition.Int32
-		index.AscOrDesc = collation.String
-		index.Cardinality = cardinality.Int32
-		if "primary" == strings.ToLower(indexName.String) {
+		if strings.Contains(indexInfo.String, "pkey") {
 			index.IndexType = schema.IndexType_PRIMARY
 		} else if !index.NonUnique {
 			index.IndexType = schema.IndexType_UNIQUE
 		} else {
 			index.IndexType = schema.IndexType_NORMAL
 		}
-
 		result = append(result, index)
 	}
 	return result, nil
-}
-func escape(tableName, cutset string) string {
-	var tn = tableName
-	if strings.Contains(tableName, ".") {
-		idx := strings.LastIndex(tableName, ".")
-		tName := tableName[idx+1:]
-		tn = strings.Trim(tName, cutset)
-	} else {
-		tn = strings.Trim(tableName, cutset)
-	}
-	return tn
 }
 
 type Tx struct {
@@ -232,7 +238,7 @@ type Tx struct {
 
 func (tx *Tx) GetSchema() string {
 	schema := ConvertKVStringToMap(tx.config)["search_path"]
-	return escape(schema, "'")
+	return stringUtil.Escape(schema, "'")
 }
 func ConvertKVStringToMap(str string) map[string]string {
 	data := strings.Fields(str)

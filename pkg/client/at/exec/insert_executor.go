@@ -17,6 +17,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type InsertExecutor struct {
@@ -96,9 +97,9 @@ func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*sche
 			fmt.Fprint(&sb, " ")
 		}
 	}
-	fmt.Fprintf(&sb, "FROM %s ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&sb, " WHERE `%s` IN ", tableMeta.GetPkName())
-	fmt.Fprint(&sb, sql2.AppendInParam(len(pkValues)))
+	fmt.Fprintf(&sb, "FROM %s ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+	fmt.Fprintf(&sb, " WHERE %s IN ", tableMeta.GetPkName())
+	fmt.Fprint(&sb, sql2.AppendInParamPostgres(len(pkValues)))
 
 	rows, err := executor.proxyTx.Query(sb.String(), pkValues...)
 	if err != nil {
