@@ -13,11 +13,12 @@ require (
 	github.com/golang/protobuf v1.3.4
 	github.com/google/go-cmp v0.2.0
 	github.com/google/uuid v1.1.2
+	github.com/imdario/mergo v0.3.12
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/nacos-group/nacos-sdk-go v1.0.7
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pingcap/check v0.0.0-20200212061837-5e12011dc712 // indirect
 	github.com/pingcap/errors v0.11.5-0.20190809092503-95897b64e011 // indirect
@@ -36,7 +37,7 @@ require (
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd // indirect
 	golang.org/x/tools v0.0.0-20200325203130-f53864d0dba1 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect

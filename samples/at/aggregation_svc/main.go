@@ -5,17 +5,17 @@ import (
 )
 
 import (
+	_ "github.com/transaction-wg/seata-golang/pkg/base/config_center/nacos"
+	_ "github.com/transaction-wg/seata-golang/pkg/base/registry/nacos"
 	"github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/client/tm"
 	"github.com/transaction-wg/seata-golang/samples/at/aggregation_svc/svc"
 )
 
-var configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/aggregation_svc/conf/client.yml"
-
 func main() {
 	r := gin.Default()
-	config.InitConf(configPath)
+	config.InitConf()
 	client.NewRpcClient()
 	tm.Implement(svc.ProxySvc)
 

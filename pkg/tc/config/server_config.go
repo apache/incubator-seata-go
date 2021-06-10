@@ -10,8 +10,15 @@ import (
 
 import (
 	"github.com/go-xorm/xorm"
+	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+)
+import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	baseConfig "github.com/transaction-wg/seata-golang/pkg/base/config"
+	"github.com/transaction-wg/seata-golang/pkg/base/config_center"
+	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 var (
@@ -25,9 +32,15 @@ func GetServerConfig() ServerConfig {
 func GetStoreConfig() StoreConfig {
 	return conf.StoreConfig
 }
+func GetRegistryConfig() RegistryConfig {
+	return conf.RegistryConfig
+}
+func GetConfigCenterConfig() baseConfig.ConfigCenterConfig {
+	return conf.ConfigCenterConfig
+}
 
 type ServerConfig struct {
-	Host                             string `default:"127.0.0.1" yaml:"host" json:"host,omitempty"`
+	Host                             string `yaml:"host" default:"127.0.0.1" json:"host,omitempty"`
 	Port                             string `default:"8091" yaml:"port" json:"port,omitempty"`
 	MaxRollbackRetryTimeout          int64  `default:"-1" yaml:"max_rollback_retry_timeout" json:"max_rollback_retry_timeout,omitempty"`
 	RollbackRetryTimeoutUnlockEnable bool   `default:"false" yaml:"rollback_retry_timeout_unlock_enable" json:"rollback_retry_timeout_unlock_enable,omitempty"`
@@ -42,9 +55,11 @@ type ServerConfig struct {
 	AsyncCommittingRetryPeriod       time.Duration
 	Log_Delete_Period                string `default:"24h" yaml:"log_delete_period" json:"log_delete_period,omitempty"`
 	LogDeletePeriod                  time.Duration
-	GettyConfig                      GettyConfig `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
-	UndoConfig                       UndoConfig  `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
-	StoreConfig                      StoreConfig `required:"true" yaml:"store_config" json:"store_config,omitempty"`
+	GettyConfig                      GettyConfig                   `required:"true" yaml:"getty_config" json:"getty_config,omitempty"`
+	UndoConfig                       UndoConfig                    `required:"true" yaml:"undo_config" json:"undo_config,omitempty"`
+	StoreConfig                      StoreConfig                   `required:"true" yaml:"store_config" json:"store_config,omitempty"`
+	RegistryConfig                   RegistryConfig                `yaml:"registry_config" json:"registry_config,omitempty"` //注册中心配置信息
+	ConfigCenterConfig               baseConfig.ConfigCenterConfig `yaml:"config_center" json:"config_center,omitempty"`     //配置中心配置信息
 }
 
 func (c *ServerConfig) CheckValidity() error {
@@ -100,8 +115,9 @@ func InitConf(confFile string) error {
 	if err != nil {
 		return errors.WithMessagef(err, fmt.Sprintf("yaml.Unmarshal() = error:%s", err))
 	}
-
 	(&conf).LoadFromEnv()
+	//加载获取远程配置
+	loadConfigCenterConfig(&conf.ConfigCenterConfig)
 	(&conf).CheckValidity()
 	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
 		engine, err := xorm.NewEngine("mysql", conf.StoreConfig.DBStoreConfig.DSN)
@@ -112,4 +128,35 @@ func InitConf(confFile string) error {
 	}
 
 	return nil
+}
+
+func loadConfigCenterConfig(centerConf *baseConfig.ConfigCenterConfig) {
+	if centerConf.Mode == "" {
+		return
+	}
+	cc, err := extension.GetConfigCenter(centerConf.Mode, centerConf)
+	if err != nil {
+		log.Error("ConfigCenter can not connect success.Error message is %s", err.Error())
+	}
+	confStr := config_center.LoadConfigCenterConfig(cc, centerConf, &ServerConfigListener{})
+	updateConf(&conf, confStr)
+}
+
+type ServerConfigListener struct {
+}
+
+func (ServerConfigListener) Process(event *config_center.ConfigChangeEvent) {
+	//更新conf
+	conf := GetServerConfig()
+	updateConf(&conf, event.Value.(string))
+}
+
+func updateConf(config *ServerConfig, confStr string) {
+	newConf := &ServerConfig{}
+	confByte := []byte(confStr)
+	yaml.Unmarshal(confByte, newConf)
+	//合并配置中心的配置和本地文件的配置，形成新的配置
+	if err := mergo.Merge(config, newConf, mergo.WithOverride); err != nil {
+		log.Error("merge config fail %s ", err.Error())
+	}
 }
