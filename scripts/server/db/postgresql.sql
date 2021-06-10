@@ -12,7 +12,7 @@
  Target Server Version : 100017
  File Encoding         : 65001
 
- Date: 08/06/2021 14:44:59
+ Date: 10/06/2021 17:08:29
 */
 
 
@@ -84,9 +84,11 @@ CREATE TABLE "public"."lock_table" (
 -- ----------------------------
 
 -- ----------------------------
--- Uniques structure for table branch_table
+-- Indexes structure for table branch_table
 -- ----------------------------
-ALTER TABLE "public"."branch_table" ADD CONSTRAINT "idx_xid" UNIQUE ("xid");
+CREATE INDEX "idx_xid" ON "public"."branch_table" USING btree (
+  "xid" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
 
 -- ----------------------------
 -- Primary Key structure for table branch_table
@@ -94,10 +96,15 @@ ALTER TABLE "public"."branch_table" ADD CONSTRAINT "idx_xid" UNIQUE ("xid");
 ALTER TABLE "public"."branch_table" ADD CONSTRAINT "branch_table_pkey" PRIMARY KEY ("branch_id");
 
 -- ----------------------------
--- Uniques structure for table global_table
+-- Indexes structure for table global_table
 -- ----------------------------
-ALTER TABLE "public"."global_table" ADD CONSTRAINT "idx_gmt_modified_status" UNIQUE ("gmt_modified", "status");
-ALTER TABLE "public"."global_table" ADD CONSTRAINT "idx_transaction_id" UNIQUE ("transaction_id");
+CREATE INDEX "idx_gmt_modified_status" ON "public"."global_table" USING btree (
+  "status" "pg_catalog"."int4_ops" ASC NULLS LAST,
+  "gmt_modified" "pg_catalog"."timestamp_ops" ASC NULLS LAST
+);
+CREATE INDEX "idx_transaction_id" ON "public"."global_table" USING btree (
+  "transaction_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
 
 -- ----------------------------
 -- Primary Key structure for table global_table
@@ -105,9 +112,11 @@ ALTER TABLE "public"."global_table" ADD CONSTRAINT "idx_transaction_id" UNIQUE (
 ALTER TABLE "public"."global_table" ADD CONSTRAINT "global_table_pkey" PRIMARY KEY ("xid");
 
 -- ----------------------------
--- Uniques structure for table lock_table
+-- Indexes structure for table lock_table
 -- ----------------------------
-ALTER TABLE "public"."lock_table" ADD CONSTRAINT "idx_branch_id" UNIQUE ("branch_id");
+CREATE INDEX "idx_branch_id" ON "public"."lock_table" USING btree (
+  "branch_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
 
 -- ----------------------------
 -- Primary Key structure for table lock_table
