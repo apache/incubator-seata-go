@@ -27,7 +27,7 @@ func main() {
 	client.NewRpcClient()
 	exec.InitDataResourceManager()
 
-	sqlDB, err := sql.Open("mysql", config.GetATConfig().DSN)
+	sqlDB, err := sql.Open("postgres", config.GetATConfig().DSN)
 	if err != nil {
 		panic(err)
 	}
