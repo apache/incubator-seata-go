@@ -3,6 +3,7 @@ package exec
 import (
 	"database/sql"
 	"fmt"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
@@ -17,6 +18,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type UpdateExecutor struct {
@@ -105,9 +107,16 @@ func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) 
 			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
-	fmt.Fprint(&b, " FOR UPDATE")
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&b, " FROM %s WHERE ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	} else {
+		fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	}
 	return b.String()
 }
 
@@ -125,9 +134,16 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta, b
 			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b, " FROM %s ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
-	fmt.Fprint(&b, sql2.AppendInParam(len(beforeImage.PkFields())))
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&b, " FROM %s ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
+		fmt.Fprint(&b, sql2.AppendInParamPostgres(len(beforeImage.PkFields())))
+	} else {
+		fmt.Fprintf(&b, " FROM %s ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
+		fmt.Fprint(&b, sql2.AppendInParam(len(beforeImage.PkFields())))
+	}
 	return b.String()
 }
 

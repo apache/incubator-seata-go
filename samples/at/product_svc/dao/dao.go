@@ -10,7 +10,7 @@ const (
 		allocated_qty = allocated_qty + ? where product_sysno = ? and available_qty >= ?`
 )
 const (
-	allocateInventorySqlByPostgres = `update seata_product.inventory set available_qty = available_qty - $1, 
+	allocateInventorySqlByPostgres = `update inventory set available_qty = available_qty - $1, 
 		allocated_qty = allocated_qty + $2 where product_sysno = $3 and available_qty >= $4`
 )
 

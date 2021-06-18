@@ -23,8 +23,8 @@ tm:
   commit_retry_count: 5
   rollback_retry_count: 5
 at:
-  #dsn: "root:123456@tcp(192.168.68.129:3306)/seata_order?timeout=5s&readTimeout=5s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-  dsn: "postgres://postgres:123456@192.168.68.129/seata_order?search_path=public&sslmode=disable" #postgresql
+  #dsn: "root:root@tcp(localhost:3306)/seata_order?parseTime=true&loc=Local&charset=utf8mb4,utf8"
+  dsn: "postgres://postgres:123456@172.18.150.90/seata_order?search_path=public&sslmode=disable" #postgresql
   report_retry_count: 5
   report_success_enable: false
   lock_retry_interval: 10ms

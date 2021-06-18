@@ -1,4 +1,4 @@
-package postgres
+package postgresql
 
 import (
 	"database/sql"
@@ -174,7 +174,6 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta, error) {
 	var tn = stringUtil.Escape(tableName, "`")
 	args := []interface{}{tx.GetSchema(), tn}
-
 	//pgsql查找索引信息
 	//todo 更好的查找索引方式？
 	s := `select

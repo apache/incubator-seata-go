@@ -11,7 +11,7 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache/mysql"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache/postgres"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache/postgresql"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	"github.com/transaction-wg/seata-golang/pkg/client/context"
 )
@@ -30,8 +30,7 @@ func NewDB(conf config.ATConfig, db *sql.DB) (*DB, error) {
 	}
 	//todo 先根据类型加载对应的表元数据缓存信息
 	if constant.POSTGRESQL == newDB.GetDBType() {
-		a := postgres.NewPostgresqlTableMetaCache(conf.DSN)
-		extension.SetTableMetaCache(newDB.GetDBType(), a)
+		extension.SetTableMetaCache(newDB.GetDBType(), postgresql.NewPostgresqlTableMetaCache(conf.DSN))
 	} else {
 		extension.SetTableMetaCache(newDB.GetDBType(), mysql.NewMysqlTableMetaCache(conf.DSN))
 	}

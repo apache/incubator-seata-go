@@ -1,6 +1,8 @@
 package sqlparser
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type SQLType byte
 

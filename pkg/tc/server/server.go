@@ -120,10 +120,13 @@ func registryInstance() {
 	ip, _ := gxnet.GetLocalIP()
 	conf := config.GetServerConfig()
 	port, _ := strconv.Atoi(conf.Port)
-	reg.Register(&registry.Address{
+	err = reg.Register(&registry.Address{
 		IP:   ip,
 		Port: uint64(port),
 	})
+	if err != nil {
+		log.Error("Registry instance fail, %s", err.Error())
+	}
 }
 
 func (s *Server) Stop() {
