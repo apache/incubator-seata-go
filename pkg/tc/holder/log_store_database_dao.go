@@ -6,6 +6,7 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
@@ -23,10 +24,16 @@ const (
 	    application_data, gmt_create, gmt_modified from branch_table where xid = ? order by gmt_create asc`
 	InsertBranchTransactionDO = `insert into branch_table (xid, branch_id, transaction_id, resource_group_id, resource_id, branch_type,
         status, client_id, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(6), now(6))`
+
 	UpdateBranchTransactionDO = "update branch_table set status = ?, gmt_modified = now(6) where xid = ? and branch_id = ?"
 	DeleteBranchTransactionDO = "delete from branch_table where xid = ? and branch_id = ?"
 	QueryMaxTransactionID     = "select max(transaction_id) as maxTransactioID from global_table where transaction_id < ? and transaction_id > ?"
 	QueryMaxBranchID          = "select max(branch_id) as maxBranchID from branch_table where branch_id < ? and branch_id > ?"
+
+	//postgresql不支持now()里面传参数
+	InsertBranchTransactionDOByPostgres = `insert into branch_table (xid, branch_id, transaction_id, resource_group_id, resource_id, branch_type,
+        status, client_id, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
+	UpdateBranchTransactionDOByPostgres = "update branch_table set status = ?, gmt_modified = now() where xid = ? and branch_id = ?"
 )
 
 type LogStore interface {
@@ -143,7 +150,12 @@ func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXIDs(xids []string) []
 }
 
 func (dao *LogStoreDataBaseDAO) InsertBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
-	_, err := dao.engine.Exec(InsertBranchTransactionDO,
+	var sql string
+	sql = InsertBranchTransactionDO
+	if dao.engine.Dialect().DBType() == constant.POSTGRESQL {
+		sql = InsertBranchTransactionDOByPostgres
+	}
+	_, err := dao.engine.Exec(sql,
 		branchTransaction.XID,
 		branchTransaction.BranchID,
 		branchTransaction.TransactionID,
@@ -160,7 +172,12 @@ func (dao *LogStoreDataBaseDAO) InsertBranchTransactionDO(branchTransaction mode
 }
 
 func (dao *LogStoreDataBaseDAO) UpdateBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
-	_, err := dao.engine.Exec(UpdateBranchTransactionDO,
+	var sql string
+	sql = UpdateBranchTransactionDO
+	if dao.engine.Dialect().DBType() == constant.POSTGRESQL {
+		sql = UpdateBranchTransactionDOByPostgres
+	}
+	_, err := dao.engine.Exec(sql,
 		branchTransaction.Status,
 		branchTransaction.XID,
 		branchTransaction.BranchID)
