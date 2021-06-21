@@ -3,8 +3,6 @@ package main
 import (
 	"database/sql"
 	"net/http"
-	_ "net/http/pprof"
-	"os"
 	"time"
 )
 
@@ -71,13 +69,6 @@ func main() {
 			})
 		}
 	})
-	// 开启pprof
-	go func() {
-		ip := "0.0.0.0:6060"
-		if err := http.ListenAndServe(ip, nil); err != nil {
 
-			os.Exit(1)
-		}
-	}()
 	r.Run(":8002")
 }

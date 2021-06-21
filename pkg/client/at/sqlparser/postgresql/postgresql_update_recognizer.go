@@ -11,6 +11,7 @@ import (
 
 import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
+	"github.com/transaction-wg/seata-golang/pkg/util/sql"
 )
 
 type PostgresqlUpdateRecognizer struct {
@@ -47,7 +48,8 @@ func (recognizer *PostgresqlUpdateRecognizer) GetOriginalSQL() string {
 func (recognizer *PostgresqlUpdateRecognizer) GetWhereCondition() string {
 	var sb strings.Builder
 	recognizer.updateStmt.Where.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
-	return strings.Replace(sb.String(), "`", "", -1)
+	condition := strings.Replace(sb.String(), "`", "", -1)
+	return sql.ConvertParamOrder(condition)
 }
 
 func (recognizer *PostgresqlUpdateRecognizer) GetUpdateColumns() []string {

@@ -3,8 +3,6 @@ package exec
 import (
 	"database/sql"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
 
@@ -13,6 +11,8 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
@@ -137,7 +137,7 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta, b
 	//todo 先根据不同数据库进行一个if判断
 	if executor.proxyTx.DBType == constant.POSTGRESQL {
 		fmt.Fprintf(&b, " FROM %s ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
-		fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
+		fmt.Fprintf(&b, "WHERE %s IN", tableMeta.GetPkName())
 		fmt.Fprint(&b, sql2.AppendInParamPostgres(len(beforeImage.PkFields())))
 	} else {
 		fmt.Fprintf(&b, " FROM %s ", executor.sqlRecognizer.GetTableName())
@@ -149,7 +149,12 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta, b
 
 func (executor *UpdateExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords, error) {
 	sql := executor.buildBeforeImageSql(tableMeta)
-	argsCount := strings.Count(sql, "?")
+	var argsCount int
+	if strings.Contains(sql, "?") {
+		argsCount = strings.Count(sql, "?")
+	} else {
+		argsCount = strings.Count(sql, "$")
+	}
 	rows, err := executor.proxyTx.Query(sql, executor.values[len(executor.values)-argsCount:]...)
 	if err != nil {
 		return nil, errors.WithStack(err)

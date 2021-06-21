@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
+	"strconv"
 	"strings"
 )
 
@@ -20,12 +20,13 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 const (
 	InsertSqlTemplate = "INSERT INTO %s (%s) VALUES (%s)"
 	DeleteSqlTemplate = "DELETE FROM %s WHERE %s = $1"
-	UpdateSqlTemplate = "UPDATE %s SET %s WHERE %s = $1"
+	UpdateSqlTemplate = "UPDATE %s SET %s WHERE %s = %s"
 	SelectSqlTemplate = "SELECT %s FROM %s WHERE %s IN %s"
 )
 
@@ -48,8 +49,8 @@ func DeleteBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	var sbCols, sbVals strings.Builder
 	var size = len(fields)
 	for i, field := range fields {
-		fmt.Fprintf(&sbCols, "`%s`", field.Name)
-		fmt.Fprint(&sbVals, "?")
+		fmt.Fprintf(&sbCols, "%s", field.Name)
+		fmt.Fprint(&sbVals, "$"+strconv.Itoa(i+1))
 		if i < size-1 {
 			fmt.Fprint(&sbCols, ", ")
 			fmt.Fprint(&sbVals, ", ")
@@ -87,14 +88,14 @@ func UpdateBuildUndoSql(undoLog undo.SqlUndoLog) string {
 	var sb strings.Builder
 	var size = len(nonPkFields)
 	for i, field := range nonPkFields {
-		fmt.Fprintf(&sb, "`%s` = ?", field.Name)
+		fmt.Fprintf(&sb, "%s = $"+strconv.Itoa(i+1), field.Name)
 		if i < size-1 {
 			fmt.Fprint(&sb, ", ")
 		}
 	}
 	updateColumns := sb.String()
 
-	return fmt.Sprintf(UpdateSqlTemplate, stringUtil.Escape(undoLog.TableName, "`"), updateColumns, pkField.Name)
+	return fmt.Sprintf(UpdateSqlTemplate, stringUtil.Escape(undoLog.TableName, "`"), updateColumns, pkField.Name, "$"+strconv.Itoa(len(nonPkFields)+1))
 }
 
 type PostgresUndoExecutor struct {
