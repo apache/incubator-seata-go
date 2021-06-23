@@ -11,6 +11,8 @@ import (
 )
 
 import (
+	_ "github.com/transaction-wg/seata-golang/pkg/base/config_center/nacos"
+	_ "github.com/transaction-wg/seata-golang/pkg/base/registry/nacos"
 	"github.com/transaction-wg/seata-golang/pkg/client"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/exec"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
@@ -18,11 +20,10 @@ import (
 	"github.com/transaction-wg/seata-golang/samples/at/product_svc/dao"
 )
 
-const configPath = "/Users/scottlewis/dksl/git/1/seata-golang/samples/at/product_svc/conf/client.yml"
-
 func main() {
 	r := gin.Default()
-	config.InitConf(configPath)
+	//环境变量方式配置参数示例：CONF_CLIENT_FILE_PATH=D:\develop\ability\seata-golang\samples\at\product_svc\conf\client.yml
+	config.InitConf()
 	client.NewRpcClient()
 	exec.InitDataResourceManager()
 

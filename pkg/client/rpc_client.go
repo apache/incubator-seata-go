@@ -3,15 +3,16 @@ package client
 import (
 	"fmt"
 	"net"
-	"strings"
 )
 
 import (
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
+	"github.com/nacos-group/nacos-sdk-go/common/logger"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
@@ -35,7 +36,12 @@ func NewRpcClient() *RpcClient {
 }
 
 func (c *RpcClient) init() {
-	addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	//addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
+	//通过注册中心获取服务地址信息
+	addressList := getAvailServerList()
+	if len(addressList) == 0 {
+		log.Warn("no have valid seata server list")
+	}
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
@@ -46,6 +52,21 @@ func (c *RpcClient) init() {
 		go gettyClient.RunEventLoop(c.newSession)
 		c.gettyClients = append(c.gettyClients, gettyClient)
 	}
+}
+
+func getAvailServerList() []string {
+	registryConfig := config.GetRegistryConfig()
+	reg, err := extension.GetRegistry(registryConfig.Mode)
+	if err != nil {
+		logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
+		panic(err.Error())
+	}
+	addrs, err := reg.Lookup()
+	if err != nil {
+		logger.Errorf("no hava valid server list", err.Error())
+		return nil
+	}
+	return addrs
 }
 
 func (c *RpcClient) newSession(session getty.Session) error {

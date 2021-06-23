@@ -31,4 +31,23 @@ store_config:
   db:
     log_query_limit: 100
     # 数据库seata创建脚本位于 `/scripts/server/db/` 下
-    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+    dsn: "root:root@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+
+registry_config:
+  type: nacos
+  nacos:
+    application: seata-server
+    server_addr: 127.0.0.1:8848
+    group: SEATA_GROUP
+    namespace:
+    cluster: default
+    username:
+    password:
+
+config_center:
+  type: nacos
+  nacos: #data_id 默认seata,group默认SEATA_GROUP获取nacos数据id为seata，分组为SEATA_GROUP下面的配置信息，配置信息统一放在一起
+    server_addr: 127.0.0.1:8848
+    group: SEATA_GROUP
+    cluster: default
+    data_id: seata_server
