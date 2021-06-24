@@ -4,20 +4,15 @@ import (
 	"bytes"
 	"sort"
 	"sync"
-)
 
-import (
 	"github.com/pkg/errors"
-	"vimagination.zapto.org/byteio"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
+	"vimagination.zapto.org/byteio"
 )
 
 type GlobalSession struct {
@@ -209,7 +204,7 @@ func (gs *GlobalSession) Encode() ([]byte, error) {
 	size := calGlobalSessionSize(len(gs.ApplicationID), len(gs.TransactionServiceGroup), len(gs.TransactionName), len(gs.XID), len(gs.ApplicationData))
 
 	if size > config.GetStoreConfig().MaxGlobalSessionSize {
-		log.Errorf("global session size exceeded, size : %d maxBranchSessionSize : %d", size, config.GetStoreConfig().MaxGlobalSessionSize)
+		log.Errorf("global session size exceeded, size : %d maxGlobalSessionSize : %d", size, config.GetStoreConfig().MaxGlobalSessionSize)
 		//todo compress
 		return nil, errors.New("global session size exceeded.")
 	}

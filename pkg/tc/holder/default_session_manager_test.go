@@ -2,20 +2,16 @@ package holder
 
 import (
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
+	"github.com/transaction-wg/seata-golang/pkg/testutil"
 )
 
 func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 
 	sessionManager := NewDefaultSessionManager("default")
 	sessionManager.AddGlobalSession(gs)
@@ -23,7 +19,7 @@ func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T
 }
 
 func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	sessionManager := NewDefaultSessionManager("default")
 	sessionManager.AddGlobalSession(gs)
 	expected := sessionManager.FindGlobalSession(gs.XID)
@@ -61,7 +57,9 @@ func globalSessionsProvider() []*session.GlobalSession {
 	return result
 }
 
-func globalSessionProvider() *session.GlobalSession {
+func globalSessionProvider(t *testing.T) *session.GlobalSession {
+	testutil.InitServereConfig(t)
+
 	common.GetXID().Init("127.0.0.1", 9876)
 
 	gs := session.NewGlobalSession(
