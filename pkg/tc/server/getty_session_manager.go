@@ -4,14 +4,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/base/model"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
@@ -192,7 +187,7 @@ func (manager *GettySessionManager) GetGettySession(resourceID string, clientID 
 
 	clientIDInfo := strings.Split(clientID, ClientIDSplitChar)
 	if clientIDInfo == nil || len(clientIDInfo) != 3 {
-		return nil, errors.Errorf("Invalid RpcRemoteClient ID:%d", clientID)
+		return nil, errors.Errorf("Invalid RpcRemoteClient ID: %s", clientID)
 	}
 	targetApplicationID := clientIDInfo[0]
 	targetIP := clientIDInfo[1]
