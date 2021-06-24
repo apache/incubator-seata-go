@@ -103,7 +103,6 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 	if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
 		rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
 		log.Debugf("msgID:%s, body:%v", rpcMessage.ID, rpcMessage.Body)
-
 		client.onMessage(rpcMessage, session.RemoteAddr())
 	} else {
 		mergedResult, isMergedResult := rpcMessage.Body.(protocal.MergeResultMessage)

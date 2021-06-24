@@ -13,14 +13,15 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	tx2 "github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser/mysql"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
+	parse "github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser/common"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 type Tx struct {
+	db                  *DB
 	proxyTx             *tx2.ProxyTx
 	reportRetryCount    int
 	reportSuccessEnable bool
@@ -35,7 +36,7 @@ func (tx *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if ok && stmt.LockTp == ast.SelectLockForUpdate {
 		executor := &SelectForUpdateExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlSelectForUpdateRecognizer(query, stmt),
+			sqlRecognizer: parse.GetSelectForUpdateRecognizer(query, stmt, tx.proxyTx.DBType),
 			values:        args,
 		}
 		return executor.Execute(tx.lockRetryInterval, tx.lockRetryTimes)
@@ -51,7 +52,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if isDelete {
 		executor := &DeleteExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlDeleteRecognizer(query, deleteStmt),
+			sqlRecognizer: parse.GetDeleteRecognizer(query, deleteStmt, tx.proxyTx.DBType),
 			values:        args,
 		}
 		return executor.Execute()
@@ -61,7 +62,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if isInsert {
 		executor := &InsertExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlInsertRecognizer(query, insertStmt),
+			sqlRecognizer: parse.GetInsertRecognizer(query, insertStmt, tx.proxyTx.DBType),
 			values:        args,
 		}
 		return executor.Execute()
@@ -71,7 +72,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if isUpdate {
 		executor := &UpdateExecutor{
 			proxyTx:       tx.proxyTx,
-			sqlRecognizer: mysql.NewMysqlUpdateRecognizer(query, updateStmt),
+			sqlRecognizer: parse.GetUpdateRecognizer(query, updateStmt, tx.proxyTx.DBType),
 			values:        args,
 		}
 		return executor.Execute()
@@ -89,7 +90,7 @@ func (tx *Tx) Commit() error {
 	tx.proxyTx.Context.BranchID = branchID
 
 	if tx.proxyTx.Context.HasUndoLog() {
-		err = manager.GetUndoLogManager().FlushUndoLogs(tx.proxyTx)
+		err = extension.GetUndoLogManager(tx.proxyTx.DBType).FlushUndoLogs(tx.proxyTx)
 		if err != nil {
 			err1 := tx.report(false)
 			if err1 != nil {

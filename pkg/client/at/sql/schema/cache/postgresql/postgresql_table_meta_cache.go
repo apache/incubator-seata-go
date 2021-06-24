@@ -1,91 +1,78 @@
-package cache
+package postgresql
 
 import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 )
-
 import (
-	"github.com/go-sql-driver/mysql"
 	"github.com/google/go-cmp/cmp"
+	"github.com/lib/pq"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 )
 
+//可以根据导入的meta_cache在对应导入其他扩展点
 import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
+	tableMetaCache "github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
+	_ "github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager/postgres"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
-var EXPIRE_TIME = 15 * time.Minute
-
-type Tx struct {
-	*sql.Tx
-	config *mysql.Config
+type PostgresqlTableMetaCache struct {
+	TableMetaCache *cache.Cache
+	Dsn            string
 }
 
-func newTx(tx *sql.Tx, dsn string) *Tx {
-	config, _ := mysql.ParseDSN(dsn)
-	return &Tx{
-		Tx:     tx,
-		config: config,
+func NewPostgresqlTableMetaCache(dsn string) tableMetaCache.ITableMetaCache {
+	tableMetaCache := cache.New(tableMetaCache.EXPIRE_TIME, 10*tableMetaCache.EXPIRE_TIME)
+	return &PostgresqlTableMetaCache{
+		TableMetaCache: tableMetaCache,
+		Dsn:            dsn,
 	}
 }
 
-type MysqlTableMetaCache struct {
-	tableMetaCache *cache.Cache
-	dsn            string
-}
-
-func NewMysqlTableMetaCache(dsn string) ITableMetaCache {
-	return &MysqlTableMetaCache{
-		tableMetaCache: cache.New(EXPIRE_TIME, 10*EXPIRE_TIME),
-		dsn:            dsn,
-	}
-}
-
-func (cache *MysqlTableMetaCache) GetTableMeta(tx *sql.Tx, tableName, resourceID string) (schema.TableMeta, error) {
+func (cache *PostgresqlTableMetaCache) GetTableMeta(tx *sql.Tx, tableName, resourceID string) (schema.TableMeta, error) {
 	if tableName == "" {
 		return schema.TableMeta{}, errors.New("TableMeta cannot be fetched without tableName")
 	}
 	cacheKey := cache.GetCacheKey(tableName, resourceID)
-	tMeta, found := cache.tableMetaCache.Get(cacheKey)
+	tMeta, found := cache.TableMetaCache.Get(cacheKey)
 	if found {
 		meta := tMeta.(schema.TableMeta)
 		return meta, nil
 	} else {
-		ndb := newTx(tx, cache.dsn)
+		ndb := newTx(tx, cache.Dsn)
 		meta, err := cache.FetchSchema(ndb, tableName)
 		if err != nil {
 			return schema.TableMeta{}, errors.WithStack(err)
 		}
-		cache.tableMetaCache.Set(cacheKey, meta, EXPIRE_TIME)
+		cache.TableMetaCache.Set(cacheKey, meta, tableMetaCache.EXPIRE_TIME)
 		return meta, nil
 	}
 }
-
-func (cache *MysqlTableMetaCache) Refresh(tx *sql.Tx, resourceID string) {
-	for k, v := range cache.tableMetaCache.Items() {
+func (cache *PostgresqlTableMetaCache) Refresh(tx *sql.Tx, resourceID string) {
+	for k, v := range cache.TableMetaCache.Items() {
 		meta := v.Object.(schema.TableMeta)
 		key := cache.GetCacheKey(meta.TableName, resourceID)
 		if k == key {
-			ndb := newTx(tx, cache.dsn)
+			ndb := newTx(tx, cache.Dsn)
 			tMeta, err := cache.FetchSchema(ndb, meta.TableName)
 			if err != nil {
 				log.Errorf("get table meta error:%s", err.Error())
 			}
 			if !cmp.Equal(tMeta, meta) {
-				cache.tableMetaCache.Set(key, tMeta, EXPIRE_TIME)
+				cache.TableMetaCache.Set(key, tMeta, tableMetaCache.EXPIRE_TIME)
 				log.Info("table meta change was found, update table meta cache automatically.")
 			}
 		}
 	}
 }
 
-func (cache *MysqlTableMetaCache) GetCacheKey(tableName string, resourceID string) string {
+func (cache *PostgresqlTableMetaCache) GetCacheKey(tableName string, resourceID string) string {
 	var defaultTableName string
 	tableNameWithCatalog := strings.Split(strings.ReplaceAll(tableName, "`", ""), ".")
 	if len(tableNameWithCatalog) > 1 {
@@ -95,8 +82,7 @@ func (cache *MysqlTableMetaCache) GetCacheKey(tableName string, resourceID strin
 	}
 	return fmt.Sprintf("%s.%s", resourceID, defaultTableName)
 }
-
-func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.TableMeta, error) {
+func (cache *PostgresqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.TableMeta, error) {
 	tm := schema.TableMeta{TableName: tableName,
 		AllColumns: make(map[string]schema.ColumnMeta),
 		AllIndexes: make(map[string]schema.IndexMeta),
@@ -133,15 +119,12 @@ func (cache *MysqlTableMetaCache) FetchSchema(tx *Tx, tableName string) (schema.
 }
 
 func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
-	var tn = escape(tableName, "`")
-	args := []interface{}{tx.config.DBName, tn}
-	//`TABLE_CATALOG`,	`TABLE_SCHEMA`,	`TABLE_NAME`,	`COLUMN_NAME`,	`ORDINAL_POSITION`,	`COLUMN_DEFAULT`,
-	//`IS_NULLABLE`, `DATA_TYPE`,	`CHARACTER_MAXIMUM_LENGTH`,	`CHARACTER_OCTET_LENGTH`,	`NUMERIC_PRECISION`,
-	//`NUMERIC_SCALE`, `DATETIME_PRECISION`, `CHARACTER_SET_NAME`,	`COLLATION_NAME`,	`COLUMN_TYPE`,	`COLUMN_KEY',
-	//`EXTRA`,	`PRIVILEGES`, `COLUMN_COMMENT`, `GENERATION_EXPRESSION`, `SRS_ID`
-	s := "SELECT `TABLE_CATALOG`, `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME`, `DATA_TYPE`, `CHARACTER_MAXIMUM_LENGTH`, " +
-		"`NUMERIC_PRECISION`, `NUMERIC_SCALE`, `IS_NULLABLE`, `COLUMN_COMMENT`, `COLUMN_DEFAULT`, `CHARACTER_OCTET_LENGTH`, " +
-		"`ORDINAL_POSITION`, `COLUMN_KEY`, `EXTRA`  FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	var tn = stringUtil.Escape(tableName, "`")
+	args := []interface{}{tx.GetSchema(), tn}
+	//POSTGRESQL查找表列信息sql语法
+	s := "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, " +
+		"NUMERIC_PRECISION, NUMERIC_SCALE, IS_NULLABLE, COLUMN_DEFAULT, CHARACTER_OCTET_LENGTH, " +
+		"ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = $1 AND TABLE_NAME = $2"
 
 	rows, err := tx.Query(s, args...)
 	if err != nil {
@@ -153,11 +136,11 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 	for rows.Next() {
 		col := schema.ColumnMeta{}
 
-		var tableCat, tableSchem, tableName, columnName, dataType, isNullable, remark, colDefault, colKey, extra sql.NullString
+		var tableCat, tableSchem, tableName, columnName, dataType, isNullable, remark, colDefault sql.NullString
 		var columnSize, decimalDigits, numPreRadix, charOctetLength, ordinalPosition sql.NullInt32
 		err = rows.Scan(&tableCat, &tableSchem, &tableName, &columnName,
 			&dataType, &columnSize, &decimalDigits, &numPreRadix, &isNullable,
-			&remark, &colDefault, &charOctetLength, &ordinalPosition, &colKey, &extra)
+			&colDefault, &charOctetLength, &ordinalPosition)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +165,6 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 		col.SqlDatetimeSub = 0
 		col.CharOctetLength = charOctetLength.Int32
 		col.OrdinalPosition = ordinalPosition.Int32
-		col.IsAutoIncrement = extra.String
 
 		result = append(result, col)
 	}
@@ -190,14 +172,32 @@ func GetColumns(tx *Tx, tableName string) ([]schema.ColumnMeta, error) {
 }
 
 func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta, error) {
-	var tn = escape(tableName, "`")
-	args := []interface{}{tx.config.DBName, tn}
-
-	//`TABLE_CATALOG`, `TABLE_SCHEMA`, `TABLE_NAME`, `NON_UNIQUE`, `INDEX_SCHEMA`, `INDEX_NAME`, `SEQ_IN_INDEX`,
-	//`COLUMN_NAME`, `COLLATION`, `CARDINALITY`, `SUB_PART`, `PACKED`, `NULLABLE`, `INDEX_TYPE`, `COMMENT`,
-	//`INDEX_COMMENT`, `IS_VISIBLE`, `EXPRESSION`
-	s := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `SEQ_IN_INDEX`, `COLLATION`, `CARDINALITY` " +
-		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	var tn = stringUtil.Escape(tableName, "`")
+	args := []interface{}{tx.GetSchema(), tn}
+	//pgsql查找索引信息
+	//todo 更好的查找索引方式？
+	s := `select
+    i.relname as index_name,
+    a.attname as column_name,
+    pi.indexdef as index_info
+from
+    pg_class t,
+    pg_class i,
+    pg_index ix,
+		pg_indexes pi,
+    pg_attribute a
+where
+    t.oid = ix.indrelid
+    and i.oid = ix.indexrelid
+    and a.attrelid = t.oid
+    and a.attnum = ANY(ix.indkey)
+    and t.relkind = 'r'
+		and pi.indexname = i.relname
+		and pi.schemaname = $1
+		and t.relname = $2
+order by
+    t.relname,
+    i.relname`
 
 	rows, err := tx.Query(s, args...)
 	if err != nil {
@@ -210,39 +210,50 @@ func GetIndexes(tx *Tx, tableName string) ([]schema.IndexMeta, error) {
 		index := schema.IndexMeta{
 			Values: make([]schema.ColumnMeta, 0),
 		}
-		var indexName, columnName, nonUnique, indexType, collation sql.NullString
-		var ordinalPosition, cardinality sql.NullInt32
-		err = rows.Scan(&indexName, &columnName, &nonUnique, &indexType, &ordinalPosition, &collation, &cardinality)
+		var indexName, columnName, indexInfo sql.NullString
+		err = rows.Scan(&indexName, &columnName, &indexInfo)
 
 		index.IndexName = indexName.String
 		index.ColumnName = columnName.String
-		if "yes" == strings.ToLower(nonUnique.String) || nonUnique.String == "1" {
+		if !strings.Contains(indexInfo.String, "UNIQUE") {
 			index.NonUnique = true
 		}
-		index.OrdinalPosition = ordinalPosition.Int32
-		index.AscOrDesc = collation.String
-		index.Cardinality = cardinality.Int32
-		if "primary" == strings.ToLower(indexName.String) {
+		if strings.Contains(indexInfo.String, "pkey") {
 			index.IndexType = schema.IndexType_PRIMARY
 		} else if !index.NonUnique {
 			index.IndexType = schema.IndexType_UNIQUE
 		} else {
 			index.IndexType = schema.IndexType_NORMAL
 		}
-
 		result = append(result, index)
 	}
 	return result, nil
 }
 
-func escape(tableName, cutset string) string {
-	var tn = tableName
-	if strings.Contains(tableName, ".") {
-		idx := strings.LastIndex(tableName, ".")
-		tName := tableName[idx+1:]
-		tn = strings.Trim(tName, cutset)
-	} else {
-		tn = strings.Trim(tableName, cutset)
+type Tx struct {
+	*sql.Tx
+	config string
+}
+
+func (tx *Tx) GetSchema() string {
+	schema := ConvertKVStringToMap(tx.config)["search_path"]
+	return stringUtil.Escape(schema, "'")
+}
+func ConvertKVStringToMap(str string) map[string]string {
+	data := strings.Fields(str)
+	res := make(map[string]string)
+	for _, kvStr := range data {
+		kv := strings.Split(kvStr, "=")
+		k := kv[0]
+		v := kv[1]
+		res[k] = v
 	}
-	return tn
+	return res
+}
+func newTx(tx *sql.Tx, dsn string) *Tx {
+	config, _ := pq.ParseURL(dsn)
+	return &Tx{
+		Tx:     tx,
+		config: config,
+	}
 }

@@ -2,6 +2,7 @@ package exec
 
 import (
 	"database/sql"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"time"
 )
 
@@ -9,7 +10,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 )
 
@@ -53,6 +53,6 @@ func (executor *SelectForUpdateExecutor) Execute(lockRetryInterval time.Duration
 }
 
 func (executor *SelectForUpdateExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := extension.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }

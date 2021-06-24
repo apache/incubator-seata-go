@@ -20,9 +20,3 @@ type UndoLogManager interface {
 
 	DeleteUndoLogByLogCreated(db *sql.DB, logCreated time.Time, limitRows int) (sql.Result, error)
 }
-
-var undoLogManager UndoLogManager
-
-func GetUndoLogManager() UndoLogManager {
-	return MysqlUndoLogManager{}
-}

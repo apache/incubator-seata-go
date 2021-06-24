@@ -9,9 +9,9 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
 	"github.com/transaction-wg/seata-golang/pkg/client/rm"
 	"github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
@@ -56,8 +56,8 @@ func (resourceManager DataSourceManager) LockQuery(branchType meta.BranchType, r
 func (resourceManager DataSourceManager) BranchCommit(branchType meta.BranchType, xid string, branchID int64,
 	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
 	//todo 改为异步批量操作
-	undoLogManager := manager.GetUndoLogManager()
 	db := resourceManager.getDB(resourceID)
+	undoLogManager := extension.GetUndoLogManager(db.GetDBType())
 	err := undoLogManager.DeleteUndoLog(db.DB, xid, branchID)
 	if err != nil {
 		return 0, errors.WithStack(err)
@@ -67,9 +67,9 @@ func (resourceManager DataSourceManager) BranchCommit(branchType meta.BranchType
 
 func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchType, xid string, branchID int64,
 	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
-	//todo 使用前镜数据覆盖当前数据
-	undoLogManager := manager.GetUndoLogManager()
+	//todo 使用前镜数据覆盖当前数据\
 	db := resourceManager.getDB(resourceID)
+	undoLogManager := extension.GetUndoLogManager(db.GetDBType())
 	err := undoLogManager.Undo(db.DB, xid, branchID, db.GetResourceID())
 	if err != nil {
 		log.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchID:[%d], resourceID:[%s], applicationData:[%v]",

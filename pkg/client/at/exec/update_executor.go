@@ -11,12 +11,14 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type UpdateExecutor struct {
@@ -87,7 +89,7 @@ func (executor *UpdateExecutor) AfterImage(beforeImage *schema.TableRecords) (*s
 }
 
 func (executor *UpdateExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := extension.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }
 
@@ -105,9 +107,16 @@ func (executor *UpdateExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) 
 			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
-	fmt.Fprint(&b, " FOR UPDATE")
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&b, " FROM %s WHERE ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	} else {
+		fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	}
 	return b.String()
 }
 
@@ -125,15 +134,27 @@ func (executor *UpdateExecutor) buildAfterImageSql(tableMeta schema.TableMeta, b
 			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b, " FROM %s ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
-	fmt.Fprint(&b, sql2.AppendInParam(len(beforeImage.PkFields())))
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&b, " FROM %s ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprintf(&b, "WHERE %s IN", tableMeta.GetPkName())
+		fmt.Fprint(&b, sql2.AppendInParamPostgres(len(beforeImage.PkFields())))
+	} else {
+		fmt.Fprintf(&b, " FROM %s ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprintf(&b, "WHERE `%s` IN", tableMeta.GetPkName())
+		fmt.Fprint(&b, sql2.AppendInParam(len(beforeImage.PkFields())))
+	}
 	return b.String()
 }
 
 func (executor *UpdateExecutor) buildTableRecords(tableMeta schema.TableMeta) (*schema.TableRecords, error) {
 	sql := executor.buildBeforeImageSql(tableMeta)
-	argsCount := strings.Count(sql, "?")
+	var argsCount int
+	if strings.Contains(sql, "?") {
+		argsCount = strings.Count(sql, "?")
+	} else {
+		argsCount = strings.Count(sql, "$")
+	}
 	rows, err := executor.proxyTx.Query(sql, executor.values[len(executor.values)-argsCount:]...)
 	if err != nil {
 		return nil, errors.WithStack(err)

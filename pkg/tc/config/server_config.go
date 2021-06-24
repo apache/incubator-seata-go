@@ -38,6 +38,14 @@ func GetRegistryConfig() RegistryConfig {
 func GetConfigCenterConfig() baseConfig.ConfigCenterConfig {
 	return conf.ConfigCenterConfig
 }
+func GetDBType() string {
+	dbType := conf.StoreConfig.DBStoreConfig.DBType
+	if dbType == "" {
+		dbType = "mysql"
+		conf.StoreConfig.DBStoreConfig.DBType = dbType
+	}
+	return dbType
+}
 
 type ServerConfig struct {
 	Host                             string `yaml:"host" default:"127.0.0.1" json:"host,omitempty"`
@@ -120,7 +128,8 @@ func InitConf(confFile string) error {
 	loadConfigCenterConfig(&conf.ConfigCenterConfig)
 	(&conf).CheckValidity()
 	if conf.StoreConfig.StoreMode == "db" && conf.StoreConfig.DBStoreConfig.DSN != "" {
-		engine, err := xorm.NewEngine("mysql", conf.StoreConfig.DBStoreConfig.DSN)
+		//根据db_type加载对应数据库配置，默认mysql
+		engine, err := xorm.NewEngine(GetDBType(), conf.StoreConfig.DBStoreConfig.DSN)
 		if err != nil {
 			panic(err)
 		}

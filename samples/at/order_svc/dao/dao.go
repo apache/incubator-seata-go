@@ -21,6 +21,15 @@ const (
 		original_price, deal_price, quantity) VALUES (?,?,?,?,?,?,?,?)`
 )
 
+// postgres对应的sql预警
+const (
+	insertSoMasterByPostgres = `INSERT INTO so_master (sysno, so_id, buyer_user_sysno, seller_company_code, 
+		receive_division_sysno, receive_address, receive_zip, receive_contact, receive_contact_phone, stock_sysno, 
+        payment_type, so_amt, status, order_date, appid, memo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now(),$14,$15)`
+	insertSoItemByPostgres = `INSERT INTO so_item(sysno, so_sysno, product_sysno, product_name, cost_price, 
+		original_price, deal_price, quantity) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`
+)
+
 type Dao struct {
 	*exec.DB
 }
@@ -75,7 +84,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 	}
 	for _, soMaster := range soMasters {
 		soid := NextID()
-		_, err = tx.Exec(insertSoMaster, soid, soid, soMaster.BuyerUserSysNo, soMaster.SellerCompanyCode, soMaster.ReceiveDivisionSysNo,
+		_, err = tx.Exec(insertSoMasterByPostgres, soid, soid, soMaster.BuyerUserSysNo, soMaster.SellerCompanyCode, soMaster.ReceiveDivisionSysNo,
 			soMaster.ReceiveAddress, soMaster.ReceiveZip, soMaster.ReceiveContact, soMaster.ReceiveContactPhone, soMaster.StockSysNo,
 			soMaster.PaymentType, soMaster.SoAmt, soMaster.Status, soMaster.AppID, soMaster.Memo)
 		if err != nil {
@@ -85,7 +94,7 @@ func (dao *Dao) CreateSO(ctx *context.RootContext, soMasters []*SoMaster) ([]uin
 		soItems := soMaster.SoItems
 		for _, soItem := range soItems {
 			soItemID := NextID()
-			_, err = tx.Exec(insertSoItem, soItemID, soid, soItem.ProductSysNo, soItem.ProductName, soItem.CostPrice, soItem.OriginalPrice,
+			_, err = tx.Exec(insertSoItemByPostgres, soItemID, soid, soItem.ProductSysNo, soItem.ProductName, soItem.CostPrice, soItem.OriginalPrice,
 				soItem.DealPrice, soItem.Quantity)
 			if err != nil {
 				tx.Rollback()

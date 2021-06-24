@@ -27,6 +27,7 @@ const (
 	MysqlFieldValueType_Float64
 	MysqlFieldValueType_Uint8Slice
 	MysqlFieldValueType_Time
+	FieldValueType_String
 )
 
 const timeFormat = "2006-01-02 15:04:05.999999"
@@ -102,6 +103,9 @@ func convertField(field *schema.Field) *PbField {
 		}
 		w.WriteByte(byte(MysqlFieldValueType_Time))
 		w.Write(b)
+	case string:
+		w.WriteByte(byte(FieldValueType_String))
+		w.WriteString(v)
 	default:
 		panic(errors.Errorf("unsupport types:%s,%v", reflect.TypeOf(field.Value).String(), field.Value))
 	}
@@ -144,6 +148,8 @@ func convertPbField(pbField *PbField) *schema.Field {
 		}
 		field.Value = t
 		break
+	case FieldValueType_String:
+		field.Value = string(pbField.Value[1:])
 	default:
 		fmt.Printf("unsupport types:%v", valueType)
 		break

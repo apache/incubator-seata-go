@@ -3,6 +3,8 @@ package exec
 import (
 	"database/sql"
 	"fmt"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
 
@@ -13,9 +15,9 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type DeleteExecutor struct {
@@ -68,7 +70,7 @@ func (executor *DeleteExecutor) AfterImage() (*schema.TableRecords, error) {
 }
 
 func (executor *DeleteExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := extension.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }
 
@@ -86,9 +88,17 @@ func (executor *DeleteExecutor) buildBeforeImageSql(tableMeta schema.TableMeta) 
 			fmt.Fprint(&b, " ")
 		}
 	}
-	fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
-	fmt.Fprint(&b, " FOR UPDATE")
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&b, " FROM %s WHERE ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	} else {
+		fmt.Fprintf(&b, " FROM %s WHERE ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprint(&b, executor.sqlRecognizer.GetWhereCondition())
+		fmt.Fprint(&b, " FOR UPDATE")
+	}
+
 	return b.String()
 }
 

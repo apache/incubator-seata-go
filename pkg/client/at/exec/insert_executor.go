@@ -3,6 +3,8 @@ package exec
 import (
 	"database/sql"
 	"fmt"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
 
@@ -13,10 +15,10 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
 	"github.com/transaction-wg/seata-golang/pkg/util/mysql"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
+	stringUtil "github.com/transaction-wg/seata-golang/pkg/util/string"
 )
 
 type InsertExecutor struct {
@@ -96,9 +98,16 @@ func (executor *InsertExecutor) BuildTableRecords(pkValues []interface{}) (*sche
 			fmt.Fprint(&sb, " ")
 		}
 	}
-	fmt.Fprintf(&sb, "FROM %s ", executor.sqlRecognizer.GetTableName())
-	fmt.Fprintf(&sb, " WHERE `%s` IN ", tableMeta.GetPkName())
-	fmt.Fprint(&sb, sql2.AppendInParam(len(pkValues)))
+	//todo 先根据不同数据库进行一个if判断
+	if executor.proxyTx.DBType == constant.POSTGRESQL {
+		fmt.Fprintf(&sb, "FROM %s ", stringUtil.Escape(executor.sqlRecognizer.GetTableName(), "`"))
+		fmt.Fprintf(&sb, " WHERE %s IN ", tableMeta.GetPkName())
+		fmt.Fprint(&sb, sql2.AppendInParamPostgres(len(pkValues)))
+	} else {
+		fmt.Fprintf(&sb, "FROM %s ", executor.sqlRecognizer.GetTableName())
+		fmt.Fprintf(&sb, " WHERE %s IN ", tableMeta.GetPkName())
+		fmt.Fprint(&sb, sql2.AppendInParam(len(pkValues)))
+	}
 
 	rows, err := executor.proxyTx.Query(sb.String(), pkValues...)
 	if err != nil {
@@ -153,6 +162,6 @@ func (executor *InsertExecutor) GetColumnLen() int {
 }
 
 func (executor *InsertExecutor) getTableMeta() (schema.TableMeta, error) {
-	tableMetaCache := cache.GetTableMetaCache()
+	tableMetaCache := extension.GetTableMetaCache(executor.proxyTx.DBType)
 	return tableMetaCache.GetTableMeta(executor.proxyTx.Tx, executor.sqlRecognizer.GetTableName(), executor.proxyTx.ResourceID)
 }

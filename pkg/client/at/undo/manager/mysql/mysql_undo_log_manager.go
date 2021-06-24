@@ -1,4 +1,4 @@
-package manager
+package mysql
 
 import (
 	"database/sql"
@@ -12,9 +12,11 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema/cache"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/undo"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
 	parser2 "github.com/transaction-wg/seata-golang/pkg/client/at/undo/parser"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
@@ -36,6 +38,11 @@ const (
 	GlobalFinished
 )
 
+func init() {
+	extension.SetUndoLogManager(constant.MYSQL, func() manager.UndoLogManager {
+		return MysqlUndoLogManager{}
+	})
+}
 func (state State) String() string {
 	switch state {
 	case Normal:
@@ -112,7 +119,7 @@ func (manager MysqlUndoLogManager) Undo(db *sql.DB, xid string, branchID int64, 
 	for _, branchUndoLog := range undoLogs {
 		sqlUndoLogs := branchUndoLog.SqlUndoLogs
 		for _, sqlUndoLog := range sqlUndoLogs {
-			tableMeta, err := cache.GetTableMetaCache().GetTableMeta(tx, sqlUndoLog.TableName, resourceID)
+			tableMeta, err := extension.GetTableMetaCache(constant.MYSQL).GetTableMeta(tx, sqlUndoLog.TableName, resourceID)
 			if err != nil {
 				tx.Rollback()
 				return errors.WithStack(err)

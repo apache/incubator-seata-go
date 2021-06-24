@@ -31,8 +31,10 @@ store_config:
   db:
     log_query_limit: 100
     # 数据库seata创建脚本位于 `/scripts/server/db/` 下
-    dsn: "root:root@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-
+    #dsn: "root:root@tcp(localhost:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+    #db_type: "mysql"
+    dsn: "postgres://postgres:123456@172.18.150.90/seata?search_path=public&sslmode=disable" #postgresql
+    db_type: "postgres"
 registry_config:
   type: nacos
   nacos:

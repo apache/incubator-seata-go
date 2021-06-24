@@ -10,6 +10,7 @@ import (
 
 type ProxyTx struct {
 	*sql.Tx
+	DBType     string
 	DSN        string
 	ResourceID string
 	Context    *TxContext

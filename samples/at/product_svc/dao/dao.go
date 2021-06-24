@@ -9,6 +9,10 @@ const (
 	allocateInventorySql = `update seata_product.inventory set available_qty = available_qty - ?, 
 		allocated_qty = allocated_qty + ? where product_sysno = ? and available_qty >= ?`
 )
+const (
+	allocateInventorySqlByPostgres = `update inventory set available_qty = available_qty - $1, 
+		allocated_qty = allocated_qty + $2 where product_sysno = $3 and available_qty >= $4`
+)
 
 type Dao struct {
 	*exec.DB
@@ -25,7 +29,7 @@ func (dao *Dao) AllocateInventory(ctx *context.RootContext, reqs []*AllocateInve
 		return err
 	}
 	for _, req := range reqs {
-		_, err := tx.Exec(allocateInventorySql, req.Qty, req.Qty, req.ProductSysNo, req.Qty)
+		_, err := tx.Exec(allocateInventorySqlByPostgres, req.Qty, req.Qty, req.ProductSysNo, req.Qty)
 		if err != nil {
 			tx.Rollback()
 			return err
