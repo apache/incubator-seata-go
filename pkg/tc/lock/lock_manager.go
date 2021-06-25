@@ -1,50 +1,65 @@
 package lock
 
 import (
-	"sync"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
-import (
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
-	"github.com/transaction-wg/seata-golang/pkg/tc/session"
-)
-
-var lockManager LockManager
-
-type LockManager interface {
-	// AcquireLock Acquire lock boolean.
-	AcquireLock(branchSession *session.BranchSession) bool
-
-	// ReleaseLock Unlock boolean.
-	ReleaseLock(branchSession *session.BranchSession) bool
-
-	// GlobalSession 是没有锁的，所有的锁都在 BranchSession 上，因为
-	// BranchSession 才持有资源，释放 GlobalSession 锁是指释放它所有
-	// 的 BranchSession 上的锁.
-	// ReleaseGlobalSessionLock Unlock boolean.
-	ReleaseGlobalSessionLock(globalSession *session.GlobalSession) bool
-
-	// IsLockable Is lockable boolean.
-	IsLockable(xid string, resourceID string, lockKey string) bool
-
-	// CleanAllLocks Clean all locks.
-	CleanAllLocks()
-
-	GetLockKeyCount() int64
+type LockManager struct {
+	manager storage.LockManager
 }
 
-func Init() {
-	if config.GetStoreConfig().StoreMode == "db" {
-		lockStore := &LockStoreDataBaseDao{engine: config.GetStoreConfig().DBStoreConfig.Engine}
-		lockManager = &DataBaseLocker{LockStore: lockStore}
-	} else {
-		lockManager = &MemoryLocker{
-			LockMap:      &sync.Map{},
-			BucketHolder: &sync.Map{},
-		}
+func NewLockManager(manager storage.LockManager) *LockManager {
+	return &LockManager{manager: manager}
+}
+
+func (locker *LockManager) AcquireLock(branchSession *apis.BranchSession) bool {
+	if branchSession == nil {
+		log.Debug("branchSession can't be null for memory/file locker.")
+		return true
 	}
+
+	if branchSession.LockKey == "" {
+		return true
+	}
+
+	locks := storage.CollectBranchSessionRowLocks(branchSession)
+	if locks == nil || len(locks) == 0 {
+		return true
+	}
+
+	return locker.manager.AcquireLock(locks)
 }
 
-func GetLockManager() LockManager {
-	return lockManager
+func (locker *LockManager) ReleaseLock(branchSession *apis.BranchSession) bool {
+	if branchSession == nil {
+		log.Debug("branchSession can't be null for memory/file locker.")
+		return true
+	}
+
+	if branchSession.LockKey == "" {
+		return true
+	}
+
+	locks := storage.CollectBranchSessionRowLocks(branchSession)
+	if locks == nil || len(locks) == 0 {
+		return true
+	}
+
+	return locker.manager.ReleaseLock(locks)
+}
+
+func (locker *LockManager) ReleaseGlobalSessionLock(globalTransaction *model.GlobalTransaction) bool {
+	locks := make([]*apis.RowLock, 0)
+	for branchSession := range globalTransaction.BranchSessions {
+		rowLocks := storage.CollectBranchSessionRowLocks(branchSession)
+		locks = append(locks, rowLocks...)
+	}
+	return locker.manager.ReleaseLock(locks)
+}
+
+func (locker *LockManager) IsLockable(xid string, resourceID string, lockKey string) bool {
+	return locker.manager.IsLockable(xid, resourceID, lockKey)
 }

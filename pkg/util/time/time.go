@@ -11,13 +11,13 @@ const (
 )
 
 // FormatTimeMillis converts Millisecond to time string
-// tsMillis accurates to millisecond，otherwise, an exception will occur
+// tsMillis accurates to millisecond，otherwise, an error will occur
 func FormatTimeMillis(tsMillis uint64) string {
 	return time.Unix(0, int64(tsMillis*UnixTimeUnitOffset)).Format(TimeFormat)
 }
 
 // FormatDate converts to date string
-// tsMillis accurates to millisecond，otherwise, an exception will occur
+// tsMillis accurates to millisecond，otherwise, an error will occur
 func FormatDate(tsMillis uint64) string {
 	return time.Unix(0, int64(tsMillis*UnixTimeUnitOffset)).Format(DateFormat)
 }

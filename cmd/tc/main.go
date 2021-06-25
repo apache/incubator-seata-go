@@ -1,26 +1,19 @@
 package main
 
 import (
+	"fmt"
+	"net"
 	"os"
-	"strconv"
-)
 
-import (
-	gxnet "github.com/dubbogo/gost/net"
 	"github.com/urfave/cli/v2"
-)
+	"google.golang.org/grpc"
 
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/common"
-	_ "github.com/transaction-wg/seata-golang/pkg/base/config_center/nacos"
-	_ "github.com/transaction-wg/seata-golang/pkg/base/registry/nacos"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
-	"github.com/transaction-wg/seata-golang/pkg/tc/holder"
-	"github.com/transaction-wg/seata-golang/pkg/tc/lock"
-	_ "github.com/transaction-wg/seata-golang/pkg/tc/metrics"
-	"github.com/transaction-wg/seata-golang/pkg/tc/server"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
-	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/config"
+	_ "github.com/opentrx/seata-golang/v2/pkg/tc/metrics"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/server"
+	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/mysql"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
 func main() {
@@ -41,20 +34,25 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					configPath := c.String("config")
-					serverNode := c.Int("serverNode")
-					ip, _ := gxnet.GetLocalIP()
+					config, err := resolveConfiguration(c.Args().Slice())
+					log.Init(config.Log.LogPath, config.Log.LogLevel)
 
-					config.InitConf(configPath)
-					conf := config.GetServerConfig()
-					port, _ := strconv.Atoi(conf.Port)
-					common.GetXID().Init(ip, port)
+					address := fmt.Sprintf(":%v", config.Server.Port)
+					lis, err := net.Listen("tcp", address)
+					if err != nil {
+						log.Fatalf("failed to listen: %v", err)
+					}
 
-					uuid.Init(serverNode)
-					lock.Init()
-					holder.Init()
-					srv := server.NewServer()
-					srv.Start(conf.Host + ":" + conf.Port)
+					s := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(config.GetEnforcementPolicy()),
+						grpc.KeepaliveParams(config.GetServerParameters()))
+
+					tc := server.NewTransactionCoordinator(config)
+					apis.RegisterTransactionManagerServiceServer(s, tc)
+					apis.RegisterResourceManagerServiceServer(s, tc)
+
+					if err := s.Serve(lis); err != nil {
+						log.Fatalf("failed to serve: %v", err)
+					}
 					return nil
 				},
 			},
@@ -65,4 +63,32 @@ func main() {
 	if err != nil {
 		log.Error(err)
 	}
+}
+
+func resolveConfiguration(args []string) (*config.Configuration, error) {
+	var configurationPath string
+
+	if len(args) > 0 {
+		configurationPath = args[0]
+	} else if os.Getenv("SEATA_CONFIGURATION_PATH") != "" {
+		configurationPath = os.Getenv("SEATA_CONFIGURATION_PATH")
+	}
+
+	if configurationPath == "" {
+		return nil, fmt.Errorf("configuration path unspecified")
+	}
+
+	fp, err := os.Open(configurationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	defer fp.Close()
+
+	config, err := config.Parse(fp)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing %s: %v", configurationPath, err)
+	}
+
+	return config, nil
 }

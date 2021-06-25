@@ -1,53 +1,34 @@
-host: "127.0.0.1"
-port: "8091"
-max_rollback_retry_timeout: -1
-max_commit_retry_timeout: -1
-timeout_retry_period: "1s"
-rollbacking_retry_period: "1s"
-committing_retry_period: "1s"
-async_committing_retry_period: "10s"
-log_delete_period: "24h"
-getty_config:
-  session_timeout : "20s"
-  getty_session_param:
-    compress_encoding : false
-    tcp_no_delay : true
-    tcp_keep_alive : true
-    keep_alive_period : "120s"
-    tcp_r_buf_size : 262144
-    tcp_w_buf_size : 524288
-    pkg_rq_size : 1024
-    pkg_wq_size : 512
-    tcp_read_timeout : "1s"
-    tcp_write_timeout : "5s"
-    wait_timeout : "1s"
-    max_msg_len : 4096
-    session_name : "seata-server"
-
-store_config:
-  max_global_session_size: 512
-  max_branch_session_size: 16384
-  mode: db
-  db:
-    log_query_limit: 100
-    # 数据库seata创建脚本位于 `/scripts/server/db/` 下
-    dsn: "root:root@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-
-registry_config:
-  type: nacos
-  nacos:
-    application: seata-server
-    server_addr: 127.0.0.1:8848
-    group: SEATA_GROUP
-    namespace:
-    cluster: default
-    username:
-    password:
-
-config_center:
-  type: nacos
-  nacos: #data_id 默认seata,group默认SEATA_GROUP获取nacos数据id为seata，分组为SEATA_GROUP下面的配置信息，配置信息统一放在一起
-    server_addr: 127.0.0.1:8848
-    group: SEATA_GROUP
-    cluster: default
-    data_id: seata_server
+server:
+  port: 8091
+  maxRollbackRetryTimeout: -1
+  maxCommitRetryTimeout: -1
+  rollbackRetryTimeoutUnlockEnable: true
+  asyncCommittingRetryPeriod: 10s
+  committingRetryPeriod: 1s
+  rollingBackRetryPeriod: 1s
+  timeoutRetryPeriod: 1s
+enforcementPolicy:
+  minTime: 5s
+  permitWithoutStream: true
+serverParameters:
+  maxConnectionIdle: 15s
+  maxConnectionAge: 30s
+  maxConnectionAgeGrace: 5s
+  time: 5s
+  timeout: 1s
+clientParameters:
+  time: 10s
+  timeout: 1s
+  permitWithoutStream: true
+storage:
+  mysql:
+    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+    globaltable: global_table2
+    branchtable: branch_table2
+    locktable: lock_table
+    maxopenconnections: 100
+    maxidleconnections: 20
+    maxlifetime: 4h
+log:
+  logPath: /Users/scottlewis/dksl/current/seata-golang/cmd/profiles/dev/seata.log
+  logLevel: info

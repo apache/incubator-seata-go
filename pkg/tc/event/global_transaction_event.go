@@ -1,10 +1,12 @@
 package event
 
-import "github.com/transaction-wg/seata-golang/pkg/base/meta"
+import (
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+)
 
 const (
 	RoleTC = "tc"
-	RoleTM = "tm"
+	RoleTM = "client"
 	RoleRM = "rm"
 )
 
@@ -14,10 +16,10 @@ type GlobalTransactionEvent struct {
 	name      string
 	beginTime int64
 	endTime   int64
-	status    meta.GlobalStatus
+	status    apis.GlobalSession_GlobalStatus
 }
 
-func NewGlobalTransactionEvent(id int64, role string, name string, beginTime int64, endTime int64, status meta.GlobalStatus) GlobalTransactionEvent {
+func NewGlobalTransactionEvent(id int64, role string, name string, beginTime int64, endTime int64, status apis.GlobalSession_GlobalStatus) GlobalTransactionEvent {
 	return GlobalTransactionEvent{
 		id,
 		role,
@@ -38,4 +40,4 @@ func (event GlobalTransactionEvent) GetBeginTime() int64 { return event.beginTim
 
 func (event GlobalTransactionEvent) GetEndTime() int64 { return event.endTime }
 
-func (event GlobalTransactionEvent) GetStatus() meta.GlobalStatus { return event.status }
+func (event GlobalTransactionEvent) GetStatus() apis.GlobalSession_GlobalStatus { return event.status }

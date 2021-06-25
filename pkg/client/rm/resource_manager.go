@@ -1,42 +1,160 @@
 package rm
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/base/model"
+	"context"
+	"fmt"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
+	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
 )
 
-type ResourceManagerInbound interface {
-	// Commit a branch transaction.
-	BranchCommit(branchType meta.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (meta.BranchStatus, error)
-
-	// Rollback a branch transaction.
-	BranchRollback(branchType meta.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (meta.BranchStatus, error)
-}
+var defaultResourceManager *ResourceManager
 
 type ResourceManagerOutbound interface {
 	// Branch register long.
-	BranchRegister(branchType meta.BranchType, resourceID string, clientID string, xid string, applicationData []byte, lockKeys string) (int64, error)
+	BranchRegister(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType,
+		applicationData []byte, lockKeys string) (int64, error)
 
 	// Branch report.
-	BranchReport(branchType meta.BranchType, xid string, branchID int64, status meta.BranchStatus, applicationData []byte) error
+	BranchReport(ctx context.Context, xid string, branchID int64, branchType apis.BranchSession_BranchType,
+		status apis.BranchSession_BranchStatus, applicationData []byte) error
 
 	// Lock query boolean.
-	LockQuery(branchType meta.BranchType, resourceID string, xid string, lockKeys string) (bool, error)
+	LockQuery(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType, lockKeys string) (bool, error)
 }
 
-type ResourceManager interface {
-	ResourceManagerInbound
-	ResourceManagerOutbound
+type ResourceManagerInterface interface {
+	apis.BranchTransactionServiceServer
 
 	// Register a Resource to be managed by Resource Manager.
-	RegisterResource(resource model.IResource)
+	RegisterResource(resource model.Resource)
 
 	// Unregister a Resource from the Resource Manager.
-	UnregisterResource(resource model.IResource)
-
-	// Get all resources managed by this manager.
-	GetManagedResources() map[string]model.IResource
+	UnregisterResource(resource model.Resource)
 
 	// Get the BranchType.
-	GetBranchType() meta.BranchType
+	GetBranchType() apis.BranchSession_BranchType
+}
+
+type ResourceManager struct {
+	addressing string
+	rpcClient  apis.ResourceManagerServiceClient
+	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
+}
+
+func InitResourceManager(addressing string, client apis.ResourceManagerServiceClient) {
+	defaultResourceManager = &ResourceManager{
+		addressing: addressing,
+		rpcClient:  client,
+		managers:   make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
+	}
+}
+
+func RegisterTransactionServiceServer(rm ResourceManagerInterface) {
+	defaultResourceManager.managers[rm.GetBranchType()] = rm
+}
+
+func GetResourceManager() *ResourceManager {
+	return defaultResourceManager
+}
+
+func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, resourceID string,
+	branchType apis.BranchSession_BranchType, applicationData []byte, lockKeys string) (int64, error) {
+	request := &apis.BranchRegisterRequest{
+		Addressing:      manager.addressing,
+		XID:             xid,
+		ResourceID:      resourceID,
+		LockKey:         lockKeys,
+		BranchType:      branchType,
+		ApplicationData: applicationData,
+	}
+	resp, err := manager.rpcClient.BranchRegister(ctx, request)
+	if err != nil {
+		return 0, err
+	}
+	if resp.ResultCode == apis.ResultCodeSuccess {
+		return resp.BranchID, nil
+	} else {
+		return 0, &exception.TransactionException{
+			Code:    resp.GetExceptionCode(),
+			Message: resp.GetMessage(),
+		}
+	}
+}
+
+func (manager *ResourceManager) BranchReport(ctx context.Context, xid string, branchID int64,
+	branchType apis.BranchSession_BranchType, status apis.BranchSession_BranchStatus, applicationData []byte) error {
+	request := &apis.BranchReportRequest{
+		XID:             xid,
+		BranchID:        branchID,
+		BranchType:      branchType,
+		BranchStatus:    status,
+		ApplicationData: applicationData,
+	}
+	resp, err := manager.rpcClient.BranchReport(ctx, request)
+	if err != nil {
+		return err
+	}
+	if resp.ResultCode == apis.ResultCodeFailed {
+		return &exception.TransactionException{
+			Code:    resp.GetExceptionCode(),
+			Message: resp.GetMessage(),
+		}
+	}
+	return nil
+}
+
+func (manager *ResourceManager) LockQuery(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType,
+	lockKeys string) (bool, error) {
+	request := &apis.GlobalLockQueryRequest{
+		XID:        xid,
+		ResourceID: resourceID,
+		LockKey:    lockKeys,
+		BranchType: branchType,
+	}
+
+	resp, err := manager.rpcClient.LockQuery(ctx, request)
+	if err != nil {
+		return false, err
+	}
+	if resp.ResultCode == apis.ResultCodeSuccess {
+		return resp.Lockable, nil
+	} else {
+		return false, &exception.TransactionException{
+			Code:    resp.GetExceptionCode(),
+			Message: resp.GetMessage(),
+		}
+	}
+}
+
+func (manager ResourceManager) BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error) {
+	rm, ok := manager.managers[request.BranchType]
+	if ok {
+		return rm.BranchCommit(ctx, request)
+	}
+	return &apis.BranchCommitResponse{
+		ResultCode: apis.ResultCodeFailed,
+		Message:    fmt.Sprintf("there is no resource manager for %s", request.BranchType.String()),
+	}, nil
+}
+
+func (manager *ResourceManager) BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
+	rm, ok := manager.managers[request.BranchType]
+	if ok {
+		return rm.BranchRollback(ctx, request)
+	}
+	return &apis.BranchRollbackResponse{
+		ResultCode: apis.ResultCodeFailed,
+		Message:    fmt.Sprintf("there is no resource manager for %s", request.BranchType.String()),
+	}, nil
+}
+
+func (manager *ResourceManager) RegisterResource(resource model.Resource) {
+	rm := manager.managers[resource.GetBranchType()]
+	rm.RegisterResource(resource)
+}
+
+func (manager *ResourceManager) UnregisterResource(resource model.Resource) {
+	rm := manager.managers[resource.GetBranchType()]
+	rm.UnregisterResource(resource)
 }

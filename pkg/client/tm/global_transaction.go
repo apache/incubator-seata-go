@@ -2,18 +2,13 @@ package tm
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/pkg/errors"
-)
 
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/client/config"
-	context2 "github.com/transaction-wg/seata-golang/pkg/client/context"
-	"github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
+	"github.com/opentrx/seata-golang/v2/pkg/client/config"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
 const (
@@ -26,17 +21,17 @@ type SuspendedResourcesHolder struct {
 }
 
 type GlobalTransaction interface {
-	Begin(ctx *context2.RootContext) error
-	BeginWithTimeout(timeout int32, ctx *context2.RootContext) error
-	BeginWithTimeoutAndName(timeout int32, name string, ctx *context2.RootContext) error
-	Commit(ctx *context2.RootContext) error
-	Rollback(ctx *context2.RootContext) error
-	Suspend(unbindXid bool, ctx *context2.RootContext) (*SuspendedResourcesHolder, error)
-	Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *context2.RootContext) error
-	GetStatus(ctx *context2.RootContext) (meta.GlobalStatus, error)
-	GetXid(ctx *context2.RootContext) string
-	GlobalReport(globalStatus meta.GlobalStatus, ctx *context2.RootContext) error
-	GetLocalStatus() meta.GlobalStatus
+	Begin(ctx *ctx.RootContext) error
+	BeginWithTimeout(timeout int32, ctx *ctx.RootContext) error
+	BeginWithTimeoutAndName(timeout int32, name string, ctx *ctx.RootContext) error
+	Commit(ctx *ctx.RootContext) error
+	Rollback(ctx *ctx.RootContext) error
+	Suspend(unbindXid bool, ctx *ctx.RootContext) (*SuspendedResourcesHolder, error)
+	Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *ctx.RootContext) error
+	GetStatus(ctx *ctx.RootContext) (apis.GlobalSession_GlobalStatus, error)
+	GetXid(ctx *ctx.RootContext) string
+	GlobalReport(globalStatus apis.GlobalSession_GlobalStatus, ctx *ctx.RootContext) error
+	GetLocalStatus() apis.GlobalSession_GlobalStatus
 }
 
 type GlobalTransactionRole byte
@@ -62,64 +57,64 @@ func (role GlobalTransactionRole) String() string {
 
 type DefaultGlobalTransaction struct {
 	conf               config.TMConfig
-	Xid                string
-	Status             meta.GlobalStatus
+	XID                string
+	Status             apis.GlobalSession_GlobalStatus
 	Role               GlobalTransactionRole
-	transactionManager TransactionManager
+	transactionManager TransactionManagerInterface
 }
 
-func (gtx *DefaultGlobalTransaction) Begin(ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) Begin(ctx *ctx.RootContext) error {
 	return gtx.BeginWithTimeout(DEFAULT_GLOBAL_TX_TIMEOUT, ctx)
 }
 
-func (gtx *DefaultGlobalTransaction) BeginWithTimeout(timeout int32, ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) BeginWithTimeout(timeout int32, ctx *ctx.RootContext) error {
 	return gtx.BeginWithTimeoutAndName(timeout, DEFAULT_GLOBAL_TX_NAME, ctx)
 }
 
-func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name string, ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name string, ctx *ctx.RootContext) error {
 	if gtx.Role != Launcher {
-		if gtx.Xid == "" {
+		if gtx.XID == "" {
 			return errors.New("xid should not be empty")
 		}
-		log.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.XID)
 		return nil
 	}
-	if gtx.Xid != "" {
+	if gtx.XID != "" {
 		return errors.New("xid should be empty")
 	}
 	if ctx.InGlobalTransaction() {
 		return errors.New("xid should be empty")
 	}
-	xid, err := gtx.transactionManager.Begin("", "", name, timeout)
+	xid, err := gtx.transactionManager.Begin(ctx, name, timeout)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	gtx.Xid = xid
-	gtx.Status = meta.GlobalStatusBegin
+	gtx.XID = xid
+	gtx.Status = apis.Begin
 	ctx.Bind(xid)
-	log.Infof("Begin new global transaction [%s]", xid)
+	log.Infof("begin new global transaction [%s]", xid)
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) Commit(ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) Commit(ctx *ctx.RootContext) error {
 	defer func() {
 		ctxXid := ctx.GetXID()
-		if ctxXid != "" && gtx.Xid == ctxXid {
+		if ctxXid != "" && gtx.XID == ctxXid {
 			ctx.Unbind()
 		}
 	}()
 	if gtx.Role == Participant {
-		log.Debugf("Ignore Commit(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("ignore Commit(): just involved in global transaction [%s]", gtx.XID)
 		return nil
 	}
-	if gtx.Xid == "" {
+	if gtx.XID == "" {
 		return errors.New("xid should not be empty")
 	}
 	retry := gtx.conf.CommitRetryCount
 	for retry > 0 {
-		status, err := gtx.transactionManager.Commit(gtx.Xid)
+		status, err := gtx.transactionManager.Commit(ctx, gtx.XID)
 		if err != nil {
-			log.Errorf("Failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.XID, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -129,29 +124,29 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context2.RootContext) error {
 			return errors.New("Failed to report global commit")
 		}
 	}
-	log.Infof("[%s] commit status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] commit status: %s", gtx.XID, gtx.Status.String())
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) Rollback(ctx *ctx.RootContext) error {
 	defer func() {
 		ctxXid := ctx.GetXID()
-		if ctxXid != "" && gtx.Xid == ctxXid {
+		if ctxXid != "" && gtx.XID == ctxXid {
 			ctx.Unbind()
 		}
 	}()
 	if gtx.Role == Participant {
-		log.Debugf("Ignore Rollback(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("ignore Rollback(): just involved in global transaction [%s]", gtx.XID)
 		return nil
 	}
-	if gtx.Xid == "" {
+	if gtx.XID == "" {
 		return errors.New("xid should not be empty")
 	}
 	retry := gtx.conf.RollbackRetryCount
 	for retry > 0 {
-		status, err := gtx.transactionManager.Rollback(gtx.Xid)
+		status, err := gtx.transactionManager.Rollback(ctx, gtx.XID)
 		if err != nil {
-			log.Errorf("Failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.XID, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -161,38 +156,38 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
 			return errors.New("Failed to report global rollback")
 		}
 	}
-	log.Infof("[%s] rollback status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] rollback status: %s", gtx.XID, gtx.Status.String())
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool, ctx *context2.RootContext) (*SuspendedResourcesHolder, error) {
+func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool, ctx *ctx.RootContext) (*SuspendedResourcesHolder, error) {
 	xid := ctx.GetXID()
 	if xid != "" && unbindXid {
 		ctx.Unbind()
-		log.Debugf("Suspending current transaction,xid = %s", xid)
+		log.Debugf("suspending current transaction,xid = %s", xid)
 	} else {
 		xid = ""
 	}
 	return &SuspendedResourcesHolder{Xid: xid}, nil
 }
 
-func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) Resume(suspendedResourcesHolder *SuspendedResourcesHolder, ctx *ctx.RootContext) error {
 	if suspendedResourcesHolder == nil {
 		return nil
 	}
 	xid := suspendedResourcesHolder.Xid
 	if xid != "" {
 		ctx.Bind(xid)
-		log.Debugf("Resumimg the transaction,xid = %s", xid)
+		log.Debugf("resuming the transaction,xid = %s", xid)
 	}
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) GetStatus(ctx *context2.RootContext) (meta.GlobalStatus, error) {
-	if gtx.Xid == "" {
-		return meta.GlobalStatusUnknown, nil
+func (gtx *DefaultGlobalTransaction) GetStatus(ctx *ctx.RootContext) (apis.GlobalSession_GlobalStatus, error) {
+	if gtx.XID == "" {
+		return apis.UnknownGlobalStatus, nil
 	}
-	status, err := gtx.transactionManager.GetStatus(gtx.Xid)
+	status, err := gtx.transactionManager.GetStatus(ctx, gtx.XID)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -201,19 +196,19 @@ func (gtx *DefaultGlobalTransaction) GetStatus(ctx *context2.RootContext) (meta.
 	return gtx.Status, nil
 }
 
-func (gtx *DefaultGlobalTransaction) GetXid(ctx *context2.RootContext) string {
-	return gtx.Xid
+func (gtx *DefaultGlobalTransaction) GetXid(ctx *ctx.RootContext) string {
+	return gtx.XID
 }
 
-func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus, ctx *context2.RootContext) error {
+func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus apis.GlobalSession_GlobalStatus, ctx *ctx.RootContext) error {
 	defer func() {
 		ctxXid := ctx.GetXID()
-		if ctxXid != "" && gtx.Xid == ctxXid {
+		if ctxXid != "" && gtx.XID == ctxXid {
 			ctx.Unbind()
 		}
 	}()
 
-	if gtx.Xid == "" {
+	if gtx.XID == "" {
 		return errors.New("xid should not be empty")
 	}
 
@@ -221,45 +216,45 @@ func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus
 		return errors.New("globalStatus should not be zero")
 	}
 
-	status, err := gtx.transactionManager.GlobalReport(gtx.Xid, globalStatus)
+	status, err := gtx.transactionManager.GlobalReport(ctx, gtx.XID, globalStatus)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	gtx.Status = status
-	log.Infof("[%s] report status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[%s] report status: %s", gtx.XID, gtx.Status.String())
 	return nil
 }
 
-func (gtx *DefaultGlobalTransaction) GetLocalStatus() meta.GlobalStatus {
+func (gtx *DefaultGlobalTransaction) GetLocalStatus() apis.GlobalSession_GlobalStatus {
 	return gtx.Status
 }
 
 func CreateNew() *DefaultGlobalTransaction {
 	return &DefaultGlobalTransaction{
 		conf:               config.GetTMConfig(),
-		Xid:                "",
-		Status:             meta.GlobalStatusUnknown,
+		XID:                "",
+		Status:             apis.UnknownGlobalStatus,
 		Role:               Launcher,
-		transactionManager: &DefaultTransactionManager{rpcClient: rpc_client.GetRpcRemoteClient()},
+		transactionManager: defaultTransactionManager,
 	}
 }
 
-func GetCurrent(ctx *context2.RootContext) *DefaultGlobalTransaction {
+func GetCurrent(ctx *ctx.RootContext) *DefaultGlobalTransaction {
 	xid := ctx.GetXID()
 	if xid == "" {
 		return nil
 	}
 	return &DefaultGlobalTransaction{
 		conf:               config.GetTMConfig(),
-		Xid:                xid,
-		Status:             meta.GlobalStatusBegin,
+		XID:                xid,
+		Status:             apis.Begin,
 		Role:               Participant,
-		transactionManager: &DefaultTransactionManager{rpcClient: rpc_client.GetRpcRemoteClient()},
+		transactionManager: defaultTransactionManager,
 	}
 }
 
-func GetCurrentOrCreate(ctx *context2.RootContext) *DefaultGlobalTransaction {
+func GetCurrentOrCreate(ctx *ctx.RootContext) *DefaultGlobalTransaction {
 	tx := GetCurrent(ctx)
 	if tx == nil {
 		return CreateNew()

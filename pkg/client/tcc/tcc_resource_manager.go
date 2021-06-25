@@ -1,23 +1,16 @@
 package tcc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
-)
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
-	"github.com/transaction-wg/seata-golang/pkg/client/context"
-	"github.com/transaction-wg/seata-golang/pkg/client/proxy"
-	"github.com/transaction-wg/seata-golang/pkg/client/rm"
-	"github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
+	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
+	"github.com/opentrx/seata-golang/v2/pkg/client/proxy"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
 var (
@@ -26,79 +19,105 @@ var (
 
 var tccResourceManager TCCResourceManager
 
-func InitTCCResourceManager() {
-	tccResourceManager = TCCResourceManager{
-		AbstractResourceManager: rm.NewAbstractResourceManager(rpc_client.GetRpcRemoteClient()),
-	}
-	go tccResourceManager.handleBranchCommit()
-	go tccResourceManager.handleBranchRollback()
-}
-
 type TCCResourceManager struct {
-	rm.AbstractResourceManager
+	ResourceCache map[string]model.Resource
 }
 
-func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchType, xid string, branchID int64,
-	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
-	resource := resourceManager.ResourceCache[resourceID]
+func init() {
+	tccResourceManager = TCCResourceManager{ResourceCache: make(map[string]model.Resource)}
+}
+
+func GetTCCResourceManager() TCCResourceManager {
+	return tccResourceManager
+}
+
+func (resourceManager TCCResourceManager) BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error) {
+	resource := resourceManager.ResourceCache[request.ResourceID]
 	if resource == nil {
-		log.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
-		return 0, errors.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
+		log.Errorf("TCC resource is not exist, resourceID: %s", request.ResourceID)
+		return &apis.BranchCommitResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    fmt.Sprintf("TCC resource is not exist, resourceID: %s", request.ResourceID),
+		}, nil
 	}
 	tccResource := resource.(*TCCResource)
 	if tccResource.CommitMethod == nil {
-		log.Errorf("TCC resource is not available, resourceID: %s", resourceID)
-		return 0, errors.Errorf("TCC resource is not available, resourceID: %s", resourceID)
+		log.Errorf("TCC resource is not available, resourceID: %s", request.ResourceID)
+		return &apis.BranchCommitResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    fmt.Sprintf("TCC resource is not available, resourceID: %s", request.ResourceID),
+		}, nil
 	}
 
 	result := false
-	businessActionContext := getBusinessActionContext(xid, branchID, resourceID, applicationData)
+	businessActionContext := getBusinessActionContext(request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.CommitMethod, nil, args)
-	log.Infof("TCC resource commit result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, xid, branchID, resourceID)
+	log.Debugf("TCC resource commit result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, request.XID, request.BranchID, request.ResourceID)
 	if returnValues != nil && len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
-		return meta.BranchStatusPhasetwoCommitted, nil
+		return &apis.BranchCommitResponse{
+			ResultCode:   apis.ResultCodeSuccess,
+			XID:          request.XID,
+			BranchID:     request.BranchID,
+			BranchStatus: apis.PhaseTwoCommitted,
+		}, nil
 	} else {
-		return meta.BranchStatusPhasetwoCommitFailedRetryable, nil
+		return &apis.BranchCommitResponse{
+			ResultCode:   apis.ResultCodeSuccess,
+			XID:          request.XID,
+			BranchID:     request.BranchID,
+			BranchStatus: apis.PhaseTwoCommitFailedRetryable,
+		}, nil
 	}
 }
 
-func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchType, xid string, branchID int64,
-	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
-	resource := resourceManager.ResourceCache[resourceID]
+func (resourceManager TCCResourceManager) BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
+	resource := resourceManager.ResourceCache[request.ResourceID]
 	if resource == nil {
-		return 0, errors.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
+		return &apis.BranchRollbackResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    fmt.Sprintf("TCC resource is not exist, resourceID: %s", request.ResourceID),
+		}, nil
 	}
 	tccResource := resource.(*TCCResource)
 	if tccResource.RollbackMethod == nil {
-		return 0, errors.Errorf("TCC resource is not available, resourceID: %s", resourceID)
+		return &apis.BranchRollbackResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    fmt.Sprintf("TCC resource is not available, resourceID: %s", request.ResourceID),
+		}, nil
 	}
 
 	result := false
-	businessActionContext := getBusinessActionContext(xid, branchID, resourceID, applicationData)
+	businessActionContext := getBusinessActionContext(request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.RollbackMethod, nil, args)
-	log.Infof("TCC resource rollback result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, xid, branchID, resourceID)
+	log.Debugf("TCC resource rollback result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, request.XID, request.BranchID, request.ResourceID)
 	if returnValues != nil && len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
-		return meta.BranchStatusPhasetwoRollbacked, nil
+		return &apis.BranchRollbackResponse{
+			ResultCode:   apis.ResultCodeSuccess,
+			XID:          request.XID,
+			BranchID:     request.BranchID,
+			BranchStatus: apis.PhaseTwoRolledBack,
+		}, nil
 	} else {
-		return meta.BranchStatusPhasetwoRollbackFailedRetryable, nil
+		return &apis.BranchRollbackResponse{
+			ResultCode:   apis.ResultCodeSuccess,
+			XID:          request.XID,
+			BranchID:     request.BranchID,
+			BranchStatus: apis.PhaseTwoRollbackFailedRetryable,
+		}, nil
 	}
 }
 
-func (resourceManager TCCResourceManager) GetBranchType() meta.BranchType {
-	return meta.BranchTypeTCC
-}
-
-func getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *context.BusinessActionContext {
+func getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *ctx.BusinessActionContext {
 	var (
 		tccContext       = make(map[string]interface{})
 		actionContextMap = make(map[string]interface{})
@@ -115,7 +134,7 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 		actionContextMap = acMap.(map[string]interface{})
 	}
 
-	businessActionContext := &context.BusinessActionContext{
+	businessActionContext := &ctx.BusinessActionContext{
 		XID:           xid,
 		BranchID:      strconv.FormatInt(branchID, 10),
 		ActionName:    resourceID,
@@ -124,76 +143,14 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 	return businessActionContext
 }
 
-func (resourceManager TCCResourceManager) handleBranchCommit() {
-	for {
-		rpcRMMessage := <-resourceManager.RpcClient.BranchCommitRequestChannel
-		rpcMessage := rpcRMMessage.RpcMessage
-		serviceAddress := rpcRMMessage.ServerAddress
-
-		req := rpcMessage.Body.(protocal.BranchCommitRequest)
-		resp := resourceManager.doBranchCommit(req)
-		resourceManager.RpcClient.SendResponse(rpcMessage, serviceAddress, resp)
-	}
+func (resourceManager TCCResourceManager) RegisterResource(resource model.Resource) {
+	resourceManager.ResourceCache[resource.GetResourceID()] = resource
 }
 
-func (resourceManager TCCResourceManager) handleBranchRollback() {
-	for {
-		rpcRMMessage := <-resourceManager.RpcClient.BranchRollbackRequestChannel
-		rpcMessage := rpcRMMessage.RpcMessage
-		serviceAddress := rpcRMMessage.ServerAddress
-
-		req := rpcMessage.Body.(protocal.BranchRollbackRequest)
-		resp := resourceManager.doBranchRollback(req)
-		resourceManager.RpcClient.SendResponse(rpcMessage, serviceAddress, resp)
-	}
+func (resourceManager TCCResourceManager) UnregisterResource(resource model.Resource) {
+	delete(resourceManager.ResourceCache, resource.GetResourceID())
 }
 
-func (resourceManager TCCResourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
-	var resp = protocal.BranchCommitResponse{}
-
-	log.Infof("Branch committing: %s %d %s %s", request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
-	status, err := resourceManager.BranchCommit(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
-	if err != nil {
-		resp.ResultCode = protocal.ResultCodeFailed
-		var trxException *meta.TransactionException
-		if errors.As(err, &trxException) {
-			resp.TransactionExceptionCode = trxException.Code
-			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
-			return resp
-		}
-		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
-		return resp
-	}
-	resp.XID = request.XID
-	resp.BranchID = request.BranchID
-	resp.BranchStatus = status
-	resp.ResultCode = protocal.ResultCodeSuccess
-	return resp
-}
-
-func (resourceManager TCCResourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
-	var resp = protocal.BranchRollbackResponse{}
-
-	log.Infof("Branch rollbacking: %s %d %s", request.XID, request.BranchID, request.ResourceID)
-	status, err := resourceManager.BranchRollback(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
-	if err != nil {
-		resp.ResultCode = protocal.ResultCodeFailed
-		var trxException *meta.TransactionException
-		if errors.As(err, &trxException) {
-			resp.TransactionExceptionCode = trxException.Code
-			resp.Msg = fmt.Sprintf("TransactionException[%s]", err.Error())
-			log.Errorf("Catch TransactionException while do RPC, request: %v", request)
-			return resp
-		}
-		resp.Msg = fmt.Sprintf("RuntimeException[%s]", err.Error())
-		log.Errorf("Catch RuntimeException while do RPC, request: %v", request)
-		return resp
-	}
-	resp.XID = request.XID
-	resp.BranchID = request.BranchID
-	resp.BranchStatus = status
-	resp.ResultCode = protocal.ResultCodeSuccess
-	return resp
+func (resourceManager TCCResourceManager) GetBranchType() apis.BranchSession_BranchType {
+	return apis.TCC
 }

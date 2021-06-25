@@ -2,21 +2,17 @@ package tcc
 
 import (
 	"encoding/json"
+	"github.com/opentrx/seata-golang/v2/pkg/client/rm"
 	"reflect"
 	"strconv"
-)
 
-import (
 	gxnet "github.com/dubbogo/gost/net"
 	"github.com/pkg/errors"
-)
 
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/client/context"
-	"github.com/transaction-wg/seata-golang/pkg/client/proxy"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
-	"github.com/transaction-wg/seata-golang/pkg/util/time"
+	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
+	"github.com/opentrx/seata-golang/v2/pkg/client/proxy"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/util/time"
 )
 
 var (
@@ -36,13 +32,13 @@ var (
 	TCC_METHOD_ARGUMENTS = "arguments"
 	TCC_METHOD_RESULT    = "result"
 
-	businessActionContextType = reflect.TypeOf(&context.BusinessActionContext{})
+	businessActionContextType = reflect.TypeOf(&ctx.BusinessActionContext{})
 )
 
 type TccService interface {
-	Try(ctx *context.BusinessActionContext) (bool, error)
-	Confirm(ctx *context.BusinessActionContext) bool
-	Cancel(ctx *context.BusinessActionContext) bool
+	Try(ctx *ctx.BusinessActionContext) (bool, error)
+	Confirm(ctx *ctx.BusinessActionContext) bool
+	Cancel(ctx *ctx.BusinessActionContext) bool
 }
 
 type TccProxyService interface {
@@ -51,7 +47,7 @@ type TccProxyService interface {
 
 func ImplementTCC(v TccProxyService) {
 	valueOf := reflect.ValueOf(v)
-	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
+	log.Debugf("[implement] reflect.TypeOf: %s", valueOf.String())
 
 	valueOfElem := valueOf.Elem()
 	typeOf := valueOfElem.Type()
@@ -65,7 +61,7 @@ func ImplementTCC(v TccProxyService) {
 	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			businessContextValue := in[0]
-			businessActionContext := businessContextValue.Interface().(*context.BusinessActionContext)
+			businessActionContext := businessContextValue.Interface().(*ctx.BusinessActionContext)
 			rootContext := businessActionContext.RootContext
 			businessActionContext.XID = rootContext.GetXID()
 			businessActionContext.ActionName = resource.ActionName
@@ -100,8 +96,6 @@ func ImplementTCC(v TccProxyService) {
 			tryMethodDesc := proxy.Register(proxyService, methodName)
 
 			tccResource := &TCCResource{
-				ResourceGroupID:    "",
-				AppName:            "",
 				ActionName:         actionName,
 				PrepareMethodName:  TRY_METHOD,
 				CommitMethodName:   COMMIT_METHOD,
@@ -119,7 +113,7 @@ func ImplementTCC(v TccProxyService) {
 	}
 }
 
-func proceed(methodDesc *proxy.MethodDescriptor, ctx *context.BusinessActionContext, resource *TCCResource) ([]reflect.Value, error) {
+func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext, resource *TCCResource) ([]reflect.Value, error) {
 	var (
 		args = make([]interface{}, 0)
 	)
@@ -136,7 +130,7 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *context.BusinessActionCont
 	return returnValues, nil
 }
 
-func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResource) (string, error) {
+func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) (string, error) {
 	ctx.ActionContext[ACTION_START_TIME] = time.CurrentTimeMillis()
 	ctx.ActionContext[PREPARE_METHOD] = resource.PrepareMethodName
 	ctx.ActionContext[COMMIT_METHOD] = resource.CommitMethodName
@@ -158,7 +152,7 @@ func doTccActionLogStore(ctx *context.BusinessActionContext, resource *TCCResour
 		return "", err
 	}
 
-	branchID, err := tccResourceManager.BranchRegister(meta.BranchTypeTCC, ctx.ActionName, "", ctx.XID, applicationData, "")
+	branchID, err := rm.GetResourceManager().BranchRegister(ctx.RootContext, ctx.XID, resource.GetResourceID(), resource.GetBranchType(), applicationData, "")
 	if err != nil {
 		log.Errorf("TCC branch Register error, xid: %s", ctx.XID)
 		return "", errors.WithStack(err)

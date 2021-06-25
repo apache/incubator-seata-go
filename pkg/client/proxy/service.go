@@ -6,11 +6,9 @@ import (
 	"sync"
 	"unicode"
 	"unicode/utf8"
-)
 
-import (
-	context2 "github.com/transaction-wg/seata-golang/pkg/client/context"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
 var (
@@ -137,7 +135,7 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 }
 
 // Invoke
-func Invoke(methodDesc *MethodDescriptor, ctx *context2.RootContext, args []interface{}) []reflect.Value {
+func Invoke(methodDesc *MethodDescriptor, ctx *ctx.RootContext, args []interface{}) []reflect.Value {
 
 	in := []reflect.Value{methodDesc.CallerValue}
 

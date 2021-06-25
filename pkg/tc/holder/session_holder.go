@@ -1,101 +1,142 @@
 package holder
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
-	"github.com/transaction-wg/seata-golang/pkg/tc/lock"
-	"github.com/transaction-wg/seata-golang/pkg/tc/session"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
-)
-
-var (
-	ASYNC_COMMITTING_SESSION_MANAGER_NAME  = "async.commit.data"
-	RETRY_COMMITTING_SESSION_MANAGER_NAME  = "retry.commit.data"
-	RETRY_ROLLBACKING_SESSION_MANAGER_NAME = "retry.rollback.data"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
 )
 
 type SessionHolder struct {
-	RootSessionManager             SessionManager
-	AsyncCommittingSessionManager  SessionManager
-	RetryCommittingSessionManager  SessionManager
-	RetryRollbackingSessionManager SessionManager
+	manager storage.SessionManager
 }
 
-var sessionHolder SessionHolder
-
-func Init() {
-	if config.GetStoreConfig().StoreMode == "file" {
-		sessionHolder = SessionHolder{
-			RootSessionManager:             NewFileBasedSessionManager(config.GetStoreConfig().FileStoreConfig),
-			AsyncCommittingSessionManager:  NewDefaultSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME),
-			RetryCommittingSessionManager:  NewDefaultSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME),
-			RetryRollbackingSessionManager: NewDefaultSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME),
-		}
-		sessionHolder.reload()
-	}
-	if config.GetStoreConfig().StoreMode == "db" {
-		sessionHolder = SessionHolder{
-			RootSessionManager:             NewDataBaseSessionManager("", config.GetStoreConfig().DBStoreConfig),
-			AsyncCommittingSessionManager:  NewDataBaseSessionManager(ASYNC_COMMITTING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
-			RetryCommittingSessionManager:  NewDataBaseSessionManager(RETRY_COMMITTING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
-			RetryRollbackingSessionManager: NewDataBaseSessionManager(RETRY_ROLLBACKING_SESSION_MANAGER_NAME, config.GetStoreConfig().DBStoreConfig),
-		}
-		sessionHolder.reload()
-	}
+func NewSessionHolder(manager storage.SessionManager) *SessionHolder {
+	return &SessionHolder{manager: manager}
 }
 
-func GetSessionHolder() SessionHolder {
-	return sessionHolder
+func (holder *SessionHolder) AddGlobalSession(session *apis.GlobalSession) error {
+	return holder.manager.AddGlobalSession(session)
 }
 
-func (sessionHolder SessionHolder) FindGlobalSession(xid string) *session.GlobalSession {
-	return sessionHolder.FindGlobalSessionWithBranchSessions(xid, true)
+func (holder *SessionHolder) FindGlobalSession(xid string) *apis.GlobalSession {
+	return holder.manager.FindGlobalSession(xid)
 }
 
-func (sessionHolder SessionHolder) FindGlobalSessionWithBranchSessions(xid string, withBranchSessions bool) *session.GlobalSession {
-	return sessionHolder.RootSessionManager.FindGlobalSessionWithBranchSessions(xid, withBranchSessions)
-}
-
-func (sessionHolder SessionHolder) reload() {
-	sessionManager, reloadable := sessionHolder.RootSessionManager.(Reloadable)
-	if reloadable {
-		sessionManager.Reload()
-
-		reloadedSessions := sessionHolder.RootSessionManager.AllSessions()
-		if reloadedSessions != nil && len(reloadedSessions) > 0 {
-			for _, globalSession := range reloadedSessions {
-				switch globalSession.Status {
-				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
-					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
-					meta.GlobalStatusFinished:
-					log.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
-					break
-				case meta.GlobalStatusAsyncCommitting:
-					sessionHolder.AsyncCommittingSessionManager.AddGlobalSession(globalSession)
-					break
-				default:
-					branchSessions := globalSession.GetSortedBranches()
-					for _, branchSession := range branchSessions {
-						lock.GetLockManager().AcquireLock(branchSession)
-					}
-					switch globalSession.Status {
-					case meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying:
-						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
-						break
-					case meta.GlobalStatusRollbacking, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollbacking,
-						meta.GlobalStatusTimeoutRollbackRetrying:
-						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
-						break
-					case meta.GlobalStatusBegin:
-						globalSession.Active = true
-						break
-					default:
-						log.Errorf("NOT properly handled %s", globalSession.Status)
-						break
-					}
-					break
-				}
+func (holder *SessionHolder) FindGlobalTransaction(xid string) *model.GlobalTransaction {
+	globalSession := holder.manager.FindGlobalSession(xid)
+	if globalSession != nil {
+		gt := &model.GlobalTransaction{GlobalSession: globalSession}
+		branchSessions := holder.manager.FindBranchSessions(xid)
+		if branchSessions != nil && len(branchSessions) != 0 {
+			gt.BranchSessions = make(map[*apis.BranchSession]bool, len(branchSessions))
+			for i := 0; i < len(branchSessions); i++ {
+				gt.BranchSessions[branchSessions[i]] = true
 			}
 		}
+		return gt
 	}
+	return nil
+}
+
+func (holder *SessionHolder) FindAsyncCommittingGlobalTransactions() []*model.GlobalTransaction {
+	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+		apis.AsyncCommitting,
+	})
+}
+
+func (holder *SessionHolder) FindRetryCommittingGlobalTransactions() []*model.GlobalTransaction {
+	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+		apis.CommitRetrying,
+	})
+}
+
+func (holder *SessionHolder) FindRetryRollbackGlobalTransactions() []*model.GlobalTransaction {
+	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+		apis.RollingBack, apis.RollbackRetrying, apis.TimeoutRollingBack, apis.TimeoutRollbackRetrying,
+	})
+}
+
+func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSession_GlobalStatus) []*model.GlobalTransaction {
+	gts := holder.manager.FindGlobalSessions(statuses)
+	if gts == nil || len(gts) == 0 {
+		return nil
+	}
+
+	xids := make([]string, 0, len(gts))
+	for _, gt := range gts {
+		xids = append(xids, gt.XID)
+	}
+	branchSessions := holder.manager.FindBatchBranchSessions(xids)
+	branchSessionMap := make(map[string][]*apis.BranchSession)
+	for i := 0; i < len(branchSessions); i++ {
+		branchSessionSlice, ok := branchSessionMap[branchSessions[i].XID]
+		if ok {
+			branchSessionSlice = append(branchSessionSlice, branchSessions[i])
+			branchSessionMap[branchSessions[i].XID] = branchSessionSlice
+		} else {
+			branchSessionSlice = make([]*apis.BranchSession, 0)
+			branchSessionSlice = append(branchSessionSlice, branchSessions[i])
+			branchSessionMap[branchSessions[i].XID] = branchSessionSlice
+		}
+	}
+
+	globalTransactions := make([]*model.GlobalTransaction, 0, len(gts))
+	for j := 0; j < len(gts); j++ {
+		globalTransaction := &model.GlobalTransaction{
+			GlobalSession:  gts[j],
+			BranchSessions: make(map[*apis.BranchSession]bool, 0),
+		}
+
+		branchSessionSlice := branchSessionMap[gts[j].XID]
+		if branchSessionSlice != nil && len(branchSessionSlice) > 0 {
+			for x := 0; x < len(branchSessionSlice); x++ {
+				globalTransaction.BranchSessions[branchSessionSlice[x]] = true
+			}
+		}
+		globalTransactions = append(globalTransactions, globalTransaction)
+	}
+
+	return globalTransactions
+}
+
+func (holder *SessionHolder) AllSessions() []*apis.GlobalSession {
+	return holder.manager.AllSessions()
+}
+
+func (holder *SessionHolder) UpdateGlobalSessionStatus(session *apis.GlobalSession, status apis.GlobalSession_GlobalStatus) error {
+	session.Status = status
+	return holder.manager.UpdateGlobalSessionStatus(session, status)
+}
+
+func (holder *SessionHolder) InactiveGlobalSession(session *apis.GlobalSession) error {
+	session.Active = false
+	return holder.manager.InactiveGlobalSession(session)
+}
+
+func (holder *SessionHolder) RemoveGlobalSession(session *apis.GlobalSession) error {
+	return holder.manager.RemoveGlobalSession(session)
+}
+
+func (holder *SessionHolder) RemoveGlobalTransaction(globalTransaction *model.GlobalTransaction) error {
+	holder.manager.RemoveGlobalSession(globalTransaction.GlobalSession)
+	for bs := range globalTransaction.BranchSessions {
+		holder.manager.RemoveBranchSession(globalTransaction.GlobalSession, bs)
+	}
+	return nil
+}
+
+func (holder *SessionHolder) AddBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
+	return holder.manager.AddBranchSession(globalSession, session)
+}
+
+func (holder *SessionHolder) FindBranchSession(xid string) []*apis.BranchSession {
+	return holder.manager.FindBranchSessions(xid)
+}
+
+func (holder *SessionHolder) UpdateBranchSessionStatus(session *apis.BranchSession, status apis.BranchSession_BranchStatus) error {
+	return holder.manager.UpdateBranchSessionStatus(session, status)
+}
+
+func (holder *SessionHolder) RemoveBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
+	return holder.manager.RemoveBranchSession(globalSession, session)
 }

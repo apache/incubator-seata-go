@@ -3,21 +3,20 @@ package tm
 import (
 	"context"
 	"reflect"
-)
 
-import (
 	"github.com/pkg/errors"
+
+	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
+	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
+	"github.com/opentrx/seata-golang/v2/pkg/client/proxy"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
-import (
-	context2 "github.com/transaction-wg/seata-golang/pkg/client/context"
-	"github.com/transaction-wg/seata-golang/pkg/client/proxy"
-	"github.com/transaction-wg/seata-golang/pkg/util/log"
-)
+import ()
 
 type GlobalTransactionProxyService interface {
 	GetProxyService() interface{}
-	GetMethodTransactionInfo(methodName string) *TransactionInfo
+	GetMethodTransactionInfo(methodName string) *model.TransactionInfo
 }
 
 var (
@@ -26,7 +25,7 @@ var (
 
 func Implement(v GlobalTransactionProxyService) {
 	valueOf := reflect.ValueOf(v)
-	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
+	log.Debugf("[implement] reflect.TypeOf: %s", valueOf.String())
 
 	valueOfElem := valueOf.Elem()
 	typeOf := valueOfElem.Type()
@@ -38,7 +37,7 @@ func Implement(v GlobalTransactionProxyService) {
 	}
 	proxyService := v.GetProxyService()
 
-	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) func(in []reflect.Value) []reflect.Value {
+	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, txInfo *model.TransactionInfo) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			var (
 				args                     = make([]interface{}, 0)
@@ -57,12 +56,12 @@ func Implement(v GlobalTransactionProxyService) {
 				panic(errors.New("args does not match"))
 			}
 
-			invCtx := context2.NewRootContext(context.Background())
+			invCtx := ctx.NewRootContext(context.Background())
 			for i := 0; i < inNum; i++ {
 				if in[i].Type().String() == "context.Context" {
 					if !in[i].IsNil() {
 						// the user declared context as method's parameter
-						invCtx = context2.NewRootContext(in[i].Interface().(context.Context))
+						invCtx = ctx.NewRootContext(in[i].Interface().(context.Context))
 					}
 				}
 				args = append(args, in[i].Interface())
@@ -72,29 +71,29 @@ func Implement(v GlobalTransactionProxyService) {
 			defer tx.Resume(suspendedResourcesHolder, invCtx)
 
 			switch txInfo.Propagation {
-			case REQUIRED:
+			case model.REQUIRED:
 				break
-			case REQUIRES_NEW:
+			case model.REQUIRES_NEW:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				break
-			case NOT_SUPPORTED:
+			case model.NOT_SUPPORTED:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
 				return returnValues
-			case SUPPORTS:
+			case model.SUPPORTS:
 				if !invCtx.InGlobalTransaction() {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
 				break
-			case NEVER:
+			case model.NEVER:
 				if invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s", invCtx.GetXID()))
 				} else {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
-			case MANDATORY:
+			case model.MANDATORY:
 				if !invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
 				}
@@ -118,8 +117,7 @@ func Implement(v GlobalTransactionProxyService) {
 				if rollbackErr != nil {
 					return proxy.ReturnWithError(methodDesc, errors.WithStack(rollbackErr))
 				}
-				// return returnValues with root cause error instead of fixed string
-				return returnValues
+				return proxy.ReturnWithError(methodDesc, errors.New("rollback failure"))
 			}
 
 			commitErr := tx.Commit(invCtx)

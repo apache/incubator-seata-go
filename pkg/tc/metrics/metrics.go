@@ -1,17 +1,13 @@
 package metrics
 
 import (
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"sort"
-)
 
-import (
 	"github.com/rcrowley/go-metrics"
-)
 
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/meta"
-	"github.com/transaction-wg/seata-golang/pkg/tc/event"
-	"github.com/transaction-wg/seata-golang/pkg/util/runtime"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/event"
+	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
 )
 
 var (
@@ -29,7 +25,7 @@ var (
 
 	ROLE_VALUE_TC = "tc"
 
-	ROLE_VALUE_TM = "tm"
+	ROLE_VALUE_TM = "client"
 
 	ROLE_VALUE_RM = "rm"
 
@@ -198,31 +194,31 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 	for {
 		gtv := <-event.EventBus.GlobalTransactionEventChannel
 		switch gtv.GetStatus() {
-		case meta.GlobalStatusBegin:
+		case apis.Begin:
 			COUNTER_ACTIVE.Inc(1)
 			break
-		case meta.GlobalStatusCommitted:
+		case apis.Committed:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_COMMITTED.Inc(1)
 			SUMMARY_COMMITTED.Mark(1)
 			TIMER_COMMITTED.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 			break
-		case meta.GlobalStatusRollbacked:
+		case apis.RolledBack:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_ROLLBACKED.Inc(1)
 			SUMMARY_ROLLBACKED.Mark(1)
 			TIMER_ROLLBACK.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 			break
-		case meta.GlobalStatusCommitFailed:
+		case apis.CommitFailed:
 			COUNTER_ACTIVE.Dec(1)
 			break
-		case meta.GlobalStatusRollbackFailed:
+		case apis.RollbackFailed:
 			COUNTER_ACTIVE.Dec(1)
 			break
-		case meta.GlobalStatusTimeoutRollbacked:
+		case apis.TimeoutRolledBack:
 			COUNTER_ACTIVE.Dec(1)
 			break
-		case meta.GlobalStatusTimeoutRollbackFailed:
+		case apis.TimeoutRollbackFailed:
 			COUNTER_ACTIVE.Dec(1)
 			break
 		default:
