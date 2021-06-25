@@ -1,21 +1,16 @@
 package holder
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"
 )
 
 func TestFileBasedSessionManager_AddGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
@@ -23,7 +18,7 @@ func TestFileBasedSessionManager_AddGlobalSession(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_FindGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
 	expected := sessionManager.FindGlobalSession(gs.XID)
@@ -39,7 +34,7 @@ func TestFileBasedSessionManager_FindGlobalSession(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_UpdateGlobalSessionStatus(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
 	gs.Status = meta.GlobalStatusFinished
@@ -53,7 +48,7 @@ func TestFileBasedSessionManager_UpdateGlobalSessionStatus(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_RemoveGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
@@ -64,7 +59,7 @@ func TestFileBasedSessionManager_RemoveGlobalSession(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_AddBranchSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	bs := branchSessionProvider(gs)
 
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
@@ -75,7 +70,7 @@ func TestFileBasedSessionManager_AddBranchSession(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_UpdateBranchSessionStatus(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	bs := branchSessionProvider(gs)
 
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
@@ -87,7 +82,7 @@ func TestFileBasedSessionManager_UpdateBranchSessionStatus(t *testing.T) {
 }
 
 func TestFileBasedSessionManager_RemoveBranchSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	bs := branchSessionProvider(gs)
 
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
