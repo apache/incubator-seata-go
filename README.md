@@ -28,7 +28,7 @@ mysql driver 集成 seata-golang 的工作已经完成，该 driver 基于 https
 
 ### GRPC 版本
 
-为了更加贴近云原生，我们将通信层换成了 grpc 协议，简化了服务发现机制，可使用域名或 host 进行 rpc 调用，更加贴近云原生，而 v1 版本使用基于 tcp 的 rpc 协议，需要在 tc 内部维护 client 的注册信息，实现上相对更复杂。grpc 版本的 demo 见于 https://github.com/opentrx/seata-go-samples/tree/v2。理论上使用 grpc 协议的 seata 可以集成到 istio，实现链路追踪。
+为了更加贴近云原生，我们将通信层换成了 grpc 协议，简化了服务发现机制，可使用域名或 host 进行 rpc 调用，更加贴近云原生，而 v1 版本使用基于 tcp 的 rpc 协议，需要在 tc 内部维护 client 的注册信息，实现上相对更复杂。grpc 版本的代码见于 https://github.com/opentrx/seata-golang/tree/v2，demo 见于 https://github.com/opentrx/seata-go-samples/tree/v2。理论上使用 grpc 协议的 seata 可以集成到 istio，实现链路追踪。
 
 ### 运行 TC
 
