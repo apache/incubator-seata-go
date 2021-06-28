@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func InitServereConfig(t *testing.T) {
+func InitServerConfig(t *testing.T) {
 	sc := config.StoreConfig{
 		MaxGlobalSessionSize: config.DefaultMaxGlobalSessionSize,
 	}
