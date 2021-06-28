@@ -10,7 +10,7 @@ import (
 func TestGlobalSession_Encode_Decode(t *testing.T) {
 
 	// gs.Encode() needs a valid server config
-	testutil.InitServereConfig(t)
+	testutil.InitServerConfig(t)
 
 	gs := globalSessionProvider()
 	result, err := gs.Encode()
