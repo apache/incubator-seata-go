@@ -58,7 +58,7 @@ func globalSessionsProvider() []*session.GlobalSession {
 }
 
 func globalSessionProvider(t *testing.T) *session.GlobalSession {
-	testutil.InitServereConfig(t)
+	testutil.InitServerConfig(t)
 
 	common.GetXID().Init("127.0.0.1", 9876)
 
