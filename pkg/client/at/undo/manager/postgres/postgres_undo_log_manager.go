@@ -3,8 +3,6 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
-	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
 	"strings"
 	"time"
 )
@@ -14,10 +12,12 @@ import (
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/undo"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/undo/manager"
 	parser2 "github.com/transaction-wg/seata-golang/pkg/client/at/undo/parser"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
+	sql2 "github.com/transaction-wg/seata-golang/pkg/util/sql"
 )
 
 const (

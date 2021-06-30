@@ -2,11 +2,11 @@ package exec
 
 import (
 	"database/sql"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"time"
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"

@@ -3,8 +3,6 @@ package exec
 import (
 	"database/sql"
 	"fmt"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"strings"
 )
 
@@ -13,6 +11,8 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/proxy_tx"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sql/schema"
 	"github.com/transaction-wg/seata-golang/pkg/client/at/sqlparser"
