@@ -28,6 +28,7 @@ func main() {
 	exec.InitDataResourceManager()
 
 	sqlDB, err := sql.Open("postgres", config.GetATConfig().DSN)
+	//sqlDB, err := sql.Open("mysql", config.GetATConfig().DSN)
 	if err != nil {
 		panic(err)
 	}

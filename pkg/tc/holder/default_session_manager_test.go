@@ -15,7 +15,7 @@ import (
 )
 
 func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 
 	sessionManager := NewDefaultSessionManager("default")
 	sessionManager.AddGlobalSession(gs)
@@ -23,7 +23,7 @@ func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T
 }
 
 func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
-	gs := globalSessionProvider()
+	gs := globalSessionProvider(t)
 	sessionManager := NewDefaultSessionManager("default")
 	sessionManager.AddGlobalSession(gs)
 	expected := sessionManager.FindGlobalSession(gs.XID)
@@ -61,7 +61,9 @@ func globalSessionsProvider() []*session.GlobalSession {
 	return result
 }
 
-func globalSessionProvider() *session.GlobalSession {
+func globalSessionProvider(t *testing.T) *session.GlobalSession {
+	testutil.InitServerConfig(t)
+
 	common.GetXID().Init("127.0.0.1", 9876)
 
 	gs := session.NewGlobalSession(

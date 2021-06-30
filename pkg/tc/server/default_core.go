@@ -88,7 +88,7 @@ func (core *ATCore) branchSessionLock(globalSession *session.GlobalSession, bran
 	if !result {
 		return &meta.TransactionException{
 			Code: meta.TransactionExceptionCodeLockKeyConflict,
-			Message: fmt.Sprintf("Global lock acquire failed xid = %s branchID = %d",
+			Message: fmt.Sprintf("Branch lock acquire failed xid = %s branchID = %d",
 				globalSession.XID, branchSession.BranchID),
 		}
 	}

@@ -170,8 +170,6 @@ func (gtx *DefaultGlobalTransaction) Suspend(unbindXid bool, ctx *context2.RootC
 	if xid != "" && unbindXid {
 		ctx.Unbind()
 		log.Debugf("Suspending current transaction,xid = %s", xid)
-	} else {
-		xid = ""
 	}
 	return &SuspendedResourcesHolder{Xid: xid}, nil
 }
