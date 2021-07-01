@@ -15,6 +15,8 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
 )
 
+// Init init resource manager，init transaction manager, expose a port to listen tc
+// call back request.
 func Init(config *config.Configuration) {
 	conn, err := grpc.Dial(config.ServerAddressing,
 		grpc.WithInsecure(),

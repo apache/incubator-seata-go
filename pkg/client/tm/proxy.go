@@ -71,29 +71,29 @@ func Implement(v GlobalTransactionProxyService) {
 			defer tx.Resume(suspendedResourcesHolder, invCtx)
 
 			switch txInfo.Propagation {
-			case model.REQUIRED:
+			case model.Required:
 				break
-			case model.REQUIRES_NEW:
+			case model.RequiresNew:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				break
-			case model.NOT_SUPPORTED:
+			case model.NotSupported:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
 				return returnValues
-			case model.SUPPORTS:
+			case model.Supports:
 				if !invCtx.InGlobalTransaction() {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
 				break
-			case model.NEVER:
+			case model.Never:
 				if invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s", invCtx.GetXID()))
 				} else {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
-			case model.MANDATORY:
+			case model.Mandatory:
 				if !invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
 				}

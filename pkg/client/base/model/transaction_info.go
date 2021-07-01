@@ -2,59 +2,44 @@ package model
 
 import "fmt"
 
+// Propagation transaction isolation level
 type Propagation byte
 
 const (
-	/**
-	 * The REQUIRED.
-	 */
-	REQUIRED Propagation = iota
+	Required Propagation = iota
 
-	/**
-	 * The REQUIRES_NEW.
-	 */
-	REQUIRES_NEW
+	RequiresNew
 
-	/**
-	 * The NOT_SUPPORTED
-	 */
-	NOT_SUPPORTED
+	NotSupported
 
-	/**
-	 * The SUPPORTS
-	 */
-	SUPPORTS
+	Supports
 
-	/**
-	 * The NEVER
-	 */
-	NEVER
+	Never
 
-	/**
-	 * The MANDATORY
-	 */
-	MANDATORY
+	Mandatory
 )
 
+// String
 func (t Propagation) String() string {
 	switch t {
-	case REQUIRED:
-		return "REQUIRED"
-	case REQUIRES_NEW:
+	case Required:
+		return "Required"
+	case RequiresNew:
 		return "REQUIRES_NEW"
-	case NOT_SUPPORTED:
+	case NotSupported:
 		return "NOT_SUPPORTED"
-	case SUPPORTS:
-		return "SUPPORTS"
-	case NEVER:
-		return "NEVER"
-	case MANDATORY:
-		return "MANDATORY"
+	case Supports:
+		return "Supports"
+	case Never:
+		return "Never"
+	case Mandatory:
+		return "Mandatory"
 	default:
 		return fmt.Sprintf("%d", t)
 	}
 }
 
+// TransactionInfo used to configure global transaction parameters
 type TransactionInfo struct {
 	TimeOut     int32
 	Name        string

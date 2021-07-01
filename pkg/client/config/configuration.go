@@ -14,6 +14,7 @@ import (
 
 var configuration *Configuration
 
+// Configuration client configuration
 type Configuration struct {
 	Port             int32  `yaml:"port" json:"port"`
 	Addressing       string `yaml:"addressing" json:"addressing"`
@@ -48,11 +49,13 @@ type Configuration struct {
 	} `yaml:"log"`
 }
 
+// TMConfig
 type TMConfig   struct {
 	CommitRetryCount   int32 `default:"5" yaml:"commitRetryCount" json:"commitRetryCount,omitempty"`
 	RollbackRetryCount int32 `default:"5" yaml:"rollbackRetryCount" json:"rollbackRetryCount,omitempty"`
 }
 
+// ATConfig
 type ATConfig struct {
 	DSN                 string        `yaml:"dsn" json:"dsn,omitempty"`
 	ReportRetryCount    int           `default:"5" yaml:"reportRetryCount" json:"reportRetryCount,omitempty"`
@@ -61,26 +64,32 @@ type ATConfig struct {
 	LockRetryTimes      int           `default:"30" yaml:"lockRetryTimes" json:"lockRetryTimes,omitempty"`
 }
 
+// GetTMConfig return TMConfig
 func GetTMConfig() TMConfig {
 	return configuration.TMConfig
 }
 
+// GetATConfig return ATConfig
 func GetATConfig() ATConfig {
 	return configuration.ATConfig
 }
 
+// GetEnforcementPolicy used to config grpc connection keep alive
 func GetEnforcementPolicy() keepalive.EnforcementPolicy {
 	return configuration.GetEnforcementPolicy()
 }
 
+// GetServerParameters used to config grpc connection keep alive
 func GetServerParameters() keepalive.ServerParameters {
 	return configuration.GetServerParameters()
 }
 
+// GetClientParameters used to config grpc connection keep alive
 func GetClientParameters() keepalive.ClientParameters {
 	return configuration.GetClientParameters()
 }
 
+// GetEnforcementPolicy used to config grpc connection keep alive
 func (configuration *Configuration) GetEnforcementPolicy() keepalive.EnforcementPolicy {
 	return keepalive.EnforcementPolicy{
 		MinTime:             configuration.EnforcementPolicy.MinTime,
@@ -88,6 +97,7 @@ func (configuration *Configuration) GetEnforcementPolicy() keepalive.Enforcement
 	}
 }
 
+// GetServerParameters used to config grpc connection keep alive
 func (configuration *Configuration) GetServerParameters() keepalive.ServerParameters {
 	return keepalive.ServerParameters{
 		MaxConnectionIdle:     configuration.ServerParameters.MaxConnectionIdle,
@@ -98,6 +108,7 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 	}
 }
 
+// GetClientParameters used to config grpc connection keep alive
 func (configuration *Configuration) GetClientParameters() keepalive.ClientParameters {
 	return keepalive.ClientParameters{
 		Time:                configuration.ClientParameters.Time,
@@ -129,6 +140,7 @@ func parse(rd io.Reader) (*Configuration, error) {
 	return config, nil
 }
 
+// InitConfiguration init configuration from a file path
 func InitConfiguration(configurationPath string) *Configuration {
 	fp, err := os.Open(configurationPath)
 	if err != nil {

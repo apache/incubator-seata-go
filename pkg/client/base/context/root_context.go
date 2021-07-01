@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	KEY_XID                  = "TX_XID"
-	KEY_XID_INTERCEPTOR_TYPE = "tx-xid-interceptor-type"
-	KEY_GLOBAL_LOCK_FLAG     = "TX_LOCK"
+	KeyXID                = "TX_XID"
+	KeyXIDInterceptorType = "tx-xid-interceptor-type"
+	KeyGlobalLockFlag     = "TX_LOCK"
 )
 
+// RootContext store the global transaction context
 type RootContext struct {
 	context.Context
 
@@ -22,13 +23,14 @@ type RootContext struct {
 	localMap map[string]interface{}
 }
 
+// NewRootContext return a pointer to RootContext
 func NewRootContext(ctx context.Context) *RootContext {
 	rootCtx := &RootContext{
 		Context:  ctx,
 		localMap: make(map[string]interface{}),
 	}
 
-	kXID := ctx.Value(KEY_XID)
+	kXID := ctx.Value(KeyXID)
 	if kXID != nil {
 		xid := kXID.(string)
 		rootCtx.Bind(xid)
@@ -36,6 +38,7 @@ func NewRootContext(ctx context.Context) *RootContext {
 	return rootCtx
 }
 
+// Set store key value to RootContext
 func (c *RootContext) Set(key string, value interface{}) {
 	if c.localMap == nil {
 		c.localMap = make(map[string]interface{})
@@ -43,19 +46,21 @@ func (c *RootContext) Set(key string, value interface{}) {
 	c.localMap[key] = value
 }
 
+// Get get a value by given key from RootContext
 func (c *RootContext) Get(key string) (value interface{}, exists bool) {
 	value, exists = c.localMap[key]
 	return
 }
 
+// GetXID from RootContext get xid
 func (c *RootContext) GetXID() string {
-	xID := c.localMap[KEY_XID]
+	xID := c.localMap[KeyXID]
 	xid, ok := xID.(string)
 	if ok && xid != "" {
 		return xid
 	}
 
-	xIDType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xIDType := c.localMap[KeyXIDInterceptorType]
 	xidType, success := xIDType.(string)
 
 	if success && xidType != "" && strings.Contains(xidType, "_") {
@@ -65,17 +70,20 @@ func (c *RootContext) GetXID() string {
 	return ""
 }
 
+// GetXIDInterceptorType from RootContext get xid interceptor type
 func (c *RootContext) GetXIDInterceptorType() string {
-	xIDType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xIDType := c.localMap[KeyXIDInterceptorType]
 	xidType, _ := xIDType.(string)
 	return xidType
 }
 
+// Bind bind xid with RootContext
 func (c *RootContext) Bind(xid string) {
 	log.Debugf("bind %s", xid)
-	c.Set(KEY_XID, xid)
+	c.Set(KeyXID, xid)
 }
 
+// BindInterceptorType bind interceptor type with RootContext
 func (c *RootContext) BindInterceptorType(xidType string) {
 	if xidType != "" {
 		xidTypes := strings.Split(xidType, "_")
@@ -87,50 +95,57 @@ func (c *RootContext) BindInterceptorType(xidType string) {
 	}
 }
 
+// BindInterceptorTypeWithBranchType bind interceptor type and branch type with RootContext
 func (c *RootContext) BindInterceptorTypeWithBranchType(xid string, branchType apis.BranchSession_BranchType) {
 	xidType := fmt.Sprintf("%s_%s", xid, branchType.String())
 	log.Debugf("bind interceptor type xid=%s branchType=%s", xid, branchType.String())
-	c.Set(KEY_XID_INTERCEPTOR_TYPE, xidType)
+	c.Set(KeyXIDInterceptorType, xidType)
 }
 
+// BindGlobalLockFlag bind global lock flag with RootContext
 func (c *RootContext) BindGlobalLockFlag() {
 	log.Debug("local transaction global lock support enabled")
-	c.Set(KEY_GLOBAL_LOCK_FLAG, KEY_GLOBAL_LOCK_FLAG)
+	c.Set(KeyGlobalLockFlag, KeyGlobalLockFlag)
 }
 
+// Unbind unbind xid with RootContext
 func (c *RootContext) Unbind() string {
-	xID := c.localMap[KEY_XID]
+	xID := c.localMap[KeyXID]
 	xid, ok := xID.(string)
 	if ok && xid != "" {
 		log.Debugf("unbind %s", xid)
-		delete(c.localMap, KEY_XID)
+		delete(c.localMap, KeyXID)
 		return xid
 	}
 	return ""
 
 }
 
+// UnbindInterceptorType unbind interceptor type with RootContext
 func (c *RootContext) UnbindInterceptorType() string {
-	xidType := c.localMap[KEY_XID_INTERCEPTOR_TYPE]
+	xidType := c.localMap[KeyXIDInterceptorType]
 	xt, ok := xidType.(string)
 	if ok && xt != "" {
 		log.Debugf("unbind inteceptor type %s", xidType)
-		delete(c.localMap, KEY_XID_INTERCEPTOR_TYPE)
+		delete(c.localMap, KeyXIDInterceptorType)
 		return xt
 	}
 	return ""
 }
 
+// UnbindGlobalLockFlag unbind global lock flag with RootContext
 func (c *RootContext) UnbindGlobalLockFlag() {
 	log.Debug("unbind global lock flag")
-	delete(c.localMap, KEY_GLOBAL_LOCK_FLAG)
+	delete(c.localMap, KeyGlobalLockFlag)
 }
 
+// InGlobalTransaction determine whether the context is in global transaction
 func (c *RootContext) InGlobalTransaction() bool {
-	return c.localMap[KEY_XID] != nil
+	return c.localMap[KeyXID] != nil
 }
 
+// RequireGlobalLock return global lock flag
 func (c *RootContext) RequireGlobalLock() bool {
-	_, exists := c.localMap[KEY_GLOBAL_LOCK_FLAG]
+	_, exists := c.localMap[KeyGlobalLockFlag]
 	return exists
 }

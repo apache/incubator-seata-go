@@ -20,6 +20,7 @@ var (
 	serviceDescriptorMap = sync.Map{}
 )
 
+// MethodDescriptor
 type MethodDescriptor struct {
 	Method           reflect.Method
 	CallerValue      reflect.Value
@@ -30,6 +31,7 @@ type MethodDescriptor struct {
 	ReturnValuesNum  int
 }
 
+// ServiceDescriptor
 type ServiceDescriptor struct {
 	Name         string
 	ReflectType  reflect.Type
