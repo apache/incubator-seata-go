@@ -3,6 +3,10 @@ package rm
 import (
 	"context"
 	"fmt"
+	"github.com/gogo/protobuf/types"
+	"go.uber.org/atomic"
+	"sync"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
@@ -24,7 +28,9 @@ type ResourceManagerOutbound interface {
 }
 
 type ResourceManagerInterface interface {
-	apis.BranchTransactionServiceServer
+	BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error)
+
+	BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error)
 
 	// Register a Resource to be managed by Resource Manager.
 	RegisterResource(resource model.Resource)
@@ -40,6 +46,9 @@ type ResourceManager struct {
 	addressing string
 	rpcClient  apis.ResourceManagerServiceClient
 	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
+
+	idGenerator atomic.Uint64
+	futures     *sync.Map
 }
 
 func InitResourceManager(addressing string, client apis.ResourceManagerServiceClient) {
@@ -68,6 +77,22 @@ func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, 
 		BranchType:      branchType,
 		ApplicationData: applicationData,
 	}
+	stream, err := manager.rpcClient.BranchCommunicate(context.Background())
+	if err != nil {
+		return 0, err
+	}
+
+	content, err := types.MarshalAny(request)
+	if err != nil {
+		return 0, err
+	}
+
+	stream.Send(&apis.BranchMessage{
+		ID:                int64(manager.idGenerator.Inc()),
+		BranchMessageType: apis.TypeBranchRegister,
+		Message:           content,
+	})
+
 	resp, err := manager.rpcClient.BranchRegister(ctx, request)
 	if err != nil {
 		return 0, err

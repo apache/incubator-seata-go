@@ -3,16 +3,19 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
 
-	"google.golang.org/grpc"
+	"github.com/gogo/protobuf/types"
+	"go.uber.org/atomic"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
+	common2 "github.com/opentrx/seata-golang/v2/pkg/common"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/config"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/event"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/holder"
@@ -39,7 +42,9 @@ type TransactionCoordinator struct {
 	locker             GlobalSessionLocker
 
 	keepaliveClientParameters keepalive.ClientParameters
-	tcServiceClients          map[string]apis.BranchTransactionServiceClient
+	rmStreamServers           map[string]apis.ResourceManagerService_BranchCommunicateServer
+	idGenerator               atomic.Uint64
+	futures                   *sync.Map
 
 	timeoutCheckTicker     *time.Ticker
 	retryRollingBackTicker *time.Ticker
@@ -63,7 +68,7 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		locker:             new(UnimplementedGlobalSessionLocker),
 
 		keepaliveClientParameters: conf.GetClientParameters(),
-		tcServiceClients:          make(map[string]apis.BranchTransactionServiceClient),
+		rmStreamServers:          make(map[string]apis.ResourceManagerService_BranchCommunicateServer),
 
 		timeoutCheckTicker:     time.NewTicker(conf.Server.TimeoutRetryPeriod),
 		retryRollingBackTicker: time.NewTicker(conf.Server.RollingBackRetryPeriod),
@@ -290,24 +295,42 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 }
 
 func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	client, err := tc.getTransactionCoordinatorServiceClient(bs.Addressing)
-	if err != nil {
-		return bs.Status, err
-	}
+	stream := tc.rmStreamServers[bs.Addressing]
 
-	response, err := client.BranchCommit(context.Background(), &apis.BranchCommitRequest{
+	request := &apis.BranchCommitRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
 		ResourceID:      bs.ResourceID,
 		LockKey:         bs.LockKey,
 		BranchType:      bs.Type,
 		ApplicationData: bs.ApplicationData,
-	})
+	}
 
+	content, err := types.MarshalAny(request)
 	if err != nil {
 		return bs.Status, err
 	}
+	message := &apis.BranchMessage{
+		ID: int64(tc.idGenerator.Inc()),
+		BranchMessageType: apis.TypeBranchCommit,
+		Message: content,
+	}
 
+	err = stream.Send(message)
+	if err != nil {
+		return bs.Status, err
+	}
+	resp := common2.NewMessageFuture(message)
+	tc.futures.Store(message.ID, resp)
+
+	select {
+		case <- time.After(1*time.Second):
+			tc.futures.Delete(resp.ID)
+			return bs.Status, fmt.Errorf("wait branch commit response timeout")
+		case <- resp.Done:
+	}
+
+	response := resp.Response.(*apis.BranchCommitResponse)
 	if response.ResultCode == apis.ResultCodeSuccess {
 		return response.BranchStatus, nil
 	} else {
@@ -463,30 +486,148 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 }
 
 func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	client, err := tc.getTransactionCoordinatorServiceClient(bs.Addressing)
-	if err != nil {
-		return bs.Status, err
-	}
+	stream := tc.rmStreamServers[bs.Addressing]
 
-	response, err := client.BranchRollback(context.Background(), &apis.BranchRollbackRequest{
+	request := &apis.BranchRollbackRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
 		ResourceID:      bs.ResourceID,
 		LockKey:         bs.LockKey,
 		BranchType:      bs.Type,
 		ApplicationData: bs.ApplicationData,
-	})
+	}
 
+	content, err := types.MarshalAny(request)
 	if err != nil {
 		return bs.Status, err
 	}
+	message := &apis.BranchMessage{
+		ID: int64(tc.idGenerator.Inc()),
+		BranchMessageType: apis.TypeBranchRollback,
+		Message: content,
+	}
 
+	err = stream.Send(message)
+	if err != nil {
+		return bs.Status, err
+	}
+	resp := common2.NewMessageFuture(message)
+	tc.futures.Store(message.ID, resp)
+
+	select {
+	case <- time.After(1*time.Second):
+		tc.futures.Delete(resp.ID)
+		return bs.Status, fmt.Errorf("wait branch rollback response timeout")
+	case <- resp.Done:
+	}
+
+	response := resp.Response.(*apis.BranchRollbackResponse)
 	if response.ResultCode == apis.ResultCodeSuccess {
 		return response.BranchStatus, nil
 	} else {
 		return bs.Status, fmt.Errorf(response.Message)
 	}
 }
+
+func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerService_BranchCommunicateServer) error {
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug("connection closed!")
+			return ctx.Err()
+		default:
+			branchMessage, err := stream.Recv()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+			switch branchMessage.GetBranchMessageType(){
+			case apis.TypeBranchRegister:
+				request := &apis.BranchRegisterRequest{}
+				data := branchMessage.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				tc.rmStreamServers[request.Addressing] = stream
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				response, _ :=tc.BranchRegister(ctx, request)
+				content, err := types.MarshalAny(response)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				err = stream.Send(&apis.BranchMessage{
+					ID: branchMessage.ID,
+					BranchMessageType: apis.TypeBranchRegisterResult,
+					Message: content,
+				})
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+			case apis.TypeBranchReport:
+				request := &apis.BranchReportRequest{}
+				data := branchMessage.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				response, _ :=tc.BranchReport(ctx, request)
+				content, err := types.MarshalAny(response)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				err = stream.Send(&apis.BranchMessage{
+					ID: branchMessage.ID,
+					BranchMessageType: apis.TypeBranchReportResult,
+					Message: content,
+				})
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+			case apis.TypeBranchCommitResult:
+				response := &apis.BranchCommitResponse{}
+				data := branchMessage.GetMessage().GetValue()
+				err := response.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				resp, loaded := tc.futures.Load(branchMessage.ID)
+				if loaded {
+					future := resp.(*common2.MessageFuture)
+					future.Response = response
+					future.Done <- true
+					tc.futures.Delete(branchMessage.ID)
+				}
+			case apis.TypeBranchRollBackResult:
+				response := &apis.BranchRollbackResponse{}
+				data := branchMessage.GetMessage().GetValue()
+				err := response.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				resp, loaded := tc.futures.Load(branchMessage.ID)
+				if loaded {
+					future := resp.(*common2.MessageFuture)
+					future.Response = response
+					future.Done <- true
+					tc.futures.Delete(branchMessage.ID)
+				}
+			}
+		}
+	}
+}
+
 
 func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
@@ -558,10 +699,6 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 			}, nil
 		}
 
-		if !gt.IsSaga() {
-			tc.getTransactionCoordinatorServiceClient(bs.Addressing)
-		}
-
 		return &apis.BranchRegisterResponse{
 			ResultCode: apis.ResultCodeSuccess,
 			BranchID:   bs.BranchID,
@@ -615,28 +752,6 @@ func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.Gl
 		ResultCode: apis.ResultCodeSuccess,
 		Lockable:   result,
 	}, nil
-}
-
-func (tc TransactionCoordinator) getTransactionCoordinatorServiceClient(addressing string) (apis.BranchTransactionServiceClient, error) {
-	client1, ok1 := tc.tcServiceClients[addressing]
-	if ok1 {
-		return client1, nil
-	}
-
-	tc.Mutex.Lock()
-	defer tc.Mutex.Unlock()
-	client2, ok2 := tc.tcServiceClients[addressing]
-	if ok2 {
-		return client2, nil
-	}
-
-	conn, err := grpc.Dial(addressing, grpc.WithInsecure(), grpc.WithKeepaliveParams(tc.keepaliveClientParameters))
-	if err != nil {
-		return nil, err
-	}
-	client := apis.NewBranchTransactionServiceClient(conn)
-	tc.tcServiceClients[addressing] = client
-	return client, nil
 }
 
 func (tc TransactionCoordinator) processTimeoutCheck() {

@@ -39,7 +39,6 @@ func Init(config *config.Configuration) {
 
 	s := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(config.GetEnforcementPolicy()),
 		grpc.KeepaliveParams(config.GetServerParameters()))
-	apis.RegisterBranchTransactionServiceServer(s, rm.GetResourceManager())
 
 	runtime.GoWithRecover(func() {
 		if err := s.Serve(lis); err != nil {

@@ -1,4 +1,4 @@
-package message
+package common
 
 import "github.com/opentrx/seata-golang/v2/pkg/apis"
 
@@ -11,7 +11,7 @@ type MessageFuture struct {
 }
 
 // NewMessageFuture ...
-func NewMessageFuture(message apis.BranchMessage) *MessageFuture {
+func NewMessageFuture(message *apis.BranchMessage) *MessageFuture {
 	return &MessageFuture{
 		ID:   message.ID,
 		Done: make(chan bool),
