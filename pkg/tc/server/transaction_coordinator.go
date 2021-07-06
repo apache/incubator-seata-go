@@ -534,7 +534,7 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 			LockKey:         request.LockKey,
 			Type:            request.BranchType,
 			Status:          apis.Registered,
-			ApplicationData: nil,
+			ApplicationData: request.ApplicationData,
 		}
 
 		if bs.Type == apis.AT {
