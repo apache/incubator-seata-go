@@ -76,7 +76,7 @@ func (dao *LockStoreDataBaseDao) AcquireLock(lockDOs []*model.LockDO) bool {
 
 	_, err = dao.engine.Table("lock_table").Insert(unrepeatedLockDOs)
 	if err != nil {
-		log.Errorf("Global locks batch acquire failed, %v", unrepeatedLockDOs)
+		log.Errorf("Global locks batch acquire failed, %v, err: %v", unrepeatedLockDOs, err)
 		return false
 	}
 	return true

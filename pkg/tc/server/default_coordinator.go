@@ -34,7 +34,7 @@ const (
 type DefaultCoordinator struct {
 	conf                   config.ServerConfig
 	core                   TransactionCoordinator
-	idGenerator            atomic.Uint32
+	idGenerator            *atomic.Uint32
 	futures                *sync.Map
 	timeoutCheckTicker     *time.Ticker
 	retryRollbackingTicker *time.Ticker
@@ -46,7 +46,7 @@ type DefaultCoordinator struct {
 func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
 	coordinator := &DefaultCoordinator{
 		conf:                   conf,
-		idGenerator:            atomic.Uint32{},
+		idGenerator:            &atomic.Uint32{},
 		futures:                &sync.Map{},
 		timeoutCheckTicker:     time.NewTicker(conf.TimeoutRetryPeriod),
 		retryRollbackingTicker: time.NewTicker(conf.RollbackingRetryPeriod),

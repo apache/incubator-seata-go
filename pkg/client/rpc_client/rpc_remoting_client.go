@@ -31,7 +31,7 @@ var rpcRemoteClient *RpcRemoteClient
 func InitRpcRemoteClient() *RpcRemoteClient {
 	rpcRemoteClient = &RpcRemoteClient{
 		conf:                         config.GetClientConfig(),
-		idGenerator:                  atomic.Uint32{},
+		idGenerator:                  &atomic.Uint32{},
 		futures:                      &sync.Map{},
 		mergeMsgMap:                  &sync.Map{},
 		rpcMessageChannel:            make(chan protocal.RpcMessage, 100),
@@ -51,7 +51,7 @@ func GetRpcRemoteClient() *RpcRemoteClient {
 
 type RpcRemoteClient struct {
 	conf                         config.ClientConfig
-	idGenerator                  atomic.Uint32
+	idGenerator                  *atomic.Uint32
 	futures                      *sync.Map
 	mergeMsgMap                  *sync.Map
 	rpcMessageChannel            chan protocal.RpcMessage
