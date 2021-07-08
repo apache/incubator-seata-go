@@ -247,6 +247,7 @@ func (driver *driver) AllSessions() []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
 	err := driver.engine.Table(driver.globalTable).
 		OrderBy("gmt_modified").
+		Limit(driver.queryLimit).
 		Find(&globalSessions)
 
 	if err != nil {

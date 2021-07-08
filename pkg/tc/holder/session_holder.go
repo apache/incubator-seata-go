@@ -99,6 +99,10 @@ func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSessio
 	return globalTransactions
 }
 
+func (holder *SessionHolder) FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession {
+	return holder.manager.FindGlobalSessions(statuses)
+}
+
 func (holder *SessionHolder) AllSessions() []*apis.GlobalSession {
 	return holder.manager.AllSessions()
 }

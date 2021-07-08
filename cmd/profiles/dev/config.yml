@@ -30,5 +30,5 @@ storage:
     maxidleconnections: 20
     maxlifetime: 4h
 log:
-  logPath: /Users/scottlewis/dksl/current/seata-golang/cmd/profiles/dev/seata.log
+  logPath: /Users/scottlewis/dksl/git/1/seata-golang/cmd/profiles/dev/seata.log
   logLevel: info

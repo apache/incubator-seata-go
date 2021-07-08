@@ -42,8 +42,8 @@ type TransactionCoordinator struct {
 	locker             GlobalSessionLocker
 
 	keepaliveClientParameters keepalive.ClientParameters
-	rmStreamServers           map[string]apis.ResourceManagerService_BranchCommunicateServer
-	idGenerator               atomic.Uint64
+	rmStreamServers           *sync.Map
+	idGenerator               *atomic.Uint64
 	futures                   *sync.Map
 
 	timeoutCheckTicker     *time.Ticker
@@ -68,7 +68,9 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		locker:             new(UnimplementedGlobalSessionLocker),
 
 		keepaliveClientParameters: conf.GetClientParameters(),
-		rmStreamServers:          make(map[string]apis.ResourceManagerService_BranchCommunicateServer),
+		rmStreamServers:           &sync.Map{},
+		idGenerator:               &atomic.Uint64{},
+		futures:                   &sync.Map{},
 
 		timeoutCheckTicker:     time.NewTicker(conf.Server.TimeoutRetryPeriod),
 		retryRollingBackTicker: time.NewTicker(conf.Server.RollingBackRetryPeriod),
@@ -227,7 +229,7 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 			}
 			branchStatus, err1 := tc.branchCommit(bs)
 			if err1 != nil {
-				log.Errorf("exception committing branch %v, err: %s", bs, err1.Error())
+				log.Errorf("exception committing branch xid=%d branchID=%d, err: %v", bs.GetXID(), bs.BranchID, err1)
 				if !retrying {
 					tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitRetrying)
 				}
@@ -295,7 +297,20 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 }
 
 func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	stream := tc.rmStreamServers[bs.Addressing]
+	var stream apis.ResourceManagerService_BranchCommunicateServer
+	client, loaded := tc.rmStreamServers.Load(bs.Addressing)
+	for {
+		if !loaded {
+			client, loaded = tc.rmStreamServers.Load(bs.Addressing)
+		} else {
+			stream := client.(apis.ResourceManagerService_BranchCommunicateServer)
+			if stream.Context().Err() == nil {
+				break
+			} else {
+				client, loaded = tc.rmStreamServers.Load(bs.Addressing)
+			}
+		}
+	}
 
 	request := &apis.BranchCommitRequest{
 		XID:             bs.XID,
@@ -316,6 +331,9 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 		Message: content,
 	}
 
+	if stream == nil {
+		return bs.Status, fmt.Errorf("stream is nil")
+	}
 	err = stream.Send(message)
 	if err != nil {
 		return bs.Status, err
@@ -323,18 +341,25 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
 
+	timer := time.NewTimer(5*time.Second)
 	select {
-		case <- time.After(1*time.Second):
+		case <- timer.C:
 			tc.futures.Delete(resp.ID)
 			return bs.Status, fmt.Errorf("wait branch commit response timeout")
 		case <- resp.Done:
+			timer.Stop()
 	}
 
-	response := resp.Response.(*apis.BranchCommitResponse)
-	if response.ResultCode == apis.ResultCodeSuccess {
-		return response.BranchStatus, nil
+	response, ok := resp.Response.(*apis.BranchCommitResponse)
+	if !ok {
+		log.Infof("rollback response: %v", resp.Response)
+		return bs.Status, fmt.Errorf("response type not right")
 	} else {
-		return bs.Status, fmt.Errorf(response.Message)
+		if response.ResultCode == apis.ResultCodeSuccess {
+			return response.BranchStatus, nil
+		} else {
+			return bs.Status, fmt.Errorf(response.Message)
+		}
 	}
 }
 
@@ -413,7 +438,7 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 			}
 			branchStatus, err1 := tc.branchRollback(bs)
 			if err1 != nil {
-				log.Errorf("exception rolling back branch xid=%d branchID=%d", gt.XID, bs.BranchID)
+				log.Errorf("exception rolling back branch xid=%d branchID=%d, err: %v", gt.XID, bs.BranchID, err1)
 				if !retrying {
 					if gt.IsTimeoutGlobalStatus() {
 						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackRetrying)
@@ -486,7 +511,20 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 }
 
 func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	stream := tc.rmStreamServers[bs.Addressing]
+	var stream apis.ResourceManagerService_BranchCommunicateServer
+	client, loaded := tc.rmStreamServers.Load(bs.Addressing)
+	for {
+		if !loaded {
+			client, loaded = tc.rmStreamServers.Load(bs.Addressing)
+		} else {
+			stream := client.(apis.ResourceManagerService_BranchCommunicateServer)
+			if stream.Context().Err() == nil {
+				break
+			} else {
+				client, loaded = tc.rmStreamServers.Load(bs.Addressing)
+			}
+		}
+	}
 
 	request := &apis.BranchRollbackRequest{
 		XID:             bs.XID,
@@ -507,6 +545,9 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 		Message: content,
 	}
 
+	if stream == nil {
+		return bs.Status, fmt.Errorf("stream is nil")
+	}
 	err = stream.Send(message)
 	if err != nil {
 		return bs.Status, err
@@ -514,16 +555,19 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
 
+	timer := time.NewTimer(5*time.Second)
 	select {
-	case <- time.After(1*time.Second):
+	case <- timer.C:
 		tc.futures.Delete(resp.ID)
+		timer.Stop()
 		return bs.Status, fmt.Errorf("wait branch rollback response timeout")
 	case <- resp.Done:
+		timer.Stop()
 	}
 
-	response := resp.Response.(*apis.BranchRollbackResponse)
+	response  := resp.Response.(*apis.BranchRollbackResponse)
 	if response.ResultCode == apis.ResultCodeSuccess {
-		return response.BranchStatus, nil
+			return response.BranchStatus, nil
 	} else {
 		return bs.Status, fmt.Errorf(response.Message)
 	}
@@ -534,7 +578,6 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug("connection closed!")
 			return ctx.Err()
 		default:
 			branchMessage, err := stream.Recv()
@@ -546,20 +589,28 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 				return err
 			}
 			switch branchMessage.GetBranchMessageType(){
+			case apis.TypeBranchStreamRegister:
+				request := &apis.BranchStreamRegisterMessage{}
+				data := branchMessage.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				tc.rmStreamServers.Store(request.Addressing, stream)
 			case apis.TypeBranchRegister:
 				request := &apis.BranchRegisterRequest{}
 				data := branchMessage.GetMessage().GetValue()
 				err := request.Unmarshal(data)
-				tc.rmStreamServers[request.Addressing] = stream
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				response, _ :=tc.BranchRegister(ctx, request)
 				content, err := types.MarshalAny(response)
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				err = stream.Send(&apis.BranchMessage{
 					ID: branchMessage.ID,
@@ -576,13 +627,13 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 				err := request.Unmarshal(data)
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				response, _ :=tc.BranchReport(ctx, request)
 				content, err := types.MarshalAny(response)
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				err = stream.Send(&apis.BranchMessage{
 					ID: branchMessage.ID,
@@ -599,7 +650,7 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 				err := response.Unmarshal(data)
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				resp, loaded := tc.futures.Load(branchMessage.ID)
 				if loaded {
@@ -614,7 +665,7 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 				err := response.Unmarshal(data)
 				if err != nil {
 					log.Error(err)
-					return err
+					continue
 				}
 				resp, loaded := tc.futures.Load(branchMessage.ID)
 				if loaded {
@@ -692,10 +743,11 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 
 		err := tc.holder.AddBranchSession(gt.GlobalSession, bs)
 		if err != nil {
+			log.Error(err)
 			return &apis.BranchRegisterResponse{
 				ResultCode:    apis.ResultCodeFailed,
 				ExceptionCode: apis.BranchRegisterFailed,
-				Message:       fmt.Sprintf("branch register failed,xid = %s, branchID = %d", gt.XID, bs.BranchID),
+				Message:       fmt.Sprintf("branch register failed, xid = %s, branchID = %d, err: %s", gt.XID, bs.BranchID, err.Error()),
 			}, nil
 		}
 
@@ -737,7 +789,7 @@ func (tc TransactionCoordinator) BranchReport(ctx context.Context, request *apis
 		return &apis.BranchReportResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.BranchReportFailed,
-			Message:       fmt.Sprintf("branch report failed,xid = %s, branchID = %d", gt.XID, bs.BranchID),
+			Message:       fmt.Sprintf("branch report failed, xid = %s, branchID = %d, err: %s", gt.XID, bs.BranchID, err.Error()),
 		}, nil
 	}
 
@@ -783,12 +835,12 @@ func (tc TransactionCoordinator) processAsyncCommitting() {
 }
 
 func (tc TransactionCoordinator) timeoutCheck() {
-	allSessions := tc.holder.AllSessions()
-	if allSessions == nil && len(allSessions) <= 0 {
+	sessions := tc.holder.FindGlobalSessions([]apis.GlobalSession_GlobalStatus{apis.Begin})
+	if sessions == nil && len(sessions) <= 0 {
 		return
 	}
-	for _, globalSession := range allSessions {
-		if globalSession.Status == apis.Begin && isGlobalSessionTimeout(globalSession) {
+	for _, globalSession := range sessions {
+		if isGlobalSessionTimeout(globalSession) {
 			result, err := tc.locker.TryLock(globalSession, time.Duration(globalSession.Timeout)*time.Millisecond)
 			if err == nil && result {
 				if globalSession.Active {
@@ -796,9 +848,9 @@ func (tc TransactionCoordinator) timeoutCheck() {
 					// Highlight: Firstly, close the session, then no more branch can be registered.
 					tc.holder.InactiveGlobalSession(globalSession)
 				}
-				if globalSession.Status == apis.Begin {
-					tc.holder.UpdateGlobalSessionStatus(globalSession, apis.TimeoutRollingBack)
-				}
+
+				tc.holder.UpdateGlobalSessionStatus(globalSession, apis.TimeoutRollingBack)
+
 				tc.locker.Unlock(globalSession)
 				evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 				event.EventBus.GlobalTransactionEventChannel <- evt
