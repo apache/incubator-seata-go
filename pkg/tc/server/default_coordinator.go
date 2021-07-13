@@ -27,38 +27,28 @@ import (
 )
 
 const (
-	RPC_REQUEST_TIMEOUT   = 30 * time.Second
-	ALWAYS_RETRY_BOUNDARY = 0
+	RpcRequestTimeout   = 30 * time.Second
+	AlwaysRetryBoundary = 0
 )
 
 type DefaultCoordinator struct {
-	conf                   config.ServerConfig
+	conf                   *config.ServerConfig
 	core                   TransactionCoordinator
 	idGenerator            *atomic.Uint32
 	futures                *sync.Map
-	timeoutCheckTicker     *time.Ticker
-	retryRollbackingTicker *time.Ticker
-	retryCommittingTicker  *time.Ticker
-	asyncCommittingTicker  *time.Ticker
-	undoLogDeleteTicker    *time.Ticker
 }
 
-func NewDefaultCoordinator(conf config.ServerConfig) *DefaultCoordinator {
+func NewDefaultCoordinator(conf *config.ServerConfig) *DefaultCoordinator {
 	coordinator := &DefaultCoordinator{
 		conf:                   conf,
 		idGenerator:            &atomic.Uint32{},
 		futures:                &sync.Map{},
-		timeoutCheckTicker:     time.NewTicker(conf.TimeoutRetryPeriod),
-		retryRollbackingTicker: time.NewTicker(conf.RollbackingRetryPeriod),
-		retryCommittingTicker:  time.NewTicker(conf.CommittingRetryPeriod),
-		asyncCommittingTicker:  time.NewTicker(conf.AsyncCommittingRetryPeriod),
-		undoLogDeleteTicker:    time.NewTicker(conf.LogDeletePeriod),
 	}
 	core := NewCore(coordinator)
 	coordinator.core = core
 
 	go coordinator.processTimeoutCheck()
-	go coordinator.processRetryRollbacking()
+	go coordinator.processRetryRollingBack()
 	go coordinator.processRetryCommitting()
 	go coordinator.processAsyncCommitting()
 	go coordinator.processUndoLogDelete()
@@ -139,36 +129,56 @@ func (coordinator *DefaultCoordinator) defaultSendResponse(request protocal.RpcM
 
 func (coordinator *DefaultCoordinator) processTimeoutCheck() {
 	for {
-		<-coordinator.timeoutCheckTicker.C
-		coordinator.timeoutCheck()
+		timer := time.NewTimer(coordinator.conf.TimeoutRetryPeriod)
+		select {
+		case <-timer.C:
+			coordinator.timeoutCheck()
+		}
+		timer.Stop()
 	}
 }
 
-func (coordinator *DefaultCoordinator) processRetryRollbacking() {
+func (coordinator *DefaultCoordinator) processRetryRollingBack() {
 	for {
-		<-coordinator.retryRollbackingTicker.C
-		coordinator.handleRetryRollbacking()
+		timer := time.NewTimer(coordinator.conf.RollingBackRetryPeriod)
+		select {
+		case <-timer.C:
+			coordinator.handleRetryRollbacking()
+		}
+		timer.Stop()
 	}
 }
 
 func (coordinator *DefaultCoordinator) processRetryCommitting() {
 	for {
-		<-coordinator.retryCommittingTicker.C
-		coordinator.handleRetryCommitting()
+		timer := time.NewTimer(coordinator.conf.CommittingRetryPeriod)
+		select {
+		case <-timer.C:
+			coordinator.handleRetryCommitting()
+		}
+		timer.Stop()
 	}
 }
 
 func (coordinator *DefaultCoordinator) processAsyncCommitting() {
 	for {
-		<-coordinator.asyncCommittingTicker.C
-		coordinator.handleAsyncCommitting()
+		timer := time.NewTimer(coordinator.conf.AsyncCommittingRetryPeriod)
+		select {
+		case <-timer.C:
+			coordinator.handleAsyncCommitting()
+		}
+		timer.Stop()
 	}
 }
 
 func (coordinator *DefaultCoordinator) processUndoLogDelete() {
 	for {
-		<-coordinator.undoLogDeleteTicker.C
-		coordinator.undoLogDelete()
+		timer := time.NewTimer(coordinator.conf.LogDeletePeriod)
+		select {
+		case <-timer.C:
+			coordinator.undoLogDelete()
+		}
+		timer.Stop()
 	}
 }
 
@@ -190,7 +200,7 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 			if globalSession.Active {
 				globalSession.Active = false
 			}
-			changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbacking)
+			changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollingBack)
 			evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
 			event.EventBus.GlobalTransactionEventChannel <- evt
 			return true
@@ -205,32 +215,32 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 }
 
 func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
-	rollbackingSessions := holder.GetSessionHolder().RetryRollbackingSessionManager.AllSessions()
-	if rollbackingSessions == nil && len(rollbackingSessions) <= 0 {
+	rollingBackSessions := holder.GetSessionHolder().RetryRollbackingSessionManager.AllSessions()
+	if rollingBackSessions == nil && len(rollingBackSessions) <= 0 {
 		return
 	}
 	now := time2.CurrentTimeMillis()
-	for _, rollbackingSession := range rollbackingSessions {
-		if rollbackingSession.Status == meta.GlobalStatusRollbacking && !rollbackingSession.IsRollbackingDead() {
+	for _, rollingBackSession := range rollingBackSessions {
+		if rollingBackSession.Status == meta.GlobalStatusRollbacking && !rollingBackSession.IsRollbackingDead() {
 			continue
 		}
-		if isRetryTimeout(int64(now), coordinator.conf.MaxRollbackRetryTimeout, rollbackingSession.BeginTime) {
+		if isRetryTimeout(int64(now), coordinator.conf.MaxRollbackRetryTimeout, rollingBackSession.BeginTime) {
 			if coordinator.conf.RollbackRetryTimeoutUnlockEnable {
-				lock.GetLockManager().ReleaseGlobalSessionLock(rollbackingSession)
+				lock.GetLockManager().ReleaseGlobalSessionLock(rollingBackSession)
 			}
-			holder.GetSessionHolder().RetryRollbackingSessionManager.RemoveGlobalSession(rollbackingSession)
-			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollbackingSession.XID)
+			holder.GetSessionHolder().RetryRollbackingSessionManager.RemoveGlobalSession(rollingBackSession)
+			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", rollingBackSession.XID)
 			continue
 		}
-		_, err := coordinator.core.doGlobalRollback(rollbackingSession, true)
+		_, err := coordinator.core.doGlobalRollback(rollingBackSession, true)
 		if err != nil {
-			log.Infof("Failed to retry rollbacking [%s]", rollbackingSession.XID)
+			log.Infof("Failed to retry rolling back [%s]", rollingBackSession.XID)
 		}
 	}
 }
 
 func isRetryTimeout(now int64, timeout int64, beginTime int64) bool {
-	if timeout >= ALWAYS_RETRY_BOUNDARY && now-beginTime > timeout {
+	if timeout >= AlwaysRetryBoundary && now-beginTime > timeout {
 		return true
 	}
 	return false
@@ -287,9 +297,4 @@ func (coordinator *DefaultCoordinator) undoLogDelete() {
 }
 
 func (coordinator *DefaultCoordinator) Stop() {
-	coordinator.timeoutCheckTicker.Stop()
-	coordinator.retryRollbackingTicker.Stop()
-	coordinator.retryCommittingTicker.Stop()
-	coordinator.asyncCommittingTicker.Stop()
-	coordinator.undoLogDeleteTicker.Stop()
 }

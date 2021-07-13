@@ -30,6 +30,6 @@ func InitServerConfig(t *testing.T) {
 	_, err = file.Write(bytes)
 	assert.NoError(t, err, "Write() should success")
 
-	err = config.InitConf(file.Name())
+	_, err = config.InitConf(file.Name())
 	assert.NoError(t, err, "InitConf() should success")
 }

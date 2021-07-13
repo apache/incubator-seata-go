@@ -1,7 +1,6 @@
 package extension
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"sync"
 )
 
@@ -10,6 +9,7 @@ import (
 )
 
 import (
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"github.com/transaction-wg/seata-golang/pkg/base/config_center"
 )
 

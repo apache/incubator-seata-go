@@ -38,5 +38,4 @@ func GetRegistry(name string) (registry.Registry, error) {
 		return nil, errors.Errorf("registry for " + name + " is not existing, make sure you have import the package.")
 	}
 	return registry()
-
 }

@@ -15,45 +15,45 @@ import (
 	"github.com/pkg/errors"
 )
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
+	"github.com/transaction-wg/seata-golang/pkg/base/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
-	clientConfig "github.com/transaction-wg/seata-golang/pkg/client/config"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
 func init() {
-	extension.SetRegistry(constant.NACOS_KEY, newNacosRegistry)
+	extension.SetRegistry(constant.NacosKey, newNacosRegistry)
 }
 
 type nacosRegistry struct {
-	namingClient naming_client.INamingClient
+	registryConfig *config.RegistryConfig
+	namingClient   naming_client.INamingClient
 }
+
 type nacosEventListener struct {
 }
 
 func (nr *nacosEventListener) OnEvent(service []*registry.Service) error {
 	data, err := json.Marshal(service)
-	log.Info("servie info change：" + string(data))
+	log.Info("service info change：" + string(data))
 	return err
 }
-func (nr *nacosRegistry) Register(addr *registry.Address) error {
-	registryConfig := config.GetRegistryConfig()
 
-	param := createRegisterParam(registryConfig, addr)
+func (nr *nacosRegistry) Register(addr *registry.Address) error {
+	param := createRegisterParam(nr.registryConfig, addr)
 	isRegistry, err := nr.namingClient.RegisterInstance(param)
 	if err != nil {
 		return err
 	}
 	if !isRegistry {
-		return errors.Errorf("registry [" + registryConfig.NacosConfig.Application + "] to  nacos failed")
+		return errors.Errorf("registry [" + nr.registryConfig.NacosConfig.Application + "] to  nacos failed")
 	}
 	return nil
 }
 
 //创建服务注册信息
-func createRegisterParam(registryConfig config.RegistryConfig, addr *registry.Address) vo.RegisterInstanceParam {
+func createRegisterParam(registryConfig *config.RegistryConfig, addr *registry.Address) vo.RegisterInstanceParam {
 	serviceName := registryConfig.NacosConfig.Application
 	params := make(map[string]string)
 
@@ -78,11 +78,10 @@ func (nr *nacosRegistry) UnRegister(addr *registry.Address) error {
 
 //noinspection ALL
 func (nr *nacosRegistry) Lookup() ([]string, error) {
-	registryConfig := clientConfig.GetRegistryConfig()
-	clusterName := registryConfig.NacosConfig.Cluster
+	clusterName := nr.registryConfig.NacosConfig.Cluster
 	instances, err := nr.namingClient.SelectInstances(vo.SelectInstancesParam{
-		ServiceName: registryConfig.NacosConfig.Application,
-		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
+		ServiceName: nr.registryConfig.NacosConfig.Application,
+		GroupName:   nr.registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
 		Clusters:    []string{clusterName},            // default value is DEFAULT
 		HealthyOnly: true,
 	})
@@ -97,12 +96,12 @@ func (nr *nacosRegistry) Lookup() ([]string, error) {
 	nr.Subscribe(&nacosEventListener{})
 	return addrs, nil
 }
+
 func (nr *nacosRegistry) Subscribe(notifyListener registry.EventListener) error {
-	registryConfig := clientConfig.GetRegistryConfig()
-	clusterName := registryConfig.NacosConfig.Cluster
+	clusterName := nr.registryConfig.NacosConfig.Cluster
 	err := nr.namingClient.Subscribe(&vo.SubscribeParam{
-		ServiceName: registryConfig.NacosConfig.Application,
-		GroupName:   registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
+		ServiceName: nr.registryConfig.NacosConfig.Application,
+		GroupName:   nr.registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
 		Clusters:    []string{clusterName},            // default value is DEFAULT
 		SubscribeCallback: func(services []model.SubscribeService, err error) {
 			serviceList := make([]*registry.Service, 0, len(services))
@@ -134,18 +133,17 @@ func newNacosRegistry() (registry.Registry, error) {
 	if err != nil {
 		return &nacosRegistry{}, err
 	}
-	tmpRegistry := &nacosRegistry{
-		namingClient: client,
+	registry := &nacosRegistry{
+		registryConfig: config.GetRegistryConfig(),
+		namingClient:   client,
 	}
-	return tmpRegistry, nil
+	return registry, nil
 }
 
 //获取Nacos配置信息
 func getNacosConfig() (map[string]interface{}, error) {
 	registryConfig := config.GetRegistryConfig()
-	if registryConfig.Mode == "" {
-		registryConfig = clientConfig.GetRegistryConfig()
-	}
+
 	configMap := make(map[string]interface{}, 2)
 	addr := registryConfig.NacosConfig.ServerAddr
 

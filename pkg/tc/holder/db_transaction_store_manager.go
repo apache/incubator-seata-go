@@ -5,7 +5,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
-	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 )
 
 type DBTransactionStoreManager struct {
@@ -142,10 +141,6 @@ func (storeManager *DBTransactionStoreManager) ReadSessionWithSessionCondition(s
 
 func (storeManager *DBTransactionStoreManager) Shutdown() {
 
-}
-
-func (storeManager *DBTransactionStoreManager) GetCurrentMaxSessionID() int64 {
-	return storeManager.LogStore.GetCurrentMaxSessionID(uuid.GetMaxUUID(), uuid.GetInitUUID())
 }
 
 func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO, branchTransactionDOs []*model.BranchTransactionDO) *session.GlobalSession {

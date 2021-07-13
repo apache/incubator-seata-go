@@ -176,7 +176,7 @@ func (resourceManager TCCResourceManager) doBranchCommit(request protocal.Branch
 func (resourceManager TCCResourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
 	var resp = protocal.BranchRollbackResponse{}
 
-	log.Infof("Branch rollbacking: %s %d %s", request.XID, request.BranchID, request.ResourceID)
+	log.Infof("Branch rolling back: %s %d %s", request.XID, request.BranchID, request.ResourceID)
 	status, err := resourceManager.BranchRollback(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed

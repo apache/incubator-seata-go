@@ -9,7 +9,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
-	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 )
 
 type DataBaseSessionManager struct {
@@ -123,7 +122,7 @@ func (sessionManager *DataBaseSessionManager) AllSessions() []*session.GlobalSes
 		ss := sessionManager.FindGlobalSessions(model.SessionCondition{
 			Statuses: []meta.GlobalStatus{meta.GlobalStatusRollbackRetrying,
 				meta.GlobalStatusRollbacking,
-				meta.GlobalStatusTimeoutRollbacking,
+				meta.GlobalStatusTimeoutRollingBack,
 				meta.GlobalStatusTimeoutRollbackRetrying,
 			},
 		})
@@ -132,7 +131,7 @@ func (sessionManager *DataBaseSessionManager) AllSessions() []*session.GlobalSes
 		return sessionManager.FindGlobalSessions(model.SessionCondition{
 			Statuses: []meta.GlobalStatus{meta.GlobalStatusUnknown, meta.GlobalStatusBegin,
 				meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying, meta.GlobalStatusRollbacking,
-				meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollbacking, meta.GlobalStatusTimeoutRollbackRetrying,
+				meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack, meta.GlobalStatusTimeoutRollbackRetrying,
 				meta.GlobalStatusAsyncCommitting,
 			},
 		})
@@ -144,8 +143,5 @@ func (sessionManager *DataBaseSessionManager) FindGlobalSessions(condition model
 }
 
 func (sessionManager *DataBaseSessionManager) Reload() {
-	maxSessionID := sessionManager.TransactionStoreManager.GetCurrentMaxSessionID()
-	if maxSessionID > uuid.UUID {
-		uuid.SetUUID(uuid.UUID, maxSessionID)
-	}
+
 }

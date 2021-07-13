@@ -35,7 +35,7 @@ func TestDefaultSessionManager_FindGlobalSession(t *testing.T) {
 }
 
 func globalSessionsProvider() []*session.GlobalSession {
-	common.GetXID().Init("127.0.0.1", 9876)
+	common.Init("127.0.0.1", 9876)
 
 	result := make([]*session.GlobalSession, 0)
 	gs1 := session.NewGlobalSession(
@@ -60,7 +60,7 @@ func globalSessionsProvider() []*session.GlobalSession {
 func globalSessionProvider(t *testing.T) *session.GlobalSession {
 	testutil.InitServerConfig(t)
 
-	common.GetXID().Init("127.0.0.1", 9876)
+	common.Init("127.0.0.1", 9876)
 
 	gs := session.NewGlobalSession(
 		session.WithGsApplicationID("demo-cmd"),

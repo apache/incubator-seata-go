@@ -17,5 +17,5 @@ func TestLockStoreDataBaseDao_UnLockByXidAndBranchIDs(t *testing.T) {
 	}
 	lockStore := &LockStoreDataBaseDao{engine: engine}
 
-	lockStore.UnLockByXidAndBranchIDs(":0:2000042936", []int64{2000042938})
+	lockStore.UnLockByXIDAndBranchIDs(":0:2000042936", []int64{2000042938})
 }

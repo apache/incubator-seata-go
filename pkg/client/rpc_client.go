@@ -12,7 +12,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	"github.com/transaction-wg/seata-golang/pkg/base/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/client/config"
 	getty2 "github.com/transaction-wg/seata-golang/pkg/client/rpc_client"
@@ -20,7 +20,7 @@ import (
 )
 
 type RpcClient struct {
-	conf         config.ClientConfig
+	conf         *config.ClientConfig
 	gettyClients []getty.Client
 	rpcHandler   *getty2.RpcRemoteClient
 }
@@ -36,9 +36,7 @@ func NewRpcClient() *RpcClient {
 }
 
 func (c *RpcClient) init() {
-	//addressList := strings.Split(c.conf.TransactionServiceGroup, ",")
-	//通过注册中心获取服务地址信息
-	addressList := getAvailServerList()
+	addressList := getAvailServerList(c.conf)
 	if len(addressList) == 0 {
 		log.Warn("no have valid seata server list")
 	}
@@ -54,9 +52,8 @@ func (c *RpcClient) init() {
 	}
 }
 
-func getAvailServerList() []string {
-	registryConfig := config.GetRegistryConfig()
-	reg, err := extension.GetRegistry(registryConfig.Mode)
+func getAvailServerList(config *config.ClientConfig) []string {
+	reg, err := extension.GetRegistry(config.RegistryConfig.Mode)
 	if err != nil {
 		logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
 		panic(err.Error())

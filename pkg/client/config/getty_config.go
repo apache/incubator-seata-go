@@ -1,15 +1,8 @@
 package config
 
 import (
+	config2 "github.com/transaction-wg/seata-golang/pkg/base/config"
 	"time"
-)
-
-import (
-	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/getty/config"
 )
 
 // GettyConfig
@@ -20,40 +13,29 @@ type GettyConfig struct {
 	ConnectionNum int `default:"16" yaml:"connection_number" json:"connection_number,omitempty"`
 
 	// heartbeat
-	HeartbeatPrd    string `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
-	HeartbeatPeriod time.Duration
+	HeartbeatPeriod time.Duration `default:"15s" yaml:"heartbeat_period" json:"heartbeat_period,omitempty"`
 
 	// getty_session tcp parameters
-	GettySessionParam config.GettySessionParam `required:"true" yaml:"getty_session_param" json:"getty_session_param,omitempty"`
+	GettySessionParam config2.GettySessionParam `required:"true" yaml:"getty_session_param" json:"getty_session_param,omitempty"`
 }
 
-// CheckValidity ...
-func (c *GettyConfig) CheckValidity() error {
-	var err error
-
-	if c.HeartbeatPeriod, err = time.ParseDuration(c.HeartbeatPrd); err != nil {
-		return errors.WithMessagef(err, "time.ParseDuration(HeartbeatPeriod{%#v})", c.HeartbeatPrd)
-	}
-
-	return errors.WithStack(c.GettySessionParam.CheckValidity())
-}
 
 // GetDefaultGettyConfig ...
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		ReconnectInterval: 0,
 		ConnectionNum:     1,
-		HeartbeatPrd:      "10s",
-		GettySessionParam: config.GettySessionParam{
+		HeartbeatPeriod:      10 * time.Second,
+		GettySessionParam: config2.GettySessionParam{
 			CompressEncoding: false,
 			TcpNoDelay:       true,
 			TcpKeepAlive:     true,
-			KeepAlivePrd:     "180s",
+			KeepAlivePeriod:  180 * time.Second,
 			TcpRBufSize:      262144,
 			TcpWBufSize:      65536,
-			TcpReadTmt:       "1s",
-			TcpWriteTmt:      "5s",
-			WaitTmt:          "1s",
+			TcpReadTimeout:   time.Second,
+			TcpWriteTimeout:  5 * time.Second,
+			WaitTimeout:      time.Second,
 			MaxMsgLen:        4096,
 			SessionName:      "rpc_client",
 		},

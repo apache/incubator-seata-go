@@ -113,9 +113,6 @@ func (storeManager *FileTransactionStoreManager) Shutdown() {
 	storeManager.currFileChannel.Close()
 }
 
-func (storeManager *FileTransactionStoreManager) GetCurrentMaxSessionID() int64 {
-	return int64(0)
-}
 
 func (storeManager *FileTransactionStoreManager) saveHistory() {
 	storeManager.findTimeoutAndSave()

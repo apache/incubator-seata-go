@@ -74,9 +74,6 @@ type TransactionStoreManager interface {
 
 	// Shutdown.
 	Shutdown()
-
-	// Gets current max session id.
-	GetCurrentMaxSessionID() int64
 }
 
 type AbstractTransactionStoreManager struct {

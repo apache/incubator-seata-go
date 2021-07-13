@@ -42,10 +42,10 @@ const (
 	GlobalStatusRollbackRetrying
 
 	/**
-	 * The Timeout rollbacking.
+	 * The Timeout rollingBack.
 	 */
-	// Rollbacking since timeout
-	GlobalStatusTimeoutRollbacking
+	// RollingBack since timeout
+	GlobalStatusTimeoutRollingBack
 
 	/**
 	 * The Timeout rollback retrying.
@@ -116,7 +116,7 @@ func (s GlobalStatus) String() string {
 		return "Rollbacking"
 	case GlobalStatusRollbackRetrying:
 		return "RollbackRetrying"
-	case GlobalStatusTimeoutRollbacking:
+	case GlobalStatusTimeoutRollingBack:
 		return "TimeoutRollbacking"
 	case GlobalStatusTimeoutRollbackRetrying:
 		return "TimeoutRollbackRetrying"

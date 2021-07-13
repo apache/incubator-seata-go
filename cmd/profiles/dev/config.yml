@@ -3,7 +3,7 @@ port: "8091"
 max_rollback_retry_timeout: -1
 max_commit_retry_timeout: -1
 timeout_retry_period: "1s"
-rollbacking_retry_period: "1s"
+rolling_back_retry_period: "1s"
 committing_retry_period: "1s"
 async_committing_retry_period: "10s"
 log_delete_period: "24h"

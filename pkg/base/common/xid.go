@@ -6,24 +6,18 @@ import (
 	"strings"
 )
 
-type XID struct {
-	IpAddress string
-	Port      int
+var (
+	IPAddress string
+	Port int
+)
+
+func Init(ipAddress string, port int) {
+	IPAddress = ipAddress
+	Port = port
 }
 
-var xID = &XID{}
-
-func GetXID() *XID {
-	return xID
-}
-
-func (xid *XID) Init(ipAddress string, port int) {
-	xid.IpAddress = ipAddress
-	xid.Port = port
-}
-
-func (xid *XID) GenerateXID(tranID int64) string {
-	return fmt.Sprintf("%s:%d:%d", xid.IpAddress, xid.Port, tranID)
+func GenerateXID(tranID int64) string {
+	return fmt.Sprintf("%s:%d:%d", IPAddress, Port, tranID)
 }
 
 func GetTransactionID(xid string) int64 {

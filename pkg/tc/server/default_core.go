@@ -469,7 +469,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 			}
 			branchStatus, err1 := core.branchRollback(globalSession, bs)
 			if err1 != nil {
-				log.Errorf("Exception rollbacking branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
+				log.Errorf("Exception rolling back branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				if !retrying {
 					queueToRetryRollback(globalSession)
 				}
@@ -501,7 +501,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		// failure due to data changes.
 		gs := holder.GetSessionHolder().RootSessionManager.FindGlobalSession(globalSession.XID)
 		if gs != nil && gs.HasBranch() {
-			log.Infof("Global[%d] rollbacking is NOT done.", globalSession.XID)
+			log.Infof("Global[%d] rolling back is NOT done.", globalSession.XID)
 			return false, nil
 		}
 	}
@@ -576,7 +576,7 @@ func queueToRetryRollback(globalSession *session.GlobalSession) {
 func isTimeoutGlobalStatus(status meta.GlobalStatus) bool {
 	return status == meta.GlobalStatusTimeoutRollbacked ||
 		status == meta.GlobalStatusTimeoutRollbackFailed ||
-		status == meta.GlobalStatusTimeoutRollbacking ||
+		status == meta.GlobalStatusTimeoutRollingBack ||
 		status == meta.GlobalStatusTimeoutRollbackRetrying
 }
 

@@ -82,7 +82,7 @@ func (sessionHolder SessionHolder) reload() {
 					case meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying:
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
 						break
-					case meta.GlobalStatusRollbacking, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollbacking,
+					case meta.GlobalStatusRollbacking, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack,
 						meta.GlobalStatusTimeoutRollbackRetrying:
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 						break

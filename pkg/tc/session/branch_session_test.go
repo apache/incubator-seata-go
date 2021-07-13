@@ -29,7 +29,7 @@ func TestBranchSession_Encode_Decode(t *testing.T) {
 
 func branchSessionProvider() *BranchSession {
 	bs := NewBranchSession(
-		WithBsTransactionID(uuid.GeneratorUUID()),
+		WithBsTransactionID(uuid.NextID()),
 		WithBsBranchID(1),
 		WithBsResourceGroupID("my_test_tx_group"),
 		WithBsResourceID("tb_1"),

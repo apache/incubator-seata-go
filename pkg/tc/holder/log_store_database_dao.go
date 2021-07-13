@@ -25,7 +25,7 @@ const (
         status, client_id, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(6), now(6))`
 	UpdateBranchTransactionDO = "update branch_table set status = ?, gmt_modified = now(6) where xid = ? and branch_id = ?"
 	DeleteBranchTransactionDO = "delete from branch_table where xid = ? and branch_id = ?"
-	QueryMaxTransactionID     = "select max(transaction_id) as maxTransactioID from global_table where transaction_id < ? and transaction_id > ?"
+	QueryMaxTransactionID     = "select max(transaction_id) as maxTransactionID from global_table where transaction_id < ? and transaction_id > ?"
 	QueryMaxBranchID          = "select max(branch_id) as maxBranchID from branch_table where branch_id < ? and branch_id > ?"
 )
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -42,19 +43,26 @@ func main() {
 				},
 				Action: func(c *cli.Context) error {
 					configPath := c.String("config")
-					serverNode := c.Int("serverNode")
+					serverNode := c.Int64("serverNode")
+
+					conf, err := config.InitConf(configPath)
+					if err != nil {
+						log.Fatal(err)
+					}
+
 					ip, _ := gxnet.GetLocalIP()
+					port, err := strconv.Atoi(conf.Port)
+					if err != nil {
+						log.Fatal(err)
+					}
 
-					config.InitConf(configPath)
-					conf := config.GetServerConfig()
-					port, _ := strconv.Atoi(conf.Port)
-					common.GetXID().Init(ip, port)
-
+					common.Init(ip, port)
 					uuid.Init(serverNode)
 					lock.Init()
 					holder.Init()
+
 					srv := server.NewServer()
-					srv.Start(conf.Host + ":" + conf.Port)
+					srv.Start(fmt.Sprintf(":%s", conf.Port))
 					return nil
 				},
 			},

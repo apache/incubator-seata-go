@@ -5,7 +5,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
-	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 )
 
 type FileBasedSessionManager struct {
@@ -89,11 +88,9 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 }
 
 func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWriteStore, unhandledBranchSessions map[int64]*session.BranchSession) {
-	maxRecoverID := uuid.UUID
 	for _, store := range stores {
 		logOperation := store.LogOperation
 		sessionStorable := store.SessionRequest
-		maxRecoverID = getMaxID(maxRecoverID, sessionStorable)
 		switch logOperation {
 		case LogOperationGlobalAdd, LogOperationGlobalUpdate:
 			{
@@ -163,39 +160,5 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 		default:
 			break
 		}
-	}
-	setMaxID(maxRecoverID)
-}
-
-func getMaxID(maxRecoverID int64, sessionStorable session.SessionStorable) int64 {
-	var currentID int64 = 0
-	var gs, ok1 = sessionStorable.(*session.GlobalSession)
-	if ok1 {
-		currentID = gs.TransactionID
-	}
-
-	var bs, ok2 = sessionStorable.(*session.BranchSession)
-	if ok2 {
-		currentID = bs.BranchID
-	}
-
-	if maxRecoverID > currentID {
-		return maxRecoverID
-	} else {
-		return currentID
-	}
-}
-
-func setMaxID(maxRecoverID int64) {
-	var currentID int64
-	// will be recover multi-thread later
-	for {
-		currentID = uuid.UUID
-		if currentID < maxRecoverID {
-			if uuid.SetUUID(currentID, maxRecoverID) {
-				break
-			}
-		}
-		break
 	}
 }

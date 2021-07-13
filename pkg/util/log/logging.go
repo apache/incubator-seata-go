@@ -1,6 +1,11 @@
 package log
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+
+	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -25,6 +30,36 @@ const (
 	// FatalLevel logs a message, then calls os.Exit(1).
 	FatalLevel = LogLevel(zapcore.FatalLevel)
 )
+
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	if l == nil {
+		return errors.New("can't unmarshal a nil *Level")
+	}
+	if !l.unmarshalText(text) && !l.unmarshalText(bytes.ToLower(text)) {
+		return fmt.Errorf("unrecognized level: %q", text)
+	}
+	return nil
+}
+
+func (l *LogLevel) unmarshalText(text []byte) bool {
+	switch string(text) {
+	case "debug", "DEBUG":
+		*l = DebugLevel
+	case "info", "INFO", "": // make the zero value useful
+		*l = InfoLevel
+	case "warn", "WARN":
+		*l = WarnLevel
+	case "error", "ERROR":
+		*l = ErrorLevel
+	case "panic", "PANIC":
+		*l = PanicLevel
+	case "fatal", "FATAL":
+		*l = FatalLevel
+	default:
+		return false
+	}
+	return true
+}
 
 type Logger interface {
 	Debug(v ...interface{})
@@ -71,6 +106,27 @@ func init() {
 	log = zapLogger.Sugar()
 }
 
+func Init(logPath string, level LogLevel) {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    10,
+		MaxBackups: 5,
+		MaxAge:     30,
+		Compress:   false,
+	}
+	syncer := zapcore.AddSync(lumberJackLogger)
+
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
+	zapLogger = zap.New(core, zap.AddCaller())
+
+	log = zapLogger.Sugar()
+}
+
 // SetLogger: customize yourself logger.
 func SetLogger(logger Logger) {
 	log = logger
@@ -79,32 +135,6 @@ func SetLogger(logger Logger) {
 // GetLogger get logger
 func GetLogger() Logger {
 	return log
-}
-
-// SetLoggerLevel
-func SetLoggerLevel(level LogLevel) error {
-	var err error
-	zapLoggerConfig.Level = zap.NewAtomicLevelAt(zapcore.Level(level))
-	zapLogger, err = zapLoggerConfig.Build()
-	if err != nil {
-		return err
-	}
-	log = zapLogger.Sugar()
-	return nil
-}
-
-// SetLoggerCallerDisable: disable caller info in production env for performance improve.
-// It is highly recommended that you execute this method in a production environment.
-func SetLoggerCallerDisable() error {
-	var err error
-	zapLoggerConfig.Development = false
-	zapLoggerConfig.DisableCaller = true
-	zapLogger, err = zapLoggerConfig.Build()
-	if err != nil {
-		return err
-	}
-	log = zapLogger.Sugar()
-	return nil
 }
 
 // Debug ...

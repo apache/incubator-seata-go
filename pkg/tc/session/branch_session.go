@@ -102,7 +102,7 @@ func WithBsApplicationData(applicationData []byte) BranchSessionOption {
 
 func NewBranchSession(opts ...BranchSessionOption) *BranchSession {
 	session := &BranchSession{
-		BranchID: uuid.GeneratorUUID(),
+		BranchID: uuid.NextID(),
 		Status:   meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {
@@ -115,7 +115,7 @@ func NewBranchSessionByGlobal(gs GlobalSession, opts ...BranchSessionOption) *Br
 	bs := &BranchSession{
 		XID:           gs.XID,
 		TransactionID: gs.TransactionID,
-		BranchID:      uuid.GeneratorUUID(),
+		BranchID:      uuid.NextID(),
 		Status:        meta.BranchStatusUnknown,
 	}
 	for _, o := range opts {

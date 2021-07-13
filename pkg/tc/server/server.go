@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -18,7 +17,7 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/common/extension"
+	"github.com/transaction-wg/seata-golang/pkg/base/extension"
 	"github.com/transaction-wg/seata-golang/pkg/base/getty/readwriter"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
@@ -26,7 +25,7 @@ import (
 )
 
 type Server struct {
-	conf       config.ServerConfig
+	conf       *config.ServerConfig
 	tcpServer  getty.Server
 	rpcHandler *DefaultCoordinator
 }
@@ -81,18 +80,16 @@ func (s *Server) Start(addr string) {
 	var (
 		tcpServer getty.Server
 	)
-	//直接使用addr绑定有ip，如果是127.0.0.1,则通过网卡正式ip不能访问
-	addrs := strings.Split(addr, ":")
+
 	tcpServer = getty.NewTCPServer(
-		//getty.WithLocalAddress(addr),
-		getty.WithLocalAddress(":"+addrs[1]),
+		getty.WithLocalAddress(addr),
 		getty.WithServerTaskPool(gxsync.NewTaskPoolSimple(0)),
 	)
 	tcpServer.RunEventLoop(s.newSession)
 	log.Debugf("s bind addr{%s} ok!", addr)
 	s.tcpServer = tcpServer
 	//向注册中心注册实例
-	registryInstance()
+	registryInstance(s.conf)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
@@ -110,16 +107,14 @@ func (s *Server) Start(addr string) {
 	}
 }
 
-func registryInstance() {
-	registryConfig := config.GetRegistryConfig()
-	reg, err := extension.GetRegistry(registryConfig.Mode)
+func registryInstance(config *config.ServerConfig) {
+	reg, err := extension.GetRegistry(config.RegistryConfig.Mode)
 	if err != nil {
 		log.Error("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
 		panic(err.Error())
 	}
 	ip, _ := gxnet.GetLocalIP()
-	conf := config.GetServerConfig()
-	port, _ := strconv.Atoi(conf.Port)
+	port, _ := strconv.Atoi(config.Port)
 	reg.Register(&registry.Address{
 		IP:   ip,
 		Port: uint64(port),

@@ -25,7 +25,7 @@ func (coordinator *DefaultCoordinator) SendResponse(request protocal.RpcMessage,
 }
 
 func (coordinator *DefaultCoordinator) SendSyncRequest(resourceID string, clientID string, message interface{}) (interface{}, error) {
-	return coordinator.SendSyncRequestWithTimeout(resourceID, clientID, message, RPC_REQUEST_TIMEOUT)
+	return coordinator.SendSyncRequestWithTimeout(resourceID, clientID, message, RpcRequestTimeout)
 }
 
 func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceID string, clientID string, message interface{}, timeout time.Duration) (interface{}, error) {
@@ -37,7 +37,7 @@ func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceID str
 }
 
 func (coordinator *DefaultCoordinator) SendSyncRequestByGetty(session getty.Session, message interface{}) (interface{}, error) {
-	return coordinator.SendSyncRequestByGettyWithTimeout(session, message, RPC_REQUEST_TIMEOUT)
+	return coordinator.SendSyncRequestByGettyWithTimeout(session, message, RpcRequestTimeout)
 }
 
 func (coordinator *DefaultCoordinator) SendSyncRequestByGettyWithTimeout(session getty.Session, message interface{}, timeout time.Duration) (interface{}, error) {

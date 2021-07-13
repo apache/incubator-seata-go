@@ -1,5 +1,7 @@
 package config
 
+var config *RegistryConfig
+
 type RegistryConfig struct {
 	Mode        string      `yaml:"type" json:"type,omitempty"` //类型
 	NacosConfig NacosConfig `yaml:"nacos" json:"nacos,omitempty"`
@@ -13,4 +15,12 @@ type NacosConfig struct {
 	Cluster     string `yaml:"cluster" json:"cluster,omitempty"`
 	UserName    string `yaml:"username" json:"username,omitempty"`
 	Password    string `yaml:"password" json:"password,omitempty"`
+}
+
+func InitRegistryConfig(registryConfig *RegistryConfig) {
+	config = registryConfig
+}
+
+func GetRegistryConfig() *RegistryConfig {
+	return config
 }

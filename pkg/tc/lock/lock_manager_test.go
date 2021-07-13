@@ -24,8 +24,9 @@ func TestLockManager_AcquireLock(t *testing.T) {
 }
 
 func TestLockManager_IsLockable(t *testing.T) {
-	transID := uuid.GeneratorUUID()
-	ok := GetLockManager().IsLockable(common.GetXID().GenerateXID(transID), "tb_1", "tb_1:13")
+	transID := uuid.NextID()
+	common.Init("127.0.0.1", 9876)
+	ok := GetLockManager().IsLockable(common.GenerateXID(transID), "tb_1", "tb_1:13")
 	assert.Equal(t, ok, true)
 }
 
@@ -67,7 +68,7 @@ func TestLockManager_IsLockable2(t *testing.T) {
 	result1 := GetLockManager().IsLockable(bs.XID, bs.ResourceID, bs.LockKey)
 	assert.True(t, result1)
 	GetLockManager().AcquireLock(bs)
-	bs.TransactionID = uuid.GeneratorUUID()
+	bs.TransactionID = uuid.NextID()
 	result2 := GetLockManager().IsLockable(bs.XID, bs.ResourceID, bs.LockKey)
 	assert.False(t, result2)
 }
@@ -103,10 +104,11 @@ func branchSessionsProvider() []*session.BranchSession {
 
 func baseBranchSessionsProvider(resourceID string, lockKey1 string, lockKey2 string) []*session.BranchSession {
 	var branchSessions = make([]*session.BranchSession, 0)
-	transID := uuid.GeneratorUUID()
-	transID2 := uuid.GeneratorUUID()
+	transID := uuid.NextID()
+	transID2 := uuid.NextID()
+	common.Init("127.0.0.1", 9876)
 	bs := session.NewBranchSession(
-		session.WithBsXid(common.GetXID().GenerateXID(transID)),
+		session.WithBsXid(common.GenerateXID(transID)),
 		session.WithBsTransactionID(transID),
 		session.WithBsBranchID(1),
 		session.WithBsResourceGroupID("my_test_tx_group"),
@@ -119,7 +121,7 @@ func baseBranchSessionsProvider(resourceID string, lockKey1 string, lockKey2 str
 	)
 
 	bs1 := session.NewBranchSession(
-		session.WithBsXid(common.GetXID().GenerateXID(transID2)),
+		session.WithBsXid(common.GenerateXID(transID2)),
 		session.WithBsTransactionID(transID2),
 		session.WithBsBranchID(1),
 		session.WithBsResourceGroupID("my_test_tx_group"),
@@ -137,11 +139,11 @@ func baseBranchSessionsProvider(resourceID string, lockKey1 string, lockKey2 str
 }
 
 func branchSessionProvider() *session.BranchSession {
-	common.GetXID().Init("127.0.0.1", 9876)
+	common.Init("127.0.0.1", 9876)
 
-	transID := uuid.GeneratorUUID()
+	transID := uuid.NextID()
 	bs := session.NewBranchSession(
-		session.WithBsXid(common.GetXID().GenerateXID(transID)),
+		session.WithBsXid(common.GenerateXID(transID)),
 		session.WithBsTransactionID(transID),
 		session.WithBsBranchID(1),
 		session.WithBsResourceGroupID("my_test_tx_group"),

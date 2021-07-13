@@ -50,7 +50,7 @@ func GetRpcRemoteClient() *RpcRemoteClient {
 }
 
 type RpcRemoteClient struct {
-	conf                         config.ClientConfig
+	conf                         *config.ClientConfig
 	idGenerator                  *atomic.Uint32
 	futures                      *sync.Map
 	mergeMsgMap                  *sync.Map

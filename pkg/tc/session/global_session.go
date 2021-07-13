@@ -106,10 +106,10 @@ func WithGsActive(active bool) GlobalSessionOption {
 func NewGlobalSession(opts ...GlobalSessionOption) *GlobalSession {
 	gs := &GlobalSession{
 		BranchSessions: make(map[*BranchSession]bool),
-		TransactionID:  uuid.GeneratorUUID(),
+		TransactionID:  uuid.NextID(),
 		Active:         true,
 	}
-	gs.XID = common.GetXID().GenerateXID(gs.TransactionID)
+	gs.XID = common.GenerateXID(gs.TransactionID)
 	for _, o := range opts {
 		o(gs)
 	}
