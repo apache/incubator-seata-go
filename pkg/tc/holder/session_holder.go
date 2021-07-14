@@ -65,8 +65,8 @@ func (sessionHolder SessionHolder) reload() {
 		if reloadedSessions != nil && len(reloadedSessions) > 0 {
 			for _, globalSession := range reloadedSessions {
 				switch globalSession.Status {
-				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
-					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
+				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRolledBack,
+					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRolledBack, meta.GlobalStatusTimeoutRollbackFailed,
 					meta.GlobalStatusFinished:
 					log.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
 					break
@@ -82,7 +82,7 @@ func (sessionHolder SessionHolder) reload() {
 					case meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying:
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
 						break
-					case meta.GlobalStatusRollbacking, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack,
+					case meta.GlobalStatusRollingBack, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack,
 						meta.GlobalStatusTimeoutRollbackRetrying:
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
 						break

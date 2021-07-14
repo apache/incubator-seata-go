@@ -74,8 +74,8 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 	if len(sessionManager.SessionMap) > 0 {
 		for _, globalSession := range sessionManager.SessionMap {
 			switch globalSession.Status {
-			case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRollbacked,
-				meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRollbacked, meta.GlobalStatusTimeoutRollbackFailed,
+			case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRolledBack,
+				meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRolledBack, meta.GlobalStatusTimeoutRollbackFailed,
 				meta.GlobalStatusFinished:
 				// Remove all sessions finished
 				delete(sessionManager.SessionMap, globalSession.XID)

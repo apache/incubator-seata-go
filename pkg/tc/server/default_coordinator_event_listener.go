@@ -46,8 +46,8 @@ func (coordinator *DefaultCoordinator) OnMessage(session getty.Session, pkg inte
 			return
 		}
 
-		if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
-			rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
+		if rpcMessage.MessageType == protocal.MSGTypeRequest ||
+			rpcMessage.MessageType == protocal.MSGTypeRequestOneway {
 			log.Debugf("msgID:%s, body:%v", rpcMessage.ID, rpcMessage.Body)
 			_, isRegRM := rpcMessage.Body.(protocal.RegisterRMRequest)
 			if isRegRM {

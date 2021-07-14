@@ -113,7 +113,7 @@ func (manager *GettySessionManager) RegisterTmGettySession(request protocal.Regi
 	pMap := portMap.(*sync.Map)
 	pMap.Store(port, session)
 
-	session_transactionroles.Store(session, meta.TMROLE)
+	session_transactionroles.Store(session, meta.TMRole)
 	identified_sessions.Store(session, request.ApplicationID)
 }
 
@@ -129,7 +129,7 @@ func (manager *GettySessionManager) RegisterRmGettySession(request protocal.Regi
 	pMap := portMap.(*sync.Map)
 	pMap.Store(port, session)
 
-	session_transactionroles.Store(session, meta.RMROLE)
+	session_transactionroles.Store(session, meta.RMRole)
 	identified_sessions.Store(session, request.ApplicationID)
 	client_resources.Store(request.ApplicationID, request.ResourceIDs)
 }
@@ -321,7 +321,7 @@ func getRMGettySessionFromIpMap(ipMap *sync.Map) getty.Session {
 				role, loaded := session_transactionroles.Load(session)
 				if loaded {
 					r := role.(meta.TransactionRole)
-					if r != meta.TMROLE {
+					if r != meta.TMRole {
 						chosenSession = session
 						return false
 					}

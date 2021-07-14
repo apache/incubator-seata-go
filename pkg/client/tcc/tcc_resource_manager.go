@@ -61,9 +61,9 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
-		return meta.BranchStatusPhasetwoCommitted, nil
+		return meta.BranchStatusPhaseTwoCommitted, nil
 	} else {
-		return meta.BranchStatusPhasetwoCommitFailedRetryable, nil
+		return meta.BranchStatusPhaseTwoCommitFailedRetryable, nil
 	}
 }
 
@@ -88,9 +88,9 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
-		return meta.BranchStatusPhasetwoRollbacked, nil
+		return meta.BranchStatusPhaseTwoRolledBack, nil
 	} else {
-		return meta.BranchStatusPhasetwoRollbackFailedRetryable, nil
+		return meta.BranchStatusPhaseTwoRollbackFailedRetryable, nil
 	}
 }
 

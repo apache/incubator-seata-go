@@ -121,7 +121,7 @@ func (sessionManager *DataBaseSessionManager) AllSessions() []*session.GlobalSes
 	} else if sessionManager.TaskName == RETRY_ROLLBACKING_SESSION_MANAGER_NAME {
 		ss := sessionManager.FindGlobalSessions(model.SessionCondition{
 			Statuses: []meta.GlobalStatus{meta.GlobalStatusRollbackRetrying,
-				meta.GlobalStatusRollbacking,
+				meta.GlobalStatusRollingBack,
 				meta.GlobalStatusTimeoutRollingBack,
 				meta.GlobalStatusTimeoutRollbackRetrying,
 			},
@@ -130,7 +130,7 @@ func (sessionManager *DataBaseSessionManager) AllSessions() []*session.GlobalSes
 	} else {
 		return sessionManager.FindGlobalSessions(model.SessionCondition{
 			Statuses: []meta.GlobalStatus{meta.GlobalStatusUnknown, meta.GlobalStatusBegin,
-				meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying, meta.GlobalStatusRollbacking,
+				meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying, meta.GlobalStatusRollingBack,
 				meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack, meta.GlobalStatusTimeoutRollbackRetrying,
 				meta.GlobalStatusAsyncCommitting,
 			},

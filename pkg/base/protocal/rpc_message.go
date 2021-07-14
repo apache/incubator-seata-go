@@ -1,5 +1,6 @@
 package protocal
 
+// RpcMessage
 type RpcMessage struct {
 	ID          int32
 	MessageType byte

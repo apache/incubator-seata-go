@@ -5,103 +5,71 @@ import "fmt"
 type GlobalStatus int32
 
 const (
-	/**
-	 * Un known global status.
-	 */
+	// Un known global status.
 	// BranchStatus_Unknown
 	GlobalStatusUnknown GlobalStatus = iota
 
-	/**
-	 * The GlobalStatus_Begin.
-	 */
+	// The GlobalStatus_Begin.
 	// PHASE 1: can accept new branch registering.
 	GlobalStatusBegin
 
-	/**
-	 * PHASE 2: Running Status: may be changed any time.
-	 */
+	// PHASE 2: Running Status: may be changed any time.
 	// Committing.
 	GlobalStatusCommitting
 
-	/**
-	 * The Commit retrying.
-	 */
+	// The Commit retrying.
 	// Retrying commit after a recoverable failure.
 	GlobalStatusCommitRetrying
 
-	/**
-	 * Rollbacking global status.
-	 */
-	// Rollbacking
-	GlobalStatusRollbacking
+	// Rolling back global status.
+	GlobalStatusRollingBack
 
-	/**
-	 * The Rollback retrying.
-	 */
+	// The Rollback retrying.
 	// Retrying rollback after a recoverable failure.
 	GlobalStatusRollbackRetrying
 
-	/**
-	 * The Timeout rollingBack.
-	 */
+	// The Timeout rollingBack.
 	// RollingBack since timeout
 	GlobalStatusTimeoutRollingBack
 
-	/**
-	 * The Timeout rollback retrying.
-	 */
+	// The Timeout rollback retrying.
 	// Retrying rollback (since timeout) after a recoverable failure.
 	GlobalStatusTimeoutRollbackRetrying
 
-	/**
-	 * All branches can be async committed. The committing is NOT done yet, but it can be seen as committed for TM/RM
-	 * rpc_client.
-	 */
+	// All branches can be async committed. The committing is NOT done yet, but it can be seen as committed for TM/RM
+	// rpc_client.
 	GlobalStatusAsyncCommitting
 
-	/**
-	 * PHASE 2: Final Status: will NOT change any more.
-	 */
+	// PHASE 2: Final Status: will NOT change any more.
 	// Finally: global transaction is successfully committed.
 	GlobalStatusCommitted
 
-	/**
-	 * The Commit failed.
-	 */
+	// The Commit failed.
 	// Finally: failed to commit
 	GlobalStatusCommitFailed
 
-	/**
-	 * The Rollbacked.
-	 */
-	// Finally: global transaction is successfully rollbacked.
-	GlobalStatusRollbacked
+	// The Rolled back.
+	// Finally: global transaction is successfully rolled back.
+	GlobalStatusRolledBack
 
-	/**
-	 * The Rollback failed.
-	 */
+	// The Rollback failed.
 	// Finally: failed to rollback
 	GlobalStatusRollbackFailed
 
-	/**
-	 * The Timeout rollbacked.
-	 */
-	// Finally: global transaction is successfully rollbacked since timeout.
-	GlobalStatusTimeoutRollbacked
+	// The Timeout rolled back.
+	// Finally: global transaction is successfully rolled back since timeout.
+	GlobalStatusTimeoutRolledBack
 
-	/**
-	 * The Timeout rollback failed.
-	 */
+	// The Timeout rollback failed.
 	// Finally: failed to rollback since timeout
 	GlobalStatusTimeoutRollbackFailed
 
-	/**
-	 * The Finished.
-	 */
+	// The Finished.
 	// Not managed in getty_session MAP any more
 	GlobalStatusFinished
 )
 
+// String string of global status
 func (s GlobalStatus) String() string {
 	switch s {
 	case GlobalStatusUnknown:
@@ -112,12 +80,12 @@ func (s GlobalStatus) String() string {
 		return "Committing"
 	case GlobalStatusCommitRetrying:
 		return "CommitRetrying"
-	case GlobalStatusRollbacking:
-		return "Rollbacking"
+	case GlobalStatusRollingBack:
+		return "RollingBack"
 	case GlobalStatusRollbackRetrying:
 		return "RollbackRetrying"
 	case GlobalStatusTimeoutRollingBack:
-		return "TimeoutRollbacking"
+		return "TimeoutRollingBack"
 	case GlobalStatusTimeoutRollbackRetrying:
 		return "TimeoutRollbackRetrying"
 	case GlobalStatusAsyncCommitting:
@@ -126,12 +94,12 @@ func (s GlobalStatus) String() string {
 		return "Committed"
 	case GlobalStatusCommitFailed:
 		return "CommitFailed"
-	case GlobalStatusRollbacked:
-		return "Rollbacked"
+	case GlobalStatusRolledBack:
+		return "RolledBack"
 	case GlobalStatusRollbackFailed:
 		return "RollbackFailed"
-	case GlobalStatusTimeoutRollbacked:
-		return "TimeoutRollbacked"
+	case GlobalStatusTimeoutRolledBack:
+		return "TimeoutRolledBack"
 	case GlobalStatusTimeoutRollbackFailed:
 		return "TimeoutRollbackFailed"
 	case GlobalStatusFinished:

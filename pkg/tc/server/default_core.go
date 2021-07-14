@@ -359,7 +359,7 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 		success, err = core.SAGACore.doGlobalCommit(globalSession, retrying)
 	} else {
 		for _, bs := range globalSession.GetSortedBranches() {
-			if bs.Status == meta.BranchStatusPhaseoneFailed {
+			if bs.Status == meta.BranchStatusPhaseOneFailed {
 				removeBranchSession(globalSession, bs)
 				continue
 			}
@@ -372,10 +372,10 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 				return false, err1
 			}
 			switch branchStatus {
-			case meta.BranchStatusPhasetwoCommitted:
+			case meta.BranchStatusPhaseTwoCommitted:
 				removeBranchSession(globalSession, bs)
 				continue
-			case meta.BranchStatusPhasetwoCommitFailedUnretryable:
+			case meta.BranchStatusPhaseTwoCommitFailedCanNotRetry:
 				{
 					// 二阶段提交失败且不能 Retry，不能异步提交，则移除 GlobalSession，Why?
 					if globalSession.CanBeCommittedAsync() {
@@ -434,7 +434,7 @@ func (core *DefaultCore) Rollback(xid string) (meta.GlobalStatus, error) {
 			gs.Active = false // Highlight: Firstly, close the session, then no more branch can be registered.
 		}
 		if gs.Status == meta.GlobalStatusBegin {
-			changeGlobalSessionStatus(gs, meta.GlobalStatusRollbacking)
+			changeGlobalSessionStatus(gs, meta.GlobalStatusRollingBack)
 			return true
 		}
 		return false
@@ -463,7 +463,7 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 		success, err = core.SAGACore.doGlobalRollback(globalSession, retrying)
 	} else {
 		for _, bs := range globalSession.GetSortedBranches() {
-			if bs.Status == meta.BranchStatusPhaseoneFailed {
+			if bs.Status == meta.BranchStatusPhaseOneFailed {
 				removeBranchSession(globalSession, bs)
 				continue
 			}
@@ -476,11 +476,11 @@ func (core *DefaultCore) doGlobalRollback(globalSession *session.GlobalSession, 
 				return false, err1
 			}
 			switch branchStatus {
-			case meta.BranchStatusPhasetwoRollbacked:
+			case meta.BranchStatusPhaseTwoRolledBack:
 				removeBranchSession(globalSession, bs)
 				log.Infof("Successfully rollback branch xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				continue
-			case meta.BranchStatusPhasetwoRollbackFailedUnretryable:
+			case meta.BranchStatusPhaseTwoRollbackFailedCanNotRetry:
 				endRollBackFailed(globalSession)
 				log.Infof("ResultCodeFailed to rollback branch and stop retry xid=%d branchID=%d", globalSession.XID, bs.BranchID)
 				return false, nil
@@ -546,9 +546,9 @@ func (core *DefaultCore) doGlobalReport(globalSession *session.GlobalSession, xi
 
 func endRollBacked(globalSession *session.GlobalSession) {
 	if isTimeoutGlobalStatus(globalSession.Status) {
-		changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRollbacked)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusTimeoutRolledBack)
 	} else {
-		changeGlobalSessionStatus(globalSession, meta.GlobalStatusRollbacked)
+		changeGlobalSessionStatus(globalSession, meta.GlobalStatusRolledBack)
 	}
 	lock.GetLockManager().ReleaseGlobalSessionLock(globalSession)
 	holder.GetSessionHolder().RootSessionManager.RemoveGlobalSession(globalSession)
@@ -574,7 +574,7 @@ func queueToRetryRollback(globalSession *session.GlobalSession) {
 }
 
 func isTimeoutGlobalStatus(status meta.GlobalStatus) bool {
-	return status == meta.GlobalStatusTimeoutRollbacked ||
+	return status == meta.GlobalStatusTimeoutRolledBack ||
 		status == meta.GlobalStatusTimeoutRollbackFailed ||
 		status == meta.GlobalStatusTimeoutRollingBack ||
 		status == meta.GlobalStatusTimeoutRollbackRetrying

@@ -100,8 +100,8 @@ func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{})
 		}
 	}
 
-	if rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST ||
-		rpcMessage.MessageType == protocal.MSGTYPE_RESQUEST_ONEWAY {
+	if rpcMessage.MessageType == protocal.MSGTypeRequest ||
+		rpcMessage.MessageType == protocal.MSGTypeRequestOneway {
 		log.Debugf("msgID:%s, body:%v", rpcMessage.ID, rpcMessage.Body)
 
 		client.onMessage(rpcMessage, session.RemoteAddr())
@@ -200,7 +200,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 	}
 	rpcMessage := protocal.RpcMessage{
 		ID:          int32(client.idGenerator.Inc()),
-		MessageType: protocal.MSGTYPE_RESQUEST_ONEWAY,
+		MessageType: protocal.MSGTypeRequestOneway,
 		Codec:       codec.SEATA,
 		Compressor:  0,
 		Body:        msg,
@@ -231,7 +231,7 @@ func (client *RpcRemoteClient) sendAsyncRequest2(msg interface{}, timeout time.D
 	var err error
 	rpcMessage := protocal.RpcMessage{
 		ID:          int32(client.idGenerator.Inc()),
-		MessageType: protocal.MSGTYPE_RESQUEST,
+		MessageType: protocal.MSGTypeRequest,
 		Codec:       codec.SEATA,
 		Compressor:  0,
 		Body:        msg,
@@ -263,7 +263,7 @@ func (client *RpcRemoteClient) sendAsync(session getty.Session, msg interface{})
 	}
 	rpcMessage := protocal.RpcMessage{
 		ID:          int32(client.idGenerator.Inc()),
-		MessageType: protocal.MSGTYPE_RESQUEST_ONEWAY,
+		MessageType: protocal.MSGTypeRequestOneway,
 		Codec:       codec.SEATA,
 		Compressor:  0,
 		Body:        msg,
@@ -291,11 +291,11 @@ func (client *RpcRemoteClient) defaultSendRequest(session getty.Session, msg int
 	}
 	_, ok := msg.(protocal.HeartBeatMessage)
 	if ok {
-		rpcMessage.MessageType = protocal.MSGTYPE_HEARTBEAT_REQUEST
+		rpcMessage.MessageType = protocal.MSGTypeHeartbeatRequest
 	} else {
-		rpcMessage.MessageType = protocal.MSGTYPE_RESQUEST
+		rpcMessage.MessageType = protocal.MSGTypeRequest
 	}
-	pkgLen, sendLen, err := session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	pkgLen, sendLen, err := session.WritePkg(rpcMessage, client.conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
 	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
 		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
 		runtime.GoWithRecover(func() {
@@ -313,9 +313,9 @@ func (client *RpcRemoteClient) defaultSendResponse(request protocal.RpcMessage, 
 	}
 	_, ok := msg.(protocal.HeartBeatMessage)
 	if ok {
-		resp.MessageType = protocal.MSGTYPE_HEARTBEAT_RESPONSE
+		resp.MessageType = protocal.MSGTypeHeartbeatResponse
 	} else {
-		resp.MessageType = protocal.MSGTYPE_RESPONSE
+		resp.MessageType = protocal.MSGTypeResponse
 	}
 
 	pkgLen, sendLen, err := session.WritePkg(resp, time.Duration(0))

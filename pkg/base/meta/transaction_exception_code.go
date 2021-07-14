@@ -5,129 +5,97 @@ import "errors"
 type TransactionExceptionCode byte
 
 const (
-	/**
-	 * Unknown transaction exception code.
-	 */
+	// Unknown transaction exception code.
 	TransactionExceptionCodeUnknown TransactionExceptionCode = iota
 
-	/**
-	 * BeginFailed
-	 */
+	// BeginFailed
 	TransactionExceptionCodeBeginFailed
 
-	/**
-	 * Lock key conflict transaction exception code.
-	 */
+	// Lock key conflict transaction exception code.
 	TransactionExceptionCodeLockKeyConflict
 
-	/**
-	 * Io transaction exception code.
-	 */
+	// Io transaction exception code.
 	IO
 
-	/**
-	 * Branch rollback failed retriable transaction exception code.
-	 */
+	// Branch rollback failed retriable transaction exception code.
 	TransactionExceptionCodeBranchRollbackFailedRetriable
 
-	/**
-	 * Branch rollback failed unretriable transaction exception code.
-	 */
+	// Branch rollback failed unretriable transaction exception code.
 	TransactionExceptionCodeBranchRollbackFailedUnretriable
 
-	/**
-	 * Branch register failed transaction exception code.
-	 */
+	// Branch register failed transaction exception code.
 	TransactionExceptionCodeBranchRegisterFailed
 
-	/**
-	 * Branch report failed transaction exception code.
-	 */
+	// Branch report failed transaction exception code.
 	TransactionExceptionCodeBranchReportFailed
 
-	/**
-	 * Lockable check failed transaction exception code.
-	 */
+	// Lockable check failed transaction exception code.
 	TransactionExceptionCodeLockableCheckFailed
 
-	/**
-	 * Branch transaction not exist transaction exception code.
-	 */
+	// Branch transaction not exist transaction exception code.
 	TransactionExceptionCodeBranchTransactionNotExist
 
-	/**
-	 * Global transaction not exist transaction exception code.
-	 */
+	// Global transaction not exist transaction exception code.
 	TransactionExceptionCodeGlobalTransactionNotExist
 
-	/**
-	 * Global transaction not active transaction exception code.
-	 */
+	// Global transaction not active transaction exception code.
 	TransactionExceptionCodeGlobalTransactionNotActive
 
-	/**
-	 * Global transaction status invalid transaction exception code.
-	 */
+	// Global transaction status invalid transaction exception code.
 	TransactionExceptionCodeGlobalTransactionStatusInvalid
 
-	/**
-	 * Failed to send branch commit request transaction exception code.
-	 */
+	// Failed to send branch commit request transaction exception code.
 	TransactionExceptionCodeFailedToSendBranchCommitRequest
 
-	/**
-	 * Failed to send branch rollback request transaction exception code.
-	 */
+	// Failed to send branch rollback request transaction exception code.
 	TransactionExceptionCodeFailedToSendBranchRollbackRequest
 
-	/**
-	 * Failed to add branch transaction exception code.
-	 */
+	// Failed to add branch transaction exception code.
 	TransactionExceptionCodeFailedToAddBranch
 
-	/**
-	 * Failed to lock global transaction exception code.
-	 */
+	// Failed to lock global transaction exception code.
 	TransactionExceptionCodeFailedLockGlobalTranscation
 
-	/**
-	 * FailedWriteSession
-	 */
+	// FailedWriteSession
 	TransactionExceptionCodeFailedWriteSession
 
-	/**
-	 * Failed to holder exception code
-	 */
+	// Failed to holder exception code
 	FailedStore
 )
 
+// TransactionException
 type TransactionException struct {
 	Code    TransactionExceptionCode
 	Message string
 	Err     error
 }
 
-//Error 隐式继承 builtin.error 接口
+// Error
 func (e *TransactionException) Error() string {
 	return "TransactionException: " + e.Message
 }
 
+// Unwrap
 func (e *TransactionException) Unwrap() error { return e.Err }
 
+// TransactionExceptionOption used to construct TransactionException
 type TransactionExceptionOption func(exception *TransactionException)
 
+// WithTransactionExceptionCode
 func WithTransactionExceptionCode(code TransactionExceptionCode) TransactionExceptionOption {
 	return func(exception *TransactionException) {
 		exception.Code = code
 	}
 }
 
+// WithMessage
 func WithMessage(message string) TransactionExceptionOption {
 	return func(exception *TransactionException) {
 		exception.Message = message
 	}
 }
 
+// NewTransactionException
 func NewTransactionException(err error, opts ...TransactionExceptionOption) *TransactionException {
 	var ex *TransactionException
 	if errors.As(err, &ex) {

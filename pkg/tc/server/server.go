@@ -55,20 +55,20 @@ func (s *Server) newSession(session getty.Session) error {
 		panic(fmt.Sprintf("%s, session.conn{%#v} is not tcp connection\n", session.Stat(), session.Conn()))
 	}
 
-	tcpConn.SetNoDelay(conf.GettyConfig.GettySessionParam.TcpNoDelay)
-	tcpConn.SetKeepAlive(conf.GettyConfig.GettySessionParam.TcpKeepAlive)
-	if conf.GettyConfig.GettySessionParam.TcpKeepAlive {
+	tcpConn.SetNoDelay(conf.GettyConfig.GettySessionParam.TCPNoDelay)
+	tcpConn.SetKeepAlive(conf.GettyConfig.GettySessionParam.TCPKeepAlive)
+	if conf.GettyConfig.GettySessionParam.TCPKeepAlive {
 		tcpConn.SetKeepAlivePeriod(conf.GettyConfig.GettySessionParam.KeepAlivePeriod)
 	}
-	tcpConn.SetReadBuffer(conf.GettyConfig.GettySessionParam.TcpRBufSize)
-	tcpConn.SetWriteBuffer(conf.GettyConfig.GettySessionParam.TcpWBufSize)
+	tcpConn.SetReadBuffer(conf.GettyConfig.GettySessionParam.TCPRBufSize)
+	tcpConn.SetWriteBuffer(conf.GettyConfig.GettySessionParam.TCPWBufSize)
 
 	session.SetName(conf.GettyConfig.GettySessionParam.SessionName)
 	session.SetMaxMsgLen(conf.GettyConfig.GettySessionParam.MaxMsgLen)
 	session.SetPkgHandler(readwriter.RpcPkgHandler)
 	session.SetEventListener(s.rpcHandler)
-	session.SetReadTimeout(conf.GettyConfig.GettySessionParam.TcpReadTimeout)
-	session.SetWriteTimeout(conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	session.SetReadTimeout(conf.GettyConfig.GettySessionParam.TCPReadTimeout)
+	session.SetWriteTimeout(conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
 	session.SetCronPeriod((int)(conf.GettyConfig.SessionTimeout.Nanoseconds() / 1e6))
 	session.SetWaitTime(conf.GettyConfig.GettySessionParam.WaitTimeout)
 	log.Debugf("cmd accepts new session:%s\n", session.Stat())

@@ -62,7 +62,7 @@ func (resourceManager DataSourceManager) BranchCommit(branchType meta.BranchType
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
-	return meta.BranchStatusPhasetwoCommitted, nil
+	return meta.BranchStatusPhaseTwoCommitted, nil
 }
 
 func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchType, xid string, branchID int64,
@@ -75,9 +75,9 @@ func (resourceManager DataSourceManager) BranchRollback(branchType meta.BranchTy
 		log.Errorf("[stacktrace]branchRollback failed. branchType:[%d], xid:[%s], branchID:[%d], resourceID:[%s], applicationData:[%v]",
 			branchType, xid, branchID, resourceID, applicationData)
 		log.Error(err)
-		return meta.BranchStatusPhasetwoRollbackFailedRetryable, nil
+		return meta.BranchStatusPhaseTwoRollbackFailedRetryable, nil
 	}
-	return meta.BranchStatusPhasetwoRollbacked, nil
+	return meta.BranchStatusPhaseTwoRolledBack, nil
 }
 
 func (resourceManager DataSourceManager) GetBranchType() meta.BranchType {

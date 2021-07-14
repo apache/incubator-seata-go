@@ -2,26 +2,22 @@ package meta
 
 import "fmt"
 
+// BranchTrype
 type BranchType byte
 
 const (
-	/**
-	 * The At.
-	 */
+	// The At.
 	// BranchType_AT Branch
 	BranchTypeAT BranchType = iota
 
-	/**
-	 * The BranchType_TCC.
-	 */
+	//The BranchType_TCC.
 	BranchTypeTCC
 
-	/**
-	 * The BranchType_SAGA.
-	 */
+	// The BranchType_SAGA.
 	BranchTypeSAGA
 )
 
+// String string of branch type
 func (t BranchType) String() string {
 	switch t {
 	case BranchTypeAT:
@@ -35,6 +31,8 @@ func (t BranchType) String() string {
 	}
 }
 
+
+// ValueOfBranchType value of branch type
 func ValueOfBranchType(branchType string) BranchType {
 	switch branchType {
 	case "AT":

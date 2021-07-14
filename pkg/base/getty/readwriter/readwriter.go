@@ -40,11 +40,13 @@ import (
  */
 
 var (
+	// RpcPkgHandler
 	RpcPkgHandler = &RpcPackageHandler{}
 )
 
 type RpcPackageHandler struct{}
 
+// Read read binary data from to rpc message
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 
@@ -72,14 +74,14 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		MessageType: messageType,
 	}
 
-	headMapLength := headLength - protocal.V1_HEAD_LENGTH
+	headMapLength := headLength - protocal.V1HeadLength
 	if headMapLength > 0 {
-		rpcMessage.HeadMap = headMapDecode(data[protocal.V1_HEAD_LENGTH+1 : headMapLength])
+		rpcMessage.HeadMap = headMapDecode(data[protocal.V1HeadLength+1 : headMapLength])
 	}
 
-	if messageType == protocal.MSGTYPE_HEARTBEAT_REQUEST {
+	if messageType == protocal.MSGTypeHeartbeatRequest {
 		rpcMessage.Body = protocal.HeartBeatMessagePing
-	} else if messageType == protocal.MSGTYPE_HEARTBEAT_RESPONSE {
+	} else if messageType == protocal.MSGTypeHeartbeatResponse {
 		rpcMessage.Body = protocal.HeartBeatMessagePong
 	} else {
 		bodyLength := fullLength - int32(headLength)
@@ -94,12 +96,13 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	return rpcMessage, int(fullLength), nil
 }
 
+// Write write rpc message to binary data
 func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, error) {
 	var result = make([]byte, 0)
 	msg := pkg.(protocal.RpcMessage)
 
-	fullLength := protocal.V1_HEAD_LENGTH
-	headLength := protocal.V1_HEAD_LENGTH
+	fullLength := protocal.V1HeadLength
+	headLength := protocal.V1HeadLength
 
 	var b bytes.Buffer
 	w := byteio.BigEndianWriter{Writer: &b}
@@ -119,8 +122,8 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		w.Write(headMapBytes)
 	}
 
-	if msg.MessageType != protocal.MSGTYPE_HEARTBEAT_REQUEST &&
-		msg.MessageType != protocal.MSGTYPE_HEARTBEAT_RESPONSE {
+	if msg.MessageType != protocal.MSGTypeHeartbeatRequest &&
+		msg.MessageType != protocal.MSGTypeHeartbeatResponse {
 		bodyBytes := codec.MessageEncoder(msg.Codec, msg.Body)
 		fullLength += len(bodyBytes)
 		w.Write(bodyBytes)

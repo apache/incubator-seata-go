@@ -74,7 +74,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 	}
 	rpcMessage := protocal.RpcMessage{
 		ID:          int32(coordinator.idGenerator.Inc()),
-		MessageType: protocal.MSGTYPE_RESQUEST_ONEWAY,
+		MessageType: protocal.MSGTypeRequestOneway,
 		Codec:       codec.SEATA,
 		Compressor:  0,
 		Body:        msg,
@@ -82,7 +82,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 	resp := getty2.NewMessageFuture(rpcMessage)
 	coordinator.futures.Store(rpcMessage.ID, resp)
 	//config timeout
-	pkgLen, sendLen, err := session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TcpWriteTimeout)
+	pkgLen, sendLen, err := session.WritePkg(rpcMessage, coordinator.conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
 	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
 		log.Warnf("start to close the session because %d of %d bytes data is sent success. err:%+v", sendLen, pkgLen, err)
 		coordinator.futures.Delete(rpcMessage.ID)
@@ -114,9 +114,9 @@ func (coordinator *DefaultCoordinator) defaultSendResponse(request protocal.RpcM
 	}
 	_, ok := msg.(protocal.HeartBeatMessage)
 	if ok {
-		resp.MessageType = protocal.MSGTYPE_HEARTBEAT_RESPONSE
+		resp.MessageType = protocal.MSGTypeHeartbeatResponse
 	} else {
-		resp.MessageType = protocal.MSGTYPE_RESPONSE
+		resp.MessageType = protocal.MSGTypeResponse
 	}
 	pkgLen, sendLen, err := session.WritePkg(resp, time.Duration(0))
 	if err != nil || (pkgLen != 0 && pkgLen != sendLen) {
@@ -221,7 +221,7 @@ func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
 	}
 	now := time2.CurrentTimeMillis()
 	for _, rollingBackSession := range rollingBackSessions {
-		if rollingBackSession.Status == meta.GlobalStatusRollbacking && !rollingBackSession.IsRollbackingDead() {
+		if rollingBackSession.Status == meta.GlobalStatusRollingBack && !rollingBackSession.IsRollbackingDead() {
 			continue
 		}
 		if isRetryTimeout(int64(now), coordinator.conf.MaxRollbackRetryTimeout, rollingBackSession.BeginTime) {

@@ -76,7 +76,7 @@ func TestFileBasedSessionManager_UpdateBranchSessionStatus(t *testing.T) {
 	sessionManager := NewFileBasedSessionManager(config.GetDefaultFileStoreConfig())
 	sessionManager.AddGlobalSession(gs)
 	sessionManager.AddBranchSession(gs, bs)
-	sessionManager.UpdateBranchSessionStatus(bs, meta.BranchStatusPhasetwoCommitted)
+	sessionManager.UpdateBranchSessionStatus(bs, meta.BranchStatusPhaseTwoCommitted)
 	sessionManager.RemoveBranchSession(gs, bs)
 	sessionManager.RemoveGlobalSession(gs)
 }

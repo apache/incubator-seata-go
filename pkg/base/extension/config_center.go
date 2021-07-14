@@ -18,6 +18,7 @@ var (
 	configCenters   = make(map[string]func(conf *config.ConfigCenterConfig) (config_center.DynamicConfigurationFactory, error))
 )
 
+// SetConfigCenter set config center
 func SetConfigCenter(name string, v func(conf *config.ConfigCenterConfig) (config_center.DynamicConfigurationFactory, error)) {
 	configCentersMu.Lock()
 	defer configCentersMu.Unlock()
@@ -30,6 +31,7 @@ func SetConfigCenter(name string, v func(conf *config.ConfigCenterConfig) (confi
 	configCenters[name] = v
 }
 
+// GetConfigCenter get config center
 func GetConfigCenter(name string, conf *config.ConfigCenterConfig) (config_center.DynamicConfigurationFactory, error) {
 	configCentersMu.RLock()
 	configCenter := configCenters[name]

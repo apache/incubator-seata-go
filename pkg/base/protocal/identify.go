@@ -1,10 +1,12 @@
 package protocal
 
+// AbstractResultMessage
 type AbstractResultMessage struct {
 	ResultCode ResultCode
 	Msg        string
 }
 
+// AbstractIdentifyRequest
 type AbstractIdentifyRequest struct {
 	Version string
 
@@ -15,6 +17,7 @@ type AbstractIdentifyRequest struct {
 	ExtraData []byte
 }
 
+// AbstractIdentifyResponse
 type AbstractIdentifyResponse struct {
 	AbstractResultMessage
 

@@ -153,10 +153,10 @@ func (tx *Tx) report(commitDone bool) error {
 		var err error
 		if commitDone {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
-				meta.BranchStatusPhaseoneDone, nil)
+				meta.BranchStatusPhaseOneDone, nil)
 		} else {
 			err = dataSourceManager.BranchReport(meta.BranchTypeAT, tx.proxyTx.Context.XID, tx.proxyTx.Context.BranchID,
-				meta.BranchStatusPhaseoneFailed, nil)
+				meta.BranchStatusPhaseOneFailed, nil)
 		}
 		if err != nil {
 			log.Errorf("Failed to report [%d/%s] commit done [%t] Retry Countdown: %d",

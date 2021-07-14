@@ -4,15 +4,9 @@ type ResultCode byte
 
 const (
 
-	/**
-	 * ResultCodeFailed result code.
-	 */
-	// ResultCodeFailed
+	// ResultCodeFailed failed
 	ResultCodeFailed ResultCode = iota
 
-	/**
-	 * Success result code.
-	 */
-	// Success
+	// ResultCodeSuccess success
 	ResultCodeSuccess
 )

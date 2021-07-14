@@ -207,7 +207,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 			SUMMARY_COMMITTED.Mark(1)
 			TIMER_COMMITTED.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 			break
-		case meta.GlobalStatusRollbacked:
+		case meta.GlobalStatusRolledBack:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_ROLLBACKED.Inc(1)
 			SUMMARY_ROLLBACKED.Mark(1)
@@ -219,7 +219,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 		case meta.GlobalStatusRollbackFailed:
 			COUNTER_ACTIVE.Dec(1)
 			break
-		case meta.GlobalStatusTimeoutRollbacked:
+		case meta.GlobalStatusTimeoutRolledBack:
 			COUNTER_ACTIVE.Dec(1)
 			break
 		case meta.GlobalStatusTimeoutRollbackFailed:

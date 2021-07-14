@@ -2,31 +2,27 @@ package meta
 
 import "fmt"
 
+// TransactionRole
 type TransactionRole byte
 
 const (
-	/**
-	 * tm
-	 */
-	TMROLE TransactionRole = iota
-	/**
-	 * rm
-	 */
-	RMROLE
-	/**
-	 * server
-	 */
-	SERVERROLE
+	// tm
+	TMRole TransactionRole = iota
+	// rm
+	RMRole
+	// server
+	ServerRole
 )
 
+// String string of transaction role
 func (r TransactionRole) String() string {
 	switch r {
-	case TMROLE:
-		return "TMROLE"
-	case RMROLE:
-		return "RMROLE"
-	case SERVERROLE:
-		return "SERVERROLE"
+	case TMRole:
+		return "TMRole"
+	case RMRole:
+		return "RMRole"
+	case ServerRole:
+		return "ServerRole"
 	default:
 		return fmt.Sprintf("%d", r)
 	}

@@ -28,10 +28,10 @@ type nacosConfigCenter struct {
 }
 
 func (nc *nacosConfigCenter) AddListener(conf *config.ConfigCenterConfig, listener config_center.ConfigurationListener) {
-	dataId := getDataId(conf)
+	dataID := getDataID(conf)
 	group := getGroup(conf)
 	_ = nc.client.ListenConfig(vo.ConfigParam{
-		DataId: dataId,
+		DataId: dataID,
 		Group:  group,
 		OnChange: func(namespace, group, dataId, data string) {
 			go listener.Process(&config_center.ConfigChangeEvent{Key: dataId, Value: data})
@@ -47,19 +47,19 @@ func getGroup(conf *config.ConfigCenterConfig) string {
 	return group
 }
 
-func getDataId(conf *config.ConfigCenterConfig) string {
-	dataId := conf.NacosConfig.DataId
-	if dataId == "" {
-		dataId = constant.NacosDefaultDataID
+func getDataID(conf *config.ConfigCenterConfig) string {
+	dataID := conf.NacosConfig.DataID
+	if dataID == "" {
+		dataID = constant.NacosDefaultDataID
 	}
-	return dataId
+	return dataID
 }
 
 func (nc *nacosConfigCenter) GetConfig(conf *config.ConfigCenterConfig) string {
-	dataId := getDataId(conf)
+	dataID := getDataID(conf)
 	group := getGroup(conf)
 	config, _ := nc.client.GetConfig(vo.ConfigParam{
-		DataId: dataId,
+		DataId: dataID,
 		Group:  group})
 	return config
 }

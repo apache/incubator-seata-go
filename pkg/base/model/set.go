@@ -2,11 +2,13 @@ package model
 
 import "sync"
 
+// Set
 type Set struct {
 	m map[string]bool
 	sync.RWMutex
 }
 
+// NewSet
 func NewSet() *Set {
 	return &Set{
 		m: make(map[string]bool),
