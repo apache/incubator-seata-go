@@ -24,19 +24,19 @@ func main() {
 				Usage: "start seata golang tc server",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "config",
+						Name:    "config",
 						Aliases: []string{"c"},
-						Usage: "Load configuration from `FILE`",
+						Usage:   "Load configuration from `FILE`",
 					},
 					&cli.StringFlag{
-						Name:  "serverNode",
+						Name:    "serverNode",
 						Aliases: []string{"n"},
-						Value: "1",
-						Usage: "server node id, such as 1, 2, 3. default is 1",
+						Value:   "1",
+						Usage:   "server node id, such as 1, 2, 3. default is 1",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					config, err := resolveConfiguration([]string{c.String("config"),c.String("serverNode")})
+					config, err := resolveConfiguration([]string{c.String("config"), c.String("serverNode")})
 					log.Init(config.Log.LogPath, config.Log.LogLevel)
 
 					address := fmt.Sprintf(":%v", config.Server.Port)

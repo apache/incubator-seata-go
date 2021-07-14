@@ -6,7 +6,7 @@ import (
 )
 
 func BenchmarkNextID(b *testing.B) {
-	 NextID()
+	NextID()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			id := NextID()

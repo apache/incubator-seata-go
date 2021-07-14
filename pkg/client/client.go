@@ -26,7 +26,7 @@ func Init(config *config.Configuration) {
 	}
 
 	resourceManagerClient := apis.NewResourceManagerServiceClient(conn)
-	transactionManagerClient:= apis.NewTransactionManagerServiceClient(conn)
+	transactionManagerClient := apis.NewTransactionManagerServiceClient(conn)
 
 	rm.InitResourceManager(config.Addressing, resourceManagerClient)
 	tm.InitTransactionManager(config.Addressing, transactionManagerClient)

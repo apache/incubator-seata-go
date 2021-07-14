@@ -2,6 +2,7 @@ package tcc
 
 import (
 	"encoding/json"
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/rm"
 	"reflect"
 	"strconv"
@@ -122,15 +123,22 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext,
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	ctx.BranchID = branchID
+	ctx.BranchID = strconv.FormatInt(branchID, 10)
 
 	args = append(args, ctx)
 	returnValues := proxy.Invoke(methodDesc, nil, args)
+	errValue := returnValues[len(returnValues)-1]
+	if errValue.IsValid() && !errValue.IsNil() {
+		err := rm.GetResourceManager().BranchReport(ctx.RootContext, ctx.XID, branchID, apis.TCC, apis.PhaseOneFailed, nil)
+		if err != nil {
+			log.Errorf("branch report err: %v", err)
+		}
+	}
 
 	return returnValues, nil
 }
 
-func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) (string, error) {
+func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) (int64, error) {
 	ctx.ActionContext[ACTION_START_TIME] = time.CurrentTimeMillis()
 	ctx.ActionContext[PREPARE_METHOD] = resource.PrepareMethodName
 	ctx.ActionContext[COMMIT_METHOD] = resource.CommitMethodName
@@ -149,13 +157,13 @@ func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) 
 	applicationData, err := json.Marshal(applicationContext)
 	if err != nil {
 		log.Errorf("marshal applicationContext failed:%v", applicationContext)
-		return "", err
+		return 0, err
 	}
 
 	branchID, err := rm.GetResourceManager().BranchRegister(ctx.RootContext, ctx.XID, resource.GetResourceID(), resource.GetBranchType(), applicationData, "")
 	if err != nil {
 		log.Errorf("TCC branch Register error, xid: %s", ctx.XID)
-		return "", errors.WithStack(err)
+		return 0, errors.WithStack(err)
 	}
-	return strconv.FormatInt(branchID, 10), nil
+	return branchID, nil
 }

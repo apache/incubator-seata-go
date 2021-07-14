@@ -295,7 +295,7 @@ func (driver *driver) FindBranchSessions(xid string) []*apis.BranchSession {
 func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSession {
 	var (
 		branchTransactions []*apis.BranchSession
-		xidArgs []interface{}
+		xidArgs            []interface{}
 	)
 	whereCond := fmt.Sprintf("xid in %s", sql.AppendInParam(len(xids)))
 	for xid := range xids {
@@ -331,7 +331,7 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	locks, rowKeys := distinctByKey(rowLocks)
 	var (
 		existedRowLocks []*apis.RowLock
-		rowKeyArgs []interface{}
+		rowKeyArgs      []interface{}
 	)
 	for _, rowKey := range rowKeys {
 		rowKeyArgs = append(rowKeyArgs, rowKey)
@@ -373,11 +373,11 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	}
 
 	var (
-		sb strings.Builder
-		args []interface{}
+		sb        strings.Builder
+		args      []interface{}
 		sqlOrArgs []interface{}
 	)
-	for i := 0;  i < len(unrepeatedLocks); i++ {
+	for i := 0; i < len(unrepeatedLocks); i++ {
 		sb.WriteString("(?, ?, ?, ?, ?, ?, ?, now(), now()),")
 		args = append(args, unrepeatedLocks[i].XID, unrepeatedLocks[i].TransactionID, unrepeatedLocks[i].BranchID,
 			unrepeatedLocks[i].ResourceID, unrepeatedLocks[i].TableName, unrepeatedLocks[i].PK, unrepeatedLocks[i].RowKey)

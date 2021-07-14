@@ -34,17 +34,17 @@ type TransactionCoordinator struct {
 	maxRollbackRetryTimeout          int64
 	rollbackRetryTimeoutUnlockEnable bool
 
+	asyncCommittingRetryPeriod time.Duration
+	committingRetryPeriod      time.Duration
+	rollingBackRetryPeriod     time.Duration
+	timeoutRetryPeriod         time.Duration
+
 	holder             *holder.SessionHolder
 	resourceDataLocker *lock.LockManager
 	locker             GlobalSessionLocker
 
 	keepaliveClientParameters keepalive.ClientParameters
 	tcServiceClients          map[string]apis.BranchTransactionServiceClient
-
-	timeoutCheckTicker     *time.Ticker
-	retryRollingBackTicker *time.Ticker
-	retryCommittingTicker  *time.Ticker
-	asyncCommittingTicker  *time.Ticker
 }
 
 func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinator {
@@ -58,17 +58,17 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		maxRollbackRetryTimeout:          conf.Server.MaxRollbackRetryTimeout,
 		rollbackRetryTimeoutUnlockEnable: conf.Server.RollbackRetryTimeoutUnlockEnable,
 
+		asyncCommittingRetryPeriod: conf.Server.AsyncCommittingRetryPeriod,
+		committingRetryPeriod:      conf.Server.CommittingRetryPeriod,
+		rollingBackRetryPeriod:     conf.Server.RollingBackRetryPeriod,
+		timeoutRetryPeriod:         conf.Server.TimeoutRetryPeriod,
+
 		holder:             holder.NewSessionHolder(driver),
 		resourceDataLocker: lock.NewLockManager(driver),
 		locker:             new(UnimplementedGlobalSessionLocker),
 
 		keepaliveClientParameters: conf.GetClientParameters(),
 		tcServiceClients:          make(map[string]apis.BranchTransactionServiceClient),
-
-		timeoutCheckTicker:     time.NewTicker(conf.Server.TimeoutRetryPeriod),
-		retryRollingBackTicker: time.NewTicker(conf.Server.RollingBackRetryPeriod),
-		retryCommittingTicker:  time.NewTicker(conf.Server.CommittingRetryPeriod),
-		asyncCommittingTicker:  time.NewTicker(conf.Server.AsyncCommittingRetryPeriod),
 	}
 	go tc.processTimeoutCheck()
 	go tc.processAsyncCommitting()
@@ -543,7 +543,7 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 				return &apis.BranchRegisterResponse{
 					ResultCode:    apis.ResultCodeFailed,
 					ExceptionCode: apis.LockKeyConflict,
-					Message:       fmt.Sprintf("branch lock acquire failed xid = %s resourceId = %s, lockKey = %s",
+					Message: fmt.Sprintf("branch lock acquire failed xid = %s resourceId = %s, lockKey = %s",
 						request.XID, request.ResourceID, request.LockKey),
 				}, nil
 			}
@@ -641,29 +641,45 @@ func (tc TransactionCoordinator) getTransactionCoordinatorServiceClient(addressi
 
 func (tc TransactionCoordinator) processTimeoutCheck() {
 	for {
-		<-tc.timeoutCheckTicker.C
-		tc.timeoutCheck()
+		timer := time.NewTimer(tc.timeoutRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.timeoutCheck()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processRetryRollingBack() {
 	for {
-		<-tc.retryRollingBackTicker.C
-		tc.handleRetryRollingBack()
+		timer := time.NewTimer(tc.rollingBackRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleRetryRollingBack()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processRetryCommitting() {
 	for {
-		<-tc.retryCommittingTicker.C
-		tc.handleRetryCommitting()
+		timer := time.NewTimer(tc.committingRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleRetryCommitting()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processAsyncCommitting() {
 	for {
-		<-tc.asyncCommittingTicker.C
-		tc.handleAsyncCommitting()
+		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleRetryCommitting()
+		}
+		timer.Stop()
 	}
 }
 

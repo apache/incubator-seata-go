@@ -108,4 +108,3 @@ func generateWorkerIDBaseOnMac() (int64, error) {
 func generateRandomWorkerID() int64 {
 	return rand.Int63n(maxWorkerID + 1)
 }
-

@@ -50,7 +50,7 @@ type Configuration struct {
 }
 
 // TMConfig
-type TMConfig   struct {
+type TMConfig struct {
 	CommitRetryCount   int32 `default:"5" yaml:"commitRetryCount" json:"commitRetryCount,omitempty"`
 	RollbackRetryCount int32 `default:"5" yaml:"rollbackRetryCount" json:"rollbackRetryCount,omitempty"`
 }
