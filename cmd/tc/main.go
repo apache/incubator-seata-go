@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
 	"net"
 	"os"
 
@@ -36,7 +37,12 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					config, err := resolveConfiguration([]string{c.String("config"), c.String("serverNode")})
+					configPath := c.String("config")
+					serverNode := c.Int64("serverNode")
+
+					config, err := resolveConfiguration(configPath)
+
+					uuid.Init(serverNode)
 					log.Init(config.Log.LogPath, config.Log.LogLevel)
 
 					address := fmt.Sprintf(":%v", config.Server.Port)
@@ -67,11 +73,11 @@ func main() {
 	}
 }
 
-func resolveConfiguration(args []string) (*config.Configuration, error) {
+func resolveConfiguration(configPath string) (*config.Configuration, error) {
 	var configurationPath string
 
-	if len(args) > 0 {
-		configurationPath = args[0]
+	if configPath != "" {
+		configurationPath = configPath
 	} else if os.Getenv("SEATA_CONFIGURATION_PATH") != "" {
 		configurationPath = os.Getenv("SEATA_CONFIGURATION_PATH")
 	}

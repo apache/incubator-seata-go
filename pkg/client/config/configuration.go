@@ -91,30 +91,59 @@ func GetClientParameters() keepalive.ClientParameters {
 
 // GetEnforcementPolicy used to config grpc connection keep alive
 func (configuration *Configuration) GetEnforcementPolicy() keepalive.EnforcementPolicy {
-	return keepalive.EnforcementPolicy{
-		MinTime:             configuration.EnforcementPolicy.MinTime,
-		PermitWithoutStream: configuration.EnforcementPolicy.PermitWithoutStream,
+	ep := keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Second,
+		PermitWithoutStream: true,
 	}
+	if configuration.EnforcementPolicy.MinTime > 0 {
+		ep.MinTime = configuration.EnforcementPolicy.MinTime
+	}
+	ep.PermitWithoutStream = configuration.EnforcementPolicy.PermitWithoutStream
+	return ep
 }
 
 // GetServerParameters used to config grpc connection keep alive
 func (configuration *Configuration) GetServerParameters() keepalive.ServerParameters {
-	return keepalive.ServerParameters{
-		MaxConnectionIdle:     configuration.ServerParameters.MaxConnectionIdle,
-		MaxConnectionAge:      configuration.ServerParameters.MaxConnectionAge,
-		MaxConnectionAgeGrace: configuration.ServerParameters.MaxConnectionAgeGrace,
-		Time:                  configuration.ServerParameters.Time,
-		Timeout:               configuration.ServerParameters.Timeout,
+	sp := keepalive.ServerParameters{
+		MaxConnectionIdle:     15 * time.Second,
+		MaxConnectionAge:      30 * time.Second,
+		MaxConnectionAgeGrace: 5 * time.Second,
+		Time:                  5 * time.Second,
+		Timeout:               time.Second,
 	}
+	if configuration.ServerParameters.MaxConnectionIdle > 0 {
+		sp.MaxConnectionIdle = configuration.ServerParameters.MaxConnectionIdle
+	}
+	if configuration.ServerParameters.MaxConnectionAge > 0 {
+		sp.MaxConnectionAge = configuration.ServerParameters.MaxConnectionAge
+	}
+	if configuration.ServerParameters.MaxConnectionAgeGrace > 0 {
+		sp.MaxConnectionAgeGrace = configuration.ServerParameters.MaxConnectionAgeGrace
+	}
+	if configuration.ServerParameters.Time > 0 {
+		sp.Time = configuration.ServerParameters.Time
+	}
+	if configuration.ServerParameters.Timeout > 0 {
+		sp.Timeout = configuration.ServerParameters.Timeout
+	}
+	return sp
 }
 
 // GetClientParameters used to config grpc connection keep alive
 func (configuration *Configuration) GetClientParameters() keepalive.ClientParameters {
-	return keepalive.ClientParameters{
-		Time:                configuration.ClientParameters.Time,
-		Timeout:             configuration.ClientParameters.Timeout,
-		PermitWithoutStream: configuration.ClientParameters.PermitWithoutStream,
+	cp := keepalive.ClientParameters{
+		Time:                10 * time.Second,
+		Timeout:             time.Second,
+		PermitWithoutStream: true,
 	}
+	if configuration.ClientParameters.Time > 0 {
+		cp.Time = configuration.ClientParameters.Timeout
+	}
+	if configuration.ClientParameters.Timeout > 0 {
+		cp.Timeout = configuration.ClientParameters.Timeout
+	}
+	cp.PermitWithoutStream = configuration.ClientParameters.PermitWithoutStream
+	return cp
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct
