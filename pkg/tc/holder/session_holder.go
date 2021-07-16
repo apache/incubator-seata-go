@@ -80,6 +80,9 @@ func (sessionHolder SessionHolder) reload() {
 					}
 					switch globalSession.Status {
 					case meta.GlobalStatusCommitting, meta.GlobalStatusCommitRetrying:
+						if globalSession.Status == meta.GlobalStatusCommitting {
+							globalSession.Status = meta.GlobalStatusCommitRetrying
+						}
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
 						break
 					case meta.GlobalStatusRollingBack, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack,

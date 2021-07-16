@@ -143,7 +143,7 @@ func (coordinator *DefaultCoordinator) processRetryRollingBack() {
 		timer := time.NewTimer(coordinator.conf.RollingBackRetryPeriod)
 		select {
 		case <-timer.C:
-			coordinator.handleRetryRollbacking()
+			coordinator.handleRetryRollingBack()
 		}
 		timer.Stop()
 	}
@@ -214,7 +214,7 @@ func (coordinator *DefaultCoordinator) timeoutCheck() {
 	log.Debug("Transaction Timeout Check End.")
 }
 
-func (coordinator *DefaultCoordinator) handleRetryRollbacking() {
+func (coordinator *DefaultCoordinator) handleRetryRollingBack() {
 	rollingBackSessions := holder.GetSessionHolder().RetryRollbackingSessionManager.AllSessions()
 	if rollingBackSessions == nil && len(rollingBackSessions) <= 0 {
 		return
