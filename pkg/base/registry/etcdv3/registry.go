@@ -3,7 +3,8 @@ package etcdv3
 // TODO: Import Standard
 import (
 	"context"
-	"encoding/json"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,20 +30,27 @@ func init() {
 type etcdEventListener struct {
 }
 
-func (l *etcdEventListener) OnEvent(service []*registry.Service) error {
-	data, err := json.Marshal(service)
-	if err != nil {
-		return err
+func (l *etcdEventListener) OnEvent(services []*registry.Service) error {
+	for _, service := range services {
+		var eventType string
+		if service.EventType == 0 {
+			eventType = "PUT"
+		} else {
+			eventType = "DELETE"
+		}
+		log.Infof("service info change: {name=%s, eventType=%s, ip=%s, port=%d}", service.Name, eventType, service.IP, service.Port)
 	}
-	log.Info("service info change: " + string(data))
 	return nil
 }
 
 // TODO: Dynamic Configuration Support
 type etcdRegistry struct {
-	client      *clientv3.Client
-	clusterName string
-	leaseWrp    leaseWrapper
+	client           *clientv3.Client
+	clusterName      string
+	leaseWrp         leaseWrapper
+	listenersChanMap sync.Map
+	regWg            sync.WaitGroup
+	Done             chan struct{}
 }
 
 type leaseWrapper struct {
@@ -54,15 +62,22 @@ type leaseWrapper struct {
 
 // Lookup Service Discovery
 func (r *etcdRegistry) Lookup() ([]string, error) {
-	// TODO: Discover Service and Subscribe
-	//resp, err := r.client.Get(context.Background(), constant.ETCDV3_REGISTRY_PREFIX, clientv3.WithPrefix())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//for _, kv := range resp.Kvs {
-	//
-	//}
-	return nil, nil
+	resp, err := r.client.Get(context.Background(), constant.ETCDV3_REGISTRY_PREFIX+r.clusterName, clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	addrs := make([]string, 0)
+	for _, kv := range resp.Kvs {
+		addrs = append(addrs, string(kv.Value))
+	}
+
+	err = r.Subscribe("", &etcdEventListener{})
+	if err != nil {
+		return nil, err
+	}
+
+	return addrs, nil
 }
 
 func (r *etcdRegistry) Register(addr *registry.Address) error {
@@ -81,13 +96,56 @@ func (r *etcdRegistry) UnRegister(addr *registry.Address) error {
 	return err
 }
 
-func (r *etcdRegistry) Subscribe(listener registry.EventListener) error {
-	// TODO: Implement Subscribe
+func (r *etcdRegistry) Subscribe(cluster string, listener registry.EventListener) error {
+	resp, err := r.client.Get(context.Background(), constant.ETCDV3_REGISTRY_PREFIX+r.clusterName, clientv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+
+	wcCh := r.client.Watch(context.Background(), constant.ETCDV3_REGISTRY_PREFIX+r.clusterName, clientv3.WithPrefix(), clientv3.WithRev(resp.Header.Revision))
+	stopChan := make(chan struct{})
+	r.listenersChanMap.Store(r.clusterName, stopChan)
+	r.regWg.Add(1)
+	go r.watch(wcCh, listener, stopChan)
 	return nil
 }
 
-func (r *etcdRegistry) UnSubscribe(listener registry.EventListener) error {
-	// TODO: Implement UnSubscribe
+func (r *etcdRegistry) watch(wcCh clientv3.WatchChan, listener registry.EventListener, stop chan struct{}) {
+	defer r.regWg.Done()
+	for {
+		select {
+		case resp := <-wcCh:
+			services := make([]*registry.Service, 0)
+			for _, event := range resp.Events {
+				addr := strings.Split(string(event.Kv.Value), ":")
+				port, _ := strconv.ParseUint(addr[1], 10, 64)
+				services = append(services, &registry.Service{
+					IP:   addr[0],
+					Port: port,
+					Name: string(event.Kv.Key),
+				})
+			}
+			err := listener.OnEvent(services)
+			if err != nil {
+				log.Warnf("etcd listener error: %s", err.Error())
+			}
+		case <-r.Done:
+			log.Info("etcd registry quit ...")
+		case <-stop:
+			log.Info("etcd listener quit ...")
+
+		}
+	}
+}
+
+func (r *etcdRegistry) UnSubscribe(cluster string, listener registry.EventListener) error {
+	stopChanUnCast, ok := r.listenersChanMap.Load(constant.ETCDV3_REGISTRY_PREFIX + r.clusterName)
+	if !ok {
+		return errors.New("failed to unsubscribe, not matching key in the map")
+	}
+	stopChan, _ := stopChanUnCast.(chan struct{})
+	stopChan <- struct{}{}
+	r.listenersChanMap.Delete(constant.ETCDV3_REGISTRY_PREFIX + r.clusterName)
 	return nil
 }
 
@@ -132,12 +190,15 @@ func (r *etcdRegistry) leaseKeeper() {
 
 // Stop wait for goroutines to stop
 func (r *etcdRegistry) Stop() {
+	r.Done <- struct{}{}
 	r.leaseWrp.rwMutex.Lock()
 	// Make LeaseKeeper in the Goroutine Stop
 	r.leaseWrp.isLeaseRunning = false
 	r.leaseWrp.rwMutex.Unlock()
-	// Wait for Goroutine Ended
+	// Wait for Goroutines Ended
 	r.leaseWrp.wg.Wait()
+	r.regWg.Wait()
+	r.client = nil
 }
 
 func newETCDRegistry() (registry.Registry, error) {
@@ -173,4 +234,9 @@ func newETCDRegistry() (registry.Registry, error) {
 	go r.leaseKeeper()
 
 	return r, nil
+}
+
+type pair struct {
+	key   interface{}
+	value interface{}
 }
