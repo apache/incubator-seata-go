@@ -123,6 +123,11 @@ func (nr *nacosRegistry) UnSubscribe(notifyListener registry.EventListener) erro
 	return nil
 }
 
+func (nr *nacosRegistry) Stop() {
+	// TODO: Implement Stop interface
+	return
+}
+
 // newNacosRegistry will create new instance
 func newNacosRegistry() (registry.Registry, error) {
 	nacosConfig, err := getNacosConfig()
