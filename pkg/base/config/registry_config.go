@@ -6,9 +6,9 @@ var config *RegistryConfig
 type RegistryConfig struct {
 	Mode        string      `yaml:"type" json:"type,omitempty"` //类型
 	NacosConfig NacosConfig `yaml:"nacos" json:"nacos,omitempty"`
+	ETCDConfig  EtcdConfig  `yaml:"etcdv3" json:"etcdv3,omitempty"`
 }
 
-// NacosConfig nacos config
 type NacosConfig struct {
 	Application string `yaml:"application" json:"application,omitempty"`
 	ServerAddr  string `yaml:"server_addr" json:"server_addr,omitempty"`
