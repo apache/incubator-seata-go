@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS `lock_table`
     `transaction_id` BIGINT,
     `branch_id`      BIGINT       NOT NULL,
     `resource_id`    VARCHAR(256),
+    `lock_key`       VARCHAR(1000),
     `table_name`     VARCHAR(32),
     `pk`             VARCHAR(36),
     `gmt_create`     DATETIME,
