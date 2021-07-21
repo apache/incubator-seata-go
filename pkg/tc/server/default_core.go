@@ -328,6 +328,9 @@ func (core *DefaultCore) Commit(xid string) (meta.GlobalStatus, error) {
 	}(globalSession)
 
 	if !shouldCommit {
+		if globalSession.Status == meta.GlobalStatusAsyncCommitting {
+			return meta.GlobalStatusCommitted, nil
+		}
 		return globalSession.Status, nil
 	}
 
