@@ -170,6 +170,12 @@ func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.Globa
 	}
 
 	if !shouldCommit {
+		if gt.Status == apis.AsyncCommitting {
+			return &apis.GlobalCommitResponse{
+				ResultCode:   apis.ResultCodeSuccess,
+				GlobalStatus: apis.Committed,
+			}, nil
+		}
 		return &apis.GlobalCommitResponse{
 			ResultCode:   apis.ResultCodeSuccess,
 			GlobalStatus: gt.Status,
@@ -677,7 +683,7 @@ func (tc TransactionCoordinator) processAsyncCommitting() {
 		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
 		select {
 		case <-timer.C:
-			tc.handleRetryCommitting()
+			tc.handleAsyncCommitting()
 		}
 		timer.Stop()
 	}

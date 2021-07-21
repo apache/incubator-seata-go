@@ -1,4 +1,4 @@
-package mysql
+package pgsql
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
+	_ "github.com/lib/pq"
 	"xorm.io/builder"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
@@ -19,29 +19,29 @@ import (
 
 const (
 	InsertGlobalTransaction = `insert into %s (addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
-		status, active, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
+		status, active, gmt_create, gmt_modified) values($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
 	QueryGlobalTransactionByXid = `select addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
-		status, active, gmt_create, gmt_modified from %s where xid = ?`
+		status, active, gmt_create, gmt_modified from %s where xid = $1`
 
-	UpdateGlobalTransaction = "update %s set status = ?, gmt_modified = now() where xid = ?"
+	UpdateGlobalTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where xid = $2"
 
-	InactiveGlobalTransaction = "update %s set active = 0, gmt_modified = now() where xid = ?"
+	InactiveGlobalTransaction = "update %s set active = 0, gmt_modified = CURRENT_TIMESTAMP where xid = $1"
 
-	DeleteGlobalTransaction = "delete from %s where xid = ?"
+	DeleteGlobalTransaction = "delete from %s where xid = $1"
 
 	InsertBranchTransaction = `insert into %s (addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type,
-        status, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
+        status, application_data, gmt_create, gmt_modified) values($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
 	QueryBranchTransaction = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
 	    application_data, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
 
 	QueryBranchTransactionByXid = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, gmt_create, gmt_modified from %s where xid = ? order by gmt_create asc`
+	    application_data, gmt_create, gmt_modified from %s where xid = $1 order by gmt_create asc`
 
-	UpdateBranchTransaction = "update %s set status = ?, gmt_modified = now() where xid = ? and branch_id = ?"
+	UpdateBranchTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where xid = $2 and branch_id = $3"
 
-	DeleteBranchTransaction = "delete from %s where xid = ? and branch_id = ?"
+	DeleteBranchTransaction = "delete from %s where xid = $1 and branch_id = $2"
 
 	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, 
 		gmt_modified) values %s`
@@ -51,7 +51,7 @@ const (
 )
 
 func init() {
-	factory.Register("mysql", &mysqlFactory{})
+	factory.Register("pgsql", &pgsqlFactory{})
 }
 
 type DriverParameters struct {
@@ -65,10 +65,10 @@ type DriverParameters struct {
 	MaxLifeTime        time.Duration
 }
 
-// mysqlFactory implements the factory.StorageDriverFactory interface
-type mysqlFactory struct{}
+// pgsqlFactory implements the factory.StorageDriverFactory interface
+type pgsqlFactory struct{}
 
-func (factory *mysqlFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *pgsqlFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
 	return FromParameters(parameters)
 }
 
@@ -188,7 +188,7 @@ func New(params DriverParameters) (storage.StorageDriver, error) {
 	if params.DSN == "" {
 		return nil, fmt.Errorf("the dsn parameter should not be empty")
 	}
-	engine, err := xorm.NewEngine("mysql", params.DSN)
+	engine, err := xorm.NewEngine("postgres", params.DSN)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +297,7 @@ func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSessi
 		branchTransactions []*apis.BranchSession
 		xidArgs            []interface{}
 	)
-	whereCond := fmt.Sprintf("xid in %s", sql.MysqlAppendInParam(len(xids)))
+	whereCond := fmt.Sprintf("xid in %s", sql.PgsqlAppendInParam(len(xids)))
 	for _, xid := range xids {
 		xidArgs = append(xidArgs, xid)
 	}
@@ -336,7 +336,7 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	for _, rowKey := range rowKeys {
 		rowKeyArgs = append(rowKeyArgs, rowKey)
 	}
-	whereCond := fmt.Sprintf("row_key in %s", sql.MysqlAppendInParam(len(rowKeys)))
+	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeys)))
 	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeyArgs...).Find(&existedRowLocks)
 	if err != nil {
 		log.Errorf(err.Error())
@@ -378,7 +378,7 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 		sqlOrArgs []interface{}
 	)
 	for i := 0; i < len(unrepeatedLocks); i++ {
-		sb.WriteString("(?, ?, ?, ?, ?, ?, ?, now(), now()),")
+		sb.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, now(), now()),", 7*i+1, 7*i+2, 7*i+3, 7*i+4, 7*i+5, 7*i+6, 7*i+7))
 		args = append(args, unrepeatedLocks[i].XID, unrepeatedLocks[i].TransactionID, unrepeatedLocks[i].BranchID,
 			unrepeatedLocks[i].ResourceID, unrepeatedLocks[i].TableName, unrepeatedLocks[i].PK, unrepeatedLocks[i].RowKey)
 	}
@@ -390,7 +390,7 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	_, err = driver.engine.Exec(sqlOrArgs...)
 	if err != nil {
 		// In an extremely high concurrency scenario, the row lock has been written to the database,
-		// but the mysql driver reports invalid connection exception, and then re-registers the branch,
+		// but the pgsql driver reports invalid connection exception, and then re-registers the branch,
 		// it will report the duplicate key exception.
 		log.Errorf("row locks batch acquire failed, %v, %v", unrepeatedLocks, err)
 		return false
@@ -452,7 +452,7 @@ func (driver *driver) IsLockable(xid string, resourceID string, lockKey string) 
 	for _, lockDO := range locks {
 		rowKeys = append(rowKeys, lockDO.RowKey)
 	}
-	whereCond := fmt.Sprintf("row_key in %s", sql.MysqlAppendInParam(len(rowKeys)))
+	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeys)))
 
 	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeys...).Find(&existedRowLocks)
 	if err != nil {

@@ -13,7 +13,9 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/tc/config"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/metrics"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/server"
+	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/in_memory"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/mysql"
+	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/pgsql"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
