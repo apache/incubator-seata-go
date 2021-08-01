@@ -1,6 +1,5 @@
 package etcdv3
 
-// TODO: Import Standard
 import (
 	"context"
 	"strconv"
@@ -225,7 +224,6 @@ func (r *etcdRegistry) Stop() {
 }
 
 func newETCDRegistry() (registry.Registry, error) {
-	// TODO: Handle Registry Error
 	registryConfig := config.GetRegistryConfig()
 	etcdConfig, err := utils.ToEtcdConfig(registryConfig.ETCDConfig, context.Background())
 	if err != nil {

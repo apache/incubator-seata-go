@@ -1,6 +1,5 @@
 package etcdv3
 
-// TODO: Import Standard
 import (
 	"context"
 	"sync"
