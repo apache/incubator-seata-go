@@ -50,7 +50,6 @@ type etcdRegistry struct {
 	leaseWrp         leaseWrapper
 	listenersChanMap sync.Map
 	regWg            sync.WaitGroup
-	Done             chan struct{}
 }
 
 type leaseWrapper struct {
@@ -87,12 +86,16 @@ func (r *etcdRegistry) Register(addr *registry.Address) error {
 	}
 	// RegistryKey Format: etcdv3-seata-clusterName-ipAddress:port
 	// RegistryValue Format: ipAddress:port
-	_, err := r.client.Put(context.Background(), utils.BuildRegistryKey(r.clusterName, addr), utils.BuildRegistryValue(addr), clientv3.WithLease(*r.leaseWrp.leaseId))
+	key := utils.BuildRegistryKey(r.clusterName, addr)
+	log.Infof("register key service: %s", key)
+	_, err := r.client.Put(context.Background(), key, utils.BuildRegistryValue(addr), clientv3.WithLease(*r.leaseWrp.leaseId))
 	return err
 }
 
 func (r *etcdRegistry) UnRegister(addr *registry.Address) error {
-	_, err := r.client.Delete(context.Background(), utils.BuildRegistryKey(r.clusterName, addr))
+	key := utils.BuildRegistryKey(r.clusterName, addr)
+	log.Infof("unregister key service: %s", key)
+	_, err := r.client.Delete(context.Background(), key)
 	return err
 }
 
@@ -112,28 +115,36 @@ func (r *etcdRegistry) Subscribe(cluster string, listener registry.EventListener
 
 func (r *etcdRegistry) watch(wcCh clientv3.WatchChan, listener registry.EventListener, stop chan struct{}) {
 	defer r.regWg.Done()
+LOOP:
 	for {
 		select {
 		case resp := <-wcCh:
 			services := make([]*registry.Service, 0)
 			for _, event := range resp.Events {
-				addr := strings.Split(string(event.Kv.Value), ":")
-				port, _ := strconv.ParseUint(addr[1], 10, 64)
-				services = append(services, &registry.Service{
-					IP:   addr[0],
-					Port: port,
-					Name: string(event.Kv.Key),
-				})
+				if event.Kv.Value != nil {
+					addr := strings.Split(string(event.Kv.Value), ":")
+					port, _ := strconv.ParseUint(addr[1], 10, 64)
+					services = append(services, &registry.Service{
+						EventType: uint32(event.Type),
+						IP:        addr[0],
+						Port:      port,
+						Name:      string(event.Kv.Key),
+					})
+				} else {
+					services = append(services, &registry.Service{
+						EventType: uint32(event.Type),
+						Name:      string(event.Kv.Key),
+					})
+				}
+
 			}
 			err := listener.OnEvent(services)
 			if err != nil {
 				log.Warnf("etcd listener error: %s", err.Error())
 			}
-		case <-r.Done:
-			log.Info("etcd registry quit ...")
 		case <-stop:
 			log.Info("etcd listener quit ...")
-
+			break LOOP
 		}
 	}
 }
@@ -157,6 +168,7 @@ func (r *etcdRegistry) leaseKeeper() {
 	r.leaseWrp.isLeaseRunning = true
 	r.leaseWrp.rwMutex.Unlock()
 
+LOOP:
 	for {
 		r.leaseWrp.rwMutex.RLock()
 		isRunning := r.leaseWrp.isLeaseRunning
@@ -182,15 +194,26 @@ func (r *etcdRegistry) leaseKeeper() {
 
 			time.Sleep(time.Duration(constant.ETCDV3_LEASE_RENEW_INTERVAL) * time.Second)
 		} else {
-			break
+			break LOOP
 		}
 	}
 
+	log.Info("lease keeper quit...")
 }
 
 // Stop wait for goroutines to stop
 func (r *etcdRegistry) Stop() {
-	r.Done <- struct{}{}
+	r.listenersChanMap.Range(func(key, value interface{}) bool {
+		stopChan, ok := value.(chan struct{})
+		if !ok {
+			log.Warnf("failed to attain stop channel")
+			return true
+		}
+
+		stopChan <- struct{}{}
+		r.listenersChanMap.Delete(key)
+		return true
+	})
 	r.leaseWrp.rwMutex.Lock()
 	// Make LeaseKeeper in the Goroutine Stop
 	r.leaseWrp.isLeaseRunning = false
