@@ -27,7 +27,7 @@ func IsAddressValid(addr registry.Address) bool {
 }
 
 func BuildRegistryKey(clusterName string, addr *registry.Address) string {
-	return constant.ETCDV3_REGISTRY_PREFIX + fmt.Sprintf("%s-%s", clusterName, addrToStr(addr))
+	return constant.Etcdv3RegistryPrefix + fmt.Sprintf("%s-%s", clusterName, addrToStr(addr))
 }
 
 func BuildRegistryValue(addr *registry.Address) string {

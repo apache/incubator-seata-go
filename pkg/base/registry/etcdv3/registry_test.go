@@ -31,8 +31,9 @@ etcdv3:
   cluster_name: test
 `
 	regCfg := config.RegistryConfig{}
-	defaults.Set(&regCfg)
-	err := yaml.Unmarshal([]byte(confStr), &regCfg)
+	err := defaults.Set(&regCfg)
+	assert.NoError(t, err)
+	err = yaml.Unmarshal([]byte(confStr), &regCfg)
 	assert.NoError(t, err)
 
 	etcdConfig, err := utils.ToEtcdConfig(regCfg.ETCDConfig, ctx)
@@ -42,7 +43,7 @@ etcdv3:
 	_, err = client.Delete(ctx, "", clientv3.WithPrefix())
 	assert.NoError(t, err)
 
-	resp, err := client.Grant(ctx, constant.ETCDV3_LEASE_TTL)
+	resp, err := client.Grant(ctx, constant.Etcdv3LeaseTtl)
 	assert.NoError(t, err, "failed to recv lease response")
 	assert.NotNil(t, resp)
 
@@ -109,7 +110,7 @@ func TestUnRegister(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Zero(t, resp.Count)
 
-	_, err = r.client.Delete(ctx, constant.ETCDV3_REGISTRY_PREFIX+r.clusterName, clientv3.WithLease(*r.leaseWrp.leaseId))
+	_, err = r.client.Delete(ctx, constant.Etcdv3RegistryPrefix+r.clusterName, clientv3.WithLease(*r.leaseWrp.leaseId))
 	assert.NoError(t, err)
 }
 
@@ -145,9 +146,9 @@ func TestSubscribe(t *testing.T) {
 
 	servicesMap := make(map[string]string)
 
-	prefixKey := constant.ETCDV3_REGISTRY_PREFIX + r.clusterName + "-"
+	prefixKey := constant.Etcdv3RegistryPrefix + r.clusterName + "-"
 	l := &mockListener{servicesMap: servicesMap, t: t, counter: 0}
-	err := r.Subscribe("", l)
+	err := r.Subscribe(l)
 	assert.NoError(t, err)
 
 	for _, service := range services {
