@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 var config *RegistryConfig
 
 // RegistryConfig registry config
@@ -21,17 +23,17 @@ type NacosConfig struct {
 }
 
 type EtcdConfig struct {
-	Endpoints            string     `yaml:"endpoints" json:"endpoints,omitempty"`
-	Username             string     `yaml:"username" json:"username,omitempty"`
-	Password             string     `yaml:"password" json:"password,omitempty"`
-	AutoSyncInterval     string     `default:"0" yaml:"auto_sync_interval" json:"auto_sync_interval,omitempty"`
-	DialTimeout          string     `default:"5s" yaml:"dial_timeout" json:"dial_timeout,omitempty"`
-	DialKeepAliveTime    string     `default:"1s" yaml:"dial_keep_alive_time" json:"dial_keep_alive_time,omitempty"`
-	DialKeepAliveTimeout string     `default:"3s" yaml:"dial_keep_alive_timeout" json:"dial_keep_alive_timeout,omitempty"`
-	MaxCallSendMsgSize   int        `default:"0" yaml:"max_call_msg_size" json:"max_call_msg_size,omitempty"`
-	MaxCallRecvMsgSize   int        `default:"0" yaml:"max_recv_msg_size" json:"max_recv_msg_size,omitempty"`
-	ClusterName          string     `default:"default" yaml:"cluster_name" json:"cluster_name,omitempty"`
-	TLSConfig            *TLSConfig `yaml:"tls" json:"tls,omitempty"`
+	Endpoints            string        `yaml:"endpoints" json:"endpoints,omitempty"`
+	Username             string        `yaml:"username" json:"username,omitempty"`
+	Password             string        `yaml:"password" json:"password,omitempty"`
+	AutoSyncInterval     time.Duration `default:"0" yaml:"auto_sync_interval" json:"auto_sync_interval,omitempty"`
+	DialTimeout          time.Duration `default:"5s" yaml:"dial_timeout" json:"dial_timeout,omitempty"`
+	DialKeepAliveTime    time.Duration `default:"1s" yaml:"dial_keep_alive_time" json:"dial_keep_alive_time,omitempty"`
+	DialKeepAliveTimeout time.Duration `default:"3s" yaml:"dial_keep_alive_timeout" json:"dial_keep_alive_timeout,omitempty"`
+	MaxCallSendMsgSize   int           `default:"0" yaml:"max_call_msg_size" json:"max_call_msg_size,omitempty"`
+	MaxCallRecvMsgSize   int           `default:"0" yaml:"max_recv_msg_size" json:"max_recv_msg_size,omitempty"`
+	ClusterName          string        `default:"default" yaml:"cluster_name" json:"cluster_name,omitempty"`
+	TLSConfig            *TLSConfig    `yaml:"tls" json:"tls,omitempty"`
 }
 
 type TLSConfig struct {

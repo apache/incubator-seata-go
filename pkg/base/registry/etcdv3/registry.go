@@ -225,7 +225,7 @@ func (r *etcdRegistry) Stop() {
 
 func newETCDRegistry() (registry.Registry, error) {
 	registryConfig := config.GetRegistryConfig()
-	etcdConfig, err := utils.ToEtcdConfig(registryConfig.ETCDConfig, context.Background())
+	etcdConfig, err := registryConfig.ETCDConfig.ParseEtcdConfig(context.Background())
 	if err != nil {
 		return &etcdRegistry{}, err
 	}

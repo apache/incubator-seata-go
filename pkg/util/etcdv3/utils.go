@@ -16,9 +16,9 @@ import (
 )
 
 import (
-	"github.com/transaction-wg/seata-golang/pkg/base/common/constant"
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
+	"github.com/transaction-wg/seata-golang/pkg/base/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
-	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 )
 
 func IsAddressValid(addr registry.Address) bool {
