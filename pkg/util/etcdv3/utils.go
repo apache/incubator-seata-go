@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
 
 import (
@@ -57,32 +56,12 @@ func ToEtcdConfig(cfg config.EtcdConfig, ctx context.Context) (clientv3.Config, 
 		}
 	}
 
-	autoSyncInterval, err := time.ParseDuration(cfg.AutoSyncInterval)
-	if err != nil {
-		return clientv3.Config{}, err
-	}
-
-	dialTimeout, err := time.ParseDuration(cfg.DialTimeout)
-	if err != nil {
-		return clientv3.Config{}, err
-	}
-
-	keepAliveTime, err := time.ParseDuration(cfg.DialKeepAliveTime)
-	if err != nil {
-		return clientv3.Config{}, err
-	}
-
-	keepAliveTimeOut, err := time.ParseDuration(cfg.DialKeepAliveTimeout)
-	if err != nil {
-		return clientv3.Config{}, err
-	}
-
 	return clientv3.Config{
 		Endpoints:            endpoints,
-		AutoSyncInterval:     autoSyncInterval,
-		DialTimeout:          dialTimeout,
-		DialKeepAliveTime:    keepAliveTime,
-		DialKeepAliveTimeout: keepAliveTimeOut,
+		AutoSyncInterval:     cfg.AutoSyncInterval,
+		DialTimeout:          cfg.DialTimeout,
+		DialKeepAliveTime:    cfg.DialKeepAliveTime,
+		DialKeepAliveTimeout: cfg.DialKeepAliveTimeout,
 		MaxCallSendMsgSize:   cfg.MaxCallSendMsgSize,
 		MaxCallRecvMsgSize:   cfg.MaxCallRecvMsgSize,
 		Username:             cfg.Username,
