@@ -53,6 +53,8 @@ func TestEtcdConfigCenter_GetConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	res := (*configCenter).GetConfig(&conf)
+
+	t.Logf("%v", res)
 	match := strings.Contains(res, "test-config")
 	assert.Equal(t, true, match)
 
@@ -69,6 +71,7 @@ type mockListener struct {
 
 func (l *mockListener) Process(event *config_center.ConfigChangeEvent) {
 	val := event.Value.([]byte)
+	l.t.Logf("%s", val)
 	assert.Equal(l.t, conf.ETCDConfig.ConfigKey, event.Key)
 	if string(val) == "test-config" {
 		return

@@ -2,7 +2,6 @@ package etcdv3
 
 import (
 	"context"
-
 	"sync"
 )
 
@@ -32,7 +31,8 @@ type etcdConfigCenter struct {
 func (c *etcdConfigCenter) GetConfig(conf *config.ConfigCenterConfig) string {
 	// dynamic config's key default is "config-seata"
 	configKey := conf.ETCDConfig.ConfigKey
-	resp, err := c.client.Get(context.Background(), configKey)
+	kv := clientv3.NewKV(c.client)
+	resp, err := kv.Get(context.Background(), configKey)
 	if err != nil {
 		return ""
 	}
@@ -43,11 +43,7 @@ func (c *etcdConfigCenter) GetConfig(conf *config.ConfigCenterConfig) string {
 		return ""
 	}
 
-	var res string
-	for _, value := range resp.Kvs {
-		res = value.String()
-	}
-	return res
+	return string(resp.Kvs[0].Value)
 }
 
 func (c *etcdConfigCenter) AddListener(conf *config.ConfigCenterConfig, listener config_center.ConfigurationListener) {
@@ -64,7 +60,7 @@ func (c *etcdConfigCenter) handleEvents(wc clientv3.WatchChan, listener config_c
 	for {
 		select {
 		case <-c.done:
-			log.Warn("etcd connection already closed")
+			log.Info("etcd connection close...")
 			return
 		case e := <-wc:
 			for _, event := range e.Events {
