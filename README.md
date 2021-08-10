@@ -10,18 +10,6 @@
 在 Seata 没有 Golang 版本 client sdk 的情况下，Golang 版本的 TC Server 使用了和 Java 版 Seata 一样的通信协议，方便调试。
 希望有同样朴素想法的开发者加入我们一起完善 Golang 版本的分布式事务解决方案。本方案参考了 [dubbo-go](#https://github.com/apache/dubbo-go) 的实现。由于时间有限，且对 golang 的一些特性不甚了解，有些实现不太优雅，希望有更多开发者来参与并优化它。
 
-### todo list
-- [X] Memory Session Manager
-- [X] DB Session Manager (only support mysql) 
-- [ ] RAFT Session Manager  
-- [X] Metrics Collector
-- [X] TM
-- [X] RM TCC
-- [X] RM AT
-- [X] Client merged request
-- [ ] Read config from Config Center
-- [ ] Unit Test
-
 ### mysql driver
 
 mysql driver 集成 seata-golang 的工作已经完成，该 driver 基于 https://github.com/go-sql-driver/mysql 开发，开发者可以使用该 driver 对接到各种 orm 中，使用更方便。driver 的项目地址：https://github.com/opentrx/mysql 。 参考 demo：https://github.com/opentrx/seata-go-samples 。
