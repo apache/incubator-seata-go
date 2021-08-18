@@ -9,13 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Aaa() {
-
-}
-func aaa() {
-
-}
-
 func TestIsExportedOrBuiltinType(t *testing.T) {
 	type ExportedStruct struct {
 		Abb string
