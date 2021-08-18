@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -65,9 +64,6 @@ func TestSuiteContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actualResult := SuiteContext(tt.methodDesc, tt.ctx)
-
-			log.Debugf("expectedResult: %+v", tt.expectedResult)
-			log.Debugf("actualResult: %+v", actualResult)
 
 			assert.Equal(t, tt.expectedResult, actualResult)
 		})
