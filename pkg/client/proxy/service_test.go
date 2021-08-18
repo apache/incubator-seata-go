@@ -9,28 +9,51 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFuncIsExported(t *testing.T) {
+func Aaa() {
+
+}
+func aaa() {
+
+}
+
+func TestIsExportedOrBuiltinType(t *testing.T) {
+	type ExportedStruct struct {
+		Abb string
+	}
+	type notExportedStruct struct {
+		Cdd string
+	}
 	tests := []struct{
 		name string
-		funcName string
+		typeOf reflect.Type
 		expectedResult bool
 	}{
 		{
-			name: "test func is exported",
-			funcName: "Abb",
+			name: "test type is exported and not builtin",
+			typeOf: reflect.TypeOf(ExportedStruct{
+				Abb: "testing",
+			}),
 			expectedResult: true,
 		},
 		{
-			name: "test func is not exported",
-			funcName: "abb",
+			name: "test type is not exported and not builtin",
+			typeOf: reflect.TypeOf(notExportedStruct{
+				Cdd: "testing",
+			}),
 			expectedResult: false,
+		},
+		{
+			name: "test type is builtin",
+			typeOf: reflect.TypeOf("Abb"), // string type
+			expectedResult: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualResult := isExported(tt.funcName)
-			assert.Equal(t,tt.expectedResult, actualResult)
+			actualResult := isExportedOrBuiltinType(tt.typeOf)
+
+			assert.Equal(t, tt.expectedResult, actualResult)
 		})
 	}
 }
