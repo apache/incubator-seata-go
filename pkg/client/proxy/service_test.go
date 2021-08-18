@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,6 +39,7 @@ func TestFuncIsExported(t *testing.T) {
 func TestSuiteContext(t *testing.T) {
 	emptyContext := context.TODO()
 	validContext := context.WithValue(context.TODO(), "aa", "bb")
+
 	tests := []struct{
 		name string
 		methodDesc *MethodDescriptor
@@ -66,6 +68,66 @@ func TestSuiteContext(t *testing.T) {
 
 			log.Debugf("expectedResult: %+v", tt.expectedResult)
 			log.Debugf("actualResult: %+v", actualResult)
+
+			assert.Equal(t, tt.expectedResult, actualResult)
+		})
+	}
+}
+
+func TestReturnWithError(t *testing.T) {
+	testingErr := errors.New("testing err")
+
+	tests := []struct{
+		name string
+		methodDesc *MethodDescriptor
+		err error
+		expectedResult []reflect.Value
+	}{
+		{
+			name: "test return with error when methodDesc.ReturnValuesNum is 2",
+			methodDesc: &MethodDescriptor{
+				ReturnValuesNum: 2,
+				ReturnValuesType: []reflect.Type{
+					reflect.TypeOf("1"),
+					reflect.TypeOf(errors.New("method output error")),
+				},
+			},
+			err: testingErr,
+			expectedResult: []reflect.Value{
+				reflect.Zero(reflect.TypeOf("1")),
+				reflect.ValueOf(testingErr),
+			},
+		},
+		{
+			name: "test return with error when methodDesc.ReturnValuesNum is 1",
+			methodDesc: &MethodDescriptor{
+				ReturnValuesNum: 1,
+				ReturnValuesType: []reflect.Type{
+					reflect.TypeOf(errors.New("method output error")),
+				},
+			},
+			err: testingErr,
+			expectedResult: []reflect.Value{
+				reflect.ValueOf(testingErr),
+			},
+		},
+		{
+			name: "test return with error when methodDesc.ReturnValuesNum is 0",
+			methodDesc: &MethodDescriptor{
+				ReturnValuesNum: 0,
+				ReturnValuesType: []reflect.Type{
+				},
+			},
+			err: testingErr,
+			expectedResult: []reflect.Value{
+				reflect.ValueOf(testingErr),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualResult := ReturnWithError(tt.methodDesc, tt.err)
 
 			assert.Equal(t, tt.expectedResult, actualResult)
 		})
