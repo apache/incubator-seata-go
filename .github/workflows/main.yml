@@ -42,7 +42,7 @@ jobs:
 
       - name: Go Vet
         run: |
-          go vet -v ./...
+          go vet -shift=false -v ./...
 
       - name: Go Lint
         run: |

@@ -78,7 +78,7 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 	return tc
 }
 
-func (tc TransactionCoordinator) Begin(ctx context.Context, request *apis.GlobalBeginRequest) (*apis.GlobalBeginResponse, error) {
+func (tc *TransactionCoordinator) Begin(ctx context.Context, request *apis.GlobalBeginRequest) (*apis.GlobalBeginResponse, error) {
 	transactionID := uuid.NextID()
 	xid := common.GenerateXID(request.Addressing, transactionID)
 	gt := model.GlobalTransaction{
@@ -112,7 +112,7 @@ func (tc TransactionCoordinator) Begin(ctx context.Context, request *apis.Global
 	}, nil
 }
 
-func (tc TransactionCoordinator) GetStatus(ctx context.Context, request *apis.GlobalStatusRequest) (*apis.GlobalStatusResponse, error) {
+func (tc *TransactionCoordinator) GetStatus(ctx context.Context, request *apis.GlobalStatusRequest) (*apis.GlobalStatusResponse, error) {
 	gs := tc.holder.FindGlobalSession(request.XID)
 	if gs != nil {
 		return &apis.GlobalStatusResponse{
@@ -126,11 +126,11 @@ func (tc TransactionCoordinator) GetStatus(ctx context.Context, request *apis.Gl
 	}, nil
 }
 
-func (tc TransactionCoordinator) GlobalReport(ctx context.Context, request *apis.GlobalReportRequest) (*apis.GlobalReportResponse, error) {
+func (tc *TransactionCoordinator) GlobalReport(ctx context.Context, request *apis.GlobalReportRequest) (*apis.GlobalReportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GlobalReport not implemented")
 }
 
-func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.GlobalCommitRequest) (*apis.GlobalCommitResponse, error) {
+func (tc *TransactionCoordinator) Commit(ctx context.Context, request *apis.GlobalCommitRequest) (*apis.GlobalCommitResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		return &apis.GlobalCommitResponse{
@@ -205,7 +205,7 @@ func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.Globa
 	}
 }
 
-func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, retrying bool) (bool, error) {
+func (tc *TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, retrying bool) (bool, error) {
 	var (
 		success = true
 		err     error
@@ -295,7 +295,7 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 	return success, err
 }
 
-func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
+func (tc *TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
 	client, err := tc.getTransactionCoordinatorServiceClient(bs.Addressing)
 	if err != nil {
 		return bs.Status, err
@@ -321,7 +321,7 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 	}
 }
 
-func (tc TransactionCoordinator) Rollback(ctx context.Context, request *apis.GlobalRollbackRequest) (*apis.GlobalRollbackResponse, error) {
+func (tc *TransactionCoordinator) Rollback(ctx context.Context, request *apis.GlobalRollbackRequest) (*apis.GlobalRollbackResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		return &apis.GlobalRollbackResponse{
@@ -373,7 +373,7 @@ func (tc TransactionCoordinator) Rollback(ctx context.Context, request *apis.Glo
 	}, nil
 }
 
-func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, retrying bool) (bool, error) {
+func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, retrying bool) (bool, error) {
 	var (
 		success = true
 		err     error
@@ -468,7 +468,7 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 	return success, err
 }
 
-func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
+func (tc *TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
 	client, err := tc.getTransactionCoordinatorServiceClient(bs.Addressing)
 	if err != nil {
 		return bs.Status, err
@@ -494,7 +494,7 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 	}
 }
 
-func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
+func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		log.Errorf("could not found global transaction xid = %s", request.XID)
@@ -581,7 +581,7 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 	}, nil
 }
 
-func (tc TransactionCoordinator) BranchReport(ctx context.Context, request *apis.BranchReportRequest) (*apis.BranchReportResponse, error) {
+func (tc *TransactionCoordinator) BranchReport(ctx context.Context, request *apis.BranchReportRequest) (*apis.BranchReportResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		log.Errorf("could not found global transaction xid = %s", request.XID)
@@ -615,7 +615,7 @@ func (tc TransactionCoordinator) BranchReport(ctx context.Context, request *apis
 	}, nil
 }
 
-func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.GlobalLockQueryRequest) (*apis.GlobalLockQueryResponse, error) {
+func (tc *TransactionCoordinator) LockQuery(ctx context.Context, request *apis.GlobalLockQueryRequest) (*apis.GlobalLockQueryResponse, error) {
 	result := tc.resourceDataLocker.IsLockable(request.XID, request.ResourceID, request.LockKey)
 	return &apis.GlobalLockQueryResponse{
 		ResultCode: apis.ResultCodeSuccess,
@@ -623,7 +623,7 @@ func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.Gl
 	}, nil
 }
 
-func (tc TransactionCoordinator) getTransactionCoordinatorServiceClient(addressing string) (apis.BranchTransactionServiceClient, error) {
+func (tc *TransactionCoordinator) getTransactionCoordinatorServiceClient(addressing string) (apis.BranchTransactionServiceClient, error) {
 	client1, ok1 := tc.tcServiceClients[addressing]
 	if ok1 {
 		return client1, nil
@@ -645,7 +645,7 @@ func (tc TransactionCoordinator) getTransactionCoordinatorServiceClient(addressi
 	return client, nil
 }
 
-func (tc TransactionCoordinator) processTimeoutCheck() {
+func (tc *TransactionCoordinator) processTimeoutCheck() {
 	for {
 		timer := time.NewTimer(tc.timeoutRetryPeriod)
 		select {
@@ -656,7 +656,7 @@ func (tc TransactionCoordinator) processTimeoutCheck() {
 	}
 }
 
-func (tc TransactionCoordinator) processRetryRollingBack() {
+func (tc *TransactionCoordinator) processRetryRollingBack() {
 	for {
 		timer := time.NewTimer(tc.rollingBackRetryPeriod)
 		select {
@@ -667,7 +667,7 @@ func (tc TransactionCoordinator) processRetryRollingBack() {
 	}
 }
 
-func (tc TransactionCoordinator) processRetryCommitting() {
+func (tc *TransactionCoordinator) processRetryCommitting() {
 	for {
 		timer := time.NewTimer(tc.committingRetryPeriod)
 		select {
@@ -678,7 +678,7 @@ func (tc TransactionCoordinator) processRetryCommitting() {
 	}
 }
 
-func (tc TransactionCoordinator) processAsyncCommitting() {
+func (tc *TransactionCoordinator) processAsyncCommitting() {
 	for {
 		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
 		select {
@@ -689,7 +689,7 @@ func (tc TransactionCoordinator) processAsyncCommitting() {
 	}
 }
 
-func (tc TransactionCoordinator) timeoutCheck() {
+func (tc *TransactionCoordinator) timeoutCheck() {
 	allSessions := tc.holder.AllSessions()
 	if allSessions == nil && len(allSessions) <= 0 {
 		return
@@ -714,7 +714,7 @@ func (tc TransactionCoordinator) timeoutCheck() {
 	}
 }
 
-func (tc TransactionCoordinator) handleRetryRollingBack() {
+func (tc *TransactionCoordinator) handleRetryRollingBack() {
 	rollbackTransactions := tc.holder.FindRetryRollbackGlobalTransactions()
 	if rollbackTransactions == nil && len(rollbackTransactions) <= 0 {
 		return
@@ -746,7 +746,7 @@ func isRetryTimeout(now int64, timeout int64, beginTime int64) bool {
 	return false
 }
 
-func (tc TransactionCoordinator) handleRetryCommitting() {
+func (tc *TransactionCoordinator) handleRetryCommitting() {
 	committingTransactions := tc.holder.FindRetryCommittingGlobalTransactions()
 	if committingTransactions == nil && len(committingTransactions) <= 0 {
 		return
@@ -765,7 +765,7 @@ func (tc TransactionCoordinator) handleRetryCommitting() {
 	}
 }
 
-func (tc TransactionCoordinator) handleAsyncCommitting() {
+func (tc *TransactionCoordinator) handleAsyncCommitting() {
 	asyncCommittingTransactions := tc.holder.FindAsyncCommittingGlobalTransactions()
 	if asyncCommittingTransactions == nil && len(asyncCommittingTransactions) <= 0 {
 		return
