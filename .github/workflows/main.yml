@@ -14,6 +14,10 @@ on:
 jobs:
   # This workflow contains a single job called "lint"
   lint:
+    strategy:
+      matrix:
+        go-version: [ 1.15.x ]
+
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
@@ -22,12 +26,17 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.15
+          go-version: ${{ matrix.go-version }}
       
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-        
-      - name: Lint Go Code
+
+      - name: Install linters
         run: |
-          go get golang.org/x/lint/golint
-          golint ./...
+          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.39.0
+        
+      - name: Lint and Vet Go Code
+        run: |
+          go build
+          go vet -v ./...
+          golangci-lint run ./...
