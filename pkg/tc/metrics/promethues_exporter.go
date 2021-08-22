@@ -7,33 +7,37 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type promHttpExporter struct {
+type promHTTPExporter struct {
 	real http.Handler
 }
 
-func (exporter *promHttpExporter) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
+func (exporter *promHTTPExporter) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 	exporter.real.ServeHTTP(rsp, req)
 
 	exporter.Flush(rsp)
 }
 
-func (exporter *promHttpExporter) Flush(writer io.Writer) {
+func (exporter *promHTTPExporter) Flush(writer io.Writer) {
 	w := writer
 	var sb strings.Builder
 	tracker := make(map[string]bool)
 
-	flushCounter(tracker, &sb, COUNTER_ACTIVE)
-	flushCounter(tracker, &sb, COUNTER_COMMITTED)
-	flushCounter(tracker, &sb, COUNTER_ROLLBACKED)
+	flushCounter(tracker, &sb, CounterActive)
+	flushCounter(tracker, &sb, CounterCommitted)
+	flushCounter(tracker, &sb, CounterRollbacked)
 
-	flushHistogram(tracker, &sb, TIMER_COMMITTED)
-	flushHistogram(tracker, &sb, TIMER_ROLLBACK)
+	flushHistogram(tracker, &sb, TimerCommitted)
+	flushHistogram(tracker, &sb, TimerRollback)
 
-	w.Write([]byte(sb.String()))
+	_, err := w.Write([]byte(sb.String()))
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func flushHistogram(tracker map[string]bool, buf *strings.Builder, histogram *Histogram) {
@@ -105,7 +109,7 @@ func init() {
 
 	// export http for prometheus
 	srvMux := http.NewServeMux()
-	srvMux.Handle("/metrics", &promHttpExporter{
+	srvMux.Handle("/metrics", &promHTTPExporter{
 		real: promhttp.HandlerFor(promReg, promhttp.HandlerOpts{
 			DisableCompression: true,
 		}),
@@ -115,5 +119,10 @@ func init() {
 		Addr:    fmt.Sprintf("0.0.0.0:%d", 9898),
 		Handler: srvMux,
 	}
-	go srv.ListenAndServe()
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 }

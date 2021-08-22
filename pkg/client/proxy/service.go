@@ -12,10 +12,6 @@ import (
 )
 
 var (
-	// Precompute the reflect type for error. Can't use error directly
-	// because Typeof takes an empty interface value. This is annoying.
-	typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-
 	// serviceDescriptorMap, string -> *ServiceDescriptor
 	serviceDescriptorMap = sync.Map{}
 )
@@ -36,7 +32,7 @@ type ServiceDescriptor struct {
 	Name         string
 	ReflectType  reflect.Type
 	ReflectValue reflect.Value
-	Methods      sync.Map //string -> *MethodDescriptor
+	Methods      sync.Map // string -> *MethodDescriptor
 }
 
 // Register
@@ -144,7 +140,7 @@ func Invoke(methodDesc *MethodDescriptor, ctx *ctx.RootContext, args []interface
 	for i := 0; i < len(args); i++ {
 		t := reflect.ValueOf(args[i])
 		if methodDesc.ArgsType[i].String() == "context.Context" {
-			t = SuiteContext(methodDesc, ctx)
+			t = SuiteContext(ctx, methodDesc)
 		}
 		if !t.IsValid() {
 			at := methodDesc.ArgsType[i]
@@ -161,7 +157,7 @@ func Invoke(methodDesc *MethodDescriptor, ctx *ctx.RootContext, args []interface
 	return returnValues
 }
 
-func SuiteContext(methodDesc *MethodDescriptor, ctx context.Context) reflect.Value {
+func SuiteContext(ctx context.Context, methodDesc *MethodDescriptor) reflect.Value {
 	if contextValue := reflect.ValueOf(ctx); contextValue.IsValid() {
 		return contextValue
 	}

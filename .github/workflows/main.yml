@@ -44,6 +44,6 @@ jobs:
         run: |
           go vet -shift=false -v ./...
 
-      - name: Go Lint
+      - name: GolangCI Lint
         run: |
           golangci-lint run ./...

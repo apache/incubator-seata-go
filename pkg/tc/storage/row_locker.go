@@ -8,7 +8,7 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/common"
 )
 
-const LOCK_SPLIT = "^^^"
+const LockSplit = "^^^"
 
 func CollectBranchSessionRowLocks(branchSession *apis.BranchSession) []*apis.RowLock {
 	if branchSession == nil || branchSession.LockKey == "" {

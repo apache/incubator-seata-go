@@ -33,7 +33,7 @@ const (
 // highest 11 bit: not used
 // middle  41 bit: timestamp
 // lowest  12 bit: sequence
-var timestampAndSequence uint64 = 0
+var timestampAndSequence uint64
 
 // business meaning: machine ID (0 ~ 1023)
 // actual layout in memory:
@@ -99,7 +99,7 @@ func generateWorkerIDBaseOnMac() (int64, error) {
 
 		mac := iface.HardwareAddr
 
-		return int64(int((mac[4]&0b11)<<8) | int(mac[5]&0xFF)), nil
+		return int64(int(rune(mac[4]&0b11)<<8) | int(mac[5]&0xFF)), nil
 	}
 	return 0, fmt.Errorf("no available mac found")
 }

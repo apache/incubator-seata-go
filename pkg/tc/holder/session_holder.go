@@ -1,6 +1,8 @@
 package holder
 
 import (
+	"fmt"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
@@ -27,7 +29,7 @@ func (holder *SessionHolder) FindGlobalTransaction(xid string) *model.GlobalTran
 	if globalSession != nil {
 		gt := &model.GlobalTransaction{GlobalSession: globalSession}
 		branchSessions := holder.manager.FindBranchSessions(xid)
-		if branchSessions != nil && len(branchSessions) != 0 {
+		if len(branchSessions) != 0 {
 			gt.BranchSessions = make(map[*apis.BranchSession]bool, len(branchSessions))
 			for i := 0; i < len(branchSessions); i++ {
 				gt.BranchSessions[branchSessions[i]] = true
@@ -58,7 +60,7 @@ func (holder *SessionHolder) FindRetryRollbackGlobalTransactions() []*model.Glob
 
 func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSession_GlobalStatus) []*model.GlobalTransaction {
 	gts := holder.manager.FindGlobalSessions(statuses)
-	if gts == nil || len(gts) == 0 {
+	if len(gts) == 0 {
 		return nil
 	}
 
@@ -84,11 +86,11 @@ func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSessio
 	for j := 0; j < len(gts); j++ {
 		globalTransaction := &model.GlobalTransaction{
 			GlobalSession:  gts[j],
-			BranchSessions: make(map[*apis.BranchSession]bool, 0),
+			BranchSessions: make(map[*apis.BranchSession]bool),
 		}
 
 		branchSessionSlice := branchSessionMap[gts[j].XID]
-		if branchSessionSlice != nil && len(branchSessionSlice) > 0 {
+		if len(branchSessionSlice) > 0 {
 			for x := 0; x < len(branchSessionSlice); x++ {
 				globalTransaction.BranchSessions[branchSessionSlice[x]] = true
 			}
@@ -118,9 +120,16 @@ func (holder *SessionHolder) RemoveGlobalSession(session *apis.GlobalSession) er
 }
 
 func (holder *SessionHolder) RemoveGlobalTransaction(globalTransaction *model.GlobalTransaction) error {
-	holder.manager.RemoveGlobalSession(globalTransaction.GlobalSession)
+	err := holder.manager.RemoveGlobalSession(globalTransaction.GlobalSession)
+	if err != nil {
+		return fmt.Errorf("RemoveGlobalSession Err: %+v", err)
+	}
+
 	for bs := range globalTransaction.BranchSessions {
-		holder.manager.RemoveBranchSession(globalTransaction.GlobalSession, bs)
+		err = holder.manager.RemoveBranchSession(globalTransaction.GlobalSession, bs)
+		if err != nil {
+			return fmt.Errorf("RemoveBranchSession Err: %+v", err)
+		}
 	}
 	return nil
 }

@@ -2,21 +2,20 @@ package main
 
 import (
 	"fmt"
-	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
 	"net"
 	"os"
-
-	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/config"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/metrics"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/server"
-	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/in_memory"
+	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/inmemory"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/mysql"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/pgsql"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
+	"github.com/urfave/cli/v2"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -39,24 +38,27 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					configPath := c.String("config")
+					configPath := c.String("cfg")
 					serverNode := c.Int64("serverNode")
 
-					config, err := resolveConfiguration(configPath)
+					cfg, err := resolveConfiguration(configPath)
+					if err != nil || cfg == nil {
+						return err
+					}
 
-					uuid.Init(serverNode)
-					log.Init(config.Log.LogPath, config.Log.LogLevel)
+					_ = uuid.Init(serverNode)
+					log.Init(cfg.Log.LogPath, cfg.Log.LogLevel)
 
-					address := fmt.Sprintf(":%v", config.Server.Port)
+					address := fmt.Sprintf(":%v", cfg.Server.Port)
 					lis, err := net.Listen("tcp", address)
 					if err != nil {
 						log.Fatalf("failed to listen: %v", err)
 					}
 
-					s := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(config.GetEnforcementPolicy()),
-						grpc.KeepaliveParams(config.GetServerParameters()))
+					s := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(cfg.GetEnforcementPolicy()),
+						grpc.KeepaliveParams(cfg.GetServerParameters()))
 
-					tc := server.NewTransactionCoordinator(config)
+					tc := server.NewTransactionCoordinator(cfg)
 					apis.RegisterTransactionManagerServiceServer(s, tc)
 					apis.RegisterResourceManagerServiceServer(s, tc)
 
@@ -93,12 +95,17 @@ func resolveConfiguration(configPath string) (*config.Configuration, error) {
 		return nil, err
 	}
 
-	defer fp.Close()
+	defer func(fp *os.File) {
+		err = fp.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(fp)
 
-	config, err := config.Parse(fp)
+	cfg, err := config.Parse(fp)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing %s: %v", configurationPath, err)
 	}
 
-	return config, nil
+	return cfg, nil
 }

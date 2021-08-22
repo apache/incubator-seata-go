@@ -12,7 +12,6 @@ linters:
     - staticcheck
     - structcheck
     - typecheck
-    - unused
     - varcheck
     - goimports
     - gocritic

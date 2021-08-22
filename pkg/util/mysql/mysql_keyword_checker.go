@@ -287,7 +287,6 @@ func CheckEscape(fieldOrTableName string) bool {
 func CheckAndReplace(fieldOrTableName string) string {
 	if Check(fieldOrTableName) {
 		return "`" + fieldOrTableName + "`"
-	} else {
-		return fieldOrTableName
 	}
+	return fieldOrTableName
 }

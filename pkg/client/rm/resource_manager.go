@@ -3,6 +3,7 @@ package rm
 import (
 	"context"
 	"fmt"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
@@ -11,28 +12,28 @@ import (
 var defaultResourceManager *ResourceManager
 
 type ResourceManagerOutbound interface {
-	// Branch register long.
+	// BranchRegister register branch transaction.
 	BranchRegister(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType,
 		applicationData []byte, lockKeys string) (int64, error)
 
-	// Branch report.
+	// BranchReport report branch transaction status.
 	BranchReport(ctx context.Context, xid string, branchID int64, branchType apis.BranchSession_BranchType,
 		status apis.BranchSession_BranchStatus, applicationData []byte) error
 
-	// Lock query boolean.
+	// LockQuery lock resource by lockKeys.
 	LockQuery(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType, lockKeys string) (bool, error)
 }
 
 type ResourceManagerInterface interface {
 	apis.BranchTransactionServiceServer
 
-	// Register a Resource to be managed by Resource Manager.
+	// RegisterResource Register a Resource to be managed by Resource Manager.
 	RegisterResource(resource model.Resource)
 
-	// Unregister a Resource from the Resource Manager.
+	// UnregisterResource Unregister a Resource from the Resource Manager.
 	UnregisterResource(resource model.Resource)
 
-	// Get the BranchType.
+	// GetBranchType ...
 	GetBranchType() apis.BranchSession_BranchType
 }
 
@@ -74,11 +75,10 @@ func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, 
 	}
 	if resp.ResultCode == apis.ResultCodeSuccess {
 		return resp.BranchID, nil
-	} else {
-		return 0, &exception.TransactionException{
-			Code:    resp.GetExceptionCode(),
-			Message: resp.GetMessage(),
-		}
+	}
+	return 0, &exception.TransactionException{
+		Code:    resp.GetExceptionCode(),
+		Message: resp.GetMessage(),
 	}
 }
 
@@ -119,11 +119,10 @@ func (manager *ResourceManager) LockQuery(ctx context.Context, xid string, resou
 	}
 	if resp.ResultCode == apis.ResultCodeSuccess {
 		return resp.Lockable, nil
-	} else {
-		return false, &exception.TransactionException{
-			Code:    resp.GetExceptionCode(),
-			Message: resp.GetMessage(),
-		}
+	}
+	return false, &exception.TransactionException{
+		Code:    resp.GetExceptionCode(),
+		Message: resp.GetMessage(),
 	}
 }
 

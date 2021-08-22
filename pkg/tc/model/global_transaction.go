@@ -42,8 +42,6 @@ func (gt *GlobalTransaction) IsSaga() bool {
 	for branchSession := range gt.BranchSessions {
 		if branchSession.Type == apis.SAGA {
 			return true
-		} else {
-			return false
 		}
 	}
 	return false
