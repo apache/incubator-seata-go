@@ -27,15 +27,15 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go-version }}
-      
+
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Install linters
         run: |
-          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.39.0
-        
+          go get github.com/golangci/golangci-lint/cmd/golangci-lint
+
       - name: Go Build
         run: |
           go build ./...
