@@ -42,7 +42,7 @@ jobs:
 
       - name: Go Vet
         run: |
-          go vet -shift=false -v ./...
+          go vet -v ./...
 
       - name: GolangCI Lint
         run: |
