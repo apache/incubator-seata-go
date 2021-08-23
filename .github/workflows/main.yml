@@ -13,7 +13,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "lint"
-  lint:
+  lint-and-test:
     strategy:
       matrix:
         go-version: [ 1.15.x ]
@@ -47,3 +47,19 @@ jobs:
       - name: GolangCI Lint
         run: |
           golangci-lint run ./...
+
+      - name: Test
+        run: |
+          mkdir -p build
+          go test ./... -coverprofile=./build/c.out
+
+      - name: Code Coverage
+        run: |
+          go tool cover -html=build/c.out -o build/coverage.html
+          gocov convert build/c.out | gocov-xml > build/coverage.xml
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: build/
