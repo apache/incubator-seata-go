@@ -17,6 +17,10 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
 )
 
+func TestMain(m *testing.M) {
+	Init()
+}
+
 func TestLockManager_AcquireLock(t *testing.T) {
 	bs := branchSessionProvider()
 	ok := GetLockManager().AcquireLock(bs)

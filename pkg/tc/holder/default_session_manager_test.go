@@ -7,7 +7,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/tc/session"
-	"github.com/transaction-wg/seata-golang/pkg/testutil"
 )
 
 func TestDefaultSessionManager_AddGlobalSession_RemoveGlobalSession(t *testing.T) {
@@ -58,8 +57,6 @@ func globalSessionsProvider() []*session.GlobalSession {
 }
 
 func globalSessionProvider(t *testing.T) *session.GlobalSession {
-	testutil.InitServerConfig(t)
-
 	common.Init("127.0.0.1", 9876)
 
 	gs := session.NewGlobalSession(

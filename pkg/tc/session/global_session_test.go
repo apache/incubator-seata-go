@@ -4,14 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/transaction-wg/seata-golang/pkg/testutil"
 )
 
 func TestGlobalSession_Encode_Decode(t *testing.T) {
-
-	// gs.Encode() needs a valid server config
-	testutil.InitServerConfig(t)
-
 	gs := globalSessionProvider()
 	result, err := gs.Encode()
 	assert.NoError(t, err, "Encode() should success")

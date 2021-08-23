@@ -58,6 +58,13 @@ func GetServerConfig() *ServerConfig {
 }
 
 func GetStoreConfig() StoreConfig {
+	if serverConfig == nil {
+		return StoreConfig{
+			MaxBranchSessionSize: 16384,
+			MaxGlobalSessionSize: 512,
+			StoreMode: "file",
+		}
+	}
 	return serverConfig.StoreConfig
 }
 
