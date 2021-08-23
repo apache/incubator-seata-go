@@ -313,10 +313,10 @@ func getRMGettySessionFromIpMap(ipMap *sync.Map) getty.Session {
 	ipMap.Range(func(key interface{}, value interface{}) bool {
 		portMap := value.(*sync.Map)
 		portMap.Range(func(key interface{}, value interface{}) bool {
-			session := key.(getty.Session)
+			session := value.(getty.Session)
 			if session.IsClosed() {
 				portMap.Delete(key)
-				log.Infof("Removed inactive %d", session)
+				log.Infof("Removed inactive %+v", session)
 			} else {
 				role, loaded := session_transactionroles.Load(session)
 				if loaded {
