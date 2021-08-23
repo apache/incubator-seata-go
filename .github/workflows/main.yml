@@ -55,6 +55,8 @@ jobs:
 
       - name: Code Coverage
         run: |
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
           go tool cover -html=build/c.out -o build/coverage.html
           gocov convert build/c.out | gocov-xml > build/coverage.xml
 
