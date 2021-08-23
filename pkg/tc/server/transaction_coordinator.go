@@ -150,20 +150,20 @@ func (tc *TransactionCoordinator) Commit(ctx context.Context, request *apis.Glob
 				// Highlight: Firstly, close the session, then no more branch can be registered.
 				err = tc.holder.InactiveGlobalSession(gt.GlobalSession)
 				if err != nil {
-					return false, fmt.Errorf("InactiveGlobalSession: %+v", err)
+					return false, err
 				}
 			}
 			tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
 			if gt.Status == apis.Begin {
 				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.Committing)
 				if err != nil {
-					return false, fmt.Errorf("UpdateGlobalSessionStatus: %+v", err)
+					return false, err
 				}
 				return true, nil
 			}
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to lock global transaction xid = %s", request.XID)
+		return false, err
 	}(gt)
 
 	if err != nil {
@@ -365,19 +365,19 @@ func (tc *TransactionCoordinator) Rollback(ctx context.Context, request *apis.Gl
 				// Highlight: Firstly, close the session, then no more branch can be registered.
 				err = tc.holder.InactiveGlobalSession(gt.GlobalSession)
 				if err != nil {
-					return false, fmt.Errorf("InactiveGlobalSession Err: %+v", err)
+					return false, err
 				}
 			}
 			if gt.Status == apis.Begin {
 				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollingBack)
 				if err != nil {
-					return false, fmt.Errorf("UpdateGlobalSessionStatus Err: %+v", err)
+					return false, err
 				}
 				return true, nil
 			}
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to lock global transaction xid = %s", request.XID)
+		return false, err
 	}(gt)
 
 	if err != nil {
@@ -428,8 +428,8 @@ func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, 
 			}
 			continue
 		}
-		branchStatus, err1 := tc.branchRollback(bs)
-		if err1 != nil {
+		branchStatus, err := tc.branchRollback(bs)
+		if err != nil {
 			log.Errorf("exception rolling back branch xid=%d branchID=%d", gt.XID, bs.BranchID)
 			if !retrying {
 				if gt.IsTimeoutGlobalStatus() {
@@ -444,7 +444,7 @@ func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, 
 					}
 				}
 			}
-			return false, err1
+			return false, err
 		}
 		switch branchStatus {
 		case apis.PhaseTwoRolledBack:
