@@ -11,27 +11,27 @@ import (
 )
 
 // Level represents the level of logging.
-type LogLevel int8
+type Level int8
 
 const (
 	// DebugLevel logs are typically voluminous, and are usually disabled in
 	// production.
-	DebugLevel = LogLevel(zapcore.DebugLevel)
+	DebugLevel = Level(zapcore.DebugLevel)
 	// InfoLevel is the default logging priority.
-	InfoLevel = LogLevel(zapcore.InfoLevel)
+	InfoLevel = Level(zapcore.InfoLevel)
 	// WarnLevel logs are more important than Info, but don't need individual
 	// human review.
-	WarnLevel = LogLevel(zapcore.WarnLevel)
+	WarnLevel = Level(zapcore.WarnLevel)
 	// ErrorLevel logs are high-priority. If an application is running smoothly,
 	// it shouldn't generate any error-level logs.
-	ErrorLevel = LogLevel(zapcore.ErrorLevel)
+	ErrorLevel = Level(zapcore.ErrorLevel)
 	// PanicLevel logs a message, then panics.
-	PanicLevel = LogLevel(zapcore.PanicLevel)
+	PanicLevel = Level(zapcore.PanicLevel)
 	// FatalLevel logs a message, then calls os.Exit(1).
-	FatalLevel = LogLevel(zapcore.FatalLevel)
+	FatalLevel = Level(zapcore.FatalLevel)
 )
 
-func (l *LogLevel) UnmarshalText(text []byte) error {
+func (l *Level) UnmarshalText(text []byte) error {
 	if l == nil {
 		return errors.New("can't unmarshal a nil *Level")
 	}
@@ -41,7 +41,7 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (l *LogLevel) unmarshalText(text []byte) bool {
+func (l *Level) unmarshalText(text []byte) bool {
 	switch string(text) {
 	case "debug", "DEBUG":
 		*l = DebugLevel
@@ -106,7 +106,7 @@ func init() {
 	log = zapLogger.Sugar()
 }
 
-func Init(logPath string, level LogLevel) {
+func Init(logPath string, level Level) {
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    10,

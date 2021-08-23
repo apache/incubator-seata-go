@@ -7,15 +7,15 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
-type LockManager struct {
+type Manager struct {
 	manager storage.LockManager
 }
 
-func NewLockManager(manager storage.LockManager) *LockManager {
-	return &LockManager{manager: manager}
+func NewLockManager(manager storage.LockManager) *Manager {
+	return &Manager{manager: manager}
 }
 
-func (locker *LockManager) AcquireLock(branchSession *apis.BranchSession) bool {
+func (locker *Manager) AcquireLock(branchSession *apis.BranchSession) bool {
 	if branchSession == nil {
 		log.Debug("branchSession can't be null for memory/file locker.")
 		return true
@@ -33,7 +33,7 @@ func (locker *LockManager) AcquireLock(branchSession *apis.BranchSession) bool {
 	return locker.manager.AcquireLock(locks)
 }
 
-func (locker *LockManager) ReleaseLock(branchSession *apis.BranchSession) bool {
+func (locker *Manager) ReleaseLock(branchSession *apis.BranchSession) bool {
 	if branchSession == nil {
 		log.Debug("branchSession can't be null for memory/file locker.")
 		return true
@@ -51,7 +51,7 @@ func (locker *LockManager) ReleaseLock(branchSession *apis.BranchSession) bool {
 	return locker.manager.ReleaseLock(locks)
 }
 
-func (locker *LockManager) ReleaseGlobalSessionLock(globalTransaction *model.GlobalTransaction) bool {
+func (locker *Manager) ReleaseGlobalSessionLock(globalTransaction *model.GlobalTransaction) bool {
 	locks := make([]*apis.RowLock, 0)
 	for branchSession := range globalTransaction.BranchSessions {
 		rowLocks := storage.CollectBranchSessionRowLocks(branchSession)
@@ -60,6 +60,6 @@ func (locker *LockManager) ReleaseGlobalSessionLock(globalTransaction *model.Glo
 	return locker.manager.ReleaseLock(locks)
 }
 
-func (locker *LockManager) IsLockable(xid string, resourceID string, lockKey string) bool {
+func (locker *Manager) IsLockable(xid string, resourceID string, lockKey string) bool {
 	return locker.manager.IsLockable(xid, resourceID, lockKey)
 }

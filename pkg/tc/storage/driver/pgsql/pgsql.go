@@ -68,7 +68,7 @@ type DriverParameters struct {
 // pgsqlFactory implements the factory.StorageDriverFactory interface
 type pgsqlFactory struct{}
 
-func (factory *pgsqlFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *pgsqlFactory) Create(parameters map[string]interface{}) (storage.Driver, error) {
 	return FromParameters(parameters)
 }
 
@@ -80,7 +80,7 @@ type driver struct {
 	queryLimit  int
 }
 
-func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 	dsn := parameters["dsn"]
 	if dsn == nil {
 		dsn = ""
@@ -184,7 +184,7 @@ func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, e
 }
 
 // New constructs a new Driver
-func New(params DriverParameters) (storage.StorageDriver, error) {
+func New(params DriverParameters) (storage.Driver, error) {
 	if params.DSN == "" {
 		return nil, fmt.Errorf("the dsn parameter should not be empty")
 	}

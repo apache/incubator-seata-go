@@ -44,8 +44,8 @@ type Configuration struct {
 	} `yaml:"clientParameters"`
 
 	Log struct {
-		LogPath  string       `yaml:"logPath"`
-		LogLevel log.LogLevel `yaml:"logLevel"`
+		LogPath  string    `yaml:"logPath"`
+		LogLevel log.Level `yaml:"logLevel"`
 	} `yaml:"log"`
 }
 

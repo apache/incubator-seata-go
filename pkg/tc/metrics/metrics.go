@@ -186,12 +186,12 @@ var (
 	}
 )
 
-type MetricsSubscriber struct {
+type Subscriber struct {
 }
 
-func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
+func (subscriber *Subscriber) ProcessGlobalTransactionEvent() {
 	for {
-		gtv := <-event.EventBus.GlobalTransactionEventChannel
+		gtv := <-event.Bus.GlobalTransactionEventChannel
 		switch gtv.GetStatus() {
 		case apis.Begin:
 			CounterActive.Inc(1)
@@ -220,7 +220,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 }
 
 func init() {
-	subscriber := &MetricsSubscriber{}
+	subscriber := &Subscriber{}
 	runtime.GoWithRecover(func() {
 		subscriber.ProcessGlobalTransactionEvent()
 	}, nil)

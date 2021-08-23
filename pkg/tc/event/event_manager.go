@@ -1,11 +1,11 @@
 package event
 
-type EventManager struct {
+type Manager struct {
 	GlobalTransactionEventChannel chan GlobalTransactionEvent
 }
 
-var EventBus EventManager
+var Bus Manager
 
 func init() {
-	EventBus = EventManager{GlobalTransactionEventChannel: make(chan GlobalTransactionEvent)}
+	Bus = Manager{GlobalTransactionEventChannel: make(chan GlobalTransactionEvent)}
 }

@@ -54,7 +54,7 @@ type LockManager interface {
 	IsLockable(xid string, resourceID string, lockKey string) bool
 }
 
-type StorageDriver interface {
+type Driver interface {
 	SessionManager
 	LockManager
 }

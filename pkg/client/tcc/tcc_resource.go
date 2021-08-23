@@ -5,7 +5,7 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/client/proxy"
 )
 
-type TCCResource struct {
+type Resource struct {
 	ActionName         string
 	PrepareMethodName  string
 	CommitMethodName   string
@@ -14,10 +14,10 @@ type TCCResource struct {
 	RollbackMethod     *proxy.MethodDescriptor
 }
 
-func (resource *TCCResource) GetResourceID() string {
+func (resource *Resource) GetResourceID() string {
 	return resource.ActionName
 }
 
-func (resource *TCCResource) GetBranchType() apis.BranchSession_BranchType {
+func (resource *Resource) GetBranchType() apis.BranchSession_BranchType {
 	return apis.TCC
 }

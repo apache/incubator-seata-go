@@ -4,10 +4,10 @@ import "strings"
 
 // refer to [Types](java.sql.Types)
 
-type SQLType int32
+type Type int32
 
 const (
-	BIT SQLType = -7
+	BIT Type = -7
 
 	TINYINT = -6
 
