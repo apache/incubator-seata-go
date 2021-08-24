@@ -32,12 +32,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install linters
-        run: |
-          go get github.com/golangci/golangci-lint/cmd/golangci-lint
-
       - name: Go Build
         run: |
+          go get github.com/urfave/cli/v2@v2.3.0
+          go get github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/pgsql
+          go get google.golang.org/grpc/internal/transport@v1.38.0
+          go get google.golang.org/grpc/internal/transport@v1.38.0
+          go get google.golang.org/grpc@v1.38.0
+          go get google.golang.org/grpc/status@v1.38.0
           go build ./...
 
       - name: Go Vet
@@ -46,6 +48,7 @@ jobs:
 
       - name: GolangCI Lint
         run: |
+          go get github.com/golangci/golangci-lint/cmd/golangci-lint
           golangci-lint run ./...
 
       - name: Test
