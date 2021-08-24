@@ -1,8 +1,8 @@
 GOFILES_NOVENDOR = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_VERSION = 1.15
 
-REGISTRY = xxxx
-DEV_TAG = dev
+REGISTRY ?= seataio
+TAG = $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT = git-$(shell git rev-parse --short HEAD)
 DATE = $(shell date +"%Y-%m-%d_%H:%M:%S")
 GOLDFLAGS = "-w -s -extldflags '-z now' -X github.com/opentrx/seata-golang/versions.COMMIT=$(COMMIT) -X github.com/opentrx/seata-golang/versions.BUILDDATE=$(DATE)"
@@ -24,11 +24,11 @@ build-bin:
 
 .PHONY: build-images
 build-images: build-bin
-	docker build -t $(REGISTRY)/seata-golang:$(DEV_TAG) --build-arg ARCH=amd64 -f dist/Dockerfile dist/
+	docker build -t $(REGISTRY)/seata-golang:$(TAG) --build-arg ARCH=amd64 -f dist/Dockerfile dist/
 
 .PHONY: push
 push:
-	docker push $(REGISTRY)/seata-golang:$(DEV_TAG)
+	docker push $(REGISTRY)/seata-golang:$(TAG)
 
 .PHONY: lint
 lint:
