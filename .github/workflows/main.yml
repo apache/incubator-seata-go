@@ -38,6 +38,7 @@ jobs:
           golint ./...
 
       - name: Build
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/v2' || contains(github.ref, 'release') }}
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
