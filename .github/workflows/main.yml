@@ -45,6 +45,7 @@ jobs:
           REGISTRY=$DOCKER_USERNAME make build-images
 
       - name: Push
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/v2' || contains(github.ref, 'release') }}
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
