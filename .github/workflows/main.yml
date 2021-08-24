@@ -6,9 +6,12 @@ name: CI
 # events but only for the dev branch
 on:
   push:
-    branches: [ dev ]
+    branches:
+      - dev
+      - v2
   pull_request:
-    branches: [ dev ]
+    - dev
+    - v2
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -32,3 +35,17 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
           go get -u golang.org/x/lint/golint 
           golint ./...
+
+      - name: Build
+        run: |
+          go mod tidy
+          make build-images
+
+      - name: Push
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          make push
