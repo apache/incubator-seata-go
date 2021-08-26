@@ -37,17 +37,17 @@ var (
 	businessActionContextType = reflect.TypeOf(&ctx.BusinessActionContext{})
 )
 
-type Service interface {
+type TccService interface {
 	Try(ctx *ctx.BusinessActionContext) (bool, error)
 	Confirm(ctx *ctx.BusinessActionContext) bool
 	Cancel(ctx *ctx.BusinessActionContext) bool
 }
 
-type ProxyService interface {
-	GetTccService() Service
+type TccProxyService interface {
+	GetTccService() TccService
 }
 
-func ImplementTCC(v ProxyService) {
+func ImplementTCC(v TccProxyService) {
 	valueOf := reflect.ValueOf(v)
 	log.Debugf("[implement] reflect.TypeOf: %s", valueOf.String())
 
@@ -60,7 +60,7 @@ func ImplementTCC(v ProxyService) {
 		return
 	}
 	proxyService := v.GetTccService()
-	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *Resource) func(in []reflect.Value) []reflect.Value {
+	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			businessContextValue := in[0]
 			businessActionContext := businessContextValue.Interface().(*ctx.BusinessActionContext)
@@ -97,7 +97,7 @@ func ImplementTCC(v ProxyService) {
 			cancelMethodDesc := proxy.Register(proxyService, CancelMethod)
 			tryMethodDesc := proxy.Register(proxyService, methodName)
 
-			tccResource := &Resource{
+			tccResource := &TCCResource{
 				ActionName:         actionName,
 				PrepareMethodName:  TryMethod,
 				CommitMethodName:   CommitMethod,
@@ -115,7 +115,7 @@ func ImplementTCC(v ProxyService) {
 	}
 }
 
-func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext, resource *Resource) ([]reflect.Value, error) {
+func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext, resource *TCCResource) ([]reflect.Value, error) {
 	var (
 		args = make([]interface{}, 0)
 	)
@@ -139,7 +139,7 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext,
 	return returnValues, nil
 }
 
-func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *Resource) (int64, error) {
+func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) (int64, error) {
 	ctx.ActionContext[ActionStartTime] = time.CurrentTimeMillis()
 	ctx.ActionContext[PrepareMethod] = resource.PrepareMethodName
 	ctx.ActionContext[CommitMethod] = resource.CommitMethodName
@@ -153,7 +153,7 @@ func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *Resource) (in
 	}
 
 	applicationContext := make(map[string]interface{})
-	applicationContext[ActionContext] = ctx.ActionContext
+	applicationContext[TccActionContext] = ctx.ActionContext
 
 	applicationData, err := json.Marshal(applicationContext)
 	if err != nil {

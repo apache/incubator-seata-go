@@ -191,7 +191,7 @@ type Subscriber struct {
 
 func (subscriber *Subscriber) ProcessGlobalTransactionEvent() {
 	for {
-		gtv := <-event.Bus.GlobalTransactionEventChannel
+		gtv := <-event.EventBus.GlobalTransactionEventChannel
 		switch gtv.GetStatus() {
 		case apis.Begin:
 			CounterActive.Inc(1)

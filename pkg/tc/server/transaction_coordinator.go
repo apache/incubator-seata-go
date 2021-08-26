@@ -40,7 +40,7 @@ type TransactionCoordinator struct {
 	timeoutRetryPeriod         time.Duration
 
 	holder             *holder.SessionHolder
-	resourceDataLocker *lock.Manager
+	resourceDataLocker *lock.LockManager
 	locker             GlobalSessionLocker
 
 	keepaliveClientParameters keepalive.ClientParameters
@@ -102,7 +102,7 @@ func (tc *TransactionCoordinator) Begin(ctx context.Context, request *apis.Globa
 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime, 0, gt.Status)
-		event.Bus.GlobalTransactionEventChannel <- evt
+		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
 	log.Infof("successfully begin global transaction xid = {}", gt.XID)
@@ -216,7 +216,7 @@ func (tc *TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, re
 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime, 0, gt.Status)
-		event.Bus.GlobalTransactionEventChannel <- evt
+		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
 	if gt.IsSaga() {
@@ -313,7 +313,7 @@ func (tc *TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, re
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
 			int64(time2.CurrentTimeMillis()), gt.Status)
-		event.Bus.GlobalTransactionEventChannel <- evt
+		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 	log.Infof("global[%d] committing is successfully done.", gt.XID)
 
@@ -411,7 +411,7 @@ func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, 
 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime, 0, gt.Status)
-		event.Bus.GlobalTransactionEventChannel <- evt
+		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
 	if gt.IsSaga() {
@@ -525,7 +525,7 @@ func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
 			int64(time2.CurrentTimeMillis()), gt.Status)
-		event.Bus.GlobalTransactionEventChannel <- evt
+		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 	log.Infof("successfully rollback global, xid = %d", gt.XID)
 
@@ -772,7 +772,7 @@ func (tc *TransactionCoordinator) timeoutCheck() {
 				}
 				tc.locker.Unlock(globalSession)
 				evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
-				event.Bus.GlobalTransactionEventChannel <- evt
+				event.EventBus.GlobalTransactionEventChannel <- evt
 			}
 		}
 	}

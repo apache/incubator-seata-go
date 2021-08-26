@@ -14,24 +14,24 @@ import (
 )
 
 var (
-	ActionContext = "actionContext"
+	TccActionContext = "actionContext"
 )
 
-var tccResourceManager ResourceManager
+var tccResourceManager TCCResourceManager
 
-type ResourceManager struct {
+type TCCResourceManager struct {
 	ResourceCache map[string]model.Resource
 }
 
 func init() {
-	tccResourceManager = ResourceManager{ResourceCache: make(map[string]model.Resource)}
+	tccResourceManager = TCCResourceManager{ResourceCache: make(map[string]model.Resource)}
 }
 
-func GetTCCResourceManager() ResourceManager {
+func GetTCCResourceManager() TCCResourceManager {
 	return tccResourceManager
 }
 
-func (resourceManager ResourceManager) BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error) {
+func (resourceManager TCCResourceManager) BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error) {
 	resource := resourceManager.ResourceCache[request.ResourceID]
 	if resource == nil {
 		log.Errorf("TCC resource is not exist, resourceID: %s", request.ResourceID)
@@ -40,7 +40,7 @@ func (resourceManager ResourceManager) BranchCommit(ctx context.Context, request
 			Message:    fmt.Sprintf("TCC resource is not exist, resourceID: %s", request.ResourceID),
 		}, nil
 	}
-	tccResource := resource.(*Resource)
+	tccResource := resource.(*TCCResource)
 	if tccResource.CommitMethod == nil {
 		log.Errorf("TCC resource is not available, resourceID: %s", request.ResourceID)
 		return &apis.BranchCommitResponse{
@@ -74,7 +74,7 @@ func (resourceManager ResourceManager) BranchCommit(ctx context.Context, request
 	}, nil
 }
 
-func (resourceManager ResourceManager) BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
+func (resourceManager TCCResourceManager) BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
 	resource := resourceManager.ResourceCache[request.ResourceID]
 	if resource == nil {
 		return &apis.BranchRollbackResponse{
@@ -82,7 +82,7 @@ func (resourceManager ResourceManager) BranchRollback(ctx context.Context, reque
 			Message:    fmt.Sprintf("TCC resource is not exist, resourceID: %s", request.ResourceID),
 		}, nil
 	}
-	tccResource := resource.(*Resource)
+	tccResource := resource.(*TCCResource)
 	if tccResource.RollbackMethod == nil {
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
@@ -127,7 +127,7 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 		}
 	}
 
-	acMap := tccContext[ActionContext]
+	acMap := tccContext[TccActionContext]
 	if acMap != nil {
 		actionContextMap = acMap.(map[string]interface{})
 	}
@@ -141,14 +141,14 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 	return businessActionContext
 }
 
-func (resourceManager ResourceManager) RegisterResource(resource model.Resource) {
+func (resourceManager TCCResourceManager) RegisterResource(resource model.Resource) {
 	resourceManager.ResourceCache[resource.GetResourceID()] = resource
 }
 
-func (resourceManager ResourceManager) UnregisterResource(resource model.Resource) {
+func (resourceManager TCCResourceManager) UnregisterResource(resource model.Resource) {
 	delete(resourceManager.ResourceCache, resource.GetResourceID())
 }
 
-func (resourceManager ResourceManager) GetBranchType() apis.BranchSession_BranchType {
+func (resourceManager TCCResourceManager) GetBranchType() apis.BranchSession_BranchType {
 	return apis.TCC
 }

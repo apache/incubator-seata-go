@@ -38,7 +38,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					configPath := c.String("cfg")
+					configPath := c.String("config")
 					serverNode := c.Int64("serverNode")
 
 					cfg, err := resolveConfiguration(configPath)
