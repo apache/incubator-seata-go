@@ -16,7 +16,6 @@ var configuration *Configuration
 
 // Configuration client configuration
 type Configuration struct {
-	Port             int32  `yaml:"port" json:"port"`
 	Addressing       string `yaml:"addressing" json:"addressing"`
 	ServerAddressing string `yaml:"serverAddressing" json:"serverAddressing"`
 
