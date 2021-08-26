@@ -6,14 +6,18 @@ name: CI
 # events but only for the dev branch
 on:
   push:
-    branches: [ dev ]
+    branches:
+      - dev
+      - v2
   pull_request:
-    branches: [ dev ]
+    branches:
+      - dev
+      - v2
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "lint"
-  lint:
+  build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
@@ -23,12 +27,30 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      
+
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-        
+
       - name: Lint Go Code
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
           go get -u golang.org/x/lint/golint 
           golint ./...
+
+      - name: Build
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/v2' || contains(github.ref, 'release') }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          go mod tidy
+          REGISTRY=$DOCKER_USERNAME make build-images
+
+      - name: Push
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/v2' || contains(github.ref, 'release') }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          REGISTRY=$DOCKER_USERNAME make push
