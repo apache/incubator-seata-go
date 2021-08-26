@@ -17,6 +17,9 @@ linters:
     - gocritic
     - revive
 
-issues:
-  exclude:
-    - EXC0003
+linters-settings:
+  revive:
+    # see https://github.com/mgechev/revive#available-rules for details.
+    rules:
+      - name: exported
+        arguments : ["disableStutteringCheck"] # to be merged: https://github.com/mgechev/revive/pull/565
