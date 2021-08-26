@@ -3,10 +3,11 @@ server:
   maxRollbackRetryTimeout: -1
   maxCommitRetryTimeout: -1
   rollbackRetryTimeoutUnlockEnable: true
-  asyncCommittingRetryPeriod: 10s
-  committingRetryPeriod: 1s
+  asyncCommittingRetryPeriod: 1s
+  committingRetryPeriod: 5s
   rollingBackRetryPeriod: 1s
   timeoutRetryPeriod: 1s
+  streamMessageTimeout: 30s
 enforcementPolicy:
   minTime: 5s
   permitWithoutStream: true
@@ -40,5 +41,5 @@ storage:
 #    maxidleconnections: 20
 #    maxlifetime: 4h
 log:
-  logPath: /Users/scottlewis/dksl/current/seata-golang/cmd/profiles/dev/seata.log
+  logPath: /Users/scottlewis/dksl/git/1/seata-golang/cmd/profiles/dev/seata.log
   logLevel: info

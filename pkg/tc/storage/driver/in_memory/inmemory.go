@@ -73,6 +73,36 @@ func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalSta
 	return sessions
 }
 
+// Find global sessions list with addressing identities
+func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
+	addressingIdentities []string) []*apis.GlobalSession {
+	contain := func(statuses []apis.GlobalSession_GlobalStatus, status apis.GlobalSession_GlobalStatus) bool {
+		for _, s := range statuses {
+			if s == status {
+				return true
+			}
+		}
+		return false
+	}
+	containAddressing := func(addressingIdentities []string, addressing string) bool {
+		for _, s := range addressingIdentities {
+			if s == addressing {
+				return true
+			}
+		}
+		return false
+	}
+	var sessions = make([]*apis.GlobalSession, 0)
+	driver.SessionMap.Range(func(key, value interface{}) bool {
+		session := value.(*model.GlobalTransaction)
+		if contain(statuses, session.Status) && containAddressing(addressingIdentities, session.Addressing) {
+			sessions = append(sessions, session.GlobalSession)
+		}
+		return true
+	})
+	return sessions
+}
+
 // All sessions collection.
 func (driver *driver) AllSessions() []*apis.GlobalSession {
 	var sessions = make([]*apis.GlobalSession, 0)

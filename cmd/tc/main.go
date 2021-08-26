@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/urfave/cli/v2"
@@ -59,6 +61,10 @@ func main() {
 					tc := server.NewTransactionCoordinator(config)
 					apis.RegisterTransactionManagerServiceServer(s, tc)
 					apis.RegisterResourceManagerServiceServer(s, tc)
+
+					go func() {
+						http.ListenAndServe(":10001", nil)
+					}()
 
 					if err := s.Serve(lis); err != nil {
 						log.Fatalf("failed to serve: %v", err)

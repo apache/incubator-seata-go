@@ -38,32 +38,42 @@ func (holder *SessionHolder) FindGlobalTransaction(xid string) *model.GlobalTran
 	return nil
 }
 
-func (holder *SessionHolder) FindAsyncCommittingGlobalTransactions() []*model.GlobalTransaction {
-	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+func (holder *SessionHolder) FindAsyncCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
+	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.AsyncCommitting,
-	})
+	},addressingIdentities)
 }
 
-func (holder *SessionHolder) FindRetryCommittingGlobalTransactions() []*model.GlobalTransaction {
-	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+func (holder *SessionHolder) FindRetryCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
+	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.CommitRetrying,
-	})
+	},addressingIdentities)
 }
 
-func (holder *SessionHolder) FindRetryRollbackGlobalTransactions() []*model.GlobalTransaction {
-	return holder.findGlobalTransactions([]apis.GlobalSession_GlobalStatus{
+func (holder *SessionHolder) FindRetryRollbackGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
+	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.RollingBack, apis.RollbackRetrying, apis.TimeoutRollingBack, apis.TimeoutRollbackRetrying,
-	})
+	},addressingIdentities)
 }
 
 func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSession_GlobalStatus) []*model.GlobalTransaction {
 	gts := holder.manager.FindGlobalSessions(statuses)
-	if gts == nil || len(gts) == 0 {
+	return holder.findGlobalTransactionsByGlobalSessions(gts)
+}
+
+func (holder *SessionHolder) findGlobalTransactionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
+	addressingIdentities []string) []*model.GlobalTransaction {
+	gts := holder.manager.FindGlobalSessionsWithAddressingIdentities(statuses, addressingIdentities)
+	return holder.findGlobalTransactionsByGlobalSessions(gts)
+}
+
+func (holder * SessionHolder) findGlobalTransactionsByGlobalSessions(sessions []*apis.GlobalSession) []*model.GlobalTransaction {
+	if sessions == nil || len(sessions) == 0 {
 		return nil
 	}
 
-	xids := make([]string, 0, len(gts))
-	for _, gt := range gts {
+	xids := make([]string, 0, len(sessions))
+	for _, gt := range sessions {
 		xids = append(xids, gt.XID)
 	}
 	branchSessions := holder.manager.FindBatchBranchSessions(xids)
@@ -80,14 +90,14 @@ func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSessio
 		}
 	}
 
-	globalTransactions := make([]*model.GlobalTransaction, 0, len(gts))
-	for j := 0; j < len(gts); j++ {
+	globalTransactions := make([]*model.GlobalTransaction, 0, len(sessions))
+	for j := 0; j < len(sessions); j++ {
 		globalTransaction := &model.GlobalTransaction{
-			GlobalSession:  gts[j],
+			GlobalSession:  sessions[j],
 			BranchSessions: make(map[*apis.BranchSession]bool, 0),
 		}
 
-		branchSessionSlice := branchSessionMap[gts[j].XID]
+		branchSessionSlice := branchSessionMap[sessions[j].XID]
 		if branchSessionSlice != nil && len(branchSessionSlice) > 0 {
 			for x := 0; x < len(branchSessionSlice); x++ {
 				globalTransaction.BranchSessions[branchSessionSlice[x]] = true
@@ -97,6 +107,10 @@ func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSessio
 	}
 
 	return globalTransactions
+}
+
+func (holder *SessionHolder) FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession {
+	return holder.manager.FindGlobalSessions(statuses)
 }
 
 func (holder *SessionHolder) AllSessions() []*apis.GlobalSession {

@@ -3,9 +3,14 @@ package rm
 import (
 	"context"
 	"fmt"
+	"github.com/gogo/protobuf/types"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
+	"google.golang.org/grpc/metadata"
+	"io"
 )
 
 var defaultResourceManager *ResourceManager
@@ -24,7 +29,9 @@ type ResourceManagerOutbound interface {
 }
 
 type ResourceManagerInterface interface {
-	apis.BranchTransactionServiceServer
+	BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error)
+
+	BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error)
 
 	// Register a Resource to be managed by Resource Manager.
 	RegisterResource(resource model.Resource)
@@ -40,14 +47,19 @@ type ResourceManager struct {
 	addressing string
 	rpcClient  apis.ResourceManagerServiceClient
 	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
+	branchMessages chan *apis.BranchMessage
 }
 
 func InitResourceManager(addressing string, client apis.ResourceManagerServiceClient) {
 	defaultResourceManager = &ResourceManager{
-		addressing: addressing,
-		rpcClient:  client,
-		managers:   make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
+		addressing:     addressing,
+		rpcClient:      client,
+		managers:       make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
+		branchMessages: make(chan *apis.BranchMessage, 1000),
 	}
+	runtime.GoWithRecover(func() {
+		defaultResourceManager.branchCommunicate()
+	}, nil)
 }
 
 func RegisterTransactionServiceServer(rm ResourceManagerInterface) {
@@ -56,6 +68,88 @@ func RegisterTransactionServiceServer(rm ResourceManagerInterface) {
 
 func GetResourceManager() *ResourceManager {
 	return defaultResourceManager
+}
+
+func (manager *ResourceManager) branchCommunicate() {
+	for {
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", manager.addressing)
+		stream, err := manager.rpcClient.BranchCommunicate(ctx)
+		if err != nil {
+			continue
+		}
+
+		done := make(chan bool)
+		runtime.GoWithRecover(func() {
+			for {
+				select {
+				case _, ok := <- done:
+					if !ok {
+						return
+					}
+				case msg := <- manager.branchMessages:
+					err := stream.Send(msg)
+					if err != nil {
+						return
+					}
+				default:
+					continue
+				}
+			}
+		}, nil)
+
+		for {
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				close(done)
+				break
+			}
+			if err != nil {
+				close(done)
+				break
+			}
+			switch msg.BranchMessageType {
+			case apis.TypeBranchCommit:
+				request := &apis.BranchCommitRequest{}
+				data := msg.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				response, err := manager.BranchCommit(context.Background(), request)
+				if err == nil {
+					content, err := types.MarshalAny(response)
+					if err == nil {
+						manager.branchMessages <- &apis.BranchMessage{
+							ID:                msg.ID,
+							BranchMessageType: apis.TypeBranchCommitResult,
+							Message:           content,
+						}
+					}
+				}
+			case apis.TypeBranchRollback:
+				request := &apis.BranchRollbackRequest{}
+				data := msg.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				response, err := manager.BranchRollback(context.Background(), request)
+				if err == nil {
+					content, err := types.MarshalAny(response)
+					if err == nil {
+						manager.branchMessages <- &apis.BranchMessage{
+							ID:                msg.ID,
+							BranchMessageType: apis.TypeBranchRollBackResult,
+							Message:           content,
+						}
+					}
+				}
+			}
+		}
+		stream.CloseSend()
+	}
 }
 
 func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, resourceID string,
