@@ -16,3 +16,7 @@ linters:
     - goimports
     - gocritic
     - revive
+
+issues:
+  exclude:
+    - EXC0003
