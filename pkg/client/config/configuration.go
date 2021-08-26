@@ -24,19 +24,6 @@ type Configuration struct {
 
 	ATConfig ATConfig `yaml:"at" json:"at,omitempty"`
 
-	EnforcementPolicy struct {
-		MinTime             time.Duration `yaml:"minTime"`
-		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
-	} `yaml:"enforcementPolicy"`
-
-	ServerParameters struct {
-		MaxConnectionIdle     time.Duration `yaml:"maxConnectionIdle"`
-		MaxConnectionAge      time.Duration `yaml:"maxConnectionAge"`
-		MaxConnectionAgeGrace time.Duration `yaml:"maxConnectionAgeGrace"`
-		Time                  time.Duration `yaml:"time"`
-		Timeout               time.Duration `yaml:"timeout"`
-	} `yaml:"serverParameters"`
-
 	ClientParameters struct {
 		Time                time.Duration `yaml:"time"`
 		Timeout             time.Duration `yaml:"timeout"`
@@ -74,38 +61,9 @@ func GetATConfig() ATConfig {
 	return configuration.ATConfig
 }
 
-// GetEnforcementPolicy used to config grpc connection keep alive
-func GetEnforcementPolicy() keepalive.EnforcementPolicy {
-	return configuration.GetEnforcementPolicy()
-}
-
-// GetServerParameters used to config grpc connection keep alive
-func GetServerParameters() keepalive.ServerParameters {
-	return configuration.GetServerParameters()
-}
-
 // GetClientParameters used to config grpc connection keep alive
 func GetClientParameters() keepalive.ClientParameters {
 	return configuration.GetClientParameters()
-}
-
-// GetEnforcementPolicy used to config grpc connection keep alive
-func (configuration *Configuration) GetEnforcementPolicy() keepalive.EnforcementPolicy {
-	return keepalive.EnforcementPolicy{
-		MinTime:             configuration.EnforcementPolicy.MinTime,
-		PermitWithoutStream: configuration.EnforcementPolicy.PermitWithoutStream,
-	}
-}
-
-// GetServerParameters used to config grpc connection keep alive
-func (configuration *Configuration) GetServerParameters() keepalive.ServerParameters {
-	return keepalive.ServerParameters{
-		MaxConnectionIdle:     configuration.ServerParameters.MaxConnectionIdle,
-		MaxConnectionAge:      configuration.ServerParameters.MaxConnectionAge,
-		MaxConnectionAgeGrace: configuration.ServerParameters.MaxConnectionAgeGrace,
-		Time:                  configuration.ServerParameters.Time,
-		Timeout:               configuration.ServerParameters.Timeout,
-	}
 }
 
 // GetClientParameters used to config grpc connection keep alive

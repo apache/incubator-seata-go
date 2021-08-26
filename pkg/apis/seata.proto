@@ -72,15 +72,10 @@ enum ExceptionCode {
 }
 
 enum BranchMessageType {
-    TypeBranchStreamRegister = 0;
-    TypeBranchRegister = 1;
-    TypeBranchRegisterResult = 2;
-    TypeBranchReport = 3;
-    TypeBranchReportResult = 4;
-    TypeBranchCommit = 5;
-    TypeBranchCommitResult = 6;
-    TypeBranchRollback = 7;
-    TypeBranchRollBackResult = 8;
+    TypeBranchCommit = 0;
+    TypeBranchCommitResult = 1;
+    TypeBranchRollback = 2;
+    TypeBranchRollBackResult = 3;
 }
 
 message GlobalSession {
@@ -395,10 +390,6 @@ message BranchMessage {
     int64 ID = 1;
     BranchMessageType BranchMessageType = 2;
     google.protobuf.Any Message = 3;
-}
-
-message BranchStreamRegisterMessage {
-    string Addressing = 1;
 }
 
 service TransactionManagerService {

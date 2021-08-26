@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+
 	"io"
 	"os"
 	"sync"
@@ -11,7 +12,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
@@ -37,19 +38,19 @@ type TransactionCoordinator struct {
 	maxRollbackRetryTimeout          int64
 	rollbackRetryTimeoutUnlockEnable bool
 
+	asyncCommittingRetryPeriod time.Duration
+	committingRetryPeriod      time.Duration
+	rollingBackRetryPeriod     time.Duration
+	timeoutRetryPeriod         time.Duration
+
 	holder             *holder.SessionHolder
 	resourceDataLocker *lock.LockManager
 	locker             GlobalSessionLocker
 
-	keepaliveClientParameters keepalive.ClientParameters
-	rmStreamServers           *sync.Map
-	idGenerator               *atomic.Uint64
-	futures                   *sync.Map
-
-	timeoutCheckTicker     *time.Ticker
-	retryRollingBackTicker *time.Ticker
-	retryCommittingTicker  *time.Ticker
-	asyncCommittingTicker  *time.Ticker
+	idGenerator        *atomic.Uint64
+	futures            *sync.Map
+	activeApplications map[string]bool
+	callBackMessages   *sync.Map
 }
 
 func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinator {
@@ -63,19 +64,19 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		maxRollbackRetryTimeout:          conf.Server.MaxRollbackRetryTimeout,
 		rollbackRetryTimeoutUnlockEnable: conf.Server.RollbackRetryTimeoutUnlockEnable,
 
+		asyncCommittingRetryPeriod: conf.Server.AsyncCommittingRetryPeriod,
+		committingRetryPeriod:      conf.Server.CommittingRetryPeriod,
+		rollingBackRetryPeriod:     conf.Server.RollingBackRetryPeriod,
+		timeoutRetryPeriod:         conf.Server.TimeoutRetryPeriod,
+
 		holder:             holder.NewSessionHolder(driver),
 		resourceDataLocker: lock.NewLockManager(driver),
 		locker:             new(UnimplementedGlobalSessionLocker),
 
-		keepaliveClientParameters: conf.GetClientParameters(),
-		rmStreamServers:           &sync.Map{},
-		idGenerator:               &atomic.Uint64{},
-		futures:                   &sync.Map{},
-
-		timeoutCheckTicker:     time.NewTicker(conf.Server.TimeoutRetryPeriod),
-		retryRollingBackTicker: time.NewTicker(conf.Server.RollingBackRetryPeriod),
-		retryCommittingTicker:  time.NewTicker(conf.Server.CommittingRetryPeriod),
-		asyncCommittingTicker:  time.NewTicker(conf.Server.AsyncCommittingRetryPeriod),
+		idGenerator:        &atomic.Uint64{},
+		futures:            &sync.Map{},
+		activeApplications: make(map[string]bool),
+		callBackMessages:   &sync.Map{},
 	}
 	go tc.processTimeoutCheck()
 	go tc.processAsyncCommitting()
@@ -177,6 +178,12 @@ func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.Globa
 	}
 
 	if !shouldCommit {
+		if gt.Status == apis.AsyncCommitting {
+			return &apis.GlobalCommitResponse{
+				ResultCode:   apis.ResultCodeSuccess,
+				GlobalStatus: apis.Committed,
+			}, nil
+		}
 		return &apis.GlobalCommitResponse{
 			ResultCode:   apis.ResultCodeSuccess,
 			GlobalStatus: gt.Status,
@@ -297,21 +304,6 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 }
 
 func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	var stream apis.ResourceManagerService_BranchCommunicateServer
-	client, loaded := tc.rmStreamServers.Load(bs.Addressing)
-	for {
-		if !loaded {
-			client, loaded = tc.rmStreamServers.Load(bs.Addressing)
-		} else {
-			stream := client.(apis.ResourceManagerService_BranchCommunicateServer)
-			if stream.Context().Err() == nil {
-				break
-			} else {
-				client, loaded = tc.rmStreamServers.Load(bs.Addressing)
-			}
-		}
-	}
-
 	request := &apis.BranchCommitRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
@@ -325,23 +317,21 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 	if err != nil {
 		return bs.Status, err
 	}
+
 	message := &apis.BranchMessage{
 		ID: int64(tc.idGenerator.Inc()),
 		BranchMessageType: apis.TypeBranchCommit,
 		Message: content,
 	}
 
-	if stream == nil {
-		return bs.Status, fmt.Errorf("stream is nil")
-	}
-	err = stream.Send(message)
-	if err != nil {
-		return bs.Status, err
-	}
+	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
+	q := queue.(*CallbackMessageQueue)
+	q.Enqueue(message)
+
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
 
-	timer := time.NewTimer(5*time.Second)
+	timer := time.NewTimer(30*time.Second)
 	select {
 		case <- timer.C:
 			tc.futures.Delete(resp.ID)
@@ -511,21 +501,6 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 }
 
 func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
-	var stream apis.ResourceManagerService_BranchCommunicateServer
-	client, loaded := tc.rmStreamServers.Load(bs.Addressing)
-	for {
-		if !loaded {
-			client, loaded = tc.rmStreamServers.Load(bs.Addressing)
-		} else {
-			stream := client.(apis.ResourceManagerService_BranchCommunicateServer)
-			if stream.Context().Err() == nil {
-				break
-			} else {
-				client, loaded = tc.rmStreamServers.Load(bs.Addressing)
-			}
-		}
-	}
-
 	request := &apis.BranchRollbackRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
@@ -545,17 +520,14 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 		Message: content,
 	}
 
-	if stream == nil {
-		return bs.Status, fmt.Errorf("stream is nil")
-	}
-	err = stream.Send(message)
-	if err != nil {
-		return bs.Status, err
-	}
+	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
+	q := queue.(*CallbackMessageQueue)
+	q.Enqueue(message)
+
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
 
-	timer := time.NewTimer(5*time.Second)
+	timer := time.NewTimer(30*time.Second)
 	select {
 	case <- timer.C:
 		tc.futures.Delete(resp.ID)
@@ -574,76 +546,64 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 }
 
 func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerService_BranchCommunicateServer) error {
+	var addressing string
+	done := make(chan bool)
+
 	ctx := stream.Context()
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		addressing = md.Get("addressing")[0]
+		tc.activeApplications[addressing] = true
+	}
+
+	queue,_ := tc.callBackMessages.LoadOrStore(addressing, NewCallbackMessageQueue())
+	q := queue.(*CallbackMessageQueue)
+
+	runtime.GoWithRecover(func() {
+		log.Infof("进入进入进入")
+		defer log.Infof("退出退出退出")
+		for {
+			select {
+			case _, ok := <- done:
+				if !ok {
+					log.Info("安全退出")
+					return
+				}
+			default:
+				msg := q.Dequeue()
+				if msg == nil {
+					break
+				}
+				err := stream.Send(msg)
+				if err != nil {
+					log.Errorf("sdfsdfs, %v", err)
+					return
+				}
+			}
+		}
+	}, nil)
+
+	exit := func() {
+		log.Info("close")
+		close(done)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
+			exit()
 			return ctx.Err()
 		default:
 			branchMessage, err := stream.Recv()
 			if err == io.EOF {
+				exit()
 				return nil
 			}
 			if err != nil {
-				log.Error(err)
+				exit()
 				return err
 			}
 			switch branchMessage.GetBranchMessageType(){
-			case apis.TypeBranchStreamRegister:
-				request := &apis.BranchStreamRegisterMessage{}
-				data := branchMessage.GetMessage().GetValue()
-				err := request.Unmarshal(data)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				tc.rmStreamServers.Store(request.Addressing, stream)
-			case apis.TypeBranchRegister:
-				request := &apis.BranchRegisterRequest{}
-				data := branchMessage.GetMessage().GetValue()
-				err := request.Unmarshal(data)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				response, _ :=tc.BranchRegister(ctx, request)
-				content, err := types.MarshalAny(response)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				err = stream.Send(&apis.BranchMessage{
-					ID: branchMessage.ID,
-					BranchMessageType: apis.TypeBranchRegisterResult,
-					Message: content,
-				})
-				if err != nil {
-					log.Error(err)
-					return err
-				}
-			case apis.TypeBranchReport:
-				request := &apis.BranchReportRequest{}
-				data := branchMessage.GetMessage().GetValue()
-				err := request.Unmarshal(data)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				response, _ :=tc.BranchReport(ctx, request)
-				content, err := types.MarshalAny(response)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				err = stream.Send(&apis.BranchMessage{
-					ID: branchMessage.ID,
-					BranchMessageType: apis.TypeBranchReportResult,
-					Message: content,
-				})
-				if err != nil {
-					log.Error(err)
-					return err
-				}
 			case apis.TypeBranchCommitResult:
 				response := &apis.BranchCommitResponse{}
 				data := branchMessage.GetMessage().GetValue()
@@ -726,7 +686,7 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 			LockKey:         request.LockKey,
 			Type:            request.BranchType,
 			Status:          apis.Registered,
-			ApplicationData: nil,
+			ApplicationData: request.ApplicationData,
 		}
 
 		if bs.Type == apis.AT {
@@ -808,29 +768,45 @@ func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.Gl
 
 func (tc TransactionCoordinator) processTimeoutCheck() {
 	for {
-		<-tc.timeoutCheckTicker.C
-		tc.timeoutCheck()
+		timer := time.NewTimer(tc.timeoutRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.timeoutCheck()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processRetryRollingBack() {
 	for {
-		<-tc.retryRollingBackTicker.C
-		tc.handleRetryRollingBack()
+		timer := time.NewTimer(tc.rollingBackRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleRetryRollingBack()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processRetryCommitting() {
 	for {
-		<-tc.retryCommittingTicker.C
-		tc.handleRetryCommitting()
+		timer := time.NewTimer(tc.committingRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleRetryCommitting()
+		}
+		timer.Stop()
 	}
 }
 
 func (tc TransactionCoordinator) processAsyncCommitting() {
 	for {
-		<-tc.asyncCommittingTicker.C
-		tc.handleAsyncCommitting()
+		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
+		select {
+		case <-timer.C:
+			tc.handleAsyncCommitting()
+		}
+		timer.Stop()
 	}
 }
 

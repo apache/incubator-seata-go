@@ -44,12 +44,6 @@ type Configuration struct {
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
 
-	ClientParameters struct {
-		Time                time.Duration `yaml:"time"`
-		Timeout             time.Duration `yaml:"timeout"`
-		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
-	} `yaml:"clientParameters"`
-
 	// Storage is the configuration for the storage driver
 	Storage Storage `yaml:"storage"`
 
@@ -73,14 +67,6 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 		MaxConnectionAgeGrace: configuration.ServerParameters.MaxConnectionAgeGrace,
 		Time:                  configuration.ServerParameters.Time,
 		Timeout:               configuration.ServerParameters.Timeout,
-	}
-}
-
-func (configuration *Configuration) GetClientParameters() keepalive.ClientParameters {
-	return keepalive.ClientParameters{
-		Time:                configuration.ClientParameters.Time,
-		Timeout:             configuration.ClientParameters.Timeout,
-		PermitWithoutStream: configuration.ClientParameters.PermitWithoutStream,
 	}
 }
 

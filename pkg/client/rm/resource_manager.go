@@ -4,17 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/gogo/protobuf/types"
-	common2 "github.com/opentrx/seata-golang/v2/pkg/common"
-	"github.com/opentrx/seata-golang/v2/pkg/util/log"
-	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
-	"go.uber.org/atomic"
-	"io"
-	"sync"
-	"time"
-
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
+	"google.golang.org/grpc/metadata"
+	"io"
 )
 
 var defaultResourceManager *ResourceManager
@@ -51,10 +47,7 @@ type ResourceManager struct {
 	addressing string
 	rpcClient  apis.ResourceManagerServiceClient
 	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
-
-	idGenerator    *atomic.Uint64
 	branchMessages chan *apis.BranchMessage
-	futures        *sync.Map
 }
 
 func InitResourceManager(addressing string, client apis.ResourceManagerServiceClient) {
@@ -62,9 +55,7 @@ func InitResourceManager(addressing string, client apis.ResourceManagerServiceCl
 		addressing:     addressing,
 		rpcClient:      client,
 		managers:       make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
-		idGenerator:    &atomic.Uint64{},
 		branchMessages: make(chan *apis.BranchMessage, 1000),
-		futures:        &sync.Map{},
 	}
 	runtime.GoWithRecover(func() {
 		defaultResourceManager.branchCommunicate()
@@ -81,40 +72,23 @@ func GetResourceManager() *ResourceManager {
 
 func (manager *ResourceManager) branchCommunicate() {
 	for {
-		stream, err := manager.rpcClient.BranchCommunicate(context.Background())
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", manager.addressing)
+		stream, err := manager.rpcClient.BranchCommunicate(ctx)
 		if err != nil {
 			continue
 		}
-		register := &apis.BranchStreamRegisterMessage{Addressing: manager.addressing}
-		data, err := types.MarshalAny(register)
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-		err = stream.Send(&apis.BranchMessage{
-			ID:                0,
-			BranchMessageType: apis.TypeBranchStreamRegister,
-			Message:           data,
-		})
-		if err != nil {
-			continue
-		}
+
 		done := make(chan bool)
 		runtime.GoWithRecover(func() {
 			for {
 				select {
-				case <- done:
-					return
+				case _, ok := <- done:
+					if !ok {
+						return
+					}
 				case msg := <- manager.branchMessages:
 					err := stream.Send(msg)
 					if err != nil {
-						resp, loaded := manager.futures.Load(msg.ID)
-						if loaded {
-							future := resp.(*common2.MessageFuture)
-							future.Err = err
-							future.Done <- true
-							manager.futures.Delete(msg.ID)
-						}
 						return
 					}
 				default:
@@ -123,45 +97,17 @@ func (manager *ResourceManager) branchCommunicate() {
 			}
 		}, nil)
 
-		withResponse := func (manager *ResourceManager, msgID int64, response interface{}) {
-			resp, loaded := manager.futures.Load(msgID)
-			if loaded {
-				future := resp.(*common2.MessageFuture)
-				future.Response = response
-				future.Done <- true
-				manager.futures.Delete(msgID)
-			}
-		}
-FOR:
 		for {
 			msg, err := stream.Recv()
 			if err == io.EOF {
-				done <- true
+				close(done)
 				break
 			}
 			if err != nil {
-				done <- true
+				close(done)
 				break
 			}
 			switch msg.BranchMessageType {
-			case apis.TypeBranchRegisterResult:
-				response := &apis.BranchRegisterResponse{}
-				data := msg.GetMessage().GetValue()
-				err := response.Unmarshal(data)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				withResponse(manager, msg.ID, response)
-			case apis.TypeBranchReportResult:
-				response := &apis.BranchReportResponse{}
-				data := msg.GetMessage().GetValue()
-				err := response.Unmarshal(data)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				withResponse(manager, msg.ID, response)
 			case apis.TypeBranchCommit:
 				request := &apis.BranchCommitRequest{}
 				data := msg.GetMessage().GetValue()
@@ -174,14 +120,10 @@ FOR:
 				if err == nil {
 					content, err := types.MarshalAny(response)
 					if err == nil {
-						err := stream.Send(&apis.BranchMessage{
+						manager.branchMessages <- &apis.BranchMessage{
 							ID:                msg.ID,
 							BranchMessageType: apis.TypeBranchCommitResult,
 							Message:           content,
-						})
-						if err != nil {
-							done <- true
-							break FOR
 						}
 					}
 				}
@@ -197,14 +139,10 @@ FOR:
 				if err == nil {
 					content, err := types.MarshalAny(response)
 					if err == nil {
-						err := stream.Send(&apis.BranchMessage{
+						manager.branchMessages <- &apis.BranchMessage{
 							ID:                msg.ID,
 							BranchMessageType: apis.TypeBranchRollBackResult,
 							Message:           content,
-						})
-						if err != nil {
-							done <- true
-							break FOR
 						}
 					}
 				}
@@ -224,44 +162,16 @@ func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, 
 		BranchType:      branchType,
 		ApplicationData: applicationData,
 	}
-
-	content, err := types.MarshalAny(request)
+	resp, err := manager.rpcClient.BranchRegister(ctx, request)
 	if err != nil {
 		return 0, err
 	}
-
-	message := &apis.BranchMessage{
-		ID:                int64(manager.idGenerator.Inc()),
-		BranchMessageType: apis.TypeBranchRegister,
-		Message:           content,
-	}
-
-	manager.branchMessages <- message
-
-	resp := common2.NewMessageFuture(message)
-	manager.futures.Store(message.ID, resp)
-
-	timer := time.NewTimer(5*time.Second)
-	select {
-	case <- timer.C:
-		manager.futures.Delete(resp.ID)
-		timer.Stop()
-		return 0, fmt.Errorf("timeout")
-	case <- resp.Done:
-		timer.Stop()
-	}
-
-	if resp.Err != nil {
-		return 0, resp.Err
-	}
-
-	response := resp.Response.(*apis.BranchRegisterResponse)
-	if response.ResultCode == apis.ResultCodeSuccess {
-		return response.BranchID, nil
+	if resp.ResultCode == apis.ResultCodeSuccess {
+		return resp.BranchID, nil
 	} else {
 		return 0, &exception.TransactionException{
-			Code:    response.GetExceptionCode(),
-			Message: response.GetMessage(),
+			Code:    resp.GetExceptionCode(),
+			Message: resp.GetMessage(),
 		}
 	}
 }
@@ -275,42 +185,14 @@ func (manager *ResourceManager) BranchReport(ctx context.Context, xid string, br
 		BranchStatus:    status,
 		ApplicationData: applicationData,
 	}
-
-	content, err := types.MarshalAny(request)
+	resp, err := manager.rpcClient.BranchReport(ctx, request)
 	if err != nil {
 		return err
 	}
-
-	message := &apis.BranchMessage{
-		ID:                int64(manager.idGenerator.Inc()),
-		BranchMessageType: apis.TypeBranchRegister,
-		Message:           content,
-	}
-
-	manager.branchMessages <- message
-
-	resp := common2.NewMessageFuture(message)
-	manager.futures.Store(message.ID, resp)
-
-	timer := time.NewTimer(5*time.Second)
-	select {
-	case <- timer.C:
-		manager.futures.Delete(resp.ID)
-		timer.Stop()
-		return fmt.Errorf("timeout")
-	case <- resp.Done:
-		timer.Stop()
-	}
-
-	if resp.Err != nil {
-		return resp.Err
-	}
-
-	response := resp.Response.(*apis.BranchReportResponse)
-	if response.ResultCode == apis.ResultCodeFailed {
+	if resp.ResultCode == apis.ResultCodeFailed {
 		return &exception.TransactionException{
-			Code:    response.GetExceptionCode(),
-			Message: response.GetMessage(),
+			Code:    resp.GetExceptionCode(),
+			Message: resp.GetMessage(),
 		}
 	}
 	return nil
