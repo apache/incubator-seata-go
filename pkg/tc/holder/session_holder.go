@@ -41,19 +41,19 @@ func (holder *SessionHolder) FindGlobalTransaction(xid string) *model.GlobalTran
 func (holder *SessionHolder) FindAsyncCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
 	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.AsyncCommitting,
-	},addressingIdentities)
+	}, addressingIdentities)
 }
 
 func (holder *SessionHolder) FindRetryCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
 	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.CommitRetrying,
-	},addressingIdentities)
+	}, addressingIdentities)
 }
 
 func (holder *SessionHolder) FindRetryRollbackGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
 	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.RollingBack, apis.RollbackRetrying, apis.TimeoutRollingBack, apis.TimeoutRollbackRetrying,
-	},addressingIdentities)
+	}, addressingIdentities)
 }
 
 func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSession_GlobalStatus) []*model.GlobalTransaction {
@@ -67,7 +67,7 @@ func (holder *SessionHolder) findGlobalTransactionsWithAddressingIdentities(stat
 	return holder.findGlobalTransactionsByGlobalSessions(gts)
 }
 
-func (holder * SessionHolder) findGlobalTransactionsByGlobalSessions(sessions []*apis.GlobalSession) []*model.GlobalTransaction {
+func (holder *SessionHolder) findGlobalTransactionsByGlobalSessions(sessions []*apis.GlobalSession) []*model.GlobalTransaction {
 	if sessions == nil || len(sessions) == 0 {
 		return nil
 	}

@@ -44,9 +44,9 @@ type ResourceManagerInterface interface {
 }
 
 type ResourceManager struct {
-	addressing string
-	rpcClient  apis.ResourceManagerServiceClient
-	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
+	addressing     string
+	rpcClient      apis.ResourceManagerServiceClient
+	managers       map[apis.BranchSession_BranchType]ResourceManagerInterface
 	branchMessages chan *apis.BranchMessage
 }
 
@@ -82,11 +82,11 @@ func (manager *ResourceManager) branchCommunicate() {
 		runtime.GoWithRecover(func() {
 			for {
 				select {
-				case _, ok := <- done:
+				case _, ok := <-done:
 					if !ok {
 						return
 					}
-				case msg := <- manager.branchMessages:
+				case msg := <-manager.branchMessages:
 					err := stream.Send(msg)
 					if err != nil {
 						return

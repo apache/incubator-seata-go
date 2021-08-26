@@ -9,7 +9,6 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/factory"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
-
 )
 
 func init() {

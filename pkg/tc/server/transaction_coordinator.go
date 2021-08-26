@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-
 	"io"
 	"os"
 	"sync"
@@ -323,9 +322,9 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 	}
 
 	message := &apis.BranchMessage{
-		ID: int64(tc.idGenerator.Inc()),
+		ID:                int64(tc.idGenerator.Inc()),
 		BranchMessageType: apis.TypeBranchCommit,
-		Message: content,
+		Message:           content,
 	}
 
 	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
@@ -337,11 +336,11 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 
 	timer := time.NewTimer(tc.streamMessageTimeout)
 	select {
-		case <- timer.C:
-			tc.futures.Delete(resp.ID)
-			return bs.Status, fmt.Errorf("wait branch commit response timeout")
-		case <- resp.Done:
-			timer.Stop()
+	case <-timer.C:
+		tc.futures.Delete(resp.ID)
+		return bs.Status, fmt.Errorf("wait branch commit response timeout")
+	case <-resp.Done:
+		timer.Stop()
 	}
 
 	response, ok := resp.Response.(*apis.BranchCommitResponse)
@@ -519,9 +518,9 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 		return bs.Status, err
 	}
 	message := &apis.BranchMessage{
-		ID: int64(tc.idGenerator.Inc()),
+		ID:                int64(tc.idGenerator.Inc()),
 		BranchMessageType: apis.TypeBranchRollback,
-		Message: content,
+		Message:           content,
 	}
 
 	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
@@ -533,17 +532,17 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 
 	timer := time.NewTimer(tc.streamMessageTimeout)
 	select {
-	case <- timer.C:
+	case <-timer.C:
 		tc.futures.Delete(resp.ID)
 		timer.Stop()
 		return bs.Status, fmt.Errorf("wait branch rollback response timeout")
-	case <- resp.Done:
+	case <-resp.Done:
 		timer.Stop()
 	}
 
-	response  := resp.Response.(*apis.BranchRollbackResponse)
+	response := resp.Response.(*apis.BranchRollbackResponse)
 	if response.ResultCode == apis.ResultCodeSuccess {
-			return response.BranchStatus, nil
+		return response.BranchStatus, nil
 	} else {
 		return bs.Status, fmt.Errorf(response.Message)
 	}
@@ -560,24 +559,24 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 		c, ok := tc.activeApplications.Load(addressing)
 		if ok {
 			count := c.(int)
-			tc.activeApplications.Store(addressing, count + 1)
+			tc.activeApplications.Store(addressing, count+1)
 		} else {
 			tc.activeApplications.Store(addressing, 1)
 		}
 		defer func() {
 			c, _ := tc.activeApplications.Load(addressing)
 			count := c.(int)
-			tc.activeApplications.Store(addressing, count - 1)
+			tc.activeApplications.Store(addressing, count-1)
 		}()
 	}
 
-	queue,_ := tc.callBackMessages.LoadOrStore(addressing, NewCallbackMessageQueue())
+	queue, _ := tc.callBackMessages.LoadOrStore(addressing, NewCallbackMessageQueue())
 	q := queue.(*CallbackMessageQueue)
 
 	runtime.GoWithRecover(func() {
 		for {
 			select {
-			case _, ok := <- done:
+			case _, ok := <-done:
 				if !ok {
 					return
 				}
@@ -609,7 +608,7 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 				close(done)
 				return err
 			}
-			switch branchMessage.GetBranchMessageType(){
+			switch branchMessage.GetBranchMessageType() {
 			case apis.TypeBranchCommitResult:
 				response := &apis.BranchCommitResponse{}
 				data := branchMessage.GetMessage().GetValue()
@@ -644,7 +643,6 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 		}
 	}
 }
-
 
 func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)

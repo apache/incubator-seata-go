@@ -1,8 +1,9 @@
 package client
 
 import (
-	"google.golang.org/grpc"
 	"log"
+
+	"google.golang.org/grpc"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/config"
