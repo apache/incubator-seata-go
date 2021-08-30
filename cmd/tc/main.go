@@ -65,7 +65,10 @@ func main() {
 					apis.RegisterResourceManagerServiceServer(s, tc)
 
 					go func() {
-						http.ListenAndServe(":10001", nil)
+						err = http.ListenAndServe(":10001", nil)
+						if err != nil {
+							return
+						}
 					}()
 
 					if err := s.Serve(lis); err != nil {

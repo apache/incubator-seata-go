@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"sync"
+
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 )
 
 type CallbackMessageQueue struct {

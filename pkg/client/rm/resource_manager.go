@@ -149,7 +149,10 @@ func (manager *ResourceManager) branchCommunicate() {
 				}
 			}
 		}
-		stream.CloseSend()
+		err = stream.CloseSend()
+		if err != nil {
+			log.Error(err)
+		}
 	}
 }
 

@@ -29,7 +29,7 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
 )
 
-const ALWAYS_RETRY_BOUNDARY = 0
+const AlwaysRetryBoundary = 0
 
 type TransactionCoordinator struct {
 	sync.Mutex
@@ -89,7 +89,7 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 	return tc
 }
 
-func (tc TransactionCoordinator) Begin(ctx context.Context, request *apis.GlobalBeginRequest) (*apis.GlobalBeginResponse, error) {
+func (tc *TransactionCoordinator) Begin(ctx context.Context, request *apis.GlobalBeginRequest) (*apis.GlobalBeginResponse, error) {
 	transactionID := uuid.NextID()
 	xid := common.GenerateXID(request.Addressing, transactionID)
 	gt := model.GlobalTransaction{
@@ -123,7 +123,7 @@ func (tc TransactionCoordinator) Begin(ctx context.Context, request *apis.Global
 	}, nil
 }
 
-func (tc TransactionCoordinator) GetStatus(ctx context.Context, request *apis.GlobalStatusRequest) (*apis.GlobalStatusResponse, error) {
+func (tc *TransactionCoordinator) GetStatus(ctx context.Context, request *apis.GlobalStatusRequest) (*apis.GlobalStatusResponse, error) {
 	gs := tc.holder.FindGlobalSession(request.XID)
 	if gs != nil {
 		return &apis.GlobalStatusResponse{
@@ -137,11 +137,11 @@ func (tc TransactionCoordinator) GetStatus(ctx context.Context, request *apis.Gl
 	}, nil
 }
 
-func (tc TransactionCoordinator) GlobalReport(ctx context.Context, request *apis.GlobalReportRequest) (*apis.GlobalReportResponse, error) {
+func (tc *TransactionCoordinator) GlobalReport(ctx context.Context, request *apis.GlobalReportRequest) (*apis.GlobalReportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GlobalReport not implemented")
 }
 
-func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.GlobalCommitRequest) (*apis.GlobalCommitResponse, error) {
+func (tc *TransactionCoordinator) Commit(ctx context.Context, request *apis.GlobalCommitRequest) (*apis.GlobalCommitResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		return &apis.GlobalCommitResponse{
@@ -159,11 +159,17 @@ func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.Globa
 			if gt.Active {
 				// Active need persistence
 				// Highlight: Firstly, close the session, then no more branch can be registered.
-				tc.holder.InactiveGlobalSession(gt.GlobalSession)
+				err = tc.holder.InactiveGlobalSession(gt.GlobalSession)
+				if err != nil {
+					return false, err
+				}
 			}
 			tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
 			if gt.Status == apis.Begin {
-				tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.Committing)
+				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.Committing)
+				if err != nil {
+					return false, err
+				}
 				return true, nil
 			}
 			return false, nil
@@ -194,33 +200,33 @@ func (tc TransactionCoordinator) Commit(ctx context.Context, request *apis.Globa
 	}
 
 	if gt.CanBeCommittedAsync() {
-		tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.AsyncCommitting)
-		return &apis.GlobalCommitResponse{
-			ResultCode:   apis.ResultCodeSuccess,
-			GlobalStatus: apis.Committed,
-		}, nil
-	} else {
-		_, err := tc.doGlobalCommit(gt, false)
+		err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.AsyncCommitting)
 		if err != nil {
-			return &apis.GlobalCommitResponse{
-				ResultCode:    apis.ResultCodeFailed,
-				ExceptionCode: apis.UnknownErr,
-				Message:       err.Error(),
-				GlobalStatus:  gt.Status,
-			}, nil
+			return nil, err
 		}
 		return &apis.GlobalCommitResponse{
 			ResultCode:   apis.ResultCodeSuccess,
 			GlobalStatus: apis.Committed,
 		}, nil
 	}
+
+	_, err = tc.doGlobalCommit(gt, false)
+	if err != nil {
+		return &apis.GlobalCommitResponse{
+			ResultCode:    apis.ResultCodeFailed,
+			ExceptionCode: apis.UnknownErr,
+			Message:       err.Error(),
+			GlobalStatus:  gt.Status,
+		}, nil
+	}
+	return &apis.GlobalCommitResponse{
+		ResultCode:   apis.ResultCodeSuccess,
+		GlobalStatus: apis.Committed,
+	}, nil
 }
 
-func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, retrying bool) (bool, error) {
-	var (
-		success = true
-		err     error
-	)
+func (tc *TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, retrying bool) (bool, error) {
+	var err error
 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime, 0, gt.Status)
@@ -229,84 +235,106 @@ func (tc TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, ret
 
 	if gt.IsSaga() {
 		return false, status.Errorf(codes.Unimplemented, "method Commit not supported saga mode")
-	} else {
-		for bs := range gt.BranchSessions {
-			if bs.Status == apis.PhaseOneFailed {
-				tc.resourceDataLocker.ReleaseLock(bs)
-				delete(gt.BranchSessions, bs)
-				tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
-				continue
+	}
+
+	for bs := range gt.BranchSessions {
+		if bs.Status == apis.PhaseOneFailed {
+			tc.resourceDataLocker.ReleaseLock(bs)
+			delete(gt.BranchSessions, bs)
+			err = tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
+			if err != nil {
+				return false, err
 			}
-			branchStatus, err1 := tc.branchCommit(bs)
-			if err1 != nil {
-				log.Errorf("exception committing branch xid=%d branchID=%d, err: %v", bs.GetXID(), bs.BranchID, err1)
+			continue
+		}
+		branchStatus, err1 := tc.branchCommit(bs)
+		if err1 != nil {
+			log.Errorf("exception committing branch xid=%d branchID=%d, err: %v", bs.GetXID(), bs.BranchID, err1)
+			if !retrying {
+				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitRetrying)
+				if err != nil {
+					return false, err
+				}
+			}
+			return false, err1
+		}
+		switch branchStatus {
+		case apis.PhaseTwoCommitted:
+			tc.resourceDataLocker.ReleaseLock(bs)
+			delete(gt.BranchSessions, bs)
+			err = tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
+			if err != nil {
+				return false, err
+			}
+			continue
+		case apis.PhaseTwoCommitFailedCanNotRetry:
+			{
+				if gt.CanBeCommittedAsync() {
+					log.Errorf("by [%s], failed to commit branch %v", bs.Status.String(), bs)
+					continue
+				} else {
+					// change status first, if need retention global session data,
+					// might not remove global session, then, the status is very important.
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitFailed)
+					if err != nil {
+						return false, err
+					}
+					tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
+					err = tc.holder.RemoveGlobalTransaction(gt)
+					if err != nil {
+						return false, err
+					}
+					log.Errorf("finally, failed to commit global[%d] since branch[%d] commit failed", gt.XID, bs.BranchID)
+					return false, nil
+				}
+			}
+		default:
+			{
 				if !retrying {
-					tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitRetrying)
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitRetrying)
+					if err != nil {
+						return false, err
+					}
+					return false, nil
 				}
-				return false, err1
-			}
-			switch branchStatus {
-			case apis.PhaseTwoCommitted:
-				tc.resourceDataLocker.ReleaseLock(bs)
-				delete(gt.BranchSessions, bs)
-				tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
-				continue
-			case apis.PhaseTwoCommitFailedCanNotRetry:
-				{
-					if gt.CanBeCommittedAsync() {
-						log.Errorf("by [%s], failed to commit branch %v", bs.Status.String(), bs)
-						continue
-					} else {
-						// change status first, if need retention global session data,
-						// might not remove global session, then, the status is very important.
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitFailed)
-						tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
-						tc.holder.RemoveGlobalTransaction(gt)
-						log.Errorf("finally, failed to commit global[%d] since branch[%d] commit failed", gt.XID, bs.BranchID)
-						return false, nil
-					}
-				}
-			default:
-				{
-					if !retrying {
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.CommitRetrying)
-						return false, nil
-					}
-					if gt.CanBeCommittedAsync() {
-						log.Errorf("by [%s], failed to commit branch %v", bs.Status.String(), bs)
-						continue
-					} else {
-						log.Errorf("failed to commit global[%d] since branch[%d] commit failed, will retry later.", gt.XID, bs.BranchID)
-						return false, nil
-					}
+				if gt.CanBeCommittedAsync() {
+					log.Errorf("by [%s], failed to commit branch %v", bs.Status.String(), bs)
+					continue
+				} else {
+					log.Errorf("failed to commit global[%d] since branch[%d] commit failed, will retry later.", gt.XID, bs.BranchID)
+					return false, nil
 				}
 			}
 		}
-		gs := tc.holder.FindGlobalTransaction(gt.XID)
-		if gs != nil && gs.HasBranch() {
-			log.Infof("global[%d] committing is NOT done.", gt.XID)
-			return false, nil
-		}
 	}
-	if success {
-		// change status first, if need retention global session data,
-		// might not remove global session, then, the status is very important.
-		tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.Committed)
-		tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
-		tc.holder.RemoveGlobalTransaction(gt)
-
-		runtime.GoWithRecover(func() {
-			evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
-				int64(time2.CurrentTimeMillis()), gt.Status)
-			event.EventBus.GlobalTransactionEventChannel <- evt
-		}, nil)
-
-		log.Infof("global[%d] committing is successfully done.", gt.XID)
+	gs := tc.holder.FindGlobalTransaction(gt.XID)
+	if gs != nil && gs.HasBranch() {
+		log.Infof("global[%d] committing is NOT done.", gt.XID)
+		return false, nil
 	}
-	return success, err
+
+	// change status first, if need retention global session data,
+	// might not remove global session, then, the status is very important.
+	err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.Committed)
+	if err != nil {
+		return false, err
+	}
+	tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
+	err = tc.holder.RemoveGlobalTransaction(gt)
+	if err != nil {
+		return false, err
+	}
+	runtime.GoWithRecover(func() {
+		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
+			int64(time2.CurrentTimeMillis()), gt.Status)
+		event.EventBus.GlobalTransactionEventChannel <- evt
+	}, nil)
+	log.Infof("global[%d] committing is successfully done.", gt.XID)
+
+	return true, err
 }
 
-func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
+func (tc *TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
 	request := &apis.BranchCommitRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
@@ -347,16 +375,14 @@ func (tc TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bran
 	if !ok {
 		log.Infof("rollback response: %v", resp.Response)
 		return bs.Status, fmt.Errorf("response type not right")
-	} else {
-		if response.ResultCode == apis.ResultCodeSuccess {
-			return response.BranchStatus, nil
-		} else {
-			return bs.Status, fmt.Errorf(response.Message)
-		}
 	}
+	if response.ResultCode == apis.ResultCodeSuccess {
+		return response.BranchStatus, nil
+	}
+	return bs.Status, fmt.Errorf(response.Message)
 }
 
-func (tc TransactionCoordinator) Rollback(ctx context.Context, request *apis.GlobalRollbackRequest) (*apis.GlobalRollbackResponse, error) {
+func (tc *TransactionCoordinator) Rollback(ctx context.Context, request *apis.GlobalRollbackRequest) (*apis.GlobalRollbackResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		return &apis.GlobalRollbackResponse{
@@ -374,10 +400,16 @@ func (tc TransactionCoordinator) Rollback(ctx context.Context, request *apis.Glo
 			if gt.Active {
 				// Active need persistence
 				// Highlight: Firstly, close the session, then no more branch can be registered.
-				tc.holder.InactiveGlobalSession(gt.GlobalSession)
+				err = tc.holder.InactiveGlobalSession(gt.GlobalSession)
+				if err != nil {
+					return false, err
+				}
 			}
 			if gt.Status == apis.Begin {
-				tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollingBack)
+				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollingBack)
+				if err != nil {
+					return false, err
+				}
 				return true, nil
 			}
 			return false, nil
@@ -401,18 +433,18 @@ func (tc TransactionCoordinator) Rollback(ctx context.Context, request *apis.Glo
 		}, nil
 	}
 
-	tc.doGlobalRollback(gt, false)
+	_, err = tc.doGlobalRollback(gt, false)
+	if err != nil {
+		return nil, err
+	}
 	return &apis.GlobalRollbackResponse{
 		ResultCode:   apis.ResultCodeSuccess,
 		GlobalStatus: gt.Status,
 	}, nil
 }
 
-func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, retrying bool) (bool, error) {
-	var (
-		success = true
-		err     error
-	)
+func (tc *TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, retrying bool) (bool, error) {
+	var err error
 
 	runtime.GoWithRecover(func() {
 		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime, 0, gt.Status)
@@ -421,89 +453,123 @@ func (tc TransactionCoordinator) doGlobalRollback(gt *model.GlobalTransaction, r
 
 	if gt.IsSaga() {
 		return false, status.Errorf(codes.Unimplemented, "method Commit not supported saga mode")
-	} else {
-		for bs := range gt.BranchSessions {
-			if bs.Status == apis.PhaseOneFailed {
-				tc.resourceDataLocker.ReleaseLock(bs)
-				delete(gt.BranchSessions, bs)
-				tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
-				continue
-			}
-			branchStatus, err1 := tc.branchRollback(bs)
-			if err1 != nil {
-				log.Errorf("exception rolling back branch xid=%d branchID=%d, err: %v", gt.XID, bs.BranchID, err1)
-				if !retrying {
-					if gt.IsTimeoutGlobalStatus() {
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackRetrying)
-					} else {
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackRetrying)
-					}
-				}
-				return false, err1
-			}
-			switch branchStatus {
-			case apis.PhaseTwoRolledBack:
-				tc.resourceDataLocker.ReleaseLock(bs)
-				delete(gt.BranchSessions, bs)
-				tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
-				log.Infof("successfully rollback branch xid=%d branchID=%d", gt.XID, bs.BranchID)
-				continue
-			case apis.PhaseTwoRollbackFailedCanNotRetry:
-				if gt.IsTimeoutGlobalStatus() {
-					tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackFailed)
-				} else {
-					tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackFailed)
-				}
-				tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
-				tc.holder.RemoveGlobalTransaction(gt)
-				log.Infof("failed to rollback branch and stop retry xid=%d branchID=%d", gt.XID, bs.BranchID)
-				return false, nil
-			default:
-				log.Infof("failed to rollback branch xid=%d branchID=%d", gt.XID, bs.BranchID)
-				if !retrying {
-					if gt.IsTimeoutGlobalStatus() {
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackRetrying)
-					} else {
-						tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackRetrying)
-					}
-				}
-				return false, nil
-			}
-		}
+	}
 
-		// In db mode, there is a problem of inconsistent data in multiple copies, resulting in new branch
-		// transaction registration when rolling back.
-		// 1. New branch transaction and rollback branch transaction have no data association
-		// 2. New branch transaction has data association with rollback branch transaction
-		// The second query can solve the first problem, and if it is the second problem, it may cause a rollback
-		// failure due to data changes.
-		gs := tc.holder.FindGlobalTransaction(gt.XID)
-		if gs != nil && gs.HasBranch() {
-			log.Infof("Global[%d] rolling back is NOT done.", gt.XID)
+	for bs := range gt.BranchSessions {
+		if bs.Status == apis.PhaseOneFailed {
+			tc.resourceDataLocker.ReleaseLock(bs)
+			delete(gt.BranchSessions, bs)
+			err = tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
+			if err != nil {
+				return false, err
+			}
+			continue
+		}
+		branchStatus, err1 := tc.branchRollback(bs)
+		if err1 != nil {
+			log.Errorf("exception rolling back branch xid=%d branchID=%d, err: %v", gt.XID, bs.BranchID, err1)
+			if !retrying {
+				if gt.IsTimeoutGlobalStatus() {
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackRetrying)
+					if err != nil {
+						return false, err
+					}
+				} else {
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackRetrying)
+					if err != nil {
+						return false, err
+					}
+				}
+			}
+			return false, err1
+		}
+		switch branchStatus {
+		case apis.PhaseTwoRolledBack:
+			tc.resourceDataLocker.ReleaseLock(bs)
+			delete(gt.BranchSessions, bs)
+			err = tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
+			if err != nil {
+				return false, err
+			}
+			log.Infof("successfully rollback branch xid=%d branchID=%d", gt.XID, bs.BranchID)
+			continue
+		case apis.PhaseTwoRollbackFailedCanNotRetry:
+			if gt.IsTimeoutGlobalStatus() {
+				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackFailed)
+				if err != nil {
+					return false, err
+				}
+			} else {
+				err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackFailed)
+				if err != nil {
+					return false, err
+				}
+			}
+			tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
+			err = tc.holder.RemoveGlobalTransaction(gt)
+			if err != nil {
+				return false, err
+			}
+			log.Infof("failed to rollback branch and stop retry xid=%d branchID=%d", gt.XID, bs.BranchID)
+			return false, nil
+		default:
+			log.Infof("failed to rollback branch xid=%d branchID=%d", gt.XID, bs.BranchID)
+			if !retrying {
+				if gt.IsTimeoutGlobalStatus() {
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRollbackRetrying)
+					if err != nil {
+						return false, err
+					}
+				} else {
+					err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RollbackRetrying)
+					if err != nil {
+						return false, err
+					}
+				}
+			}
 			return false, nil
 		}
 	}
-	if success {
-		if gt.IsTimeoutGlobalStatus() {
-			tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRolledBack)
-		} else {
-			tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RolledBack)
-		}
-		tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
-		tc.holder.RemoveGlobalTransaction(gt)
 
-		runtime.GoWithRecover(func() {
-			evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
-				int64(time2.CurrentTimeMillis()), gt.Status)
-			event.EventBus.GlobalTransactionEventChannel <- evt
-		}, nil)
-
-		log.Infof("successfully rollback global, xid = %d", gt.XID)
+	// In db mode, there is a problem of inconsistent data in multiple copies, resulting in new branch
+	// transaction registration when rolling back.
+	// 1. New branch transaction and rollback branch transaction have no data association
+	// 2. New branch transaction has data association with rollback branch transaction
+	// The second query can solve the first problem, and if it is the second problem, it may cause a rollback
+	// failure due to data changes.
+	gs := tc.holder.FindGlobalTransaction(gt.XID)
+	if gs != nil && gs.HasBranch() {
+		log.Infof("Global[%d] rolling back is NOT done.", gt.XID)
+		return false, nil
 	}
-	return success, err
+
+	if gt.IsTimeoutGlobalStatus() {
+		err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.TimeoutRolledBack)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.RolledBack)
+		if err != nil {
+			return false, err
+		}
+	}
+	tc.resourceDataLocker.ReleaseGlobalSessionLock(gt)
+	err = tc.holder.RemoveGlobalTransaction(gt)
+	if err != nil {
+		return false, err
+	}
+	runtime.GoWithRecover(func() {
+		evt := event.NewGlobalTransactionEvent(gt.TransactionID, event.RoleTC, gt.TransactionName, gt.BeginTime,
+			int64(time2.CurrentTimeMillis()), gt.Status)
+		event.EventBus.GlobalTransactionEventChannel <- evt
+	}, nil)
+	log.Infof("successfully rollback global, xid = %d", gt.XID)
+
+	return true, err
 }
 
-func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
+func (tc *TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.BranchSession_BranchStatus, error) {
 	request := &apis.BranchRollbackRequest{
 		XID:             bs.XID,
 		BranchID:        bs.BranchID,
@@ -543,12 +609,11 @@ func (tc TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.Br
 	response := resp.Response.(*apis.BranchRollbackResponse)
 	if response.ResultCode == apis.ResultCodeSuccess {
 		return response.BranchStatus, nil
-	} else {
-		return bs.Status, fmt.Errorf(response.Message)
 	}
+	return bs.Status, fmt.Errorf(response.Message)
 }
 
-func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerService_BranchCommunicateServer) error {
+func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerService_BranchCommunicateServer) error {
 	var addressing string
 	done := make(chan bool)
 
@@ -644,7 +709,7 @@ func (tc TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerSe
 	}
 }
 
-func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
+func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		log.Errorf("could not found global transaction xid = %s", request.XID)
@@ -728,7 +793,7 @@ func (tc TransactionCoordinator) BranchRegister(ctx context.Context, request *ap
 	}, nil
 }
 
-func (tc TransactionCoordinator) BranchReport(ctx context.Context, request *apis.BranchReportRequest) (*apis.BranchReportResponse, error) {
+func (tc *TransactionCoordinator) BranchReport(ctx context.Context, request *apis.BranchReportRequest) (*apis.BranchReportResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
 		log.Errorf("could not found global transaction xid = %s", request.XID)
@@ -762,7 +827,7 @@ func (tc TransactionCoordinator) BranchReport(ctx context.Context, request *apis
 	}, nil
 }
 
-func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.GlobalLockQueryRequest) (*apis.GlobalLockQueryResponse, error) {
+func (tc *TransactionCoordinator) LockQuery(ctx context.Context, request *apis.GlobalLockQueryRequest) (*apis.GlobalLockQueryResponse, error) {
 	result := tc.resourceDataLocker.IsLockable(request.XID, request.ResourceID, request.LockKey)
 	return &apis.GlobalLockQueryResponse{
 		ResultCode: apis.ResultCodeSuccess,
@@ -770,53 +835,53 @@ func (tc TransactionCoordinator) LockQuery(ctx context.Context, request *apis.Gl
 	}, nil
 }
 
-func (tc TransactionCoordinator) processTimeoutCheck() {
+func (tc *TransactionCoordinator) processTimeoutCheck() {
 	for {
 		timer := time.NewTimer(tc.timeoutRetryPeriod)
-		select {
-		case <-timer.C:
-			tc.timeoutCheck()
-		}
+
+		<-timer.C
+		tc.timeoutCheck()
+
 		timer.Stop()
 	}
 }
 
-func (tc TransactionCoordinator) processRetryRollingBack() {
+func (tc *TransactionCoordinator) processRetryRollingBack() {
 	for {
 		timer := time.NewTimer(tc.rollingBackRetryPeriod)
-		select {
-		case <-timer.C:
-			tc.handleRetryRollingBack()
-		}
+
+		<-timer.C
+		tc.handleRetryRollingBack()
+
 		timer.Stop()
 	}
 }
 
-func (tc TransactionCoordinator) processRetryCommitting() {
+func (tc *TransactionCoordinator) processRetryCommitting() {
 	for {
 		timer := time.NewTimer(tc.committingRetryPeriod)
-		select {
-		case <-timer.C:
-			tc.handleRetryCommitting()
-		}
+
+		<-timer.C
+		tc.handleRetryCommitting()
+
 		timer.Stop()
 	}
 }
 
-func (tc TransactionCoordinator) processAsyncCommitting() {
+func (tc *TransactionCoordinator) processAsyncCommitting() {
 	for {
 		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
-		select {
-		case <-timer.C:
-			tc.handleAsyncCommitting()
-		}
+
+		<-timer.C
+		tc.handleAsyncCommitting()
+
 		timer.Stop()
 	}
 }
 
-func (tc TransactionCoordinator) timeoutCheck() {
+func (tc *TransactionCoordinator) timeoutCheck() {
 	sessions := tc.holder.FindGlobalSessions([]apis.GlobalSession_GlobalStatus{apis.Begin})
-	if sessions == nil && len(sessions) <= 0 {
+	if len(sessions) == 0 {
 		return
 	}
 	for _, globalSession := range sessions {
@@ -826,10 +891,16 @@ func (tc TransactionCoordinator) timeoutCheck() {
 				if globalSession.Active {
 					// Active need persistence
 					// Highlight: Firstly, close the session, then no more branch can be registered.
-					tc.holder.InactiveGlobalSession(globalSession)
+					err = tc.holder.InactiveGlobalSession(globalSession)
+					if err != nil {
+						return
+					}
 				}
 
-				tc.holder.UpdateGlobalSessionStatus(globalSession, apis.TimeoutRollingBack)
+				err = tc.holder.UpdateGlobalSessionStatus(globalSession, apis.TimeoutRollingBack)
+				if err != nil {
+					return
+				}
 
 				tc.locker.Unlock(globalSession)
 				evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
@@ -839,13 +910,13 @@ func (tc TransactionCoordinator) timeoutCheck() {
 	}
 }
 
-func (tc TransactionCoordinator) handleRetryRollingBack() {
+func (tc *TransactionCoordinator) handleRetryRollingBack() {
 	addressingIdentities := tc.getAddressingIdentities()
-	if addressingIdentities == nil || len(addressingIdentities) == 0 {
+	if len(addressingIdentities) == 0 {
 		return
 	}
 	rollbackTransactions := tc.holder.FindRetryRollbackGlobalTransactions(addressingIdentities)
-	if rollbackTransactions == nil && len(rollbackTransactions) <= 0 {
+	if len(rollbackTransactions) == 0 {
 		return
 	}
 	now := time2.CurrentTimeMillis()
@@ -857,7 +928,10 @@ func (tc TransactionCoordinator) handleRetryRollingBack() {
 			if tc.rollbackRetryTimeoutUnlockEnable {
 				tc.resourceDataLocker.ReleaseGlobalSessionLock(transaction)
 			}
-			tc.holder.RemoveGlobalTransaction(transaction)
+			err := tc.holder.RemoveGlobalTransaction(transaction)
+			if err != nil {
+				log.Error(err)
+			}
 			log.Errorf("GlobalSession rollback retry timeout and removed [%s]", transaction.XID)
 			continue
 		}
@@ -869,25 +943,28 @@ func (tc TransactionCoordinator) handleRetryRollingBack() {
 }
 
 func isRetryTimeout(now int64, timeout int64, beginTime int64) bool {
-	if timeout >= ALWAYS_RETRY_BOUNDARY && now-beginTime > timeout {
+	if timeout >= AlwaysRetryBoundary && now-beginTime > timeout {
 		return true
 	}
 	return false
 }
 
-func (tc TransactionCoordinator) handleRetryCommitting() {
+func (tc *TransactionCoordinator) handleRetryCommitting() {
 	addressingIdentities := tc.getAddressingIdentities()
-	if addressingIdentities == nil || len(addressingIdentities) == 0 {
+	if len(addressingIdentities) == 0 {
 		return
 	}
 	committingTransactions := tc.holder.FindRetryCommittingGlobalTransactions(addressingIdentities)
-	if committingTransactions == nil && len(committingTransactions) <= 0 {
+	if len(committingTransactions) == 0 {
 		return
 	}
 	now := time2.CurrentTimeMillis()
 	for _, transaction := range committingTransactions {
 		if isRetryTimeout(int64(now), tc.maxCommitRetryTimeout, transaction.BeginTime) {
-			tc.holder.RemoveGlobalTransaction(transaction)
+			err := tc.holder.RemoveGlobalTransaction(transaction)
+			if err != nil {
+				log.Error(err)
+			}
 			log.Errorf("GlobalSession commit retry timeout and removed [%s]", transaction.XID)
 			continue
 		}
@@ -898,13 +975,13 @@ func (tc TransactionCoordinator) handleRetryCommitting() {
 	}
 }
 
-func (tc TransactionCoordinator) handleAsyncCommitting() {
+func (tc *TransactionCoordinator) handleAsyncCommitting() {
 	addressingIdentities := tc.getAddressingIdentities()
-	if addressingIdentities == nil || len(addressingIdentities) == 0 {
+	if len(addressingIdentities) == 0 {
 		return
 	}
 	asyncCommittingTransactions := tc.holder.FindAsyncCommittingGlobalTransactions(addressingIdentities)
-	if asyncCommittingTransactions == nil && len(asyncCommittingTransactions) <= 0 {
+	if len(asyncCommittingTransactions) == 0 {
 		return
 	}
 	for _, transaction := range asyncCommittingTransactions {
@@ -918,7 +995,7 @@ func (tc TransactionCoordinator) handleAsyncCommitting() {
 	}
 }
 
-func (tc TransactionCoordinator) getAddressingIdentities() []string {
+func (tc *TransactionCoordinator) getAddressingIdentities() []string {
 	var addressIdentities []string
 	tc.activeApplications.Range(func(key, value interface{}) bool {
 		count := value.(int)
