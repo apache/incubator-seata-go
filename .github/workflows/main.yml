@@ -42,10 +42,10 @@ jobs:
 
       - name: GolangCI Lint
         run: |
-          go get github.com/golangci/golangci-lint/cmd/golangci-lint
+          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.39.0
           golangci-lint run ./...
 
-      - name: Test
+      - name: Unit Tests
         run: |
           mkdir -p build
           go test ./... -coverprofile=./build/c.out
