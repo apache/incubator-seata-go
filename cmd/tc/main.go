@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
@@ -61,6 +63,10 @@ func main() {
 					tc := server.NewTransactionCoordinator(cfg)
 					apis.RegisterTransactionManagerServiceServer(s, tc)
 					apis.RegisterResourceManagerServiceServer(s, tc)
+
+					go func() {
+						http.ListenAndServe(":10001", nil)
+					}()
 
 					if err := s.Serve(lis); err != nil {
 						log.Fatalf("failed to serve: %v", err)

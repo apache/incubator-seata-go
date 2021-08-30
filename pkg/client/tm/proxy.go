@@ -115,7 +115,7 @@ func Implement(v GlobalTransactionProxyService) {
 				if rollbackErr != nil {
 					return proxy.ReturnWithError(methodDesc, errors.WithStack(rollbackErr))
 				}
-				return proxy.ReturnWithError(methodDesc, errors.New("rollback failure"))
+				return returnValues
 			}
 
 			commitErr := tx.Commit(invCtx)

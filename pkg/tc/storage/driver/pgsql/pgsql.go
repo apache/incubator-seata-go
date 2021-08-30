@@ -242,6 +242,24 @@ func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalSta
 	return globalSessions
 }
 
+// Find global sessions list with addressing identities
+func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
+	addressingIdentities []string) []*apis.GlobalSession {
+	var globalSessions []*apis.GlobalSession
+	err := driver.engine.Table(driver.globalTable).
+		Where(builder.
+			In("status", statuses).
+			And(builder.In("addressing", addressingIdentities))).
+		OrderBy("gmt_modified").
+		Limit(driver.queryLimit).
+		Find(&globalSessions)
+
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	return globalSessions
+}
+
 // All sessions collection.
 func (driver *driver) AllSessions() []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
