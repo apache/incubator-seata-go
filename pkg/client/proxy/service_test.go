@@ -5,48 +5,39 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsExportedOrBuiltinType(t *testing.T) {
-	type ExportedStruct struct {
-		Abb string
+func TestRegister(t *testing.T) {
+	type Svc struct {}
+	type ProxyService struct {
+		*Svc
+		CreateSo func(ctx context.Context, rollback bool) error
 	}
-	type notExportedStruct struct {
-		Cdd string
-	}
+	ps := ProxyService{}
+
 	tests := []struct{
 		name string
-		typeOf reflect.Type
-		expectedResult bool
+		service interface{}
+		methodName string
+		expectedResult *MethodDescriptor
 	}{
 		{
-			name: "test type is exported and not builtin",
-			typeOf: reflect.TypeOf(ExportedStruct{
-				Abb: "testing",
-			}),
-			expectedResult: true,
-		},
-		{
-			name: "test type is not exported and not builtin",
-			typeOf: reflect.TypeOf(notExportedStruct{
-				Cdd: "testing",
-			}),
-			expectedResult: false,
-		},
-		{
-			name: "test type is builtin",
-			typeOf: reflect.TypeOf("Abb"), // string type
-			expectedResult: true,
+			name: "test register",
+			service: ps,
+			methodName: "CreateSo",
+			expectedResult: &MethodDescriptor{
+
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualResult := isExportedOrBuiltinType(tt.typeOf)
-
-			assert.Equal(t, tt.expectedResult, actualResult)
+			actualResult := Register(tt.service, tt.methodName)
+			log.Debugf("actualResult: %+v", actualResult)
 		})
 	}
 }
@@ -140,6 +131,48 @@ func TestReturnWithError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actualResult := ReturnWithError(tt.methodDesc, tt.err)
+
+			assert.Equal(t, tt.expectedResult, actualResult)
+		})
+	}
+}
+
+func TestIsExportedOrBuiltinType(t *testing.T) {
+	type ExportedStruct struct {
+		Abb string
+	}
+	type notExportedStruct struct {
+		Cdd string
+	}
+	tests := []struct{
+		name string
+		typeOf reflect.Type
+		expectedResult bool
+	}{
+		{
+			name: "test type is exported and not builtin",
+			typeOf: reflect.TypeOf(ExportedStruct{
+				Abb: "testing",
+			}),
+			expectedResult: true,
+		},
+		{
+			name: "test type is not exported and not builtin",
+			typeOf: reflect.TypeOf(notExportedStruct{
+				Cdd: "testing",
+			}),
+			expectedResult: false,
+		},
+		{
+			name: "test type is builtin",
+			typeOf: reflect.TypeOf("Abb"), // string type
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualResult := isExportedOrBuiltinType(tt.typeOf)
 
 			assert.Equal(t, tt.expectedResult, actualResult)
 		})
