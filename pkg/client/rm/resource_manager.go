@@ -55,7 +55,7 @@ func InitResourceManager(addressing string, client apis.ResourceManagerServiceCl
 		addressing:     addressing,
 		rpcClient:      client,
 		managers:       make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
-		branchMessages: make(chan *apis.BranchMessage, 1000),
+		branchMessages: make(chan *apis.BranchMessage),
 	}
 	runtime.GoWithRecover(func() {
 		defaultResourceManager.branchCommunicate()
