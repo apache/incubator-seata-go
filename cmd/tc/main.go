@@ -7,6 +7,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/urfave/cli/v2"
+	"google.golang.org/grpc"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/config"
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/metrics"
@@ -16,8 +19,6 @@ import (
 	_ "github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/pgsql"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 	"github.com/opentrx/seata-golang/v2/pkg/util/uuid"
-	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
 )
 
 func main() {

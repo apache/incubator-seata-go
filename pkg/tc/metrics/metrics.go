@@ -3,10 +3,11 @@ package metrics
 import (
 	"sort"
 
+	"github.com/rcrowley/go-metrics"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/event"
 	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
-	"github.com/rcrowley/go-metrics"
 )
 
 var (
