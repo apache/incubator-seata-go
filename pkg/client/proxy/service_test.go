@@ -132,7 +132,7 @@ func TestReturnWithError(t *testing.T) {
 				ReturnValuesNum: 2,
 				ReturnValuesType: []reflect.Type{
 					reflect.TypeOf("1"),
-					reflect.TypeOf(errors.New("method output error")),
+					reflect.TypeOf(testingErr),
 				},
 			},
 			err: testingErr,
@@ -146,7 +146,7 @@ func TestReturnWithError(t *testing.T) {
 			methodDesc: &MethodDescriptor{
 				ReturnValuesNum: 1,
 				ReturnValuesType: []reflect.Type{
-					reflect.TypeOf(errors.New("method output error")),
+					reflect.TypeOf(testingErr),
 				},
 			},
 			err: testingErr,
