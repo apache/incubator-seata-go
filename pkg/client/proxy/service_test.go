@@ -5,18 +5,34 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
+type Svc struct {}
+var service = &Svc{}
+type ProxyService struct {
+	*Svc
+	CreateSo func(ctx context.Context, rollback bool) error
+}
+var methodTransactionInfo = make(map[string]*model.TransactionInfo)
+func (svc *ProxyService) GetMethodTransactionInfo(methodName string) *model.TransactionInfo {
+	return methodTransactionInfo[methodName]
+}
+func (svc *ProxyService) GetProxyService() interface{} {
+	return svc.Svc
+}
+func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
+	return nil
+}
+var ProxySvc = &ProxyService{
+	Svc: service,
+}
+
 func TestRegister(t *testing.T) {
-	type Svc struct {}
-	type ProxyService struct {
-		*Svc
-		CreateSo func(ctx context.Context, rollback bool) error
-	}
-	ps := ProxyService{}
+	ps := ProxySvc.GetProxyService()
+	method, _ := reflect.TypeOf(ps).MethodByName("CreateSo")
 
 	tests := []struct{
 		name string
@@ -29,7 +45,18 @@ func TestRegister(t *testing.T) {
 			service: ps,
 			methodName: "CreateSo",
 			expectedResult: &MethodDescriptor{
-
+				ArgsNum: 3,
+				Method: reflect.Method{Name: "CreateSo"},
+				ReturnValuesNum: 1,
+				ReturnValuesType: []reflect.Type{
+					method.Type.Out(0),
+				},
+				ArgsType: []reflect.Type{
+					method.Type.In(1),
+					method.Type.In(2),
+				},
+				CtxType: method.Type.In(1),
+				CallerValue: reflect.ValueOf(ps),
 			},
 		},
 	}
@@ -37,7 +64,11 @@ func TestRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actualResult := Register(tt.service, tt.methodName)
-			log.Debugf("actualResult: %+v", actualResult)
+
+			assert.Equal(t, tt.expectedResult.ArgsNum, actualResult.ArgsNum)
+			assert.Equal(t, tt.expectedResult.Method.Name, actualResult.Method.Name)
+			assert.Equal(t, tt.expectedResult.ReturnValuesNum, actualResult.ReturnValuesNum)
+			assert.Equal(t, tt.expectedResult.ReturnValuesType, actualResult.ReturnValuesType)
 		})
 	}
 }
