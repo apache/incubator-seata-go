@@ -171,7 +171,9 @@ func TestReturnWithError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			actualResult := ReturnWithError(tt.methodDesc, tt.err)
 
-			assert.Equal(t, tt.expectedResult, actualResult)
+			for idx := range tt.expectedResult {
+				assert.Equal(t, tt.expectedResult[idx].Type(), actualResult[idx].Type())
+			}
 		})
 	}
 }
