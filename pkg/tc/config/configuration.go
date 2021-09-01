@@ -29,6 +29,8 @@ type Configuration struct {
 		CommittingRetryPeriod      time.Duration `yaml:"committingRetryPeriod"`
 		RollingBackRetryPeriod     time.Duration `yaml:"rollingBackRetryPeriod"`
 		TimeoutRetryPeriod         time.Duration `yaml:"timeoutRetryPeriod"`
+
+		StreamMessageTimeout time.Duration `yaml:"streamMessageTimeout"`
 	} `yaml:"server"`
 
 	EnforcementPolicy struct {
@@ -44,18 +46,12 @@ type Configuration struct {
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
 
-	ClientParameters struct {
-		Time                time.Duration `yaml:"time"`
-		Timeout             time.Duration `yaml:"timeout"`
-		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
-	} `yaml:"clientParameters"`
-
 	// Storage is the configuration for the storage driver
 	Storage Storage `yaml:"storage"`
 
 	Log struct {
-		LogPath  string       `yaml:"logPath"`
-		LogLevel log.LogLevel `yaml:"logLevel"`
+		LogPath  string    `yaml:"logPath"`
+		LogLevel log.Level `yaml:"logLevel"`
 	} `yaml:"log"`
 }
 
@@ -95,22 +91,6 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 		sp.Timeout = configuration.ServerParameters.Timeout
 	}
 	return sp
-}
-
-func (configuration *Configuration) GetClientParameters() keepalive.ClientParameters {
-	cp := keepalive.ClientParameters{
-		Time:                10 * time.Second,
-		Timeout:             time.Second,
-		PermitWithoutStream: true,
-	}
-	if configuration.ClientParameters.Time > 0 {
-		cp.Time = configuration.ClientParameters.Timeout
-	}
-	if configuration.ClientParameters.Timeout > 0 {
-		cp.Timeout = configuration.ClientParameters.Timeout
-	}
-	cp.PermitWithoutStream = configuration.ClientParameters.PermitWithoutStream
-	return cp
 }
 
 // Parameters defines a key-value parameters mapping

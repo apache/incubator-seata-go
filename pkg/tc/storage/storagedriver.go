@@ -15,6 +15,9 @@ type SessionManager interface {
 	// Find global sessions list.
 	FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession
 
+	// Find global sessions list with addressing identities
+	FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus, addressingIdentities []string) []*apis.GlobalSession
+
 	// All sessions collection.
 	AllSessions() []*apis.GlobalSession
 
@@ -54,7 +57,7 @@ type LockManager interface {
 	IsLockable(xid string, resourceID string, lockKey string) bool
 }
 
-type StorageDriver interface {
+type Driver interface {
 	SessionManager
 	LockManager
 }

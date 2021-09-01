@@ -3,51 +3,64 @@ package rm
 import (
 	"context"
 	"fmt"
+	"io"
+
+	"github.com/gogo/protobuf/types"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/exception"
 	"github.com/opentrx/seata-golang/v2/pkg/client/base/model"
+	"github.com/opentrx/seata-golang/v2/pkg/util/log"
+	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
+	"google.golang.org/grpc/metadata"
 )
 
 var defaultResourceManager *ResourceManager
 
 type ResourceManagerOutbound interface {
-	// Branch register long.
+	// BranchRegister register branch transaction.
 	BranchRegister(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType,
 		applicationData []byte, lockKeys string) (int64, error)
 
-	// Branch report.
+	// BranchReport report branch transaction status.
 	BranchReport(ctx context.Context, xid string, branchID int64, branchType apis.BranchSession_BranchType,
 		status apis.BranchSession_BranchStatus, applicationData []byte) error
 
-	// Lock query boolean.
+	// LockQuery lock resource by lockKeys.
 	LockQuery(ctx context.Context, xid string, resourceID string, branchType apis.BranchSession_BranchType, lockKeys string) (bool, error)
 }
 
 type ResourceManagerInterface interface {
-	apis.BranchTransactionServiceServer
+	BranchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error)
 
-	// Register a Resource to be managed by Resource Manager.
+	BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error)
+
+	// RegisterResource Register a Resource to be managed by Resource Manager.
 	RegisterResource(resource model.Resource)
 
-	// Unregister a Resource from the Resource Manager.
+	// UnregisterResource Unregister a Resource from the Resource Manager.
 	UnregisterResource(resource model.Resource)
 
-	// Get the BranchType.
+	// GetBranchType ...
 	GetBranchType() apis.BranchSession_BranchType
 }
 
 type ResourceManager struct {
-	addressing string
-	rpcClient  apis.ResourceManagerServiceClient
-	managers   map[apis.BranchSession_BranchType]ResourceManagerInterface
+	addressing     string
+	rpcClient      apis.ResourceManagerServiceClient
+	managers       map[apis.BranchSession_BranchType]ResourceManagerInterface
+	branchMessages chan *apis.BranchMessage
 }
 
 func InitResourceManager(addressing string, client apis.ResourceManagerServiceClient) {
 	defaultResourceManager = &ResourceManager{
-		addressing: addressing,
-		rpcClient:  client,
-		managers:   make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
+		addressing:     addressing,
+		rpcClient:      client,
+		managers:       make(map[apis.BranchSession_BranchType]ResourceManagerInterface),
+		branchMessages: make(chan *apis.BranchMessage),
 	}
+	runtime.GoWithRecover(func() {
+		defaultResourceManager.branchCommunicate()
+	}, nil)
 }
 
 func RegisterTransactionServiceServer(rm ResourceManagerInterface) {
@@ -56,6 +69,91 @@ func RegisterTransactionServiceServer(rm ResourceManagerInterface) {
 
 func GetResourceManager() *ResourceManager {
 	return defaultResourceManager
+}
+
+func (manager *ResourceManager) branchCommunicate() {
+	for {
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", manager.addressing)
+		stream, err := manager.rpcClient.BranchCommunicate(ctx)
+		if err != nil {
+			continue
+		}
+
+		done := make(chan bool)
+		runtime.GoWithRecover(func() {
+			for {
+				select {
+				case _, ok := <-done:
+					if !ok {
+						return
+					}
+				case msg := <-manager.branchMessages:
+					err := stream.Send(msg)
+					if err != nil {
+						return
+					}
+				default:
+					continue
+				}
+			}
+		}, nil)
+
+		for {
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				close(done)
+				break
+			}
+			if err != nil {
+				close(done)
+				break
+			}
+			switch msg.BranchMessageType {
+			case apis.TypeBranchCommit:
+				request := &apis.BranchCommitRequest{}
+				data := msg.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				response, err := manager.BranchCommit(context.Background(), request)
+				if err == nil {
+					content, err := types.MarshalAny(response)
+					if err == nil {
+						manager.branchMessages <- &apis.BranchMessage{
+							ID:                msg.ID,
+							BranchMessageType: apis.TypeBranchCommitResult,
+							Message:           content,
+						}
+					}
+				}
+			case apis.TypeBranchRollback:
+				request := &apis.BranchRollbackRequest{}
+				data := msg.GetMessage().GetValue()
+				err := request.Unmarshal(data)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				response, err := manager.BranchRollback(context.Background(), request)
+				if err == nil {
+					content, err := types.MarshalAny(response)
+					if err == nil {
+						manager.branchMessages <- &apis.BranchMessage{
+							ID:                msg.ID,
+							BranchMessageType: apis.TypeBranchRollBackResult,
+							Message:           content,
+						}
+					}
+				}
+			}
+		}
+		err = stream.CloseSend()
+		if err != nil {
+			log.Error(err)
+		}
+	}
 }
 
 func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, resourceID string,
@@ -74,11 +172,10 @@ func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, 
 	}
 	if resp.ResultCode == apis.ResultCodeSuccess {
 		return resp.BranchID, nil
-	} else {
-		return 0, &exception.TransactionException{
-			Code:    resp.GetExceptionCode(),
-			Message: resp.GetMessage(),
-		}
+	}
+	return 0, &exception.TransactionException{
+		Code:    resp.GetExceptionCode(),
+		Message: resp.GetMessage(),
 	}
 }
 
@@ -119,11 +216,10 @@ func (manager *ResourceManager) LockQuery(ctx context.Context, xid string, resou
 	}
 	if resp.ResultCode == apis.ResultCodeSuccess {
 		return resp.Lockable, nil
-	} else {
-		return false, &exception.TransactionException{
-			Code:    resp.GetExceptionCode(),
-			Message: resp.GetMessage(),
-		}
+	}
+	return false, &exception.TransactionException{
+		Code:    resp.GetExceptionCode(),
+		Message: resp.GetMessage(),
 	}
 }
 

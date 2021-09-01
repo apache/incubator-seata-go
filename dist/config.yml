@@ -3,11 +3,10 @@ server:
   maxRollbackRetryTimeout: -1
   maxCommitRetryTimeout: -1
   rollbackRetryTimeoutUnlockEnable: true
-  asyncCommittingRetryPeriod: 1s
-  committingRetryPeriod: 5s
+  asyncCommittingRetryPeriod: 10s
+  committingRetryPeriod: 1s
   rollingBackRetryPeriod: 1s
   timeoutRetryPeriod: 1s
-  streamMessageTimeout: 30s
 enforcementPolicy:
   minTime: 5s
   permitWithoutStream: true
@@ -22,16 +21,16 @@ clientParameters:
   timeout: 1s
   permitWithoutStream: true
 storage:
-#  inMemory driver only for testing
-#  inmemory:
-  mysql:
-    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-    globaltable: global_table2
-    branchtable: branch_table2
-    locktable: lock_table
-    maxopenconnections: 100
-    maxidleconnections: 20
-    maxlifetime: 4h
+  #  inMemory driver only for testing
+  inmemory:
+#  mysql:
+#    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+#    globaltable: global_table2
+#    branchtable: branch_table2
+#    locktable: lock_table
+#    maxopenconnections: 100
+#    maxidleconnections: 20
+#    maxlifetime: 4h
 #  pgsql:
 #    dsn: "postgres://postgres:123456@127.0.0.1:5432/seata?search_path=public&sslmode=disable"
 #    globaltable: global_table
@@ -41,5 +40,5 @@ storage:
 #    maxidleconnections: 20
 #    maxlifetime: 4h
 log:
-  logPath: /Users/scottlewis/dksl/git/1/seata-golang/cmd/profiles/dev/seata.log
+  logPath: seata.log
   logLevel: info

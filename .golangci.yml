@@ -1,0 +1,18 @@
+run:
+  deadline: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - varcheck
+    - goimports
+    - gocritic
+    - revive

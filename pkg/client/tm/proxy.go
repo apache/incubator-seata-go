@@ -12,8 +12,6 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
-import ()
-
 type GlobalTransactionProxyService interface {
 	GetProxyService() interface{}
 	GetMethodTransactionInfo(methodName string) *model.TransactionInfo
@@ -40,8 +38,8 @@ func Implement(v GlobalTransactionProxyService) {
 	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, txInfo *model.TransactionInfo) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			var (
-				args                     = make([]interface{}, 0)
-				returnValues             = make([]reflect.Value, 0)
+				args                     []interface{}
+				returnValues             []reflect.Value
 				suspendedResourcesHolder *SuspendedResourcesHolder
 			)
 
@@ -68,14 +66,17 @@ func Implement(v GlobalTransactionProxyService) {
 			}
 
 			tx := GetCurrentOrCreate(invCtx)
-			defer tx.Resume(suspendedResourcesHolder, invCtx)
+			defer func() {
+				err := tx.Resume(suspendedResourcesHolder, invCtx)
+				if err != nil {
+					log.Error(err)
+				}
+			}()
 
 			switch txInfo.Propagation {
 			case model.Required:
-				break
 			case model.RequiresNew:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
-				break
 			case model.NotSupported:
 				suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
@@ -85,19 +86,16 @@ func Implement(v GlobalTransactionProxyService) {
 					returnValues = proxy.Invoke(methodDesc, invCtx, args)
 					return returnValues
 				}
-				break
 			case model.Never:
 				if invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s", invCtx.GetXID()))
-				} else {
-					returnValues = proxy.Invoke(methodDesc, invCtx, args)
-					return returnValues
 				}
+				returnValues = proxy.Invoke(methodDesc, invCtx, args)
+				return returnValues
 			case model.Mandatory:
 				if !invCtx.InGlobalTransaction() {
 					return proxy.ReturnWithError(methodDesc, errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
 				}
-				break
 			default:
 				return proxy.ReturnWithError(methodDesc, errors.Errorf("Not Supported Propagation: %s", txInfo.Propagation.String()))
 			}
@@ -111,13 +109,13 @@ func Implement(v GlobalTransactionProxyService) {
 
 			errValue := returnValues[len(returnValues)-1]
 
-			//todo 只要出错就回滚，未来可以优化一下，某些错误才回滚，某些错误的情况下，可以提交
+			// todo 只要出错就回滚，未来可以优化一下，某些错误才回滚，某些错误的情况下，可以提交
 			if errValue.IsValid() && !errValue.IsNil() {
 				rollbackErr := tx.Rollback(invCtx)
 				if rollbackErr != nil {
 					return proxy.ReturnWithError(methodDesc, errors.WithStack(rollbackErr))
 				}
-				return proxy.ReturnWithError(methodDesc, errors.New("rollback failure"))
+				return returnValues
 			}
 
 			commitErr := tx.Commit(invCtx)

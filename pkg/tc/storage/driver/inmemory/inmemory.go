@@ -1,4 +1,4 @@
-package in_memory
+package inmemory
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage/driver/factory"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
-
 )
 
 func init() {
@@ -19,7 +18,7 @@ func init() {
 // inMemoryFactory implements the factory.StorageDriverFactory interface
 type inMemoryFactory struct{}
 
-func (factory *inMemoryFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *inMemoryFactory) Create(parameters map[string]interface{}) (storage.Driver, error) {
 	return &driver{
 		SessionMap: &sync.Map{},
 		LockMap:    &sync.Map{},
@@ -66,6 +65,36 @@ func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalSta
 	driver.SessionMap.Range(func(key, value interface{}) bool {
 		session := value.(*model.GlobalTransaction)
 		if contains(statuses, session.Status) {
+			sessions = append(sessions, session.GlobalSession)
+		}
+		return true
+	})
+	return sessions
+}
+
+// Find global sessions list with addressing identities
+func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
+	addressingIdentities []string) []*apis.GlobalSession {
+	contain := func(statuses []apis.GlobalSession_GlobalStatus, status apis.GlobalSession_GlobalStatus) bool {
+		for _, s := range statuses {
+			if s == status {
+				return true
+			}
+		}
+		return false
+	}
+	containAddressing := func(addressingIdentities []string, addressing string) bool {
+		for _, s := range addressingIdentities {
+			if s == addressing {
+				return true
+			}
+		}
+		return false
+	}
+	var sessions = make([]*apis.GlobalSession, 0)
+	driver.SessionMap.Range(func(key, value interface{}) bool {
+		session := value.(*model.GlobalTransaction)
+		if contain(statuses, session.Status) && containAddressing(addressingIdentities, session.Addressing) {
 			sessions = append(sessions, session.GlobalSession)
 		}
 		return true

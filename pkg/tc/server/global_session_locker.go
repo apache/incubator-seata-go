@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"time"
+
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 )
 
 type GlobalSessionLocker interface {

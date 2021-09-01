@@ -4,10 +4,10 @@ import "strings"
 
 // refer to [Types](java.sql.Types)
 
-type SqlType int32
+type Type int32
 
 const (
-	BIT SqlType = -7
+	BIT Type = -7
 
 	TINYINT = -6
 
@@ -49,7 +49,7 @@ const (
 
 	OTHER = 1111
 
-	JAVA_OBJECT = 2000
+	JavaObject = 2000
 
 	DISTINCT = 2001
 
@@ -79,14 +79,14 @@ const (
 
 	SQLXML = 2009
 
-	REF_CURSOR = 2012
+	RefCursor = 2012
 
-	TIME_WITH_TIMEZONE = 2013
+	TimeWithTimezone = 2013
 
-	TIMESTAMP_WITH_TIMEZONE = 2014
+	TimestampWithTimezone = 2014
 )
 
-var SqlTypes = map[string]int32{
+var SQLTypes = map[string]int32{
 	"BIT":                     -7,
 	"TINYINT":                 -6,
 	"SMALLINT":                5,
@@ -128,6 +128,6 @@ var SqlTypes = map[string]int32{
 	"TIMESTAMP_WITH_TIMEZONE": 2014,
 }
 
-func GetSqlType(dataType string) int32 {
-	return SqlTypes[strings.ToUpper(dataType)]
+func GetSQLType(dataType string) int32 {
+	return SQLTypes[strings.ToUpper(dataType)]
 }
