@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // register mysql
 	"github.com/go-xorm/xorm"
 	"xorm.io/builder"
 
@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	InsertGlobalTransaction = `insert into %s (addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
+	InsertGlobalTransaction = `insert into %s (addressing, xid, transaction_id, transaction_name, timeout, begin_time,
 		status, active, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
 
-	QueryGlobalTransactionByXid = `select addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
+	QueryGlobalTransactionByXid = `select addressing, xid, transaction_id, transaction_name, timeout, begin_time,
 		status, active, gmt_create, gmt_modified from %s where xid = ?`
 
 	UpdateGlobalTransaction = "update %s set status = ?, gmt_modified = now() where xid = ?"
@@ -43,7 +43,7 @@ const (
 
 	DeleteBranchTransaction = "delete from %s where xid = ? and branch_id = ?"
 
-	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, 
+	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create,
 		gmt_modified) values %s`
 
 	QueryRowKey = `select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
@@ -68,7 +68,7 @@ type DriverParameters struct {
 // mysqlFactory implements the factory.StorageDriverFactory interface
 type mysqlFactory struct{}
 
-func (factory *mysqlFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *mysqlFactory) Create(parameters map[string]interface{}) (storage.Driver, error) {
 	return FromParameters(parameters)
 }
 
@@ -80,7 +80,7 @@ type driver struct {
 	queryLimit  int
 }
 
-func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 	dsn := parameters["dsn"]
 	if dsn == nil {
 		dsn = ""
@@ -184,7 +184,7 @@ func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, e
 }
 
 // New constructs a new Driver
-func New(params DriverParameters) (storage.StorageDriver, error) {
+func New(params DriverParameters) (storage.Driver, error) {
 	if params.DSN == "" {
 		return nil, fmt.Errorf("the dsn parameter should not be empty")
 	}

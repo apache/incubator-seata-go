@@ -10,15 +10,15 @@ import (
 // factories
 var driverFactories = make(map[string]StorageDriverFactory)
 
-// StorageDriverFactory is a factory interface for creating storage.StorageDriver interfaces
+// StorageDriverFactory is a factory interface for creating storage.Driver interfaces
 // Storage drivers should call Register() with a factory to make the driver available by name.
-// Individual StorageDriver implementations generally register with the factory via the Register
+// Individual Driver implementations generally register with the factory via the Register
 // func (below) in their init() funcs, and as such they should be imported anonymously before use.
 type StorageDriverFactory interface {
-	// Create returns a new storage.StorageDriver with the given parameters
+	// Create returns a new storage.Driver with the given parameters
 	// Parameters will vary by driver and may be ignored
 	// Each parameter key must only consist of lowercase letters and numbers
-	Create(parameters map[string]interface{}) (storage.StorageDriver, error)
+	Create(parameters map[string]interface{}) (storage.Driver, error)
 }
 
 // Register makes a storage driver available by the provided name.
@@ -37,11 +37,11 @@ func Register(name string, factory StorageDriverFactory) {
 	driverFactories[name] = factory
 }
 
-// Create a new storage.StorageDriver with the given name and
+// Create a new storage.Driver with the given name and
 // parameters. To use a driver, the StorageDriverFactory must first be
 // registered with the given name. If no drivers are found, an
 // InvalidStorageDriverError is returned
-func Create(name string, parameters map[string]interface{}) (storage.StorageDriver, error) {
+func Create(name string, parameters map[string]interface{}) (storage.Driver, error) {
 	driverFactory, ok := driverFactories[name]
 	if !ok {
 		return nil, InvalidStorageDriverError{name}
@@ -55,5 +55,5 @@ type InvalidStorageDriverError struct {
 }
 
 func (err InvalidStorageDriverError) Error() string {
-	return fmt.Sprintf("StorageDriver not registered: %s", err.Name)
+	return fmt.Sprintf("Driver not registered: %s", err.Name)
 }

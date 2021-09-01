@@ -30,8 +30,8 @@ type Configuration struct {
 	} `yaml:"clientParameters"`
 
 	Log struct {
-		LogPath  string       `yaml:"logPath"`
-		LogLevel log.LogLevel `yaml:"logLevel"`
+		LogPath  string    `yaml:"logPath"`
+		LogLevel log.Level `yaml:"logLevel"`
 	} `yaml:"log"`
 }
 
@@ -112,12 +112,17 @@ func InitConfiguration(configurationPath string) *Configuration {
 		log.Fatalf("open configuration file fail, %v", err)
 	}
 
-	defer fp.Close()
-
 	config, err := parse(fp)
 	if err != nil {
 		log.Fatalf("error parsing %s: %v", configurationPath, err)
 	}
+
+	defer func() {
+		err = fp.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 
 	configuration = config
 	return configuration

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-xorm/xorm"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // register pg
 	"xorm.io/builder"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	InsertGlobalTransaction = `insert into %s (addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
+	InsertGlobalTransaction = `insert into %s (addressing, xid, transaction_id, transaction_name, timeout, begin_time,
 		status, active, gmt_create, gmt_modified) values($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
-	QueryGlobalTransactionByXid = `select addressing, xid, transaction_id, transaction_name, timeout, begin_time, 
+	QueryGlobalTransactionByXid = `select addressing, xid, transaction_id, transaction_name, timeout, begin_time,
 		status, active, gmt_create, gmt_modified from %s where xid = $1`
 
 	UpdateGlobalTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where xid = $2"
@@ -43,7 +43,7 @@ const (
 
 	DeleteBranchTransaction = "delete from %s where xid = $1 and branch_id = $2"
 
-	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, 
+	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create,
 		gmt_modified) values %s`
 
 	QueryRowKey = `select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
@@ -68,7 +68,7 @@ type DriverParameters struct {
 // pgsqlFactory implements the factory.StorageDriverFactory interface
 type pgsqlFactory struct{}
 
-func (factory *pgsqlFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *pgsqlFactory) Create(parameters map[string]interface{}) (storage.Driver, error) {
 	return FromParameters(parameters)
 }
 
@@ -80,7 +80,7 @@ type driver struct {
 	queryLimit  int
 }
 
-func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 	dsn := parameters["dsn"]
 	if dsn == nil {
 		dsn = ""
@@ -184,7 +184,7 @@ func FromParameters(parameters map[string]interface{}) (storage.StorageDriver, e
 }
 
 // New constructs a new Driver
-func New(params DriverParameters) (storage.StorageDriver, error) {
+func New(params DriverParameters) (storage.Driver, error) {
 	if params.DSN == "" {
 		return nil, fmt.Errorf("the dsn parameter should not be empty")
 	}

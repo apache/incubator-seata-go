@@ -2,36 +2,36 @@ package tcc
 
 import (
 	"encoding/json"
-	"github.com/opentrx/seata-golang/v2/pkg/apis"
-	"github.com/opentrx/seata-golang/v2/pkg/client/rm"
 	"reflect"
 	"strconv"
 
 	gxnet "github.com/dubbogo/gost/net"
 	"github.com/pkg/errors"
 
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
 	"github.com/opentrx/seata-golang/v2/pkg/client/proxy"
+	"github.com/opentrx/seata-golang/v2/pkg/client/rm"
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 	"github.com/opentrx/seata-golang/v2/pkg/util/time"
 )
 
 var (
-	TCC_ACTION_NAME = "TccActionName"
+	TccActionName = "TccActionName"
 
-	TRY_METHOD     = "Try"
-	CONFIRM_METHOD = "Confirm"
-	CANCEL_METHOD  = "Cancel"
+	TryMethod     = "Try"
+	ConfirmMethod = "Confirm"
+	CancelMethod  = "Cancel"
 
-	ACTION_START_TIME = "action-start-time"
-	ACTION_NAME       = "actionName"
-	PREPARE_METHOD    = "sys::prepare"
-	COMMIT_METHOD     = "sys::commit"
-	ROLLBACK_METHOD   = "sys::rollback"
-	HOST_NAME         = "host-name"
+	ActionStartTime = "action-start-time"
+	ActionName      = "actionName"
+	PrepareMethod   = "sys::prepare"
+	CommitMethod    = "sys::commit"
+	RollbackMethod  = "sys::rollback"
+	HostName        = "host-name"
 
-	TCC_METHOD_ARGUMENTS = "arguments"
-	TCC_METHOD_RESULT    = "result"
+	TccMethodArguments = "arguments"
+	TccMethodResult    = "result"
 
 	businessActionContextType = reflect.TypeOf(&ctx.BusinessActionContext{})
 )
@@ -82,26 +82,26 @@ func ImplementTCC(v TccProxyService) {
 		t := typeOf.Field(i)
 		methodName := t.Name
 		f := valueOfElem.Field(i)
-		if f.Kind() == reflect.Func && f.IsValid() && f.CanSet() && methodName == TRY_METHOD {
+		if f.Kind() == reflect.Func && f.IsValid() && f.CanSet() && methodName == TryMethod {
 			if t.Type.NumIn() != 1 && t.Type.In(0) != businessActionContextType {
 				panic("prepare method argument is not BusinessActionContext")
 			}
 
-			actionName := t.Tag.Get(TCC_ACTION_NAME)
+			actionName := t.Tag.Get(TccActionName)
 			if actionName == "" {
 				panic("must tag TccActionName")
 			}
 
-			commitMethodDesc := proxy.Register(proxyService, CONFIRM_METHOD)
-			cancelMethodDesc := proxy.Register(proxyService, CANCEL_METHOD)
+			commitMethodDesc := proxy.Register(proxyService, ConfirmMethod)
+			cancelMethodDesc := proxy.Register(proxyService, CancelMethod)
 			tryMethodDesc := proxy.Register(proxyService, methodName)
 
 			tccResource := &TCCResource{
 				ActionName:         actionName,
-				PrepareMethodName:  TRY_METHOD,
-				CommitMethodName:   COMMIT_METHOD,
+				PrepareMethodName:  TryMethod,
+				CommitMethodName:   CommitMethod,
 				CommitMethod:       commitMethodDesc,
-				RollbackMethodName: CANCEL_METHOD,
+				RollbackMethodName: CancelMethod,
 				RollbackMethod:     cancelMethodDesc,
 			}
 
@@ -139,20 +139,20 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext,
 }
 
 func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) (int64, error) {
-	ctx.ActionContext[ACTION_START_TIME] = time.CurrentTimeMillis()
-	ctx.ActionContext[PREPARE_METHOD] = resource.PrepareMethodName
-	ctx.ActionContext[COMMIT_METHOD] = resource.CommitMethodName
-	ctx.ActionContext[ROLLBACK_METHOD] = resource.RollbackMethodName
-	ctx.ActionContext[ACTION_NAME] = ctx.ActionName
+	ctx.ActionContext[ActionStartTime] = time.CurrentTimeMillis()
+	ctx.ActionContext[PrepareMethod] = resource.PrepareMethodName
+	ctx.ActionContext[CommitMethod] = resource.CommitMethodName
+	ctx.ActionContext[RollbackMethod] = resource.RollbackMethodName
+	ctx.ActionContext[ActionName] = ctx.ActionName
 	ip, err := gxnet.GetLocalIP()
 	if err == nil {
-		ctx.ActionContext[HOST_NAME] = ip
+		ctx.ActionContext[HostName] = ip
 	} else {
 		log.Warn("getLocalIP error")
 	}
 
 	applicationContext := make(map[string]interface{})
-	applicationContext[TCC_ACTION_CONTEXT] = ctx.ActionContext
+	applicationContext[TccActionContext] = ctx.ActionContext
 
 	applicationData, err := json.Marshal(applicationContext)
 	if err != nil {

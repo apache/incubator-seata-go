@@ -26,7 +26,7 @@ func (locker *LockManager) AcquireLock(branchSession *apis.BranchSession) bool {
 	}
 
 	locks := storage.CollectBranchSessionRowLocks(branchSession)
-	if locks == nil || len(locks) == 0 {
+	if len(locks) == 0 {
 		return true
 	}
 
@@ -44,7 +44,7 @@ func (locker *LockManager) ReleaseLock(branchSession *apis.BranchSession) bool {
 	}
 
 	locks := storage.CollectBranchSessionRowLocks(branchSession)
-	if locks == nil || len(locks) == 0 {
+	if len(locks) == 0 {
 		return true
 	}
 

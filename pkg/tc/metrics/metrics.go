@@ -1,57 +1,57 @@
 package metrics
 
 import (
-	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"sort"
 
 	"github.com/rcrowley/go-metrics"
 
+	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/event"
 	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
 )
 
 var (
-	SEATA_TRANSACTION = "seata.transaction"
+	SeataTransaction = "seata.transaction"
 
-	NAME_KEY = "name"
+	NameKey = "name"
 
-	ROLE_KEY = "role"
+	RoleKey = "role"
 
-	METER_KEY = "meter"
+	MeterKey = "meter"
 
-	STATISTIC_KEY = "statistic"
+	StatisticKey = "statistic"
 
-	STATUS_KEY = "status"
+	StatusKey = "status"
 
-	ROLE_VALUE_TC = "tc"
+	RoleValueTc = "tc"
 
-	ROLE_VALUE_TM = "client"
+	RoleValueTm = "client"
 
-	ROLE_VALUE_RM = "rm"
+	RoleValueRm = "rm"
 
-	METER_VALUE_GAUGE = "gauge"
+	MeterValueGauge = "gauge"
 
-	METER_VALUE_COUNTER = "counter"
+	MeterValueCounter = "counter"
 
-	METER_VALUE_SUMMARY = "summary"
+	MeterValueSummary = "summary"
 
-	METER_VALUE_TIMER = "timer"
+	MeterValueTimer = "timer"
 
-	STATISTIC_VALUE_COUNT = "count"
+	StatisticValueCount = "count"
 
-	STATISTIC_VALUE_TOTAL = "total"
+	StatisticValueTotal = "total"
 
-	STATISTIC_VALUE_TPS = "tps"
+	StatisticValueTps = "tps"
 
-	STATISTIC_VALUE_MAX = "max"
+	StatisticValueMax = "max"
 
-	STATISTIC_VALUE_AVERAGE = "average"
+	StatisticValueAverage = "average"
 
-	STATUS_VALUE_ACTIVE = "active"
+	StatusValueActive = "active"
 
-	STATUS_VALUE_COMMITTED = "committed"
+	StatusValueCommitted = "committed"
 
-	STATUS_VALUE_ROLLBACKED = "rollbacked"
+	StatusValueRollbacked = "rollbacked"
 )
 
 type Counter struct {
@@ -122,105 +122,98 @@ func sortedLabels(labels map[string]string) (keys, values []string) {
 }
 
 var (
-	COUNTER_ACTIVE = &Counter{
+	CounterActive = &Counter{
 		Counter: metrics.NewCounter(),
-		Name:    SEATA_TRANSACTION,
+		Name:    SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_COUNTER,
-			STATUS_KEY: STATUS_VALUE_ACTIVE,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueCounter,
+			StatusKey: StatusValueActive,
 		},
 	}
-	COUNTER_COMMITTED = &Counter{
+	CounterCommitted = &Counter{
 		Counter: metrics.NewCounter(),
-		Name:    SEATA_TRANSACTION,
+		Name:    SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_COUNTER,
-			STATUS_KEY: STATUS_VALUE_COMMITTED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueCounter,
+			StatusKey: StatusValueCommitted,
 		},
 	}
-	COUNTER_ROLLBACKED = &Counter{
+	CounterRollbacked = &Counter{
 		Counter: metrics.NewCounter(),
-		Name:    SEATA_TRANSACTION,
+		Name:    SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_COUNTER,
-			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueCounter,
+			StatusKey: StatusValueRollbacked,
 		},
 	}
-	SUMMARY_COMMITTED = &Summary{
+	SummaryCommitted = &Summary{
 		Meter: metrics.NewMeter(),
-		Name:  SEATA_TRANSACTION,
+		Name:  SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_SUMMARY,
-			STATUS_KEY: STATUS_VALUE_COMMITTED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueSummary,
+			StatusKey: StatusValueCommitted,
 		},
 	}
-	SUMMARY_ROLLBACKED = &Summary{
+	SummaryRollbacked = &Summary{
 		Meter: metrics.NewMeter(),
-		Name:  SEATA_TRANSACTION,
+		Name:  SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_SUMMARY,
-			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueSummary,
+			StatusKey: StatusValueRollbacked,
 		},
 	}
-	TIMER_COMMITTED = &Histogram{
+	TimerCommitted = &Histogram{
 		Histogram: metrics.NewHistogram(metrics.NewExpDecaySample(1028, 0.015)),
-		Name:      SEATA_TRANSACTION,
+		Name:      SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_TIMER,
-			STATUS_KEY: STATUS_VALUE_COMMITTED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueTimer,
+			StatusKey: StatusValueCommitted,
 		},
 	}
-	TIMER_ROLLBACK = &Histogram{
+	TimerRollback = &Histogram{
 		Histogram: metrics.NewHistogram(metrics.NewExpDecaySample(1028, 0.015)),
-		Name:      SEATA_TRANSACTION,
+		Name:      SeataTransaction,
 		Labels: map[string]string{
-			ROLE_KEY:   ROLE_VALUE_TC,
-			METER_KEY:  METER_VALUE_TIMER,
-			STATUS_KEY: STATUS_VALUE_ROLLBACKED,
+			RoleKey:   RoleValueTc,
+			MeterKey:  MeterValueTimer,
+			StatusKey: StatusValueRollbacked,
 		},
 	}
 )
 
-type MetricsSubscriber struct {
+type Subscriber struct {
 }
 
-func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
+func (subscriber *Subscriber) ProcessGlobalTransactionEvent() {
 	for {
 		gtv := <-event.EventBus.GlobalTransactionEventChannel
 		switch gtv.GetStatus() {
 		case apis.Begin:
-			COUNTER_ACTIVE.Inc(1)
-			break
+			CounterActive.Inc(1)
 		case apis.Committed:
-			COUNTER_ACTIVE.Dec(1)
-			COUNTER_COMMITTED.Inc(1)
-			SUMMARY_COMMITTED.Mark(1)
-			TIMER_COMMITTED.Update(gtv.GetEndTime() - gtv.GetBeginTime())
-			break
+			CounterActive.Dec(1)
+			CounterCommitted.Inc(1)
+			SummaryCommitted.Mark(1)
+			TimerCommitted.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 		case apis.RolledBack:
-			COUNTER_ACTIVE.Dec(1)
-			COUNTER_ROLLBACKED.Inc(1)
-			SUMMARY_ROLLBACKED.Mark(1)
-			TIMER_ROLLBACK.Update(gtv.GetEndTime() - gtv.GetBeginTime())
-			break
+			CounterActive.Dec(1)
+			CounterRollbacked.Inc(1)
+			SummaryRollbacked.Mark(1)
+			TimerRollback.Update(gtv.GetEndTime() - gtv.GetBeginTime())
 		case apis.CommitFailed:
-			COUNTER_ACTIVE.Dec(1)
-			break
+			CounterActive.Dec(1)
 		case apis.RollbackFailed:
-			COUNTER_ACTIVE.Dec(1)
-			break
+			CounterActive.Dec(1)
 		case apis.TimeoutRolledBack:
-			COUNTER_ACTIVE.Dec(1)
-			break
+			CounterActive.Dec(1)
 		case apis.TimeoutRollbackFailed:
-			COUNTER_ACTIVE.Dec(1)
-			break
+			CounterActive.Dec(1)
 		default:
 			break
 		}
@@ -228,7 +221,7 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 }
 
 func init() {
-	subscriber := &MetricsSubscriber{}
+	subscriber := &Subscriber{}
 	runtime.GoWithRecover(func() {
 		subscriber.ProcessGlobalTransactionEvent()
 	}, nil)

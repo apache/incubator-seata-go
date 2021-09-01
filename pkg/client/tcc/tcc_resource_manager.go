@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	TCC_ACTION_CONTEXT = "actionContext"
+	TccActionContext = "actionContext"
 )
 
 var tccResourceManager TCCResourceManager
@@ -55,7 +55,7 @@ func (resourceManager TCCResourceManager) BranchCommit(ctx context.Context, requ
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.CommitMethod, nil, args)
 	log.Debugf("TCC resource commit result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, request.XID, request.BranchID, request.ResourceID)
-	if returnValues != nil && len(returnValues) == 1 {
+	if len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
@@ -65,14 +65,13 @@ func (resourceManager TCCResourceManager) BranchCommit(ctx context.Context, requ
 			BranchID:     request.BranchID,
 			BranchStatus: apis.PhaseTwoCommitted,
 		}, nil
-	} else {
-		return &apis.BranchCommitResponse{
-			ResultCode:   apis.ResultCodeSuccess,
-			XID:          request.XID,
-			BranchID:     request.BranchID,
-			BranchStatus: apis.PhaseTwoCommitFailedRetryable,
-		}, nil
 	}
+	return &apis.BranchCommitResponse{
+		ResultCode:   apis.ResultCodeSuccess,
+		XID:          request.XID,
+		BranchID:     request.BranchID,
+		BranchStatus: apis.PhaseTwoCommitFailedRetryable,
+	}, nil
 }
 
 func (resourceManager TCCResourceManager) BranchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
@@ -97,7 +96,7 @@ func (resourceManager TCCResourceManager) BranchRollback(ctx context.Context, re
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.RollbackMethod, nil, args)
 	log.Debugf("TCC resource rollback result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, request.XID, request.BranchID, request.ResourceID)
-	if returnValues != nil && len(returnValues) == 1 {
+	if len(returnValues) == 1 {
 		result = returnValues[0].Interface().(bool)
 	}
 	if result {
@@ -107,14 +106,13 @@ func (resourceManager TCCResourceManager) BranchRollback(ctx context.Context, re
 			BranchID:     request.BranchID,
 			BranchStatus: apis.PhaseTwoRolledBack,
 		}, nil
-	} else {
-		return &apis.BranchRollbackResponse{
-			ResultCode:   apis.ResultCodeSuccess,
-			XID:          request.XID,
-			BranchID:     request.BranchID,
-			BranchStatus: apis.PhaseTwoRollbackFailedRetryable,
-		}, nil
 	}
+	return &apis.BranchRollbackResponse{
+		ResultCode:   apis.ResultCodeSuccess,
+		XID:          request.XID,
+		BranchID:     request.BranchID,
+		BranchStatus: apis.PhaseTwoRollbackFailedRetryable,
+	}, nil
 }
 
 func getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *ctx.BusinessActionContext {
@@ -129,7 +127,7 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 		}
 	}
 
-	acMap := tccContext[TCC_ACTION_CONTEXT]
+	acMap := tccContext[TccActionContext]
 	if acMap != nil {
 		actionContextMap = acMap.(map[string]interface{})
 	}

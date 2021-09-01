@@ -3,41 +3,73 @@
 name: CI
 
 # Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the dev branch
+# events for all branches and tags
 on:
   push:
-    branches:
-      - dev
-      - v2
+    branches: [ '**' ]
   pull_request:
-    branches:
-      - dev
-      - v2
+    branches: [ '**' ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "lint"
-  build:
+  lint-and-test:
+    strategy:
+      matrix:
+        go-version: [ 1.15.x ]
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
-          go-version: 1.15
+          go-version: ${{ matrix.go-version }}
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Lint Go Code
+      - name: Go Build
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-          go get -u golang.org/x/lint/golint 
-          golint ./...
+          go build ./...
 
-      - name: Build
+      - name: Go Vet
+        run: |
+          go vet -v ./...
+
+      - name: GolangCI Lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.39.0
+          golangci-lint run ./...
+
+      - name: Unit Tests
+        run: |
+          mkdir -p build
+          go test ./... -coverprofile=./build/c.out
+
+      - name: Code Coverage
+        run: |
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go tool cover -html=build/c.out -o build/coverage.html
+          gocov convert build/c.out | gocov-xml > build/coverage.xml
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: build/
+
+  docker-build:
+    strategy:
+      matrix:
+        go-version: [ 1.15.x ]
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker Build
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/v2' || contains(github.ref, 'release') }}
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}

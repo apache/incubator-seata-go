@@ -1,4 +1,4 @@
-package in_memory
+package inmemory
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func init() {
 // inMemoryFactory implements the factory.StorageDriverFactory interface
 type inMemoryFactory struct{}
 
-func (factory *inMemoryFactory) Create(parameters map[string]interface{}) (storage.StorageDriver, error) {
+func (factory *inMemoryFactory) Create(parameters map[string]interface{}) (storage.Driver, error) {
 	return &driver{
 		SessionMap: &sync.Map{},
 		LockMap:    &sync.Map{},
