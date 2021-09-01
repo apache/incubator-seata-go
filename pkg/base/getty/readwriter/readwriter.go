@@ -2,6 +2,7 @@ package readwriter
 
 import (
 	"bytes"
+	"encoding/binary"
 )
 
 import (
@@ -39,70 +40,147 @@ import (
  * https://github.com/seata/seata/issues/893
  */
 
+const (
+	SeataV1PackageHeaderReservedLength = 16
+)
+
 var (
 	// RpcPkgHandler
 	RpcPkgHandler = &RpcPackageHandler{}
 )
 
+var (
+	ErrNotEnoughStream = errors.New("packet stream is not enough")
+	ErrTooLargePackage = errors.New("package length is exceed the getty package's legal maximum length.")
+	ErrInvalidPackage  = errors.New("invalid rpc package")
+	ErrIllegalMagic    = errors.New("package magic is not right.")
+)
+
 type RpcPackageHandler struct{}
+
+type SeataV1PackageHeader struct {
+	Magic0 byte
+	Magic1 byte
+	Version byte
+	TotalLength uint32
+	HeadLength uint16
+	MessageType byte
+	CodecType byte
+	CompressType byte
+	ID  uint32
+	Meta map[string]string
+	BodyLength uint32
+}
+
+func (h *SeataV1PackageHeader) Unmarshal(buf *bytes.Buffer) (int, error) {
+	bufLen := buf.Len()
+	if bufLen < SeataV1PackageHeaderReservedLength {
+		return 0, ErrNotEnoughStream
+	}
+
+	// magic
+	if err := binary.Read(buf, binary.BigEndian, &(h.Magic0)); err != nil {
+		return 0, err
+	}
+	if err := binary.Read(buf, binary.BigEndian, &(h.Magic1)); err != nil {
+		return 0, err
+	}
+	if h.Magic0 != protocal.MAGIC_CODE_BYTES[0] || h.Magic1 != protocal.MAGIC_CODE_BYTES[1] {
+		return 0, ErrIllegalMagic
+	}
+	// version
+	if err := binary.Read(buf, binary.BigEndian, &(h.Version)); err != nil {
+		return 0, err
+	}
+	// TODO  check version compatible here
+
+	// total length
+	if err := binary.Read(buf, binary.BigEndian, &(h.TotalLength)); err != nil {
+		return 0, err
+	}
+	// head length
+	if err := binary.Read(buf, binary.BigEndian, &(h.HeadLength)); err != nil {
+		return 0, err
+	}
+	// message type
+	if err := binary.Read(buf, binary.BigEndian, &(h.MessageType)); err != nil {
+		return 0, err
+	}
+	// codec type
+	if err := binary.Read(buf, binary.BigEndian, &(h.CodecType)); err != nil {
+		return 0, err
+	}
+	// compress type
+	if err := binary.Read(buf, binary.BigEndian, &(h.CompressType)); err != nil {
+		return 0, err
+	}
+	// id
+	if err := binary.Read(buf, binary.BigEndian, &(h.ID)); err != nil {
+		return 0, err
+	}
+	// todo meta map
+	if h.HeadLength > SeataV1PackageHeaderReservedLength {
+		headMapLength := h.HeadLength - SeataV1PackageHeaderReservedLength
+		h.Meta = headMapDecode(buf.Bytes()[:headMapLength])
+	}
+	h.BodyLength = h.TotalLength - uint32(h.HeadLength)
+
+	return int(h.TotalLength), nil
+}
 
 // Read read binary data from to rpc message
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
+	var header SeataV1PackageHeader
 
-	b0, _ := r.ReadByte()
-	b1, _ := r.ReadByte()
-
-	if b0 != protocal.MAGIC_CODE_BYTES[0] || b1 != protocal.MAGIC_CODE_BYTES[1] {
-		return nil, 0, errors.Errorf("Unknown magic code: %b,%b", b0, b1)
+	buf := bytes.NewBuffer(data)
+	_, err := header.Unmarshal(buf)
+	if err != nil {
+		if err == ErrNotEnoughStream {
+			// getty case2
+			return nil, 0, nil
+		}
+		// getty case1
+		return nil, 0, err
+	}
+	if uint32(len(data)) < header.TotalLength {
+		// get case3
+		return nil, int(header.TotalLength), nil
 	}
 
-	r.ReadByte()
-	// TODO  check version compatible here
-
-	fullLength, _, _ := r.ReadInt32()
-	headLength, _, _ := r.ReadInt16()
-	messageType, _ := r.ReadByte()
-	codecType, _ := r.ReadByte()
-	compressorType, _ := r.ReadByte()
-	requestID, _, _ := r.ReadInt32()
-
+	//r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 	rpcMessage := protocal.RpcMessage{
-		Codec:       codecType,
-		ID:          requestID,
-		Compressor:  compressorType,
-		MessageType: messageType,
+		Codec:       header.CodecType,
+		ID:          int32(header.ID),
+		Compressor:  header.CompressType,
+		MessageType: header.MessageType,
+		HeadMap: header.Meta,
 	}
 
-	headMapLength := headLength - protocal.V1HeadLength
-	if headMapLength > 0 {
-		rpcMessage.HeadMap = headMapDecode(data[protocal.V1HeadLength+1 : headMapLength])
-	}
-
-	if messageType == protocal.MSGTypeHeartbeatRequest {
+	if header.MessageType == protocal.MSGTypeHeartbeatRequest {
 		rpcMessage.Body = protocal.HeartBeatMessagePing
-	} else if messageType == protocal.MSGTypeHeartbeatResponse {
+	} else if header.MessageType == protocal.MSGTypeHeartbeatResponse {
 		rpcMessage.Body = protocal.HeartBeatMessagePong
 	} else {
-		bodyLength := fullLength - int32(headLength)
-		if bodyLength > 0 {
+		if header.BodyLength > 0 {
 			//todo compress
-
-			msg, _ := codec.MessageDecoder(codecType, data[headLength:])
+			msg, _ := codec.MessageDecoder(header.CodecType, data[header.HeadLength:])
 			rpcMessage.Body = msg
 		}
 	}
 
-	return rpcMessage, int(fullLength), nil
+	return rpcMessage, int(header.TotalLength), nil
 }
 
 // Write write rpc message to binary data
 func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, error) {
-	var result = make([]byte, 0)
-	msg := pkg.(protocal.RpcMessage)
+	msg, ok := pkg.(protocal.RpcMessage)
+	if !ok {
+		return nil, ErrInvalidPackage
+	}
 
 	fullLength := protocal.V1HeadLength
 	headLength := protocal.V1HeadLength
+	var result = make([]byte, 0, fullLength)
 
 	var b bytes.Buffer
 	w := byteio.BigEndianWriter{Writer: &b}
@@ -124,6 +202,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 
 	if msg.MessageType != protocal.MSGTypeHeartbeatRequest &&
 		msg.MessageType != protocal.MSGTypeHeartbeatResponse {
+
 		bodyBytes := codec.MessageEncoder(msg.Codec, msg.Body)
 		fullLength += len(bodyBytes)
 		w.Write(bodyBytes)
@@ -139,11 +218,12 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 }
 
 func headMapDecode(data []byte) map[string]string {
-	mp := make(map[string]string)
 	size := len(data)
 	if size == 0 {
-		return mp
+		return nil
 	}
+
+	mp := make(map[string]string)
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 
 	readLength := 0
@@ -170,6 +250,7 @@ func headMapDecode(data []byte) map[string]string {
 		mp[key] = value
 		readLength += int(lengthK + lengthV)
 	}
+
 	return mp
 }
 
@@ -192,5 +273,6 @@ func headMapEncode(data map[string]string) ([]byte, int) {
 			w.WriteString(v)
 		}
 	}
+
 	return b.Bytes(), b.Len()
 }
