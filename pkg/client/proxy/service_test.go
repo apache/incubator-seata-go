@@ -101,7 +101,7 @@ func TestSuiteContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualResult := SuiteContext(tt.methodDesc, tt.ctx)
+			actualResult := SuiteContext(tt.ctx, tt.methodDesc)
 
 			assert.Equal(t, tt.expectedResult, actualResult)
 		})
