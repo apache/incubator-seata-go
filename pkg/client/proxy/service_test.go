@@ -10,13 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type Svc struct {}
+type Svc struct{}
+
 var service = &Svc{}
+
 type ProxyService struct {
 	*Svc
 	CreateSo func(ctx context.Context, rollback bool) error
 }
+
 var methodTransactionInfo = make(map[string]*model.TransactionInfo)
+
 func (svc *ProxyService) GetMethodTransactionInfo(methodName string) *model.TransactionInfo {
 	return methodTransactionInfo[methodName]
 }
@@ -26,6 +30,7 @@ func (svc *ProxyService) GetProxyService() interface{} {
 func (svc *Svc) CreateSo(ctx context.Context, rollback bool) error {
 	return nil
 }
+
 var ProxySvc = &ProxyService{
 	Svc: service,
 }
@@ -34,19 +39,19 @@ func TestRegister(t *testing.T) {
 	ps := ProxySvc.GetProxyService()
 	method, _ := reflect.TypeOf(ps).MethodByName("CreateSo")
 
-	tests := []struct{
-		name string
-		service interface{}
-		methodName string
+	tests := []struct {
+		name           string
+		service        interface{}
+		methodName     string
 		expectedResult *MethodDescriptor
 	}{
 		{
-			name: "test register",
-			service: ps,
+			name:       "test register",
+			service:    ps,
 			methodName: "CreateSo",
 			expectedResult: &MethodDescriptor{
-				ArgsNum: 3,
-				Method: reflect.Method{Name: "CreateSo"},
+				ArgsNum:         3,
+				Method:          reflect.Method{Name: "CreateSo"},
 				ReturnValuesNum: 1,
 				ReturnValuesType: []reflect.Type{
 					method.Type.Out(0),
@@ -55,7 +60,7 @@ func TestRegister(t *testing.T) {
 					method.Type.In(1),
 					method.Type.In(2),
 				},
-				CtxType: method.Type.In(1),
+				CtxType:     method.Type.In(1),
 				CallerValue: reflect.ValueOf(ps),
 			},
 		},
@@ -74,19 +79,23 @@ func TestRegister(t *testing.T) {
 }
 
 func TestSuiteContext(t *testing.T) {
-	emptyContext := context.TODO()
-	validContext := context.WithValue(context.TODO(), "aa", "bb")
+	type key string
+	const aa key = "aa"
+	const bb key = "bb"
 
-	tests := []struct{
-		name string
-		methodDesc *MethodDescriptor
-		ctx context.Context
+	emptyContext := context.TODO()
+	validContext := context.WithValue(context.TODO(), aa, bb)
+
+	tests := []struct {
+		name           string
+		methodDesc     *MethodDescriptor
+		ctx            context.Context
 		expectedResult reflect.Value
 	}{
 		{
-			name: "test suite valid context",
-			methodDesc: &MethodDescriptor{},
-			ctx: emptyContext,
+			name:           "test suite valid context",
+			methodDesc:     &MethodDescriptor{},
+			ctx:            emptyContext,
 			expectedResult: reflect.ValueOf(emptyContext),
 		},
 		{
@@ -94,7 +103,7 @@ func TestSuiteContext(t *testing.T) {
 			methodDesc: &MethodDescriptor{
 				CtxType: reflect.TypeOf(validContext),
 			},
-			ctx: nil,
+			ctx:            nil,
 			expectedResult: reflect.Zero(reflect.TypeOf(validContext)),
 		},
 	}
@@ -111,10 +120,10 @@ func TestSuiteContext(t *testing.T) {
 func TestReturnWithError(t *testing.T) {
 	testingErr := errors.New("testing err")
 
-	tests := []struct{
-		name string
-		methodDesc *MethodDescriptor
-		err error
+	tests := []struct {
+		name           string
+		methodDesc     *MethodDescriptor
+		err            error
 		expectedResult []reflect.Value
 	}{
 		{
@@ -148,9 +157,8 @@ func TestReturnWithError(t *testing.T) {
 		{
 			name: "test return with error when methodDesc.ReturnValuesNum is 0",
 			methodDesc: &MethodDescriptor{
-				ReturnValuesNum: 0,
-				ReturnValuesType: []reflect.Type{
-				},
+				ReturnValuesNum:  0,
+				ReturnValuesType: []reflect.Type{},
 			},
 			err: testingErr,
 			expectedResult: []reflect.Value{
@@ -175,9 +183,9 @@ func TestIsExportedOrBuiltinType(t *testing.T) {
 	type notExportedStruct struct {
 		Cdd string
 	}
-	tests := []struct{
-		name string
-		typeOf reflect.Type
+	tests := []struct {
+		name           string
+		typeOf         reflect.Type
 		expectedResult bool
 	}{
 		{
@@ -195,8 +203,8 @@ func TestIsExportedOrBuiltinType(t *testing.T) {
 			expectedResult: false,
 		},
 		{
-			name: "test type is builtin",
-			typeOf: reflect.TypeOf("Abb"), // string type
+			name:           "test type is builtin",
+			typeOf:         reflect.TypeOf("Abb"), // string type
 			expectedResult: true,
 		},
 	}
