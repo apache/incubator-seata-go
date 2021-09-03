@@ -64,6 +64,10 @@ type TCCProxyService interface {
 func ImplementTCC(v TCCProxyService) {
 	valueOf := reflect.ValueOf(v)
 	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
+	if valueOf.Kind() != reflect.Ptr {
+		log.Errorf("%s must be a ptr", valueOf)
+		return
+	}
 
 	valueOfElem := valueOf.Elem()
 	typeOf := valueOfElem.Type()
