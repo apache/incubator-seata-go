@@ -247,14 +247,15 @@ func isRetryTimeout(now int64, timeout int64, beginTime int64) bool {
 }
 
 func (coordinator *DefaultCoordinator) handleRetryCommitting() {
-	committingSessions := holder.GetSessionHolder().RetryCommittingSessionManager.AllSessions()
+	ssMgr := holder.GetSessionHolder().RetryCommittingSessionManager
+	committingSessions := ssMgr.AllSessions()
 	if committingSessions == nil && len(committingSessions) <= 0 {
 		return
 	}
 	now := time2.CurrentTimeMillis()
 	for _, committingSession := range committingSessions {
 		if isRetryTimeout(int64(now), coordinator.conf.MaxCommitRetryTimeout, committingSession.BeginTime) {
-			holder.GetSessionHolder().RetryCommittingSessionManager.RemoveGlobalSession(committingSession)
+			ssMgr.RemoveGlobalSession(committingSession)
 			log.Errorf("GlobalSession commit retry timeout and removed [%s]", committingSession.XID)
 			continue
 		}

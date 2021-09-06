@@ -354,7 +354,14 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	)
 
 	runtime.GoWithRecover(func() {
-		evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime, 0, globalSession.Status)
+		evt := event.NewGlobalTransactionEvent(
+			globalSession.TransactionID,
+			event.RoleTC,
+			globalSession.TransactionName,
+			globalSession.BeginTime,
+			0,
+			globalSession.Status,
+		)
 		event.EventBus.GlobalTransactionEventChannel <- evt
 	}, nil)
 
@@ -363,8 +370,11 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 	} else {
 		for _, bs := range globalSession.GetSortedBranches() {
 			if bs.Status == meta.BranchStatusPhaseOneFailed {
-				removeBranchSession(globalSession, bs)
-				continue
+				_, err := core.branchRollback(globalSession, bs)
+				if err == nil {
+					removeBranchSession(globalSession, bs)
+				}
+				break
 			}
 			branchStatus, err1 := core.branchCommit(globalSession, bs)
 			if err1 != nil {
@@ -411,12 +421,19 @@ func (core *DefaultCore) doGlobalCommit(globalSession *session.GlobalSession, re
 			return false, nil
 		}
 	}
+
 	if success {
 		endCommitted(globalSession)
 
 		runtime.GoWithRecover(func() {
-			evt := event.NewGlobalTransactionEvent(globalSession.TransactionID, event.RoleTC, globalSession.TransactionName, globalSession.BeginTime,
-				int64(time.CurrentTimeMillis()), globalSession.Status)
+			evt := event.NewGlobalTransactionEvent(
+				globalSession.TransactionID,
+				event.RoleTC,
+				globalSession.TransactionName,
+				globalSession.BeginTime,
+				int64(time.CurrentTimeMillis()),
+				globalSession.Status,
+			)
 			event.EventBus.GlobalTransactionEventChannel <- evt
 		}, nil)
 
