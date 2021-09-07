@@ -33,7 +33,7 @@ func (coordinator *DefaultCoordinator) SendSyncRequestWithTimeout(resourceID str
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return coordinator.sendAsyncRequestWithResponse("", session, message, timeout)
+	return coordinator.sendAsyncRequestWithResponse(session, message, timeout)
 }
 
 func (coordinator *DefaultCoordinator) SendSyncRequestByGetty(session getty.Session, message interface{}) (interface{}, error) {
@@ -44,7 +44,7 @@ func (coordinator *DefaultCoordinator) SendSyncRequestByGettyWithTimeout(session
 	if session == nil {
 		return nil, errors.New("rm rpc_client is not connected")
 	}
-	return coordinator.sendAsyncRequestWithResponse("", session, message, timeout)
+	return coordinator.sendAsyncRequestWithResponse(session, message, timeout)
 }
 
 func (coordinator *DefaultCoordinator) SendASyncRequest(session getty.Session, message interface{}) error {

@@ -1,8 +1,11 @@
 package server
 
 import (
-	getty "github.com/apache/dubbo-getty"
 	"time"
+)
+
+import (
+	getty "github.com/apache/dubbo-getty"
 )
 
 import (

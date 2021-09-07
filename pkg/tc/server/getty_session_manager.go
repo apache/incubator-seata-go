@@ -139,46 +139,58 @@ func (manager *GettySessionManager) GetSameClientGettySession(session getty.Sess
 		return session
 	}
 
+	// get remote ip & port
 	ip := getClientIpFromGettySession(session)
 	port := getClientPortFromGettySession(session)
 
+	// get applicationID
 	applicationID, loaded := identified_sessions.Load(session)
-	if loaded {
-		targetApplicationID := applicationID.(string)
-		ipMap, ipMapLoaded := client_sessions.Load(targetApplicationID)
-		if ipMapLoaded {
-			iMap := ipMap.(*sync.Map)
-			portMap, portMapLoaded := iMap.Load(ip)
-			if portMapLoaded {
-				pMap := portMap.(*sync.Map)
-				return getGettySessionFromSamePortMap(pMap, port)
-			}
-		}
-	} else {
+	if !loaded {
 		log.Errorf("session {%v} never registered!", session)
+		return nil
+	}
+
+	// get application's session map
+	// {key: applicationID -> value: ip-session map{key: ip -> value: session map}}
+	targetApplicationID := applicationID.(string)
+	ipMap, ipMapLoaded := client_sessions.Load(targetApplicationID)
+	if ipMapLoaded {
+		iMap := ipMap.(*sync.Map)
+		// get session map by @ip
+		portMap, portMapLoaded := iMap.Load(ip)
+		if portMapLoaded {
+			pMap := portMap.(*sync.Map)
+			// get another session whose remote port is not equals to @port
+			return getGettySessionFromSamePortMap(pMap, port)
+		}
 	}
 
 	return nil
 }
 
+// get a session whose port != @exclusivePort
 func getGettySessionFromSamePortMap(portMap *sync.Map, exclusivePort int) getty.Session {
-	var session getty.Session
-	if portMap != nil {
-		portMap.Range(func(key interface{}, value interface{}) bool {
-			port := key.(int)
-			if port == exclusivePort {
-				portMap.Delete(key)
-				return true
-			}
+	if portMap == nil {
+		return nil
+	}
 
-			session = value.(getty.Session)
-			if !session.IsClosed() {
-				return false
-			}
+	var session getty.Session
+	portMap.Range(func(key interface{}, value interface{}) bool {
+		port := key.(int)
+		if port == exclusivePort {
 			portMap.Delete(key)
 			return true
-		})
-	}
+		}
+
+		session = value.(getty.Session)
+		if !session.IsClosed() {
+			// stop the range to get an active session
+			return false
+		}
+		portMap.Delete(key)
+		return true
+	})
+
 	return session
 }
 

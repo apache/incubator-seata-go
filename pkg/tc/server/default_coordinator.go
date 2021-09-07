@@ -55,19 +55,19 @@ func NewDefaultCoordinator(conf *config.ServerConfig) *DefaultCoordinator {
 	return coordinator
 }
 
-func (coordinator *DefaultCoordinator) sendAsyncRequestWithResponse(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
+func (coordinator *DefaultCoordinator) sendAsyncRequestWithResponse(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	if timeout <= time.Duration(0) {
 		return nil, errors.New("timeout should more than 0ms")
 	}
-	return coordinator.sendAsyncRequest(address, session, msg, timeout)
+	return coordinator.sendAsyncRequest(session, msg, timeout)
 }
 
 func (coordinator *DefaultCoordinator) sendAsyncRequestWithoutResponse(session getty.Session, msg interface{}) error {
-	_, err := coordinator.sendAsyncRequest("", session, msg, time.Duration(0))
+	_, err := coordinator.sendAsyncRequest(session, msg, time.Duration(0))
 	return err
 }
 
-func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
+func (coordinator *DefaultCoordinator) sendAsyncRequest(session getty.Session, msg interface{}, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -96,7 +96,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(address string, session 
 		select {
 		case <-getty.GetTimeWheel().After(timeout):
 			coordinator.futures.Delete(rpcMessage.ID)
-			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", address, rpcMessage)
+			return nil, errors.Errorf("wait response timeout, ip:%s, request:%v", session.Stat(), rpcMessage)
 		case <-resp.Done:
 			err = resp.Err
 		}
