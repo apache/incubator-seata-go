@@ -57,11 +57,29 @@ type TCCService interface {
 	Cancel(ctx *context.BusinessActionContext) bool
 }
 
-type TCCProxyService interface {
+type TCCServiceProxy interface {
 	GetTCCService() TCCService
 }
 
-func ImplementTCC(v TCCProxyService) {
+func makeCallProxy(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
+	return func(in []reflect.Value) []reflect.Value {
+		businessContextValue := in[0]
+		businessActionContext := businessContextValue.Interface().(*context.BusinessActionContext)
+		rootContext := businessActionContext.RootContext
+		businessActionContext.XID = rootContext.GetXID()
+		businessActionContext.ActionName = resource.ActionName
+		if !rootContext.InGlobalTransaction() {
+			args := make([]interface{}, 0)
+			args = append(args, businessActionContext)
+			return proxy.Invoke(methodDesc, nil, args)
+		}
+
+		returnValues, _ := proceed(methodDesc, businessActionContext, resource)
+		return returnValues
+	}
+}
+
+func ImplementTCC(v TCCServiceProxy) {
 	valueOf := reflect.ValueOf(v)
 	log.Debugf("[Implement] reflect.TypeOf: %s", valueOf.String())
 	if valueOf.Kind() != reflect.Ptr {
@@ -77,24 +95,7 @@ func ImplementTCC(v TCCProxyService) {
 		log.Errorf("%s must be a struct ptr", valueOf.String())
 		return
 	}
-	proxyService := v.GetTCCService()
-	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
-		return func(in []reflect.Value) []reflect.Value {
-			businessContextValue := in[0]
-			businessActionContext := businessContextValue.Interface().(*context.BusinessActionContext)
-			rootContext := businessActionContext.RootContext
-			businessActionContext.XID = rootContext.GetXID()
-			businessActionContext.ActionName = resource.ActionName
-			if !rootContext.InGlobalTransaction() {
-				args := make([]interface{}, 0)
-				args = append(args, businessActionContext)
-				return proxy.Invoke(methodDesc, nil, args)
-			}
-
-			returnValues, _ := proceed(methodDesc, businessActionContext, resource)
-			return returnValues
-		}
-	}
+	serviceProxy := v.GetTCCService()
 
 	numField := valueOfElem.NumField()
 	for i := 0; i < numField; i++ {
@@ -111,9 +112,9 @@ func ImplementTCC(v TCCProxyService) {
 				panic("must tag TCCActionName")
 			}
 
-			commitMethodDesc := proxy.Register(proxyService, ConfirmMethod)
-			cancelMethodDesc := proxy.Register(proxyService, CancelMethod)
-			tryMethodDesc := proxy.Register(proxyService, methodName)
+			commitMethodDesc := proxy.Register(serviceProxy, ConfirmMethod)
+			cancelMethodDesc := proxy.Register(serviceProxy, CancelMethod)
+			tryMethodDesc := proxy.Register(serviceProxy, methodName)
 
 			tccResource := &TCCResource{
 				ResourceGroupID:    "",
