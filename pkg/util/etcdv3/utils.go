@@ -2,21 +2,11 @@ package etcdv3
 
 // TODO: Import Standard
 import (
-	"crypto/tls"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 import (
-	"go.etcd.io/etcd/client/pkg/v3/transport"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-import (
-	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"github.com/transaction-wg/seata-golang/pkg/base/constant"
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 )
@@ -35,41 +25,4 @@ func BuildRegistryValue(addr *registry.Address) string {
 
 func addrToStr(addr *registry.Address) string {
 	return addr.IP + ":" + strconv.FormatUint(addr.Port, 10)
-}
-
-func ToEtcdConfig(cfg config.EtcdConfig, ctx context.Context) (clientv3.Config, error) {
-	// Endpoints eg: "127.0.0.1:11451,127.0.0.1:11452"
-	endpoints := strings.Split(cfg.Endpoints, ",")
-
-	var tlsConfig *tls.Config
-	if cfg.TLSConfig != nil {
-		tcpInfo := transport.TLSInfo{
-			CertFile:      cfg.TLSConfig.CertFile,
-			KeyFile:       cfg.TLSConfig.KeyFile,
-			TrustedCAFile: cfg.TLSConfig.TrustedCAFile,
-		}
-
-		var err error
-		tlsConfig, err = tcpInfo.ClientConfig()
-		if err != nil {
-			return clientv3.Config{}, err
-		}
-	}
-
-	return clientv3.Config{
-		Endpoints:            endpoints,
-		AutoSyncInterval:     cfg.AutoSyncInterval,
-		DialTimeout:          cfg.DialTimeout,
-		DialKeepAliveTime:    cfg.DialKeepAliveTime,
-		DialKeepAliveTimeout: cfg.DialKeepAliveTimeout,
-		MaxCallSendMsgSize:   cfg.MaxCallSendMsgSize,
-		MaxCallRecvMsgSize:   cfg.MaxCallRecvMsgSize,
-		Username:             cfg.Username,
-		Password:             cfg.Password,
-		RejectOldCluster:     false,
-		DialOptions:          []grpc.DialOption{grpc.WithBlock()}, // Disable Async
-		PermitWithoutStream:  true,
-		TLS:                  tlsConfig,
-		Context:              ctx,
-	}, nil
 }

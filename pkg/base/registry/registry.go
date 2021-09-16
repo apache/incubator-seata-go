@@ -14,9 +14,9 @@ type Registry interface {
 	//查询服务地址
 	Lookup() ([]string, error)
 	//订阅
-	Subscribe(string, EventListener) error
+	Subscribe(EventListener) error
 	//取消订阅
-	UnSubscribe(string, EventListener) error
+	UnSubscribe(EventListener) error
 
 	Stop()
 }
