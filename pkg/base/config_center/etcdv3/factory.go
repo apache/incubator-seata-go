@@ -1,8 +1,13 @@
 package etcdv3
 
 import (
-	"context"
+	"strings"
 	"sync"
+)
+
+import (
+	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (
@@ -13,10 +18,6 @@ import (
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 
-import (
-	clientv3 "go.etcd.io/etcd/client/v3"
-)
-
 func init() {
 	extension.SetConfigCenter(constant.Etcdv3Key, newEtcdConfigCenter)
 }
@@ -24,32 +25,27 @@ func init() {
 type etcdConfigCenter struct {
 	clitMutex sync.RWMutex
 	wg        sync.WaitGroup
-	client    *clientv3.Client
-	done      chan struct{}
+	client    *gxetcd.Client
 }
 
 func (c *etcdConfigCenter) GetConfig(conf *config.ConfigCenterConfig) string {
 	// dynamic config's key default is "config-seata"
 	configKey := conf.ETCDConfig.ConfigKey
-	kv := clientv3.NewKV(c.client)
-	resp, err := kv.Get(context.Background(), configKey)
+	resp, err := c.client.Get(configKey)
 	if err != nil {
+		log.Errorf("failed to attain config from etcd server, %s", err.Error())
 		return ""
 	}
-
-	// Should Be Only One KV in the Etcdv3
-	if len(resp.Kvs) != 1 {
-		log.Warn("failed to attain config from etcd server, too many or too few config found")
-		return ""
-	}
-
-	return string(resp.Kvs[0].Value)
+	return resp
 }
 
 func (c *etcdConfigCenter) AddListener(conf *config.ConfigCenterConfig, listener config_center.ConfigurationListener) {
 	// Dynamic Config's Key Default is "config-seata"
 	configKey := conf.ETCDConfig.ConfigKey
-	wc := c.client.Watch(context.Background(), configKey)
+	wc, err := c.client.Watch(configKey)
+	if err != nil {
+		log.Errorf("watch config failed, %s", err.Error())
+	}
 	c.wg.Add(1)
 	go c.handleEvents(wc, listener)
 }
@@ -59,11 +55,14 @@ func (c *etcdConfigCenter) handleEvents(wc clientv3.WatchChan, listener config_c
 
 	for {
 		select {
-		case <-c.done:
-			log.Info("etcd connection close...")
+		case <-c.client.Done():
+			log.Info("etcd config center listener quit ...")
 			return
-		case e := <-wc:
-			for _, event := range e.Events {
+		case resp := <-wc:
+			if resp.Events == nil {
+				continue
+			}
+			for _, event := range resp.Events {
 				listener.Process(&config_center.ConfigChangeEvent{
 					Key:   string(event.Kv.Key),
 					Value: event.Kv.Value,
@@ -74,28 +73,23 @@ func (c *etcdConfigCenter) handleEvents(wc clientv3.WatchChan, listener config_c
 }
 
 func (c *etcdConfigCenter) Stop() error {
-	c.done <- struct{}{}
+	c.client.Close()
 	c.wg.Wait()
-	close(c.done)
-	err := c.client.Close()
 	c.client = nil
-	return err
+	return nil
 }
 
 func newEtcdConfigCenter(conf *config.ConfigCenterConfig) (config_center.DynamicConfigurationFactory, error) {
 	etcdConfig := conf.ETCDConfig
-	config, err := etcdConfig.ParseEtcdConfig(context.Background())
+	eps := strings.Split(etcdConfig.Endpoints, ",")
+	client, err := gxetcd.NewClient(etcdConfig.Name, eps, etcdConfig.Timeout, etcdConfig.Heartbeats)
 	if err != nil {
 		return nil, err
 	}
-	client, err := clientv3.New(config)
-	if err != nil {
-		return nil, err
-	}
+
 	return &etcdConfigCenter{
 		clitMutex: sync.RWMutex{},
 		wg:        sync.WaitGroup{},
 		client:    client,
-		done:      make(chan struct{}, 1),
 	}, nil
 }
