@@ -80,7 +80,7 @@ func (r *etcdRegistry) Register(addr *registry.Address) error {
 	}
 	// RegistryKey Format: etcdv3-seata-clusterName-ipAddress:port
 	// RegistryValue Format: ipAddress:port
-	return r.client.RegisterTemp(utils.BuildRegistryKey(r.clusterName, addr), utils.BuildRegistryValue(addr))
+	return r.client.Put(utils.BuildRegistryKey(r.clusterName, addr), utils.BuildRegistryValue(addr))
 }
 
 func (r *etcdRegistry) UnRegister(addr *registry.Address) error {
@@ -88,12 +88,7 @@ func (r *etcdRegistry) UnRegister(addr *registry.Address) error {
 }
 
 func (r *etcdRegistry) Subscribe(listener registry.EventListener) error {
-	_, recv, err := r.client.GetValAndRev(constant.Etcdv3RegistryPrefix + r.clusterName)
-	if err != nil {
-		return err
-	}
-
-	wcCh, err := r.client.WatchWithOption(constant.Etcdv3RegistryPrefix+r.clusterName, clientv3.WithPrefix(), clientv3.WithRev(recv))
+	wcCh, err := r.client.WatchWithOption(constant.Etcdv3RegistryPrefix+r.clusterName, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -105,12 +100,17 @@ func (r *etcdRegistry) Subscribe(listener registry.EventListener) error {
 
 func (r *etcdRegistry) watch(wcCh clientv3.WatchChan, listener registry.EventListener) {
 	defer r.regWg.Done()
+LOOP:
 	for {
 		select {
 		case <-r.client.Done():
 			log.Info("watch goroutine quit...")
+			break LOOP
 		case resp := <-wcCh:
-			services := make([]*registry.Service, 0)
+			services := make([]*registry.Service, len(resp.Events))
+			if resp.Events == nil {
+				continue
+			}
 			for _, event := range resp.Events {
 				if event.Kv.Value != nil {
 					addr := strings.Split(string(event.Kv.Value), ":")
@@ -127,7 +127,6 @@ func (r *etcdRegistry) watch(wcCh clientv3.WatchChan, listener registry.EventLis
 						Name:      string(event.Kv.Key),
 					})
 				}
-
 			}
 			err := listener.OnEvent(services)
 			if err != nil {
@@ -149,6 +148,7 @@ func (r *etcdRegistry) leaseKeeper() {
 		select {
 		case <-r.client.Done():
 			log.Info("leaseKeeper goroutine quit...")
+			break
 		default:
 			ttl, err := r.client.GetRawClient().TimeToLive(r.client.GetCtx(), *r.leaseWrp.leaseId)
 			if err != nil {

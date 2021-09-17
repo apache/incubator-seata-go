@@ -33,7 +33,7 @@ func GetRegistryConfig() *RegistryConfig {
 }
 
 type EtcdConfig struct {
-	ClusterName string        `default:"default" yaml:"cluster_name" json:"cluster_name,omitempty"`
+	ClusterName string        `default:"seata-golang-etcdv3" yaml:"cluster_name" json:"cluster_name,omitempty"`
 	Endpoints   string        `yaml:"endpoints" json:"endpoints,omitempty"`
 	Heartbeats  int           `yaml:"heartbeats" json:"heartbeats"`
 	Timeout     time.Duration `yaml:"timeout" json:"timeout"`
