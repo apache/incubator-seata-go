@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/creasty/defaults"
 	"io"
 	"io/ioutil"
 	"os"
@@ -99,7 +100,6 @@ func loadConfigCenterConfig(config *ClientConfig) {
 }
 
 type ClientConfigListener struct {
-
 }
 
 func (ClientConfigListener) Process(event *config_center.ConfigChangeEvent) {
@@ -109,6 +109,10 @@ func (ClientConfigListener) Process(event *config_center.ConfigChangeEvent) {
 
 func updateConf(config *ClientConfig, remoteConfig string) {
 	newConf := &ClientConfig{}
+	err := defaults.Set(newConf)
+	if err != nil {
+		log.Errorf("config set default value failed, %s", err.Error())
+	}
 	confByte := []byte(remoteConfig)
 	yaml.Unmarshal(confByte, newConf)
 	if err := mergo.Merge(config, newConf, mergo.WithOverride); err != nil {
