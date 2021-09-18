@@ -22,3 +22,6 @@ cmd/tc/cmd
 cmd/tc/tc
 cmd/tc/trace.out
 dist/tc
+dist/cmd
+dist/seata.log
+examples/

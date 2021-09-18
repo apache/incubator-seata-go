@@ -72,11 +72,19 @@ func GetResourceManager() *ResourceManager {
 }
 
 func (manager *ResourceManager) branchCommunicate() {
+	var count int
+
 	for {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", manager.addressing)
 		stream, err := manager.rpcClient.BranchCommunicate(ctx)
-		if err != nil {
+		if err != nil && count < 3 {
+			count++
+			log.Info(err)
 			continue
+		}
+
+		if count == 3 {
+			panic(err)
 		}
 
 		done := make(chan bool)
@@ -92,8 +100,6 @@ func (manager *ResourceManager) branchCommunicate() {
 					if err != nil {
 						return
 					}
-				default:
-					continue
 				}
 			}
 		}, nil)
