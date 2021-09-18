@@ -355,9 +355,13 @@ func (tc *TransactionCoordinator) branchCommit(bs *apis.BranchSession) (apis.Bra
 		Message:           content,
 	}
 
-	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
-	q := queue.(*CallbackMessageQueue)
-	q.Enqueue(message)
+	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, make(chan *apis.BranchMessage))
+	q := queue.(chan *apis.BranchMessage)
+	select {
+	case q <- message:
+	default:
+		return bs.Status, err
+	}
 
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
@@ -589,9 +593,13 @@ func (tc *TransactionCoordinator) branchRollback(bs *apis.BranchSession) (apis.B
 		Message:           content,
 	}
 
-	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, NewCallbackMessageQueue())
-	q := queue.(*CallbackMessageQueue)
-	q.Enqueue(message)
+	queue, _ := tc.callBackMessages.LoadOrStore(bs.Addressing, make(chan *apis.BranchMessage))
+	q := queue.(chan *apis.BranchMessage)
+	select {
+	case q <- message:
+	default:
+		return bs.Status, err
+	}
 
 	resp := common2.NewMessageFuture(message)
 	tc.futures.Store(message.ID, resp)
@@ -635,8 +643,8 @@ func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerS
 		}()
 	}
 
-	queue, _ := tc.callBackMessages.LoadOrStore(addressing, NewCallbackMessageQueue())
-	q := queue.(*CallbackMessageQueue)
+	queue, _ := tc.callBackMessages.LoadOrStore(addressing, make(chan *apis.BranchMessage))
+	q := queue.(chan *apis.BranchMessage)
 
 	runtime.GoWithRecover(func() {
 		for {
@@ -645,11 +653,7 @@ func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerS
 				if !ok {
 					return
 				}
-			default:
-				msg := q.Dequeue()
-				if msg == nil {
-					break
-				}
+			case msg := <- q:
 				err := stream.Send(msg)
 				if err != nil {
 					return

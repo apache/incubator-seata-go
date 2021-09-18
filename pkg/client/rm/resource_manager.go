@@ -92,8 +92,6 @@ func (manager *ResourceManager) branchCommunicate() {
 					if err != nil {
 						return
 					}
-				default:
-					continue
 				}
 			}
 		}, nil)
