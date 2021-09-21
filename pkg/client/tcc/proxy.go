@@ -99,7 +99,7 @@ func ImplementTCC(v TccProxyService) {
 			tccResource := &TCCResource{
 				ActionName:         actionName,
 				PrepareMethodName:  TryMethod,
-				CommitMethodName:   CommitMethod,
+				CommitMethodName:   ConfirmMethod,
 				CommitMethod:       commitMethodDesc,
 				RollbackMethodName: CancelMethod,
 				RollbackMethod:     cancelMethodDesc,

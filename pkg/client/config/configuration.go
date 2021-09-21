@@ -127,3 +127,7 @@ func InitConfiguration(configurationPath string) *Configuration {
 	configuration = config
 	return configuration
 }
+
+func SetConfiguration(config *Configuration) {
+	configuration = config
+}
