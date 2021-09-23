@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
@@ -76,6 +77,7 @@ func (manager *ResourceManager) branchCommunicate() {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", manager.addressing)
 		stream, err := manager.rpcClient.BranchCommunicate(ctx)
 		if err != nil {
+			time.Sleep(time.Second)
 			continue
 		}
 
