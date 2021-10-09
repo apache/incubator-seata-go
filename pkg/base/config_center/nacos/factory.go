@@ -64,6 +64,11 @@ func (nc *nacosConfigCenter) GetConfig(conf *config.ConfigCenterConfig) string {
 	return config
 }
 
+func (nc *nacosConfigCenter) Stop() error {
+	// TODO: Handle nacos config center shutdown
+	return nil
+}
+
 func newNacosConfigCenterFactory(conf *config.ConfigCenterConfig) (factory config_center.DynamicConfigurationFactory, e error) {
 	nacosConfig, err := getNacosConfig(conf)
 	if err != nil {
