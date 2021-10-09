@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
@@ -121,7 +122,7 @@ func Init(logPath string, level Level) {
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
+	core := zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(syncer, zapcore.AddSync(os.Stdout)), zap.NewAtomicLevelAt(zapcore.Level(level)))
 	zapLogger = zap.New(core, zap.AddCaller())
 
 	log = zapLogger.Sugar()
