@@ -32,15 +32,16 @@ func (r *fileRegistry) Lookup() ([]string, error) {
 	addressList := strings.Split(config.GetClientConfig().TransactionServiceGroup, ",")
 	return addressList, nil
 }
-func (r *fileRegistry) Subscribe(cluster string, notifyListener registry.EventListener) error {
+func (r *fileRegistry) Subscribe(notifyListener registry.EventListener) error {
 	return nil
 }
 
-func (r *fileRegistry) UnSubscribe(cluster string, notifyListener registry.EventListener) error {
+func (r *fileRegistry) UnSubscribe(notifyListener registry.EventListener) error {
 	return nil
 }
 
 func (r *fileRegistry) Stop() {
+	// TODO: Implement Stop interface
 	return
 }
 
