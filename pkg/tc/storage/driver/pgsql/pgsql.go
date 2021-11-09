@@ -98,7 +98,7 @@ func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 
 	lockTable := parameters["locktable"]
 	if lockTable == nil {
-		lockTable = "global_table"
+		lockTable = "lock_table"
 	}
 
 	queryLimit := 100
