@@ -88,17 +88,17 @@ func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 
 	globalTable := parameters["globaltable"]
 	if globalTable == nil {
-		dsn = "global_table"
+		globalTable = "global_table"
 	}
 
 	branchTable := parameters["branchtable"]
-	if globalTable == nil {
-		dsn = "branch_table"
+	if branchTable == nil {
+		branchTable = "branch_table"
 	}
 
 	lockTable := parameters["locktable"]
-	if globalTable == nil {
-		dsn = "global_table"
+	if lockTable == nil {
+		lockTable = "lock_table"
 	}
 
 	queryLimit := 100
@@ -140,7 +140,7 @@ func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 	switch mi := mi.(type) {
 	case string:
 		var err error
-		maxOpenConnections, err = strconv.Atoi(mi)
+		maxIdleConnections, err = strconv.Atoi(mi)
 		if err != nil {
 			log.Error("the maxidleconnections parameter should be a integer")
 		}
