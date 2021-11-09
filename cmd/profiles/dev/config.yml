@@ -26,8 +26,8 @@ storage:
 #  inmemory:
   mysql:
     dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-    globaltable: global_table2
-    branchtable: branch_table2
+    globaltable: global_table
+    branchtable: branch_table
     locktable: lock_table
     maxopenconnections: 100
     maxidleconnections: 20
