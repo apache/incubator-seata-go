@@ -43,12 +43,12 @@ CREATE INDEX idx_xid ON branch_table(xid);
 -- the table to store lock data
 CREATE TABLE IF NOT EXISTS lock_table
 (
-    row_key        VARCHAR(128) NOT NULL,
+    row_key        VARCHAR(256) NOT NULL,
     xid            VARCHAR(96),
     transaction_id BIGINT,
     branch_id      BIGINT       NOT NULL,
     resource_id    VARCHAR(256),
-    table_name     VARCHAR(32),
+    table_name     VARCHAR(64),
     pk             VARCHAR(36),
     gmt_create     TIMESTAMP,
     gmt_modified   TIMESTAMP,
