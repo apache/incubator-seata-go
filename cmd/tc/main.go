@@ -66,6 +66,9 @@ func main() {
 					apis.RegisterResourceManagerServiceServer(s, tc)
 
 					go func() {
+						http.HandleFunc("/health", func(writer http.ResponseWriter, request *http.Request) {
+							writer.WriteHeader(http.StatusOK)
+						})
 						err = http.ListenAndServe(":10001", nil)
 						if err != nil {
 							return
