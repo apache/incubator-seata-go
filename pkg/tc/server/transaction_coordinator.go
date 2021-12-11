@@ -238,15 +238,6 @@ func (tc *TransactionCoordinator) doGlobalCommit(gt *model.GlobalTransaction, re
 	}
 
 	for bs := range gt.BranchSessions {
-		if bs.Status == apis.PhaseOneFailed {
-			tc.resourceDataLocker.ReleaseLock(bs)
-			delete(gt.BranchSessions, bs)
-			err = tc.holder.RemoveBranchSession(gt.GlobalSession, bs)
-			if err != nil {
-				return false, err
-			}
-			continue
-		}
 		branchStatus, err1 := tc.branchCommit(bs)
 		if err1 != nil {
 			log.Errorf("exception committing branch xid=%d branchID=%d, err: %v", bs.GetXID(), bs.BranchID, err1)
@@ -653,7 +644,7 @@ func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerS
 				if !ok {
 					return
 				}
-			case msg := <- q:
+			case msg := <-q:
 				err := stream.Send(msg)
 				if err != nil {
 					return
