@@ -644,7 +644,7 @@ func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerS
 				if !ok {
 					return
 				}
-			case msg := <- q:
+			case msg := <-q:
 				err := stream.Send(msg)
 				if err != nil {
 					return
