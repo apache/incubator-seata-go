@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	ctx "github.com/opentrx/seata-golang/v2/pkg/client/base/context"
@@ -134,7 +133,7 @@ func getBusinessActionContext(xid string, branchID int64, resourceID string, app
 
 	businessActionContext := &ctx.BusinessActionContext{
 		XID:           xid,
-		BranchID:      strconv.FormatInt(branchID, 10),
+		BranchID:      branchID,
 		ActionName:    resourceID,
 		ActionContext: actionContextMap,
 	}
