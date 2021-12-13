@@ -4,7 +4,7 @@ package context
 type BusinessActionContext struct {
 	*RootContext
 	XID           string
-	BranchID      string
+	BranchID      int64
 	ActionName    string
 	ActionContext map[string]interface{}
 }
