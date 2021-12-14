@@ -19,28 +19,33 @@ func init() {
 type fileRegistry struct {
 }
 
-func (nr *fileRegistry) Register(addr *registry.Address) error {
+func (r *fileRegistry) Register(addr *registry.Address) error {
+	//文件不需要注册
 	log.Info("file register")
 	return nil
 }
 
-func (nr *fileRegistry) UnRegister(addr *registry.Address) error {
+func (r *fileRegistry) UnRegister(addr *registry.Address) error {
 	return nil
 }
-
-func (nr *fileRegistry) Lookup() ([]string, error) {
+func (r *fileRegistry) Lookup() ([]string, error) {
 	addressList := strings.Split(config.GetClientConfig().TransactionServiceGroup, ",")
 	return addressList, nil
 }
-
-func (nr *fileRegistry) Subscribe(notifyListener registry.EventListener) error {
+func (r *fileRegistry) Subscribe(notifyListener registry.EventListener) error {
 	return nil
 }
 
-func (nr *fileRegistry) UnSubscribe(notifyListener registry.EventListener) error {
+func (r *fileRegistry) UnSubscribe(notifyListener registry.EventListener) error {
 	return nil
 }
 
+func (r *fileRegistry) Stop() {
+	// TODO: Implement Stop interface
+	return
+}
+
+// newNacosRegistry will create new instance
 func newFileRegistry() (registry.Registry, error) {
 	tmpRegistry := &fileRegistry{}
 	return tmpRegistry, nil

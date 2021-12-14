@@ -1,11 +1,14 @@
 package config
 
+import "time"
+
 var config *RegistryConfig
 
 // RegistryConfig registry config
 type RegistryConfig struct {
 	Mode        string      `yaml:"type" json:"type,omitempty"` //类型
 	NacosConfig NacosConfig `yaml:"nacos" json:"nacos,omitempty"`
+	EtcdConfig  EtcdConfig  `yaml:"etcdv3" json:"etcdv3"`
 }
 
 // NacosConfig nacos config
@@ -27,4 +30,11 @@ func InitRegistryConfig(registryConfig *RegistryConfig) {
 // GetRegistryConfig get registry config
 func GetRegistryConfig() *RegistryConfig {
 	return config
+}
+
+type EtcdConfig struct {
+	ClusterName string        `default:"seata-golang-etcdv3" yaml:"cluster_name" json:"cluster_name,omitempty"`
+	Endpoints   string        `yaml:"endpoints" json:"endpoints,omitempty"`
+	Heartbeats  int           `yaml:"heartbeats" json:"heartbeats"`
+	Timeout     time.Duration `yaml:"timeout" json:"timeout"`
 }

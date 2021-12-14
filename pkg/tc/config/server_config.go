@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/creasty/defaults"
 	"github.com/go-xorm/xorm"
 	"io"
 	"io/ioutil"
@@ -62,7 +63,7 @@ func GetStoreConfig() StoreConfig {
 		return StoreConfig{
 			MaxBranchSessionSize: 16384,
 			MaxGlobalSessionSize: 512,
-			StoreMode: "file",
+			StoreMode:            "file",
 		}
 	}
 	return serverConfig.StoreConfig
@@ -104,7 +105,6 @@ func loadConfigCenterConfig(config *ServerConfig) {
 }
 
 type ServerConfigListener struct {
-
 }
 
 func (ServerConfigListener) Process(event *config_center.ConfigChangeEvent) {
@@ -114,6 +114,10 @@ func (ServerConfigListener) Process(event *config_center.ConfigChangeEvent) {
 
 func updateConf(config *ServerConfig, remoteConfig string) {
 	newConf := &ServerConfig{}
+	err := defaults.Set(newConf)
+	if err != nil {
+		log.Errorf("config set default value failed, %s", err.Error())
+	}
 	confByte := []byte(remoteConfig)
 	yaml.Unmarshal(confByte, newConf)
 	if err := mergo.Merge(config, newConf, mergo.WithOverride); err != nil {

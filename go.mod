@@ -4,15 +4,21 @@ go 1.14
 
 require (
 	github.com/apache/dubbo-getty v1.4.3
+	github.com/creasty/defaults v1.5.2
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
-	github.com/dubbogo/gost v1.11.11
+	github.com/dubbogo/gost v1.11.16
+	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-xorm/xorm v0.7.9
+	github.com/golang/protobuf v1.4.3
+	github.com/google/go-cmp v0.5.0
 	github.com/imdario/mergo v0.3.12
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/pingcap/parser v0.0.0-00010101000000-000000000000
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
@@ -28,8 +34,9 @@ require (
 	xorm.io/builder v0.3.9
 )
 
-replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
-
-replace go.etcd.io/bbolt => github.com/coreos/bbolt v1.3.4
-
-replace github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.4.3
+replace (
+	github.com/apache/dubbo-getty => github.com/dubbogo/getty v1.4.3
+	github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.4
+	github.com/pingcap/parser => github.com/pingcap/parser v0.0.0-20200422082501-7329d80eaf2c
+	go.etcd.io/bbolt => github.com/coreos/bbolt v1.3.4
+)
