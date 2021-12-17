@@ -71,7 +71,10 @@ func ImplementTCC(v TccProxyService) {
 				return proxy.Invoke(methodDesc, nil, args)
 			}
 
-			returnValues, _ := proceed(methodDesc, businessActionContext, resource)
+			returnValues, err := proceed(methodDesc, businessActionContext, resource)
+			if err != nil {
+				return proxy.ReturnWithError(methodDesc, errors.WithStack(err))
+			}
 			return returnValues
 		}
 	}
