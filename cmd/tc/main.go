@@ -75,6 +75,8 @@ func main() {
 						}
 					}()
 
+					printStartLogo()
+					log.Infof("start to serve on :%d", cfg.Server.Port)
 					if err := s.Serve(lis); err != nil {
 						log.Fatalf("failed to serve: %v", err)
 					}
@@ -121,4 +123,16 @@ func resolveConfiguration(configPath string) (*config.Configuration, error) {
 	}
 
 	return cfg, nil
+}
+
+func printStartLogo() {
+	logoStr := 	"                _                          _                   \n" +
+				" ___  ___  __ _| |_ __ _        __ _  ___ | | __ _ _ __   __ _ \n" +
+				"/ __|/ _ \\/ _` | __/ _` |_____ / _` |/ _ \\| |/ _` | '_ \\ / _` |\n" +
+		        "\\__ \\  __/ (_| | || (_| |_____| (_| | (_) | | (_| | | | | (_| |\n" +
+				"|___/\\___|\\__,_|\\__\\__,_|      \\__, |\\___/|_|\\__,_|_| |_|\\__, |\n" +
+				"                               |___/                     |___/ "
+	fmt.Println(logoStr)
+	fmt.Println("Seata-Golang (v2) Transaction Coordinator (TC)")
+	fmt.Println()
 }
