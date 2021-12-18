@@ -126,7 +126,7 @@ func resolveConfiguration(configPath string) (*config.Configuration, error) {
 }
 
 func printStartLogo() {
-	logoStr := 	"                _                          _                   \n" +
+	logoStr :=  "                _                          _                   \n" +
 				" ___  ___  __ _| |_ __ _        __ _  ___ | | __ _ _ __   __ _ \n" +
 				"/ __|/ _ \\/ _` | __/ _` |_____ / _` |/ _ \\| |/ _` | '_ \\ / _` |\n" +
 		        "\\__ \\  __/ (_| | || (_| |_____| (_| | (_) | | (_| | | | | (_| |\n" +
