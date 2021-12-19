@@ -56,13 +56,13 @@ const (
 		"PRIMARY KEY (`xid`), KEY `idx_gmt_modified_status` (`gmt_modified`,`status`), KEY `idx_transaction_id` (`transaction_id`)) " +
 		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 
-	CreateBrachTable = "CREATE TABLE IF NOT EXISTS `%s` (`addressing` varchar(128) NOT NULL, `xid` varchar(128) NOT NULL, " +
+	CreateBranchTable = "CREATE TABLE IF NOT EXISTS `%s` (`addressing` varchar(128) NOT NULL, `xid` varchar(128) NOT NULL, " +
 		"`branch_id` bigint NOT NULL, `transaction_id` bigint DEFAULT NULL, `resource_id` varchar(256) DEFAULT NULL, `lock_key` VARCHAR(1000), " +
 		"`branch_type` varchar(8) DEFAULT NULL, `status` tinyint DEFAULT NULL, `application_data` varchar(2000) DEFAULT NULL, " +
 		"`gmt_create` datetime(6) DEFAULT NULL, `gmt_modified` datetime(6) DEFAULT NULL, PRIMARY KEY (`branch_id`), KEY `idx_xid` (`xid`)) " +
 		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 
-	CreateLokTable = "CREATE TABLE IF NOT EXISTS `%s` (`row_key` VARCHAR(256) NOT NULL, `xid` VARCHAR(96), `transaction_id` BIGINT, " +
+	CreateLockTable = "CREATE TABLE IF NOT EXISTS `%s` (`row_key` VARCHAR(256) NOT NULL, `xid` VARCHAR(96), `transaction_id` BIGINT, " +
 		"`branch_id` BIGINT NOT NULL, `resource_id` VARCHAR(256), `table_name` VARCHAR(64), `pk` VARCHAR(36), `gmt_create` DATETIME, " +
 		"`gmt_modified` DATETIME, PRIMARY KEY (`row_key`), KEY `idx_branch_id` (`branch_id`)) ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 )
@@ -217,11 +217,11 @@ func New(params DriverParameters) (storage.Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = engine.Exec(fmt.Sprintf(CreateBrachTable, params.BranchTable))
+	_, err = engine.Exec(fmt.Sprintf(CreateBranchTable, params.BranchTable))
 	if err != nil {
 		return nil, err
 	}
-	_, err = engine.Exec(fmt.Sprintf(CreateLokTable, params.LockTable))
+	_, err = engine.Exec(fmt.Sprintf(CreateLockTable, params.LockTable))
 	if err != nil {
 		return nil, err
 	}
