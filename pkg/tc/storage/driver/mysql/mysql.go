@@ -48,6 +48,23 @@ const (
 
 	QueryRowKey = `select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
 		from %s where %s order by gmt_create asc`
+
+	CreateGlobalTable = "CREATE TABLE IF NOT EXISTS `%s` (`addressing` varchar(128) NOT NULL, " +
+		"`xid` varchar(128) NOT NULL, `transaction_id` bigint DEFAULT NULL, " +
+		"`transaction_name` varchar(128) DEFAULT NULL, `timeout` int DEFAULT NULL, `begin_time` bigint DEFAULT NULL, " +
+		"`status` tinyint NOT NULL, `active` bit(1) NOT NULL, `gmt_create` datetime DEFAULT NULL, `gmt_modified` datetime DEFAULT NULL, " +
+		"PRIMARY KEY (`xid`), KEY `idx_gmt_modified_status` (`gmt_modified`,`status`), KEY `idx_transaction_id` (`transaction_id`)) " +
+		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
+
+	CreateBranchTable = "CREATE TABLE IF NOT EXISTS `%s` (`addressing` varchar(128) NOT NULL, `xid` varchar(128) NOT NULL, " +
+		"`branch_id` bigint NOT NULL, `transaction_id` bigint DEFAULT NULL, `resource_id` varchar(256) DEFAULT NULL, `lock_key` VARCHAR(1000), " +
+		"`branch_type` varchar(8) DEFAULT NULL, `status` tinyint DEFAULT NULL, `application_data` varchar(2000) DEFAULT NULL, " +
+		"`gmt_create` datetime(6) DEFAULT NULL, `gmt_modified` datetime(6) DEFAULT NULL, PRIMARY KEY (`branch_id`), KEY `idx_xid` (`xid`)) " +
+		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
+
+	CreateLockTable = "CREATE TABLE IF NOT EXISTS `%s` (`row_key` VARCHAR(256) NOT NULL, `xid` VARCHAR(96), `transaction_id` BIGINT, " +
+		"`branch_id` BIGINT NOT NULL, `resource_id` VARCHAR(256), `table_name` VARCHAR(64), `pk` VARCHAR(36), `gmt_create` DATETIME, " +
+		"`gmt_modified` DATETIME, PRIMARY KEY (`row_key`), KEY `idx_branch_id` (`branch_id`)) ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 )
 
 func init() {
@@ -195,6 +212,19 @@ func New(params DriverParameters) (storage.Driver, error) {
 	engine.SetMaxOpenConns(params.MaxOpenConnections)
 	engine.SetMaxIdleConns(params.MaxIdleConnections)
 	engine.SetConnMaxLifetime(params.MaxLifeTime)
+
+	_, err = engine.Exec(fmt.Sprintf(CreateGlobalTable, params.GlobalTable))
+	if err != nil {
+		return nil, err
+	}
+	_, err = engine.Exec(fmt.Sprintf(CreateBranchTable, params.BranchTable))
+	if err != nil {
+		return nil, err
+	}
+	_, err = engine.Exec(fmt.Sprintf(CreateLockTable, params.LockTable))
+	if err != nil {
+		return nil, err
+	}
 
 	return &driver{
 		engine:      engine,
