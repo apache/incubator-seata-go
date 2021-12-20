@@ -91,7 +91,7 @@ const (
 			row_key        VARCHAR(256) NOT NULL,
 			xid            VARCHAR(96),
 			transaction_id BIGINT,
-			branch_id      BIGINT       NOT NULL,
+			branch_id      BIGINT NOT NULL,
 			resource_id    VARCHAR(256),
 			table_name     VARCHAR(64),
 			pk             VARCHAR(36),
