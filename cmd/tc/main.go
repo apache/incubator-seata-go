@@ -76,7 +76,7 @@ func main() {
 					}()
 
 					printStartLogo()
-					log.Infof("start to serve on :%d", cfg.Server.Port)
+					log.Infof("start to serve on port:%d", cfg.Server.Port)
 					if err := s.Serve(lis); err != nil {
 						log.Fatalf("failed to serve: %v", err)
 					}
