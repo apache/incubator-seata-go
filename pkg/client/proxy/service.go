@@ -99,11 +99,6 @@ func describeMethod(method reflect.Method) *MethodDescriptor {
 	// returnValuesType
 	for num := 0; num < outNum; num++ {
 		returnValuesType = append(returnValuesType, methodType.Out(num))
-		// need not be a pointer.
-		if !isExportedOrBuiltinType(methodType.Out(num)) {
-			log.Errorf("reply type of method %s not exported{%v}", methodName, methodType.Out(num))
-			return nil
-		}
 	}
 
 	return &MethodDescriptor{
