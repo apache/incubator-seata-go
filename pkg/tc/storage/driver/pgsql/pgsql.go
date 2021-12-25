@@ -411,15 +411,9 @@ func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, ses
 
 // AcquireLock Acquire lock boolean.
 func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
-	locks, rowKeys := distinctByKey(rowLocks)
-	var (
-		existedRowLocks []*apis.RowLock
-		rowKeyArgs      []interface{}
-	)
-	for _, rowKey := range rowKeys {
-		rowKeyArgs = append(rowKeyArgs, rowKey)
-	}
-	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeys)))
+	locks, rowKeyArgs := distinctByKey(rowLocks)
+	var existedRowLocks []*apis.RowLock
+	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeyArgs)))
 	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeyArgs...).Find(&existedRowLocks)
 	if err != nil {
 		log.Errorf(err.Error())
@@ -481,9 +475,9 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	return true
 }
 
-func distinctByKey(locks []*apis.RowLock) ([]*apis.RowLock, []string) {
+func distinctByKey(locks []*apis.RowLock) ([]*apis.RowLock, []interface{}) {
 	result := make([]*apis.RowLock, 0)
-	rowKeys := make([]string, 0)
+	rowKeys := make([]interface{}, 0)
 	lockMap := make(map[string]byte)
 	for _, lockDO := range locks {
 		l := len(lockMap)
