@@ -412,7 +412,7 @@ func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, ses
 // AcquireLock Acquire lock boolean.
 func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	locks, rowKeyArgs := distinctByKey(rowLocks)
-	var	existedRowLocks []*apis.RowLock
+	var existedRowLocks []*apis.RowLock
 	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeyArgs)))
 	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeyArgs...).Find(&existedRowLocks)
 	if err != nil {
