@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -45,6 +46,12 @@ type Configuration struct {
 		Time                  time.Duration `yaml:"time"`
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
+
+	ServerTls struct{
+		Enable bool `yaml:"enable"`
+		CertFile string `yaml:"certFile"`
+		KeyFile string `yaml:"keyFile"`
+	} `yaml:"serverTls"`
 
 	// Storage is the configuration for the storage driver
 	Storage Storage `yaml:"storage"`
@@ -91,6 +98,17 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 		sp.Timeout = configuration.ServerParameters.Timeout
 	}
 	return sp
+}
+
+func (configuration *Configuration) GetServerTls() credentials.TransportCredentials {
+	if configuration.ServerTls.Enable == false {
+		return nil
+	}
+	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTls.CertFile, configuration.ServerTls.KeyFile)
+	if err != nil {
+		log.Fatalf("%v using TLS failed", err)
+	}
+	return cred
 }
 
 // Parameters defines a key-value parameters mapping

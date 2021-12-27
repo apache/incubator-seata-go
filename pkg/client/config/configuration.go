@@ -1,6 +1,7 @@
 package config
 
 import (
+	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"os"
@@ -28,6 +29,12 @@ type Configuration struct {
 		Timeout             time.Duration `yaml:"timeout"`
 		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
 	} `yaml:"clientParameters"`
+
+	ClientTls struct {
+		Enable bool `yaml:"enable"`
+		CertFile string `yaml:"certFile"`
+		ServerName string `yaml:"serverName"`
+	} `yaml:"clientTls"`
 
 	Log struct {
 		LogPath  string    `yaml:"logPath"`
@@ -80,6 +87,17 @@ func (configuration *Configuration) GetClientParameters() keepalive.ClientParame
 	}
 	cp.PermitWithoutStream = configuration.ClientParameters.PermitWithoutStream
 	return cp
+}
+
+func (configuration *Configuration) GetClientTls() credentials.TransportCredentials {
+	if configuration.ClientTls.Enable == false {
+		return nil
+	}
+	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTls.CertFile, configuration.ClientTls.ServerName)
+	if err != nil {
+		log.Fatalf("%v using TLS failed", err)
+	}
+	return cred
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct

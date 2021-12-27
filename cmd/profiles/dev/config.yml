@@ -17,6 +17,10 @@ serverParameters:
   maxConnectionAgeGrace: 5s
   time: 5s
   timeout: 1s
+serverTls:
+  enable: false
+  certFile: ""
+  keyFile: ""
 clientParameters:
   time: 10s
   timeout: 1s

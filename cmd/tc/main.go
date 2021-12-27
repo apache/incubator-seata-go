@@ -59,7 +59,7 @@ func main() {
 					}
 
 					s := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(cfg.GetEnforcementPolicy()),
-						grpc.KeepaliveParams(cfg.GetServerParameters()))
+						grpc.KeepaliveParams(cfg.GetServerParameters()), grpc.Creds(cfg.GetServerTls()))
 
 					tc := server.NewTransactionCoordinator(cfg)
 					apis.RegisterTransactionManagerServiceServer(s, tc)
