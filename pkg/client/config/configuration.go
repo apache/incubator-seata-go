@@ -30,7 +30,7 @@ type Configuration struct {
 		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
 	} `yaml:"clientParameters"`
 
-	ClientTls struct {
+	ClientTLS struct {
 		Enable bool `yaml:"enable"`
 		CertFile string `yaml:"certFile"`
 		ServerName string `yaml:"serverName"`
@@ -89,11 +89,11 @@ func (configuration *Configuration) GetClientParameters() keepalive.ClientParame
 	return cp
 }
 
-func (configuration *Configuration) GetClientTls() credentials.TransportCredentials {
-	if configuration.ClientTls.Enable == false {
+func (configuration *Configuration) GetClientTLS() credentials.TransportCredentials {
+	if !configuration.ClientTLS.Enable {
 		return nil
 	}
-	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTls.CertFile, configuration.ClientTls.ServerName)
+	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTLS.CertFile, configuration.ClientTLS.ServerName)
 	if err != nil {
 		log.Fatalf("%v using TLS failed", err)
 	}

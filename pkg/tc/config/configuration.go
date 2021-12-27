@@ -47,7 +47,7 @@ type Configuration struct {
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
 
-	ServerTls struct{
+	ServerTLS struct{
 		Enable bool `yaml:"enable"`
 		CertFile string `yaml:"certFile"`
 		KeyFile string `yaml:"keyFile"`
@@ -100,11 +100,11 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 	return sp
 }
 
-func (configuration *Configuration) GetServerTls() credentials.TransportCredentials {
-	if configuration.ServerTls.Enable == false {
+func (configuration *Configuration) GetServerTLS() credentials.TransportCredentials {
+	if !configuration.ServerTLS.Enable {
 		return nil
 	}
-	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTls.CertFile, configuration.ServerTls.KeyFile)
+	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTLS.CertFile, configuration.ServerTLS.KeyFile)
 	if err != nil {
 		log.Fatalf("%v using TLS failed", err)
 	}

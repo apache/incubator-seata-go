@@ -19,13 +19,13 @@ func Init(config *config.Configuration) {
 		conn *grpc.ClientConn
 		err error
 	)
-	if config.GetClientTls() == nil {
+	if config.GetClientTLS() == nil {
 		conn, err = grpc.Dial(config.ServerAddressing,
 			grpc.WithInsecure(),
 			grpc.WithKeepaliveParams(config.GetClientParameters()))
 	} else {
 		conn, err = grpc.Dial(config.ServerAddressing,
-			grpc.WithKeepaliveParams(config.GetClientParameters()), grpc.WithTransportCredentials(config.GetClientTls()))
+			grpc.WithKeepaliveParams(config.GetClientParameters()), grpc.WithTransportCredentials(config.GetClientTLS()))
 	}
 
 	if err != nil {
