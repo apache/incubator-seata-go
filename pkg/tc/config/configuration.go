@@ -49,8 +49,8 @@ type Configuration struct {
 
 	ServerTLS struct{
 		Enable bool `yaml:"enable"`
-		CertFile string `yaml:"certFile"`
-		KeyFile string `yaml:"keyFile"`
+		CertFilePath string `yaml:"certFilePath"`
+		KeyFilePath string `yaml:"keyFilePath"`
 	} `yaml:"serverTls"`
 
 	// Storage is the configuration for the storage driver
@@ -104,7 +104,7 @@ func (configuration *Configuration) GetServerTLS() credentials.TransportCredenti
 	if !configuration.ServerTLS.Enable {
 		return nil
 	}
-	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTLS.CertFile, configuration.ServerTLS.KeyFile)
+	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTLS.CertFilePath, configuration.ServerTLS.KeyFilePath)
 	if err != nil {
 		log.Fatalf("%v using TLS failed", err)
 	}

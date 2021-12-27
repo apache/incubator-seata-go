@@ -19,8 +19,8 @@ serverParameters:
   timeout: 1s
 serverTls:
   enable: false
-  certFile: ""
-  keyFile: ""
+  certFilePath: ""
+  keyFilePath: ""
 clientParameters:
   time: 10s
   timeout: 1s

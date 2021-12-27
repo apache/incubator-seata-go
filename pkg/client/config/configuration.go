@@ -32,7 +32,7 @@ type Configuration struct {
 
 	ClientTLS struct {
 		Enable bool `yaml:"enable"`
-		CertFile string `yaml:"certFile"`
+		CertFilePath string `yaml:"certFilePath"`
 		ServerName string `yaml:"serverName"`
 	} `yaml:"clientTls"`
 
@@ -93,7 +93,7 @@ func (configuration *Configuration) GetClientTLS() credentials.TransportCredenti
 	if !configuration.ClientTLS.Enable {
 		return nil
 	}
-	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTLS.CertFile, configuration.ClientTLS.ServerName)
+	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTLS.CertFilePath, configuration.ClientTLS.ServerName)
 	if err != nil {
 		log.Fatalf("%v using TLS failed", err)
 	}
