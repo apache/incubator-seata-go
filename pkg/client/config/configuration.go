@@ -1,12 +1,12 @@
 package config
 
 import (
-	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
 
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"

@@ -15,10 +15,8 @@ import (
 // Init init resource manager，init transaction manager, expose a port to listen tc
 // call back request.
 func Init(config *config.Configuration) {
-	var (
-		conn *grpc.ClientConn
-		err error
-	)
+	var conn *grpc.ClientConn
+	var err error
 	if config.GetClientTLS() == nil {
 		conn, err = grpc.Dial(config.ServerAddressing,
 			grpc.WithInsecure(),
