@@ -1,40 +1,67 @@
 # seata-golang
+[![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/opentrx/seata-golang/blob/v2/LICENSE)
 
-**钉钉群号 33069364**
+## 简介 | [English](https://github.com/opentrx/seata-golang/blob/v2/README.md)
+seata-golang is a distributed transaction middleware based on Golang.
+### difference between seata-glang and [seata](https://github.com/seata/seata)
+- Currently, seata-golang only support AT mode and TCC mode
+- seata-golang supports bidirectional grpc streaming while seata not
 
-<img src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
+## 架构
+<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />
 
+## 功能
+- AT mode
+- TCC mode
+- GRPC (v2 branch, more friendly to cloud-native)
+- RPC (dev branch)
+- MySQL driver
 
-### 一个朴素的想法
-作为一个刚入 Golang 坑的普通微服务开发者来讲，很容易产生一个朴素的想法，希望 Golang 微服务也有分布式事务解决方案。我们注意到阿里开源了 Java 版的分布式事务解决方案 Seata，本项目尝试将 Java 版的 Seata 改写一个 Golang 的版本。
-在 Seata 没有 Golang 版本 client sdk 的情况下，Golang 版本的 TC Server 使用了和 Java 版 Seata 一样的通信协议，方便调试。
-希望有同样朴素想法的开发者加入我们一起完善 Golang 版本的分布式事务解决方案。本方案参考了 [dubbo-go](#https://github.com/apache/dubbo-go) 的实现。由于时间有限，且对 golang 的一些特性不甚了解，有些实现不太优雅，希望有更多开发者来参与并优化它。
+##目录结构
+- cmd: to startup TC server
+	- profiles/dev/config.yml: TC config file
+	- tc/main.go: TC startup entrance
+- dist: to build in docker container
+- docs: documentations
+- pkg: TC + RM + TM implementation
+	- server/db/*.sql: sql scripts to create DB and tables for TC
 
-### mysql driver
-
-mysql driver 集成 seata-golang 的工作已经完成，该 driver 基于 https://github.com/go-sql-driver/mysql 开发，开发者可以使用该 driver 对接到各种 orm 中，使用更方便。driver 的项目地址：https://github.com/opentrx/mysql 。 参考 demo：https://github.com/opentrx/seata-go-samples 。
-
-### GRPC 版本
-
-为了更加贴近云原生，我们将通信层换成了 grpc 协议，简化了服务发现机制，可使用域名或 host 进行 rpc 调用，而 v1 版本使用基于 tcp 的 rpc 协议，需要在 tc 内部维护 client 的注册信息，实现上相对更复杂。grpc 版本的代码见于 https://github.com/opentrx/seata-golang/tree/v2 ，demo 见于 https://github.com/opentrx/seata-go-samples/tree/v2 。理论上使用 grpc 协议的 seata 可以集成到 istio，实现链路追踪。
-
-### 运行 TC
-
-+ 编译
-```
+## 启动方法
+- ### TC server
+```bash
 cd ${projectpath}/cmd/tc
-go build
+go build -o tc_server
+# update storage.dsn.mysql in ${projectpath}/cmd/profiles/dev/config.yml
+./tc_server start -config ${projectpath}/cmd/profiles/dev/config.yml
 ```
+- ### Client
+Please refer to [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
-+ 将编译好的程序移动到示例代码目录
+- ### 前提条件
+	- MySQL server
+	- Golang applications that need distributed transaction
 
-```
-mv cmd ${targetpath}/
-cd ${targetpath}
-```
+## 设计与实现
+The seata-golang AT and TCC design are actually same as [seata](https://github.com/seata/seata).  
+Please refer to [what-is-seata](https://seata.io/en-us/docs/overview/what-is-seata.html) for more details.
 
-+ 启动 TC
+## 路线图
+- [what is seata AT mode?](https://seata.io/en-us/docs/dev/mode/at-mode.html)
+- [what is seata TCC mode?](https://seata.io/en-us/docs/dev/mode/tcc-mode.html)
+- [GRPC](https://grpc.io/)
 
-```
-./cmd start -config ${projectpath}/tc/app/profiles/dev/config.yml
-```
+## 相关项目
+- [dubbogo](https://github.com/dubbogo)
+- [msyql-driver](https://github.com/opentrx/mysql)
+- [seata-go-samples](https://github.com/opentrx/seata-go-samples)
+
+## 联系方式
+Please contact us via DingTalk app if you have any issues. The chat group ID is 33069364.  
+<img alt="DingTalk Group" src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
+
+## 贡献
+Welcome to contribute to seata-golang!  
+To contribute, fork from opentrx/seata-golang and push branch to your repo, then open a pull-request.
+
+## 开源协议
+seata-golang software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/opentrx/seata-golang/blob/v2/LICENSE) file for details.
