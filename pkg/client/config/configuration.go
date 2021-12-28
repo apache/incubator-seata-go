@@ -34,7 +34,7 @@ type Configuration struct {
 		Enable bool `yaml:"enable"`
 		CertFilePath string `yaml:"certFilePath"`
 		ServerName string `yaml:"serverName"`
-	} `yaml:"clientTls"`
+	} `yaml:"clientTLS"`
 
 	Log struct {
 		LogPath  string    `yaml:"logPath"`

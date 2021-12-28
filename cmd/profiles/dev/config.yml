@@ -17,7 +17,7 @@ serverParameters:
   maxConnectionAgeGrace: 5s
   time: 5s
   timeout: 1s
-serverTls:
+serverTLS:
   enable: false
   certFilePath: ""
   keyFilePath: ""

@@ -51,7 +51,7 @@ type Configuration struct {
 		Enable bool `yaml:"enable"`
 		CertFilePath string `yaml:"certFilePath"`
 		KeyFilePath string `yaml:"keyFilePath"`
-	} `yaml:"serverTls"`
+	} `yaml:"serverTLS"`
 
 	// Storage is the configuration for the storage driver
 	Storage Storage `yaml:"storage"`
