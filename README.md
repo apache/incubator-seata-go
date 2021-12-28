@@ -8,13 +8,7 @@ seata-golang is a distributed transaction middleware based on Golang.
 - seata-golang supports bidirectional grpc streaming while seata not
 
 ## Architecture
-- cmd: to startup TC server
-  - profiles/dev/config.yml: TC config file
-  - tc/main.go: TC startup entrance
-- dist: to build in docker container 
-- docs: documentations
-- pkg: TC + RM + TM implementation
-  - server/db/*.sql: sql scripts to create DB and tables for TC
+<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />
 
 ## Features
 - AT mode
@@ -22,6 +16,15 @@ seata-golang is a distributed transaction middleware based on Golang.
 - GRPC (v2 branch, more friendly to cloud-native)
 - RPC (dev branch)
 - MySQL driver
+
+## Directory structure
+- cmd: to startup TC server
+	- profiles/dev/config.yml: TC config file
+	- tc/main.go: TC startup entrance
+- dist: to build in docker container
+- docs: documentations
+- pkg: TC + RM + TM implementation
+	- server/db/*.sql: sql scripts to create DB and tables for TC
 
 ## Getting started
 - ### TC server
@@ -50,10 +53,11 @@ Please refer to [what-is-seata](https://seata.io/en-us/docs/overview/what-is-sea
 ## Built With
 - [dubbogo](https://github.com/dubbogo)
 - [msyql-driver](https://github.com/opentrx/mysql)
+- [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
 ## Contact
 Please contact us via DingTalk app if you have any issues. The chat group ID is 33069364.  
-<img src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
+<img alt="DingTalk Group" src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
 
 ## Contributing
 Welcome to contribute to seata-golang!  
