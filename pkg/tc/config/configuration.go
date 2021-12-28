@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
@@ -45,6 +46,12 @@ type Configuration struct {
 		Time                  time.Duration `yaml:"time"`
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
+
+	ServerTLS struct{
+		Enable bool `yaml:"enable"`
+		CertFilePath string `yaml:"certFilePath"`
+		KeyFilePath string `yaml:"keyFilePath"`
+	} `yaml:"serverTLS"`
 
 	// Storage is the configuration for the storage driver
 	Storage Storage `yaml:"storage"`
@@ -91,6 +98,17 @@ func (configuration *Configuration) GetServerParameters() keepalive.ServerParame
 		sp.Timeout = configuration.ServerParameters.Timeout
 	}
 	return sp
+}
+
+func (configuration *Configuration) GetServerTLS() credentials.TransportCredentials {
+	if !configuration.ServerTLS.Enable {
+		return nil
+	}
+	cred, err := credentials.NewServerTLSFromFile(configuration.ServerTLS.CertFilePath, configuration.ServerTLS.KeyFilePath)
+	if err != nil {
+		log.Fatalf("%v using TLS failed", err)
+	}
+	return cred
 }
 
 // Parameters defines a key-value parameters mapping

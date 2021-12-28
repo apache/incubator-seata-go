@@ -15,9 +15,17 @@ import (
 // Init init resource manager，init transaction manager, expose a port to listen tc
 // call back request.
 func Init(config *config.Configuration) {
-	conn, err := grpc.Dial(config.ServerAddressing,
-		grpc.WithInsecure(),
-		grpc.WithKeepaliveParams(config.GetClientParameters()))
+	var conn *grpc.ClientConn
+	var err error
+	if config.GetClientTLS() == nil {
+		conn, err = grpc.Dial(config.ServerAddressing,
+			grpc.WithInsecure(),
+			grpc.WithKeepaliveParams(config.GetClientParameters()))
+	} else {
+		conn, err = grpc.Dial(config.ServerAddressing,
+			grpc.WithKeepaliveParams(config.GetClientParameters()), grpc.WithTransportCredentials(config.GetClientTLS()))
+	}
+
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

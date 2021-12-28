@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
@@ -28,6 +29,12 @@ type Configuration struct {
 		Timeout             time.Duration `yaml:"timeout"`
 		PermitWithoutStream bool          `yaml:"permitWithoutStream"`
 	} `yaml:"clientParameters"`
+
+	ClientTLS struct {
+		Enable bool `yaml:"enable"`
+		CertFilePath string `yaml:"certFilePath"`
+		ServerName string `yaml:"serverName"`
+	} `yaml:"clientTLS"`
 
 	Log struct {
 		LogPath  string    `yaml:"logPath"`
@@ -80,6 +87,17 @@ func (configuration *Configuration) GetClientParameters() keepalive.ClientParame
 	}
 	cp.PermitWithoutStream = configuration.ClientParameters.PermitWithoutStream
 	return cp
+}
+
+func (configuration *Configuration) GetClientTLS() credentials.TransportCredentials {
+	if !configuration.ClientTLS.Enable {
+		return nil
+	}
+	cred, err := credentials.NewClientTLSFromFile(configuration.ClientTLS.CertFilePath, configuration.ClientTLS.ServerName)
+	if err != nil {
+		log.Fatalf("%v using TLS failed", err)
+	}
+	return cred
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct
