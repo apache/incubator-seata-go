@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `branch_table`
 CREATE TABLE IF NOT EXISTS `lock_table`
 (
     `row_key`        VARCHAR(256) NOT NULL,
-    `xid`            VARCHAR(96),
+    `xid`            VARCHAR(128),
     `transaction_id` BIGINT,
     `branch_id`      BIGINT       NOT NULL,
     `resource_id`    VARCHAR(256),
