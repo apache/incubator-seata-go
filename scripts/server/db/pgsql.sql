@@ -44,7 +44,7 @@ CREATE INDEX idx_xid ON branch_table(xid);
 CREATE TABLE IF NOT EXISTS lock_table
 (
     row_key        VARCHAR(256) NOT NULL,
-    xid            VARCHAR(96),
+    xid            VARCHAR(128) NOT NULL,
     transaction_id BIGINT,
     branch_id      BIGINT       NOT NULL,
     resource_id    VARCHAR(256),

@@ -62,7 +62,7 @@ const (
 		"`gmt_create` datetime(6) DEFAULT NULL, `gmt_modified` datetime(6) DEFAULT NULL, PRIMARY KEY (`branch_id`), KEY `idx_xid` (`xid`)) " +
 		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 
-	CreateLockTable = "CREATE TABLE IF NOT EXISTS `%s` (`row_key` VARCHAR(256) NOT NULL, `xid` VARCHAR(96), `transaction_id` BIGINT, " +
+	CreateLockTable = "CREATE TABLE IF NOT EXISTS `%s` (`row_key` VARCHAR(256) NOT NULL, `xid` VARCHAR(128) NOT NULL, `transaction_id` BIGINT, " +
 		"`branch_id` BIGINT NOT NULL, `resource_id` VARCHAR(256), `table_name` VARCHAR(64), `pk` VARCHAR(36), `gmt_create` DATETIME, " +
 		"`gmt_modified` DATETIME, PRIMARY KEY (`row_key`), KEY `idx_branch_id` (`branch_id`)) ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 )
