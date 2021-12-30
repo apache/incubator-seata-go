@@ -35,11 +35,12 @@ go build -o tc_server
 ./tc_server start -config ${projectpath}/cmd/profiles/dev/config.yml
 ```
 - ### Client
-Please refer to [seata-go-samples](https://github.com/opentrx/seata-go-samples)
+Please refer to demo [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
 - ### Prerequisites
   - MySQL server
   - Golang applications that need distributed transaction
+  - Business tables that requires primary key
 
 ## Design and implementation
 The seata-golang AT and TCC design are actually same as [seata](https://github.com/seata/seata).  
