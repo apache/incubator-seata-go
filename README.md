@@ -4,18 +4,24 @@
 ## Introduction | [中文](https://github.com/opentrx/seata-golang/blob/v2/docs/README_ZH.md)
 seata-golang is a distributed transaction middleware based on Golang.
 ### difference between seata-glang and [seata](https://github.com/seata/seata)
-- Currently, seata-golang only support AT mode and TCC mode
-- seata-golang supports bidirectional grpc streaming while seata not
+| feature  |  seata   | seata-golang  | remark |
+  | ---- |  :----:  | :----:  | --- |
+| AT mode |  √  | √ | |
+| TCC mode | √  | √ | |
+| SAGA mode | √ | × | |
+| rpc | √ | √ | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
+| grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
 
 ## Architecture
-<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />
+<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
 
-## Features
-- AT mode
-- TCC mode
-- GRPC (v2 branch, more friendly to cloud-native)
-- RPC (dev branch)
-- MySQL driver
+A typical lifecycle of Seata managed distributed transaction:
+
+- TM asks TC to begin a new global transaction. TC generates an XID representing the global transaction.
+- XID is propagated through microservices' invoke chain.
+- RM registers local transaction as a branch of the corresponding global transaction of XID to TC.
+- TM asks TC for committing or rolling back the corresponding global transaction of XID.
+- TC drives all branch transactions under the corresponding global transaction of XID to finish branch committing or rolling back.
 
 ## Directory structure
 - cmd: to startup TC server
@@ -40,16 +46,17 @@ Please refer to demo [seata-go-samples](https://github.com/opentrx/seata-go-samp
 - ### Prerequisites
   - MySQL server
   - Golang applications that need distributed transaction
-  - Business tables that requires primary key
+  - Business tables that require primary key
 
 ## Design and implementation
-The seata-golang AT and TCC design are actually same as [seata](https://github.com/seata/seata).  
+The seata-golang AT and TCC design are actually the same as [seata](https://github.com/seata/seata).  
 Please refer to [what-is-seata](https://seata.io/en-us/docs/overview/what-is-seata.html) for more details.
 
 ## Roadmap
 - [what is seata AT mode?](https://seata.io/en-us/docs/dev/mode/at-mode.html)
 - [what is seata TCC mode?](https://seata.io/en-us/docs/dev/mode/tcc-mode.html)
 - [GRPC](https://grpc.io/)
+- [dubbogo](https://github.com/dubbogo)
 
 ## Built With
 - [dubbogo](https://github.com/dubbogo)
@@ -61,7 +68,7 @@ Please contact us via DingTalk app if you have any issues. The chat group ID is 
 <img alt="DingTalk Group" src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
 
 ## Contributing
-Welcome to contribute to seata-golang!  
+Welcome to raise up issue or pull-request to seata-golang!  
 To contribute, fork from opentrx/seata-golang and push branch to your repo, then open a pull-request.
 
 ## License

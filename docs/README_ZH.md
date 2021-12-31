@@ -4,18 +4,24 @@
 ## 简介 | [English](https://github.com/opentrx/seata-golang/blob/v2/README.md)
 seata-golang是一个用于解决分布式事务的中间件，是基于Go语言版本的seata。
 ### seata-golang与[seata](https://github.com/seata/seata) 的区别
-- seata-golang支持AT模式与TCC模式，seata支持AT、TCC、Saga模式。
-- seata-golang支持grpc，而seata不支持。
+| 特性  |  seata   | seata-golang  | 备注 |
+  | ---- |  :----:  | :----:  | --- |
+| AT mode |  √  | √ | |
+| TCC mode | √  | √ | |
+| SAGA mode | √ | × | |
+| rpc | √ | √ | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
+| grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
 
 ## 架构
-<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />
+<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
 
-## 功能
-- AT 模式
-- TCC 模式
-- GRPC (v2 分支, 更贴近云原生)
-- RPC (dev 分支)
-- MySQL 驱动
+一个典型的seata分布式事务的生命周期：
+
+- TM向TC发起全局分布式事务， TC为全局事务分配一个唯一事务id：XID。
+- XID在微服务调用链中传播。
+- RM向TC注册本地事务为全局事务的一个分支。
+- TM向TC发起全局事务提交或全局事务回滚。
+- TC向所有参与全局事务的分支事务发起本地提交或本地回滚。
 
 ##目录结构
 - cmd: 启动TC server的入口
@@ -49,7 +55,8 @@ seata-golang的AT模式和TCC模式的设计与[seata](https://github.com/seata/
 ## 路线图
 - [什么是seata AT模式？](https://seata.io/en-us/docs/dev/mode/at-mode.html)
 - [什么是seata TCC模式？](https://seata.io/en-us/docs/dev/mode/tcc-mode.html)
-- [GRPC](https://grpc.io/)
+- [grpc](https://grpc.io/)
+- [dubbogo](https://github.com/dubbogo)
 
 ## 相关项目
 - [dubbogo](https://github.com/dubbogo)
@@ -61,7 +68,7 @@ seata-golang的AT模式和TCC模式的设计与[seata](https://github.com/seata/
 <img alt="DingTalk Group" src="https://github.com/opentrx/seata-golang/blob/dev/docs/pics/33069364.png" width="200px" />
 
 ## 贡献
-欢迎来为seata-golang提交issue和pull-request！
+欢迎来为seata-golang提交issue和pull-request！  
 要给seata-golang提交代码, 可以fork opentrx/seata-golang，然后提交代码到你fork的仓库分支上，最后提交pull request。
 
 ## 开源协议
