@@ -37,9 +37,11 @@ A typical lifecycle of Seata managed distributed transaction:
 ```bash
 cd ${projectpath}/cmd/tc
 go build -o tc_server
+# create database `seata` for TC server
 # update storage.dsn.mysql in ${projectpath}/cmd/profiles/dev/config.yml
 ./tc_server start -config ${projectpath}/cmd/profiles/dev/config.yml
 ```
+
 - ### Client
 Please refer to demo [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
@@ -52,15 +54,12 @@ Please refer to demo [seata-go-samples](https://github.com/opentrx/seata-go-samp
 The seata-golang AT and TCC design are actually the same as [seata](https://github.com/seata/seata).  
 Please refer to [what-is-seata](https://seata.io/en-us/docs/overview/what-is-seata.html) for more details.
 
-## Roadmap
+## Reference
 - [what is seata AT mode?](https://seata.io/en-us/docs/dev/mode/at-mode.html)
 - [what is seata TCC mode?](https://seata.io/en-us/docs/dev/mode/tcc-mode.html)
 - [GRPC](https://grpc.io/)
 - [dubbogo](https://github.com/dubbogo)
-
-## Built With
-- [dubbogo](https://github.com/dubbogo)
-- [msyql-driver](https://github.com/opentrx/mysql)
+- [mysql-driver](https://github.com/opentrx/mysql)
 - [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
 ## Contact

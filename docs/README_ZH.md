@@ -23,7 +23,7 @@ seata-golang是一个用于解决分布式事务的中间件，是基于Go语言
 - TM向TC发起全局事务提交或全局事务回滚。
 - TC向所有参与全局事务的分支事务发起本地提交或本地回滚。
 
-##目录结构
+## 目录结构
 - cmd: 启动TC server的入口
 	- profiles/dev/config.yml: TC 配置文件
 	- tc/main.go: TC 启动文件
@@ -37,30 +37,29 @@ seata-golang是一个用于解决分布式事务的中间件，是基于Go语言
 ```bash
 cd ${projectpath}/cmd/tc
 go build -o tc_server
+# 为TC  server创建数据库 `seata`
 # 修改配置文件 ${projectpath}/cmd/profiles/dev/config.yml 的配置项 storage.dsn.mysql
 ./tc_server start -config ${projectpath}/cmd/profiles/dev/config.yml
 ```
+
 - ### Client
 请查看demo演示[seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
 - ### 前提条件
-    - MySQL服务器
-    - Golang应用
-    - 带主键的业务数据表
+  - MySQL服务器
+  - Golang应用
+  - 带主键的业务数据表
 
 ## 设计与实现
 seata-golang的AT模式和TCC模式的设计与[seata](https://github.com/seata/seata) 是一致的。  
 请参考[什么是seata](https://seata.io/en-us/docs/overview/what-is-seata.html)
 
-## 路线图
+## 相关参考
 - [什么是seata AT模式？](https://seata.io/en-us/docs/dev/mode/at-mode.html)
 - [什么是seata TCC模式？](https://seata.io/en-us/docs/dev/mode/tcc-mode.html)
 - [grpc](https://grpc.io/)
 - [dubbogo](https://github.com/dubbogo)
-
-## 相关项目
-- [dubbogo](https://github.com/dubbogo)
-- [msyql-driver](https://github.com/opentrx/mysql)
+- [mysql-driver](https://github.com/opentrx/mysql)
 - [seata-go-samples](https://github.com/opentrx/seata-go-samples)
 
 ## 联系方式
