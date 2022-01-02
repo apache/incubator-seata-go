@@ -47,7 +47,7 @@ Please refer to demo [seata-go-samples](https://github.com/opentrx/seata-go-samp
 
 - ### Prerequisites
   - MySQL server
-  - Golang applications that need distributed transaction
+  - Golang version >= 1.15
   - Business tables that require primary key
 
 ## Design and implementation

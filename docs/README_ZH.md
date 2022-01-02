@@ -47,7 +47,7 @@ go build -o tc_server
 
 - ### 前提条件
   - MySQL服务器
-  - Golang应用
+  - Golang 版本 >= 1.15
   - 带主键的业务数据表
 
 ## 设计与实现
