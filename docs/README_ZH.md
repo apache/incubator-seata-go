@@ -13,7 +13,7 @@ seata-golang是一个用于解决分布式事务的中间件，是基于Go语言
 | grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
 
 ## 架构
-<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
+<img alt="seata-flow" width="500px" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
 
 一个典型的seata分布式事务的生命周期：
 
