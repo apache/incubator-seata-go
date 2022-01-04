@@ -13,7 +13,7 @@ seata-golang is a distributed transaction middleware based on Golang.
 | grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
 
 ## Architecture
-<img alt="seata-flow" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
+<img alt="seata-flow" width="500px" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
 
 A typical lifecycle of Seata managed distributed transaction:
 
