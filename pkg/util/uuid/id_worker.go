@@ -57,19 +57,9 @@ func Init(serverNode int64) error {
 }
 
 func NextID() int64 {
-	waitIfNecessary()
 	next := atomic.AddUint64(&timestampAndSequence, 1)
 	timestampWithSequence := next & timestampAndSequenceMask
 	return int64(uint64(workerID) | timestampWithSequence)
-}
-
-func waitIfNecessary() {
-	currentWithSequence := atomic.LoadUint64(&timestampAndSequence)
-	current := currentWithSequence >> sequenceBits
-	newest := getNewestTimestamp()
-	for current >= newest {
-		newest = getNewestTimestamp()
-	}
 }
 
 // get newest timestamp relative to twepoch
