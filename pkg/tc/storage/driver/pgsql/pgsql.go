@@ -39,9 +39,9 @@ const (
 	QueryBranchTransactionByXid = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
 	    application_data, gmt_create, gmt_modified from %s where xid = $1 order by gmt_create asc`
 
-	UpdateBranchTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where xid = $2 and branch_id = $3"
+	UpdateBranchTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where branch_id = $2"
 
-	DeleteBranchTransaction = "delete from %s where xid = $1 and branch_id = $2"
+	DeleteBranchTransaction = "delete from %s where branch_id = $1"
 
 	InsertRowLock = `insert into %s (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create,
 		gmt_modified) values %s`
@@ -396,7 +396,6 @@ func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSessi
 func (driver *driver) UpdateBranchSessionStatus(session *apis.BranchSession, status apis.BranchSession_BranchStatus) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(UpdateBranchTransaction, driver.branchTable),
 		status,
-		session.XID,
 		session.BranchID)
 	return err
 }
@@ -404,7 +403,6 @@ func (driver *driver) UpdateBranchSessionStatus(session *apis.BranchSession, sta
 // Remove branch session.
 func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(DeleteBranchTransaction, driver.branchTable),
-		session.XID,
 		session.BranchID)
 	return err
 }
