@@ -47,10 +47,10 @@ type Configuration struct {
 		Timeout               time.Duration `yaml:"timeout"`
 	} `yaml:"serverParameters"`
 
-	ServerTLS struct{
-		Enable bool `yaml:"enable"`
+	ServerTLS struct {
+		Enable       bool   `yaml:"enable"`
 		CertFilePath string `yaml:"certFilePath"`
-		KeyFilePath string `yaml:"keyFilePath"`
+		KeyFilePath  string `yaml:"keyFilePath"`
 	} `yaml:"serverTLS"`
 
 	// Storage is the configuration for the storage driver
