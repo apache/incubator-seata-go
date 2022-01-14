@@ -157,7 +157,7 @@ func (manager *ResourceManager) branchCommunicate() {
 }
 
 func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, resourceID string,
-	branchType apis.BranchSession_BranchType, applicationData []byte, lockKeys string) (int64, error) {
+	branchType apis.BranchSession_BranchType, applicationData []byte, lockKeys string, asyncPhase2 bool) (int64, error) {
 	request := &apis.BranchRegisterRequest{
 		Addressing:      manager.addressing,
 		XID:             xid,
@@ -165,6 +165,7 @@ func (manager *ResourceManager) BranchRegister(ctx context.Context, xid string, 
 		LockKey:         lockKeys,
 		BranchType:      branchType,
 		ApplicationData: applicationData,
+		AsyncPhase2:     asyncPhase2,
 	}
 	resp, err := manager.rpcClient.BranchRegister(ctx, request)
 	if err != nil {
