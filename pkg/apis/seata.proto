@@ -139,6 +139,10 @@ message GlobalSession {
         // The Finished.
         // Not managed in getty_session MAP any more
         Finished = 15;
+
+		// All branches can be async rolledback. The committing is NOT done yet, but it can be seen as
+		// rolledback for TM/RM rpc_client.
+		AsyncRollingBack = 16;
     }
 
     string Addressing = 1 [(gogoproto.moretags) = "xorm:\"addressing\""];
