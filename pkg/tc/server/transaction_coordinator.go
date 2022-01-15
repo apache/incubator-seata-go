@@ -83,6 +83,7 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 	}
 	go tc.processTimeoutCheck()
 	go tc.processAsyncCommitting()
+	go tc.processAsyncRollingBack()
 	go tc.processRetryCommitting()
 	go tc.processRetryRollingBack()
 
@@ -886,6 +887,17 @@ func (tc *TransactionCoordinator) processAsyncCommitting() {
 	}
 }
 
+func (tc *TransactionCoordinator) processAsyncRollingBack() {
+	for {
+		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
+
+		<-timer.C
+		tc.handleAsyncRollingBack()
+
+		timer.Stop()
+	}
+}
+
 func (tc *TransactionCoordinator) timeoutCheck() {
 	sessions := tc.holder.FindGlobalSessions([]apis.GlobalSession_GlobalStatus{apis.Begin})
 	if len(sessions) == 0 {
@@ -998,6 +1010,26 @@ func (tc *TransactionCoordinator) handleAsyncCommitting() {
 		_, err := tc.doGlobalCommit(transaction, true)
 		if err != nil {
 			log.Errorf("failed to async committing [%s]", transaction.XID)
+		}
+	}
+}
+
+func (tc *TransactionCoordinator) handleAsyncRollingBack() {
+	addressingIdentities := tc.getAddressingIdentities()
+	if len(addressingIdentities) == 0 {
+		return
+	}
+	asyncCommittingTransactions := tc.holder.FindAsyncRollingBackGlobalTransactions(addressingIdentities)
+	if len(asyncCommittingTransactions) == 0 {
+		return
+	}
+	for _, transaction := range asyncCommittingTransactions {
+		if transaction.Status != apis.AsyncRollingBack {
+			continue
+		}
+		_, err := tc.doGlobalRollback(transaction, true)
+		if err != nil {
+			log.Errorf("failed to async rolling back [%s]", transaction.XID)
 		}
 	}
 }
