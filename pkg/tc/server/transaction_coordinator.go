@@ -751,6 +751,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			Type:            request.BranchType,
 			Status:          apis.Registered,
 			ApplicationData: request.ApplicationData,
+			AsyncPhase2:     request.AsyncPhase2,
 		}
 
 		if bs.Type == apis.AT {

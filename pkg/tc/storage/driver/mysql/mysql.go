@@ -31,13 +31,13 @@ const (
 	DeleteGlobalTransaction = "delete from %s where xid = ?"
 
 	InsertBranchTransaction = `insert into %s (addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type,
-        status, application_data, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
+        status, application_data, async_phase2, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
 
 	QueryBranchTransaction = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
+	    application_data, async_phase2, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
 
 	QueryBranchTransactionByXid = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, gmt_create, gmt_modified from %s where xid = ? order by gmt_create asc`
+	    application_data, async_phase2, gmt_create, gmt_modified from %s where xid = ? order by gmt_create asc`
 
 	UpdateBranchTransaction = "update %s set status = ?, gmt_modified = now() where branch_id = ?"
 
