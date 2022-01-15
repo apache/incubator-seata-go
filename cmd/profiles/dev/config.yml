@@ -4,6 +4,7 @@ server:
   maxCommitRetryTimeout: -1
   rollbackRetryTimeoutUnlockEnable: true
   asyncCommittingRetryPeriod: 1s
+  asyncRollingBackRetryPeriod: 1s
   committingRetryPeriod: 5s
   rollingBackRetryPeriod: 1s
   timeoutRetryPeriod: 1s

@@ -37,10 +37,11 @@ type TransactionCoordinator struct {
 	maxRollbackRetryTimeout          int64
 	rollbackRetryTimeoutUnlockEnable bool
 
-	asyncCommittingRetryPeriod time.Duration
-	committingRetryPeriod      time.Duration
-	rollingBackRetryPeriod     time.Duration
-	timeoutRetryPeriod         time.Duration
+	asyncCommittingRetryPeriod  time.Duration
+	asyncRollingBackRetryPeriod time.Duration
+	committingRetryPeriod       time.Duration
+	rollingBackRetryPeriod      time.Duration
+	timeoutRetryPeriod          time.Duration
 
 	streamMessageTimeout time.Duration
 
@@ -65,10 +66,11 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		maxRollbackRetryTimeout:          conf.Server.MaxRollbackRetryTimeout,
 		rollbackRetryTimeoutUnlockEnable: conf.Server.RollbackRetryTimeoutUnlockEnable,
 
-		asyncCommittingRetryPeriod: conf.Server.AsyncCommittingRetryPeriod,
-		committingRetryPeriod:      conf.Server.CommittingRetryPeriod,
-		rollingBackRetryPeriod:     conf.Server.RollingBackRetryPeriod,
-		timeoutRetryPeriod:         conf.Server.TimeoutRetryPeriod,
+		asyncCommittingRetryPeriod:  conf.Server.AsyncCommittingRetryPeriod,
+		asyncRollingBackRetryPeriod: conf.Server.AsyncRollingBackRetryPeriod,
+		committingRetryPeriod:       conf.Server.CommittingRetryPeriod,
+		rollingBackRetryPeriod:      conf.Server.RollingBackRetryPeriod,
+		timeoutRetryPeriod:          conf.Server.TimeoutRetryPeriod,
 
 		streamMessageTimeout: conf.Server.StreamMessageTimeout,
 
@@ -889,7 +891,7 @@ func (tc *TransactionCoordinator) processAsyncCommitting() {
 
 func (tc *TransactionCoordinator) processAsyncRollingBack() {
 	for {
-		timer := time.NewTimer(tc.asyncCommittingRetryPeriod)
+		timer := time.NewTimer(tc.asyncRollingBackRetryPeriod)
 
 		<-timer.C
 		tc.handleAsyncRollingBack()
