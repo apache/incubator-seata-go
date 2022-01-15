@@ -31,7 +31,7 @@ func (gt *GlobalTransaction) GetBranch(branchID int64) *apis.BranchSession {
 
 func (gt *GlobalTransaction) CanBeCommittedAsync() bool {
 	for branchSession := range gt.BranchSessions {
-		if branchSession.Type == apis.TCC && !branchSession.AsyncPhase2 {
+		if !branchSession.AsyncPhase2 {
 			return false
 		}
 	}
