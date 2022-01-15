@@ -38,6 +38,18 @@ func (gt *GlobalTransaction) CanBeCommittedAsync() bool {
 	return true
 }
 
+func (gt *GlobalTransaction) CanBeRolledBackAsync() bool {
+	for branchSession := range gt.BranchSessions {
+		if branchSession.Type == apis.AT {
+			return false
+		}
+		if !branchSession.AsyncPhase2 {
+			return false
+		}
+	}
+	return true
+}
+
 func (gt *GlobalTransaction) IsSaga() bool {
 	for branchSession := range gt.BranchSessions {
 		if branchSession.Type == apis.SAGA {
