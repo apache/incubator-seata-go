@@ -51,10 +51,6 @@ func (gt *GlobalTransaction) IsTimeout() bool {
 	return (time.CurrentTimeMillis() - uint64(gt.BeginTime)) > uint64(gt.Timeout)
 }
 
-func (gt *GlobalTransaction) IsRollingBackDead() bool {
-	return (time.CurrentTimeMillis() - uint64(gt.BeginTime)) > uint64(2*6000)
-}
-
 func (gt *GlobalTransaction) IsTimeoutGlobalStatus() bool {
 	return gt.Status == apis.TimeoutRolledBack ||
 		gt.Status == apis.TimeoutRollbackFailed ||

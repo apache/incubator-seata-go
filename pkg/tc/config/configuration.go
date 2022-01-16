@@ -24,6 +24,7 @@ type Configuration struct {
 		Port                             int   `yaml:"port"`
 		MaxCommitRetryTimeout            int64 `yaml:"maxCommitRetryTimeout"`
 		MaxRollbackRetryTimeout          int64 `yaml:"maxRollbackRetryTimeout"`
+		RollbackDeadSeconds              int64 `yaml:"rollback_dead_seconds"`
 		RollbackRetryTimeoutUnlockEnable bool  `yaml:"rollbackRetryTimeoutUnlockEnable"`
 
 		AsyncCommittingRetryPeriod time.Duration `yaml:"asyncCommittingRetryPeriod"`

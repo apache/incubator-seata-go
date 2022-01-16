@@ -8,6 +8,7 @@ server:
   rollingBackRetryPeriod: 1s
   timeoutRetryPeriod: 1s
   streamMessageTimeout: 30s
+  rollbackDeadSeconds: 12
 enforcementPolicy:
   minTime: 5s
   permitWithoutStream: true
