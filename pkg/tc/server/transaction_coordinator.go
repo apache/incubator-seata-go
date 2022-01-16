@@ -1021,11 +1021,11 @@ func (tc *TransactionCoordinator) handleAsyncRollingBack() {
 	if len(addressingIdentities) == 0 {
 		return
 	}
-	asyncCommittingTransactions := tc.holder.FindAsyncRollingBackGlobalTransactions(addressingIdentities)
-	if len(asyncCommittingTransactions) == 0 {
+	asyncRollingBackTransactions := tc.holder.FindAsyncRollingBackGlobalTransactions(addressingIdentities)
+	if len(asyncRollingBackTransactions) == 0 {
 		return
 	}
-	for _, transaction := range asyncCommittingTransactions {
+	for _, transaction := range asyncRollingBackTransactions {
 		if transaction.Status != apis.AsyncRollingBack {
 			continue
 		}
