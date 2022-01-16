@@ -52,17 +52,17 @@ const (
 	CreateGlobalTable = `
 		CREATE TABLE IF NOT EXISTS %s
 		(
-		  addressing varchar(128) NOT NULL,
-		  xid varchar(128) NOT NULL,
-		  transaction_id bigint DEFAULT NULL,
-		  transaction_name varchar(128) DEFAULT NULL,
-		  timeout int DEFAULT NULL,
-		  begin_time bigint DEFAULT NULL,
-		  status int NOT NULL,
-		  active bool NOT NULL,
-		  gmt_create timestamp DEFAULT NULL,
-		  gmt_modified timestamp DEFAULT NULL,
-		  PRIMARY KEY (xid)
+			addressing varchar(128) NOT NULL,
+			xid varchar(128) NOT NULL,
+			transaction_id bigint DEFAULT NULL,
+			transaction_name varchar(128) DEFAULT NULL,
+			timeout int DEFAULT NULL,
+			begin_time bigint DEFAULT NULL,
+			status int NOT NULL,
+			active bool NOT NULL,
+			gmt_create timestamp DEFAULT NULL,
+			gmt_modified timestamp DEFAULT NULL,
+			PRIMARY KEY (xid)
 		);
 		CREATE INDEX IF NOT EXISTS idx_gmt_modified_status ON %s(gmt_modified, status);
 		CREATE INDEX IF NOT EXISTS idx_transaction_id ON %s(transaction_id);`
@@ -70,19 +70,19 @@ const (
 	CreateBranchTable = `
 		CREATE TABLE IF NOT EXISTS %s
 		(
-		  addressing varchar(128) NOT NULL,
-		  xid varchar(128) NOT NULL,
-		  branch_id bigint NOT NULL,
-		  transaction_id bigint DEFAULT NULL,
-		  resource_id varchar(256) DEFAULT NULL,
-		  lock_key VARCHAR(1000),
-		  branch_type varchar(8) DEFAULT NULL,
-		  status int DEFAULT NULL,
-		  application_data varchar(2000) DEFAULT NULL,
-		  async_phase2 tinyint NOT NULL DEFAULT 1,
-		  gmt_create timestamp DEFAULT NULL,
-		  gmt_modified timestamp DEFAULT NULL,
-		  PRIMARY KEY (branch_id)
+			addressing varchar(128) NOT NULL,
+			xid varchar(128) NOT NULL,
+			branch_id bigint NOT NULL,
+			transaction_id bigint DEFAULT NULL,
+			resource_id varchar(256) DEFAULT NULL,
+			lock_key VARCHAR(1000),
+			branch_type varchar(8) DEFAULT NULL,
+			status int DEFAULT NULL,
+			application_data varchar(2000) DEFAULT NULL,
+			async_phase2 tinyint NOT NULL DEFAULT 1,
+			gmt_create timestamp DEFAULT NULL,
+			gmt_modified timestamp DEFAULT NULL,
+			PRIMARY KEY (branch_id)
 		);
 		CREATE INDEX IF NOT EXISTS idx_xid ON %s(xid);`
 
