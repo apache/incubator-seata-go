@@ -434,7 +434,7 @@ func (tc *TransactionCoordinator) Rollback(ctx context.Context, request *apis.Gl
 	if gt.CanBeRolledBackAsync() {
 		err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.AsyncRollingBack)
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
 		return &apis.GlobalRollbackResponse{
 			ResultCode:   apis.ResultCodeSuccess,
