@@ -58,7 +58,7 @@ const (
 
 	CreateBranchTable = "CREATE TABLE IF NOT EXISTS `%s` (`addressing` varchar(128) NOT NULL, `xid` varchar(128) NOT NULL, " +
 		"`branch_id` bigint NOT NULL, `transaction_id` bigint DEFAULT NULL, `resource_id` varchar(256) DEFAULT NULL, `lock_key` VARCHAR(1000), " +
-		"`branch_type` varchar(8) DEFAULT NULL, `status` tinyint DEFAULT NULL, `application_data` varchar(2000) DEFAULT NULL, " +
+		"`branch_type` varchar(8) DEFAULT NULL, `status` tinyint DEFAULT NULL, `application_data` varchar(2000) DEFAULT NULL, `async_phase2` tinyint NOT NULL DEFAULT 1, " +
 		"`gmt_create` datetime(6) DEFAULT NULL, `gmt_modified` datetime(6) DEFAULT NULL, PRIMARY KEY (`branch_id`), KEY `idx_xid` (`xid`)) " +
 		"ENGINE = InnoDB DEFAULT CHARSET = utf8;"
 
