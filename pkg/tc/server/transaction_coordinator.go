@@ -35,6 +35,7 @@ type TransactionCoordinator struct {
 	sync.Mutex
 	maxCommitRetryTimeout            int64
 	maxRollbackRetryTimeout          int64
+	rollbackDeadSeconds              int64
 	rollbackRetryTimeoutUnlockEnable bool
 
 	asyncCommittingRetryPeriod time.Duration
@@ -63,6 +64,7 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 	tc := &TransactionCoordinator{
 		maxCommitRetryTimeout:            conf.Server.MaxCommitRetryTimeout,
 		maxRollbackRetryTimeout:          conf.Server.MaxRollbackRetryTimeout,
+		rollbackDeadSeconds:              conf.Server.RollbackDeadSeconds,
 		rollbackRetryTimeoutUnlockEnable: conf.Server.RollbackRetryTimeoutUnlockEnable,
 
 		asyncCommittingRetryPeriod: conf.Server.AsyncCommittingRetryPeriod,
@@ -916,7 +918,7 @@ func (tc *TransactionCoordinator) handleRetryRollingBack() {
 	}
 	now := time2.CurrentTimeMillis()
 	for _, transaction := range rollbackTransactions {
-		if transaction.Status == apis.RollingBack && !transaction.IsRollingBackDead() {
+		if transaction.Status == apis.RollingBack && !tc.IsRollingBackDead(transaction) {
 			continue
 		}
 		if isRetryTimeout(int64(now), tc.maxRollbackRetryTimeout, transaction.BeginTime) {
@@ -942,6 +944,10 @@ func isRetryTimeout(now int64, timeout int64, beginTime int64) bool {
 		return true
 	}
 	return false
+}
+
+func (tc *TransactionCoordinator) IsRollingBackDead(gt *model.GlobalTransaction) bool {
+	return (time2.CurrentTimeMillis() - uint64(gt.BeginTime)) > uint64(tc.rollbackDeadSeconds)
 }
 
 func (tc *TransactionCoordinator) handleRetryCommitting() {
