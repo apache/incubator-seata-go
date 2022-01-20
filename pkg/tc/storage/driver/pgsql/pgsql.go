@@ -236,7 +236,7 @@ func FromParameters(parameters map[string]interface{}) (storage.Driver, error) {
 	return New(driverParameters)
 }
 
-// New constructs a new Driver
+// New constructs a new Driver.
 func New(params DriverParameters) (storage.Driver, error) {
 	if params.DSN == "" {
 		return nil, fmt.Errorf("the dsn parameter should not be empty")
@@ -271,7 +271,7 @@ func New(params DriverParameters) (storage.Driver, error) {
 	}, nil
 }
 
-// Add global session.
+// AddGlobalSession adds a global session.
 func (driver *driver) AddGlobalSession(session *apis.GlobalSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(InsertGlobalTransaction, driver.globalTable),
 		session.Addressing, session.XID, session.TransactionID, session.TransactionName,
@@ -279,7 +279,7 @@ func (driver *driver) AddGlobalSession(session *apis.GlobalSession) error {
 	return err
 }
 
-// Find global session.
+// FindGlobalSession finds a global session by xid.
 func (driver *driver) FindGlobalSession(xid string) *apis.GlobalSession {
 	var globalTransaction apis.GlobalSession
 	result, err := driver.engine.SQL(fmt.Sprintf(QueryGlobalTransactionByXid, driver.globalTable), xid).
@@ -293,7 +293,7 @@ func (driver *driver) FindGlobalSession(xid string) *apis.GlobalSession {
 	return nil
 }
 
-// Find global sessions list.
+// FindGlobalSessions finds global sessions list by statuses list
 func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
 	err := driver.engine.Table(driver.globalTable).
@@ -308,9 +308,8 @@ func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalSta
 	return globalSessions
 }
 
-// Find global sessions list with addressing identities
-func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
-	addressingIdentities []string) []*apis.GlobalSession {
+// FindGlobalSessionsWithAddressingIdentities finds global sessions list by addressing identities and statuses list
+func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus, addressingIdentities []string) []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
 	err := driver.engine.Table(driver.globalTable).
 		Where(builder.
@@ -326,7 +325,7 @@ func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis
 	return globalSessions
 }
 
-// All sessions collection.
+// AllSessions returns all sessions collection.
 func (driver *driver) AllSessions() []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
 	err := driver.engine.Table(driver.globalTable).
@@ -339,25 +338,25 @@ func (driver *driver) AllSessions() []*apis.GlobalSession {
 	return globalSessions
 }
 
-// Update global session status.
+// UpdateGlobalSessionStatus updates status of global session.
 func (driver *driver) UpdateGlobalSessionStatus(session *apis.GlobalSession, status apis.GlobalSession_GlobalStatus) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(UpdateGlobalTransaction, driver.globalTable), status, session.XID)
 	return err
 }
 
-// Inactive global session.
+// InactiveGlobalSession inactivates a global session.
 func (driver *driver) InactiveGlobalSession(session *apis.GlobalSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(InactiveGlobalTransaction, driver.globalTable), session.XID)
 	return err
 }
 
-// Remove global session.
+// RemoveGlobalSession removes a global session.
 func (driver *driver) RemoveGlobalSession(session *apis.GlobalSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(DeleteGlobalTransaction, driver.globalTable), session.XID)
 	return err
 }
 
-// Add branch session.
+// AddBranchSession adds a branch session.
 func (driver *driver) AddBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(InsertBranchTransaction, driver.branchTable),
 		session.Addressing, session.XID, session.BranchID, session.TransactionID, session.ResourceID, session.LockKey,
@@ -365,7 +364,7 @@ func (driver *driver) AddBranchSession(globalSession *apis.GlobalSession, sessio
 	return err
 }
 
-// Find branch session.
+// FindBranchSessions finds branch sessions list by xid.
 func (driver *driver) FindBranchSessions(xid string) []*apis.BranchSession {
 	var branchTransactions []*apis.BranchSession
 	err := driver.engine.SQL(fmt.Sprintf(QueryBranchTransactionByXid, driver.branchTable), xid).Find(&branchTransactions)
@@ -375,7 +374,7 @@ func (driver *driver) FindBranchSessions(xid string) []*apis.BranchSession {
 	return branchTransactions
 }
 
-// Find branch session.
+// FindBatchBranchSessions finds branch sessions list by xids list.
 func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSession {
 	var (
 		branchTransactions []*apis.BranchSession
@@ -393,7 +392,7 @@ func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSessi
 	return branchTransactions
 }
 
-// Update branch session status.
+// UpdateBranchSessionStatus updates status of branch session.
 func (driver *driver) UpdateBranchSessionStatus(session *apis.BranchSession, status apis.BranchSession_BranchStatus) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(UpdateBranchTransaction, driver.branchTable),
 		status,
@@ -401,14 +400,14 @@ func (driver *driver) UpdateBranchSessionStatus(session *apis.BranchSession, sta
 	return err
 }
 
-// Remove branch session.
+// RemoveBranchSession removes branch session.
 func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(DeleteBranchTransaction, driver.branchTable),
 		session.BranchID)
 	return err
 }
 
-// AcquireLock Acquire lock boolean.
+// AcquireLock acquires row locks.
 func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	locks, rowKeyArgs := distinctByKey(rowLocks)
 	var existedRowLocks []*apis.RowLock
@@ -474,6 +473,51 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 	return true
 }
 
+// ReleaseLock releases locked rows.
+func (driver *driver) ReleaseLock(rowLocks []*apis.RowLock) bool {
+	if rowLocks != nil && len(rowLocks) == 0 {
+		return true
+	}
+	rowKeys := make([]string, 0)
+	for _, lock := range rowLocks {
+		rowKeys = append(rowKeys, lock.RowKey)
+	}
+
+	var lock = apis.RowLock{}
+	_, err := driver.engine.Table(driver.lockTable).
+		Where(builder.In("row_key", rowKeys).And(builder.Eq{"xid": rowLocks[0].XID})).
+		Delete(&lock)
+
+	if err != nil {
+		log.Errorf(err.Error())
+		return false
+	}
+	return true
+}
+
+// IsLockable checks if a global transaction is lockable by xid, resourceID, lockKey.
+func (driver *driver) IsLockable(xid string, resourceID string, lockKey string) bool {
+	locks := storage.CollectRowLocks(lockKey, resourceID, xid)
+	var existedRowLocks []*apis.RowLock
+	rowKeys := make([]interface{}, 0)
+	for _, lockDO := range locks {
+		rowKeys = append(rowKeys, lockDO.RowKey)
+	}
+	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeys)))
+
+	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeys...).Find(&existedRowLocks)
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	currentXID := locks[0].XID
+	for _, rowLock := range existedRowLocks {
+		if rowLock.XID != currentXID {
+			return false
+		}
+	}
+	return true
+}
+
 func distinctByKey(locks []*apis.RowLock) ([]*apis.RowLock, []interface{}) {
 	result := make([]*apis.RowLock, 0)
 	rowKeys := make([]interface{}, 0)
@@ -496,49 +540,4 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
-}
-
-// ReleaseLock Unlock boolean.
-func (driver *driver) ReleaseLock(rowLocks []*apis.RowLock) bool {
-	if rowLocks != nil && len(rowLocks) == 0 {
-		return true
-	}
-	rowKeys := make([]string, 0)
-	for _, lock := range rowLocks {
-		rowKeys = append(rowKeys, lock.RowKey)
-	}
-
-	var lock = apis.RowLock{}
-	_, err := driver.engine.Table(driver.lockTable).
-		Where(builder.In("row_key", rowKeys).And(builder.Eq{"xid": rowLocks[0].XID})).
-		Delete(&lock)
-
-	if err != nil {
-		log.Errorf(err.Error())
-		return false
-	}
-	return true
-}
-
-// IsLockable Is lockable boolean.
-func (driver *driver) IsLockable(xid string, resourceID string, lockKey string) bool {
-	locks := storage.CollectRowLocks(lockKey, resourceID, xid)
-	var existedRowLocks []*apis.RowLock
-	rowKeys := make([]interface{}, 0)
-	for _, lockDO := range locks {
-		rowKeys = append(rowKeys, lockDO.RowKey)
-	}
-	whereCond := fmt.Sprintf("row_key in %s", sql.PgsqlAppendInParam(len(rowKeys)))
-
-	err := driver.engine.SQL(fmt.Sprintf(QueryRowKey, driver.lockTable, whereCond), rowKeys...).Find(&existedRowLocks)
-	if err != nil {
-		log.Errorf(err.Error())
-	}
-	currentXID := locks[0].XID
-	for _, rowLock := range existedRowLocks {
-		if rowLock.XID != currentXID {
-			return false
-		}
-	}
-	return true
 }
