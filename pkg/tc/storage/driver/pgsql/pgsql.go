@@ -31,13 +31,13 @@ const (
 	DeleteGlobalTransaction = "delete from %s where xid = $1"
 
 	InsertBranchTransaction = `insert into %s (addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type,
-        status, application_data, async_phase2, gmt_create, gmt_modified) values($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+        status, application_data, async_commit, gmt_create, gmt_modified) values($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
 	QueryBranchTransaction = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, async_phase2, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
+	    application_data, async_commit, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
 
 	QueryBranchTransactionByXid = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, async_phase2, gmt_create, gmt_modified from %s where xid = $1 order by gmt_create asc`
+	    application_data, async_commit, gmt_create, gmt_modified from %s where xid = $1 order by gmt_create asc`
 
 	UpdateBranchTransaction = "update %s set status = $1, gmt_modified = CURRENT_TIMESTAMP where branch_id = $2"
 
@@ -79,7 +79,7 @@ const (
 			branch_type varchar(8) DEFAULT NULL,
 			status int DEFAULT NULL,
 			application_data varchar(2000) DEFAULT NULL,
-			async_phase2 tinyint NOT NULL DEFAULT 1,
+			async_commit tinyint NOT NULL DEFAULT 1,
 			gmt_create timestamp DEFAULT NULL,
 			gmt_modified timestamp DEFAULT NULL,
 			PRIMARY KEY (branch_id)

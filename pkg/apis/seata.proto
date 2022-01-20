@@ -5,7 +5,7 @@ package apis;
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "google/protobuf/any.proto";
 
-option go_package="github.com/opentrx/seata-golang/v2/pkg/apis";
+//option go_package="github.com/opentrx/seata-golang/v2/pkg/apis";
 
 enum ResultCode {
     ResultCodeFailed = 0;
@@ -139,10 +139,6 @@ message GlobalSession {
         // The Finished.
         // Not managed in getty_session MAP any more
         Finished = 15;
-
-		// All branches can be async rolledback. The committing is NOT done yet, but it can be seen as
-		// rolledback for TM/RM rpc_client.
-		AsyncRollingBack = 16;
     }
 
     string Addressing = 1 [(gogoproto.moretags) = "xorm:\"addressing\""];
@@ -219,7 +215,7 @@ message BranchSession {
     BranchType Type = 7 [(gogoproto.moretags) = "xorm:\"branch_type\""];
     BranchStatus Status = 8 [(gogoproto.moretags) = "xorm:\"status\""];
     bytes ApplicationData = 9 [(gogoproto.moretags) = "xorm:\"application_data\""];
-    bool AsyncPhase2 = 10 [(gogoproto.moretags) = "xorm:\"async_phase2\""];
+    bool AsyncCommit = 10 [(gogoproto.moretags) = "xorm:\"async_commit\""];
 }
 
 message RowLock {
@@ -255,7 +251,7 @@ message BranchRegisterRequest {
     string LockKey = 4;
     BranchSession.BranchType BranchType = 5;
     bytes ApplicationData = 6;
-    bool AsyncPhase2 = 7;
+    bool AsyncCommit = 7;
 }
 
 // BranchRegisterResponse represents a response to BranchRegisterRequest

@@ -26,11 +26,10 @@ type Configuration struct {
 		MaxRollbackRetryTimeout          int64 `yaml:"maxRollbackRetryTimeout"`
 		RollbackRetryTimeoutUnlockEnable bool  `yaml:"rollbackRetryTimeoutUnlockEnable"`
 
-		AsyncCommittingRetryPeriod  time.Duration `yaml:"asyncCommittingRetryPeriod"`
-		AsyncRollingBackRetryPeriod time.Duration `yaml:"asyncRollingBackRetryPeriod"`
-		CommittingRetryPeriod       time.Duration `yaml:"committingRetryPeriod"`
-		RollingBackRetryPeriod      time.Duration `yaml:"rollingBackRetryPeriod"`
-		TimeoutRetryPeriod          time.Duration `yaml:"timeoutRetryPeriod"`
+		AsyncCommittingRetryPeriod time.Duration `yaml:"asyncCommittingRetryPeriod"`
+		CommittingRetryPeriod      time.Duration `yaml:"committingRetryPeriod"`
+		RollingBackRetryPeriod     time.Duration `yaml:"rollingBackRetryPeriod"`
+		TimeoutRetryPeriod         time.Duration `yaml:"timeoutRetryPeriod"`
 
 		StreamMessageTimeout time.Duration `yaml:"streamMessageTimeout"`
 	} `yaml:"server"`

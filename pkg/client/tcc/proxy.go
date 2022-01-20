@@ -169,7 +169,7 @@ func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) 
 		resource.GetBranchType(),
 		applicationData,
 		"",
-		ctx.AsyncPhase2,
+		ctx.AsyncCommit,
 	)
 	if err != nil {
 		log.Errorf("TCC branch Register error, xid: %s", ctx.XID)

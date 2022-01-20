@@ -44,12 +44,6 @@ func (holder *SessionHolder) FindAsyncCommittingGlobalTransactions(addressingIde
 	}, addressingIdentities)
 }
 
-func (holder *SessionHolder) FindAsyncRollingBackGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
-	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
-		apis.AsyncRollingBack,
-	}, addressingIdentities)
-}
-
 func (holder *SessionHolder) FindRetryCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction {
 	return holder.findGlobalTransactionsWithAddressingIdentities([]apis.GlobalSession_GlobalStatus{
 		apis.CommitRetrying,

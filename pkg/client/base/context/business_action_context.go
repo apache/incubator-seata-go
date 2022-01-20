@@ -7,5 +7,5 @@ type BusinessActionContext struct {
 	BranchID      int64
 	ActionName    string
 	ActionContext map[string]interface{}
-	AsyncPhase2   bool
+	AsyncCommit   bool
 }

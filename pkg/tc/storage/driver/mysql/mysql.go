@@ -31,13 +31,13 @@ const (
 	DeleteGlobalTransaction = "delete from %s where xid = ?"
 
 	InsertBranchTransaction = `insert into %s (addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type,
-        status, application_data, async_phase2, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
+        status, application_data, async_commit, gmt_create, gmt_modified) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())`
 
 	QueryBranchTransaction = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, async_phase2, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
+	    application_data, async_commit, gmt_create, gmt_modified from %s where %s order by gmt_create asc`
 
 	QueryBranchTransactionByXid = `select addressing, xid, branch_id, transaction_id, resource_id, lock_key, branch_type, status,
-	    application_data, async_phase2, gmt_create, gmt_modified from %s where xid = ? order by gmt_create asc`
+	    application_data, async_commit, gmt_create, gmt_modified from %s where xid = ? order by gmt_create asc`
 
 	UpdateBranchTransaction = "update %s set status = ?, gmt_modified = now() where branch_id = ?"
 
@@ -79,7 +79,7 @@ const (
 			branch_type varchar(8) DEFAULT NULL,
 			status tinyint DEFAULT NULL,
 			application_data varchar(2000) DEFAULT NULL,
-			async_phase2 tinyint NOT NULL DEFAULT 1,
+			async_commit tinyint NOT NULL DEFAULT 1,
 			gmt_create datetime(6) DEFAULT NULL,
 			gmt_modified datetime(6) DEFAULT NULL,
 			PRIMARY KEY (branch_id),

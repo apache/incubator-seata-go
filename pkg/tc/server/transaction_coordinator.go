@@ -37,11 +37,10 @@ type TransactionCoordinator struct {
 	maxRollbackRetryTimeout          int64
 	rollbackRetryTimeoutUnlockEnable bool
 
-	asyncCommittingRetryPeriod  time.Duration
-	asyncRollingBackRetryPeriod time.Duration
-	committingRetryPeriod       time.Duration
-	rollingBackRetryPeriod      time.Duration
-	timeoutRetryPeriod          time.Duration
+	asyncCommittingRetryPeriod time.Duration
+	committingRetryPeriod      time.Duration
+	rollingBackRetryPeriod     time.Duration
+	timeoutRetryPeriod         time.Duration
 
 	streamMessageTimeout time.Duration
 
@@ -66,11 +65,10 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 		maxRollbackRetryTimeout:          conf.Server.MaxRollbackRetryTimeout,
 		rollbackRetryTimeoutUnlockEnable: conf.Server.RollbackRetryTimeoutUnlockEnable,
 
-		asyncCommittingRetryPeriod:  conf.Server.AsyncCommittingRetryPeriod,
-		asyncRollingBackRetryPeriod: conf.Server.AsyncRollingBackRetryPeriod,
-		committingRetryPeriod:       conf.Server.CommittingRetryPeriod,
-		rollingBackRetryPeriod:      conf.Server.RollingBackRetryPeriod,
-		timeoutRetryPeriod:          conf.Server.TimeoutRetryPeriod,
+		asyncCommittingRetryPeriod: conf.Server.AsyncCommittingRetryPeriod,
+		committingRetryPeriod:      conf.Server.CommittingRetryPeriod,
+		rollingBackRetryPeriod:     conf.Server.RollingBackRetryPeriod,
+		timeoutRetryPeriod:         conf.Server.TimeoutRetryPeriod,
 
 		streamMessageTimeout: conf.Server.StreamMessageTimeout,
 
@@ -85,7 +83,6 @@ func NewTransactionCoordinator(conf *config.Configuration) *TransactionCoordinat
 	}
 	go tc.processTimeoutCheck()
 	go tc.processAsyncCommitting()
-	go tc.processAsyncRollingBack()
 	go tc.processRetryCommitting()
 	go tc.processRetryRollingBack()
 
@@ -431,17 +428,6 @@ func (tc *TransactionCoordinator) Rollback(ctx context.Context, request *apis.Gl
 		}, nil
 	}
 
-	if gt.CanBeRolledBackAsync() {
-		err = tc.holder.UpdateGlobalSessionStatus(gt.GlobalSession, apis.AsyncRollingBack)
-		if err != nil {
-			return nil, err
-		}
-		return &apis.GlobalRollbackResponse{
-			ResultCode:   apis.ResultCodeSuccess,
-			GlobalStatus: gt.Status,
-		}, nil
-	}
-
 	_, err = tc.doGlobalRollback(gt, false)
 	if err != nil {
 		return nil, err
@@ -765,7 +751,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			Type:            request.BranchType,
 			Status:          apis.Registered,
 			ApplicationData: request.ApplicationData,
-			AsyncPhase2:     request.AsyncPhase2,
+			AsyncCommit:     request.AsyncCommit,
 		}
 
 		if bs.Type == apis.AT {
@@ -889,17 +875,6 @@ func (tc *TransactionCoordinator) processAsyncCommitting() {
 	}
 }
 
-func (tc *TransactionCoordinator) processAsyncRollingBack() {
-	for {
-		timer := time.NewTimer(tc.asyncRollingBackRetryPeriod)
-
-		<-timer.C
-		tc.handleAsyncRollingBack()
-
-		timer.Stop()
-	}
-}
-
 func (tc *TransactionCoordinator) timeoutCheck() {
 	sessions := tc.holder.FindGlobalSessions([]apis.GlobalSession_GlobalStatus{apis.Begin})
 	if len(sessions) == 0 {
@@ -1012,26 +987,6 @@ func (tc *TransactionCoordinator) handleAsyncCommitting() {
 		_, err := tc.doGlobalCommit(transaction, true)
 		if err != nil {
 			log.Errorf("failed to async committing [%s]", transaction.XID)
-		}
-	}
-}
-
-func (tc *TransactionCoordinator) handleAsyncRollingBack() {
-	addressingIdentities := tc.getAddressingIdentities()
-	if len(addressingIdentities) == 0 {
-		return
-	}
-	asyncRollingBackTransactions := tc.holder.FindAsyncRollingBackGlobalTransactions(addressingIdentities)
-	if len(asyncRollingBackTransactions) == 0 {
-		return
-	}
-	for _, transaction := range asyncRollingBackTransactions {
-		if transaction.Status != apis.AsyncRollingBack {
-			continue
-		}
-		_, err := tc.doGlobalRollback(transaction, true)
-		if err != nil {
-			log.Errorf("failed to async rolling back [%s]", transaction.XID)
 		}
 	}
 }
