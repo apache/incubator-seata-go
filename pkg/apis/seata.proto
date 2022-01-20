@@ -5,7 +5,7 @@ package apis;
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "google/protobuf/any.proto";
 
-//option go_package="github.com/opentrx/seata-golang/v2/pkg/apis";
+option go_package="github.com/opentrx/seata-golang/v2/pkg/apis";
 
 enum ResultCode {
     ResultCodeFailed = 0;
