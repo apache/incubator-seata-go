@@ -361,7 +361,7 @@ func (driver *driver) RemoveGlobalSession(session *apis.GlobalSession) error {
 func (driver *driver) AddBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error {
 	_, err := driver.engine.Exec(fmt.Sprintf(InsertBranchTransaction, driver.branchTable),
 		session.Addressing, session.XID, session.BranchID, session.TransactionID, session.ResourceID, session.LockKey,
-		session.Type, session.Status, session.ApplicationData)
+		session.Type, session.Status, session.ApplicationData, session.AsyncCommit)
 	return err
 }
 
