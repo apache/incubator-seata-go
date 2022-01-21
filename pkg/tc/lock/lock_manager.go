@@ -1,6 +1,8 @@
 package lock
 
 import (
+	"encoding/json"
+	
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
@@ -30,7 +32,17 @@ func (locker *LockManager) AcquireLock(branchSession *apis.BranchSession) bool {
 		return true
 	}
 
-	return locker.manager.AcquireLock(locks)
+	applicationData := branchSession.ApplicationData
+	if applicationData != nil && branchSession.Type == apis.AT {
+		applicationDataMap := make(map[string]bool)
+		err := json.Unmarshal(applicationData, &applicationDataMap)
+		if err != nil {
+			return locker.manager.AcquireLock(locks, false)
+		}
+		skipCheckLock := applicationDataMap["skipCheckLock"]
+		return locker.manager.AcquireLock(locks, skipCheckLock)
+	}
+	return locker.manager.AcquireLock(locks, false)
 }
 
 func (locker *LockManager) ReleaseLock(branchSession *apis.BranchSession) bool {
