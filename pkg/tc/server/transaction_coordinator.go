@@ -741,6 +741,13 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			}, nil
 		}
 
+		var asyncCommit bool
+		if request.BranchType == apis.AT {
+			asyncCommit = true
+		} else {
+			asyncCommit = request.AsyncCommit
+		}
+
 		bs := &apis.BranchSession{
 			Addressing:      request.Addressing,
 			XID:             request.XID,
@@ -751,7 +758,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			Type:            request.BranchType,
 			Status:          apis.Registered,
 			ApplicationData: request.ApplicationData,
-			AsyncCommit:     request.AsyncCommit,
+			AsyncCommit:     asyncCommit,
 		}
 
 		if bs.Type == apis.AT {
