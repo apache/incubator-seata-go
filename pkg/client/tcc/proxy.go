@@ -36,7 +36,7 @@ var (
 )
 
 type TccService interface {
-	Try(ctx *ctx.BusinessActionContext) (bool, error)
+	Try(ctx *ctx.BusinessActionContext, async bool) (bool, error)
 	Confirm(ctx *ctx.BusinessActionContext) bool
 	Cancel(ctx *ctx.BusinessActionContext) bool
 }
@@ -162,7 +162,15 @@ func doTccActionLogStore(ctx *ctx.BusinessActionContext, resource *TCCResource) 
 		return 0, err
 	}
 
-	branchID, err := rm.GetResourceManager().BranchRegister(ctx.RootContext, ctx.XID, resource.GetResourceID(), resource.GetBranchType(), applicationData, "")
+	branchID, err := rm.GetResourceManager().BranchRegister(
+		ctx.RootContext,
+		ctx.XID,
+		resource.GetResourceID(),
+		resource.GetBranchType(),
+		applicationData,
+		"",
+		ctx.AsyncCommit,
+	)
 	if err != nil {
 		log.Errorf("TCC branch Register error, xid: %s", ctx.XID)
 		return 0, errors.WithStack(err)
