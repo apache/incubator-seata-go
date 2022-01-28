@@ -54,7 +54,6 @@ import (
  * DefaultCore 内嵌入 ATCore。
  *
  */
-
 type AbstractCore struct {
 	MessageSender ServerMessageSender
 }

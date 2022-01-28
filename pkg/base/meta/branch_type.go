@@ -1,6 +1,8 @@
 package meta
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // BranchTrype
 type BranchType byte
@@ -30,7 +32,6 @@ func (t BranchType) String() string {
 		return fmt.Sprintf("%d", t)
 	}
 }
-
 
 // ValueOfBranchType value of branch type
 func ValueOfBranchType(branchType string) BranchType {

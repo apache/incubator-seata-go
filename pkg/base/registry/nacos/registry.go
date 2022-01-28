@@ -6,14 +6,17 @@ import (
 	"strconv"
 	"strings"
 )
+
 import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
+
 	"github.com/pkg/errors"
 )
+
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/config"
 	"github.com/transaction-wg/seata-golang/pkg/base/constant"
@@ -82,7 +85,7 @@ func (nr *nacosRegistry) Lookup() ([]string, error) {
 	instances, err := nr.namingClient.SelectInstances(vo.SelectInstancesParam{
 		ServiceName: nr.registryConfig.NacosConfig.Application,
 		GroupName:   nr.registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
-		Clusters:    []string{clusterName},            // default value is DEFAULT
+		Clusters:    []string{clusterName},               // default value is DEFAULT
 		HealthyOnly: true,
 	})
 	if err != nil {
@@ -102,7 +105,7 @@ func (nr *nacosRegistry) Subscribe(notifyListener registry.EventListener) error 
 	err := nr.namingClient.Subscribe(&vo.SubscribeParam{
 		ServiceName: nr.registryConfig.NacosConfig.Application,
 		GroupName:   nr.registryConfig.NacosConfig.Group, // default value is DEFAULT_GROUP
-		Clusters:    []string{clusterName},            // default value is DEFAULT
+		Clusters:    []string{clusterName},               // default value is DEFAULT
 		SubscribeCallback: func(services []model.SubscribeService, err error) {
 			serviceList := make([]*registry.Service, 0, len(services))
 			for _, s := range services {

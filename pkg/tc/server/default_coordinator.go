@@ -7,7 +7,9 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+
 	"github.com/pkg/errors"
+
 	"go.uber.org/atomic"
 )
 
@@ -32,17 +34,17 @@ const (
 )
 
 type DefaultCoordinator struct {
-	conf                   *config.ServerConfig
-	core                   TransactionCoordinator
-	idGenerator            *atomic.Uint32
-	futures                *sync.Map
+	conf        *config.ServerConfig
+	core        TransactionCoordinator
+	idGenerator *atomic.Uint32
+	futures     *sync.Map
 }
 
 func NewDefaultCoordinator(conf *config.ServerConfig) *DefaultCoordinator {
 	coordinator := &DefaultCoordinator{
-		conf:                   conf,
-		idGenerator:            &atomic.Uint32{},
-		futures:                &sync.Map{},
+		conf:        conf,
+		idGenerator: &atomic.Uint32{},
+		futures:     &sync.Map{},
 	}
 	core := NewCore(coordinator)
 	coordinator.core = core

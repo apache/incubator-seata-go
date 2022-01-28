@@ -2,8 +2,13 @@ package holder
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/tc/model"

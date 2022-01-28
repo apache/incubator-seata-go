@@ -3,9 +3,11 @@ package extension
 import (
 	"sync"
 )
+
 import (
 	"github.com/pkg/errors"
 )
+
 import (
 	"github.com/transaction-wg/seata-golang/pkg/base/registry"
 )

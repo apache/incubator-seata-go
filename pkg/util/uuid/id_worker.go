@@ -5,7 +5,9 @@ import (
 	"math/rand"
 	"net"
 	"sync/atomic"
+)
 
+import (
 	time2 "github.com/transaction-wg/seata-golang/pkg/util/time"
 )
 

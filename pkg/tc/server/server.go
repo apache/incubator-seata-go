@@ -12,6 +12,7 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+
 	gxnet "github.com/dubbogo/gost/net"
 	"github.com/dubbogo/gost/sync"
 )

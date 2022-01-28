@@ -1,6 +1,8 @@
 package meta
 
-import "errors"
+import (
+	"errors"
+)
 
 type TransactionExceptionCode byte
 

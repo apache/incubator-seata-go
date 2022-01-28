@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // BranchTransactionDO for persist BranchTransaction.
 type BranchTransactionDO struct {

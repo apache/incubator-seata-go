@@ -1,8 +1,11 @@
 package config
 
 import (
-	config2 "github.com/transaction-wg/seata-golang/pkg/base/config"
 	"time"
+)
+
+import (
+	config2 "github.com/transaction-wg/seata-golang/pkg/base/config"
 )
 
 // GettyConfig
@@ -19,13 +22,12 @@ type GettyConfig struct {
 	GettySessionParam config2.GettySessionParam `required:"true" yaml:"getty_session_param" json:"getty_session_param,omitempty"`
 }
 
-
 // GetDefaultGettyConfig ...
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		ReconnectInterval: 0,
 		ConnectionNum:     1,
-		HeartbeatPeriod:      10 * time.Second,
+		HeartbeatPeriod:   10 * time.Second,
 		GettySessionParam: config2.GettySessionParam{
 			CompressEncoding: false,
 			TCPNoDelay:       true,

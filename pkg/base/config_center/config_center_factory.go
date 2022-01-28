@@ -1,6 +1,8 @@
 package config_center
 
-import "github.com/transaction-wg/seata-golang/pkg/base/config"
+import (
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
+)
 
 type DynamicConfigurationFactory interface {
 	GetConfig(conf *config.ConfigCenterConfig) string                            //返回配置信息

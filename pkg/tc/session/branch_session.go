@@ -6,6 +6,7 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"vimagination.zapto.org/byteio"
 )
 

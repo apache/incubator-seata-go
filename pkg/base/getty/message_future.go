@@ -1,6 +1,8 @@
 package getty
 
-import "github.com/transaction-wg/seata-golang/pkg/base/protocal"
+import (
+	"github.com/transaction-wg/seata-golang/pkg/base/protocal"
+)
 
 // MessageFuture ...
 type MessageFuture struct {

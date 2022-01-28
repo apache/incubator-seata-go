@@ -36,7 +36,7 @@ const (
 
 	// The constant TYPE_GLOBAL_LOCK_QUERY_RESULT.
 	TypeGlobalLockQueryResult int16 = 22
-	
+
 	// The constant TYPE_BRANCH_COMMIT.
 	TypeBranchCommit int16 = 3
 

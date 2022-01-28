@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // LockDO for persist Lock.
 type LockDO struct {

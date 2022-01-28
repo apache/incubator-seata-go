@@ -8,6 +8,7 @@ import (
 
 import (
 	gxnet "github.com/dubbogo/gost/net"
+
 	"github.com/pkg/errors"
 )
 
@@ -33,11 +34,11 @@ var (
 	// ActionStartTime
 	ActionStartTime = "action-start-time"
 	// ActionName
-	ActionName      = "actionName"
+	ActionName = "actionName"
 	// PrepareMethod
-	PrepareMethod   = "sys::prepare"
+	PrepareMethod = "sys::prepare"
 	// CommitMethod
-	CommitMethod    = "sys::commit"
+	CommitMethod = "sys::commit"
 	// RollbackMethod
 	RollbackMethod = "sys::rollback"
 	// HostName

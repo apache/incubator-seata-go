@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/creasty/defaults"
 	"io"
 	"io/ioutil"
 	"os"
@@ -9,7 +8,10 @@ import (
 )
 
 import (
+	"github.com/creasty/defaults"
+
 	"github.com/imdario/mergo"
+
 	"gopkg.in/yaml.v2"
 )
 

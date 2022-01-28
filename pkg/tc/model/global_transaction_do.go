@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // GlobalTransactionDO for persist GlobalTransaction.
 type GlobalTransactionDO struct {

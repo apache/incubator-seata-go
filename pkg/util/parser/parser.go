@@ -6,9 +6,13 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+)
 
+import (
 	"gopkg.in/yaml.v2"
+)
 
+import (
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 )
 

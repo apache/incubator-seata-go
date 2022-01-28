@@ -7,7 +7,9 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+
 	"github.com/pkg/errors"
+
 	"vimagination.zapto.org/byteio"
 )
 
@@ -39,7 +41,6 @@ import (
  * </p>
  * https://github.com/seata/seata/issues/893
  */
-
 const (
 	SeataV1PackageHeaderReservedLength = 16
 )
@@ -59,17 +60,17 @@ var (
 type RpcPackageHandler struct{}
 
 type SeataV1PackageHeader struct {
-	Magic0 byte
-	Magic1 byte
-	Version byte
-	TotalLength uint32
-	HeadLength uint16
-	MessageType byte
-	CodecType byte
+	Magic0       byte
+	Magic1       byte
+	Version      byte
+	TotalLength  uint32
+	HeadLength   uint16
+	MessageType  byte
+	CodecType    byte
 	CompressType byte
-	ID  uint32
-	Meta map[string]string
-	BodyLength uint32
+	ID           uint32
+	Meta         map[string]string
+	BodyLength   uint32
 }
 
 func (h *SeataV1PackageHeader) Unmarshal(buf *bytes.Buffer) (int, error) {
@@ -153,7 +154,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		ID:          int32(header.ID),
 		Compressor:  header.CompressType,
 		MessageType: header.MessageType,
-		HeadMap: header.Meta,
+		HeadMap:     header.Meta,
 	}
 
 	if header.MessageType == protocal.MSGTypeHeartbeatRequest {

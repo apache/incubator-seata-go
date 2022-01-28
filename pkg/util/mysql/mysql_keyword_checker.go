@@ -1,6 +1,8 @@
 package mysql
 
-import "strings"
+import (
+	"strings"
+)
 
 var MySQLKeyword = map[string]string{
 	"ACCESSIBLE":                    "ACCESSIBLE",

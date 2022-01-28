@@ -1,6 +1,8 @@
 package meta
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // TransactionRole
 type TransactionRole byte

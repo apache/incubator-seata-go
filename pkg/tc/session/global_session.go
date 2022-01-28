@@ -4,15 +4,21 @@ import (
 	"bytes"
 	"sort"
 	"sync"
+)
 
+import (
 	"github.com/pkg/errors"
+
+	"vimagination.zapto.org/byteio"
+)
+
+import (
 	"github.com/transaction-wg/seata-golang/pkg/base/common"
 	"github.com/transaction-wg/seata-golang/pkg/base/meta"
 	"github.com/transaction-wg/seata-golang/pkg/tc/config"
 	"github.com/transaction-wg/seata-golang/pkg/util/log"
 	"github.com/transaction-wg/seata-golang/pkg/util/time"
 	"github.com/transaction-wg/seata-golang/pkg/util/uuid"
-	"vimagination.zapto.org/byteio"
 )
 
 type GlobalSession struct {

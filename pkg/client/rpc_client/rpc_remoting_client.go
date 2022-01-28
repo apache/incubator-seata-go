@@ -9,7 +9,9 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+
 	"github.com/pkg/errors"
+
 	"go.uber.org/atomic"
 )
 

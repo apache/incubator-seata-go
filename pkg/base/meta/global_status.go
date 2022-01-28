@@ -1,6 +1,8 @@
 package meta
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type GlobalStatus int32
 

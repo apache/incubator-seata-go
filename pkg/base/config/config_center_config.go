@@ -1,6 +1,8 @@
 package config
 
-import "time"
+import (
+	"time"
+)
 
 // ConfigCenterConfig config center config
 type ConfigCenterConfig struct {

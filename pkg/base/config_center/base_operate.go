@@ -1,6 +1,8 @@
 package config_center
 
-import "github.com/transaction-wg/seata-golang/pkg/base/config"
+import (
+	"github.com/transaction-wg/seata-golang/pkg/base/config"
+)
 
 // AddListener add config center listener
 func AddListener(cc DynamicConfigurationFactory, conf *config.ConfigCenterConfig, listener ConfigurationListener) {

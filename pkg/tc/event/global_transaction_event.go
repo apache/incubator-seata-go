@@ -1,6 +1,8 @@
 package event
 
-import "github.com/transaction-wg/seata-golang/pkg/base/meta"
+import (
+	"github.com/transaction-wg/seata-golang/pkg/base/meta"
+)
 
 const (
 	RoleTC = "tc"

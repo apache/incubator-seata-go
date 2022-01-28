@@ -1,6 +1,8 @@
 package model
 
-import "sync"
+import (
+	"sync"
+)
 
 // Set
 type Set struct {

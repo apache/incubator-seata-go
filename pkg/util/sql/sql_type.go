@@ -1,9 +1,10 @@
 package sql
 
-import "strings"
+import (
+	"strings"
+)
 
 // refer to [Types](java.sql.Types)
-
 type SqlType int32
 
 const (

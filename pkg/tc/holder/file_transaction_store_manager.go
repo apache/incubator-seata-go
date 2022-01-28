@@ -113,7 +113,6 @@ func (storeManager *FileTransactionStoreManager) Shutdown() {
 	storeManager.currFileChannel.Close()
 }
 
-
 func (storeManager *FileTransactionStoreManager) saveHistory() {
 	storeManager.findTimeoutAndSave()
 	os.Rename(storeManager.currFullFileName, storeManager.hisFullFileName)

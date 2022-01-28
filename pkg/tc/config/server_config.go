@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/creasty/defaults"
-	"github.com/go-xorm/xorm"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,8 +10,15 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
+
+	"github.com/creasty/defaults"
+
+	"github.com/go-xorm/xorm"
+
 	"github.com/imdario/mergo"
+
 	"github.com/pkg/errors"
+
 	"gopkg.in/yaml.v2"
 )
 

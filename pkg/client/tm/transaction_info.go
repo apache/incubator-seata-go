@@ -1,6 +1,8 @@
 package tm
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Propagation byte
 
