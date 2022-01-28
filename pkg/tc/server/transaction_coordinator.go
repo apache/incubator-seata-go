@@ -709,11 +709,11 @@ func (tc *TransactionCoordinator) BranchCommunicate(stream apis.ResourceManagerS
 func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *apis.BranchRegisterRequest) (*apis.BranchRegisterResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
-		log.Errorf("could not found global transaction xid = %s", request.XID)
+		log.Errorf("could not find global transaction xid = %s", request.XID)
 		return &apis.BranchRegisterResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.GlobalTransactionNotExist,
-			Message:       fmt.Sprintf("could not found global transaction xid = %s", request.XID),
+			Message:       fmt.Sprintf("could not find global transaction xid = %s", request.XID),
 		}, nil
 	}
 
@@ -722,7 +722,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 		return &apis.BranchRegisterResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.FailedLockGlobalTransaction,
-			Message:       fmt.Sprintf("could not found global transaction xid = %s", request.XID),
+			Message:       fmt.Sprintf("could not find global transaction xid = %s", request.XID),
 		}, nil
 	}
 	if result {
@@ -743,6 +743,13 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			}, nil
 		}
 
+		var asyncCommit bool
+		if request.BranchType == apis.AT {
+			asyncCommit = true
+		} else {
+			asyncCommit = request.AsyncCommit
+		}
+
 		bs := &apis.BranchSession{
 			Addressing:      request.Addressing,
 			XID:             request.XID,
@@ -753,6 +760,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 			Type:            request.BranchType,
 			Status:          apis.Registered,
 			ApplicationData: request.ApplicationData,
+			AsyncCommit:     asyncCommit,
 		}
 
 		if bs.Type == apis.AT {
@@ -793,11 +801,11 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 func (tc *TransactionCoordinator) BranchReport(ctx context.Context, request *apis.BranchReportRequest) (*apis.BranchReportResponse, error) {
 	gt := tc.holder.FindGlobalTransaction(request.XID)
 	if gt == nil {
-		log.Errorf("could not found global transaction xid = %s", request.XID)
+		log.Errorf("could not find global transaction xid = %s", request.XID)
 		return &apis.BranchReportResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.GlobalTransactionNotExist,
-			Message:       fmt.Sprintf("could not found global transaction xid = %s", request.XID),
+			Message:       fmt.Sprintf("could not find global transaction xid = %s", request.XID),
 		}, nil
 	}
 
@@ -806,7 +814,7 @@ func (tc *TransactionCoordinator) BranchReport(ctx context.Context, request *api
 		return &apis.BranchReportResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.BranchTransactionNotExist,
-			Message:       fmt.Sprintf("could not found branch session xid = %s branchID = %d", gt.XID, request.BranchID),
+			Message:       fmt.Sprintf("could not find branch session xid = %s branchID = %d", gt.XID, request.BranchID),
 		}, nil
 	}
 

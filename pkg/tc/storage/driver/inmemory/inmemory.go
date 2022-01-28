@@ -121,7 +121,7 @@ func (driver *driver) UpdateGlobalSessionStatus(session *apis.GlobalSession, sta
 		gt.Status = status
 		return nil
 	}
-	return fmt.Errorf("could not found global transaction xid = %s", session.XID)
+	return fmt.Errorf("could not find global transaction xid = %s", session.XID)
 }
 
 // Inactive global session.
@@ -132,7 +132,7 @@ func (driver *driver) InactiveGlobalSession(session *apis.GlobalSession) error {
 		gt.Active = false
 		return nil
 	}
-	return fmt.Errorf("could not found global transaction xid = %s", session.XID)
+	return fmt.Errorf("could not find global transaction xid = %s", session.XID)
 }
 
 // Remove global session.
@@ -149,7 +149,7 @@ func (driver *driver) AddBranchSession(globalSession *apis.GlobalSession, sessio
 		gt.BranchSessions[session] = true
 		return nil
 	}
-	return fmt.Errorf("could not found global transaction xid = %s", session.XID)
+	return fmt.Errorf("could not find global transaction xid = %s", session.XID)
 }
 
 // Find branch session.
@@ -195,7 +195,7 @@ func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, ses
 		delete(gt.BranchSessions, session)
 		return nil
 	}
-	return fmt.Errorf("could not found global transaction xid = %s", session.XID)
+	return fmt.Errorf("could not find global transaction xid = %s", session.XID)
 }
 
 // AcquireLock Acquire lock boolean.
