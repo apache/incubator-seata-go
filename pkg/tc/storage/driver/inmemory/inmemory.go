@@ -199,7 +199,7 @@ func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, ses
 }
 
 // AcquireLock Acquire lock boolean.
-func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
+func (driver *driver) AcquireLock(rowLocks []*apis.RowLock, skipCheckLock bool) bool {
 	if rowLocks == nil {
 		return true
 	}

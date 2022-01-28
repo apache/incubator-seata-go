@@ -409,7 +409,7 @@ func (driver *driver) RemoveBranchSession(globalSession *apis.GlobalSession, ses
 }
 
 // AcquireLock acquires row locks.
-func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
+func (driver *driver) AcquireLock(rowLocks []*apis.RowLock, skipCheckLock bool) bool {
 	locks, rowKeyArgs := distinctByKey(rowLocks)
 	var existedRowLocks []*apis.RowLock
 	whereCond := fmt.Sprintf("row_key in %s", sql.MysqlAppendInParam(len(rowKeyArgs)))
@@ -418,36 +418,41 @@ func (driver *driver) AcquireLock(rowLocks []*apis.RowLock) bool {
 		log.Errorf(err.Error())
 	}
 
-	currentXID := locks[0].XID
-	canLock := true
-	existedRowKeys := make([]string, 0)
-	unrepeatedLocks := make([]*apis.RowLock, 0)
-	for _, rowLock := range existedRowLocks {
-		if rowLock.XID != currentXID {
-			log.Infof("row lock [%s] on %s:%s is holding by xid {%s} branchID {%d}", rowLock.RowKey, driver.lockTable, rowLock.TableName,
-				rowLock.PK, rowLock.XID, rowLock.BranchID)
-			canLock = false
-			break
-		}
-		existedRowKeys = append(existedRowKeys, rowLock.RowKey)
-	}
-	if !canLock {
-		return false
-	}
-	if len(existedRowKeys) > 0 {
-		for _, lock := range locks {
-			if !contains(existedRowKeys, lock.RowKey) {
-				unrepeatedLocks = append(unrepeatedLocks, lock)
+	var unrepeatedLocks []*apis.RowLock
+	if !skipCheckLock {
+		currentXID := locks[0].XID
+		canLock := true
+		existedRowKeys := make([]string, 0)
+		unrepeatedLocks = make([]*apis.RowLock, 0)
+		for _, rowLock := range existedRowLocks {
+			if rowLock.XID != currentXID {
+				log.Infof("row lock [%s] on %s:%s is holding by xid {%s} branchID {%d}", rowLock.RowKey, driver.lockTable, rowLock.TableName,
+					rowLock.PK, rowLock.XID, rowLock.BranchID)
+				canLock = false
+				break
 			}
+			existedRowKeys = append(existedRowKeys, rowLock.RowKey)
 		}
-	} else {
-		unrepeatedLocks = locks
+		if !canLock {
+			return false
+		}
+		if len(existedRowKeys) > 0 {
+			for _, lock := range locks {
+				if !contains(existedRowKeys, lock.RowKey) {
+					unrepeatedLocks = append(unrepeatedLocks, lock)
+				}
+			}
+		} else {
+			unrepeatedLocks = locks
+		}
+		if len(unrepeatedLocks) == 0 {
+			return true
+		}
 	}
 
-	if len(unrepeatedLocks) == 0 {
-		return true
+	if unrepeatedLocks == nil {
+		unrepeatedLocks = rowLocks
 	}
-
 	var (
 		sb        strings.Builder
 		args      []interface{}

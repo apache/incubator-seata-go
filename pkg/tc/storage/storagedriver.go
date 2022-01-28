@@ -48,7 +48,7 @@ type SessionManager interface {
 
 type LockManager interface {
 	// AcquireLock Acquire lock boolean.
-	AcquireLock(rowLocks []*apis.RowLock) bool
+	AcquireLock(rowLocks []*apis.RowLock, skipCheckLock bool) bool
 
 	// ReleaseLock Unlock boolean.
 	ReleaseLock(rowLocks []*apis.RowLock) bool
