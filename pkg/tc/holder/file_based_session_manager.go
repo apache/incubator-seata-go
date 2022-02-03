@@ -79,9 +79,7 @@ func (sessionManager *FileBasedSessionManager) washSessions() {
 				meta.GlobalStatusFinished:
 				// Remove all sessions finished
 				delete(sessionManager.SessionMap, globalSession.XID)
-				break
 			default:
-				break
 			}
 		}
 	}
@@ -158,7 +156,6 @@ func (sessionManager *FileBasedSessionManager) restore(stores []*TransactionWrit
 				break
 			}
 		default:
-			break
 		}
 	}
 }

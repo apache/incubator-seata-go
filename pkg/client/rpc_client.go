@@ -50,7 +50,7 @@ func (c *RpcClient) init() {
 			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)
 		go gettyClient.RunEventLoop(c.newSession)
-		c.gettyClients = append(c.gettyClients, gettyClient)
+		// c.gettyClients = append(c.gettyClients, gettyClient)
 	}
 }
 

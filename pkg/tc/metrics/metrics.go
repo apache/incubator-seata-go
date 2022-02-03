@@ -200,33 +200,25 @@ func (subscriber *MetricsSubscriber) ProcessGlobalTransactionEvent() {
 		switch gtv.GetStatus() {
 		case meta.GlobalStatusBegin:
 			COUNTER_ACTIVE.Inc(1)
-			break
 		case meta.GlobalStatusCommitted:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_COMMITTED.Inc(1)
 			SUMMARY_COMMITTED.Mark(1)
 			TIMER_COMMITTED.Update(gtv.GetEndTime() - gtv.GetBeginTime())
-			break
 		case meta.GlobalStatusRolledBack:
 			COUNTER_ACTIVE.Dec(1)
 			COUNTER_ROLLBACKED.Inc(1)
 			SUMMARY_ROLLBACKED.Mark(1)
 			TIMER_ROLLBACK.Update(gtv.GetEndTime() - gtv.GetBeginTime())
-			break
 		case meta.GlobalStatusCommitFailed:
 			COUNTER_ACTIVE.Dec(1)
-			break
 		case meta.GlobalStatusRollbackFailed:
 			COUNTER_ACTIVE.Dec(1)
-			break
 		case meta.GlobalStatusTimeoutRolledBack:
 			COUNTER_ACTIVE.Dec(1)
-			break
 		case meta.GlobalStatusTimeoutRollbackFailed:
 			COUNTER_ACTIVE.Dec(1)
-			break
 		default:
-			break
 		}
 	}
 }

@@ -279,10 +279,7 @@ func (manager *GettySessionManager) GetGettySession(resourceID string, clientID 
 					return true
 				})
 
-				if resultSession != nil {
-					return false
-				}
-				return true
+				return resultSession == nil
 			})
 		}
 	}
@@ -347,10 +344,8 @@ func getRMGettySessionFromIpMap(ipMap *sync.Map) getty.Session {
 			}
 			return true
 		})
-		if chosenSession != nil {
-			return false
-		}
-		return true
+
+		return chosenSession == nil
 	})
 	return chosenSession
 }

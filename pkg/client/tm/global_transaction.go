@@ -81,7 +81,7 @@ func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name
 		if gtx.Xid == "" {
 			return errors.New("xid should not be empty")
 		}
-		log.Debugf("Ignore Begin(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Begin(): just involved in global transaction [XID: %s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid != "" {
@@ -97,7 +97,7 @@ func (gtx *DefaultGlobalTransaction) BeginWithTimeoutAndName(timeout int32, name
 	gtx.Xid = xid
 	gtx.Status = meta.GlobalStatusBegin
 	ctx.Bind(xid)
-	log.Infof("Begin new global transaction [%s]", xid)
+	log.Infof("Begin new global transaction [XID: %s]", xid)
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context2.RootContext) error {
 		}
 	}()
 	if gtx.Role == Participant {
-		log.Debugf("Ignore Commit(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Commit(): just involved in global transaction [XID: %s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid == "" {
@@ -119,7 +119,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context2.RootContext) error {
 	for retry > 0 {
 		status, err := gtx.transactionManager.Commit(gtx.Xid)
 		if err != nil {
-			log.Errorf("Failed to report global commit [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("Failed to report global commit [XID: %s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -129,7 +129,7 @@ func (gtx *DefaultGlobalTransaction) Commit(ctx *context2.RootContext) error {
 			return errors.New("Failed to report global commit")
 		}
 	}
-	log.Infof("[%s] commit status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[XID: %s] commit status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 
@@ -141,7 +141,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
 		}
 	}()
 	if gtx.Role == Participant {
-		log.Debugf("Ignore Rollback(): just involved in global transaction [%s]", gtx.Xid)
+		log.Debugf("Ignore Rollback(): just involved in global transaction [XID: %s]", gtx.Xid)
 		return nil
 	}
 	if gtx.Xid == "" {
@@ -151,7 +151,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
 	for retry > 0 {
 		status, err := gtx.transactionManager.Rollback(gtx.Xid)
 		if err != nil {
-			log.Errorf("Failed to report global rollback [%s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
+			log.Errorf("Failed to report global rollback [XID: %s],Retry Countdown: %d, reason: %s", gtx.Xid, retry, err.Error())
 		} else {
 			gtx.Status = status
 			break
@@ -161,7 +161,7 @@ func (gtx *DefaultGlobalTransaction) Rollback(ctx *context2.RootContext) error {
 			return errors.New("Failed to report global rollback")
 		}
 	}
-	log.Infof("[%s] rollback status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[XID: %s] rollback status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 
@@ -225,7 +225,7 @@ func (gtx *DefaultGlobalTransaction) GlobalReport(globalStatus meta.GlobalStatus
 	}
 
 	gtx.Status = status
-	log.Infof("[%s] report status: %s", gtx.Xid, gtx.Status.String())
+	log.Infof("[XID: %s] report status: %s", gtx.Xid, gtx.Status.String())
 	return nil
 }
 

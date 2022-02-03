@@ -115,7 +115,7 @@ func ImplementTCC(v TCCServiceProxy) {
 
 			commitMethodDesc := proxy.Register(serviceProxy, ConfirmMethod)
 			cancelMethodDesc := proxy.Register(serviceProxy, CancelMethod)
-			tryMethodDesc := proxy.Register(serviceProxy, methodName)
+			tryMethodDesc := proxy.Register(serviceProxy, TryMethod)
 
 			tccResource := &TCCResource{
 				ResourceGroupID:    "",

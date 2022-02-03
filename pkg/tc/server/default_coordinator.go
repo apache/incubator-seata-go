@@ -7,7 +7,7 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
-
+	gxtime "github.com/dubbogo/gost/time"
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -96,7 +96,7 @@ func (coordinator *DefaultCoordinator) sendAsyncRequest(session getty.Session, m
 
 	if timeout > time.Duration(0) {
 		select {
-		case <-getty.GetTimeWheel().After(timeout):
+		case <-gxtime.GetDefaultTimerWheel().After(timeout):
 			coordinator.futures.Delete(rpcMessage.ID)
 			return nil, errors.Errorf("wait response timeout, ip:%s, request:%v", session.Stat(), rpcMessage)
 		case <-resp.Done:

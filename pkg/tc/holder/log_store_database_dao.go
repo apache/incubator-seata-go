@@ -100,26 +100,20 @@ func (dao *LogStoreDataBaseDAO) InsertGlobalTransactionDO(globalTransaction mode
 		globalTransaction.Timeout,
 		globalTransaction.BeginTime,
 		globalTransaction.ApplicationData)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) UpdateGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool {
 	_, err := dao.engine.Exec(UpdateGlobalTransactionDO, globalTransaction.Status, globalTransaction.XID)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) DeleteGlobalTransactionDO(globalTransaction model.GlobalTransactionDO) bool {
 	_, err := dao.engine.Exec(DeleteGlobalTransactionDO, globalTransaction.XID)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) QueryBranchTransactionDOByXID(xid string) []*model.BranchTransactionDO {
@@ -154,10 +148,8 @@ func (dao *LogStoreDataBaseDAO) InsertBranchTransactionDO(branchTransaction mode
 		branchTransaction.Status,
 		branchTransaction.ClientID,
 		branchTransaction.ApplicationData)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) UpdateBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
@@ -165,20 +157,16 @@ func (dao *LogStoreDataBaseDAO) UpdateBranchTransactionDO(branchTransaction mode
 		branchTransaction.Status,
 		branchTransaction.XID,
 		branchTransaction.BranchID)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) DeleteBranchTransactionDO(branchTransaction model.BranchTransactionDO) bool {
 	_, err := dao.engine.Exec(DeleteBranchTransactionDO,
 		branchTransaction.XID,
 		branchTransaction.BranchID)
-	if err == nil {
-		return true
-	}
-	return false
+
+	return err == nil
 }
 
 func (dao *LogStoreDataBaseDAO) GetCurrentMaxSessionID(high int64, low int64) int64 {
