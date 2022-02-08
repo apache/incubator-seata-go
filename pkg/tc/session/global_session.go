@@ -170,7 +170,7 @@ func (gs *GlobalSession) GetSortedBranches() []*BranchSession {
 
 func (gs *GlobalSession) GetReverseSortedBranches() []*BranchSession {
 	var branchSessions = gs.GetSortedBranches()
-	sort.Reverse(BranchSessionSlice(branchSessions)) // TODO: 这里并没有倒序？
+	sort.Sort(sort.Reverse(BranchSessionSlice(branchSessions)))
 	return branchSessions
 }
 

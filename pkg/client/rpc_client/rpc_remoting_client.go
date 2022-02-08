@@ -230,7 +230,7 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 			if session != nil {
 				return nil, errors.Errorf("wait response timeout, ip: %s, request: %#v", session.RemoteAddr(), rpcMessage)
 			} else {
-				return nil, errors.Errorf("wait response timeout, request: %#v", rpcMessage)
+				return nil, errors.Errorf("wait response timeout and session is nil, request: %#v", rpcMessage)
 			}
 		case <-resp.Done:
 			err = resp.Err

@@ -59,7 +59,7 @@ func makeCallProxy(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) 
 		defer func() {
 			err := tx.Resume(suspendedResourcesHolder, invCtx)
 			if err != nil {
-				log.Error(err)
+				log.Errorf("error tx. Resume ret: %v", err)
 			}
 		}()
 

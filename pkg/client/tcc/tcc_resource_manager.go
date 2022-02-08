@@ -58,10 +58,9 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 	returnValues := proxy.Invoke(tccResource.CommitMethod, nil, args)
 	if returnValues != nil {
 		log.Infof("TCC resource commit result : %v, XID: %s, BranchID: %d, ResourceID: %s", returnValues[0].Interface(), xid, branchID, resourceID)
-	}
-	if returnValues != nil {
 		result = returnValues[0].Interface().(bool)
 	}
+
 	if result {
 		return meta.BranchStatusPhaseTwoCommitted, nil
 	} else {
@@ -89,10 +88,9 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 	returnValues := proxy.Invoke(tccResource.RollbackMethod, nil, args)
 	if returnValues != nil {
 		log.Infof("TCC resource rollback result : %v, XID: %s, BranchID: %d, ResourceID: %s", returnValues[0].Interface(), xid, branchID, resourceID)
-	}
-	if returnValues != nil {
 		result = returnValues[0].Interface().(bool)
 	}
+
 	if result {
 		return meta.BranchStatusPhaseTwoRolledBack, nil
 	} else {
