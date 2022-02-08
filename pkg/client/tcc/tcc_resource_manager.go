@@ -72,13 +72,13 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
 	resource := resourceManager.ResourceCache[resourceID]
 	if resource == nil {
-		log.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
-		return 0, errors.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
+		log.Errorf("TCC resource does not exist, resourceID: %s", resourceID)
+		return 0, errors.Errorf("TCC resource does not exist, resourceID: %s", resourceID)
 	}
 	tccResource := resource.(*TCCResource)
 	if tccResource.RollbackMethod == nil {
-		log.Errorf("TCC resource is not available, resourceID: %s", resourceID)
-		return 0, errors.Errorf("TCC resource is not available, resourceID: %s", resourceID)
+		log.Errorf("TCC resource does not available, resourceID: %s", resourceID)
+		return 0, errors.Errorf("TCC resource does not available, resourceID: %s", resourceID)
 	}
 
 	result := false
