@@ -55,14 +55,18 @@ func makeCallProxy(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) 
 		}
 
 		tx := GetCurrentOrCreate(invCtx)
-		defer tx.Resume(suspendedResourcesHolder, invCtx)
+
+		defer func() {
+			err := tx.Resume(suspendedResourcesHolder, invCtx)
+			if err != nil {
+				log.Errorf("error tx. Resume ret: %v", err)
+			}
+		}()
 
 		switch txInfo.Propagation {
 		case REQUIRED:
-			break
 		case REQUIRES_NEW:
 			suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
-			break
 		case NOT_SUPPORTED:
 			suspendedResourcesHolder, _ = tx.Suspend(true, invCtx)
 			returnValues = proxy.Invoke(methodDesc, invCtx, args)
@@ -72,7 +76,6 @@ func makeCallProxy(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) 
 				returnValues = proxy.Invoke(methodDesc, invCtx, args)
 				return returnValues
 			}
-			break
 		case NEVER:
 			if invCtx.InGlobalTransaction() {
 				return proxy.ReturnWithError(methodDesc, errors.Errorf("Existing transaction found for transaction marked with propagation 'never',xid = %s", invCtx.GetXID()))
@@ -84,7 +87,6 @@ func makeCallProxy(methodDesc *proxy.MethodDescriptor, txInfo *TransactionInfo) 
 			if !invCtx.InGlobalTransaction() {
 				return proxy.ReturnWithError(methodDesc, errors.New("No existing transaction found for transaction marked with propagation 'mandatory'"))
 			}
-			break
 		default:
 			return proxy.ReturnWithError(methodDesc, errors.Errorf("Not Supported Propagation: %s", txInfo.Propagation.String()))
 		}

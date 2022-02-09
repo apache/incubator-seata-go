@@ -118,7 +118,7 @@ func (resourceManager AbstractResourceManager) doRegisterResource(serverAddress 
 func (resourceManager AbstractResourceManager) getMergedResourceKeys() string {
 	var builder strings.Builder
 	if resourceManager.ResourceCache != nil && len(resourceManager.ResourceCache) > 0 {
-		for key, _ := range resourceManager.ResourceCache {
+		for key := range resourceManager.ResourceCache {
 			builder.WriteString(key)
 			builder.WriteString(DBKEYS_SPLIT_CHAR)
 		}

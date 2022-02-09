@@ -78,7 +78,7 @@ func (locker *DataBaseLocker) GetLockKeyCount() int64 {
 
 func convertToLockDO(locks []*RowLock) []*model.LockDO {
 	lockDOs := make([]*model.LockDO, 0)
-	if locks == nil || len(locks) == 0 {
+	if len(locks) == 0 {
 		return lockDOs
 	}
 	for _, lock := range locks {

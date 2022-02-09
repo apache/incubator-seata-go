@@ -9,7 +9,7 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
-
+	gxtime "github.com/dubbogo/gost/time"
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -92,48 +92,52 @@ func (client *RpcRemoteClient) OnClose(session getty.Session) {
 
 // OnMessage ...
 func (client *RpcRemoteClient) OnMessage(session getty.Session, pkg interface{}) {
-	log.Info("received message:{%v}", pkg)
+	log.Debugf("received message: {%#v}", pkg)
 	rpcMessage, ok := pkg.(protocal.RpcMessage)
-	if ok {
-		heartBeat, isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
-		if isHeartBeat && heartBeat == protocal.HeartBeatMessagePong {
-			log.Debugf("received PONG from %s", session.RemoteAddr())
-			return
-		}
+	if !ok {
+		log.Errorf("received message is not protocal.RpcMessage. pkg: %#v", pkg)
+		return
+	}
+
+	heartBeat, isHeartBeat := rpcMessage.Body.(protocal.HeartBeatMessage)
+	if isHeartBeat && heartBeat == protocal.HeartBeatMessagePong {
+		log.Debugf("received PONG from %s", session.RemoteAddr())
+		return
 	}
 
 	if rpcMessage.MessageType == protocal.MSGTypeRequest ||
 		rpcMessage.MessageType == protocal.MSGTypeRequestOneway {
-		log.Debugf("msgID:%s, body:%v", rpcMessage.ID, rpcMessage.Body)
+		log.Debugf("msgID: %d, body: %#v", rpcMessage.ID, rpcMessage.Body)
 
 		client.onMessage(rpcMessage, session.RemoteAddr())
-	} else {
-		mergedResult, isMergedResult := rpcMessage.Body.(protocal.MergeResultMessage)
-		if isMergedResult {
-			mm, loaded := client.mergeMsgMap.Load(rpcMessage.ID)
-			if loaded {
-				mergedMessage := mm.(protocal.MergedWarpMessage)
-				log.Infof("rpcMessageID: %d,rpcMessage :%v,result :%v", rpcMessage.ID, mergedMessage, mergedResult)
-				for i := 0; i < len(mergedMessage.Msgs); i++ {
-					msgID := mergedMessage.MsgIDs[i]
-					resp, loaded := client.futures.Load(msgID)
-					if loaded {
-						response := resp.(*getty2.MessageFuture)
-						response.Response = mergedResult.Msgs[i]
-						response.Done <- true
-						client.futures.Delete(msgID)
-					}
+		return
+	}
+
+	mergedResult, isMergedResult := rpcMessage.Body.(protocal.MergeResultMessage)
+	if isMergedResult {
+		mm, loaded := client.mergeMsgMap.Load(rpcMessage.ID)
+		if loaded {
+			mergedMessage := mm.(protocal.MergedWarpMessage)
+			log.Infof("rpcMessageID: %d, rpcMessage: %#v, result: %#v", rpcMessage.ID, mergedMessage, mergedResult)
+			for i := 0; i < len(mergedMessage.Msgs); i++ {
+				msgID := mergedMessage.MsgIDs[i]
+				resp, loaded := client.futures.Load(msgID)
+				if loaded {
+					response := resp.(*getty2.MessageFuture)
+					response.Response = mergedResult.Msgs[i]
+					response.Done <- true
+					client.futures.Delete(msgID)
 				}
-				client.mergeMsgMap.Delete(rpcMessage.ID)
 			}
-		} else {
-			resp, loaded := client.futures.Load(rpcMessage.ID)
-			if loaded {
-				response := resp.(*getty2.MessageFuture)
-				response.Response = rpcMessage.Body
-				response.Done <- true
-				client.futures.Delete(rpcMessage.ID)
-			}
+			client.mergeMsgMap.Delete(rpcMessage.ID)
+		}
+	} else {
+		resp, loaded := client.futures.Load(rpcMessage.ID)
+		if loaded {
+			response := resp.(*getty2.MessageFuture)
+			response.Response = rpcMessage.Body
+			response.Done <- true
+			client.futures.Delete(rpcMessage.ID)
 		}
 	}
 }
@@ -145,7 +149,7 @@ func (client *RpcRemoteClient) OnCron(session getty.Session) {
 
 func (client *RpcRemoteClient) onMessage(rpcMessage protocal.RpcMessage, serverAddress string) {
 	msg := rpcMessage.Body.(protocal.MessageTypeAware)
-	log.Infof("onMessage: %v", msg)
+	log.Debugf("onMessage: %#v", msg)
 	switch msg.GetTypeCode() {
 	case protocal.TypeBranchCommit:
 		client.BranchCommitRequestChannel <- RpcRMMessage{
@@ -213,19 +217,27 @@ func (client *RpcRemoteClient) sendAsyncRequest(session getty.Session, msg inter
 	_, _, err = session.WritePkg(rpcMessage, time.Duration(0))
 	if err != nil {
 		client.futures.Delete(rpcMessage.ID)
+		log.Errorf("send message: %#v, session: %s", rpcMessage, session.Stat())
+		return nil, err
 	}
-	log.Infof("send message : %v,session:%s", rpcMessage, session.Stat())
+
+	log.Debugf("send message: %#v, session: %s", rpcMessage, session.Stat())
 
 	if timeout > time.Duration(0) {
 		select {
-		case <-getty.GetTimeWheel().After(timeout):
+		case <-gxtime.GetDefaultTimerWheel().After(timeout):
 			client.futures.Delete(rpcMessage.ID)
-			return nil, errors.Errorf("wait response timeout,ip:%s,request:%v", session.RemoteAddr(), rpcMessage)
+			if session != nil {
+				return nil, errors.Errorf("wait response timeout, ip: %s, request: %#v", session.RemoteAddr(), rpcMessage)
+			} else {
+				return nil, errors.Errorf("wait response timeout and session is nil, request: %#v", rpcMessage)
+			}
 		case <-resp.Done:
 			err = resp.Err
+			return resp.Response, err
 		}
-		return resp.Response, err
 	}
+
 	return nil, err
 }
 
@@ -243,13 +255,13 @@ func (client *RpcRemoteClient) sendAsyncRequest2(msg interface{}, timeout time.D
 
 	client.rpcMessageChannel <- rpcMessage
 
-	log.Infof("send message : %v", rpcMessage)
+	log.Infof("send message: %#v", rpcMessage)
 
 	if timeout > time.Duration(0) {
 		select {
-		case <-getty.GetTimeWheel().After(timeout):
+		case <-gxtime.GetDefaultTimerWheel().After(timeout):
 			client.futures.Delete(rpcMessage.ID)
-			return nil, errors.Errorf("wait response timeout, request:%v", rpcMessage)
+			return nil, errors.Errorf("wait response timeout, request: %#v", rpcMessage)
 		case <-resp.Done:
 			err = resp.Err
 		}
@@ -270,7 +282,7 @@ func (client *RpcRemoteClient) sendAsync(session getty.Session, msg interface{})
 		Compressor:  0,
 		Body:        msg,
 	}
-	log.Infof("store message,id %d: %v", rpcMessage.ID, msg)
+	log.Infof("store message, id %d : %#v", rpcMessage.ID, msg)
 	client.mergeMsgMap.Store(rpcMessage.ID, msg)
 	//config timeout
 	pkgLen, sendLen, err := session.WritePkg(rpcMessage, time.Duration(0))

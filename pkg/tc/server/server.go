@@ -78,11 +78,7 @@ func (s *Server) newSession(session getty.Session) error {
 }
 
 func (s *Server) Start(addr string) {
-	var (
-		tcpServer getty.Server
-	)
-
-	tcpServer = getty.NewTCPServer(
+	tcpServer := getty.NewTCPServer(
 		getty.WithLocalAddress(addr),
 		getty.WithServerTaskPool(gxsync.NewTaskPoolSimple(0)),
 	)

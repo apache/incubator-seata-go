@@ -89,7 +89,7 @@ func (storeManager *DBTransactionStoreManager) readSessionByStatuses(statuses []
 		states = append(states, int(status))
 	}
 	globalTransactionDOs := storeManager.LogStore.QueryGlobalTransactionDOByStatuses(states, storeManager.logQueryLimit)
-	if globalTransactionDOs == nil || len(globalTransactionDOs) == 0 {
+	if len(globalTransactionDOs) == 0 {
 		return nil
 	}
 	xids := make([]string, 0)
@@ -145,7 +145,7 @@ func (storeManager *DBTransactionStoreManager) Shutdown() {
 
 func getGlobalSession(globalTransactionDO *model.GlobalTransactionDO, branchTransactionDOs []*model.BranchTransactionDO) *session.GlobalSession {
 	globalSession := convertGlobalTransaction(globalTransactionDO)
-	if branchTransactionDOs != nil && len(branchTransactionDOs) > 0 {
+	if len(branchTransactionDOs) > 0 {
 		for _, branchTransactionDO := range branchTransactionDOs {
 			globalSession.Add(convertBranchSession(branchTransactionDO))
 		}

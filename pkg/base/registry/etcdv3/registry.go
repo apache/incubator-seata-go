@@ -150,7 +150,6 @@ func (r *etcdRegistry) leaseKeeper() {
 		select {
 		case <-r.client.Done():
 			log.Info("leaseKeeper goroutine quit...")
-			break
 		default:
 			ttl, err := r.client.GetRawClient().TimeToLive(r.client.GetCtx(), *r.leaseWrp.leaseId)
 			if err != nil {

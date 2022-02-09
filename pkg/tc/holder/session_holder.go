@@ -62,17 +62,15 @@ func (sessionHolder SessionHolder) reload() {
 		sessionManager.Reload()
 
 		reloadedSessions := sessionHolder.RootSessionManager.AllSessions()
-		if reloadedSessions != nil && len(reloadedSessions) > 0 {
+		if len(reloadedSessions) > 0 {
 			for _, globalSession := range reloadedSessions {
 				switch globalSession.Status {
 				case meta.GlobalStatusUnknown, meta.GlobalStatusCommitted, meta.GlobalStatusCommitFailed, meta.GlobalStatusRolledBack,
 					meta.GlobalStatusRollbackFailed, meta.GlobalStatusTimeoutRolledBack, meta.GlobalStatusTimeoutRollbackFailed,
 					meta.GlobalStatusFinished:
 					log.Errorf("Reloaded Session should NOT be %s", globalSession.Status.String())
-					break
 				case meta.GlobalStatusAsyncCommitting:
 					sessionHolder.AsyncCommittingSessionManager.AddGlobalSession(globalSession)
-					break
 				default:
 					branchSessions := globalSession.GetSortedBranches()
 					for _, branchSession := range branchSessions {
@@ -84,19 +82,14 @@ func (sessionHolder SessionHolder) reload() {
 							globalSession.Status = meta.GlobalStatusCommitRetrying
 						}
 						sessionHolder.RetryCommittingSessionManager.AddGlobalSession(globalSession)
-						break
 					case meta.GlobalStatusRollingBack, meta.GlobalStatusRollbackRetrying, meta.GlobalStatusTimeoutRollingBack,
 						meta.GlobalStatusTimeoutRollbackRetrying:
 						sessionHolder.RetryRollbackingSessionManager.AddGlobalSession(globalSession)
-						break
 					case meta.GlobalStatusBegin:
 						globalSession.Active = true
-						break
 					default:
 						log.Errorf("NOT properly handled %s", globalSession.Status)
-						break
 					}
-					break
 				}
 			}
 		}

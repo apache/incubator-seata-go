@@ -56,10 +56,11 @@ func (resourceManager TCCResourceManager) BranchCommit(branchType meta.BranchTyp
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.CommitMethod, nil, args)
-	log.Infof("TCC resource commit result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, xid, branchID, resourceID)
-	if returnValues != nil && len(returnValues) == 1 {
+	if returnValues != nil {
+		log.Infof("TCC resource commit result : %v, XID: %s, BranchID: %d, ResourceID: %s", returnValues[0].Interface(), xid, branchID, resourceID)
 		result = returnValues[0].Interface().(bool)
 	}
+
 	if result {
 		return meta.BranchStatusPhaseTwoCommitted, nil
 	} else {
@@ -71,11 +72,13 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 	resourceID string, applicationData []byte) (meta.BranchStatus, error) {
 	resource := resourceManager.ResourceCache[resourceID]
 	if resource == nil {
-		return 0, errors.Errorf("TCC resource is not exist, resourceID: %s", resourceID)
+		log.Errorf("TCC resource does not exist, resourceID: %s", resourceID)
+		return 0, errors.Errorf("TCC resource does not exist, resourceID: %s", resourceID)
 	}
 	tccResource := resource.(*TCCResource)
 	if tccResource.RollbackMethod == nil {
-		return 0, errors.Errorf("TCC resource is not available, resourceID: %s", resourceID)
+		log.Errorf("TCC resource does not available, resourceID: %s", resourceID)
+		return 0, errors.Errorf("TCC resource does not available, resourceID: %s", resourceID)
 	}
 
 	result := false
@@ -83,10 +86,11 @@ func (resourceManager TCCResourceManager) BranchRollback(branchType meta.BranchT
 	args := make([]interface{}, 0)
 	args = append(args, businessActionContext)
 	returnValues := proxy.Invoke(tccResource.RollbackMethod, nil, args)
-	log.Infof("TCC resource rollback result : %v, xid: %s, branchID: %d, resourceID: %s", returnValues, xid, branchID, resourceID)
-	if returnValues != nil && len(returnValues) == 1 {
+	if returnValues != nil {
+		log.Infof("TCC resource rollback result : %v, XID: %s, BranchID: %d, ResourceID: %s", returnValues[0].Interface(), xid, branchID, resourceID)
 		result = returnValues[0].Interface().(bool)
 	}
+
 	if result {
 		return meta.BranchStatusPhaseTwoRolledBack, nil
 	} else {
@@ -151,7 +155,7 @@ func (resourceManager TCCResourceManager) handleBranchRollback() {
 func (resourceManager TCCResourceManager) doBranchCommit(request protocal.BranchCommitRequest) protocal.BranchCommitResponse {
 	var resp = protocal.BranchCommitResponse{}
 
-	log.Infof("Branch committing: %s %d %s %s", request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
+	log.Infof("Branch committing, XID: %s, BranchID: %d, ResourceID: %s, ApplicationData: %s", request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	status, err := resourceManager.BranchCommit(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed
@@ -176,7 +180,7 @@ func (resourceManager TCCResourceManager) doBranchCommit(request protocal.Branch
 func (resourceManager TCCResourceManager) doBranchRollback(request protocal.BranchRollbackRequest) protocal.BranchRollbackResponse {
 	var resp = protocal.BranchRollbackResponse{}
 
-	log.Infof("Branch rolling back: %s %d %s", request.XID, request.BranchID, request.ResourceID)
+	log.Infof("Branch rolling back: XID: %s, BranchID: %d, ResourceID: %s, ApplicationData: %s", request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	status, err := resourceManager.BranchRollback(request.BranchType, request.XID, request.BranchID, request.ResourceID, request.ApplicationData)
 	if err != nil {
 		resp.ResultCode = protocal.ResultCodeFailed

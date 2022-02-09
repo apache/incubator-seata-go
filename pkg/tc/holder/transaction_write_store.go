@@ -41,10 +41,8 @@ func (transactionWriteStore *TransactionWriteStore) getSessionInstanceByOperatio
 	switch transactionWriteStore.LogOperation {
 	case LogOperationGlobalAdd, LogOperationGlobalUpdate, LogOperationGlobalRemove:
 		sessionStorable = session.NewGlobalSession()
-		break
 	case LogOperationBranchAdd, LogOperationBranchUpdate, LogOperationBranchRemove:
 		sessionStorable = session.NewBranchSession()
-		break
 	default:
 		return nil, errors.New("incorrect logOperation.")
 	}
