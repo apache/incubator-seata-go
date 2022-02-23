@@ -4,13 +4,13 @@
 ## 简介 | [English](https://github.com/opentrx/seata-golang/blob/v2/README.md)
 seata-golang是一个用于解决分布式事务的中间件，是基于Go语言版本的seata。
 ### seata-golang与[seata](https://github.com/seata/seata) 的区别
-| 特性  |  seata   | seata-golang  | 备注 |
-  | ---- |  :----:  | :----:  | --- |
-| AT mode |  √  | √ | |
-| TCC mode | √  | √ | |
-| SAGA mode | √ | × | |
-| rpc | √ | √ | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
-| grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
+| 特性        | seata | seata-golang | 备注                                                             |
+|-----------|:-----:|:------------:|----------------------------------------------------------------|
+| AT mode   |   ✅   |      ✅       |                                                                |
+| TCC mode  |   ✅   |      ✅       |                                                                |
+| SAGA mode |   ✅   |      ☑️      |                                                                |
+| rpc       |   ✅   |      ✅       | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
+| grpc      |  ☑️   |      ✅       | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2)   |
 
 ## 架构
 <img alt="seata-flow" width="500px" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  

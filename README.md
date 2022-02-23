@@ -4,13 +4,13 @@
 ## Introduction | [中文](https://github.com/opentrx/seata-golang/blob/v2/docs/README_ZH.md)
 seata-golang is a distributed transaction middleware based on Golang.
 ### difference between seata-glang and [seata](https://github.com/seata/seata)
-| feature  |  seata   | seata-golang  | remark |
-  | ---- |  :----:  | :----:  | --- |
-| AT mode |  √  | √ | |
-| TCC mode | √  | √ | |
-| SAGA mode | √ | × | |
-| rpc | √ | √ | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
-| grpc | × | √ | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2) |
+| feature   | seata | seata-golang | remark                                                         |
+|-----------|:-----:|:------------:|----------------------------------------------------------------|
+| AT mode   |   ✅   |      ✅       |                                                                |
+| TCC mode  |   ✅   |      ✅       |                                                                |
+| SAGA mode |   ✅   |      ☑️      |                                                                |
+| rpc       |   ✅   |      ✅       | [dev branch](https://github.com/opentrx/seata-golang/tree/dev) |
+| grpc      |  ☑️   |      ✅       | [v2 branch](https://github.com/opentrx/seata-golang/tree/v2)   |
 
 ## Architecture
 <img alt="seata-flow" width="500px" src="https://github.com/opentrx/seata-golang/blob/v2/docs/images/seata-flow.png" />  
