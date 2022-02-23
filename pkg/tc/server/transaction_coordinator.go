@@ -45,7 +45,7 @@ type TransactionCoordinator struct {
 
 	streamMessageTimeout time.Duration
 
-	holder             *holder.SessionHolder
+	holder             holder.SessionHolderInterface
 	resourceDataLocker *lock.LockManager
 	locker             GlobalSessionLocker
 

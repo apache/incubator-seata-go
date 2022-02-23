@@ -2,7 +2,7 @@ package lock
 
 import (
 	"encoding/json"
-	
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"

@@ -6,6 +6,25 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/tc/storage"
 )
 
+type SessionHolderInterface interface {
+	AddGlobalSession(session *apis.GlobalSession) error
+	FindGlobalSession(xid string) *apis.GlobalSession
+	FindGlobalTransaction(xid string) *model.GlobalTransaction
+	FindAsyncCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction
+	FindRetryCommittingGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction
+	FindRetryRollbackGlobalTransactions(addressingIdentities []string) []*model.GlobalTransaction
+	FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession
+	AllSessions() []*apis.GlobalSession
+	UpdateGlobalSessionStatus(session *apis.GlobalSession, status apis.GlobalSession_GlobalStatus) error
+	InactiveGlobalSession(session *apis.GlobalSession) error
+	RemoveGlobalSession(session *apis.GlobalSession) error
+	RemoveGlobalTransaction(globalTransaction *model.GlobalTransaction) error
+	AddBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error
+	FindBranchSession(xid string) []*apis.BranchSession
+	UpdateBranchSessionStatus(session *apis.BranchSession, status apis.BranchSession_BranchStatus) error
+	RemoveBranchSession(globalSession *apis.GlobalSession, session *apis.BranchSession) error
+}
+
 type SessionHolder struct {
 	manager storage.SessionManager
 }
