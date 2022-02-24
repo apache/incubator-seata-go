@@ -8,6 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	hmock "github.com/opentrx/seata-golang/v2/pkg/tc/holder/mock"
+	mocklock "github.com/opentrx/seata-golang/v2/pkg/tc/lock/mock"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -252,6 +253,58 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 	}
 }
 
+func TestTransactionCoordinator_LockQuery(t *testing.T) {
+	xid := "localhost:123"
+	resourceID := "test"
+	lockKey := "table_name:pk1,pk2"
+	tests := []struct {
+		name                   string
+		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
+		ctx                    context.Context
+		request                *apis.GlobalLockQueryRequest
+		expectedResult         *apis.GlobalLockQueryResponse
+		expectedErr            error
+	}{
+		{
+			name: "test LockQuery success",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedLockManager := mocklock.NewMockLockManagerInterface(ctrl)
+
+				mockedLockManager.EXPECT().IsLockable(xid, resourceID, lockKey).Return(true)
+
+				transactionCoordinator.resourceDataLocker = mockedLockManager
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.GlobalLockQueryRequest{
+				XID:        xid,
+				ResourceID: resourceID,
+				LockKey:    lockKey,
+			},
+			expectedResult: &apis.GlobalLockQueryResponse{
+				ResultCode: apis.ResultCodeSuccess,
+				Lockable:   true,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			tc := tt.transactionCoordinator(ctrl)
+
+			actualResp, actualErr := tc.LockQuery(tt.ctx, tt.request)
+			assert.Equal(t, tt.expectedResult, actualResp)
+			assert.Equal(t, tt.expectedErr, actualErr)
+		})
+	}
+}
+
 func TestTransactionCoordinator_Begin(t *testing.T) {
 	// todo
 }
@@ -265,9 +318,5 @@ func TestTransactionCoordinator_Commit(t *testing.T) {
 }
 
 func TestTransactionCoordinator_Rollback(t *testing.T) {
-	// todo
-}
-
-func TestTransactionCoordinator_LockQuery(t *testing.T) {
 	// todo
 }
