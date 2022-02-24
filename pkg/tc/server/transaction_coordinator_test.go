@@ -8,6 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	hmock "github.com/opentrx/seata-golang/v2/pkg/tc/holder/mock"
+	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -92,7 +93,8 @@ func TestTransactionCoordinator_GetStatus(t *testing.T) {
 }
 
 func TestTransactionCoordinator_BranchReport(t *testing.T) {
-	//xid := "localhost:123"
+	xid := "localhost:123"
+	branchID := int64(1)
 	tests := []struct {
 		name                   string
 		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
@@ -107,10 +109,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 				transactionCoordinator := &TransactionCoordinator{}
 				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
 
-				mockedSessionHolder.
-					EXPECT().
-					FindGlobalTransaction("").
-					Return(nil)
+				mockedSessionHolder.EXPECT().FindGlobalTransaction("").Return(nil)
 
 				transactionCoordinator.holder = mockedSessionHolder
 
@@ -127,7 +126,41 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
-		// todo: test BranchReport with empty branch
+		{
+			name: "test BranchReport with empty Branch",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedBranchSession := &apis.BranchSession{
+					BranchID: branchID + 1,
+				}
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID: xid,
+					},
+					BranchSessions: map[*apis.BranchSession]bool{
+						mockedBranchSession: true,
+					},
+				}
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchReportRequest{
+				XID:      xid,
+				BranchID: branchID,
+			},
+			expectedResult: &apis.BranchReportResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.BranchTransactionNotExist,
+				Message:       fmt.Sprintf("could not find branch session xid = %s branchID = %d", xid, branchID),
+			},
+			expectedErr: nil,
+		},
 		// todo: test BranchReport with update branch status error
 		// todo: test BranchReport success
 	}
