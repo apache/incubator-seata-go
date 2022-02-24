@@ -251,3 +251,23 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 		})
 	}
 }
+
+func TestTransactionCoordinator_Begin(t *testing.T) {
+	// todo
+}
+
+func TestTransactionCoordinator_BranchRegister(t *testing.T) {
+	// todo
+}
+
+func TestTransactionCoordinator_Commit(t *testing.T) {
+	// todo
+}
+
+func TestTransactionCoordinator_Rollback(t *testing.T) {
+	// todo
+}
+
+func TestTransactionCoordinator_LockQuery(t *testing.T) {
+	// todo
+}
