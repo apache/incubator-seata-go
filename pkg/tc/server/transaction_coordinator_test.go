@@ -95,6 +95,7 @@ func TestTransactionCoordinator_GetStatus(t *testing.T) {
 func TestTransactionCoordinator_BranchReport(t *testing.T) {
 	xid := "localhost:123"
 	branchID := int64(1)
+	updateBranchSessionErr := fmt.Errorf("test error")
 	tests := []struct {
 		name                   string
 		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
@@ -161,8 +162,80 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
-		// todo: test BranchReport with update branch status error
-		// todo: test BranchReport success
+		{
+			name: "test BranchReport with update branch status error",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedBranchSession := &apis.BranchSession{
+					BranchID: branchID,
+				}
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID: xid,
+					},
+					BranchSessions: map[*apis.BranchSession]bool{
+						mockedBranchSession: true,
+					},
+				}
+
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+				mockedSessionHolder.EXPECT().UpdateBranchSessionStatus(mockedBranchSession, apis.Registered).Return(updateBranchSessionErr)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchReportRequest{
+				XID:          xid,
+				BranchID:     branchID,
+				BranchStatus: apis.Registered,
+			},
+			expectedResult: &apis.BranchReportResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.BranchReportFailed,
+				Message:       fmt.Sprintf("branch report failed, xid = %s, branchID = %d, err: %s", xid, branchID, updateBranchSessionErr.Error()),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchReport success",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedBranchSession := &apis.BranchSession{
+					BranchID: branchID,
+				}
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID: xid,
+					},
+					BranchSessions: map[*apis.BranchSession]bool{
+						mockedBranchSession: true,
+					},
+				}
+
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+				mockedSessionHolder.EXPECT().UpdateBranchSessionStatus(mockedBranchSession, apis.Registered).Return(nil)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchReportRequest{
+				XID:          xid,
+				BranchID:     branchID,
+				BranchStatus: apis.Registered,
+			},
+			expectedResult: &apis.BranchReportResponse{
+				ResultCode: apis.ResultCodeSuccess,
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
