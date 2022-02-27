@@ -755,16 +755,18 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			tc := tt.transactionCoordinator(ctrl)
 
 			actualResp, actualErr := tc.BranchRegister(tt.ctx, tt.request)
-			if tt.name == "test BranchRegister error add branch session" {
+
+			switch tt.name {
+			case "test BranchRegister error add branch session":
 				// in case branchID unable to mock
 				assert.Equal(t, tt.expectedResult.ResultCode, actualResp.ResultCode)
 				assert.Equal(t, tt.expectedResult.ExceptionCode, actualResp.ExceptionCode)
 				assert.Equal(t, tt.expectedErr, actualErr)
-			} else if tt.name == "test BranchRegister success" {
+			case "test BranchRegister success":
 				// in case branchID unable to mock
 				assert.Equal(t, tt.expectedResult.ResultCode, actualResp.ResultCode)
 				assert.Equal(t, tt.expectedErr, actualErr)
-			} else {
+			default:
 				assert.Equal(t, tt.expectedResult, actualResp)
 				assert.Equal(t, tt.expectedErr, actualErr)
 			}
