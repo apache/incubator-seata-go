@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	hmock "github.com/opentrx/seata-golang/v2/pkg/tc/holder/mock"
 	mocklock "github.com/opentrx/seata-golang/v2/pkg/tc/lock/mock"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
+	mock_server "github.com/opentrx/seata-golang/v2/pkg/tc/server/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +26,7 @@ func TestTransactionCoordinator_GetStatus(t *testing.T) {
 		expectedErr            error
 	}{
 		{
-			name: "test GetStatus with existing XID",
+			name: "test GetStatus success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
 				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
@@ -164,7 +166,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "test BranchReport with update branch status error",
+			name: "test BranchReport error update branch status ",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
 				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
@@ -256,7 +258,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 func TestTransactionCoordinator_LockQuery(t *testing.T) {
 	xid := "localhost:123"
 	resourceID := "test"
-	lockKey := "table_name:pk1,pk2"
+	lockKey := "test_table:pk1,pk2"
 	tests := []struct {
 		name                   string
 		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
@@ -331,7 +333,7 @@ func TestTransactionCoordinator_Begin(t *testing.T) {
 			request: &apis.GlobalBeginRequest{
 				Addressing:      "localhost",
 				TransactionName: "TestTransaction",
-				Timeout:         int32(3),
+				Timeout:         int32(300),
 			},
 			expectedResult: &apis.GlobalBeginResponse{
 				ResultCode:    apis.ResultCodeFailed,
@@ -356,7 +358,7 @@ func TestTransactionCoordinator_Begin(t *testing.T) {
 			request: &apis.GlobalBeginRequest{
 				Addressing:      "localhost",
 				TransactionName: "TestTransaction",
-				Timeout:         int32(3),
+				Timeout:         int32(300),
 			},
 			expectedResult: &apis.GlobalBeginResponse{
 				ResultCode: apis.ResultCodeSuccess,
@@ -387,7 +389,387 @@ func TestTransactionCoordinator_Begin(t *testing.T) {
 }
 
 func TestTransactionCoordinator_BranchRegister(t *testing.T) {
-	// todo
+	xid := "localhost:123"
+	resourceID := "test_DB"
+	lockKey := "test_table:pk1,pk2"
+	addBranchSessionErr := fmt.Errorf("error add branch session")
+	tests := []struct {
+		name                   string
+		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
+		ctx                    context.Context
+		request                *apis.BranchRegisterRequest
+		expectedResult         *apis.BranchRegisterResponse
+		expectedErr            error
+	}{
+		{
+			name: "test BranchRegister with empty XID",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedSessionHolder.
+					EXPECT().
+					FindGlobalTransaction("").
+					Return(nil)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID: "",
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.GlobalTransactionNotExist,
+				Message:       fmt.Sprintf("could not find global transaction xid = %s", ""),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error try lock",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+					},
+					BranchSessions: nil,
+				}
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedSessionHolder.
+					EXPECT().
+					FindGlobalTransaction(xid).
+					Return(mockedGlobalTransaction)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(false, fmt.Errorf("error try lock"))
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID: xid,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.FailedLockGlobalTransaction,
+				Message:       fmt.Sprintf("could not lock global transaction xid = %s", xid),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error global transaction is not active",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Begin,
+						Active:  false,
+					},
+					BranchSessions: nil,
+				}
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedSessionHolder.
+					EXPECT().
+					FindGlobalTransaction(xid).
+					Return(mockedGlobalTransaction)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID: xid,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.GlobalTransactionNotActive,
+				Message:       fmt.Sprintf("could not register branch into global session xid = %s status = %d", xid, apis.Begin),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error global transaction is not begin status",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Committed,
+						Active:  true,
+					},
+					BranchSessions: nil,
+				}
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedSessionHolder.
+					EXPECT().
+					FindGlobalTransaction(xid).
+					Return(mockedGlobalTransaction)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID: xid,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.GlobalTransactionStatusInvalid,
+				Message: fmt.Sprintf("could not register branch into global session xid = %s status = %d while expecting %d",
+					xid, apis.Committed, apis.Begin),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error acquire resource data lock",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Begin,
+						Active:  true,
+					},
+					BranchSessions: nil,
+				}
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(false)
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+				transactionCoordinator.resourceDataLocker = mockedResourceDataLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID:        xid,
+				ResourceID: resourceID,
+				LockKey:    lockKey,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.LockKeyConflict,
+				Message: fmt.Sprintf("branch lock acquire failed xid = %s resourceId = %s, lockKey = %s",
+					xid, resourceID, lockKey),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error acquire resource data lock",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Begin,
+						Active:  true,
+					},
+					BranchSessions: nil,
+				}
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(false)
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+				transactionCoordinator.resourceDataLocker = mockedResourceDataLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID:        xid,
+				ResourceID: resourceID,
+				LockKey:    lockKey,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.LockKeyConflict,
+				Message: fmt.Sprintf("branch lock acquire failed xid = %s resourceId = %s, lockKey = %s",
+					xid, resourceID, lockKey),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister error add branch session",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Begin,
+						Active:  true,
+					},
+					BranchSessions: nil,
+				}
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+				mockedSessionHolder.EXPECT().AddBranchSession(mockedGlobalTransaction.GlobalSession, gomock.Any()).Return(addBranchSessionErr)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(true)
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+				transactionCoordinator.resourceDataLocker = mockedResourceDataLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID:        xid,
+				ResourceID: resourceID,
+				LockKey:    lockKey,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.BranchRegisterFailed,
+				//Message:       fmt.Sprintf("branch register failed, xid = %s, branchID = %d, err: %s",xid, branchID, addBranchSessionErr.Error()),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test BranchRegister success",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := mock_server.NewMockGlobalSessionLocker(ctrl)
+
+				mockedGlobalTransaction := &model.GlobalTransaction{
+					GlobalSession: &apis.GlobalSession{
+						XID:     xid,
+						Timeout: int32(300),
+						Status:  apis.Begin,
+						Active:  true,
+					},
+					BranchSessions: nil,
+				}
+				mockedSessionHolder.EXPECT().FindGlobalTransaction(xid).Return(mockedGlobalTransaction)
+				mockedSessionHolder.EXPECT().AddBranchSession(mockedGlobalTransaction.GlobalSession, gomock.Any()).Return(nil)
+
+				mockedGlobalSessionLock.EXPECT().TryLock(
+					mockedGlobalTransaction.GlobalSession,
+					time.Duration(mockedGlobalTransaction.Timeout)*time.Millisecond,
+				).Return(true, nil)
+				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
+
+				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(true)
+
+				transactionCoordinator.holder = mockedSessionHolder
+				transactionCoordinator.locker = mockedGlobalSessionLock
+				transactionCoordinator.resourceDataLocker = mockedResourceDataLock
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.BranchRegisterRequest{
+				XID:        xid,
+				ResourceID: resourceID,
+				LockKey:    lockKey,
+			},
+			expectedResult: &apis.BranchRegisterResponse{
+				ResultCode: apis.ResultCodeSuccess,
+				//BranchID:   branchID,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			tc := tt.transactionCoordinator(ctrl)
+
+			actualResp, actualErr := tc.BranchRegister(tt.ctx, tt.request)
+			if tt.name == "test BranchRegister error add branch session" {
+				// in case branchID unable to mock
+				assert.Equal(t, tt.expectedResult.ResultCode, actualResp.ResultCode)
+				assert.Equal(t, tt.expectedResult.ExceptionCode, actualResp.ExceptionCode)
+				assert.Equal(t, tt.expectedErr, actualErr)
+			} else if tt.name == "test BranchRegister success" {
+				// in case branchID unable to mock
+				assert.Equal(t, tt.expectedResult.ResultCode, actualResp.ResultCode)
+				assert.Equal(t, tt.expectedErr, actualErr)
+			} else {
+				assert.Equal(t, tt.expectedResult, actualResp)
+				assert.Equal(t, tt.expectedErr, actualErr)
+			}
+		})
+	}
 }
 
 func TestTransactionCoordinator_Commit(t *testing.T) {
