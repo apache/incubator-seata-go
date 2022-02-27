@@ -1,0 +1,6 @@
+runner:
+  golint:
+    cmd: golangci-lint run
+    errorformat:
+      - "%f:%l:%c: %m"
+    level: warning

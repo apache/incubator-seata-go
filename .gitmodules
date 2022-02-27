@@ -1,0 +1,3 @@
+[submodule ".github/actions/review-dog"]
+	path = .github/actions/review-dog
+	url = git@github.com:reviewdog/action-golangci-lint.git
