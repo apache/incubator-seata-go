@@ -15,9 +15,6 @@ type SessionManager interface {
 	// Find global sessions list.
 	FindGlobalSessions(statuses []apis.GlobalSession_GlobalStatus) []*apis.GlobalSession
 
-	// Find global sessions list with addressing identities
-	FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus, addressingIdentities []string) []*apis.GlobalSession
-
 	// All sessions collection.
 	AllSessions() []*apis.GlobalSession
 
@@ -38,6 +35,9 @@ type SessionManager interface {
 
 	// Find branch session.
 	FindBatchBranchSessions(xids []string) []*apis.BranchSession
+
+	// FindBatchBranchSessionsWithAddressingIdentities finds BranchSessions by xid list and addressing list
+	FindBatchBranchSessionsWithAddressingIdentities(xids []string, addressingIdentities []string) []*apis.BranchSession
 
 	// Update branch session status.
 	UpdateBranchSessionStatus(session *apis.BranchSession, status apis.BranchSession_BranchStatus) error

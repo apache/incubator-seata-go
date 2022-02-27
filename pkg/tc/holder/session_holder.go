@@ -63,8 +63,8 @@ func (holder *SessionHolder) findGlobalTransactions(statuses []apis.GlobalSessio
 
 func (holder *SessionHolder) findGlobalTransactionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus,
 	addressingIdentities []string) []*model.GlobalTransaction {
-	gts := holder.manager.FindGlobalSessionsWithAddressingIdentities(statuses, addressingIdentities)
-	return holder.findGlobalTransactionsByGlobalSessions(gts)
+	gts := holder.manager.FindGlobalSessions(statuses)
+	return holder.findGlobalTransactionsByGlobalSessionsWithAddressingIdentities(gts, addressingIdentities)
 }
 
 func (holder *SessionHolder) findGlobalTransactionsByGlobalSessions(sessions []*apis.GlobalSession) []*model.GlobalTransaction {
@@ -77,6 +77,48 @@ func (holder *SessionHolder) findGlobalTransactionsByGlobalSessions(sessions []*
 		xids = append(xids, gt.XID)
 	}
 	branchSessions := holder.manager.FindBatchBranchSessions(xids)
+	branchSessionMap := make(map[string][]*apis.BranchSession)
+	for i := 0; i < len(branchSessions); i++ {
+		branchSessionSlice, ok := branchSessionMap[branchSessions[i].XID]
+		if ok {
+			branchSessionSlice = append(branchSessionSlice, branchSessions[i])
+			branchSessionMap[branchSessions[i].XID] = branchSessionSlice
+		} else {
+			branchSessionSlice = make([]*apis.BranchSession, 0)
+			branchSessionSlice = append(branchSessionSlice, branchSessions[i])
+			branchSessionMap[branchSessions[i].XID] = branchSessionSlice
+		}
+	}
+
+	globalTransactions := make([]*model.GlobalTransaction, 0, len(sessions))
+	for j := 0; j < len(sessions); j++ {
+		globalTransaction := &model.GlobalTransaction{
+			GlobalSession:  sessions[j],
+			BranchSessions: map[*apis.BranchSession]bool{},
+		}
+
+		branchSessionSlice := branchSessionMap[sessions[j].XID]
+		if len(branchSessionSlice) > 0 {
+			for x := 0; x < len(branchSessionSlice); x++ {
+				globalTransaction.BranchSessions[branchSessionSlice[x]] = true
+			}
+		}
+		globalTransactions = append(globalTransactions, globalTransaction)
+	}
+
+	return globalTransactions
+}
+
+func (holder *SessionHolder) findGlobalTransactionsByGlobalSessionsWithAddressingIdentities(sessions []*apis.GlobalSession, addressingIdentities []string) []*model.GlobalTransaction {
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	xids := make([]string, 0, len(sessions))
+	for _, gt := range sessions {
+		xids = append(xids, gt.XID)
+	}
+	branchSessions := holder.manager.FindBatchBranchSessionsWithAddressingIdentities(xids, addressingIdentities)
 	branchSessionMap := make(map[string][]*apis.BranchSession)
 	for i := 0; i < len(branchSessions); i++ {
 		branchSessionSlice, ok := branchSessionMap[branchSessions[i].XID]

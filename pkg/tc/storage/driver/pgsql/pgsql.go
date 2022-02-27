@@ -308,23 +308,6 @@ func (driver *driver) FindGlobalSessions(statuses []apis.GlobalSession_GlobalSta
 	return globalSessions
 }
 
-// FindGlobalSessionsWithAddressingIdentities finds global sessions list by addressing identities and statuses list
-func (driver *driver) FindGlobalSessionsWithAddressingIdentities(statuses []apis.GlobalSession_GlobalStatus, addressingIdentities []string) []*apis.GlobalSession {
-	var globalSessions []*apis.GlobalSession
-	err := driver.engine.Table(driver.globalTable).
-		Where(builder.
-			In("status", statuses).
-			And(builder.In("addressing", addressingIdentities))).
-		OrderBy("gmt_modified").
-		Limit(driver.queryLimit).
-		Find(&globalSessions)
-
-	if err != nil {
-		log.Errorf(err.Error())
-	}
-	return globalSessions
-}
-
 // AllSessions returns all sessions collection.
 func (driver *driver) AllSessions() []*apis.GlobalSession {
 	var globalSessions []*apis.GlobalSession
@@ -385,6 +368,31 @@ func (driver *driver) FindBatchBranchSessions(xids []string) []*apis.BranchSessi
 		xidArgs = append(xidArgs, xid)
 	}
 	err := driver.engine.SQL(fmt.Sprintf(QueryBranchTransaction, driver.branchTable, whereCond), xidArgs...).Find(&branchTransactions)
+
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	return branchTransactions
+}
+
+// FindBatchBranchSessionsWithAddressingIdentities finds branch sessions list by xids list.
+func (driver *driver) FindBatchBranchSessionsWithAddressingIdentities(xids []string, addressingIdentities []string) []*apis.BranchSession {
+	var (
+		branchTransactions       []*apis.BranchSession
+		xidsArgs                 []interface{}
+		addressingIdentitiesArgs []interface{}
+	)
+
+	for _, xid := range xids {
+		xidsArgs = append(xidsArgs, xid)
+	}
+	for _, addressing := range addressingIdentities {
+		addressingIdentitiesArgs = append(addressingIdentitiesArgs, addressing)
+	}
+
+	err := driver.engine.Table(driver.branchTable).
+		Where(builder.In("xid", xidsArgs...).And(builder.In("addressing", addressingIdentitiesArgs...))).
+		Find(&branchTransactions)
 
 	if err != nil {
 		log.Errorf(err.Error())
