@@ -33,3 +33,4 @@ jobs:
         uses: ./.github/actions/review-dog
         with:
           golangci_lint_flags: "--timeout=10m"
+
