@@ -306,7 +306,84 @@ func TestTransactionCoordinator_LockQuery(t *testing.T) {
 }
 
 func TestTransactionCoordinator_Begin(t *testing.T) {
-	// todo
+	addGlobalSessionHolderErr := fmt.Errorf("error add global session")
+	tests := []struct {
+		name                   string
+		transactionCoordinator func(ctrl *gomock.Controller) *TransactionCoordinator
+		ctx                    context.Context
+		request                *apis.GlobalBeginRequest
+		expectedResult         *apis.GlobalBeginResponse
+		expectedErr            error
+	}{
+		{
+			name: "test Begin error add global session",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedSessionHolder.EXPECT().AddGlobalSession(gomock.Any()).Return(addGlobalSessionHolderErr)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.GlobalBeginRequest{
+				Addressing:      "localhost",
+				TransactionName: "TestTransaction",
+				Timeout:         int32(3),
+			},
+			expectedResult: &apis.GlobalBeginResponse{
+				ResultCode:    apis.ResultCodeFailed,
+				ExceptionCode: apis.BeginFailed,
+				Message:       addGlobalSessionHolderErr.Error(),
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "test Begin success",
+			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
+				transactionCoordinator := &TransactionCoordinator{}
+				mockedSessionHolder := hmock.NewMockSessionHolderInterface(ctrl)
+
+				mockedSessionHolder.EXPECT().AddGlobalSession(gomock.Any()).Return(nil)
+
+				transactionCoordinator.holder = mockedSessionHolder
+
+				return transactionCoordinator
+			},
+			ctx: nil,
+			request: &apis.GlobalBeginRequest{
+				Addressing:      "localhost",
+				TransactionName: "TestTransaction",
+				Timeout:         int32(3),
+			},
+			expectedResult: &apis.GlobalBeginResponse{
+				ResultCode: apis.ResultCodeSuccess,
+				//XID:        xid,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			tc := tt.transactionCoordinator(ctrl)
+
+			actualResp, actualErr := tc.Begin(tt.ctx, tt.request)
+			if tt.name == "test Begin success" {
+				// in case XID unable to mock
+				assert.Equal(t, tt.expectedResult.ResultCode, actualResp.ResultCode)
+				assert.Equal(t, tt.expectedErr, actualErr)
+			} else {
+				assert.Equal(t, tt.expectedResult, actualResp)
+				assert.Equal(t, tt.expectedErr, actualErr)
+			}
+		})
+	}
 }
 
 func TestTransactionCoordinator_BranchRegister(t *testing.T) {
