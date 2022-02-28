@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	mockholder "github.com/opentrx/seata-golang/v2/pkg/tc/holder/mock"
 	mocklock "github.com/opentrx/seata-golang/v2/pkg/tc/lock/mock"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
 	mockserver "github.com/opentrx/seata-golang/v2/pkg/tc/server/mock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestTransactionCoordinator_GetStatus(t *testing.T) {
