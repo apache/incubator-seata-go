@@ -9,6 +9,13 @@ import (
 	"github.com/opentrx/seata-golang/v2/pkg/util/log"
 )
 
+type LockManagerInterface interface {
+	AcquireLock(branchSession *apis.BranchSession) bool
+	ReleaseLock(branchSession *apis.BranchSession) bool
+	ReleaseGlobalSessionLock(globalTransaction *model.GlobalTransaction) bool
+	IsLockable(xid string, resourceID string, lockKey string) bool
+}
+
 type LockManager struct {
 	manager storage.LockManager
 }

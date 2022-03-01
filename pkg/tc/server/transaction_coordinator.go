@@ -45,8 +45,8 @@ type TransactionCoordinator struct {
 
 	streamMessageTimeout time.Duration
 
-	holder             *holder.SessionHolder
-	resourceDataLocker *lock.LockManager
+	holder             holder.SessionHolderInterface
+	resourceDataLocker lock.LockManagerInterface
 	locker             GlobalSessionLocker
 
 	idGenerator        *atomic.Uint64
@@ -722,7 +722,7 @@ func (tc *TransactionCoordinator) BranchRegister(ctx context.Context, request *a
 		return &apis.BranchRegisterResponse{
 			ResultCode:    apis.ResultCodeFailed,
 			ExceptionCode: apis.FailedLockGlobalTransaction,
-			Message:       fmt.Sprintf("could not find global transaction xid = %s", request.XID),
+			Message:       fmt.Sprintf("could not lock global transaction xid = %s", request.XID),
 		}, nil
 	}
 	if result {

@@ -16,3 +16,12 @@ linters:
     - goimports
     - gocritic
     - revive
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+        arguments:
+          - "disableStutteringCheck"
