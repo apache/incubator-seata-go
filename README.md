@@ -1,5 +1,7 @@
 # seata-golang
 [![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/opentrx/seata-golang/blob/v2/LICENSE)
+[![codecov](https://codecov.io/gh/dk-lockdown/seata-golang/branch/v2/graph/badge.svg?token=RTSZ2QHIP9)](https://codecov.io/gh/dk-lockdown/seata-golang)
+
 
 ## Introduction | [中文](https://github.com/opentrx/seata-golang/blob/v2/docs/README_ZH.md)
 seata-golang is a distributed transaction middleware based on Golang.
