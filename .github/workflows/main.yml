@@ -47,17 +47,8 @@ jobs:
       - name: Unit Tests
         run: |
           mkdir -p build
-          go test ./... -coverprofile=./build/c.out
+          go test ./... -coverprofile=coverage.txt -covermode=atomic
 
-      - name: Code Coverage
-        run: |
-          go get github.com/axw/gocov/gocov
-          go get github.com/AlekSi/gocov-xml
-          go tool cover -html=build/c.out -o build/coverage.html
-          gocov convert build/c.out | gocov-xml > build/coverage.xml
+      - name: Post Coverage
+        run: bash <(curl -s https://codecov.io/bash)
 
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v2
-        with:
-          name: code-coverage-report
-          path: build/
