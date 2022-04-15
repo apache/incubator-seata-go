@@ -1,3 +1,5 @@
+//go:generate mockgen -destination=../../../testdata/mock_lock_manager.go -package=testdata . LockManagerInterface
+
 package lock
 
 import (
