@@ -10,10 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
-	mockholder "github.com/opentrx/seata-golang/v2/pkg/tc/holder/mock"
-	mocklock "github.com/opentrx/seata-golang/v2/pkg/tc/lock/mock"
 	"github.com/opentrx/seata-golang/v2/pkg/tc/model"
-	mockserver "github.com/opentrx/seata-golang/v2/pkg/tc/server/mock"
+	test "github.com/opentrx/seata-golang/v2/testdata"
 )
 
 func TestTransactionCoordinator_GetStatus(t *testing.T) {
@@ -30,7 +28,7 @@ func TestTransactionCoordinator_GetStatus(t *testing.T) {
 			name: "test GetStatus success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -57,7 +55,7 @@ func TestTransactionCoordinator_GetStatus(t *testing.T) {
 			name: "test GetStatus with empty XID",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -112,7 +110,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			name: "test BranchReport with empty XID",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.EXPECT().FindGlobalTransaction("").Return(nil)
 
@@ -135,7 +133,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			name: "test BranchReport with empty Branch",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedBranchSession := &apis.BranchSession{
 					BranchID: branchID + 1,
@@ -170,7 +168,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			name: "test BranchReport error update branch status ",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedBranchSession := &apis.BranchSession{
 					BranchID: branchID,
@@ -208,7 +206,7 @@ func TestTransactionCoordinator_BranchReport(t *testing.T) {
 			name: "test BranchReport success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedBranchSession := &apis.BranchSession{
 					BranchID: branchID,
@@ -272,7 +270,7 @@ func TestTransactionCoordinator_LockQuery(t *testing.T) {
 			name: "test LockQuery success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedLockManager := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedLockManager := test.NewMockLockManagerInterface(ctrl)
 
 				mockedLockManager.EXPECT().IsLockable(xid, resourceID, lockKey).Return(true)
 
@@ -322,7 +320,7 @@ func TestTransactionCoordinator_Begin(t *testing.T) {
 			name: "test Begin error add global session",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.EXPECT().AddGlobalSession(gomock.Any()).Return(addGlobalSessionHolderErr)
 
@@ -347,7 +345,7 @@ func TestTransactionCoordinator_Begin(t *testing.T) {
 			name: "test Begin success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.EXPECT().AddGlobalSession(gomock.Any()).Return(nil)
 
@@ -406,7 +404,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister with empty XID",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -432,7 +430,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error try lock",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -441,7 +439,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 					},
 					BranchSessions: nil,
 				}
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -473,7 +471,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error global transaction is not active",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -484,7 +482,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 					},
 					BranchSessions: nil,
 				}
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -517,7 +515,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error global transaction is not begin status",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -528,7 +526,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 					},
 					BranchSessions: nil,
 				}
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedSessionHolder.
 					EXPECT().
@@ -563,8 +561,8 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error acquire resource data lock",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -583,7 +581,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 				).Return(true, nil)
 				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
 
-				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock := test.NewMockLockManagerInterface(ctrl)
 				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(false)
 
 				transactionCoordinator.holder = mockedSessionHolder
@@ -610,8 +608,8 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error acquire resource data lock",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -630,7 +628,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 				).Return(true, nil)
 				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
 
-				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock := test.NewMockLockManagerInterface(ctrl)
 				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(false)
 
 				transactionCoordinator.holder = mockedSessionHolder
@@ -657,8 +655,8 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister error add branch session",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -678,7 +676,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 				).Return(true, nil)
 				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
 
-				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock := test.NewMockLockManagerInterface(ctrl)
 				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(true)
 
 				transactionCoordinator.holder = mockedSessionHolder
@@ -704,8 +702,8 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 			name: "test BranchRegister success",
 			transactionCoordinator: func(ctrl *gomock.Controller) *TransactionCoordinator {
 				transactionCoordinator := &TransactionCoordinator{}
-				mockedSessionHolder := mockholder.NewMockSessionHolderInterface(ctrl)
-				mockedGlobalSessionLock := mockserver.NewMockGlobalSessionLocker(ctrl)
+				mockedSessionHolder := test.NewMockSessionHolderInterface(ctrl)
+				mockedGlobalSessionLock := test.NewMockGlobalSessionLocker(ctrl)
 
 				mockedGlobalTransaction := &model.GlobalTransaction{
 					GlobalSession: &apis.GlobalSession{
@@ -725,7 +723,7 @@ func TestTransactionCoordinator_BranchRegister(t *testing.T) {
 				).Return(true, nil)
 				mockedGlobalSessionLock.EXPECT().Unlock(mockedGlobalTransaction.GlobalSession).Return()
 
-				mockedResourceDataLock := mocklock.NewMockLockManagerInterface(ctrl)
+				mockedResourceDataLock := test.NewMockLockManagerInterface(ctrl)
 				mockedResourceDataLock.EXPECT().AcquireLock(gomock.Any()).Return(true)
 
 				transactionCoordinator.holder = mockedSessionHolder

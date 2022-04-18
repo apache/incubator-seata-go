@@ -47,12 +47,7 @@ jobs:
       - name: Unit Tests
         run: |
           mkdir -p build
-          go test ./... -coverprofile=./build/c.out
-
-      - name: Unit Tests
-        run: |
-          mkdir -p build
           go test ./... -coverprofile=coverage.txt -covermode=atomic
-          
+
       - name: Post Coverage
         run: bash <(curl -s https://codecov.io/bash)

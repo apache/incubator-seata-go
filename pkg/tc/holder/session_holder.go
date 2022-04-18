@@ -1,3 +1,5 @@
+//go:generate mockgen -destination=../../../testdata/mock_session_holder.go -package=testdata . SessionHolderInterface
+
 package holder
 
 import (

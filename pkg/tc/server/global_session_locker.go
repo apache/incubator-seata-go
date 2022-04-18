@@ -1,3 +1,5 @@
+//go:generate mockgen -destination=../../../testdata/mock_global_session_locker.go -package=testdata . GlobalSessionLocker
+
 package server
 
 import (
