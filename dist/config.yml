@@ -5,28 +5,29 @@ server:
   rollbackRetryTimeoutUnlockEnable: true
   asyncCommittingRetryPeriod: 10s
   committingRetryPeriod: 1s
-  rollingBackRetryPeriod: 1s
+  rollingBackRetryPeriod: 100ms
   timeoutRetryPeriod: 1s
+  streamMessageTimeout: 5s
 enforcementPolicy:
-  minTime: 5s
+  minTime: 5m
   permitWithoutStream: true
 serverParameters:
   maxConnectionIdle: 15s
   maxConnectionAge: 30s
   maxConnectionAgeGrace: 5s
   time: 5s
-  timeout: 1s
+  timeout: 20s
 clientParameters:
   time: 10s
-  timeout: 1s
+  timeout: 20s
   permitWithoutStream: true
 storage:
   #  inMemory driver only for testing
   inmemory:
 #  mysql:
-#    dsn: "root:123456@tcp(127.0.0.1:3306)/seata?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-#    globaltable: global_table2
-#    branchtable: branch_table2
+#    dsn: "root:123456@tcp(127.0.0.1:3306)/seatav2?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+#    globaltable: global_table
+#    branchtable: branch_table
 #    locktable: lock_table
 #    maxopenconnections: 100
 #    maxidleconnections: 20
