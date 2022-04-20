@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `branch_table`
   `branch_type` varchar(8) DEFAULT NULL,
   `status` tinyint DEFAULT NULL,
   `application_data` varchar(2000) DEFAULT NULL,
-  `async_commit` tinyint NOT NULL DEFAULT 1,
+  `async_commit` tinyint NOT NULL DEFAULT 0,
   `gmt_create` datetime(6) DEFAULT NULL,
   `gmt_modified` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`branch_id`),
