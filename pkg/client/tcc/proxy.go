@@ -61,6 +61,7 @@ func ImplementTCC(v TccProxyService) {
 	makeCallProxy := func(methodDesc *proxy.MethodDescriptor, resource *TCCResource) func(in []reflect.Value) []reflect.Value {
 		return func(in []reflect.Value) []reflect.Value {
 			businessContextValue := in[0]
+			async := in[1].Interface().(bool)
 			businessActionContext := businessContextValue.Interface().(*ctx.BusinessActionContext)
 			rootContext := businessActionContext.RootContext
 			businessActionContext.XID = rootContext.GetXID()
@@ -68,10 +69,11 @@ func ImplementTCC(v TccProxyService) {
 			if !rootContext.InGlobalTransaction() {
 				args := make([]interface{}, 0)
 				args = append(args, businessActionContext)
+				args = append(args, async)
 				return proxy.Invoke(methodDesc, nil, args)
 			}
 
-			returnValues, err := proceed(methodDesc, businessActionContext, resource)
+			returnValues, err := proceed(methodDesc, businessActionContext, async, resource)
 			if err != nil {
 				return proxy.ReturnWithError(methodDesc, errors.WithStack(err))
 			}
@@ -116,7 +118,7 @@ func ImplementTCC(v TccProxyService) {
 	}
 }
 
-func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext, resource *TCCResource) ([]reflect.Value, error) {
+func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext, async bool, resource *TCCResource) ([]reflect.Value, error) {
 	var (
 		args = make([]interface{}, 0)
 	)
@@ -128,6 +130,7 @@ func proceed(methodDesc *proxy.MethodDescriptor, ctx *ctx.BusinessActionContext,
 	ctx.BranchID = branchID
 
 	args = append(args, ctx)
+	args = append(args, async)
 	returnValues := proxy.Invoke(methodDesc, nil, args)
 	errValue := returnValues[len(returnValues)-1]
 	if errValue.IsValid() && !errValue.IsNil() {
