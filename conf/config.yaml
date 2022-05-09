@@ -1,0 +1,37 @@
+# 配置类;io.seata.spring.boot.autoconfigure.StarterConstants
+
+seata:
+  transport:
+    type: "TCP"
+    #NIO NATIVE
+    server: "NIO"
+    #enable heartbeat
+    heartbeat: true
+    # the client batch send request enable
+    enableClientBatchSendRequest: true
+    compressor: nome
+  service:
+    
+  
+  client:
+    rm:
+      asyncCommitBufferLimit: 10000
+      reportRetryCount: 5
+      tableMetaCheckEnable: false
+      reportSuccessEnable: false
+      sagaBranchRegisterEnable: 10000
+      sagaJsonParser: fastjson
+      sagaRetryPersistModeUpdate: false
+      sagaCompensatePersistModeUpdate: false
+    tm:
+      commitRetryCount: 5
+      rollbackRetryCount: 5
+      defaultGlobalTransactionTimeout: 60000
+      degradeCheck: false
+      degradeCheckAllowTimes: 10
+      degradeCheckPeriod: 2000
+    undo:
+      dataValidation: true
+      logSerialization: jackson
+      logTable: undo_log
+      onlyCareUpdateColumns: true
