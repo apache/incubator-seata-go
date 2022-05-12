@@ -1,10 +1,9 @@
-package rpc_client
+package getty
 
 import (
 	"fmt"
-	"github.com/seata/seata-go/pkg/config"
-	"github.com/seata/seata-go/pkg/util/log"
 	"net"
+	"sync"
 )
 
 import (
@@ -13,10 +12,16 @@ import (
 	gxsync "github.com/dubbogo/gost/sync"
 )
 
+import (
+	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/utils/log"
+)
+
 type RpcClient struct {
 	conf         *config.ClientConfig
 	gettyClients []getty.Client
-	rpcHandler   RpcRemoteClient
+	//rpcHandler   RpcRemoteClient
+	futures *sync.Map
 }
 
 func init() {
@@ -27,7 +32,7 @@ func newRpcClient() *RpcClient {
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
-		rpcHandler:   *InitRpcRemoteClient(),
+		//rpcHandler:   *InitRpcRemoteClient(),
 	}
 	rpcClient.init()
 	return rpcClient
@@ -91,7 +96,7 @@ func (c *RpcClient) newSession(session getty.Session) error {
 	session.SetName(c.conf.GettyConfig.GettySessionParam.SessionName)
 	session.SetMaxMsgLen(c.conf.GettyConfig.GettySessionParam.MaxMsgLen)
 	session.SetPkgHandler(rpcPkgHandler)
-	session.SetEventListener(&c.rpcHandler)
+	session.SetEventListener(GetGettyClientHandlerInstance())
 	session.SetReadTimeout(c.conf.GettyConfig.GettySessionParam.TCPReadTimeout)
 	session.SetWriteTimeout(c.conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
 	session.SetCronPeriod((int)(c.conf.GettyConfig.HeartbeatPeriod.Nanoseconds() / 1e6))

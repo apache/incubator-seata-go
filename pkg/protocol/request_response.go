@@ -1,18 +1,18 @@
 package protocol
 
 import (
-	"github.com/seata/seata-go/pkg/model"
+	model2 "github.com/seata/seata-go/pkg/common/model"
 )
 
 type AbstractTransactionResponse struct {
 	AbstractResultMessage
-	TransactionExceptionCode model.TransactionExceptionCode
+	TransactionExceptionCode model2.TransactionExceptionCode
 }
 
 type AbstractBranchEndRequest struct {
 	Xid             string
 	BranchId        int64
-	BranchType      model.BranchType
+	BranchType      model2.BranchType
 	ResourceId      string
 	ApplicationData []byte
 }
@@ -22,7 +22,7 @@ type AbstractBranchEndResponse struct {
 
 	Xid          string
 	BranchId     int64
-	BranchStatus model.BranchStatus
+	BranchStatus model2.BranchStatus
 }
 
 type AbstractGlobalEndRequest struct {
@@ -33,12 +33,12 @@ type AbstractGlobalEndRequest struct {
 type AbstractGlobalEndResponse struct {
 	AbstractTransactionResponse
 
-	GlobalStatus model.GlobalStatus
+	GlobalStatus model2.GlobalStatus
 }
 
 type BranchRegisterRequest struct {
 	Xid             string
-	BranchType      model.BranchType
+	BranchType      model2.BranchType
 	ResourceId      string
 	LockKey         string
 	ApplicationData []byte
@@ -62,9 +62,9 @@ type BranchReportRequest struct {
 	Xid             string
 	BranchId        int64
 	ResourceId      string
-	Status          model.BranchStatus
+	Status          model2.BranchStatus
 	ApplicationData []byte
-	BranchType      model.BranchType
+	BranchType      model2.BranchType
 }
 
 func (req BranchReportRequest) GetTypeCode() int16 {
@@ -168,7 +168,7 @@ func (resp GlobalLockQueryResponse) GetTypeCode() int16 {
 type GlobalReportRequest struct {
 	AbstractGlobalEndRequest
 
-	GlobalStatus model.GlobalStatus
+	GlobalStatus model2.GlobalStatus
 }
 
 func (req GlobalReportRequest) GetTypeCode() int16 {
@@ -218,7 +218,7 @@ func (resp GlobalRollbackResponse) GetTypeCode() int16 {
 type UndoLogDeleteRequest struct {
 	ResourceId string
 	SaveDays   int16
-	BranchType model.BranchType
+	BranchType model2.BranchType
 }
 
 func (req UndoLogDeleteRequest) GetTypeCode() int16 {

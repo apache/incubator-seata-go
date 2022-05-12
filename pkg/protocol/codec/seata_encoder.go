@@ -10,7 +10,7 @@ import (
 
 import (
 	"github.com/seata/seata-go/pkg/protocol"
-	log "github.com/seata/seata-go/pkg/util/log"
+	"github.com/seata/seata-go/pkg/utils/log"
 )
 
 func AbstractResultMessageEncoder(in interface{}) []byte {

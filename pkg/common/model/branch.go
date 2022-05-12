@@ -8,10 +8,10 @@ type BranchType int8
 type BranchStatus int8
 
 const (
-	AT   BranchType = 0
-	TCC  BranchType = 1
-	SAGA BranchType = 2
-	XA   BranchType = 3
+	BranchTypeAT   BranchType = 0
+	BranchTypeTCC  BranchType = 1
+	BranchTypeSAGA BranchType = 2
+	BranchTypeXA   BranchType = 3
 )
 
 const (

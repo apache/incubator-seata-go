@@ -2,7 +2,7 @@ package protocol
 
 type RpcMessage struct {
 	ID          int32
-	MessageType byte
+	MessageType MessageType
 	Codec       byte
 	Compressor  byte
 	HeadMap     map[string]string
