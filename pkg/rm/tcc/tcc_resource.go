@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/seata/seata-go/pkg/model"
+	"github.com/seata/seata-go/pkg/common/model"
 )
 
 type TCCResource struct {

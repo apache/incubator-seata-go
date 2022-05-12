@@ -1,4 +1,4 @@
-package rpc_client
+package getty
 
 import (
 	"github.com/seata/seata-go/pkg/protocol"

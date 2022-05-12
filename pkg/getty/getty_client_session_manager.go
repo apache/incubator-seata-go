@@ -1,4 +1,4 @@
-package rpc_client
+package getty
 
 import (
 	"sync"

@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/seata/seata-go/pkg/model"
+	model2 "github.com/seata/seata-go/pkg/common/model"
 	"github.com/seata/seata-go/pkg/protocol"
 )
 
@@ -258,7 +258,7 @@ func AbstractTransactionResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	return msg, totalReadN
 }
@@ -284,7 +284,7 @@ func AbstractBranchEndRequestDecoder(in []byte) (interface{}, int) {
 	totalReadN += 8
 	branchType, _ := r.ReadByte()
 	totalReadN += 1
-	msg.BranchType = model.BranchType(branchType)
+	msg.BranchType = model2.BranchType(branchType)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -327,7 +327,7 @@ func AbstractBranchEndResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -340,7 +340,7 @@ func AbstractBranchEndResponseDecoder(in []byte) (interface{}, int) {
 	totalReadN += 8
 	branchStatus, _ := r.ReadByte()
 	totalReadN += 1
-	msg.BranchStatus = model.BranchStatus(branchStatus)
+	msg.BranchStatus = model2.BranchStatus(branchStatus)
 
 	return msg, totalReadN
 }
@@ -396,11 +396,11 @@ func AbstractGlobalEndResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	globalStatus, _ := r.ReadByte()
 	totalReadN += 1
-	msg.GlobalStatus = model.GlobalStatus(globalStatus)
+	msg.GlobalStatus = model2.GlobalStatus(globalStatus)
 
 	return msg, totalReadN
 }
@@ -439,7 +439,7 @@ func BranchRegisterRequestDecoder(in []byte) (interface{}, int) {
 
 	branchType, _ := r.ReadByte()
 	totalReadN += 1
-	msg.BranchType = model.BranchType(branchType)
+	msg.BranchType = model2.BranchType(branchType)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -489,7 +489,7 @@ func BranchRegisterResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	msg.BranchId, readN, _ = r.ReadInt64()
 	totalReadN += readN
@@ -516,7 +516,7 @@ func BranchReportRequestDecoder(in []byte) (interface{}, int) {
 
 	msg.BranchId, _, _ = r.ReadInt64()
 	branchStatus, _ := r.ReadByte()
-	msg.Status = model.BranchStatus(branchStatus)
+	msg.Status = model2.BranchStatus(branchStatus)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -535,7 +535,7 @@ func BranchReportRequestDecoder(in []byte) (interface{}, int) {
 
 	branchType, _ := r.ReadByte()
 	totalReadN += 1
-	msg.BranchType = model.BranchType(branchType)
+	msg.BranchType = model2.BranchType(branchType)
 
 	return msg, totalReadN
 }
@@ -608,7 +608,7 @@ func GlobalBeginResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -672,7 +672,7 @@ func GlobalLockQueryResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
 
 	lockable, readN, _ := r.ReadUint16()
 	totalReadN += readN
@@ -712,7 +712,7 @@ func GlobalReportRequestDecoder(in []byte) (interface{}, int) {
 
 	globalStatus, _ := r.ReadByte()
 	totalReadN += 1
-	msg.GlobalStatus = model.GlobalStatus(globalStatus)
+	msg.GlobalStatus = model2.GlobalStatus(globalStatus)
 
 	return msg, totalReadN
 }
@@ -763,7 +763,7 @@ func UndoLogDeleteRequestDecoder(in []byte) (interface{}, int) {
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	branchType, _ := r.ReadByte()
 	totalReadN += 1
-	msg.BranchType = model.BranchType(branchType)
+	msg.BranchType = model2.BranchType(branchType)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN

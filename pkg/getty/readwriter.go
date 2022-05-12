@@ -1,4 +1,4 @@
-package rpc_client
+package getty
 
 import (
 	"bytes"
@@ -22,8 +22,8 @@ import (
  * <pre>
  * 0     1     2     3     4     5     6     7     8     9    10     11    12    13    14    15    16
  * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- * |   magic   |Proto|     Full length       |    Head   | Msg |Seria|Compr|     RequestID         |
- * |   code    |colVer|    (head+body)       |   Length  |Type |lizer|ess  |                       |
+ * |   magic   |Proto |     Full length      |    Head   | Msg |Seria|Compr|     RequestID         |
+ * |   code    |clVer |    (head+body)       |   Length  |Type |lizer|ess  |                       |
  * +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+
  * |                                                                                               |
  * |                                   Head Map [Optional]                                         |
@@ -65,7 +65,7 @@ type SeataV1PackageHeader struct {
 	Version      byte
 	TotalLength  uint32
 	HeadLength   uint16
-	MessageType  byte
+	MessageType  protocol.MessageType
 	CodecType    byte
 	CompressType byte
 	ID           uint32
@@ -189,7 +189,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	result = append(result, protocol.MAGIC_CODE_BYTES[:2]...)
 	result = append(result, protocol.VERSION)
 
-	w.WriteByte(msg.MessageType)
+	w.WriteByte(byte(msg.MessageType))
 	w.WriteByte(msg.Codec)
 	w.WriteByte(msg.Compressor)
 	w.WriteInt32(msg.ID)

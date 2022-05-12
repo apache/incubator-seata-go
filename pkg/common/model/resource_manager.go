@@ -1,18 +1,15 @@
 package model
 
-// Resource that can be managed by Resource Manager and involved into global transaction
-type Resource interface {
-	GetResourceGroupId() string
-	GetResourceId() string
-	GetBranchType() BranchType
-}
+import (
+	"sync"
+)
 
 // Control a branch transaction commit or rollback
 type ResourceManagerInbound interface {
 	// Commit a branch transaction
-	BranchCommit(branchType BranchType, xid, branchId int64, resourceId, applicationData string) (BranchStatus, error)
+	BranchCommit(branchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
 	// Rollback a branch transaction
-	BranchRollback(branchType BranchType, xid string, branchId int64, resourceId, applicationData string) (BranchStatus, error)
+	BranchRollback(branchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
 }
 
 // Resource Manager: send outbound request to TC
@@ -35,7 +32,11 @@ type ResourceManager interface {
 	//  Unregister a Resource from the Resource Manager
 	UnregisterResource(resource Resource) error
 	// Get all resources managed by this manager
-	GetManagedResources() map[string]Resource
+	GetManagedResources() sync.Map
 	// Get the BranchType
 	GetBranchType() BranchType
+}
+
+type ResourceManagerGetter interface {
+	GetResourceManager() ResourceManager
 }

@@ -2,6 +2,8 @@ package protocol
 
 var MAGIC_CODE_BYTES = [2]byte{0xda, 0xda}
 
+type MessageType byte
+
 const (
 	VERSION = 1
 
@@ -11,18 +13,18 @@ const (
 	// V1HeadLength v1 head length
 	V1HeadLength = 16
 
-	// MSGTypeRequest request message type
-	MSGTypeRequest = 0
+	// MSGTypeRequestSync request message type
+	MSGTypeRequestSync MessageType = 0
 
 	// MSGTypeResponse response message type
-	MSGTypeResponse = 1
+	MSGTypeResponse MessageType = 1
 
 	// MSGTypeRequestOneway request one way
-	MSGTypeRequestOneway = 2
+	MSGTypeRequestOneway MessageType = 2
 
 	// MSGTypeHeartbeatRequest heart beat request
-	MSGTypeHeartbeatRequest = 3
+	MSGTypeHeartbeatRequest MessageType = 3
 
 	// MSGTypeHeartbeatResponse heart beat response
-	MSGTypeHeartbeatResponse = 4
+	MSGTypeHeartbeatResponse MessageType = 4
 )
