@@ -5,14 +5,14 @@ type RegisterRMRequest struct {
 	ResourceIds string
 }
 
-func (req RegisterRMRequest) GetTypeCode() int16 {
-	return TypeRegRm
+func (req RegisterRMRequest) GetTypeCode() MessageType {
+	return MessageTypeRegRm
 }
 
 type RegisterRMResponse struct {
 	AbstractIdentifyResponse
 }
 
-func (resp RegisterRMResponse) GetTypeCode() int16 {
-	return TypeRegRmResult
+func (resp RegisterRMResponse) GetTypeCode() MessageType {
+	return MessageTypeRegRmResult
 }

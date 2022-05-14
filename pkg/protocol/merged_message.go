@@ -5,14 +5,14 @@ type MergedWarpMessage struct {
 	MsgIds []int32
 }
 
-func (req MergedWarpMessage) GetTypeCode() int16 {
-	return TypeSeataMerge
+func (req MergedWarpMessage) GetTypeCode() MessageType {
+	return MessageTypeSeataMerge
 }
 
 type MergeResultMessage struct {
 	Msgs []MessageTypeAware
 }
 
-func (resp MergeResultMessage) GetTypeCode() int16 {
-	return TypeSeataMergeResult
+func (resp MergeResultMessage) GetTypeCode() MessageType {
+	return MessageTypeSeataMergeResult
 }

@@ -4,14 +4,14 @@ type RegisterTMRequest struct {
 	AbstractIdentifyRequest
 }
 
-func (req RegisterTMRequest) GetTypeCode() int16 {
-	return TypeRegClt
+func (req RegisterTMRequest) GetTypeCode() MessageType {
+	return MessageTypeRegClt
 }
 
 type RegisterTMResponse struct {
 	AbstractIdentifyResponse
 }
 
-func (resp RegisterTMResponse) GetTypeCode() int16 {
-	return TypeRegCltResult
+func (resp RegisterTMResponse) GetTypeCode() MessageType {
+	return MessageTypeRegCltResult
 }

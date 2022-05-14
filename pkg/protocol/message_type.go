@@ -1,6 +1,6 @@
 package protocol
 
-type MessageType byte
+type MessageType int
 
 const (
 	/**

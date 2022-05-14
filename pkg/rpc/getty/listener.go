@@ -80,7 +80,9 @@ func (client *gettyClientHandler) OnClose(session getty.Session) {
 
 // OnMessage ...
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
+	// TODO 需要把session里面的关键信息存储到context中，以方便在后面流程中获取使用。比如，XID等等
 	log.Debugf("received message: {%#v}", pkg)
+
 	rpcMessage, ok := pkg.(protocol.RpcMessage)
 	if !ok {
 		log.Errorf("received message is not protocol.RpcMessage. pkg: %#v", pkg)
@@ -93,8 +95,8 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 		return
 	}
 
-	if rpcMessage.MessageType == protocol.MSGTypeRequestSync ||
-		rpcMessage.MessageType == protocol.MSGTypeRequestOneway {
+	if rpcMessage.Type == protocol.MSGTypeRequestSync ||
+		rpcMessage.Type == protocol.MSGTypeRequestOneway {
 		log.Debugf("msgID: %d, body: %#v", rpcMessage.ID, rpcMessage.Body)
 
 		client.onMessage(rpcMessage, session.RemoteAddr())

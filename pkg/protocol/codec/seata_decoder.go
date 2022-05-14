@@ -55,7 +55,7 @@ func MergedWarpMessageDecoder(in []byte) (interface{}, int) {
 	for index := 0; index < int(size16); index++ {
 		typeCode, _, _ := r.ReadInt16()
 		totalReadN += 2
-		decoder := getMessageDecoder(typeCode)
+		decoder := getMessageDecoder(protocol.MessageType(typeCode))
 		if decoder != nil {
 			msg, readN := decoder(in[totalReadN:])
 			totalReadN += readN
@@ -84,7 +84,7 @@ func MergeResultMessageDecoder(in []byte) (interface{}, int) {
 	for index := 0; index < int(size16); index++ {
 		typeCode, _, _ := r.ReadInt16()
 		totalReadN += 2
-		decoder := getMessageDecoder(typeCode)
+		decoder := getMessageDecoder(protocol.MessageType(typeCode))
 		if decoder != nil {
 			msg, readN := decoder(in[totalReadN:])
 			totalReadN += readN
@@ -772,7 +772,8 @@ func UndoLogDeleteRequestDecoder(in []byte) (interface{}, int) {
 		totalReadN += readN
 	}
 
-	msg.SaveDays, readN, _ = r.ReadInt16()
+	day, readN, _ := r.ReadInt16()
+	msg.SaveDays = protocol.MessageType(day)
 	totalReadN += readN
 
 	return msg, totalReadN
