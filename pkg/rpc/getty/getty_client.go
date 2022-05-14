@@ -42,7 +42,7 @@ func GetGettyRemotingClient() *GettyRemotingClient {
 }
 
 func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
-	var msgType protocol.MessageType
+	var msgType protocol.RequestType
 	if _, ok := msg.(protocol.HeartBeatMessage); ok {
 		msgType = protocol.MSGTypeHeartbeatRequest
 	} else {

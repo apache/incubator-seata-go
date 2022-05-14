@@ -65,7 +65,7 @@ type SeataV1PackageHeader struct {
 	Version      byte
 	TotalLength  uint32
 	HeadLength   uint16
-	MessageType  protocol.MessageType
+	MessageType  protocol.RequestType
 	CodecType    byte
 	CompressType byte
 	ID           uint32

@@ -13,6 +13,7 @@ import (
 import (
 	"github.com/seata/seata-go/pkg/config"
 	"github.com/seata/seata-go/pkg/protocol"
+	"github.com/seata/seata-go/pkg/rpc/processor"
 	"github.com/seata/seata-go/pkg/utils/log"
 )
 
@@ -22,10 +23,11 @@ var (
 )
 
 type gettyClientHandler struct {
-	conf        *config.ClientConfig
-	idGenerator *atomic.Uint32
-	futures     *sync.Map
-	mergeMsgMap *sync.Map
+	conf           *config.ClientConfig
+	idGenerator    *atomic.Uint32
+	futures        *sync.Map
+	mergeMsgMap    *sync.Map
+	processorTable map[protocol.MessageType]processor.RemotingProcessor
 }
 
 func GetGettyClientHandlerInstance() *gettyClientHandler {
@@ -153,4 +155,10 @@ func (client *gettyClientHandler) onMessage(rpcMessage protocol.RpcMessage, serv
 	//default:
 	//	break
 	//}
+}
+
+func (client *gettyClientHandler) RegisterProcessor(msgType protocol.MessageType, processor processor.RemotingProcessor) {
+	if nil != processor {
+		client.processorTable[msgType] = processor
+	}
 }

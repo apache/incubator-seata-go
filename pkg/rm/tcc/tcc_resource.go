@@ -29,5 +29,5 @@ func (t *TCCResource) GetResourceId() string {
 }
 
 func (t *TCCResource) GetBranchType() model.BranchType {
-	return model.TCC
+	return model.BranchTypeTCC
 }
