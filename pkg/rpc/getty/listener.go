@@ -1,6 +1,7 @@
 package getty
 
 import (
+	"context"
 	"sync"
 )
 
@@ -34,10 +35,11 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 	if clientHandler == nil {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
-				conf:        config.GetClientConfig(),
-				idGenerator: &atomic.Uint32{},
-				futures:     &sync.Map{},
-				mergeMsgMap: &sync.Map{},
+				conf:           config.GetClientConfig(),
+				idGenerator:    &atomic.Uint32{},
+				futures:        &sync.Map{},
+				mergeMsgMap:    &sync.Map{},
+				processorTable: make(map[protocol.MessageType]processor.RemotingProcessor, 0),
 			}
 		})
 	}
@@ -81,6 +83,7 @@ func (client *gettyClientHandler) OnClose(session getty.Session) {
 // OnMessage ...
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 	// TODO 需要把session里面的关键信息存储到context中，以方便在后面流程中获取使用。比如，XID等等
+	ctx := context.Background()
 	log.Debugf("received message: {%#v}", pkg)
 
 	rpcMessage, ok := pkg.(protocol.RpcMessage)
@@ -89,74 +92,21 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 		return
 	}
 
-	heartBeat, isHeartBeat := rpcMessage.Body.(protocol.HeartBeatMessage)
-	if isHeartBeat && heartBeat == protocol.HeartBeatMessagePong {
-		log.Debugf("received PONG from %s", session.RemoteAddr())
-		return
-	}
-
-	if rpcMessage.Type == protocol.MSGTypeRequestSync ||
-		rpcMessage.Type == protocol.MSGTypeRequestOneway {
-		log.Debugf("msgID: %d, body: %#v", rpcMessage.ID, rpcMessage.Body)
-
-		client.onMessage(rpcMessage, session.RemoteAddr())
-		return
-	}
-
-	mergedResult, isMergedResult := rpcMessage.Body.(protocol.MergeResultMessage)
-	if isMergedResult {
-		mm, loaded := client.mergeMsgMap.Load(rpcMessage.ID)
-		if loaded {
-			mergedMessage := mm.(protocol.MergedWarpMessage)
-			log.Infof("rpcMessageID: %d, rpcMessage: %#v, result: %#v", rpcMessage.ID, mergedMessage, mergedResult)
-			for i := 0; i < len(mergedMessage.Msgs); i++ {
-				msgID := mergedMessage.MsgIds[i]
-				resp, loaded := client.futures.Load(msgID)
-				if loaded {
-					response := resp.(*protocol.MessageFuture)
-					response.Response = mergedResult.Msgs[i]
-					response.Done <- true
-					client.futures.Delete(msgID)
-				}
-			}
-			client.mergeMsgMap.Delete(rpcMessage.ID)
+	if mm, ok := rpcMessage.Body.(protocol.MessageTypeAware); ok {
+		processor := client.processorTable[mm.GetTypeCode()]
+		if processor != nil {
+			processor.Process(ctx, rpcMessage)
+		} else {
+			log.Errorf("This message type [%v] has no processor.", mm.GetTypeCode())
 		}
 	} else {
-		resp, loaded := client.futures.Load(rpcMessage.ID)
-		if loaded {
-			response := resp.(*protocol.MessageFuture)
-			response.Response = rpcMessage.Body
-			response.Done <- true
-			client.futures.Delete(rpcMessage.ID)
-		}
+		log.Errorf("This rpcMessage body[%v] is not MessageTypeAware type.", rpcMessage.Body)
 	}
 }
 
 // OnCron ...
 func (client *gettyClientHandler) OnCron(session getty.Session) {
 	//GetGettyRemotingClient().SendAsyncRequest(protocol.HeartBeatMessagePing)
-}
-
-func (client *gettyClientHandler) onMessage(rpcMessage protocol.RpcMessage, serverAddress string) {
-	msg := rpcMessage.Body.(protocol.MessageTypeAware)
-	log.Debugf("onMessage: %#v", msg)
-	// todo
-	//switch msg.GetTypeCode() {
-	//case protocol.TypeBranchCommit:
-	//	client.BranchCommitRequestChannel <- RpcRMMessage{
-	//		RpcMessage:    rpcMessage,
-	//		ServerAddress: serverAddress,
-	//	}
-	//case protocol.TypeBranchRollback:
-	//	client.BranchRollbackRequestChannel <- RpcRMMessage{
-	//		RpcMessage:    rpcMessage,
-	//		ServerAddress: serverAddress,
-	//	}
-	//case protocol.TypeRmDeleteUndolog:
-	//	break
-	//default:
-	//	break
-	//}
 }
 
 func (client *gettyClientHandler) RegisterProcessor(msgType protocol.MessageType, processor processor.RemotingProcessor) {
