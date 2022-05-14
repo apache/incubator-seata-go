@@ -101,15 +101,30 @@ func (client *GettyRemoting) GetMessageFuture(msgID int32) *protocol.MessageFutu
 	return nil
 }
 
+func (client *GettyRemoting) RemoveMessageFuture(msgID int32) {
+	client.futures.Delete(msgID)
+}
+
+func (client *GettyRemoting) RemoveMergedMessageFuture(msgID int32) {
+	client.mergeMsgMap.Delete(msgID)
+}
+
+func (client *GettyRemoting) GetMergedMessage(msgID int32) *protocol.MergedWarpMessage {
+	if msg, ok := client.mergeMsgMap.Load(msgID); ok {
+		return msg.(*protocol.MergedWarpMessage)
+	}
+	return nil
+}
+
 func (client *GettyRemoting) NotifytRpcMessageResponse(rpcMessage protocol.RpcMessage) {
 	messageFuture := client.GetMessageFuture(rpcMessage.ID)
-	if messageFuture == nil {
+	if messageFuture != nil {
+		messageFuture.Response = rpcMessage.Body
+		// todo messageFuture.Err怎么配置呢？
+		//messageFuture.Err = rpcMessage.Err
+		messageFuture.Done <- true
+		//client.futures.Delete(rpcMessage.ID)
+	} else {
 		log.Infof("msg: {} is not found in futures.", rpcMessage.ID)
-		return
 	}
-	messageFuture.Response = rpcMessage.Body
-	// todo messageFuture.Err怎么配置呢？
-	//messageFuture.Err = rpcMessage.Err
-	messageFuture.Done <- true
-	client.futures.Delete(rpcMessage.ID)
 }

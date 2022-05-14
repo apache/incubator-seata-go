@@ -17,10 +17,6 @@ var (
 	onceRMFacade     = &sync.Once{}
 )
 
-func init() {
-	rmFacadeInstance = &ResourceManagerFacade{}
-}
-
 func GetResourceManagerFacadeInstance() *ResourceManagerFacade {
 	if rmFacadeInstance == nil {
 		onceRMFacade.Do(func() {
