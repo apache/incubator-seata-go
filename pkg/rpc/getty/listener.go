@@ -35,7 +35,7 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 	if clientHandler == nil {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
-				conf:           config.GetClientConfig(),
+				conf:           config.GetDefaultClientConfig("seata-go"),
 				idGenerator:    &atomic.Uint32{},
 				futures:        &sync.Map{},
 				mergeMsgMap:    &sync.Map{},
@@ -48,13 +48,13 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 
 // OnOpen ...
 func (client *gettyClientHandler) OnOpen(session getty.Session) error {
+	clientSessionManager.RegisterGettySession(session)
 	go func() {
 		request := protocol.RegisterTMRequest{AbstractIdentifyRequest: protocol.AbstractIdentifyRequest{
 			Version:                 client.conf.SeataVersion,
 			ApplicationId:           client.conf.ApplicationID,
 			TransactionServiceGroup: client.conf.TransactionServiceGroup,
 		}}
-		clientSessionManager.RegisterGettySession(session)
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
 		if err != nil {
