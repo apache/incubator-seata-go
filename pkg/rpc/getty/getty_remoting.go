@@ -93,3 +93,23 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg protocol.RpcMe
 
 	return nil, err
 }
+
+func (client *GettyRemoting) GetMessageFuture(msgID int32) *protocol.MessageFuture {
+	if msg, ok := client.futures.Load(msgID); ok {
+		return msg.(*protocol.MessageFuture)
+	}
+	return nil
+}
+
+func (client *GettyRemoting) NotifytRpcMessageResponse(rpcMessage protocol.RpcMessage) {
+	messageFuture := client.GetMessageFuture(rpcMessage.ID)
+	if messageFuture == nil {
+		log.Infof("msg: {} is not found in futures.", rpcMessage.ID)
+		return
+	}
+	messageFuture.Response = rpcMessage.Body
+	// todo messageFuture.Err怎么配置呢？
+	//messageFuture.Err = rpcMessage.Err
+	messageFuture.Done <- true
+	client.futures.Delete(rpcMessage.ID)
+}
