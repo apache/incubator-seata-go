@@ -49,33 +49,33 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 		msgType = protocol.MSGTypeRequestOneway
 	}
 	rpcMessage := protocol.RpcMessage{
-		ID:          int32(client.idGenerator.Inc()),
-		MessageType: msgType,
-		Codec:       codec.SEATA,
-		Compressor:  0,
-		Body:        msg,
+		ID:         int32(client.idGenerator.Inc()),
+		Type:       msgType,
+		Codec:      codec.SEATA,
+		Compressor: 0,
+		Body:       msg,
 	}
 	return GetGettyRemotingInstance().SendASync(rpcMessage)
 }
 
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
 	rpcMessage := protocol.RpcMessage{
-		ID:          int32(client.idGenerator.Inc()),
-		MessageType: protocol.MSGTypeRequestSync,
-		Codec:       codec.SEATA,
-		Compressor:  0,
-		Body:        msg,
+		ID:         int32(client.idGenerator.Inc()),
+		Type:       protocol.MSGTypeRequestSync,
+		Codec:      codec.SEATA,
+		Compressor: 0,
+		Body:       msg,
 	}
 	return GetGettyRemotingInstance().SendSync(rpcMessage)
 }
 
 func (client *GettyRemotingClient) SendSyncRequestWithTimeout(msg interface{}, timeout time.Duration) (interface{}, error) {
 	rpcMessage := protocol.RpcMessage{
-		ID:          int32(client.idGenerator.Inc()),
-		MessageType: protocol.MSGTypeRequestSync,
-		Codec:       codec.SEATA,
-		Compressor:  0,
-		Body:        msg,
+		ID:         int32(client.idGenerator.Inc()),
+		Type:       protocol.MSGTypeRequestSync,
+		Codec:      codec.SEATA,
+		Compressor: 0,
+		Body:       msg,
 	}
 	return GetGettyRemotingInstance().SendSyncWithTimeout(rpcMessage, timeout)
 }

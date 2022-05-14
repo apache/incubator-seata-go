@@ -57,7 +57,7 @@ func MergedWarpMessageEncoder(in interface{}) []byte {
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
-			w.WriteInt16(msg.GetTypeCode())
+			w.WriteInt16(int16(msg.GetTypeCode()))
 			w.Write(data)
 		}
 	}
@@ -86,7 +86,7 @@ func MergeResultMessageEncoder(in interface{}) []byte {
 		encoder := getMessageEncoder(msg.GetTypeCode())
 		if encoder != nil {
 			data := encoder(msg)
-			w.WriteInt16(msg.GetTypeCode())
+			w.WriteInt16(int16(msg.GetTypeCode()))
 			w.Write(data)
 		}
 	}
@@ -559,7 +559,7 @@ func UndoLogDeleteRequestEncoder(in interface{}) []byte {
 	} else {
 		w.WriteInt16(zero16)
 	}
-	w.WriteInt16(req.SaveDays)
+	w.WriteInt16(int16(req.SaveDays))
 
 	return b.Bytes()
 }

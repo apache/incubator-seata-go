@@ -44,8 +44,8 @@ type BranchRegisterRequest struct {
 	ApplicationData []byte
 }
 
-func (req BranchRegisterRequest) GetTypeCode() int16 {
-	return TypeBranchRegister
+func (req BranchRegisterRequest) GetTypeCode() MessageType {
+	return MessageTypeBranchRegister
 }
 
 type BranchRegisterResponse struct {
@@ -54,8 +54,8 @@ type BranchRegisterResponse struct {
 	BranchId int64
 }
 
-func (resp BranchRegisterResponse) GetTypeCode() int16 {
-	return TypeBranchRegisterResult
+func (resp BranchRegisterResponse) GetTypeCode() MessageType {
+	return MessageTypeBranchRegisterResult
 }
 
 type BranchReportRequest struct {
@@ -67,48 +67,48 @@ type BranchReportRequest struct {
 	BranchType      model2.BranchType
 }
 
-func (req BranchReportRequest) GetTypeCode() int16 {
-	return TypeBranchStatusReport
+func (req BranchReportRequest) GetTypeCode() MessageType {
+	return MessageTypeBranchStatusReport
 }
 
 type BranchReportResponse struct {
 	AbstractTransactionResponse
 }
 
-func (resp BranchReportResponse) GetTypeCode() int16 {
-	return TypeBranchStatusReportResult
+func (resp BranchReportResponse) GetTypeCode() MessageType {
+	return MessageTypeBranchStatusReportResult
 }
 
 type BranchCommitRequest struct {
 	AbstractBranchEndRequest
 }
 
-func (req BranchCommitRequest) GetTypeCode() int16 {
-	return TypeBranchCommit
+func (req BranchCommitRequest) GetTypeCode() MessageType {
+	return MessageTypeBranchCommit
 }
 
 type BranchCommitResponse struct {
 	AbstractBranchEndResponse
 }
 
-func (resp BranchCommitResponse) GetTypeCode() int16 {
-	return TypeBranchCommitResult
+func (resp BranchCommitResponse) GetTypeCode() MessageType {
+	return MessageTypeBranchCommitResult
 }
 
 type BranchRollbackRequest struct {
 	AbstractBranchEndRequest
 }
 
-func (req BranchRollbackRequest) GetTypeCode() int16 {
-	return TypeBranchRollback
+func (req BranchRollbackRequest) GetTypeCode() MessageType {
+	return MessageTypeBranchRollback
 }
 
 type BranchRollbackResponse struct {
 	AbstractBranchEndResponse
 }
 
-func (resp BranchRollbackResponse) GetTypeCode() int16 {
-	return TypeGlobalRollbackResult
+func (resp BranchRollbackResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalRollbackResult
 }
 
 type GlobalBeginRequest struct {
@@ -116,8 +116,8 @@ type GlobalBeginRequest struct {
 	TransactionName string
 }
 
-func (req GlobalBeginRequest) GetTypeCode() int16 {
-	return TypeGlobalBegin
+func (req GlobalBeginRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalBegin
 }
 
 type GlobalBeginResponse struct {
@@ -127,32 +127,32 @@ type GlobalBeginResponse struct {
 	ExtraData []byte
 }
 
-func (resp GlobalBeginResponse) GetTypeCode() int16 {
-	return TypeGlobalBeginResult
+func (resp GlobalBeginResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalBeginResult
 }
 
 type GlobalStatusRequest struct {
 	AbstractGlobalEndRequest
 }
 
-func (req GlobalStatusRequest) GetTypeCode() int16 {
-	return TypeGlobalStatus
+func (req GlobalStatusRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalStatus
 }
 
 type GlobalStatusResponse struct {
 	AbstractGlobalEndResponse
 }
 
-func (resp GlobalStatusResponse) GetTypeCode() int16 {
-	return TypeGlobalStatusResult
+func (resp GlobalStatusResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalStatusResult
 }
 
 type GlobalLockQueryRequest struct {
 	BranchRegisterRequest
 }
 
-func (req GlobalLockQueryRequest) GetTypeCode() int16 {
-	return TypeGlobalLockQuery
+func (req GlobalLockQueryRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalLockQuery
 }
 
 type GlobalLockQueryResponse struct {
@@ -161,8 +161,8 @@ type GlobalLockQueryResponse struct {
 	Lockable bool
 }
 
-func (resp GlobalLockQueryResponse) GetTypeCode() int16 {
-	return TypeGlobalLockQueryResult
+func (resp GlobalLockQueryResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalLockQueryResult
 }
 
 type GlobalReportRequest struct {
@@ -171,56 +171,56 @@ type GlobalReportRequest struct {
 	GlobalStatus model2.GlobalStatus
 }
 
-func (req GlobalReportRequest) GetTypeCode() int16 {
-	return TypeGlobalStatus
+func (req GlobalReportRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalStatus
 }
 
 type GlobalReportResponse struct {
 	AbstractGlobalEndResponse
 }
 
-func (resp GlobalReportResponse) GetTypeCode() int16 {
-	return TypeGlobalStatusResult
+func (resp GlobalReportResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalStatusResult
 }
 
 type GlobalCommitRequest struct {
 	AbstractGlobalEndRequest
 }
 
-func (req GlobalCommitRequest) GetTypeCode() int16 {
-	return TypeGlobalCommit
+func (req GlobalCommitRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalCommit
 }
 
 type GlobalCommitResponse struct {
 	AbstractGlobalEndResponse
 }
 
-func (resp GlobalCommitResponse) GetTypeCode() int16 {
-	return TypeGlobalCommitResult
+func (resp GlobalCommitResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalCommitResult
 }
 
 type GlobalRollbackRequest struct {
 	AbstractGlobalEndRequest
 }
 
-func (req GlobalRollbackRequest) GetTypeCode() int16 {
-	return TypeGlobalRollback
+func (req GlobalRollbackRequest) GetTypeCode() MessageType {
+	return MessageTypeGlobalRollback
 }
 
 type GlobalRollbackResponse struct {
 	AbstractGlobalEndResponse
 }
 
-func (resp GlobalRollbackResponse) GetTypeCode() int16 {
-	return TypeGlobalRollbackResult
+func (resp GlobalRollbackResponse) GetTypeCode() MessageType {
+	return MessageTypeGlobalRollbackResult
 }
 
 type UndoLogDeleteRequest struct {
 	ResourceId string
-	SaveDays   int16
+	SaveDays   MessageType
 	BranchType model2.BranchType
 }
 
-func (req UndoLogDeleteRequest) GetTypeCode() int16 {
-	return TypeRmDeleteUndolog
+func (req UndoLogDeleteRequest) GetTypeCode() MessageType {
+	return MessageTypeRmDeleteUndolog
 }

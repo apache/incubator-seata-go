@@ -65,32 +65,32 @@ func SeataDecoder(in []byte) (interface{}, int) {
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	typeCode, _, _ := r.ReadInt16()
 
-	decoder := getMessageDecoder(typeCode)
+	decoder := getMessageDecoder(protocol.MessageType(typeCode))
 	if decoder != nil {
 		return decoder(in[2:])
 	}
 	return nil, 0
 }
 
-func getMessageEncoder(typeCode int16) Encoder {
+func getMessageEncoder(typeCode protocol.MessageType) Encoder {
 	switch typeCode {
-	case protocol.TypeSeataMerge:
+	case protocol.MessageTypeSeataMerge:
 		return MergedWarpMessageEncoder
-	case protocol.TypeSeataMergeResult:
+	case protocol.MessageTypeSeataMergeResult:
 		return MergeResultMessageEncoder
-	case protocol.TypeRegClt:
+	case protocol.MessageTypeRegClt:
 		return RegisterTMRequestEncoder
-	case protocol.TypeRegCltResult:
+	case protocol.MessageTypeRegCltResult:
 		return RegisterTMResponseEncoder
-	case protocol.TypeRegRm:
+	case protocol.MessageTypeRegRm:
 		return RegisterRMRequestEncoder
-	case protocol.TypeRegRmResult:
+	case protocol.MessageTypeRegRmResult:
 		return RegisterRMResponseEncoder
-	case protocol.TypeBranchCommit:
+	case protocol.MessageTypeBranchCommit:
 		return BranchCommitRequestEncoder
-	case protocol.TypeBranchRollback:
+	case protocol.MessageTypeBranchRollback:
 		return BranchRollbackRequestEncoder
-	case protocol.TypeGlobalReport:
+	case protocol.MessageTypeGlobalReport:
 		return GlobalReportRequestEncoder
 	default:
 		var encoder Encoder
@@ -107,23 +107,23 @@ func getMessageEncoder(typeCode int16) Encoder {
 	}
 }
 
-func getMergeRequestMessageEncoder(typeCode int16) Encoder {
+func getMergeRequestMessageEncoder(typeCode protocol.MessageType) Encoder {
 	switch typeCode {
-	case protocol.TypeGlobalBegin:
+	case protocol.MessageTypeGlobalBegin:
 		return GlobalBeginRequestEncoder
-	case protocol.TypeGlobalCommit:
+	case protocol.MessageTypeGlobalCommit:
 		return GlobalCommitRequestEncoder
-	case protocol.TypeGlobalRollback:
+	case protocol.MessageTypeGlobalRollback:
 		return GlobalRollbackRequestEncoder
-	case protocol.TypeGlobalStatus:
+	case protocol.MessageTypeGlobalStatus:
 		return GlobalStatusRequestEncoder
-	case protocol.TypeGlobalLockQuery:
+	case protocol.MessageTypeGlobalLockQuery:
 		return GlobalLockQueryRequestEncoder
-	case protocol.TypeBranchRegister:
+	case protocol.MessageTypeBranchRegister:
 		return BranchRegisterRequestEncoder
-	case protocol.TypeBranchStatusReport:
+	case protocol.MessageTypeBranchStatusReport:
 		return BranchReportRequestEncoder
-	case protocol.TypeGlobalReport:
+	case protocol.MessageTypeGlobalReport:
 		return GlobalReportRequestEncoder
 	default:
 		break
@@ -131,27 +131,27 @@ func getMergeRequestMessageEncoder(typeCode int16) Encoder {
 	return nil
 }
 
-func getMergeResponseMessageEncoder(typeCode int16) Encoder {
+func getMergeResponseMessageEncoder(typeCode protocol.MessageType) Encoder {
 	switch typeCode {
-	case protocol.TypeGlobalBeginResult:
+	case protocol.MessageTypeGlobalBeginResult:
 		return GlobalBeginResponseEncoder
-	case protocol.TypeGlobalCommitResult:
+	case protocol.MessageTypeGlobalCommitResult:
 		return GlobalCommitResponseEncoder
-	case protocol.TypeGlobalRollbackResult:
+	case protocol.MessageTypeGlobalRollbackResult:
 		return GlobalRollbackResponseEncoder
-	case protocol.TypeGlobalStatusResult:
+	case protocol.MessageTypeGlobalStatusResult:
 		return GlobalStatusResponseEncoder
-	case protocol.TypeGlobalLockQueryResult:
+	case protocol.MessageTypeGlobalLockQueryResult:
 		return GlobalLockQueryResponseEncoder
-	case protocol.TypeBranchRegisterResult:
+	case protocol.MessageTypeBranchRegisterResult:
 		return BranchRegisterResponseEncoder
-	case protocol.TypeBranchStatusReportResult:
+	case protocol.MessageTypeBranchStatusReportResult:
 		return BranchReportResponseEncoder
-	case protocol.TypeBranchCommitResult:
+	case protocol.MessageTypeBranchCommitResult:
 		return BranchCommitResponseEncoder
-	case protocol.TypeBranchRollbackResult:
+	case protocol.MessageTypeBranchRollbackResult:
 		return BranchRollbackResponseEncoder
-	case protocol.TypeGlobalReportResult:
+	case protocol.MessageTypeGlobalReportResult:
 		return GlobalReportResponseEncoder
 	default:
 		break
@@ -159,25 +159,25 @@ func getMergeResponseMessageEncoder(typeCode int16) Encoder {
 	return nil
 }
 
-func getMessageDecoder(typeCode int16) Decoder {
+func getMessageDecoder(typeCode protocol.MessageType) Decoder {
 	switch typeCode {
-	case protocol.TypeSeataMerge:
+	case protocol.MessageTypeSeataMerge:
 		return MergedWarpMessageDecoder
-	case protocol.TypeSeataMergeResult:
+	case protocol.MessageTypeSeataMergeResult:
 		return MergeResultMessageDecoder
-	case protocol.TypeRegClt:
+	case protocol.MessageTypeRegClt:
 		return RegisterTMRequestDecoder
-	case protocol.TypeRegCltResult:
+	case protocol.MessageTypeRegCltResult:
 		return RegisterTMResponseDecoder
-	case protocol.TypeRegRm:
+	case protocol.MessageTypeRegRm:
 		return RegisterRMRequestDecoder
-	case protocol.TypeRegRmResult:
+	case protocol.MessageTypeRegRmResult:
 		return RegisterRMResponseDecoder
-	case protocol.TypeBranchCommit:
+	case protocol.MessageTypeBranchCommit:
 		return BranchCommitRequestDecoder
-	case protocol.TypeBranchRollback:
+	case protocol.MessageTypeBranchRollback:
 		return BranchRollbackRequestDecoder
-	case protocol.TypeGlobalReport:
+	case protocol.MessageTypeGlobalReport:
 		return GlobalReportRequestDecoder
 	default:
 		var Decoder Decoder
@@ -194,23 +194,23 @@ func getMessageDecoder(typeCode int16) Decoder {
 	}
 }
 
-func getMergeRequestMessageDecoder(typeCode int16) Decoder {
+func getMergeRequestMessageDecoder(typeCode protocol.MessageType) Decoder {
 	switch typeCode {
-	case protocol.TypeGlobalBegin:
+	case protocol.MessageTypeGlobalBegin:
 		return GlobalBeginRequestDecoder
-	case protocol.TypeGlobalCommit:
+	case protocol.MessageTypeGlobalCommit:
 		return GlobalCommitRequestDecoder
-	case protocol.TypeGlobalRollback:
+	case protocol.MessageTypeGlobalRollback:
 		return GlobalRollbackRequestDecoder
-	case protocol.TypeGlobalStatus:
+	case protocol.MessageTypeGlobalStatus:
 		return GlobalStatusRequestDecoder
-	case protocol.TypeGlobalLockQuery:
+	case protocol.MessageTypeGlobalLockQuery:
 		return GlobalLockQueryRequestDecoder
-	case protocol.TypeBranchRegister:
+	case protocol.MessageTypeBranchRegister:
 		return BranchRegisterRequestDecoder
-	case protocol.TypeBranchStatusReport:
+	case protocol.MessageTypeBranchStatusReport:
 		return BranchReportRequestDecoder
-	case protocol.TypeGlobalReport:
+	case protocol.MessageTypeGlobalReport:
 		return GlobalReportRequestDecoder
 	default:
 		break
@@ -218,27 +218,27 @@ func getMergeRequestMessageDecoder(typeCode int16) Decoder {
 	return nil
 }
 
-func getMergeResponseMessageDecoder(typeCode int16) Decoder {
+func getMergeResponseMessageDecoder(typeCode protocol.MessageType) Decoder {
 	switch typeCode {
-	case protocol.TypeGlobalBeginResult:
+	case protocol.MessageTypeGlobalBeginResult:
 		return GlobalBeginResponseDecoder
-	case protocol.TypeGlobalCommitResult:
+	case protocol.MessageTypeGlobalCommitResult:
 		return GlobalCommitResponseDecoder
-	case protocol.TypeGlobalRollbackResult:
+	case protocol.MessageTypeGlobalRollbackResult:
 		return GlobalRollbackResponseDecoder
-	case protocol.TypeGlobalStatusResult:
+	case protocol.MessageTypeGlobalStatusResult:
 		return GlobalStatusResponseDecoder
-	case protocol.TypeGlobalLockQueryResult:
+	case protocol.MessageTypeGlobalLockQueryResult:
 		return GlobalLockQueryResponseDecoder
-	case protocol.TypeBranchRegisterResult:
+	case protocol.MessageTypeBranchRegisterResult:
 		return BranchRegisterResponseDecoder
-	case protocol.TypeBranchStatusReportResult:
+	case protocol.MessageTypeBranchStatusReportResult:
 		return BranchReportResponseDecoder
-	case protocol.TypeBranchCommitResult:
+	case protocol.MessageTypeBranchCommitResult:
 		return BranchCommitResponseDecoder
-	case protocol.TypeBranchRollbackResult:
+	case protocol.MessageTypeBranchRollbackResult:
 		return BranchRollbackResponseDecoder
-	case protocol.TypeGlobalReportResult:
+	case protocol.MessageTypeGlobalReportResult:
 		return GlobalReportResponseDecoder
 	default:
 		break

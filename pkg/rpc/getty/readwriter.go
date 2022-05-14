@@ -150,11 +150,11 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 
 	//r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 	rpcMessage := protocol.RpcMessage{
-		Codec:       header.CodecType,
-		ID:          int32(header.ID),
-		Compressor:  header.CompressType,
-		MessageType: header.MessageType,
-		HeadMap:     header.Meta,
+		Codec:      header.CodecType,
+		ID:         int32(header.ID),
+		Compressor: header.CompressType,
+		Type:       header.MessageType,
+		HeadMap:    header.Meta,
 	}
 
 	if header.MessageType == protocol.MSGTypeHeartbeatRequest {
@@ -189,7 +189,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	result = append(result, protocol.MAGIC_CODE_BYTES[:2]...)
 	result = append(result, protocol.VERSION)
 
-	w.WriteByte(byte(msg.MessageType))
+	w.WriteByte(byte(msg.Type))
 	w.WriteByte(msg.Codec)
 	w.WriteByte(msg.Compressor)
 	w.WriteInt32(msg.ID)
@@ -201,8 +201,8 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		w.Write(headMapBytes)
 	}
 
-	if msg.MessageType != protocol.MSGTypeHeartbeatRequest &&
-		msg.MessageType != protocol.MSGTypeHeartbeatResponse {
+	if msg.Type != protocol.MSGTypeHeartbeatRequest &&
+		msg.Type != protocol.MSGTypeHeartbeatResponse {
 
 		bodyBytes := codec.MessageEncoder(msg.Codec, msg.Body)
 		fullLength += len(bodyBytes)
