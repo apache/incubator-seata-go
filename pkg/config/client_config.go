@@ -39,8 +39,8 @@ func GetTMConfig() TMConfig {
 	return clientConfig.TMConfig
 }
 
-func GetDefaultClientConfig(applicationID string) ClientConfig {
-	return ClientConfig{
+func GetDefaultClientConfig(applicationID string) *ClientConfig {
+	return &ClientConfig{
 		ApplicationID:                applicationID,
 		TransactionServiceGroup:      "127.0.0.1:8091",
 		EnableClientBatchSendRequest: false,
