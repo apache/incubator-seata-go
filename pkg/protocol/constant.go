@@ -13,18 +13,18 @@ const (
 	// V1HeadLength v1 head length
 	V1HeadLength = 16
 
-	// MSGTypeRequestSync request message type
+	// Request message type
 	MSGTypeRequestSync RequestType = 0
 
-	// MSGTypeResponse response message type
+	// Response message type
 	MSGTypeResponse RequestType = 1
 
-	// MSGTypeRequestOneway request one way
+	// Request which no need response
 	MSGTypeRequestOneway RequestType = 2
 
-	// MSGTypeHeartbeatRequest heart beat request
+	// Heartbeat Request
 	MSGTypeHeartbeatRequest RequestType = 3
 
-	// MSGTypeHeartbeatResponse heart beat response
+	// Heartbeat Response
 	MSGTypeHeartbeatResponse RequestType = 4
 )

@@ -1,25 +1,26 @@
 package model
 
 import (
+	"context"
 	"sync"
 )
 
 // Control a branch transaction commit or rollback
 type ResourceManagerInbound interface {
 	// Commit a branch transaction
-	BranchCommit(branchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
+	BranchCommit(ctx context.Context, branchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
 	// Rollback a branch transaction
-	BranchRollback(branchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
+	BranchRollback(ctx context.Context, ranchType BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (BranchStatus, error)
 }
 
 // Resource Manager: send outbound request to TC
 type ResourceManagerOutbound interface {
 	// Branch register long
-	BranchRegister(branchType BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error)
+	BranchRegister(ctx context.Context, ranchType BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error)
 	//  Branch report
-	BranchReport(branchType BranchType, xid string, branchId int64, status BranchStatus, applicationData string) error
+	BranchReport(ctx context.Context, ranchType BranchType, xid string, branchId int64, status BranchStatus, applicationData string) error
 	// Lock query boolean
-	LockQuery(branchType BranchType, resourceId, xid, lockKeys string) (bool, error)
+	LockQuery(ctx context.Context, ranchType BranchType, resourceId, xid, lockKeys string) (bool, error)
 }
 
 //  Resource Manager: common behaviors

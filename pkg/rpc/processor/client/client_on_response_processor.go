@@ -17,6 +17,8 @@ func init() {
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(protocol.MessageTypeBranchStatusReportResult, clientOnResponseProcessor)
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(protocol.MessageTypeGlobalLockQueryResult, clientOnResponseProcessor)
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(protocol.MessageTypeRegRmResult, clientOnResponseProcessor)
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(protocol.MessageTypeGlobalBeginResult, clientOnResponseProcessor)
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(protocol.MessageTypeGlobalCommitResult, clientOnResponseProcessor)
 }
 
 type clientOnResponseProcessor struct {
@@ -44,7 +46,7 @@ func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage prot
 		// 如果是请求消息，做处理逻辑
 		msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
 		if msgFuture != nil {
-			getty.GetGettyRemotingInstance().NotifytRpcMessageResponse(rpcMessage)
+			getty.GetGettyRemotingInstance().NotifyRpcMessageResponse(rpcMessage)
 			getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
 		} else {
 			if _, ok := rpcMessage.Body.(protocol.AbstractResultMessage); ok {

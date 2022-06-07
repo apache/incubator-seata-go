@@ -6,21 +6,15 @@ type AbstractResultMessage struct {
 }
 
 type AbstractIdentifyRequest struct {
-	Version string
-
-	ApplicationId string `json:"applicationId"`
-
+	Version                 string
+	ApplicationId           string `json:"applicationId"`
 	TransactionServiceGroup string
-
-	ExtraData []byte
+	ExtraData               []byte
 }
 
 type AbstractIdentifyResponse struct {
 	AbstractResultMessage
-
-	Version string
-
-	ExtraData []byte
-
+	Version    string
+	ExtraData  []byte
 	Identified bool
 }

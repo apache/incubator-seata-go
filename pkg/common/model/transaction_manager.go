@@ -1,5 +1,12 @@
 package model
 
+type GlobalTransactionRole int8
+
+const (
+	LAUNCHER    GlobalTransactionRole = 0
+	PARTICIPANT GlobalTransactionRole = 1
+)
+
 type TransactionManager interface {
 	// Begin a new global transaction.
 	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)

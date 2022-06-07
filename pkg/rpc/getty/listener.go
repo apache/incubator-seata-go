@@ -26,7 +26,7 @@ var (
 type gettyClientHandler struct {
 	conf           *config.ClientConfig
 	idGenerator    *atomic.Uint32
-	futures        *sync.Map
+	msgFutures     *sync.Map
 	mergeMsgMap    *sync.Map
 	processorTable map[protocol.MessageType]processor.RemotingProcessor
 }
@@ -37,7 +37,7 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 			clientHandler = &gettyClientHandler{
 				conf:           config.GetDefaultClientConfig("seata-go"),
 				idGenerator:    &atomic.Uint32{},
-				futures:        &sync.Map{},
+				msgFutures:     &sync.Map{},
 				mergeMsgMap:    &sync.Map{},
 				processorTable: make(map[protocol.MessageType]processor.RemotingProcessor, 0),
 			}
@@ -46,41 +46,37 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 	return clientHandler
 }
 
-// OnOpen ...
 func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 	clientSessionManager.RegisterGettySession(session)
-	go func() {
-		request := protocol.RegisterTMRequest{AbstractIdentifyRequest: protocol.AbstractIdentifyRequest{
-			Version:                 client.conf.SeataVersion,
-			ApplicationId:           client.conf.ApplicationID,
-			TransactionServiceGroup: client.conf.TransactionServiceGroup,
-		}}
-		err := GetGettyRemotingClient().SendAsyncRequest(request)
-		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
-		if err != nil {
-			log.Error("OnOpen error: {%#v}", err.Error())
-			clientSessionManager.ReleaseGettySession(session)
-			return
-		}
-
-		//todo
-		//client.GettySessionOnOpenChannel <- session.RemoteAddr()
-	}()
+	//go func() {
+	//	request := protocol.RegisterTMRequest{AbstractIdentifyRequest: protocol.AbstractIdentifyRequest{
+	//		Version:                 client.conf.SeataVersion,
+	//		ApplicationId:           client.conf.ApplicationID,
+	//		TransactionServiceGroup: client.conf.TransactionServiceGroup,
+	//	}}
+	//	err := GetGettyRemotingClient().SendAsyncRequest(request)
+	//	//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
+	//	if err != nil {
+	//		log.Error("OnOpen error: {%#v}", err.Error())
+	//		clientSessionManager.ReleaseGettySession(session)
+	//		return
+	//	}
+	//
+	//	//todo
+	//	//client.GettySessionOnOpenChannel <- session.RemoteAddr()
+	//}()
 
 	return nil
 }
 
-// OnError ...
 func (client *gettyClientHandler) OnError(session getty.Session, err error) {
 	clientSessionManager.ReleaseGettySession(session)
 }
 
-// OnClose ...
 func (client *gettyClientHandler) OnClose(session getty.Session) {
 	clientSessionManager.ReleaseGettySession(session)
 }
 
-// OnMessage ...
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 	// TODO 需要把session里面的关键信息存储到context中，以方便在后面流程中获取使用。比如，XID等等
 	ctx := context.Background()
@@ -104,9 +100,8 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 	}
 }
 
-// OnCron ...
 func (client *gettyClientHandler) OnCron(session getty.Session) {
-	//GetGettyRemotingClient().SendAsyncRequest(protocol.HeartBeatMessagePing)
+	// todo 发送心跳消息
 }
 
 func (client *gettyClientHandler) RegisterProcessor(msgType protocol.MessageType, processor processor.RemotingProcessor) {

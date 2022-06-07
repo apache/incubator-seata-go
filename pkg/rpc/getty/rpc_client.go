@@ -20,8 +20,7 @@ import (
 type RpcClient struct {
 	conf         *config.ClientConfig
 	gettyClients []getty.Client
-	//rpcHandler   RpcRemoteClient
-	futures *sync.Map
+	futures      *sync.Map
 }
 
 func init() {
@@ -32,7 +31,6 @@ func newRpcClient() *RpcClient {
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
-		//rpcHandler:   *InitRpcRemoteClient(),
 	}
 	rpcClient.init()
 	return rpcClient
@@ -57,17 +55,6 @@ func (c *RpcClient) init() {
 
 // todo mock
 func getAvailServerList(config *config.ClientConfig) []string {
-	//reg, err := extension.GetRegistry(config.RegistryConfig.Mode)
-	//if err != nil {
-	//	logger.Errorf("Registry can not connect success, program is going to panic.Error message is %s", err.Error())
-	//	panic(err.Error())
-	//}
-	//addrs, err := reg.Lookup()
-	//if err != nil {
-	//	logger.Errorf("no hava valid server list", err.Error())
-	//	return nil
-	//}
-	//return addrs
 	return []string{"127.0.0.1:8091"}
 }
 

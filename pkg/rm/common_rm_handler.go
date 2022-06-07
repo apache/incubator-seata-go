@@ -1,8 +1,10 @@
 package rm
 
 import (
+	"context"
 	"github.com/seata/seata-go/pkg/common/model"
 	"github.com/seata/seata-go/pkg/protocol"
+	"github.com/seata/seata-go/pkg/utils/log"
 )
 
 type CommonRMHandler struct {
@@ -14,13 +16,14 @@ func (h *CommonRMHandler) SetRMGetter(rmGetter model.ResourceManagerGetter) {
 }
 
 // Handle branch commit response.
-func (h *CommonRMHandler) HandleBranchCommitRequest(request protocol.BranchCommitRequest) (*protocol.BranchCommitResponse, error) {
+func (h *CommonRMHandler) HandleBranchCommitRequest(ctx context.Context, request protocol.BranchCommitRequest) (*protocol.BranchCommitResponse, error) {
 	xid := request.Xid
 	branchID := request.BranchId
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
+	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
-	status, err := h.rmGetter.GetResourceManager().BranchCommit(request.BranchType, xid, branchID, resourceID, applicationData)
+	status, err := h.rmGetter.GetResourceManager().BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
 	if err != nil {
 		// TODO: handle error
 		return nil, err
@@ -36,13 +39,13 @@ func (h *CommonRMHandler) HandleBranchCommitRequest(request protocol.BranchCommi
 
 // Handle branch rollback response.
 // TODO
-func (h *CommonRMHandler) HandleBranchRollbackRequest(request protocol.BranchRollbackRequest) (*protocol.BranchRollbackResponse, error) {
+func (h *CommonRMHandler) HandleBranchRollbackRequest(ctx context.Context, request protocol.BranchRollbackRequest) (*protocol.BranchRollbackResponse, error) {
 	return nil, nil
 }
 
 // Handle delete undo log .
 // TODO
-func (h *CommonRMHandler) HandleUndoLogDeleteRequest(request protocol.UndoLogDeleteRequest) error {
+func (h *CommonRMHandler) HandleUndoLogDeleteRequest(ctx context.Context, request protocol.UndoLogDeleteRequest) error {
 	return nil
 }
 
