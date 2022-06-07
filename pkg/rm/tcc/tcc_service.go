@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/model"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/common/net"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	context2 "github.com/seata/seata-go/pkg/protocol/transaction"
+	"github.com/seata/seata-go/pkg/protocol/transaction/executor"
 	"github.com/seata/seata-go/pkg/rm"
 	api2 "github.com/seata/seata-go/pkg/rm/tcc/api"
-	"github.com/seata/seata-go/pkg/utils"
-	"github.com/seata/seata-go/pkg/utils/log"
 	"time"
 )
 
 import (
-	"github.com/seata/seata-go/pkg/rm/api"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting"
 )
 
@@ -45,7 +46,7 @@ func NewTCCServiceProxy(tccService TCCService) TCCService {
 		AppName:         "",
 		ActionName:      tccService.GetActionName(),
 	}
-	err := rm.GetResourceManagerFacadeInstance().GetResourceManager(model.BranchTypeTCC).RegisterResource(&tccResource)
+	err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(&tccResource)
 	if err != nil {
 		panic(fmt.Sprintf("NewTCCServiceProxy registerResource error: {%#v}", err.Error()))
 	}
@@ -57,9 +58,9 @@ func NewTCCServiceProxy(tccService TCCService) TCCService {
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error {
 	var err error
-	if model.IsSeataContext(ctx) {
+	if context2.IsSeataContext(ctx) {
 		// execute transaction
-		_, err = api.GetTransactionTemplate().Execute(ctx, t, param)
+		_, err = executor.GetTransactionTemplate().Execute(ctx, t, param)
 	} else {
 		log.Warn("context is not inited as seata context, will not execute transaction!")
 		err = t.TCCService.Prepare(ctx, param)
@@ -79,18 +80,18 @@ func (t *TCCServiceProxy) Execute(ctx context.Context, param interface{}) (inter
 
 func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) error {
 	// register transaction branch
-	if !model.HasXID(ctx) {
+	if !context2.HasXID(ctx) {
 		err := errors.New("BranchRegister error, xid should not be nil")
 		log.Errorf(err.Error())
 		return err
 	}
 	tccContext := make(map[string]interface{}, 0)
 	tccContext[common.StartTime] = time.Now().UnixNano() / 1e6
-	tccContext[common.HostName] = utils.GetLocalIp()
+	tccContext[common.HostName] = net.GetLocalIp()
 	tccContextStr, _ := json.Marshal(tccContext)
 
-	branchId, err := rm.GetResourceManagerFacadeInstance().GetResourceManager(model.BranchTypeTCC).BranchRegister(
-		ctx, model.BranchTypeTCC, t.GetActionName(), "", model.GetXID(ctx), string(tccContextStr), "")
+	branchId, err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).BranchRegister(
+		ctx, branch.BranchTypeTCC, t.GetActionName(), "", context2.GetXID(ctx), string(tccContextStr), "")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
 		log.Error(err.Error())
@@ -98,18 +99,18 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	}
 
 	actionContext := &api2.BusinessActionContext{
-		Xid:           model.GetXID(ctx),
+		Xid:           context2.GetXID(ctx),
 		BranchId:      string(branchId),
 		ActionName:    t.GetActionName(),
 		ActionContext: param,
 	}
-	model.SetBusinessActionContext(ctx, actionContext)
+	context2.SetBusinessActionContext(ctx, actionContext)
 	return nil
 }
 
-func (t *TCCServiceProxy) GetTransactionInfo() api.TransactionInfo {
+func (t *TCCServiceProxy) GetTransactionInfo() context2.TransactionInfo {
 	// todo replace with config
-	return api.TransactionInfo{
+	return context2.TransactionInfo{
 		TimeOut: 10000,
 		Name:    t.GetActionName(),
 		//Propagation, Propagation
