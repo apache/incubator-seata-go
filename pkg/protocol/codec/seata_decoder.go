@@ -2,15 +2,13 @@ package codec
 
 import (
 	"bytes"
+	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/protocol/transaction"
 )
 
 import (
 	"vimagination.zapto.org/byteio"
-)
-
-import (
-	model2 "github.com/seata/seata-go/pkg/common/model"
-	"github.com/seata/seata-go/pkg/protocol"
 )
 
 // TODO 待重构
@@ -20,13 +18,13 @@ func AbstractResultMessageDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractResultMessage{}
+	msg := message.AbstractResultMessage{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
-	msg.ResultCode = protocol.ResultCode(resultCode)
+	msg.ResultCode = message.ResultCode(resultCode)
 	totalReadN += 1
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -44,7 +42,7 @@ func MergedWarpMessageDecoder(in []byte) (interface{}, int) {
 		readN            = 0
 		totalReadN       = 0
 	)
-	result := protocol.MergedWarpMessage{}
+	result := message.MergedWarpMessage{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -52,15 +50,15 @@ func MergedWarpMessageDecoder(in []byte) (interface{}, int) {
 	totalReadN += 4
 	size16, readN, _ = r.ReadInt16()
 	totalReadN += readN
-	result.Msgs = make([]protocol.MessageTypeAware, 0)
+	result.Msgs = make([]message.MessageTypeAware, 0)
 	for index := 0; index < int(size16); index++ {
 		typeCode, _, _ := r.ReadInt16()
 		totalReadN += 2
-		decoder := getMessageDecoder(protocol.MessageType(typeCode))
+		decoder := getMessageDecoder(message.MessageType(typeCode))
 		if decoder != nil {
 			msg, readN := decoder(in[totalReadN:])
 			totalReadN += readN
-			result.Msgs = append(result.Msgs, msg.(protocol.MessageTypeAware))
+			result.Msgs = append(result.Msgs, msg.(message.MessageTypeAware))
 		}
 	}
 	return result, totalReadN
@@ -72,7 +70,7 @@ func MergeResultMessageDecoder(in []byte) (interface{}, int) {
 		readN            = 0
 		totalReadN       = 0
 	)
-	result := protocol.MergeResultMessage{}
+	result := message.MergeResultMessage{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -80,16 +78,16 @@ func MergeResultMessageDecoder(in []byte) (interface{}, int) {
 	totalReadN += 4
 	size16, readN, _ = r.ReadInt16()
 	totalReadN += readN
-	result.Msgs = make([]protocol.MessageTypeAware, 0)
+	result.Msgs = make([]message.MessageTypeAware, 0)
 
 	for index := 0; index < int(size16); index++ {
 		typeCode, _, _ := r.ReadInt16()
 		totalReadN += 2
-		decoder := getMessageDecoder(protocol.MessageType(typeCode))
+		decoder := getMessageDecoder(message.MessageType(typeCode))
 		if decoder != nil {
 			msg, readN := decoder(in[totalReadN:])
 			totalReadN += readN
-			result.Msgs = append(result.Msgs, msg.(protocol.MessageTypeAware))
+			result.Msgs = append(result.Msgs, msg.(message.MessageTypeAware))
 		}
 	}
 	return result, totalReadN
@@ -101,7 +99,7 @@ func AbstractIdentifyRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractIdentifyRequest{}
+	msg := message.AbstractIdentifyRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -143,7 +141,7 @@ func AbstractIdentifyResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractIdentifyResponse{}
+	msg := message.AbstractIdentifyResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -172,7 +170,7 @@ func RegisterRMRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.RegisterRMRequest{}
+	msg := message.RegisterRMRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -217,22 +215,22 @@ func RegisterRMRequestDecoder(in []byte) (interface{}, int) {
 
 func RegisterRMResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractIdentifyResponseDecoder(in)
-	abstractIdentifyResponse := resp.(protocol.AbstractIdentifyResponse)
-	msg := protocol.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
+	abstractIdentifyResponse := resp.(message.AbstractIdentifyResponse)
+	msg := message.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
 	return msg, totalReadN
 }
 
 func RegisterTMRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractIdentifyRequestDecoder(in)
-	abstractIdentifyRequest := req.(protocol.AbstractIdentifyRequest)
-	msg := protocol.RegisterTMRequest{AbstractIdentifyRequest: abstractIdentifyRequest}
+	abstractIdentifyRequest := req.(message.AbstractIdentifyRequest)
+	msg := message.RegisterTMRequest{AbstractIdentifyRequest: abstractIdentifyRequest}
 	return msg, totalReadN
 }
 
 func RegisterTMResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractIdentifyResponseDecoder(in)
-	abstractIdentifyResponse := resp.(protocol.AbstractIdentifyResponse)
-	msg := protocol.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
+	abstractIdentifyResponse := resp.(message.AbstractIdentifyResponse)
+	msg := message.RegisterRMResponse{AbstractIdentifyResponse: abstractIdentifyResponse}
 	return msg, totalReadN
 }
 
@@ -242,13 +240,13 @@ func AbstractTransactionResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractTransactionResponse{}
+	msg := message.AbstractTransactionResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -259,7 +257,7 @@ func AbstractTransactionResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	return msg, totalReadN
 }
@@ -270,7 +268,7 @@ func AbstractBranchEndRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractBranchEndRequest{}
+	msg := message.AbstractBranchEndRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -311,13 +309,13 @@ func AbstractBranchEndResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractBranchEndResponse{}
+	msg := message.AbstractBranchEndResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -328,7 +326,7 @@ func AbstractBranchEndResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -352,7 +350,7 @@ func AbstractGlobalEndRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractGlobalEndRequest{}
+	msg := message.AbstractGlobalEndRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -380,13 +378,13 @@ func AbstractGlobalEndResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.AbstractGlobalEndResponse{}
+	msg := message.AbstractGlobalEndResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -397,26 +395,26 @@ func AbstractGlobalEndResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	globalStatus, _ := r.ReadByte()
 	totalReadN += 1
-	msg.GlobalStatus = model2.GlobalStatus(globalStatus)
+	msg.GlobalStatus = transaction.GlobalStatus(globalStatus)
 
 	return msg, totalReadN
 }
 
 func BranchCommitRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractBranchEndRequestDecoder(in)
-	abstractBranchEndRequest := req.(protocol.AbstractBranchEndRequest)
-	msg := protocol.BranchCommitRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
+	abstractBranchEndRequest := req.(message.AbstractBranchEndRequest)
+	msg := message.BranchCommitRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
 	return msg, totalReadN
 }
 
 func BranchCommitResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractBranchEndResponseDecoder(in)
-	abstractBranchEndResponse := resp.(protocol.AbstractBranchEndResponse)
-	msg := protocol.BranchCommitResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
+	abstractBranchEndResponse := resp.(message.AbstractBranchEndResponse)
+	msg := message.BranchCommitResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
 	return msg, totalReadN
 }
 
@@ -427,7 +425,7 @@ func BranchRegisterRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.BranchRegisterRequest{}
+	msg := message.BranchRegisterRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -473,13 +471,13 @@ func BranchRegisterResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.BranchRegisterResponse{}
+	msg := message.BranchRegisterResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -490,7 +488,7 @@ func BranchRegisterResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	msg.BranchId, readN, _ = r.ReadInt64()
 	totalReadN += readN
@@ -504,7 +502,7 @@ func BranchReportRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.BranchReportRequest{}
+	msg := message.BranchReportRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -543,22 +541,22 @@ func BranchReportRequestDecoder(in []byte) (interface{}, int) {
 
 func BranchReportResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractTransactionResponseDecoder(in)
-	abstractTransactionResponse := resp.(protocol.AbstractTransactionResponse)
-	msg := protocol.BranchReportResponse{AbstractTransactionResponse: abstractTransactionResponse}
+	abstractTransactionResponse := resp.(message.AbstractTransactionResponse)
+	msg := message.BranchReportResponse{AbstractTransactionResponse: abstractTransactionResponse}
 	return msg, totalReadN
 }
 
 func BranchRollbackRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractBranchEndRequestDecoder(in)
-	abstractBranchEndRequest := req.(protocol.AbstractBranchEndRequest)
-	msg := protocol.BranchRollbackRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
+	abstractBranchEndRequest := req.(message.AbstractBranchEndRequest)
+	msg := message.BranchRollbackRequest{AbstractBranchEndRequest: abstractBranchEndRequest}
 	return msg, totalReadN
 }
 
 func BranchRollbackResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractBranchEndResponseDecoder(in)
-	abstractBranchEndResponse := resp.(protocol.AbstractBranchEndResponse)
-	msg := protocol.BranchRollbackResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
+	abstractBranchEndResponse := resp.(message.AbstractBranchEndResponse)
+	msg := message.BranchRollbackResponse{AbstractBranchEndResponse: abstractBranchEndResponse}
 	return msg, totalReadN
 }
 
@@ -568,7 +566,7 @@ func GlobalBeginRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.GlobalBeginRequest{}
+	msg := message.GlobalBeginRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -592,13 +590,13 @@ func GlobalBeginResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.GlobalBeginResponse{}
+	msg := message.GlobalBeginResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -609,7 +607,7 @@ func GlobalBeginResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	length16, readN, _ = r.ReadUint16()
 	totalReadN += readN
@@ -631,22 +629,22 @@ func GlobalBeginResponseDecoder(in []byte) (interface{}, int) {
 
 func GlobalCommitRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractGlobalEndRequestDecoder(in)
-	abstractGlobalEndRequest := req.(protocol.AbstractGlobalEndRequest)
-	msg := protocol.GlobalCommitRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
+	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
+	msg := message.GlobalCommitRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg, totalReadN
 }
 
 func GlobalCommitResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractGlobalEndResponseDecoder(in)
-	abstractGlobalEndResponse := resp.(protocol.AbstractGlobalEndResponse)
-	msg := protocol.GlobalCommitResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
+	abstractGlobalEndResponse := resp.(message.AbstractGlobalEndResponse)
+	msg := message.GlobalCommitResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg, totalReadN
 }
 
 func GlobalLockQueryRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := BranchRegisterRequestDecoder(in)
-	branchRegisterRequest := req.(protocol.BranchRegisterRequest)
-	msg := protocol.GlobalLockQueryRequest{BranchRegisterRequest: branchRegisterRequest}
+	branchRegisterRequest := req.(message.BranchRegisterRequest)
+	msg := message.GlobalLockQueryRequest{BranchRegisterRequest: branchRegisterRequest}
 	return msg, totalReadN
 }
 
@@ -656,13 +654,13 @@ func GlobalLockQueryResponseDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.GlobalLockQueryResponse{}
+	msg := message.GlobalLockQueryResponse{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	resultCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.ResultCode = protocol.ResultCode(resultCode)
-	if msg.ResultCode == protocol.ResultCodeFailed {
+	msg.ResultCode = message.ResultCode(resultCode)
+	if msg.ResultCode == message.ResultCodeFailed {
 		length16, readN, _ = r.ReadUint16()
 		totalReadN += readN
 		if length16 > 0 {
@@ -673,7 +671,7 @@ func GlobalLockQueryResponseDecoder(in []byte) (interface{}, int) {
 
 	exceptionCode, _ := r.ReadByte()
 	totalReadN += 1
-	msg.TransactionExceptionCode = model2.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
 
 	lockable, readN, _ := r.ReadUint16()
 	totalReadN += readN
@@ -692,7 +690,7 @@ func GlobalReportRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.GlobalReportRequest{}
+	msg := message.GlobalReportRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 
@@ -713,43 +711,43 @@ func GlobalReportRequestDecoder(in []byte) (interface{}, int) {
 
 	globalStatus, _ := r.ReadByte()
 	totalReadN += 1
-	msg.GlobalStatus = model2.GlobalStatus(globalStatus)
+	msg.GlobalStatus = transaction.GlobalStatus(globalStatus)
 
 	return msg, totalReadN
 }
 
 func GlobalReportResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractGlobalEndResponseDecoder(in)
-	abstractGlobalEndResponse := resp.(protocol.AbstractGlobalEndResponse)
-	msg := protocol.GlobalReportResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
+	abstractGlobalEndResponse := resp.(message.AbstractGlobalEndResponse)
+	msg := message.GlobalReportResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg, totalReadN
 }
 
 func GlobalRollbackRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractGlobalEndRequestDecoder(in)
-	abstractGlobalEndRequest := req.(protocol.AbstractGlobalEndRequest)
-	msg := protocol.GlobalRollbackRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
+	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
+	msg := message.GlobalRollbackRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg, totalReadN
 }
 
 func GlobalRollbackResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractGlobalEndResponseDecoder(in)
-	abstractGlobalEndResponse := resp.(protocol.AbstractGlobalEndResponse)
-	msg := protocol.GlobalRollbackResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
+	abstractGlobalEndResponse := resp.(message.AbstractGlobalEndResponse)
+	msg := message.GlobalRollbackResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg, totalReadN
 }
 
 func GlobalStatusRequestDecoder(in []byte) (interface{}, int) {
 	req, totalReadN := AbstractGlobalEndRequestDecoder(in)
-	abstractGlobalEndRequest := req.(protocol.AbstractGlobalEndRequest)
-	msg := protocol.GlobalStatusRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
+	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
+	msg := message.GlobalStatusRequest{AbstractGlobalEndRequest: abstractGlobalEndRequest}
 	return msg, totalReadN
 }
 
 func GlobalStatusResponseDecoder(in []byte) (interface{}, int) {
 	resp, totalReadN := AbstractGlobalEndResponseDecoder(in)
-	abstractGlobalEndResponse := resp.(protocol.AbstractGlobalEndResponse)
-	msg := protocol.GlobalStatusResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
+	abstractGlobalEndResponse := resp.(message.AbstractGlobalEndResponse)
+	msg := message.GlobalStatusResponse{AbstractGlobalEndResponse: abstractGlobalEndResponse}
 	return msg, totalReadN
 }
 
@@ -759,7 +757,7 @@ func UndoLogDeleteRequestDecoder(in []byte) (interface{}, int) {
 		readN             = 0
 		totalReadN        = 0
 	)
-	msg := protocol.UndoLogDeleteRequest{}
+	msg := message.UndoLogDeleteRequest{}
 
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(in)}
 	branchType, _ := r.ReadByte()
@@ -774,7 +772,7 @@ func UndoLogDeleteRequestDecoder(in []byte) (interface{}, int) {
 	}
 
 	day, readN, _ := r.ReadInt16()
-	msg.SaveDays = protocol.MessageType(day)
+	msg.SaveDays = message.MessageType(day)
 	totalReadN += readN
 
 	return msg, totalReadN

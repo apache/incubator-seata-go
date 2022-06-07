@@ -2,15 +2,12 @@ package codec
 
 import (
 	"bytes"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 import (
 	"vimagination.zapto.org/byteio"
-)
-
-import (
-	"github.com/seata/seata-go/pkg/protocol"
-	"github.com/seata/seata-go/pkg/utils/log"
 )
 
 // TODO 待重构
@@ -21,18 +18,18 @@ func AbstractResultMessageEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	message := in.(protocol.AbstractResultMessage)
+	msgs := in.(message.AbstractResultMessage)
 
-	w.WriteByte(byte(message.ResultCode))
-	if message.ResultCode == protocol.ResultCodeFailed {
+	w.WriteByte(byte(msgs.ResultCode))
+	if msgs.ResultCode == message.ResultCodeFailed {
 		var msg string
-		if message.Msg != "" {
-			if len(message.Msg) > 128 {
-				msg = message.Msg[:128]
+		if msgs.Msg != "" {
+			if len(msgs.Msg) > 128 {
+				msg = msgs.Msg[:128]
 			} else {
-				msg = message.Msg
+				msg = msgs.Msg
 			}
-			// 暂时不考虑 message.Msg 包含中文的情况，这样字符串的长度就是 byte 数组的长度
+			// 暂时不考虑 msg.Msg 包含中文的情况，这样字符串的长度就是 byte 数组的长度
 
 			w.WriteInt16(int16(len(msg)))
 			w.WriteString(msg)
@@ -51,7 +48,7 @@ func MergedWarpMessageEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.MergedWarpMessage)
+	req, _ := in.(message.MergedWarpMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
 	for _, msg := range req.Msgs {
@@ -80,7 +77,7 @@ func MergeResultMessageEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.MergeResultMessage)
+	req, _ := in.(message.MergeResultMessage)
 	w.WriteInt16(int16(len(req.Msgs)))
 
 	for _, msg := range req.Msgs {
@@ -109,7 +106,7 @@ func AbstractIdentifyRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req := in.(protocol.AbstractIdentifyRequest)
+	req := in.(message.AbstractIdentifyRequest)
 
 	if req.Version != "" {
 		w.WriteInt16(int16(len(req.Version)))
@@ -143,7 +140,7 @@ func AbstractIdentifyRequestEncoder(in interface{}) []byte {
 }
 
 func AbstractIdentifyResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.AbstractIdentifyResponse)
+	resp := in.(message.AbstractIdentifyResponse)
 
 	var (
 		zero16 int16 = 0
@@ -168,7 +165,7 @@ func AbstractIdentifyResponseEncoder(in interface{}) []byte {
 }
 
 func RegisterRMRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.RegisterRMRequest)
+	req := in.(message.RegisterRMRequest)
 	data := AbstractIdentifyRequestEncoder(req.AbstractIdentifyRequest)
 
 	var (
@@ -189,22 +186,22 @@ func RegisterRMRequestEncoder(in interface{}) []byte {
 }
 
 func RegisterRMResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.RegisterRMResponse)
+	resp := in.(message.RegisterRMResponse)
 	return AbstractIdentifyResponseEncoder(resp.AbstractIdentifyResponse)
 }
 
 func RegisterTMRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.RegisterTMRequest)
+	req := in.(message.RegisterTMRequest)
 	return AbstractIdentifyRequestEncoder(req.AbstractIdentifyRequest)
 }
 
 func RegisterTMResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.RegisterTMResponse)
+	resp := in.(message.RegisterTMResponse)
 	return AbstractIdentifyResponseEncoder(resp.AbstractIdentifyResponse)
 }
 
 func AbstractTransactionResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.AbstractTransactionResponse)
+	resp := in.(message.AbstractTransactionResponse)
 	data := AbstractResultMessageEncoder(resp.AbstractResultMessage)
 
 	result := append(data, byte(resp.TransactionExceptionCode))
@@ -220,7 +217,7 @@ func AbstractBranchEndRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.AbstractBranchEndRequest)
+	req, _ := in.(message.AbstractBranchEndRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -250,7 +247,7 @@ func AbstractBranchEndRequestEncoder(in interface{}) []byte {
 }
 
 func AbstractBranchEndResponseEncoder(in interface{}) []byte {
-	resp, _ := in.(protocol.AbstractBranchEndResponse)
+	resp, _ := in.(message.AbstractBranchEndResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	var (
@@ -281,7 +278,7 @@ func AbstractGlobalEndRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.AbstractGlobalEndRequest)
+	req, _ := in.(message.AbstractGlobalEndRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -300,7 +297,7 @@ func AbstractGlobalEndRequestEncoder(in interface{}) []byte {
 }
 
 func AbstractGlobalEndResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.AbstractGlobalEndResponse)
+	resp := in.(message.AbstractGlobalEndResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	result := append(data, byte(resp.GlobalStatus))
@@ -309,12 +306,12 @@ func AbstractGlobalEndResponseEncoder(in interface{}) []byte {
 }
 
 func BranchCommitRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.BranchCommitRequest)
+	req := in.(message.BranchCommitRequest)
 	return AbstractBranchEndRequestEncoder(req.AbstractBranchEndRequest)
 }
 
 func BranchCommitResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.BranchCommitResponse)
+	resp := in.(message.BranchCommitResponse)
 	return AbstractBranchEndResponseEncoder(resp.AbstractBranchEndResponse)
 }
 
@@ -326,7 +323,7 @@ func BranchRegisterRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.BranchRegisterRequest)
+	req, _ := in.(message.BranchRegisterRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -362,7 +359,7 @@ func BranchRegisterRequestEncoder(in interface{}) []byte {
 }
 
 func BranchRegisterResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.BranchRegisterResponse)
+	resp := in.(message.BranchRegisterResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	c := uint64(resp.BranchId)
@@ -389,7 +386,7 @@ func BranchReportRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.BranchReportRequest)
+	req, _ := in.(message.BranchReportRequest)
 
 	if req.Xid != "" {
 		w.WriteInt16(int16(len(req.Xid)))
@@ -421,17 +418,17 @@ func BranchReportRequestEncoder(in interface{}) []byte {
 }
 
 func BranchReportResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.BranchReportResponse)
+	resp := in.(message.BranchReportResponse)
 	return AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 }
 
 func BranchRollbackRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.BranchRollbackRequest)
+	req := in.(message.BranchRollbackRequest)
 	return AbstractBranchEndRequestEncoder(req.AbstractBranchEndRequest)
 }
 
 func BranchRollbackResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.BranchRollbackResponse)
+	resp := in.(message.BranchRollbackResponse)
 	return AbstractBranchEndResponseEncoder(resp.AbstractBranchEndResponse)
 }
 
@@ -442,7 +439,7 @@ func GlobalBeginRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.GlobalBeginRequest)
+	req, _ := in.(message.GlobalBeginRequest)
 
 	w.WriteInt32(req.Timeout)
 	if req.TransactionName != "" {
@@ -456,7 +453,7 @@ func GlobalBeginRequestEncoder(in interface{}) []byte {
 }
 
 func GlobalBeginResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.GlobalBeginResponse)
+	resp := in.(message.GlobalBeginResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	var (
@@ -484,12 +481,12 @@ func GlobalBeginResponseEncoder(in interface{}) []byte {
 }
 
 func GlobalCommitRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.GlobalCommitRequest)
+	req := in.(message.GlobalCommitRequest)
 	return AbstractGlobalEndRequestEncoder(req.AbstractGlobalEndRequest)
 }
 
 func GlobalCommitResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.GlobalCommitResponse)
+	resp := in.(message.GlobalCommitResponse)
 	return AbstractGlobalEndResponseEncoder(resp.AbstractGlobalEndResponse)
 }
 
@@ -498,7 +495,7 @@ func GlobalLockQueryRequestEncoder(in interface{}) []byte {
 }
 
 func GlobalLockQueryResponseEncoder(in interface{}) []byte {
-	resp, _ := in.(protocol.GlobalLockQueryResponse)
+	resp, _ := in.(message.GlobalLockQueryResponse)
 	data := AbstractTransactionResponseEncoder(resp.AbstractTransactionResponse)
 
 	var result []byte
@@ -512,7 +509,7 @@ func GlobalLockQueryResponseEncoder(in interface{}) []byte {
 }
 
 func GlobalReportRequestEncoder(in interface{}) []byte {
-	req, _ := in.(protocol.GlobalReportRequest)
+	req, _ := in.(message.GlobalReportRequest)
 	data := AbstractGlobalEndRequestEncoder(req.AbstractGlobalEndRequest)
 
 	result := append(data, byte(req.GlobalStatus))
@@ -520,27 +517,27 @@ func GlobalReportRequestEncoder(in interface{}) []byte {
 }
 
 func GlobalReportResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.GlobalReportResponse)
+	resp := in.(message.GlobalReportResponse)
 	return AbstractGlobalEndResponseEncoder(resp.AbstractGlobalEndResponse)
 }
 
 func GlobalRollbackRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.GlobalRollbackRequest)
+	req := in.(message.GlobalRollbackRequest)
 	return AbstractGlobalEndRequestEncoder(req.AbstractGlobalEndRequest)
 }
 
 func GlobalRollbackResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.GlobalRollbackResponse)
+	resp := in.(message.GlobalRollbackResponse)
 	return AbstractGlobalEndResponseEncoder(resp.AbstractGlobalEndResponse)
 }
 
 func GlobalStatusRequestEncoder(in interface{}) []byte {
-	req := in.(protocol.GlobalStatusRequest)
+	req := in.(message.GlobalStatusRequest)
 	return AbstractGlobalEndRequestEncoder(req.AbstractGlobalEndRequest)
 }
 
 func GlobalStatusResponseEncoder(in interface{}) []byte {
-	resp := in.(protocol.GlobalStatusResponse)
+	resp := in.(message.GlobalStatusResponse)
 	return AbstractGlobalEndResponseEncoder(resp.AbstractGlobalEndResponse)
 }
 
@@ -551,7 +548,7 @@ func UndoLogDeleteRequestEncoder(in interface{}) []byte {
 	)
 	w := byteio.BigEndianWriter{Writer: &b}
 
-	req, _ := in.(protocol.UndoLogDeleteRequest)
+	req, _ := in.(message.UndoLogDeleteRequest)
 
 	w.WriteByte(byte(req.BranchType))
 	if req.ResourceId != "" {

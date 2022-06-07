@@ -3,13 +3,13 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/seata/seata-go/pkg/common/xid"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 import (
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting"
 	_ "github.com/seata/seata-go/pkg/utils/xid"
-	xid_utils "github.com/seata/seata-go/pkg/utils/xid"
 )
 
 // 注册RM资源
@@ -21,7 +21,7 @@ type MockTccService struct {
 }
 
 func (*MockTccService) Prepare(ctx context.Context, params interface{}) error {
-	xid := xid_utils.GetXID(ctx)
+	xid := xid_utils.xid_utils.GetXID(ctx)
 	fmt.Printf("TccActionOne prepare, xid:" + xid)
 	return nil
 }

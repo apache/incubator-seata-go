@@ -2,12 +2,12 @@ package test
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/common/model"
+	"github.com/seata/seata-go/pkg/common/log"
 	_ "github.com/seata/seata-go/pkg/imports"
+	context2 "github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting"
-	"github.com/seata/seata-go/pkg/utils/log"
 	"testing"
 )
 
@@ -43,7 +43,7 @@ func (T TestTCCServiceBusiness) GetServiceType() remoting.ServiceType {
 
 func TestNew(test *testing.T) {
 	tccService := tcc.NewTCCServiceProxy(TestTCCServiceBusiness{})
-	tccService.Prepare(model.InitSeataContext(context.Background()), 1)
+	tccService.Prepare(context2.InitSeataContext(context.Background()), 1)
 
 	//time.Sleep(time.Second * 1000)
 }
