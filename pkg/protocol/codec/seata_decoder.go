@@ -13,6 +13,7 @@ import (
 	"github.com/seata/seata-go/pkg/protocol"
 )
 
+// TODO 待重构
 func AbstractResultMessageDecoder(in []byte) (interface{}, int) {
 	var (
 		length16   uint16 = 0

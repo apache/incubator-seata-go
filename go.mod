@@ -6,7 +6,6 @@ require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/dubbogo/gost v1.11.23
-	github.com/dubbogo/tools v1.0.9 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1

@@ -13,6 +13,7 @@ import (
 	"github.com/seata/seata-go/pkg/utils/log"
 )
 
+// TODO 待重构
 func AbstractResultMessageEncoder(in interface{}) []byte {
 	var (
 		zero16 int16 = 0

@@ -60,6 +60,7 @@ func (client *GettyRemoting) SendASync(msg protocol.RpcMessage) error {
 	return err
 }
 
+// TODO 待重构
 func (client *GettyRemoting) sendAsync(session getty.Session, msg protocol.RpcMessage, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil || session.IsClosed() {
@@ -76,9 +77,15 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg protocol.RpcMe
 
 	log.Debugf("send message: %#v, session: %s", msg, session.Stat())
 
-	if timeout > time.Duration(0) {
+	actualTimeOut := timeout
+	if timeout <= time.Duration(0) {
+		// todo timeoue use config
+		actualTimeOut = time.Duration(200)
+	}
+
+	wait := func() (interface{}, error) {
 		select {
-		case <-gxtime.GetDefaultTimerWheel().After(timeout):
+		case <-gxtime.GetDefaultTimerWheel().After(actualTimeOut):
 			client.futures.Delete(msg.ID)
 			if session != nil {
 				return nil, errors.Errorf("wait response timeout, ip: %s, request: %#v", session.RemoteAddr(), msg)
@@ -91,6 +98,11 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg protocol.RpcMe
 		}
 	}
 
+	if timeout > time.Duration(0) {
+		return wait()
+	} else {
+		go wait()
+	}
 	return nil, err
 }
 
@@ -116,15 +128,15 @@ func (client *GettyRemoting) GetMergedMessage(msgID int32) *protocol.MergedWarpM
 	return nil
 }
 
-func (client *GettyRemoting) NotifytRpcMessageResponse(rpcMessage protocol.RpcMessage) {
+func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage protocol.RpcMessage) {
 	messageFuture := client.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
 		messageFuture.Response = rpcMessage.Body
-		// todo messageFuture.Err怎么配置呢？
+		// todo add messageFuture.Err
 		//messageFuture.Err = rpcMessage.Err
 		messageFuture.Done <- true
-		//client.futures.Delete(rpcMessage.ID)
+		//client.msgFutures.Delete(rpcMessage.ID)
 	} else {
-		log.Infof("msg: {} is not found in futures.", rpcMessage.ID)
+		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
 	}
 }

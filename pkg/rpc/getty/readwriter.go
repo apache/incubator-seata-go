@@ -50,6 +50,7 @@ var (
 	rpcPkgHandler = &RpcPackageHandler{}
 )
 
+// TODO 待重构
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
 	ErrTooLargePackage = errors.New("package length is exceed the getty package's legal maximum length.")

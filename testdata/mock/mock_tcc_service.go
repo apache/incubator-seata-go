@@ -3,10 +3,10 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 import (
-	"github.com/seata/seata-go/pkg/rm/api"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting"
 	_ "github.com/seata/seata-go/pkg/utils/xid"
 	xid_utils "github.com/seata/seata-go/pkg/utils/xid"

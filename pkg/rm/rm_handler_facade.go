@@ -1,6 +1,7 @@
 package rm
 
 import (
+	"context"
 	"sync"
 )
 
@@ -28,20 +29,20 @@ func GetRMHandlerFacadeInstance() *RMHandlerFacade {
 }
 
 // Handle branch commit response.
-func (h *RMHandlerFacade) HandleBranchCommitRequest(request protocol.BranchCommitRequest) (*protocol.BranchCommitResponse, error) {
-	return h.getRMHandler(request.BranchType).HandleBranchCommitRequest(request)
+func (h *RMHandlerFacade) HandleBranchCommitRequest(ctx context.Context, request protocol.BranchCommitRequest) (*protocol.BranchCommitResponse, error) {
+	return h.getRMHandler(request.BranchType).HandleBranchCommitRequest(ctx, request)
 }
 
 // Handle branch rollback response.
 // TODO
-func (h *RMHandlerFacade) HandleBranchRollbackRequest(request protocol.BranchRollbackRequest) (*protocol.BranchRollbackResponse, error) {
-	return h.getRMHandler(request.BranchType).HandleBranchRollbackRequest(request)
+func (h *RMHandlerFacade) HandleBranchRollbackRequest(ctx context.Context, request protocol.BranchRollbackRequest) (*protocol.BranchRollbackResponse, error) {
+	return h.getRMHandler(request.BranchType).HandleBranchRollbackRequest(ctx, request)
 }
 
 // Handle delete undo log .
 // TODO
-func (h *RMHandlerFacade) HandleUndoLogDeleteRequest(request protocol.UndoLogDeleteRequest) error {
-	return h.getRMHandler(request.BranchType).HandleUndoLogDeleteRequest(request)
+func (h *RMHandlerFacade) HandleUndoLogDeleteRequest(ctx context.Context, request protocol.UndoLogDeleteRequest) error {
+	return h.getRMHandler(request.BranchType).HandleUndoLogDeleteRequest(ctx, request)
 }
 
 func (h *RMHandlerFacade) RegisteRMHandler(handler *CommonRMHandler) {

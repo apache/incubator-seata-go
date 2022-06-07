@@ -2,14 +2,11 @@ package xid_utils
 
 import (
 	"context"
-)
-
-import (
-	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/common/model"
 )
 
 func GetXID(ctx context.Context) string {
-	xid := ctx.Value(common.XID)
+	xid := ctx.Value(model.XID)
 	if xid == nil {
 		return ""
 	}
@@ -21,5 +18,5 @@ func HasXID(ctx context.Context) bool {
 }
 
 func SetXID(ctx context.Context, xid string) context.Context {
-	return context.WithValue(ctx, common.XID, xid)
+	return context.WithValue(ctx, model.XID, xid)
 }

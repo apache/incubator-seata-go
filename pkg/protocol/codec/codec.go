@@ -15,6 +15,7 @@ import (
 
 type SerializerType byte
 
+// TODO 待重构
 const (
 	SEATA    = byte(0x1)
 	PROTOBUF = byte(0x2)
