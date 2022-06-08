@@ -13,8 +13,6 @@ type ClientConfig struct {
 	SeataVersion                 string      `yaml:"seata_version" json:"seata_version,omitempty"`
 	GettyConfig                  GettyConfig `yaml:"getty" json:"getty,omitempty"`
 
-	TMConfig TMConfig `yaml:"tm" json:"tm,omitempty"`
-
 	ATConfig struct {
 		DSN                 string        `yaml:"dsn" json:"dsn,omitempty"`
 		ReportRetryCount    int           `default:"5" yaml:"report_retry_count" json:"report_retry_count,omitempty"`
@@ -22,21 +20,12 @@ type ClientConfig struct {
 		LockRetryInterval   time.Duration `default:"10ms" yaml:"lock_retry_interval" json:"lock_retry_interval,omitempty"`
 		LockRetryTimes      int           `default:"30" yaml:"lock_retry_times" json:"lock_retry_times,omitempty"`
 	} `yaml:"at" json:"at,omitempty"`
-
-	RegistryConfig     RegistryConfig     `yaml:"registry_config" json:"registry_config,omitempty"` //注册中心配置信息
-	ConfigCenterConfig ConfigCenterConfig `yaml:"config_center" json:"config_center,omitempty"`     //配置中心配置信息
 }
 
 func GetClientConfig() *ClientConfig {
-	// todo mock data
-	//return clientConfig
 	return &ClientConfig{
 		GettyConfig: GetDefaultGettyConfig(),
 	}
-}
-
-func GetTMConfig() TMConfig {
-	return clientConfig.TMConfig
 }
 
 func GetDefaultClientConfig(applicationID string) *ClientConfig {
@@ -46,6 +35,5 @@ func GetDefaultClientConfig(applicationID string) *ClientConfig {
 		EnableClientBatchSendRequest: false,
 		SeataVersion:                 "1.1.0",
 		GettyConfig:                  GetDefaultGettyConfig(),
-		TMConfig:                     GetDefaultTmConfig(),
 	}
 }

@@ -27,12 +27,6 @@ type TCCResource struct {
 	ResourceGroupId string `default:"DEFAULT"`
 	AppName         string
 	ActionName      string
-	//TargetBean         interface{}
-	//PrepareMethod      reflect.Method
-	//CommitMethodName   string
-	//CommitMethod       reflect.Method
-	//RollbackMethodName string
-	//RollbackMethod     reflect.Method
 }
 
 func (t *TCCResource) GetResourceGroupId() string {
