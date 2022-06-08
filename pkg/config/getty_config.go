@@ -29,7 +29,7 @@ func GetDefaultGettyConfig() GettyConfig {
 			TCPNoDelay:       true,
 			TCPKeepAlive:     true,
 			KeepAlivePeriod:  180 * time.Second,
-			TCPRBufSize:      262144,
+			TCPRBufSize:      2144,
 			TCPWBufSize:      65536,
 			TCPReadTimeout:   time.Second,
 			TCPWriteTimeout:  5 * time.Second,

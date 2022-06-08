@@ -57,7 +57,6 @@ func (client *GettyRemoting) SendASync(msg message.RpcMessage) error {
 	return err
 }
 
-// TODO 待重构
 func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
 	var err error
 	if session == nil || session.IsClosed() {
