@@ -34,7 +34,7 @@ linters-settings:
 
 linters:
   disable-all: true
-  enable:a
+  enable:
     - govet
     - staticcheck
     - ineffassign
