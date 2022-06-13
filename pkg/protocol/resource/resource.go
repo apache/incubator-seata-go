@@ -2,8 +2,11 @@ package resource
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"sync"
+)
+
+import (
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 // Resource that can be managed by Resource Manager and involved into global transaction

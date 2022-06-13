@@ -2,9 +2,6 @@ package getty
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/processor"
 	"sync"
 )
 
@@ -15,7 +12,10 @@ import (
 )
 
 import (
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/remoting/processor"
 )
 
 var (
@@ -47,7 +47,7 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 }
 
 func (client *gettyClientHandler) OnOpen(session getty.Session) error {
-	clientSessionManager.RegisterGettySession(session)
+	sessionManager.RegisterGettySession(session)
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			Version:                 client.conf.SeataVersion,
@@ -58,7 +58,7 @@ func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
 		if err != nil {
 			log.Error("OnOpen error: {%#v}", err.Error())
-			clientSessionManager.ReleaseGettySession(session)
+			sessionManager.ReleaseGettySession(session)
 			return
 		}
 
@@ -70,11 +70,11 @@ func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 }
 
 func (client *gettyClientHandler) OnError(session getty.Session, err error) {
-	clientSessionManager.ReleaseGettySession(session)
+	sessionManager.ReleaseGettySession(session)
 }
 
 func (client *gettyClientHandler) OnClose(session getty.Session) {
-	clientSessionManager.ReleaseGettySession(session)
+	sessionManager.ReleaseGettySession(session)
 }
 
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {

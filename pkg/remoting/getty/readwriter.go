@@ -1,21 +1,20 @@
 package getty
 
 import (
-	"bytes"
-	"encoding/binary"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"fmt"
 )
 
 import (
 	getty "github.com/apache/dubbo-getty"
 
-	"github.com/pkg/errors"
+	"github.com/fagongzi/goetty"
 
-	"vimagination.zapto.org/byteio"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/seata/seata-go/pkg/protocol/codec"
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 /**
@@ -42,15 +41,14 @@ import (
  * https://github.com/seata/seata/issues/893
  */
 const (
-	SeataV1PackageHeaderReservedLength = 16
+	Seatav1HeaderLength = 16
 )
 
 var (
-	// RpcPkgHandler
+	magics        = []uint8{0xda, 0xda}
 	rpcPkgHandler = &RpcPackageHandler{}
 )
 
-// TODO 待重构
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
 	ErrTooLargePackage = errors.New("package length is exceed the getty package's legal maximum length.")
@@ -69,90 +67,50 @@ type SeataV1PackageHeader struct {
 	MessageType  message.GettyRequestType
 	CodecType    byte
 	CompressType byte
-	ID           uint32
+	RequestID    uint32
 	Meta         map[string]string
 	BodyLength   uint32
+	Body         interface{}
 }
 
-func (h *SeataV1PackageHeader) Unmarshal(buf *bytes.Buffer) (int, error) {
-	bufLen := buf.Len()
-	if bufLen < SeataV1PackageHeaderReservedLength {
-		return 0, ErrNotEnoughStream
-	}
-
-	// magic
-	if err := binary.Read(buf, binary.BigEndian, &(h.Magic0)); err != nil {
-		return 0, err
-	}
-	if err := binary.Read(buf, binary.BigEndian, &(h.Magic1)); err != nil {
-		return 0, err
-	}
-	if h.Magic0 != message.MAGIC_CODE_BYTES[0] || h.Magic1 != message.MAGIC_CODE_BYTES[1] {
-		return 0, ErrIllegalMagic
-	}
-	// version
-	if err := binary.Read(buf, binary.BigEndian, &(h.Version)); err != nil {
-		return 0, err
-	}
-	// TODO  check version compatible here
-
-	// total length
-	if err := binary.Read(buf, binary.BigEndian, &(h.TotalLength)); err != nil {
-		return 0, err
-	}
-	// head length
-	if err := binary.Read(buf, binary.BigEndian, &(h.HeadLength)); err != nil {
-		return 0, err
-	}
-	// message type
-	if err := binary.Read(buf, binary.BigEndian, &(h.MessageType)); err != nil {
-		return 0, err
-	}
-	// codec type
-	if err := binary.Read(buf, binary.BigEndian, &(h.CodecType)); err != nil {
-		return 0, err
-	}
-	// compress type
-	if err := binary.Read(buf, binary.BigEndian, &(h.CompressType)); err != nil {
-		return 0, err
-	}
-	// id
-	if err := binary.Read(buf, binary.BigEndian, &(h.ID)); err != nil {
-		return 0, err
-	}
-	// todo meta map
-	if h.HeadLength > SeataV1PackageHeaderReservedLength {
-		headMapLength := h.HeadLength - SeataV1PackageHeaderReservedLength
-		h.Meta = headMapDecode(buf.Bytes()[:headMapLength])
-	}
-	h.BodyLength = h.TotalLength - uint32(h.HeadLength)
-
-	return int(h.TotalLength), nil
-}
-
-// Read read binary data from to rpc message
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	var header SeataV1PackageHeader
+	in := goetty.NewByteBuf(len(data))
+	in.Write(data)
 
-	buf := bytes.NewBuffer(data)
-	_, err := header.Unmarshal(buf)
-	if err != nil {
-		if err == ErrNotEnoughStream {
-			// getty case2
-			return nil, 0, nil
-		}
-		// getty case1
-		return nil, 0, err
+	header := SeataV1PackageHeader{}
+	if in.Readable() < Seatav1HeaderLength {
+		return nil, 0, fmt.Errorf("invalid package length")
 	}
+
+	magic0 := codec.ReadByte(in)
+	magic1 := codec.ReadByte(in)
+	if magic0 != magics[0] || magic1 != magics[1] {
+		return nil, 0, fmt.Errorf("codec decode not found magic offset")
+	}
+
+	header.Magic0 = magic0
+	header.Magic1 = magic1
+	header.Version = codec.ReadByte(in)
+	// length of head and body
+	header.TotalLength = codec.ReadUInt32(in)
+	header.HeadLength = codec.ReadUInt16(in)
+	header.MessageType = message.GettyRequestType(codec.ReadByte(in))
+	header.CodecType = codec.ReadByte(in)
+	header.CompressType = codec.ReadByte(in)
+	header.RequestID = codec.ReadUInt32(in)
+
+	headMapLength := header.HeadLength - Seatav1HeaderLength
+	header.Meta = decodeHeapMap(in, headMapLength)
+	header.BodyLength = header.TotalLength - uint32(header.HeadLength)
+
 	if uint32(len(data)) < header.TotalLength {
-		// get case3
 		return nil, int(header.TotalLength), nil
 	}
 
 	//r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 	rpcMessage := message.RpcMessage{
 		Codec:      header.CodecType,
-		ID:         int32(header.ID),
+		ID:         int32(header.RequestID),
 		Compressor: header.CompressType,
 		Type:       header.MessageType,
 		HeadMap:    header.Meta,
@@ -164,8 +122,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		rpcMessage.Body = message.HeartBeatMessagePong
 	} else {
 		if header.BodyLength > 0 {
-			//todo compress
-			msg, _ := codec.MessageDecoder(header.CodecType, data[header.HeadLength:])
+			msg := codec.GetCodecManager().Decode(codec.CodecType(header.CodecType), data[header.HeadLength:])
 			rpcMessage.Body = msg
 		}
 	}
@@ -180,101 +137,91 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		return nil, ErrInvalidPackage
 	}
 
-	fullLength := message.V1HeadLength
+	totalLength := message.V1HeadLength
 	headLength := message.V1HeadLength
-	var result = make([]byte, 0, fullLength)
 
-	var b bytes.Buffer
-	w := byteio.BigEndianWriter{Writer: &b}
-
-	result = append(result, message.MAGIC_CODE_BYTES[:2]...)
-	result = append(result, message.VERSION)
-
-	w.WriteByte(byte(msg.Type))
-	w.WriteByte(msg.Codec)
-	w.WriteByte(msg.Compressor)
-	w.WriteInt32(msg.ID)
-
+	var headMapBytes []byte
 	if msg.HeadMap != nil && len(msg.HeadMap) > 0 {
-		headMapBytes, headMapLength := headMapEncode(msg.HeadMap)
+		hb, headMapLength := encodeHeapMap(msg.HeadMap)
+		headMapBytes = hb
 		headLength += headMapLength
-		fullLength += headMapLength
-		w.Write(headMapBytes)
+		totalLength += headMapLength
 	}
 
+	var bodyBytes []byte
 	if msg.Type != message.GettyRequestType_HeartbeatRequest &&
 		msg.Type != message.GettyRequestType_HeartbeatResponse {
-
-		bodyBytes := codec.MessageEncoder(msg.Codec, msg.Body)
-		fullLength += len(bodyBytes)
-		w.Write(bodyBytes)
+		bodyBytes = codec.GetCodecManager().Encode(codec.CodecType(msg.Codec), msg.Body)
+		totalLength += len(bodyBytes)
 	}
 
-	fullLen := int32(fullLength)
-	headLen := int16(headLength)
-	result = append(result, []byte{byte(fullLen >> 24), byte(fullLen >> 16), byte(fullLen >> 8), byte(fullLen)}...)
-	result = append(result, []byte{byte(headLen >> 8), byte(headLen)}...)
-	result = append(result, b.Bytes()...)
+	buf := goetty.NewByteBuf(0)
+	buf.WriteByte(message.MAGIC_CODE_BYTES[0])
+	buf.WriteByte(message.MAGIC_CODE_BYTES[1])
+	buf.WriteByte(message.VERSION)
+	buf.WriteUInt32(uint32(totalLength))
+	buf.WriteUInt16(uint16(headLength))
+	buf.WriteByte(byte(msg.Type))
+	buf.WriteByte(msg.Codec)
+	buf.WriteByte(msg.Compressor)
+	buf.WriteUInt32(uint32(msg.ID))
+	buf.Write(headMapBytes)
+	buf.Write(bodyBytes)
 
-	return result, nil
+	return buf.RawBuf(), nil
 }
 
-func headMapDecode(data []byte) map[string]string {
-	size := len(data)
-	if size == 0 {
-		return nil
-	}
-
-	mp := make(map[string]string)
-	r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
-
-	readLength := 0
-	for readLength < size {
-		var key, value string
-		lengthK, _, _ := r.ReadUint16()
-		if lengthK < 0 {
-			break
-		} else if lengthK == 0 {
-			key = ""
-		} else {
-			key, _, _ = r.ReadString(int(lengthK))
-		}
-
-		lengthV, _, _ := r.ReadUint16()
-		if lengthV < 0 {
-			break
-		} else if lengthV == 0 {
-			value = ""
-		} else {
-			value, _, _ = r.ReadString(int(lengthV))
-		}
-
-		mp[key] = value
-		readLength += int(lengthK + lengthV)
-	}
-
-	return mp
-}
-
-func headMapEncode(data map[string]string) ([]byte, int) {
-	var b bytes.Buffer
-
-	w := byteio.BigEndianWriter{Writer: &b}
+func encodeHeapMap(data map[string]string) ([]byte, int) {
+	buf := goetty.NewByteBuf(0)
 	for k, v := range data {
 		if k == "" {
-			w.WriteUint16(0)
+			buf.WriteUInt16(uint16(0))
 		} else {
-			w.WriteUint16(uint16(len(k)))
-			w.WriteString(k)
+			buf.WriteUInt16(uint16(len(k)))
+			buf.WriteString(k)
 		}
 
 		if v == "" {
-			w.WriteUint16(0)
+			buf.WriteUInt16(uint16(0))
 		} else {
-			w.WriteUint16(uint16(len(v)))
-			w.WriteString(v)
+			buf.WriteUInt16(uint16(len(v)))
+			buf.WriteString(v)
 		}
 	}
+	res := buf.RawBuf()
+	return res, len(res)
+}
 
-	return b.Bytes(), b.Len()
+func decodeHeapMap(in *goetty.ByteBuf, length uint16) map[string]string {
+	res := make(map[string]string, 0)
+	if length == 0 {
+		return res
+	}
+
+	readedLength := uint16(0)
+	for readedLength < length {
+		var key, value string
+		keyLength := codec.ReadUInt16(in)
+		if keyLength == 0 {
+			key = ""
+		} else {
+			keyBytes := make([]byte, keyLength)
+			keyBytes = codec.Read(in, keyBytes)
+			key = string(keyBytes)
+		}
+
+		valueLength := codec.ReadUInt16(in)
+		if valueLength == 0 {
+			key = ""
+		} else {
+			valueBytes := make([]byte, valueLength)
+			valueBytes = codec.Read(in, valueBytes)
+			value = string(valueBytes)
+		}
+
+		res[key] = value
+		readedLength += 4 + keyLength + valueLength
+		fmt.Sprintln("done")
+	}
+	return res
 }
