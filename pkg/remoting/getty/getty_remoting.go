@@ -1,8 +1,6 @@
 package getty
 
 import (
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"sync"
 	"time"
 )
@@ -13,6 +11,11 @@ import (
 	gxtime "github.com/dubbogo/gost/time"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 const (
@@ -42,17 +45,17 @@ func GetGettyRemotingInstance() *GettyRemoting {
 }
 
 func (client *GettyRemoting) SendSync(msg message.RpcMessage) (interface{}, error) {
-	ss := clientSessionManager.AcquireGettySession()
+	ss := sessionManager.AcquireGettySession()
 	return client.sendAsync(ss, msg, RPC_REQUEST_TIMEOUT)
 }
 
 func (client *GettyRemoting) SendSyncWithTimeout(msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
-	ss := clientSessionManager.AcquireGettySession()
+	ss := sessionManager.AcquireGettySession()
 	return client.sendAsync(ss, msg, timeout)
 }
 
 func (client *GettyRemoting) SendASync(msg message.RpcMessage) error {
-	ss := clientSessionManager.AcquireGettySession()
+	ss := sessionManager.AcquireGettySession()
 	_, err := client.sendAsync(ss, msg, 0*time.Second)
 	return err
 }
@@ -131,7 +134,7 @@ func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMess
 		// todo add messageFuture.Err
 		//messageFuture.Err = rpcMessage.Err
 		messageFuture.Done <- true
-		//client.msgFutures.Delete(rpcMessage.ID)
+		//client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
 	}

@@ -34,6 +34,7 @@ func GetDefaultGettyConfig() GettyConfig {
 			TCPReadTimeout:   time.Second,
 			TCPWriteTimeout:  5 * time.Second,
 			WaitTimeout:      time.Second,
+			CronPeriod:       time.Second,
 			MaxMsgLen:        4096,
 			SessionName:      "rpc_client",
 		},
@@ -46,6 +47,7 @@ type GettySessionParam struct {
 	TCPNoDelay       bool          `default:"true" yaml:"tcp_no_delay" json:"tcp_no_delay,omitempty"`
 	TCPKeepAlive     bool          `default:"true" yaml:"tcp_keep_alive" json:"tcp_keep_alive,omitempty"`
 	KeepAlivePeriod  time.Duration `default:"180s" yaml:"keep_alive_period" json:"keep_alive_period,omitempty"`
+	CronPeriod       time.Duration `default:"1s" yaml:"keep_alive_period" json:"keep_alive_period,omitempty"`
 	TCPRBufSize      int           `default:"262144" yaml:"tcp_r_buf_size" json:"tcp_r_buf_size,omitempty"`
 	TCPWBufSize      int           `default:"65536" yaml:"tcp_w_buf_size" json:"tcp_w_buf_size,omitempty"`
 	TCPReadTimeout   time.Duration `default:"1s" yaml:"tcp_read_timeout" json:"tcp_read_timeout,omitempty"`

@@ -8,7 +8,7 @@ const (
 )
 
 type TransactionManager interface {
-	// Begin a new global transaction.
+	// GlobalStatusBegin a new global transaction.
 	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)
 
 	// Global commit.

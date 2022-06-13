@@ -22,12 +22,12 @@ var (
 
 	sessionSize int32 = 0
 
-	clientSessionManager = &GettyClientSessionManager{}
+	sessionManager = &GettySessionManager{}
 )
 
-type GettyClientSessionManager struct{}
+type GettySessionManager struct{}
 
-func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Session {
+func (sessionManager *GettySessionManager) AcquireGettySession() getty.Session {
 	// map 遍历是随机的
 	var session getty.Session
 	allSessions.Range(func(key, value interface{}) bool {
@@ -64,7 +64,7 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySession() getty.Ses
 	return nil
 }
 
-func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddress(serverAddress string) getty.Session {
+func (sessionManager *GettySessionManager) AcquireGettySessionByServerAddress(serverAddress string) getty.Session {
 	m, _ := serverSessions.LoadOrStore(serverAddress, &sync.Map{})
 	sMap := m.(*sync.Map)
 
@@ -81,7 +81,7 @@ func (sessionManager *GettyClientSessionManager) AcquireGettySessionByServerAddr
 	return session
 }
 
-func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session getty.Session) {
+func (sessionManager *GettySessionManager) ReleaseGettySession(session getty.Session) {
 	allSessions.Delete(session)
 	if !session.IsClosed() {
 		m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
@@ -92,7 +92,7 @@ func (sessionManager *GettyClientSessionManager) ReleaseGettySession(session get
 	atomic.AddInt32(&sessionSize, -1)
 }
 
-func (sessionManager *GettyClientSessionManager) RegisterGettySession(session getty.Session) {
+func (sessionManager *GettySessionManager) RegisterGettySession(session getty.Session) {
 	allSessions.Store(session, true)
 	m, _ := serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 	sMap := m.(*sync.Map)

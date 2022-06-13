@@ -2,13 +2,16 @@ package test
 
 import (
 	"context"
+	"testing"
+	"time"
+)
+
+import (
 	"github.com/seata/seata-go/pkg/common/log"
 	_ "github.com/seata/seata-go/pkg/imports"
-	context2 "github.com/seata/seata-go/pkg/protocol/transaction"
+	txapi "github.com/seata/seata-go/pkg/protocol/transaction/api"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
-	"github.com/seata/seata-go/pkg/rm/tcc/remoting"
-	"testing"
 )
 
 type TestTCCServiceBusiness struct {
@@ -33,17 +36,41 @@ func (T TestTCCServiceBusiness) GetActionName() string {
 	return "TestTCCServiceBusiness"
 }
 
-func (T TestTCCServiceBusiness) GetRemoteType() remoting.RemoteType {
-	return remoting.RemoteTypeLocalService
+type TestTCCServiceBusiness2 struct {
 }
 
-func (T TestTCCServiceBusiness) GetServiceType() remoting.ServiceType {
-	return remoting.ServiceTypeProvider
+func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}) error {
+	log.Infof("TestTCCServiceBusiness2 Prepare, param %v", params)
+	return nil
+}
+
+func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+	log.Infof("TestTCCServiceBusiness2 Commit, param %v", businessActionContext)
+	return nil
+}
+
+func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+	log.Infof("TestTCCServiceBusiness2 Rollback, param %v", businessActionContext)
+	return nil
+}
+
+func (T TestTCCServiceBusiness2) GetActionName() string {
+	return "TestTCCServiceBusiness2"
 }
 
 func TestNew(test *testing.T) {
-	tccService := tcc.NewTCCServiceProxy(TestTCCServiceBusiness{})
-	tccService.Prepare(context2.InitSeataContext(context.Background()), 1)
+	var err error
+	ctx := txapi.Begin(context.Background(), "TestTCCServiceBusiness")
+	defer func() {
+		resp := txapi.CommitOrRollback(ctx, err)
+		log.Infof("tx result %v", resp)
+	}()
 
-	//time.Sleep(time.Second * 1000)
+	tccService := tcc.NewTCCServiceProxy(TestTCCServiceBusiness{})
+	err = tccService.Prepare(ctx, 1)
+
+	tccService2 := tcc.NewTCCServiceProxy(TestTCCServiceBusiness2{})
+	err = tccService2.Prepare(ctx, 3)
+
+	time.Sleep(time.Second * 1000)
 }

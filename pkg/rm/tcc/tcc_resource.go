@@ -3,18 +3,18 @@ package tcc
 import (
 	"context"
 	"fmt"
+	"sync"
+)
+
+import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/common/remoting"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
-	"sync"
-)
-
-import (
-	"github.com/seata/seata-go/pkg/rm"
 )
 
 var (
@@ -111,7 +111,7 @@ func (t *TCCResourceManager) GetManagedResources() sync.Map {
 func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (branch.BranchStatus, error) {
 	var tccResource *TCCResource
 	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
-		err := fmt.Errorf("CC resource is not exist, resourceId: %s", resourceID)
+		err := fmt.Errorf("TCC resource is not exist, resourceId: %s", resourceID)
 		return 0, err
 	} else {
 		tccResource, _ = resource.(*TCCResource)

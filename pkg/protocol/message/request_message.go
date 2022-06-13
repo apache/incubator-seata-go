@@ -6,6 +6,7 @@ import (
 )
 
 type AbstractBranchEndRequest struct {
+	MessageTypeAware
 	Xid             string
 	BranchId        int64
 	BranchType      model2.BranchType
