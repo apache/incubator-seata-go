@@ -19,7 +19,6 @@ package test
 
 import (
 	"testing"
-	"time"
 )
 
 import (
@@ -40,5 +39,5 @@ func TestSendMsgWithResponse(test *testing.T) {
 	//}
 	//handler := GetGettyClientHandlerInstance()
 	//handler.sendMergedMessage(mergedMessage)
-	time.Sleep(100000 * time.Second)
+	//time.Sleep(100000 * time.Second)
 }
