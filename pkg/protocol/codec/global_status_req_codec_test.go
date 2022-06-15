@@ -19,29 +19,21 @@ package codec
 
 import (
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMResponseCodec{})
-}
-
-type RegisterTMResponseCodec struct {
-	AbstractIdentifyResponseCodec
-}
-
-func (g *RegisterTMResponseCodec) Decode(in []byte) interface{} {
-	req := g.AbstractIdentifyResponseCodec.Decode(in)
-	abstractIdentifyResponse := req.(message.AbstractIdentifyResponse)
-	return message.RegisterTMResponse{
-		AbstractIdentifyResponse: abstractIdentifyResponse,
+func TestGlobalStatusRequestCodec(t *testing.T) {
+	msg := message.GlobalStatusRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
+			Xid:       "test-transaction-id",
+			ExtraData: []byte("TestExtraData"),
+		},
 	}
-}
 
-func (c *RegisterTMResponseCodec) Encode(in interface{}) []byte {
-	resp := in.(message.RegisterTMResponse)
-	return c.AbstractIdentifyResponseCodec.Encode(resp.AbstractIdentifyResponse)
-}
+	codec := GlobalStatusRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
 
-func (g *RegisterTMResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_RegCltResult
+	assert.Equal(t, msg, msg2)
 }

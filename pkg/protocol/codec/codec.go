@@ -33,12 +33,11 @@ import (
 
 type CodecType byte
 
-// TODO 待重构
 const (
-	CodeTypeSeata    = CodecType(0x1)
-	CodeTypeProtobuf = CodecType(0x2)
-	CodeTypeKRYO     = CodecType(0x4)
-	CodeTypeFST      = CodecType(0x8)
+	CodecTypeSeata    = CodecType(0x1)
+	CodecTypeProtobuf = CodecType(0x2)
+	CodecTypeKRYO     = CodecType(0x4)
+	CodecTypeFST      = CodecType(0x8)
 )
 
 type Codec interface {

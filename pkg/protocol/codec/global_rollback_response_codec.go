@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalRollbackResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalRollbackResponseCodec{})
 }
 
 type GlobalRollbackResponseCodec struct {
@@ -35,6 +35,11 @@ func (g *GlobalRollbackResponseCodec) Decode(in []byte) interface{} {
 	return message.GlobalRollbackResponse{
 		AbstractGlobalEndResponse: abstractGlobalEndRequest,
 	}
+}
+
+func (g *GlobalRollbackResponseCodec) Encode(in interface{}) []byte {
+	req := in.(message.GlobalRollbackResponse)
+	return g.CommonGlobalEndResponseCodec.Encode(req.AbstractGlobalEndResponse)
 }
 
 func (g *GlobalRollbackResponseCodec) GetMessageType() message.MessageType {

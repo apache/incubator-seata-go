@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &BranchRegisterRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterRequestCodec{})
 }
 
 type BranchRegisterRequestCodec struct {

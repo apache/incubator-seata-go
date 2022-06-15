@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &RegisterTMRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMRequestCodec{})
 }
 
 type RegisterTMRequestCodec struct {

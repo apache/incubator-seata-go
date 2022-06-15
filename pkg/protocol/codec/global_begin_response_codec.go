@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalBeginResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginResponseCodec{})
 }
 
 type GlobalBeginResponseCodec struct {

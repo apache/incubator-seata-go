@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &RegisterRMRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
 }
 
 type RegisterRMRequestCodec struct {
@@ -78,7 +78,7 @@ func (c *RegisterRMRequestCodec) Encode(in interface{}) []byte {
 	Write16String(req.ApplicationId, buf)
 	Write16String(req.TransactionServiceGroup, buf)
 	Write16String(string(req.ExtraData), buf)
-	Write16String(req.ResourceIds, buf)
+	Write32String(req.ResourceIds, buf)
 
 	return buf.RawBuf()
 }

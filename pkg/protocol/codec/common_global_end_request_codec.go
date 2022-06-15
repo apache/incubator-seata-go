@@ -43,25 +43,17 @@ func (c *CommonGlobalEndRequestCodec) Decode(in []byte) interface{} {
 
 	buf := goetty.NewByteBuf(len(in))
 	buf.Write(in)
+	var length uint16
 
-	var xidLen int
-	if buf.Readable() >= 2 {
-		xidLen = int(ReadUInt16(buf))
+	length = ReadUInt16(buf)
+	if length > 0 {
+		bytes := make([]byte, length)
+		res.Xid = string(Read(buf, bytes))
 	}
-	if buf.Readable() >= xidLen {
-		xidBytes := make([]byte, xidLen)
-		xidBytes = Read(buf, xidBytes)
-		res.Xid = string(xidBytes)
-	}
-
-	var extraDataLen int
-	if buf.Readable() >= 2 {
-		extraDataLen = int(ReadUInt16(buf))
-	}
-	if buf.Readable() >= extraDataLen {
-		extraDataBytes := make([]byte, xidLen)
-		extraDataBytes = Read(buf, extraDataBytes)
-		res.ExtraData = extraDataBytes
+	length = ReadUInt16(buf)
+	if length > 0 {
+		bytes := make([]byte, length)
+		res.ExtraData = Read(buf, bytes)
 	}
 
 	return res

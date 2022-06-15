@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &BranchRegisterResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterResponseCodec{})
 }
 
 type BranchRegisterResponseCodec struct {
@@ -59,8 +59,8 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 	buf := goetty.NewByteBuf(0)
 	resp, _ := in.(message.BranchRegisterResponse)
 
-	resultCode := ReadByte(buf)
-	if resultCode == byte(message.ResultCodeFailed) {
+	buf.WriteByte(byte(resp.ResultCode))
+	if resp.ResultCode == message.ResultCodeFailed {
 		var msg string
 		if len(resp.Msg) > 128 {
 			msg = resp.Msg[:128]
@@ -72,17 +72,17 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 
 	buf.WriteByte(byte(resp.TransactionExceptionCode))
 	branchID := uint64(resp.BranchId)
-	branchIdBytes := []byte{
-		byte(branchID >> 56),
-		byte(branchID >> 48),
-		byte(branchID >> 40),
-		byte(branchID >> 32),
-		byte(branchID >> 24),
-		byte(branchID >> 16),
-		byte(branchID >> 8),
-		byte(branchID),
-	}
-	buf.Write(branchIdBytes)
+	//branchIdBytes := []byte{
+	//	byte(branchID >> 56),
+	//	byte(branchID >> 48),
+	//	byte(branchID >> 40),
+	//	byte(branchID >> 32),
+	//	byte(branchID >> 24),
+	//	byte(branchID >> 16),
+	//	byte(branchID >> 8),
+	//	byte(branchID),
+	//}
+	buf.WriteUInt64(branchID)
 	return buf.RawBuf()
 }
 

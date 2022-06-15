@@ -97,8 +97,8 @@ func (d *ResourceManager) UnregisterResource(resource resource.Resource) error {
 }
 
 // Get all resources managed by this manager
-func (d *ResourceManager) GetManagedResources() sync.Map {
-	return resourceManagerMap
+func (d *ResourceManager) GetManagedResources() *sync.Map {
+	return &resourceManagerMap
 }
 
 // Get the model.BranchType
