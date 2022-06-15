@@ -61,7 +61,7 @@ type ResourceManager interface {
 	//  Unregister a Resource from the Resource Manager
 	UnregisterResource(resource Resource) error
 	// Get all resources managed by this manager
-	GetManagedResources() sync.Map
+	GetManagedResources() *sync.Map
 	// Get the BranchType
 	GetBranchType() branch.BranchType
 }

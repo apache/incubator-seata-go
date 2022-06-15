@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &RegisterRMResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMResponseCodec{})
 }
 
 type RegisterRMResponseCodec struct {
@@ -35,6 +35,11 @@ func (g *RegisterRMResponseCodec) Decode(in []byte) interface{} {
 	return message.RegisterRMResponse{
 		AbstractIdentifyResponse: abstractIdentifyResponse,
 	}
+}
+
+func (c *RegisterRMResponseCodec) Encode(in interface{}) []byte {
+	resp := in.(message.RegisterRMResponse)
+	return c.AbstractIdentifyResponseCodec.Encode(resp.AbstractIdentifyResponse)
 }
 
 func (g *RegisterRMResponseCodec) GetMessageType() message.MessageType {

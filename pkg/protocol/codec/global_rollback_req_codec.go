@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalRollbackRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalRollbackRequestCodec{})
 }
 
 type GlobalRollbackRequestCodec struct {
@@ -32,7 +32,7 @@ type GlobalRollbackRequestCodec struct {
 func (g *GlobalRollbackRequestCodec) Decode(in []byte) interface{} {
 	req := g.CommonGlobalEndRequestCodec.Decode(in)
 	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
-	return message.GlobalCommitRequest{
+	return message.GlobalRollbackRequest{
 		AbstractGlobalEndRequest: abstractGlobalEndRequest,
 	}
 }

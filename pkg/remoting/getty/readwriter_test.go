@@ -15,33 +15,36 @@
  * limitations under the License.
  */
 
-package codec
+package getty
 
 import (
+	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMResponseCodec{})
-}
-
-type RegisterTMResponseCodec struct {
-	AbstractIdentifyResponseCodec
-}
-
-func (g *RegisterTMResponseCodec) Decode(in []byte) interface{} {
-	req := g.AbstractIdentifyResponseCodec.Decode(in)
-	abstractIdentifyResponse := req.(message.AbstractIdentifyResponse)
-	return message.RegisterTMResponse{
-		AbstractIdentifyResponse: abstractIdentifyResponse,
+func TestRpcPackageHandler(t *testing.T) {
+	msg := message.RpcMessage{
+		ID:         1123,
+		Type:       message.GettyRequestType_RequestSync,
+		Codec:      byte(codec.CodecTypeSeata),
+		Compressor: byte(1),
+		HeadMap: map[string]string{
+			"name":    " Jack",
+			"age":     "12",
+			"address": "Beijing",
+		},
+		Body: message.GlobalBeginRequest{
+			Timeout:         100,
+			TransactionName: "SeataGoTransaction",
+		},
 	}
-}
 
-func (c *RegisterTMResponseCodec) Encode(in interface{}) []byte {
-	resp := in.(message.RegisterTMResponse)
-	return c.AbstractIdentifyResponseCodec.Encode(resp.AbstractIdentifyResponse)
-}
+	codec := RpcPackageHandler{}
+	bytes, err := codec.Write(nil, msg)
+	assert.Nil(t, err)
+	msg2, _, _ := codec.Read(nil, bytes)
 
-func (g *RegisterTMResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_RegCltResult
+	assert.Equal(t, msg, msg2)
 }

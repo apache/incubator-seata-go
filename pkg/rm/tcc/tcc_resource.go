@@ -120,8 +120,8 @@ func (t *TCCResourceManager) RegisterResource(resource resource.Resource) error 
 	return t.rmRemoting.RegisterResource(resource)
 }
 
-func (t *TCCResourceManager) GetManagedResources() sync.Map {
-	return t.resourceManagerMap
+func (t *TCCResourceManager) GetManagedResources() *sync.Map {
+	return &t.resourceManagerMap
 }
 
 // Commit a branch transaction
