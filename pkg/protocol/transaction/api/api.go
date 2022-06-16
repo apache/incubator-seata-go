@@ -20,9 +20,7 @@ package api
 import (
 	"context"
 	"fmt"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/seatactx"
 	"github.com/seata/seata-go/pkg/protocol/transaction"

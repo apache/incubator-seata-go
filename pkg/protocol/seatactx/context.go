@@ -19,9 +19,7 @@ package seatactx
 
 import (
 	"context"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"

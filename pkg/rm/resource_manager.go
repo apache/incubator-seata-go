@@ -21,9 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/resource"
 )

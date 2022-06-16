@@ -22,20 +22,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/seatactx"
+
 	context2 "github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/seata/seata-go/pkg/rm"
+
 	api2 "github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 

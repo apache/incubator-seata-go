@@ -21,11 +21,11 @@ import (
 	"context"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
+
 	_ "github.com/seata/seata-go/pkg/imports"
+
 	txapi "github.com/seata/seata-go/pkg/protocol/transaction/api"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"

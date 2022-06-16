@@ -19,9 +19,7 @@ package test
 
 import (
 	"testing"
-)
 
-import (
 	_ "github.com/seata/seata-go/pkg/imports"
 )
 
