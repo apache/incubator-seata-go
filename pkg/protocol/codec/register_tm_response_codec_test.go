@@ -18,9 +18,10 @@
 package codec
 
 import (
+	"testing"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestRegisterTMResponseCodec(t *testing.T) {

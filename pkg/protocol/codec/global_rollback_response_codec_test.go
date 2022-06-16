@@ -18,10 +18,11 @@
 package codec
 
 import (
+	"testing"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGlobalRollbackResponseCodec(t *testing.T) {

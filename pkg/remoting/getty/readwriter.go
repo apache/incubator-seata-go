@@ -19,17 +19,10 @@ package getty
 
 import (
 	"fmt"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
-
 	"github.com/fagongzi/goetty"
-
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )

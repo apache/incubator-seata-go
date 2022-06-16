@@ -19,11 +19,10 @@ package client
 
 import (
 	"context"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+
 	getty2 "github.com/seata/seata-go/pkg/remoting/getty"
 )
 

@@ -20,15 +20,10 @@ package getty
 import (
 	"sync"
 	"time"
-)
 
-import (
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"go.uber.org/atomic"
 )
 
 var (

@@ -20,15 +20,10 @@ package codec
 import (
 	"bytes"
 	"sync"
-)
 
-import (
-	"vimagination.zapto.org/byteio"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"vimagination.zapto.org/byteio"
 )
 
 type CodecType byte
