@@ -102,7 +102,7 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 
 	actionContext := &api2.BusinessActionContext{
 		Xid:           tm.GetXID(ctx),
-		BranchId:      string(branchId),
+		BranchId:      branchId,
 		ActionName:    t.GetActionName(),
 		ActionContext: param,
 	}

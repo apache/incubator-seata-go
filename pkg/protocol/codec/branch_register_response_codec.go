@@ -69,16 +69,6 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 
 	buf.WriteByte(byte(resp.TransactionExceptionCode))
 	branchID := uint64(resp.BranchId)
-	//branchIdBytes := []byte{
-	//	byte(branchID >> 56),
-	//	byte(branchID >> 48),
-	//	byte(branchID >> 40),
-	//	byte(branchID >> 32),
-	//	byte(branchID >> 24),
-	//	byte(branchID >> 16),
-	//	byte(branchID >> 8),
-	//	byte(branchID),
-	//}
 	buf.WriteUInt64(branchID)
 	return buf.RawBuf()
 }
