@@ -86,12 +86,6 @@ func (r *RMRemoting) RegisterResource(resource resource.Resource) error {
 }
 
 func isRegisterSuccess(response interface{}) bool {
-	//if res, ok := response.(protocol.RegisterTMResponse); ok {
-	//	return res.Identified
-	//} else if res, ok := response.(protocol.RegisterRMResponse); ok {
-	//	return res.Identified
-	//}
-	//return false
 	if res, ok := response.(message.RegisterRMResponse); ok {
 		return res.Identified
 	}

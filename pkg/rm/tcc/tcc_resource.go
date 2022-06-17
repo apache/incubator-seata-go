@@ -142,7 +142,7 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) api.BusinessActionContext {
 	return api.BusinessActionContext{
 		Xid:        xid,
-		BranchId:   string(branchID),
+		BranchId:   branchID,
 		ActionName: resourceID,
 		// todo get ActionContext
 		//ActionContext:,

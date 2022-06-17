@@ -60,6 +60,6 @@ func (resp MergeResultMessage) GetTypeCode() MessageType {
 type ResultCode byte
 
 const (
-	ResultCodeFailed ResultCode = iota
-	ResultCodeSuccess
+	ResultCodeFailed  = ResultCode(0)
+	ResultCodeSuccess = ResultCode(1)
 )
