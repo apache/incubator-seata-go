@@ -19,10 +19,7 @@ package test
 
 import (
 	"testing"
-	"time"
-)
 
-import (
 	_ "github.com/seata/seata-go/pkg/imports"
 )
 
@@ -40,5 +37,5 @@ func TestSendMsgWithResponse(test *testing.T) {
 	//}
 	//handler := GetGettyClientHandlerInstance()
 	//handler.sendMergedMessage(mergedMessage)
-	time.Sleep(100000 * time.Second)
+	//time.Sleep(100000 * time.Second)
 }

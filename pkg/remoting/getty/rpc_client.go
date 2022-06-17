@@ -22,17 +22,11 @@ import (
 	"fmt"
 	"net"
 	"sync"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 
 	gxsync "github.com/dubbogo/gost/sync"
-
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config"
 )

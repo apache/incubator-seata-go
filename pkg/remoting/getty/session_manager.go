@@ -21,9 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 )
 

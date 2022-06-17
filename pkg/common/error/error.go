@@ -17,17 +17,116 @@
 
 package error
 
-import (
-	"github.com/pkg/errors"
-)
-
-type ErrorCode int32
-
-const (
-	ErrorCode_IllegalState ErrorCode = 40001
-)
+import "github.com/pkg/errors"
 
 var (
 	Error_TooManySessions  = errors.New("too many seeessions")
 	Error_HeartBeatTimeOut = errors.New("heart beat time out")
 )
+
+type TransactionExceptionCode byte
+
+const (
+	/**
+	 * Unknown transaction exception code.
+	 */
+	TransactionExceptionCodeUnknown = TransactionExceptionCode(0)
+
+	/**
+	 * BeginFailed
+	 */
+	TransactionExceptionCodeBeginFailed = 1
+
+	/**
+	 * Lock key conflict transaction exception code.
+	 */
+	TransactionExceptionCodeLockKeyConflict = 2
+
+	/**
+	 * Io transaction exception code.
+	 */
+
+	/**
+	 * Branch rollback failed retriable transaction exception code.
+	 */
+	TransactionExceptionCodeBranchRollbackFailedRetriable = 3
+
+	/**
+	 * Branch rollback failed unretriable transaction exception code.
+	 */
+	TransactionExceptionCodeBranchRollbackFailedUnretriable = 4
+
+	/**
+	 * Branch register failed transaction exception code.
+	 */
+	TransactionExceptionCodeBranchRegisterFailed = 5
+
+	/**
+	 * Branch report failed transaction exception code.
+	 */
+	TransactionExceptionCodeBranchReportFailed = 6
+
+	/**
+	 * Lockable check failed transaction exception code.
+	 */
+	TransactionExceptionCodeLockableCheckFailed = 7
+
+	/**
+	 * Branch transaction not exist transaction exception code.
+	 */
+	TransactionExceptionCodeBranchTransactionNotExist = 8
+
+	/**
+	 * Global transaction not exist transaction exception code.
+	 */
+	TransactionExceptionCodeGlobalTransactionNotExist = 9
+
+	/**
+	 * Global transaction not active transaction exception code.
+	 */
+	TransactionExceptionCodeGlobalTransactionNotActive = 10
+
+	/**
+	 * Global transaction status invalid transaction exception code.
+	 */
+	TransactionExceptionCodeGlobalTransactionStatusInvalid = 11
+
+	/**
+	 * Failed to send branch commit request transaction exception code.
+	 */
+	TransactionExceptionCodeFailedToSendBranchCommitRequest = 12
+
+	/**
+	 * Failed to send branch rollback request transaction exception code.
+	 */
+	TransactionExceptionCodeFailedToSendBranchRollbackRequest = 13
+
+	/**
+	 * Failed to add branch transaction exception code.
+	 */
+	TransactionExceptionCodeFailedToAddBranch = 14
+
+	/**
+	 * Failed to lock global transaction exception code.
+	 */
+	TransactionExceptionCodeFailedLockGlobalTranscation = 15
+
+	/**
+	 * FailedWriteSession
+	 */
+	TransactionExceptionCodeFailedWriteSession = 16
+
+	/**
+	 * Failed to holder exception code
+	 */
+	FailedStore = 17
+)
+
+type TransactionException struct {
+	Code    TransactionExceptionCode
+	Message string
+}
+
+func (e TransactionException) Error() string {
+	return "TransactionException: " + e.Message
+}

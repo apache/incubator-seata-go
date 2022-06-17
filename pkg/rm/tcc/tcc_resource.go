@@ -21,9 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -120,8 +118,8 @@ func (t *TCCResourceManager) RegisterResource(resource resource.Resource) error 
 	return t.rmRemoting.RegisterResource(resource)
 }
 
-func (t *TCCResourceManager) GetManagedResources() sync.Map {
-	return t.resourceManagerMap
+func (t *TCCResourceManager) GetManagedResources() *sync.Map {
+	return &t.resourceManagerMap
 }
 
 // Commit a branch transaction
@@ -144,7 +142,7 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) api.BusinessActionContext {
 	return api.BusinessActionContext{
 		Xid:        xid,
-		BranchId:   string(branchID),
+		BranchId:   branchID,
 		ActionName: resourceID,
 		// todo get ActionContext
 		//ActionContext:,

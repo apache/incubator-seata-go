@@ -19,9 +19,7 @@ package remoting
 
 import (
 	"sync"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -88,12 +86,6 @@ func (r *RMRemoting) RegisterResource(resource resource.Resource) error {
 }
 
 func isRegisterSuccess(response interface{}) bool {
-	//if res, ok := response.(protocol.RegisterTMResponse); ok {
-	//	return res.Identified
-	//} else if res, ok := response.(protocol.RegisterRMResponse); ok {
-	//	return res.Identified
-	//}
-	//return false
 	if res, ok := response.(message.RegisterRMResponse); ok {
 		return res.Identified
 	}

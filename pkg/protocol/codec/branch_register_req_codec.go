@@ -19,15 +19,13 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
-)
 
-import (
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &BranchRegisterRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterRequestCodec{})
 }
 
 type BranchRegisterRequestCodec struct {

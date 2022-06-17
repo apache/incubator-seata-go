@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalCommitRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalCommitRequestCodec{})
 }
 
 type GlobalCommitRequestCodec struct {

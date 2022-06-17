@@ -36,67 +36,67 @@ const (
 	 * The BranchStatus_Unknown.
 	 * description:BranchStatus_Unknown branch status.
 	 */
-	BranchStatusUnknown BranchStatus = iota
+	BranchStatusUnknown = BranchStatus(0)
 
 	/**
 	 * The BranchStatus_Registered.
 	 * description:BranchStatus_Registered to TC.
 	 */
-	BranchStatusRegistered
+	BranchStatusRegistered = BranchStatus(1)
 
 	/**
 	 * The Phase one done.
 	 * description:Branch logic is successfully done at phase one.
 	 */
-	BranchStatusPhaseoneDone
+	BranchStatusPhaseoneDone = BranchStatus(2)
 
 	/**
 	 * The Phase one failed.
 	 * description:Branch logic is failed at phase one.
 	 */
-	BranchStatusPhaseoneFailed
+	BranchStatusPhaseoneFailed = BranchStatus(3)
 
 	/**
 	 * The Phase one timeout.
 	 * description:Branch logic is NOT reported for a timeout.
 	 */
-	BranchStatusPhaseoneTimeout
+	BranchStatusPhaseoneTimeout = BranchStatus(4)
 
 	/**
 	 * The Phase two committed.
 	 * description:Commit logic is successfully done at phase two.
 	 */
-	BranchStatusPhasetwoCommitted
+	BranchStatusPhasetwoCommitted = BranchStatus(5)
 
 	/**
 	 * The Phase two commit failed retryable.
 	 * description:Commit logic is failed but retryable.
 	 */
-	BranchStatusPhasetwoCommitFailedRetryable
+	BranchStatusPhasetwoCommitFailedRetryable = BranchStatus(6)
 
 	/**
 	 * The Phase two commit failed unretryable.
 	 * description:Commit logic is failed and NOT retryable.
 	 */
-	BranchStatusPhasetwoCommitFailedUnretryable
+	BranchStatusPhasetwoCommitFailedUnretryable = BranchStatus(7)
 
 	/**
 	 * The Phase two rollbacked.
 	 * description:Rollback logic is successfully done at phase two.
 	 */
-	BranchStatusPhasetwoRollbacked
+	BranchStatusPhasetwoRollbacked = BranchStatus(8)
 
 	/**
 	 * The Phase two rollback failed retryable.
 	 * description:Rollback logic is failed but retryable.
 	 */
-	BranchStatusPhasetwoRollbackFailedRetryable
+	BranchStatusPhasetwoRollbackFailedRetryable = BranchStatus(9)
 
 	/**
 	 * The Phase two rollback failed unretryable.
 	 * description:Rollback logic is failed but NOT retryable.
 	 */
-	BranchStatusPhasetwoRollbackFailedUnretryable
+	BranchStatusPhasetwoRollbackFailedUnretryable = BranchStatus(10)
 )
 
 func (s BranchStatus) String() string {

@@ -19,14 +19,11 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalBeginRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginRequestCodec{})
 }
 
 type GlobalBeginRequestCodec struct {

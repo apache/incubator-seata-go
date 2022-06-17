@@ -15,30 +15,28 @@
  * limitations under the License.
  */
 
-package remoting
+package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
+	"testing"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/stretchr/testify/assert"
 )
 
-func (RMRemoting) RegisterResource(resource resource.Resource) error {
-	req := message.RegisterRMRequest{
-		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-			//todo replace with config
-			Version:                 "1.4.2",
-			ApplicationId:           "tcc-sample",
-			TransactionServiceGroup: "my_test_tx_group",
-		},
-		ResourceIds: resource.GetResourceId(),
+func TestBranchRegisterRequestCodec(t *testing.T) {
+	msg := message.BranchRegisterRequest{
+		Xid:             "abc134",
+		ResourceId:      "124",
+		LockKey:         "a:1,b:2",
+		ApplicationData: []byte("abc"),
+		BranchType:      branch.BranchTypeTCC,
 	}
-	err := getty.GetGettyRemotingClient().SendAsyncRequest(req)
-	if err != nil {
-		log.Error("RegisterResourceManager error: {%#v}", err.Error())
-		return err
-	}
-	return nil
+
+	codec := BranchRegisterRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }

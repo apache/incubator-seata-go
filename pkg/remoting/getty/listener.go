@@ -20,19 +20,13 @@ package getty
 import (
 	"context"
 	"sync"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
-
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/processor"
+	"go.uber.org/atomic"
 )
 
 var (

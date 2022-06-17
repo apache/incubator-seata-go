@@ -21,9 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/resource"
 )
@@ -48,7 +46,6 @@ func GetResourceManagerInstance() *ResourceManager {
 type ResourceManager struct {
 }
 
-// 将事务管理器注册到这里
 func RegisterResourceManager(resourceManager resource.ResourceManager) {
 	resourceManagerMap.Store(resourceManager.GetBranchType(), resourceManager)
 }
@@ -97,8 +94,8 @@ func (d *ResourceManager) UnregisterResource(resource resource.Resource) error {
 }
 
 // Get all resources managed by this manager
-func (d *ResourceManager) GetManagedResources() sync.Map {
-	return resourceManagerMap
+func (d *ResourceManager) GetManagedResources() *sync.Map {
+	return &resourceManagerMap
 }
 
 // Get the model.BranchType
