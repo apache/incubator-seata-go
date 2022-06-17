@@ -76,7 +76,7 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	REQUIRED Propagation = iota
+	REQUIRED = Propagation(0)
 
 	/**
 	 * The REQUIRES_NEW.
@@ -109,7 +109,7 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	REQUIRES_NEW
+	REQUIRES_NEW = Propagation(1)
 
 	/**
 	 * The NOT_SUPPORTED.
@@ -134,7 +134,7 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	NOT_SUPPORTED
+	NOT_SUPPORTED = Propagation(2)
 
 	/**
 	 * The SUPPORTS.
@@ -155,7 +155,7 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	SUPPORTS
+	SUPPORTS = Propagation(3)
 
 	/**
 	 * The NEVER.
@@ -175,7 +175,7 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	NEVER
+	NEVER = Propagation(4)
 
 	/**
 	 * The MANDATORY.
@@ -195,5 +195,5 @@ const (
 	 * </pre></code>
 	 * </p>
 	 */
-	MANDATORY
+	MANDATORY = Propagation(5)
 )
