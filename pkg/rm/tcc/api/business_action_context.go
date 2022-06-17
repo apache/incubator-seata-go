@@ -19,7 +19,7 @@ package api
 
 type BusinessActionContext struct {
 	Xid           string
-	BranchId      string
+	BranchId      int64
 	ActionName    string
 	ActionContext interface{}
 }
