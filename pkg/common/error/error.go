@@ -30,17 +30,17 @@ const (
 	/**
 	 * Unknown transaction exception code.
 	 */
-	TransactionExceptionCodeUnknown TransactionExceptionCode = iota
+	TransactionExceptionCodeUnknown = TransactionExceptionCode(0)
 
 	/**
 	 * BeginFailed
 	 */
-	TransactionExceptionCodeBeginFailed
+	TransactionExceptionCodeBeginFailed = TransactionExceptionCode(1)
 
 	/**
 	 * Lock key conflict transaction exception code.
 	 */
-	TransactionExceptionCodeLockKeyConflict
+	TransactionExceptionCodeLockKeyConflict = TransactionExceptionCode(2)
 
 	/**
 	 * Io transaction exception code.
@@ -50,77 +50,77 @@ const (
 	/**
 	 * Branch rollback failed retriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedRetriable
+	TransactionExceptionCodeBranchRollbackFailedRetriable = TransactionExceptionCode(3)
 
 	/**
 	 * Branch rollback failed unretriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedUnretriable
+	TransactionExceptionCodeBranchRollbackFailedUnretriable = TransactionExceptionCode(4)
 
 	/**
 	 * Branch register failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRegisterFailed
+	TransactionExceptionCodeBranchRegisterFailed = TransactionExceptionCode(5)
 
 	/**
 	 * Branch report failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchReportFailed
+	TransactionExceptionCodeBranchReportFailed = TransactionExceptionCode(6)
 
 	/**
 	 * Lockable check failed transaction exception code.
 	 */
-	TransactionExceptionCodeLockableCheckFailed
+	TransactionExceptionCodeLockableCheckFailed = TransactionExceptionCode(7)
 
 	/**
 	 * Branch transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeBranchTransactionNotExist
+	TransactionExceptionCodeBranchTransactionNotExist = TransactionExceptionCode(8)
 
 	/**
 	 * Global transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotExist
+	TransactionExceptionCodeGlobalTransactionNotExist = TransactionExceptionCode(9)
 
 	/**
 	 * Global transaction not active transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotActive
+	TransactionExceptionCodeGlobalTransactionNotActive = TransactionExceptionCode(10)
 
 	/**
 	 * Global transaction status invalid transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionStatusInvalid
+	TransactionExceptionCodeGlobalTransactionStatusInvalid = TransactionExceptionCode(11)
 
 	/**
 	 * Failed to send branch commit request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchCommitRequest
+	TransactionExceptionCodeFailedToSendBranchCommitRequest = TransactionExceptionCode(12)
 
 	/**
 	 * Failed to send branch rollback request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchRollbackRequest
+	TransactionExceptionCodeFailedToSendBranchRollbackRequest = TransactionExceptionCode(13)
 
 	/**
 	 * Failed to add branch transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToAddBranch
+	TransactionExceptionCodeFailedToAddBranch = TransactionExceptionCode(14)
 
 	/**
 	 * Failed to lock global transaction exception code.
 	 */
-	TransactionExceptionCodeFailedLockGlobalTranscation
+	TransactionExceptionCodeFailedLockGlobalTranscation = TransactionExceptionCode(15)
 
 	/**
 	 * FailedWriteSession
 	 */
-	TransactionExceptionCodeFailedWriteSession
+	TransactionExceptionCodeFailedWriteSession = TransactionExceptionCode(16)
 
 	/**
 	 * Failed to holder exception code
 	 */
-	FailedStore
+	FailedStore = TransactionExceptionCode(17)
 )
 
 type TransactionException struct {
