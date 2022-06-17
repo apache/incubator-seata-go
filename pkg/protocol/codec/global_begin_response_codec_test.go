@@ -18,10 +18,10 @@
 package codec
 
 import (
+	error2 "github.com/seata/seata-go/pkg/common/error"
 	"testing"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +32,7 @@ func TestGlobalBeginResponseCodec(t *testing.T) {
 				ResultCode: message.ResultCodeFailed,
 				Msg:        "FAILED",
 			},
-			TransactionExceptionCode: transaction.TransactionExceptionCodeBeginFailed,
+			TransactionExceptionCode: error2.TransactionExceptionCodeBeginFailed,
 		},
 
 		Xid:       "test-transaction-id",

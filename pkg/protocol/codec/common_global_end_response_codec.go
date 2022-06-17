@@ -19,8 +19,8 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
+	transaction2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 )
 
 type CommonGlobalEndResponseCodec struct {
@@ -63,10 +63,10 @@ func (c *CommonGlobalEndResponseCodec) Decode(in []byte) interface{} {
 	}
 
 	exceptionCode := ReadByte(buf)
-	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = transaction2.TransactionExceptionCode(exceptionCode)
 
 	globalStatus := ReadByte(buf)
-	msg.GlobalStatus = transaction.GlobalStatus(globalStatus)
+	msg.GlobalStatus = message.GlobalStatus(globalStatus)
 
 	return msg
 }

@@ -19,7 +19,6 @@ package message
 
 import (
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 )
 
 type AbstractBranchEndRequest struct {
@@ -105,7 +104,7 @@ func (req GlobalLockQueryRequest) GetTypeCode() MessageType {
 type GlobalReportRequest struct {
 	AbstractGlobalEndRequest
 
-	GlobalStatus transaction.GlobalStatus
+	GlobalStatus GlobalStatus
 }
 
 func (req GlobalReportRequest) GetTypeCode() MessageType {

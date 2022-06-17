@@ -19,6 +19,7 @@ package test
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/tm"
 	"testing"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 
 	_ "github.com/seata/seata-go/pkg/imports"
 
-	txapi "github.com/seata/seata-go/pkg/protocol/transaction/api"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
@@ -77,9 +77,9 @@ func (T TestTCCServiceBusiness2) GetActionName() string {
 
 func TestNew(test *testing.T) {
 	var err error
-	ctx := txapi.Begin(context.Background(), "TestTCCServiceBusiness")
+	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
-		resp := txapi.CommitOrRollback(ctx, err)
+		resp := tm.CommitOrRollback(ctx, err)
 		log.Infof("tx result %v", resp)
 	}()
 

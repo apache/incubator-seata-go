@@ -15,30 +15,29 @@
  * limitations under the License.
  */
 
-package seatactx
+package tm
 
 import (
 	"context"
-
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
+	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
-	Status                *transaction.GlobalStatus
-	TxRole                *transaction.GlobalTransactionRole
+	Status                *message.GlobalStatus
+	TxRole                *GlobalTransactionRole
 	BusinessActionContext *api.BusinessActionContext
-	TxStatus              *transaction.GlobalStatus
+	TxStatus              *message.GlobalStatus
 }
 
 func InitSeataContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, common.CONTEXT_VARIABLE, &ContextVariable{})
 }
 
-func GetTxStatus(ctx context.Context) *transaction.GlobalStatus {
+func GetTxStatus(ctx context.Context) *message.GlobalStatus {
 	variable := ctx.Value(common.CONTEXT_VARIABLE)
 	if variable == nil {
 		return nil
@@ -46,7 +45,7 @@ func GetTxStatus(ctx context.Context) *transaction.GlobalStatus {
 	return variable.(*ContextVariable).TxStatus
 }
 
-func SetTxStatus(ctx context.Context, status transaction.GlobalStatus) {
+func SetTxStatus(ctx context.Context, status message.GlobalStatus) {
 	variable := ctx.Value(common.CONTEXT_VARIABLE)
 	if variable != nil {
 		variable.(*ContextVariable).TxStatus = &status
@@ -87,7 +86,7 @@ func SetBusinessActionContext(ctx context.Context, businessActionContext *api.Bu
 	}
 }
 
-func GetTransactionRole(ctx context.Context) *transaction.GlobalTransactionRole {
+func GetTransactionRole(ctx context.Context) *GlobalTransactionRole {
 	variable := ctx.Value(common.CONTEXT_VARIABLE)
 	if variable == nil {
 		return nil
@@ -95,7 +94,7 @@ func GetTransactionRole(ctx context.Context) *transaction.GlobalTransactionRole 
 	return variable.(*ContextVariable).TxRole
 }
 
-func SetTransactionRole(ctx context.Context, role transaction.GlobalTransactionRole) {
+func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
 	variable := ctx.Value(common.CONTEXT_VARIABLE)
 	if variable != nil {
 		variable.(*ContextVariable).TxRole = &role
