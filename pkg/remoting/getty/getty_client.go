@@ -20,15 +20,10 @@ package getty
 import (
 	"sync"
 	"time"
-)
 
-import (
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -61,7 +56,7 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       msgType,
-		Codec:      byte(codec.CodeTypeSeata),
+		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}
@@ -72,7 +67,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msg interface{}) error {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       message.GettyRequestType_Response,
-		Codec:      byte(codec.CodeTypeSeata),
+		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}
@@ -83,7 +78,7 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       message.GettyRequestType_RequestSync,
-		Codec:      byte(codec.CodeTypeSeata),
+		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}
@@ -94,7 +89,7 @@ func (client *GettyRemotingClient) SendSyncRequestWithTimeout(msg interface{}, t
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       message.GettyRequestType_RequestSync,
-		Codec:      byte(codec.CodeTypeSeata),
+		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}

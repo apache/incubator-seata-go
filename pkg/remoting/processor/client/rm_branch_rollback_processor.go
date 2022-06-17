@@ -19,18 +19,17 @@ package client
 
 import (
 	"context"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+
 	getty2 "github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
 func init() {
-	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
-	getty2.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchCommit, rmBranchCommitProcessor)
+	rmBranchRollbackProcessor := &rmBranchRollbackProcessor{}
+	getty2.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchRollback, rmBranchRollbackProcessor)
 }
 
 type rmBranchRollbackProcessor struct {

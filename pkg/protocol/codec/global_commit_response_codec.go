@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalCommitResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalCommitResponseCodec{})
 }
 
 type GlobalCommitResponseCodec struct {
@@ -35,6 +35,11 @@ func (g *GlobalCommitResponseCodec) Decode(in []byte) interface{} {
 	return message.GlobalCommitResponse{
 		AbstractGlobalEndResponse: abstractGlobalEndRequest,
 	}
+}
+
+func (g *GlobalCommitResponseCodec) Encode(in interface{}) []byte {
+	req := in.(message.GlobalCommitResponse)
+	return g.CommonGlobalEndResponseCodec.Encode(req.AbstractGlobalEndResponse)
 }
 
 func (g *GlobalCommitResponseCodec) GetMessageType() message.MessageType {

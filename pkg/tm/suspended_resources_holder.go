@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package api
+package tm
 
-type BusinessActionContext struct {
-	Xid           string
-	BranchId      int64
-	ActionName    string
-	ActionContext interface{}
+type SuspendedResourcesHolder struct {
+	Xid string
+}
+
+func NewSuspendedResourcesHolder(xid string) SuspendedResourcesHolder {
+	return SuspendedResourcesHolder{
+		Xid: xid,
+	}
 }

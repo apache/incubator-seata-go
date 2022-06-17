@@ -18,30 +18,28 @@
 package codec
 
 import (
+	"testing"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMResponseCodec{})
-}
-
-type RegisterTMResponseCodec struct {
-	AbstractIdentifyResponseCodec
-}
-
-func (g *RegisterTMResponseCodec) Decode(in []byte) interface{} {
-	req := g.AbstractIdentifyResponseCodec.Decode(in)
-	abstractIdentifyResponse := req.(message.AbstractIdentifyResponse)
-	return message.RegisterTMResponse{
-		AbstractIdentifyResponse: abstractIdentifyResponse,
+func TestGlobalRollbackResponseCodec(t *testing.T) {
+	msg := message.GlobalRollbackResponse{
+		AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        "ResultCodeFailed message",
+				},
+			},
+			GlobalStatus: message.GlobalStatusCommitted,
+		},
 	}
-}
 
-func (c *RegisterTMResponseCodec) Encode(in interface{}) []byte {
-	resp := in.(message.RegisterTMResponse)
-	return c.AbstractIdentifyResponseCodec.Encode(resp.AbstractIdentifyResponse)
-}
+	codec := GlobalRollbackResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
 
-func (g *RegisterTMResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_RegCltResult
+	assert.Equal(t, msg, msg2)
 }

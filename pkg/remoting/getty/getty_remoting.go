@@ -20,17 +20,11 @@ package getty
 import (
 	"sync"
 	"time"
-)
 
-import (
 	getty "github.com/apache/dubbo-getty"
 
 	gxtime "github.com/dubbogo/gost/time"
-
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )

@@ -15,28 +15,31 @@
  * limitations under the License.
  */
 
-package transaction
+package codec
 
-type GlobalTransactionRole int8
+import (
+	error2 "github.com/seata/seata-go/pkg/common/error"
+	"testing"
 
-const (
-	LAUNCHER    GlobalTransactionRole = 0
-	PARTICIPANT GlobalTransactionRole = 1
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
 
-type TransactionManager interface {
-	// GlobalStatusBegin a new global transaction.
-	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)
+func TestBranchRegisterResponseCodec(t *testing.T) {
+	msg := message.BranchRegisterResponse{
+		AbstractTransactionResponse: message.AbstractTransactionResponse{
+			AbstractResultMessage: message.AbstractResultMessage{
+				ResultCode: message.ResultCodeFailed,
+				Msg:        "FAILED",
+			},
+			TransactionExceptionCode: error2.TransactionExceptionCodeUnknown,
+		},
+		BranchId: 124356567,
+	}
 
-	// Global commit.
-	Commit(xid string) (GlobalStatus, error)
+	codec := BranchRegisterResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
 
-	//Global rollback.
-	Rollback(xid string) (GlobalStatus, error)
-
-	// Get current status of the give transaction.
-	GetStatus(xid string) (GlobalStatus, error)
-
-	// Global report.
-	GlobalReport(xid string, globalStatus GlobalStatus) (GlobalStatus, error)
+	assert.Equal(t, msg, msg2)
 }

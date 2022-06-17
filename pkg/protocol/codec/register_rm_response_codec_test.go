@@ -18,30 +18,28 @@
 package codec
 
 import (
+	"testing"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMResponseCodec{})
-}
-
-type RegisterTMResponseCodec struct {
-	AbstractIdentifyResponseCodec
-}
-
-func (g *RegisterTMResponseCodec) Decode(in []byte) interface{} {
-	req := g.AbstractIdentifyResponseCodec.Decode(in)
-	abstractIdentifyResponse := req.(message.AbstractIdentifyResponse)
-	return message.RegisterTMResponse{
-		AbstractIdentifyResponse: abstractIdentifyResponse,
+func TestRegisterRMResponseCodec(t *testing.T) {
+	msg := message.RegisterRMResponse{
+		AbstractIdentifyResponse: message.AbstractIdentifyResponse{
+			AbstractResultMessage: message.AbstractResultMessage{
+				ResultCode: message.ResultCodeFailed,
+				//Msg:        "TestMsg",
+			},
+			Version:    "V1,0",
+			Identified: false,
+		},
 	}
-}
 
-func (c *RegisterTMResponseCodec) Encode(in interface{}) []byte {
-	resp := in.(message.RegisterTMResponse)
-	return c.AbstractIdentifyResponseCodec.Encode(resp.AbstractIdentifyResponse)
-}
+	codec := RegisterRMResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
 
-func (g *RegisterTMResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_RegCltResult
+	assert.Equal(t, msg.Identified, msg2.(message.RegisterRMResponse).Identified)
+	assert.Equal(t, msg.Version, msg2.(message.RegisterRMResponse).Version)
 }

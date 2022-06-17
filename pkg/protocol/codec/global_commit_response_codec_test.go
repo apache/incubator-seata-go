@@ -17,22 +17,29 @@
 
 package codec
 
-//func init() {
-//	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalReportRequestCodec{})
-//}
-//
-//type GlobalReportRequestCodec struct {
-//	CommonGlobalEndRequestCodec
-//}
-//
-//func (g *GlobalReportRequestCodec) Decode(in []byte) interface{} {
-//	req := g.CommonGlobalEndRequestCodec.Decode(in)
-//	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
-//	return message.GlobalCommitRequest{
-//		AbstractGlobalEndRequest: abstractGlobalEndRequest,
-//	}
-//}
-//
-//func (g *GlobalReportRequestCodec) GetMessageType() message.MessageType {
-//	return message.MessageType_GlobalCommit
-//}
+import (
+	"testing"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGlobalCommitResponseCodec(t *testing.T) {
+	msg := message.GlobalCommitResponse{
+		AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        "ResultCodeFailed message",
+				},
+			},
+			GlobalStatus: message.GlobalStatusCommitted,
+		},
+	}
+
+	codec := GlobalCommitResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
+}

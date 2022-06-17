@@ -19,9 +19,6 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -80,7 +77,7 @@ func (c *AbstractIdentifyRequestCodec) Decode(in []byte) interface{} {
 		return msg
 	}
 	len = ReadUInt16(buf)
-	if len > 0 && uint16(buf.Readable()) > len {
+	if len > 0 && uint16(buf.Readable()) >= len {
 		extraDataBytes := make([]byte, len)
 		msg.ExtraData = Read(buf, extraDataBytes)
 	}

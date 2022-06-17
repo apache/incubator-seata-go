@@ -19,15 +19,12 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
-)
-
-import (
+	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &GlobalBeginResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginResponseCodec{})
 }
 
 type GlobalBeginResponseCodec struct {
@@ -71,7 +68,7 @@ func (g *GlobalBeginResponseCodec) Decode(in []byte) interface{} {
 	}
 
 	exceptionCode := ReadByte(buf)
-	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = error2.TransactionExceptionCode(exceptionCode)
 
 	lenth = ReadUInt16(buf)
 	if lenth > 0 {

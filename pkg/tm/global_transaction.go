@@ -15,31 +15,23 @@
  * limitations under the License.
  */
 
-package manager
+package tm
 
 import (
 	"context"
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/seatactx"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/tm/api"
 )
 
 type GlobalTransaction struct {
 	Xid    string
-	Status transaction.GlobalStatus
-	Role   transaction.GlobalTransactionRole
+	Status message.GlobalStatus
+	Role   GlobalTransactionRole
 }
 
 var (
@@ -62,7 +54,7 @@ type GlobalTransactionManager struct {
 
 // Begin a new global transaction with given timeout and given name.
 func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout int32, name string) error {
-	if gtr.Role != transaction.LAUNCHER {
+	if gtr.Role != LAUNCHER {
 		log.Infof("Ignore GlobalStatusBegin(): just involved in global transaction %s", gtr.Xid)
 		return nil
 	}
@@ -85,15 +77,15 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 	}
 	log.Infof("GlobalBeginRequest success, xid %s, res %v", gtr.Xid, res)
 
-	gtr.Status = transaction.GlobalStatusBegin
+	gtr.Status = message.GlobalStatusBegin
 	gtr.Xid = res.(message.GlobalBeginResponse).Xid
-	seatactx.SetXID(ctx, res.(message.GlobalBeginResponse).Xid)
+	SetXID(ctx, res.(message.GlobalBeginResponse).Xid)
 	return nil
 }
 
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
-	if gtr.Role != transaction.LAUNCHER {
+	if gtr.Role != LAUNCHER {
 		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
 		return nil
 	}
@@ -122,14 +114,14 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	if err == nil && res != nil {
 		gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
 	}
-	seatactx.UnbindXid(ctx)
+	UnbindXid(ctx)
 	log.Infof("GlobalCommitRequest commit success, xid %s", gtr.Xid)
 	return err
 }
 
 // Rollback the global transaction.
 func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTransaction) error {
-	if gtr.Role != transaction.LAUNCHER {
+	if gtr.Role != LAUNCHER {
 		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
 		return nil
 	}
@@ -158,21 +150,21 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	if err == nil && res != nil {
 		gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
 	}
-	seatactx.UnbindXid(ctx)
+	UnbindXid(ctx)
 	return err
 }
 
 // Suspend the global transaction.
-func (g *GlobalTransactionManager) Suspend() (api.SuspendedResourcesHolder, error) {
+func (g *GlobalTransactionManager) Suspend() (SuspendedResourcesHolder, error) {
 	panic("implement me")
 }
 
 // Resume the global transaction.
-func (g *GlobalTransactionManager) Resume(suspendedResourcesHolder api.SuspendedResourcesHolder) error {
+func (g *GlobalTransactionManager) Resume(suspendedResourcesHolder SuspendedResourcesHolder) error {
 	panic("implement me")
 }
 
 // report the global transaction status.
-func (g *GlobalTransactionManager) GlobalReport(globalStatus transaction.GlobalStatus) error {
+func (g *GlobalTransactionManager) GlobalReport(globalStatus message.GlobalStatus) error {
 	panic("implement me")
 }

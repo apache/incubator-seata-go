@@ -15,48 +15,51 @@
  * limitations under the License.
  */
 
-package seatactx
+package tm
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
-import (
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
-	"github.com/seata/seata-go/pkg/rm/tcc/api"
+type ContextParam string
+
+const (
+	seataContextVariable     = ContextParam("seataContextVariable")
+	tccBusinessActionContext = ContextParam("tcc-business-action-context")
 )
 
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
-	Status                *transaction.GlobalStatus
-	TxRole                *transaction.GlobalTransactionRole
+	Status                *message.GlobalStatus
+	TxRole                *GlobalTransactionRole
 	BusinessActionContext *api.BusinessActionContext
-	TxStatus              *transaction.GlobalStatus
+	TxStatus              *message.GlobalStatus
 }
 
 func InitSeataContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, common.CONTEXT_VARIABLE, &ContextVariable{})
+	return context.WithValue(ctx, seataContextVariable, &ContextVariable{})
 }
 
-func GetTxStatus(ctx context.Context) *transaction.GlobalStatus {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+func GetTxStatus(ctx context.Context) *message.GlobalStatus {
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return nil
 	}
 	return variable.(*ContextVariable).TxStatus
 }
 
-func SetTxStatus(ctx context.Context, status transaction.GlobalStatus) {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+func SetTxStatus(ctx context.Context, status message.GlobalStatus) {
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).TxStatus = &status
 	}
 }
 
 func GetTxName(ctx context.Context) string {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return ""
 	}
@@ -64,18 +67,18 @@ func GetTxName(ctx context.Context) string {
 }
 
 func SetTxName(ctx context.Context, name string) {
-	variable := ctx.Value(common.TccBusinessActionContext)
+	variable := ctx.Value(tccBusinessActionContext)
 	if variable != nil {
 		variable.(*ContextVariable).TxName = name
 	}
 }
 
 func IsSeataContext(ctx context.Context) bool {
-	return ctx.Value(common.CONTEXT_VARIABLE) != nil
+	return ctx.Value(seataContextVariable) != nil
 }
 
 func GetBusinessActionContext(ctx context.Context) *api.BusinessActionContext {
-	variable := ctx.Value(common.TccBusinessActionContext)
+	variable := ctx.Value(tccBusinessActionContext)
 	if variable == nil {
 		return nil
 	}
@@ -83,29 +86,29 @@ func GetBusinessActionContext(ctx context.Context) *api.BusinessActionContext {
 }
 
 func SetBusinessActionContext(ctx context.Context, businessActionContext *api.BusinessActionContext) {
-	variable := ctx.Value(common.TccBusinessActionContext)
+	variable := ctx.Value(tccBusinessActionContext)
 	if variable != nil {
 		variable.(*ContextVariable).BusinessActionContext = businessActionContext
 	}
 }
 
-func GetTransactionRole(ctx context.Context) *transaction.GlobalTransactionRole {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+func GetTransactionRole(ctx context.Context) *GlobalTransactionRole {
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return nil
 	}
 	return variable.(*ContextVariable).TxRole
 }
 
-func SetTransactionRole(ctx context.Context, role transaction.GlobalTransactionRole) {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).TxRole = &role
 	}
 }
 
 func GetXID(ctx context.Context) string {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return ""
 	}
@@ -117,14 +120,14 @@ func HasXID(ctx context.Context) bool {
 }
 
 func SetXID(ctx context.Context, xid string) {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).Xid = xid
 	}
 }
 
 func UnbindXid(ctx context.Context) {
-	variable := ctx.Value(common.CONTEXT_VARIABLE)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).Xid = ""
 	}

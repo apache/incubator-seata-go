@@ -1,0 +1,4 @@
+package rm
+
+func init() {
+}

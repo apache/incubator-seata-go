@@ -19,15 +19,12 @@ package codec
 
 import (
 	"github.com/fagongzi/goetty"
-)
-
-import (
+	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 )
 
 func init() {
-	GetCodecManager().RegisterCodec(CodeTypeSeata, &BranchRegisterResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterResponseCodec{})
 }
 
 type BranchRegisterResponseCodec struct {
@@ -49,7 +46,7 @@ func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
 	}
 
 	exceptionCode := ReadByte(buf)
-	msg.TransactionExceptionCode = transaction.TransactionExceptionCode(exceptionCode)
+	msg.TransactionExceptionCode = error2.TransactionExceptionCode(exceptionCode)
 	msg.BranchId = int64(ReadUInt64(buf))
 
 	return msg
@@ -59,8 +56,8 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 	buf := goetty.NewByteBuf(0)
 	resp, _ := in.(message.BranchRegisterResponse)
 
-	resultCode := ReadByte(buf)
-	if resultCode == byte(message.ResultCodeFailed) {
+	buf.WriteByte(byte(resp.ResultCode))
+	if resp.ResultCode == message.ResultCodeFailed {
 		var msg string
 		if len(resp.Msg) > 128 {
 			msg = resp.Msg[:128]
@@ -72,17 +69,7 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 
 	buf.WriteByte(byte(resp.TransactionExceptionCode))
 	branchID := uint64(resp.BranchId)
-	branchIdBytes := []byte{
-		byte(branchID >> 56),
-		byte(branchID >> 48),
-		byte(branchID >> 40),
-		byte(branchID >> 32),
-		byte(branchID >> 24),
-		byte(branchID >> 16),
-		byte(branchID >> 8),
-		byte(branchID),
-	}
-	buf.Write(branchIdBytes)
+	buf.WriteUInt64(branchID)
 	return buf.RawBuf()
 }
 

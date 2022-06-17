@@ -20,25 +20,19 @@ package codec
 import (
 	"bytes"
 	"sync"
-)
 
-import (
-	"vimagination.zapto.org/byteio"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"vimagination.zapto.org/byteio"
 )
 
 type CodecType byte
 
-// TODO 待重构
 const (
-	CodeTypeSeata    = CodecType(0x1)
-	CodeTypeProtobuf = CodecType(0x2)
-	CodeTypeKRYO     = CodecType(0x4)
-	CodeTypeFST      = CodecType(0x8)
+	CodecTypeSeata    = CodecType(0x1)
+	CodecTypeProtobuf = CodecType(0x2)
+	CodecTypeKRYO     = CodecType(0x4)
+	CodecTypeFST      = CodecType(0x8)
 )
 
 type Codec interface {

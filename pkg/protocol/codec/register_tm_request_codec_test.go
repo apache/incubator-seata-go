@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
-package api
+package codec
 
-type SuspendedResourcesHolder struct {
-	Xid string
-}
+import (
+	"testing"
 
-func NewSuspendedResourcesHolder(xid string) SuspendedResourcesHolder {
-	return SuspendedResourcesHolder{
-		Xid: xid,
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRegisterTMRequestCodec(t *testing.T) {
+	msg := message.RegisterTMRequest{
+		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
+			Version:                 "V1,0",
+			ApplicationId:           "TestApplicationId",
+			TransactionServiceGroup: "TestTransactionServiceGroup",
+			ExtraData:               []byte("TestExtraData"),
+		},
 	}
+
+	codec := RegisterTMRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }
