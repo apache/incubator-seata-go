@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/seata/seata-go/pkg/tm"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,9 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/seatactx"
-
-	context2 "github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/seata/seata-go/pkg/rm"
 
 	api2 "github.com/seata/seata-go/pkg/rm/tcc/api"
@@ -73,7 +71,7 @@ func NewTCCServiceProxy(tccService TCCService) TCCService {
 }
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error {
-	if seatactx.HasXID(ctx) {
+	if tm.HasXID(ctx) {
 		err := t.RegisteBranch(ctx, param)
 		if err != nil {
 			return err
@@ -84,7 +82,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error 
 
 func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) error {
 	// register transaction branch
-	if !seatactx.HasXID(ctx) {
+	if !tm.HasXID(ctx) {
 		err := errors.New("BranchRegister error, xid should not be nil")
 		log.Errorf(err.Error())
 		return err
@@ -95,7 +93,7 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	tccContextStr, _ := json.Marshal(tccContext)
 
 	branchId, err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).BranchRegister(
-		ctx, branch.BranchTypeTCC, t.GetActionName(), "", seatactx.GetXID(ctx), string(tccContextStr), "")
+		ctx, branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
 		log.Error(err.Error())
@@ -103,18 +101,18 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	}
 
 	actionContext := &api2.BusinessActionContext{
-		Xid:           seatactx.GetXID(ctx),
+		Xid:           tm.GetXID(ctx),
 		BranchId:      string(branchId),
 		ActionName:    t.GetActionName(),
 		ActionContext: param,
 	}
-	seatactx.SetBusinessActionContext(ctx, actionContext)
+	tm.SetBusinessActionContext(ctx, actionContext)
 	return nil
 }
 
-func (t *TCCServiceProxy) GetTransactionInfo() context2.TransactionInfo {
+func (t *TCCServiceProxy) GetTransactionInfo() tm.TransactionInfo {
 	// todo replace with config
-	return context2.TransactionInfo{
+	return tm.TransactionInfo{
 		TimeOut: 10000,
 		Name:    t.GetActionName(),
 		//Propagation, Propagation

@@ -15,56 +15,61 @@
  * limitations under the License.
  */
 
-package api
+package tm
 
 import (
 	"context"
 	"fmt"
-
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/protocol/seatactx"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
-	"github.com/seata/seata-go/pkg/protocol/transaction/manager"
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
+
+type TransactionInfo struct {
+	TimeOut           int32
+	Name              string
+	Propagation       Propagation
+	LockRetryInternal int64
+	LockRetryTimes    int64
+}
 
 type TransactionalExecutor interface {
 	Execute(ctx context.Context, param interface{}) (interface{}, error)
-	GetTransactionInfo() transaction.TransactionInfo
+	GetTransactionInfo() TransactionInfo
 }
 
 func Begin(ctx context.Context, name string) context.Context {
-	if !seatactx.IsSeataContext(ctx) {
-		ctx = seatactx.InitSeataContext(ctx)
+	if !IsSeataContext(ctx) {
+		ctx = InitSeataContext(ctx)
 	}
 
-	seatactx.SetTxName(ctx, name)
-	if seatactx.GetTransactionRole(ctx) == nil {
-		seatactx.SetTransactionRole(ctx, transaction.LAUNCHER)
+	SetTxName(ctx, name)
+	if GetTransactionRole(ctx) == nil {
+		SetTransactionRole(ctx, LAUNCHER)
 	}
 
-	var tx *manager.GlobalTransaction
-	if seatactx.HasXID(ctx) {
-		tx = &manager.GlobalTransaction{
-			Xid:    seatactx.GetXID(ctx),
-			Status: transaction.GlobalStatusBegin,
-			Role:   transaction.PARTICIPANT,
+	var tx *GlobalTransaction
+	if HasXID(ctx) {
+		tx = &GlobalTransaction{
+			Xid:    GetXID(ctx),
+			Status: message.GlobalStatusBegin,
+			Role:   PARTICIPANT,
 		}
-		seatactx.SetTxStatus(ctx, transaction.GlobalStatusBegin)
+		SetTxStatus(ctx, message.GlobalStatusBegin)
 	}
 
 	// todo: Handle the transaction propagation.
 
 	if tx == nil {
-		tx = &manager.GlobalTransaction{
-			Xid:    seatactx.GetXID(ctx),
-			Status: transaction.GlobalStatusUnKnown,
-			Role:   transaction.LAUNCHER,
+		tx = &GlobalTransaction{
+			Xid:    GetXID(ctx),
+			Status: message.GlobalStatusUnKnown,
+			Role:   LAUNCHER,
 		}
-		seatactx.SetTxStatus(ctx, transaction.GlobalStatusUnKnown)
+		SetTxStatus(ctx, message.GlobalStatusUnKnown)
 	}
 
 	// todo timeout should read from config
-	err := manager.GetGlobalTransactionManager().Begin(ctx, tx, 50, name)
+	err := GetGlobalTransactionManager().Begin(ctx, tx, 50, name)
 	if err != nil {
 		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
 	}
@@ -74,20 +79,20 @@ func Begin(ctx context.Context, name string) context.Context {
 
 // commit global transaction
 func CommitOrRollback(ctx context.Context, err error) error {
-	tx := &manager.GlobalTransaction{
-		Xid:    seatactx.GetXID(ctx),
-		Status: *seatactx.GetTxStatus(ctx),
-		Role:   *seatactx.GetTransactionRole(ctx),
+	tx := &GlobalTransaction{
+		Xid:    GetXID(ctx),
+		Status: *GetTxStatus(ctx),
+		Role:   *GetTransactionRole(ctx),
 	}
 
 	var resp error
 	if err == nil {
-		resp = manager.GetGlobalTransactionManager().Commit(ctx, tx)
+		resp = GetGlobalTransactionManager().Commit(ctx, tx)
 		if resp != nil {
 			log.Infof("transactionTemplate: commit transaction failed, error %v", err)
 		}
 	} else {
-		resp = manager.GetGlobalTransactionManager().Rollback(ctx, tx)
+		resp = GetGlobalTransactionManager().Rollback(ctx, tx)
 		if resp != nil {
 			log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
 		}

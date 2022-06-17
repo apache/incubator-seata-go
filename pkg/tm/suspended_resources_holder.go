@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package api
+package tm
 
 type SuspendedResourcesHolder struct {
 	Xid string

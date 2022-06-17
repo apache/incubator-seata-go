@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/transaction"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +33,7 @@ func TestGlobalCommitResponseCodec(t *testing.T) {
 					Msg:        "ResultCodeFailed message",
 				},
 			},
-			GlobalStatus: transaction.GlobalStatusCommitted,
+			GlobalStatus: message.GlobalStatusCommitted,
 		},
 	}
 

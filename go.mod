@@ -9,6 +9,7 @@ require (
 	github.com/fagongzi/goetty v1.3.1
 	github.com/fagongzi/util v0.0.0-20181102105153-fd38e0f42a4f
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/incu6us/goimports-reviser v0.1.6 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1

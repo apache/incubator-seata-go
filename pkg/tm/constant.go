@@ -15,16 +15,35 @@
  * limitations under the License.
  */
 
-package transaction
+package tm
 
-type Propagation int8
+import "github.com/seata/seata-go/pkg/protocol/message"
 
-type TransactionInfo struct {
-	TimeOut           int32
-	Name              string
-	Propagation       Propagation
-	LockRetryInternal int64
-	LockRetryTimes    int64
+const (
+	LAUNCHER    GlobalTransactionRole = 0
+	PARTICIPANT GlobalTransactionRole = 1
+)
+
+type (
+	Propagation           int8
+	GlobalTransactionRole int8
+)
+
+type TransactionManager interface {
+	// GlobalStatusBegin a new global transaction.
+	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)
+
+	// Global commit.
+	Commit(xid string) (message.GlobalStatus, error)
+
+	//Global rollback.
+	Rollback(xid string) (message.GlobalStatus, error)
+
+	// Get current status of the give transaction.
+	GetStatus(xid string) (message.GlobalStatus, error)
+
+	// Global report.
+	GlobalReport(xid string, globalStatus message.GlobalStatus) (message.GlobalStatus, error)
 }
 
 const (
