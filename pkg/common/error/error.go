@@ -128,7 +128,6 @@ type TransactionException struct {
 	Message string
 }
 
-//Error 隐式继承 builtin.error 接口
 func (e TransactionException) Error() string {
 	return "TransactionException: " + e.Message
 }

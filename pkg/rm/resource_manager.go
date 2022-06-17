@@ -46,7 +46,6 @@ func GetResourceManagerInstance() *ResourceManager {
 type ResourceManager struct {
 }
 
-// 将事务管理器注册到这里
 func RegisterResourceManager(resourceManager resource.ResourceManager) {
 	resourceManagerMap.Store(resourceManager.GetBranchType(), resourceManager)
 }
