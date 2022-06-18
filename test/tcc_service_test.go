@@ -19,16 +19,16 @@ package test
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/tm"
 	"testing"
 	"time"
+
+	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/seata/seata-go/pkg/common/log"
 
 	_ "github.com/seata/seata-go/pkg/imports"
 
 	"github.com/seata/seata-go/pkg/rm/tcc"
-	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 type TestTCCServiceBusiness struct {
@@ -39,12 +39,12 @@ func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{})
 	return nil
 }
 
-func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
 	log.Infof("TestTCCServiceBusiness Commit, param %v", businessActionContext)
 	return nil
 }
 
-func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
 	log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
 	return nil
 }
@@ -61,12 +61,12 @@ func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}
 	return nil
 }
 
-func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
 	log.Infof("TestTCCServiceBusiness2 Commit, param %v", businessActionContext)
 	return nil
 }
 
-func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext api.BusinessActionContext) error {
+func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
 	log.Infof("TestTCCServiceBusiness2 Rollback, param %v", businessActionContext)
 	return nil
 }
@@ -85,9 +85,17 @@ func TestNew(test *testing.T) {
 
 	tccService := tcc.NewTCCServiceProxy(TestTCCServiceBusiness{})
 	err = tccService.Prepare(ctx, 1)
+	if err != nil {
+		log.Errorf("execute TestTCCServiceBusiness prepare error %s", err.Error())
+		return
+	}
 
 	tccService2 := tcc.NewTCCServiceProxy(TestTCCServiceBusiness2{})
 	err = tccService2.Prepare(ctx, 3)
+	if err != nil {
+		log.Errorf("execute TestTCCServiceBusiness2 prepare error %s", err.Error())
+		return
+	}
 
 	time.Sleep(time.Second * 1000)
 }

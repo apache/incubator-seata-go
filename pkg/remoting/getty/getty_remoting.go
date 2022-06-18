@@ -72,9 +72,11 @@ func (client *GettyRemoting) SendASync(msg message.RpcMessage) error {
 }
 
 func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
+	log.Infof("send message: {%#v}", msg)
 	var err error
 	if session == nil || session.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		return nil, err
 	}
 	resp := message.NewMessageFuture(msg)
 	client.futures.Store(msg.ID, resp)
@@ -90,7 +92,7 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMes
 	actualTimeOut := timeout
 	if timeout <= time.Duration(0) {
 		// todo timeoue use config
-		actualTimeOut = time.Duration(200)
+		actualTimeOut = time.Duration(2000)
 	}
 
 	wait := func() (interface{}, error) {

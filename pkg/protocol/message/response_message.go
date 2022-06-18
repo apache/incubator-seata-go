@@ -48,6 +48,14 @@ func (resp BranchRegisterResponse) GetTypeCode() MessageType {
 	return MessageType_BranchRegisterResult
 }
 
+type RegisterTMResponse struct {
+	AbstractIdentifyResponse
+}
+
+func (resp RegisterTMResponse) GetTypeCode() MessageType {
+	return MessageType_RegCltResult
+}
+
 type BranchReportResponse struct {
 	AbstractTransactionResponse
 }
@@ -69,7 +77,7 @@ type BranchRollbackResponse struct {
 }
 
 func (resp BranchRollbackResponse) GetTypeCode() MessageType {
-	return MessageType_GlobalRollbackResult
+	return MessageType_BranchRollbackResult
 }
 
 type GlobalBeginResponse struct {

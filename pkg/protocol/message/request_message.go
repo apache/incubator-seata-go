@@ -145,14 +145,6 @@ func (req RegisterTMRequest) GetTypeCode() MessageType {
 	return MessageType_RegClt
 }
 
-type RegisterTMResponse struct {
-	AbstractIdentifyResponse
-}
-
-func (resp RegisterTMResponse) GetTypeCode() MessageType {
-	return MessageType_RegCltResult
-}
-
 type RegisterRMRequest struct {
 	AbstractIdentifyRequest
 	ResourceIds string
