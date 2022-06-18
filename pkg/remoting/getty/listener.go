@@ -89,7 +89,6 @@ func (client *gettyClientHandler) OnClose(session getty.Session) {
 }
 
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
-	// TODO 需要把session里面的关键信息存储到context中，以方便在后面流程中获取使用。比如，XID等等
 	ctx := context.Background()
 	log.Debugf("received message: {%#v}", pkg)
 
@@ -107,12 +106,12 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 			log.Errorf("This message type [%v] has no processor.", mm.GetTypeCode())
 		}
 	} else {
-		log.Errorf("This rpcMessage body[%v] is not MessageTypeAware type.", rpcMessage.Body)
+		log.Errorf("This rpcMessage body %#v is not MessageTypeAware type.", rpcMessage.Body)
 	}
 }
 
 func (client *gettyClientHandler) OnCron(session getty.Session) {
-	// todo 发送心跳消息
+	// todo send heartbeat message
 }
 
 func (client *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {

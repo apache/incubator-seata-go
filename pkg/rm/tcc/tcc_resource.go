@@ -22,14 +22,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/tm"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/rm/common/remoting"
-	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 var (
@@ -57,7 +54,7 @@ func (t *TCCResource) GetBranchType() branch.BranchType {
 }
 
 func init() {
-	rm.RegisterResourceManager(GetTCCResourceManagerInstance())
+	rm.GetResourceManagerInstance().RegisterResourceManager(GetTCCResourceManagerInstance())
 }
 
 func GetTCCResourceManagerInstance() *TCCResourceManager {
@@ -65,7 +62,7 @@ func GetTCCResourceManagerInstance() *TCCResourceManager {
 		onceTCCResourceManager.Do(func() {
 			tCCResourceManager = &TCCResourceManager{
 				resourceManagerMap: sync.Map{},
-				rmRemoting:         remoting.GetRMRemotingInstance(),
+				rmRemoting:         rm.GetRMRemotingInstance(),
 			}
 		})
 	}
@@ -73,26 +70,14 @@ func GetTCCResourceManagerInstance() *TCCResourceManager {
 }
 
 type TCCResourceManager struct {
-	rmRemoting *remoting.RMRemoting
+	rmRemoting *rm.RMRemoting
 	// resourceID -> resource
 	resourceManagerMap sync.Map
 }
 
 // register transaction branch
 func (t *TCCResourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	request := message.BranchRegisterRequest{
-		Xid:             xid,
-		BranchType:      t.GetBranchType(),
-		ResourceId:      resourceId,
-		LockKey:         lockKeys,
-		ApplicationData: []byte(applicationData),
-	}
-	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil {
-		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
-		return 0, err
-	}
-	return resp.(message.BranchRegisterResponse).BranchId, nil
+	return t.rmRemoting.BranchRegister(branch.BranchTypeTCC, resourceId, clientId, xid, applicationData, lockKeys)
 }
 
 func (t *TCCResourceManager) BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
@@ -139,8 +124,8 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 	return branch.BranchStatusPhasetwoCommitted, err
 }
 
-func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) api.BusinessActionContext {
-	return api.BusinessActionContext{
+func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) tm.BusinessActionContext {
+	return tm.BusinessActionContext{
 		Xid:        xid,
 		BranchId:   branchID,
 		ActionName: resourceID,

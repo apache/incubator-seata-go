@@ -36,7 +36,7 @@ type rmBranchCommitProcessor struct {
 }
 
 func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	log.Infof("rm client handle branch commit process %v", rpcMessage)
+	log.Infof("the rm client received  rmBranchCommit msg %#v from tc server.", rpcMessage)
 	request := rpcMessage.Body.(message.BranchCommitRequest)
 	xid := request.Xid
 	branchID := request.BranchId

@@ -46,9 +46,8 @@ type clientOnResponseProcessor struct {
 }
 
 func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	// 如果是合并的结果消息，直接通知已经处理完成
+	log.Infof("the rm client received  clientOnResponse msg %#v from tc server.", rpcMessage)
 	if mergedResult, ok := rpcMessage.Body.(message.MergeResultMessage); ok {
-
 		mergedMessage := getty2.GetGettyRemotingInstance().GetMergedMessage(rpcMessage.ID)
 		if mergedMessage != nil {
 			for i := 0; i < len(mergedMessage.Msgs); i++ {
