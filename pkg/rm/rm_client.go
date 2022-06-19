@@ -1,4 +1,0 @@
-package rm
-
-func init() {
-}

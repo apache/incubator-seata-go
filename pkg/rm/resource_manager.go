@@ -22,13 +22,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/resource"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 var (
-	// BranchType -> ResourceManager
-	resourceManagerMap sync.Map
 	// singletone ResourceManager
 	rmFacadeInstance *ResourceManager
 	onceRMFacade     = &sync.Once{}
@@ -44,14 +43,16 @@ func GetResourceManagerInstance() *ResourceManager {
 }
 
 type ResourceManager struct {
+	// BranchType -> ResourceManager
+	resourceManagerMap sync.Map
 }
 
-func RegisterResourceManager(resourceManager resource.ResourceManager) {
-	resourceManagerMap.Store(resourceManager.GetBranchType(), resourceManager)
+func (d *ResourceManager) RegisterResourceManager(resourceManager resource.ResourceManager) {
+	d.resourceManagerMap.Store(resourceManager.GetBranchType(), resourceManager)
 }
 
-func (*ResourceManager) GetResourceManager(branchType branch.BranchType) resource.ResourceManager {
-	rm, ok := resourceManagerMap.Load(branchType)
+func (d *ResourceManager) GetResourceManager(branchType branch.BranchType) resource.ResourceManager {
+	rm, ok := d.resourceManagerMap.Load(branchType)
 	if !ok {
 		panic(fmt.Sprintf("No ResourceManager for BranchType: %v", branchType))
 	}
@@ -95,7 +96,7 @@ func (d *ResourceManager) UnregisterResource(resource resource.Resource) error {
 
 // Get all resources managed by this manager
 func (d *ResourceManager) GetManagedResources() *sync.Map {
-	return &resourceManagerMap
+	return &d.resourceManagerMap
 }
 
 // Get the model.BranchType

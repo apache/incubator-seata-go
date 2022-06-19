@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package remoting
+package rm
 
 import (
 	"sync"
 
+	"github.com/seata/seata-go/pkg/protocol/resource"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
@@ -41,13 +42,24 @@ func GetRMRemotingInstance() *RMRemoting {
 	return rmRemoting
 }
 
-// TODO
 type RMRemoting struct {
 }
 
 // Branch register long
 func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	return 0, nil
+	request := message.BranchRegisterRequest{
+		Xid:             xid,
+		LockKey:         lockKeys,
+		ResourceId:      resourceId,
+		BranchType:      branchType,
+		ApplicationData: []byte(applicationData),
+	}
+	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
+	if err != nil || resp == nil {
+		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
+		return 0, err
+	}
+	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
 //  Branch report
@@ -93,21 +105,17 @@ func isRegisterSuccess(response interface{}) bool {
 }
 
 func (r *RMRemoting) onRegisterRMSuccess(response message.RegisterRMResponse) {
-	// TODO
 	log.Infof("register RM success. response: %#v", response)
 }
 
 func (r *RMRemoting) onRegisterRMFailure(response message.RegisterRMResponse) {
-	// TODO
 	log.Infof("register RM failure. response: %#v", response)
 }
 
 func (r *RMRemoting) onRegisterTMSuccess(response message.RegisterTMResponse) {
-	// TODO
 	log.Infof("register TM success. response: %#v", response)
 }
 
 func (r *RMRemoting) onRegisterTMFailure(response message.RegisterTMResponse) {
-	// TODO
 	log.Infof("register TM failure. response: %#v", response)
 }

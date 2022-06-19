@@ -19,8 +19,8 @@ package tm
 
 import (
 	"context"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 type ContextParam string
@@ -30,12 +30,19 @@ const (
 	tccBusinessActionContext = ContextParam("tcc-business-action-context")
 )
 
+type BusinessActionContext struct {
+	Xid           string
+	BranchId      int64
+	ActionName    string
+	ActionContext interface{}
+}
+
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	Status                *message.GlobalStatus
 	TxRole                *GlobalTransactionRole
-	BusinessActionContext *api.BusinessActionContext
+	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
 }
 
@@ -77,15 +84,15 @@ func IsSeataContext(ctx context.Context) bool {
 	return ctx.Value(seataContextVariable) != nil
 }
 
-func GetBusinessActionContext(ctx context.Context) *api.BusinessActionContext {
+func GetBusinessActionContext(ctx context.Context) *BusinessActionContext {
 	variable := ctx.Value(tccBusinessActionContext)
 	if variable == nil {
 		return nil
 	}
-	return variable.(*api.BusinessActionContext)
+	return variable.(*BusinessActionContext)
 }
 
-func SetBusinessActionContext(ctx context.Context, businessActionContext *api.BusinessActionContext) {
+func SetBusinessActionContext(ctx context.Context, businessActionContext *BusinessActionContext) {
 	variable := ctx.Value(tccBusinessActionContext)
 	if variable != nil {
 		variable.(*ContextVariable).BusinessActionContext = businessActionContext

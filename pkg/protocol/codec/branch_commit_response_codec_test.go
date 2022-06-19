@@ -15,11 +15,29 @@
  * limitations under the License.
  */
 
-package api
+package codec
 
-type BusinessActionContext struct {
-	Xid           string
-	BranchId      int64
-	ActionName    string
-	ActionContext interface{}
+import (
+	"testing"
+
+	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBranchCommitResponseCodec(t *testing.T) {
+	msg := message.BranchCommitResponse{
+		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			Xid:          "123344",
+			BranchId:     56678,
+			BranchStatus: model2.BranchStatusPhaseoneFailed,
+		},
+	}
+
+	codec := BranchCommitResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }

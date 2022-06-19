@@ -21,8 +21,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/seata/seata-go/pkg/tm"
 	"time"
+
+	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common"
@@ -30,14 +31,12 @@ import (
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
-
-	api2 "github.com/seata/seata-go/pkg/rm/tcc/api"
 )
 
 type TCCService interface {
 	Prepare(ctx context.Context, params interface{}) error
-	Commit(ctx context.Context, businessActionContext api2.BusinessActionContext) error
-	Rollback(ctx context.Context, businessActionContext api2.BusinessActionContext) error
+	Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error
+	Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error
 
 	GetActionName() string
 	//GetRemoteType() remoting.RemoteType
@@ -90,17 +89,18 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	tccContext := make(map[string]interface{}, 0)
 	tccContext[common.StartTime] = time.Now().UnixNano() / 1e6
 	tccContext[common.HostName] = net.GetLocalIp()
-	tccContextStr, _ := json.Marshal(tccContext)
+	tccContextStr, _ := json.Marshal(map[string]interface{}{
+		common.ActionContext: tccContext,
+	})
 
-	branchId, err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).BranchRegister(
-		ctx, branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
+	branchId, err := rm.GetRMRemotingInstance().BranchRegister(branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
 		log.Error(err.Error())
 		return err
 	}
 
-	actionContext := &api2.BusinessActionContext{
+	actionContext := &tm.BusinessActionContext{
 		Xid:           tm.GetXID(ctx),
 		BranchId:      branchId,
 		ActionName:    t.GetActionName(),
