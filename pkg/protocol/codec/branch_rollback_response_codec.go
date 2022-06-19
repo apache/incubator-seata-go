@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -34,7 +34,7 @@ func (g *BranchRollbackResponseCodec) Decode(in []byte) interface{} {
 
 	res := message.BranchRollbackResponse{}
 
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 	var length uint16
 
@@ -51,7 +51,7 @@ func (g *BranchRollbackResponseCodec) Decode(in []byte) interface{} {
 
 func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
 	req, _ := in.(message.BranchRollbackResponse)
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 
 	Write16String(req.Xid, buf)
 	buf.WriteInt64(req.BranchId)

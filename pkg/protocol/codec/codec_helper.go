@@ -17,14 +17,10 @@
 
 package codec
 
-import (
-	"github.com/fagongzi/goetty"
-
-	"github.com/fagongzi/util/hack"
-)
+import "github.com/seata/seata-go/pkg/common/binary"
 
 // Write16String write string value with 16 byte length
-func Write16String(value string, buf *goetty.ByteBuf) {
+func Write16String(value string, buf *binary.ByteBuf) {
 	if value != "" {
 		buf.WriteUInt16(uint16(len(value)))
 		buf.WriteString(value)
@@ -34,7 +30,7 @@ func Write16String(value string, buf *goetty.ByteBuf) {
 }
 
 // Write16String write string value with 16 byte length
-func Write32String(value string, buf *goetty.ByteBuf) {
+func Write32String(value string, buf *binary.ByteBuf) {
 	if value != "" {
 		buf.WriteUInt32(uint32(len(value)))
 		buf.WriteString(value)
@@ -44,7 +40,7 @@ func Write32String(value string, buf *goetty.ByteBuf) {
 }
 
 // Write8String write string value with 8 byte length
-func Write8String(value string, buf *goetty.ByteBuf) {
+func Write8String(value string, buf *binary.ByteBuf) {
 	if value != "" {
 		buf.WriteByte(uint8(len(value)))
 		buf.WriteString(value)
@@ -54,18 +50,18 @@ func Write8String(value string, buf *goetty.ByteBuf) {
 }
 
 // ReadString read string value
-func ReadString(buf *goetty.ByteBuf) string {
+func ReadString(buf *binary.ByteBuf) string {
 	size := ReadUInt16(buf)
 	if size == 0 {
 		return ""
 	}
 
 	_, value, _ := buf.ReadBytes(int(size))
-	return hack.SliceToString(value)
+	return binary.SliceToString(value)
 }
 
 // MaybeReadString maybe read string value
-func MaybeReadString(buf *goetty.ByteBuf) (string, bool) {
+func MaybeReadString(buf *binary.ByteBuf) (string, bool) {
 	if buf.Readable() < 2 {
 		return "", false
 	}
@@ -80,11 +76,11 @@ func MaybeReadString(buf *goetty.ByteBuf) (string, bool) {
 	}
 
 	_, value, _ := buf.ReadBytes(int(size))
-	return hack.SliceToString(value), true
+	return binary.SliceToString(value), true
 }
 
 // WriteBigString write big string
-func WriteBigString(value string, buf *goetty.ByteBuf) {
+func WriteBigString(value string, buf *binary.ByteBuf) {
 	if value != "" {
 		buf.WriteInt(len(value))
 		buf.WriteString(value)
@@ -94,18 +90,18 @@ func WriteBigString(value string, buf *goetty.ByteBuf) {
 }
 
 // ReadBigString read big string
-func ReadBigString(buf *goetty.ByteBuf) string {
+func ReadBigString(buf *binary.ByteBuf) string {
 	size := ReadInt(buf)
 	if size == 0 {
 		return ""
 	}
 
 	_, value, _ := buf.ReadBytes(size)
-	return hack.SliceToString(value)
+	return binary.SliceToString(value)
 }
 
 // MaybeReadBigString maybe read string value
-func MaybeReadBigString(buf *goetty.ByteBuf) (string, bool) {
+func MaybeReadBigString(buf *binary.ByteBuf) (string, bool) {
 	if buf.Readable() < 4 {
 		return "", false
 	}
@@ -120,58 +116,58 @@ func MaybeReadBigString(buf *goetty.ByteBuf) (string, bool) {
 	}
 
 	_, value, _ := buf.ReadBytes(int(size))
-	return hack.SliceToString(value), true
+	return binary.SliceToString(value), true
 }
 
 // ReadUInt64 read uint64 value
-func ReadUInt64(buf *goetty.ByteBuf) uint64 {
+func ReadUInt64(buf *binary.ByteBuf) uint64 {
 	value, _ := buf.ReadUInt64()
 	return value
 }
 
 // ReadUInt16 read uint16 value
-func ReadUInt16(buf *goetty.ByteBuf) uint16 {
+func ReadUInt16(buf *binary.ByteBuf) uint16 {
 	value, _ := buf.ReadUInt16()
 	return value
 }
 
 // ReadUInt32 read uint16 value
-func ReadUInt32(buf *goetty.ByteBuf) uint32 {
+func ReadUInt32(buf *binary.ByteBuf) uint32 {
 	value, _ := buf.ReadUInt32()
 	return value
 }
 
 // ReadUInt32 read uint16 value
-func Read(buf *goetty.ByteBuf, p []byte) []byte {
+func Read(buf *binary.ByteBuf, p []byte) []byte {
 	buf.Read(p)
 	return p
 }
 
 // ReadInt read int value
-func ReadInt(buf *goetty.ByteBuf) int {
+func ReadInt(buf *binary.ByteBuf) int {
 	value, _ := buf.ReadInt()
 	return value
 }
 
 // ReadByte read byte value
-func ReadByte(buf *goetty.ByteBuf) byte {
+func ReadByte(buf *binary.ByteBuf) byte {
 	value, _ := buf.ReadByte()
 	return value
 }
 
 // ReadBytes read bytes value
-func ReadBytes(n int, buf *goetty.ByteBuf) []byte {
+func ReadBytes(n int, buf *binary.ByteBuf) []byte {
 	_, value, _ := buf.ReadBytes(n)
 	return value
 }
 
 // WriteBool write bool value
-func WriteBool(value bool, out *goetty.ByteBuf) {
+func WriteBool(value bool, out *binary.ByteBuf) {
 	out.WriteByte(boolToByte(value))
 }
 
 // WriteSlice write slice value
-func WriteSlice(value []byte, buf *goetty.ByteBuf) {
+func WriteSlice(value []byte, buf *binary.ByteBuf) {
 	buf.WriteUInt16(uint16(len(value)))
 	if len(value) > 0 {
 		buf.Write(value)
@@ -179,7 +175,7 @@ func WriteSlice(value []byte, buf *goetty.ByteBuf) {
 }
 
 // ReadSlice read slice value
-func ReadSlice(buf *goetty.ByteBuf) []byte {
+func ReadSlice(buf *binary.ByteBuf) []byte {
 	l, _ := buf.ReadUInt16()
 	if l == 0 {
 		return nil

@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,7 +31,7 @@ type BranchRegisterResponseCodec struct {
 }
 
 func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 	msg := message.BranchRegisterResponse{}
 
@@ -53,7 +53,7 @@ func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
 }
 
 func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 	resp, _ := in.(message.BranchRegisterResponse)
 
 	buf.WriteByte(byte(resp.ResultCode))

@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -26,7 +26,7 @@ type AbstractIdentifyResponseCodec struct {
 }
 
 func (c *AbstractIdentifyResponseCodec) Encode(in interface{}) []byte {
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 	resp := in.(message.AbstractIdentifyResponse)
 
 	if resp.Identified {
@@ -40,7 +40,7 @@ func (c *AbstractIdentifyResponseCodec) Encode(in interface{}) []byte {
 }
 
 func (c *AbstractIdentifyResponseCodec) Decode(in []byte) interface{} {
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 	msg := message.AbstractIdentifyResponse{}
 
