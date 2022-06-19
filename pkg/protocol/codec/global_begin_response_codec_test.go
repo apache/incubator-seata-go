@@ -18,8 +18,9 @@
 package codec
 
 import (
-	error2 "github.com/seata/seata-go/pkg/common/error"
 	"testing"
+
+	error2 "github.com/seata/seata-go/pkg/common/error"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"

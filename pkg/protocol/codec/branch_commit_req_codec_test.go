@@ -15,25 +15,31 @@
  * limitations under the License.
  */
 
-package handler
+package codec
 
 import (
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/rm/common/handler"
+	"testing"
+
+	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
 
-type TCCRMHandler struct {
-	handler.CommonRMHandler
-}
+func TestBranchCommitRequestCodec(t *testing.T) {
+	msg := message.BranchCommitRequest{
+		AbstractBranchEndRequest: message.AbstractBranchEndRequest{
+			Xid:             "123344",
+			BranchId:        56678,
+			BranchType:      model2.BranchTypeSAGA,
+			ResourceId:      "1232323",
+			ApplicationData: []byte("TestExtraData"),
+		},
+	}
 
-func NewTCCRMHandler() TCCRMHandler {
-	handler := TCCRMHandler{}
-	handler.CommonRMHandler.SetRMGetter(handler)
-	return handler
-}
+	codec := BranchCommitRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
 
-func (TCCRMHandler) GetResourceManager() resource.ResourceManager {
-	return rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC)
+	assert.Equal(t, msg, msg2)
 }

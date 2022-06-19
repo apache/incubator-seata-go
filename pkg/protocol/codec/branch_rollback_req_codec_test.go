@@ -15,10 +15,31 @@
  * limitations under the License.
  */
 
-package common
+package codec
 
-const (
-	StartTime     = "action-start-time"
-	HostName      = "host-name"
-	ActionContext = "actionContext"
+import (
+	"testing"
+
+	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestBranchRollbackRequestCodec(t *testing.T) {
+	msg := message.BranchRollbackRequest{
+		AbstractBranchEndRequest: message.AbstractBranchEndRequest{
+			Xid:             "123344",
+			BranchId:        56678,
+			BranchType:      model2.BranchTypeSAGA,
+			ResourceId:      "1232323",
+			ApplicationData: []byte("TestExtraData"),
+		},
+	}
+
+	codec := BranchRollbackRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
+}
