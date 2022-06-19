@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -30,7 +30,7 @@ type RegisterRMRequestCodec struct {
 }
 
 func (g *RegisterRMRequestCodec) Decode(in []byte) interface{} {
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 	msg := message.RegisterRMRequest{}
 
@@ -69,7 +69,7 @@ func (g *RegisterRMRequestCodec) Decode(in []byte) interface{} {
 
 func (c *RegisterRMRequestCodec) Encode(in interface{}) []byte {
 	req := in.(message.RegisterRMRequest)
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 
 	Write16String(req.Version, buf)
 	Write16String(req.ApplicationId, buf)

@@ -20,8 +20,9 @@ package getty
 import (
 	"fmt"
 
+	"github.com/seata/seata-go/pkg/common/binary"
+
 	getty "github.com/apache/dubbo-getty"
-	"github.com/fagongzi/goetty"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -84,7 +85,7 @@ type SeataV1PackageHeader struct {
 }
 
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	in := goetty.NewByteBuf(len(data))
+	in := binary.NewByteBuf(len(data))
 	in.Write(data)
 
 	header := SeataV1PackageHeader{}
@@ -165,7 +166,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		totalLength += len(bodyBytes)
 	}
 
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 	buf.WriteByte(message.MAGIC_CODE_BYTES[0])
 	buf.WriteByte(message.MAGIC_CODE_BYTES[1])
 	buf.WriteByte(message.VERSION)
@@ -182,7 +183,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 }
 
 func encodeHeapMap(data map[string]string) ([]byte, int) {
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 	for k, v := range data {
 		if k == "" {
 			buf.WriteUInt16(uint16(0))
@@ -202,7 +203,7 @@ func encodeHeapMap(data map[string]string) ([]byte, int) {
 	return res, len(res)
 }
 
-func decodeHeapMap(in *goetty.ByteBuf, length uint16) map[string]string {
+func decodeHeapMap(in *binary.ByteBuf, length uint16) map[string]string {
 	res := make(map[string]string, 0)
 	if length == 0 {
 		return res
