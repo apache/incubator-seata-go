@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,7 +31,7 @@ type GlobalBeginResponseCodec struct {
 }
 
 func (c *GlobalBeginResponseCodec) Encode(in interface{}) []byte {
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 	resp := in.(message.GlobalBeginResponse)
 
 	buf.WriteByte(byte(resp.ResultCode))
@@ -53,7 +53,7 @@ func (c *GlobalBeginResponseCodec) Encode(in interface{}) []byte {
 
 func (g *GlobalBeginResponseCodec) Decode(in []byte) interface{} {
 	var lenth uint16
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 	msg := message.GlobalBeginResponse{}
 
