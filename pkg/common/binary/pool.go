@@ -15,43 +15,40 @@
  * limitations under the License.
  */
 
-package codec
+package binary
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"sync"
 )
 
-type CommonGlobalEndRequestCodec struct {
+const (
+	// KB kb
+	KB = 1024
+	// MB mb
+	MB = 1024 * 1024
+)
+
+var (
+	lock       sync.Mutex
+	mp         Pool
+	defaultMin = 256
+	defaultMax = 8 * MB
+)
+
+func getDefaultMP() Pool {
+	lock.Lock()
+	if mp == nil {
+		useDefaultMemPool()
+	}
+	lock.Unlock()
+
+	return mp
 }
 
-func (c *CommonGlobalEndRequestCodec) Encode(in interface{}) []byte {
-	req, _ := in.(message.AbstractGlobalEndRequest)
-	buf := binary.NewByteBuf(0)
-
-	Write16String(req.Xid, buf)
-	Write16String(string(req.ExtraData), buf)
-
-	return buf.RawBuf()
-}
-
-func (c *CommonGlobalEndRequestCodec) Decode(in []byte) interface{} {
-	res := message.AbstractGlobalEndRequest{}
-
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var length uint16
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.Xid = string(Read(buf, bytes))
-	}
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.ExtraData = Read(buf, bytes)
-	}
-
-	return res
+func useDefaultMemPool() {
+	mp = NewSyncPool(
+		defaultMin,
+		defaultMax,
+		2,
+	)
 }

@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/fagongzi/goetty"
+	"github.com/seata/seata-go/pkg/common/binary"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -31,7 +31,7 @@ type GlobalBeginRequestCodec struct {
 
 func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 	req := in.(message.GlobalBeginRequest)
-	buf := goetty.NewByteBuf(0)
+	buf := binary.NewByteBuf(0)
 
 	buf.WriteUInt32(uint32(req.Timeout))
 	Write16String(req.TransactionName, buf)
@@ -41,7 +41,7 @@ func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 
 func (g *GlobalBeginRequestCodec) Decode(in []byte) interface{} {
 	msg := message.GlobalBeginRequest{}
-	buf := goetty.NewByteBuf(len(in))
+	buf := binary.NewByteBuf(len(in))
 	buf.Write(in)
 
 	msg.Timeout = int32(ReadUInt32(buf))
