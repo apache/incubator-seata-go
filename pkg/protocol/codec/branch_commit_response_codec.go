@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,33 +31,25 @@ type BranchCommitResponseCodec struct {
 }
 
 func (g *BranchCommitResponseCodec) Decode(in []byte) interface{} {
-
 	res := message.BranchCommitResponse{}
+	buf := bytes.NewByteBuffer(in)
 
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var length uint16
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.Xid = string(Read(buf, bytes))
-	}
-	res.BranchId = int64(ReadUInt64(buf))
-	res.BranchStatus = branch.BranchStatus(ReadByte(buf))
+	res.Xid = bytes.ReadString16Length(buf)
+	res.BranchId = int64(bytes.ReadUInt64(buf))
+	res.BranchStatus = branch.BranchStatus(bytes.ReadByte(buf))
 
 	return res
 }
 
 func (g *BranchCommitResponseCodec) Encode(in interface{}) []byte {
 	req, _ := in.(message.BranchCommitResponse)
-	buf := binary.NewByteBuf(0)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Xid, buf)
+	bytes.WriteString16Length(req.Xid, buf)
 	buf.WriteInt64(req.BranchId)
 	buf.WriteByte(byte(req.BranchStatus))
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *BranchCommitResponseCodec) GetMessageType() message.MessageType {

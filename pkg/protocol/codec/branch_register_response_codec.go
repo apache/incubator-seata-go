@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,46 +31,37 @@ type BranchRegisterResponseCodec struct {
 }
 
 func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	msg := message.BranchRegisterResponse{}
+	data := message.BranchRegisterResponse{}
+	buf := bytes.NewByteBuffer(in)
 
-	resultCode := ReadByte(buf)
-	msg.ResultCode = message.ResultCode(resultCode)
-	if msg.ResultCode == message.ResultCodeFailed {
-		length := ReadUInt16(buf)
-		if length > 0 {
-			bytes := make([]byte, length)
-			msg.Msg = string(Read(buf, bytes))
-		}
+	data.ResultCode = message.ResultCode(bytes.ReadByte(buf))
+	if data.ResultCode == message.ResultCodeFailed {
+		data.Msg = bytes.ReadString16Length(buf)
 	}
+	data.TransactionExceptionCode = error2.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.BranchId = int64(bytes.ReadUInt64(buf))
 
-	exceptionCode := ReadByte(buf)
-	msg.TransactionExceptionCode = error2.TransactionExceptionCode(exceptionCode)
-	msg.BranchId = int64(ReadUInt64(buf))
-
-	return msg
+	return data
 }
 
 func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
-	buf := binary.NewByteBuf(0)
-	resp, _ := in.(message.BranchRegisterResponse)
+	data, _ := in.(message.BranchRegisterResponse)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(resp.ResultCode))
-	if resp.ResultCode == message.ResultCodeFailed {
+	buf.WriteByte(byte(data.ResultCode))
+	if data.ResultCode == message.ResultCodeFailed {
 		var msg string
-		if len(resp.Msg) > 128 {
-			msg = resp.Msg[:128]
+		if len(data.Msg) > 128 {
+			msg = data.Msg[:128]
 		} else {
-			msg = resp.Msg
+			msg = data.Msg
 		}
-		Write16String(msg, buf)
+		bytes.WriteString16Length(msg, buf)
 	}
+	buf.WriteByte(byte(data.TransactionExceptionCode))
+	buf.WriteInt64(data.BranchId)
 
-	buf.WriteByte(byte(resp.TransactionExceptionCode))
-	branchID := uint64(resp.BranchId)
-	buf.WriteUInt64(branchID)
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *BranchRegisterResponseCodec) GetMessageType() message.MessageType {

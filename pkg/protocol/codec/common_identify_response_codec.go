@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -26,36 +26,30 @@ type AbstractIdentifyResponseCodec struct {
 }
 
 func (c *AbstractIdentifyResponseCodec) Encode(in interface{}) []byte {
-	buf := binary.NewByteBuf(0)
-	resp := in.(message.AbstractIdentifyResponse)
+	data := in.(message.AbstractIdentifyResponse)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	if resp.Identified {
+	if data.Identified {
 		buf.WriteByte(byte(1))
 	} else {
 		buf.WriteByte(byte(0))
 	}
+	bytes.WriteString16Length(data.Version, buf)
 
-	Write16String(resp.Version, buf)
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (c *AbstractIdentifyResponseCodec) Decode(in []byte) interface{} {
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	msg := message.AbstractIdentifyResponse{}
+	data := message.AbstractIdentifyResponse{}
+	buf := bytes.NewByteBuffer(in)
 
 	identified, _ := buf.ReadByte()
 	if identified == byte(1) {
-		msg.Identified = true
+		data.Identified = true
 	} else if identified == byte(0) {
-		msg.Identified = false
+		data.Identified = false
 	}
+	data.Version = bytes.ReadString16Length(buf)
 
-	length := ReadUInt16(buf)
-	if length > 0 {
-		versionBytes := make([]byte, length)
-		msg.Version = string(Read(buf, versionBytes))
-	}
-
-	return msg
+	return data
 }
