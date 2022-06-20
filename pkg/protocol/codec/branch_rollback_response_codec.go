@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,33 +31,25 @@ type BranchRollbackResponseCodec struct {
 }
 
 func (g *BranchRollbackResponseCodec) Decode(in []byte) interface{} {
+	data := message.BranchRollbackResponse{}
+	buf := bytes.NewByteBuffer(in)
 
-	res := message.BranchRollbackResponse{}
+	data.Xid = bytes.ReadString16Length(buf)
+	data.BranchId = int64(bytes.ReadUInt64(buf))
+	data.BranchStatus = branch.BranchStatus(bytes.ReadByte(buf))
 
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var length uint16
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.Xid = string(Read(buf, bytes))
-	}
-	res.BranchId = int64(ReadUInt64(buf))
-	res.BranchStatus = branch.BranchStatus(ReadByte(buf))
-
-	return res
+	return data
 }
 
 func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
-	req, _ := in.(message.BranchRollbackResponse)
-	buf := binary.NewByteBuf(0)
+	data, _ := in.(message.BranchRollbackResponse)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Xid, buf)
-	buf.WriteInt64(req.BranchId)
-	buf.WriteByte(byte(req.BranchStatus))
+	bytes.WriteString16Length(data.Xid, buf)
+	buf.WriteInt64(data.BranchId)
+	buf.WriteByte(byte(data.BranchStatus))
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *BranchRollbackResponseCodec) GetMessageType() message.MessageType {

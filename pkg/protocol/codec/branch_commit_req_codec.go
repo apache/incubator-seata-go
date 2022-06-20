@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,46 +31,29 @@ type BranchCommitRequestCodec struct {
 }
 
 func (g *BranchCommitRequestCodec) Decode(in []byte) interface{} {
+	data := message.BranchCommitRequest{}
+	buf := bytes.NewByteBuffer(in)
 
-	res := message.BranchCommitRequest{}
+	data.Xid = bytes.ReadString16Length(buf)
+	data.BranchId = int64(bytes.ReadUInt64(buf))
+	data.BranchType = branch.BranchType(bytes.ReadByte(buf))
+	data.ResourceId = bytes.ReadString16Length(buf)
+	data.ApplicationData = []byte(bytes.ReadString32Length(buf))
 
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var length uint32
-
-	length = uint32(ReadUInt16(buf))
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.Xid = string(Read(buf, bytes))
-	}
-	res.BranchId = int64(ReadUInt64(buf))
-	res.BranchType = branch.BranchType(ReadByte(buf))
-
-	length = uint32(ReadUInt16(buf))
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.ResourceId = string(Read(buf, bytes))
-	}
-	length = ReadUInt32(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.ApplicationData = Read(buf, bytes)
-	}
-
-	return res
+	return data
 }
 
 func (g *BranchCommitRequestCodec) Encode(in interface{}) []byte {
-	req, _ := in.(message.BranchCommitRequest)
-	buf := binary.NewByteBuf(0)
+	data, _ := in.(message.BranchCommitRequest)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Xid, buf)
-	buf.WriteInt64(req.BranchId)
-	buf.WriteByte(byte(req.BranchType))
-	Write16String(req.ResourceId, buf)
-	Write32String(string(req.ApplicationData), buf)
+	bytes.WriteString16Length(data.Xid, buf)
+	buf.WriteInt64(data.BranchId)
+	buf.WriteByte(byte(data.BranchType))
+	bytes.WriteString16Length(data.ResourceId, buf)
+	bytes.WriteString32Length(string(data.ApplicationData), buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *BranchCommitRequestCodec) GetMessageType() message.MessageType {
