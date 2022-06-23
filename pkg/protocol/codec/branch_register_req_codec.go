@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -32,50 +32,29 @@ type BranchRegisterRequestCodec struct {
 }
 
 func (g *BranchRegisterRequestCodec) Decode(in []byte) interface{} {
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	msg := message.BranchRegisterRequest{}
+	data := message.BranchRegisterRequest{}
+	buf := bytes.NewByteBuffer(in)
 
-	length := ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.Xid = string(Read(buf, bytes))
-	}
+	data.Xid = bytes.ReadString16Length(buf)
+	data.BranchType = model2.BranchType(bytes.ReadByte(buf))
+	data.ResourceId = bytes.ReadString16Length(buf)
+	data.LockKey = bytes.ReadString32Length(buf)
+	data.ApplicationData = []byte(bytes.ReadString32Length(buf))
 
-	msg.BranchType = model2.BranchType(ReadByte(buf))
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.ResourceId = string(Read(buf, bytes))
-	}
-
-	length32 := ReadUInt32(buf)
-	if length > 0 {
-		bytes := make([]byte, length32)
-		msg.LockKey = string(Read(buf, bytes))
-	}
-
-	length32 = ReadUInt32(buf)
-	if length > 0 {
-		bytes := make([]byte, length32)
-		msg.ApplicationData = Read(buf, bytes)
-	}
-
-	return msg
+	return data
 }
 
 func (c *BranchRegisterRequestCodec) Encode(in interface{}) []byte {
-	buf := binary.NewByteBuf(0)
-	req, _ := in.(message.BranchRegisterRequest)
+	data, _ := in.(message.BranchRegisterRequest)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Xid, buf)
-	buf.WriteByte(byte(req.BranchType))
-	Write16String(req.ResourceId, buf)
-	Write32String(req.LockKey, buf)
-	Write32String(string(req.ApplicationData), buf)
+	bytes.WriteString16Length(data.Xid, buf)
+	buf.WriteByte(byte(data.BranchType))
+	bytes.WriteString16Length(data.ResourceId, buf)
+	bytes.WriteString32Length(data.LockKey, buf)
+	bytes.WriteString32Length(string(data.ApplicationData), buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *BranchRegisterRequestCodec) GetMessageType() message.MessageType {

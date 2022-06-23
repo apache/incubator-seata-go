@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	error2 "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,58 +31,39 @@ type GlobalBeginResponseCodec struct {
 }
 
 func (c *GlobalBeginResponseCodec) Encode(in interface{}) []byte {
-	buf := binary.NewByteBuf(0)
-	resp := in.(message.GlobalBeginResponse)
+	data := in.(message.GlobalBeginResponse)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(resp.ResultCode))
-	if resp.ResultCode == message.ResultCodeFailed {
+	buf.WriteByte(byte(data.ResultCode))
+	if data.ResultCode == message.ResultCodeFailed {
 		var msg string
-		if len(resp.Msg) > 128 {
-			msg = resp.Msg[:128]
+		if len(data.Msg) > 128 {
+			msg = data.Msg[:128]
 		} else {
-			msg = resp.Msg
+			msg = data.Msg
 		}
-		Write16String(msg, buf)
+		bytes.WriteString16Length(msg, buf)
 	}
-	buf.WriteByte(byte(resp.TransactionExceptionCode))
-	Write16String(resp.Xid, buf)
-	Write16String(string(resp.ExtraData), buf)
+	buf.WriteByte(byte(data.TransactionExceptionCode))
+	bytes.WriteString16Length(data.Xid, buf)
+	bytes.WriteString16Length(string(data.ExtraData), buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *GlobalBeginResponseCodec) Decode(in []byte) interface{} {
-	var lenth uint16
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	msg := message.GlobalBeginResponse{}
+	data := message.GlobalBeginResponse{}
+	buf := bytes.NewByteBuffer(in)
 
-	resultCode := ReadByte(buf)
-	msg.ResultCode = message.ResultCode(resultCode)
-	if msg.ResultCode == message.ResultCodeFailed {
-		lenth = ReadUInt16(buf)
-		if lenth > 0 {
-			bytes := make([]byte, lenth)
-			msg.Msg = string(Read(buf, bytes))
-		}
+	data.ResultCode = message.ResultCode(bytes.ReadByte(buf))
+	if data.ResultCode == message.ResultCodeFailed {
+		data.Msg = bytes.ReadString16Length(buf)
 	}
+	data.TransactionExceptionCode = error2.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.Xid = bytes.ReadString16Length(buf)
+	data.ExtraData = []byte(bytes.ReadString16Length(buf))
 
-	exceptionCode := ReadByte(buf)
-	msg.TransactionExceptionCode = error2.TransactionExceptionCode(exceptionCode)
-
-	lenth = ReadUInt16(buf)
-	if lenth > 0 {
-		bytes := make([]byte, lenth)
-		msg.Xid = string(Read(buf, bytes))
-	}
-
-	lenth = ReadUInt16(buf)
-	if lenth > 0 {
-		bytes := make([]byte, lenth)
-		msg.ExtraData = Read(buf, bytes)
-	}
-
-	return msg
+	return data
 }
 
 func (g *GlobalBeginResponseCodec) GetMessageType() message.MessageType {
