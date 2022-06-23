@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -26,32 +26,21 @@ type CommonGlobalEndRequestCodec struct {
 }
 
 func (c *CommonGlobalEndRequestCodec) Encode(in interface{}) []byte {
-	req, _ := in.(message.AbstractGlobalEndRequest)
-	buf := binary.NewByteBuf(0)
+	data, _ := in.(message.AbstractGlobalEndRequest)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Xid, buf)
-	Write16String(string(req.ExtraData), buf)
+	bytes.WriteString16Length(data.Xid, buf)
+	bytes.WriteString16Length(string(data.ExtraData), buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (c *CommonGlobalEndRequestCodec) Decode(in []byte) interface{} {
-	res := message.AbstractGlobalEndRequest{}
+	data := message.AbstractGlobalEndRequest{}
+	buf := bytes.NewByteBuffer(in)
 
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var length uint16
+	data.Xid = bytes.ReadString16Length(buf)
+	data.ExtraData = []byte(bytes.ReadString16Length(buf))
 
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.Xid = string(Read(buf, bytes))
-	}
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		res.ExtraData = Read(buf, bytes)
-	}
-
-	return res
+	return data
 }

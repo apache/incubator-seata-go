@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -26,61 +26,25 @@ type AbstractIdentifyRequestCodec struct {
 }
 
 func (c *AbstractIdentifyRequestCodec) Encode(in interface{}) []byte {
-	req := in.(message.AbstractIdentifyRequest)
-	buf := binary.NewByteBuf(0)
+	data := in.(message.AbstractIdentifyRequest)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Version, buf)
-	Write16String(req.ApplicationId, buf)
-	Write16String(req.TransactionServiceGroup, buf)
-	Write16String(string(req.ExtraData), buf)
+	bytes.WriteString16Length(data.Version, buf)
+	bytes.WriteString16Length(data.ApplicationId, buf)
+	bytes.WriteString16Length(data.TransactionServiceGroup, buf)
+	bytes.WriteString16Length(string(data.ExtraData), buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (c *AbstractIdentifyRequestCodec) Decode(in []byte) interface{} {
-	msg := message.AbstractIdentifyRequest{}
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	var len uint16
+	data := message.AbstractIdentifyRequest{}
+	buf := bytes.NewByteBuffer(in)
 
-	if buf.Readable() < 2 {
-		return msg
-	}
-	len = ReadUInt16(buf)
-	if uint16(buf.Readable()) < len {
-		return msg
-	}
-	versionBytes := make([]byte, len)
-	msg.Version = string(Read(buf, versionBytes))
+	data.Version = bytes.ReadString16Length(buf)
+	data.ApplicationId = bytes.ReadString16Length(buf)
+	data.TransactionServiceGroup = bytes.ReadString16Length(buf)
+	data.ExtraData = []byte(bytes.ReadString16Length(buf))
 
-	if buf.Readable() < 2 {
-		return msg
-	}
-	len = ReadUInt16(buf)
-	if uint16(buf.Readable()) < len {
-		return msg
-	}
-	applicationIdBytes := make([]byte, len)
-	msg.ApplicationId = string(Read(buf, applicationIdBytes))
-
-	if buf.Readable() < 2 {
-		return msg
-	}
-	len = ReadUInt16(buf)
-	if uint16(buf.Readable()) < len {
-		return msg
-	}
-	transactionServiceGroupBytes := make([]byte, len)
-	msg.TransactionServiceGroup = string(Read(buf, transactionServiceGroupBytes))
-
-	if buf.Readable() < 2 {
-		return msg
-	}
-	len = ReadUInt16(buf)
-	if len > 0 && uint16(buf.Readable()) >= len {
-		extraDataBytes := make([]byte, len)
-		msg.ExtraData = Read(buf, extraDataBytes)
-	}
-
-	return msg
+	return data
 }

@@ -20,7 +20,7 @@ package getty
 import (
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 
 	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
@@ -85,31 +85,24 @@ type SeataV1PackageHeader struct {
 }
 
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	in := binary.NewByteBuf(len(data))
-	in.Write(data)
+	in := bytes.NewByteBuffer(data)
 
 	header := SeataV1PackageHeader{}
-	if in.Readable() < Seatav1HeaderLength {
-		return nil, 0, fmt.Errorf("invalid package length")
-	}
-
-	magic0 := codec.ReadByte(in)
-	magic1 := codec.ReadByte(in)
+	magic0 := bytes.ReadByte(in)
+	magic1 := bytes.ReadByte(in)
 	if magic0 != magics[0] || magic1 != magics[1] {
 		return nil, 0, fmt.Errorf("codec decode not found magic offset")
 	}
-
 	header.Magic0 = magic0
 	header.Magic1 = magic1
-	header.Version = codec.ReadByte(in)
+	header.Version = bytes.ReadByte(in)
 	// length of head and body
-	header.TotalLength = codec.ReadUInt32(in)
-	header.HeadLength = codec.ReadUInt16(in)
-	header.MessageType = message.GettyRequestType(codec.ReadByte(in))
-	header.CodecType = codec.ReadByte(in)
-	header.CompressType = codec.ReadByte(in)
-	header.RequestID = codec.ReadUInt32(in)
-
+	header.TotalLength = bytes.ReadUInt32(in)
+	header.HeadLength = bytes.ReadUInt16(in)
+	header.MessageType = message.GettyRequestType(bytes.ReadByte(in))
+	header.CodecType = bytes.ReadByte(in)
+	header.CompressType = bytes.ReadByte(in)
+	header.RequestID = bytes.ReadUInt32(in)
 	headMapLength := header.HeadLength - Seatav1HeaderLength
 	header.Meta = decodeHeapMap(in, headMapLength)
 	header.BodyLength = header.TotalLength - uint32(header.HeadLength)
@@ -166,44 +159,44 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		totalLength += len(bodyBytes)
 	}
 
-	buf := binary.NewByteBuf(0)
+	buf := bytes.NewByteBuffer([]byte{})
 	buf.WriteByte(message.MAGIC_CODE_BYTES[0])
 	buf.WriteByte(message.MAGIC_CODE_BYTES[1])
 	buf.WriteByte(message.VERSION)
-	buf.WriteUInt32(uint32(totalLength))
-	buf.WriteUInt16(uint16(headLength))
+	buf.WriteUint32(uint32(totalLength))
+	buf.WriteUint16(uint16(headLength))
 	buf.WriteByte(byte(msg.Type))
 	buf.WriteByte(msg.Codec)
 	buf.WriteByte(msg.Compressor)
-	buf.WriteUInt32(uint32(msg.ID))
+	buf.WriteUint32(uint32(msg.ID))
 	buf.Write(headMapBytes)
 	buf.Write(bodyBytes)
 
-	return buf.RawBuf(), nil
+	return buf.Bytes(), nil
 }
 
 func encodeHeapMap(data map[string]string) ([]byte, int) {
-	buf := binary.NewByteBuf(0)
+	buf := bytes.NewByteBuffer([]byte{})
 	for k, v := range data {
 		if k == "" {
-			buf.WriteUInt16(uint16(0))
+			buf.WriteUint16(uint16(0))
 		} else {
-			buf.WriteUInt16(uint16(len(k)))
+			buf.WriteUint16(uint16(len(k)))
 			buf.WriteString(k)
 		}
 
 		if v == "" {
-			buf.WriteUInt16(uint16(0))
+			buf.WriteUint16(uint16(0))
 		} else {
-			buf.WriteUInt16(uint16(len(v)))
+			buf.WriteUint16(uint16(len(v)))
 			buf.WriteString(v)
 		}
 	}
-	res := buf.RawBuf()
+	res := buf.Bytes()
 	return res, len(res)
 }
 
-func decodeHeapMap(in *binary.ByteBuf, length uint16) map[string]string {
+func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 	res := make(map[string]string, 0)
 	if length == 0 {
 		return res
@@ -212,21 +205,21 @@ func decodeHeapMap(in *binary.ByteBuf, length uint16) map[string]string {
 	readedLength := uint16(0)
 	for readedLength < length {
 		var key, value string
-		keyLength := codec.ReadUInt16(in)
+		keyLength := bytes.ReadUInt16(in)
 		if keyLength == 0 {
 			key = ""
 		} else {
 			keyBytes := make([]byte, keyLength)
-			keyBytes = codec.Read(in, keyBytes)
+			in.Read(keyBytes)
 			key = string(keyBytes)
 		}
 
-		valueLength := codec.ReadUInt16(in)
+		valueLength := bytes.ReadUInt16(in)
 		if valueLength == 0 {
 			key = ""
 		} else {
 			valueBytes := make([]byte, valueLength)
-			valueBytes = codec.Read(in, valueBytes)
+			in.Read(valueBytes)
 			value = string(valueBytes)
 		}
 

@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/binary"
+	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -30,54 +30,29 @@ type RegisterRMRequestCodec struct {
 }
 
 func (g *RegisterRMRequestCodec) Decode(in []byte) interface{} {
-	buf := binary.NewByteBuf(len(in))
-	buf.Write(in)
-	msg := message.RegisterRMRequest{}
+	data := message.RegisterRMRequest{}
+	buf := bytes.NewByteBuffer(in)
 
-	length := ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.Version = string(Read(buf, bytes))
-	}
+	data.Version = bytes.ReadString16Length(buf)
+	data.ApplicationId = bytes.ReadString16Length(buf)
+	data.TransactionServiceGroup = bytes.ReadString16Length(buf)
+	data.ExtraData = []byte(bytes.ReadString16Length(buf))
+	data.ResourceIds = bytes.ReadString32Length(buf)
 
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.ApplicationId = string(Read(buf, bytes))
-	}
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.TransactionServiceGroup = string(Read(buf, bytes))
-	}
-
-	length = ReadUInt16(buf)
-	if length > 0 {
-		bytes := make([]byte, length)
-		msg.ExtraData = Read(buf, bytes)
-	}
-
-	length32 := ReadUInt32(buf)
-	if length32 > 0 {
-		bytes := make([]byte, length32)
-		msg.ResourceIds = string(Read(buf, bytes))
-	}
-
-	return msg
+	return data
 }
 
 func (c *RegisterRMRequestCodec) Encode(in interface{}) []byte {
 	req := in.(message.RegisterRMRequest)
-	buf := binary.NewByteBuf(0)
+	buf := bytes.NewByteBuffer([]byte{})
 
-	Write16String(req.Version, buf)
-	Write16String(req.ApplicationId, buf)
-	Write16String(req.TransactionServiceGroup, buf)
-	Write16String(string(req.ExtraData), buf)
-	Write32String(req.ResourceIds, buf)
+	bytes.WriteString16Length(req.Version, buf)
+	bytes.WriteString16Length(req.ApplicationId, buf)
+	bytes.WriteString16Length(req.TransactionServiceGroup, buf)
+	bytes.WriteString16Length(string(req.ExtraData), buf)
+	bytes.WriteString32Length(req.ResourceIds, buf)
 
-	return buf.RawBuf()
+	return buf.Bytes()
 }
 
 func (g *RegisterRMRequestCodec) GetMessageType() message.MessageType {
