@@ -34,10 +34,11 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{}, info *gr
 	xid := md.Get(grpc2.HEADER_KEY)[0]
 	if xid == "" {
 		xid = md.Get(grpc2.HEADER_KEY_LOWERCASE)[0]
+		if xid != "" {
+			ctx = tm.InitSeataContext(ctx)
+			tm.SetXID(ctx, xid)
+		}
 	}
-
-	ctx = tm.InitSeataContext(ctx)
-	tm.SetXID(ctx, xid)
 
 	m, err := handler(ctx, req)
 	if err != nil {

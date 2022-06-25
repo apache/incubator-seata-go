@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package test
+syntax = "proto3";
+option go_package="github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example";
+import "google/protobuf/empty.proto";
 
-import (
-	"testing"
-)
-
-func TestClientHeaderDeliveredToServer(t *testing.T) {
-
+message Params {
+    string a = 1;
+    string b = 2;
 }
 
+service TCCServiceBusiness {
+    rpc Remoting (Params) returns (google.protobuf.Empty){
+    }
+}
