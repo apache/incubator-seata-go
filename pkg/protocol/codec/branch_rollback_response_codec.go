@@ -18,7 +18,10 @@
 package codec
 
 import (
+	"math"
+
 	"github.com/seata/seata-go/pkg/common/bytes"
+	serror "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -34,6 +37,11 @@ func (g *BranchRollbackResponseCodec) Decode(in []byte) interface{} {
 	data := message.BranchRollbackResponse{}
 	buf := bytes.NewByteBuffer(in)
 
+	data.ResultCode = message.ResultCode(bytes.ReadByte(buf))
+	if data.ResultCode == message.ResultCodeFailed {
+		data.Msg = bytes.ReadString16Length(buf)
+	}
+	data.TransactionExceptionCode = serror.TransactionExceptionCode(bytes.ReadByte(buf))
 	data.Xid = bytes.ReadString16Length(buf)
 	data.BranchId = int64(bytes.ReadUInt64(buf))
 	data.BranchStatus = branch.BranchStatus(bytes.ReadByte(buf))
@@ -45,6 +53,17 @@ func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
 	data, _ := in.(message.BranchRollbackResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
+	buf.WriteByte(byte(data.ResultCode))
+	if data.ResultCode == message.ResultCodeFailed {
+		var msg string
+		if len(data.Msg) > math.MaxInt16 {
+			msg = data.Msg[:math.MaxInt16]
+		} else {
+			msg = data.Msg
+		}
+		bytes.WriteString16Length(msg, buf)
+	}
+	buf.WriteByte(byte(data.TransactionExceptionCode))
 	bytes.WriteString16Length(data.Xid, buf)
 	buf.WriteInt64(data.BranchId)
 	buf.WriteByte(byte(data.BranchStatus))

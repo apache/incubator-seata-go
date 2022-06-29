@@ -56,3 +56,7 @@ func (msg HeartBeatMessage) ToString() string {
 		return "services pong"
 	}
 }
+
+func (resp HeartBeatMessage) GetTypeCode() MessageType {
+	return MessageType_HeartbeatMsg
+}

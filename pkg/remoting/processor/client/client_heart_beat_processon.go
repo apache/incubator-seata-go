@@ -32,10 +32,10 @@ func init() {
 type clientHeartBeatProcesson struct{}
 
 func (f *clientHeartBeatProcesson) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if _, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		// TODO 如何从context中获取远程服务的信息？
-		//log.Infof("received PONG from {}", ctx.channel().remoteAddress())
-		log.Infof("received PONG from {}", ctx)
+	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
+		if !msg.Ping {
+			log.Infof("received PONG from {}", ctx)
+		}
 	}
 	return nil
 }

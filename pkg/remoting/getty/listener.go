@@ -68,7 +68,7 @@ func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
 		if err != nil {
-			log.Error("OnOpen error: {%#v}", err.Error())
+			log.Errorf("OnOpen error: {%#v}", err.Error())
 			sessionManager.ReleaseGettySession(session)
 			return
 		}
@@ -111,7 +111,7 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 }
 
 func (client *gettyClientHandler) OnCron(session getty.Session) {
-	// todo send heartbeat message
+	GetGettyRemotingClient().SendAsyncRequest(message.HeartBeatMessagePing)
 }
 
 func (client *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {
