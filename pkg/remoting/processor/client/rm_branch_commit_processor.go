@@ -23,13 +23,13 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 
-	getty2 "github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
 func init() {
 	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
-	getty2.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchCommit, rmBranchCommitProcessor)
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchCommit, rmBranchCommitProcessor)
 }
 
 type rmBranchCommitProcessor struct {
@@ -46,22 +46,42 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 
 	status, err := rm.GetResourceManagerInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
 	if err != nil {
-		log.Infof("Branch commit error: %s", err.Error())
+		log.Infof("branch commit error: %s", err.Error())
 		return err
+	}
+	log.Infof("branch commit success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+
+	var (
+		resultCode message.ResultCode
+		errMsg     string
+	)
+	if err != nil {
+		resultCode = message.ResultCodeFailed
+		errMsg = err.Error()
+	} else {
+		resultCode = message.ResultCodeSuccess
 	}
 
 	// reply commit response to tc server
+	// todo add TransactionExceptionCode
 	response := message.BranchCommitResponse{
 		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: resultCode,
+					Msg:        errMsg,
+				},
+			},
 			Xid:          xid,
 			BranchId:     branchID,
 			BranchStatus: status,
 		},
 	}
-	err = getty2.GetGettyRemotingClient().SendAsyncResponse(response)
+	err = getty.GetGettyRemotingClient().SendAsyncResponse(response)
 	if err != nil {
-		log.Error("BranchCommitResponse error: {%#v}", err.Error())
+		log.Errorf("send branch commit response error: {%#v}", err.Error())
 		return err
 	}
+	log.Infof("send branch commit response success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	return nil
 }

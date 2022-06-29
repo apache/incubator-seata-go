@@ -18,8 +18,10 @@
 package codec
 
 import (
+	"math"
+
 	"github.com/seata/seata-go/pkg/common/bytes"
-	transaction2 "github.com/seata/seata-go/pkg/common/error"
+	serror "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -33,8 +35,8 @@ func (c *CommonGlobalEndResponseCodec) Encode(in interface{}) []byte {
 	buf.WriteByte(byte(data.ResultCode))
 	if data.ResultCode == message.ResultCodeFailed {
 		var msg string
-		if len(data.Msg) > 128 {
-			msg = data.Msg[:128]
+		if len(data.Msg) > math.MaxInt16 {
+			msg = data.Msg[:math.MaxInt16]
 		} else {
 			msg = data.Msg
 		}
@@ -54,7 +56,7 @@ func (c *CommonGlobalEndResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionExceptionCode = transaction2.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.TransactionExceptionCode = serror.TransactionExceptionCode(bytes.ReadByte(buf))
 	data.GlobalStatus = message.GlobalStatus(bytes.ReadByte(buf))
 
 	return data
