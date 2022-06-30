@@ -76,7 +76,7 @@ type RemotingParser interface {
 	isRemoting(bean interface{}, beanName string) (bool, error)
 
 	/**
-	 * if it is gprc bean ?
+	 * if it is reference bean ?
 	 */
 	isReference(bean interface{}, beanName string) (bool, error)
 

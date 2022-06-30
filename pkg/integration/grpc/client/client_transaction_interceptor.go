@@ -19,19 +19,19 @@ package client
 
 import (
 	"context"
+	"time"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"time"
 )
 
 func ClientTransactionInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	var xid string
-	// 当拦截客户端请求时设置XID，当拦截到响应时直接放行
+	//set the XID when intercepting a client request and release it directly when intercepting a response
 	if tm.IsSeataContext(ctx) {
-		xid = tm.GetXID(ctx)
+		xid := tm.GetXID(ctx)
 		header := make(map[string]string)
 		header[grpc2.HEADER_KEY] = xid
 		ctx = metadata.NewOutgoingContext(ctx, metadata.New(header))

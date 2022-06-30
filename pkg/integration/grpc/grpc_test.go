@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package test
+package grpc
 
 import (
 	"testing"
@@ -24,4 +24,3 @@ import (
 func TestClientHeaderDeliveredToServer(t *testing.T) {
 
 }
-
