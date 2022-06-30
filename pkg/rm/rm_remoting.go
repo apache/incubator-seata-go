@@ -64,6 +64,18 @@ func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clien
 
 //  Branch report
 func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+	request := message.BranchReportRequest{
+		Xid:             xid,
+		BranchId:        branchId,
+		Status:          status,
+		ApplicationData: []byte(applicationData),
+		BranchType:      branch.BranchTypeAT,
+	}
+	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
+	if err != nil || resp == nil {
+		log.Errorf("BranchReport error: %v, res %v", err.Error(), resp)
+		return err
+	}
 	return nil
 }
 
