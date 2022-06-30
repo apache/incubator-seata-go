@@ -55,11 +55,9 @@ func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
 
 	buf.WriteByte(byte(data.ResultCode))
 	if data.ResultCode == message.ResultCodeFailed {
-		var msg string
+		msg := data.Msg
 		if len(data.Msg) > math.MaxInt16 {
 			msg = data.Msg[:math.MaxInt16]
-		} else {
-			msg = data.Msg
 		}
 		bytes.WriteString16Length(msg, buf)
 	}

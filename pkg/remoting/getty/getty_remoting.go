@@ -146,7 +146,7 @@ func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMess
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		//messageFuture.Err = rpcMessage.Err
-		messageFuture.Done <- true
+		messageFuture.Done <- struct{}{}
 		//client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
