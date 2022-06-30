@@ -21,13 +21,14 @@ package main
 import (
 	"context"
 	"flag"
+	"time"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/integration/grpc/client"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example"
 	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"time"
 )
 
 func main() {
