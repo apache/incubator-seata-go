@@ -55,7 +55,7 @@ func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage mess
 				response := getty.GetGettyRemotingInstance().GetMessageFuture(msgID)
 				if response != nil {
 					response.Response = mergedResult.Msgs[i]
-					response.Done <- true
+					response.Done <- struct{}{}
 					getty.GetGettyRemotingInstance().RemoveMessageFuture(msgID)
 				}
 			}
