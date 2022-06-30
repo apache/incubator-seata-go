@@ -34,7 +34,9 @@ import (
 func main() {
 	flag.Parse()
 	// Set up a connection to the server.
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor))
+	conn, err := grpc.Dial("localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
