@@ -21,13 +21,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	server2 "github.com/seata/seata-go/pkg/integration/grpc/server"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example"
 	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
 
 	"google.golang.org/grpc"
 )

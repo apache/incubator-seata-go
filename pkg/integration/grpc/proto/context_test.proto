@@ -20,7 +20,7 @@ syntax = "proto3";
 option java_multiple_files = true;
 option java_package = "io.seata.integration.grpc.interceptor.proto";
 option java_outer_classname = "ContextRpcTest";
-
+option go_package  = "github.com/seata/seata-go/pkg/integration/grpc/proto"
 service ContextRpc {
     rpc ContextRpc (Request) returns (Response) {
     }
