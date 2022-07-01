@@ -18,7 +18,10 @@
 package codec
 
 import (
+	"math"
+
 	"github.com/seata/seata-go/pkg/common/bytes"
+	serror "github.com/seata/seata-go/pkg/common/error"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -31,23 +34,37 @@ type BranchCommitResponseCodec struct {
 }
 
 func (g *BranchCommitResponseCodec) Decode(in []byte) interface{} {
-	res := message.BranchCommitResponse{}
+	data := message.BranchCommitResponse{}
 	buf := bytes.NewByteBuffer(in)
 
-	res.Xid = bytes.ReadString16Length(buf)
-	res.BranchId = int64(bytes.ReadUInt64(buf))
-	res.BranchStatus = branch.BranchStatus(bytes.ReadByte(buf))
+	data.ResultCode = message.ResultCode(bytes.ReadByte(buf))
+	if data.ResultCode == message.ResultCodeFailed {
+		data.Msg = bytes.ReadString16Length(buf)
+	}
+	data.TransactionExceptionCode = serror.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.Xid = bytes.ReadString16Length(buf)
+	data.BranchId = int64(bytes.ReadUInt64(buf))
+	data.BranchStatus = branch.BranchStatus(bytes.ReadByte(buf))
 
-	return res
+	return data
 }
 
 func (g *BranchCommitResponseCodec) Encode(in interface{}) []byte {
-	req, _ := in.(message.BranchCommitResponse)
+	data, _ := in.(message.BranchCommitResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
-	bytes.WriteString16Length(req.Xid, buf)
-	buf.WriteInt64(req.BranchId)
-	buf.WriteByte(byte(req.BranchStatus))
+	buf.WriteByte(byte(data.ResultCode))
+	if data.ResultCode == message.ResultCodeFailed {
+		msg := data.Msg
+		if len(data.Msg) > math.MaxInt16 {
+			msg = data.Msg[:math.MaxInt16]
+		}
+		bytes.WriteString16Length(msg, buf)
+	}
+	buf.WriteByte(byte(data.TransactionExceptionCode))
+	bytes.WriteString16Length(data.Xid, buf)
+	buf.WriteInt64(data.BranchId)
+	buf.WriteByte(byte(data.BranchStatus))
 
 	return buf.Bytes()
 }
