@@ -20,7 +20,6 @@ package test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/seata/seata-go/pkg/tm"
 
@@ -81,6 +80,7 @@ func TestNew(test *testing.T) {
 	defer func() {
 		resp := tm.CommitOrRollback(ctx, err)
 		log.Infof("tx result %v", resp)
+		<-make(chan bool)
 	}()
 
 	tccService := tcc.NewTCCServiceProxy(TestTCCServiceBusiness{})
@@ -97,5 +97,4 @@ func TestNew(test *testing.T) {
 		return
 	}
 
-	time.Sleep(time.Second * 1000)
 }

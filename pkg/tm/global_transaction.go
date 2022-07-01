@@ -111,11 +111,13 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 			break
 		}
 	}
-	if err == nil && res != nil {
+	if err == nil {
+		log.Infof("GlobalCommitRequest commit success, xid %s", gtr.Xid)
 		gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
+		UnbindXid(ctx)
+		return nil
 	}
-	UnbindXid(ctx)
-	log.Infof("GlobalCommitRequest commit success, xid %s", gtr.Xid)
+	log.Errorf("GlobalCommitRequest commit failed, xid %s, error %v", gtr.Xid, err)
 	return err
 }
 
@@ -147,10 +149,13 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 			break
 		}
 	}
-	if err == nil && res != nil {
+	if err == nil {
+		log.Errorf("GlobalRollbackRequest rollback success, xid %s", gtr.Xid)
 		gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
+		UnbindXid(ctx)
+		return nil
 	}
-	UnbindXid(ctx)
+	log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
 	return err
 }
 

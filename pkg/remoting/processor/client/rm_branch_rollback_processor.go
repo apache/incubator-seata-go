@@ -23,13 +23,13 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 
-	getty2 "github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
 func init() {
 	rmBranchRollbackProcessor := &rmBranchRollbackProcessor{}
-	getty2.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchRollback, rmBranchRollbackProcessor)
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchRollback, rmBranchRollbackProcessor)
 }
 
 type rmBranchRollbackProcessor struct {
@@ -42,26 +42,44 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 	branchID := request.BranchId
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
-	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("Branch rollback request: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
 	status, err := rm.GetResourceManagerInstance().GetResourceManager(request.BranchType).BranchRollback(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
 	if err != nil {
-		log.Infof("Branch commit error: %s", err.Error())
+		log.Infof("branch rollback error: %s", err.Error())
 		return err
 	}
+	log.Infof("branch rollback success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
+	var (
+		resultCode message.ResultCode
+		errMsg     string
+	)
+	if err != nil {
+		resultCode = message.ResultCodeFailed
+		errMsg = err.Error()
+	} else {
+		resultCode = message.ResultCodeSuccess
+	}
 	// reply commit response to tc server
 	response := message.BranchRollbackResponse{
 		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: resultCode,
+					Msg:        errMsg,
+				},
+			},
 			Xid:          xid,
 			BranchId:     branchID,
 			BranchStatus: status,
 		},
 	}
-	err = getty2.GetGettyRemotingClient().SendAsyncResponse(response)
+	err = getty.GetGettyRemotingClient().SendAsyncResponse(response)
 	if err != nil {
-		log.Error("BranchCommitResponse error: {%#v}", err.Error())
+		log.Errorf("send branch rollback response error: {%#v}", err.Error())
 		return err
 	}
+	log.Infof("send branch rollback response success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	return nil
 }
