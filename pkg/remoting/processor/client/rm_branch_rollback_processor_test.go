@@ -33,9 +33,7 @@
 	 // testcases
 	 var tests = []struct {
 		 name string // testcase name
- 
 		 rpcMsg message.RpcMessage // rpcMessage case
- 
 		 wantErr bool //want testcase err or not
 	 }{
 		 {
@@ -69,11 +67,6 @@
 	 var rbrProcessor rmBranchRollbackProcessor
  
 	 rm.GetResourceManagerInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
-	 // tccResource := tcc.TCCResource{
-	 // 	ActionName: "1232324",
-	 // }
-	 // tcc.GetTCCResourceManagerInstance().RegisterResource(&tccResource)
-	 // need dail server
  
 	 // run tests
 	 for _, tc := range tests {

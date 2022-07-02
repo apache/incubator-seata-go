@@ -33,9 +33,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	// testcases
 	var tests = []struct {
 		name string // testcase name
-
 		rpcMsg message.RpcMessage // rpcMessage case
-
 		wantErr bool //want testcase err or not
 	}{
 		{
@@ -69,11 +67,6 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	var rbcProcessor rmBranchCommitProcessor
 
 	rm.GetResourceManagerInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
-	// tccResource := tcc.TCCResource{
-	// 	ActionName: "1232323",
-	// }
-	// tcc.GetTCCResourceManagerInstance().RegisterResource(&tccResource)
-	// need dail server
 
 	// run tests
 	for _, tc := range tests {
