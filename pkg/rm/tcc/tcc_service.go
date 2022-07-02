@@ -96,7 +96,7 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	branchId, err := rm.GetRMRemotingInstance().BranchRegister(branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
-		log.Error(err.Error())
+		log.Errorf(err.Error())
 		return err
 	}
 
