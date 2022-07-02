@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package example
+package pb
 
 import (
 	context "context"
@@ -114,5 +114,5 @@ var TCCServiceBusiness_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "example/tcc_grpc_test.proto",
+	Metadata: "example/tcc_grpc_test.pb",
 }
