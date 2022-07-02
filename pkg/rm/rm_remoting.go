@@ -72,7 +72,7 @@ func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchI
 		BranchType:      branch.BranchTypeAT,
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil {
+	if err != nil || resp == nil || isReportSuccess(resp) == message.ResultCodeFailed {
 		log.Errorf("BranchReport error: %v, res %v", err.Error(), resp)
 		return err
 	}
@@ -114,6 +114,13 @@ func isRegisterSuccess(response interface{}) bool {
 		return res.Identified
 	}
 	return false
+}
+
+func isReportSuccess(response interface{}) message.ResultCode {
+	if res, ok := response.(message.BranchReportResponse); ok {
+		return res.ResultCode
+	}
+	return message.ResultCodeFailed
 }
 
 func (r *RMRemoting) onRegisterRMSuccess(response message.RegisterRMResponse) {
