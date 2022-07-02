@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package example
+package pb
 
 import (
 	reflect "reflect"
@@ -38,8 +38,8 @@ type Params struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	A string `protobuf:"bytes,1,opt,name=a,proto3" json:"a,omitempty"`
-	B string `protobuf:"bytes,2,opt,name=b,proto3" json:"b,omitempty"`
+	A string `pb:"bytes,1,opt,name=a,proto3" json:"a,omitempty"`
+	B string `pb:"bytes,2,opt,name=b,proto3" json:"b,omitempty"`
 }
 
 func (x *Params) Reset() {
@@ -123,11 +123,11 @@ func file_test_tcc_grpc_test_proto_rawDescGZIP() []byte {
 var file_test_tcc_grpc_test_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_test_tcc_grpc_test_proto_goTypes = []interface{}{
 	(*Params)(nil),        // 0: Params
-	(*emptypb.Empty)(nil), // 1: google.protobuf.Empty
+	(*emptypb.Empty)(nil), // 1: google.pb.Empty
 }
 var file_test_tcc_grpc_test_proto_depIdxs = []int32{
 	0, // 0: TCCServiceBusiness.Remoting:input_type -> Params
-	1, // 1: TCCServiceBusiness.Remoting:output_type -> google.protobuf.Empty
+	1, // 1: TCCServiceBusiness.Remoting:output_type -> google.pb.Empty
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

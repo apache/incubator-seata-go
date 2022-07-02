@@ -16,3 +16,41 @@
  */
 
 package service
+
+import (
+	"context"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/grpc/pb"
+	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+type Business struct {
+	pb.UnimplementedTCCServiceBusinessServer
+}
+
+// Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
+func (b *Business) Remoting(ctx context.Context, params *pb.Params) (*emptypb.Empty, error) {
+	log.Infof("Remoting be called")
+	return new(emptypb.Empty), tcc.NewTCCServiceProxy(b).Prepare(ctx, params)
+}
+
+func (b *Business) Prepare(ctx context.Context, params interface{}) error {
+	log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
+	return nil
+}
+
+func (b *Business) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
+	log.Infof("TestTCCServiceBusiness Commit, param %v", businessActionContext)
+	return nil
+}
+
+func (b *Business) Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
+	log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
+	return nil
+}
+
+func (b *Business) GetActionName() string {
+	return "TCCServiceBusiness"
+}
