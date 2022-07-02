@@ -29,9 +29,7 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 	// testcases
 	var tests = []struct {
 		name string // testcase name
-
 		rpcMsg message.RpcMessage // rpcMessage case
-
 		wantErr bool //want testcase err or not
 	}{
 		{
@@ -50,7 +48,6 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 					Ping: true,
 				},
 			},
-
 			wantErr: false,
 		},
 		{
@@ -69,7 +66,6 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 					Ping: false,
 				},
 			},
-
 			wantErr: false,
 		},
 	}
