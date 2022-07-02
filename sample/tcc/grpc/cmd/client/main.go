@@ -26,8 +26,8 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	_ "github.com/seata/seata-go/pkg/imports"
 	"github.com/seata/seata-go/pkg/integration/grpc/client"
-	"github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -42,7 +42,7 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c := example.NewTCCServiceBusinessClient(conn)
+	c := pb.NewTCCServiceBusinessClient(conn)
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
@@ -58,7 +58,7 @@ func main() {
 
 	// BranchTransactional remoting running
 	log.Infof("branch transaction begin")
-	r, err := c.Remoting(ctx, &example.Params{A: "1", B: "2"})
+	r, err := c.Remoting(ctx, &pb.Params{A: "1", B: "2"})
 	if err != nil {
 		log.Fatalf("could not do TestTCCServiceBusiness: %v", err)
 	}
