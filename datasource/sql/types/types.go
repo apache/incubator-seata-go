@@ -14,13 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package sql
+package types
 
 import (
 	gosql "database/sql"
 )
 
+// DBType
+type DBType int16
+
+const (
+	_ DBType = iota
+	MySQL
+	PostgreSQL
+	SQLServer
+	Oracle
+)
+
+// TransactionType
 type TransactionType int8
 
 const (
@@ -29,8 +40,39 @@ const (
 	TransactionTypeAT
 )
 
+type ctxOption func(tx *TransactionContext)
+
+// NewTxContext
+func NewTxContext(opts ...ctxOption) *TransactionContext {
+	tx := new(TransactionContext)
+
+	for i := range opts {
+		opts[i](tx)
+	}
+
+	return tx
+}
+
+// WithTransType
+func WithTransType(t TransactionType) ctxOption {
+	return func(tx *TransactionContext) {
+		tx.TransType = t
+	}
+}
+
+// WithTxOptions
+func WithTxOptions(opt *gosql.TxOptions) ctxOption {
+	return func(tx *TransactionContext) {
+		tx.TxOpt = opt
+	}
+}
+
 // TransactionContext
 type TransactionContext struct {
+	// dbType
+	DBType DBType
+	// txOpt
+	TxOpt *gosql.TxOptions
 	// TransType
 	TransType TransactionType
 	// ResourceID
@@ -39,6 +81,8 @@ type TransactionContext struct {
 	BranchID string
 	// XaID
 	XaID string
+	// GlobalLockRequire
+	GlobalLockRequire bool
 	// RecordImages
 	RecordImages RoundRecordImage
 }
@@ -51,6 +95,13 @@ type RoundRecordImage struct {
 
 // RecordImage
 type RecordImage struct {
-	Table string
-	Rows  []gosql.Row
+	Table   string
+	SQLType string
+	Rows    []RowImage
+}
+
+type RowImage struct {
+	Name  string
+	Type  gosql.ColumnType
+	Value interface{}
 }

@@ -22,10 +22,16 @@ import (
 	"database/sql"
 	gosql "database/sql"
 	"time"
+
+	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go-datasource/sql/undo"
 )
 
 type DB struct {
+	conf   seataServerConfig
 	target *gosql.DB
+
+	undoLogMgr undo.UndoLogManager
 }
 
 // Close
@@ -65,7 +71,18 @@ func (db *DB) Begin(ctx context.Context) (*Tx, error) {
 		return nil, err
 	}
 
-	return &Tx{target: tx}, nil
+	txCtx := types.NewTxContext(types.WithTransType(types.TransactionTypeAT))
+
+	proxyTx, err := newProxyTx(
+		withCtx(txCtx),
+		withOriginTx(tx),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return proxyTx, nil
 }
 
 // BeginTx
@@ -75,7 +92,18 @@ func (db *DB) BeginTx(ctx context.Context, opt *sql.TxOptions) (*Tx, error) {
 		return nil, err
 	}
 
-	return &Tx{target: tx}, nil
+	txCtx := types.NewTxContext(types.WithTransType(types.TransactionTypeAT))
+
+	proxyTx, err := newProxyTx(
+		withCtx(txCtx),
+		withOriginTx(tx),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return proxyTx, nil
 }
 
 // QueryContext

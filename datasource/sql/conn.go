@@ -23,7 +23,6 @@ import (
 )
 
 type Conn struct {
-	hooks  []SQLHook
 	target *gosql.Conn
 }
 
@@ -35,7 +34,18 @@ func (c *Conn) BeginTx(ctx context.Context, opts *gosql.TxOptions) (*Tx, error) 
 		return nil, err
 	}
 
-	return &Tx{target: tx, hooks: c.hooks}, nil
+	txCtx := newTxContext(withTransType(TransactionTypeAT))
+
+	proxyTx, err := newProxyTx(
+		withCtx(txCtx),
+		withOriginTx(tx),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return proxyTx, nil
 }
 
 // PingContext
@@ -45,21 +55,7 @@ func (c *Conn) PingContext(ctx context.Context) error {
 
 // ExecContext
 func (c *Conn) ExecContext(ctx context.Context, query string, args ...interface{}) (gosql.Result, error) {
-
-	executor, err := buildExecutor(query)
-	if err != nil {
-		return nil, err
-	}
-
-	ret, err := executor.Exec(func(ctx context.Context, query string, args ...interface{}) (interface{}, error) {
-		return c.target.ExecContext(ctx, query, args...)
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ret.(gosql.Result), nil
+	return c.target.ExecContext(ctx, query, args...)
 }
 
 // PrepareContext
@@ -70,7 +66,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (*Stmt, error) 
 		return nil, err
 	}
 
-	return &Stmt{target: stmt, hooks: c.hooks}, nil
+	return &Stmt{target: stmt}, nil
 }
 
 // QueryContext

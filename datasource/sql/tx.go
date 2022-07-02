@@ -20,18 +20,88 @@ package sql
 import (
 	"context"
 	gosql "database/sql"
+
+	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go-datasource/sql/undo"
 )
+
+type txOption func(tx *Tx)
+
+func newProxyTx(opts ...txOption) (*Tx, error) {
+	tx := new(Tx)
+
+	for i := range opts {
+		opts[i](tx)
+	}
+
+	if err := tx.init(); err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+func withOriginTx(tx *gosql.Tx) txOption {
+	return func(t *Tx) {
+		t.target = tx
+	}
+}
+
+func withCtx(ctx *types.TransactionContext) txOption {
+	return func(t *Tx) {
+		t.ctx = ctx
+	}
+}
+
+func withHooks(hooks []SQLHook) txOption {
+	return func(t *Tx) {
+		t.hooks = hooks
+	}
+}
 
 // Tx
 type Tx struct {
-	ctx    *TransactionContext
+	ctx    *types.TransactionContext
 	hooks  []SQLHook
 	target *gosql.Tx
 }
 
+// init
+func (tx *Tx) init() error {
+	return nil
+}
+
 // Commit
 func (tx *Tx) Commit() error {
-	return tx.target.Commit()
+	branchID, err := tx.regis()
+	if err != nil {
+		return err
+	}
+
+	tx.ctx.BranchID = branchID
+
+	// flush undo log if need
+	if !tx.needFlushUndoLog() {
+		return tx.target.Commit()
+	}
+
+	undoLogMgr, err := undo.GetUndoLogManager(tx.ctx.DBType)
+	if err != nil {
+		return err
+	}
+
+	undoLogMgr.FlushUndoLog(tx.ctx, tx.target)
+
+	// do report
+	return nil
+}
+
+func (tx *Tx) regis() (string, error) {
+	return "", nil
+}
+
+func (tx *Tx) needFlushUndoLog() bool {
+	return false
 }
 
 // Rollback
@@ -65,7 +135,7 @@ func (tx *Tx) ExecContext(ctx context.Context, query string, args ...interface{}
 		return nil, err
 	}
 
-	ret, err := executor.Exec(func(ctx context.Context, query string, args ...interface{}) (interface{}, error) {
+	ret, err := executor.Exec(tx.ctx, func(ctx context.Context, query string, args ...interface{}) (interface{}, error) {
 		return tx.target.ExecContext(ctx, query, args...)
 	})
 
@@ -84,7 +154,7 @@ func (tx *Tx) PrepareContext(ctx context.Context, query string, args ...interfac
 		return nil, err
 	}
 
-	return &Stmt{target: stmt, query: query, hooks: tx.hooks}, nil
+	return &Stmt{target: stmt, query: query}, nil
 }
 
 func (tx *Tx) Stmt(ctx context.Context, stmt *gosql.Stmt) (*Stmt, error) {

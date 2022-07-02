@@ -22,10 +22,11 @@ import (
 	gosql "database/sql"
 
 	"github.com/seata/seata-go-datasource/sql/parser"
+	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 var (
-	executorSolts = make(map[DBType]map[parser.ExecutorType]SQLExecutor)
+	executorSolts = make(map[types.DBType]map[parser.ExecutorType]SQLExecutor)
 )
 
 type (
@@ -42,7 +43,7 @@ type (
 type SQLExecutor interface {
 
 	// Exec
-	Exec(f callback) (interface{}, error)
+	Exec(tx *types.TransactionContext, f callback) (interface{}, error)
 }
 
 // buildExecutor
