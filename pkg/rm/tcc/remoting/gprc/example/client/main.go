@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/seata/seata-go/pkg/common/log"
+	_ "github.com/seata/seata-go/pkg/imports"
 	"github.com/seata/seata-go/pkg/integration/grpc/client"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example"
 	"github.com/seata/seata-go/pkg/tm"
@@ -51,6 +52,7 @@ func main() {
 	defer func() {
 		resp := tm.CommitOrRollback(ctx, err)
 		log.Infof("tx result %v", resp)
+		<-make(chan bool)
 	}()
 	defer cancel()
 

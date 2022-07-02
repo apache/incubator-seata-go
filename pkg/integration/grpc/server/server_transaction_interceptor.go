@@ -19,10 +19,10 @@ package server
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
-	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -35,10 +35,14 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{}, info *gr
 	xid := md.Get(grpc2.HEADER_KEY)[0]
 	if xid == "" {
 		xid = md.Get(grpc2.HEADER_KEY_LOWERCASE)[0]
-		if xid != "" {
-			ctx = tm.InitSeataContext(ctx)
-			tm.SetXID(ctx, xid)
-		}
+
+	}
+	if xid != "" {
+		ctx = tm.InitSeataContext(ctx)
+		tm.SetXID(ctx, xid)
+		log.Infof("global transaction xid is :%s")
+	} else {
+		log.Errorf("global transaction xid is empty")
 	}
 
 	m, err := handler(ctx, req)

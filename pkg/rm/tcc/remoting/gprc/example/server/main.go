@@ -24,6 +24,7 @@ import (
 	"net"
 
 	"github.com/seata/seata-go/pkg/common/log"
+	_ "github.com/seata/seata-go/pkg/imports"
 	server2 "github.com/seata/seata-go/pkg/integration/grpc/server"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example"
@@ -43,7 +44,8 @@ func (b *business) Prepare(ctx context.Context, params interface{}) error {
 }
 
 func (b *business) Remoting(ctx context.Context, params *example.Params) (*emptypb.Empty, error) {
-	return nil, tcc.NewTCCServiceProxy(b).Prepare(ctx, params)
+	log.Infof("Remoting be called")
+	return new(emptypb.Empty), tcc.NewTCCServiceProxy(b).Prepare(ctx, params)
 }
 
 func (b *business) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
