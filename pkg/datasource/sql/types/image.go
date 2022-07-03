@@ -23,15 +23,41 @@ import (
 
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
-	BeforeImages RecordImages
-	AfterImages  RecordImages
+	bIndex int32
+	before RecordImages
+	aIndex int32
+	after  RecordImages
+}
+
+// AppendBeofreImage
+func (r *RoundRecordImage) AppendBeofreImage(image *RecordImage) {
+	r.bIndex++
+	image.index = r.bIndex
+
+	r.before = append(r.before, image)
+}
+
+// AppendAfterImage
+func (r *RoundRecordImage) AppendAfterImage(image *RecordImage) {
+	r.aIndex++
+	image.index = r.aIndex
+
+	r.after = append(r.after, image)
+}
+
+func (r *RoundRecordImage) BeofreImages() RecordImages {
+	return r.before
+}
+
+func (r *RoundRecordImage) AfterImages() RecordImages {
+	return r.after
 }
 
 func (r *RoundRecordImage) IsEmpty() bool {
 	return false
 }
 
-type RecordImages []RecordImage
+type RecordImages []*RecordImage
 
 // Reserve The order of reverse mirrors, when executing undo, needs to be executed in reverse
 func (rs RecordImages) Reserve() {
@@ -48,8 +74,8 @@ func (rs RecordImages) Reserve() {
 
 // RecordImage
 type RecordImage struct {
-	// Index
-	Index int32
+	// index
+	index int32
 	// Table
 	Table string
 	// SQLType
@@ -60,6 +86,7 @@ type RecordImage struct {
 
 // RowImage Mirror data information information
 type RowImage struct {
+	// Columns All columns of image data
 	Columns []ColumnImage
 }
 

@@ -38,6 +38,11 @@ func RegisHook(hook SQLInterceptor) {
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
 }
 
+type ExecContext struct {
+	Query string
+	Args  []interface{}
+}
+
 // SQLHook SQL execution front and back interceptor
 // case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
 // case 2. Burning point to report
@@ -46,8 +51,8 @@ type SQLInterceptor interface {
 	Type() types.SQLType
 
 	// Before
-	Before(ctx context.Context, txCtx *types.TransactionContext, query string, args ...interface{})
+	Before(ctx context.Context, txCtx *types.TransactionContext, execCtx *ExecContext)
 
 	// After
-	After(ctx context.Context, txCtx *types.TransactionContext, query string, args ...interface{})
+	After(ctx context.Context, txCtx *types.TransactionContext, execCtx *ExecContext)
 }
