@@ -79,7 +79,7 @@ func Begin(ctx context.Context, name string) context.Context {
 }
 
 // commit global transaction
-func CommitOrRollback(ctx context.Context, err error) error {
+func CommitOrRollback(ctx context.Context, err *error) error {
 	tx := &GlobalTransaction{
 		Xid:    GetXID(ctx),
 		Status: *GetTxStatus(ctx),
@@ -87,7 +87,7 @@ func CommitOrRollback(ctx context.Context, err error) error {
 	}
 
 	var resp error
-	if err == nil {
+	if *err == nil {
 		resp = GetGlobalTransactionManager().Commit(ctx, tx)
 		if resp != nil {
 			log.Infof("transactionTemplate: commit transaction failed, error %v", err)

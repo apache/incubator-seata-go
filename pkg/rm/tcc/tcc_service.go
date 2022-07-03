@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/seata/seata-go/pkg/tm"
@@ -33,40 +34,37 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-type TCCService interface {
-	Prepare(ctx context.Context, params interface{}) error
-	Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error
-	Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error
-
-	GetActionName() string
-	//GetRemoteType() remoting.RemoteType
-	//GetServiceType() remoting.ServiceType
-}
-
 type TCCServiceProxy struct {
-	TCCService
+	registerResourceOnce sync.Once
+	*TCCResource
 }
 
-func NewTCCServiceProxy(tccService TCCService) TCCService {
-	if tccService == nil {
-		panic("param tccService should not be nil")
-	}
-
-	// register resource
-	tccResource := TCCResource{
-		TCCServiceBean:  tccService,
-		ResourceGroupId: "DEFAULT",
-		AppName:         "",
-		ActionName:      tccService.GetActionName(),
-	}
-	err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(&tccResource)
+func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
+	tccResource, err := ParseTCCResource(service)
 	if err != nil {
-		panic(fmt.Sprintf("NewTCCServiceProxy registerResource error: {%#v}", err.Error()))
+		log.Errorf("invalid tcc service, err %v", err)
+		return nil, err
 	}
+	tccServiceProxy := &TCCServiceProxy{
+		TCCResource: tccResource,
+	}
+	err = tccServiceProxy.registerResource()
+	if err != nil {
+		log.Errorf("register tcc resource, err %v", err)
+		return nil, err
+	}
+	return tccServiceProxy, err
+}
 
-	return &TCCServiceProxy{
-		TCCService: tccService,
-	}
+func (t *TCCServiceProxy) registerResource() error {
+	var err error
+	t.registerResourceOnce.Do(func() {
+		err = rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
+		if err != nil {
+			log.Errorf("NewTCCServiceProxy registerResource error: %#v", err.Error())
+		}
+	})
+	return err
 }
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error {
@@ -76,7 +74,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error 
 			return err
 		}
 	}
-	return t.TCCService.Prepare(ctx, param)
+	return t.TCCResource.Prepare(ctx, param)
 }
 
 func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) error {

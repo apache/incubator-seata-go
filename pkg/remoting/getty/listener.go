@@ -59,45 +59,41 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 
 func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 	sessionManager.RegisterGettySession(session)
-	go func() {
-		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-			Version:                 client.conf.SeataVersion,
-			ApplicationId:           client.conf.ApplicationID,
-			TransactionServiceGroup: client.conf.TransactionServiceGroup,
-		}}
-		err := GetGettyRemotingClient().SendAsyncRequest(request)
-		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
-		if err != nil {
-			log.Errorf("OnOpen error: {%#v}", err.Error())
-			sessionManager.ReleaseGettySession(session)
-			return
-		}
-
-		//todo
-		//client.GettySessionOnOpenChannel <- session.RemoteAddr()
-	}()
-
+	request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
+		Version:                 client.conf.SeataVersion,
+		ApplicationId:           client.conf.ApplicationID,
+		TransactionServiceGroup: client.conf.TransactionServiceGroup,
+	}}
+	err := GetGettyRemotingClient().SendAsyncRequest(request)
+	//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
+	if err != nil {
+		log.Errorf("OnOpen error: {%#v}", err.Error())
+		//sessionManager.ReleaseGettySession(session)
+		return err
+	}
+	//todo
+	//client.GettySessionOnOpenChannel <- session.RemoteAddr()
 	return nil
 }
 
 func (client *gettyClientHandler) OnError(session getty.Session, err error) {
+	log.Infof("OnError session{%s} got error{%v}, will be closed.", session.Stat(), err)
 	sessionManager.ReleaseGettySession(session)
 }
 
 func (client *gettyClientHandler) OnClose(session getty.Session) {
+	log.Infof("OnClose session{%s} is closing......", session.Stat())
 	sessionManager.ReleaseGettySession(session)
 }
 
 func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 	ctx := context.Background()
 	log.Debugf("received message: {%#v}", pkg)
-
 	rpcMessage, ok := pkg.(message.RpcMessage)
 	if !ok {
 		log.Errorf("received message is not protocol.RpcMessage. pkg: %#v", pkg)
 		return
 	}
-
 	if mm, ok := rpcMessage.Body.(message.MessageTypeAware); ok {
 		processor := client.processorTable[mm.GetTypeCode()]
 		if processor != nil {
@@ -111,7 +107,7 @@ func (client *gettyClientHandler) OnMessage(session getty.Session, pkg interface
 }
 
 func (client *gettyClientHandler) OnCron(session getty.Session) {
-	GetGettyRemotingClient().SendAsyncRequest(message.HeartBeatMessagePing)
+	//GetGettyRemotingClient().SendAsyncRequest(message.HeartBeatMessagePing)
 }
 
 func (client *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {

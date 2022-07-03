@@ -10,7 +10,7 @@ import (
 type TestTCCServiceBusiness struct {
 }
 
-func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{}) error {
+func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface{}) error {
 	log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
 	return nil
 }

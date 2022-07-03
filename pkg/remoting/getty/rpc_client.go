@@ -58,7 +58,7 @@ func (c *RpcClient) init() {
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
-			getty.WithConnectionNumber((int)(c.conf.GettyConfig.ConnectionNum)),
+			getty.WithConnectionNumber(c.conf.GettyConfig.ConnectionNum),
 			getty.WithReconnectInterval(c.conf.GettyConfig.ReconnectInterval),
 			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)
@@ -104,6 +104,9 @@ func (c *RpcClient) newSession(session getty.Session) error {
 		}
 
 		if err = tcpConn.SetNoDelay(c.conf.GettyConfig.GettySessionParam.TCPNoDelay); err != nil {
+			return err
+		}
+		if err = tcpConn.SetKeepAlive(c.conf.GettyConfig.GettySessionParam.TCPKeepAlive); err != nil {
 			return err
 		}
 		if err = tcpConn.SetKeepAlive(c.conf.GettyConfig.GettySessionParam.TCPKeepAlive); err != nil {

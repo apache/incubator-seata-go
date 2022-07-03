@@ -15,19 +15,21 @@ func main() {
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, err)
+		resp := tm.CommitOrRollback(ctx, &err)
 		log.Infof("tx result %v", resp)
 		<-make(chan struct{})
 	}()
 
-	tccService := tcc.NewTCCServiceProxy(service.TestTCCServiceBusiness{})
+	tccService, err := tcc.NewTCCServiceProxy(service.TestTCCServiceBusiness{})
+	if err != nil {
+		return
+	}
 	err = tccService.Prepare(ctx, 1)
 	if err != nil {
-		log.Errorf("execute TestTCCServiceBusiness prepare error %s", err.Error())
 		return
 	}
 
-	tccService2 := tcc.NewTCCServiceProxy(service.TestTCCServiceBusiness2{})
+	tccService2, err := tcc.NewTCCServiceProxy(service.TestTCCServiceBusiness2{})
 	err = tccService2.Prepare(ctx, 3)
 	if err != nil {
 		log.Errorf("execute TestTCCServiceBusiness2 prepare error %s", err.Error())
