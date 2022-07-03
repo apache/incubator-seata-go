@@ -15,38 +15,42 @@
  * limitations under the License.
  */
 
-package sql
+package exec
 
 import (
 	"context"
-	gosql "database/sql"
 
 	"github.com/seata/seata-go-datasource/sql/parser"
 	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 var (
-	executorSolts = make(map[types.DBType]map[parser.ExecutorType]SQLExecutor)
+	// executorSolts
+	executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
 )
 
 type (
-	callback func(ctx context.Context, query string, args ...interface{}) (interface{}, error)
+	callback func(ctx context.Context, query string, args ...interface{}) (types.ExecResult, error)
 
-	ExecResult struct {
-		Result gosql.Result
-		Row    *gosql.Row
-		Rows   *gosql.Rows
+	SQLExecutor interface {
+		// SetHook
+		SetHook(hooks []SQLHook)
+		// Exec
+		Exec(tx *types.TransactionContext, f callback) (types.ExecResult, error)
 	}
 )
 
-// SQLExecutor
-type SQLExecutor interface {
-
-	// Exec
-	Exec(tx *types.TransactionContext, f callback) (interface{}, error)
-}
-
 // buildExecutor
-func buildExecutor(query string) (SQLExecutor, error) {
-	return nil, nil
+func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
+	parseCtx, err := parser.DoParser(query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	hooks := hookSolts[parseCtx.SQLType]
+
+	executor := executorSolts[dbType][parseCtx.ExecutorType]()
+	executor.SetHook(hooks)
+	return executor, nil
 }

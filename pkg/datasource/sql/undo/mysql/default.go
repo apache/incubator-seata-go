@@ -17,9 +17,13 @@
 
 package mysql
 
-import "github.com/seata/seata-go-datasource/sql/undo"
+import (
+	"github.com/pkg/errors"
+	"github.com/seata/seata-go-datasource/sql/undo"
+)
 
 func init() {
-
-	undo.Register(&undoLogManager())
+	if err := undo.Regis(&undoLogManager{}); err != nil {
+		panic(errors.WithStack(err))
+	}
 }

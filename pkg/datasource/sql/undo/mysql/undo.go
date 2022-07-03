@@ -22,6 +22,7 @@ import (
 
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
+	"github.com/seata/seata-go-datasource/sql/undo/base"
 )
 
 var (
@@ -29,11 +30,11 @@ var (
 )
 
 type undoLogManager struct {
-	Base *undo.BaseUndoLogManager
+	Base *base.BaseUndoLogManager
 }
 
-func (m *undoLogManager) Init(b *undo.BaseUndoLogManager) {
-	m.Base = b
+// Init
+func (m *undoLogManager) Init() {
 }
 
 // InsertUndoLog
@@ -47,8 +48,8 @@ func (m *undoLogManager) DeleteUndoLogs(xid, branchID []string, conn *sql.Conn) 
 }
 
 // FlushUndoLog
-func (m *undoLogManager) FlushUndoLog(xid, branchID string, logs []undo.UndoLog, tx *sql.Tx) error {
-	return m.Base.FlushUndoLog(tx)
+func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx *sql.Tx) error {
+	return m.Base.FlushUndoLog(txCtx, tx)
 }
 
 // RunUndo
@@ -58,5 +59,5 @@ func (m *undoLogManager) RunUndo(xid, branchID string, conn *sql.Conn) error {
 
 // DBType
 func (m *undoLogManager) DBType() types.DBType {
-	return types.MySQL
+	return types.DBType_MySQL
 }

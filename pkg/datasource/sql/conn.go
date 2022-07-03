@@ -20,6 +20,8 @@ package sql
 import (
 	"context"
 	gosql "database/sql"
+
+	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 type Conn struct {
@@ -27,14 +29,20 @@ type Conn struct {
 }
 
 // BeginTx
-func (c *Conn) BeginTx(ctx context.Context, opts *gosql.TxOptions) (*Tx, error) {
-	tx, err := c.target.BeginTx(ctx, opts)
+func (c *Conn) BeginTx(ctx context.Context, opts *types.TxOptions) (*Tx, error) {
+	tx, err := c.target.BeginTx(ctx, &gosql.TxOptions{
+		Isolation: opts.Isolation,
+		ReadOnly:  opts.ReadOnly,
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	txCtx := newTxContext(withTransType(TransactionTypeAT))
+	txCtx := types.NewTxContext(
+		types.WithTxOptions(opts),
+		types.WithTransType(opts.TransType),
+	)
 
 	proxyTx, err := newProxyTx(
 		withCtx(txCtx),

@@ -14,17 +14,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package types
 
-package sql
+import (
+	"database/sql"
+)
 
-import "context"
+// ColumnMeta
+type ColumnMeta struct {
+	// Schema
+	Schema string
+	// Table
+	Table string
+	// Autoincrement
+	Autoincrement bool
+	// Info
+	Info sql.ColumnType
+}
 
-// SQLHook
-type SQLHook interface {
+// IndexMeta
+type IndexMeta struct {
+	// Schema
+	Schema string
+	// Table
+	Table string
+	// Name
+	Name string
+	// IType
+	IType IndexType
+	// Values
+	Values []ColumnMeta
+}
 
-	// Before
-	Before(ctx context.Context, txCtx *TransactionContext, query string, args ...interface{})
+// TableMeta
+type TableMeta struct {
+	// Schema
+	Schema string
+	// Name
+	Name string
+	// Columns
+	Columns map[string]ColumnMeta
+	// Indexs
+	Indexs map[string]IndexMeta
+}
 
-	// After
-	After(ctx context.Context, txCtx *TransactionContext, query string, args ...interface{})
+func (m TableMeta) IsEmpty() bool {
+	return m.Name == ""
 }

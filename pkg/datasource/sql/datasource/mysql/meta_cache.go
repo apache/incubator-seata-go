@@ -15,26 +15,4 @@
  * limitations under the License.
  */
 
-package parser
-
-// ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnsupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	InsertOnDuplicateExecutor
-	ReplaceIntoExecutor
-	MultipleInsertExecutor
-	MultipleUpdateExecutor
-	MultipleDeleteExecutor
-	MultipleReplaceIntoExecutor
-)
-
-func DoParser(query string) ExecutorType {
-
-	return UnsupportExecutor
-}
+package mysql

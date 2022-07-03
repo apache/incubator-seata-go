@@ -19,19 +19,69 @@ package sql
 
 import (
 	"context"
-	"database/sql"
 	gosql "database/sql"
 	"time"
 
+	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
 )
 
-type DB struct {
-	conf   seataServerConfig
-	target *gosql.DB
+type dbOption func(db *DB)
 
+func withResourceID(id string) dbOption {
+	return func(db *DB) {
+		db.resourceID = id
+	}
+}
+
+func withTableMetaCache(c datasource.TableMetaCache) dbOption {
+	return func(db *DB) {
+		db.metaCache = c
+	}
+}
+
+func withDBType(dt types.DBType) dbOption {
+	return func(db *DB) {
+		db.dbType = dt
+	}
+}
+
+func withTarget(source *gosql.DB) dbOption {
+	return func(db *DB) {
+		db.target = source
+	}
+}
+
+func withConf(conf *seataServerConfig) dbOption {
+	return func(db *DB) {
+		db.conf = *conf
+	}
+}
+
+func newDB(opts ...dbOption) *DB {
+	db := new(DB)
+
+	for i := range opts {
+		opts[i](db)
+	}
+
+	return db
+}
+
+// DB proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
+type DB struct {
+	resourceID string
+	// conf
+	conf seataServerConfig
+	// target
+	target *gosql.DB
+	// dbType
+	dbType types.DBType
+	// undoLogMgr
 	undoLogMgr undo.UndoLogManager
+	// metaCache
+	metaCache datasource.TableMetaCache
 }
 
 // Close
@@ -39,8 +89,13 @@ func (db *DB) Close() error {
 	return db.target.Close()
 }
 
+// Ping
+func (db *DB) Ping() error {
+	return db.target.PingContext(context.Background())
+}
+
 // PingContext
-func (db *DB) Ping(ctx context.Context) error {
+func (db *DB) PingContext(ctx context.Context) error {
 	return db.target.PingContext(ctx)
 }
 
@@ -64,14 +119,16 @@ func (db *DB) SetMaxOpenConns(n int) {
 	db.target.SetMaxOpenConns(n)
 }
 
-// Begin
-func (db *DB) Begin(ctx context.Context) (*Tx, error) {
-	tx, err := db.target.BeginTx(ctx, nil)
+// Begin only turn on local transaction, and distribute transaction need to be called BeginTx func
+func (db *DB) Begin() (*Tx, error) {
+	tx, err := db.target.BeginTx(context.Background(), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	txCtx := types.NewTxContext(types.WithTransType(types.TransactionTypeAT))
+	txCtx := types.NewTxContext(
+		types.WithTransType(types.Local),
+	)
 
 	proxyTx, err := newProxyTx(
 		withCtx(txCtx),
@@ -86,13 +143,19 @@ func (db *DB) Begin(ctx context.Context) (*Tx, error) {
 }
 
 // BeginTx
-func (db *DB) BeginTx(ctx context.Context, opt *sql.TxOptions) (*Tx, error) {
-	tx, err := db.target.BeginTx(ctx, opt)
+func (db *DB) BeginTx(ctx context.Context, opt *types.TxOptions) (*Tx, error) {
+	tx, err := db.target.BeginTx(ctx, &gosql.TxOptions{
+		Isolation: opt.Isolation,
+		ReadOnly:  opt.ReadOnly,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	txCtx := types.NewTxContext(types.WithTransType(types.TransactionTypeAT))
+	txCtx := types.NewTxContext(
+		types.WithTxOptions(opt),
+		types.WithTransType(opt.TransType),
+	)
 
 	proxyTx, err := newProxyTx(
 		withCtx(txCtx),

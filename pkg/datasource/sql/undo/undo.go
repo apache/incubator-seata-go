@@ -27,8 +27,6 @@ import (
 
 var (
 	solts = map[types.DBType]*undoLogMgrHolder{}
-
-	_ UndoLogManager = (*BaseUndoLogManager)(nil)
 )
 
 type undoLogMgrHolder struct {
@@ -36,7 +34,7 @@ type undoLogMgrHolder struct {
 	mgr  UndoLogManager
 }
 
-func Register(m UndoLogManager) error {
+func Regis(m UndoLogManager) error {
 	if _, exist := solts[m.DBType()]; exist {
 		return nil
 	}
@@ -50,7 +48,7 @@ func Register(m UndoLogManager) error {
 
 // UndoLogManager
 type UndoLogManager interface {
-	Init(b *BaseUndoLogManager)
+	Init()
 	// InsertUndoLog
 	InsertUndoLog(l []UndoLog, conn *sql.Conn) error
 	// DeleteUndoLog
@@ -72,7 +70,7 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	}
 
 	v.once.Do(func() {
-		v.mgr.Init(&BaseUndoLogManager{})
+		v.mgr.Init()
 	})
 
 	return v.mgr, nil
@@ -86,38 +84,4 @@ type UndoLog struct {
 	BranchID string
 	// Content
 	Content []byte
-}
-
-// BaseUndoLogManager
-type BaseUndoLogManager struct {
-}
-
-// Init
-func (m *BaseUndoLogManager) Init(b *BaseUndoLogManager) {
-	panic("implement me")
-}
-
-// InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []UndoLog, conn *sql.Conn) error {
-	return nil
-}
-
-// DeleteUndoLog
-func (m *BaseUndoLogManager) DeleteUndoLogs(xid, branchID []string, conn *sql.Conn) error {
-	return nil
-}
-
-// FlushUndoLog
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx *sql.Tx) error {
-	return nil
-}
-
-// RunUndo
-func (m *BaseUndoLogManager) RunUndo(xid, branchID string, conn *sql.Conn) error {
-	return nil
-}
-
-// DBType
-func (m *BaseUndoLogManager) DBType() types.DBType {
-	panic("implement me")
 }

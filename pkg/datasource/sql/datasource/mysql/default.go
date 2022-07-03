@@ -15,35 +15,4 @@
  * limitations under the License.
  */
 
-package sql
-
-import (
-	gosql "database/sql"
-)
-
-// Open
-func Open(driverName, dataSourceName string, opts ...seataOption) (*DB, error) {
-	db, err := gosql.Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-
-	conf := defaultConfig()
-	for i := range opts {
-		opts[i](conf)
-	}
-
-	return &DB{target: db, conf: *conf}, nil
-}
-
-type (
-	seataOption func(cfg *seataServerConfig)
-
-	seataServerConfig struct {
-		Endpoints []string
-	}
-)
-
-func defaultConfig() *seataServerConfig {
-	return nil
-}
+package mysql
