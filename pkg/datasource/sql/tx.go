@@ -43,6 +43,7 @@ func newProxyTx(opts ...txOption) (*Tx, error) {
 	return tx, nil
 }
 
+// withOriginTx
 func withOriginTx(tx *gosql.Tx) txOption {
 	return func(t *Tx) {
 		t.target = tx
