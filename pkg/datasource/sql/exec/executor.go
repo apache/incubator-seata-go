@@ -33,8 +33,8 @@ type (
 	callback func(ctx context.Context, query string, args ...interface{}) (types.ExecResult, error)
 
 	SQLExecutor interface {
-		// SetHook
-		SetHook(hooks []SQLHook)
+		// Interceptors
+		Interceptors(interceptors []SQLInterceptor)
 		// Exec
 		Exec(tx *types.TransactionContext, f callback) (types.ExecResult, error)
 	}
@@ -51,6 +51,6 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 	hooks := hookSolts[parseCtx.SQLType]
 
 	executor := executorSolts[dbType][parseCtx.ExecutorType]()
-	executor.SetHook(hooks)
+	executor.Interceptors(hooks)
 	return executor, nil
 }

@@ -24,22 +24,25 @@ import (
 )
 
 var (
-	hookSolts = map[types.SQLType][]SQLHook{}
+	hookSolts = map[types.SQLType][]SQLInterceptor{}
 )
 
 // RegisHook not goroutine safe
-func RegisHook(hook SQLHook) {
+func RegisHook(hook SQLInterceptor) {
 	_, ok := hookSolts[hook.Type()]
 
 	if !ok {
-		hookSolts[hook.Type()] = make([]SQLHook, 0, 4)
+		hookSolts[hook.Type()] = make([]SQLInterceptor, 0, 4)
 	}
 
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
 }
 
-// SQLHook
-type SQLHook interface {
+// SQLHook SQL execution front and back interceptor
+// case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
+// case 2. Burning point to report
+// case 3. SQL black and white list
+type SQLInterceptor interface {
 	Type() types.SQLType
 
 	// Before
