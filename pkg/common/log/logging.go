@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
@@ -110,17 +111,42 @@ var (
 		CallerKey:      "caller",
 		MessageKey:     "message",
 		StacktraceKey:  "stacktrace",
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeLevel:    cEncodeLevel,
+		EncodeTime:     cEncodeTime,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
+		EncodeCaller:   cEncodeCaller,
 	}
 )
+
+const (
+	logTmFmt = "2006-01-02 15:04:05"
+)
+
+// GetLevelEnabler 自定义的LevelEnabler
+func GetLevelEnabler() zapcore.Level {
+	return zapcore.InfoLevel
+}
+
+// cEncodeLevel 自定义日志级别显示
+func cEncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + level.CapitalString() + "]")
+}
+
+// cEncodeTime 自定义时间格式显示
+func cEncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + t.Format(logTmFmt) + "]")
+}
+
+// cEncodeCaller 自定义行号显示
+func cEncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + caller.TrimmedPath() + "]")
+}
 
 func init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	log = zapLogger.Sugar()
+
 }
 
 func Init(logPath string, level LogLevel) {
