@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/natefinch/lumberjack"
@@ -122,24 +123,29 @@ const (
 	logTmFmt = "2006-01-02 15:04:05"
 )
 
-// GetLevelEnabler 自定义的LevelEnabler
-func GetLevelEnabler() zapcore.Level {
-	return zapcore.InfoLevel
-}
-
-// cEncodeLevel 自定义日志级别显示
 func cEncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString("[" + level.CapitalString() + "]")
+	zapcore.CapitalColorLevelEncoder(level, enc)
 }
 
-// cEncodeTime 自定义时间格式显示
 func cEncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString("[" + t.Format(logTmFmt) + "]")
+	enc.AppendString(t.Format(logTmFmt))
 }
 
-// cEncodeCaller 自定义行号显示
 func cEncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString("[" + caller.TrimmedPath() + "]")
+	fullPath := caller.FullPath()
+	enc.AppendString(substring(fullPath, strings.Index(fullPath, "seata-go")+9, len(fullPath)) + " => ")
+}
+
+func substring(source string, start int, end int) string {
+	var r = []rune(source)
+	length := len(r)
+	if start < 0 || end > length || start > end {
+		return ""
+	}
+	if start == 0 && end == length {
+		return source
+	}
+	return string(r[start:end])
 }
 
 func init() {
