@@ -22,37 +22,53 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/rm"
 )
 
 var (
-	_dataSourceMgr = &DataSourceManager{
-		lock:          sync.RWMutex{},
-		resourceCache: make(map[string]*resource),
-	}
-
-	solts = map[types.DBType]func() TableMetaCache{}
+	once           sync.Once
+	_dataSourceMgr DataSourceManager
+	solts          = map[types.DBType]func() TableMetaCache{}
 )
 
-func GetDataSourceManager() *DataSourceManager {
+type DataSourceManager interface {
+	// RegisDB
+	RegisDB(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error)
+}
+
+func GetDataSourceManager() DataSourceManager {
+	once.Do(func() {
+		_dataSourceMgr = &dataSourceManager{
+			resourceMgr:   rm.GetResourceManagerInstance(),
+			lock:          sync.RWMutex{},
+			resourceCache: make(map[string]*entry),
+		}
+
+	})
 	return _dataSourceMgr
 }
 
-type resource struct {
+type entry struct {
 	db        *sql.DB
 	metaCache TableMetaCache
 }
 
 // dataSourceManager
-type DataSourceManager struct {
-	lock sync.RWMutex
+type dataSourceManager struct {
+	lock        sync.RWMutex
+	resourceMgr *rm.ResourceManager
 	// resourceCache
-	resourceCache map[string]*resource
+	resourceCache map[string]*entry
 	// tablemetaCache
 	tablemetaCache TableMetaCache
 }
 
+func (dm *dataSourceManager) GetResourceMgr() *rm.ResourceManager {
+	return dm.resourceMgr
+}
+
 // RegisResource
-func (dm *DataSourceManager) RegisResource(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
+func (dm *dataSourceManager) RegisDB(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 
@@ -62,6 +78,9 @@ func (dm *DataSourceManager) RegisResource(resID string, dbType types.DBType, db
 	}
 
 	dm.resourceCache[resID] = res
+
+	// 注册 AT 数据资源
+	// dm.resourceMgr.RegisterResource(ATResource)
 
 	return res.metaCache, err
 }
@@ -77,7 +96,7 @@ type TableMetaCache interface {
 }
 
 // buildResource
-func buildResource(dbType types.DBType, db *sql.DB) (*resource, error) {
+func buildResource(dbType types.DBType, db *sql.DB) (*entry, error) {
 
 	cache := solts[dbType]()
 
@@ -85,7 +104,7 @@ func buildResource(dbType types.DBType, db *sql.DB) (*resource, error) {
 		return nil, err
 	}
 
-	return &resource{
+	return &entry{
 		db:        db,
 		metaCache: cache,
 	}, nil

@@ -63,7 +63,7 @@ func Open(driverName, dataSourceName string, opts ...seataOption) (*DB, error) {
 
 	mgr := datasource.GetDataSourceManager()
 
-	c, err := mgr.RegisResource(parseResourceID(dataSourceName), dbType, db)
+	c, err := mgr.RegisDB(parseResourceID(dataSourceName), dbType, db)
 	if err != nil {
 		return nil, err
 	}
