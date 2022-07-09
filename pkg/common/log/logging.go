@@ -130,11 +130,9 @@ func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 	fullPath := caller.FullPath()
-	var outPut string
+	outPut := fullPath
 	if strings.Contains(fullPath, "seata-go") {
 		outPut = substring(fullPath, strings.Index(fullPath, "seata-go")+9, len(fullPath))
-	} else {
-		outPut = fullPath
 	}
 	enc.AppendString(outPut + fmt.Sprintf("\033[33m%s\033[0m", "  =>"))
 }
