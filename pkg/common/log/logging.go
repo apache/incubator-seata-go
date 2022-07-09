@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	getty "github.com/apache/dubbo-getty"
 	"strings"
 	"time"
 
@@ -112,28 +113,30 @@ var (
 		CallerKey:      "caller",
 		MessageKey:     "message",
 		StacktraceKey:  "stacktrace",
-		EncodeLevel:    cEncodeLevel,
-		EncodeTime:     cEncodeTime,
+		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+		EncodeTime:     encodeTime,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   cEncodeCaller,
+		EncodeCaller:   encodeCaller,
 	}
 )
 
 const (
-	logTmFmt = "2006-01-02 15:04:05"
+	logTmFmt = "[2006-01-02 15:04:05.000]"
 )
 
-func cEncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	zapcore.CapitalColorLevelEncoder(level, enc)
-}
-
-func cEncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format(logTmFmt))
 }
 
-func cEncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 	fullPath := caller.FullPath()
-	enc.AppendString(substring(fullPath, strings.Index(fullPath, "seata-go")+9, len(fullPath)) + " => ")
+	var outPut string
+	if strings.Contains(fullPath, "seata-go") {
+		outPut = substring(fullPath, strings.Index(fullPath, "seata-go")+9, len(fullPath))
+	} else {
+		outPut = fullPath
+	}
+	enc.AppendString(outPut + fmt.Sprintf("\033[33m%s\033[0m", "  =>"))
 }
 
 func substring(source string, start int, end int) string {
@@ -152,7 +155,7 @@ func init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	log = zapLogger.Sugar()
-
+	getty.SetLogger(log)
 }
 
 func Init(logPath string, level LogLevel) {
@@ -166,14 +169,17 @@ func Init(logPath string, level LogLevel) {
 	syncer := zapcore.AddSync(lumberJackLogger)
 
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	encoderConfig.EncodeTime = encodeTime
+	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	encoderConfig.EncodeCaller = encodeCaller
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
 	zapLogger = zap.New(core, zap.AddCaller())
 
 	log = zapLogger.Sugar()
+	getty.SetLogger(log)
+
 }
 
 // SetLogger: customize yourself logger.
