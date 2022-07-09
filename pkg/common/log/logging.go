@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	getty "github.com/apache/dubbo-getty"
-	"strings"
 	"time"
 
 	"github.com/natefinch/lumberjack"
@@ -121,7 +120,7 @@ var (
 )
 
 const (
-	logTmFmt = "[2006-01-02 15:04:05.000]"
+	logTmFmt = "2006-01-02 15:04:05.000 "
 )
 
 func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -129,24 +128,8 @@ func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 }
 
 func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-	fullPath := caller.FullPath()
-	outPut := fullPath
-	if strings.Contains(fullPath, "seata-go") {
-		outPut = substring(fullPath, strings.Index(fullPath, "seata-go")+9, len(fullPath))
-	}
-	enc.AppendString(outPut + fmt.Sprintf("\033[33m%s\033[0m", "  =>"))
-}
-
-func substring(source string, start int, end int) string {
-	var r = []rune(source)
-	length := len(r)
-	if start < 0 || end > length || start > end {
-		return ""
-	}
-	if start == 0 && end == length {
-		return source
-	}
-	return string(r[start:end])
+	//enc.AppendString(fmt.Sprintf("\033[34m%s\033[0m", caller.TrimmedPath()))
+	enc.AppendString(fmt.Sprintf("%-45s", caller.TrimmedPath()))
 }
 
 func init() {
