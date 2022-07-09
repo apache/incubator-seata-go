@@ -50,7 +50,7 @@ func Regis(m UndoLogManager) error {
 type UndoLogManager interface {
 	Init()
 	// InsertUndoLog
-	InsertUndoLog(l []UndoLog, conn *sql.Conn) error
+	InsertUndoLog(l []BranchUndoLog, conn *sql.Conn) error
 	// DeleteUndoLog
 	DeleteUndoLogs(xid, branchID []string, conn *sql.Conn) error
 	// FlushUndoLog
@@ -76,12 +76,36 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	return v.mgr, nil
 }
 
-// UndoLog
-type UndoLog struct {
+// BranchUndoLog
+type BranchUndoLog struct {
 	// Xid
 	Xid string
 	// BranchID
 	BranchID string
-	// Content
-	Content []byte
+	// Logs
+	Logs []SQLUndoLog
+}
+
+// Marshal
+func (b *BranchUndoLog) Marshal() []byte {
+	return nil
+}
+
+// SQLUndoLog
+type SQLUndoLog struct {
+	SQLType   types.SQLType
+	TableName string
+	Images    types.RoundRecordImage
+}
+
+// UndoLogParser
+type UndoLogParser interface {
+	// GetName
+	GetName() string
+	// GetDefaultContent
+	GetDefaultContent() []byte
+	// Encode
+	Encode(l BranchUndoLog) []byte
+	// Decode
+	Decode(b []byte) BranchUndoLog
 }

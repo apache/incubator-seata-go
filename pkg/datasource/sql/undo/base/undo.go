@@ -38,7 +38,7 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.UndoLog, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, conn *sql.Conn) error {
 	return nil
 }
 
