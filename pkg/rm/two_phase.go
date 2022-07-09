@@ -1,10 +1,28 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package rm
 
 import (
 	"context"
+	"reflect"
+
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/tm"
-	"reflect"
 )
 
 const (
@@ -16,15 +34,16 @@ const (
 )
 
 var (
-	typError           = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()).Type()
-	typContext         = reflect.Zero(reflect.TypeOf((*context.Context)(nil)).Elem()).Type()
-	typBusinessContext = reflect.Zero(reflect.TypeOf((*tm.BusinessActionContext)(nil)).Elem()).Type()
+	typError                    = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()).Type()
+	typContext                  = reflect.Zero(reflect.TypeOf((*context.Context)(nil)).Elem()).Type()
+	typBool                     = reflect.Zero(reflect.TypeOf((*bool)(nil)).Elem()).Type()
+	typBusinessContextInterface = reflect.Zero(reflect.TypeOf((*tm.BusinessActionContext)(nil))).Type()
 )
 
 type TwoPhaseInterface interface {
-	Prepare(ctx context.Context, params ...interface{}) error
-	Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error
-	Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error
+	Prepare(ctx context.Context, params ...interface{}) (bool, error)
+	Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
+	Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
 	GetActionName() string
 }
 
@@ -39,22 +58,64 @@ type TwoPhaseAction struct {
 	rollbackMethod     *reflect.Value
 }
 
-func (t *TwoPhaseAction) Prepare(ctx context.Context, params ...interface{}) error {
-	res := t.prepareMethod.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(params)})
-	returnVal := res[0]
-	return returnVal.Interface().(error)
+func (t *TwoPhaseAction) GetTwoPhaseService() interface{} {
+	return t.twoPhaseService
 }
 
-func (t *TwoPhaseAction) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
+func (t *TwoPhaseAction) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+	values := make([]reflect.Value, 0, len(params))
+	values = append(values, reflect.ValueOf(ctx))
+	for _, param := range params {
+		values = append(values, reflect.ValueOf(param))
+	}
+	res := t.prepareMethod.Call(values)
+	var (
+		r0   = res[0].Interface()
+		r1   = res[1].Interface()
+		res0 bool
+		res1 error
+	)
+	if r0 != nil {
+		res0 = r0.(bool)
+	}
+	if r1 != nil {
+		res1 = r1.(error)
+	}
+	return res0, res1
+}
+
+func (t *TwoPhaseAction) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
 	res := t.commitMethod.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(businessActionContext)})
-	returnVal := res[0]
-	return returnVal.Interface().(error)
+	var (
+		r0   = res[0].Interface()
+		r1   = res[1].Interface()
+		res0 bool
+		res1 error
+	)
+	if r0 != nil {
+		res0 = r0.(bool)
+	}
+	if r1 != nil {
+		res1 = r1.(error)
+	}
+	return res0, res1
 }
 
-func (t *TwoPhaseAction) Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
+func (t *TwoPhaseAction) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
 	res := t.rollbackMethod.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(businessActionContext)})
-	returnVal := res[0]
-	return returnVal.Interface().(error)
+	var (
+		r0   = res[0].Interface()
+		r1   = res[1].Interface()
+		res0 bool
+		res1 error
+	)
+	if r0 != nil {
+		res0 = r0.(bool)
+	}
+	if r1 != nil {
+		res1 = r1.(error)
+	}
+	return res0, res1
 }
 
 func (t *TwoPhaseAction) GetActionName() string {
@@ -152,15 +213,18 @@ func getPrepareAction(t reflect.StructField, f reflect.Value) (string, *reflect.
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// prepare has 1 retuen error value
-	if outNum := t.Type.NumOut(); outNum != 1 {
+	// prepare has 2 retuen error value
+	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}
-	if returnType := t.Type.Out(0); returnType != typError {
+	if returnType := t.Type.Out(0); returnType != typBool {
 		return "", nil, false
 	}
-	// prepared method has 2 params, context.Context, interface{}
-	if inNum := t.Type.NumIn(); inNum != 2 {
+	if returnType := t.Type.Out(1); returnType != typError {
+		return "", nil, false
+	}
+	// prepared method has at least 1 params, context.Context, and other params
+	if inNum := t.Type.NumIn(); inNum == 0 {
 		return "", nil, false
 	}
 	if inType := t.Type.In(0); inType != typContext {
@@ -176,21 +240,24 @@ func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.V
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// commit method has 1 retuen error value
-	if outNum := t.Type.NumOut(); outNum != 1 {
+	// commit method has 2 retuen error value
+	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}
-	if returnType := t.Type.Out(0); returnType != typError {
+	if returnType := t.Type.Out(0); returnType != typBool {
 		return "", nil, false
 	}
-	// commit method has 2 params, context.Context, tm.BusinessActionContext
+	if returnType := t.Type.Out(1); returnType != typError {
+		return "", nil, false
+	}
+	// commit method has at least 1 params, context.Context, and other params
 	if inNum := t.Type.NumIn(); inNum != 2 {
 		return "", nil, false
 	}
 	if inType := t.Type.In(0); inType != typContext {
 		return "", nil, false
 	}
-	if inType := t.Type.In(1); inType != typBusinessContext {
+	if inType := t.Type.In(1); inType != typBusinessContextInterface {
 		return "", nil, false
 	}
 	return t.Name, &f, true
@@ -204,21 +271,24 @@ func getRollbackMethod(t reflect.StructField, f reflect.Value) (string, *reflect
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// rollback method has 1 retuen value
-	if outNum := t.Type.NumOut(); outNum != 1 {
+	// rollback method has 2 retuen value
+	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}
-	if returnType := t.Type.Out(0); returnType != typError {
+	if returnType := t.Type.Out(0); returnType != typBool {
 		return "", nil, false
 	}
-	// rollback method has 2 params, context.Context, tm.BusinessActionContext
+	if returnType := t.Type.Out(1); returnType != typError {
+		return "", nil, false
+	}
+	// rollback method has at least 1 params, context.Context, and other params
 	if inNum := t.Type.NumIn(); inNum != 2 {
 		return "", nil, false
 	}
 	if inType := t.Type.In(0); inType != typContext {
 		return "", nil, false
 	}
-	if inType := t.Type.In(1); inType != typBusinessContext {
+	if inType := t.Type.In(1); inType != typBusinessContextInterface {
 		return "", nil, false
 	}
 	return t.Name, &f, true

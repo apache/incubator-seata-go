@@ -34,12 +34,13 @@ type BusinessActionContext struct {
 	Xid           string
 	BranchId      int64
 	ActionName    string
-	ActionContext interface{}
+	ActionContext map[string]interface{}
 }
 
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
+	XidCopy               string
 	Status                *message.GlobalStatus
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
@@ -114,16 +115,25 @@ func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
 	}
 }
 
+func IsTransactionOpened(ctx context.Context) bool {
+	variable := ctx.Value(seataContextVariable)
+	if variable == nil {
+		return false
+	}
+	xid := variable.(*ContextVariable).Xid
+	return xid != ""
+}
+
 func GetXID(ctx context.Context) string {
 	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return ""
 	}
-	return variable.(*ContextVariable).Xid
-}
-
-func HasXID(ctx context.Context) bool {
-	return GetXID(ctx) != ""
+	xid := variable.(*ContextVariable).Xid
+	if xid == "" {
+		xid = variable.(*ContextVariable).XidCopy
+	}
+	return xid
 }
 
 func SetXID(ctx context.Context, xid string) {
@@ -133,9 +143,17 @@ func SetXID(ctx context.Context, xid string) {
 	}
 }
 
+func SetXIDCopy(ctx context.Context, xid string) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		variable.(*ContextVariable).XidCopy = xid
+	}
+}
+
 func UnbindXid(ctx context.Context) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).Xid = ""
+		variable.(*ContextVariable).XidCopy = ""
 	}
 }
