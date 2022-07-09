@@ -59,20 +59,22 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 
 func (client *gettyClientHandler) OnOpen(session getty.Session) error {
 	sessionManager.RegisterGettySession(session)
-	request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-		Version:                 client.conf.SeataVersion,
-		ApplicationId:           client.conf.ApplicationID,
-		TransactionServiceGroup: client.conf.TransactionServiceGroup,
-	}}
-	err := GetGettyRemotingClient().SendAsyncRequest(request)
-	//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
-	if err != nil {
-		log.Errorf("OnOpen error: {%#v}", err.Error())
-		//sessionManager.ReleaseGettySession(session)
-		return err
-	}
-	//todo
-	//client.GettySessionOnOpenChannel <- session.RemoteAddr()
+	go func() {
+		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
+			Version:                 client.conf.SeataVersion,
+			ApplicationId:           client.conf.ApplicationID,
+			TransactionServiceGroup: client.conf.TransactionServiceGroup,
+		}}
+		err := GetGettyRemotingClient().SendAsyncRequest(request)
+		//client.sendAsyncRequestWithResponse(session, request, RPC_REQUEST_TIMEOUT)
+		if err != nil {
+			log.Errorf("OnOpen error: {%#v}", err.Error())
+			sessionManager.ReleaseGettySession(session)
+			return
+		}
+		//todo
+		//client.GettySessionOnOpenChannel <- session.RemoteAddr()
+	}()
 	return nil
 }
 

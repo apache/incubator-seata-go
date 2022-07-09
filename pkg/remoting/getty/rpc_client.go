@@ -109,9 +109,6 @@ func (c *RpcClient) newSession(session getty.Session) error {
 		if err = tcpConn.SetKeepAlive(c.conf.GettyConfig.GettySessionParam.TCPKeepAlive); err != nil {
 			return err
 		}
-		if err = tcpConn.SetKeepAlive(c.conf.GettyConfig.GettySessionParam.TCPKeepAlive); err != nil {
-			return err
-		}
 		if c.conf.GettyConfig.GettySessionParam.TCPKeepAlive {
 			if err = tcpConn.SetKeepAlivePeriod(c.conf.GettyConfig.GettySessionParam.KeepAlivePeriod); err != nil {
 				return err

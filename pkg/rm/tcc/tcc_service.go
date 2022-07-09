@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seata/seata-go/pkg/common/types"
+
 	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/pkg/errors"
@@ -35,6 +37,7 @@ import (
 )
 
 type TCCServiceProxy struct {
+	referenceName        string
 	registerResourceOnce sync.Once
 	*TCCResource
 }
@@ -45,42 +48,47 @@ func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
 		log.Errorf("invalid tcc service, err %v", err)
 		return nil, err
 	}
-	tccServiceProxy := &TCCServiceProxy{
+	return &TCCServiceProxy{
 		TCCResource: tccResource,
-	}
-	err = tccServiceProxy.registerResource()
-	if err != nil {
-		log.Errorf("register tcc resource, err %v", err)
-		return nil, err
-	}
-	return tccServiceProxy, err
+	}, err
 }
 
-func (t *TCCServiceProxy) registerResource() error {
+func (t *TCCServiceProxy) RegisterResource() error {
 	var err error
 	t.registerResourceOnce.Do(func() {
 		err = rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
 		if err != nil {
-			log.Errorf("NewTCCServiceProxy registerResource error: %#v", err.Error())
+			log.Errorf("NewTCCServiceProxy RegisterResource error: %#v", err.Error())
 		}
 	})
 	return err
 }
 
-func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error {
-	if tm.HasXID(ctx) {
-		err := t.RegisteBranch(ctx, param)
+func (t *TCCServiceProxy) SetReferenceName(referenceName string) {
+	t.referenceName = referenceName
+}
+
+func (t *TCCServiceProxy) Reference() string {
+	if t.referenceName != "" {
+		return t.referenceName
+	}
+	return types.GetReference(t.TCCResource.TwoPhaseAction.GetTwoPhaseService())
+}
+
+func (t *TCCServiceProxy) Prepare(ctx context.Context, param ...interface{}) (interface{}, error) {
+	if tm.IsTransactionOpened(ctx) {
+		err := t.registeBranch(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return t.TCCResource.Prepare(ctx, param)
 }
 
-func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) error {
+func (t *TCCServiceProxy) registeBranch(ctx context.Context) error {
 	// register transaction branch
-	if !tm.HasXID(ctx) {
-		err := errors.New("BranchRegister error, xid should not be nil")
+	if !tm.IsTransactionOpened(ctx) {
+		err := errors.New("BranchRegister error, transaction should be opened")
 		log.Errorf(err.Error())
 		return err
 	}
@@ -99,10 +107,10 @@ func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) 
 	}
 
 	actionContext := &tm.BusinessActionContext{
-		Xid:           tm.GetXID(ctx),
-		BranchId:      branchId,
-		ActionName:    t.GetActionName(),
-		ActionContext: param,
+		Xid:        tm.GetXID(ctx),
+		BranchId:   branchId,
+		ActionName: t.GetActionName(),
+		//ActionContext: param,
 	}
 	tm.SetBusinessActionContext(ctx, actionContext)
 	return nil

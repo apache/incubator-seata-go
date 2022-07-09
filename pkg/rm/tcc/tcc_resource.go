@@ -20,8 +20,9 @@ package tcc
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/pkg/common/log"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/tm"
@@ -131,15 +132,15 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 	return branch.BranchStatusPhasetwoCommitted, err
 }
 
-func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) tm.BusinessActionContext {
-	return tm.BusinessActionContext{
+func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
+	return &tm.BusinessActionContext{
 		Xid:        xid,
 		BranchId:   branchID,
 		ActionName: resourceID,
@@ -158,7 +159,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branc
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbacked, err
 	}
