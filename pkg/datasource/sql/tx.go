@@ -150,6 +150,7 @@ func (tx *Tx) regis(ctx *types.TransactionContext) error {
 // report
 // TODO
 func (tx *Tx) report(success bool) error {
+
 	return nil
 }
 

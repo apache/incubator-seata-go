@@ -18,10 +18,14 @@
 package datasource
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"sync"
 
 	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
@@ -32,8 +36,9 @@ var (
 )
 
 type DataSourceManager interface {
-	// RegisDB
-	RegisDB(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error)
+	resource.ResourceManager
+	// CreateTableMetaCache
+	CreateTableMetaCache(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error)
 }
 
 func GetDataSourceManager() DataSourceManager {
@@ -63,12 +68,61 @@ type dataSourceManager struct {
 	tablemetaCache TableMetaCache
 }
 
-func (dm *dataSourceManager) GetResourceMgr() *rm.ResourceManager {
-	return dm.resourceMgr
+func (dm *dataSourceManager) RegisterResourceManager(resourceManager resource.ResourceManager) {
+	dm.resourceMgr.RegisterResourceManager(resourceManager)
 }
 
-// RegisResource
-func (dm *dataSourceManager) RegisDB(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
+func (dm *dataSourceManager) GetResourceManager(branchType branch.BranchType) resource.ResourceManager {
+	return dm.resourceMgr.GetResourceManager(branchType)
+}
+
+// Commit a branch transaction
+func (dm *dataSourceManager) BranchCommit(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error) {
+	return dm.resourceMgr.BranchCommit(ctx, branchType, xid, branchId, resourceId, applicationData)
+}
+
+// Rollback a branch transaction
+func (dm *dataSourceManager) BranchRollback(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error) {
+	return dm.resourceMgr.BranchRollback(ctx, branchType, xid, branchId, resourceId, applicationData)
+}
+
+// Branch register long
+func (dm *dataSourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+	return dm.resourceMgr.BranchRegister(ctx, branchType, resourceId, clientId, xid, applicationData, lockKeys)
+}
+
+//  Branch report
+func (dm *dataSourceManager) BranchReport(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+	return dm.resourceMgr.BranchReport(ctx, branchType, xid, branchId, status, applicationData)
+}
+
+// Lock query boolean
+func (dm *dataSourceManager) LockQuery(ctx context.Context, branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+	return dm.resourceMgr.LockQuery(ctx, branchType, resourceId, xid, lockKeys)
+}
+
+// Register a   model.Resource to be managed by   model.Resource Manager
+func (dm *dataSourceManager) RegisterResource(resource resource.Resource) error {
+	return dm.resourceMgr.RegisterResource(resource)
+}
+
+//  Unregister a   model.Resource from the   model.Resource Manager
+func (dm *dataSourceManager) UnregisterResource(resource resource.Resource) error {
+	return errors.New("unsupport unregister resource")
+}
+
+// Get all resources managed by this manager
+func (dm *dataSourceManager) GetManagedResources() *sync.Map {
+	return dm.GetManagedResources()
+}
+
+// Get the model.BranchType
+func (dm *dataSourceManager) GetBranchType() branch.BranchType {
+	return branch.BranchTypeAT
+}
+
+// CreateTableMetaCache
+func (dm *dataSourceManager) CreateTableMetaCache(resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 

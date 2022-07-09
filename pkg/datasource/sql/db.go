@@ -25,9 +25,16 @@ import (
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 type dbOption func(db *DB)
+
+func withGroupID(id string) dbOption {
+	return func(db *DB) {
+		db.groupID = id
+	}
+}
 
 func withResourceID(id string) dbOption {
 	return func(db *DB) {
@@ -59,18 +66,21 @@ func withConf(conf *seataServerConfig) dbOption {
 	}
 }
 
-func newDB(opts ...dbOption) *DB {
+func newDB(opts ...dbOption) (*DB, error) {
 	db := new(DB)
 
 	for i := range opts {
 		opts[i](db)
 	}
 
-	return db
+	return db, db.init()
 }
 
 // DB proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DB struct {
+	// groupID
+	groupID string
+	// resourceID
 	resourceID string
 	// conf
 	conf seataServerConfig
@@ -82,6 +92,33 @@ type DB struct {
 	undoLogMgr undo.UndoLogManager
 	// metaCache
 	metaCache datasource.TableMetaCache
+}
+
+func (db *DB) init() error {
+	metaCache, err := datasource.GetDataSourceManager().CreateTableMetaCache(db.resourceID, db.dbType, db.target)
+	if err != nil {
+		return err
+	}
+
+	db.metaCache = metaCache
+
+	return nil
+}
+
+func (db *DB) GetResourceGroupId() string {
+	return db.groupID
+}
+
+func (db *DB) GetResourceId() string {
+	return db.resourceID
+}
+
+func (db *DB) GetBranchType() branch.BranchType {
+	if db.conf.openAT {
+		return branch.BranchTypeAT
+	}
+
+	return branch.BranchTypeXA
 }
 
 // Close

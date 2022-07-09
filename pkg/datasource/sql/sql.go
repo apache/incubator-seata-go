@@ -45,36 +45,43 @@ import (
 // close a DB.
 func Open(driverName, dataSourceName string, opts ...seataOption) (*DB, error) {
 
-	db, err := gosql.Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-
 	conf := loadConfig()
 	for i := range opts {
 		opts[i](conf)
 	}
 
-	dbType := types.ParseDBType(dataSourceName)
+	if err := conf.validate(); err != nil {
+		return nil, err
+	}
 
+	dbType := types.ParseDBType(dataSourceName)
 	if dbType == types.DBType_Unknown {
 		return nil, errors.New("unsuppoer db type")
 	}
 
-	mgr := datasource.GetDataSourceManager()
-
-	c, err := mgr.RegisDB(parseResourceID(dataSourceName), dbType, db)
+	db, err := gosql.Open(driverName, dataSourceName)
 	if err != nil {
 		return nil, err
 	}
 
-	return newDB(
+	options := []dbOption{
+		withGroupID(conf.GroupID),
 		withResourceID(parseResourceID(dataSourceName)),
 		withConf(conf),
-		withTableMetaCache(c),
 		withDBType(dbType),
 		withTarget(db),
-	), nil
+	}
+
+	proxyDB, err := newDB(options...)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := datasource.GetDataSourceManager().RegisterResource(proxyDB); err != nil {
+		return nil, err
+	}
+
+	return proxyDB, nil
 }
 
 type (
@@ -82,10 +89,20 @@ type (
 
 	// seataServerConfig
 	seataServerConfig struct {
+		// GroupID
+		GroupID string `yaml:"groupID"`
+		// openXA
+		openXA bool
+		// openAT
+		openAT bool
 		// Endpoints
 		Endpoints []string `yaml:"endpoints" json:"endpoints"`
 	}
 )
+
+func (c *seataServerConfig) validate() error {
+	return nil
+}
 
 // loadConfig
 // TODO wait finish
