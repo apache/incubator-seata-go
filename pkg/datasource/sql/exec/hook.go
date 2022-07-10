@@ -19,6 +19,7 @@ package exec
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go-datasource/sql/types"
 )
@@ -39,8 +40,10 @@ func RegisHook(hook SQLInterceptor) {
 }
 
 type ExecContext struct {
-	Query string
-	Args  []interface{}
+	TxCtx       *types.TransactionContext
+	Query       string
+	NamedValues []driver.NamedValue
+	Values      []driver.Value
 }
 
 // SQLHook SQL execution front and back interceptor
@@ -51,8 +54,8 @@ type SQLInterceptor interface {
 	Type() types.SQLType
 
 	// Before
-	Before(ctx context.Context, txCtx *types.TransactionContext, execCtx *ExecContext)
+	Before(ctx context.Context, execCtx *ExecContext)
 
 	// After
-	After(ctx context.Context, txCtx *types.TransactionContext, execCtx *ExecContext)
+	After(ctx context.Context, execCtx *ExecContext)
 }

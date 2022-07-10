@@ -30,6 +30,18 @@ var (
 	executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
 )
 
+func RegisterExecutor(dt types.DBType, et parser.ExecutorType, ex SQLExecutor) {
+	if _, ok := executorSolts[dt]; !ok {
+		executorSolts[dt] = make(map[parser.ExecutorType]func() SQLExecutor)
+	}
+
+	val := executorSolts[dt]
+
+	val[et] = func() SQLExecutor {
+		return &BaseExecutor{ex: ex}
+	}
+}
+
 type (
 	CallbackWithNamedValue func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error)
 
@@ -39,9 +51,9 @@ type (
 		// Interceptors
 		interceptors(interceptors []SQLInterceptor)
 		// Exec
-		ExecWithNamedValue(tx *types.TransactionContext, ctx context.Context, query string, args []driver.NamedValue, f CallbackWithNamedValue) (types.ExecResult, error)
+		ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
-		ExecWithValue(tx *types.TransactionContext, ctx context.Context, query string, args []driver.Value, f CallbackWithValue) (types.ExecResult, error)
+		ExecWithValue(ctx context.Context, execCtx *ExecContext, f CallbackWithValue) (types.ExecResult, error)
 	}
 )
 
@@ -61,4 +73,42 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 }
 
 type BaseExecutor struct {
+	is []SQLInterceptor
+	ex SQLExecutor
+}
+
+// Interceptors
+func (e *BaseExecutor) interceptors(interceptors []SQLInterceptor) {
+	e.is = interceptors
+}
+
+// Exec
+func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+
+	for i := range e.is {
+		e.is[i].Before(ctx, execCtx)
+	}
+
+	defer func() {
+		for i := range e.is {
+			e.is[i].After(ctx, execCtx)
+		}
+	}()
+
+	return e.ex.ExecWithNamedValue(ctx, execCtx, f)
+}
+
+// Exec
+func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+	for i := range e.is {
+		e.is[i].Before(ctx, execCtx)
+	}
+
+	defer func() {
+		for i := range e.is {
+			e.is[i].After(ctx, execCtx)
+		}
+	}()
+
+	return e.ex.ExecWithValue(ctx, execCtx, f)
 }

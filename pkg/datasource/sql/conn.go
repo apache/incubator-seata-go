@@ -88,7 +88,13 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			return nil, err
 		}
 
-		ret, err := executor.ExecWithValue(c.txCtx, context.Background(), query, args,
+		execCtx := &exec.ExecContext{
+			TxCtx:  c.txCtx,
+			Query:  query,
+			Values: args,
+		}
+
+		ret, err := executor.ExecWithValue(context.Background(), execCtx,
 			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
 
 				ret, err := conn.Exec(query, args)
@@ -130,7 +136,13 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 			return nil, err
 		}
 
-		ret, err := executor.ExecWithNamedValue(c.txCtx, ctx, query, args,
+		execCtx := &exec.ExecContext{
+			TxCtx:       c.txCtx,
+			Query:       query,
+			NamedValues: args,
+		}
+
+		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 				ret, err := conn.ExecContext(ctx, query, args)
 				if err != nil {
