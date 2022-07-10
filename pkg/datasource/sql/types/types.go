@@ -18,6 +18,7 @@ package types
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"strings"
 )
 
@@ -151,83 +152,50 @@ type TxOptions struct {
 
 type (
 	ExecResult interface {
-		GetRow() *sql.Row
+		GetRows() driver.Rows
 
-		GetRows() *sql.Rows
-
-		GetResult() sql.Result
-	}
-
-	queryRowResult struct {
-		Row *sql.Row
+		GetResult() driver.Result
 	}
 
 	queryResult struct {
-		Rows *sql.Rows
+		Rows driver.Rows
 	}
 
 	writeResult struct {
-		Result sql.Result
+		Result driver.Result
 	}
 )
 
-func (r *queryRowResult) GetRow() *sql.Row {
-	return r.Row
-}
-
-func (r *queryRowResult) GetRows() *sql.Rows {
-	panic("writeResult no support")
-}
-
-func (r *queryRowResult) GetResult() sql.Result {
-	panic("writeResult no support")
-}
-
-func (r *queryResult) GetRow() *sql.Row {
-	panic("writeResult no support")
-}
-
-func (r *queryResult) GetRows() *sql.Rows {
+func (r *queryResult) GetRows() driver.Rows {
 	return r.Rows
 }
 
-func (r *queryResult) GetResult() sql.Result {
+func (r *queryResult) GetResult() driver.Result {
 	panic("writeResult no support")
 }
 
-func (r *writeResult) GetRow() *sql.Row {
+func (r *writeResult) GetRows() driver.Rows {
 	panic("writeResult no support")
 }
 
-func (r *writeResult) GetRows() *sql.Rows {
-	panic("writeResult no support")
-}
-
-func (r *writeResult) GetResult() sql.Result {
+func (r *writeResult) GetResult() driver.Result {
 	return r.Result
 }
 
 type option struct {
-	row  *sql.Row
-	rows *sql.Rows
-	ret  sql.Result
+	rows driver.Rows
+	ret  driver.Result
 }
 
 type Option func(*option)
 
-func WithRow(row *sql.Row) Option {
-	return func(o *option) {
-		o.row = row
-	}
-}
-
-func WithRows(rows *sql.Rows) Option {
+func WithRows(rows driver.Rows) Option {
 	return func(o *option) {
 		o.rows = rows
 	}
 }
 
-func WithResult(ret sql.Result) Option {
+func WithResult(ret driver.Result) Option {
 	return func(o *option) {
 		o.ret = ret
 	}
@@ -243,11 +211,6 @@ func NewResult(opts ...Option) ExecResult {
 	if o.ret != nil {
 		return &writeResult{Result: o.ret}
 	}
-
-	if o.row != nil {
-		return &queryRowResult{Row: o.row}
-	}
-
 	if o.rows != nil {
 		return &queryResult{Rows: o.rows}
 	}

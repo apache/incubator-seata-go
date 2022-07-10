@@ -18,9 +18,7 @@
 package sql
 
 import (
-	"context"
 	gosql "database/sql"
-	"time"
 
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
@@ -28,46 +26,46 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
-type dbOption func(db *DB)
+type dbOption func(db *DBResource)
 
 func withGroupID(id string) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.groupID = id
 	}
 }
 
 func withResourceID(id string) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.resourceID = id
 	}
 }
 
 func withTableMetaCache(c datasource.TableMetaCache) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.metaCache = c
 	}
 }
 
 func withDBType(dt types.DBType) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.dbType = dt
 	}
 }
 
 func withTarget(source *gosql.DB) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.target = source
 	}
 }
 
 func withConf(conf *seataServerConfig) dbOption {
-	return func(db *DB) {
+	return func(db *DBResource) {
 		db.conf = *conf
 	}
 }
 
-func newDB(opts ...dbOption) (*DB, error) {
-	db := new(DB)
+func newResource(opts ...dbOption) (*DBResource, error) {
+	db := new(DBResource)
 
 	for i := range opts {
 		opts[i](db)
@@ -77,7 +75,7 @@ func newDB(opts ...dbOption) (*DB, error) {
 }
 
 // DB proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
-type DB struct {
+type DBResource struct {
 	// groupID
 	groupID string
 	// resourceID
@@ -94,7 +92,7 @@ type DB struct {
 	metaCache datasource.TableMetaCache
 }
 
-func (db *DB) init() error {
+func (db *DBResource) init() error {
 	metaCache, err := datasource.GetDataSourceManager().CreateTableMetaCache(db.resourceID, db.dbType, db.target)
 	if err != nil {
 		return err
@@ -105,145 +103,18 @@ func (db *DB) init() error {
 	return nil
 }
 
-func (db *DB) GetResourceGroupId() string {
+func (db *DBResource) GetResourceGroupId() string {
 	return db.groupID
 }
 
-func (db *DB) GetResourceId() string {
+func (db *DBResource) GetResourceId() string {
 	return db.resourceID
 }
 
-func (db *DB) GetBranchType() branch.BranchType {
+func (db *DBResource) GetBranchType() branch.BranchType {
 	if db.conf.openAT {
 		return branch.BranchTypeAT
 	}
 
 	return branch.BranchTypeXA
-}
-
-// Close
-func (db *DB) Close() error {
-	return db.target.Close()
-}
-
-// Ping
-func (db *DB) Ping() error {
-	return db.target.PingContext(context.Background())
-}
-
-// PingContext
-func (db *DB) PingContext(ctx context.Context) error {
-	return db.target.PingContext(ctx)
-}
-
-// SetConnMaxIdleTime
-func (db *DB) SetConnMaxIdleTime(d time.Duration) {
-	db.target.SetConnMaxIdleTime(d)
-}
-
-// SetConnMaxLifetime
-func (db *DB) SetConnMaxLifetime(d time.Duration) {
-	db.target.SetConnMaxLifetime(d)
-}
-
-// SetMaxIdleConns
-func (db *DB) SetMaxIdleConns(n int) {
-	db.target.SetMaxIdleConns(n)
-}
-
-// SetMaxOpenConns
-func (db *DB) SetMaxOpenConns(n int) {
-	db.target.SetMaxOpenConns(n)
-}
-
-// Begin only turn on local transaction, and distribute transaction need to be called BeginTx func
-func (db *DB) Begin() (*Tx, error) {
-	tx, err := db.target.BeginTx(context.Background(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	txCtx := types.NewTxContext(
-		types.WithTransType(types.Local),
-	)
-
-	proxyTx, err := newProxyTx(
-		withCtx(txCtx),
-		withOriginTx(tx),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return proxyTx, nil
-}
-
-// BeginTx
-func (db *DB) BeginTx(ctx context.Context, opt *types.TxOptions) (*Tx, error) {
-	tx, err := db.target.BeginTx(ctx, &gosql.TxOptions{
-		Isolation: opt.Isolation,
-		ReadOnly:  opt.ReadOnly,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	txCtx := types.NewTxContext(
-		types.WithTxOptions(opt),
-		types.WithTransType(opt.TransType),
-	)
-
-	proxyTx, err := newProxyTx(
-		withCtx(txCtx),
-		withOriginTx(tx),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return proxyTx, nil
-}
-
-// QueryContext
-func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{}) (*gosql.Rows, error) {
-	return db.target.QueryContext(ctx, query, args...)
-}
-
-// QueryRowContext
-func (db *DB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *gosql.Row {
-	return db.target.QueryRowContext(ctx, query, args...)
-}
-
-// ExecContext
-func (db *DB) ExecContext(ctx context.Context, query string, args ...interface{}) (gosql.Result, error) {
-	return db.target.ExecContext(ctx, query, args...)
-}
-
-// Conn
-func (db *DB) Conn(ctx context.Context) (*Conn, error) {
-	conn, err := db.target.Conn(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &Conn{target: conn}, nil
-}
-
-// PrepareContext
-func (db *DB) PrepareContext(ctx context.Context, query string) (*Stmt, error) {
-	stmt, err := db.target.PrepareContext(ctx, query)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &Stmt{target: stmt}, nil
-}
-
-// Stats
-func (db *DB) Stats() gosql.DBStats {
-	return db.target.Stats()
 }

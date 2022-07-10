@@ -19,50 +19,121 @@ package sql
 
 import (
 	"context"
-	gosql "database/sql"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go-datasource/sql/exec"
 	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 type Stmt struct {
-	ctx    *types.TransactionContext
-	query  string
-	target *gosql.Stmt
+	// res
+	res *DBResource
+	// txCtx
+	txCtx *types.TransactionContext
+	// query
+	query string
+	// stmt
+	stmt driver.Stmt
 }
 
-// ExecContext
-func (s *Stmt) ExecContext(ctx context.Context, args ...interface{}) (gosql.Result, error) {
-	if s.ctx == nil {
-		return s.target.ExecContext(ctx, args...)
+// Close closes the statement.
+//
+// As of Go 1.1, a Stmt will not be closed if it's in use
+// by any queries.
+//
+// Drivers must ensure all network calls made by Close
+// do not block indefinitely (e.g. apply a timeout).
+func (s *Stmt) Close() error {
+	s.txCtx = nil
+	return s.stmt.Close()
+}
+
+// NumInput returns the number of placeholder parameters.
+//
+// If NumInput returns >= 0, the sql package will sanity check
+// argument counts from callers and return errors to the caller
+// before the statement's Exec or Query methods are called.
+//
+// NumInput may also return -1, if the driver doesn't know
+// its number of placeholders. In that case, the sql package
+// will not sanity check Exec or Query argument counts.
+func (s *Stmt) NumInput() int {
+	return s.stmt.NumInput()
+}
+
+// Query executes a query that may return rows, such as a
+// SELECT.
+//
+// Deprecated: Drivers should implement StmtQueryContext instead (or additionally).
+func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	return s.stmt.Query(args)
+}
+
+// StmtQueryContext enhances the Stmt interface by providing Query with context.
+// QueryContext executes a query that may return rows, such as a
+// SELECT.
+//
+// QueryContext must honor the context timeout and return when it is canceled.
+func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if stmt, ok := s.stmt.(driver.StmtQueryContext); ok {
+
+		return stmt.QueryContext(ctx, args)
 	}
 
-	executor, err := exec.BuildExecutor(s.ctx.DBType, s.query)
+	return nil, driver.ErrSkip
+}
+
+// Exec executes a query that doesn't return rows, such
+// as an INSERT or UPDATE.
+//
+// Deprecated: Drivers should implement StmtExecContext instead (or additionally).
+func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
+	// in transaction, need run Executor
+	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := executor.Exec(s.ctx, func(ctx context.Context, query string, args ...interface{}) (types.ExecResult, error) {
-		ret, err := s.target.ExecContext(ctx, args...)
-		if err != nil {
-			return nil, err
-		}
-		return types.NewResult(types.WithResult(ret)), nil
-	})
+	ret, err := executor.ExecWithValue(s.txCtx, context.Background(), s.query, args,
+		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
 
-	if err != nil {
-		return nil, err
-	}
+			ret, err := s.stmt.Exec(args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithResult(ret)), nil
+		})
 
 	return ret.GetResult(), nil
 }
 
-// QueryContext
-func (s *Stmt) QueryContext(ctx context.Context, args ...interface{}) (*gosql.Rows, error) {
-	return s.target.QueryContext(ctx, args)
-}
+// ExecContext executes a query that doesn't return rows, such
+// as an INSERT or UPDATE.
+//
+// ExecContext must honor the context timeout and return when it is canceled.
+func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	stmt, ok := s.stmt.(driver.StmtExecContext)
+	if !ok {
+		return nil, driver.ErrSkip
+	}
 
-// QueryRowContext
-func (s *Stmt) QueryRowContext(ctx context.Context, args ...interface{}) *gosql.Row {
-	return s.target.QueryRowContext(ctx, args)
+	// in transaction, need run Executor
+	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, err := executor.ExecWithNamedValue(s.txCtx, ctx, s.query, args,
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+
+			ret, err := stmt.ExecContext(ctx, args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithResult(ret)), nil
+		})
+
+	return ret.GetResult(), nil
 }

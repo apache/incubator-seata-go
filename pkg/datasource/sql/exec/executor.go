@@ -19,6 +19,7 @@ package exec
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go-datasource/sql/parser"
 	"github.com/seata/seata-go-datasource/sql/types"
@@ -30,13 +31,17 @@ var (
 )
 
 type (
-	callback func(ctx context.Context, query string, args ...interface{}) (types.ExecResult, error)
+	CallbackWithNamedValue func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error)
+
+	CallbackWithValue func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error)
 
 	SQLExecutor interface {
 		// Interceptors
-		Interceptors(interceptors []SQLInterceptor)
+		interceptors(interceptors []SQLInterceptor)
 		// Exec
-		Exec(tx *types.TransactionContext, f callback) (types.ExecResult, error)
+		ExecWithNamedValue(tx *types.TransactionContext, ctx context.Context, query string, args []driver.NamedValue, f CallbackWithNamedValue) (types.ExecResult, error)
+		// Exec
+		ExecWithValue(tx *types.TransactionContext, ctx context.Context, query string, args []driver.Value, f CallbackWithValue) (types.ExecResult, error)
 	}
 )
 
@@ -51,6 +56,9 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 	hooks := hookSolts[parseCtx.SQLType]
 
 	executor := executorSolts[dbType][parseCtx.ExecutorType]()
-	executor.Interceptors(hooks)
+	executor.interceptors(hooks)
 	return executor, nil
+}
+
+type BaseExecutor struct {
 }

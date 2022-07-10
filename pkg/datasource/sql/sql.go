@@ -19,8 +19,11 @@ package sql
 
 import (
 	gosql "database/sql"
+	"database/sql/driver"
 	"errors"
+	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
@@ -43,25 +46,47 @@ import (
 // and maintains its own pool of idle connections. Thus, the Open
 // function should be called just once. It is rarely necessary to
 // close a DB.
-func Open(driverName, dataSourceName string, opts ...seataOption) (*DB, error) {
+func Open(driverName, dataSourceName string, opts ...seataOption) (*gosql.DB, error) {
 
+	targetDriver := strings.ReplaceAll(driverName, "seata-", "")
+
+	db, err := gosql.Open(targetDriver, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	v := reflect.ValueOf(db)
+
+	val, ok := v.FieldByName("connector").Recv()
+	if !ok {
+		return nil, errors.New("reflect get driver.Connector fail")
+	}
+
+	connector, _ := val.Interface().(driver.Connector)
+
+	proxy, err := regisResource(connector, dataSourceName, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	v.Set(reflect.NewAt(v.Type(), unsafe.Pointer(&proxy)))
+
+	return db, nil
+}
+
+func regisResource(connector driver.Connector, dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 	conf := loadConfig()
 	for i := range opts {
 		opts[i](conf)
 	}
 
 	if err := conf.validate(); err != nil {
-		return nil, err
+		return connector, err
 	}
 
 	dbType := types.ParseDBType(dataSourceName)
 	if dbType == types.DBType_Unknown {
-		return nil, errors.New("unsuppoer db type")
-	}
-
-	db, err := gosql.Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
+		return connector, errors.New("unsuppoer db type")
 	}
 
 	options := []dbOption{
@@ -69,19 +94,22 @@ func Open(driverName, dataSourceName string, opts ...seataOption) (*DB, error) {
 		withResourceID(parseResourceID(dataSourceName)),
 		withConf(conf),
 		withDBType(dbType),
-		withTarget(db),
 	}
 
-	proxyDB, err := newDB(options...)
+	res, err := newResource(options...)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := datasource.GetDataSourceManager().RegisterResource(proxyDB); err != nil {
+	if err := datasource.GetDataSourceManager().RegisterResource(res); err != nil {
 		return nil, err
 	}
 
-	return proxyDB, nil
+	return &SeataConnector{
+		res:    res,
+		target: connector,
+		conf:   conf,
+	}, nil
 }
 
 type (

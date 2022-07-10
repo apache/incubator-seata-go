@@ -20,74 +20,234 @@ package sql
 import (
 	"context"
 	gosql "database/sql"
+	"database/sql/driver"
+	"errors"
 
+	"github.com/seata/seata-go-datasource/sql/exec"
 	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 type Conn struct {
-	target *gosql.Conn
+	res   *DBResource
+	txCtx *types.TransactionContext
+	conn  driver.Conn
 }
 
-// BeginTx
-func (c *Conn) BeginTx(ctx context.Context, opts *types.TxOptions) (*Tx, error) {
-	tx, err := c.target.BeginTx(ctx, &gosql.TxOptions{
-		Isolation: opts.Isolation,
-		ReadOnly:  opts.ReadOnly,
-	})
+func (c *Conn) ResetSession(ctx context.Context) error {
+	conn, ok := c.conn.(driver.SessionResetter)
+	if !ok {
+		return driver.ErrSkip
+	}
+
+	c.txCtx = nil
+	return conn.ResetSession(ctx)
+}
+
+// Prepare returns a prepared statement, bound to this connection.
+func (c *Conn) Prepare(query string) (driver.Stmt, error) {
+	s, err := c.conn.Prepare(query)
 
 	if err != nil {
 		return nil, err
 	}
 
-	txCtx := types.NewTxContext(
-		types.WithTxOptions(opts),
-		types.WithTransType(opts.TransType),
-	)
-
-	proxyTx, err := newProxyTx(
-		withCtx(txCtx),
-		withOriginTx(tx),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return proxyTx, nil
-}
-
-// PingContext
-func (c *Conn) PingContext(ctx context.Context) error {
-	return c.target.PingContext(ctx)
-}
-
-// ExecContext
-func (c *Conn) ExecContext(ctx context.Context, query string, args ...interface{}) (gosql.Result, error) {
-	return c.target.ExecContext(ctx, query, args...)
+	return &Stmt{stmt: s, query: query, res: c.res, txCtx: c.txCtx}, nil
 }
 
 // PrepareContext
-func (c *Conn) PrepareContext(ctx context.Context, query string) (*Stmt, error) {
-	stmt, err := c.target.PrepareContext(ctx, query)
+func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	conn, ok := c.conn.(driver.ConnPrepareContext)
+	if !ok {
+		stmt, err := c.conn.Prepare(query)
 
+		if err != nil {
+			return nil, err
+		}
+
+		return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
+	}
+
+	stmt, err := conn.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Stmt{target: stmt}, nil
+	return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
+}
+
+func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	conn, ok := c.conn.(driver.Execer)
+	if !ok {
+		return nil, driver.ErrSkip
+	}
+
+	if c.txCtx != nil {
+		// in transaction, need run Executor
+		executor, err := exec.BuildExecutor(c.res.dbType, query)
+		if err != nil {
+			return nil, err
+		}
+
+		ret, err := executor.ExecWithValue(c.txCtx, context.Background(), query, args,
+			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
+
+				ret, err := conn.Exec(query, args)
+				if err != nil {
+					return nil, err
+				}
+
+				return types.NewResult(types.WithResult(ret)), nil
+			})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return ret.GetResult(), nil
+	}
+
+	return conn.Exec(query, args)
+
+}
+
+// ExecContext
+func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	conn, ok := c.conn.(driver.ExecerContext)
+	if ok {
+		values := make([]driver.Value, 0, len(args))
+
+		for i := range args {
+			values = append(values, args[i].Value)
+		}
+
+		return c.Exec(query, values)
+	}
+
+	if c.txCtx != nil {
+		// in transaction, need run Executor
+		executor, err := exec.BuildExecutor(c.res.dbType, query)
+		if err != nil {
+			return nil, err
+		}
+
+		ret, err := executor.ExecWithNamedValue(c.txCtx, ctx, query, args,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := conn.ExecContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
+
+				return types.NewResult(types.WithResult(ret)), nil
+			})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return ret.GetResult(), nil
+	}
+
+	return conn.ExecContext(ctx, query, args)
+
 }
 
 // QueryContext
-func (c *Conn) QueryContext(ctx context.Context, query string, args ...interface{}) (*gosql.Rows, error) {
-	return c.target.QueryContext(ctx, query, args...)
+func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	if conn, ok := c.conn.(driver.Queryer); ok {
+		return conn.Query(query, args)
+	}
+
+	return nil, driver.ErrSkip
 }
 
-// QueryRowContext
-func (c *Conn) QueryRowContext(ctx context.Context, query string, args ...interface{}) *gosql.Row {
-	return c.target.QueryRowContext(ctx, query, args...)
+// QueryContext
+func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if conn, ok := c.conn.(driver.QueryerContext); ok {
+		return conn.QueryContext(ctx, query, args)
+	}
+
+	values := make([]driver.Value, 0, len(args))
+
+	for i := range args {
+		values = append(values, args[i].Value)
+	}
+
+	return c.Query(query, values)
 }
 
-// Raw
-func (c *Conn) Raw(f func(driverConn interface{}) error) error {
-	return c.target.Raw(f)
+// Begin starts and returns a new transaction.
+//
+// Deprecated: Drivers should implement ConnBeginTx instead (or additionally).
+func (c *Conn) Begin() (driver.Tx, error) {
+
+	tx, err := c.conn.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	c.txCtx = &types.TransactionContext{}
+
+	return newProxyTx(
+		withCtx(c.txCtx),
+		withOriginTx(tx),
+	)
+}
+
+func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if conn, ok := c.conn.(driver.ConnBeginTx); ok {
+		tx, err := conn.BeginTx(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		c.txCtx = &types.TransactionContext{}
+
+		return newProxyTx(
+			withCtx(c.txCtx),
+			withOriginTx(tx),
+		)
+	}
+
+	// Check the transaction level. If the transaction level is non-default
+	// then return an error here as the BeginTx driver value is not supported.
+	if opts.Isolation != driver.IsolationLevel(gosql.LevelDefault) {
+		return nil, errors.New("sql: driver does not support non-default isolation level")
+	}
+
+	// If a read-only transaction is requested return an error as the
+	// BeginTx driver value is not supported.
+	if opts.ReadOnly {
+		return nil, errors.New("sql: driver does not support read-only transactions")
+	}
+
+	if ctx.Done() == nil {
+		return c.Begin()
+	}
+
+	txi, err := c.Begin()
+	if err == nil {
+		select {
+		default:
+		case <-ctx.Done():
+			txi.Rollback()
+			return nil, ctx.Err()
+		}
+	}
+	return txi, err
+}
+
+// Close invalidates and potentially stops any current
+// prepared statements and transactions, marking this
+// connection as no longer in use.
+//
+// Because the sql package maintains a free pool of
+// connections and only calls Close when there's a surplus of
+// idle connections, it shouldn't be necessary for drivers to
+// do their own connection caching.
+//
+// Drivers must ensure all network calls made by Close
+// do not block indefinitely (e.g. apply a timeout).
+func (c *Conn) Close() error {
+	c.txCtx = nil
+	return c.conn.Close()
 }
