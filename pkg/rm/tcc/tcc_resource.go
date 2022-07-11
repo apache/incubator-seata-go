@@ -19,14 +19,15 @@ package tcc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/tm"
-
+	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 var (
@@ -125,12 +126,20 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 }
 
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) tm.BusinessActionContext {
+	var actionContextMap = make(map[string]interface{}, 2)
+	if len(applicationData) > 0 {
+		var tccContext map[string]interface{}
+		json.Unmarshal(applicationData, &tccContext)
+		if v, ok := tccContext[common.ActionContext]; ok {
+			actionContextMap = v.(map[string]interface{})
+		}
+	}
+
 	return tm.BusinessActionContext{
-		Xid:        xid,
-		BranchId:   branchID,
-		ActionName: resourceID,
-		// todo get ActionContext
-		//ActionContext:,
+		Xid:           xid,
+		BranchId:      branchID,
+		ActionName:    resourceID,
+		ActionContext: &actionContextMap,
 	}
 }
 
