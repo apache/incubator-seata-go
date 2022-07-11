@@ -129,7 +129,9 @@ func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64
 	var actionContextMap = make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
 		var tccContext map[string]interface{}
-		json.Unmarshal(applicationData, &tccContext)
+		if err := json.Unmarshal(applicationData, &tccContext); err != nil {
+			panic("application data failed to unmarshl as json")
+		}
 		if v, ok := tccContext[common.ActionContext]; ok {
 			actionContextMap = v.(map[string]interface{})
 		}
