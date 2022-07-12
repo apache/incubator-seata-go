@@ -41,6 +41,13 @@ func newProxyTx(opts ...txOption) (driver.Tx, error) {
 	return tx, nil
 }
 
+// withDriverConn
+func withDriverConn(conn *Conn) txOption {
+	return func(t *Tx) {
+		t.conn = conn
+	}
+}
+
 // withOriginTx
 func withOriginTx(tx driver.Tx) txOption {
 	return func(t *Tx) {
@@ -48,7 +55,8 @@ func withOriginTx(tx driver.Tx) txOption {
 	}
 }
 
-func withCtx(ctx *types.TransactionContext) txOption {
+// withTxCtx
+func withTxCtx(ctx *types.TransactionContext) txOption {
 	return func(t *Tx) {
 		t.ctx = ctx
 	}
@@ -56,6 +64,7 @@ func withCtx(ctx *types.TransactionContext) txOption {
 
 // Tx
 type Tx struct {
+	conn   *Conn
 	ctx    *types.TransactionContext
 	target driver.Tx
 }

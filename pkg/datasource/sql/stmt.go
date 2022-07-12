@@ -26,6 +26,7 @@ import (
 )
 
 type Stmt struct {
+	conn *Conn
 	// res
 	res *DBResource
 	// txCtx
@@ -66,7 +67,33 @@ func (s *Stmt) NumInput() int {
 //
 // Deprecated: Drivers should implement StmtQueryContext instead (or additionally).
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	return s.stmt.Query(args)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	if err != nil {
+		return nil, err
+	}
+
+	execCtx := &exec.ExecContext{
+		TxCtx:  s.txCtx,
+		Query:  s.query,
+		Values: args,
+	}
+
+	ret, err := executor.ExecWithValue(context.Background(), execCtx,
+		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
+
+			ret, err := s.stmt.Query(args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithRows(ret)), nil
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetRows(), nil
 }
 
 // StmtQueryContext enhances the Stmt interface by providing Query with context.
@@ -75,12 +102,38 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 //
 // QueryContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if stmt, ok := s.stmt.(driver.StmtQueryContext); ok {
-
-		return stmt.QueryContext(ctx, args)
+	stmt, ok := s.stmt.(driver.StmtQueryContext)
+	if !ok {
+		return nil, driver.ErrSkip
 	}
 
-	return nil, driver.ErrSkip
+	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	if err != nil {
+		return nil, err
+	}
+
+	execCtx := &exec.ExecContext{
+		TxCtx:       s.txCtx,
+		Query:       s.query,
+		NamedValues: args,
+	}
+
+	ret, err := executor.ExecWithNamedValue(context.Background(), execCtx,
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+
+			ret, err := stmt.QueryContext(ctx, args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithRows(ret)), nil
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetRows(), nil
 }
 
 // Exec executes a query that doesn't return rows, such

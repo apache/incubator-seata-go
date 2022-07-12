@@ -51,7 +51,13 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 
-	return &Stmt{stmt: s, query: query, res: c.res, txCtx: c.txCtx}, nil
+	return &Stmt{
+		conn:  c,
+		stmt:  s,
+		query: query,
+		res:   c.res,
+		txCtx: c.txCtx,
+	}, nil
 }
 
 // PrepareContext
@@ -67,14 +73,21 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 		return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
 	}
 
-	stmt, err := conn.PrepareContext(ctx, query)
+	s, err := conn.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
+	return &Stmt{
+		conn:  c,
+		stmt:  s,
+		query: query,
+		res:   c.res,
+		txCtx: c.txCtx,
+	}, nil
 }
 
+// Exec
 func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	conn, ok := c.conn.(driver.Execer)
 	if !ok {
@@ -129,62 +142,108 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 		return c.Exec(query, values)
 	}
 
-	if c.txCtx != nil {
-		// in transaction, need run Executor
-		executor, err := exec.BuildExecutor(c.res.dbType, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &exec.ExecContext{
-			TxCtx:       c.txCtx,
-			Query:       query,
-			NamedValues: args,
-		}
-
-		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
-			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				ret, err := conn.ExecContext(ctx, query, args)
-				if err != nil {
-					return nil, err
-				}
-
-				return types.NewResult(types.WithResult(ret)), nil
-			})
-
-		if err != nil {
-			return nil, err
-		}
-
-		return ret.GetResult(), nil
+	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	if err != nil {
+		return nil, err
 	}
 
-	return conn.ExecContext(ctx, query, args)
+	execCtx := &exec.ExecContext{
+		TxCtx:       c.txCtx,
+		Query:       query,
+		NamedValues: args,
+	}
 
+	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			ret, err := conn.ExecContext(ctx, query, args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithResult(ret)), nil
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetResult(), nil
 }
 
 // QueryContext
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	if conn, ok := c.conn.(driver.Queryer); ok {
-		return conn.Query(query, args)
+	conn, ok := c.conn.(driver.Queryer)
+	if !ok {
+		return nil, driver.ErrSkip
 	}
 
-	return nil, driver.ErrSkip
+	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	if err != nil {
+		return nil, err
+	}
+
+	execCtx := &exec.ExecContext{
+		TxCtx:  c.txCtx,
+		Query:  query,
+		Values: args,
+	}
+
+	ret, err := executor.ExecWithValue(context.Background(), execCtx,
+		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
+			ret, err := conn.Query(query, args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithRows(ret)), nil
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetRows(), nil
 }
 
 // QueryContext
 func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if conn, ok := c.conn.(driver.QueryerContext); ok {
-		return conn.QueryContext(ctx, query, args)
+	conn, ok := c.conn.(driver.QueryerContext)
+	if !ok {
+		values := make([]driver.Value, 0, len(args))
+
+		for i := range args {
+			values = append(values, args[i].Value)
+		}
+
+		return c.Query(query, values)
 	}
 
-	values := make([]driver.Value, 0, len(args))
-
-	for i := range args {
-		values = append(values, args[i].Value)
+	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	if err != nil {
+		return nil, err
 	}
 
-	return c.Query(query, values)
+	execCtx := &exec.ExecContext{
+		TxCtx:       c.txCtx,
+		Query:       query,
+		NamedValues: args,
+	}
+
+	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			ret, err := conn.QueryContext(ctx, query, args)
+			if err != nil {
+				return nil, err
+			}
+
+			return types.NewResult(types.WithRows(ret)), nil
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetRows(), nil
 }
 
 // Begin starts and returns a new transaction.
@@ -200,7 +259,8 @@ func (c *Conn) Begin() (driver.Tx, error) {
 	c.txCtx = &types.TransactionContext{}
 
 	return newProxyTx(
-		withCtx(c.txCtx),
+		withDriverConn(c),
+		withTxCtx(c.txCtx),
 		withOriginTx(tx),
 	)
 }
@@ -215,7 +275,8 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.txCtx = &types.TransactionContext{}
 
 		return newProxyTx(
-			withCtx(c.txCtx),
+			withDriverConn(c),
+			withTxCtx(c.txCtx),
 			withOriginTx(tx),
 		)
 	}

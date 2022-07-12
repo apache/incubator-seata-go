@@ -19,6 +19,7 @@ package base
 
 import (
 	"database/sql"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
@@ -30,7 +31,6 @@ var (
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct {
-	
 }
 
 // Init
@@ -38,17 +38,17 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
 	return nil
 }
 
 // DeleteUndoLog
-func (m *BaseUndoLogManager) DeleteUndoLogs(xid, branchID []string, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) DeleteUndoLogs(xid, branchID []string, conn driver.Conn) error {
 	return nil
 }
 
 // FlushUndoLog
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx *sql.Tx) error {
+func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
 	return nil
 }
 

@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"database/sql"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
@@ -38,17 +39,17 @@ func (m *undoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, conn *sql.Conn) error {
-	return m.Base.InsertUndoLog(l, conn)
+func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+	return m.Base.InsertUndoLog(l, tx)
 }
 
 // DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLogs(xid, branchID []string, conn *sql.Conn) error {
+func (m *undoLogManager) DeleteUndoLogs(xid, branchID []string, conn driver.Conn) error {
 	return m.Base.DeleteUndoLogs(xid, branchID, conn)
 }
 
 // FlushUndoLog
-func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx *sql.Tx) error {
+func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
 	return m.Base.FlushUndoLog(txCtx, tx)
 }
 
