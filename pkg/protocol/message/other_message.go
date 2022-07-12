@@ -30,13 +30,13 @@ type MessageFuture struct {
 	ID       int32
 	Err      error
 	Response interface{}
-	Done     chan bool
+	Done     chan struct{}
 }
 
 func NewMessageFuture(message RpcMessage) *MessageFuture {
 	return &MessageFuture{
 		ID:   message.ID,
-		Done: make(chan bool),
+		Done: make(chan struct{}),
 	}
 }
 
@@ -55,4 +55,8 @@ func (msg HeartBeatMessage) ToString() string {
 	} else {
 		return "services pong"
 	}
+}
+
+func (resp HeartBeatMessage) GetTypeCode() MessageType {
+	return MessageType_HeartbeatMsg
 }

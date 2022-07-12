@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-package codec
+package tcc
 
 import (
+	"encoding/json"
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/common/error"
-
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBranchRollbackResponseCodec(t *testing.T) {
-	msg := message.BranchRollbackResponse{
-		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
-			Xid:          "123344",
-			BranchId:     56678,
-			BranchStatus: model2.BranchStatusPhaseoneFailed,
-			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				TransactionExceptionCode: serror.TransactionExceptionCodeBeginFailed,
-				AbstractResultMessage: message.AbstractResultMessage{
-					ResultCode: message.ResultCodeFailed,
-					Msg:        "FAILED",
-				},
-			},
-		},
-	}
+func TestActionContext(t *testing.T) {
+	applicationData := `{"actionContext":{"zhangsan":"lisi"}}`
+	businessActionContext := GetTCCResourceManagerInstance().
+		getBusinessActionContext("1111111111", 2645276141, "TestActionContext", []byte(applicationData))
 
-	codec := BranchRollbackResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
+	assert.NotEmpty(t, businessActionContext)
+	bytes, err := json.Marshal(businessActionContext.ActionContext)
+	assert.Nil(t, err)
+	assert.Equal(t, `{"zhangsan":"lisi"}`, string(bytes))
 }

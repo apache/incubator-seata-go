@@ -72,7 +72,7 @@ func (client *GettyRemoting) SendASync(msg message.RpcMessage) error {
 }
 
 func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
-	log.Infof("send message: {%#v}", msg)
+	log.Infof("send async message: {%#v}", msg)
 	var err error
 	if session == nil || session.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -146,7 +146,7 @@ func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMess
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		//messageFuture.Err = rpcMessage.Err
-		messageFuture.Done <- true
+		messageFuture.Done <- struct{}{}
 		//client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
