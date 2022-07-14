@@ -17,18 +17,16 @@
 
 package tm
 
-// Init tm client
-// applicationId           the application id
-// transactionServiceGroup the transaction service group
-func Init(applicationId, transactionServiceGroup string) {
+import "testing"
 
-}
+var (
+	applicationId  string = "my_test_app"
+	txServiceGroup string = "default_tx_group"
+	accessKey      string = "accessKey"
+	secret         string = "secret"
+)
 
-// Init tm client
-// applicationId           the application id
-// transactionServiceGroup the transaction service group
-// accessKey               the access key
-// secretKey               the secret key
-func InitByAccessKey(applicationId, transactionServiceGroup, accessKey, secretKey string) {
-
+func TestTmClient(t *testing.T) {
+	Init(applicationId, txServiceGroup)
+	InitByAccessKey(applicationId, txServiceGroup, accessKey, secret)
 }
