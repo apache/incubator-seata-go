@@ -64,7 +64,7 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (
 		trigger:        trigger,
 	}
 
-	if err := c.init(ctx); err != nil {
+	if err := c.Init(ctx); err != nil {
 		return nil, err
 	}
 
@@ -72,7 +72,7 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (
 }
 
 // init
-func (c *BaseTableMetaCache) init(ctx context.Context) error {
+func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
 

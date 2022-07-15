@@ -26,7 +26,6 @@ import (
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/rm"
 )
 
 var (
@@ -34,6 +33,10 @@ var (
 	_dataSourceMgr DataSourceManager
 	solts          = map[types.DBType]func() TableMetaCache{}
 )
+
+func RegisterTableCache(dbType types.DBType, builder func() TableMetaCache) {
+	solts[dbType] = builder
+}
 
 type DataSourceManager interface {
 	resource.ResourceManager
@@ -44,7 +47,6 @@ type DataSourceManager interface {
 func GetDataSourceManager() DataSourceManager {
 	once.Do(func() {
 		_dataSourceMgr = &dataSourceManager{
-			resourceMgr:   rm.GetResourceManagerInstance(),
 			lock:          sync.RWMutex{},
 			resourceCache: make(map[string]*entry),
 		}
@@ -60,50 +62,41 @@ type entry struct {
 
 // dataSourceManager
 type dataSourceManager struct {
-	lock        sync.RWMutex
-	resourceMgr *rm.ResourceManager
+	lock sync.RWMutex
 	// resourceCache
 	resourceCache map[string]*entry
 	// tablemetaCache
 	tablemetaCache TableMetaCache
 }
 
-func (dm *dataSourceManager) RegisterResourceManager(resourceManager resource.ResourceManager) {
-	dm.resourceMgr.RegisterResourceManager(resourceManager)
-}
-
-func (dm *dataSourceManager) GetResourceManager(branchType branch.BranchType) resource.ResourceManager {
-	return dm.resourceMgr.GetResourceManager(branchType)
-}
-
 // Commit a branch transaction
 func (dm *dataSourceManager) BranchCommit(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error) {
-	return dm.resourceMgr.BranchCommit(ctx, branchType, xid, branchId, resourceId, applicationData)
+	return branch.BranchStatusPhaseoneDone, nil
 }
 
 // Rollback a branch transaction
 func (dm *dataSourceManager) BranchRollback(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error) {
-	return dm.resourceMgr.BranchRollback(ctx, branchType, xid, branchId, resourceId, applicationData)
+	return branch.BranchStatusPhaseoneFailed, nil
 }
 
 // Branch register long
 func (dm *dataSourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	return dm.resourceMgr.BranchRegister(ctx, branchType, resourceId, clientId, xid, applicationData, lockKeys)
+	return 0, nil
 }
 
 //  Branch report
 func (dm *dataSourceManager) BranchReport(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	return dm.resourceMgr.BranchReport(ctx, branchType, xid, branchId, status, applicationData)
+	return nil
 }
 
 // Lock query boolean
 func (dm *dataSourceManager) LockQuery(ctx context.Context, branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
-	return dm.resourceMgr.LockQuery(ctx, branchType, resourceId, xid, lockKeys)
+	return true, nil
 }
 
 // Register a   model.Resource to be managed by   model.Resource Manager
 func (dm *dataSourceManager) RegisterResource(resource resource.Resource) error {
-	return dm.resourceMgr.RegisterResource(resource)
+	return nil
 }
 
 //  Unregister a   model.Resource from the   model.Resource Manager
@@ -113,7 +106,7 @@ func (dm *dataSourceManager) UnregisterResource(resource resource.Resource) erro
 
 // Get all resources managed by this manager
 func (dm *dataSourceManager) GetManagedResources() *sync.Map {
-	return dm.GetManagedResources()
+	return nil
 }
 
 // Get the model.BranchType
@@ -142,7 +135,7 @@ func (dm *dataSourceManager) CreateTableMetaCache(resID string, dbType types.DBT
 // TableMetaCache tables metadata cache, default is open
 type TableMetaCache interface {
 	// Init
-	init(conn *sql.DB) error
+	Init(conn *sql.DB) error
 	// GetTableMeta
 	GetTableMeta(table string) (types.TableMeta, error)
 	// Destory
@@ -154,7 +147,7 @@ func buildResource(dbType types.DBType, db *sql.DB) (*entry, error) {
 
 	cache := solts[dbType]()
 
-	if err := cache.init(db); err != nil {
+	if err := cache.Init(db); err != nil {
 		return nil, err
 	}
 

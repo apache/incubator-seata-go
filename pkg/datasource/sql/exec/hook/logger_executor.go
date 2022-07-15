@@ -15,15 +15,47 @@
  * limitations under the License.
  */
 
-package mysql
+package exec
 
 import (
-	"github.com/seata/seata-go-datasource/sql/datasource"
+	"context"
+
+	"github.com/seata/seata-go-datasource/sql/exec"
 	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/common/log"
+	"go.uber.org/zap"
 )
 
 func init() {
-	datasource.RegisterTableCache(types.DBType_MySQL, func() datasource.TableMetaCache {
-		return &tableMetaCache{}
-	})
+	exec.RegisCommonHook(&loggerSQLHook{})
+}
+
+type loggerSQLHook struct {
+}
+
+func (h *loggerSQLHook) Type() types.SQLType {
+	return types.SQLType_Unknown
+}
+
+// Before
+func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
+	fields := []zap.Field{
+		zap.String("tx-id", execCtx.TxCtx.LocalTransID),
+		zap.String("sql", execCtx.Query),
+	}
+
+	if len(execCtx.NamedValues) != 0 {
+		fields = append(fields, zap.Any("namedValues", execCtx.NamedValues))
+	}
+
+	if len(execCtx.Values) != 0 {
+		fields = append(fields, zap.Any("values", execCtx.Values))
+	}
+
+	log.Debug("sql exec log", fields)
+}
+
+// After
+func (h *loggerSQLHook) After(ctx context.Context, execCtx *exec.ExecContext) {
+
 }

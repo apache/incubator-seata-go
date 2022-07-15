@@ -256,7 +256,9 @@ func (c *Conn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	c.txCtx = &types.TransactionContext{}
+	c.txCtx = types.NewTxCtx()
+	c.txCtx.DBType = c.res.dbType
+	c.txCtx.TxOpt = driver.TxOptions{}
 
 	return newProxyTx(
 		withDriverConn(c),
@@ -272,7 +274,9 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 			return nil, err
 		}
 
-		c.txCtx = &types.TransactionContext{}
+		c.txCtx = types.NewTxCtx()
+		c.txCtx.DBType = c.res.dbType
+		c.txCtx.TxOpt = opts
 
 		return newProxyTx(
 			withDriverConn(c),

@@ -23,6 +23,7 @@ import (
 
 	"github.com/seata/seata-go-datasource/sql/parser"
 	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/common/log"
 )
 
 var (
@@ -30,7 +31,7 @@ var (
 	executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
 )
 
-func RegisterExecutor(dt types.DBType, et parser.ExecutorType, ex SQLExecutor) {
+func RegisterExecutor(dt types.DBType, et parser.ExecutorType, builder func() SQLExecutor) {
 	if _, ok := executorSolts[dt]; !ok {
 		executorSolts[dt] = make(map[parser.ExecutorType]func() SQLExecutor)
 	}
@@ -38,7 +39,7 @@ func RegisterExecutor(dt types.DBType, et parser.ExecutorType, ex SQLExecutor) {
 	val := executorSolts[dt]
 
 	val[et] = func() SQLExecutor {
-		return &BaseExecutor{ex: ex}
+		return &BaseExecutor{ex: builder()}
 	}
 }
 
@@ -65,9 +66,28 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 		return nil, err
 	}
 
-	hooks := hookSolts[parseCtx.SQLType]
+	hooks := make([]SQLInterceptor, 0, 4)
+	hooks = append(hooks, commonHook...)
+	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
 
-	executor := executorSolts[dbType][parseCtx.ExecutorType]()
+	factories, ok := executorSolts[dbType]
+	if !ok {
+		log.Debugf("%s not found executor factories, return default Executor", dbType.String())
+		e := &BaseExecutor{}
+		e.interceptors(hooks)
+		return e, nil
+	}
+
+	supplier, ok := factories[parseCtx.ExecutorType]
+	if !ok {
+		log.Debugf("%s not found executor for %s, return default Executor",
+			dbType.String(), parseCtx.ExecutorType.String())
+		e := &BaseExecutor{}
+		e.interceptors(hooks)
+		return e, nil
+	}
+
+	executor := supplier()
 	executor.interceptors(hooks)
 	return executor, nil
 }
@@ -95,7 +115,11 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ExecCont
 		}
 	}()
 
-	return e.ex.ExecWithNamedValue(ctx, execCtx, f)
+	if e.ex != nil {
+		return e.ex.ExecWithNamedValue(ctx, execCtx, f)
+	}
+
+	return f(ctx, execCtx.Query, execCtx.NamedValues)
 }
 
 // Exec
@@ -110,5 +134,9 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ExecContext, 
 		}
 	}()
 
-	return e.ex.ExecWithValue(ctx, execCtx, f)
+	if e.ex != nil {
+		return e.ex.ExecWithValue(ctx, execCtx, f)
+	}
+
+	return f(ctx, execCtx.Query, execCtx.Values)
 }

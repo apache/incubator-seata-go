@@ -16,3 +16,29 @@
  */
 
 package mysql
+
+import (
+	"database/sql"
+
+	"github.com/seata/seata-go-datasource/sql/datasource/base"
+	"github.com/seata/seata-go-datasource/sql/types"
+)
+
+type tableMetaCache struct {
+	cache *base.BaseTableMetaCache
+}
+
+// Init
+func (c *tableMetaCache) Init(conn *sql.DB) error {
+	return nil
+}
+
+// GetTableMeta
+func (c *tableMetaCache) GetTableMeta(table string) (types.TableMeta, error) {
+	return types.TableMeta{}, nil
+}
+
+// Destory
+func (c *tableMetaCache) Destory() error {
+	return nil
+}

@@ -18,13 +18,14 @@
 package parser
 
 import (
-	tparser "github.com/pingcap/parser"
-	"github.com/pingcap/parser/ast"
-
+	tparser "github.com/pingcap/tidb/parser"
+	"github.com/pingcap/tidb/parser/ast"
+	_ "github.com/pingcap/tidb/types/parser_driver"
 	"github.com/seata/seata-go-datasource/sql/types"
 )
 
 // ExecutorType
+//go:generate stringer -type=ExecutorType
 type ExecutorType int32
 
 const (

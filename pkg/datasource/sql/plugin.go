@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-package mysql
+package sql
 
 import (
-	"github.com/seata/seata-go-datasource/sql/datasource"
-	"github.com/seata/seata-go-datasource/sql/types"
-)
+	_ "github.com/seata/seata-go-datasource/sql/exec/hook"
 
-func init() {
-	datasource.RegisterTableCache(types.DBType_MySQL, func() datasource.TableMetaCache {
-		return &tableMetaCache{}
-	})
-}
+	// mysql 相关插件
+	_ "github.com/seata/seata-go-datasource/sql/datasource/mysql"
+	_ "github.com/seata/seata-go-datasource/sql/undo/mysql"
+)

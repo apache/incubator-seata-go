@@ -112,9 +112,5 @@ func (db *DBResource) GetResourceId() string {
 }
 
 func (db *DBResource) GetBranchType() branch.BranchType {
-	if db.conf.openAT {
-		return branch.BranchTypeAT
-	}
-
-	return branch.BranchTypeXA
+	return db.conf.BranchType
 }

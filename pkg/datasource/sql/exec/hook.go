@@ -25,8 +25,14 @@ import (
 )
 
 var (
-	hookSolts = map[types.SQLType][]SQLInterceptor{}
+	commonHook = make([]SQLInterceptor, 0, 4)
+	hookSolts  = map[types.SQLType][]SQLInterceptor{}
 )
+
+// RegisCommonHook not goroutine safe
+func RegisCommonHook(hook SQLInterceptor) {
+	commonHook = append(commonHook, hook)
+}
 
 // RegisHook not goroutine safe
 func RegisHook(hook SQLInterceptor) {
@@ -39,6 +45,7 @@ func RegisHook(hook SQLInterceptor) {
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
 }
 
+// ExecContext
 type ExecContext struct {
 	TxCtx       *types.TransactionContext
 	Query       string

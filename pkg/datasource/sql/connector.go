@@ -23,7 +23,7 @@ import (
 	"sync"
 )
 
-type SeataConnector struct {
+type seataConnector struct {
 	conf   *seataServerConfig
 	res    *DBResource
 	once   sync.Once
@@ -44,7 +44,7 @@ type SeataConnector struct {
 //
 // The returned connection is only used by one goroutine at a
 // time.
-func (c *SeataConnector) Connect(ctx context.Context) (driver.Conn, error) {
+func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	conn, err := c.target.Connect(ctx)
 	if err != nil {
@@ -57,7 +57,7 @@ func (c *SeataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 // Driver returns the underlying Driver of the Connector,
 // mainly to maintain compatibility with the Driver method
 // on sql.DB.
-func (c *SeataConnector) Driver() driver.Driver {
+func (c *seataConnector) Driver() driver.Driver {
 	c.once.Do(func() {
 		d := c.target.Driver()
 		c.driver = d

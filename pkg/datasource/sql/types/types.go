@@ -17,14 +17,17 @@
 package types
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"strings"
+
+	"github.com/google/uuid"
 )
+
+//go:generate stringer -type=DBType
+type DBType int16
 
 type (
 	// DBType
-	DBType int16
 	// BranchPhase
 	BranchPhase int8
 	// IndexType index type
@@ -92,21 +95,16 @@ func WithTransType(t TransactionType) ctxOption {
 	}
 }
 
-// WithTxOptions
-func WithTxOptions(opt *TxOptions) ctxOption {
-	return func(tx *TransactionContext) {
-		tx.TxOpt = opt
-	}
-}
-
 // TransactionContext seata-go‘s context of transaction
 type TransactionContext struct {
+	// LocalTransID locals transaction id
+	LocalTransID string
 	// LockKeys
 	LockKeys []string
 	// DBType db type, eg. MySQL/PostgreSQL/SQLServer
 	DBType DBType
 	// TxOpt transaction option
-	TxOpt *TxOptions
+	TxOpt driver.TxOptions
 	// TransType transaction mode, eg. XA/AT
 	TransType TransactionType
 	// ResourceID resource id, database-table
@@ -119,6 +117,14 @@ type TransactionContext struct {
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
+}
+
+func NewTxCtx() *TransactionContext {
+	return &TransactionContext{
+		LockKeys:     make([]string, 0, 4),
+		TransType:    ATMode,
+		LocalTransID: uuid.New().String(),
+	}
 }
 
 // HasUndoLog
@@ -137,17 +143,6 @@ func (t *TransactionContext) OpenGlobalTrsnaction() bool {
 
 func (t *TransactionContext) IsBranchRegistered() bool {
 	return t.BranchID != 0
-}
-
-// TxOptions
-type TxOptions struct {
-	// Isolation is the transaction isolation level.
-	// If zero, the driver or database's default level is used.
-	Isolation sql.IsolationLevel
-	// ReadOnly
-	ReadOnly bool
-	// TransType
-	TransType TransactionType
 }
 
 type (

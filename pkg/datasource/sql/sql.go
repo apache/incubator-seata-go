@@ -27,6 +27,7 @@ import (
 
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 // Open opens a database specified by its database driver name and a
@@ -56,25 +57,29 @@ func Open(driverName, dataSourceName string, opts ...seataOption) (*gosql.DB, er
 	}
 
 	v := reflect.ValueOf(db)
-
-	val, ok := v.FieldByName("connector").Recv()
-	if !ok {
-		return nil, errors.New("reflect get driver.Connector fail")
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
 
-	connector, _ := val.Interface().(driver.Connector)
+	field := v.FieldByName("connector")
 
-	proxy, err := regisResource(connector, dataSourceName, opts...)
+	connector, _ := GetUnexportedField(field).(driver.Connector)
+
+	dbType := types.ParseDBType(targetDriver)
+	if dbType == types.DBType_Unknown {
+		return nil, errors.New("unsuppoer db type")
+	}
+
+	proxy, err := regisResource(connector, dbType, db, dataSourceName, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	v.Set(reflect.NewAt(v.Type(), unsafe.Pointer(&proxy)))
-
+	SetUnexportedField(field, proxy)
 	return db, nil
 }
 
-func regisResource(connector driver.Connector, dataSourceName string, opts ...seataOption) (driver.Connector, error) {
+func regisResource(connector driver.Connector, dbType types.DBType, db *gosql.DB, dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 	conf := loadConfig()
 	for i := range opts {
 		opts[i](conf)
@@ -84,15 +89,11 @@ func regisResource(connector driver.Connector, dataSourceName string, opts ...se
 		return connector, err
 	}
 
-	dbType := types.ParseDBType(dataSourceName)
-	if dbType == types.DBType_Unknown {
-		return connector, errors.New("unsuppoer db type")
-	}
-
 	options := []dbOption{
 		withGroupID(conf.GroupID),
 		withResourceID(parseResourceID(dataSourceName)),
 		withConf(conf),
+		withTarget(db),
 		withDBType(dbType),
 	}
 
@@ -105,7 +106,7 @@ func regisResource(connector driver.Connector, dataSourceName string, opts ...se
 		return nil, err
 	}
 
-	return &SeataConnector{
+	return &seataConnector{
 		res:    res,
 		target: connector,
 		conf:   conf,
@@ -119,10 +120,8 @@ type (
 	seataServerConfig struct {
 		// GroupID
 		GroupID string `yaml:"groupID"`
-		// openXA
-		openXA bool
-		// openAT
-		openAT bool
+		// BranchType
+		BranchType branch.BranchType
 		// Endpoints
 		Endpoints []string `yaml:"endpoints" json:"endpoints"`
 	}
@@ -138,14 +137,31 @@ func loadConfig() *seataServerConfig {
 	// 先设置默认配置
 
 	// 从默认文件获取
-	return nil
+	return &seataServerConfig{
+		GroupID:    "DEFAULT_GROUP",
+		BranchType: branch.BranchTypeAT,
+		Endpoints:  []string{"127.0.0.1:8888"},
+	}
 }
 
 func parseResourceID(dsn string) string {
 	i := strings.Index(dsn, "?")
 
-	res := dsn[:i]
-	res = strings.ReplaceAll(res, ",", "|")
+	res := dsn
 
-	return res
+	if i > 0 {
+		res = dsn[:i]
+	}
+
+	return strings.ReplaceAll(res, ",", "|")
+}
+
+func GetUnexportedField(field reflect.Value) interface{} {
+	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
+}
+
+func SetUnexportedField(field reflect.Value, value interface{}) {
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
+		Elem().
+		Set(reflect.ValueOf(value))
 }
