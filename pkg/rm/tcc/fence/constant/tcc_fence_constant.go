@@ -1,13 +1,13 @@
 package constant
 
 // PHASE 1: The Commit tried.
-const StatusTried int = 1
+const StatusTried int32 = 1
 
 // PHASE 2: The Committed.
-const StatusCommitted int = 2
+const StatusCommitted int32 = 2
 
 // PHASE 2: The Rollbacked.
-const StatusRollbacked int = 3
+const StatusRollbacked int32 = 3
 
 // Suspended status.
-const StatusSuspended int = 4
+const StatusSuspended int32 = 4
