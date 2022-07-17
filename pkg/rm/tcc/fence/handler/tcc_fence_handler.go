@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package handler
 
 import (
@@ -44,7 +61,21 @@ func init() {
 
 }
 
-func (handler *TCCFenceHandler) PrepareFence(xid string, branchId int64, actionName string, callback func()) interface{} {
+func (handler *TCCFenceHandler) PrepareFence(proxy tcc.TCCServiceProxy, xid string, branchId int64, actionName string, callback func()) interface{} {
+	// todo try catch and set rollback only
+	if conn, err := handler.datasource.Connect(context.Background()); err == nil {
+		result := handler.InsertTCCFenceLog(conn, xid, branchId, actionName, constant.StatusTried)
+		if result {
+			return proxy.TCCService.Prepare(context.Background(), actionName)
+		} else {
+			// todo catch insert error, todo set rollback only
+			panic(fmt.Sprintf("Insert tcc fence record error, prepare fence failed. xid= %s, branchId= %s", xid, branchId))
+			handler.AddToLogCleanQueue(xid, branchId)
+		}
+	} else {
+		// todo catch connection error
+	}
+
 	return nil
 }
 
@@ -139,7 +170,11 @@ func (handler *TCCFenceHandler) DeleteFenceByDate(datetime time.Time) int32 {
 }
 
 func (handler *TCCFenceHandler) AddToLogCleanQueue(xid string, branchId int64) {
-
+	fenceLogIdentity := &FenceLogIdentity{
+		xid:      xid,
+		branchId: branchId,
+	}
+	handler.logQueue.PushBack(fenceLogIdentity)
 }
 
 func (handler *TCCFenceHandler) SetDatasource(connector driver.Connector) {
