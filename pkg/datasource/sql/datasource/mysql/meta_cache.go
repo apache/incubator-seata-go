@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/seata/seata-go-datasource/sql/datasource/base"
@@ -29,7 +30,7 @@ type tableMetaCache struct {
 }
 
 // Init
-func (c *tableMetaCache) Init(conn *sql.DB) error {
+func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 	return nil
 }
 

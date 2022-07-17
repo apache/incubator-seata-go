@@ -18,13 +18,8 @@
 package sql
 
 import (
-	gosql "database/sql"
 	"database/sql/driver"
 )
-
-func init() {
-	gosql.Register("seata-mysql", &SeataDriver{})
-}
 
 type SeataDriver struct {
 	target driver.Driver

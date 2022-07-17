@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"context"
 	gosql "database/sql"
 
 	"github.com/seata/seata-go-datasource/sql/datasource"
@@ -93,7 +94,8 @@ type DBResource struct {
 }
 
 func (db *DBResource) init() error {
-	metaCache, err := datasource.GetDataSourceManager().CreateTableMetaCache(db.resourceID, db.dbType, db.target)
+	mgr := datasource.GetDataSourceManager(db.GetBranchType())
+	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.target)
 	if err != nil {
 		return err
 	}

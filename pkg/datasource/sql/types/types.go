@@ -75,26 +75,6 @@ const (
 	ATMode
 )
 
-type ctxOption func(tx *TransactionContext)
-
-// NewTxContext
-func NewTxContext(opts ...ctxOption) *TransactionContext {
-	tx := new(TransactionContext)
-
-	for i := range opts {
-		opts[i](tx)
-	}
-
-	return tx
-}
-
-// WithTransType
-func WithTransType(t TransactionType) ctxOption {
-	return func(tx *TransactionContext) {
-		tx.TransType = t
-	}
-}
-
 // TransactionContext seata-go‘s context of transaction
 type TransactionContext struct {
 	// LocalTransID locals transaction id

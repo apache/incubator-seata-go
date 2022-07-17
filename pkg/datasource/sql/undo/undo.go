@@ -53,11 +53,11 @@ type UndoLogManager interface {
 	// InsertUndoLog
 	InsertUndoLog(l []BranchUndoLog, tx driver.Tx) error
 	// DeleteUndoLog
-	DeleteUndoLogs(xid, branchID []string, conn driver.Conn) error
+	DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
 	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error
 	// RunUndo
-	RunUndo(xid, branchID string, conn *sql.Conn) error
+	RunUndo(xid string, branchID int64, conn *sql.Conn) error
 	// DBType
 	DBType() types.DBType
 }

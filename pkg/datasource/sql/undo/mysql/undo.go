@@ -44,7 +44,7 @@ func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) err
 }
 
 // DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLogs(xid, branchID []string, conn driver.Conn) error {
+func (m *undoLogManager) DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error {
 	return m.Base.DeleteUndoLogs(xid, branchID, conn)
 }
 
@@ -54,7 +54,7 @@ func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver
 }
 
 // RunUndo
-func (m *undoLogManager) RunUndo(xid, branchID string, conn *sql.Conn) error {
+func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) error {
 	return m.Base.RunUndo(xid, branchID, conn)
 }
 

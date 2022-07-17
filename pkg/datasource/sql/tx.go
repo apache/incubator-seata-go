@@ -27,7 +27,7 @@ import (
 
 type txOption func(tx *Tx)
 
-func newProxyTx(opts ...txOption) (driver.Tx, error) {
+func newTx(opts ...txOption) (driver.Tx, error) {
 	tx := new(Tx)
 
 	for i := range opts {

@@ -260,7 +260,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = driver.TxOptions{}
 
-	return newProxyTx(
+	return newTx(
 		withDriverConn(c),
 		withTxCtx(c.txCtx),
 		withOriginTx(tx),
@@ -278,7 +278,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.TxOpt = opts
 
-		return newProxyTx(
+		return newTx(
 			withDriverConn(c),
 			withTxCtx(c.txCtx),
 			withOriginTx(tx),

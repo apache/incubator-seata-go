@@ -79,7 +79,9 @@ func Open(driverName, dataSourceName string, opts ...seataOption) (*gosql.DB, er
 	return db, nil
 }
 
-func regisResource(connector driver.Connector, dbType types.DBType, db *gosql.DB, dataSourceName string, opts ...seataOption) (driver.Connector, error) {
+func regisResource(connector driver.Connector, dbType types.DBType, db *gosql.DB,
+	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
+
 	conf := loadConfig()
 	for i := range opts {
 		opts[i](conf)
@@ -102,7 +104,7 @@ func regisResource(connector driver.Connector, dbType types.DBType, db *gosql.DB
 		return nil, err
 	}
 
-	if err := datasource.GetDataSourceManager().RegisterResource(res); err != nil {
+	if err := datasource.GetDataSourceManager(conf.BranchType).RegisterResource(res); err != nil {
 		return nil, err
 	}
 
