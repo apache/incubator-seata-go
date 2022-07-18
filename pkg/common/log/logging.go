@@ -21,7 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
+	getty "github.com/apache/dubbo-getty"
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -111,16 +113,30 @@ var (
 		MessageKey:     "message",
 		StacktraceKey:  "stacktrace",
 		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeTime:     encodeTime,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
+		EncodeCaller:   encodeCaller,
 	}
 )
+
+const (
+	logTmFmt = "2006-01-02 15:04:05.000 "
+)
+
+func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format(logTmFmt))
+}
+
+func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	//enc.AppendString(fmt.Sprintf("\033[34m%s\033[0m", caller.TrimmedPath()))
+	enc.AppendString(fmt.Sprintf("%-45s", caller.TrimmedPath()))
+}
 
 func init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	log = zapLogger.Sugar()
+	getty.SetLogger(log)
 }
 
 func Init(logPath string, level LogLevel) {
@@ -134,14 +150,17 @@ func Init(logPath string, level LogLevel) {
 	syncer := zapcore.AddSync(lumberJackLogger)
 
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	encoderConfig.EncodeTime = encodeTime
+	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	encoderConfig.EncodeCaller = encodeCaller
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
 	zapLogger = zap.New(core, zap.AddCaller())
 
 	log = zapLogger.Sugar()
+	getty.SetLogger(log)
+
 }
 
 // SetLogger: customize yourself logger.
