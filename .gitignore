@@ -18,3 +18,5 @@
 # vendor/
 .vscode
 .codecc
+
+vendor/
