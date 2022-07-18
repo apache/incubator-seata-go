@@ -125,7 +125,7 @@ func (tx *Tx) commitOnAT() error {
 		return err
 	}
 
-	if err := undoLogMgr.FlushUndoLog(tx.ctx, nil); err != nil {
+	if err := undoLogMgr.FlushUndoLog(tx.ctx, tx.target); err != nil {
 		if rerr := tx.report(false); rerr != nil {
 			return errors.WithStack(rerr)
 		}

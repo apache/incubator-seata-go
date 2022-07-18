@@ -136,9 +136,9 @@ func (c *seataServerConfig) validate() error {
 // loadConfig
 // TODO wait finish
 func loadConfig() *seataServerConfig {
-	// 先设置默认配置
+	// sets default config
 
-	// 从默认文件获取
+	// read from file
 	return &seataServerConfig{
 		GroupID:    "DEFAULT_GROUP",
 		BranchType: branch.BranchTypeAT,

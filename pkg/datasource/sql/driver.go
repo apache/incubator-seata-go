@@ -26,5 +26,16 @@ type SeataDriver struct {
 }
 
 func (d *SeataDriver) Open(name string) (driver.Conn, error) {
-	return d.target.Open(name)
+	conn, err := d.target.Open(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Conn{conn: conn}, nil
+}
+
+
+func (d *SeataDriver) OpenConnector(name string) (driver.Connector, error) {
+	return nil, nil
 }

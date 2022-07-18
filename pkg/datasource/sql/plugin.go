@@ -20,7 +20,7 @@ package sql
 import (
 	_ "github.com/seata/seata-go-datasource/sql/exec/hook"
 
-	// mysql 相关插件
+	// mysql plugin
 	_ "github.com/seata/seata-go-datasource/sql/datasource/mysql"
 	_ "github.com/seata/seata-go-datasource/sql/undo/mysql"
 )

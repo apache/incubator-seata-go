@@ -170,9 +170,6 @@ func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID st
 
 	dm.tableMetaCache[resID] = res
 
-	// 注册 AT 数据资源
-	// dm.resourceMgr.RegisterResource(ATResource)
-
 	return res.metaCache, err
 }
 
