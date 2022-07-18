@@ -15,12 +15,28 @@
  * limitations under the License.
  */
 
-package sql
+// Package gxtime encapsulates some golang.time functions
+package gxtime
 
 import (
-	_ "github.com/seata/seata-go-datasource/sql/exec/hook"
-
-	// mysql plugin
-	_ "github.com/seata/seata-go-datasource/sql/datasource/mysql"
-	_ "github.com/seata/seata-go-datasource/sql/undo/mysql"
+	"time"
 )
+
+type CountWatch struct {
+	start time.Time
+}
+
+func (w *CountWatch) Start() {
+	var t time.Time
+	if t.Equal(w.start) {
+		w.start = time.Now()
+	}
+}
+
+func (w *CountWatch) Reset() {
+	w.start = time.Now()
+}
+
+func (w *CountWatch) Count() int64 {
+	return time.Since(w.start).Nanoseconds()
+}

@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package sql
+package gxsync
 
-import (
-	_ "github.com/seata/seata-go-datasource/sql/exec/hook"
-
-	// mysql plugin
-	_ "github.com/seata/seata-go-datasource/sql/datasource/mysql"
-	_ "github.com/seata/seata-go-datasource/sql/undo/mysql"
-)
+type WorkerPool interface {
+	// Submit adds a task to queue asynchronously.
+	Submit(task) error
+	// SubmitSync adds a task to queue synchronously.
+	SubmitSync(task) error
+	// Close closes the worker pool
+	Close()
+	// IsClosed returns close status of the worker pool
+	IsClosed() bool
+	// NumWorkers returns the number of workers
+	NumWorkers() int32
+}

@@ -1,0 +1,27 @@
+language: go
+
+os:
+  - linux
+
+go:
+  - "1.13"
+
+env:
+  - GO111MODULE=on
+
+install: true
+
+script:
+  # license-check
+  - echo 'start license check'
+  - sh before_validate_license.sh
+  - chmod u+x /tmp/tools/license/license-header-checker
+  - go fmt ./... && [[ -z `git status -s` ]]
+  - /tmp/tools/license/license-header-checker -v -a -r -i vendor  /tmp/tools/license/license.txt . go  && [[ -z `git status -s` ]]
+  - go mod vendor && go test $(go list ./... | grep -v vendor | grep -v demo) -coverprofile=coverage.txt -covermode=atomic
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
+notifications:
+  webhooks: https://oapi.dingtalk.com/robot/send?access_token=75f4f1ec3868508aa89e5a5d6f9d342216809df3ebc8a78c8ae8722848e06166

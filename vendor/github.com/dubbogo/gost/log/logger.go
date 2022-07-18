@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package sql
+package gxlog
 
-import (
-	_ "github.com/seata/seata-go-datasource/sql/exec/hook"
+type Logger interface {
+	Info(args ...interface{})
+	Warn(args ...interface{})
+	Error(args ...interface{})
+	Debug(args ...interface{})
 
-	// mysql plugin
-	_ "github.com/seata/seata-go-datasource/sql/datasource/mysql"
-	_ "github.com/seata/seata-go-datasource/sql/undo/mysql"
-)
+	Infof(fmt string, args ...interface{})
+	Warnf(fmt string, args ...interface{})
+	Errorf(fmt string, args ...interface{})
+	Debugf(fmt string, args ...interface{})
+}
