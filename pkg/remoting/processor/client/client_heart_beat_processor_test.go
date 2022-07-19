@@ -71,7 +71,7 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 	}
 
 	var ctx context.Context
-	var chbProcessor clientHeartBeatProcesson
+	var chbProcessor clientHeartBeatProcessor
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

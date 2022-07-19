@@ -77,7 +77,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 			BranchStatus: status,
 		},
 	}
-	err = getty.GetGettyRemotingClient().SendAsyncResponse(response)
+	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
 	if err != nil {
 		log.Errorf("send branch commit response error: {%#v}", err.Error())
 		return err

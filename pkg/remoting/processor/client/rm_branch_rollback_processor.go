@@ -75,7 +75,7 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 			BranchStatus: status,
 		},
 	}
-	err = getty.GetGettyRemotingClient().SendAsyncResponse(response)
+	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
 	if err != nil {
 		log.Errorf("send branch rollback response error: {%#v}", err.Error())
 		return err
