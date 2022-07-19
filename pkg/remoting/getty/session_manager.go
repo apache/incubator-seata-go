@@ -27,17 +27,12 @@ import (
 
 var (
 	MAX_CHECK_ALIVE_RETRY = 600
-
-	CHECK_ALIVE_INTERNAL = 100
-
-	allSessions = sync.Map{}
-
+	CHECK_ALIVE_INTERNAL  = 100
+	allSessions           = sync.Map{}
 	// serverAddress -> rpc_client.Session -> bool
-	serverSessions = sync.Map{}
-
-	sessionSize int32 = 0
-
-	sessionManager = &GettySessionManager{}
+	serverSessions       = sync.Map{}
+	sessionSize    int32 = 0
+	sessionManager       = &GettySessionManager{}
 )
 
 type GettySessionManager struct{}

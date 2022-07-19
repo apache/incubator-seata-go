@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package common
+package integration
 
-const (
-	StartTime     = "action-start-time"
-	HostName      = "host-name"
-	ActionContext = "actionContext"
+import (
+	"dubbo.apache.org/dubbo-go/v3/common/extension"
 
-	SeataXidKey    = "SEATA_XID"
-	XidKey         = "TX_XID"
-	MdcXidKey      = "X-TX-XID"
-	MdcBranchIDKey = "X-TX-BRANCH-ID"
-	BranchTypeKey  = "TX_BRANCH_TYPE"
-	GlobalLockKey  = "TX_LOCK"
-	SeataFilterKey = "seataDubboFilter"
+	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/integration/dubbo"
 )
+
+func UseDubbo() {
+	extension.SetFilter(common.SeataFilterKey, dubbo.GetDubboTransactionFilter)
+}

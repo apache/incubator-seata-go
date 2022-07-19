@@ -49,7 +49,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	}
 
 	var tx *GlobalTransaction
-	if HasXID(ctx) {
+	if IsTransactionOpened(ctx) {
 		tx = &GlobalTransaction{
 			Xid:    GetXID(ctx),
 			Status: message.GlobalStatusBegin,
@@ -70,7 +70,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	}
 
 	// todo timeout should read from config
-	err := GetGlobalTransactionManager().Begin(ctx, tx, 50, name)
+	err := GetGlobalTransactionManager().Begin(ctx, tx, 60000*30, name)
 	if err != nil {
 		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
 	}
@@ -79,7 +79,7 @@ func Begin(ctx context.Context, name string) context.Context {
 }
 
 // commit global transaction
-func CommitOrRollback(ctx context.Context, err error) error {
+func CommitOrRollback(ctx context.Context, err *error) error {
 	tx := &GlobalTransaction{
 		Xid:    GetXID(ctx),
 		Status: *GetTxStatus(ctx),
@@ -87,7 +87,7 @@ func CommitOrRollback(ctx context.Context, err error) error {
 	}
 
 	var resp error
-	if err == nil {
+	if *err == nil {
 		resp = GetGlobalTransactionManager().Commit(ctx, tx)
 		if resp != nil {
 			log.Infof("transactionTemplate: commit transaction failed, error %v", err)
