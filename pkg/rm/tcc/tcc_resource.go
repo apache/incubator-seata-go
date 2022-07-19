@@ -24,10 +24,13 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/common/log"
+
 	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
 )
 
 var (
@@ -36,10 +39,23 @@ var (
 )
 
 type TCCResource struct {
-	TCCServiceBean  TCCService
 	ResourceGroupId string `default:"DEFAULT"`
 	AppName         string
-	ActionName      string
+	*rm.TwoPhaseAction
+}
+
+func ParseTCCResource(v interface{}) (*TCCResource, error) {
+	t, err := rm.ParseTwoPhaseAction(v)
+	if err != nil {
+		log.Errorf("%#v is not tcc two phase service, %s", v, err.Error())
+		return nil, err
+	}
+	return &TCCResource{
+		// todo read from config
+		ResourceGroupId: `default:"DEFAULT"`,
+		AppName:         "seata-go-mock-app-name",
+		TwoPhaseAction:  t,
+	}, nil
 }
 
 func (t *TCCResource) GetResourceGroupId() string {
@@ -47,7 +63,7 @@ func (t *TCCResource) GetResourceGroupId() string {
 }
 
 func (t *TCCResource) GetResourceId() string {
-	return t.ActionName
+	return t.TwoPhaseAction.GetActionName()
 }
 
 func (t *TCCResource) GetBranchType() branch.BranchType {
@@ -118,14 +134,14 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	err := tccResource.TCCServiceBean.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 	return branch.BranchStatusPhasetwoCommitted, err
 }
 
-func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) tm.BusinessActionContext {
+func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
 	var actionContextMap = make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
 		var tccContext map[string]interface{}
@@ -137,11 +153,11 @@ func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64
 		}
 	}
 
-	return tm.BusinessActionContext{
+	return &tm.BusinessActionContext{
 		Xid:           xid,
 		BranchId:      branchID,
 		ActionName:    resourceID,
-		ActionContext: &actionContextMap,
+		ActionContext: actionContextMap,
 	}
 }
 
@@ -155,7 +171,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branc
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	err := tccResource.TCCServiceBean.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbacked, err
 	}

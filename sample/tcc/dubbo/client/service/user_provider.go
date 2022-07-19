@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package common
+package service
 
-const (
-	StartTime     = "action-start-time"
-	HostName      = "host-name"
-	ActionContext = "actionContext"
+import (
+	"context"
 
-	SeataXidKey    = "SEATA_XID"
-	XidKey         = "TX_XID"
-	MdcXidKey      = "X-TX-XID"
-	MdcBranchIDKey = "X-TX-BRANCH-ID"
-	BranchTypeKey  = "TX_BRANCH_TYPE"
-	GlobalLockKey  = "TX_LOCK"
-	SeataFilterKey = "seataDubboFilter"
+	"github.com/seata/seata-go/pkg/tm"
 )
+
+var (
+	UserProviderInstance = &UserProvider{}
+)
+
+type UserProvider struct {
+	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+	GetActionName func() string
+}
