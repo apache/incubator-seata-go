@@ -23,14 +23,12 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 
-	gxtime "github.com/dubbogo/gost/time"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 const (
-	RPC_REQUEST_TIMEOUT = 5 * time.Second
+	RPC_REQUEST_TIMEOUT = 2 * time.Second
 )
 
 var (
@@ -38,10 +36,13 @@ var (
 	onceGettyRemoting = &sync.Once{}
 )
 
-type GettyRemoting struct {
-	futures     *sync.Map
-	mergeMsgMap *sync.Map
-}
+type (
+	callbackMethod func(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error)
+	GettyRemoting  struct {
+		futures     *sync.Map
+		mergeMsgMap *sync.Map
+	}
+)
 
 func GetGettyRemotingInstance() *GettyRemoting {
 	if gettyRemoting == nil {
@@ -55,67 +56,44 @@ func GetGettyRemotingInstance() *GettyRemoting {
 	return gettyRemoting
 }
 
-func (client *GettyRemoting) SendSync(msg message.RpcMessage) (interface{}, error) {
-	ss := sessionManager.AcquireGettySession()
-	return client.sendAsync(ss, msg, RPC_REQUEST_TIMEOUT)
+func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
+	if s == nil {
+		s = sessionManager.selectSession()
+	}
+	return g.sendAsync(s, msg, callback)
 }
 
-func (client *GettyRemoting) SendSyncWithTimeout(msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
-	ss := sessionManager.AcquireGettySession()
-	return client.sendAsync(ss, msg, timeout)
-}
-
-func (client *GettyRemoting) SendASync(msg message.RpcMessage) error {
-	ss := sessionManager.AcquireGettySession()
-	_, err := client.sendAsync(ss, msg, 0*time.Second)
+func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
+	if s == nil {
+		s = sessionManager.selectSession()
+	}
+	_, err := g.sendAsync(s, msg, callback)
 	return err
 }
 
-func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, timeout time.Duration) (interface{}, error) {
-	log.Infof("send async message: {%#v}", msg)
+func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, callback callbackMethod) (interface{}, error) {
+	if _, ok := msg.Body.(message.HeartBeatMessage); ok {
+		log.Debug("send async message: {%#v}", msg)
+	} else {
+		log.Infof("send async message: {%#v}", msg)
+	}
 	var err error
 	if session == nil || session.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 		return nil, err
 	}
 	resp := message.NewMessageFuture(msg)
-	client.futures.Store(msg.ID, resp)
+	g.futures.Store(msg.ID, resp)
 	_, _, err = session.WritePkg(msg, time.Duration(0))
 	if err != nil {
-		client.futures.Delete(msg.ID)
+		g.futures.Delete(msg.ID)
 		log.Errorf("send message: %#v, session: %s", msg, session.Stat())
 		return nil, err
 	}
-
-	log.Debugf("send message: %#v, session: %s", msg, session.Stat())
-
-	actualTimeOut := timeout
-	if timeout <= time.Duration(0) {
-		// todo timeoue use config
-		actualTimeOut = time.Duration(2000)
+	if callback != nil {
+		return callback(msg, resp)
 	}
-
-	wait := func() (interface{}, error) {
-		select {
-		case <-gxtime.GetDefaultTimerWheel().After(actualTimeOut):
-			client.futures.Delete(msg.ID)
-			if session != nil {
-				return nil, errors.Errorf("wait response timeout, ip: %s, request: %#v", session.RemoteAddr(), msg)
-			} else {
-				return nil, errors.Errorf("wait response timeout and session is nil, request: %#v", msg)
-			}
-		case <-resp.Done:
-			err = resp.Err
-			return resp.Response, err
-		}
-	}
-
-	if timeout > time.Duration(0) {
-		return wait()
-	} else {
-		go wait()
-	}
-	return nil, err
+	return nil, nil
 }
 
 func (client *GettyRemoting) GetMessageFuture(msgID int32) *message.MessageFuture {
