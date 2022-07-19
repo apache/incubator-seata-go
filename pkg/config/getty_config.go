@@ -38,8 +38,8 @@ type GettyConfig struct {
 // GetDefaultGettyConfig ...
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
-		ReconnectInterval: 1,
-		ConnectionNum:     20,
+		ReconnectInterval: 0,
+		ConnectionNum:     1,
 		HeartbeatPeriod:   10 * time.Second,
 		GettySessionParam: GettySessionParam{
 			CompressEncoding: false,
@@ -51,7 +51,7 @@ func GetDefaultGettyConfig() GettyConfig {
 			TCPReadTimeout:   time.Second,
 			TCPWriteTimeout:  5 * time.Second,
 			WaitTimeout:      time.Second,
-			CronPeriod:       5 * time.Second,
+			CronPeriod:       time.Second,
 			MaxMsgLen:        4096,
 			SessionName:      "rpc_client",
 		},

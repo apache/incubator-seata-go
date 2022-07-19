@@ -19,8 +19,10 @@ package getty
 
 import (
 	"sync"
-	"time"
 
+	gxtime "github.com/dubbogo/gost/time"
+	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"go.uber.org/atomic"
@@ -60,18 +62,18 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage)
+	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, client.asyncCallback)
 }
 
-func (client *GettyRemotingClient) SendAsyncResponse(msg interface{}) error {
+func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {
 	rpcMessage := message.RpcMessage{
-		ID:         int32(client.idGenerator.Inc()),
+		ID:         msgID,
 		Type:       message.GettyRequestType_Response,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage)
+	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, nil)
 }
 
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
@@ -82,16 +84,21 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendSync(rpcMessage)
+	return GetGettyRemotingInstance().SendSync(rpcMessage, nil, client.syncCallback)
 }
 
-func (client *GettyRemotingClient) SendSyncRequestWithTimeout(msg interface{}, timeout time.Duration) (interface{}, error) {
-	rpcMessage := message.RpcMessage{
-		ID:         int32(client.idGenerator.Inc()),
-		Type:       message.GettyRequestType_RequestSync,
-		Codec:      byte(codec.CodecTypeSeata),
-		Compressor: 0,
-		Body:       msg,
+func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
+	go g.asyncCallback(reqMsg, respMsg)
+	return nil, nil
+}
+
+func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
+	select {
+	case <-gxtime.GetDefaultTimerWheel().After(RPC_REQUEST_TIMEOUT):
+		GetGettyRemotingInstance().RemoveMergedMessageFuture(reqMsg.ID)
+		log.Errorf("wait resp timeout: %#v", reqMsg)
+		return nil, errors.Errorf("wait response timeout, request: %#v", reqMsg)
+	case <-respMsg.Done:
+		return respMsg.Response, respMsg.Err
 	}
-	return GetGettyRemotingInstance().SendSyncWithTimeout(rpcMessage, timeout)
 }
