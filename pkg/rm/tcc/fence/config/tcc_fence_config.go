@@ -37,10 +37,8 @@ const (
 )
 
 type TccFenceConfig struct {
-	Initialized        atomic.Bool      `default:"false"`
-	LogTableName       string           `default:"tcc_fence_log"`
-	Datasource         driver.Connector `default:"nil"`
-	TransactionManager interface{}      `default:"nil"`
+	Initialized  atomic.Bool `default:"false"`
+	LogTableName string      `default:"tcc_fence_log"`
 }
 
 func SetTccFenceConfig(datasource driver.Connector, transactionManager interface{}) {
@@ -55,19 +53,6 @@ func (this *TccFenceConfig) Init() {
 	// set log table name
 	if this.LogTableName != "" {
 		dao.GetTccFenceStoreDatabaseMapperSingleton().SetLogTableName(this.LogTableName)
-	}
-
-	if this.Datasource != nil {
-		//handler.SetDatasource(this.Datasource)
-	} else {
-		panic("datasource need injected")
-	}
-
-	if this.TransactionManager != nil {
-		// set transaction template
-		//handler.SetTransactionManager(this.TransactionManager)
-	} else {
-		panic("transaction manager  need injected")
 	}
 }
 

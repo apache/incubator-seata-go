@@ -31,7 +31,7 @@ type TCCFenceStore interface {
 	// param xid the global transaction id
 	// param branchId the branch transaction id
 	// return the tcc fence do
-	QueryTCCFenceDO(conn driver.Conn, xid string, branchId int64) //model.TCCFenceDO
+	QueryTCCFenceDO(conn driver.Conn, xid string, branchId int64) *model.TCCFenceDO
 
 	// InsertTCCFenceDO tcc fence do boolean.
 	// param tccFenceDO the tcc fence do
