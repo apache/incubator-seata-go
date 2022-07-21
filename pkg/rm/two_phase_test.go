@@ -174,7 +174,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 type TwoPhaseDemoService2 struct {
 }
 
-func (t *TwoPhaseDemoService2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (t *TwoPhaseDemoService2) Prepare(ctx context.Context, params ...interface{}) (interface{}, error) {
 	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
 }
 

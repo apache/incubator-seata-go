@@ -189,12 +189,11 @@ func ParseTwoPhaseAction(v interface{}) (*TwoPhaseAction, error) {
 	if m, ok := v.(TwoPhaseInterface); ok {
 		return parseTwoPhaseActionByTwoPhaseInterface(m), nil
 	}
-	for _, parse := range remotingParseTable {
-		if res, err := parse.ParseTwoPhaseActionByInterface(&v); err != nil {
-			return nil, err
-		} else if res != nil {
-			return res, nil
-		}
+
+	if res, err := GetDefaultRemotingParser().ParseTwoPhaseActionByInterface(v); err != nil {
+		return nil, err
+	} else if res != nil {
+		return res, nil
 	}
 	return nil, errors.New(fmt.Sprintf("not found remoting parser for %v", v))
 }
@@ -214,12 +213,4 @@ func parseTwoPhaseActionByTwoPhaseInterface(v TwoPhaseInterface) *TwoPhaseAction
 		rollbackMethodName: "Rollback",
 		rollbackMethod:     &mr,
 	}
-}
-
-var (
-	remotingParseTable = make([]RemotingParse, 0)
-)
-
-func RegisterRemotingParse(parse RemotingParse) {
-	remotingParseTable = append(remotingParseTable, parse)
 }
