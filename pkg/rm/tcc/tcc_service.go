@@ -48,14 +48,15 @@ func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
 		log.Errorf("invalid tcc service, err %v", err)
 		return nil, err
 	}
-	tccServiceProxy :=&TCCServiceProxy{
-
+	tccServiceProxy := &TCCServiceProxy{
 		TCCResource: tccResource,
 	}
-	if  {
-
+	if rm.GetDefaultRemotingParser().IsService(service) {
+		if err := tccServiceProxy.RegisterResource(); err != nil {
+			return nil, err
+		}
 	}
-	return , err
+	return tccServiceProxy, err
 }
 
 func (t *TCCServiceProxy) RegisterResource() error {
