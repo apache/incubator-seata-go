@@ -19,38 +19,95 @@ package service
 
 import (
 	"context"
+
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/grpc/pb"
-	"google.golang.org/protobuf/types/known/emptypb"
+	example "github.com/seata/seata-go/sample/tcc/grpc/pb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-type Business struct {
-	pb.UnimplementedTCCServiceBusinessServer
+//type BusinessClient1 struct {
+//	Prepare       func(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error)          `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+//	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+//	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+//	GetActionName func() string
+//}
+
+type BusinessServer1 struct {
+	example.UnimplementedTCCServiceBusiness1Server
+	Prepare       func(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error)          `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+	GetActionName func() string
 }
 
-// Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
-func (b *Business) Remoting(ctx context.Context, params *pb.Params) (*emptypb.Empty, error) {
-	log.Infof("Remoting be called")
-	return new(emptypb.Empty), tcc.NewTCCServiceProxy(b).Prepare(ctx, params)
+//type BusinessClient2 struct {
+//	Prepare       func(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error)          `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+//	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+//	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+//	GetActionName func() string
+//}
+
+type BusinessServer2 struct {
+	example.UnimplementedTCCServiceBusiness1Server
+	Prepare       func(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error)          `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+	GetActionName func() string
 }
 
-func (b *Business) Prepare(ctx context.Context, params interface{}) error {
-	log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
-	return nil
+func Prepare1(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error) {
+	log.Infof("TestTCCServiceBusiness1 Prepare2, param %v", params)
+	return &wrapperspb.BoolValue{Value: true}, nil
 }
 
-func (b *Business) Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
-	log.Infof("TestTCCServiceBusiness Commit, param %v", businessActionContext)
-	return nil
+func Commit1(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("TestTCCServiceBusiness1 Commit2, param %v", businessActionContext)
+	return true, nil
 }
 
-func (b *Business) Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error {
-	log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
-	return nil
+func Rollback1(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("TestTCCServiceBusiness1 Rollback2, param %v", businessActionContext)
+	return true, nil
 }
 
-func (b *Business) GetActionName() string {
-	return "TCCServiceBusiness"
+func GetActionName1() string {
+	return "TCCServiceBusiness1"
 }
+
+func Prepare2(ctx context.Context, params ...interface{}) (*wrapperspb.BoolValue, error) {
+	log.Infof("TestTCCServiceBusiness Prepare2, param %v", params)
+	return &wrapperspb.BoolValue{Value: true}, nil
+}
+
+func Commit2(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("TestTCCServiceBusiness Commit2, param %v", businessActionContext)
+	return true, nil
+}
+
+func Rollback2(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("TestTCCServiceBusiness Rollback2, param %v", businessActionContext)
+	return true, nil
+}
+
+func GetActionName2() string {
+	return "TCCServiceBusiness2"
+}
+
+var (
+	// BusinessServer1
+	BusinessServer11 = &BusinessServer1{
+		Prepare:       Prepare1,
+		Commit:        Commit1,
+		Rollback:      Rollback1,
+		GetActionName: GetActionName1,
+	}
+
+	// BusinessServer2
+	BusinessServer22 = &BusinessServer2{
+		Prepare:       Prepare2,
+		Commit:        Commit2,
+		Rollback:      Rollback2,
+		GetActionName: GetActionName2,
+	}
+)

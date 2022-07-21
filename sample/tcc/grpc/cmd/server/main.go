@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/seata/seata-go/pkg/rm/tcc"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	_ "github.com/seata/seata-go/pkg/imports"
 	server2 "github.com/seata/seata-go/pkg/integration/grpc/server"
@@ -38,8 +40,34 @@ func main() {
 	}
 	log.Infof("server register")
 	s := grpc.NewServer(grpc.UnaryInterceptor(server2.ServerTransactionInterceptor))
-	pb.RegisterTCCServiceBusinessServer(s, &service.Business{})
+
+	tccProxy1, err := tcc.NewTCCServiceProxy(service.BusinessServer11)
+	if err != nil {
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
+		return
+	}
+	err = tccProxy1.RegisterResource()
+	if err != nil {
+		log.Errorf("userProviderProxy register resource error, %v", err.Error())
+		return
+	}
+
+	tccProxy2, err := tcc.NewTCCServiceProxy(service.BusinessServer22)
+	if err != nil {
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
+		return
+	}
+	err = tccProxy2.RegisterResource()
+	if err != nil {
+		log.Errorf("userProviderProxy register resource error, %v", err.Error())
+		return
+	}
+
+	pb.RegisterTCCServiceBusiness1Server(s, service.BusinessServer11)
+	pb.RegisterTCCServiceBusiness2Server(s, service.BusinessServer22)
+
 	log.Infof("business listening at %v", lis.Addr())
+
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

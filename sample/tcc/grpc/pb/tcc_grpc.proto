@@ -16,15 +16,35 @@
  */
 
 syntax = "proto3";
-option go_package="github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/example";
-import "google/protobuf/empty.proto";
+option go_package="github.com/seata/seata-go/pkg/rm/tcc/remoting/gprc/pb";
+import "google/protobuf/wrappers.proto";
+//import "google/protobuf/any.proto";
 
 message Params {
     string a = 1;
     string b = 2;
+    string c = 3;
 }
 
-service TCCServiceBusiness {
-    rpc Remoting (Params) returns (google.protobuf.Empty){
+//message  BusinessActionContext  {
+//    string Xid = 1;
+//    int64 BranchId = 2;
+//    string ActionName = 3;
+//    map<string,google.protobuf.Any> ActionContext = 4;
+//}
+
+service TCCServiceBusiness1 {
+
+    rpc Prepare (Params) returns (google.protobuf.BoolValue){
+
     }
+
+}
+
+service TCCServiceBusiness2 {
+
+    rpc Prepare (Params) returns (google.protobuf.BoolValue){
+
+    }
+
 }

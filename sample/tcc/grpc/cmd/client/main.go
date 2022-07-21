@@ -23,6 +23,10 @@ import (
 	"flag"
 	"time"
 
+	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/sample/tcc/grpc/service"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	_ "github.com/seata/seata-go/pkg/imports"
 	"github.com/seata/seata-go/pkg/integration/grpc/client"
@@ -42,7 +46,9 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c := pb.NewTCCServiceBusinessClient(conn)
+	c1 := pb.NewTCCServiceBusiness1Client(conn)
+	c2 := pb.NewTCCServiceBusiness2Client(conn)
+	tcc.NewTCCServiceProxy()
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
@@ -50,17 +56,52 @@ func main() {
 	log.Infof("global transaction begin")
 	ctx = tm.Begin(ctx, "TestTCCServiceBusiness")
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, err)
+		resp := tm.CommitOrRollback(ctx, &err)
 		log.Infof("tx result %v", resp)
 		<-make(chan bool)
 	}()
 	defer cancel()
 
-	// BranchTransactional remoting running
-	log.Infof("branch transaction begin")
-	r, err := c.Remoting(ctx, &pb.Params{A: "1", B: "2"})
+	tccProxy1, err := tcc.NewTCCServiceProxy(service.BusinessServer1)
 	if err != nil {
-		log.Fatalf("could not do TestTCCServiceBusiness: %v", err)
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
+		return
 	}
-	log.Infof("TestTCCServiceBusiness#Prepare res: %s", r.String())
+
+	tccProxy2, err := tcc.NewTCCServiceProxy(service.BusinessServer2)
+	if err != nil {
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
+		return
+	}
+
+	// BranchTransactional remoting running
+	go func() {
+		log.Infof("branch transaction begin 1")
+		var r interface{}
+		r, err = tccProxy1.Prepare(ctx, &pb.Params{
+			A: "A1",
+			B: "B1",
+			C: "C1",
+		})
+		if err != nil {
+			log.Fatalf("could not do TestTCCServiceBusiness1: %v", err)
+		}
+		log.Infof("TestTCCServiceBusiness1#Prepare2 res: %s", r.(*wrapperspb.BoolValue))
+	}()
+
+	go func() {
+		log.Infof("branch transaction begin 2")
+		var r interface{}
+		r, err = tccProxy2.Prepare(ctx, &pb.Params{
+			A: "A2",
+			B: "B2",
+			C: "C2",
+		})
+
+		if err != nil {
+			log.Fatalf("could not do TestTCCServiceBusiness1: %v", err)
+		}
+
+		log.Infof("TestTCCServiceBusiness1#Prepare2 res: %s", r.(*wrapperspb.BoolValue))
+	}()
 }
