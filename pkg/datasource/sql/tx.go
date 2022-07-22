@@ -18,7 +18,10 @@
 package sql
 
 import (
+	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go-datasource/sql/types"
@@ -144,12 +147,26 @@ func (tx *Tx) commitOnAT() error {
 }
 
 // regis
-// TODO
 func (tx *Tx) regis(ctx *types.TransactionContext) error {
 	if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 		return nil
 	}
-
+	lockKey := ""
+	for _, v := range ctx.LockKeys {
+		lockKey += v + ";"
+	}
+	request := message.BranchRegisterRequest{
+		Xid:             ctx.XaID,
+		BranchType:      branch.BranchType(ctx.TransType),
+		ResourceId:      ctx.ResourceID,
+		LockKey:         lockKey,
+		ApplicationData: nil,
+	}
+	ctx2, _ := context.WithCancel(context.Background())
+	_, err := ATSourceManager.BranchRegister(ATSourceManager{}, ctx2, "", request)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
