@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package resource
+package rm
 
 import (
 	"context"
@@ -59,11 +59,11 @@ type ResourceManager interface {
 	//  Unregister a Resource from the Resource Manager
 	UnregisterResource(resource Resource) error
 	// Get all resources managed by this manager
-	GetManagedResources() *sync.Map
+	GetCachedResources() *sync.Map
 	// Get the BranchType
 	GetBranchType() branch.BranchType
 }
 
 type ResourceManagerGetter interface {
-	GetResourceManager() ResourceManager
+	GetResourceManager(branchType branch.BranchType) ResourceManager
 }
