@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 
@@ -162,8 +163,9 @@ func (tx *Tx) regis(ctx *types.TransactionContext) error {
 		LockKey:         lockKey,
 		ApplicationData: nil,
 	}
-	ctx2, _ := context.WithCancel(context.Background())
-	_, err := ATSourceManager.BranchRegister(ATSourceManager{}, ctx2, "", request)
+	ctex, _ := context.WithCancel(context.Background())
+	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(ctx.TransType))
+	_, err := dataSourceManager.BranchRegister(ctex, "", request)
 	if err != nil {
 		return err
 	}
