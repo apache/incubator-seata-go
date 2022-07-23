@@ -26,14 +26,13 @@ import (
 
 	"github.com/seata/seata-go/pkg/common/types"
 
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 type TCCServiceProxy struct {
@@ -56,7 +55,7 @@ func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
 func (t *TCCServiceProxy) RegisterResource() error {
 	var err error
 	t.registerResourceOnce.Do(func() {
-		err = rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
+		err = rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
 		if err != nil {
 			log.Errorf("NewTCCServiceProxy RegisterResource error: %#v", err.Error())
 		}

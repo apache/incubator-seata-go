@@ -44,7 +44,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 	applicationData := request.ApplicationData
 	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
-	status, err := rm.GetResourceManagerInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
+	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
 	if err != nil {
 		log.Infof("branch commit error: %s", err.Error())
 		return err

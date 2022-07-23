@@ -66,7 +66,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	var ctx context.Context
 	var rbcProcessor rmBranchCommitProcessor
 
-	rm.GetResourceManagerInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
+	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
 
 	// run tests
 	for _, tc := range tests {
