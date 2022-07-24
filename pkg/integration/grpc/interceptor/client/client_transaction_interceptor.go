@@ -29,6 +29,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// ClientTransactionInterceptor is client interceptor of grpc,
+// it's function is obtain xid in SeataContext,
+// and put it in the http header.
 func ClientTransactionInterceptor(ctx context.Context, method string, req, reply interface{},
 	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	//set the XID when intercepting a client request and release it directly when intercepting a response

@@ -23,6 +23,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/server"
+
 	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/client"
 
 	"google.golang.org/grpc/credentials/insecure"
@@ -56,7 +58,8 @@ func StartServer(t *testing.T) {
 		log.Fatalf("failed to listen: %v", err)
 		t.FailNow()
 	}
-	grpcServer := grpc.NewServer()
+	//inject server interceptor
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(server.ServerTransactionInterceptor))
 	pb.RegisterContextRpcServer(grpcServer, &ContextRpcTestServer{})
 
 	go func() {
@@ -69,7 +72,7 @@ func StartClientWithCall(t *testing.T) {
 
 	conn, err := grpc.Dial("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor))
+		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor)) //inject client interceptor
 	if err != nil {
 		log.Fatalf("dial to server: %v", err)
 		t.FailNow()
@@ -85,7 +88,8 @@ func StartClientWithCall(t *testing.T) {
 		log.Fatalf("call rpc : %v", err)
 		t.FailNow()
 	}
-
+	// if success, the response msg  will contain the xid.
+	log.Info(response.Greet)
 	assert.Equal(t, "receive the name zhangsan, xid is 111111, return greet!", response.Greet)
 
 }

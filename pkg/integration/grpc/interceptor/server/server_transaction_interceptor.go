@@ -29,6 +29,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// ServerTransactionInterceptor is server interceptor of grpc
+// it's function is get xid from grpc http header ,and put it
+// into the context.
 func ServerTransactionInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
