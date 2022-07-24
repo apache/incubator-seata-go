@@ -135,11 +135,23 @@ func (parse *dubbogoRemotingParse) IsRemoting(target interface{}) bool {
 }
 
 func (parse *dubbogoRemotingParse) IsService(target interface{}) bool {
-	return true
+	t := reflect.ValueOf(target)
+	if t.Kind() == reflect.Interface {
+		t = t.Elem()
+	}
+	methodNum := t.NumMethod()
+	fieldNum := t.Elem().NumField()
+	return methodNum == 4 && fieldNum == 0
 }
 
 func (parse *dubbogoRemotingParse) IsReference(target interface{}) bool {
-	return true
+	t := reflect.ValueOf(target)
+	if t.Kind() == reflect.Interface {
+		t = t.Elem()
+	}
+	methodNum := t.NumMethod()
+	fieldNum := t.Elem().NumField()
+	return methodNum == 0 && fieldNum == 4
 }
 
 func (parse dubbogoRemotingParse) GetRemotingType(target interface{}) int {

@@ -57,6 +57,7 @@ func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
 		}
 	}
 	return tccServiceProxy, err
+	return nil, nil
 }
 
 func (t *TCCServiceProxy) RegisterResource() error {
