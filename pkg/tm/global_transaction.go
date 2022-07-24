@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -97,8 +98,11 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	var (
 		err error
 		res interface{}
+		// todo retry and retryInterval should read from config
+		retry         = 10
+		retryInterval = 200 * time.Millisecond
 	)
-	for retry := 5; retry > 0; retry-- {
+	for ; retry > 0; retry-- {
 		req := message.GlobalCommitRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
@@ -107,6 +111,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalCommitRequest error, xid %s, error %v", gtr.Xid, err)
+			time.Sleep(retryInterval)
 		} else {
 			break
 		}
@@ -135,8 +140,11 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	var (
 		err error
 		res interface{}
+		// todo retry and retryInterval should read from config
+		retry         = 10
+		retryInterval = 200 * time.Millisecond
 	)
-	for retry := 5; retry > 0; retry-- {
+	for ; retry > 0; retry-- {
 		req := message.GlobalRollbackRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
@@ -145,18 +153,19 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalRollbackRequest error, xid %s, error %v", gtr.Xid, err)
+			time.Sleep(retryInterval)
 		} else {
 			break
 		}
 	}
-	if err == nil {
-		log.Errorf("GlobalRollbackRequest rollback success, xid %s, error %v", gtr.Xid, err.Error())
-		gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
-		UnbindXid(ctx)
-		return nil
+	if err != nil {
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
+		return err
 	}
-	log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
-	return err
+	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
+	gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
+	UnbindXid(ctx)
+	return nil
 }
 
 // Suspend the global transaction.
