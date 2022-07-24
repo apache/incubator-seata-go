@@ -20,10 +20,11 @@ package server
 import (
 	"context"
 
+	grpc2 "github.com/seata/seata-go/pkg/integration/grpc/constant"
+
 	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

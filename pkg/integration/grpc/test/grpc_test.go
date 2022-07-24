@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package grpc
+package test
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/client"
+
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +51,7 @@ func TestClientHeaderDeliveredToServer(t *testing.T) {
 
 // StartServer to start grpc server
 func StartServer(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 44451))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 50051))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 		t.FailNow()
@@ -63,7 +67,9 @@ func StartServer(t *testing.T) {
 // StartClientWithCall to start grpc client and call server
 func StartClientWithCall(t *testing.T) {
 
-	conn, err := grpc.Dial("localhost:44451")
+	conn, err := grpc.Dial("localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor))
 	if err != nil {
 		log.Fatalf("dial to server: %v", err)
 		t.FailNow()

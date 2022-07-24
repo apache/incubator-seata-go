@@ -21,8 +21,9 @@ import (
 	"context"
 	"time"
 
+	grpc2 "github.com/seata/seata-go/pkg/integration/grpc/constant"
+
 	"github.com/seata/seata-go/pkg/common/log"
-	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"

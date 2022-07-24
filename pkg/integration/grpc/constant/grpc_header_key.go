@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package grpc
+package constant
 
 const (
 	KEY_XID              = "TX_XID"
