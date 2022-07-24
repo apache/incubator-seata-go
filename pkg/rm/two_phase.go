@@ -19,6 +19,7 @@ package rm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -33,15 +34,8 @@ const (
 	TwoPhaseActionRollbackTagVal = "rollback"
 )
 
-var (
-	typError                    = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()).Type()
-	typContext                  = reflect.Zero(reflect.TypeOf((*context.Context)(nil)).Elem()).Type()
-	typBool                     = reflect.Zero(reflect.TypeOf((*bool)(nil)).Elem()).Type()
-	typBusinessContextInterface = reflect.Zero(reflect.TypeOf((*tm.BusinessActionContext)(nil))).Type()
-)
-
 type TwoPhaseInterface interface {
-	Prepare(ctx context.Context, params ...interface{}) (bool, error)
+	Prepare(ctx context.Context, params ...interface{}) (interface{}, error)
 	Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
 	Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
 	GetActionName() string
@@ -56,6 +50,70 @@ type TwoPhaseAction struct {
 	commitMethod       *reflect.Value
 	rollbackMethodName string
 	rollbackMethod     *reflect.Value
+}
+
+func (t *TwoPhaseAction) TwoPhaseService() interface{} {
+	return t.twoPhaseService
+}
+
+func (t *TwoPhaseAction) SetTwoPhaseService(twoPhaseService interface{}) {
+	t.twoPhaseService = twoPhaseService
+}
+
+func (t *TwoPhaseAction) ActionName() string {
+	return t.actionName
+}
+
+func (t *TwoPhaseAction) SetActionName(actionName string) {
+	t.actionName = actionName
+}
+
+func (t *TwoPhaseAction) PrepareMethodName() string {
+	return t.prepareMethodName
+}
+
+func (t *TwoPhaseAction) SetPrepareMethodName(prepareMethodName string) {
+	t.prepareMethodName = prepareMethodName
+}
+
+func (t *TwoPhaseAction) PrepareMethod() *reflect.Value {
+	return t.prepareMethod
+}
+
+func (t *TwoPhaseAction) SetPrepareMethod(prepareMethod *reflect.Value) {
+	t.prepareMethod = prepareMethod
+}
+
+func (t *TwoPhaseAction) CommitMethodName() string {
+	return t.commitMethodName
+}
+
+func (t *TwoPhaseAction) SetCommitMethodName(commitMethodName string) {
+	t.commitMethodName = commitMethodName
+}
+
+func (t *TwoPhaseAction) CommitMethod() *reflect.Value {
+	return t.commitMethod
+}
+
+func (t *TwoPhaseAction) SetCommitMethod(commitMethod *reflect.Value) {
+	t.commitMethod = commitMethod
+}
+
+func (t *TwoPhaseAction) RollbackMethodName() string {
+	return t.rollbackMethodName
+}
+
+func (t *TwoPhaseAction) SetRollbackMethodName(rollbackMethodName string) {
+	t.rollbackMethodName = rollbackMethodName
+}
+
+func (t *TwoPhaseAction) RollbackMethod() *reflect.Value {
+	return t.rollbackMethod
+}
+
+func (t *TwoPhaseAction) SetRollbackMethod(rollbackMethod *reflect.Value) {
+	t.rollbackMethod = rollbackMethod
 }
 
 func (t *TwoPhaseAction) GetTwoPhaseService() interface{} {
@@ -131,7 +189,13 @@ func ParseTwoPhaseAction(v interface{}) (*TwoPhaseAction, error) {
 	if m, ok := v.(TwoPhaseInterface); ok {
 		return parseTwoPhaseActionByTwoPhaseInterface(m), nil
 	}
-	return ParseTwoPhaseActionByInterface(v)
+
+	if res, err := GetDefaultRemotingParser().ParseTwoPhaseActionByInterface(v); err != nil {
+		return nil, err
+	} else if res != nil {
+		return res, nil
+	}
+	return nil, errors.New(fmt.Sprintf("not found remoting parser for %v", v))
 }
 
 func parseTwoPhaseActionByTwoPhaseInterface(v TwoPhaseInterface) *TwoPhaseAction {
@@ -149,167 +213,4 @@ func parseTwoPhaseActionByTwoPhaseInterface(v TwoPhaseInterface) *TwoPhaseAction
 		rollbackMethodName: "Rollback",
 		rollbackMethod:     &mr,
 	}
-}
-
-func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
-	valueOfElem := reflect.ValueOf(v).Elem()
-	typeOf := valueOfElem.Type()
-	k := typeOf.Kind()
-	if k != reflect.Struct {
-		return nil, errors.New("invalid type kind")
-	}
-	numField := typeOf.NumField()
-	if typeOf.Kind() != reflect.Struct {
-		return nil, errors.New("param should be a struct, instead of a pointer")
-	}
-
-	var (
-		hasPrepareMethodName bool
-		hasCommitMethodName  bool
-		hasRollbackMethod    bool
-		twoPhaseName         string
-		result               = TwoPhaseAction{
-			twoPhaseService: v,
-		}
-	)
-	for i := 0; i < numField; i++ {
-		t := typeOf.Field(i)
-		f := valueOfElem.Field(i)
-		if ms, m, ok := getPrepareAction(t, f); ok {
-			hasPrepareMethodName = true
-			result.prepareMethod = m
-			result.prepareMethodName = ms
-		} else if ms, m, ok = getCommitMethod(t, f); ok {
-			hasCommitMethodName = true
-			result.commitMethod = m
-			result.commitMethodName = ms
-		} else if ms, m, ok = getRollbackMethod(t, f); ok {
-			hasRollbackMethod = true
-			result.rollbackMethod = m
-			result.rollbackMethodName = ms
-		}
-	}
-	if !hasPrepareMethodName {
-		return nil, errors.New("missing prepare method")
-	}
-	if !hasCommitMethodName {
-		return nil, errors.New("missing commit method")
-	}
-	if !hasRollbackMethod {
-		return nil, errors.New("missing rollback method")
-	}
-	twoPhaseName = getActionName(v)
-	if twoPhaseName == "" {
-		return nil, errors.New("missing two phase name")
-	}
-	result.actionName = twoPhaseName
-	return &result, nil
-}
-
-func getPrepareAction(t reflect.StructField, f reflect.Value) (string, *reflect.Value, bool) {
-	if t.Tag.Get(TwoPhaseActionTag) != TwoPhaseActionPrepareTagVal {
-		return "", nil, false
-	}
-	if f.Kind() != reflect.Func || !f.IsValid() {
-		return "", nil, false
-	}
-	// prepare has 2 retuen error value
-	if outNum := t.Type.NumOut(); outNum != 2 {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(0); returnType != typBool {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(1); returnType != typError {
-		return "", nil, false
-	}
-	// prepared method has at least 1 params, context.Context, and other params
-	if inNum := t.Type.NumIn(); inNum == 0 {
-		return "", nil, false
-	}
-	if inType := t.Type.In(0); inType != typContext {
-		return "", nil, false
-	}
-	return t.Name, &f, true
-}
-
-func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.Value, bool) {
-	if t.Tag.Get(TwoPhaseActionTag) != TwoPhaseActionCommitTagVal {
-		return "", nil, false
-	}
-	if f.Kind() != reflect.Func || !f.IsValid() {
-		return "", nil, false
-	}
-	// commit method has 2 retuen error value
-	if outNum := t.Type.NumOut(); outNum != 2 {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(0); returnType != typBool {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(1); returnType != typError {
-		return "", nil, false
-	}
-	// commit method has at least 1 params, context.Context, and other params
-	if inNum := t.Type.NumIn(); inNum != 2 {
-		return "", nil, false
-	}
-	if inType := t.Type.In(0); inType != typContext {
-		return "", nil, false
-	}
-	if inType := t.Type.In(1); inType != typBusinessContextInterface {
-		return "", nil, false
-	}
-	return t.Name, &f, true
-
-}
-
-func getRollbackMethod(t reflect.StructField, f reflect.Value) (string, *reflect.Value, bool) {
-	if t.Tag.Get(TwoPhaseActionTag) != TwoPhaseActionRollbackTagVal {
-		return "", nil, false
-	}
-	if f.Kind() != reflect.Func || !f.IsValid() {
-		return "", nil, false
-	}
-	// rollback method has 2 retuen value
-	if outNum := t.Type.NumOut(); outNum != 2 {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(0); returnType != typBool {
-		return "", nil, false
-	}
-	if returnType := t.Type.Out(1); returnType != typError {
-		return "", nil, false
-	}
-	// rollback method has at least 1 params, context.Context, and other params
-	if inNum := t.Type.NumIn(); inNum != 2 {
-		return "", nil, false
-	}
-	if inType := t.Type.In(0); inType != typContext {
-		return "", nil, false
-	}
-	if inType := t.Type.In(1); inType != typBusinessContextInterface {
-		return "", nil, false
-	}
-	return t.Name, &f, true
-}
-
-func getActionName(v interface{}) string {
-	var (
-		actionName  string
-		valueOf     = reflect.ValueOf(v)
-		valueOfElem = valueOf.Elem()
-		typeOf      = valueOfElem.Type()
-	)
-	if typeOf.Kind() != reflect.Struct {
-		return ""
-	}
-	numField := valueOfElem.NumField()
-	for i := 0; i < numField; i++ {
-		t := typeOf.Field(i)
-		if actionName = t.Tag.Get(TwoPhaseActionNameTag); actionName != "" {
-			break
-		}
-	}
-	return actionName
 }
