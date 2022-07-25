@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 func TestParseTwoPhaseActionGetMethodName(t *testing.T) {

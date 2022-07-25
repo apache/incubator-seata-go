@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common/log"
 )
 
@@ -25,19 +26,15 @@ type RemotingParser interface {
 	GetRemotingType(target interface{}) int
 }
 
-var (
-	remotingParseTable = make([]RemotingParser, 0)
-)
-
 func RegisterRemotingParse(parse RemotingParser) {
 	remotingParseTable = append(remotingParseTable, parse)
 }
 
-type DefaultRemotingParser struct {
-}
+type DefaultRemotingParser struct{}
 
 var (
-	once                           = sync.Once{}
+	once                           sync.Once
+	remotingParseTable             = make([]RemotingParser, 0)
 	defaultRemotingParserSingleton *DefaultRemotingParser
 )
 
@@ -59,6 +56,7 @@ func (d *DefaultRemotingParser) IsService(target interface{}) bool {
 	}
 	return false
 }
+
 func (d *DefaultRemotingParser) IsReference(target interface{}) bool {
 	for _, v := range remotingParseTable {
 		if v.IsReference(target) {
@@ -67,6 +65,7 @@ func (d *DefaultRemotingParser) IsReference(target interface{}) bool {
 	}
 	return false
 }
+
 func (d *DefaultRemotingParser) IsRemoting(target interface{}) bool {
 	for _, v := range remotingParseTable {
 		if v.IsRemoting(target) {
@@ -75,6 +74,7 @@ func (d *DefaultRemotingParser) IsRemoting(target interface{}) bool {
 	}
 	return false
 }
+
 func (d *DefaultRemotingParser) ParseService(target interface{}) (*TwoPhaseAction, error) {
 	for _, v := range remotingParseTable {
 		if res, err := v.ParseService(target); err != nil {
@@ -85,6 +85,7 @@ func (d *DefaultRemotingParser) ParseService(target interface{}) (*TwoPhaseActio
 	}
 	return nil, errors.New(fmt.Sprintf("don't find a parser to resolve service %v", target))
 }
+
 func (d *DefaultRemotingParser) ParseReference(target interface{}) (*TwoPhaseAction, error) {
 	for _, v := range remotingParseTable {
 		if res, err := v.ParseReference(target); err != nil {
@@ -95,6 +96,7 @@ func (d *DefaultRemotingParser) ParseReference(target interface{}) (*TwoPhaseAct
 	}
 	return nil, errors.New(fmt.Sprintf("don't find a parser to resolve reference %v", target))
 }
+
 func (d *DefaultRemotingParser) ParseTwoPhaseActionByInterface(target interface{}) (*TwoPhaseAction, error) {
 	for _, v := range remotingParseTable {
 		if res, err := v.ParseTwoPhaseActionByInterface(target); err != nil {
@@ -106,6 +108,7 @@ func (d *DefaultRemotingParser) ParseTwoPhaseActionByInterface(target interface{
 
 	return nil, errors.New(fmt.Sprintf("don't find a parser to resolve two phase action %v", target))
 }
+
 func (d *DefaultRemotingParser) GetRemotingType(target interface{}) int {
 	for _, v := range remotingParseTable {
 		if res := v.GetRemotingType(target); res != RemotingUnknow {
