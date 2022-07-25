@@ -36,7 +36,7 @@ type GlobalTransaction struct {
 }
 
 var (
-	// singleton ResourceManagerFacade
+	// globalTransactionManager singletone ResourceManagerFacade
 	globalTransactionManager     *GlobalTransactionManager
 	onceGlobalTransactionManager = &sync.Once{}
 )
@@ -178,7 +178,7 @@ func (g *GlobalTransactionManager) Resume(suspendedResourcesHolder SuspendedReso
 	panic("implement me")
 }
 
-// report the global transaction status.
+// GlobalReport report the global transaction status.
 func (g *GlobalTransactionManager) GlobalReport(globalStatus message.GlobalStatus) error {
 	panic("implement me")
 }

@@ -79,7 +79,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	return ctx
 }
 
-// commit global transaction
+// CommitOrRollback commit global transaction
 func CommitOrRollback(ctx context.Context, isSuccess bool) error {
 	role := *GetTransactionRole(ctx)
 	if role == PARTICIPANT {
