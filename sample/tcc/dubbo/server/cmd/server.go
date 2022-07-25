@@ -33,7 +33,7 @@ import (
 	"github.com/seata/seata-go/sample/tcc/dubbo/server/service"
 )
 
-// need to setup environment variable "DUBBO_GO_CONFIG_PATH" to "conf/dubbogo.yaml" before run
+// need to setup environment variable "DUBBO_GO_CONFIG_PATH" to "conf/dubbogo.yml" before run
 func main() {
 	integration.UseDubbo()
 	userProviderProxy, err := tcc.NewTCCServiceProxy(&service.UserProvider{})
