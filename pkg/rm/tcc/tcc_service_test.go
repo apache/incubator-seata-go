@@ -19,9 +19,10 @@ package tcc
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTCCServiceProxy_SetReferenceName(t1 *testing.T) {
