@@ -35,7 +35,7 @@ type GlobalTransaction struct {
 }
 
 var (
-	// singletone ResourceManagerFacade
+	// singleton ResourceManagerFacade
 	globalTransactionManager     *GlobalTransactionManager
 	onceGlobalTransactionManager = &sync.Once{}
 )
