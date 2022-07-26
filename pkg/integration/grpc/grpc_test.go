@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package test
+package grpc
 
 import (
 	"context"

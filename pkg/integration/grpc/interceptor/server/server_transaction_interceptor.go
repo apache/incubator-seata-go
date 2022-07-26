@@ -48,7 +48,7 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 		tm.SetXID(ctx, xid)
 		log.Infof("global transaction xid is :%s")
 	} else {
-		log.Errorf("global transaction xid is empty")
+		log.Info("global transaction xid is empty")
 	}
 
 	m, err := handler(ctx, req)
