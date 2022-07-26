@@ -28,13 +28,14 @@ import (
 )
 
 func TestTransactionExecutorBegin(t *testing.T) {
-	tests := []struct {
+	type Test struct {
 		ctx           context.Context
 		name          string
 		xid           string
 		wantHasError  bool
 		wantErrString string
-	}{
+	}
+	gts := []Test{
 		{
 			ctx:           context.Background(),
 			name:          "zhangsan",
@@ -45,18 +46,18 @@ func TestTransactionExecutorBegin(t *testing.T) {
 		// todo other case depend on network service,
 	}
 
-	for _, v := range tests {
+	for _, v := range gts {
 		if v.xid != "" {
 			v.ctx = InitSeataContext(v.ctx)
 			SetXID(v.ctx, v.xid)
 		}
 		Begin(v.ctx, v.name)
-		defer func() {
+		defer func(v Test) {
 			err, ok := recover().(error)
 			if ok && err != nil && v.wantHasError {
 				assert.Equal(t, v.wantErrString, err.Error)
 			}
-		}()
+		}(v)
 	}
 }
 
