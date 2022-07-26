@@ -25,38 +25,30 @@ import (
 
 func TestRegisterRMResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_RegRmResult, RegisterRMResponse{}.GetTypeCode())
-
 }
 
 func TestRegisterTMResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_RegCltResult, RegisterTMResponse{}.GetTypeCode())
-
 }
 
 func TestGlobalReportResponse_GetTypeCode(t *testing.T) {
-
 	assert.Equal(t, MessageType_GlobalReportResult, GlobalReportResponse{}.GetTypeCode())
-
 }
 
 func TestGlobalLockQueryResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalLockQueryResult, GlobalLockQueryResponse{}.GetTypeCode())
-
 }
 
 func TestGlobalRollbackResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalRollbackResult, GlobalRollbackResponse{}.GetTypeCode())
-
 }
 
 func TestGlobalCommitResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalCommitResult, GlobalCommitResponse{}.GetTypeCode())
-
 }
 
 func TestGlobalBeginResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalBeginResult, GlobalBeginResponse{}.GetTypeCode())
-
 }
 
 func TestBranchRollbackResponse_GetTypeCode(t *testing.T) {
@@ -77,5 +69,4 @@ func TestBranchReportResponse_GetTypeCode(t *testing.T) {
 
 func TestGlobalStatusResponse_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalStatusResult, GlobalStatusResponse{}.GetTypeCode())
-
 }

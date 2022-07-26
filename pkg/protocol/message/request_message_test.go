@@ -45,37 +45,30 @@ func TestGlobalBeginRequest_GetTypeCode(t *testing.T) {
 
 func TestGlobalCommitRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalCommit, GlobalCommitRequest{}.GetTypeCode())
-
 }
 
 func TestGlobalRollbackRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalRollback, GlobalRollbackRequest{}.GetTypeCode())
-
 }
 
 func TestGlobalLockQueryRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalLockQuery, GlobalLockQueryRequest{}.GetTypeCode())
-
 }
 
 func TestGlobalReportRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_GlobalReport, GlobalReportRequest{}.GetTypeCode())
-
 }
 
 func TestUndoLogDeleteRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_RmDeleteUndolog, UndoLogDeleteRequest{}.GetTypeCode())
-
 }
 
 func TestRegisterTMRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_RegClt, RegisterTMRequest{}.GetTypeCode())
-
 }
 
 func TestRegisterRMRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageType_RegRm, RegisterRMRequest{}.GetTypeCode())
-
 }
 
 func TestGlobalStatusRequest_GetTypeCode(t *testing.T) {
