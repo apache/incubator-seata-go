@@ -19,9 +19,11 @@ package tm
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 func TestInitSeataContext(t *testing.T) {
@@ -135,8 +137,15 @@ func TestSetXIDCopy(t *testing.T) {
 	SetXIDCopy(ctx, xid)
 	assert.Equal(t, xid,
 		ctx.Value(seataContextVariable).(*ContextVariable).XidCopy)
+	assert.Equal(t, xid, GetXID(ctx))
 }
 
-func TestName(t *testing.T) {
-
+func TestUnbindXid(t *testing.T) {
+	ctx := context.Background()
+	ctx = InitSeataContext(ctx)
+	xid := "12345"
+	SetXID(ctx, xid)
+	assert.NotEmpty(t, GetXID(ctx))
+	UnbindXid(ctx)
+	assert.Empty(t, GetXID(ctx))
 }

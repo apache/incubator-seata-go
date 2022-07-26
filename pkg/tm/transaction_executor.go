@@ -34,11 +34,6 @@ type TransactionInfo struct {
 	LockRetryTimes    int64
 }
 
-type TransactionalExecutor interface {
-	Execute(ctx context.Context, param interface{}) (interface{}, error)
-	GetTransactionInfo() TransactionInfo
-}
-
 func Begin(ctx context.Context, name string) context.Context {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
@@ -63,7 +58,6 @@ func Begin(ctx context.Context, name string) context.Context {
 
 	if tx == nil {
 		tx = &GlobalTransaction{
-			Xid:    GetXID(ctx),
 			Status: message.GlobalStatusUnKnown,
 			Role:   LAUNCHER,
 		}

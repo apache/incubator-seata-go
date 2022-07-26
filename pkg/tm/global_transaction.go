@@ -36,7 +36,7 @@ type GlobalTransaction struct {
 }
 
 var (
-	// globalTransactionManager singletone ResourceManagerFacade
+	// globalTransactionManager singleton ResourceManagerFacade
 	globalTransactionManager     *GlobalTransactionManager
 	onceGlobalTransactionManager = &sync.Once{}
 )
@@ -87,7 +87,7 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
 	if gtr.Role != LAUNCHER {
-		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
+		log.Infof("Ignore Commit(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
 	if gtr.Xid == "" {
@@ -129,11 +129,11 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 // Rollback the global transaction.
 func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTransaction) error {
 	if gtr.Role != LAUNCHER {
-		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
+		log.Infof("Ignore Rollback(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
 	if gtr.Xid == "" {
-		return errors.New("Commit xid should not be empty")
+		return errors.New("Rollback xid should not be empty")
 	}
 
 	// todo: replace retry with config
