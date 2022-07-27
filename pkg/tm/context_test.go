@@ -27,40 +27,34 @@ import (
 )
 
 func TestInitSeataContext(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	assert.NotNil(t, ctx.Value(seataContextVariable))
 }
 
 func TestSetTxStatus(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	assert.Equal(t, message.GlobalStatusBegin,
 		*(ctx.Value(seataContextVariable).(*ContextVariable).TxStatus))
 }
 
 func TestGetTxStatus(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
 }
 
 func TestSetTxName(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTxName(ctx, "GlobalTransaction")
 	assert.Equal(t, "GlobalTransaction",
 		ctx.Value(seataContextVariable).(*ContextVariable).TxName)
 }
 
 func TestGetTxName(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTxName(ctx, "GlobalTransaction")
-	assert.Equal(t, "GlobalTransaction",
-		GetTxName(ctx))
+	assert.Equal(t, "GlobalTransaction", GetTxName(ctx))
 }
 
 func TestIsSeataContext(t *testing.T) {
@@ -72,8 +66,7 @@ func TestIsSeataContext(t *testing.T) {
 
 func TestSetBusinessActionContext(t *testing.T) {
 	bac := &BusinessActionContext{}
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetBusinessActionContext(ctx, bac)
 	assert.Equal(t, bac,
 		ctx.Value(seataContextVariable).(*ContextVariable).BusinessActionContext)
@@ -81,31 +74,27 @@ func TestSetBusinessActionContext(t *testing.T) {
 
 func TestGetBusinessActionContext(t *testing.T) {
 	bac := &BusinessActionContext{}
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetBusinessActionContext(ctx, bac)
 	assert.Equal(t, bac, GetBusinessActionContext(ctx))
 }
 
 func TestSetTransactionRole(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTransactionRole(ctx, LAUNCHER)
 	assert.Equal(t, LAUNCHER,
 		*(ctx.Value(seataContextVariable).(*ContextVariable).TxRole))
 }
 
 func TestGetTransactionRole(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	SetTransactionRole(ctx, LAUNCHER)
 	assert.Equal(t, LAUNCHER,
 		*GetTransactionRole(ctx))
 }
 
 func TestSetXID(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	xid := "12345"
 	SetXID(ctx, xid)
 	assert.Equal(t, xid,
@@ -113,8 +102,7 @@ func TestSetXID(t *testing.T) {
 }
 
 func TestGetXID(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	xid := "12345"
 	SetXID(ctx, xid)
 	assert.Equal(t, xid,
@@ -122,8 +110,7 @@ func TestGetXID(t *testing.T) {
 }
 
 func TestIsTransactionOpened(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	assert.False(t, IsTransactionOpened(ctx))
 	xid := "12345"
 	SetXID(ctx, xid)
@@ -131,8 +118,7 @@ func TestIsTransactionOpened(t *testing.T) {
 }
 
 func TestSetXIDCopy(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	xid := "12345"
 	SetXIDCopy(ctx, xid)
 	assert.Equal(t, xid,
@@ -141,11 +127,10 @@ func TestSetXIDCopy(t *testing.T) {
 }
 
 func TestUnbindXid(t *testing.T) {
-	ctx := context.Background()
-	ctx = InitSeataContext(ctx)
+	ctx := InitSeataContext(context.Background())
 	xid := "12345"
 	SetXID(ctx, xid)
-	assert.NotEmpty(t, GetXID(ctx))
+	assert.Equal(t, xid, GetXID(ctx))
 	UnbindXid(ctx)
 	assert.Empty(t, GetXID(ctx))
 }

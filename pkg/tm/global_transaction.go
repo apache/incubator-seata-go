@@ -60,7 +60,8 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 		return nil
 	}
 	if gtr.Xid != "" {
-		return errors.New(fmt.Sprintf("Global transaction already exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid))
+		return errors.New(fmt.Sprintf("Global transaction already "+
+			"exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid))
 	}
 
 	req := message.GlobalBeginRequest{
@@ -69,12 +70,12 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 	}
 	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
 	if err != nil {
-		log.Errorf("GlobalBeginRequest error, xid %s, error %v", gtr.Xid, err)
+		log.Errorf("GlobalBeginRequest  error %v", err)
 		return err
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
-		log.Errorf("GlobalBeginRequest error, xid %s, res %v", gtr.Xid, res)
-		return err
+		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
+		return errors.New("GlobalBeginRequest result is empty or result code is failed.")
 	}
 	log.Infof("GlobalBeginRequest success, xid %s, res %v", gtr.Xid, res)
 
@@ -101,13 +102,13 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		// todo retry and retryInterval should read from config
 		retry         = 10
 		retryInterval = 200 * time.Millisecond
-	)
-	for ; retry > 0; retry-- {
-		req := message.GlobalCommitRequest{
+		req = message.GlobalCommitRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},
 		}
+	)
+	for ; retry > 0; retry-- {
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalCommitRequest error, xid %s, error %v", gtr.Xid, err)
@@ -143,13 +144,13 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		// todo retry and retryInterval should read from config
 		retry         = 10
 		retryInterval = 200 * time.Millisecond
-	)
-	for ; retry > 0; retry-- {
-		req := message.GlobalRollbackRequest{
+		req = message.GlobalRollbackRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},
 		}
+	)
+	for ; retry > 0; retry-- {
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalRollbackRequest error, xid %s, error %v", gtr.Xid, err)
