@@ -30,13 +30,6 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-//func NewGettyRemotingClientStub(methodName string, mockMethod interface{}) {
-//	gettyClient := getty.GetGettyRemotingClient()
-//	SendAsyncRequestStub := gomonkey.ApplyMethod(reflect.TypeOf(gettyClient), methodName, mockMethod)
-//	defer SendAsyncRequestStub.Reset()
-//	t.Log(gettyClient.SendAsyncRequest(nil).Error())
-//}
-
 func TestBegin(t *testing.T) {
 	gts := []struct {
 		globalTransaction  GlobalTransaction

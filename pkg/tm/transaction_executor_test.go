@@ -19,14 +19,14 @@ package tm
 
 import (
 	"context"
-	"github.com/agiledragon/gomonkey"
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/protocol/message"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 func TestTransactionExecutorBegin(t *testing.T) {
