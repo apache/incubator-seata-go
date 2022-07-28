@@ -4,7 +4,7 @@
 [![Build Status](https://github.com/seata/seata/workflows/build/badge.svg?branch=develop)](https://github.com/seata/seata/actions)
 [![license](https://img.shields.io/github/license/seata/seata.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-[English 🇺🇸](./README.md)
+[English US](./README.md)
 
 ## 什么是 seata-go？
 
