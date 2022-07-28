@@ -170,9 +170,9 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branc
 
 	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
-		return branch.BranchStatusPhasetwoRollbacked, err
+		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
-	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
+	return branch.BranchStatusPhasetwoRollbacked, err
 }
 
 func (t *TCCResourceManager) GetBranchType() branch.BranchType {
