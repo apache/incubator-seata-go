@@ -103,7 +103,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		// todo retry and retryInterval should read from config
 		retry         = 10
 		retryInterval = 200 * time.Millisecond
-		req = message.GlobalCommitRequest{
+		req           = message.GlobalCommitRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},
@@ -145,7 +145,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		// todo retry and retryInterval should read from config
 		retry         = 10
 		retryInterval = 200 * time.Millisecond
-		req = message.GlobalRollbackRequest{
+		req           = message.GlobalRollbackRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},

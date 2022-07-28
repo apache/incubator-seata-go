@@ -100,8 +100,7 @@ func TestTransactionExecutorCommit(t *testing.T) {
 	SetTransactionRole(ctx, LAUNCHER)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	var err error = nil
-	assert.Equal(t, "Commit xid should not be empty", CommitOrRollback(ctx, &err).Error())
+	assert.Equal(t, "Commit xid should not be empty", CommitOrRollback(ctx, true).Error())
 }
 
 func TestTransactionExecurotRollback(t *testing.T) {
@@ -110,7 +109,6 @@ func TestTransactionExecurotRollback(t *testing.T) {
 	SetTransactionRole(ctx, LAUNCHER)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	errExpect := errors.New("rollback error")
-	errActual := CommitOrRollback(ctx, &errExpect)
+	errActual := CommitOrRollback(ctx, false)
 	assert.Equal(t, "Rollback xid should not be empty", errActual.Error())
 }
