@@ -43,7 +43,7 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: 1.16
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -53,4 +53,3 @@ jobs:
         with:
           version: v1.44.2
           args: --timeout=10m
-          skip-go-installation: true
