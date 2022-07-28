@@ -61,8 +61,8 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 		return nil
 	}
 	if gtr.Xid != "" {
-		return errors.New(fmt.Sprintf("Global transaction already "+
-			"exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid))
+		return fmt.Errorf("Global transaction already "+
+			"exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid)
 	}
 
 	req := message.GlobalBeginRequest{
