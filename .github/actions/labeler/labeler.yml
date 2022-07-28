@@ -15,36 +15,57 @@
 # limitations under the License.
 #
 
-# This is a workflow to help you test the unit case
+coding:
+  - 'pkg/**/*'
+  - 'sample/**/*'
+  - 'test/**/*'
+  - 'cmd/**/*'
 
-name: Unit Test
+# directory .github
+ci/cd:
+  - any: ['.github/**/*']
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: "*"
+# directory sample
+sample:
+  - any: ['sample/**/*']
 
-jobs:
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.16
-    steps:
-      - name: Set Up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
+test:
+  - any: ['test/**/*','testdata/**/*']
 
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: "Checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+# directory cmd
+cmd:
+  - any: ['cmd/**/*']
 
-      - name: Build
-        run: go build -v ./...
+# directory changes
+milestone:
+  - any: ['changes/**/*']
 
-      - name: Test
-        run: go test -v ./...
+
+# directory pkg
+common:
+  - any: ['pkg/common/**/*']
+
+config:
+  - any: ['pkg/config/**/*']
+
+imports:
+  - any: ['pkg/imports/**/*']
+
+integration:
+  - any: ['pkg/integration/**/*']
+
+protocol:
+  - any: ['pkg/protocol/**/*']
+
+remoting:
+  - any: ['pkg/remoting/**/*']
+
+rm:
+  - any: ['pkg/rm/**/*']
+
+tc:
+  - any: ['pkg/tc/**/*']
+
+tm:
+  - any: ['pkg/tm/**/*']
+
