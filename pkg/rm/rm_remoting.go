@@ -86,7 +86,7 @@ func (r *RMRemoting) RegisterResource(resource Resource) error {
 	req := message.RegisterRMRequest{
 		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			//todo replace with config
-			Version:                 "1.4.2",
+			Version:                 "1.5.2",
 			ApplicationId:           "tcc-sample",
 			TransactionServiceGroup: "my_test_tx_group",
 		},

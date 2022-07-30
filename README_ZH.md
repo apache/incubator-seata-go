@@ -32,7 +32,13 @@ Seata-go 的原理和 Seata-java 保持一致，都是由 TM、RM 和 TC 组成�
 
 ## 如何运行项目？
 
-1. 首先下载 [**Seata Java**](https://github.com/seata/seata/tree/v1.5.2) 的源码，启动 TC 服务即可，具体流程参考 **[Seata部署指南](https://seata.io/zh-cn/docs/ops/deploy-guide-beginner.ht)**文档
+1. 用 sample/dockercomposer 文件夹下的 docker 文件启动 seata-server 服务
+
+    ~~~shell
+    cd sample/dockercompose
+    docker-compose -f docker-compose.yml up -d seata-server
+    ~~~
+
 2. 执行根目录下的 samples/ 下的 main 函数即可
 
 
