@@ -71,13 +71,13 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 	}
 
 	var ctx context.Context
-	var chbProcessor clientHeartBeatProcessor
+	var chbProcessor ClientHeartBeatProcessor
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := chbProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("clientHeartBeatProcessor wantErr: %v, got: %v", tc.wantErr, err)
+				t.Errorf("ClientHeartBeatProcessor wantErr: %v, got: %v", tc.wantErr, err)
 				return
 			}
 		})

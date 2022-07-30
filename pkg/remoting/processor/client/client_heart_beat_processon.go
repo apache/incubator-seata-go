@@ -23,16 +23,12 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func init() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_HeartbeatMsg, &clientHeartBeatProcessor{})
-}
+type ClientHeartBeatProcessor struct{}
 
-type clientHeartBeatProcessor struct{}
-
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
+// Process process heart beat message
+func (f *ClientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
 		if !msg.Ping {
 			log.Debug("received PONG from {}", ctx)

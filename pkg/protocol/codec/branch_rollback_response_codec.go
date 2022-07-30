@@ -26,10 +26,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRollbackResponseCodec{})
-}
-
 type BranchRollbackResponseCodec struct {
 }
 

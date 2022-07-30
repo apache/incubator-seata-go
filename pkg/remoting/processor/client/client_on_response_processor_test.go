@@ -95,13 +95,13 @@ func TestClientOnResponseProcessor(t *testing.T) {
 	}
 
 	var ctx context.Context
-	var corProcessor clientOnResponseProcessor
+	var corProcessor ClientOnResponseProcessor
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := corProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("clientOnResponseProcessor wantErr: %v, got: %v", tc.wantErr, err)
+				t.Errorf("ClientOnResponseProcessor wantErr: %v, got: %v", tc.wantErr, err)
 				return
 			}
 		})

@@ -64,7 +64,7 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 	}
 
 	var ctx context.Context
-	var rbrProcessor rmBranchRollbackProcessor
+	var rbrProcessor RmBranchRollbackProcessor
 
 	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
 
@@ -73,7 +73,7 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := rbrProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("rmBranchRollbackProcessor wantErr: %v, got: %v", tc.wantErr, err)
+				t.Errorf("RmBranchRollbackProcessor wantErr: %v, got: %v", tc.wantErr, err)
 				return
 			}
 		})

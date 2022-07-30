@@ -26,26 +26,11 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func init() {
-	clientOnResponseProcessor := &clientOnResponseProcessor{}
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_SeataMergeResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchRegisterResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchStatusReportResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalLockQueryResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_RegRmResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalBeginResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalCommitResult, clientOnResponseProcessor)
-
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalReportResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalRollbackResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_GlobalStatusResult, clientOnResponseProcessor)
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_RegCltResult, clientOnResponseProcessor)
+type ClientOnResponseProcessor struct {
 }
 
-type clientOnResponseProcessor struct {
-}
-
-func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
+// Process process client on response message
+func (f *ClientOnResponseProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	log.Infof("the rm client received  clientOnResponse msg %#v from tc server.", rpcMessage)
 	if mergedResult, ok := rpcMessage.Body.(message.MergeResultMessage); ok {
 		mergedMessage := getty.GetGettyRemotingInstance().GetMergedMessage(rpcMessage.ID)

@@ -17,22 +17,40 @@
 
 package codec
 
-//func init() {
-//	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportRequestCodec{})
-//}
-//
-//type GlobalReportRequestCodec struct {
-//	CommonGlobalEndRequestCodec
-//}
-//
-//func (g *GlobalReportRequestCodec) Decode(in []byte) interface{} {
-//	req := g.CommonGlobalEndRequestCodec.Decode(in)
-//	abstractGlobalEndRequest := req.(message.AbstractGlobalEndRequest)
-//	return message.GlobalCommitRequest{
-//		AbstractGlobalEndRequest: abstractGlobalEndRequest,
-//	}
-//}
-//
-//func (g *GlobalReportRequestCodec) GetMessageType() message.MessageType {
-//	return message.MessageType_GlobalCommit
-//}
+import (
+	"github.com/seata/seata-go/pkg/common/bytes"
+	"github.com/seata/seata-go/pkg/protocol/message"
+)
+
+type GlobalReportRequestCodec struct {
+	CommonGlobalEndRequestCodec
+}
+
+// Decode decode global report request
+func (g *GlobalReportRequestCodec) Decode(in []byte) interface{} {
+	data := message.AbstractGlobalEndRequest{}
+	buf := bytes.NewByteBuffer(in)
+
+	data.Xid = bytes.ReadString16Length(buf)
+	data.ExtraData = []byte(bytes.ReadString16Length(buf))
+	status := bytes.ReadByte(buf)
+
+	return message.GlobalReportRequest{
+		AbstractGlobalEndRequest: data,
+		GlobalStatus:             message.GlobalStatus(status),
+	}
+}
+
+// Encode encode global report request
+func (g *GlobalReportRequestCodec) Encode(in interface{}) []byte {
+	req := in.(message.GlobalReportRequest)
+	b := g.CommonGlobalEndRequestCodec.Encode(req.AbstractGlobalEndRequest)
+	buf := bytes.NewByteBuffer(b)
+	buf.WriteByte(byte(req.GlobalStatus))
+	return buf.Bytes()
+}
+
+// GetMessageType get global report request's message type
+func (g *GlobalReportRequestCodec) GetMessageType() message.MessageType {
+	return message.MessageType_GlobalReportResult
+}

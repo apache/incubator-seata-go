@@ -27,15 +27,11 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-func init() {
-	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchCommit, rmBranchCommitProcessor)
+type RmBranchCommitProcessor struct {
 }
 
-type rmBranchCommitProcessor struct {
-}
-
-func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
+// Process process rm branch commit message
+func (f *RmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	log.Infof("the rm client received  rmBranchCommit msg %#v from tc server.", rpcMessage)
 	request := rpcMessage.Body.(message.BranchCommitRequest)
 	xid := request.Xid

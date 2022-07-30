@@ -26,6 +26,7 @@ import (
 )
 
 func TestRpcPackageHandler(t *testing.T) {
+	codec.GetCodecManager().RegisterCodec(codec.CodecTypeSeata, &codec.GlobalBeginRequestCodec{})
 	msg := message.RpcMessage{
 		ID:         1123,
 		Type:       message.GettyRequestType_RequestSync,

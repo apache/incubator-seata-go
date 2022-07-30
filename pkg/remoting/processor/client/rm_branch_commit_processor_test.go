@@ -64,7 +64,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	}
 
 	var ctx context.Context
-	var rbcProcessor rmBranchCommitProcessor
+	var rbcProcessor RmBranchCommitProcessor
 
 	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
 
@@ -73,7 +73,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := rbcProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("rmBranchCommitProcessor wantErr: %v, got: %v", tc.wantErr, err)
+				t.Errorf("RmBranchCommitProcessor wantErr: %v, got: %v", tc.wantErr, err)
 				return
 			}
 		})
