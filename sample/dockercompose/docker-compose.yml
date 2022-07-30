@@ -15,18 +15,19 @@
 # limitations under the License.
 #
 
-# dubbo client yaml configure file
-dubbo:
-  registries:
-    demoZK:
-      protocol: zookeeper
-      address: 127.0.0.1:2181
-  consumer:
-    filter: seataDubboFilter
-    references:
-      UserProvider:
-        protocol: dubbo
-        interface: com.github.seata.sample.UserProvider
-  logger:
-    zap-config:
-      level: info
+version: '3'
+services:
+  seata-server:
+    image: seataio/seata-server:1.5.2
+    ports:
+      - "8091:8091"
+      - "7091:7091"
+    environment:
+      - SEATA_PORT=8091
+      - STORE_MODE=file
+
+  zookeeper:
+    image: zookeeper
+    ports:
+      - "2181:2181"
+    restart: on-failure
