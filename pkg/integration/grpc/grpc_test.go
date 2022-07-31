@@ -23,18 +23,15 @@ import (
 	"net"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/server"
-
-	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/client"
-
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/client"
+	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/server"
 	"github.com/seata/seata-go/pkg/integration/grpc/pb"
-	"google.golang.org/grpc"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 type ContextRpcTestServer struct {
