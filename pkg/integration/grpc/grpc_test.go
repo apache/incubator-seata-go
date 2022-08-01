@@ -23,12 +23,13 @@ import (
 	"net"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/integration/grpc/pb"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/integration/grpc/pb"
 	"github.com/seata/seata-go/pkg/tm"
 )
 

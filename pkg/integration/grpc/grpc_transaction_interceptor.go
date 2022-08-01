@@ -49,3 +49,32 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 		start.Format("Basic"), end.Format(time.RFC3339), err)
 	return err
 }
+
+// ServerTransactionInterceptor is server interceptor of grpc
+// it's function is get xid from grpc http header ,and put it
+// into the context.
+func ServerTransactionInterceptor(ctx context.Context, req interface{},
+	_ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		log.Errorf("missing grpc metadata")
+	}
+	xid := md.Get(common.GrpcHeaderKey)[0]
+	if xid == "" {
+		xid = md.Get(common.GrpcHeaderKeyLowercase)[0]
+
+	}
+	if xid != "" {
+		ctx = tm.InitSeataContext(ctx)
+		tm.SetXID(ctx, xid)
+		log.Infof("global transaction xid is :%s")
+	} else {
+		log.Info("global transaction xid is empty")
+	}
+
+	m, err := handler(ctx, req)
+	if err != nil {
+		log.Errorf("RPC failed with error %v", err)
+	}
+	return m, err
+}
