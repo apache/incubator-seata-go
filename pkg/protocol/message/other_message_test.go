@@ -25,7 +25,7 @@ import (
 
 func TestNewMessageFuture(t *testing.T) {
 	rpcMessage := RpcMessage{ID: 0}
-	assert.Equal(t, 0, NewMessageFuture(rpcMessage).ID)
+	assert.Equal(t, int32(0), NewMessageFuture(rpcMessage).ID)
 }
 
 func TestHeartBeatMessage_ToString(t *testing.T) {
