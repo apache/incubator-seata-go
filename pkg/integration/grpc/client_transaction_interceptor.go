@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package client
+package grpc
 
 import (
 	"context"
 	"time"
 
-	grpc2 "github.com/seata/seata-go/pkg/integration/grpc/constant"
-
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/tm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 // ClientTransactionInterceptor is client interceptor of grpc,
@@ -38,7 +38,7 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	if tm.IsSeataContext(ctx) {
 		xid := tm.GetXID(ctx)
 		header := make(map[string]string)
-		header[grpc2.HEADER_KEY] = xid
+		header[common.GrpcHeaderKey] = xid
 		ctx = metadata.NewOutgoingContext(ctx, metadata.New(header))
 	}
 

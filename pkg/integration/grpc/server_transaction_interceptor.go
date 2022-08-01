@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package server
+package grpc
 
 import (
 	"context"
 
-	grpc2 "github.com/seata/seata-go/pkg/integration/grpc/constant"
-
-	"github.com/seata/seata-go/pkg/tm"
-
-	"github.com/seata/seata-go/pkg/common/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 // ServerTransactionInterceptor is server interceptor of grpc
@@ -38,9 +37,9 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 	if !ok {
 		log.Errorf("missing grpc metadata")
 	}
-	xid := md.Get(grpc2.HEADER_KEY)[0]
+	xid := md.Get(common.GrpcHeaderKey)[0]
 	if xid == "" {
-		xid = md.Get(grpc2.HEADER_KEY_LOWERCASE)[0]
+		xid = md.Get(common.GrpcHeaderKeyLowercase)[0]
 
 	}
 	if xid != "" {

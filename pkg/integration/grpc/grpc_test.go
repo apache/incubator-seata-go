@@ -28,8 +28,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/client"
-	"github.com/seata/seata-go/pkg/integration/grpc/interceptor/server"
 	"github.com/seata/seata-go/pkg/integration/grpc/pb"
 	"github.com/seata/seata-go/pkg/tm"
 )
@@ -56,7 +54,7 @@ func StartServer(t *testing.T) {
 		t.FailNow()
 	}
 	//inject server interceptor
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(server.ServerTransactionInterceptor))
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(ServerTransactionInterceptor))
 	pb.RegisterContextRpcServer(grpcServer, &ContextRpcTestServer{})
 
 	go func() {
@@ -69,7 +67,7 @@ func StartClientWithCall(t *testing.T) {
 
 	conn, err := grpc.Dial("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor)) //inject client interceptor
+		grpc.WithUnaryInterceptor(ClientTransactionInterceptor)) //inject client interceptor
 	if err != nil {
 		log.Fatalf("dial to server: %v", err)
 		t.FailNow()
