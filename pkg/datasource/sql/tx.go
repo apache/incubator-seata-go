@@ -18,12 +18,19 @@
 package sql
 
 import (
+	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go-datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go-datasource/sql/types"
 	"github.com/seata/seata-go-datasource/sql/undo"
 )
+
+const REPORT_RETRY_COUNT = 5
 
 type txOption func(tx *Tx)
 
@@ -144,18 +151,65 @@ func (tx *Tx) commitOnAT() error {
 }
 
 // regis
-// TODO
 func (tx *Tx) regis(ctx *types.TransactionContext) error {
 	if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 		return nil
 	}
-
+	lockKey := ""
+	for _, v := range ctx.LockKeys {
+		lockKey += v + ";"
+	}
+	request := message.BranchRegisterRequest{
+		Xid:             ctx.XaID,
+		BranchType:      branch.BranchType(ctx.TransType),
+		ResourceId:      ctx.ResourceID,
+		LockKey:         lockKey,
+		ApplicationData: nil,
+	}
+	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(ctx.TransType))
+	branchId, err := dataSourceManager.BranchRegister(context.Background(), "", request)
+	if err != nil {
+		log.Infof("Failed to report branch status: %s", err.Error())
+		return err
+	}
+	ctx.BranchID = uint64(branchId)
 	return nil
 }
 
 // report
-// TODO
 func (tx *Tx) report(success bool) error {
-
+	if tx.ctx.BranchID == 0 {
+		return nil
+	}
+	status := getStatus(success)
+	request := message.BranchReportRequest{
+		Xid:        tx.ctx.XaID,
+		BranchId:   int64(tx.ctx.BranchID),
+		ResourceId: tx.ctx.ResourceID,
+		Status:     status,
+	}
+	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(tx.ctx.TransType))
+	retry := REPORT_RETRY_COUNT
+	for retry > 0 {
+		err := dataSourceManager.BranchReport(context.Background(), request)
+		if err != nil {
+			retry--
+			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.ctx.BranchID, tx.ctx.XaID, success, retry)
+			if retry == 0 {
+				log.Infof("Failed to report branch status: %s", err.Error())
+				return err
+			}
+		} else {
+			return nil
+		}
+	}
 	return nil
+}
+
+func getStatus(success bool) branch.BranchStatus {
+	if success {
+		return branch.BranchStatusPhaseoneDone
+	} else {
+		return branch.BranchStatusPhaseoneFailed
+	}
 }
