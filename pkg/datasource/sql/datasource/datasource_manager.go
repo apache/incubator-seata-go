@@ -140,6 +140,10 @@ func (dm *BasicSourceManager) LockQuery(ctx context.Context, branchType branch.B
 
 // Register a   model.Resource to be managed by   model.Resource Manager
 func (dm *BasicSourceManager) RegisterResource(resource resource.Resource) error {
+	err := rm.GetRMRemotingInstance().RegisterResource(resource)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
