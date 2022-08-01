@@ -12,7 +12,6 @@ require (
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/tools v0.1.11 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
