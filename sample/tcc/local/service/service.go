@@ -57,7 +57,7 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 	return tccService
 }
 
-func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
 	return true, nil
 }
@@ -97,7 +97,7 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 	return tccService2
 }
 
-func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	log.Infof("TestTCCServiceBusiness2 Prepare, param %v", params)
 	return true, nil
 }

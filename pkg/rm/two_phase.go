@@ -37,11 +37,11 @@ var (
 	typError                    = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()).Type()
 	typContext                  = reflect.Zero(reflect.TypeOf((*context.Context)(nil)).Elem()).Type()
 	typBool                     = reflect.Zero(reflect.TypeOf((*bool)(nil)).Elem()).Type()
-	typBusinessContextInterface = reflect.Zero(reflect.TypeOf((*tm.BusinessActionContext)(nil))).Type()
+	TypBusinessContextInterface = reflect.Zero(reflect.TypeOf((*tm.BusinessActionContext)(nil))).Type()
 )
 
 type TwoPhaseInterface interface {
-	Prepare(ctx context.Context, params ...interface{}) (bool, error)
+	Prepare(ctx context.Context, params interface{}) (bool, error)
 	Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
 	Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error)
 	GetActionName() string
@@ -49,12 +49,12 @@ type TwoPhaseInterface interface {
 
 type TwoPhaseAction struct {
 	twoPhaseService    interface{}
-	actionName         string
-	prepareMethodName  string
+	ActionName         string
+	PrepareMethodName  string
 	prepareMethod      *reflect.Value
-	commitMethodName   string
+	CommitMethodName   string
 	commitMethod       *reflect.Value
-	rollbackMethodName string
+	RollbackMethodName string
 	rollbackMethod     *reflect.Value
 }
 
@@ -62,12 +62,8 @@ func (t *TwoPhaseAction) GetTwoPhaseService() interface{} {
 	return t.twoPhaseService
 }
 
-func (t *TwoPhaseAction) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
-	values := make([]reflect.Value, 0, len(params))
-	values = append(values, reflect.ValueOf(ctx))
-	for _, param := range params {
-		values = append(values, reflect.ValueOf(param))
-	}
+func (t *TwoPhaseAction) Prepare(ctx context.Context, params interface{}) (bool, error) {
+	values := []reflect.Value{reflect.ValueOf(params)}
 	res := t.prepareMethod.Call(values)
 	var (
 		r0   = res[0].Interface()
@@ -119,7 +115,7 @@ func (t *TwoPhaseAction) Rollback(ctx context.Context, businessActionContext *tm
 }
 
 func (t *TwoPhaseAction) GetActionName() string {
-	return t.actionName
+	return t.ActionName
 }
 
 func IsTwoPhaseAction(v interface{}) bool {
@@ -141,12 +137,12 @@ func parseTwoPhaseActionByTwoPhaseInterface(v TwoPhaseInterface) *TwoPhaseAction
 	mr := value.MethodByName("Rollback")
 	return &TwoPhaseAction{
 		twoPhaseService:    v,
-		actionName:         v.GetActionName(),
-		prepareMethodName:  "Prepare",
+		ActionName:         v.GetActionName(),
+		PrepareMethodName:  "Prepare",
 		prepareMethod:      &mp,
-		commitMethodName:   "Commit",
+		CommitMethodName:   "Commit",
 		commitMethod:       &mc,
-		rollbackMethodName: "Rollback",
+		RollbackMethodName: "Rollback",
 		rollbackMethod:     &mr,
 	}
 }
@@ -178,15 +174,15 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 		if ms, m, ok := getPrepareAction(t, f); ok {
 			hasPrepareMethodName = true
 			result.prepareMethod = m
-			result.prepareMethodName = ms
+			result.PrepareMethodName = ms
 		} else if ms, m, ok = getCommitMethod(t, f); ok {
 			hasCommitMethodName = true
 			result.commitMethod = m
-			result.commitMethodName = ms
+			result.CommitMethodName = ms
 		} else if ms, m, ok = getRollbackMethod(t, f); ok {
 			hasRollbackMethod = true
 			result.rollbackMethod = m
-			result.rollbackMethodName = ms
+			result.RollbackMethodName = ms
 		}
 	}
 	if !hasPrepareMethodName {
@@ -202,7 +198,7 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 	if twoPhaseName == "" {
 		return nil, errors.New("missing two phase name")
 	}
-	result.actionName = twoPhaseName
+	result.ActionName = twoPhaseName
 	return &result, nil
 }
 
@@ -257,7 +253,7 @@ func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.V
 	if inType := t.Type.In(0); inType != typContext {
 		return "", nil, false
 	}
-	if inType := t.Type.In(1); inType != typBusinessContextInterface {
+	if inType := t.Type.In(1); inType != TypBusinessContextInterface {
 		return "", nil, false
 	}
 	return t.Name, &f, true
@@ -288,7 +284,7 @@ func getRollbackMethod(t reflect.StructField, f reflect.Value) (string, *reflect
 	if inType := t.Type.In(0); inType != typContext {
 		return "", nil, false
 	}
-	if inType := t.Type.In(1); inType != typBusinessContextInterface {
+	if inType := t.Type.In(1); inType != TypBusinessContextInterface {
 		return "", nil, false
 	}
 	return t.Name, &f, true

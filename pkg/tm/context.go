@@ -31,17 +31,18 @@ const (
 )
 
 type BusinessActionContext struct {
-	Xid           string
-	BranchId      int64
-	ActionName    string
-	ActionContext map[string]interface{}
+	Xid           string                 `json:"xid"`
+	BranchId      int64                  `json:"branchId"`
+	ActionName    string                 `json:"actionName"`
+	IsDelayReport bool                   `json:"isDelayReport"`
+	IsUpdated     bool                   `json:"isUpdated"`
+	ActionContext map[string]interface{} `json:"actionContext"`
 }
 
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
-	Status                *message.GlobalStatus
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
