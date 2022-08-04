@@ -97,9 +97,8 @@ func (t *TCCResourceManager) BranchRegister(ctx context.Context, branchType bran
 	return t.rmRemoting.BranchRegister(branch.BranchTypeTCC, resourceId, clientId, xid, applicationData, lockKeys)
 }
 
-func (t *TCCResourceManager) BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	//TODO implement me
-	panic("implement me")
+func (t *TCCResourceManager) BranchReport(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+	return t.rmRemoting.BranchReport(branchType, xid, branchId, status, applicationData)
 }
 
 func (t *TCCResourceManager) LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {

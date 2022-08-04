@@ -18,6 +18,7 @@
 package rm
 
 import (
+	"github.com/pkg/errors"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/protocol/resource"
@@ -31,6 +32,10 @@ import (
 var (
 	rmRemoting        *RMRemoting
 	onceGettyRemoting = &sync.Once{}
+)
+
+var (
+	ErrBranchReportResponseFault = errors.New("branch report response fault")
 )
 
 func GetRMRemotingInstance() *RMRemoting {
@@ -62,20 +67,22 @@ func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clien
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
-//  Branch report
+// BranchReport
 func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
 	request := message.BranchReportRequest{
 		Xid:             xid,
 		BranchId:        branchId,
 		Status:          status,
 		ApplicationData: []byte(applicationData),
-		BranchType:      branch.BranchTypeAT,
+		BranchType:      branchType,
 	}
+
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil || isReportSuccess(resp) == message.ResultCodeFailed {
-		log.Errorf("BranchReport error: %v, res %v", err.Error(), resp)
+	if err = branchReportResultDecode(resp, err); err != nil {
+		log.Errorf("BranchReport response error: %v, res %v", err.Error(), resp)
 		return err
 	}
+
 	return nil
 }
 
@@ -121,6 +128,23 @@ func isReportSuccess(response interface{}) message.ResultCode {
 		return res.ResultCode
 	}
 	return message.ResultCodeFailed
+}
+
+// branchReportResultDecode analyse response result
+func branchReportResultDecode(response interface{}, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if res, ok := response.(message.BranchReportResponse); ok {
+		if res.ResultCode == message.ResultCodeFailed {
+			return errors.New(res.Msg)
+		}
+	} else {
+		return ErrBranchReportResponseFault
+	}
+
+	return nil
 }
 
 func (r *RMRemoting) onRegisterRMSuccess(response message.RegisterRMResponse) {
