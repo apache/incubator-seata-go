@@ -18,7 +18,10 @@
 package tcc
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,4 +36,20 @@ func TestActionContext(t *testing.T) {
 	bytes, err := json.Marshal(businessActionContext.ActionContext)
 	assert.Nil(t, err)
 	assert.Equal(t, `{"zhangsan":"lisi"}`, string(bytes))
+}
+
+func TestBranchReport(t *testing.T)  {
+	rmInstance := GetTCCResourceManagerInstance()
+	applicationData := `{"actionContext":{"zhangsan":"lisi"}}`
+	err := rmInstance.BranchReport(
+		context.Background(),
+		branch.BranchTypeTCC,
+		"1111111111",
+		2645276141,
+		branch.BranchStatusPhaseoneDone,
+		applicationData)
+
+	assert.Nil(t, err)
+
+	log.Infof("err: %+v", err)
 }
