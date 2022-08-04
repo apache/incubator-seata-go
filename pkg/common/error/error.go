@@ -20,8 +20,8 @@ package error
 import "github.com/pkg/errors"
 
 var (
-	Error_TooManySessions  = errors.New("too many seeessions")
-	Error_HeartBeatTimeOut = errors.New("heart beat time out")
+	ErrorTooManySessions  = errors.New("too many seeessions")
+	ErrorHeartBeatTimeOut = errors.New("heart beat time out")
 )
 
 type TransactionExceptionCode byte
@@ -45,81 +45,86 @@ const (
 	/**
 	 * Io transaction exception code.
 	 */
-
+	IO = 3
 	/**
 	 * Branch rollback failed retriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedRetriable = 3
+	TransactionExceptionCodeBranchRollbackFailedRetriable = 4
 
 	/**
 	 * Branch rollback failed unretriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedUnretriable = 4
+	TransactionExceptionCodeBranchRollbackFailedUnretriable = 5
 
 	/**
 	 * Branch register failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRegisterFailed = 5
+	TransactionExceptionCodeBranchRegisterFailed = 6
 
 	/**
 	 * Branch report failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchReportFailed = 6
+	TransactionExceptionCodeBranchReportFailed = 7
 
 	/**
 	 * Lockable check failed transaction exception code.
 	 */
-	TransactionExceptionCodeLockableCheckFailed = 7
+	TransactionExceptionCodeLockableCheckFailed = 8
 
 	/**
 	 * Branch transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeBranchTransactionNotExist = 8
+	TransactionExceptionCodeBranchTransactionNotExist = 9
 
 	/**
 	 * Global transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotExist = 9
+	TransactionExceptionCodeGlobalTransactionNotExist = 10
 
 	/**
 	 * Global transaction not active transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotActive = 10
+	TransactionExceptionCodeGlobalTransactionNotActive = 11
 
 	/**
 	 * Global transaction status invalid transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionStatusInvalid = 11
+	TransactionExceptionCodeGlobalTransactionStatusInvalid = 12
 
 	/**
 	 * Failed to send branch commit request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchCommitRequest = 12
+	TransactionExceptionCodeFailedToSendBranchCommitRequest = 13
 
 	/**
 	 * Failed to send branch rollback request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchRollbackRequest = 13
+	TransactionExceptionCodeFailedToSendBranchRollbackRequest = 14
 
 	/**
 	 * Failed to add branch transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToAddBranch = 14
+	TransactionExceptionCodeFailedToAddBranch = 15
 
 	/**
 	 * Failed to lock global transaction exception code.
 	 */
-	TransactionExceptionCodeFailedLockGlobalTranscation = 15
+	TransactionExceptionCodeFailedLockGlobalTranscation = 16
 
 	/**
 	 * FailedWriteSession
 	 */
-	TransactionExceptionCodeFailedWriteSession = 16
+	TransactionExceptionCodeFailedWriteSession = 17
 
 	/**
 	 * Failed to holder exception code
 	 */
-	FailedStore = 17
+	FailedStore = 18
+
+	/**
+	 * Lock key conflict fail fast transaction exception code.
+	 */
+	LockKeyConflictFailFast = 19
 )
 
 type TransactionException struct {
