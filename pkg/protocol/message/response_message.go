@@ -18,13 +18,13 @@
 package message
 
 import (
-	serror "github.com/seata/seata-go/pkg/common/error"
+	serror "github.com/seata/seata-go/pkg/common/errors"
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 type AbstractTransactionResponse struct {
 	AbstractResultMessage
-	TransactionExceptionCode serror.TransactionExceptionCode
+	TransactionExceptionCode serror.TransactionErrorCode
 }
 
 type AbstractBranchEndResponse struct {

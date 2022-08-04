@@ -5,6 +5,7 @@ go 1.16
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.2-0.20220508105316-b27ec53b7bab
 	github.com/BurntSushi/toml v1.1.0 // indirect
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/dubbogo/gost v1.12.5
@@ -17,6 +18,7 @@ require (
 	github.com/pingcap/tipb v0.0.0-20220628092852-069ef6c8fc90 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
+	github.com/zouyx/agollo/v3 v3.4.5
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/tools v0.1.12 // indirect

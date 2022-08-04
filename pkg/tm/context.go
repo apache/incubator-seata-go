@@ -42,6 +42,7 @@ type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
+	FencePhase            int32
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
@@ -155,5 +156,19 @@ func UnbindXid(ctx context.Context) {
 	if variable != nil {
 		variable.(*ContextVariable).Xid = ""
 		variable.(*ContextVariable).XidCopy = ""
+	}
+}
+
+func SetFencePhase(ctx context.Context, phase int32) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		variable.(*ContextVariable).FencePhase = phase
+	}
+}
+
+func GetFencePhase(ctx context.Context) int32 {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		return variable.(*ContextVariable).FencePhase
 	}
 }

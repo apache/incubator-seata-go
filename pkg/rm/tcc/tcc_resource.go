@@ -112,7 +112,7 @@ func (t *TCCResourceManager) UnregisterResource(resource rm.Resource) error {
 
 func (t *TCCResourceManager) RegisterResource(resource rm.Resource) error {
 	if _, ok := resource.(*TCCResource); !ok {
-		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
+		panic(fmt.Sprintf("register tcc resource errors, TCCResource is needed, param %v", resource))
 	}
 	t.resourceManagerMap.Store(resource.GetResourceId(), resource)
 	return t.rmRemoting.RegisterResource(resource)

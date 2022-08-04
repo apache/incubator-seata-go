@@ -17,18 +17,36 @@
 
 package constant
 
-// StatusTried
-// PHASE 1: The Commit tried.
-const StatusTried int32 = 1
+const (
+	// StatusTried
+	// PHASE 1: The Commit tried.
+	StatusTried int32 = 1
 
-// StatusCommitted
-// PHASE 2: The Committed.
-const StatusCommitted int32 = 2
+	// StatusCommitted
+	// PHASE 2: The Committed.
+	StatusCommitted int32 = 2
 
-// StatusRollbacked
-// PHASE 2: The Rollbacked.
-const StatusRollbacked int32 = 3
+	// StatusRollbacked
+	// PHASE 2: The Rollbacked.
+	StatusRollbacked int32 = 3
 
-// StatusSuspended
-// Suspended status.
-const StatusSuspended int32 = 4
+	// StatusSuspended
+	// Suspended status.
+	StatusSuspended int32 = 4
+
+	// FencePhaseNotExist
+	// fence phase not exist
+	FencePhaseNotExist int32 = 0
+
+	// FencePhasePrepare
+	// prepare fence phase
+	FencePhasePrepare int32 = 1
+
+	// FencePhaseCommit
+	// commit fence phase
+	FencePhaseCommit int32 = 2
+
+	// FencePhaseRollback
+	// rollback fence phase
+	FencePhaseRollback int32 = 3
+)

@@ -18,7 +18,7 @@
 package dao
 
 import (
-	"database/sql/driver"
+	"database/sql"
 	"time"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
@@ -31,13 +31,13 @@ type TCCFenceStore interface {
 	// param xid the global transaction id
 	// param branchId the branch transaction id
 	// return the tcc fence do
-	QueryTCCFenceDO(conn driver.Conn, xid string, branchId int64) *model.TCCFenceDO
+	QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) *model.TCCFenceDO
 
 	// InsertTCCFenceDO tcc fence do boolean.
 	// param tccFenceDO the tcc fence do
 	// return the boolean
 
-	InsertTCCFenceDO(conn driver.Conn, tccFenceDo model.TCCFenceDO) bool
+	InsertTCCFenceDO(tx *sql.Tx, tccFenceDo model.TCCFenceDO) bool
 
 	// UpdateTCCFenceDO tcc fence do boolean.
 	// param xid the global transaction id
@@ -45,20 +45,20 @@ type TCCFenceStore interface {
 	// param newStatus the new status
 	// return the boolean
 
-	UpdateTCCFenceDO(conn driver.Conn, xid string, branchId int64, newStatus int32, oldStatus int32) bool
+	UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, newStatus int32, oldStatus int32) bool
 
 	// DeleteTCCFenceDO tcc fence do boolean.
 	// param xid the global transaction id
 	// param branchId the branch transaction id
 	// return the boolean
 
-	DeleteTCCFenceDO(conn driver.Conn, xid string, branchId int64) bool
+	DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) bool
 
 	// DeleteTCCFenceDOByDate tcc fence by datetime.
 	// param datetime datetime
 	// return the deleted row count
 
-	DeleteTCCFenceDOByDate(conn driver.Conn, datetime time.Time) bool
+	DeleteTCCFenceDOByDate(tx *sql.Tx, datetime time.Time) bool
 
 	// SetLogTableName LogTable Name
 	// param logTableName logTableName

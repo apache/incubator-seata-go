@@ -21,6 +21,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/seata/seata-go/pkg/common/errors"
+
 	"strings"
 	"sync"
 	"time"
@@ -32,8 +35,8 @@ import (
 )
 
 var (
-	once                                                     = sync.Once{}
-	tccFenceStoreDatabaseMapper *TccFenceStoreDatabaseMapper = nil
+	once                        sync.Once
+	tccFenceStoreDatabaseMapper *TccFenceStoreDatabaseMapper
 )
 
 func GetTccFenceStoreDatabaseMapperSingleton() *TccFenceStoreDatabaseMapper {
@@ -51,11 +54,11 @@ type TccFenceStoreDatabaseMapper struct {
 	logTableName string
 }
 
-func (tcs *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(conn *sql.Conn, xid string, branchId int64) *model.TCCFenceDO {
+func (tcs *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) *model.TCCFenceDO {
 	var prepareStmt *sql.Stmt = nil
 	var tccFenceDo *model.TCCFenceDO = nil
 	sql := sql2.GetQuerySQLByBranchIdAndXid(tcs.logTableName)
-	prepareStmt, err := conn.PrepareContext(context.Background(), sql)
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql)
 	defer prepareStmt.Close()
 	if err == nil {
 		result := prepareStmt.QueryRow(xid, branchId)
@@ -86,11 +89,11 @@ func (tcs *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(conn *sql.Conn, xid stri
 	return tccFenceDo
 }
 
-func (tcs *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(conn *sql.Conn, tccFenceDo *model.TCCFenceDO) bool {
+func (tcs *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) bool {
 	var prepareStmt *sql.Stmt = nil
 	timeNow := time.Now()
 	sql := sql2.GetInsertLocalTCCLogSQL(tcs.logTableName)
-	prepareStmt, err := conn.PrepareContext(context.Background(), sql)
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql)
 	defer prepareStmt.Close()
 	if err == nil {
 		result, errStmt := prepareStmt.Exec(tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.ActionName, tccFenceDo.Status, timeNow, timeNow)
@@ -102,22 +105,22 @@ func (tcs *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(conn *sql.Conn, tccFenc
 			}
 		} else {
 			if strings.Contains(errStmt.Error(), "Error 1062: Duplicate entry") {
-				panic(fmt.Sprintf("insert tcc fence duplicate entry, it mean the rollback before! msg : %v", errStmt))
+				panic(errors.NewTccFenceError(errors.FenceErrorCodeDuplicateKey, fmt.Sprintf("Insert tcc fence record duplicate key exception. xid= %s, branchId= %d", tccFenceDo.Xid, tccFenceDo.BranchId)))
 			} else {
-				panic(fmt.Sprintf("insert tcc fence execute sql failed msg : %v", errStmt))
+				panic(fmt.Errorf("insert tcc fence execute sql failed msg : %v", errStmt))
 			}
 		}
 	} else {
-		panic(fmt.Sprintf("insert tcc fence prepare sql failed msg : %v", err))
+		panic(fmt.Errorf("insert tcc fence prepare sql failed msg : %v", err))
 	}
 	return true
 }
 
-func (tcs *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(conn *sql.Conn, xid string, branchId int64, oldStatus int32, newStatus int32) bool {
+func (tcs *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus int32, newStatus int32) bool {
 	var prepareStmt *sql.Stmt = nil
 	timeNow := time.Now()
 	sql := sql2.GetUpdateStatusSQLByBranchIdAndXid(tcs.logTableName)
-	prepareStmt, err := conn.PrepareContext(context.Background(), sql)
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql)
 	log.Infof("prepareStmt %v", prepareStmt)
 	defer prepareStmt.Close()
 	if err == nil {
@@ -126,21 +129,21 @@ func (tcs *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(conn *sql.Conn, xid str
 			if affected, errAff := result.RowsAffected(); errAff == nil {
 				return affected > 0
 			} else {
-				panic(fmt.Sprintf("update tcc fence get rows affected failed msg : %v", errAff))
+				panic(fmt.Errorf("update tcc fence get rows affected failed msg : %v", errAff))
 			}
 		} else {
-			panic(fmt.Sprintf("update tcc fence execute sql failed msg : %v", errStmt))
+			panic(fmt.Errorf("update tcc fence execute sql failed msg : %v", errStmt))
 		}
 	} else {
-		panic(fmt.Sprintf("insert tcc fence prepare sql failed msg : %v", err))
+		panic(fmt.Errorf("insert tcc fence prepare sql failed msg : %v", err))
 	}
 	return true
 }
 
-func (tcs *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(conn *sql.Conn, xid string, branchId int64) bool {
+func (tcs *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) bool {
 	var prepareStmt *sql.Stmt = nil
 	sql := sql2.GetDeleteSQLByBranchIdAndXid(tcs.logTableName)
-	prepareStmt, err := conn.PrepareContext(context.Background(), sql)
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql)
 	log.Infof("prepareStmt %v", prepareStmt)
 	defer prepareStmt.Close()
 	if err == nil {
@@ -160,10 +163,10 @@ func (tcs *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(conn *sql.Conn, xid str
 	return true
 }
 
-func (tcs *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(conn *sql.Conn, datetime time.Time) bool {
+func (tcs *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) bool {
 	var prepareStmt *sql.Stmt = nil
 	sql := sql2.GetDeleteSQLByMdfDateAndStatus(tcs.logTableName)
-	prepareStmt, err := conn.PrepareContext(context.Background(), sql)
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql)
 	log.Infof("prepareStmt %v", prepareStmt)
 	defer prepareStmt.Close()
 	if err == nil {

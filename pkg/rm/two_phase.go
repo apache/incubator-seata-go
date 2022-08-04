@@ -245,7 +245,7 @@ func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.V
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// commit method has 2 return error value
+	// commit method has 2 retuen error value
 	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}

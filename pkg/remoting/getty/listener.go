@@ -71,7 +71,7 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 		}}
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {
-			log.Errorf("OnOpen error: {%#v}", err.Error())
+			log.Errorf("OnOpen errors: {%#v}", err.Error())
 			g.sessionManager.releaseSession(session)
 			return
 		}
@@ -81,7 +81,7 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 }
 
 func (g *gettyClientHandler) OnError(session getty.Session, err error) {
-	log.Infof("session{%s} got error{%v}, will be closed.", session.Stat(), err)
+	log.Infof("session{%s} got errors{%v}, will be closed.", session.Stat(), err)
 	g.sessionManager.releaseSession(session)
 }
 

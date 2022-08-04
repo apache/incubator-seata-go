@@ -67,7 +67,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	// todo timeout should read from config
 	err := GetGlobalTransactionManager().Begin(ctx, tx, time.Second*30, name)
 	if err != nil {
-		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
+		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, errors %v", err))
 	}
 
 	return ctx
@@ -96,12 +96,12 @@ func CommitOrRollback(ctx context.Context, isSuccess bool) error {
 		if isSuccess {
 			err = GetGlobalTransactionManager().Commit(ctx, tx)
 			if err != nil {
-				log.Infof("transactionTemplate: commit transaction failed, error %v", err)
+				log.Infof("transactionTemplate: commit transaction failed, errors %v", err)
 			}
 		} else {
 			err = GetGlobalTransactionManager().Rollback(ctx, tx)
 			if err != nil {
-				log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
+				log.Infof("transactionTemplate: Rollback transaction failed, errors %v", err)
 			}
 		}
 		if err == nil {

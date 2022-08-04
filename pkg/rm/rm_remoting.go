@@ -60,7 +60,7 @@ func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
 	if err != nil || resp == nil {
-		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
+		log.Errorf("BranchRegister errors: %v, res %v", err.Error(), resp)
 		return 0, err
 	}
 	return resp.(message.BranchRegisterResponse).BranchId, nil
@@ -107,7 +107,7 @@ func (r *RMRemoting) RegisterResource(resource Resource) error {
 	}
 	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
 	if err != nil {
-		log.Errorf("RegisterResourceManager error: {%#v}", err.Error())
+		log.Errorf("RegisterResourceManager errors: {%#v}", err.Error())
 		return err
 	}
 

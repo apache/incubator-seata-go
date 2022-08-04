@@ -20,20 +20,23 @@ package handler
 import (
 	"container/list"
 	"context"
-	"database/sql/driver"
+	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
+
+	seataErrors "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/datasource/sql"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
-	"go.uber.org/atomic"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
-type TCCFenceDbProxyHandler struct {
+type tccFenceDbProxyHandler struct {
 	tccFenceDao dao.TCCFenceStore
 	logQueue    list.List
 	done        atomic.Bool
@@ -49,121 +52,143 @@ const (
 	MaxQueueSize  = 500
 )
 
+var (
+	fenceHandlerSingleton *tccFenceDbProxyHandler
+	fenceOnce             sync.Once
+)
+
 func init() {
 
 }
 
-func (handler *TCCFenceDbProxyHandler) PrepareFence(txProxy *sql.Tx, proxy tcc.TCCServiceProxy, xid string, branchId int64, actionName string) bool {
-	var result = false
-	if conn, err := txProxy.GetConnProxy().GetTargetConn(); err == nil {
-		result = handler.InsertTCCFenceLog(conn, xid, branchId, actionName, constant.StatusTried)
-		if !result {
-
-		} else {
-			// this set rollback only is tag only.
-			txProxy.SetRollbackOnly()
-			panic(fmt.Sprintf("Insert tcc fence record error, prepare fence failed. xid= %s, branchId= %d", xid, branchId))
-			handler.AddToLogCleanQueue(xid, branchId)
-		}
-	} else {
-		txProxy.SetRollbackOnly()
-		panic("obtain tcc proxy connection failed")
+func GetFenceHandlerSingleton() *tccFenceDbProxyHandler {
+	if fenceHandlerSingleton == nil {
+		fenceOnce.Do(func() {
+			fenceHandlerSingleton = &tccFenceDbProxyHandler{}
+		})
 	}
-	return result
+	return fenceHandlerSingleton
 }
 
-func (handler *TCCFenceDbProxyHandler) CommitFence(txProxy *sql.Tx, proxy tcc.TCCServiceProxy, xid string, branchId int64, args ...interface{}) bool {
-	if conn, err := txProxy.GetConnProxy().GetTargetConn(); txProxy.GetRollbackOnly() == false || err == nil {
-		fenceDo := handler.tccFenceDao.QueryTCCFenceDO(conn, xid, branchId)
-		if fenceDo == nil {
-			panic(fmt.Sprintf("TCC fence record not exists, commit fence method failed. xid= %s, branchId= %d ", xid, branchId))
-		}
-		if fenceDo.Status == constant.StatusCommitted {
-			log.Infof("Branch transaction has already committed before. idempotency rejected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
-			return true
-		}
-		if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
-			// enable warn level
-			log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
-			return false
-		}
-		return handler.updateStatusAndInvokeTargetMethod(conn, proxy, xid, branchId, constant.StatusCommitted, "transaction status obj")
-	} else {
-		// do rollback ,if prepare fence have set rollback only or err is nil.
-		txProxy.GetTargetTx().Rollback()
-		panic("obtain connection failed ")
-	}
-	return false
-}
+func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+	xid := tm.GetBusinessActionContext(ctx).Xid
+	branchId := tm.GetBusinessActionContext(ctx).BranchId
+	actionName := tm.GetBusinessActionContext(ctx).ActionName
 
-func (handler *TCCFenceDbProxyHandler) RollbackFence(proxy tcc.TCCServiceProxy, xid string, branchId int64, args ...interface{}) bool {
-	// todo try catch and set rollback only.
-	if conn, err := handler.datasource.Connect(context.Background()); err == nil {
-		fenceDo := handler.tccFenceDao.QueryTCCFenceDO(conn, xid, branchId)
-		if fenceDo == nil {
-			result := handler.InsertTCCFenceLog(conn, xid, branchId, proxy.GetActionName(), constant.StatusSuspended)
-			log.Infof("Insert tcc fence record result: %v. xid: %s, branchId: %d", result, xid, branchId)
-			if !result {
-				panic(fmt.Sprintf("Insert tcc fence record error, rollback fence method failed. xid= %s, branchId= %d", xid, branchId))
+	defer func() {
+		err, ok := recover().(seataErrors.TccFenceError)
+		if ok {
+			if err.Code == seataErrors.FenceErrorCodeDuplicateKey {
+				handler.AddToLogCleanQueue(xid, branchId)
 			}
-			panic(fmt.Sprintf("TCC fence record not exists, commit fence method failed. xid= %s, branchId= %d ", xid, branchId))
-			return true
 		}
-		if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
-			// enable warn level
-			log.Infof("Branch transaction had already rollbacked before, idempotency rejected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
-			return true
+		// panic uniform process in outside method
+		panic(err)
+	}()
+
+	ok := handler.InsertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusTried)
+	log.Infof("tcc fence prepare result: %b. xid: %s, branchId: %d", ok, xid, branchId)
+	if ok {
+		err := callback()
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				return errors.New(err.Error() + rollbackErr.Error())
+			}
+			return err
 		}
-		if fenceDo.Status == constant.StatusCommitted {
-			log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
-			return false
-		}
-		return handler.updateStatusAndInvokeTargetMethod(conn, proxy, xid, branchId, constant.StatusRollbacked, "transaction status obj")
+		return tx.Commit()
 	} else {
-		panic("obtain connection failed ")
+		return seataErrors.NewTccFenceError(seataErrors.InsertRecordError, fmt.Sprintf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d", xid, branchId))
 	}
-	return false
-	return false
 }
 
-func (handler *TCCFenceDbProxyHandler) InsertTCCFenceLog(conn driver.Conn, xid string, branchId int64, actionName string, status int32) bool {
+func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+	xid := tm.GetBusinessActionContext(ctx).Xid
+	branchId := tm.GetBusinessActionContext(ctx).BranchId
+
+	fenceDo := handler.tccFenceDao.QueryTCCFenceDO(tx, xid, branchId)
+	if fenceDo == nil {
+		return seataErrors.NewTccFenceError(seataErrors.RecordNotExists, fmt.Sprintf("tcc fence record not exists, commit fence method failed. xid= %s, branchId= %d ", xid, branchId))
+	}
+	if fenceDo.Status == constant.StatusCommitted {
+		log.Infof("branch transaction has already committed before. idempotency rejected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
+		return nil
+	}
+	if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
+		// enable warn level
+		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
+		return nil
+	}
+	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusCommitted)
+}
+
+func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+	xid := tm.GetBusinessActionContext(ctx).Xid
+	branchId := tm.GetBusinessActionContext(ctx).BranchId
+	actionName := tm.GetBusinessActionContext(ctx).ActionName
+
+	fenceDo := handler.tccFenceDao.QueryTCCFenceDO(tx, xid, branchId)
+	// record is null, mean the need suspend
+	if fenceDo == nil {
+		ok := handler.InsertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusSuspended)
+		log.Infof("Insert tcc fence record ok: %v. xid: %s, branchId: %d", ok, xid, branchId)
+		if ok {
+			log.Infof("TCC fence record not exists, commit fence method failed. xid= %s, branchId= %d ", xid, branchId)
+			return nil
+		} else {
+			return seataErrors.NewTccFenceError(seataErrors.InsertRecordError, fmt.Sprintf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d", xid, branchId))
+		}
+	}
+
+	// have rollback or suspend
+	if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
+		// enable warn level
+		log.Infof("Branch transaction had already rollbacked before, idempotency rejected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
+		return nil
+	}
+	if fenceDo.Status == constant.StatusCommitted {
+		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
+		return nil
+	}
+	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusRollbacked)
+}
+
+func (handler *tccFenceDbProxyHandler) InsertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status int32) bool {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
 		ActionName: actionName,
 		Status:     status,
 	}
-	return handler.tccFenceDao.InsertTCCFenceDO(conn, tccFenceDo)
+	return handler.tccFenceDao.InsertTCCFenceDO(tx, tccFenceDo)
 }
 
-func (handler *TCCFenceDbProxyHandler) updateStatusAndInvokeTargetMethod(conn driver.Conn, proxy tcc.TCCServiceProxy, xid string, branchId int64, status int32, transactionStatus interface{}, args ...interface{}) bool {
-	result := handler.tccFenceDao.UpdateTCCFenceDO(conn, xid, branchId, status, constant.StatusTried)
-	//if result {
-	//if status == constant.StatusCommitted {
-	//// todo implement invoke, two phase need return bool value.
-	//err := proxy.Commit(context.Background(), tm.BusinessActionContext{})
-	//if err != nil {
-	//	// todo set rollback only
-	//	result = false
-	//}
-	//}
-	//}
-	return result
-}
-
-func (handler *TCCFenceDbProxyHandler) DeleteFence(xid string, id int64) error {
+func (handler *tccFenceDbProxyHandler) updateStatusAndInvokeTargetMethod(tx *sql.Tx, callback func() error, xid string, branchId int64, status int32) error {
+	ok := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, status, constant.StatusTried)
+	if ok {
+		err := callback()
+		if err != nil {
+			return tx.Rollback()
+		}
+	} else {
+		return seataErrors.NewTccFenceError(seataErrors.UpdateRecordError, fmt.Sprintf("update record error xid %s, branch id %d, target status %d", xid, branchId, status))
+	}
 	return nil
 }
 
-func (handler *TCCFenceDbProxyHandler) InitLogCleanExecutor() {
+func (handler *tccFenceDbProxyHandler) DeleteFence(xid string, id int64) error {
+	return nil
+}
+
+func (handler *tccFenceDbProxyHandler) InitLogCleanExecutor() {
 	go handler.FenceLogCleanRunnable()
 }
 
-func (handler *TCCFenceDbProxyHandler) DeleteFenceByDate(datetime time.Time) int32 {
+func (handler *tccFenceDbProxyHandler) DeleteFenceByDate(datetime time.Time) int32 {
 	return 0
 }
 
-func (handler *TCCFenceDbProxyHandler) AddToLogCleanQueue(xid string, branchId int64) {
+func (handler *tccFenceDbProxyHandler) AddToLogCleanQueue(xid string, branchId int64) {
 	fenceLogIdentity := &FenceLogIdentity{
 		xid:      xid,
 		branchId: branchId,
@@ -171,11 +196,7 @@ func (handler *TCCFenceDbProxyHandler) AddToLogCleanQueue(xid string, branchId i
 	handler.logQueue.PushBack(fenceLogIdentity)
 }
 
-func (handler *TCCFenceDbProxyHandler) SetTransactionManager(transactionManager interface{}) {
-	// todo
-}
-
-func (handler *TCCFenceDbProxyHandler) FenceLogCleanRunnable() {
+func (handler *tccFenceDbProxyHandler) FenceLogCleanRunnable() {
 	for {
 		logIdentity := handler.logQueue.Front().Value.(FenceLogIdentity)
 		if err := handler.DeleteFence(logIdentity.xid, logIdentity.branchId); err != nil {

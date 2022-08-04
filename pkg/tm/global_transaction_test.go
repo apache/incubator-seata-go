@@ -164,11 +164,11 @@ func TestCommit(t *testing.T) {
 				Xid:  "123456",
 			},
 			wantHasError:       true,
-			wantErrString:      "mock error retry",
+			wantErrString:      "mock errors retry",
 			wantHasMock:        true,
 			wantMockTargetName: "SendSyncRequest",
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
-				return nil, errors.New("mock error retry")
+				return nil, errors.New("mock errors retry")
 			},
 		},
 		{
@@ -239,11 +239,11 @@ func TestRollback(t *testing.T) {
 				Xid:  "123456",
 			},
 			wantHasError:       true,
-			wantErrString:      "mock error retry",
+			wantErrString:      "mock errors retry",
 			wantHasMock:        true,
 			wantMockTargetName: "SendSyncRequest",
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
-				return nil, errors.New("mock error retry")
+				return nil, errors.New("mock errors retry")
 			},
 		},
 		{

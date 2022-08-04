@@ -15,34 +15,40 @@
  * limitations under the License.
  */
 
-package codec
+package errors
 
 import (
-	"testing"
+	"fmt"
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 )
 
-func TestGlobalBeginResponseCodec(t *testing.T) {
-	msg := message.GlobalBeginResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionExceptionCode: serror.TransactionExceptionCodeBeginFailed,
-		},
+var (
+	ErrorTooManySessions  = errors.New("too many sessions")
+	ErrorHeartBeatTimeOut = errors.New("heart beat time out")
+)
 
-		Xid:       "test-transaction-id",
-		ExtraData: []byte("TestExtraData"),
+type TransactionError struct {
+	Code    byte
+	Message string
+}
+
+func (e TransactionError) Error() string {
+	return fmt.Sprintf("TransactionError code %d, msg %s", e.Code, e.Message)
+}
+
+type TccFenceError struct {
+	Code    byte
+	Message string
+}
+
+func (e TccFenceError) Error() string {
+	return fmt.Sprintf("TccFenceError code %d, msg %s", e.Code, e.Message)
+}
+
+func NewTccFenceError(code byte, msg string) *TccFenceError {
+	return &TccFenceError{
+		code,
+		msg,
 	}
-
-	codec := GlobalBeginResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
 }

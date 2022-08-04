@@ -18,14 +18,13 @@
 package config
 
 import (
-	"database/sql/driver"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
-
 	"go.uber.org/atomic"
+
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
 )
 
 var (
@@ -39,10 +38,6 @@ const (
 type TccFenceConfig struct {
 	Initialized  atomic.Bool `default:"false"`
 	LogTableName string      `default:"tcc_fence_log"`
-}
-
-func SetTccFenceConfig(datasource driver.Connector, transactionManager interface{}) {
-
 }
 
 func init() {

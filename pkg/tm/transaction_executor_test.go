@@ -56,7 +56,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 			name:               "zhangsan",
 			xid:                "123456",
 			wantHasError:       true,
-			wantErrString:      "transactionTemplate: begin transaction failed, error mock transaction executor begin",
+			wantErrString:      "transactionTemplate: begin transaction failed, errors mock transaction executor begin",
 			wantHasMock:        true,
 			wantMockTargetName: "Begin",
 			wantMockFunction: func(_ *GlobalTransactionManager, ctx context.Context, tx *GlobalTransaction, i time.Duration, s string) error {

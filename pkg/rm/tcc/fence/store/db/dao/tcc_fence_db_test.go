@@ -20,17 +20,19 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"math"
 	"reflect"
 	"testing"
 	"time"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
-
-	_ "github.com/go-sql-driver/mysql"
+	sql2 "github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/sql"
 )
 
 func TestTccFenceStoreDatabaseMapper_SetLogTableName(t *testing.T) {
@@ -40,17 +42,38 @@ func TestTccFenceStoreDatabaseMapper_SetLogTableName(t *testing.T) {
 }
 
 func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
+	tccFenceDo := &model.TCCFenceDO{
+		Xid:        "123123124124",
+		BranchId:   12312312312,
+		ActionName: "fence_test",
+		Status:     constant.StatusTried,
+	}
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata")
 	if err != nil {
 		t.Fatalf("open db failed msg: %v", err)
 	}
 	defer db.Close()
-	conn, err := db.Conn(context.Background())
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetInsertLocalTCCLogSQL("tcc_fence_log")).
+		ExpectExec().
+		WithArgs(driver.Value(tccFenceDo.Xid), driver.Value(tccFenceDo.BranchId), driver.Value(tccFenceDo.ActionName),
+			driver.Value(tccFenceDo.Status), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	defer conn.Close()
+
+	res := GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(tx, tccFenceDo)
+	tx.Commit()
+	assert.Equal(t, true, res)
+}
+
+func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
 		Xid:         "123123124124",
@@ -60,28 +83,26 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		GmtCreate:   now,
 		GmtModified: now,
 	}
-	assert.Equal(t, true, GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(conn, tccFenceDo))
-}
-
-func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
-
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?parseTime=true")
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {
 		t.Fatalf("open db failed msg: %v", err)
 	}
 	defer db.Close()
-	conn, err := db.Conn(context.Background())
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetQuerySQLByBranchIdAndXid("tcc_fence_log")).
+		ExpectQuery().
+		WithArgs(driver.Value(tccFenceDo.Xid), driver.Value(tccFenceDo.BranchId)).
+		WillReturnRows(sqlmock.NewRows([]string{"xid", "branch_id", "action_name", "status", "gmt_create", "gmt_modified"}).
+			AddRow(driver.Value(tccFenceDo.Xid), driver.Value(tccFenceDo.BranchId), driver.Value(tccFenceDo.ActionName),
+				driver.Value(tccFenceDo.Status), driver.Value(now), driver.Value(now)))
+	mock.ExpectCommit()
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	defer conn.Close()
-	tccFenceDo := &model.TCCFenceDO{
-		Xid:        "123123124124",
-		BranchId:   12312312312,
-		ActionName: "fence_test",
-		Status:     constant.StatusTried,
-	}
-	actualFenceDo := GetTccFenceStoreDatabaseMapperSingleton().QueryTCCFenceDO(conn, tccFenceDo.Xid, tccFenceDo.BranchId)
+
+	actualFenceDo := GetTccFenceStoreDatabaseMapperSingleton().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	tx.Commit()
 	assert.Equal(t, tccFenceDo.Xid, actualFenceDo.Xid)
 	assert.Equal(t, tccFenceDo.BranchId, actualFenceDo.BranchId)
 	assert.Equal(t, tccFenceDo.Status, actualFenceDo.Status)
@@ -91,16 +112,6 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 }
 
 func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata")
-	if err != nil {
-		t.Fatalf("open db failed msg: %v", err)
-	}
-	defer db.Close()
-	conn, err := db.Conn(context.Background())
-	if err != nil {
-		t.Fatalf("open conn failed msg :%v", err)
-	}
-	defer conn.Close()
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
 		Xid:         "123123124124",
@@ -110,21 +121,30 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 		GmtCreate:   now,
 		GmtModified: now,
 	}
-	assert.Equal(t, true, GetTccFenceStoreDatabaseMapperSingleton().
-		UpdateTCCFenceDO(conn, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, constant.StatusCommitted))
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("open db failed msg: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetUpdateStatusSQLByBranchIdAndXid("tcc_fence_log")).
+		ExpectExec().
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatalf("open conn failed msg :%v", err)
+	}
+
+	res := GetTccFenceStoreDatabaseMapperSingleton().
+		UpdateTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, constant.StatusCommitted)
+	tx.Commit()
+	assert.Equal(t, true, res)
 }
 
 func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata")
-	if err != nil {
-		t.Fatalf("open db failed msg: %v", err)
-	}
-	defer db.Close()
-	conn, err := db.Conn(context.Background())
-	if err != nil {
-		t.Fatalf("open conn failed msg :%v", err)
-	}
-	defer conn.Close()
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
 		Xid:         "123123124124",
@@ -134,29 +154,50 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 		GmtCreate:   now,
 		GmtModified: now,
 	}
-	assert.Equal(t, true, GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDO(conn, tccFenceDo.Xid, tccFenceDo.BranchId))
-}
-
-func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata")
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {
 		t.Fatalf("open db failed msg: %v", err)
 	}
 	defer db.Close()
-	conn, err := db.Conn(context.Background())
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetDeleteSQLByBranchIdAndXid("tcc_fence_log")).
+		ExpectExec().
+		WithArgs(driver.Value(tccFenceDo.Xid), driver.Value(tccFenceDo.BranchId)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	defer conn.Close()
+
+	res := GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	tx.Commit()
+	assert.Equal(t, true, res)
+}
+
+func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
-		Xid:         "123123124124",
-		BranchId:    12312312312,
-		ActionName:  "fence_test",
-		Status:      constant.StatusCommitted,
-		GmtCreate:   now,
-		GmtModified: now,
+		GmtCreate: now,
 	}
-	assert.Equal(t, true, GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(conn, tccFenceDo))
-	assert.Equal(t, true, GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDOByMdfDate(conn, tccFenceDo.GmtModified.Add(math.MaxInt32)))
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("open db failed msg: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetDeleteSQLByMdfDateAndStatus("tcc_fence_log")).
+		ExpectExec().
+		WithArgs(driver.Value(tccFenceDo.GmtModified.Add(math.MaxInt32))).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatalf("open conn failed msg :%v", err)
+	}
+	res := GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
+	tx.Commit()
+	assert.Equal(t, true, res)
 }

@@ -49,6 +49,10 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 		if err != nil {
 			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error()))
 		}
+		err = tccService.RegisterResource()
+		if err != nil {
+			panic(fmt.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error()))
+		}
 	})
 	return tccService
 }

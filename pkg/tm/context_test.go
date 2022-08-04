@@ -21,6 +21,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -133,4 +135,20 @@ func TestUnbindXid(t *testing.T) {
 	assert.Equal(t, xid, GetXID(ctx))
 	UnbindXid(ctx)
 	assert.Empty(t, GetXID(ctx))
+}
+
+func TestSetFencePhase(t *testing.T) {
+	ctx := InitSeataContext(context.Background())
+	phase := constant.FencePhaseCommit
+	SetFencePhase(ctx, phase)
+	assert.Equal(t, phase,
+		ctx.Value(seataContextVariable).(*ContextVariable).FencePhase)
+}
+
+func TestGetFencePhase(t *testing.T) {
+	ctx := InitSeataContext(context.Background())
+	phase := constant.FencePhaseCommit
+	SetFencePhase(ctx, phase)
+	assert.Equal(t, phase,
+		GetXID(ctx))
 }
