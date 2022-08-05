@@ -46,7 +46,7 @@ func TestGetDubboTransactionFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetDubboTransactionFilter(); !reflect.DeepEqual(got, tt.want) {
-				assert.Equal(t, tt.want, got)
+				assert.Equal(t, GetDubboTransactionFilter(), tt.want)
 			}
 		})
 	}
@@ -90,7 +90,7 @@ func TestDubboTransactionFilterOnResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			du := &dubboTransactionFilter{}
 			if got := du.OnResponse(tt.args.ctx, tt.args.result, tt.args.invoker, tt.args.invocation); !reflect.DeepEqual(got, tt.want) {
-				assert.Equal(t, tt.want, got)
+				assert.Equal(t, GetDubboTransactionFilter(), tt.want)
 			}
 		})
 	}
