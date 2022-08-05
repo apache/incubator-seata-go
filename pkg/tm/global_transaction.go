@@ -55,7 +55,7 @@ type GlobalTransactionManager struct {
 }
 
 // Begin a new global transaction with given timeout and given name.
-func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout time.Duration, name string) error {
+func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout int32, name string) error {
 	if gtr.Role != LAUNCHER {
 		log.Infof("Ignore GlobalStatusBegin(): just involved in global transaction %s", gtr.Xid)
 		return nil
