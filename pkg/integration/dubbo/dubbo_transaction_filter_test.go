@@ -19,10 +19,11 @@ package dubbo
 
 import (
 	"context"
-	"dubbo.apache.org/dubbo-go/v3/filter"
-	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"reflect"
 	"testing"
+
+	"dubbo.apache.org/dubbo-go/v3/filter"
+	"dubbo.apache.org/dubbo-go/v3/protocol"
 )
 
 func TestGetDubboTransactionFilter(t *testing.T) {
