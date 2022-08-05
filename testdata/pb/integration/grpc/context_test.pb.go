@@ -20,7 +20,7 @@
 // 	protoc        v3.21.2
 // source: pkg/integration/grpc/pb/context_test.proto
 
-package pb
+package grpc
 
 import (
 	reflect "reflect"

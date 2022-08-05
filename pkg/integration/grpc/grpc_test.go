@@ -23,7 +23,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/integration/grpc/pb"
+	grpc2 "github.com/seata/seata-go/testdata/pb/integration/grpc"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -34,39 +34,40 @@ import (
 )
 
 type ContextRpcTestServer struct {
-	pb.UnimplementedContextRpcServer
+	grpc2.UnimplementedContextRpcServer
 }
 
-func (c *ContextRpcTestServer) ContextRpc(ctx context.Context, req *pb.Request) (*pb.Response, error) {
+func (c *ContextRpcTestServer) ContextRpc(ctx context.Context, req *grpc2.Request) (*grpc2.Response, error) {
 	log.Infof("receive the %s", req.Name)
-	return &pb.Response{Greet: fmt.Sprintf("receive the name %s, xid is %s, return greet!", req.Name, tm.GetXID(ctx))}, nil
+	return &grpc2.Response{Greet: fmt.Sprintf("receive the name %s, xid is %s, return greet!", req.Name, tm.GetXID(ctx))}, nil
 }
 
 func TestClientHeaderDeliveredToServer(t *testing.T) {
 	StartServer(t)
-	StartClientWithCall(t)
 }
 
 // StartServer to start grpc server
 func StartServer(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 50051))
+	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 		t.FailNow()
 	}
+	defer lis.Close()
 	//inject server interceptor
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(ServerTransactionInterceptor))
-	pb.RegisterContextRpcServer(grpcServer, &ContextRpcTestServer{})
+	grpc2.RegisterContextRpcServer(grpcServer, &ContextRpcTestServer{})
 
 	go func() {
 		grpcServer.Serve(lis)
 	}()
+	StartClientWithCall(t, lis.Addr())
 }
 
 // StartClientWithCall to start grpc client and call server
-func StartClientWithCall(t *testing.T) {
+func StartClientWithCall(t *testing.T, addr net.Addr) {
 
-	conn, err := grpc.Dial("localhost:50051",
+	conn, err := grpc.Dial(addr.String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(ClientTransactionInterceptor)) //inject client interceptor
 	if err != nil {
@@ -74,11 +75,11 @@ func StartClientWithCall(t *testing.T) {
 		t.FailNow()
 	}
 	defer conn.Close()
-	contextRpcClient := pb.NewContextRpcClient(conn)
+	contextRpcClient := grpc2.NewContextRpcClient(conn)
 	ctx := context.Background()
 	ctx = tm.InitSeataContext(ctx)
 	tm.SetXID(ctx, "111111")
-	response, err := contextRpcClient.ContextRpc(ctx, &pb.Request{Name: "zhangsan"})
+	response, err := contextRpcClient.ContextRpc(ctx, &grpc2.Request{Name: "zhangsan"})
 
 	if err != nil {
 		log.Fatalf("call rpc : %v", err)
