@@ -5,6 +5,7 @@ go 1.16
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.2-0.20220508105316-b27ec53b7bab
 	github.com/BurntSushi/toml v1.1.0 // indirect
+	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/dubbogo/gost v1.12.5
 	github.com/natefinch/lumberjack v2.0.0+incompatible
