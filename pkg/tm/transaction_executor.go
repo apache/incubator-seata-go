@@ -27,7 +27,7 @@ import (
 )
 
 type TransactionInfo struct {
-	TimeOut           int32
+	TimeOut           time.Duration
 	Name              string
 	Propagation       Propagation
 	LockRetryInternal int64
