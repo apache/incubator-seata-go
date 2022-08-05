@@ -17,7 +17,7 @@
 
 syntax = "proto3";
 
-option go_package  = "github.com/seata/seata-go/pkg/integration/grpc/pb";
+option go_package  = "github.com/seata/seata-go/testdata/pb/integration/grpc";
 
 service ContextRpc {
     rpc ContextRpc (Request) returns (Response) {

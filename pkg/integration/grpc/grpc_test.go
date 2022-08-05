@@ -23,14 +23,13 @@ import (
 	"net"
 	"testing"
 
-	grpc2 "github.com/seata/seata-go/testdata/pb/integration/grpc"
-
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	grpc2 "github.com/seata/seata-go/testdata/pb/integration/grpc"
 )
 
 type ContextRpcTestServer struct {
