@@ -20,6 +20,8 @@ package tm
 import (
 	"context"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -171,4 +173,5 @@ func GetFencePhase(ctx context.Context) int32 {
 	if variable != nil {
 		return variable.(*ContextVariable).FencePhase
 	}
+	return constant.FencePhaseNotExist
 }

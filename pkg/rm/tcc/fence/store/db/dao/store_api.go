@@ -37,7 +37,7 @@ type TCCFenceStore interface {
 	// param tccFenceDO the tcc fence do
 	// return the boolean
 
-	InsertTCCFenceDO(tx *sql.Tx, tccFenceDo model.TCCFenceDO) bool
+	InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) bool
 
 	// UpdateTCCFenceDO tcc fence do boolean.
 	// param xid the global transaction id
@@ -58,7 +58,7 @@ type TCCFenceStore interface {
 	// param datetime datetime
 	// return the deleted row count
 
-	DeleteTCCFenceDOByDate(tx *sql.Tx, datetime time.Time) bool
+	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) bool
 
 	// SetLogTableName LogTable Name
 	// param logTableName logTableName

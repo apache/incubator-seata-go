@@ -24,6 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/config"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+
+	"github.com/seata/seata-go/pkg/common/types"
+
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -82,6 +87,10 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 		}
 	}
 	return t.TCCResource.Prepare(ctx, params)
+	// to set up the fence phase
+	tm.SetFencePhase(ctx, constant.FencePhasePrepare)
+
+	return t.TCCResource.Prepare(ctx, param)
 }
 
 // registeBranch send register branch transaction request

@@ -64,7 +64,9 @@ func init() {
 func GetFenceHandlerSingleton() *tccFenceDbProxyHandler {
 	if fenceHandlerSingleton == nil {
 		fenceOnce.Do(func() {
-			fenceHandlerSingleton = &tccFenceDbProxyHandler{}
+			fenceHandlerSingleton = &tccFenceDbProxyHandler{
+				tccFenceDao: dao.GetTccFenceStoreDatabaseMapperSingleton(),
+			}
 		})
 	}
 	return fenceHandlerSingleton
@@ -76,14 +78,15 @@ func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
 
 	defer func() {
-		err, ok := recover().(seataErrors.TccFenceError)
+		rec := recover()
+		err, ok := rec.(seataErrors.TccFenceError)
 		if ok {
 			if err.Code == seataErrors.FenceErrorCodeDuplicateKey {
 				handler.AddToLogCleanQueue(xid, branchId)
 			}
 		}
 		// panic uniform process in outside method
-		panic(err)
+		panic(rec)
 	}()
 
 	ok := handler.InsertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusTried)
@@ -160,11 +163,11 @@ func (handler *tccFenceDbProxyHandler) InsertTCCFenceLog(tx *sql.Tx, xid string,
 		ActionName: actionName,
 		Status:     status,
 	}
-	return handler.tccFenceDao.InsertTCCFenceDO(tx, tccFenceDo)
+	return handler.tccFenceDao.InsertTCCFenceDO(tx, &tccFenceDo)
 }
 
 func (handler *tccFenceDbProxyHandler) updateStatusAndInvokeTargetMethod(tx *sql.Tx, callback func() error, xid string, branchId int64, status int32) error {
-	ok := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, status, constant.StatusTried)
+	ok := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, constant.StatusTried, status)
 	if ok {
 		err := callback()
 		if err != nil {

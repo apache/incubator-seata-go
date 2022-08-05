@@ -35,7 +35,7 @@ func TestBranchRollbackResponseCodec(t *testing.T) {
 			BranchId:     56678,
 			BranchStatus: model2.BranchStatusPhaseoneFailed,
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				TransactionExceptionCode: serror.TransactionExceptionCodeBeginFailed,
+				TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
 				AbstractResultMessage: message.AbstractResultMessage{
 					ResultCode: message.ResultCodeFailed,
 					Msg:        "FAILED",

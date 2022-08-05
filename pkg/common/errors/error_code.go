@@ -17,12 +17,14 @@
 
 package errors
 
+type TransactionErrorCode byte
+
 const (
 	// TransactionErrorCodeUnknown Unknown transaction errors code.
-	TransactionErrorCodeUnknown = 0
+	TransactionErrorCodeUnknown = TransactionErrorCode(0)
 
 	// TransactionErrorCodeBeginFailed BeginFailed
-	TransactionErrorCodeBeginFailed = 1
+	TransactionErrorCodeBeginFailed = TransactionErrorCode(1)
 
 	// TransactionErrorCodeLockKeyConflict Lock key conflict transaction errors code.
 	TransactionErrorCodeLockKeyConflict = 2

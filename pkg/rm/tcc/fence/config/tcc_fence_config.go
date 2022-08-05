@@ -36,6 +36,7 @@ const (
 )
 
 type TccFenceConfig struct {
+	UseFence     bool        `default:use_fence`
 	Initialized  atomic.Bool `default:"false"`
 	LogTableName string      `default:"tcc_fence_log"`
 }
@@ -61,4 +62,8 @@ func InitCleanTask() {
 
 func Destory() {
 	schedulerDone.Done()
+}
+
+func IsEnableFence() bool {
+	return true
 }
