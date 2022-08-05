@@ -45,9 +45,8 @@ func TestGetDubboTransactionFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetDubboTransactionFilter(); !reflect.DeepEqual(got, tt.want) {
-				assert.Equal(t, GetDubboTransactionFilter(), tt.want)
-			}
+			assert.Equal(t, GetDubboTransactionFilter(), tt.want)
+
 		})
 	}
 }
