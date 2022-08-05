@@ -20,7 +20,6 @@ package dubbo
 import (
 	"context"
 
-	"reflect"
 	"testing"
 
 	"dubbo.apache.org/dubbo-go/v3/filter"
@@ -88,9 +87,9 @@ func TestDubboTransactionFilterOnResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			du := &dubboTransactionFilter{}
-			if got := du.OnResponse(tt.args.ctx, tt.args.result, tt.args.invoker, tt.args.invocation); !reflect.DeepEqual(got, tt.want) {
-				assert.Equal(t, GetDubboTransactionFilter(), tt.want)
-			}
+			got := du.OnResponse(tt.args.ctx, tt.args.result, tt.args.invoker, tt.args.invocation)
+			assert.Equal(t, got, tt.want)
+
 		})
 	}
 }
