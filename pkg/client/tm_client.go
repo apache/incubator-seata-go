@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-package integration
+package client
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/common/extension"
+	"sync"
 
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/integration/dubbo"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func init() {
-	useDubbo()
+var onceInitTmClient sync.Once
+
+// InitTmClient init seata tm client
+func initTmClient() {
+	onceInitTmClient.Do(func() {
+		initConfig()
+		initRemoting()
+	})
 }
 
-func useDubbo() {
-	extension.SetFilter(common.SeataFilterKey, dubbo.GetDubboTransactionFilter)
+// todo
+// initConfig init config processor
+func initConfig() {
+}
+
+// initRemoting init rpc client
+func initRemoting() {
+	getty.InitRpcClient()
 }

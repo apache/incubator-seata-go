@@ -22,7 +22,7 @@ var MAGIC_CODE_BYTES = [2]byte{0xda, 0xda}
 type (
 	MessageType      int
 	GettyRequestType byte
-	GlobalStatus     int64
+	GlobalStatus     byte
 )
 
 const (
@@ -141,6 +141,11 @@ const (
 	 * the constant TYPE_HEARTBEAT_MSG
 	 */
 	MessageType_HeartbeatMsg MessageType = 120
+
+	/**
+	 * the constant MessageType_BatchResultMsg
+	 */
+	MessageType_BatchResultMsg MessageType = 121
 )
 
 const (

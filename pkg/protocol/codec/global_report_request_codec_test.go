@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-package integration
+package codec
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/common/extension"
+	"testing"
 
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/integration/dubbo"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	useDubbo()
-}
+func TestGlobalReportRequestCodec(t *testing.T) {
+	msg := message.GlobalReportRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
+			Xid:       "test-transaction-id",
+			ExtraData: []byte("TestExtraData"),
+		},
+		GlobalStatus: message.GlobalStatusBegin,
+	}
 
-func useDubbo() {
-	extension.SetFilter(common.SeataFilterKey, dubbo.GetDubboTransactionFilter)
+	codec := GlobalReportRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }

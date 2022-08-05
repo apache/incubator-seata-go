@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 
-package main
+package client
 
-func main() {
-	// start seata server
+import (
+	"sync"
+)
+
+var onceInitRmClient sync.Once
+
+// InitRmClient init seata rm client
+func initRmClient() {
+	onceInitRmClient.Do(func() {
+	})
 }
