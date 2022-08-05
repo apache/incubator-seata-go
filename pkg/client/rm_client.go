@@ -25,6 +25,4 @@ var onceInitRmClient sync.Once
 
 // InitRmClient init seata rm client
 func initRmClient() {
-	onceInitRmClient.Do(func() {
-	})
 }
