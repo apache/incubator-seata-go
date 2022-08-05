@@ -38,7 +38,7 @@ func TestActionContext(t *testing.T) {
 }
 
 // TestBranchReport
-func TestBranchReport(t *testing.T)  {
+func TestBranchReport(t *testing.T) {
 	err := GetTCCResourceManagerInstance().BranchReport(
 		context.Background(),
 		branch.BranchTypeTCC,
