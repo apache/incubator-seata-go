@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/protocol"
 )
 
+// TestGetDubboTransactionFilter unit test for GetDubboTransactionFilter
 func TestGetDubboTransactionFilter(t *testing.T) {
 	tests := []struct {
 		name string
@@ -35,17 +37,22 @@ func TestGetDubboTransactionFilter(t *testing.T) {
 			name: "TestGetDubboTransactionFilter",
 			want: GetDubboTransactionFilter(),
 		},
+		{
+			name: "TestGetDubboTransactionFilter1",
+			want: GetDubboTransactionFilter(),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetDubboTransactionFilter(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetDubboTransactionFilter() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
 }
 
-func Test_dubboTransactionFilter_OnResponse(t *testing.T) {
+// TestGetDubboTransactionFilter unit test for GetDubboTransactionFilter
+func TestDubboTransactionFilterOnResponse(t *testing.T) {
 	type args struct {
 		ctx        context.Context
 		result     protocol.Result
@@ -60,7 +67,17 @@ func Test_dubboTransactionFilter_OnResponse(t *testing.T) {
 		{
 			name: "Test_dubboTransactionFilter_OnResponse",
 			args: args{
-				ctx:        nil,
+				ctx:        context.Background(),
+				result:     nil,
+				invoker:    nil,
+				invocation: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "Test_dubboTransactionFilter_OnResponse1",
+			args: args{
+				ctx:        context.TODO(),
 				result:     nil,
 				invoker:    nil,
 				invocation: nil,
@@ -72,7 +89,7 @@ func Test_dubboTransactionFilter_OnResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			du := &dubboTransactionFilter{}
 			if got := du.OnResponse(tt.args.ctx, tt.args.result, tt.args.invoker, tt.args.invocation); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("OnResponse() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
