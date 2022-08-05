@@ -40,10 +40,10 @@ func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 			GetName    func() string
 		}{},
 		wantService: &TwoPhaseAction{
-			actionName:         "seataTwoPhaseName",
-			prepareMethodName:  "Prepare111",
-			commitMethodName:   "Commit111",
-			rollbackMethodName: "Rollback11",
+			ActionName:         "seataTwoPhaseName",
+			PrepareMethodName:  "Prepare111",
+			CommitMethodName:   "Commit111",
+			RollbackMethodName: "Rollback11",
 		},
 		wantHasError: false,
 	}, {
@@ -115,10 +115,10 @@ func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 			assert.Equal(t, tt.wantErrMsg, err.Error())
 		} else {
 			assert.Nil(t, err)
-			assert.Equal(t, actual.actionName, tt.wantService.actionName)
-			assert.Equal(t, actual.prepareMethodName, tt.wantService.prepareMethodName)
-			assert.Equal(t, actual.commitMethodName, tt.wantService.commitMethodName)
-			assert.Equal(t, actual.rollbackMethodName, tt.wantService.rollbackMethodName)
+			assert.Equal(t, actual.ActionName, tt.wantService.ActionName)
+			assert.Equal(t, actual.PrepareMethodName, tt.wantService.PrepareMethodName)
+			assert.Equal(t, actual.CommitMethodName, tt.wantService.CommitMethodName)
+			assert.Equal(t, actual.RollbackMethodName, tt.wantService.RollbackMethodName)
 		}
 	}
 }
@@ -151,10 +151,10 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	twoPhaseService, err := ParseTwoPhaseAction(NewTwoPhaseDemoService1())
 	ctx := context.Background()
 	assert.Nil(t, err)
-	assert.Equal(t, "TwoPhasePrepare", twoPhaseService.prepareMethodName)
-	assert.Equal(t, "TwoPhaseCommit", twoPhaseService.commitMethodName)
-	assert.Equal(t, "TwoPhaseRollback", twoPhaseService.rollbackMethodName)
-	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.actionName)
+	assert.Equal(t, "TwoPhasePrepare", twoPhaseService.PrepareMethodName)
+	assert.Equal(t, "TwoPhaseCommit", twoPhaseService.CommitMethodName)
+	assert.Equal(t, "TwoPhaseRollback", twoPhaseService.RollbackMethodName)
+	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.ActionName)
 
 	resp, err := twoPhaseService.Prepare(ctx, 11)
 	assert.Equal(t, false, resp)
