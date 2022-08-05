@@ -1,0 +1,157 @@
+seata:
+  config:
+    # support: nacos 、 consul 、 apollo 、 zk  、 etcd3
+    type: file
+    nacos:
+      server-addr: 127.0.0.1:8848
+      namespace:
+      group: SEATA_GROUP
+      username:
+      password:
+      ##if use MSE Nacos with auth, mutex with username/password attribute
+      #access-key: ""
+      #secret-key: ""
+      data-id: seataServer.properties
+    consul:
+      server-addr: 127.0.0.1:8500
+      acl-token:
+      key: seata.properties
+    apollo:
+      appId: seata-server
+      apollo-meta: http://192.168.1.204:8801
+      apollo-config-service: http://192.168.1.204:8080
+      namespace: application
+      apollo-access-key-secret:
+      cluster: seata
+    zk:
+      server-addr: 127.0.0.1:2181
+      session-timeout: 6000
+      connect-timeout: 2000
+      username:
+      password:
+      node-path: /seata/seata.properties
+    etcd3:
+      server-addr: http://localhost:2379
+      key: seata.properties
+  registry:
+    # support: nacos 、 eureka 、 redis 、 zk  、 consul 、 etcd3 、 sofa
+    type: file1
+    preferred-networks: 30.240.*1
+    nacos:
+      application: seata-server1
+      server-addr: 127.0.0.1:88481
+      group: SEATA_GROUP1
+      namespace:
+      cluster: default1
+      username: 1
+      password: 1
+      ##if use MSE Nacos with auth, mutex with username/password attribute
+      #access-key: ""
+      #secret-key: ""
+    eureka:
+      service-url: http://localhost:8761/eureka
+      application: default
+      weight: 1
+    redis:
+      server-addr: localhost:6379
+      db: 0
+      password:
+      cluster: default
+      timeout: 0
+    zk:
+      cluster: default
+      server-addr: 127.0.0.1:2181
+      session-timeout: 6000
+      connect-timeout: 2000
+      username: ""
+      password: ""
+    consul:
+      cluster: default
+      server-addr: 127.0.0.1:8500
+      acl-token:
+    etcd3:
+      cluster: default
+      server-addr: http://localhost:2379
+    sofa:
+      server-addr: 127.0.0.1:9603
+      application: default
+      region: DEFAULT_ZONE
+      datacenter: DefaultDataCenter
+      cluster: default
+      group: SEATA_GROUP
+      address-wait-time: 3000
+
+  server:
+    service-port: 80911 #If not configured, the default is '${server.port} + 1000'
+    max-commit-retry-timeout: -11
+    max-rollback-retry-timeout: -11
+    rollback-retry-timeout-unlock-enable: true
+    enable-check-auth: false
+    enable-parallel-request-handle: true
+    retry-dead-threshold: 1300001
+    xaer-nota-retry-timeout: 600001
+    recovery:
+      handle-all-session-period: 10001
+    undo:
+      log-save-days: 701
+      log-delete-period: 8640000001
+    session:
+      branch-async-queue-size: 5001 #branch async remove queue size
+      enable-branch-async-remove: true #enable to asynchronous remove branchSession
+  store:
+    # support: file 、 db 、 redis
+    mode: file1
+    session:
+      mode: file1
+    lock:
+      mode: file1
+    file:
+      dir: sessionStore1
+      max-branch-session-size: 163841
+      max-global-session-size: 5121
+      file-write-buffer-cache-size: 163841
+      session-reload-read-size: 1001
+      flush-disk-mode: async1
+    db:
+      datasource: druid1
+      db-type: mysql1
+      driver-class-name: com.mysql.jdbc.Driver1
+      url: jdbc:mysql://127.0.0.1:3306/seata?rewriteBatchedStatements=true1
+      user: mysql1
+      password: mysql1
+      min-conn: 51
+      max-conn: 1001
+      global-table: global_table1
+      branch-table: branch_table1
+      lock-table: lock_table
+      distributed-lock-table: distributed_lock1
+      query-limit: 1001
+      max-wait: 50001
+    redis:
+      mode: single1
+      database: 01
+      min-conn: 11
+      max-conn: 101
+      password: 11
+      max-total: 1001
+      query-limit: 1001
+      single:
+        host: 127.0.0.11
+        port: 63791
+      sentinel:
+        master-name:  1
+        sentinel-hosts: 1
+  metrics:
+    enabled: true
+    registry-type: compact1
+    exporter-list: prometheus1
+    exporter-prometheus-port: 98981
+  transport:
+    rpc-tc-request-timeout: 300001
+    enable-tc-server-batch-send-response: true
+    shutdown:
+      wait: 31
+    thread-factory:
+      boss-thread-prefix: NettyBoss1
+      worker-thread-prefix: NettyServerNIOWorker1
+      boss-thread-size: 11
