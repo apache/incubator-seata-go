@@ -1,7 +1,6 @@
 package tcc
 
 import (
-	_ "context"
 	"testing"
 )
 
@@ -12,18 +11,10 @@ func TestTCCServiceProxy_RegisterResource(t1 *testing.T) {
 		TCCResource   *TCCResource
 	}
 
-	tests := []struct {
+	var tests []struct {
 		name    string
 		fields  fields
 		wantErr bool
-	}{
-		//{
-		//	name:    "zhangsan",
-		//	fields:  fields{
-		//		referenceName: "test",
-		//	}},
-		//	wantErr: true,
-		//},
 	}
 	// TODO: Add test cases.
 
@@ -36,6 +27,7 @@ func TestTCCServiceProxy_RegisterResource(t1 *testing.T) {
 			if err := t.RegisterResource(); (err != nil) != tt.wantErr {
 				t1.Errorf("RegisterResource() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 		})
 	}
 }
