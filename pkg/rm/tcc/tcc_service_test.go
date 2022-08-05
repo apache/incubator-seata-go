@@ -24,6 +24,15 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	type args struct {
 		service interface{}
 	}
+
+	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
+	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
+	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
+	tcc.FieldByName("commitMethodName").SetString("Commit111")
+	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
+	twoParseAction := tcc.Interface()
+	action := twoParseAction.(rm.TwoPhaseAction)
+
 	tests := []struct {
 		name    string
 		args    args
@@ -34,23 +43,13 @@ func TestNewTCCServiceProxy(t *testing.T) {
 			TCCResource: &TCCResource{
 				ResourceGroupId: `default:"DEFAULT"`,
 				AppName:         "seata-go-mock-app-name-1",
-				TwoPhaseAction: &rm.TwoPhaseAction{
-					ActionName:         "seataTwoPhaseName111",
-					PrepareMethodName:  "Prepare111",
-					CommitMethodName:   "Commit111",
-					RollbackMethodName: "Rollback11",
-				}}}, nil,
+				TwoPhaseAction:  &action}}, nil,
 		},
 		{"test2", args{userProvider2}, &TCCServiceProxy{
 			TCCResource: &TCCResource{
 				ResourceGroupId: `default:"DEFAULT"`,
 				AppName:         "seata-go-mock-app-name-2",
-				TwoPhaseAction: &rm.TwoPhaseAction{
-					ActionName:         "seataTwoPhaseName222",
-					PrepareMethodName:  "Prepare222",
-					CommitMethodName:   "Commit222",
-					RollbackMethodName: "Rollback22",
-				}}}, nil,
+				TwoPhaseAction:  &action}}, nil,
 		},
 	}
 
@@ -72,6 +71,14 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 		TCCResource          *TCCResource
 	}
 
+	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
+	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
+	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
+	tcc.FieldByName("commitMethodName").SetString("Commit111")
+	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
+	twoParseAction := tcc.Interface()
+	action := twoParseAction.(rm.TwoPhaseAction)
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -80,12 +87,7 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 		{
 			"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
 				TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-					TwoPhaseAction: &rm.TwoPhaseAction{
-						ActionName:         "seataTwoPhaseName111",
-						PrepareMethodName:  "Prepare111",
-						CommitMethodName:   "Commit111",
-						RollbackMethodName: "Rollback11",
-					},
+					TwoPhaseAction: &action,
 				},
 			},
 			tm.TransactionInfo{Name: "test-1", TimeOut: 111, Propagation: 111, LockRetryInternal: 222, LockRetryTimes: 222},
@@ -93,12 +95,7 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 		{
 			"test2", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
 				TCCResource: &TCCResource{ResourceGroupId: "defaultw", AppName: "appw",
-					TwoPhaseAction: &rm.TwoPhaseAction{
-						ActionName:         "seataTwoPhaseName222",
-						PrepareMethodName:  "Prepare222",
-						CommitMethodName:   "Commit222",
-						RollbackMethodName: "Rollback22",
-					},
+					TwoPhaseAction: &action,
 				}},
 			tm.TransactionInfo{Name: "test-2", TimeOut: 111, Propagation: 111, LockRetryInternal: 111, LockRetryTimes: 222},
 		},
@@ -121,10 +118,20 @@ func TestTCCServiceProxy_Prepare(t1 *testing.T) {
 		registerResourceOnce sync.Once
 		TCCResource          *TCCResource
 	}
+
 	type args struct {
 		ctx   context.Context
 		param []interface{}
 	}
+
+	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
+	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
+	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
+	tcc.FieldByName("commitMethodName").SetString("Commit111")
+	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
+	twoParseAction := tcc.Interface()
+	action := twoParseAction.(rm.TwoPhaseAction)
+
 	tests := []struct {
 		name    string
 		fields  fields
@@ -135,23 +142,13 @@ func TestTCCServiceProxy_Prepare(t1 *testing.T) {
 		{
 			"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
 				TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-					TwoPhaseAction: &rm.TwoPhaseAction{
-						ActionName:         "seataTwoPhaseName111",
-						PrepareMethodName:  "Prepare111",
-						CommitMethodName:   "Commit111",
-						RollbackMethodName: "Rollback11",
-					},
+					TwoPhaseAction: &action,
 				}}, args{ctx, append(names, 1)}, append(values, reflect.ValueOf(ctx)), nil,
 		},
 		{
 			"test2", fields{referenceName: "test2", registerResourceOnce: sync.Once{},
 				TCCResource: &TCCResource{ResourceGroupId: "default2", AppName: "app2",
-					TwoPhaseAction: &rm.TwoPhaseAction{
-						ActionName:         "seataTwoPhaseName222",
-						PrepareMethodName:  "Prepare222",
-						CommitMethodName:   "Commit222",
-						RollbackMethodName: "Rollback22",
-					},
+					TwoPhaseAction: &action,
 				}}, args{ctx, append(names, 2)}, append(values, reflect.ValueOf(ctx)), nil,
 		},
 	}

@@ -49,12 +49,12 @@ type TwoPhaseInterface interface {
 
 type TwoPhaseAction struct {
 	twoPhaseService    interface{}
-	ActionName         string
-	PrepareMethodName  string
+	actionName         string
+	prepareMethodName  string
 	prepareMethod      *reflect.Value
-	CommitMethodName   string
+	commitMethodName   string
 	commitMethod       *reflect.Value
-	RollbackMethodName string
+	rollbackMethodName string
 	rollbackMethod     *reflect.Value
 }
 
@@ -119,7 +119,7 @@ func (t *TwoPhaseAction) Rollback(ctx context.Context, businessActionContext *tm
 }
 
 func (t *TwoPhaseAction) GetActionName() string {
-	return t.ActionName
+	return t.actionName
 }
 
 func IsTwoPhaseAction(v interface{}) bool {
@@ -141,12 +141,12 @@ func parseTwoPhaseActionByTwoPhaseInterface(v TwoPhaseInterface) *TwoPhaseAction
 	mr := value.MethodByName("Rollback")
 	return &TwoPhaseAction{
 		twoPhaseService:    v,
-		ActionName:         v.GetActionName(),
-		PrepareMethodName:  "Prepare",
+		actionName:         v.GetActionName(),
+		prepareMethodName:  "Prepare",
 		prepareMethod:      &mp,
-		CommitMethodName:   "Commit",
+		commitMethodName:   "Commit",
 		commitMethod:       &mc,
-		RollbackMethodName: "Rollback",
+		rollbackMethodName: "Rollback",
 		rollbackMethod:     &mr,
 	}
 }
@@ -178,15 +178,15 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 		if ms, m, ok := getPrepareAction(t, f); ok {
 			hasPrepareMethodName = true
 			result.prepareMethod = m
-			result.PrepareMethodName = ms
+			result.prepareMethodName = ms
 		} else if ms, m, ok = getCommitMethod(t, f); ok {
 			hasCommitMethodName = true
 			result.commitMethod = m
-			result.CommitMethodName = ms
+			result.commitMethodName = ms
 		} else if ms, m, ok = getRollbackMethod(t, f); ok {
 			hasRollbackMethod = true
 			result.rollbackMethod = m
-			result.RollbackMethodName = ms
+			result.rollbackMethodName = ms
 		}
 	}
 	if !hasPrepareMethodName {
@@ -202,7 +202,7 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 	if twoPhaseName == "" {
 		return nil, errors.New("missing two phase name")
 	}
-	result.ActionName = twoPhaseName
+	result.actionName = twoPhaseName
 	return &result, nil
 }
 
