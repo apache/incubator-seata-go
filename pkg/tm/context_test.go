@@ -150,5 +150,5 @@ func TestGetFencePhase(t *testing.T) {
 	phase := constant.FencePhaseCommit
 	SetFencePhase(ctx, phase)
 	assert.Equal(t, phase,
-		GetXID(ctx))
+		GetFencePhase(ctx))
 }

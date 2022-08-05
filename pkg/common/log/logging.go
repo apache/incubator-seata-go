@@ -42,7 +42,7 @@ const (
 	// human review.
 	WarnLevel = LogLevel(zapcore.WarnLevel)
 	// ErrorLevel logs are high-priority. If an application is running smoothly,
-	// it shouldn't generate any errors-level logs.
+	// it shouldn't generate any error-level logs.
 	ErrorLevel = LogLevel(zapcore.ErrorLevel)
 	// PanicLevel logs a message, then panics.
 	PanicLevel = LogLevel(zapcore.PanicLevel)
@@ -68,7 +68,7 @@ func (l *LogLevel) unmarshalText(text []byte) bool {
 		*l = InfoLevel
 	case "warn", "WARN":
 		*l = WarnLevel
-	case "errors", "ERROR":
+	case "error", "ERROR":
 		*l = ErrorLevel
 	case "panic", "PANIC":
 		*l = PanicLevel

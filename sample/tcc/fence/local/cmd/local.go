@@ -20,15 +20,17 @@ package main
 import (
 	"context"
 
+	"github.com/seata/seata-go/pkg/client"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/fence/local/service"
 )
 
 func main() {
+	client.Init()
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
@@ -42,12 +44,12 @@ func main() {
 
 	_, err = tccService.Prepare(ctx, 1)
 	if err != nil {
-		log.Errorf("TestTCCServiceBusiness prepare errors, %v", err.Error())
+		log.Errorf("TestTCCServiceBusiness prepare error, %v", err.Error())
 		return
 	}
 	_, err = tccService2.Prepare(ctx, 3)
 	if err != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare errors, %v", err.Error())
+		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", err.Error())
 		return
 	}
 

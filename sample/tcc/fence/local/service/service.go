@@ -23,11 +23,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence"
-
-	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -50,11 +50,11 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 		var err error
 		tccService, err = tcc.NewTCCServiceProxy(&TestTCCServiceBusiness{})
 		if err != nil {
-			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy errors, %v", err.Error()))
+			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error()))
 		}
 		err = tccService.RegisterResource()
 		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness register resource errors, %v", err.Error()))
+			panic(fmt.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error()))
 		}
 	})
 	return tccService
@@ -70,6 +70,7 @@ func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
+
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
 		return nil
@@ -91,8 +92,6 @@ func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContex
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
-
-	log.Infof("testsets")
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Commit, param %v", businessActionContext)
@@ -118,7 +117,7 @@ func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionCont
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
-		return nil
+		return errors.New("test rollback")
 	})
 
 	if err != nil {
@@ -142,11 +141,11 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 		var err error
 		tccService2, err = tcc.NewTCCServiceProxy(&TestTCCServiceBusiness2{})
 		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness2 get tcc service proxy errors, %v", err.Error()))
+			panic(fmt.Errorf("TestTCCServiceBusiness2 get tcc service proxy error, %v", err.Error()))
 		}
 		err = tccService2.RegisterResource()
 		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness2 register resource errors, %v", err.Error()))
+			panic(fmt.Errorf("TestTCCServiceBusiness2 register resource error, %v", err.Error()))
 		}
 	})
 	return tccService2
@@ -183,8 +182,6 @@ func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionConte
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
-
-	log.Infof("testsets")
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness2 Commit, param %v", businessActionContext)

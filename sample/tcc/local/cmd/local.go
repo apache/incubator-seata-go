@@ -41,12 +41,12 @@ func main() {
 
 	_, err = tccService.Prepare(ctx, 1)
 	if err != nil {
-		log.Errorf("TestTCCServiceBusiness prepare errors, %v", err.Error())
+		log.Errorf("TestTCCServiceBusiness prepare error, %v", err.Error())
 		return
 	}
 	_, err = tccService2.Prepare(ctx, 3)
 	if err != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare errors, %v", err.Error())
+		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", err.Error())
 		return
 	}
 

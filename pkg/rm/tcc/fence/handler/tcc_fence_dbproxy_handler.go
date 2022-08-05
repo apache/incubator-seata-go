@@ -18,7 +18,6 @@
 package handler
 
 import (
-	"container/list"
 	"context"
 	"database/sql"
 	"fmt"
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/atomic"
 
 	seataErrors "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -37,9 +35,10 @@ import (
 )
 
 type tccFenceDbProxyHandler struct {
-	tccFenceDao dao.TCCFenceStore
-	logQueue    list.List
-	done        atomic.Bool
+	tccFenceDao       dao.TCCFenceStore
+	logQueue          chan interface{}
+	logQueueOnce      sync.Once
+	logQueueCloseOnce sync.Once
 }
 
 type FenceLogIdentity struct {
@@ -119,8 +118,8 @@ func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.
 	}
 	if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
 		// enable warn level
-		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
-		return nil
+		log.Warnf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
+		return fmt.Errorf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 	}
 	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusCommitted)
 }
@@ -136,10 +135,10 @@ func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sq
 		ok := handler.InsertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusSuspended)
 		log.Infof("Insert tcc fence record ok: %v. xid: %s, branchId: %d", ok, xid, branchId)
 		if ok {
-			log.Infof("TCC fence record not exists, commit fence method failed. xid= %s, branchId= %d ", xid, branchId)
+			log.Infof("TCC fence record not exists, rollback fence method failed. xid= %s, branchId= %d ", xid, branchId)
 			return nil
 		} else {
-			return seataErrors.NewTccFenceError(seataErrors.InsertRecordError, fmt.Sprintf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d", xid, branchId))
+			return seataErrors.NewTccFenceError(seataErrors.InsertRecordError, fmt.Sprintf("insert tcc fence record error, rollback fence method failed. xid= %s, branchId= %d", xid, branchId))
 		}
 	}
 
@@ -151,7 +150,7 @@ func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sq
 	}
 	if fenceDo.Status == constant.StatusCommitted {
 		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
-		return nil
+		return fmt.Errorf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 	}
 	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusRollbacked)
 }
@@ -173,10 +172,10 @@ func (handler *tccFenceDbProxyHandler) updateStatusAndInvokeTargetMethod(tx *sql
 		if err != nil {
 			return tx.Rollback()
 		}
+		return tx.Commit()
 	} else {
 		return seataErrors.NewTccFenceError(seataErrors.UpdateRecordError, fmt.Sprintf("update record error xid %s, branch id %d, target status %d", xid, branchId, status))
 	}
-	return nil
 }
 
 func (handler *tccFenceDbProxyHandler) DeleteFence(xid string, id int64) error {
@@ -184,7 +183,15 @@ func (handler *tccFenceDbProxyHandler) DeleteFence(xid string, id int64) error {
 }
 
 func (handler *tccFenceDbProxyHandler) InitLogCleanExecutor() {
-	go handler.FenceLogCleanRunnable()
+	handler.logQueueOnce.Do(func() {
+		go handler.fenceLogCleanRunnable()
+	})
+}
+
+func (handler *tccFenceDbProxyHandler) DestroyLogCleanExecutor() {
+	handler.logQueueCloseOnce.Do(func() {
+		close(handler.logQueue)
+	})
 }
 
 func (handler *tccFenceDbProxyHandler) DeleteFenceByDate(datetime time.Time) int32 {
@@ -196,18 +203,15 @@ func (handler *tccFenceDbProxyHandler) AddToLogCleanQueue(xid string, branchId i
 		xid:      xid,
 		branchId: branchId,
 	}
-	handler.logQueue.PushBack(fenceLogIdentity)
+	handler.logQueue <- fenceLogIdentity
 }
 
-func (handler *tccFenceDbProxyHandler) FenceLogCleanRunnable() {
-	for {
-		logIdentity := handler.logQueue.Front().Value.(FenceLogIdentity)
+func (handler *tccFenceDbProxyHandler) fenceLogCleanRunnable() {
+	handler.logQueue = make(chan interface{}, MaxQueueSize)
+	for fenceLog := range handler.logQueue {
+		logIdentity := fenceLog.(FenceLogIdentity)
 		if err := handler.DeleteFence(logIdentity.xid, logIdentity.branchId); err != nil {
 			log.Errorf("delete fence log failed, xid: %s, branchId: &s", logIdentity.xid, logIdentity.branchId)
 		}
-		if handler.done.String() == "true" {
-			log.Errorf("take fence log from queue for clean be interrupted")
-		}
-		<-time.Tick(time.Duration(5))
 	}
 }

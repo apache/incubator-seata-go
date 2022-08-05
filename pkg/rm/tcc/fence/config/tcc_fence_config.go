@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
+
 	"go.uber.org/atomic"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
@@ -36,13 +38,13 @@ const (
 )
 
 type TccFenceConfig struct {
-	UseFence     bool        `default:use_fence`
+	UseFence     bool        `default:"use_fence"`
 	Initialized  atomic.Bool `default:"false"`
 	LogTableName string      `default:"tcc_fence_log"`
 }
 
-func init() {
-	// todo
+func InitFenceConfig() {
+	InitCleanTask()
 }
 
 func (this *TccFenceConfig) Init() {
@@ -57,11 +59,11 @@ func TccFenceCleanScheduler() {
 }
 
 func InitCleanTask() {
-	schedulerDone.Add(1)
+	handler.GetFenceHandlerSingleton().InitLogCleanExecutor()
 }
 
-func Destory() {
-	schedulerDone.Done()
+func Destroy() {
+	handler.GetFenceHandlerSingleton().DestroyLogCleanExecutor()
 }
 
 func IsEnableFence() bool {

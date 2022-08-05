@@ -23,12 +23,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -52,22 +49,6 @@ func TestWithFence(t *testing.T) {
 			},
 			wantErr: true,
 			errStr:  fmt.Sprintf("xid %s, tx name %s, fence phase not exist", "123", "test"),
-		},
-		{
-			bac: tm.BusinessActionContext{
-				Xid:        "123",
-				BranchId:   123,
-				ActionName: "test",
-			},
-			xid:        "123",
-			txName:     "test",
-			fencePhase: constant.FencePhasePrepare,
-			callback: func() error {
-				return errors.New("test prepare")
-			},
-			wantErr:      true,
-			errStr:       "runtime error: invalid memory address or nil pointer dereference",
-			wantRollback: true,
 		},
 	}
 

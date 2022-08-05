@@ -27,6 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -89,16 +90,18 @@ type TCCResourceManager struct {
 	resourceManagerMap sync.Map
 }
 
-// register transaction branch
-func (t *TCCResourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	return t.rmRemoting.BranchRegister(branch.BranchTypeTCC, resourceId, clientId, xid, applicationData, lockKeys)
+// BranchRegister register transaction branch
+func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
+	return t.rmRemoting.BranchRegister(param)
 }
 
-func (t *TCCResourceManager) BranchReport(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	return t.rmRemoting.BranchReport(branchType, xid, branchId, status, applicationData)
+// BranchReport report status of transaction branch
+func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
+	return t.rmRemoting.BranchReport(param)
 }
 
-func (t *TCCResourceManager) LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+// LockQuery query lock status of transaction branch
+func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -110,7 +113,7 @@ func (t *TCCResourceManager) UnregisterResource(resource rm.Resource) error {
 
 func (t *TCCResourceManager) RegisterResource(resource rm.Resource) error {
 	if _, ok := resource.(*TCCResource); !ok {
-		panic(fmt.Sprintf("register tcc resource errors, TCCResource is needed, param %v", resource))
+		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
 	}
 	t.resourceManagerMap.Store(resource.GetResourceId(), resource)
 	return t.rmRemoting.RegisterResource(resource)
@@ -130,15 +133,15 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	businessActionContext := t.getBusinessActionContext(xid, branchID, resourceID, applicationData)
+	businessActionContext := t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData)
 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
-	tm.SetXID(ctx, xid)
+	tm.SetXID(ctx, branchResource.Xid)
 	tm.SetFencePhase(ctx, constant.FencePhaseCommit)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData))
+	_, err := tccResource.TwoPhaseAction.Commit(ctx, businessActionContext)
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
@@ -175,15 +178,15 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	businessActionContext := t.getBusinessActionContext(xid, branchID, resourceID, applicationData)
+	businessActionContext := t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData)
 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
-	tm.SetXID(ctx, xid)
+	tm.SetXID(ctx, branchResource.Xid)
 	tm.SetFencePhase(ctx, constant.FencePhaseCommit)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData))
+	_, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}

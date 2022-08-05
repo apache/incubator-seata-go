@@ -17,7 +17,7 @@
 
 package errors
 
-type TransactionErrorCode byte
+type TransactionErrorCode int32
 
 const (
 	// TransactionErrorCodeUnknown Unknown transaction errors code.
@@ -27,64 +27,68 @@ const (
 	TransactionErrorCodeBeginFailed = TransactionErrorCode(1)
 
 	// TransactionErrorCodeLockKeyConflict Lock key conflict transaction errors code.
-	TransactionErrorCodeLockKeyConflict = 2
+	TransactionErrorCodeLockKeyConflict = TransactionErrorCode(2)
 
 	// Io transaction errors code.
+	IO = TransactionErrorCode(3)
 
 	// TransactionErrorCodeBranchRollbackFailedRetriable Branch rollback failed retriable transaction errors code.
-	TransactionErrorCodeBranchRollbackFailedRetriable = 3
+	TransactionErrorCodeBranchRollbackFailedRetriable = TransactionErrorCode(4)
 
 	// TransactionErrorCodeBranchRollbackFailedUnretriable Branch rollback failed unretriable transaction errors code.
-	TransactionErrorCodeBranchRollbackFailedUnretriable = 4
+	TransactionErrorCodeBranchRollbackFailedUnretriable = TransactionErrorCode(5)
 
 	// TransactionErrorCodeBranchRegisterFailed Branch register failed transaction errors code.
-	TransactionErrorCodeBranchRegisterFailed = 5
+	TransactionErrorCodeBranchRegisterFailed = TransactionErrorCode(6)
 
 	// TransactionErrorCodeBranchReportFailed Branch report failed transaction errors code.
-	TransactionErrorCodeBranchReportFailed = 6
+	TransactionErrorCodeBranchReportFailed = TransactionErrorCode(7)
 
 	// TransactionErrorCodeLockableCheckFailed Lockable check failed transaction errors code.
-	TransactionErrorCodeLockableCheckFailed = 7
+	TransactionErrorCodeLockableCheckFailed = TransactionErrorCode(8)
 
 	// TransactionErrorCodeBranchTransactionNotExist Branch transaction not exist transaction errors code.
-	TransactionErrorCodeBranchTransactionNotExist = 8
+	TransactionErrorCodeBranchTransactionNotExist = TransactionErrorCode(9)
 
 	// TransactionErrorCodeGlobalTransactionNotExist Global transaction not exist transaction errors code.
-	TransactionErrorCodeGlobalTransactionNotExist = 9
+	TransactionErrorCodeGlobalTransactionNotExist = TransactionErrorCode(10)
 
 	// TransactionErrorCodeGlobalTransactionNotActive Global transaction not active transaction errors code.
-	TransactionErrorCodeGlobalTransactionNotActive = 10
+	TransactionErrorCodeGlobalTransactionNotActive = TransactionErrorCode(11)
 
 	// TransactionErrorCodeGlobalTransactionStatusInvalid Global transaction status invalid transaction errors code.
-	TransactionErrorCodeGlobalTransactionStatusInvalid = 11
+	TransactionErrorCodeGlobalTransactionStatusInvalid = TransactionErrorCode(12)
 
 	// TransactionErrorCodeFailedToSendBranchCommitRequest Failed to send branch commit request transaction errors code.
-	TransactionErrorCodeFailedToSendBranchCommitRequest = 12
+	TransactionErrorCodeFailedToSendBranchCommitRequest = TransactionErrorCode(13)
 
 	// TransactionErrorCodeFailedToSendBranchRollbackRequest Failed to send branch rollback request transaction errors code.
-	TransactionErrorCodeFailedToSendBranchRollbackRequest = 13
+	TransactionErrorCodeFailedToSendBranchRollbackRequest = TransactionErrorCode(14)
 
 	// TransactionErrorCodeFailedToAddBranch Failed to add branch transaction errors code.
-	TransactionErrorCodeFailedToAddBranch = 14
+	TransactionErrorCodeFailedToAddBranch = TransactionErrorCode(15)
 
 	// TransactionErrorCodeFailedLockGlobalTranscation Failed to lock global transaction errors code.
-	TransactionErrorCodeFailedLockGlobalTranscation = 15
+	TransactionErrorCodeFailedLockGlobalTranscation = TransactionErrorCode(16)
 
 	// TransactionErrorCodeFailedWriteSession FailedWriteSession
-	TransactionErrorCodeFailedWriteSession = 16
+	TransactionErrorCodeFailedWriteSession = TransactionErrorCode(17)
 
 	// FailedStore Failed to holder errors code
-	FailedStore = 17
+	FailedStore = TransactionErrorCode(18)
+
+	// LockKeyConflictFailFast Lock key conflict fail fast transaction exception code.
+	LockKeyConflictFailFast = TransactionErrorCode(19)
 
 	// FenceErrorCodeDuplicateKey Insert tcc fence record duplicate key errors
-	FenceErrorCodeDuplicateKey = 18
-
-	// InsertRecordError Insert tcc fence record error
-	InsertRecordError = 19
+	FenceErrorCodeDuplicateKey = TransactionErrorCode(20)
 
 	// UpdateRecordError Update tcc fence record error
-	UpdateRecordError = 20
+	UpdateRecordError = TransactionErrorCode(21)
 
 	// RecordNotExists TCC fence record already exists
-	RecordNotExists = 21
+	RecordNotExists = TransactionErrorCode(22)
+
+	// InsertRecordError Insert tcc fence record error
+	InsertRecordError = TransactionErrorCode(23)
 )

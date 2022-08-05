@@ -52,7 +52,7 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 	}
 	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchRollback(ctx, branchResource)
 	if err != nil {
-		log.Infof("branch rollback errors: %s", err.Error())
+		log.Errorf("branch rollback error: %s", err.Error())
 		return err
 	}
 	log.Infof("branch rollback success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
@@ -83,7 +83,7 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 	}
 	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
 	if err != nil {
-		log.Errorf("send branch rollback response errors: {%#v}", err.Error())
+		log.Errorf("send branch rollback response error: {%#v}", err.Error())
 		return err
 	}
 	log.Infof("send branch rollback response success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
