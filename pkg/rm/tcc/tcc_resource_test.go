@@ -20,8 +20,9 @@ package tcc
 import (
 	"context"
 	"encoding/json"
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 
 	"github.com/stretchr/testify/assert"
 )

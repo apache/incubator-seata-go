@@ -18,8 +18,9 @@
 package rm
 
 import (
-	"github.com/pkg/errors"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/protocol/resource"
 
