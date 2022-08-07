@@ -42,7 +42,8 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c := pb.NewTCCServiceBusinessClient(conn)
+	c1 := pb.NewTCCServiceBusiness1Client(conn)
+	c2 := pb.NewTCCServiceBusiness2Client(conn)
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
@@ -50,17 +51,25 @@ func main() {
 	log.Infof("global transaction begin")
 	ctx = tm.Begin(ctx, "TestTCCServiceBusiness")
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, err)
+		resp := tm.CommitOrRollback(ctx, err == nil)
 		log.Infof("tx result %v", resp)
 		<-make(chan bool)
 	}()
 	defer cancel()
 
-	// BranchTransactional remoting running
-	log.Infof("branch transaction begin")
-	r, err := c.Remoting(ctx, &pb.Params{A: "1", B: "2"})
+	// BranchTransactional 1 remoting running
+	log.Infof("branch transaction 1 begin")
+	r1, err := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
 	if err != nil {
-		log.Fatalf("could not do TestTCCServiceBusiness: %v", err)
+		log.Fatalf("could not do TestTCCServiceBusiness 1: %v", err)
 	}
-	log.Infof("TestTCCServiceBusiness#Prepare res: %s", r.String())
+	log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
+
+	// BranchTransactional 2 remoting running
+	log.Infof("branch transaction 2 begin")
+	r2, err := c2.Remoting(ctx, &pb.Params{A: "3", B: "4"})
+	if err != nil {
+		log.Fatalf("could not do TestTCCServiceBusiness 2: %v", err)
+	}
+	log.Infof("TestTCCServiceBusiness#Prepare res: %v", r2)
 }
