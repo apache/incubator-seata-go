@@ -15,18 +15,16 @@
 # limitations under the License.
 #
 
-# dubbo client yaml configure file
-dubbo:
-  registries:
-    demoZK:
-      protocol: zookeeper
-      address: 127.0.0.1:2181
-  consumer:
-    filter: seataDubboFilter
-    references:
-      UserProvider:
-        protocol: dubbo
-        interface: com.github.seata.sample.UserProvider
-  logger:
-    zap-config:
-      level: info
+curl 127.0.0.1:7091
+res=$?
+passCode=52
+while [ "$res" != "$passCode" ];do
+  sleep 5
+  curl 127.0.0.1:7091
+  res=$?
+done
+
+sleep 5
+curl http://127.0.0.1:7091
+sleep 10
+

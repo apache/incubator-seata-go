@@ -44,5 +44,5 @@ func (t *UserProvider) Rollback(ctx context.Context, businessActionContext *tm.B
 
 func (t *UserProvider) GetActionName() string {
 	logger.Infof("GetActionName result")
-	return "TwoPhaseDemoService2"
+	return "TwoPhaseDemoService"
 }
