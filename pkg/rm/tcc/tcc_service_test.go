@@ -13,11 +13,8 @@ import (
 )
 
 var (
-	userProvider1 = &service.UserProvider{}
-	userProvider2 = &service.UserProvider{}
-	names         []interface{}
-	values        = make([]reflect.Value, 0, 2)
-	ctx           = context.Background()
+	names  []interface{}
+	values = make([]reflect.Value, 0, 2)
 )
 
 func TestNewTCCServiceProxy(t *testing.T) {
@@ -25,13 +22,20 @@ func TestNewTCCServiceProxy(t *testing.T) {
 		service interface{}
 	}
 
-	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
-	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
-	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
-	tcc.FieldByName("commitMethodName").SetString("Commit111")
-	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
-	twoParseAction := tcc.Interface()
-	action := twoParseAction.(rm.TwoPhaseAction)
+	userProvider := &service.UserProvider{}
+	args1 := args{userProvider}
+	args2 := args{userProvider}
+
+	twoPhaseAction1, err1 := rm.ParseTwoPhaseAction(userProvider)
+	twoPhaseAction2, err2 := rm.ParseTwoPhaseAction(userProvider)
+
+	if err1 != nil {
+		fmt.Println("current error ", err1)
+	}
+
+	if err2 != nil {
+		fmt.Println("current error ", err2)
+	}
 
 	tests := []struct {
 		name    string
@@ -39,17 +43,17 @@ func TestNewTCCServiceProxy(t *testing.T) {
 		want    *TCCServiceProxy
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"test1", args{userProvider1}, &TCCServiceProxy{
+		{"test1", args1, &TCCServiceProxy{
 			TCCResource: &TCCResource{
 				ResourceGroupId: `default:"DEFAULT"`,
-				AppName:         "seata-go-mock-app-name-1",
-				TwoPhaseAction:  &action}}, nil,
+				AppName:         "seata-go-mock-app-name",
+				TwoPhaseAction:  twoPhaseAction1}}, assert.NoError,
 		},
-		{"test2", args{userProvider2}, &TCCServiceProxy{
+		{"test2", args2, &TCCServiceProxy{
 			TCCResource: &TCCResource{
 				ResourceGroupId: `default:"DEFAULT"`,
-				AppName:         "seata-go-mock-app-name-2",
-				TwoPhaseAction:  &action}}, nil,
+				AppName:         "seata-go-mock-app-name",
+				TwoPhaseAction:  twoPhaseAction2}}, assert.NoError,
 		},
 	}
 
@@ -124,34 +128,13 @@ func TestTCCServiceProxy_Prepare(t1 *testing.T) {
 		param []interface{}
 	}
 
-	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
-	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
-	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
-	tcc.FieldByName("commitMethodName").SetString("Commit111")
-	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
-	twoParseAction := tcc.Interface()
-	action := twoParseAction.(rm.TwoPhaseAction)
-
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
 		want    interface{}
 		wantErr assert.ErrorAssertionFunc
-	}{
-		{
-			"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
-				TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-					TwoPhaseAction: &action,
-				}}, args{ctx, append(names, 1)}, append(values, reflect.ValueOf(ctx)), nil,
-		},
-		{
-			"test2", fields{referenceName: "test2", registerResourceOnce: sync.Once{},
-				TCCResource: &TCCResource{ResourceGroupId: "default2", AppName: "app2",
-					TwoPhaseAction: &action,
-				}}, args{ctx, append(names, 2)}, append(values, reflect.ValueOf(ctx)), nil,
-		},
-	}
+	}{}
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			t := &TCCServiceProxy{
@@ -273,4 +256,23 @@ func TestTCCServiceProxy_registeBranch(t1 *testing.T) {
 			tt.wantErr(t1, t.registeBranch(tt.args.ctx), fmt.Sprintf("registeBranch(%v)", tt.args.ctx))
 		})
 	}
+}
+
+type TCCProvider struct {
+}
+
+func (t TCCProvider) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
+}
+
+func (t *TCCProvider) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return true, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
+}
+
+func (t *TCCProvider) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return false, fmt.Errorf("execute two phase rollback method, xid %v", businessActionContext.Xid)
+}
+
+func (t *TCCProvider) GetActionName() string {
+	return "TwoPhaseDemoService2"
 }
