@@ -44,13 +44,13 @@ type RMRemoting struct {
 }
 
 // Branch register long
-func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+func (RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	request := message.BranchRegisterRequest{
-		Xid:             xid,
-		LockKey:         lockKeys,
-		ResourceId:      resourceId,
-		BranchType:      branchType,
-		ApplicationData: []byte(applicationData),
+		Xid:             param.Xid,
+		LockKey:         param.LockKeys,
+		ResourceId:      param.ResourceId,
+		BranchType:      param.RanchType,
+		ApplicationData: []byte(param.ApplicationData),
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
 	if err != nil || resp == nil {
@@ -60,13 +60,13 @@ func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clien
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
-//  Branch report
-func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+// Branch report
+func (RMRemoting) BranchReport(param BranchReportParam) error {
 	request := message.BranchReportRequest{
-		Xid:             xid,
-		BranchId:        branchId,
-		Status:          status,
-		ApplicationData: []byte(applicationData),
+		Xid:             param.Xid,
+		BranchId:        param.BranchId,
+		Status:          param.Status,
+		ApplicationData: []byte(param.ApplicationData),
 		BranchType:      branch.BranchTypeAT,
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
@@ -78,7 +78,7 @@ func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchI
 }
 
 // Lock query boolean
-func (RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+func (RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
 	return false, nil
 }
 

@@ -39,17 +39,41 @@ type ResourceManagerInbound interface {
 	BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
 }
 
+type BranchRegisterParam struct {
+	RanchType       branch.BranchType
+	ResourceId      string
+	ClientId        string
+	Xid             string
+	ApplicationData string
+	LockKeys        string
+}
+
+type BranchReportParam struct {
+	RanchType       branch.BranchType
+	Xid             string
+	BranchId        int64
+	Status          branch.BranchStatus
+	ApplicationData string
+}
+
+type LockQueryParam struct {
+	RanchType  branch.BranchType
+	ResourceId string
+	Xid        string
+	LockKeys   string
+}
+
 // Resource Manager: send outbound request to TC
 type ResourceManagerOutbound interface {
 	// Branch register long
-	BranchRegister(ctx context.Context, ranchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error)
+	BranchRegister(ctx context.Context, param BranchRegisterParam) (int64, error)
 	//  Branch report
-	BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error
+	BranchReport(ctx context.Context, param BranchReportParam) error
 	// Lock query boolean
-	LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error)
+	LockQuery(ctx context.Context, param LockQueryParam) (bool, error)
 }
 
-//  Resource Manager: common behaviors
+// Resource Manager: common behaviors
 type ResourceManager interface {
 	ResourceManagerInbound
 	ResourceManagerOutbound

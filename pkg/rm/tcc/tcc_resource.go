@@ -90,16 +90,16 @@ type TCCResourceManager struct {
 }
 
 // register transaction branch
-func (t *TCCResourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	return t.rmRemoting.BranchRegister(branch.BranchTypeTCC, resourceId, clientId, xid, applicationData, lockKeys)
+func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
+	return t.rmRemoting.BranchRegister(param)
 }
 
-func (t *TCCResourceManager) BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (t *TCCResourceManager) LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
