@@ -84,7 +84,7 @@ func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchI
 		return err
 	}
 
-	if err = branchReportResultDecode(resp); err != nil {
+	if err = isReportSuccess(resp); err != nil {
 		log.Errorf("BranchReport response error: %v, res %v", err.Error(), resp)
 		return err
 	}
@@ -129,15 +129,7 @@ func isRegisterSuccess(response interface{}) bool {
 	return false
 }
 
-func isReportSuccess(response interface{}) message.ResultCode {
-	if res, ok := response.(message.BranchReportResponse); ok {
-		return res.ResultCode
-	}
-	return message.ResultCodeFailed
-}
-
-// branchReportResultDecode analyze response result
-func branchReportResultDecode(response interface{}) error {
+func isReportSuccess(response interface{}) error {
 	if res, ok := response.(message.BranchReportResponse); ok {
 		if res.ResultCode == message.ResultCodeFailed {
 			return errors.New(res.Msg)
