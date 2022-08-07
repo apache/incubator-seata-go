@@ -19,7 +19,6 @@ package client
 
 import (
 	"context"
-
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 
@@ -44,7 +43,15 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 	applicationData := request.ApplicationData
 	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
-	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
+	commitParam := rm.BranchCommitParam{
+		BranchType:      request.BranchType,
+		Xid:             xid,
+		BranchId:        branchID,
+		ResourceId:      resourceID,
+		ApplicationData: applicationData,
+	}
+
+	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, commitParam)
 	if err != nil {
 		log.Infof("branch commit error: %s", err.Error())
 		return err

@@ -31,12 +31,28 @@ type Resource interface {
 	GetBranchType() branch.BranchType
 }
 
+type BranchCommitParam struct {
+	BranchType      branch.BranchType
+	Xid             string
+	BranchId        int64
+	ResourceId      string
+	ApplicationData []byte
+}
+
+type BranchRollbackParam struct {
+	BranchType      branch.BranchType
+	Xid             string
+	BranchId        int64
+	ResourceId      string
+	ApplicationData []byte
+}
+
 // Control a branch transaction commit or rollback
 type ResourceManagerInbound interface {
 	// Commit a branch transaction
-	BranchCommit(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
+	BranchCommit(ctx context.Context, param BranchCommitParam) (branch.BranchStatus, error)
 	// Rollback a branch transaction
-	BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
+	BranchRollback(ctx context.Context, param BranchRollbackParam) (branch.BranchStatus, error)
 }
 
 // Resource Manager: send outbound request to TC

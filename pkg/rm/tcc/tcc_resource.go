@@ -122,8 +122,9 @@ func (t *TCCResourceManager) GetCachedResources() *sync.Map {
 }
 
 // Commit a branch transaction
-func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (branch.BranchStatus, error) {
+func (t *TCCResourceManager) BranchCommit(ctx context.Context, param rm.BranchCommitParam) (branch.BranchStatus, error) {
 	var tccResource *TCCResource
+	resourceID := param.ResourceId
 	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
 		err := fmt.Errorf("TCC resource is not exist, resourceId: %s", resourceID)
 		return 0, err
@@ -131,7 +132,7 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, ranchType branch.
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(param.Xid, param.BranchId, resourceID, param.ApplicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
@@ -159,8 +160,9 @@ func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64
 }
 
 // Rollback a branch transaction
-func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (branch.BranchStatus, error) {
+func (t *TCCResourceManager) BranchRollback(ctx context.Context, param rm.BranchRollbackParam) (branch.BranchStatus, error) {
 	var tccResource *TCCResource
+	resourceID := param.ResourceId
 	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
 		err := fmt.Errorf("CC resource is not exist, resourceId: %s", resourceID)
 		return 0, err
@@ -168,7 +170,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branc
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(param.Xid, param.BranchId, resourceID, param.ApplicationData))
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
