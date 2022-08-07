@@ -19,12 +19,42 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sync"
+
+	"github.com/seata/seata-go/pkg/rm/tcc"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
+var (
+	tccService     *tcc.TCCServiceProxy
+	tccServiceOnce sync.Once
+
+	tccService2     *tcc.TCCServiceProxy
+	tccService2Once sync.Once
+)
+
 type TestTCCServiceBusiness struct {
+}
+
+func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
+	if tccService != nil {
+		return tccService
+	}
+	tccServiceOnce.Do(func() {
+		var err error
+		tccService, err = tcc.NewTCCServiceProxy(&TestTCCServiceBusiness{})
+		if err != nil {
+			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error()))
+		}
+		err = tccService.RegisterResource()
+		if err != nil {
+			panic(fmt.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error()))
+		}
+	})
+	return tccService
 }
 
 func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
@@ -47,6 +77,24 @@ func (T TestTCCServiceBusiness) GetActionName() string {
 }
 
 type TestTCCServiceBusiness2 struct {
+}
+
+func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
+	if tccService2 != nil {
+		return tccService2
+	}
+	tccService2Once.Do(func() {
+		var err error
+		tccService2, err = tcc.NewTCCServiceProxy(&TestTCCServiceBusiness2{})
+		if err != nil {
+			panic(fmt.Errorf("TestTCCServiceBusiness2 get tcc service proxy error, %v", err.Error()))
+		}
+		err = tccService2.RegisterResource()
+		if err != nil {
+			panic(fmt.Errorf("TestTCCServiceBusiness2 register resource error, %v", err.Error()))
+		}
+	})
+	return tccService2
 }
 
 func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {

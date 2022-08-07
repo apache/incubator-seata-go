@@ -15,10 +15,16 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-repos:
--   repo: http://github.com/golangci/golangci-lint
-    rev: v1.42.1
-    hooks:
-    -   id: golangci-lint
+curl 127.0.0.1:7091
+res=$?
+passCode=52
+while [ "$res" != "$passCode" ];do
+  sleep 5
+  curl 127.0.0.1:7091
+  res=$?
+done
+
+sleep 5
+curl http://127.0.0.1:7091
+sleep 10
+

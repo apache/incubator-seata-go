@@ -15,10 +15,57 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-repos:
--   repo: http://github.com/golangci/golangci-lint
-    rev: v1.42.1
-    hooks:
-    -   id: golangci-lint
+coding:
+  - 'pkg/**/*'
+  - 'sample/**/*'
+  - 'test/**/*'
+  - 'cmd/**/*'
+
+# directory .github
+ci/cd:
+  - any: ['.github/**/*']
+
+# directory sample
+sample:
+  - any: ['sample/**/*']
+
+test:
+  - any: ['test/**/*','testdata/**/*']
+
+# directory cmd
+cmd:
+  - any: ['cmd/**/*']
+
+# directory changes
+milestone:
+  - any: ['changes/**/*']
+
+
+# directory pkg
+common:
+  - any: ['pkg/common/**/*']
+
+config:
+  - any: ['pkg/config/**/*']
+
+imports:
+  - any: ['pkg/imports/**/*']
+
+integration:
+  - any: ['pkg/integration/**/*']
+
+protocol:
+  - any: ['pkg/protocol/**/*']
+
+remoting:
+  - any: ['pkg/remoting/**/*']
+
+rm:
+  - any: ['pkg/rm/**/*']
+
+tc:
+  - any: ['pkg/tc/**/*']
+
+tm:
+  - any: ['pkg/tm/**/*']
+

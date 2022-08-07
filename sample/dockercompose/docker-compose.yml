@@ -15,10 +15,19 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-repos:
--   repo: http://github.com/golangci/golangci-lint
-    rev: v1.42.1
-    hooks:
-    -   id: golangci-lint
+version: '3'
+services:
+  seata-server:
+    image: seataio/seata-server:1.5.2
+    ports:
+      - "8091:8091"
+      - "7091:7091"
+    environment:
+      - SEATA_PORT=8091
+      - STORE_MODE=file
+
+  zookeeper:
+    image: zookeeper
+    ports:
+      - "2181:2181"
+    restart: on-failure

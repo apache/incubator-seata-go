@@ -25,12 +25,9 @@ import (
 
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
-
-	"github.com/seata/seata-go/pkg/protocol/resource"
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 var (
@@ -71,7 +68,7 @@ func (t *TCCResource) GetBranchType() branch.BranchType {
 }
 
 func init() {
-	rm.GetResourceManagerInstance().RegisterResourceManager(GetTCCResourceManagerInstance())
+	rm.GetRmCacheInstance().RegisterResourceManager(GetTCCResourceManagerInstance())
 }
 
 func GetTCCResourceManagerInstance() *TCCResourceManager {
@@ -106,12 +103,12 @@ func (t *TCCResourceManager) LockQuery(ctx context.Context, ranchType branch.Bra
 	panic("implement me")
 }
 
-func (t *TCCResourceManager) UnregisterResource(resource resource.Resource) error {
+func (t *TCCResourceManager) UnregisterResource(resource rm.Resource) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (t *TCCResourceManager) RegisterResource(resource resource.Resource) error {
+func (t *TCCResourceManager) RegisterResource(resource rm.Resource) error {
 	if _, ok := resource.(*TCCResource); !ok {
 		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
 	}
@@ -119,7 +116,7 @@ func (t *TCCResourceManager) RegisterResource(resource resource.Resource) error 
 	return t.rmRemoting.RegisterResource(resource)
 }
 
-func (t *TCCResourceManager) GetManagedResources() *sync.Map {
+func (t *TCCResourceManager) GetCachedResources() *sync.Map {
 	return &t.resourceManagerMap
 }
 
@@ -172,9 +169,9 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, ranchType branc
 
 	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
 	if err != nil {
-		return branch.BranchStatusPhasetwoRollbacked, err
+		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
-	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
+	return branch.BranchStatusPhasetwoRollbacked, err
 }
 
 func (t *TCCResourceManager) GetBranchType() branch.BranchType {

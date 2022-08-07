@@ -15,4 +15,17 @@
  * limitations under the License.
  */
 
-package service
+package tm
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewSuspendedResourcesHolder(t *testing.T) {
+	xid := "123456"
+	holder := NewSuspendedResourcesHolder(xid)
+	assert.NotEmpty(t, holder)
+	assert.Equal(t, xid, holder.Xid)
+}

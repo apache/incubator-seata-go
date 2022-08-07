@@ -45,7 +45,7 @@ func test() {
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, &err)
+		resp := tm.CommitOrRollback(ctx, err == nil)
 		logger.Infof("tx result %v", resp)
 		<-make(chan struct{})
 	}()

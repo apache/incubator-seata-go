@@ -24,6 +24,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/protocol/resource"
 
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -97,11 +98,11 @@ func (RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockK
 	return false, nil
 }
 
-func (r *RMRemoting) RegisterResource(resource resource.Resource) error {
+func (r *RMRemoting) RegisterResource(resource Resource) error {
 	req := message.RegisterRMRequest{
 		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			//todo replace with config
-			Version:                 "1.4.2",
+			Version:                 "1.5.2",
 			ApplicationId:           "tcc-sample",
 			TransactionServiceGroup: "my_test_tx_group",
 		},

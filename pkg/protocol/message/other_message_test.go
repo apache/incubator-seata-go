@@ -15,4 +15,24 @@
  * limitations under the License.
  */
 
-package service
+package message
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewMessageFuture(t *testing.T) {
+	rpcMessage := RpcMessage{ID: 0}
+	assert.Equal(t, int32(0), NewMessageFuture(rpcMessage).ID)
+}
+
+func TestHeartBeatMessage_ToString(t *testing.T) {
+	assert.Equal(t, "services ping", HeartBeatMessagePing.ToString())
+	assert.Equal(t, "services pong", HeartBeatMessagePong.ToString())
+}
+
+func TestHeartBeatMessage_GetTypeCode(t *testing.T) {
+	assert.Equal(t, MessageType_HeartbeatMsg, HeartBeatMessage{}.GetTypeCode())
+}

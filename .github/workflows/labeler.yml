@@ -15,10 +15,28 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-repos:
--   repo: http://github.com/golangci/golangci-lint
-    rev: v1.42.1
-    hooks:
-    -   id: golangci-lint
+# This workflow will help me to auto set up label for pull request
+
+name: "Pull Request Labeler"
+on:
+  - pull_request_target
+
+jobs:
+  triage:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - uses: actions/labeler@v4
+        name: "Labeler"
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/actions/labeler/labeler.yml
+          sync-labels: true
