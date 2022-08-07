@@ -49,7 +49,7 @@ func (RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 		Xid:             param.Xid,
 		LockKey:         param.LockKeys,
 		ResourceId:      param.ResourceId,
-		BranchType:      param.RanchType,
+		BranchType:      param.BranchType,
 		ApplicationData: []byte(param.ApplicationData),
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)

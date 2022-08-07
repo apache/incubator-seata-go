@@ -99,7 +99,7 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context) error {
 		common.ActionContext: tccContext,
 	})
 	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
-		RanchType:       branch.BranchTypeTCC,
+		BranchType:      branch.BranchTypeTCC,
 		ResourceId:      t.GetActionName(),
 		ClientId:        "",
 		Xid:             tm.GetXID(ctx),

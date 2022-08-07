@@ -40,7 +40,7 @@ type ResourceManagerInbound interface {
 }
 
 type BranchRegisterParam struct {
-	RanchType       branch.BranchType
+	BranchType      branch.BranchType
 	ResourceId      string
 	ClientId        string
 	Xid             string
@@ -49,7 +49,7 @@ type BranchRegisterParam struct {
 }
 
 type BranchReportParam struct {
-	RanchType       branch.BranchType
+	BranchType      branch.BranchType
 	Xid             string
 	BranchId        int64
 	Status          branch.BranchStatus
@@ -57,7 +57,7 @@ type BranchReportParam struct {
 }
 
 type LockQueryParam struct {
-	RanchType  branch.BranchType
+	BranchType branch.BranchType
 	ResourceId string
 	Xid        string
 	LockKeys   string
