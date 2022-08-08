@@ -59,10 +59,14 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 	if !ok {
 		log.Errorf("missing grpc metadata")
 	}
-	xid := md.Get(common.GrpcHeaderKey)[0]
+	var xid string
+	if slice := md.Get(common.GrpcHeaderKey); slice != nil && len(slice) > 0 {
+		xid = slice[0]
+	}
 	if xid == "" {
-		xid = md.Get(common.GrpcHeaderKeyLowercase)[0]
-
+		if slice := md.Get(common.GrpcHeaderKeyLowercase); slice != nil && len(slice) > 0 {
+			xid = slice[0]
+		}
 	}
 	if xid != "" {
 		ctx = tm.InitSeataContext(ctx)
