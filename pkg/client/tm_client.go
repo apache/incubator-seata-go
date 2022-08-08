@@ -15,15 +15,30 @@
  * limitations under the License.
  */
 
-package processor
+package client
 
 import (
-	"context"
+	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-// RemotingProcessor remoting message processor
-type RemotingProcessor interface {
-	Process(ctx context.Context, rpcMessage message.RpcMessage) error
+var onceInitTmClient sync.Once
+
+// InitTmClient init seata tm client
+func initTmClient() {
+	onceInitTmClient.Do(func() {
+		initConfig()
+		initRemoting()
+	})
+}
+
+// todo
+// initConfig init config processor
+func initConfig() {
+}
+
+// initRemoting init rpc client
+func initRemoting() {
+	getty.InitRpcClient()
 }
