@@ -17,7 +17,7 @@
 
 # This is a basic workflow to help you get started with Actions
 
-name: Golang CI Lint
+name: "golang ci lint"
 
 # Controls when the workflow will run
 on:
@@ -43,14 +43,16 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/setup-go@v3
-        name: Set Up Go
+      - name: "set up go"
+        uses: actions/setup-go@v3
         with:
           go-version: 1.16
+
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
-        name: "Checkout ${{ github.ref }}"
-      - name: Golang CI Lint
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v3
+
+      - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: v1.44.2
