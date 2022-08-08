@@ -18,12 +18,9 @@
 package integration
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/common/extension"
-
-	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/integration/dubbo"
 )
 
-func UseDubbo() {
-	extension.SetFilter(common.SeataFilterKey, dubbo.GetDubboTransactionFilter)
+func init() {
+	dubbo.InitSeataDubbo()
 }

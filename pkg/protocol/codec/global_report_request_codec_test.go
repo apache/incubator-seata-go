@@ -15,8 +15,27 @@
  * limitations under the License.
  */
 
-package main
+package codec
 
-func main() {
-	// start seata server
+import (
+	"testing"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGlobalReportRequestCodec(t *testing.T) {
+	msg := message.GlobalReportRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
+			Xid:       "test-transaction-id",
+			ExtraData: []byte("TestExtraData"),
+		},
+		GlobalStatus: message.GlobalStatusBegin,
+	}
+
+	codec := GlobalReportRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }
