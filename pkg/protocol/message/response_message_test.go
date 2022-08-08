@@ -32,7 +32,7 @@ func TestRegisterTMResponse_GetTypeCode(t *testing.T) {
 }
 
 func TestGlobalReportResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalStatusResult, GlobalReportResponse{}.GetTypeCode())
+	assert.Equal(t, MessageType_GlobalReportResult, GlobalReportResponse{}.GetTypeCode())
 }
 
 func TestGlobalLockQueryResponse_GetTypeCode(t *testing.T) {
