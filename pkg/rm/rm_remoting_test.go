@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
-	"github.com/stretchr/testify/assert"
 	"net"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (

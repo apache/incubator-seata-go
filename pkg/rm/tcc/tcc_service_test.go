@@ -2,13 +2,15 @@ package tcc
 
 import (
 	"fmt"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -25,16 +27,8 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	args1 := args{userProvider}
 	args2 := args{userProvider}
 
-	twoPhaseAction1, err1 := rm.ParseTwoPhaseAction(userProvider)
-	twoPhaseAction2, err2 := rm.ParseTwoPhaseAction(userProvider)
-
-	if err1 != nil {
-		fmt.Println("current error ", err1)
-	}
-
-	if err2 != nil {
-		fmt.Println("current error ", err2)
-	}
+	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
+	twoPhaseAction2, _ := rm.ParseTwoPhaseAction(userProvider)
 
 	tests := []struct {
 		name    string
