@@ -114,10 +114,10 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 func (t *TCCServiceProxy) initActionContext(params interface{}) map[string]interface{} {
 	actionContext := t.getActionContextParameters(params)
 	actionContext[common.ActionStartTime] = time.Now().UnixNano() / 1e6
-	actionContext[common.PrepareMethod] = t.TCCResource.TwoPhaseAction.PrepareMethodName
-	actionContext[common.CommitMethod] = t.TCCResource.TwoPhaseAction.CommitMethodName
-	actionContext[common.RollbackMethod] = t.TCCResource.TwoPhaseAction.RollbackMethodName
-	actionContext[common.ActionName] = t.TCCResource.TwoPhaseAction.ActionName
+	actionContext[common.PrepareMethod] = t.TCCResource.TwoPhaseAction.GetPrepareMethodName()
+	actionContext[common.CommitMethod] = t.TCCResource.TwoPhaseAction.GetCommitMethodName()
+	actionContext[common.RollbackMethod] = t.TCCResource.TwoPhaseAction.GetRollbackMethodName()
+	actionContext[common.ActionName] = t.TCCResource.TwoPhaseAction.GetActionName()
 	actionContext[common.HostName] = net.GetLocalIp()
 	return actionContext
 }
