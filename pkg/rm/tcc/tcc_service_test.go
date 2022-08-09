@@ -1,7 +1,6 @@
 package tcc
 
 import (
-	"context"
 	"fmt"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
@@ -75,13 +74,8 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 		TCCResource          *TCCResource
 	}
 
-	tcc := reflect.ValueOf(&rm.TwoPhaseAction{}).Elem()
-	tcc.FieldByName("actionName").SetString("seataTwoPhaseName111")
-	tcc.FieldByName("prepareMethodName").SetString("Prepare111")
-	tcc.FieldByName("commitMethodName").SetString("Commit111")
-	tcc.FieldByName("rollbackMethodName").SetString("Rollback11")
-	twoParseAction := tcc.Interface()
-	action := twoParseAction.(rm.TwoPhaseAction)
+	userProvider := &service.UserProvider{}
+	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
 
 	tests := []struct {
 		name   string
@@ -91,17 +85,10 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 		{
 			"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
 				TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-					TwoPhaseAction: &action,
+					TwoPhaseAction: twoPhaseAction1,
 				},
 			},
-			tm.TransactionInfo{Name: "test-1", TimeOut: 111, Propagation: 111, LockRetryInternal: 222, LockRetryTimes: 222},
-		},
-		{
-			"test2", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
-				TCCResource: &TCCResource{ResourceGroupId: "defaultw", AppName: "appw",
-					TwoPhaseAction: &action,
-				}},
-			tm.TransactionInfo{Name: "test-2", TimeOut: 111, Propagation: 111, LockRetryInternal: 111, LockRetryTimes: 222},
+			tm.TransactionInfo{Name: "TwoPhaseDemoService", TimeOut: 10000, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
 		},
 	}
 	for _, tt := range tests {
@@ -114,165 +101,4 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 			assert.Equalf(t1, tt.want, t.GetTransactionInfo(), "GetTransactionInfo()")
 		})
 	}
-}
-
-func TestTCCServiceProxy_Prepare(t1 *testing.T) {
-	type fields struct {
-		referenceName        string
-		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
-	}
-
-	type args struct {
-		ctx   context.Context
-		param []interface{}
-	}
-
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    interface{}
-		wantErr assert.ErrorAssertionFunc
-	}{}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			got, err := t.Prepare(tt.args.ctx, tt.args.param...)
-			if !tt.wantErr(t1, err, fmt.Sprintf("Prepare(%v, %v)", tt.args.ctx, tt.args.param)) {
-				return
-			}
-			assert.Equalf(t1, tt.want, got, "Prepare(%v, %v)", tt.args.ctx, tt.args.param)
-		})
-	}
-}
-
-func TestTCCServiceProxy_Reference(t1 *testing.T) {
-	type fields struct {
-		referenceName        string
-		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			assert.Equalf(t1, tt.want, t.Reference(), "Reference()")
-		})
-	}
-}
-
-func TestTCCServiceProxy_RegisterResource(t1 *testing.T) {
-	type fields struct {
-		referenceName        string
-		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr assert.ErrorAssertionFunc
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			tt.wantErr(t1, t.RegisterResource(), fmt.Sprintf("RegisterResource()"))
-		})
-	}
-}
-
-func TestTCCServiceProxy_SetReferenceName(t1 *testing.T) {
-	type fields struct {
-		referenceName        string
-		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
-	}
-	type args struct {
-		referenceName string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			t.SetReferenceName(tt.args.referenceName)
-		})
-	}
-}
-
-func TestTCCServiceProxy_registeBranch(t1 *testing.T) {
-	type fields struct {
-		referenceName        string
-		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
-	}
-	type args struct {
-		ctx context.Context
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr assert.ErrorAssertionFunc
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			tt.wantErr(t1, t.registeBranch(tt.args.ctx), fmt.Sprintf("registeBranch(%v)", tt.args.ctx))
-		})
-	}
-}
-
-type TCCProvider struct {
-}
-
-func (t TCCProvider) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
-	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
-}
-
-func (t *TCCProvider) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	return true, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
-}
-
-func (t *TCCProvider) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	return false, fmt.Errorf("execute two phase rollback method, xid %v", businessActionContext.Xid)
-}
-
-func (t *TCCProvider) GetActionName() string {
-	return "TwoPhaseDemoService2"
 }
