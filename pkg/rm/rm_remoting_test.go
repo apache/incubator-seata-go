@@ -2,7 +2,9 @@ package rm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/tm"
@@ -12,12 +14,17 @@ import (
 	"testing"
 )
 
+var (
+	testResourceManager     *TestResourceManager
+	onceTestResourceManager = &sync.Once{}
+)
+
 func TestGetRMRemotingInstance(t *testing.T) {
 	tests := []struct {
 		name string
 		want *RMRemoting
 	}{
-		// TODO: Add test cases.
+		{"test1", &RMRemoting{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -27,35 +34,44 @@ func TestGetRMRemotingInstance(t *testing.T) {
 }
 
 func TestGetRmCacheInstance(t *testing.T) {
-	tests := []struct {
+
+	resourceMapState := sync.Map{}
+	resourceMapState.Store(branch.BranchTypeTCC, GetTestResourceManagerInstance())
+
+	GetRmCacheInstance().RegisterResourceManager(GetTestResourceManagerInstance())
+	tests := struct {
 		name string
 		want *ResourceManagerCache
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, GetRmCacheInstance(), "GetRmCacheInstance()")
-		})
-	}
+	}{"test1", &ResourceManagerCache{resourceManagerMap: resourceMapState}}
+
+	t.Run(tests.name, func(t *testing.T) {
+
+		excepted, _ := tests.want.resourceManagerMap.Load(branch.BranchTypeTCC)
+		actual, _ := GetRmCacheInstance().resourceManagerMap.Load(branch.BranchTypeTCC)
+		assert.Equalf(t, excepted, actual, "GetRmCacheInstance()")
+	})
+
 }
 
 func TestIsTwoPhaseAction(t *testing.T) {
+
+	userProvider := &TwoPhaseDemoService{}
 	type args struct {
 		v interface{}
 	}
-	tests := []struct {
+
+	tests := struct {
 		name string
 		args args
 		want bool
 	}{
-		// TODO: Add test cases.
+		"test1", args{userProvider}, true,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, IsTwoPhaseAction(tt.args.v), "IsTwoPhaseAction(%v)", tt.args.v)
-		})
-	}
+
+	t.Run(tests.name, func(t *testing.T) {
+		assert.Equalf(t, tests.want, IsTwoPhaseAction(tests.args.v), "IsTwoPhaseAction(%v)", tests.args.v)
+	})
+
 }
 
 func TestParseTwoPhaseAction(t *testing.T) {
@@ -670,4 +686,149 @@ func Test_parseTwoPhaseActionByTwoPhaseInterface(t *testing.T) {
 			assert.Equalf(t, tt.want, parseTwoPhaseActionByTwoPhaseInterface(tt.args.v), "parseTwoPhaseActionByTwoPhaseInterface(%v)", tt.args.v)
 		})
 	}
+}
+
+type TestResource struct {
+	ResourceGroupId string `default:"DEFAULT"`
+	AppName         string
+	*TwoPhaseAction
+}
+
+func (t *TestResource) GetResourceGroupId() string {
+	return t.ResourceGroupId
+}
+
+func (t *TestResource) GetResourceId() string {
+	return t.TwoPhaseAction.GetActionName()
+}
+
+func (t *TestResource) GetBranchType() branch.BranchType {
+	return 3
+}
+
+type TwoPhaseDemoService struct {
+}
+
+func (t *TwoPhaseDemoService) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
+}
+
+func (t *TwoPhaseDemoService) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return true, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
+}
+
+func (t *TwoPhaseDemoService) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return false, fmt.Errorf("execute two phase rollback method, xid %v", businessActionContext.Xid)
+}
+
+func (t *TwoPhaseDemoService) GetActionName() string {
+	return "TwoPhaseDemoService"
+}
+
+func GetTestResourceManagerInstance() *TestResourceManager {
+	if testResourceManager == nil {
+		onceTestResourceManager.Do(func() {
+			testResourceManager = &TestResourceManager{
+				resourceManagerMap: sync.Map{},
+				rmRemoting:         GetRMRemotingInstance(),
+			}
+		})
+	}
+	return testResourceManager
+}
+
+type TestResourceManager struct {
+	rmRemoting *RMRemoting
+	// resourceID -> resource
+	resourceManagerMap sync.Map
+}
+
+// register transaction branch
+func (t *TestResourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+	return t.rmRemoting.BranchRegister(3, resourceId, clientId, xid, applicationData, lockKeys)
+}
+
+func (t *TestResourceManager) BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *TestResourceManager) LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *TestResourceManager) UnregisterResource(resource Resource) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *TestResourceManager) RegisterResource(resource Resource) error {
+	if _, ok := resource.(*TestResource); !ok {
+		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
+	}
+	t.resourceManagerMap.Store(resource.GetResourceId(), resource)
+	return t.rmRemoting.RegisterResource(resource)
+}
+
+func (t *TestResourceManager) GetCachedResources() *sync.Map {
+	return &t.resourceManagerMap
+}
+
+// Commit a branch transaction
+func (t *TestResourceManager) BranchCommit(ctx context.Context, ranchType branch.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (branch.BranchStatus, error) {
+	var tccResource *TestResource
+	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
+		err := fmt.Errorf("TCC resource is not exist, resourceId: %s", resourceID)
+		return 0, err
+	} else {
+		tccResource, _ = resource.(*TestResource)
+	}
+
+	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	if err != nil {
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
+	}
+	return branch.BranchStatusPhasetwoCommitted, err
+}
+
+func (t *TestResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
+	var actionContextMap = make(map[string]interface{}, 2)
+	if len(applicationData) > 0 {
+		var tccContext map[string]interface{}
+		if err := json.Unmarshal(applicationData, &tccContext); err != nil {
+			panic("application data failed to unmarshl as json")
+		}
+		if v, ok := tccContext[common.ActionContext]; ok {
+			actionContextMap = v.(map[string]interface{})
+		}
+	}
+
+	return &tm.BusinessActionContext{
+		Xid:           xid,
+		BranchId:      branchID,
+		ActionName:    resourceID,
+		ActionContext: actionContextMap,
+	}
+}
+
+// Rollback a branch transaction
+func (t *TestResourceManager) BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchID int64, resourceID string, applicationData []byte) (branch.BranchStatus, error) {
+	var tccResource *TestResource
+	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
+		err := fmt.Errorf("CC resource is not exist, resourceId: %s", resourceID)
+		return 0, err
+	} else {
+		tccResource, _ = resource.(*TestResource)
+	}
+
+	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(xid, branchID, resourceID, applicationData))
+	if err != nil {
+		return branch.BranchStatusPhasetwoRollbacked, err
+	}
+	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
+}
+
+func (t *TestResourceManager) GetBranchType() branch.BranchType {
+	return branch.BranchTypeTCC
 }
