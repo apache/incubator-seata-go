@@ -48,7 +48,7 @@ type RMRemoting struct {
 }
 
 // Branch register long
-func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+func (*RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
 	request := message.BranchRegisterRequest{
 		Xid:             xid,
 		LockKey:         lockKeys,
@@ -65,7 +65,7 @@ func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clien
 }
 
 // BranchReport
-func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+func (*RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
 	request := message.BranchReportRequest{
 		Xid:             xid,
 		BranchId:        branchId,
@@ -89,7 +89,7 @@ func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchI
 }
 
 // Lock query boolean
-func (RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+func (*RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
 	return false, nil
 }
 

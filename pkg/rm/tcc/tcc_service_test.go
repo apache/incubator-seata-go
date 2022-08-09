@@ -19,6 +19,8 @@ package tcc
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
 	testdata2 "github.com/seata/seata-go/testdata"
 	"reflect"
 	"testing"
@@ -33,11 +35,11 @@ import (
 
 var (
 	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
+	testBranchID           = int64(121324345353)
 )
 
 func Init() {
 	initRegisterResource()
-	initPrepare()
 }
 
 func initRegisterResource() {
@@ -48,17 +50,13 @@ func initRegisterResource() {
 		prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
 			return nil, nil
 		}
+		branchRegister = func(_ *rm.RMRemoting, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+			return testBranchID, nil
+		}
 	)
-
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
-}
-
-func initPrepare() {
-	var prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
-		return nil, nil
-	}
-	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
+	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
 }
 
 func TestInitActionContext(t *testing.T) {
@@ -222,5 +220,5 @@ func TestRegisteBranch(t *testing.T) {
 	err := testTccServiceProxy.registeBranch(ctx, nil)
 	assert.Nil(t, err)
 	bizContext := tm.GetBusinessActionContext(ctx)
-	assert.Equal(t, testdata2.TestBranchId, bizContext.BranchId)
+	assert.Equal(t, testBranchID, bizContext.BranchId)
 }
