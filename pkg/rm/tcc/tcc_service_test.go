@@ -24,8 +24,8 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	}
 
 	userProvider := &service.UserProvider{}
-	args1 := args{userProvider}
-	args2 := args{userProvider}
+	args1 := args{service: userProvider}
+	args2 := args{service: userProvider}
 
 	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
 	twoPhaseAction2, _ := rm.ParseTwoPhaseAction(userProvider)

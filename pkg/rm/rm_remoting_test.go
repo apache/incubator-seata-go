@@ -24,17 +24,15 @@ var (
 )
 
 func TestGetRMRemotingInstance(t *testing.T) {
-	tests := []struct {
+	tests := struct {
 		name string
 		want *RMRemoting
-	}{
-		{"test1", &RMRemoting{}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, GetRMRemotingInstance(), "GetRMRemotingInstance()")
-		})
-	}
+	}{"test1", &RMRemoting{}}
+
+	t.Run(tests.name, func(t *testing.T) {
+		assert.Equalf(t, tests.want, GetRMRemotingInstance(), "GetRMRemotingInstance()")
+	})
+
 }
 
 func TestGetRmCacheInstance(t *testing.T) {
@@ -70,8 +68,8 @@ func TestIsTwoPhaseAction(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"test1", args{userProvider}, true},
-		{"test2", args{userProvider1}, false},
+		{"test1", args{v: userProvider}, true},
+		{"test2", args{v: userProvider1}, false},
 	}
 
 	for _, tt := range tests {
@@ -90,7 +88,7 @@ func TestParseTwoPhaseAction(t *testing.T) {
 
 	userProvider := &TwoPhaseDemoService{}
 	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
-	args1 := args{userProvider}
+	args1 := args{v: userProvider}
 
 	tests := struct {
 		name    string
@@ -98,6 +96,7 @@ func TestParseTwoPhaseAction(t *testing.T) {
 		want    *TwoPhaseAction
 		wantErr assert.ErrorAssertionFunc
 	}{"test1", args1, twoPhaseAction, assert.NoError}
+
 	t.Run(tests.name, func(t *testing.T) {
 		got, err := ParseTwoPhaseAction(tests.args.v)
 		if !tests.wantErr(t, err, fmt.Sprintf("ParseTwoPhaseAction(%v)", tests.args.v)) {
@@ -115,7 +114,7 @@ func TestParseTwoPhaseActionByInterface(t *testing.T) {
 
 	userProvider := &service.UserProvider{}
 	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
-	args1 := args{userProvider}
+	args1 := args{v: userProvider}
 
 	tests := struct {
 		name    string
@@ -143,7 +142,7 @@ func TestRMRemoting_BranchRegister(t *testing.T) {
 		lockKeys        string
 	}
 
-	args1 := args{branch.BranchTypeTCC, "1232324", "56679", "123345", "TestExtraData", ""}
+	args1 := args{branchType: branch.BranchTypeTCC, resourceId: "1232324", clientId: "56679", xid: "123345", applicationData: "TestExtraData", lockKeys: ""}
 
 	tt := struct {
 		name    string
