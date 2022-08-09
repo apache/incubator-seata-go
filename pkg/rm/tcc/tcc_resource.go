@@ -96,8 +96,8 @@ func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.Branch
 
 // report status of transaction branch
 func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
-	//TODO implement me
-	panic("implement me")
+	return t.rmRemoting.BranchReport(param)
+
 }
 
 // query lock status of transaction branch

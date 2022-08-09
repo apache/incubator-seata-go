@@ -20,13 +20,14 @@ package main
 import (
 	"context"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/local/service"
 )
 
 func main() {
+	client.Init()
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
