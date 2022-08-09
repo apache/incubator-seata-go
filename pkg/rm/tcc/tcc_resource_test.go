@@ -34,3 +34,17 @@ func TestActionContext(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, `{"zhangsan":"lisi"}`, string(bytes))
 }
+
+// TestBranchReport
+func TestBranchReport(t *testing.T) {
+	// todo add mock
+	/*err := GetTCCResourceManagerInstance().BranchReport(
+		context.Background(),
+		branch.BranchTypeTCC,
+		"1111111111",
+		2645276141,
+		branch.BranchStatusPhaseoneDone,
+		`{"actionContext":{"zhangsan":"lisi"}}`)
+
+	assert.Nil(t, err)*/
+}
