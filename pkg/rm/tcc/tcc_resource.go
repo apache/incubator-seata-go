@@ -94,11 +94,13 @@ func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.Branch
 	return t.rmRemoting.BranchRegister(param)
 }
 
+// report status of transaction branch
 func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	//TODO implement me
 	panic("implement me")
 }
 
+// query lock status of transaction branch
 func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")

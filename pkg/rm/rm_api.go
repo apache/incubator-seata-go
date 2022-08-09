@@ -39,6 +39,7 @@ type ResourceManagerInbound interface {
 	BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
 }
 
+// Branch register function param for ResourceManager
 type BranchRegisterParam struct {
 	BranchType      branch.BranchType
 	ResourceId      string
@@ -48,6 +49,7 @@ type BranchRegisterParam struct {
 	LockKeys        string
 }
 
+// Branch report function param for ResourceManager
 type BranchReportParam struct {
 	BranchType      branch.BranchType
 	Xid             string
@@ -56,6 +58,7 @@ type BranchReportParam struct {
 	ApplicationData string
 }
 
+// Lock query function param for ResourceManager
 type LockQueryParam struct {
 	BranchType branch.BranchType
 	ResourceId string
