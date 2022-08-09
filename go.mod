@@ -8,7 +8,6 @@ require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/dubbogo/gost v1.12.5
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
@@ -17,6 +16,7 @@ require (
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )

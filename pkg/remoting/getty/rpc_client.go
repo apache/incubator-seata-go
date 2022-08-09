@@ -37,17 +37,12 @@ type RpcClient struct {
 	futures      *sync.Map
 }
 
-func init() {
-	newRpcClient()
-}
-
-func newRpcClient() *RpcClient {
+func InitRpcClient() {
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
 	}
 	rpcClient.init()
-	return rpcClient
 }
 
 func (c *RpcClient) init() {
