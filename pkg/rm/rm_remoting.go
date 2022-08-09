@@ -22,9 +22,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/protocol/resource"
-
-
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -52,8 +49,8 @@ func GetRMRemotingInstance() *RMRemoting {
 type RMRemoting struct {
 }
 
-// Branch register long
-func (RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
+//BranchRegister  Register branch of global transaction
+func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	request := message.BranchRegisterRequest{
 		Xid:             param.Xid,
 		LockKey:         param.LockKeys,
@@ -69,8 +66,8 @@ func (RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
-// Branch report
-func (RMRemoting) BranchReport(param BranchReportParam) error {
+// BranchReport Report status of transaction branch
+func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 	request := message.BranchReportRequest{
 		Xid:             param.Xid,
 		BranchId:        param.BranchId,
@@ -93,8 +90,8 @@ func (RMRemoting) BranchReport(param BranchReportParam) error {
 	return nil
 }
 
-// Lock query boolean
-func (RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
+// LockQuery Query lock status of transaction branch
+func (r *RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
 	return false, nil
 }
 
