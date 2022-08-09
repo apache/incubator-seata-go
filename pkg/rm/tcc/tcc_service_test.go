@@ -71,28 +71,26 @@ func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
 	userProvider := &service.UserProvider{}
 	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
 
-	tests := []struct {
+	tests := struct {
 		name   string
 		fields fields
 		want   tm.TransactionInfo
 	}{
-		{
-			"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
-				TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-					TwoPhaseAction: twoPhaseAction1,
-				},
+		"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
+			TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
+				TwoPhaseAction: twoPhaseAction1,
 			},
-			tm.TransactionInfo{Name: "TwoPhaseDemoService", TimeOut: 10000, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
 		},
+		tm.TransactionInfo{Name: "TwoPhaseDemoService", TimeOut: 10000, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
 	}
-	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := &TCCServiceProxy{
-				referenceName:        tt.fields.referenceName,
-				registerResourceOnce: tt.fields.registerResourceOnce,
-				TCCResource:          tt.fields.TCCResource,
-			}
-			assert.Equalf(t1, tt.want, t.GetTransactionInfo(), "GetTransactionInfo()")
-		})
-	}
+
+	t1.Run(tests.name, func(t1 *testing.T) {
+		t := &TCCServiceProxy{
+			referenceName:        tests.fields.referenceName,
+			registerResourceOnce: sync.Once{},
+			TCCResource:          tests.fields.TCCResource,
+		}
+		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
+	})
+
 }

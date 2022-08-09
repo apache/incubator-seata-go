@@ -37,19 +37,18 @@ func TestGetRMRemotingInstance(t *testing.T) {
 
 func TestGetRmCacheInstance(t *testing.T) {
 
-	resourceMapState := sync.Map{}
-	resourceMapState.Store(branch.BranchTypeTCC, GetTestResourceManagerInstance())
-
 	GetRmCacheInstance().RegisterResourceManager(GetTestResourceManagerInstance())
+
 	tests := struct {
 		name string
 		want *ResourceManagerCache
-	}{"test1", &ResourceManagerCache{resourceManagerMap: resourceMapState}}
+	}{"test1", &ResourceManagerCache{}}
 
 	t.Run(tests.name, func(t *testing.T) {
-
+		tests.want.RegisterResourceManager(GetTestResourceManagerInstance())
 		excepted, _ := tests.want.resourceManagerMap.Load(branch.BranchTypeTCC)
-		actual, _ := GetRmCacheInstance().resourceManagerMap.Load(branch.BranchTypeTCC)
+		load, ok := GetRmCacheInstance().resourceManagerMap.Load(branch.BranchTypeTCC)
+		actual, _ := load, ok
 		assert.Equalf(t, excepted, actual, "GetRmCacheInstance()")
 	})
 
