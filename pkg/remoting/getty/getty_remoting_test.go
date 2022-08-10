@@ -67,12 +67,7 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 		messageFuture *message.MessageFuture
 	}{
 		{
-			name:          "futures is null",
-			msgID:         1,
-			messageFuture: nil,
-		},
-		{
-			name:  "futures not  null",
+			name:  "test remove message future",
 			msgID: 1,
 			messageFuture: &message.MessageFuture{
 				ID:       1,
@@ -84,18 +79,12 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if test.messageFuture != nil {
-				GetGettyRemotingInstance().futures.Store(test.msgID, test.messageFuture)
-				messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
-				assert.NotEmpty(t, messageFuture)
-				GetGettyRemotingInstance().RemoveMessageFuture(test.msgID)
-				messageFuture = GetGettyRemotingInstance().GetMessageFuture(test.msgID)
-				assert.Empty(t, messageFuture)
-			} else {
-				GetGettyRemotingInstance().RemoveMessageFuture(test.msgID)
-				messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
-				assert.Empty(t, messageFuture)
-			}
+			GetGettyRemotingInstance().futures.Store(test.msgID, test.messageFuture)
+			messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+			assert.Equal(t, messageFuture, test.messageFuture)
+			GetGettyRemotingInstance().RemoveMessageFuture(test.msgID)
+			messageFuture = GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+			assert.Empty(t, messageFuture)
 		})
 	}
 }
