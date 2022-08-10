@@ -37,7 +37,7 @@ func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 			},
 		},
 	}
-	mock := gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendSync",
+	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendSync",
 		func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{},
 			error) {
 			return respMsg, nil
@@ -45,18 +45,16 @@ func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 	resp, err := GetGettyRemotingClient().SendSyncRequest("message")
 	assert.Empty(t, err)
 	assert.Equal(t, respMsg, resp.(message.GlobalBeginResponse))
-	mock.Reset()
 }
 
 // TestGettyRemotingClient_SendAsyncResponse unit test for SendAsyncResponse function
 func TestGettyRemotingClient_SendAsyncResponse(t *testing.T) {
-	mock := gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendASync",
+	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendASync",
 		func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 			return nil
 		})
 	err := GetGettyRemotingClient().SendAsyncResponse(1, "message")
 	assert.Empty(t, err)
-	mock.Reset()
 }
 
 // TestGettyRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
@@ -76,13 +74,12 @@ func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mock := gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendASync",
+			gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendASync",
 				func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 					return nil
 				})
 			err := GetGettyRemotingClient().SendAsyncRequest(test.message)
 			assert.Empty(t, err)
-			mock.Reset()
 		})
 	}
 }
