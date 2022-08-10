@@ -15,15 +15,8 @@
  * limitations under the License.
  */
 
-package processor
+package client
 
-import (
-	"context"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-)
-
-// RemotingProcessor remoting message processor
-type RemotingProcessor interface {
-	Process(ctx context.Context, rpcMessage message.RpcMessage) error
+// InitRmClient init seata rm client
+func initRmClient() {
 }

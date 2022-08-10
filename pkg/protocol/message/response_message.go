@@ -114,7 +114,7 @@ type GlobalReportResponse struct {
 }
 
 func (resp GlobalReportResponse) GetTypeCode() MessageType {
-	return MessageType_GlobalStatusResult
+	return MessageType_GlobalReportResult
 }
 
 type GlobalCommitResponse struct {
