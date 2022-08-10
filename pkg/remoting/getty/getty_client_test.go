@@ -19,12 +19,13 @@ package getty
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/agiledragon/gomonkey"
 	getty "github.com/apache/dubbo-getty"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
-	"reflect"
-	"testing"
 )
 
 // TestGettyRemotingClient_SendSyncRequest unit test for SendSyncRequest function
