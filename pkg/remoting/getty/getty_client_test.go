@@ -27,6 +27,7 @@ import (
 	"testing"
 )
 
+// TestGettyRemotingClient_SendSyncRequest unit test for SendSyncRequest function
 func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 	respMsg := message.GlobalBeginResponse{
 		AbstractTransactionResponse: message.AbstractTransactionResponse{
@@ -46,6 +47,7 @@ func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 	mock.Reset()
 }
 
+// TestGettyRemotingClient_SendAsyncResponse unit test for SendAsyncResponse function
 func TestGettyRemotingClient_SendAsyncResponse(t *testing.T) {
 	mock := gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendASync",
 		func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
@@ -56,6 +58,7 @@ func TestGettyRemotingClient_SendAsyncResponse(t *testing.T) {
 	mock.Reset()
 }
 
+// TestGettyRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
 func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 	var tests = []struct {
 		name    string
@@ -83,6 +86,7 @@ func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 	}
 }
 
+// Test_syncCallback unit test for syncCallback function
 func Test_syncCallback(t *testing.T) {
 	var tests = []struct {
 		name    string
@@ -129,6 +133,7 @@ func Test_syncCallback(t *testing.T) {
 	}
 }
 
+// Test_asyncCallback unit test for asyncCallback function
 func Test_asyncCallback(t *testing.T) {
 	var tests = []struct {
 		name    string
