@@ -122,7 +122,7 @@ func (t *TCCResourceManager) GetCachedResources() *sync.Map {
 }
 
 // Commit a branch transaction
-func (t *TCCResourceManager) BranchCommit(ctx context.Context, param rm.InboundBranchParam) (branch.BranchStatus, error) {
+func (t *TCCResourceManager) BranchCommit(ctx context.Context, param rm.BranchCommitParam) (branch.BranchStatus, error) {
 	var tccResource *TCCResource
 	resourceID := param.ResourceId
 	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
@@ -160,7 +160,7 @@ func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64
 }
 
 // Rollback a branch transaction
-func (t *TCCResourceManager) BranchRollback(ctx context.Context, param rm.InboundBranchParam) (branch.BranchStatus, error) {
+func (t *TCCResourceManager) BranchRollback(ctx context.Context, param rm.BranchRollbackParam) (branch.BranchStatus, error) {
 	var tccResource *TCCResource
 	resourceID := param.ResourceId
 	if resource, ok := t.resourceManagerMap.Load(resourceID); !ok {
