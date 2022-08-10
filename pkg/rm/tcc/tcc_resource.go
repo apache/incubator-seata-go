@@ -89,18 +89,18 @@ type TCCResourceManager struct {
 	resourceManagerMap sync.Map
 }
 
-// register transaction branch
+// BranchRegister register transaction branch
 func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
 	return t.rmRemoting.BranchRegister(param)
 }
 
-// report status of transaction branch
+// BranchReport report status of transaction branch
 func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return t.rmRemoting.BranchReport(param)
 
 }
 
-// query lock status of transaction branch
+// LockQuery query lock status of transaction branch
 func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
