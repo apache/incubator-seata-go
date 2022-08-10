@@ -75,7 +75,7 @@ func (t *TwoPhaseAction) GetRollbackMethodName() string {
 }
 
 func (t *TwoPhaseAction) Prepare(ctx context.Context, params interface{}) (bool, error) {
-	values := []reflect.Value{reflect.ValueOf(params)}
+	values := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(params)}
 	res := t.prepareMethod.Call(values)
 	var (
 		r0   = res[0].Interface()
