@@ -30,12 +30,12 @@ const (
 )
 
 type BusinessActionContext struct {
-	Xid           string                 `json:"xid"`
-	BranchId      int64                  `json:"branchId"`
-	ActionName    string                 `json:"actionName"`
-	IsDelayReport bool                   `json:"isDelayReport"`
-	IsUpdated     bool                   `json:"isUpdated"`
-	ActionContext map[string]interface{} `json:"actionContext"`
+	Xid           string
+	BranchId      int64
+	ActionName    string
+	IsDelayReport bool
+	IsUpdated     bool
+	ActionContext map[string]interface{}
 }
 
 type ContextVariable struct {

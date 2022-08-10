@@ -19,9 +19,6 @@ package tcc
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	testdata2 "github.com/seata/seata-go/testdata"
 	"reflect"
 	"testing"
 	"time"
@@ -29,7 +26,10 @@ import (
 	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/net"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
+	testdata2 "github.com/seata/seata-go/testdata"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -18,12 +18,13 @@
 package rm
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
-	"sync"
 )
 
 var (
