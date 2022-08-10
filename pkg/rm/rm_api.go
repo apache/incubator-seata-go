@@ -40,6 +40,15 @@ type InboundBranchParam struct {
 	ApplicationData []byte
 }
 
+// InboundBranchParam inbound branch param for ResourceManagerInbound
+type InboundBranchParam struct {
+	BranchType      branch.BranchType
+	Xid             string
+	BranchId        int64
+	ResourceId      string
+	ApplicationData []byte
+}
+
 // Control a branch transaction commit or rollback
 type ResourceManagerInbound interface {
 	// Commit a branch transaction
