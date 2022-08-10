@@ -30,9 +30,4 @@ const (
 	BranchTypeKey   = "TX_BRANCH_TYPE"
 	GlobalLockKey   = "TX_LOCK"
 	SeataFilterKey  = "seataDubboFilter"
-
-	// GrpcHeaderKey grpc header xid key
-	GrpcHeaderKey = XidKey
-	// GrpcHeaderKeyLowercase grpc header xid key lowercase
-	GrpcHeaderKeyLowercase = XidKeyLowercase
 )
