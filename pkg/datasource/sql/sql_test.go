@@ -19,7 +19,7 @@ package sql
 
 import (
 	"context"
-	gosql "database/sql"
+	"database/sql"
 	"fmt"
 	"sync"
 	"testing"
@@ -29,7 +29,7 @@ import (
 
 func Test_SQLOpen(t *testing.T) {
 
-	db, err := gosql.Open(SeataMySQLDriver, "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
+	db, err := sql.Open(SeataMySQLDriver, "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func Test_SQLOpen(t *testing.T) {
 	txInvoker := func(prefix string, offset, total int) {
 		defer wait.Done()
 
-		tx, err := db.BeginTx(context.Background(), &gosql.TxOptions{})
+		tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

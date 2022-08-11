@@ -27,6 +27,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/seata/seata-go/pkg/common/log"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go-datasource/sql/types"
@@ -50,6 +52,7 @@ type SeataDriver struct {
 func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	conn, err := d.target.Open(name)
 	if err != nil {
+		log.Errorf("open connection: %w", err)
 		return nil, err
 	}
 
@@ -64,15 +67,16 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 
 	dbType := types.ParseDBType(d.getTargetDriverName())
 	if dbType == types.DBType_Unknown {
-		return nil, errors.New("unsuppoer conn type")
+		return nil, errors.New("unsupport conn type")
 	}
 
 	c, err := d.OpenConnector(name)
 	if err != nil {
+		log.Errorf("open connector: %w", err)
 		return nil, fmt.Errorf("open connector error: %v", err.Error())
 	}
 
-	proxy, err := regisResource(connector, dbType, sql.OpenDB(c), name)
+	proxy, err := registerResource(connector, dbType, sql.OpenDB(c), name)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +89,10 @@ func (d *SeataDriver) OpenConnector(dataSourceName string) (driver.Connector, er
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		return driverCtx.OpenConnector(dataSourceName)
 	}
-	return dsnConnector{dsn: dataSourceName, driver: d.target}, nil
+	return &dsnConnector{dsn: dataSourceName, driver: d.target}, nil
 }
 
-func (d SeataDriver) getTargetDriverName() string {
+func (d *SeataDriver) getTargetDriverName() string {
 	return strings.ReplaceAll(SeataMySQLDriver, "seata-", "")
 }
 
@@ -97,15 +101,15 @@ type dsnConnector struct {
 	driver driver.Driver
 }
 
-func (t dsnConnector) Connect(_ context.Context) (driver.Conn, error) {
+func (t *dsnConnector) Connect(_ context.Context) (driver.Conn, error) {
 	return t.driver.Open(t.dsn)
 }
 
-func (t dsnConnector) Driver() driver.Driver {
+func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-func regisResource(connector driver.Connector, dbType types.DBType, db *sql.DB,
+func registerResource(connector driver.Connector, dbType types.DBType, db *sql.DB,
 	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 
 	conf := loadConfig()
@@ -127,10 +131,12 @@ func regisResource(connector driver.Connector, dbType types.DBType, db *sql.DB,
 
 	res, err := newResource(options...)
 	if err != nil {
+		log.Errorf("create new resource: %w", err)
 		return nil, err
 	}
 
-	if err := datasource.GetDataSourceManager(conf.BranchType).RegisterResource(res); err != nil {
+	if err = datasource.GetDataSourceManager(conf.BranchType).RegisterResource(res); err != nil {
+		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
 
