@@ -56,22 +56,22 @@ func GetGettyRemotingInstance() *GettyRemoting {
 	return gettyRemoting
 }
 
-func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
+func (client *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
 		s = sessionManager.selectSession()
 	}
-	return g.sendAsync(s, msg, callback)
+	return client.sendAsync(s, msg, callback)
 }
 
-func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
+func (client *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
 		s = sessionManager.selectSession()
 	}
-	_, err := g.sendAsync(s, msg, callback)
+	_, err := client.sendAsync(s, msg, callback)
 	return err
 }
 
-func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, callback callbackMethod) (interface{}, error) {
+func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, callback callbackMethod) (interface{}, error) {
 	if _, ok := msg.Body.(message.HeartBeatMessage); ok {
 		log.Debug("send async message: {%#v}", msg)
 	} else {
@@ -83,10 +83,10 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 		return nil, err
 	}
 	resp := message.NewMessageFuture(msg)
-	g.futures.Store(msg.ID, resp)
+	client.futures.Store(msg.ID, resp)
 	_, _, err = session.WritePkg(msg, time.Duration(0))
 	if err != nil {
-		g.futures.Delete(msg.ID)
+		client.futures.Delete(msg.ID)
 		log.Errorf("send message: %#v, session: %s", msg, session.Stat())
 		return nil, err
 	}
