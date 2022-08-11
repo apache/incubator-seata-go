@@ -36,7 +36,7 @@ import (
 )
 
 func init() {
-	datasource.RegisterResourceManager(branch.BranchTypeAT, &ATSourceManager{basic: &datasource.BasicSourceManager{}})
+	datasource.RegisterResourceManager(branch.BranchTypeAT, &ATSourceManager{basic: datasource.NewBasicSourceManager()})
 }
 
 type ATSourceManager struct {
@@ -267,7 +267,7 @@ func (w *asyncATWorker) branchCommit(ctx context.Context, req message.BranchComm
 
 	select {
 	case w.commitQueue <- phaseCtx:
-	case <- ctx.Done():
+	case <-ctx.Done():
 	}
 
 	return

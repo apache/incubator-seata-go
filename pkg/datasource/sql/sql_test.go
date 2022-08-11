@@ -29,7 +29,7 @@ import (
 
 func Test_SQLOpen(t *testing.T) {
 
-	db, err := Open("mysql", "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
+	db, err := gosql.Open(SeataMySQLDriver, "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
