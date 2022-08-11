@@ -56,22 +56,22 @@ func GetGettyRemotingInstance() *GettyRemoting {
 	return gettyRemoting
 }
 
-func (client *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
+func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
 		s = sessionManager.selectSession()
 	}
-	return client.sendAsync(s, msg, callback)
+	return g.sendAsync(s, msg, callback)
 }
 
-func (client *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
+func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
 		s = sessionManager.selectSession()
 	}
-	_, err := client.sendAsync(s, msg, callback)
+	_, err := g.sendAsync(s, msg, callback)
 	return err
 }
 
-func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, callback callbackMethod) (interface{}, error) {
+func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage, callback callbackMethod) (interface{}, error) {
 	if _, ok := msg.Body.(message.HeartBeatMessage); ok {
 		log.Debug("send async message: {%#v}", msg)
 	} else {
@@ -83,10 +83,10 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMes
 		return nil, err
 	}
 	resp := message.NewMessageFuture(msg)
-	client.futures.Store(msg.ID, resp)
+	g.futures.Store(msg.ID, resp)
 	_, _, err = session.WritePkg(msg, time.Duration(0))
 	if err != nil {
-		client.futures.Delete(msg.ID)
+		g.futures.Delete(msg.ID)
 		log.Errorf("send message: %#v, session: %s", msg, session.Stat())
 		return nil, err
 	}
@@ -96,30 +96,30 @@ func (client *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMes
 	return nil, nil
 }
 
-func (client *GettyRemoting) GetMessageFuture(msgID int32) *message.MessageFuture {
-	if msg, ok := client.futures.Load(msgID); ok {
+func (g *GettyRemoting) GetMessageFuture(msgID int32) *message.MessageFuture {
+	if msg, ok := g.futures.Load(msgID); ok {
 		return msg.(*message.MessageFuture)
 	}
 	return nil
 }
 
-func (client *GettyRemoting) RemoveMessageFuture(msgID int32) {
-	client.futures.Delete(msgID)
+func (g *GettyRemoting) RemoveMessageFuture(msgID int32) {
+	g.futures.Delete(msgID)
 }
 
-func (client *GettyRemoting) RemoveMergedMessageFuture(msgID int32) {
-	client.mergeMsgMap.Delete(msgID)
+func (g *GettyRemoting) RemoveMergedMessageFuture(msgID int32) {
+	g.mergeMsgMap.Delete(msgID)
 }
 
-func (client *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
-	if msg, ok := client.mergeMsgMap.Load(msgID); ok {
+func (g *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
+	if msg, ok := g.mergeMsgMap.Load(msgID); ok {
 		return msg.(*message.MergedWarpMessage)
 	}
 	return nil
 }
 
-func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
-	messageFuture := client.GetMessageFuture(rpcMessage.ID)
+func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
+	messageFuture := g.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
