@@ -78,6 +78,7 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 
 	proxy, err := registerResource(connector, dbType, sql.OpenDB(c), name)
 	if err != nil {
+		log.Errorf("register resource: %w", err)
 		return nil, err
 	}
 
@@ -118,6 +119,7 @@ func registerResource(connector driver.Connector, dbType types.DBType, db *sql.D
 	}
 
 	if err := conf.validate(); err != nil {
+		log.Errorf("invalid conf: %w", err)
 		return connector, err
 	}
 
