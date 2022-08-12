@@ -117,7 +117,7 @@ upstream   no-pushing (push)
 * docs: xxxx. For example, "docs: add docs about seata-go cluster installation".
 * feature: xxxx.For example, "feature: support oracle in AT mode".
 * bugfix: xxxx. For example, "bugfix: fix panic when input nil parameter".
-* refactor: xxxx. For example, "refactor: simplify to make codes more readable".
+* optimize: xxxx. For example, "optimize: simplify to make codes more readable".
 * test: xxx. For example, "test: add unit test case for func InsertIntoArray".
 * 其他可读和显式的表达方式。
 

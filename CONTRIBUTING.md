@@ -117,7 +117,7 @@ Commit message could help reviewers better understand what is the purpose of sub
 * docs: xxxx. For example, "docs: add docs about seata-go cluster installation".
 * feature: xxxx.For example, "feature: support oracle in AT mode".
 * bugfix: xxxx. For example, "bugfix: fix panic when input nil parameter".
-* refactor: xxxx. For example, "refactor: simplify to make codes more readable".
+* optimize: xxxx. For example, "optimize: simplify to make codes more readable".
 * test: xxx. For example, "test: add unit test case for func InsertIntoArray".
 * other readable and explicit expression ways.
 

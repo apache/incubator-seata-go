@@ -100,8 +100,14 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 	applicationData, _ := json.Marshal(map[string]interface{}{
 		common.ActionContext: actionContext,
 	})
-	rm.GetRMRemotingInstance()
-	branchId, err := rm.GetRMRemotingInstance().BranchRegister(branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(applicationData), "")
+	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
+		BranchType:      branch.BranchTypeTCC,
+		ResourceId:      t.GetActionName(),
+		ClientId:        "",
+		Xid:             tm.GetXID(ctx),
+		ApplicationData: string(applicationData),
+		LockKeys:        "",
+	})
 	if err != nil {
 		log.Errorf("register branch transaction error %s ", err.Error())
 		return err

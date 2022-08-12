@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -48,14 +49,14 @@ func GetRMRemotingInstance() *RMRemoting {
 type RMRemoting struct {
 }
 
-// Branch register long
-func (*RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+//BranchRegister  Register branch of global transaction
+func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	request := message.BranchRegisterRequest{
-		Xid:             xid,
-		LockKey:         lockKeys,
-		ResourceId:      resourceId,
-		BranchType:      branchType,
-		ApplicationData: []byte(applicationData),
+		Xid:             param.Xid,
+		LockKey:         param.LockKeys,
+		ResourceId:      param.ResourceId,
+		BranchType:      param.BranchType,
+		ApplicationData: []byte(param.ApplicationData),
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
 	if err != nil || resp == nil {
@@ -65,14 +66,14 @@ func (*RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clie
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
-// BranchReport
-func (*RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+// BranchReport Report status of transaction branch
+func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 	request := message.BranchReportRequest{
-		Xid:             xid,
-		BranchId:        branchId,
-		Status:          status,
-		ApplicationData: []byte(applicationData),
-		BranchType:      branchType,
+		Xid:             param.Xid,
+		BranchId:        param.BranchId,
+		Status:          param.Status,
+		ApplicationData: []byte(param.ApplicationData),
+		BranchType:      branch.BranchTypeAT,
 	}
 
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
@@ -89,8 +90,8 @@ func (*RMRemoting) BranchReport(branchType branch.BranchType, xid string, branch
 	return nil
 }
 
-// Lock query boolean
-func (*RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+// LockQuery Query lock status of transaction branch
+func (r *RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
 	return false, nil
 }
 

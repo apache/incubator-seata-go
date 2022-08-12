@@ -164,12 +164,9 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 	typeOf := valueOfElem.Type()
 	k := typeOf.Kind()
 	if k != reflect.Struct {
-		return nil, errors.New("invalid type kind")
-	}
-	numField := typeOf.NumField()
-	if typeOf.Kind() != reflect.Struct {
 		return nil, errors.New("param should be a struct, instead of a pointer")
 	}
+	numField := typeOf.NumField()
 
 	var (
 		hasPrepareMethodName bool
@@ -221,7 +218,7 @@ func getPrepareAction(t reflect.StructField, f reflect.Value) (string, *reflect.
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// prepare has 2 retuen error value
+	// prepare has 2 return error value
 	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}
@@ -248,7 +245,7 @@ func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.V
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// commit method has 2 retuen error value
+	// commit method has 2 return error value
 	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}
@@ -279,7 +276,7 @@ func getRollbackMethod(t reflect.StructField, f reflect.Value) (string, *reflect
 	if f.Kind() != reflect.Func || !f.IsValid() {
 		return "", nil, false
 	}
-	// rollback method has 2 retuen value
+	// rollback method has 2 return value
 	if outNum := t.Type.NumOut(); outNum != 2 {
 		return "", nil, false
 	}

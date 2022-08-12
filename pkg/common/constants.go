@@ -27,13 +27,14 @@ const (
 	RollbackMethod = "sys::rollback"
 	ActionName     = "actionName"
 
-	SeataXidKey    = "SEATA_XID"
-	XidKey         = "TX_XID"
-	MdcXidKey      = "X-TX-XID"
-	MdcBranchIDKey = "X-TX-BRANCH-ID"
-	BranchTypeKey  = "TX_BRANCH_TYPE"
-	GlobalLockKey  = "TX_LOCK"
-	SeataFilterKey = "seataDubboFilter"
+	SeataXidKey     = "SEATA_XID"
+	XidKey          = "TX_XID"
+	XidKeyLowercase = "tx_xid"
+	MdcXidKey       = "X-TX-XID"
+	MdcBranchIDKey  = "X-TX-BRANCH-ID"
+	BranchTypeKey   = "TX_BRANCH_TYPE"
+	GlobalLockKey   = "TX_LOCK"
+	SeataFilterKey  = "seataDubboFilter"
 
 	TccBusinessActionContextParameter = "tccParam"
 )
