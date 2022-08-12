@@ -26,7 +26,6 @@ import (
 	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/net"
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
 	testdata2 "github.com/seata/seata-go/testdata"
@@ -50,7 +49,7 @@ func initRegisterResource() {
 		prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
 			return nil, nil
 		}
-		branchRegister = func(_ *rm.RMRemoting, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+		branchRegister = func(_ *rm.RMRemoting, param rm.BranchRegisterParam) (int64, error) {
 			return testBranchID, nil
 		}
 	)
