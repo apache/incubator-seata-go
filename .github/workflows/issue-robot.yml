@@ -15,28 +15,19 @@
 # limitations under the License.
 #
 
-# This workflow will help me to auto set up label for pull request
-
-name: "pull request labeler"
+name: 'issue translator'
 on:
-  - pull_request_target
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
 
 jobs:
-  triage:
-    permissions:
-      contents: read
-      pull-requests: write
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+      - uses: tomsun28/issues-translate-action@v2.6
         with:
-          persist-credentials: false
-          submodules: true
-
-      - name: "labeler"
-        uses: actions/labeler@v4
-        with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          configuration-path: .github/actions/labeler/labeler.yml
-          sync-labels: true
+          # it is not necessary to decide whether you need to modify the issue header content
+          IS_MODIFY_TITLE: false
+          CUSTOM_BOT_NOTE: RoBot detected the issue body's language is not English, translate it automatically. 👯👭🏻🧑‍🤝‍🧑👫🧑🏿‍🤝‍🧑🏻👩🏾‍🤝‍👨🏿👬🏿
