@@ -22,10 +22,9 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/seata/seata-go/pkg/client"
-
 	"google.golang.org/grpc"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/sample/tcc/grpc/pb"
