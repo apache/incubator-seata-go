@@ -18,8 +18,16 @@
 package tcc
 
 import (
+	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/rm"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,14 +45,26 @@ func TestActionContext(t *testing.T) {
 
 // TestBranchReport
 func TestBranchReport(t *testing.T) {
-	// todo add mock
-	/*err := GetTCCResourceManagerInstance().BranchReport(
-		context.Background(),
-		branch.BranchTypeTCC,
-		"1111111111",
-		2645276141,
-		branch.BranchStatusPhaseoneDone,
-		`{"actionContext":{"zhangsan":"lisi"}}`)
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), "SendSyncRequest", func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+		return message.BranchReportResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeSuccess,
+				},
+			},
+		}, nil
+	})
 
-	assert.Nil(t, err)*/
+	defer patches.Reset()
+
+	err := GetTCCResourceManagerInstance().BranchReport(
+		context.Background(), rm.BranchReportParam{
+			BranchType:      branch.BranchTypeTCC,
+			Xid:             "1111111111",
+			BranchId:        2645276141,
+			Status:          branch.BranchStatusPhaseoneDone,
+			ApplicationData: `{"actionContext":{"zhangsan":"lisi"}}`,
+		})
+
+	assert.Nil(t, err)
 }

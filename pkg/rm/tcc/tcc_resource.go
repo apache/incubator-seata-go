@@ -97,7 +97,6 @@ func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.Branch
 // BranchReport report status of transaction branch
 func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return t.rmRemoting.BranchReport(param)
-
 }
 
 // LockQuery query lock status of transaction branch
