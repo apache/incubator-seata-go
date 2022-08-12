@@ -46,7 +46,7 @@ func TestActionContext(t *testing.T) {
 // TestBranchReport
 func TestBranchReport(t *testing.T) {
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), "SendSyncRequest", func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
-		return message.GlobalBeginResponse{
+		return message.BranchReportResponse{
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
 				AbstractResultMessage: message.AbstractResultMessage{
 					ResultCode: message.ResultCodeSuccess,
