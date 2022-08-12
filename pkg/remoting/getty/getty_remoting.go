@@ -96,30 +96,30 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 	return nil, nil
 }
 
-func (client *GettyRemoting) GetMessageFuture(msgID int32) *message.MessageFuture {
-	if msg, ok := client.futures.Load(msgID); ok {
+func (g *GettyRemoting) GetMessageFuture(msgID int32) *message.MessageFuture {
+	if msg, ok := g.futures.Load(msgID); ok {
 		return msg.(*message.MessageFuture)
 	}
 	return nil
 }
 
-func (client *GettyRemoting) RemoveMessageFuture(msgID int32) {
-	client.futures.Delete(msgID)
+func (g *GettyRemoting) RemoveMessageFuture(msgID int32) {
+	g.futures.Delete(msgID)
 }
 
-func (client *GettyRemoting) RemoveMergedMessageFuture(msgID int32) {
-	client.mergeMsgMap.Delete(msgID)
+func (g *GettyRemoting) RemoveMergedMessageFuture(msgID int32) {
+	g.mergeMsgMap.Delete(msgID)
 }
 
-func (client *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
-	if msg, ok := client.mergeMsgMap.Load(msgID); ok {
+func (g *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
+	if msg, ok := g.mergeMsgMap.Load(msgID); ok {
 		return msg.(*message.MergedWarpMessage)
 	}
 	return nil
 }
 
-func (client *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
-	messageFuture := client.GetMessageFuture(rpcMessage.ID)
+func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
+	messageFuture := g.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
