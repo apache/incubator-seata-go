@@ -27,6 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
+	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 	"github.com/seata/seata-go/sample/tcc/grpc/service"
 )
@@ -39,8 +40,26 @@ func main() {
 	}
 	log.Infof("server register")
 	s := grpc.NewServer(grpc.UnaryInterceptor(grpc2.ServerTransactionInterceptor))
-	pb.RegisterTCCServiceBusiness1Server(s, &service.Business1{})
-	pb.RegisterTCCServiceBusiness2Server(s, &service.Business2{})
+	b1 := &service.Business1{}
+	b2 := &service.Business2{}
+
+	proxy1, err := tcc.NewTCCServiceProxy(b1)
+	if err != nil {
+		log.Fatalf(err.Error())
+		return
+	}
+
+	proxy2, err := tcc.NewTCCServiceProxy(b2)
+	if err != nil {
+		log.Fatalf(err.Error())
+		return
+	}
+
+	b1.TccServiceProxy = proxy1
+	b2.TccServiceProxy = proxy2
+
+	pb.RegisterTCCServiceBusiness1Server(s, b1)
+	pb.RegisterTCCServiceBusiness2Server(s, b2)
 	log.Infof("business listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

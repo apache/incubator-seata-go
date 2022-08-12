@@ -49,10 +49,6 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 		if err != nil {
 			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error()))
 		}
-		err = tccService.RegisterResource()
-		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error()))
-		}
 	})
 	return tccService
 }
@@ -88,10 +84,6 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 		tccService2, err = tcc.NewTCCServiceProxy(&TestTCCServiceBusiness2{})
 		if err != nil {
 			panic(fmt.Errorf("TestTCCServiceBusiness2 get tcc service proxy error, %v", err.Error()))
-		}
-		err = tccService2.RegisterResource()
-		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness2 register resource error, %v", err.Error()))
 		}
 	})
 	return tccService2
