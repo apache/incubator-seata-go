@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+
 	"github.com/seata/seata-go-datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"

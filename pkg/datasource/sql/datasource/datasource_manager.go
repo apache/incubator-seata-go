@@ -97,6 +97,12 @@ type BasicSourceManager struct {
 	tableMetaCache map[string]*entry
 }
 
+func NewBasicSourceManager() *BasicSourceManager {
+	return &BasicSourceManager{
+		tableMetaCache: make(map[string]*entry, 0),
+	}
+}
+
 // Commit a branch transaction
 // TODO wait finish
 func (dm *BasicSourceManager) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
