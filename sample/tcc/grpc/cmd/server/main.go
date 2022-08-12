@@ -22,22 +22,24 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/seata/seata-go/pkg/client"
+
 	"google.golang.org/grpc"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
-	server2 "github.com/seata/seata-go/pkg/integration/grpc/server"
+	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 	"github.com/seata/seata-go/sample/tcc/grpc/service"
 )
 
 func main() {
+	client.Init()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 50051))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	log.Infof("server register")
-	s := grpc.NewServer(grpc.UnaryInterceptor(server2.ServerTransactionInterceptor))
+	s := grpc.NewServer(grpc.UnaryInterceptor(grpc2.ServerTransactionInterceptor))
 	pb.RegisterTCCServiceBusiness1Server(s, &service.Business1{})
 	pb.RegisterTCCServiceBusiness2Server(s, &service.Business2{})
 	log.Infof("business listening at %v", lis.Addr())

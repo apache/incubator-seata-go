@@ -23,21 +23,24 @@ import (
 	"flag"
 	"time"
 
-	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
-	"github.com/seata/seata-go/pkg/integration/grpc/client"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/grpc/pb"
+	"github.com/seata/seata-go/pkg/client"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/seata/seata-go/pkg/common/log"
+	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 )
 
 func main() {
+	client.Init()
 	flag.Parse()
 	// Set up a connection to the server.
 	conn, err := grpc.Dial("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(client.ClientTransactionInterceptor))
+		grpc.WithUnaryInterceptor(grpc2.ClientTransactionInterceptor))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
