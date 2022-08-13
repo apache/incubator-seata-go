@@ -19,8 +19,6 @@ package test
 
 import (
 	"testing"
-
-	_ "github.com/seata/seata-go/pkg/imports"
 )
 
 func TestSendMsgWithResponse(test *testing.T) {

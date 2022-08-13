@@ -26,14 +26,15 @@ import (
 type ContextParam string
 
 const (
-	seataContextVariable     = ContextParam("seataContextVariable")
-	tccBusinessActionContext = ContextParam("tcc-business-action-context")
+	seataContextVariable = ContextParam("seataContextVariable")
 )
 
 type BusinessActionContext struct {
 	Xid           string
 	BranchId      int64
 	ActionName    string
+	IsDelayReport bool
+	IsUpdated     bool
 	ActionContext map[string]interface{}
 }
 
@@ -41,7 +42,6 @@ type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
-	Status                *message.GlobalStatus
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
@@ -75,7 +75,7 @@ func GetTxName(ctx context.Context) string {
 }
 
 func SetTxName(ctx context.Context, name string) {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).TxName = name
 	}
@@ -86,15 +86,15 @@ func IsSeataContext(ctx context.Context) bool {
 }
 
 func GetBusinessActionContext(ctx context.Context) *BusinessActionContext {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return nil
 	}
-	return variable.(*BusinessActionContext)
+	return variable.(*ContextVariable).BusinessActionContext
 }
 
 func SetBusinessActionContext(ctx context.Context, businessActionContext *BusinessActionContext) {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).BusinessActionContext = businessActionContext
 	}

@@ -18,15 +18,23 @@
 package common
 
 const (
-	StartTime     = "action-start-time"
-	HostName      = "host-name"
-	ActionContext = "actionContext"
+	ActionStartTime = "action-start-time"
+	HostName        = "host-name"
+	ActionContext   = "actionContext"
 
-	SeataXidKey    = "SEATA_XID"
-	XidKey         = "TX_XID"
-	MdcXidKey      = "X-TX-XID"
-	MdcBranchIDKey = "X-TX-BRANCH-ID"
-	BranchTypeKey  = "TX_BRANCH_TYPE"
-	GlobalLockKey  = "TX_LOCK"
-	SeataFilterKey = "seataDubboFilter"
+	PrepareMethod  = "sys::prepare"
+	CommitMethod   = "sys::commit"
+	RollbackMethod = "sys::rollback"
+	ActionName     = "actionName"
+
+	SeataXidKey     = "SEATA_XID"
+	XidKey          = "TX_XID"
+	XidKeyLowercase = "tx_xid"
+	MdcXidKey       = "X-TX-XID"
+	MdcBranchIDKey  = "X-TX-BRANCH-ID"
+	BranchTypeKey   = "TX_BRANCH_TYPE"
+	GlobalLockKey   = "TX_LOCK"
+	SeataFilterKey  = "seataDubboFilter"
+
+	TccBusinessActionContextParameter = "tccParam"
 )

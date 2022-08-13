@@ -20,47 +20,28 @@ package main
 import (
 	"context"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
-	_ "github.com/seata/seata-go/pkg/imports"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/local/service"
 )
 
 func main() {
-
+	client.Init()
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, &err)
+		resp := tm.CommitOrRollback(ctx, err == nil)
 		log.Infof("tx result %v", resp)
 		<-make(chan struct{})
 	}()
 
-	tccService, err := tcc.NewTCCServiceProxy(&service.TestTCCServiceBusiness{})
-	if err != nil {
-		log.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error())
-		return
-	}
-	err = tccService.RegisterResource()
-	if err != nil {
-		log.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error())
-		return
-	}
+	tccService := service.NewTestTCCServiceBusinessProxy()
+	tccService2 := service.NewTestTCCServiceBusiness2Proxy()
+
 	_, err = tccService.Prepare(ctx, 1)
 	if err != nil {
 		log.Errorf("TestTCCServiceBusiness prepare error, %v", err.Error())
-		return
-	}
-
-	tccService2, err := tcc.NewTCCServiceProxy(&service.TestTCCServiceBusiness2{})
-	if err != nil {
-		log.Errorf("get TestTCCServiceBusiness2 tcc service proxy error, %v", err.Error())
-		return
-	}
-	err = tccService2.RegisterResource()
-	if err != nil {
-		log.Errorf("TestTCCServiceBusiness2 register resource error, %v", err.Error())
 		return
 	}
 	_, err = tccService2.Prepare(ctx, 3)
