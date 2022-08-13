@@ -43,23 +43,20 @@ func main() {
 	b1 := &service.Business1{}
 	b2 := &service.Business2{}
 
-	proxy1, err := tcc.NewTCCServiceProxy(b1)
+	b1.TccServiceProxy, err = tcc.NewTCCServiceProxy(b1)
 	if err != nil {
 		log.Fatalf(err.Error())
 		return
 	}
 
-	proxy2, err := tcc.NewTCCServiceProxy(b2)
+	b2.TCCServiceProxy, err = tcc.NewTCCServiceProxy(b2)
 	if err != nil {
 		log.Fatalf(err.Error())
 		return
 	}
 
-	b1.TccServiceProxy = proxy1
-	b2.TccServiceProxy = proxy2
-
-	pb.RegisterTCCServiceBusiness1Server(s, b1)
-	pb.RegisterTCCServiceBusiness2Server(s, b2)
+	pb.RegisterTCCServiceBusiness1Server(s, &service.GrpcBusinessService1{Business1: b1})
+	pb.RegisterTCCServiceBusiness2Server(s, &service.GrpcBusinessService2{Business2: b2})
 	log.Infof("business listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

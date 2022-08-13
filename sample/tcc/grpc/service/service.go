@@ -28,13 +28,17 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-type Business1 struct {
+type GrpcBusinessService1 struct {
 	pb.UnimplementedTCCServiceBusiness1Server
+	*Business1
+}
+
+type Business1 struct {
 	TccServiceProxy *tcc.TCCServiceProxy
 }
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
-func (b *Business1) Remoting(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
+func (b *GrpcBusinessService1) Remoting(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
 	log.Infof("Remoting be called")
 	res, err := b.TccServiceProxy.Prepare(ctx, params)
 	if err != nil {
@@ -43,7 +47,7 @@ func (b *Business1) Remoting(ctx context.Context, params *pb.Params) (*wrappersp
 	return wrapperspb.Bool(res.(bool)), nil
 }
 
-func (b *Business1) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (b *Business1) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	log.Infof("TestTCCServiceBusiness1 Prepare, param %v", params)
 	return true, nil
 }
@@ -62,20 +66,24 @@ func (b *Business1) GetActionName() string {
 	return "TCCServiceBusiness1"
 }
 
-type Business2 struct {
+type GrpcBusinessService2 struct {
 	pb.UnimplementedTCCServiceBusiness2Server
-	TccServiceProxy *tcc.TCCServiceProxy
+	*Business2
+}
+
+type Business2 struct {
+	*tcc.TCCServiceProxy
 }
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
-func (b *Business2) Remoting(ctx context.Context, params *pb.Params) (*anypb.Any, error) {
+func (b *GrpcBusinessService2) Remoting(ctx context.Context, params *pb.Params) (*anypb.Any, error) {
 	log.Infof("Remoting be called")
 	anyFalse, err := anypb.New(wrapperspb.Bool(false))
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := b.TccServiceProxy.Prepare(ctx, params)
+	res, err := b.TCCServiceProxy.Prepare(ctx, params)
 	if err != nil {
 		return anyFalse, err
 	}
@@ -86,7 +94,7 @@ func (b *Business2) Remoting(ctx context.Context, params *pb.Params) (*anypb.Any
 	return AnyBool, nil
 }
 
-func (b *Business2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (b *Business2) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	log.Infof("TestTCCServiceBusiness2 Prepare, param %v", params)
 	return true, nil
 }
