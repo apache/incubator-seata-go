@@ -20,6 +20,7 @@ package tcc
 import (
 	"context"
 	"github.com/seata/seata-go/pkg/common/log"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -58,7 +59,8 @@ func InitMock() {
 
 func TestMain(m *testing.M) {
 	InitMock()
-	m.Run()
+	code := m.Run()
+	os.Exit(code)
 }
 
 func TestInitActionContext(t *testing.T) {
