@@ -31,7 +31,7 @@ type Resource interface {
 	GetBranchType() branch.BranchType
 }
 
-
+// branch resource which contains branch to commit or rollback
 type BranchResource struct {
 	BranchType      branch.BranchType
 	Xid             string
