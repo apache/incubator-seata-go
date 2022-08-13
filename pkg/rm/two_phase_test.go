@@ -124,7 +124,7 @@ func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 }
 
 type TwoPhaseDemoService1 struct {
-	TwoPhasePrepare     func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	TwoPhasePrepare     func(ctx context.Context, params interface{}) (bool, error)                              `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
 	TwoPhaseCommit      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
 	TwoPhaseRollback    func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
 	TwoPhaseDemoService func() string
@@ -132,7 +132,7 @@ type TwoPhaseDemoService1 struct {
 
 func NewTwoPhaseDemoService1() *TwoPhaseDemoService1 {
 	return &TwoPhaseDemoService1{
-		TwoPhasePrepare: func(ctx context.Context, params ...interface{}) (bool, error) {
+		TwoPhasePrepare: func(ctx context.Context, params interface{}) (bool, error) {
 			return false, fmt.Errorf("execute two phase prepare method, param %v", params)
 		},
 		TwoPhaseCommit: func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
@@ -158,7 +158,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 
 	resp, err := twoPhaseService.Prepare(ctx, 11)
 	assert.Equal(t, false, resp)
-	assert.Equal(t, "execute two phase prepare method, param [11]", err.Error())
+	assert.Equal(t, "execute two phase prepare method, param 11", err.Error())
 
 	resp, err = twoPhaseService.Commit(ctx, &tm.BusinessActionContext{Xid: "1234"})
 	assert.Equal(t, false, resp)
@@ -174,7 +174,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 type TwoPhaseDemoService2 struct {
 }
 
-func (t *TwoPhaseDemoService2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (t *TwoPhaseDemoService2) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
 }
 
@@ -196,7 +196,7 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 	assert.Nil(t, err)
 	resp, err := twoPhaseService.Prepare(ctx, 11)
 	assert.Equal(t, false, resp)
-	assert.Equal(t, "execute two phase prepare method, param [11]", err.Error())
+	assert.Equal(t, "execute two phase prepare method, param 11", err.Error())
 
 	resp, err = twoPhaseService.Commit(ctx, &tm.BusinessActionContext{Xid: "1234"})
 	assert.Equal(t, true, resp)

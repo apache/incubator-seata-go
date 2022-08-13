@@ -33,6 +33,8 @@ type BusinessActionContext struct {
 	Xid           string
 	BranchId      int64
 	ActionName    string
+	IsDelayReport bool
+	IsUpdated     bool
 	ActionContext map[string]interface{}
 }
 
@@ -40,7 +42,6 @@ type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
-	Status                *message.GlobalStatus
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
