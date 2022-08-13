@@ -19,6 +19,7 @@ package tcc
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/common/log"
 	"reflect"
 	"testing"
 	"time"
@@ -37,11 +38,7 @@ var (
 	testBranchID           = int64(121324345353)
 )
 
-func Init() {
-	initRegisterResource()
-}
-
-func initRegisterResource() {
+func InitMock() {
 	var (
 		registerResource = func(_ *TCCServiceProxy) error {
 			return nil
@@ -53,9 +50,15 @@ func initRegisterResource() {
 			return testBranchID, nil
 		}
 	)
+	log.Infof("run init mock")
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
+}
+
+func TestMain(m *testing.M) {
+	InitMock()
+	m.Run()
 }
 
 func TestInitActionContext(t *testing.T) {
@@ -93,7 +96,6 @@ func TestInitActionContext(t *testing.T) {
 }
 
 func TestGetActionContextParameters(t *testing.T) {
-	Init()
 	param := struct {
 		name  string `tccParam:"name"`
 		Age   int64  `tccParam:""`
@@ -118,7 +120,6 @@ func TestGetActionContextParameters(t *testing.T) {
 }
 
 func TestGetOrCreateBusinessActionContext(t *testing.T) {
-	Init()
 	var tests = []struct {
 		param interface{}
 		want  tm.BusinessActionContext
@@ -214,7 +215,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 }
 
 func TestRegisteBranch(t *testing.T) {
-	Init()
 	ctx := testdata2.GetTestContext()
 	err := testTccServiceProxy.registeBranch(ctx, nil)
 	assert.Nil(t, err)
