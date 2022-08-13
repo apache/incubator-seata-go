@@ -99,23 +99,22 @@ type TestResourceManager struct {
 	resourceManagerMap sync.Map
 }
 
-// register transaction branch
-func (t *TestResourceManager) BranchRegister(ctx context.Context, branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
-	return t.rmRemoting.BranchRegister(3, resourceId, clientId, xid, applicationData, lockKeys)
+// BranchRegister register transaction branch
+func (t *TestResourceManager) BranchRegister(ctx context.Context, param BranchRegisterParam) (int64, error) {
+	return t.rmRemoting.BranchRegister(param)
 }
 
-func (t *TestResourceManager) BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	//TODO implement me
-	panic("implement me")
+// BranchReport report status of transaction branch
+func (t *TestResourceManager) BranchReport(ctx context.Context, param BranchReportParam) error {
+	return t.rmRemoting.BranchReport(param)
 }
 
-func (t *TestResourceManager) LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
-	//TODO implement me
+// LockQuery query lock status of transaction branch
+func (t *TestResourceManager) LockQuery(ctx context.Context, param LockQueryParam) (bool, error) {
 	panic("implement me")
 }
 
 func (t *TestResourceManager) UnregisterResource(resource Resource) error {
-	//TODO implement me
 	panic("implement me")
 }
 

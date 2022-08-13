@@ -18,30 +18,31 @@
 package tcc
 
 import (
-	"fmt"
-	"sync"
 	"context"
-	"github.com/seata/seata-go/pkg/common/log"
+	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
-	testdata2 "github.com/seata/seata-go/testdata"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+	testdata2 "github.com/seata/seata-go/testdata"
+
+	"github.com/agiledragon/gomonkey"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
 	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
 	testBranchID           = int64(121324345353)
-	names  []interface{}
-	values = make([]reflect.Value, 0, 2)
+	names                  []interface{}
+	values                 = make([]reflect.Value, 0, 2)
 )
 
 func InitMock() {
@@ -228,7 +229,6 @@ func TestRegisteBranch(t *testing.T) {
 	bizContext := tm.GetBusinessActionContext(ctx)
 	assert.Equal(t, testBranchID, bizContext.BranchId)
 }
-
 
 func TestNewTCCServiceProxy(t *testing.T) {
 	type args struct {
