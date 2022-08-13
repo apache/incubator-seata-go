@@ -4,18 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
-
 	"github.com/stretchr/testify/assert"
+	"sync"
+	"testing"
 )
 
 var (
@@ -37,139 +31,15 @@ func TestGetRMRemotingInstance(t *testing.T) {
 
 func TestGetRmCacheInstance(t *testing.T) {
 
-	GetRmCacheInstance().RegisterResourceManager(GetTestResourceManagerInstance())
-
 	tests := struct {
 		name string
 		want *ResourceManagerCache
 	}{"test1", &ResourceManagerCache{}}
 
 	t.Run(tests.name, func(t *testing.T) {
-		tests.want.RegisterResourceManager(GetTestResourceManagerInstance())
-		excepted, _ := tests.want.resourceManagerMap.Load(branch.BranchTypeTCC)
-		load, ok := GetRmCacheInstance().resourceManagerMap.Load(branch.BranchTypeTCC)
-		actual, _ := load, ok
-		assert.Equalf(t, excepted, actual, "GetRmCacheInstance()")
-	})
-
-}
-
-func TestIsTwoPhaseAction(t *testing.T) {
-
-	userProvider := &TwoPhaseDemoService{}
-	userProvider1 := &service.UserProviderInstance
-	type args struct {
-		v interface{}
-	}
-
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{"test1", args{v: userProvider}, true},
-		{"test2", args{v: userProvider1}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, IsTwoPhaseAction(tt.args.v), "IsTwoPhaseAction(%v)", tt.args.v)
-		})
-	}
-
-}
-
-func TestParseTwoPhaseAction(t *testing.T) {
-
-	type args struct {
-		v interface{}
-	}
-
-	userProvider := &TwoPhaseDemoService{}
-	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
-	args1 := args{v: userProvider}
-
-	tests := struct {
-		name    string
-		args    args
-		want    *TwoPhaseAction
-		wantErr assert.ErrorAssertionFunc
-	}{"test1", args1, twoPhaseAction, assert.NoError}
-
-	t.Run(tests.name, func(t *testing.T) {
-		got, err := ParseTwoPhaseAction(tests.args.v)
-		if !tests.wantErr(t, err, fmt.Sprintf("ParseTwoPhaseAction(%v)", tests.args.v)) {
-			return
-		}
-		assert.Equalf(t, tests.want.GetTwoPhaseService(), got.GetTwoPhaseService(), "ParseTwoPhaseAction(%v)", tests.args.v)
-	})
-
-}
-
-func TestParseTwoPhaseActionByInterface(t *testing.T) {
-	type args struct {
-		v interface{}
-	}
-
-	userProvider := &service.UserProvider{}
-	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
-	args1 := args{v: userProvider}
-
-	tests := struct {
-		name    string
-		args    args
-		want    *TwoPhaseAction
-		wantErr assert.ErrorAssertionFunc
-	}{"test1", args1, twoPhaseAction, assert.NoError}
-
-	t.Run(tests.name, func(t *testing.T) {
-		got, err := ParseTwoPhaseActionByInterface(tests.args.v)
-		if !tests.wantErr(t, err, fmt.Sprintf("ParseTwoPhaseActionByInterface(%v)", tests.args.v)) {
-			return
-		}
-		assert.Equalf(t, tests.want, got, "ParseTwoPhaseActionByInterface(%v)", tests.args.v)
-	})
-}
-
-func TestRMRemoting_BranchRegister(t *testing.T) {
-	type args struct {
-		branchType      branch.BranchType
-		resourceId      string
-		clientId        string
-		xid             string
-		applicationData string
-		lockKeys        string
-	}
-
-	args1 := args{branchType: branch.BranchTypeTCC, resourceId: "1232324", clientId: "56679", xid: "123345", applicationData: "TestExtraData", lockKeys: ""}
-
-	tt := struct {
-		name    string
-		args    args
-		want    int64
-		wantErr assert.ErrorAssertionFunc
-	}{"test1", args1, 56679, assert.NoError}
-
-	t.Run(tt.name, func(t *testing.T) {
-		rm := RMRemoting{}
-		func() {
-			listener, err := net.Listen("tcp", ":8091")
-			if err != nil {
-				t.Error(err)
-			}
-
-			go http.Serve(listener, nil)
-			time.Sleep(10 * time.Second)
-
-			got, err := rm.BranchRegister(tt.args.branchType, tt.args.resourceId, tt.args.clientId, tt.args.xid, tt.args.applicationData, tt.args.lockKeys)
-			if !tt.wantErr(t, err, fmt.Sprintf("BranchRegister(%v, %v, %v, %v, %v, %v)", tt.args.branchType, tt.args.resourceId, tt.args.clientId, tt.args.xid, tt.args.applicationData, tt.args.lockKeys)) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "BranchRegister(%v, %v, %v, %v, %v, %v)", tt.args.branchType, tt.args.resourceId, tt.args.clientId, tt.args.xid, tt.args.applicationData, tt.args.lockKeys)
-
-			return
-		}()
-
+		GetRmCacheInstance().RegisterResourceManager(GetTestResourceManagerInstance())
+		actual := GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC)
+		assert.Equalf(t, GetTestResourceManagerInstance(), actual, "GetRmCacheInstance()")
 	})
 
 }
