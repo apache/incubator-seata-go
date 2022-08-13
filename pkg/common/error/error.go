@@ -20,8 +20,8 @@ package error
 import "github.com/pkg/errors"
 
 var (
-	Error_TooManySessions  = errors.New("too many seeessions")
-	Error_HeartBeatTimeOut = errors.New("heart beat time out")
+	ErrorTooManySessions  = errors.New("too many seeessions")
+	ErrorHeartBeatTimeOut = errors.New("heart beat time out")
 )
 
 type TransactionExceptionCode byte
@@ -35,91 +35,96 @@ const (
 	/**
 	 * BeginFailed
 	 */
-	TransactionExceptionCodeBeginFailed = 1
+	TransactionExceptionCodeBeginFailed = TransactionExceptionCode(1)
 
 	/**
 	 * Lock key conflict transaction exception code.
 	 */
-	TransactionExceptionCodeLockKeyConflict = 2
+	TransactionExceptionCodeLockKeyConflict = TransactionExceptionCode(2)
 
 	/**
 	 * Io transaction exception code.
 	 */
-
+	IO = TransactionExceptionCode(3)
 	/**
 	 * Branch rollback failed retriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedRetriable = 3
+	TransactionExceptionCodeBranchRollbackFailedRetriable = TransactionExceptionCode(4)
 
 	/**
 	 * Branch rollback failed unretriable transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRollbackFailedUnretriable = 4
+	TransactionExceptionCodeBranchRollbackFailedUnretriable = TransactionExceptionCode(5)
 
 	/**
 	 * Branch register failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchRegisterFailed = 5
+	TransactionExceptionCodeBranchRegisterFailed = TransactionExceptionCode(6)
 
 	/**
 	 * Branch report failed transaction exception code.
 	 */
-	TransactionExceptionCodeBranchReportFailed = 6
+	TransactionExceptionCodeBranchReportFailed = TransactionExceptionCode(7)
 
 	/**
 	 * Lockable check failed transaction exception code.
 	 */
-	TransactionExceptionCodeLockableCheckFailed = 7
+	TransactionExceptionCodeLockableCheckFailed = TransactionExceptionCode(8)
 
 	/**
 	 * Branch transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeBranchTransactionNotExist = 8
+	TransactionExceptionCodeBranchTransactionNotExist = TransactionExceptionCode(9)
 
 	/**
 	 * Global transaction not exist transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotExist = 9
+	TransactionExceptionCodeGlobalTransactionNotExist = TransactionExceptionCode(10)
 
 	/**
 	 * Global transaction not active transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionNotActive = 10
+	TransactionExceptionCodeGlobalTransactionNotActive = TransactionExceptionCode(11)
 
 	/**
 	 * Global transaction status invalid transaction exception code.
 	 */
-	TransactionExceptionCodeGlobalTransactionStatusInvalid = 11
+	TransactionExceptionCodeGlobalTransactionStatusInvalid = TransactionExceptionCode(12)
 
 	/**
 	 * Failed to send branch commit request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchCommitRequest = 12
+	TransactionExceptionCodeFailedToSendBranchCommitRequest = TransactionExceptionCode(13)
 
 	/**
 	 * Failed to send branch rollback request transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToSendBranchRollbackRequest = 13
+	TransactionExceptionCodeFailedToSendBranchRollbackRequest = TransactionExceptionCode(14)
 
 	/**
 	 * Failed to add branch transaction exception code.
 	 */
-	TransactionExceptionCodeFailedToAddBranch = 14
+	TransactionExceptionCodeFailedToAddBranch = TransactionExceptionCode(15)
 
 	/**
 	 * Failed to lock global transaction exception code.
 	 */
-	TransactionExceptionCodeFailedLockGlobalTranscation = 15
+	TransactionExceptionCodeFailedLockGlobalTranscation = TransactionExceptionCode(16)
 
 	/**
 	 * FailedWriteSession
 	 */
-	TransactionExceptionCodeFailedWriteSession = 16
+	TransactionExceptionCodeFailedWriteSession = TransactionExceptionCode(17)
 
 	/**
 	 * Failed to holder exception code
 	 */
-	FailedStore = 17
+	FailedStore = TransactionExceptionCode(18)
+
+	/**
+	 * Lock key conflict fail fast transaction exception code.
+	 */
+	LockKeyConflictFailFast = TransactionExceptionCode(19)
 )
 
 type TransactionException struct {
