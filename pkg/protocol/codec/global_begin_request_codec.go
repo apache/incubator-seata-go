@@ -20,6 +20,7 @@ package codec
 import (
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"time"
 )
 
 func init() {
@@ -42,7 +43,7 @@ func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 func (g *GlobalBeginRequestCodec) Decode(in []byte) interface{} {
 	data := message.GlobalBeginRequest{}
 	buf := bytes.NewByteBuffer(in)
-	data.Timeout = int32(bytes.ReadUInt32(buf))
+	data.Timeout = time.Duration(int32(bytes.ReadUInt32(buf)))
 	data.TransactionName = bytes.ReadString16Length(buf)
 
 	return data

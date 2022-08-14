@@ -19,6 +19,7 @@ package message
 
 import (
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+	"time"
 )
 
 type AbstractBranchEndRequest struct {
@@ -77,7 +78,7 @@ func (req BranchRollbackRequest) GetTypeCode() MessageType {
 }
 
 type GlobalBeginRequest struct {
-	Timeout         int32
+	Timeout         time.Duration
 	TransactionName string
 }
 
