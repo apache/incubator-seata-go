@@ -43,7 +43,7 @@ func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 func (g *GlobalBeginRequestCodec) Decode(in []byte) interface{} {
 	data := message.GlobalBeginRequest{}
 	buf := bytes.NewByteBuffer(in)
-	data.Timeout = time.Duration(int32(bytes.ReadUInt32(buf)))
+	data.Timeout = int32(time.Duration(bytes.ReadUInt32(buf)))
 	data.TransactionName = bytes.ReadString16Length(buf)
 
 	return data
