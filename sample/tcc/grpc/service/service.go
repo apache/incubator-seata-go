@@ -39,7 +39,7 @@ type Business1 struct {
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
 func (b *GrpcBusinessService1) Remoting(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
 	log.Infof("Remoting be called")
-	res, err := b.business1.Prepare(ctx, params)
+	res, err := b.Business1.Prepare(ctx, params)
 	if err != nil {
 		return wrapperspb.Bool(false), err
 	}
@@ -81,7 +81,7 @@ func (b *GrpcBusinessService2) Remoting(ctx context.Context, params *pb.Params) 
 		return nil, err
 	}
 
-	res, err := b.business2.Prepare(ctx, params)
+	res, err := b.Business2.Prepare(ctx, params)
 	if err != nil {
 		return anyFalse, err
 	}
