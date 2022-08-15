@@ -26,12 +26,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go-datasource/sql/datasource"
-	"github.com/seata/seata-go-datasource/sql/types"
-	"github.com/seata/seata-go-datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/protocol/resource"
 	"github.com/seata/seata-go/pkg/rm"
 )
 

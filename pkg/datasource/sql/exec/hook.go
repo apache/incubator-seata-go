@@ -21,7 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 var (

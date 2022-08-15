@@ -21,3 +21,4 @@ dist/
 # vendor/
 .vscode
 .codecc
+vendor

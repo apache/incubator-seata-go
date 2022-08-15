@@ -30,8 +30,8 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/seata/seata-go-datasource/sql/datasource"
-	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 

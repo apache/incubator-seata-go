@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go-datasource/sql/types"
-	"github.com/seata/seata-go-datasource/sql/undo"
-	"github.com/seata/seata-go-datasource/sql/undo/base"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )
 
 var (

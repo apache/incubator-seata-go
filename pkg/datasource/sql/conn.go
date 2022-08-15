@@ -23,8 +23,8 @@ import (
 	"database/sql/driver"
 	"errors"
 
-	"github.com/seata/seata-go-datasource/sql/exec"
-	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type Conn struct {

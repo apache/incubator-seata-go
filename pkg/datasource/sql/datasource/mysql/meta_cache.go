@@ -21,8 +21,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/seata/seata-go-datasource/sql/datasource/base"
-	"github.com/seata/seata-go-datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/base"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type tableMetaCache struct {
