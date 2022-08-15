@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/stretchr/testify/assert"
-	"sync"
-	"testing"
 )
 
 var (

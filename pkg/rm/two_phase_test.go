@@ -211,7 +211,7 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 func TestIsTwoPhaseAction(t *testing.T) {
 
 	userProvider := &TwoPhaseDemoService{}
-	userProvider1 := &service.UserProviderInstance
+	userProvider1 := service.UserProviderInstance
 	type args struct {
 		v interface{}
 	}
@@ -221,8 +221,8 @@ func TestIsTwoPhaseAction(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"test1", args{v: userProvider}, true},
-		{"test2", args{v: userProvider1}, false},
+		{"test1", args{v: userProvider}, false},
+		{"test2", args{v: userProvider1}, true},
 	}
 
 	for _, tt := range tests {
@@ -239,7 +239,7 @@ func TestParseTwoPhaseAction(t *testing.T) {
 		v interface{}
 	}
 
-	userProvider := &TwoPhaseDemoService{}
+	userProvider := service.UserProviderInstance
 	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
 	args1 := args{v: userProvider}
 
