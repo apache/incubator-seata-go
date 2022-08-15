@@ -18,9 +18,10 @@
 package codec
 
 import (
+	"time"
+
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"time"
 )
 
 func init() {
