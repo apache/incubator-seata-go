@@ -30,17 +30,16 @@ import (
 
 type GrpcBusinessService1 struct {
 	pb.UnimplementedTCCServiceBusiness1Server
-	*Business1
+	Business1 *tcc.TCCServiceProxy
 }
 
 type Business1 struct {
-	TccServiceProxy *tcc.TCCServiceProxy
 }
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
 func (b *GrpcBusinessService1) Remoting(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
 	log.Infof("Remoting be called")
-	res, err := b.TccServiceProxy.Prepare(ctx, params)
+	res, err := b.business1.Prepare(ctx, params)
 	if err != nil {
 		return wrapperspb.Bool(false), err
 	}
@@ -68,11 +67,10 @@ func (b *Business1) GetActionName() string {
 
 type GrpcBusinessService2 struct {
 	pb.UnimplementedTCCServiceBusiness2Server
-	*Business2
+	Business2 *tcc.TCCServiceProxy
 }
 
 type Business2 struct {
-	*tcc.TCCServiceProxy
 }
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
@@ -83,7 +81,7 @@ func (b *GrpcBusinessService2) Remoting(ctx context.Context, params *pb.Params) 
 		return nil, err
 	}
 
-	res, err := b.TCCServiceProxy.Prepare(ctx, params)
+	res, err := b.business2.Prepare(ctx, params)
 	if err != nil {
 		return anyFalse, err
 	}
