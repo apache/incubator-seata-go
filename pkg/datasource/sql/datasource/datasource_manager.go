@@ -117,25 +117,12 @@ func (dm *BasicSourceManager) BranchRollback(ctx context.Context, req message.Br
 // Branch register long
 func (dm *BasicSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
 
-	return rm.GetRMRemotingInstance().BranchRegister(
-		req.BranchType,
-		req.ResourceId,
-		clientId,
-		req.Xid,
-		string(req.ApplicationData),
-		req.LockKey,
-	)
+	return 0, nil
 }
 
 //  Branch report
 func (dm *BasicSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
-	return rm.GetRMRemotingInstance().BranchReport(
-		req.BranchType,
-		req.Xid,
-		req.BranchId,
-		req.Status,
-		string(req.ApplicationData),
-	)
+	return nil
 }
 
 // Lock query boolean
@@ -191,8 +178,8 @@ type TableMetaCache interface {
 	Init(ctx context.Context, conn *sql.DB) error
 	// GetTableMeta
 	GetTableMeta(table string) (types.TableMeta, error)
-	// Destory
-	Destory() error
+	// Destroy
+	Destroy() error
 }
 
 // buildResource

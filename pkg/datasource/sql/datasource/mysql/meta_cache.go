@@ -39,7 +39,7 @@ func (c *tableMetaCache) GetTableMeta(table string) (types.TableMeta, error) {
 	return types.TableMeta{}, nil
 }
 
-// Destory
-func (c *tableMetaCache) Destory() error {
+// Destroy
+func (c *tableMetaCache) Destroy() error {
 	return nil
 }

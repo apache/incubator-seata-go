@@ -162,7 +162,7 @@ func (c *BaseTableMetaCache) GetTableMeta(table string) (types.TableMeta, error)
 	return v.value, nil
 }
 
-func (c *BaseTableMetaCache) Destory() error {
+func (c *BaseTableMetaCache) Destroy() error {
 	c.cancel()
 	return nil
 }

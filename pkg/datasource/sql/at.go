@@ -109,21 +109,18 @@ func (mgr *ATSourceManager) BranchCommit(ctx context.Context, req message.Branch
 // LockQuery
 func (mgr *ATSourceManager) LockQuery(ctx context.Context, req message.GlobalLockQueryRequest) (bool, error) {
 
-	lockable, err := rm.GetRMRemotingInstance().LockQuery(branch.BranchTypeAT, req.ResourceId, req.Xid, req.LockKey)
-	return lockable, err
+	return false, nil
 }
 
 // BranchRegister
 func (mgr *ATSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
-	req.BranchType = branch.BranchTypeAT
-	return mgr.basic.BranchRegister(ctx, clientId, req)
+	return 0, nil
 }
 
 // BranchReport
 func (mgr *ATSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
 
-	req.BranchType = branch.BranchTypeAT
-	return mgr.basic.BranchReport(ctx, req)
+	return nil
 }
 
 // CreateTableMetaCache
