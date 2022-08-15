@@ -26,7 +26,7 @@ import (
 
 func TestGlobalBeginRequestCodec(t *testing.T) {
 	msg := message.GlobalBeginRequest{
-		Timeout:         100,
+		Timeout:         0,
 		TransactionName: "SeataGoTransaction",
 	}
 
