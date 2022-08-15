@@ -84,6 +84,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 	f := func() {
 		v, err := c.trigger.LoadAll()
 		if err != nil {
+			return
 		}
 
 		c.lock.Lock()

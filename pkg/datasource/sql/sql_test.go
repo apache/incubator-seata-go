@@ -72,11 +72,15 @@ func Test_SQLOpen(t *testing.T) {
 		}
 	}
 
-	wait.Add(1)
-	go txInvoker("seata-go-at-1", 0, 10)
+	wait.Add(2)
 
-	wait.Add(1)
-	go txInvoker("seata-go-at-2", 20, 10)
+	t.Parallel()
+	t.Run("", func(t *testing.T) {
+		txInvoker("seata-go-at-1", 0, 10)
+	})
+	t.Run("", func(t *testing.T) {
+		txInvoker("seata-go-at-2", 20, 10)
+	})
 
 	wait.Wait()
 }

@@ -45,7 +45,7 @@ type ATSourceManager struct {
 }
 
 // Register a Resource to be managed by Resource Manager
-func (mgr *ATSourceManager) RegisterResource(res resource.Resource) error {
+func (mgr *ATSourceManager) RegisterResource(res rm.Resource) error {
 
 	mgr.resourceCache.Store(res.GetResourceId(), res)
 
@@ -53,7 +53,7 @@ func (mgr *ATSourceManager) RegisterResource(res resource.Resource) error {
 }
 
 //  Unregister a Resource from the Resource Manager
-func (mgr *ATSourceManager) UnregisterResource(res resource.Resource) error {
+func (mgr *ATSourceManager) UnregisterResource(res rm.Resource) error {
 	return mgr.basic.UnregisterResource(res)
 }
 

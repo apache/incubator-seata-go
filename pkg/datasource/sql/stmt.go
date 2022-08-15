@@ -164,7 +164,7 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 			return types.NewResult(types.WithResult(ret)), nil
 		})
 
-	return ret.GetResult(), nil
+	return ret.GetResult(), err
 }
 
 // ExecContext executes a query that doesn't return rows, such
@@ -200,5 +200,5 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 			return types.NewResult(types.WithResult(ret)), nil
 		})
 
-	return ret.GetResult(), nil
+	return ret.GetResult(), err
 }

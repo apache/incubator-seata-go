@@ -64,9 +64,9 @@ func GetDataSourceManager(b branch.BranchType) DataSourceManager {
 // DataSourceManager
 type DataSourceManager interface {
 	// Register a Resource to be managed by Resource Manager
-	RegisterResource(resource resource.Resource) error
+	RegisterResource(resource rm.Resource) error
 	//  Unregister a Resource from the Resource Manager
-	UnregisterResource(resource resource.Resource) error
+	UnregisterResource(resource rm.Resource) error
 	// Get all resources managed by this manager
 	GetManagedResources() *sync.Map
 	// BranchRollback
@@ -131,7 +131,7 @@ func (dm *BasicSourceManager) LockQuery(ctx context.Context, branchType branch.B
 }
 
 // Register a   model.Resource to be managed by   model.Resource Manager
-func (dm *BasicSourceManager) RegisterResource(resource resource.Resource) error {
+func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 	err := rm.GetRMRemotingInstance().RegisterResource(resource)
 	if err != nil {
 		return err
@@ -140,7 +140,7 @@ func (dm *BasicSourceManager) RegisterResource(resource resource.Resource) error
 }
 
 //  Unregister a   model.Resource from the   model.Resource Manager
-func (dm *BasicSourceManager) UnregisterResource(resource resource.Resource) error {
+func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
 	return errors.New("unsupport unregister resource")
 }
 
