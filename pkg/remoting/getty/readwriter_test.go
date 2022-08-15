@@ -19,6 +19,7 @@ package getty
 
 import (
 	"testing"
+	"time"
 
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -37,7 +38,7 @@ func TestRpcPackageHandler(t *testing.T) {
 			"address": "Beijing",
 		},
 		Body: message.GlobalBeginRequest{
-			Timeout:         100,
+			Timeout:         2 * time.Second,
 			TransactionName: "SeataGoTransaction",
 		},
 	}
