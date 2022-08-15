@@ -33,8 +33,8 @@ type GlobalBeginRequestCodec struct {
 func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 	data := in.(message.GlobalBeginRequest)
 	buf := bytes.NewByteBuffer([]byte{})
-
-	buf.WriteUint32(uint32(data.Timeout))
+	re := uint32(int64(data.Timeout))
+	buf.WriteUint32(re)
 	bytes.WriteString16Length(data.TransactionName, buf)
 
 	return buf.Bytes()
@@ -43,7 +43,8 @@ func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 func (g *GlobalBeginRequestCodec) Decode(in []byte) interface{} {
 	data := message.GlobalBeginRequest{}
 	buf := bytes.NewByteBuffer(in)
-	data.Timeout = time.Duration(int32(bytes.ReadUInt32(buf)))
+	re := int64(bytes.ReadUInt32(buf))
+	data.Timeout = time.Duration(re)
 	data.TransactionName = bytes.ReadString16Length(buf)
 
 	return data
