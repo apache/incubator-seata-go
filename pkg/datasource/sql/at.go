@@ -98,7 +98,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 			return branch.BranchStatusPhaseoneFailed, err
 		}
 
-		if transErr.Code() == types.ErrorCodeBranchRollbackFailed_Unretriable {
+		if transErr.Code() == types.ErrorCodeBranchRollbackFailedUnretriable {
 			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, nil
 		}
 

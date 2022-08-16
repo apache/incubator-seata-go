@@ -25,8 +25,8 @@ const (
 	ErrorCodeBeginFailed
 	ErrorCodeLockKeyConflict
 	ErrorCodeIO
-	ErrorCodeBranchRollbackFailed_Retriable
-	ErrorCodeBranchRollbackFailed_Unretriable
+	ErrorCodeBranchRollbackFailedRetriable
+	ErrorCodeBranchRollbackFailedUnretriable
 	ErrorCodeBranchRegisterFailed
 	ErrorCodeBranchReportFailed
 	ErrorCodeLockableCheckFailed
