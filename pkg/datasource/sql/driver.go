@@ -66,7 +66,7 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	connector, _ := GetUnexportedField(field).(driver.Connector)
 
 	dbType := types.ParseDBType(d.getTargetDriverName())
-	if dbType == types.DBType_Unknown {
+	if dbType == types.DBTypeUnknown {
 		return nil, errors.New("unsupport conn type")
 	}
 

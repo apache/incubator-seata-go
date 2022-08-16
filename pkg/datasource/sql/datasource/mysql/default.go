@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	datasource.RegisterTableCache(types.DBType_MySQL, func() datasource.TableMetaCache {
+	datasource.RegisterTableCache(types.DBTypeMySQL, func() datasource.TableMetaCache {
 		return &tableMetaCache{}
 	})
 }

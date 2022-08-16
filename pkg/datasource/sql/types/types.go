@@ -37,32 +37,32 @@ type (
 
 const (
 	_ DBType = iota
-	DBType_Unknown
-	DBType_MySQL
-	DBType_PostgreSQL
-	DBType_SQLServer
-	DBType_Oracle
+	DBTypeUnknown
+	DBTypeMySQL
+	DBTypePostgreSQL
+	DBTypeSQLServer
+	DBTypeOracle
 
 	BranchPhase_Unknown = 0
 	BranchPhase_Done    = 1
 	BranchPhase_Failed  = 2
 
 	// Index_Primary primary index type.
-	Index_Primary = 0
+	IndexPrimary = 0
 	// Index_Normal normal index type.
-	Index_Normal = 1
+	IndexNormal = 1
 	// Index_Unique unique index type.
-	Index_Unique = 2
+	IndexUnique = 2
 	// Index_FullText full text index type.
-	Index_FullText = 3
+	IndexFullText = 3
 )
 
 func ParseDBType(driverName string) DBType {
 	switch strings.ToLower(driverName) {
 	case "mysql":
-		return DBType_MySQL
+		return DBTypeMySQL
 	default:
-		return DBType_Unknown
+		return DBTypeUnknown
 	}
 }
 

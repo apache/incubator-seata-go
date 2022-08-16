@@ -33,7 +33,7 @@ func init() {
 type loggerSQLHook struct{}
 
 func (h *loggerSQLHook) Type() types.SQLType {
-	return types.SQLType_Unknown
+	return types.SQLTypeUnknown
 }
 
 // Before

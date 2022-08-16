@@ -62,7 +62,7 @@ func DoParser(query string) (*ParseContext, error) {
 
 	switch stmt := stmtNode.(type) {
 	case *ast.InsertStmt:
-		parserCtx.SQLType = types.SQLType_INSERT
+		parserCtx.SQLType = types.SQLTypeInsert
 		parserCtx.InsertStmt = stmt
 		parserCtx.ExecutorType = InsertExecutor
 
@@ -74,11 +74,11 @@ func DoParser(query string) (*ParseContext, error) {
 			parserCtx.ExecutorType = InsertOnDuplicateExecutor
 		}
 	case *ast.UpdateStmt:
-		parserCtx.SQLType = types.SQLType_UPDATE
+		parserCtx.SQLType = types.SQLTypeUpdate
 		parserCtx.UpdateStmt = stmt
 		parserCtx.ExecutorType = UpdateExecutor
 	case *ast.DeleteStmt:
-		parserCtx.SQLType = types.SQLType_DELETE
+		parserCtx.SQLType = types.SQLTypeDelete
 		parserCtx.DeleteStmt = stmt
 		parserCtx.ExecutorType = DeleteExecutor
 	}

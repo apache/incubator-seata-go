@@ -84,7 +84,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 
 	undoMgr, err := undo.GetUndoLogManager(res.dbType)
 	if err != nil {
-		return 0, err
+		return branch.BranchStatusUnknown, err
 	}
 
 	conn, err := res.target.Conn(ctx)
@@ -98,7 +98,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 			return branch.BranchStatusPhaseoneFailed, err
 		}
 
-		if transErr.Code() == types.ErrorCode_BranchRollbackFailed_Unretriable {
+		if transErr.Code() == types.ErrorCodeBranchRollbackFailed_Unretriable {
 			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, nil
 		}
 

@@ -58,5 +58,5 @@ func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) err
 
 // DBType
 func (m *undoLogManager) DBType() types.DBType {
-	return types.DBType_MySQL
+	return types.DBTypeMySQL
 }

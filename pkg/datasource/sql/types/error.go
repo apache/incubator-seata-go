@@ -21,26 +21,26 @@ type ErrorCode int32
 
 const (
 	_ ErrorCode = iota
-	ErrorCode_Unknown
-	ErrorCode_BeginFailed
-	ErrorCode_LockKeyConflict
-	ErrorCode_IO
-	ErrorCode_BranchRollbackFailed_Retriable
-	ErrorCode_BranchRollbackFailed_Unretriable
-	ErrorCode_BranchRegisterFailed
-	ErrorCode_BranchReportFailed
-	ErrorCode_LockableCheckFailed
-	ErrorCode_BranchTransactionNotExist
-	ErrorCode_GlobalTransactionNotExist
-	ErrorCode_GlobalTransactionNotActive
-	ErrorCode_GlobalTransactionStatusInvalid
-	ErrorCode_FailedToSendBranchCommitRequest
-	ErrorCode_FailedToSendBranchRollbackRequest
-	ErrorCode_FailedToAddBranch
-	ErrorCode_FailedWriteSession
-	ErrorCode_FailedLockGlobalTranscation
-	ErrorCode_FailedStore
-	ErrorCode_LockKeyConflictFailFast
+	ErrorCodeUnknown
+	ErrorCodeBeginFailed
+	ErrorCodeLockKeyConflict
+	ErrorCodeIO
+	ErrorCodeBranchRollbackFailed_Retriable
+	ErrorCodeBranchRollbackFailed_Unretriable
+	ErrorCodeBranchRegisterFailed
+	ErrorCodeBranchReportFailed
+	ErrorCodeLockableCheckFailed
+	ErrorCodeBranchTransactionNotExist
+	ErrorCodeGlobalTransactionNotExist
+	ErrorCodeGlobalTransactionNotActive
+	ErrorCodeGlobalTransactionStatusInvalid
+	ErrorCodeFailedToSendBranchCommitRequest
+	ErrorCodeFailedToSendBranchRollbackRequest
+	ErrorCodeFailedToAddBranch
+	ErrorCodeFailedWriteSession
+	ErrorCodeFailedLockGlobalTranscation
+	ErrorCodeFailedStore
+	ErrorCodeLockKeyConflictFailFast
 )
 
 type TransactionError struct {
