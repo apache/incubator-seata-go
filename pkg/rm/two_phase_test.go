@@ -20,11 +20,12 @@ package rm
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 )
 
 func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
