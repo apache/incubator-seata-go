@@ -21,6 +21,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey"
 	"github.com/pkg/errors"
@@ -58,7 +59,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 			wantErrString:      "transactionTemplate: begin transaction failed, error mock transaction executor begin",
 			wantHasMock:        true,
 			wantMockTargetName: "Begin",
-			wantMockFunction: func(_ *GlobalTransactionManager, ctx context.Context, tx *GlobalTransaction, i int32, s string) error {
+			wantMockFunction: func(_ *GlobalTransactionManager, ctx context.Context, tx *GlobalTransaction, i time.Duration, s string) error {
 				return errors.New("mock transaction executor begin")
 			},
 		},
