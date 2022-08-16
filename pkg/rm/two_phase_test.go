@@ -125,7 +125,7 @@ func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 }
 
 type TwoPhaseDemoService1 struct {
-	TwoPhasePrepare     func(ctx context.Context, params interface{}) (bool, error)                              `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	TwoPhasePrepare     func(ctx context.Context, params interface{}) (bool, error)                              `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"twoPhaseDemoService"`
 	TwoPhaseCommit      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
 	TwoPhaseRollback    func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
 	TwoPhaseDemoService func() string
@@ -143,7 +143,7 @@ func NewTwoPhaseDemoService1() *TwoPhaseDemoService1 {
 			return true, nil
 		},
 		TwoPhaseDemoService: func() string {
-			return "TwoPhaseDemoService"
+			return "twoPhaseDemoService"
 		},
 	}
 }
@@ -155,7 +155,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	assert.Equal(t, "TwoPhasePrepare", twoPhaseService.prepareMethodName)
 	assert.Equal(t, "TwoPhaseCommit", twoPhaseService.commitMethodName)
 	assert.Equal(t, "TwoPhaseRollback", twoPhaseService.rollbackMethodName)
-	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.actionName)
+	assert.Equal(t, "twoPhaseDemoService", twoPhaseService.actionName)
 
 	resp, err := twoPhaseService.Prepare(ctx, 11)
 	assert.Equal(t, false, resp)
@@ -169,7 +169,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	assert.Equal(t, true, resp)
 	assert.Nil(t, err)
 
-	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.GetActionName())
+	assert.Equal(t, "twoPhaseDemoService", twoPhaseService.GetActionName())
 }
 
 type TwoPhaseDemoService2 struct {
@@ -210,7 +210,7 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 
 func TestIsTwoPhaseAction(t *testing.T) {
 
-	userProvider := &TwoPhaseDemoService{}
+	userProvider := &twoPhaseDemoService{}
 	userProvider1 := service.UserProviderInstance
 	type args struct {
 		v interface{}

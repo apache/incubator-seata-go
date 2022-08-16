@@ -7,10 +7,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -27,11 +28,9 @@ func TestGetRMRemotingInstance(t *testing.T) {
 	t.Run(tests.name, func(t *testing.T) {
 		assert.Equalf(t, tests.want, GetRMRemotingInstance(), "GetRMRemotingInstance()")
 	})
-
 }
 
 func TestGetRmCacheInstance(t *testing.T) {
-
 	tests := struct {
 		name string
 		want *ResourceManagerCache
@@ -45,41 +44,41 @@ func TestGetRmCacheInstance(t *testing.T) {
 
 }
 
-type TestResource struct {
+type testResource struct {
 	ResourceGroupId string `default:"DEFAULT"`
 	AppName         string
 	*TwoPhaseAction
 }
 
-func (t *TestResource) GetResourceGroupId() string {
+func (t *testResource) GetResourceGroupId() string {
 	return t.ResourceGroupId
 }
 
-func (t *TestResource) GetResourceId() string {
+func (t *testResource) GetResourceId() string {
 	return t.TwoPhaseAction.GetActionName()
 }
 
-func (t *TestResource) GetBranchType() branch.BranchType {
+func (t *testResource) GetBranchType() branch.BranchType {
 	return 3
 }
 
-type TwoPhaseDemoService struct {
+type twoPhaseDemoService struct {
 }
 
-func (t *TwoPhaseDemoService) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (t *twoPhaseDemoService) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
 	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
 }
 
-func (t *TwoPhaseDemoService) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (t *twoPhaseDemoService) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
 	return true, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
 }
 
-func (t *TwoPhaseDemoService) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (t *twoPhaseDemoService) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
 	return false, fmt.Errorf("execute two phase rollback method, xid %v", businessActionContext.Xid)
 }
 
-func (t *TwoPhaseDemoService) GetActionName() string {
-	return "TwoPhaseDemoService"
+func (t *twoPhaseDemoService) GetActionName() string {
+	return "twoPhaseDemoService"
 }
 
 func GetTestResourceManagerInstance() *TestResourceManager {
@@ -120,7 +119,7 @@ func (t *TestResourceManager) UnregisterResource(resource Resource) error {
 }
 
 func (t *TestResourceManager) RegisterResource(resource Resource) error {
-	if _, ok := resource.(*TestResource); !ok {
+	if _, ok := resource.(*testResource); !ok {
 		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
 	}
 	t.resourceManagerMap.Store(resource.GetResourceId(), resource)
@@ -133,12 +132,12 @@ func (t *TestResourceManager) GetCachedResources() *sync.Map {
 
 // Commit a branch transaction
 func (t *TestResourceManager) BranchCommit(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
-	var tccResource *TestResource
+	var tccResource *testResource
 	if resource, ok := t.resourceManagerMap.Load(resource.ResourceId); !ok {
 		err := fmt.Errorf("TCC resource is not exist, resourceId: %s", resource)
 		return 0, err
 	} else {
-		tccResource, _ = resource.(*TestResource)
+		tccResource, _ = resource.(*testResource)
 	}
 
 	_, err := tccResource.TwoPhaseAction.Commit(ctx, t.getBusinessActionContext(resource.Xid, resource.BranchId, resource.ResourceId, resource.ApplicationData))
@@ -170,12 +169,12 @@ func (t *TestResourceManager) getBusinessActionContext(xid string, branchID int6
 
 // Rollback a branch transaction
 func (t *TestResourceManager) BranchRollback(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
-	var tccResource *TestResource
+	var tccResource *testResource
 	if resource, ok := t.resourceManagerMap.Load(resource.ResourceId); !ok {
 		err := fmt.Errorf("CC resource is not exist, resourceId: %s", resource)
 		return 0, err
 	} else {
-		tccResource, _ = resource.(*TestResource)
+		tccResource, _ = resource.(*testResource)
 	}
 
 	_, err := tccResource.TwoPhaseAction.Rollback(ctx, t.getBusinessActionContext(resource.Xid, resource.BranchId, resource.ResourceId, resource.ApplicationData))
