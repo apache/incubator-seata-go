@@ -273,7 +273,7 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	}
 }
 
-func TestTCCServiceProxy_GetTransactionInfo(t1 *testing.T) {
+func TestTCCGetTransactionInfo(t1 *testing.T) {
 	type fields struct {
 		referenceName        string
 		registerResourceOnce sync.Once
