@@ -35,11 +35,15 @@ import (
 )
 
 func init() {
-	datasource.RegisterResourceManager(branch.BranchTypeAT, &ATSourceManager{basic: datasource.NewBasicSourceManager()})
+	datasource.RegisterResourceManager(branch.BranchTypeAT,
+		&ATSourceManager{
+			resourceCache: sync.Map{},
+			basic:         datasource.NewBasicSourceManager(),
+		})
 }
 
 type ATSourceManager struct {
-	resourceCache *sync.Map
+	resourceCache sync.Map
 	worker        *asyncATWorker
 	basic         *datasource.BasicSourceManager
 }
@@ -57,11 +61,18 @@ func (mgr *ATSourceManager) UnregisterResource(res rm.Resource) error {
 }
 
 // Get all resources managed by this manager
-func (mgr *ATSourceManager) GetManagedResources() *sync.Map {
-	return mgr.resourceCache
+func (mgr *ATSourceManager) GetManagedResources() map[string]rm.Resource {
+	ret := make(map[string]rm.Resource)
+
+	mgr.resourceCache.Range(func(key, value interface{}) bool {
+		ret[key.(string)] = value.(rm.Resource)
+		return true
+	})
+
+	return ret
 }
 
-// BranchRollback
+// BranchRollback Rollback the corresponding transactions according to the request
 func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error) {
 	val, ok := mgr.resourceCache.Load(req.ResourceId)
 
@@ -78,7 +89,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 
 	conn, err := res.target.Conn(ctx)
 	if err != nil {
-		return 0, err
+		return branch.BranchStatusUnknown, err
 	}
 
 	if err := undoMgr.RunUndo(req.Xid, req.BranchId, conn); err != nil {
@@ -204,13 +215,12 @@ func (w *asyncATWorker) doBranchCommit(phaseCtxs []phaseTwoContext) {
 }
 
 func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-	val, ok := w.resourceMgr.GetManagedResources().Load(resID)
+	val, ok := w.resourceMgr.GetManagedResources()[resID]
 
 	if !ok {
 		for i := range phaseCtxs {
 			w.commitQueue <- phaseCtxs[i]
 		}
-
 		return
 	}
 
