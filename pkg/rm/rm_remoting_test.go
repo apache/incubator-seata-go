@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	testResourceManager     *TestResourceManager
+	resourceManager         *testResourceManager
 	onceTestResourceManager = &sync.Once{}
 )
 
@@ -81,44 +81,44 @@ func (t *twoPhaseDemoService) GetActionName() string {
 	return "twoPhaseDemoService"
 }
 
-func GetTestResourceManagerInstance() *TestResourceManager {
-	if testResourceManager == nil {
+func GetTestResourceManagerInstance() *testResourceManager {
+	if resourceManager == nil {
 		onceTestResourceManager.Do(func() {
-			testResourceManager = &TestResourceManager{
+			resourceManager = &testResourceManager{
 				resourceManagerMap: sync.Map{},
 				rmRemoting:         GetRMRemotingInstance(),
 			}
 		})
 	}
-	return testResourceManager
+	return resourceManager
 }
 
-type TestResourceManager struct {
+type testResourceManager struct {
 	rmRemoting *RMRemoting
 	// resourceID -> resource
 	resourceManagerMap sync.Map
 }
 
 // BranchRegister register transaction branch
-func (t *TestResourceManager) BranchRegister(ctx context.Context, param BranchRegisterParam) (int64, error) {
+func (t *testResourceManager) BranchRegister(ctx context.Context, param BranchRegisterParam) (int64, error) {
 	return t.rmRemoting.BranchRegister(param)
 }
 
 // BranchReport report status of transaction branch
-func (t *TestResourceManager) BranchReport(ctx context.Context, param BranchReportParam) error {
+func (t *testResourceManager) BranchReport(ctx context.Context, param BranchReportParam) error {
 	return t.rmRemoting.BranchReport(param)
 }
 
 // LockQuery query lock status of transaction branch
-func (t *TestResourceManager) LockQuery(ctx context.Context, param LockQueryParam) (bool, error) {
+func (t *testResourceManager) LockQuery(ctx context.Context, param LockQueryParam) (bool, error) {
 	panic("implement me")
 }
 
-func (t *TestResourceManager) UnregisterResource(resource Resource) error {
+func (t *testResourceManager) UnregisterResource(resource Resource) error {
 	panic("implement me")
 }
 
-func (t *TestResourceManager) RegisterResource(resource Resource) error {
+func (t *testResourceManager) RegisterResource(resource Resource) error {
 	if _, ok := resource.(*testResource); !ok {
 		panic(fmt.Sprintf("register tcc resource error, TCCResource is needed, param %v", resource))
 	}
@@ -126,12 +126,12 @@ func (t *TestResourceManager) RegisterResource(resource Resource) error {
 	return t.rmRemoting.RegisterResource(resource)
 }
 
-func (t *TestResourceManager) GetCachedResources() *sync.Map {
+func (t *testResourceManager) GetCachedResources() *sync.Map {
 	return &t.resourceManagerMap
 }
 
 // Commit a branch transaction
-func (t *TestResourceManager) BranchCommit(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
+func (t *testResourceManager) BranchCommit(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
 	var tccResource *testResource
 	if resource, ok := t.resourceManagerMap.Load(resource.ResourceId); !ok {
 		err := fmt.Errorf("TCC resource is not exist, resourceId: %s", resource)
@@ -147,7 +147,7 @@ func (t *TestResourceManager) BranchCommit(ctx context.Context, resource BranchR
 	return branch.BranchStatusPhasetwoCommitted, err
 }
 
-func (t *TestResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
+func (t *testResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
 	var actionContextMap = make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
 		var tccContext map[string]interface{}
@@ -168,7 +168,7 @@ func (t *TestResourceManager) getBusinessActionContext(xid string, branchID int6
 }
 
 // Rollback a branch transaction
-func (t *TestResourceManager) BranchRollback(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
+func (t *testResourceManager) BranchRollback(ctx context.Context, resource BranchResource) (branch.BranchStatus, error) {
 	var tccResource *testResource
 	if resource, ok := t.resourceManagerMap.Load(resource.ResourceId); !ok {
 		err := fmt.Errorf("CC resource is not exist, resourceId: %s", resource)
@@ -184,6 +184,6 @@ func (t *TestResourceManager) BranchRollback(ctx context.Context, resource Branc
 	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 }
 
-func (t *TestResourceManager) GetBranchType() branch.BranchType {
+func (t *testResourceManager) GetBranchType() branch.BranchType {
 	return branch.BranchTypeTCC
 }
