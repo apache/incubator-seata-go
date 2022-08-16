@@ -295,10 +295,10 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	txi, err := c.Begin()
 	if err == nil {
 		select {
-		default:
 		case <-ctx.Done():
 			txi.Rollback()
 			return nil, ctx.Err()
+		default:
 		}
 	}
 	return txi, err

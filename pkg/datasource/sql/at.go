@@ -150,7 +150,7 @@ type asyncATWorker struct {
 func newAsyncATWorker() *asyncATWorker {
 	asyncCommitBufferLimit := int64(10000)
 
-	val := os.Getenv("client.rm.asyncCommitBufferLimit")
+	val := os.Getenv("CLIENT_RM_ASYNC_COMMIT_BUFFER_LIMIT")
 	if val != "" {
 		limit, _ := strconv.ParseInt(val, 10, 64)
 		if limit != 0 {
@@ -180,9 +180,7 @@ func (w *asyncATWorker) doBranchCommitSafely() {
 				w.doBranchCommit(tmp)
 				phaseCtxs = make([]phaseTwoContext, 0, batchSize)
 			}
-
 		case <-ticker.C:
-
 			tmp := phaseCtxs
 			w.doBranchCommit(tmp)
 
@@ -216,7 +214,6 @@ func (w *asyncATWorker) doBranchCommit(phaseCtxs []phaseTwoContext) {
 
 func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
 	val, ok := w.resourceMgr.GetManagedResources()[resID]
-
 	if !ok {
 		for i := range phaseCtxs {
 			w.commitQueue <- phaseCtxs[i]

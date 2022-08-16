@@ -111,8 +111,7 @@ func (t *dsnConnector) Driver() driver.Driver {
 }
 
 func registerResource(connector driver.Connector, dbType types.DBType, db *sql.DB,
-	dataSourceName string, opts ...seataOption,
-) (driver.Connector, error) {
+	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 	conf := loadConfig()
 	for i := range opts {
 		opts[i](conf)
