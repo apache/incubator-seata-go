@@ -34,6 +34,11 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
+const (
+	_defaultResourceSize    = 16
+	_undoLogDeleteLimitSize = 1000
+)
+
 func init() {
 	datasource.RegisterResourceManager(branch.BranchTypeAT,
 		&ATSourceManager{
@@ -131,15 +136,9 @@ func (mgr *ATSourceManager) BranchReport(ctx context.Context, req message.Branch
 
 // CreateTableMetaCache
 func (mgr *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
-	db *sql.DB,
-) (datasource.TableMetaCache, error) {
+	db *sql.DB) (datasource.TableMetaCache, error) {
 	return mgr.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
-
-const (
-	_defaultResourceSize    = 16
-	_undoLogDeleteLimitSize = 1000
-)
 
 type asyncATWorker struct {
 	asyncCommitBufferLimit int64
