@@ -273,6 +273,7 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	}
 }
 
+// Obtain transaction information through TCC proxy
 func TestTCCGetTransactionInfo(t1 *testing.T) {
 	type fields struct {
 		referenceName        string
