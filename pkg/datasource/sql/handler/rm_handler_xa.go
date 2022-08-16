@@ -17,5 +17,4 @@
 
 package handler
 
-type RMHandlerXA struct {
-}
+type RMHandlerXA struct{}

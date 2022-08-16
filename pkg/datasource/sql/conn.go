@@ -46,7 +46,6 @@ func (c *Conn) ResetSession(ctx context.Context) error {
 // Prepare returns a prepared statement, bound to this connection.
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 	s, err := c.conn.Prepare(query)
-
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +64,6 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	conn, ok := c.conn.(driver.ConnPrepareContext)
 	if !ok {
 		stmt, err := c.conn.Prepare(query)
-
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +107,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 
 		ret, err := executor.ExecWithValue(context.Background(), execCtx,
 			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-
 				ret, err := conn.Exec(query, args)
 				if err != nil {
 					return nil, err
@@ -117,7 +114,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 
 				return types.NewResult(types.WithResult(ret)), nil
 			})
-
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +122,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	}
 
 	return conn.Exec(query, args)
-
 }
 
 // ExecContext
@@ -162,7 +157,6 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 			return types.NewResult(types.WithResult(ret)), nil
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +191,6 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 
 			return types.NewResult(types.WithRows(ret)), nil
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +231,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 
 			return types.NewResult(types.WithRows(ret)), nil
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +242,6 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 //
 // Deprecated: Drivers should implement ConnBeginTx instead (or additionally).
 func (c *Conn) Begin() (driver.Tx, error) {
-
 	tx, err := c.conn.Begin()
 	if err != nil {
 		return nil, err

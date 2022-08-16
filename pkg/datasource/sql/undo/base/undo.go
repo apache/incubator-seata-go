@@ -25,13 +25,10 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-var (
-	_ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
-)
+var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 // BaseUndoLogManager
-type BaseUndoLogManager struct {
-}
+type BaseUndoLogManager struct{}
 
 // Init
 func (m *BaseUndoLogManager) Init() {

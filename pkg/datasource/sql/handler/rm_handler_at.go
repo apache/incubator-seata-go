@@ -17,5 +17,4 @@
 
 package handler
 
-type RMHandlerAT struct {
-}
+type RMHandlerAT struct{}

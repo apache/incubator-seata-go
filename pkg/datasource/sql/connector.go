@@ -45,7 +45,6 @@ type seataConnector struct {
 // The returned connection is only used by one goroutine at a
 // time.
 func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
-
 	conn, err := c.target.Connect(ctx)
 	if err != nil {
 		return nil, err

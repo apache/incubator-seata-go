@@ -116,7 +116,6 @@ func (dm *BasicSourceManager) BranchRollback(ctx context.Context, req message.Br
 
 // Branch register long
 func (dm *BasicSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
-
 	return 0, nil
 }
 
@@ -184,7 +183,6 @@ type TableMetaCache interface {
 
 // buildResource
 func buildResource(ctx context.Context, dbType types.DBType, db *sql.DB) (*entry, error) {
-
 	cache := solts[dbType]()
 
 	if err := cache.Init(ctx, db); err != nil {

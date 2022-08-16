@@ -96,7 +96,6 @@ func (tx *Tx) Commit() error {
 
 func (tx *Tx) Rollback() error {
 	err := tx.target.Rollback()
-
 	if err != nil {
 		if tx.ctx.OpenGlobalTrsnaction() && tx.ctx.IsBranchRegistered() {
 			tx.report(false)

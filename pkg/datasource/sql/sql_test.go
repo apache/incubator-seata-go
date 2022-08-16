@@ -28,7 +28,6 @@ import (
 )
 
 func Test_SQLOpen(t *testing.T) {
-
 	t.SkipNow()
 
 	db, err := sql.Open(SeataMySQLDriver, "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")

@@ -46,7 +46,6 @@ type ATSourceManager struct {
 
 // Register a Resource to be managed by Resource Manager
 func (mgr *ATSourceManager) RegisterResource(res rm.Resource) error {
-
 	mgr.resourceCache.Store(res.GetResourceId(), res)
 
 	return mgr.basic.RegisterResource(res)
@@ -64,7 +63,6 @@ func (mgr *ATSourceManager) GetManagedResources() *sync.Map {
 
 // BranchRollback
 func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error) {
-
 	val, ok := mgr.resourceCache.Load(req.ResourceId)
 
 	if !ok {
@@ -101,14 +99,12 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 
 // BranchCommit
 func (mgr *ATSourceManager) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
-
 	mgr.worker.branchCommit(ctx, req)
 	return branch.BranchStatusPhaseoneDone, nil
 }
 
 // LockQuery
 func (mgr *ATSourceManager) LockQuery(ctx context.Context, req message.GlobalLockQueryRequest) (bool, error) {
-
 	return false, nil
 }
 
@@ -119,14 +115,13 @@ func (mgr *ATSourceManager) BranchRegister(ctx context.Context, clientId string,
 
 // BranchReport
 func (mgr *ATSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
-
 	return nil
 }
 
 // CreateTableMetaCache
 func (mgr *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
-	db *sql.DB) (datasource.TableMetaCache, error) {
-
+	db *sql.DB,
+) (datasource.TableMetaCache, error) {
 	return mgr.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
 
@@ -142,7 +137,6 @@ type asyncATWorker struct {
 }
 
 func newAsyncATWorker() *asyncATWorker {
-
 	asyncCommitBufferLimit := int64(10000)
 
 	val := os.Getenv("client.rm.asyncCommitBufferLimit")
@@ -161,7 +155,6 @@ func newAsyncATWorker() *asyncATWorker {
 }
 
 func (w *asyncATWorker) doBranchCommitSafely() {
-
 	batchSize := 64
 
 	ticker := time.NewTicker(1 * time.Second)
@@ -185,7 +178,6 @@ func (w *asyncATWorker) doBranchCommitSafely() {
 			phaseCtxs = make([]phaseTwoContext, 0, batchSize)
 		}
 	}
-
 }
 
 func (w *asyncATWorker) doBranchCommit(phaseCtxs []phaseTwoContext) {
@@ -212,7 +204,6 @@ func (w *asyncATWorker) doBranchCommit(phaseCtxs []phaseTwoContext) {
 }
 
 func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-
 	val, ok := w.resourceMgr.GetManagedResources().Load(resID)
 
 	if !ok {
@@ -226,7 +217,6 @@ func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseT
 	res := val.(*DBResource)
 
 	conn, err := res.target.Conn(context.Background())
-
 	if err != nil {
 		for i := range phaseCtxs {
 			w.commitQueue <- phaseCtxs[i]
@@ -247,11 +237,9 @@ func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseT
 	for i := range phaseCtxs {
 		phaseCtx := phaseCtxs[i]
 		if err := undoMgr.DeleteUndoLogs([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
-
 			w.commitQueue <- phaseCtx
 		}
 	}
-
 }
 
 func (w *asyncATWorker) branchCommit(ctx context.Context, req message.BranchCommitRequest) {

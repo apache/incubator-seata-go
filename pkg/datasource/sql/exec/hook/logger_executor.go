@@ -30,8 +30,7 @@ func init() {
 	exec.RegisCommonHook(&loggerSQLHook{})
 }
 
-type loggerSQLHook struct {
-}
+type loggerSQLHook struct{}
 
 func (h *loggerSQLHook) Type() types.SQLType {
 	return types.SQLType_Unknown
@@ -57,5 +56,4 @@ func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
 
 // After
 func (h *loggerSQLHook) After(ctx context.Context, execCtx *exec.ExecContext) {
-
 }

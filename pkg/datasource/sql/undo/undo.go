@@ -26,9 +26,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-var (
-	solts = map[types.DBType]*undoLogMgrHolder{}
-)
+var solts = map[types.DBType]*undoLogMgrHolder{}
 
 type undoLogMgrHolder struct {
 	once sync.Once

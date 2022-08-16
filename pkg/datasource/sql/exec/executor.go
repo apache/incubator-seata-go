@@ -26,10 +26,8 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-var (
-	// executorSolts
-	executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
-)
+// executorSolts
+var executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
 
 func RegisterExecutor(dt types.DBType, et parser.ExecutorType, builder func() SQLExecutor) {
 	if _, ok := executorSolts[dt]; !ok {
@@ -61,7 +59,6 @@ type (
 // buildExecutor
 func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 	parseCtx, err := parser.DoParser(query)
-
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +101,6 @@ func (e *BaseExecutor) interceptors(interceptors []SQLInterceptor) {
 
 // Exec
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
-
 	for i := range e.is {
 		e.is[i].Before(ctx, execCtx)
 	}
