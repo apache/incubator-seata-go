@@ -273,7 +273,6 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	}
 }
 
-// Obtain transaction information through TCC proxy
 func TestTCCGetTransactionInfo(t1 *testing.T) {
 	type fields struct {
 		referenceName        string
@@ -289,9 +288,13 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		fields fields
 		want   tm.TransactionInfo
 	}{
-		"test1", fields{referenceName: "test1", registerResourceOnce: sync.Once{},
-			TCCResource: &TCCResource{ResourceGroupId: "default1", AppName: "app1",
-				TwoPhaseAction: twoPhaseAction1,
+		"test1", fields{
+			referenceName:        "test1",
+			registerResourceOnce: sync.Once{},
+			TCCResource: &TCCResource{
+				ResourceGroupId: "default1",
+				AppName:         "app1",
+				TwoPhaseAction:  twoPhaseAction1,
 			},
 		},
 		tm.TransactionInfo{Name: "TwoPhaseDemoService", TimeOut: 10000, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},

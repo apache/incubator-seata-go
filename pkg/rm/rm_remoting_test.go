@@ -65,7 +65,7 @@ func (t *testResource) GetBranchType() branch.BranchType {
 type twoPhaseDemoService struct {
 }
 
-func (t *twoPhaseDemoService) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (t *twoPhaseDemoService) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
 }
 
