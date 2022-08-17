@@ -222,7 +222,7 @@ func TestIsTwoPhaseAction(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"test1", args{v: userProvider}, false},
+		{"test1", args{v: userProvider}, true},
 		{"test2", args{v: userProvider1}, true},
 	}
 
