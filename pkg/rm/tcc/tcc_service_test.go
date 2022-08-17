@@ -19,12 +19,15 @@ package tcc
 
 import (
 	"context"
-	"fmt"
 	"os"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/agiledragon/gomonkey"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -33,16 +36,13 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "github.com/seata/seata-go/testdata"
-
-	"github.com/agiledragon/gomonkey"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
-	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
-	testBranchID           = int64(121324345353)
-	names                  []interface{}
-	values                 = make([]reflect.Value, 0, 2)
+	testTccServiceProxy *TCCServiceProxy
+	testBranchID        = int64(121324345353)
+	names               []interface{}
+	values              = make([]reflect.Value, 0, 2)
 )
 
 func InitMock() {
@@ -61,6 +61,7 @@ func InitMock() {
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
+	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
 }
 
 func TestMain(m *testing.M) {
