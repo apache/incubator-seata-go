@@ -19,11 +19,12 @@ package tcc
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/common/log"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/common"
@@ -35,8 +36,8 @@ import (
 )
 
 var (
-	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
-	testBranchID           = int64(121324345353)
+	testTccServiceProxy *TCCServiceProxy
+	testBranchID        = int64(121324345353)
 )
 
 func InitMock() {
@@ -55,6 +56,7 @@ func InitMock() {
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
+	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
 }
 
 func TestMain(m *testing.M) {

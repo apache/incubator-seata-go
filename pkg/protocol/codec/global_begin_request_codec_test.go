@@ -19,6 +19,7 @@ package codec
 
 import (
 	"testing"
+	"time"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ import (
 
 func TestGlobalBeginRequestCodec(t *testing.T) {
 	msg := message.GlobalBeginRequest{
-		Timeout:         100,
+		Timeout:         2 * time.Second,
 		TransactionName: "SeataGoTransaction",
 	}
 

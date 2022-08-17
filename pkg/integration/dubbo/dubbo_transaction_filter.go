@@ -66,7 +66,7 @@ func (d *dubboTransactionFilter) Invoke(ctx context.Context, invoker protocol.In
 		invocation.SetAttachment(common.XidKey, xid)
 	} else if rpcXid != xid {
 		ctx = tm.InitSeataContext(ctx)
-		tm.SetXIDCopy(ctx, rpcXid)
+		tm.SetXID(ctx, rpcXid)
 	}
 	return invoker.Invoke(ctx, invocation)
 	// todo why should unbind xid???
