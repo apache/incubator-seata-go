@@ -59,7 +59,7 @@ func (t *testResource) GetResourceId() string {
 }
 
 func (t *testResource) GetBranchType() branch.BranchType {
-	return 3
+	return branch.BranchTypeTCC
 }
 
 type twoPhaseDemoService struct {
