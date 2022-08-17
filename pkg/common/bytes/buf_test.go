@@ -151,7 +151,7 @@ func TestUint64ToBytesTo(t *testing.T) {
 }
 
 func TestInt64ToBytes(t *testing.T) {
-	bytes := Int64ToBytes(math.MaxInt)
+	bytes := Int64ToBytes(math.MaxInt64)
 	assert.Equal(t, bytes, []byte{127, 255, 255, 255, 255, 255, 255, 255})
 }
 
