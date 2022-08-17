@@ -1,17 +1,12 @@
 package rm
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/branch"
-)
-
-var (
-	onceTestResourceManager = &sync.Once{}
 )
 
 func TestGetRmCacheInstance(t *testing.T) {
