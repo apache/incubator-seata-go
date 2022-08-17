@@ -19,8 +19,8 @@ package tcc
 
 import (
 	"context"
-	"os"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -61,7 +61,7 @@ func InitMock() {
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
-	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
+	testTccServiceProxy, _ = NewTCCServiceProxy(GetTestTwoPhaseService())
 }
 
 func TestMain(m *testing.M) {
@@ -310,4 +310,8 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
 	})
 
+}
+
+func GetTestTwoPhaseService() rm.TwoPhaseInterface {
+	return &testdata2.TestTwoPhaseService{}
 }

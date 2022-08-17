@@ -26,6 +26,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+	testdata2 "github.com/seata/seata-go/testdata"
 )
 
 func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
@@ -189,7 +190,7 @@ func (t *TwoPhaseDemoService2) Rollback(ctx context.Context, businessActionConte
 }
 
 func (t *TwoPhaseDemoService2) GetActionName() string {
-	return "TwoPhaseDemoService2"
+	return "TestTwoPhaseDemoService"
 }
 
 func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
@@ -211,7 +212,7 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 
 func TestIsTwoPhaseAction(t *testing.T) {
 
-	userProvider := &twoPhaseDemoService{}
+	userProvider := &testdata2.TestTwoPhaseService{}
 	userProvider1 := service.UserProviderInstance
 	type args struct {
 		v interface{}
