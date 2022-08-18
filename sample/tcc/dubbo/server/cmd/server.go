@@ -41,12 +41,6 @@ func main() {
 		logger.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
 		return
 	}
-	// server should register resource
-	err = userProviderProxy.RegisterResource()
-	if err != nil {
-		logger.Errorf("userProviderProxy register resource error, %v", err.Error())
-		return
-	}
 	config.SetProviderService(userProviderProxy)
 	if err := config.Load(); err != nil {
 		panic(err)

@@ -25,7 +25,6 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 )
@@ -50,12 +49,7 @@ func test() {
 		<-make(chan struct{})
 	}()
 
-	userProviderProxy, err := tcc.NewTCCServiceProxy(service.UserProviderInstance)
-	if err != nil {
-		logger.Infof("userProviderProxyis not tcc service")
-		return
-	}
-	resp, err := userProviderProxy.Prepare(ctx, 1)
+	resp, err := service.UserProviderInstance.Prepare(ctx, 1)
 	if err != nil {
 		logger.Infof("response prepare: %v", err)
 		return
