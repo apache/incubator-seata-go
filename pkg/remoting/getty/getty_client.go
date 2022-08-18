@@ -51,9 +51,9 @@ func GetGettyRemotingClient() *GettyRemotingClient {
 func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 	var msgType message.GettyRequestType
 	if _, ok := msg.(message.HeartBeatMessage); ok {
-		msgType = message.GettyRequestType_HeartbeatRequest
+		msgType = message.GettyRequestTypeHeartbeatRequest
 	} else {
-		msgType = message.GettyRequestType_RequestOneway
+		msgType = message.GettyRequestTypeRequestOneway
 	}
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
@@ -68,7 +68,7 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {
 	rpcMessage := message.RpcMessage{
 		ID:         msgID,
-		Type:       message.GettyRequestType_Response,
+		Type:       message.GettyRequestTypeResponse,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
@@ -79,7 +79,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
-		Type:       message.GettyRequestType_RequestSync,
+		Type:       message.GettyRequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
@@ -94,7 +94,7 @@ func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *
 
 func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
 	select {
-	case <-gxtime.GetDefaultTimerWheel().After(RPC_REQUEST_TIMEOUT):
+	case <-gxtime.GetDefaultTimerWheel().After(RPCREQUESTTIMEOUT):
 		GetGettyRemotingInstance().RemoveMergedMessageFuture(reqMsg.ID)
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, errors.Errorf("wait response timeout, request: %#v", reqMsg)

@@ -70,5 +70,5 @@ func (g *BranchCommitResponseCodec) Encode(in interface{}) []byte {
 }
 
 func (g *BranchCommitResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_BranchCommitResult
+	return message.MessageTypeBranchCommitResult
 }

@@ -27,7 +27,7 @@ import (
 type UserProvider struct {
 }
 
-func (t *UserProvider) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
+func (t *UserProvider) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	logger.Infof("Prepare result: %v, xid %v", params, tm.GetXID(ctx))
 	return true, nil
 }

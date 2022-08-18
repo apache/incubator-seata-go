@@ -23,10 +23,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMergedWarpMessage_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_SeataMerge, MergedWarpMessage{}.GetTypeCode())
+func TestMergedWarpMessageGetTypeCode(t *testing.T) {
+	assert.Equal(t, MessageTypeSeataMerge, MergedWarpMessage{}.GetTypeCode())
 }
 
-func TestMergedResultMessage_GetTYpeCode(t *testing.T) {
-	assert.Equal(t, MessageType_SeataMergeResult, MergeResultMessage{}.GetTypeCode())
+func TestMergedResultMessageGetTYpeCode(t *testing.T) {
+	assert.Equal(t, MessageTypeSeataMergeResult, MergeResultMessage{}.GetTypeCode())
 }

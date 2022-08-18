@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	RPC_REQUEST_TIMEOUT = 2 * time.Second
+	RPCREQUESTTIMEOUT = 2 * time.Second
 )
 
 var (

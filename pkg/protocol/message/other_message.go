@@ -58,5 +58,5 @@ func (msg HeartBeatMessage) ToString() string {
 }
 
 func (resp HeartBeatMessage) GetTypeCode() MessageType {
-	return MessageType_HeartbeatMsg
+	return MessageTypeHeartbeatMsg
 }
