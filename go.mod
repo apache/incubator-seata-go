@@ -15,8 +15,8 @@ require (
 	github.com/pingcap/tidb/parser v0.0.0-20211124132551-4a1b2e9fe5b5
 	github.com/pingcap/tipb v0.0.0-20220628092852-069ef6c8fc90 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.12.1
 	github.com/stretchr/testify v1.7.1
-	github.com/prometheus/client_golang v1.9.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7 // indirect
