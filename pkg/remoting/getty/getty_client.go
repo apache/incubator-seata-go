@@ -88,7 +88,12 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 }
 
 func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
-	go g.asyncCallback(reqMsg, respMsg)
+	go func() {
+		_, err := g.syncCallback(reqMsg, respMsg)
+		if err != nil {
+			log.Errorf("asyncCallback error: {%#v}", err.Error())
+		}
+	}()
 	return nil, nil
 }
 
