@@ -39,7 +39,7 @@ type GettyConfig struct {
 func GetDefaultGettyConfig() GettyConfig {
 	return GettyConfig{
 		ReconnectInterval: 0,
-		ConnectionNum:     2,
+		ConnectionNum:     1,
 		HeartbeatPeriod:   10 * time.Second,
 		GettySessionParam: GettySessionParam{
 			CompressEncoding: false,

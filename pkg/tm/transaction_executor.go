@@ -20,6 +20,7 @@ package tm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -33,11 +34,6 @@ type TransactionInfo struct {
 	LockRetryTimes    int64
 }
 
-type TransactionalExecutor interface {
-	Execute(ctx context.Context, param interface{}) (interface{}, error)
-	GetTransactionInfo() TransactionInfo
-}
-
 func Begin(ctx context.Context, name string) context.Context {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
@@ -49,7 +45,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	}
 
 	var tx *GlobalTransaction
-	if HasXID(ctx) {
+	if IsTransactionOpened(ctx) {
 		tx = &GlobalTransaction{
 			Xid:    GetXID(ctx),
 			Status: message.GlobalStatusBegin,
@@ -62,7 +58,6 @@ func Begin(ctx context.Context, name string) context.Context {
 
 	if tx == nil {
 		tx = &GlobalTransaction{
-			Xid:    GetXID(ctx),
 			Status: message.GlobalStatusUnKnown,
 			Role:   LAUNCHER,
 		}
@@ -70,7 +65,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	}
 
 	// todo timeout should read from config
-	err := GetGlobalTransactionManager().Begin(ctx, tx, 50, name)
+	err := GetGlobalTransactionManager().Begin(ctx, tx, 60000*30, name)
 	if err != nil {
 		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
 	}
@@ -78,25 +73,43 @@ func Begin(ctx context.Context, name string) context.Context {
 	return ctx
 }
 
-// commit global transaction
-func CommitOrRollback(ctx context.Context, err error) error {
+// CommitOrRollback commit global transaction
+func CommitOrRollback(ctx context.Context, isSuccess bool) error {
+	role := *GetTransactionRole(ctx)
+	if role == PARTICIPANT {
+		// Participant has no responsibility of rollback
+		log.Debugf("Ignore Rollback(): just involved in global transaction [%s]", GetXID(ctx))
+		return nil
+	}
 	tx := &GlobalTransaction{
 		Xid:    GetXID(ctx),
 		Status: *GetTxStatus(ctx),
-		Role:   *GetTransactionRole(ctx),
+		Role:   role,
 	}
-
-	var resp error
-	if err == nil {
-		resp = GetGlobalTransactionManager().Commit(ctx, tx)
-		if resp != nil {
-			log.Infof("transactionTemplate: commit transaction failed, error %v", err)
+	var (
+		err error
+		// todo retry and retryInterval should read from config
+		retry         = 10
+		retryInterval = 200 * time.Millisecond
+	)
+	for ; retry > 0; retry-- {
+		if isSuccess {
+			err = GetGlobalTransactionManager().Commit(ctx, tx)
+			if err != nil {
+				log.Infof("transactionTemplate: commit transaction failed, error %v", err)
+			}
+		} else {
+			err = GetGlobalTransactionManager().Rollback(ctx, tx)
+			if err != nil {
+				log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
+			}
 		}
-	} else {
-		resp = GetGlobalTransactionManager().Rollback(ctx, tx)
-		if resp != nil {
-			log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
+		if err == nil {
+			break
+		} else {
+			time.Sleep(retryInterval)
 		}
 	}
-	return resp
+	// todo unbind xid
+	return err
 }

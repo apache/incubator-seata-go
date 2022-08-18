@@ -21,8 +21,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
@@ -35,7 +37,7 @@ type GlobalTransaction struct {
 }
 
 var (
-	// singletone ResourceManagerFacade
+	// globalTransactionManager singleton ResourceManagerFacade
 	globalTransactionManager     *GlobalTransactionManager
 	onceGlobalTransactionManager = &sync.Once{}
 )
@@ -53,13 +55,14 @@ type GlobalTransactionManager struct {
 }
 
 // Begin a new global transaction with given timeout and given name.
-func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout int32, name string) error {
+func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout time.Duration, name string) error {
 	if gtr.Role != LAUNCHER {
 		log.Infof("Ignore GlobalStatusBegin(): just involved in global transaction %s", gtr.Xid)
 		return nil
 	}
 	if gtr.Xid != "" {
-		return errors.New(fmt.Sprintf("Global transaction already exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid))
+		return fmt.Errorf("Global transaction already "+
+			"exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid)
 	}
 
 	req := message.GlobalBeginRequest{
@@ -68,12 +71,12 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 	}
 	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
 	if err != nil {
-		log.Errorf("GlobalBeginRequest error, xid %s, error %v", gtr.Xid, err)
+		log.Errorf("GlobalBeginRequest  error %v", err)
 		return err
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
-		log.Errorf("GlobalBeginRequest error, xid %s, res %v", gtr.Xid, res)
-		return err
+		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
+		return errors.New("GlobalBeginRequest result is empty or result code is failed.")
 	}
 	log.Infof("GlobalBeginRequest success, xid %s, res %v", gtr.Xid, res)
 
@@ -86,7 +89,7 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
 	if gtr.Role != LAUNCHER {
-		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
+		log.Infof("Ignore Commit(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
 	if gtr.Xid == "" {
@@ -97,66 +100,74 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	var (
 		err error
 		res interface{}
-	)
-	for retry := 5; retry > 0; retry-- {
-		req := message.GlobalCommitRequest{
+		// todo retry and retryInterval should read from config
+		retry         = 10
+		retryInterval = 200 * time.Millisecond
+		req           = message.GlobalCommitRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},
 		}
+	)
+	for ; retry > 0; retry-- {
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalCommitRequest error, xid %s, error %v", gtr.Xid, err)
+			time.Sleep(retryInterval)
 		} else {
 			break
 		}
 	}
-	if err == nil {
-		log.Infof("GlobalCommitRequest commit success, xid %s", gtr.Xid)
-		gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
-		UnbindXid(ctx)
-		return nil
+	if err != nil {
+		log.Infof("send global commit request failed, xid %s, error %v", gtr.Xid, err)
+		return err
 	}
-	log.Errorf("GlobalCommitRequest commit failed, xid %s, error %v", gtr.Xid, err)
-	return err
+	log.Infof("send global commit request success, xid %s", gtr.Xid)
+	gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
+	UnbindXid(ctx)
+	return nil
 }
 
 // Rollback the global transaction.
 func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTransaction) error {
 	if gtr.Role != LAUNCHER {
-		log.Infof("Ignore Commit(): just involved in global gtr [{}]", gtr.Xid)
+		log.Infof("Ignore Rollback(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
 	if gtr.Xid == "" {
-		return errors.New("Commit xid should not be empty")
+		return errors.New("Rollback xid should not be empty")
 	}
 
 	// todo: replace retry with config
 	var (
 		err error
 		res interface{}
-	)
-	for retry := 5; retry > 0; retry-- {
-		req := message.GlobalRollbackRequest{
+		// todo retry and retryInterval should read from config
+		retry         = 10
+		retryInterval = 200 * time.Millisecond
+		req           = message.GlobalRollbackRequest{
 			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
 				Xid: gtr.Xid,
 			},
 		}
+	)
+	for ; retry > 0; retry-- {
 		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
 		if err != nil {
 			log.Errorf("GlobalRollbackRequest error, xid %s, error %v", gtr.Xid, err)
+			time.Sleep(retryInterval)
 		} else {
 			break
 		}
 	}
-	if err == nil {
-		log.Errorf("GlobalRollbackRequest rollback success, xid %s", gtr.Xid)
-		gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
-		UnbindXid(ctx)
-		return nil
+	if err != nil {
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
+		return err
 	}
-	log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
-	return err
+	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
+	gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
+	UnbindXid(ctx)
+	return nil
 }
 
 // Suspend the global transaction.
@@ -169,7 +180,7 @@ func (g *GlobalTransactionManager) Resume(suspendedResourcesHolder SuspendedReso
 	panic("implement me")
 }
 
-// report the global transaction status.
+// GlobalReport report the global transaction status.
 func (g *GlobalTransactionManager) GlobalReport(globalStatus message.GlobalStatus) error {
 	panic("implement me")
 }

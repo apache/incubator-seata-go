@@ -30,25 +30,24 @@ type (
 )
 
 type TransactionManager interface {
-	// GlobalStatusBegin a new global transaction.
+	// Begin a new global transaction.
 	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)
 
-	// Global commit.
+	// Commit Global commit.
 	Commit(xid string) (message.GlobalStatus, error)
 
-	//Global rollback.
+	// Rollback Global rollback.
 	Rollback(xid string) (message.GlobalStatus, error)
 
-	// Get current status of the give transaction.
+	// GetStatus Get current status of the give transaction.
 	GetStatus(xid string) (message.GlobalStatus, error)
 
-	// Global report.
+	// GlobalReport Global report.
 	GlobalReport(xid string, globalStatus message.GlobalStatus) (message.GlobalStatus, error)
 }
 
 const (
-
-	/**
+	/*
 	 * The REQUIRED.
 	 * The default propagation.
 	 *
@@ -78,7 +77,7 @@ const (
 	 */
 	REQUIRED = Propagation(0)
 
-	/**
+	/*
 	 * The REQUIRES_NEW.
 	 *
 	 * <p>
@@ -111,7 +110,7 @@ const (
 	 */
 	REQUIRES_NEW = Propagation(1)
 
-	/**
+	/*
 	 * The NOT_SUPPORTED.
 	 *
 	 * <p>
@@ -136,7 +135,7 @@ const (
 	 */
 	NOT_SUPPORTED = Propagation(2)
 
-	/**
+	/*
 	 * The SUPPORTS.
 	 *
 	 * <p>
@@ -157,7 +156,7 @@ const (
 	 */
 	SUPPORTS = Propagation(3)
 
-	/**
+	/*
 	 * The NEVER.
 	 *
 	 * <p>
@@ -177,7 +176,7 @@ const (
 	 */
 	NEVER = Propagation(4)
 
-	/**
+	/*
 	 * The MANDATORY.
 	 *
 	 * <p>

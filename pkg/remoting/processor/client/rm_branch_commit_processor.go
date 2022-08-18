@@ -43,8 +43,14 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
 	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	branchResource := rm.BranchResource{
+		ResourceId:      resourceID,
+		BranchId:        branchID,
+		ApplicationData: applicationData,
+		Xid:             xid,
+	}
 
-	status, err := rm.GetResourceManagerInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, request.BranchType, xid, branchID, resourceID, applicationData)
+	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, branchResource)
 	if err != nil {
 		log.Infof("branch commit error: %s", err.Error())
 		return err
@@ -77,7 +83,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 			BranchStatus: status,
 		},
 	}
-	err = getty.GetGettyRemotingClient().SendAsyncResponse(response)
+	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
 	if err != nil {
 		log.Errorf("send branch commit response error: {%#v}", err.Error())
 		return err

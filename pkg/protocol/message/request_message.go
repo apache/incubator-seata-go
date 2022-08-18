@@ -18,6 +18,8 @@
 package message
 
 import (
+	"time"
+
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 )
 
@@ -77,7 +79,7 @@ func (req BranchRollbackRequest) GetTypeCode() MessageType {
 }
 
 type GlobalBeginRequest struct {
-	Timeout         int32
+	Timeout         time.Duration
 	TransactionName string
 }
 
@@ -108,7 +110,7 @@ type GlobalReportRequest struct {
 }
 
 func (req GlobalReportRequest) GetTypeCode() MessageType {
-	return MessageType_GlobalStatus
+	return MessageType_GlobalReport
 }
 
 type GlobalCommitRequest struct {
@@ -152,12 +154,4 @@ type RegisterRMRequest struct {
 
 func (req RegisterRMRequest) GetTypeCode() MessageType {
 	return MessageType_RegRm
-}
-
-type RegisterRMResponse struct {
-	AbstractIdentifyResponse
-}
-
-func (resp RegisterRMResponse) GetTypeCode() MessageType {
-	return MessageType_RegRmResult
 }

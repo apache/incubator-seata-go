@@ -37,17 +37,12 @@ type RpcClient struct {
 	futures      *sync.Map
 }
 
-func init() {
-	newRpcClient()
-}
-
-func newRpcClient() *RpcClient {
+func InitRpcClient() {
 	rpcClient := &RpcClient{
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
 	}
 	rpcClient.init()
-	return rpcClient
 }
 
 func (c *RpcClient) init() {
@@ -58,7 +53,7 @@ func (c *RpcClient) init() {
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
-			getty.WithConnectionNumber((int)(c.conf.GettyConfig.ConnectionNum)),
+			getty.WithConnectionNumber(c.conf.GettyConfig.ConnectionNum),
 			getty.WithReconnectInterval(c.conf.GettyConfig.ReconnectInterval),
 			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)

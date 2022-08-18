@@ -20,94 +20,220 @@ package tcc
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"reflect"
+	"sync"
 	"time"
-
-	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
+	"github.com/seata/seata-go/pkg/common/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
-type TCCService interface {
-	Prepare(ctx context.Context, params interface{}) error
-	Commit(ctx context.Context, businessActionContext tm.BusinessActionContext) error
-	Rollback(ctx context.Context, businessActionContext tm.BusinessActionContext) error
-
-	GetActionName() string
-	//GetRemoteType() remoting.RemoteType
-	//GetServiceType() remoting.ServiceType
-}
-
 type TCCServiceProxy struct {
-	TCCService
+	referenceName        string
+	registerResourceOnce sync.Once
+	*TCCResource
 }
 
-func NewTCCServiceProxy(tccService TCCService) TCCService {
-	if tccService == nil {
-		panic("param tccService should not be nil")
-	}
-
-	// register resource
-	tccResource := TCCResource{
-		TCCServiceBean:  tccService,
-		ResourceGroupId: "DEFAULT",
-		AppName:         "",
-		ActionName:      tccService.GetActionName(),
-	}
-	err := rm.GetResourceManagerInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(&tccResource)
+func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
+	tccResource, err := ParseTCCResource(service)
 	if err != nil {
-		panic(fmt.Sprintf("NewTCCServiceProxy registerResource error: {%#v}", err.Error()))
+		log.Errorf("invalid tcc service, err %v", err)
+		return nil, err
 	}
-
-	return &TCCServiceProxy{
-		TCCService: tccService,
+	proxy := &TCCServiceProxy{
+		TCCResource: tccResource,
 	}
+	return proxy, proxy.RegisterResource()
 }
 
-func (t *TCCServiceProxy) Prepare(ctx context.Context, param interface{}) error {
-	if tm.HasXID(ctx) {
-		err := t.RegisteBranch(ctx, param)
+func (t *TCCServiceProxy) RegisterResource() error {
+	var err error
+	t.registerResourceOnce.Do(func() {
+		err = rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
 		if err != nil {
-			return err
+			log.Errorf("NewTCCServiceProxy RegisterResource error: %#v", err.Error())
+		}
+	})
+	return err
+}
+
+func (t *TCCServiceProxy) SetReferenceName(referenceName string) {
+	t.referenceName = referenceName
+}
+
+func (t *TCCServiceProxy) Reference() string {
+	if t.referenceName != "" {
+		return t.referenceName
+	}
+	return types.GetReference(t.TCCResource.TwoPhaseAction.GetTwoPhaseService())
+}
+
+func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (interface{}, error) {
+	if tm.IsTransactionOpened(ctx) {
+		err := t.registeBranch(ctx, params)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return t.TCCService.Prepare(ctx, param)
+	return t.TCCResource.Prepare(ctx, params)
 }
 
-func (t *TCCServiceProxy) RegisteBranch(ctx context.Context, param interface{}) error {
-	// register transaction branch
-	if !tm.HasXID(ctx) {
-		err := errors.New("BranchRegister error, xid should not be nil")
+// registeBranch send register branch transaction request
+func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{}) error {
+	if !tm.IsTransactionOpened(ctx) {
+		err := errors.New("BranchRegister error, transaction should be opened")
 		log.Errorf(err.Error())
 		return err
 	}
-	tccContext := make(map[string]interface{}, 0)
-	tccContext[common.StartTime] = time.Now().UnixNano() / 1e6
-	tccContext[common.HostName] = net.GetLocalIp()
-	tccContextStr, _ := json.Marshal(map[string]interface{}{
-		common.ActionContext: tccContext,
+
+	tccContext := t.initBusinessActionContext(ctx, params)
+	actionContext := t.initActionContext(params)
+	for k, v := range actionContext {
+		tccContext.ActionContext[k] = v
+	}
+
+	applicationData, _ := json.Marshal(map[string]interface{}{
+		common.ActionContext: actionContext,
 	})
-
-	branchId, err := rm.GetRMRemotingInstance().BranchRegister(branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
+	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
+		BranchType:      branch.BranchTypeTCC,
+		ResourceId:      t.GetActionName(),
+		ClientId:        "",
+		Xid:             tm.GetXID(ctx),
+		ApplicationData: string(applicationData),
+		LockKeys:        "",
+	})
 	if err != nil {
-		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
-		log.Errorf(err.Error())
+		log.Errorf("register branch transaction error %s ", err.Error())
 		return err
 	}
-
-	actionContext := &tm.BusinessActionContext{
-		Xid:           tm.GetXID(ctx),
-		BranchId:      branchId,
-		ActionName:    t.GetActionName(),
-		ActionContext: param,
-	}
-	tm.SetBusinessActionContext(ctx, actionContext)
+	tccContext.BranchId = branchId
+	tm.SetBusinessActionContext(ctx, tccContext)
 	return nil
+}
+
+// initActionContext init action context
+func (t *TCCServiceProxy) initActionContext(params interface{}) map[string]interface{} {
+	actionContext := t.getActionContextParameters(params)
+	actionContext[common.ActionStartTime] = time.Now().UnixNano() / 1e6
+	actionContext[common.PrepareMethod] = t.TCCResource.TwoPhaseAction.GetPrepareMethodName()
+	actionContext[common.CommitMethod] = t.TCCResource.TwoPhaseAction.GetCommitMethodName()
+	actionContext[common.RollbackMethod] = t.TCCResource.TwoPhaseAction.GetRollbackMethodName()
+	actionContext[common.ActionName] = t.TCCResource.TwoPhaseAction.GetActionName()
+	actionContext[common.HostName] = net.GetLocalIp()
+	return actionContext
+}
+
+func (t *TCCServiceProxy) getActionContextParameters(params interface{}) map[string]interface{} {
+	var (
+		actionContext = make(map[string]interface{}, 0)
+		typ           reflect.Type
+		val           reflect.Value
+		isStruct      bool
+	)
+	if params == nil {
+		return actionContext
+	}
+	if isStruct, val, typ = obtainStructValueType(params); !isStruct {
+		return actionContext
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		// skip unexported anonymous filed
+		if typ.Field(i).PkgPath != "" {
+			continue
+		}
+		structField := typ.Field(i)
+		// skip ignored field
+		tagVal, hasTag := structField.Tag.Lookup(common.TccBusinessActionContextParameter)
+		if !hasTag || tagVal == `-` || tagVal == "" {
+			continue
+		}
+		actionContext[tagVal] = val.Field(i).Interface()
+	}
+	return actionContext
+}
+
+// initBusinessActionContext init tcc context
+func (t *TCCServiceProxy) initBusinessActionContext(ctx context.Context, params interface{}) *tm.BusinessActionContext {
+	tccContext := t.getOrCreateBusinessActionContext(params)
+	tccContext.Xid = tm.GetXID(ctx)
+	tccContext.ActionName = t.GetActionName()
+	// todo read from config file
+	tccContext.IsDelayReport = true
+	if tccContext.ActionContext == nil {
+		tccContext.ActionContext = make(map[string]interface{}, 0)
+	}
+	return tccContext
+}
+
+// getOrCreateBusinessActionContext When the parameters of the prepare method are the following scenarios, obtain the context in the following ways：
+// 1. null: create new BusinessActionContext
+// 2. tm.BusinessActionContext: return it
+// 3. *tm.BusinessActionContext: if nil then create new BusinessActionContext, else return it
+// 4. Struct: if there is an attribute of businessactioncontext type and it is not nil, return it
+// 5. else: create new BusinessActionContext
+func (t *TCCServiceProxy) getOrCreateBusinessActionContext(params interface{}) *tm.BusinessActionContext {
+	if params == nil {
+		return &tm.BusinessActionContext{}
+	}
+
+	switch params.(type) {
+	case tm.BusinessActionContext:
+		v := params.(tm.BusinessActionContext)
+		return &v
+	case *tm.BusinessActionContext:
+		v := params.(*tm.BusinessActionContext)
+		if v != nil {
+			return v
+		}
+		return &tm.BusinessActionContext{}
+	default:
+		break
+	}
+
+	var (
+		typ      reflect.Type
+		val      reflect.Value
+		isStruct bool
+	)
+	if isStruct, val, typ = obtainStructValueType(params); !isStruct {
+		return &tm.BusinessActionContext{}
+	}
+	n := typ.NumField()
+	for i := 0; i < n; i++ {
+		sf := typ.Field(i)
+		if sf.Type == rm.TypBusinessContextInterface {
+			v := val.Field(i).Interface()
+			if v != nil {
+				return v.(*tm.BusinessActionContext)
+			}
+		}
+		if sf.Type == reflect.TypeOf(tm.BusinessActionContext{}) && val.Field(i).CanInterface() {
+			v := val.Field(i).Interface().(tm.BusinessActionContext)
+			return &v
+		}
+	}
+	return &tm.BusinessActionContext{}
+}
+
+// obtainStructValueType check o is struct or pointer type
+func obtainStructValueType(o interface{}) (bool, reflect.Value, reflect.Type) {
+	v := reflect.ValueOf(o)
+	t := reflect.TypeOf(o)
+	switch v.Kind() {
+	case reflect.Struct:
+		return true, v, t
+	case reflect.Ptr:
+		return true, v.Elem(), t.Elem()
+	default:
+		return false, v, nil
+	}
 }
 
 func (t *TCCServiceProxy) GetTransactionInfo() tm.TransactionInfo {

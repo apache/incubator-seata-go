@@ -1,0 +1,60 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# This is a basic workflow to help you get started with Actions
+
+name: "golang ci lint"
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: "*"
+
+  # Allows you to run this workflow manually from the Actions tab
+#  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        golang:
+          - 1.16
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: "set up go"
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.16
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v3
+
+      - name: "golang ci lint"
+        uses: golangci/golangci-lint-action@v3.1.0
+        with:
+          version: v1.44.2
+          args: --timeout=10m
+          skip-go-installation: true

@@ -20,7 +20,7 @@ package rm
 import (
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/resource"
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -31,6 +31,10 @@ import (
 var (
 	rmRemoting        *RMRemoting
 	onceGettyRemoting = &sync.Once{}
+)
+
+var (
+	ErrBranchReportResponseFault = errors.New("branch report response fault")
 )
 
 func GetRMRemotingInstance() *RMRemoting {
@@ -45,14 +49,14 @@ func GetRMRemotingInstance() *RMRemoting {
 type RMRemoting struct {
 }
 
-// Branch register long
-func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error) {
+//BranchRegister  Register branch of global transaction
+func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	request := message.BranchRegisterRequest{
-		Xid:             xid,
-		LockKey:         lockKeys,
-		ResourceId:      resourceId,
-		BranchType:      branchType,
-		ApplicationData: []byte(applicationData),
+		Xid:             param.Xid,
+		LockKey:         param.LockKeys,
+		ResourceId:      param.ResourceId,
+		BranchType:      param.BranchType,
+		ApplicationData: []byte(param.ApplicationData),
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
 	if err != nil || resp == nil {
@@ -62,33 +66,40 @@ func (RMRemoting) BranchRegister(branchType branch.BranchType, resourceId, clien
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
 
-//  Branch report
-func (RMRemoting) BranchReport(branchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
+// BranchReport Report status of transaction branch
+func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 	request := message.BranchReportRequest{
-		Xid:             xid,
-		BranchId:        branchId,
-		Status:          status,
-		ApplicationData: []byte(applicationData),
+		Xid:             param.Xid,
+		BranchId:        param.BranchId,
+		Status:          param.Status,
+		ApplicationData: []byte(param.ApplicationData),
 		BranchType:      branch.BranchTypeAT,
 	}
+
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil || isReportSuccess(resp) == message.ResultCodeFailed {
-		log.Errorf("BranchReport error: %v, res %v", err.Error(), resp)
+	if err != nil {
+		log.Errorf("branch report request error: %+v", err)
 		return err
 	}
+
+	if err = isReportSuccess(resp); err != nil {
+		log.Errorf("BranchReport response error: %v, res %v", err.Error(), resp)
+		return err
+	}
+
 	return nil
 }
 
-// Lock query boolean
-func (RMRemoting) LockQuery(branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
+// LockQuery Query lock status of transaction branch
+func (r *RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
 	return false, nil
 }
 
-func (r *RMRemoting) RegisterResource(resource resource.Resource) error {
+func (r *RMRemoting) RegisterResource(resource Resource) error {
 	req := message.RegisterRMRequest{
 		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			//todo replace with config
-			Version:                 "1.4.2",
+			Version:                 "1.5.2",
 			ApplicationId:           "tcc-sample",
 			TransactionServiceGroup: "my_test_tx_group",
 		},
@@ -116,11 +127,16 @@ func isRegisterSuccess(response interface{}) bool {
 	return false
 }
 
-func isReportSuccess(response interface{}) message.ResultCode {
+func isReportSuccess(response interface{}) error {
 	if res, ok := response.(message.BranchReportResponse); ok {
-		return res.ResultCode
+		if res.ResultCode == message.ResultCodeFailed {
+			return errors.New(res.Msg)
+		}
+	} else {
+		return ErrBranchReportResponseFault
 	}
-	return message.ResultCodeFailed
+
+	return nil
 }
 
 func (r *RMRemoting) onRegisterRMSuccess(response message.RegisterRMResponse) {

@@ -26,21 +26,22 @@ import (
 type ContextParam string
 
 const (
-	seataContextVariable     = ContextParam("seataContextVariable")
-	tccBusinessActionContext = ContextParam("tcc-business-action-context")
+	seataContextVariable = ContextParam("seataContextVariable")
 )
 
 type BusinessActionContext struct {
 	Xid           string
 	BranchId      int64
 	ActionName    string
-	ActionContext interface{}
+	IsDelayReport bool
+	IsUpdated     bool
+	ActionContext map[string]interface{}
 }
 
 type ContextVariable struct {
 	TxName                string
 	Xid                   string
-	Status                *message.GlobalStatus
+	XidCopy               string
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
@@ -74,7 +75,7 @@ func GetTxName(ctx context.Context) string {
 }
 
 func SetTxName(ctx context.Context, name string) {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).TxName = name
 	}
@@ -85,15 +86,15 @@ func IsSeataContext(ctx context.Context) bool {
 }
 
 func GetBusinessActionContext(ctx context.Context) *BusinessActionContext {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return nil
 	}
-	return variable.(*BusinessActionContext)
+	return variable.(*ContextVariable).BusinessActionContext
 }
 
 func SetBusinessActionContext(ctx context.Context, businessActionContext *BusinessActionContext) {
-	variable := ctx.Value(tccBusinessActionContext)
+	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).BusinessActionContext = businessActionContext
 	}
@@ -114,16 +115,25 @@ func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
 	}
 }
 
+func IsTransactionOpened(ctx context.Context) bool {
+	variable := ctx.Value(seataContextVariable)
+	if variable == nil {
+		return false
+	}
+	xid := variable.(*ContextVariable).Xid
+	return xid != ""
+}
+
 func GetXID(ctx context.Context) string {
 	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return ""
 	}
-	return variable.(*ContextVariable).Xid
-}
-
-func HasXID(ctx context.Context) bool {
-	return GetXID(ctx) != ""
+	xid := variable.(*ContextVariable).Xid
+	if xid == "" {
+		xid = variable.(*ContextVariable).XidCopy
+	}
+	return xid
 }
 
 func SetXID(ctx context.Context, xid string) {
@@ -133,9 +143,17 @@ func SetXID(ctx context.Context, xid string) {
 	}
 }
 
+func SetXIDCopy(ctx context.Context, xid string) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		variable.(*ContextVariable).XidCopy = xid
+	}
+}
+
 func UnbindXid(ctx context.Context) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).Xid = ""
+		variable.(*ContextVariable).XidCopy = ""
 	}
 }

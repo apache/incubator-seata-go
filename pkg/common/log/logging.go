@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	
+
 	getty "github.com/apache/dubbo-getty"
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
@@ -104,7 +104,15 @@ var (
 	log       Logger
 	zapLogger *zap.Logger
 
-	zapLoggerConfig        = zap.NewDevelopmentConfig()
+	zapLoggerConfig = zap.Config{
+		// todo read level from config
+		Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
+		Development:      true,
+		Encoding:         "console",
+		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
 	zapLoggerEncoderConfig = zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",

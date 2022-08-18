@@ -32,9 +32,9 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 
 	// testcases
 	var tests = []struct {
-		name string // testcase name
-		rpcMsg message.RpcMessage // rpcMessage case
-		wantErr bool //want testcase err or not
+		name    string             // testcase name
+		rpcMsg  message.RpcMessage // rpcMessage case
+		wantErr bool               //want testcase err or not
 	}{
 		{
 			name: "rbc-testcase1-failure",
@@ -66,7 +66,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	var ctx context.Context
 	var rbcProcessor rmBranchCommitProcessor
 
-	rm.GetResourceManagerInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
+	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
 
 	// run tests
 	for _, tc := range tests {
