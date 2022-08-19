@@ -160,8 +160,8 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	}
 
 	buf := bytes.NewByteBuffer([]byte{})
-	buf.WriteByte(message.MAGICCODEBYTES[0])
-	buf.WriteByte(message.MAGICCODEBYTES[1])
+	buf.WriteByte(message.MagicCodeBytes[0])
+	buf.WriteByte(message.MagicCodeBytes[1])
 	buf.WriteByte(message.VERSION)
 	buf.WriteUint32(uint32(totalLength))
 	buf.WriteUint16(uint16(headLength))

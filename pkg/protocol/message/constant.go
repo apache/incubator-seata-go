@@ -17,7 +17,7 @@
 
 package message
 
-var MAGICCODEBYTES = [2]byte{0xda, 0xda}
+var MagicCodeBytes = [2]byte{0xda, 0xda}
 
 type (
 	MessageType      int
@@ -27,124 +27,126 @@ type (
 
 const (
 	/**
-	 * The constant TYPEGLOBALBEGIN.
+	 * The constant TypeGlobalBegin.
 	 */
 	MessageTypeGlobalBegin MessageType = 1
 	/**
-	 * The constant TYPEGLOBALBEGINRESULT.
+	 * The constant TypeGlobalBeginResult.
 	 */
 	MessageTypeGlobalBeginResult MessageType = 2
 	/**
-	 * The constant TYPEGLOBALCOMMIT.
+	 * The constant TypeGlobalCommit.
 	 */
 	MessageTypeGlobalCommit MessageType = 7
 	/**
-	 * The constant TYPEGLOBALCOMMITRESULT.
+	 * The constant TypeGlobalCommitResult.
 	 */
 	MessageTypeGlobalCommitResult MessageType = 8
 	/**
-	 * The constant TYPEGLOBALROLLBACK.
+	 * The constant TypeGlobalRollback.
 	 */
 	MessageTypeGlobalRollback MessageType = 9
 	/**
-	 * The constant TYPEGLOBALROLLBACKRESULT.
+	 * The constant TypeGlobalRollbackResult.
 	 */
 	MessageTypeGlobalRollbackResult MessageType = 10
 	/**
-	 * The constant TYPEGLOBALSTATUS.
+	 * The constant TypeGlobalStatus.
 	 */
 	MessageTypeGlobalStatus MessageType = 15
 	/**
-	 * The constant TYPEGLOBALSTATUSRESULT.
+	 * The constant TypeGlobalStatusResult.
 	 */
 	MessageTypeGlobalStatusResult MessageType = 16
 	/**
-	 * The constant TYPEGLOBALREPORT.
+	 * The constant TypeGlobalReport.
 	 */
 	MessageTypeGlobalReport MessageType = 17
 	/**
-	 * The constant TYPEGLOBALREPORTRESULT.
+	 * The constant TypeGlobalReportResult.
 	 */
 	MessageTypeGlobalReportResult MessageType = 18
 	/**
-	 * The constant TYPEGLOBALLOCKQUERY.
+	 * The constant TypeGlobalLockQuery.
 	 */
 	MessageTypeGlobalLockQuery MessageType = 21
 	/**
-	 * The constant TYPEGLOBALLOCKQUERYRESULT.
+	 * The constant TypeGlobalLockQueryResult.
 	 */
 	MessageTypeGlobalLockQueryResult MessageType = 22
 
 	/**
-	 * The constant TYPEBRANCHCOMMIT.
+	 * The constant TypeBranchCommit.
 	 */
 	MessageTypeBranchCommit MessageType = 3
 	/**
-	 * The constant TYPEBRANCHCOMMITRESULT.
+	 * The constant TypeBranchCommitResult.
 	 */
 	MessageTypeBranchCommitResult MessageType = 4
 	/**
-	 * The constant TYPEBRANCHROLLBACK.
+	 * The constant TypeBranchRollback.
 	 */
 	MessageTypeBranchRollback MessageType = 5
 	/**
-	 * The constant TYPEBRANCHROLLBACKRESULT.
+	 * The constant TypeBranchRollbackResult.
 	 */
 	MessageTypeBranchRollbackResult MessageType = 6
 	/**
-	 * The constant TYPEBRANCHREGISTER.
+	 * The constant TypeBranchRegister.
 	 */
 	MessageTypeBranchRegister MessageType = 11
 	/**
-	 * The constant TYPEBRANCHREGISTERRESULT.
+	 * The constant TypeBranchRegisterResult.
 	 */
 	MessageTypeBranchRegisterResult MessageType = 12
 	/**
-	 * The constant TYPEBRANCHSTATUSREPORT.
+	 * The constant TypeBranchStatusReport.
 	 */
 	MessageTypeBranchStatusReport MessageType = 13
 	/**
-	 * The constant TYPEBRANCHSTATUSREPORTRESULT.
+	 * The constant TypeBranchStatusReportResult.
 	 */
 	MessageTypeBranchStatusReportResult MessageType = 14
 
 	/**
-	 * The constant TYPESEATAMERGE.
+	 * The constant TypeSeataMerge.
 	 */
 	MessageTypeSeataMerge MessageType = 59
 	/**
-	 * The constant TYPESEATAMERGERESULT.
+	 * The constant TypeSeataMergeResult.
 	 */
 	MessageTypeSeataMergeResult MessageType = 60
 
 	/**
-	 * The constant TYPEREGCLT.
+	 * The constant TypeRegClt.
 	 */
 	MessageTypeRegClt MessageType = 101
 	/**
-	 * The constant TYPEREGCLTRESULT.
+	 * The constant TypeRegCltResult.
 	 */
 	MessageTypeRegCltResult MessageType = 102
 	/**
-	 * The constant TYPEREGRM.
+	 * The constant TypeRegRm.
 	 */
 	MessageTypeRegRm MessageType = 103
 	/**
-	 * The constant TYPEREGRMRESULT.
+	 * The constant TypeRegRmResult.
 	 */
+
 	MessageTypeRegRmResult MessageType = 104
 	/**
-	 * The constant TYPERMDELETEUNDOLOG.
+	 * The constant TypeRmDeleteUndolog.
 	 */
 	MessageTypeRmDeleteUndolog MessageType = 111
 	/**
-	 * the constant TYPEHEARTBEATMSG
+	 * the constant TypeHeartbeatMsg
 	 */
 	MessageTypeHeartbeatMsg MessageType = 120
 
 	/**
 	 * the constant MessageTypeBatchResultMsg
 	 */
+
 	MessageTypeBatchResultMsg MessageType = 121
 )
 

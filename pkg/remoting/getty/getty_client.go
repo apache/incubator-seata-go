@@ -94,7 +94,7 @@ func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *
 
 func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
 	select {
-	case <-gxtime.GetDefaultTimerWheel().After(RPCREQUESTTIMEOUT):
+	case <-gxtime.GetDefaultTimerWheel().After(RpcRequestTimeout):
 		GetGettyRemotingInstance().RemoveMergedMessageFuture(reqMsg.ID)
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, errors.Errorf("wait response timeout, request: %#v", reqMsg)
