@@ -28,11 +28,11 @@ func TestNewMessageFuture(t *testing.T) {
 	assert.Equal(t, int32(0), NewMessageFuture(rpcMessage).ID)
 }
 
-func TestHeartBeatMessageToString(t *testing.T) {
+func TestHeartBeatMessage_ToString(t *testing.T) {
 	assert.Equal(t, "services ping", HeartBeatMessagePing.ToString())
 	assert.Equal(t, "services pong", HeartBeatMessagePong.ToString())
 }
 
-func TestHeartBeatMessageGetTypeCode(t *testing.T) {
+func TestHeartBeatMessage_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeHeartbeatMsg, HeartBeatMessage{}.GetTypeCode())
 }

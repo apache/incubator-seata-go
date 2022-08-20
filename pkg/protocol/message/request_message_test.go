@@ -23,54 +23,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBranchRegisterRequestGetTypeCode(t *testing.T) {
+func TestBranchRegisterRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeBranchRegister, BranchRegisterRequest{}.GetTypeCode())
 }
 
-func TestBranchReportRequestGetTypeCode(t *testing.T) {
+func TestBranchReportRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeBranchStatusReport, BranchReportRequest{}.GetTypeCode())
 }
 
-func TestBranchCommitRequestGetTypeCode(t *testing.T) {
+func TestBranchCommitRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeBranchCommit, BranchCommitRequest{}.GetTypeCode())
 }
 
-func TestBranchRollbackRequestGetTypeCode(t *testing.T) {
+func TestBranchRollbackRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeBranchRollback, BranchRollbackRequest{}.GetTypeCode())
 }
 
-func TestGlobalBeginRequestGetTypeCode(t *testing.T) {
+func TestGlobalBeginRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalBegin, GlobalBeginRequest{}.GetTypeCode())
 }
 
-func TestGlobalCommitRequestGetTypeCode(t *testing.T) {
+func TestGlobalCommitRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalCommit, GlobalCommitRequest{}.GetTypeCode())
 }
 
-func TestGlobalRollbackRequestGetTypeCode(t *testing.T) {
+func TestGlobalRollbackRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalRollback, GlobalRollbackRequest{}.GetTypeCode())
 }
 
-func TestGlobalLockQueryRequestGetTypeCode(t *testing.T) {
+func TestGlobalLockQueryRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalLockQuery, GlobalLockQueryRequest{}.GetTypeCode())
 }
 
-func TestGlobalReportRequestGetTypeCode(t *testing.T) {
+func TestGlobalReportRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalReport, GlobalReportRequest{}.GetTypeCode())
 }
 
-func TestUndoLogDeleteRequestGetTypeCode(t *testing.T) {
+func TestUndoLogDeleteRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeRmDeleteUndolog, UndoLogDeleteRequest{}.GetTypeCode())
 }
 
-func TestRegisterTMRequestGetTypeCode(t *testing.T) {
+func TestRegisterTMRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeRegClt, RegisterTMRequest{}.GetTypeCode())
 }
 
-func TestRegisterRMRequestGetTypeCode(t *testing.T) {
+func TestRegisterRMRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeRegRm, RegisterRMRequest{}.GetTypeCode())
 }
 
-func TestGlobalStatusRequestGetTypeCode(t *testing.T) {
+func TestGlobalStatusRequest_GetTypeCode(t *testing.T) {
 	assert.Equal(t, MessageTypeGlobalStatusResult, GlobalStatusResponse{}.GetTypeCode())
 }
