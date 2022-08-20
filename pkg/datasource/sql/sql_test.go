@@ -93,7 +93,6 @@ func Test_SQLOpen(t *testing.T) {
 	queryMultiRow()
 }
 
-// 查询多条数据示例
 func queryMultiRow() {
 	sqlStr := "select id, name from foo where id > ?"
 	rows, err := db.Query(sqlStr, 0)
