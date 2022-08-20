@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -52,7 +51,7 @@ type SeataDriver struct {
 func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	conn, err := d.target.Open(name)
 	if err != nil {
-		log.Errorf("open connection: %w", err)
+		log.Errorf("open target connection: %w", err)
 		return nil, err
 	}
 
@@ -62,23 +61,9 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	}
 
 	field := v.FieldByName("connector")
-
-	connector, _ := GetUnexportedField(field).(driver.Connector)
-
-	dbType := types.ParseDBType(d.getTargetDriverName())
-	if dbType == types.DBTypeUnknown {
-		return nil, errors.New("unsupport conn type")
-	}
-
-	c, err := d.OpenConnector(name)
+	proxy, err := d.OpenConnector(name)
 	if err != nil {
 		log.Errorf("open connector: %w", err)
-		return nil, fmt.Errorf("open connector error: %v", err.Error())
-	}
-
-	proxy, err := registerResource(connector, dbType, sql.OpenDB(c), name)
-	if err != nil {
-		log.Errorf("register resource: %w", err)
 		return nil, err
 	}
 
@@ -86,11 +71,28 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	return conn, nil
 }
 
-func (d *SeataDriver) OpenConnector(dataSourceName string) (driver.Connector, error) {
+func (d *SeataDriver) OpenConnector(name string) (c driver.Connector, err error) {
+	c = &dsnConnector{dsn: name, driver: d.target}
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
-		return driverCtx.OpenConnector(dataSourceName)
+		c, err = driverCtx.OpenConnector(name)
+		if err != nil {
+			log.Errorf("open connector: %w", err)
+			return nil, err
+		}
 	}
-	return &dsnConnector{dsn: dataSourceName, driver: d.target}, nil
+
+	dbType := types.ParseDBType(d.getTargetDriverName())
+	if dbType == types.DBTypeUnknown {
+		return nil, fmt.Errorf("unsupport conn type %s", d.getTargetDriverName())
+	}
+
+	proxy, err := registerResource(c, dbType, sql.OpenDB(c), name)
+	if err != nil {
+		log.Errorf("register resource: %w", err)
+		return nil, err
+	}
+
+	return proxy, nil
 }
 
 func (d *SeataDriver) getTargetDriverName() string {
