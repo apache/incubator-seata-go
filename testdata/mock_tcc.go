@@ -2,8 +2,6 @@ package testdata
 
 import (
 	"context"
-
-	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -28,8 +26,4 @@ func (*TestTwoPhaseService) Rollback(ctx context.Context, businessActionContext 
 
 func (*TestTwoPhaseService) GetActionName() string {
 	return ActionName
-}
-
-func GetTestTwoPhaseService() rm.TwoPhaseInterface {
-	return &TestTwoPhaseService{}
 }
