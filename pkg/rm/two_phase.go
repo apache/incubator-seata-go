@@ -132,7 +132,7 @@ func (t *TwoPhaseAction) GetActionName() string {
 
 func IsTwoPhaseAction(v interface{}) bool {
 	m, err := ParseTwoPhaseAction(v)
-	return m != nil && err != nil
+	return m != nil && err == nil
 }
 
 func ParseTwoPhaseAction(v interface{}) (*TwoPhaseAction, error) {
