@@ -28,13 +28,16 @@ import (
 )
 
 type Conn struct {
-	res   *DBResource
-	txCtx *types.TransactionContext
-	conn  driver.Conn
+	res               *DBResource
+	txCtx             *types.TransactionContext
+	targetConn        driver.Conn
+	isInTransaction   bool
+	autoCommit        bool
+	autoCommitChanged bool
 }
 
 func (c *Conn) ResetSession(ctx context.Context) error {
-	conn, ok := c.conn.(driver.SessionResetter)
+	conn, ok := c.targetConn.(driver.SessionResetter)
 	if !ok {
 		return driver.ErrSkip
 	}
@@ -45,7 +48,7 @@ func (c *Conn) ResetSession(ctx context.Context) error {
 
 // Prepare returns a prepared statement, bound to this connection.
 func (c *Conn) Prepare(query string) (driver.Stmt, error) {
-	s, err := c.conn.Prepare(query)
+	s, err := c.targetConn.Prepare(query)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +64,9 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 
 // PrepareContext
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	conn, ok := c.conn.(driver.ConnPrepareContext)
+	conn, ok := c.targetConn.(driver.ConnPrepareContext)
 	if !ok {
-		stmt, err := c.conn.Prepare(query)
+		stmt, err := c.targetConn.Prepare(query)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +90,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 
 // Exec
 func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	conn, ok := c.conn.(driver.Execer)
+	conn, ok := c.targetConn.(driver.Execer)
 	if !ok {
 		return nil, driver.ErrSkip
 	}
@@ -118,6 +121,8 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			return nil, err
 		}
 
+		// todo if user has not opened a transaction, it may call tx.Commit() method to flush undo log
+
 		return ret.GetResult(), nil
 	}
 
@@ -126,7 +131,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 
 // ExecContext
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	conn, ok := c.conn.(driver.ExecerContext)
+	targetConn, ok := c.targetConn.(driver.ExecerContext)
 	if ok {
 		values := make([]driver.Value, 0, len(args))
 
@@ -150,7 +155,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-			ret, err := conn.ExecContext(ctx, query, args)
+			ret, err := targetConn.ExecContext(ctx, query, args)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +171,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 // QueryContext
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	conn, ok := c.conn.(driver.Queryer)
+	conn, ok := c.targetConn.(driver.Queryer)
 	if !ok {
 		return nil, driver.ErrSkip
 	}
@@ -200,7 +205,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 
 // QueryContext
 func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	conn, ok := c.conn.(driver.QueryerContext)
+	conn, ok := c.targetConn.(driver.QueryerContext)
 	if !ok {
 		values := make([]driver.Value, 0, len(args))
 
@@ -242,7 +247,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 //
 // Deprecated: Drivers should implement ConnBeginTx instead (or additionally).
 func (c *Conn) Begin() (driver.Tx, error) {
-	tx, err := c.conn.Begin()
+	tx, err := c.targetConn.Begin()
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +255,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = driver.TxOptions{}
+	c.autoCommit = true
 
 	return newTx(
 		withDriverConn(c),
@@ -259,7 +265,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 }
 
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if conn, ok := c.conn.(driver.ConnBeginTx); ok {
+	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
 		tx, err := conn.BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
@@ -268,6 +274,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.TxOpt = opts
+		c.autoCommit = true
 
 		return newTx(
 			withDriverConn(c),
@@ -317,5 +324,5 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 // do not block indefinitely (e.g. apply a timeout).
 func (c *Conn) Close() error {
 	c.txCtx = nil
-	return c.conn.Close()
+	return c.targetConn.Close()
 }
