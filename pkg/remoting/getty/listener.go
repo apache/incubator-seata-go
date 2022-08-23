@@ -113,8 +113,6 @@ func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 }
 
 func (g *gettyClientHandler) OnCron(session getty.Session) {
-	log.Debug("session{%s} Oncron executing", session.Stat())
-	g.transferBeatHeart(session, message.HeartBeatMessagePing)
 }
 
 func (g *gettyClientHandler) transferBeatHeart(session getty.Session, msg message.HeartBeatMessage) {
