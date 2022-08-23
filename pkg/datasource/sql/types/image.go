@@ -29,12 +29,26 @@ type RoundRecordImage struct {
 	after  RecordImages
 }
 
+// AppendBeofreImages
+func (r *RoundRecordImage) AppendBeofreImages(images []*RecordImage) {
+	for _, image := range images {
+		r.AppendBeofreImage(image)
+	}
+}
+
 // AppendBeofreImage
 func (r *RoundRecordImage) AppendBeofreImage(image *RecordImage) {
 	r.bIndex++
 	image.index = r.bIndex
 
 	r.before = append(r.before, image)
+}
+
+// AppendAfterImages
+func (r *RoundRecordImage) AppendAfterImages(images []*RecordImage) {
+	for _, image := range images {
+		r.AppendAfterImage(image)
+	}
 }
 
 // AppendAfterImage
@@ -76,10 +90,10 @@ func (rs RecordImages) Reserve() {
 type RecordImage struct {
 	// index
 	index int32
-	// Table
+	// Table table name
 	Table string
-	// SQLType
-	SQLType string
+	// SQLType sql type
+	SQLType SQLType
 	// Rows
 	Rows []RowImage
 }
@@ -92,6 +106,8 @@ type RowImage struct {
 
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
+	// KeyType index type
+	KeyType string
 	// Name column name
 	Name string
 	// Type column type
