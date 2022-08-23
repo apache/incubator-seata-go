@@ -43,5 +43,5 @@ func (g *GlobalReportResponseCodec) Encode(in interface{}) []byte {
 }
 
 func (g *GlobalReportResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_GlobalReportResult
+	return message.MessageTypeGlobalReportResult
 }

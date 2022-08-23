@@ -43,5 +43,5 @@ func (g *GlobalStatusResponseCodec) Encode(in interface{}) []byte {
 }
 
 func (g *GlobalStatusResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_GlobalStatusResult
+	return message.MessageTypeGlobalStatusResult
 }

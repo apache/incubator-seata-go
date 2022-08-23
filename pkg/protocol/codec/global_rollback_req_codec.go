@@ -43,5 +43,5 @@ func (g *GlobalRollbackRequestCodec) Encode(in interface{}) []byte {
 }
 
 func (g *GlobalRollbackRequestCodec) GetMessageType() message.MessageType {
-	return message.MessageType_GlobalRollback
+	return message.MessageTypeGlobalRollback
 }

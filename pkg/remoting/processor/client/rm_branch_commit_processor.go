@@ -29,7 +29,7 @@ import (
 
 func init() {
 	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_BranchCommit, rmBranchCommitProcessor)
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
 }
 
 type rmBranchCommitProcessor struct {

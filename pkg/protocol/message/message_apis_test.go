@@ -24,9 +24,9 @@ import (
 )
 
 func TestMergedWarpMessage_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_SeataMerge, MergedWarpMessage{}.GetTypeCode())
+	assert.Equal(t, MessageTypeSeataMerge, MergedWarpMessage{}.GetTypeCode())
 }
 
 func TestMergedResultMessage_GetTYpeCode(t *testing.T) {
-	assert.Equal(t, MessageType_SeataMergeResult, MergeResultMessage{}.GetTypeCode())
+	assert.Equal(t, MessageTypeSeataMergeResult, MergeResultMessage{}.GetTypeCode())
 }

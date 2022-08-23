@@ -46,7 +46,7 @@ type MergedWarpMessage struct {
 }
 
 func (req MergedWarpMessage) GetTypeCode() MessageType {
-	return MessageType_SeataMerge
+	return MessageTypeSeataMerge
 }
 
 type MergeResultMessage struct {
@@ -54,7 +54,7 @@ type MergeResultMessage struct {
 }
 
 func (resp MergeResultMessage) GetTypeCode() MessageType {
-	return MessageType_SeataMergeResult
+	return MessageTypeSeataMergeResult
 }
 
 type ResultCode byte

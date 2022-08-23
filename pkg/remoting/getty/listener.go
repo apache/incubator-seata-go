@@ -120,7 +120,7 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 func (g *gettyClientHandler) transferBeatHeart(session getty.Session, msg message.HeartBeatMessage) {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(g.idGenerator.Inc()),
-		Type:       message.GettyRequestType_HeartbeatRequest,
+		Type:       message.GettyRequestTypeHeartbeatRequest,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
