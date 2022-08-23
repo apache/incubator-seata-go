@@ -27,7 +27,7 @@ import (
 )
 
 type (
-	// trigger 
+	// trigger
 	trigger interface {
 		LoadOne(table string) (types.TableMeta, error)
 

@@ -105,6 +105,7 @@ func NewTxCtx() *TransactionContext {
 		LockKeys:     make([]string, 0, 4),
 		TransType:    ATMode,
 		LocalTransID: uuid.New().String(),
+		RoundImages:  &RoundRecordImage{},
 	}
 }
 
