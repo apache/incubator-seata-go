@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -30,10 +31,15 @@ func main() {
 	client.Init()
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
+	timer := time.NewTimer(15 * time.Second)
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		log.Infof("tx result %v", resp)
-		<-make(chan struct{})
+		<-time.After(15 * time.Second)
+		ok := timer.Stop()
+		if ok {
+			resp := tm.CommitOrRollback(ctx, err == nil)
+			log.Infof("tx result %v", resp)
+			<-make(chan struct{})
+		}
 	}()
 
 	tccService := service.NewTestTCCServiceBusinessProxy()

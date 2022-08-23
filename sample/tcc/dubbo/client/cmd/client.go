@@ -19,12 +19,14 @@ package main
 
 import (
 	"context"
-
-	"github.com/seata/seata-go/pkg/client"
+	"time"
 
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+
+	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 )
@@ -43,10 +45,15 @@ func main() {
 func test() {
 	var err error
 	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
+	timer := time.NewTimer(15 * time.Second)
 	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		logger.Infof("tx result %v", resp)
-		<-make(chan struct{})
+		<-time.After(15 * time.Second)
+		ok := timer.Stop()
+		if ok {
+			resp := tm.CommitOrRollback(ctx, err == nil)
+			log.Infof("tx result %v", resp)
+			<-make(chan struct{})
+		}
 	}()
 
 	resp, err := service.UserProviderInstance.Prepare(ctx, 1)
