@@ -1,9 +1,10 @@
 package bytes
 
 import (
-	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReadBytes(t *testing.T) {
