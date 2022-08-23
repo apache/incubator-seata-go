@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageType_HeartbeatMsg, &clientHeartBeatProcessor{})
+	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
 }
 
 type clientHeartBeatProcessor struct{}

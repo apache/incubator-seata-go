@@ -43,5 +43,5 @@ func (c *RegisterRMResponseCodec) Encode(in interface{}) []byte {
 }
 
 func (g *RegisterRMResponseCodec) GetMessageType() message.MessageType {
-	return message.MessageType_RegRmResult
+	return message.MessageTypeRegRmResult
 }

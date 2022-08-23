@@ -40,7 +40,7 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 			name: "rbr-testcase1-failure",
 			rpcMsg: message.RpcMessage{
 				ID:         223,
-				Type:       message.GettyRequestType(message.MessageType_BranchRollback),
+				Type:       message.GettyRequestType(message.MessageTypeBranchRollback),
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{

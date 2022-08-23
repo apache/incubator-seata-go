@@ -17,7 +17,7 @@
 
 package message
 
-var MAGIC_CODE_BYTES = [2]byte{0xda, 0xda}
+var MagicCodeBytes = [2]byte{0xda, 0xda}
 
 type (
 	MessageType      int
@@ -27,125 +27,127 @@ type (
 
 const (
 	/**
-	 * The constant TYPE_GLOBAL_BEGIN.
+	 * The constant TypeGlobalBegin.
 	 */
-	MessageType_GlobalBegin MessageType = 1
+	MessageTypeGlobalBegin MessageType = 1
 	/**
-	 * The constant TYPE_GLOBAL_BEGIN_RESULT.
+	 * The constant TypeGlobalBeginResult.
 	 */
-	MessageType_GlobalBeginResult MessageType = 2
+	MessageTypeGlobalBeginResult MessageType = 2
 	/**
-	 * The constant TYPE_GLOBAL_COMMIT.
+	 * The constant TypeGlobalCommit.
 	 */
-	MessageType_GlobalCommit MessageType = 7
+	MessageTypeGlobalCommit MessageType = 7
 	/**
-	 * The constant TYPE_GLOBAL_COMMIT_RESULT.
+	 * The constant TypeGlobalCommitResult.
 	 */
-	MessageType_GlobalCommitResult MessageType = 8
+	MessageTypeGlobalCommitResult MessageType = 8
 	/**
-	 * The constant TYPE_GLOBAL_ROLLBACK.
+	 * The constant TypeGlobalRollback.
 	 */
-	MessageType_GlobalRollback MessageType = 9
+	MessageTypeGlobalRollback MessageType = 9
 	/**
-	 * The constant TYPE_GLOBAL_ROLLBACK_RESULT.
+	 * The constant TypeGlobalRollbackResult.
 	 */
-	MessageType_GlobalRollbackResult MessageType = 10
+	MessageTypeGlobalRollbackResult MessageType = 10
 	/**
-	 * The constant TYPE_GLOBAL_STATUS.
+	 * The constant TypeGlobalStatus.
 	 */
-	MessageType_GlobalStatus MessageType = 15
+	MessageTypeGlobalStatus MessageType = 15
 	/**
-	 * The constant TYPE_GLOBAL_STATUS_RESULT.
+	 * The constant TypeGlobalStatusResult.
 	 */
-	MessageType_GlobalStatusResult MessageType = 16
+	MessageTypeGlobalStatusResult MessageType = 16
 	/**
-	 * The constant TYPE_GLOBAL_REPORT.
+	 * The constant TypeGlobalReport.
 	 */
-	MessageType_GlobalReport MessageType = 17
+	MessageTypeGlobalReport MessageType = 17
 	/**
-	 * The constant TYPE_GLOBAL_REPORT_RESULT.
+	 * The constant TypeGlobalReportResult.
 	 */
-	MessageType_GlobalReportResult MessageType = 18
+	MessageTypeGlobalReportResult MessageType = 18
 	/**
-	 * The constant TYPE_GLOBAL_LOCK_QUERY.
+	 * The constant TypeGlobalLockQuery.
 	 */
-	MessageType_GlobalLockQuery MessageType = 21
+	MessageTypeGlobalLockQuery MessageType = 21
 	/**
-	 * The constant TYPE_GLOBAL_LOCK_QUERY_RESULT.
+	 * The constant TypeGlobalLockQueryResult.
 	 */
-	MessageType_GlobalLockQueryResult MessageType = 22
+	MessageTypeGlobalLockQueryResult MessageType = 22
 
 	/**
-	 * The constant TYPE_BRANCH_COMMIT.
+	 * The constant TypeBranchCommit.
 	 */
-	MessageType_BranchCommit MessageType = 3
+	MessageTypeBranchCommit MessageType = 3
 	/**
-	 * The constant TYPE_BRANCH_COMMIT_RESULT.
+	 * The constant TypeBranchCommitResult.
 	 */
-	MessageType_BranchCommitResult MessageType = 4
+	MessageTypeBranchCommitResult MessageType = 4
 	/**
-	 * The constant TYPE_BRANCH_ROLLBACK.
+	 * The constant TypeBranchRollback.
 	 */
-	MessageType_BranchRollback MessageType = 5
+	MessageTypeBranchRollback MessageType = 5
 	/**
-	 * The constant TYPE_BRANCH_ROLLBACK_RESULT.
+	 * The constant TypeBranchRollbackResult.
 	 */
-	MessageType_BranchRollbackResult MessageType = 6
+	MessageTypeBranchRollbackResult MessageType = 6
 	/**
-	 * The constant TYPE_BRANCH_REGISTER.
+	 * The constant TypeBranchRegister.
 	 */
-	MessageType_BranchRegister MessageType = 11
+	MessageTypeBranchRegister MessageType = 11
 	/**
-	 * The constant TYPE_BRANCH_REGISTER_RESULT.
+	 * The constant TypeBranchRegisterResult.
 	 */
-	MessageType_BranchRegisterResult MessageType = 12
+	MessageTypeBranchRegisterResult MessageType = 12
 	/**
-	 * The constant TYPE_BRANCH_STATUS_REPORT.
+	 * The constant TypeBranchStatusReport.
 	 */
-	MessageType_BranchStatusReport MessageType = 13
+	MessageTypeBranchStatusReport MessageType = 13
 	/**
-	 * The constant TYPE_BRANCH_STATUS_REPORT_RESULT.
+	 * The constant TypeBranchStatusReportResult.
 	 */
-	MessageType_BranchStatusReportResult MessageType = 14
+	MessageTypeBranchStatusReportResult MessageType = 14
 
 	/**
-	 * The constant TYPE_SEATA_MERGE.
+	 * The constant TypeSeataMerge.
 	 */
-	MessageType_SeataMerge MessageType = 59
+	MessageTypeSeataMerge MessageType = 59
 	/**
-	 * The constant TYPE_SEATA_MERGE_RESULT.
+	 * The constant TypeSeataMergeResult.
 	 */
-	MessageType_SeataMergeResult MessageType = 60
+	MessageTypeSeataMergeResult MessageType = 60
 
 	/**
-	 * The constant TYPE_REG_CLT.
+	 * The constant TypeRegClt.
 	 */
-	MessageType_RegClt MessageType = 101
+	MessageTypeRegClt MessageType = 101
 	/**
-	 * The constant TYPE_REG_CLT_RESULT.
+	 * The constant TypeRegCltResult.
 	 */
-	MessageType_RegCltResult MessageType = 102
+	MessageTypeRegCltResult MessageType = 102
 	/**
-	 * The constant TYPE_REG_RM.
+	 * The constant TypeRegRm.
 	 */
-	MessageType_RegRm MessageType = 103
+	MessageTypeRegRm MessageType = 103
 	/**
-	 * The constant TYPE_REG_RM_RESULT.
+	 * The constant TypeRegRmResult.
 	 */
-	MessageType_RegRmResult MessageType = 104
+
+	MessageTypeRegRmResult MessageType = 104
 	/**
-	 * The constant TYPE_RM_DELETE_UNDOLOG.
+	 * The constant TypeRmDeleteUndolog.
 	 */
-	MessageType_RmDeleteUndolog MessageType = 111
+	MessageTypeRmDeleteUndolog MessageType = 111
 	/**
-	 * the constant TYPE_HEARTBEAT_MSG
+	 * the constant TypeHeartbeatMsg
 	 */
-	MessageType_HeartbeatMsg MessageType = 120
+	MessageTypeHeartbeatMsg MessageType = 120
 
 	/**
-	 * the constant MessageType_BatchResultMsg
+	 * the constant MessageTypeBatchResultMsg
 	 */
-	MessageType_BatchResultMsg MessageType = 121
+
+	MessageTypeBatchResultMsg MessageType = 121
 )
 
 const (
@@ -158,19 +160,19 @@ const (
 	V1HeadLength = 16
 
 	// Request message type
-	GettyRequestType_RequestSync GettyRequestType = 0
+	GettyRequestTypeRequestSync GettyRequestType = 0
 
 	// Response message type
-	GettyRequestType_Response GettyRequestType = 1
+	GettyRequestTypeResponse GettyRequestType = 1
 
 	// Request which no need response
-	GettyRequestType_RequestOneway GettyRequestType = 2
+	GettyRequestTypeRequestOneway GettyRequestType = 2
 
 	// Heartbeat Request
-	GettyRequestType_HeartbeatRequest GettyRequestType = 3
+	GettyRequestTypeHeartbeatRequest GettyRequestType = 3
 
 	// Heartbeat Response
-	GettyRequestType_HeartbeatResponse GettyRequestType = 4
+	GettyRequestTypeHeartbeatResponse GettyRequestType = 4
 )
 
 const (

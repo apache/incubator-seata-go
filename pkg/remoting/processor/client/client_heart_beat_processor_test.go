@@ -36,7 +36,7 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 			name: "chb-testcase1",
 			rpcMsg: message.RpcMessage{
 				ID:         123,
-				Type:       message.GettyRequestType_HeartbeatRequest,
+				Type:       message.GettyRequestTypeHeartbeatRequest,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -54,7 +54,7 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 			name: "chb-testcase2",
 			rpcMsg: message.RpcMessage{
 				ID:         124,
-				Type:       message.GettyRequestType_HeartbeatRequest,
+				Type:       message.GettyRequestTypeHeartbeatRequest,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{

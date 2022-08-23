@@ -40,7 +40,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 			name: "rbc-testcase1-failure",
 			rpcMsg: message.RpcMessage{
 				ID:         123,
-				Type:       message.GettyRequestType(message.MessageType_BranchCommit),
+				Type:       message.GettyRequestType(message.MessageTypeBranchCommit),
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
