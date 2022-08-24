@@ -24,49 +24,49 @@ import (
 )
 
 func TestRegisterRMResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_RegRmResult, RegisterRMResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeRegRmResult, RegisterRMResponse{}.GetTypeCode())
 }
 
 func TestRegisterTMResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_RegCltResult, RegisterTMResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeRegCltResult, RegisterTMResponse{}.GetTypeCode())
 }
 
 func TestGlobalReportResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalReportResult, GlobalReportResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalReportResult, GlobalReportResponse{}.GetTypeCode())
 }
 
 func TestGlobalLockQueryResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalLockQueryResult, GlobalLockQueryResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalLockQueryResult, GlobalLockQueryResponse{}.GetTypeCode())
 }
 
 func TestGlobalRollbackResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalRollbackResult, GlobalRollbackResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalRollbackResult, GlobalRollbackResponse{}.GetTypeCode())
 }
 
 func TestGlobalCommitResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalCommitResult, GlobalCommitResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalCommitResult, GlobalCommitResponse{}.GetTypeCode())
 }
 
 func TestGlobalBeginResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalBeginResult, GlobalBeginResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalBeginResult, GlobalBeginResponse{}.GetTypeCode())
 }
 
 func TestBranchRollbackResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_BranchRollbackResult, BranchRollbackResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeBranchRollbackResult, BranchRollbackResponse{}.GetTypeCode())
 }
 
 func TestBranchCommitResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_BranchCommitResult, BranchCommitResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeBranchCommitResult, BranchCommitResponse{}.GetTypeCode())
 }
 
 func TestBranchRegisterResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_BranchRegisterResult, BranchRegisterResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeBranchRegisterResult, BranchRegisterResponse{}.GetTypeCode())
 }
 
 func TestBranchReportResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_BranchStatusReportResult, BranchReportResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeBranchStatusReportResult, BranchReportResponse{}.GetTypeCode())
 }
 
 func TestGlobalStatusResponse_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalStatusResult, GlobalStatusResponse{}.GetTypeCode())
+	assert.Equal(t, MessageTypeGlobalStatusResult, GlobalStatusResponse{}.GetTypeCode())
 }

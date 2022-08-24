@@ -22,8 +22,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+	testdata2 "github.com/seata/seata-go/testdata"
 )
 
 func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
@@ -124,7 +127,7 @@ func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 }
 
 type TwoPhaseDemoService1 struct {
-	TwoPhasePrepare     func(ctx context.Context, params interface{}) (bool, error)                              `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	TwoPhasePrepare     func(ctx context.Context, params interface{}) (bool, error)                              `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"twoPhaseDemoService"`
 	TwoPhaseCommit      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
 	TwoPhaseRollback    func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
 	TwoPhaseDemoService func() string
@@ -142,7 +145,7 @@ func NewTwoPhaseDemoService1() *TwoPhaseDemoService1 {
 			return true, nil
 		},
 		TwoPhaseDemoService: func() string {
-			return "TwoPhaseDemoService"
+			return "twoPhaseDemoService"
 		},
 	}
 }
@@ -154,7 +157,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	assert.Equal(t, "TwoPhasePrepare", twoPhaseService.prepareMethodName)
 	assert.Equal(t, "TwoPhaseCommit", twoPhaseService.commitMethodName)
 	assert.Equal(t, "TwoPhaseRollback", twoPhaseService.rollbackMethodName)
-	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.actionName)
+	assert.Equal(t, "twoPhaseDemoService", twoPhaseService.actionName)
 
 	resp, err := twoPhaseService.Prepare(ctx, 11)
 	assert.Equal(t, false, resp)
@@ -168,7 +171,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	assert.Equal(t, true, resp)
 	assert.Nil(t, err)
 
-	assert.Equal(t, "TwoPhaseDemoService", twoPhaseService.GetActionName())
+	assert.Equal(t, "twoPhaseDemoService", twoPhaseService.GetActionName())
 }
 
 type TwoPhaseDemoService2 struct {
@@ -187,7 +190,7 @@ func (t *TwoPhaseDemoService2) Rollback(ctx context.Context, businessActionConte
 }
 
 func (t *TwoPhaseDemoService2) GetActionName() string {
-	return "TwoPhaseDemoService2"
+	return "TestTwoPhaseDemoService"
 }
 
 func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
@@ -205,4 +208,81 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 	resp, err = twoPhaseService.Rollback(ctx, &tm.BusinessActionContext{Xid: "1234"})
 	assert.Equal(t, false, resp)
 	assert.Equal(t, "execute two phase rollback method, xid 1234", err.Error())
+}
+
+func TestIsTwoPhaseAction(t *testing.T) {
+
+	userProvider := &testdata2.TestTwoPhaseService{}
+	userProvider1 := service.UserProviderInstance
+	type args struct {
+		v interface{}
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"test1", args{v: userProvider}, true},
+		{"test2", args{v: userProvider1}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, IsTwoPhaseAction(tt.args.v), "IsTwoPhaseAction(%v)", tt.args.v)
+		})
+	}
+
+}
+
+func TestParseTwoPhaseAction(t *testing.T) {
+
+	type args struct {
+		v interface{}
+	}
+
+	userProvider := service.UserProviderInstance
+	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
+	args1 := args{v: userProvider}
+
+	tests := struct {
+		name    string
+		args    args
+		want    *TwoPhaseAction
+		wantErr assert.ErrorAssertionFunc
+	}{"test1", args1, twoPhaseAction, assert.NoError}
+
+	t.Run(tests.name, func(t *testing.T) {
+		got, err := ParseTwoPhaseAction(tests.args.v)
+		if !tests.wantErr(t, err, fmt.Sprintf("ParseTwoPhaseAction(%v)", tests.args.v)) {
+			return
+		}
+		assert.Equalf(t, tests.want.GetTwoPhaseService(), got.GetTwoPhaseService(), "ParseTwoPhaseAction(%v)", tests.args.v)
+	})
+
+}
+
+func TestParseTwoPhaseActionByInterface(t *testing.T) {
+	type args struct {
+		v interface{}
+	}
+
+	userProvider := &service.UserProvider{}
+	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
+	args1 := args{v: userProvider}
+
+	tests := struct {
+		name    string
+		args    args
+		want    *TwoPhaseAction
+		wantErr assert.ErrorAssertionFunc
+	}{"test1", args1, twoPhaseAction, assert.NoError}
+
+	t.Run(tests.name, func(t *testing.T) {
+		got, err := ParseTwoPhaseActionByInterface(tests.args.v)
+		if !tests.wantErr(t, err, fmt.Sprintf("ParseTwoPhaseActionByInterface(%v)", tests.args.v)) {
+			return
+		}
+		assert.Equalf(t, tests.want, got, "ParseTwoPhaseActionByInterface(%v)", tests.args.v)
+	})
 }

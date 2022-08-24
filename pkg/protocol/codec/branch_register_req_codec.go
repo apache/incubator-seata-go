@@ -58,5 +58,5 @@ func (c *BranchRegisterRequestCodec) Encode(in interface{}) []byte {
 }
 
 func (g *BranchRegisterRequestCodec) GetMessageType() message.MessageType {
-	return message.MessageType_BranchRegister
+	return message.MessageTypeBranchRegister
 }

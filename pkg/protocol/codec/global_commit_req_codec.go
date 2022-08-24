@@ -43,5 +43,5 @@ func (g *GlobalCommitRequestCodec) Encode(in interface{}) []byte {
 }
 
 func (g *GlobalCommitRequestCodec) GetMessageType() message.MessageType {
-	return message.MessageType_GlobalCommit
+	return message.MessageTypeGlobalCommit
 }

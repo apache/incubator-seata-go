@@ -34,5 +34,5 @@ func TestHeartBeatMessage_ToString(t *testing.T) {
 }
 
 func TestHeartBeatMessage_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_HeartbeatMsg, HeartBeatMessage{}.GetTypeCode())
+	assert.Equal(t, MessageTypeHeartbeatMsg, HeartBeatMessage{}.GetTypeCode())
 }

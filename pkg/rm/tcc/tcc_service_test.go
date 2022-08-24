@@ -19,25 +19,30 @@ package tcc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/seata/seata-go/pkg/common/log"
-
 	"github.com/agiledragon/gomonkey"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "github.com/seata/seata-go/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
 	testTccServiceProxy *TCCServiceProxy
 	testBranchID        = int64(121324345353)
+	names               []interface{}
+	values              = make([]reflect.Value, 0, 2)
 )
 
 func InitMock() {
@@ -56,7 +61,7 @@ func InitMock() {
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
-	testTccServiceProxy, _ = NewTCCServiceProxy(testdata2.GetTestTwoPhaseService())
+	testTccServiceProxy, _ = NewTCCServiceProxy(GetTestTwoPhaseService())
 }
 
 func TestMain(m *testing.M) {
@@ -224,4 +229,89 @@ func TestRegisteBranch(t *testing.T) {
 	assert.Nil(t, err)
 	bizContext := tm.GetBusinessActionContext(ctx)
 	assert.Equal(t, testBranchID, bizContext.BranchId)
+}
+
+func TestNewTCCServiceProxy(t *testing.T) {
+	type args struct {
+		service interface{}
+	}
+
+	userProvider := &service.UserProvider{}
+	args1 := args{service: userProvider}
+	args2 := args{service: userProvider}
+
+	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
+	twoPhaseAction2, _ := rm.ParseTwoPhaseAction(userProvider)
+
+	tests := []struct {
+		name    string
+		args    args
+		want    *TCCServiceProxy
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{"test1", args1, &TCCServiceProxy{
+			TCCResource: &TCCResource{
+				ResourceGroupId: `default:"DEFAULT"`,
+				AppName:         "seata-go-mock-app-name",
+				TwoPhaseAction:  twoPhaseAction1}}, assert.NoError,
+		},
+		{"test2", args2, &TCCServiceProxy{
+			TCCResource: &TCCResource{
+				ResourceGroupId: `default:"DEFAULT"`,
+				AppName:         "seata-go-mock-app-name",
+				TwoPhaseAction:  twoPhaseAction2}}, assert.NoError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewTCCServiceProxy(tt.args.service)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewTCCServiceProxy(%v)", tt.args.service)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewTCCServiceProxy(%v)", tt.args.service)
+		})
+	}
+}
+
+func TestTCCGetTransactionInfo(t1 *testing.T) {
+	type fields struct {
+		referenceName        string
+		registerResourceOnce sync.Once
+		TCCResource          *TCCResource
+	}
+
+	userProvider := &service.UserProvider{}
+	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
+
+	tests := struct {
+		name   string
+		fields fields
+		want   tm.TransactionInfo
+	}{
+		"test1", fields{
+			referenceName:        "test1",
+			registerResourceOnce: sync.Once{},
+			TCCResource: &TCCResource{
+				ResourceGroupId: "default1",
+				AppName:         "app1",
+				TwoPhaseAction:  twoPhaseAction1,
+			},
+		},
+		tm.TransactionInfo{Name: "TwoPhaseDemoService", TimeOut: 10000, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
+	}
+
+	t1.Run(tests.name, func(t1 *testing.T) {
+		t := &TCCServiceProxy{
+			referenceName:        tests.fields.referenceName,
+			registerResourceOnce: sync.Once{},
+			TCCResource:          tests.fields.TCCResource,
+		}
+		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
+	})
+
+}
+
+func GetTestTwoPhaseService() rm.TwoPhaseInterface {
+	return &testdata2.TestTwoPhaseService{}
 }

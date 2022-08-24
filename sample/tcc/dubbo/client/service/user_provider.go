@@ -19,12 +19,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/seata/seata-go/pkg/tm"
 )
 
 var (
-	UserProviderInstance = &UserProvider{}
+	UserProviderInstance = NewTwoPhaseDemoService()
 )
 
 type UserProvider struct {
@@ -32,4 +33,21 @@ type UserProvider struct {
 	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
 	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
 	GetActionName func() string
+}
+
+func NewTwoPhaseDemoService() *UserProvider {
+	return &UserProvider{
+		Prepare: func(ctx context.Context, params ...interface{}) (bool, error) {
+			return false, fmt.Errorf("execute two phase prepare method, param %v", params)
+		},
+		Commit: func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+			return false, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
+		},
+		Rollback: func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+			return true, nil
+		},
+		GetActionName: func() string {
+			return "TwoPhaseDemoService"
+		},
+	}
 }

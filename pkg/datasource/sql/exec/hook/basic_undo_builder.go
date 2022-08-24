@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package message
+package exec
 
 import (
-	"testing"
+	"context"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-func TestMergedWarpMessage_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageTypeSeataMerge, MergedWarpMessage{}.GetTypeCode())
+type BasicUndoBuilder struct {
 }
 
-func TestMergedResultMessage_GetTYpeCode(t *testing.T) {
-	assert.Equal(t, MessageTypeSeataMergeResult, MergeResultMessage{}.GetTypeCode())
+// buildRowImages build row iamge by exec condition
+func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RowImage, error) {
+	panic("implement me")
+}
+
+// buildRowImages query db table to find data image
+func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RecordImage, error) {
+	panic("implement me")
 }

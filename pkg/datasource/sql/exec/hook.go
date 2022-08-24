@@ -26,7 +26,8 @@ import (
 
 var (
 	commonHook = make([]SQLInterceptor, 0, 4)
-	hookSolts  = map[types.SQLType][]SQLInterceptor{}
+	// todo support distinguish between different db type
+	hookSolts = map[types.SQLType][]SQLInterceptor{}
 )
 
 // RegisCommonHook not goroutine safe

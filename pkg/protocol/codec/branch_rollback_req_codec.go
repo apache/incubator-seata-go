@@ -57,5 +57,5 @@ func (g *BranchRollbackRequestCodec) Encode(in interface{}) []byte {
 }
 
 func (g *BranchRollbackRequestCodec) GetMessageType() message.MessageType {
-	return message.MessageType_BranchRollback
+	return message.MessageTypeBranchRollback
 }

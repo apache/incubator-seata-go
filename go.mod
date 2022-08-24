@@ -8,6 +8,7 @@ require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/dubbogo/gost v1.12.5
+	github.com/golang/mock v1.6.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -18,6 +19,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
+	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7 // indirect
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
