@@ -38,8 +38,12 @@ func (h *loggerSQLHook) Type() types.SQLType {
 
 // Before
 func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
+	var txID string
+	if execCtx.TxCtx != nil {
+		txID = execCtx.TxCtx.LocalTransID
+	}
 	fields := []zap.Field{
-		zap.String("tx-id", execCtx.TxCtx.LocalTransID),
+		zap.String("tx-id", txID),
 		zap.String("sql", execCtx.Query),
 	}
 
