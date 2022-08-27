@@ -20,9 +20,10 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"testing"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 // TestDeleteUndoLogs

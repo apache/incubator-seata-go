@@ -21,11 +21,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

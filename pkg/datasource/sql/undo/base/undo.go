@@ -21,12 +21,13 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/util"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"strings"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )

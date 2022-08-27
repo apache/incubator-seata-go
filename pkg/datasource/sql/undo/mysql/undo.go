@@ -20,6 +20,7 @@ package mysql
 import (
 	"database/sql"
 	"database/sql/driver"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/seata/seata-go/pkg/common/log"
