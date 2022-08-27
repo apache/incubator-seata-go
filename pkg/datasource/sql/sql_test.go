@@ -25,12 +25,18 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/common/log"
 )
 
-func Test_SQLOpen(t *testing.T) {
-	t.SkipNow()
+var db *sql.DB
 
-	db, err := sql.Open(SeataMySQLDriver, "root:polaris@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
+func Test_SQLOpen(t *testing.T) {
+	client.Init()
+	t.SkipNow()
+	log.Info("begin test")
+	var err error
+	db, err = sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,4 +90,30 @@ func Test_SQLOpen(t *testing.T) {
 	})
 
 	wait.Wait()
+	queryMultiRow()
+}
+
+func queryMultiRow() {
+	sqlStr := "select id, name from foo where id > ?"
+	rows, err := db.Query(sqlStr, 0)
+	if err != nil {
+		fmt.Printf("query failed, err:%v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u user
+		err := rows.Scan(&u.id, &u.name)
+		if err != nil {
+			fmt.Printf("scan failed, err:%v\n", err)
+			return
+		}
+		fmt.Printf("id:%d username:%s password:%s\n", u.id, u.name, u.name)
+	}
+}
+
+type user struct {
+	id   int
+	name string
 }
