@@ -50,7 +50,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{targetConn: conn, res: c.res}, nil
+	return &Conn{targetConn: conn, res: c.res, autoCommit: true}, nil
 }
 
 // Driver returns the underlying Driver of the Connector,

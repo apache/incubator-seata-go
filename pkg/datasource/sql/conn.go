@@ -22,6 +22,8 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 	"errors"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -43,6 +45,8 @@ func (c *Conn) ResetSession(ctx context.Context) error {
 	}
 
 	c.txCtx = nil
+	c.autoCommit = true
+	c.autoCommitChanged = false
 	return conn.ResetSession(ctx)
 }
 
@@ -88,60 +92,72 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	}, nil
 }
 
-// Exec
+// Exec execute target query without any global transaction
 func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	conn, ok := c.targetConn.(driver.Execer)
+	execer, ok := c.targetConn.(driver.Execer)
 	if !ok {
 		return nil, driver.ErrSkip
 	}
 
-	if c.txCtx != nil {
-		// in transaction, need run Executor
-		executor, err := exec.BuildExecutor(c.res.dbType, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &exec.ExecContext{
-			TxCtx:  c.txCtx,
-			Query:  query,
-			Values: args,
-		}
-
-		ret, err := executor.ExecWithValue(context.Background(), execCtx,
-			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-				ret, err := conn.Exec(query, args)
-				if err != nil {
-					return nil, err
-				}
-
-				return types.NewResult(types.WithResult(ret)), nil
-			})
-		if err != nil {
-			return nil, err
-		}
-
-		// todo if user has not opened a transaction, it may call tx.Commit() method to flush undo log
-
-		return ret.GetResult(), nil
-	}
-
-	return conn.Exec(query, args)
+	return execer.Exec(query, args)
 }
 
-// ExecContext
+// ExecContext  execute target query with global transaction if global transaction is opened
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	targetConn, ok := c.targetConn.(driver.ExecerContext)
-	if ok {
-		values := make([]driver.Value, 0, len(args))
-
-		for i := range args {
-			values = append(values, args[i].Value)
-		}
-
-		return c.Exec(query, values)
+	// if global transaction not opened, execute query directly
+	if !tm.IsTransactionOpened(ctx) {
+		return c.execContextDirectly(ctx, query, args)
 	}
 
+	if c.autoCommit {
+		return c.executeAutoCommitTrue(ctx, query, args)
+	}
+
+	return c.executeAutoCommitFalse(ctx, query, args)
+}
+
+// execContextDirectly execute target query without any global transaction
+func (c *Conn) execContextDirectly(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if execer, ok := c.targetConn.(driver.ExecerContext); ok {
+		return execer.ExecContext(ctx, query, args)
+	}
+
+	if execer, ok := c.targetConn.(driver.Execer); ok {
+		vals := make([]driver.Value, 0, len(args))
+		for i := range args {
+			vals = append(vals, args[i].Value)
+		}
+
+		return execer.Exec(query, vals)
+	}
+
+	return nil, driver.ErrSkip
+}
+
+// executeAutoCommitTrue execute auto commit true
+func (c *Conn) executeAutoCommitTrue(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	tx, err := c.BeginTx(ctx, driver.TxOptions{})
+	if err != nil {
+		log.Errorf("open tx error when execute auto commit true: %w", err)
+		return nil, err
+	}
+
+	res, err := c.executeAutoCommitFalse(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Errorf("auto commit tx error when execute auto commit true: %w", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// executeAutoCommitFalse execute auto commit false
+func (c *Conn) executeAutoCommitFalse(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	executor, err := exec.BuildExecutor(c.res.dbType, query)
 	if err != nil {
 		return nil, err
@@ -155,14 +171,15 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-			ret, err := targetConn.ExecContext(ctx, query, args)
+			ret, err := c.execContextDirectly(ctx, query, args)
 			if err != nil {
 				return nil, err
 			}
-
 			return types.NewResult(types.WithResult(ret)), nil
 		})
+
 	if err != nil {
+		log.Errorf("execute auto commit false: %w", err)
 		return nil, err
 	}
 
@@ -274,7 +291,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.TxOpt = opts
-		c.autoCommit = true
+		c.autoCommit = false
 
 		return newTx(
 			withDriverConn(c),
@@ -296,10 +313,12 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	}
 
 	if ctx.Done() == nil {
-		return c.Begin()
+		c.autoCommit = false
+		return c.BeginTx(ctx, opts)
 	}
 
-	txi, err := c.Begin()
+	txi, err := c.BeginTx(ctx, opts)
+	c.autoCommit = false
 	if err == nil {
 		select {
 		case <-ctx.Done():
@@ -324,5 +343,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 // do not block indefinitely (e.g. apply a timeout).
 func (c *Conn) Close() error {
 	c.txCtx = nil
+	c.autoCommit = true
+	c.autoCommitChanged = false
 	return c.targetConn.Close()
 }
