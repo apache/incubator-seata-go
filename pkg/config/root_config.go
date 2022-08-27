@@ -18,19 +18,17 @@
 package config
 
 import (
+	"github.com/seata/seata-go/pkg/common/constant"
 	"github.com/seata/seata-go/pkg/common/log"
-	"go.uber.org/atomic"
 	"sync"
 )
 
 var (
 	startOnce sync.Once
-	exporting = &atomic.Bool{}
 )
 
 // RootConfig is the root config
 type RootConfig struct {
-	PrefixStr     string           `default:"seata"`
 	ServerConf    *ServerConfig    `yaml:"server" json:"server" property:"server" hcl:"server"`
 	StoreConf     *StoreConfig     `yaml:"store" json:"store" property:"store" hcl:"store"`
 	RegistryConf  *RegistryConfig  `yaml:"registry" json:"registry" property:"registry" hcl:"registry"`
@@ -40,12 +38,7 @@ type RootConfig struct {
 
 // Prefix seata
 func (rc *RootConfig) Prefix() string {
-	return rc.PrefixStr
-}
-
-// Prefix seata
-func (rc *RootConfig) SetPrefix(prefix string) {
-	rc.PrefixStr = prefix
+	return constant.Seata
 }
 
 func (rc *RootConfig) Init() error {
@@ -55,14 +48,14 @@ func (rc *RootConfig) Init() error {
 	}
 
 	// init registry
-	registry := rc.RegistryConf
-	if registry != nil {
-		for _, reg := range registry.Registry {
-			if err := reg.Init(); err != nil {
-				return err
-			}
-		}
-	}
+	//registry := rc.RegistryConf
+	//if registry != nil {
+	//	for _, reg := range registry.Registry {
+	//		if err := reg.Init(); err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
 	SetRootConfig(*rc)
 	rc.Start()
 	return nil

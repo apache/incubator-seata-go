@@ -149,7 +149,7 @@ func (conf *loaderConf) MergeConfig(koan *koanf.Koanf) *koanf.Koanf {
 			return koan
 		}
 		activeConf = NewLoaderConf(WithPath(path))
-		activeKoan = GetConfigResolver(activeConf)
+		activeKoan, _ = GetConfigResolver(activeConf)
 		if err := koan.Merge(activeKoan); err != nil {
 			log.Debugf("Config merge err %s", err)
 		}

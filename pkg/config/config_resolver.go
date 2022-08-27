@@ -25,7 +25,6 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/constant"
 	"github.com/seata/seata-go/pkg/config/parsers/properties"
 )
 import (
@@ -33,7 +32,7 @@ import (
 )
 
 // GetConfigResolver get config resolver
-func GetConfigResolver(conf *loaderConf) *koanf.Koanf {
+func GetConfigResolver(conf *loaderConf) (*koanf.Koanf, string) {
 	var (
 		k   *koanf.Koanf
 		err error
@@ -52,19 +51,14 @@ func GetConfigResolver(conf *loaderConf) *koanf.Koanf {
 
 	switch conf.suffix {
 	case "yaml", "yml":
-		rootConfig.SetPrefix(constant.Seata)
 		err = k.Load(rawbytes.Provider(bytes), yaml.Parser())
 	case "json":
-		rootConfig.SetPrefix(constant.Seata)
 		err = k.Load(rawbytes.Provider(bytes), json.Parser())
 	case "toml":
-		rootConfig.SetPrefix(constant.Seata)
 		err = k.Load(rawbytes.Provider(bytes), toml.Parser())
 	case "properties":
-		rootConfig.SetPrefix(constant.Seata)
 		err = k.Load(rawbytes.Provider(bytes), properties.Parser())
 	case "conf":
-		rootConfig.SetPrefix(constant.SeataHcl)
 		err = k.Load(rawbytes.Provider(bytes), hcl.Parser(true))
 	default:
 		err = errors.Errorf("no support %s file suffix", conf.suffix)
@@ -73,5 +67,5 @@ func GetConfigResolver(conf *loaderConf) *koanf.Koanf {
 	if err != nil {
 		panic(err)
 	}
-	return k
+	return k, conf.suffix
 }

@@ -20,7 +20,9 @@ package config
 import (
 	"fmt"
 	"github.com/knadh/koanf"
+	"github.com/seata/seata-go/pkg/common/constant"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -31,14 +33,24 @@ func Load(opts ...LoaderConfOption) error {
 	// conf
 	conf := NewLoaderConf(opts...)
 	if conf.rc == nil {
-		koan := GetConfigResolver(conf)
+		koan, suffix := GetConfigResolver(conf)
 		koan = conf.MergeConfig(koan)
-		if err := koan.UnmarshalWithConf(rootConfig.Prefix(),
-			rootConfig, koanf.UnmarshalConf{Tag: "yaml"}); err != nil {
-			var stackBuf [1024]byte
-			stackBufLen := runtime.Stack(stackBuf[:], false)
-			fmt.Printf("==> %s\n", string(stackBuf[:stackBufLen]))
-			return err
+		if strings.EqualFold(suffix, "conf") {
+			if err := koan.UnmarshalWithConf(constant.SeataHcl,
+				rootConfig, koanf.UnmarshalConf{Tag: "hcl"}); err != nil {
+				var stackBuf [1024]byte
+				stackBufLen := runtime.Stack(stackBuf[:], false)
+				fmt.Printf("==> %s\n", string(stackBuf[:stackBufLen]))
+				return err
+			}
+		} else {
+			if err := koan.UnmarshalWithConf(rootConfig.Prefix(),
+				rootConfig, koanf.UnmarshalConf{Tag: "yaml"}); err != nil {
+				var stackBuf [1024]byte
+				stackBufLen := runtime.Stack(stackBuf[:], false)
+				fmt.Printf("==> %s\n", string(stackBuf[:stackBufLen]))
+				return err
+			}
 		}
 	} else {
 		rootConfig = conf.rc
