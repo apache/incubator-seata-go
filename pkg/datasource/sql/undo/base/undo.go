@@ -48,6 +48,22 @@ func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx)
 	return nil
 }
 
+// DeleteUndoLog exec delete single undo log operate
+func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
+	if err != nil {
+		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
+		return err
+	}
+
+	if _, err = stmt.ExecContext(ctx, branchID, xid); err != nil {
+		log.Errorf("[DeleteUndoLog] exec delete undo log fail, err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // BatchDeleteUndoLog exec delete undo log operate
 func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
 	// build delete undo log sql
@@ -73,8 +89,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	}
 
 	// exec sql stmt
-	_, err = stmt.ExecContext(ctx, branchIDStr, strings.Join(xid, ","))
-	if err != nil {
+	if _, err = stmt.ExecContext(ctx, branchIDStr, strings.Join(xid, ",")); err != nil {
 		log.Errorf("exec delete undo log fail, err: %v", err)
 		return err
 	}

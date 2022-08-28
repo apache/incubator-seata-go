@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 
@@ -40,6 +41,11 @@ func (m *undoLogManager) Init() {
 // InsertUndoLog
 func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
 	return m.Base.InsertUndoLog(l, tx)
+}
+
+// DeleteUndoLog
+func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	return m.Base.DeleteUndoLog(ctx, xid, branchID, conn)
 }
 
 // BatchDeleteUndoLog

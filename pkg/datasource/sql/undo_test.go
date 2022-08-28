@@ -26,12 +26,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestDeleteUndoLogs
-func TestDeleteUndoLogs(t *testing.T) {
+// TestBatchDeleteUndoLogs
+func TestBatchDeleteUndoLogs(t *testing.T) {
 	// local test can annotation t.SkipNow()
 	t.SkipNow()
 
-	testDeleteUndoLogs := func() {
+	testBatchDeleteUndoLogs := func() {
 		db, err := sql.Open("seata-mysql", "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
@@ -41,6 +41,29 @@ func TestDeleteUndoLogs(t *testing.T) {
 		undoLogManager := new(base.BaseUndoLogManager)
 
 		err = undoLogManager.BatchDeleteUndoLog([]string{"1"}, []int64{1}, sqlConn)
+		assert.Nil(t, err)
+	}
+
+	t.Run("test_batch_delete_undo_logs", func(t *testing.T) {
+		testBatchDeleteUndoLogs()
+	})
+}
+
+func TestDeleteUndoLogs(t *testing.T) {
+	// local test can annotation t.SkipNow()
+	t.SkipNow()
+
+	testDeleteUndoLogs := func() {
+		db, err := sql.Open("seata-mysql", "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		assert.Nil(t, err)
+
+		ctx := context.Background()
+		sqlConn, err := db.Conn(ctx)
+		assert.Nil(t, err)
+
+		undoLogManager := new(base.BaseUndoLogManager)
+
+		err = undoLogManager.DeleteUndoLog(ctx, "1", 1, sqlConn)
 		assert.Nil(t, err)
 	}
 
