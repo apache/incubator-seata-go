@@ -26,7 +26,10 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-var solts = map[types.DBType]*undoLogMgrHolder{}
+var (
+	solts   = map[types.DBType]*undoLogMgrHolder{}
+	parsers = map[string]UndoLogParser{}
+)
 
 type undoLogMgrHolder struct {
 	once sync.Once
@@ -49,7 +52,7 @@ func Regis(m UndoLogManager) error {
 type UndoLogManager interface {
 	Init()
 	// InsertUndoLog
-	InsertUndoLog(l []BranchUndoLog, tx driver.Tx) error
+	InsertUndoLog(l BranchUndoLog, tx driver.Tx) error
 	// DeleteUndoLog
 	DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
@@ -78,11 +81,11 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 // BranchUndoLog
 type BranchUndoLog struct {
 	// Xid
-	Xid string
+	Xid string `json:"xid"`
 	// BranchID
-	BranchID string
+	BranchID string `json:"branchId"`
 	// Logs
-	Logs []SQLUndoLog
+	Logs []SQLUndoLog `json:"sqlUndoLogs"`
 }
 
 // Marshal
@@ -92,9 +95,10 @@ func (b *BranchUndoLog) Marshal() []byte {
 
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType
-	TableName string
-	Images    types.RoundRecordImage
+	SQLType     types.SQLType     `json:"sqlType"`
+	TableName   string            `json:"tableName"`
+	BeforeImage types.RecordImage `json:"beforeImage"`
+	AfterImage  types.RecordImage `json:"afterImage"`
 }
 
 // UndoLogParser
@@ -108,3 +112,20 @@ type UndoLogParser interface {
 	// Decode
 	Decode(b []byte) BranchUndoLog
 }
+
+func GetParser() UndoLogParser {
+	// todo read from config
+	name := "fastjson"
+	return parsers[name]
+}
+
+func RegisteUndoLogParser(parser UndoLogParser) {
+	parsers[parser.GetName()] = parser
+}
+
+type UndoLogStatue byte
+
+var (
+	Normal         UndoLogStatue = 0
+	GlobalFinished UndoLogStatue = 1
+)

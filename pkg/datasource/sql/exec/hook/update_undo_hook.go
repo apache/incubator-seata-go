@@ -20,6 +20,8 @@ package exec
 import (
 	"context"
 
+	"github.com/seata/seata-go/pkg/tm"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -36,6 +38,9 @@ func (u UpdateUndoHook) Type() types.SQLType {
 
 // Before build image before execute business sql
 func (u UpdateUndoHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
+	if !tm.IsTransactionOpened(ctx) {
+		return
+	}
 	r, err := u.basicUndoBuilder.buildRecordImage(ctx, execCtx)
 	if err != nil {
 		log.Fatalf("build before iamge %v", err)
@@ -46,6 +51,9 @@ func (u UpdateUndoHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
 
 // Before build image after execute business sql
 func (u UpdateUndoHook) After(ctx context.Context, execCtx *exec.ExecContext) {
+	if !tm.IsTransactionOpened(ctx) {
+		return
+	}
 	r, err := u.basicUndoBuilder.buildRecordImage(ctx, execCtx)
 	if err != nil {
 		log.Fatalf("build after iamge %v", err)

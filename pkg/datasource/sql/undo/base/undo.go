@@ -18,14 +18,27 @@
 package base
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
+
+var (
+	// todo read from config file
+	undoLogTableName  = "undo_log"
+	serializerKey     = "serializer"
+	compressorTypeKey = "compressorType"
+)
+
+var (
+	insertUndoLogSql = fmt.Sprintf("INSERT INTO %s (branch_id, xid, context, rollback_info, log_status, log_created, log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))", undoLogTableName)
+)
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
@@ -35,8 +48,15 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
-	return nil
+func (m *BaseUndoLogManager) InsertUndoLog(ctx context.Context, l undo.BranchUndoLog, conn *sql.Conn) error {
+	undoLogContent := undo.GetParser().Encode(l)
+	rollbackCtx := map[string]string{
+		serializerKey: undo.GetParser().GetName(),
+		// todo support compressor
+		compressorTypeKey: "NONE",
+	}
+	_, err := conn.ExecContext(ctx, insertUndoLogSql, l.BranchID, l.Xid, undoLogContent, rollbackCtx, undo.Normal)
+	return err
 }
 
 // DeleteUndoLog

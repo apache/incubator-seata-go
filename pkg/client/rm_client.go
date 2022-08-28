@@ -17,6 +17,18 @@
 
 package client
 
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/parser"
+)
+
 // InitRmClient init seata rm client
 func initRmClient() {
+	InitUndoLogParser()
+}
+
+// InitUndoLogParser register undo log parser
+func InitUndoLogParser() {
+	jsonParser := parser.JsonUndoLogParser{}
+	undo.RegisteUndoLogParser(jsonParser)
 }

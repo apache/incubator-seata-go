@@ -91,27 +91,25 @@ type RecordImage struct {
 	// index
 	index int32
 	// Table table name
-	Table string
-	// SQLType sql type
-	SQLType SQLType
+	Table string `json:"tableName"`
 	// Rows
-	Rows []RowImage
+	Rows []RowImage `json:"rows"`
 }
 
 // RowImage Mirror data information information
 type RowImage struct {
 	// Columns All columns of image data
-	Columns []ColumnImage
+	Columns []ColumnImage `json:"fields"`
 }
 
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
 	// KeyType index type
-	KeyType string
+	KeyType string `json:"keyType"`
 	// Name column name
-	Name string
+	Name string `json:"name"`
 	// Type column type
-	Type gosql.ColumnType
+	Type gosql.ColumnType `json:"type"`
 	// Value column value
-	Value interface{}
+	Value interface{} `json:"value"`
 }
