@@ -40,7 +40,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 
 		undoLogManager := new(base.BaseUndoLogManager)
 
-		err = undoLogManager.DeleteUndoLogs([]string{"1"}, []int64{1}, sqlConn)
+		err = undoLogManager.BatchDeleteUndoLog([]string{"1"}, []int64{1}, sqlConn)
 		assert.Nil(t, err)
 	}
 

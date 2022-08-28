@@ -104,7 +104,7 @@ func (m *BaseUndoLogManager) getBatchDeleteUndoLogSql(xid []string, branchID []i
 	}
 
 	var undoLogDeleteSql strings.Builder
-	undoLogDeleteSql.WriteString("DELETE FROM ")
+	undoLogDeleteSql.WriteString(constant.DeleteFrom)
 	undoLogDeleteSql.WriteString(constant.UndoLogTableName)
 	undoLogDeleteSql.WriteString(" WHERE ")
 	undoLogDeleteSql.WriteString(constant.UndoLogBranchXid)
