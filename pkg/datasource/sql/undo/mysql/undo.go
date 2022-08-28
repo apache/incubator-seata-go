@@ -42,9 +42,9 @@ func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) err
 	return m.Base.InsertUndoLog(l, tx)
 }
 
-// DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error {
-	return m.Base.DeleteUndoLogs(xid, branchID, conn)
+// BatchDeleteUndoLogs
+func (m *undoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
+	return m.Base.BatchDeleteUndoLog(xid, branchID, conn)
 }
 
 // FlushUndoLog

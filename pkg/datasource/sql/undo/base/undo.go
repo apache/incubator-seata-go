@@ -48,8 +48,8 @@ func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx)
 	return nil
 }
 
-// DeleteUndoLogs exec delete undo log operate
-func (m *BaseUndoLogManager) DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error {
+// BatchDeleteUndoLog exec delete undo log operate
+func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
 	// build delete undo log sql
 	batchDeleteSql, err := m.getBatchDeleteUndoLogSql(xid, branchID)
 	if err != nil {
