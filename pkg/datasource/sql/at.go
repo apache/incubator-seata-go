@@ -243,7 +243,7 @@ func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseT
 
 	for i := range phaseCtxs {
 		phaseCtx := phaseCtxs[i]
-		if err := undoMgr.DeleteUndoLogs([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
+		if err := undoMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
 			w.commitQueue <- phaseCtx
 		}
 	}
