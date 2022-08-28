@@ -26,6 +26,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -33,7 +34,7 @@ func TestWithFence(t *testing.T) {
 	tests := []struct {
 		xid          string
 		txName       string
-		fencePhase   int32
+		fencePhase   constant.FencePhase
 		bac          tm.BusinessActionContext
 		callback     func() error
 		wantErr      bool

@@ -24,6 +24,7 @@ import (
 
 	"github.com/zouyx/agollo/v3/component/log"
 
+	"github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 	"github.com/seata/seata-go/pkg/tm"
@@ -34,14 +35,16 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr e
 	if fencePhase == constant.FencePhaseNotExist {
 		return fmt.Errorf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx))
 	}
-	// deal with unknown situations
+
+	// deal panic and return error
 	defer func() {
-		if err, ok := recover().(error); ok {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				resErr = fmt.Errorf("rollback cause: %s, rollback err: %s", err.Error(), errRollback.Error())
-			}
-			log.Error(err)
-			resErr = err
+		rec := recover()
+		if rec != nil {
+			log.Error(rec)
+			resErr = errors.NewTccFenceError(errors.FencePanicError,
+				fmt.Sprintf("fence throw a panic, the msg is: %v", rec),
+				nil,
+			)
 		}
 	}()
 
@@ -56,5 +59,10 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr e
 	if fencePhase == constant.FencePhaseRollback {
 		return handler.GetFenceHandlerSingleton().RollbackFence(ctx, tx, callback)
 	}
-	return nil
+
+	return errors.NewTccFenceError(
+		errors.FencePhaseError,
+		fmt.Sprintf("fence phase: %v illegal", fencePhase),
+		nil,
+	)
 }

@@ -17,36 +17,39 @@
 
 package constant
 
+type FenceStatus byte
+type FencePhase byte
+
 const (
 	// StatusTried
 	// PHASE 1: The Commit tried.
-	StatusTried int32 = 1
+	StatusTried = FenceStatus(1)
 
 	// StatusCommitted
 	// PHASE 2: The Committed.
-	StatusCommitted int32 = 2
+	StatusCommitted = FenceStatus(2)
 
 	// StatusRollbacked
 	// PHASE 2: The Rollbacked.
-	StatusRollbacked int32 = 3
+	StatusRollbacked = FenceStatus(3)
 
 	// StatusSuspended
 	// Suspended status.
-	StatusSuspended int32 = 4
+	StatusSuspended = FenceStatus(4)
 
 	// FencePhaseNotExist
 	// fence phase not exist
-	FencePhaseNotExist int32 = 0
+	FencePhaseNotExist = FencePhase(0)
 
 	// FencePhasePrepare
 	// prepare fence phase
-	FencePhasePrepare int32 = 1
+	FencePhasePrepare = FencePhase(1)
 
 	// FencePhaseCommit
 	// commit fence phase
-	FencePhaseCommit int32 = 2
+	FencePhaseCommit = FencePhase(2)
 
 	// FencePhaseRollback
 	// rollback fence phase
-	FencePhaseRollback int32 = 3
+	FencePhaseRollback = FencePhase(3)
 )

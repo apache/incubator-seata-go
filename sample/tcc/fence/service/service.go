@@ -22,13 +22,17 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-
-	"github.com/pkg/errors"
+	"time"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence"
 	"github.com/seata/seata-go/pkg/tm"
+)
+
+const (
+	DriverName = "mysql"
+	Url        = "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True"
 )
 
 var (
@@ -37,6 +41,12 @@ var (
 
 	tccService2     *tcc.TCCServiceProxy
 	tccService2Once sync.Once
+
+	commitTimes      int
+	commitFenceTimes int
+
+	rollbackTimes      int
+	rollbackFenceTimes int
 )
 
 type TestTCCServiceBusiness struct {
@@ -52,16 +62,12 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 		if err != nil {
 			panic(fmt.Errorf("get TestTCCServiceBusiness tcc service proxy error, %v", err.Error()))
 		}
-		err = tccService.RegisterResource()
-		if err != nil {
-			panic(fmt.Errorf("TestTCCServiceBusiness register resource error, %v", err.Error()))
-		}
 	})
 	return tccService
 }
 
-func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{}) (bool, error) {
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -77,13 +83,14 @@ func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params ...interface
 	})
 
 	if err != nil {
-		return false, err
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -99,13 +106,14 @@ func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContex
 	})
 
 	if err != nil {
-		return false, err
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -117,13 +125,14 @@ func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionCont
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
-		return errors.New("test rollback")
+		return nil
 	})
 
 	if err != nil {
-		return false, err
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness) GetActionName() string {
@@ -143,7 +152,6 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 		if err != nil {
 			panic(fmt.Errorf("TestTCCServiceBusiness2 get tcc service proxy error, %v", err.Error()))
 		}
-		err = tccService2.RegisterResource()
 		if err != nil {
 			panic(fmt.Errorf("TestTCCServiceBusiness2 register resource error, %v", err.Error()))
 		}
@@ -151,8 +159,8 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 	return tccService2
 }
 
-func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params ...interface{}) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}) (bool, error) {
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -167,13 +175,16 @@ func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params ...interfac
 	})
 
 	if err != nil {
-		return false, err
+		log.Error(err)
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+	time.Sleep(time.Second * 5)
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -189,13 +200,15 @@ func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionConte
 	})
 
 	if err != nil {
-		return false, err
+		log.Error(err)
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True")
+	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
 	}
@@ -211,9 +224,10 @@ func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionCon
 	})
 
 	if err != nil {
-		return false, err
+		return false, tx.Rollback()
 	}
-	return true, nil
+
+	return true, tx.Commit()
 }
 
 func (T TestTCCServiceBusiness2) GetActionName() string {

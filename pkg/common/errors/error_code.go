@@ -80,15 +80,27 @@ const (
 	// LockKeyConflictFailFast Lock key conflict fail fast transaction exception code.
 	LockKeyConflictFailFast = TransactionErrorCode(19)
 
-	// FenceErrorCodeDuplicateKey Insert tcc fence record duplicate key errors
-	FenceErrorCodeDuplicateKey = TransactionErrorCode(20)
+	// TccFenceDbDuplicateKeyError Insert tcc fence record duplicate key errors
+	TccFenceDbDuplicateKeyError = TransactionErrorCode(20)
 
-	// UpdateRecordError Update tcc fence record error
-	UpdateRecordError = TransactionErrorCode(21)
+	// RollbackFenceError rollback tcc fence error
+	RollbackFenceError = TransactionErrorCode(21)
 
-	// RecordNotExists TCC fence record already exists
-	RecordNotExists = TransactionErrorCode(22)
+	// CommitFenceError commit tcc fence  error
+	CommitFenceError = TransactionErrorCode(22)
 
-	// InsertRecordError Insert tcc fence record error
-	InsertRecordError = TransactionErrorCode(23)
+	// TccFenceDbError query tcc fence prepare sql failed
+	TccFenceDbError = TransactionErrorCode(23)
+
+	// PrepareFenceError prepare tcc fence error
+	PrepareFenceError = TransactionErrorCode(24)
+
+	// FenceBusinessError callback business method maybe return this error type
+	FenceBusinessError = TransactionErrorCode(26)
+
+	// FencePanicError fence maybe throw a panic, then we catch it and return an error
+	FencePanicError = TransactionErrorCode(27)
+
+	// FencePhaseError have fence phase but is not illegal value
+	FencePhaseError = TransactionErrorCode(28)
 )

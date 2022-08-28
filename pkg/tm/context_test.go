@@ -21,11 +21,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
-
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 )
 
 func TestInitSeataContext(t *testing.T) {

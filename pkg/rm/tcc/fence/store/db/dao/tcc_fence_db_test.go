@@ -46,7 +46,7 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		Xid:        "123123124124",
 		BranchId:   12312312312,
 		ActionName: "fence_test",
-		Status:     constant.StatusTried,
+		Status:     constant.StatusSuspended,
 	}
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 
@@ -68,9 +68,9 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	res := GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(tx, tccFenceDo)
+	err = GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(tx, tccFenceDo)
 	tx.Commit()
-	assert.Equal(t, true, res)
+	assert.Equal(t, nil, err)
 }
 
 func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
@@ -101,7 +101,7 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	actualFenceDo := GetTccFenceStoreDatabaseMapperSingleton().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	actualFenceDo, err := GetTccFenceStoreDatabaseMapperSingleton().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
 	tx.Commit()
 	assert.Equal(t, tccFenceDo.Xid, actualFenceDo.Xid)
 	assert.Equal(t, tccFenceDo.BranchId, actualFenceDo.BranchId)
@@ -109,6 +109,7 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 	assert.Equal(t, tccFenceDo.ActionName, actualFenceDo.ActionName)
 	assert.NotEmpty(t, actualFenceDo.GmtModified)
 	assert.NotEmpty(t, actualFenceDo.GmtCreate)
+	assert.Nil(t, err)
 }
 
 func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
@@ -126,6 +127,7 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 		t.Fatalf("open db failed msg: %v", err)
 	}
 	defer db.Close()
+
 	mock.ExpectBegin()
 	mock.ExpectPrepare(sql2.GetUpdateStatusSQLByBranchIdAndXid("tcc_fence_log")).
 		ExpectExec().
@@ -138,10 +140,10 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	res := GetTccFenceStoreDatabaseMapperSingleton().
+	err = GetTccFenceStoreDatabaseMapperSingleton().
 		UpdateTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, constant.StatusCommitted)
 	tx.Commit()
-	assert.Equal(t, true, res)
+	assert.Equal(t, nil, err)
 }
 
 func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
@@ -171,9 +173,9 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	res := GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	err = GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
 	tx.Commit()
-	assert.Equal(t, true, res)
+	assert.Equal(t, nil, err)
 }
 
 func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
@@ -197,7 +199,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	res := GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
+	err = GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
 	tx.Commit()
-	assert.Equal(t, true, res)
+	assert.Equal(t, nil, err)
 }

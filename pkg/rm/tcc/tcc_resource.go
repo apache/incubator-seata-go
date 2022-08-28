@@ -183,7 +183,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
 	tm.SetXID(ctx, branchResource.Xid)
-	tm.SetFencePhase(ctx, constant.FencePhaseCommit)
+	tm.SetFencePhase(ctx, constant.FencePhaseRollback)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
 	_, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)

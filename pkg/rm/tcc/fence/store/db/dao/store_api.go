@@ -21,6 +21,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 )
 
@@ -28,40 +30,40 @@ import (
 type TCCFenceStore interface {
 
 	// QueryTCCFenceDO tcc fence do.
+	// param tx the tx will bind with user business method
 	// param xid the global transaction id
 	// param branchId the branch transaction id
-	// return the tcc fence do
-	QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) *model.TCCFenceDO
+	// return the tcc fence do and error msg
+	QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) (*model.TCCFenceDO, error)
 
 	// InsertTCCFenceDO tcc fence do boolean.
+	// param tx the tx will bind with user business method
 	// param tccFenceDO the tcc fence do
-	// return the boolean
-
-	InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) bool
+	// return the error msg
+	InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error
 
 	// UpdateTCCFenceDO tcc fence do boolean.
+	// param tx the tx will bind with user business method
 	// param xid the global transaction id
 	// param branchId the branch transaction id
 	// param newStatus the new status
-	// return the boolean
-
-	UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, newStatus int32, oldStatus int32) bool
+	// return the error msg
+	UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus constant.FenceStatus, newStatus constant.FenceStatus) error
 
 	// DeleteTCCFenceDO tcc fence do boolean.
+	// param tx the tx will bind with user business method
 	// param xid the global transaction id
 	// param branchId the branch transaction id
-	// return the boolean
+	// return the error msg
+	DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) error
 
-	DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) bool
-
-	// DeleteTCCFenceDOByDate tcc fence by datetime.
-	// param datetime datetime
-	// return the deleted row count
-
-	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) bool
+	// DeleteTCCFenceDOByMdfDate tcc fence by datetime.
+	// param tx the tx will bind with user business method
+	// param datetime modify time
+	// return the error msg
+	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error
 
 	// SetLogTableName LogTable Name
 	// param logTableName logTableName
-
 	SetLogTableName(logTable string)
 }

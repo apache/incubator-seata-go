@@ -20,9 +20,8 @@ package tm
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
-
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
 )
 
 type ContextParam string
@@ -44,7 +43,7 @@ type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
-	FencePhase            int32
+	FencePhase            constant.FencePhase
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
@@ -161,14 +160,14 @@ func UnbindXid(ctx context.Context) {
 	}
 }
 
-func SetFencePhase(ctx context.Context, phase int32) {
+func SetFencePhase(ctx context.Context, phase constant.FencePhase) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).FencePhase = phase
 	}
 }
 
-func GetFencePhase(ctx context.Context) int32 {
+func GetFencePhase(ctx context.Context) constant.FencePhase {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		return variable.(*ContextVariable).FencePhase

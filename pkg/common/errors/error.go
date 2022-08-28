@@ -40,15 +40,17 @@ func (e TransactionError) Error() string {
 type TccFenceError struct {
 	Code    TransactionErrorCode
 	Message string
+	Parent  error
 }
 
 func (e TccFenceError) Error() string {
-	return fmt.Sprintf("TccFenceError code %d, msg %s", e.Code, e.Message)
+	return fmt.Sprintf("TccFenceError code %d, msg %s \n %s", e.Code, e.Message, e.Parent)
 }
 
-func NewTccFenceError(code TransactionErrorCode, msg string) *TccFenceError {
+func NewTccFenceError(code TransactionErrorCode, msg string, parent error) *TccFenceError {
 	return &TccFenceError{
 		code,
 		msg,
+		parent,
 	}
 }

@@ -17,7 +17,11 @@
 
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+)
 
 type TCCFenceDO struct {
 	/**
@@ -39,7 +43,7 @@ type TCCFenceDO struct {
 	 * the tcc fence status
 	 * tried: 1; committed: 2; rollbacked: 3; suspended: 4
 	 */
-	Status int32
+	Status constant.FenceStatus
 
 	/**
 	 * create time
