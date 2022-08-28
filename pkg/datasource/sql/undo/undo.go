@@ -18,6 +18,7 @@
 package undo
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -52,7 +53,7 @@ func Regis(m UndoLogManager) error {
 type UndoLogManager interface {
 	Init()
 	// InsertUndoLog
-	InsertUndoLog(l BranchUndoLog, tx driver.Tx) error
+	InsertUndoLog(ctx context.Context, l BranchUndoLog, conn *sql.Conn) error
 	// DeleteUndoLog
 	DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
