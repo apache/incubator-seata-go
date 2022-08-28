@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 
@@ -59,4 +60,9 @@ func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) err
 // DBType
 func (m *undoLogManager) DBType() types.DBType {
 	return types.DBTypeMySQL
+}
+
+// HasUndoLogTable
+func (m *undoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) error {
+	return m.Base.HasUndoLogTable(ctx, conn)
 }

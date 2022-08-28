@@ -18,14 +18,19 @@
 package base
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
+
+// Todo 等 delete undo 合并完成后放到 constant 目录下面
+const CheckUndoLogTableExistSql = "SELECT 1 FROM " + " undo_log " + " LIMIT 1"
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
@@ -57,4 +62,20 @@ func (m *BaseUndoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn)
 // DBType
 func (m *BaseUndoLogManager) DBType() types.DBType {
 	panic("implement me")
+}
+
+// HasUndoLogTable check undo log table if exist
+func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (err error) {
+	stmt, err := conn.PrepareContext(ctx, CheckUndoLogTableExistSql)
+	if err != nil {
+		log.Errorf("[HasUndoLogTable] prepare sql fail, err: %v", err)
+		return
+	}
+
+	if _, err = stmt.ExecContext(ctx); err != nil {
+		log.Errorf("[HasUndoLogTable] exec sql fail, err: %v", err)
+		return
+	}
+
+	return
 }

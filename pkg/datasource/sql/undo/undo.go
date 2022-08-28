@@ -18,6 +18,7 @@
 package undo
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -58,6 +59,8 @@ type UndoLogManager interface {
 	RunUndo(xid string, branchID int64, conn *sql.Conn) error
 	// DBType
 	DBType() types.DBType
+	// HasUndoLogTable
+	HasUndoLogTable(ctx context.Context, conn *sql.Conn) error
 }
 
 // GetUndoLogManager
