@@ -31,7 +31,7 @@ type Resource interface {
 	GetBranchType() branch.BranchType
 }
 
-// Control a branch transaction commit or rollback
+// ResourceManagerInbound Control a branch transaction commit or rollback
 type ResourceManagerInbound interface {
 	// Commit a branch transaction
 	BranchCommit(ctx context.Context, branchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
@@ -39,17 +39,44 @@ type ResourceManagerInbound interface {
 	BranchRollback(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, resourceId string, applicationData []byte) (branch.BranchStatus, error)
 }
 
+// BranchRegisterParam Branch register function param for ResourceManager
+type BranchRegisterParam struct {
+	BranchType      branch.BranchType
+	ResourceId      string
+	ClientId        string
+	Xid             string
+	ApplicationData string
+	LockKeys        string
+}
+
+// BranchReportParam Branch report function param for ResourceManager
+type BranchReportParam struct {
+	BranchType      branch.BranchType
+	Xid             string
+	BranchId        int64
+	Status          branch.BranchStatus
+	ApplicationData string
+}
+
+// LockQueryParam Lock query function param for ResourceManager
+type LockQueryParam struct {
+	BranchType branch.BranchType
+	ResourceId string
+	Xid        string
+	LockKeys   string
+}
+
 // Resource Manager: send outbound request to TC
 type ResourceManagerOutbound interface {
 	// Branch register long
-	BranchRegister(ctx context.Context, ranchType branch.BranchType, resourceId, clientId, xid, applicationData, lockKeys string) (int64, error)
+	BranchRegister(ctx context.Context, param BranchRegisterParam) (int64, error)
 	//  Branch report
-	BranchReport(ctx context.Context, ranchType branch.BranchType, xid string, branchId int64, status branch.BranchStatus, applicationData string) error
+	BranchReport(ctx context.Context, param BranchReportParam) error
 	// Lock query boolean
-	LockQuery(ctx context.Context, ranchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error)
+	LockQuery(ctx context.Context, param LockQueryParam) (bool, error)
 }
 
-//  Resource Manager: common behaviors
+// ResourceManager Resource Manager: common behaviors
 type ResourceManager interface {
 	ResourceManagerInbound
 	ResourceManagerOutbound

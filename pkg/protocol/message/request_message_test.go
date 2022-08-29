@@ -56,7 +56,7 @@ func TestGlobalLockQueryRequest_GetTypeCode(t *testing.T) {
 }
 
 func TestGlobalReportRequest_GetTypeCode(t *testing.T) {
-	assert.Equal(t, MessageType_GlobalStatus, GlobalReportRequest{}.GetTypeCode())
+	assert.Equal(t, MessageType_GlobalReport, GlobalReportRequest{}.GetTypeCode())
 }
 
 func TestUndoLogDeleteRequest_GetTypeCode(t *testing.T) {

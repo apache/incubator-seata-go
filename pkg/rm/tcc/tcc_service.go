@@ -98,8 +98,14 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context) error {
 	tccContextStr, _ := json.Marshal(map[string]interface{}{
 		common.ActionContext: tccContext,
 	})
-
-	branchId, err := rm.GetRMRemotingInstance().BranchRegister(branch.BranchTypeTCC, t.GetActionName(), "", tm.GetXID(ctx), string(tccContextStr), "")
+	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
+		BranchType:      branch.BranchTypeTCC,
+		ResourceId:      t.GetActionName(),
+		ClientId:        "",
+		Xid:             tm.GetXID(ctx),
+		ApplicationData: string(tccContextStr),
+		LockKeys:        "",
+	})
 	if err != nil {
 		err = errors.New(fmt.Sprintf("BranchRegister error: %v", err.Error()))
 		log.Errorf(err.Error())
