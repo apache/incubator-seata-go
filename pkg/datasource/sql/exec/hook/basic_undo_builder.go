@@ -43,6 +43,7 @@ func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.E
 	panic("implement me")
 }
 
+// buildSelectSQLByUpdate build select sql from update sql
 func (u *BasicUndoBuilder) buildSelectSQLByUpdate(query string) (string, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
