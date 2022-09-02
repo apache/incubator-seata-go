@@ -71,3 +71,27 @@ func TestDeleteUndoLogs(t *testing.T) {
 		testDeleteUndoLogs()
 	})
 }
+
+// TestHasUndoLogTable
+func TestHasUndoLogTable(t *testing.T) {
+	// local test can annotation t.SkipNow()
+	t.SkipNow()
+
+	testHasUndoLogTable := func() {
+		db, err := sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		assert.Nil(t, err)
+
+		ctx := context.Background()
+		sqlConn, err := db.Conn(ctx)
+		assert.Nil(t, err)
+
+		undoLogManager := new(base.BaseUndoLogManager)
+
+		err = undoLogManager.HasUndoLogTable(ctx, sqlConn)
+		assert.Nil(t, err)
+	}
+
+	t.Run("test_has_undo_log_table", func(t *testing.T) {
+		testHasUndoLogTable()
+	})
+}

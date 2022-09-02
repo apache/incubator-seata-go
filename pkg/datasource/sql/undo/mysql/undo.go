@@ -68,7 +68,7 @@ func (m *undoLogManager) DBType() types.DBType {
 	return types.DBTypeMySQL
 }
 
-// HasUndoLogTable
+// HasUndoLogTable check undo log table if exist
 func (m *undoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) error {
 	return m.Base.HasUndoLogTable(ctx, conn)
 }

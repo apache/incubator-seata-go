@@ -23,4 +23,6 @@ const (
 	// UndoLogTableName Todo get from config
 	UndoLogTableName = DefaultTransactionUndoLogTable
 	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
+	// CheckUndoLogTableExistSql check undo log if exist
+	CheckUndoLogTableExistSql = "SELECT 1 FROM " + UndoLogTableName + " LIMIT 1"
 )

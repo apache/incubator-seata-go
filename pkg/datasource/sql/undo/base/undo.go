@@ -34,9 +34,6 @@ import (
 
 var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
-// Todo 等 delete undo 合并完成后放到 constant 目录下面
-const CheckUndoLogTableExistSql = "SELECT 1 FROM " + " undo_log " + " LIMIT 1"
-
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 
 // BaseUndoLogManager
@@ -117,13 +114,13 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (err error) {
-	stmt, err := conn.PrepareContext(ctx, CheckUndoLogTableExistSql)
+	stmt, err := conn.PrepareContext(ctx, constant.CheckUndoLogTableExistSql)
 	if err != nil {
 		log.Errorf("[HasUndoLogTable] prepare sql fail, err: %v", err)
 		return
 	}
 
-	if _, err = stmt.ExecContext(ctx); err != nil {
+	if _, err = stmt.Query(); err != nil {
 		log.Errorf("[HasUndoLogTable] exec sql fail, err: %v", err)
 		return
 	}
