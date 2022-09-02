@@ -22,8 +22,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )
 
@@ -43,8 +44,13 @@ func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) err
 }
 
 // DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLogs(xid []string, branchID []int64, conn *sql.Conn) error {
-	return m.Base.DeleteUndoLogs(xid, branchID, conn)
+func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	return m.Base.DeleteUndoLog(ctx, xid, branchID, conn)
+}
+
+// BatchDeleteUndoLog
+func (m *undoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
+	return m.Base.BatchDeleteUndoLog(xid, branchID, conn)
 }
 
 // FlushUndoLog
