@@ -54,10 +54,9 @@ func (u *BasicUndoBuilder) buildSelectSQLByUpdate(query string) (string, error) 
 		return "", fmt.Errorf("invalid update stmt")
 	}
 
-	updateColumns := p.UpdateStmt.List
 	fields := []*ast.SelectField{}
 
-	for _, column := range updateColumns {
+	for _, column := range p.UpdateStmt.List {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: column.Column,
