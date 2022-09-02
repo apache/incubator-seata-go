@@ -26,9 +26,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
@@ -242,7 +243,7 @@ func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseT
 
 	for i := range phaseCtxs {
 		phaseCtx := phaseCtxs[i]
-		if err := undoMgr.DeleteUndoLogs([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
+		if err := undoMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
 			w.commitQueue <- phaseCtx
 		}
 	}
