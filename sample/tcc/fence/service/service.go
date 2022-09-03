@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc"
@@ -183,7 +182,6 @@ func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}
 }
 
 func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
-	time.Sleep(time.Second * 5)
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
