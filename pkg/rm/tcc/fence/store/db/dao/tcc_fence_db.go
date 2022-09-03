@@ -81,7 +81,7 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	if err = result.Scan(&xid, &branchId, &actionName, &status, &gmtCreate, &gmtModify); err != nil {
 		// will return error, if rows is empty
 		if err.Error() == "sql: no rows in result set" {
-			return nil, errors.NewTccFenceError(errors.TccFenceDbError, "query tcc fence get scan row failed", err)
+			return nil, errors.NewTccFenceError(errors.TccFenceDbError, "query tcc fence get scan row，no rows in result set", err)
 		} else {
 			return nil, errors.NewTccFenceError(errors.TccFenceDbError, "query tcc fence get scan row failed", err)
 		}

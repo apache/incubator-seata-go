@@ -49,20 +49,22 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr e
 	}()
 
 	if fencePhase == constant.FencePhasePrepare {
-		return handler.GetFenceHandlerSingleton().PrepareFence(ctx, tx, callback)
+		resErr = handler.GetFenceHandlerSingleton().PrepareFence(ctx, tx, callback)
+	} else if fencePhase == constant.FencePhaseCommit {
+		resErr = handler.GetFenceHandlerSingleton().CommitFence(ctx, tx, callback)
+	} else if fencePhase == constant.FencePhaseRollback {
+		resErr = handler.GetFenceHandlerSingleton().RollbackFence(ctx, tx, callback)
+	} else {
+		resErr = errors.NewTccFenceError(
+			errors.FencePhaseError,
+			fmt.Sprintf("fence phase: %v illegal", fencePhase),
+			nil,
+		)
 	}
 
-	if fencePhase == constant.FencePhaseCommit {
-		return handler.GetFenceHandlerSingleton().CommitFence(ctx, tx, callback)
+	if resErr != nil {
+		log.Error(resErr)
 	}
 
-	if fencePhase == constant.FencePhaseRollback {
-		return handler.GetFenceHandlerSingleton().RollbackFence(ctx, tx, callback)
-	}
-
-	return errors.NewTccFenceError(
-		errors.FencePhaseError,
-		fmt.Sprintf("fence phase: %v illegal", fencePhase),
-		nil,
-	)
+	return
 }
