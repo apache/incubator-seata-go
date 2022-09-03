@@ -19,8 +19,14 @@ package exec
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/parser/format"
+	"github.com/seata/seata-go/pkg/common/bytes"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -35,4 +41,81 @@ func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.Exe
 // buildRowImages query db table to find data image
 func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RecordImage, error) {
 	panic("implement me")
+}
+
+// buildSelectSQLByUpdate build select sql from update sql
+func (u *BasicUndoBuilder) buildSelectSQLByUpdate(query string) (string, error) {
+	p, err := parser.DoParser(query)
+	if err != nil {
+		return "", err
+	}
+
+	if p.UpdateStmt == nil {
+		return "", fmt.Errorf("invalid update stmt")
+	}
+
+	fields := []*ast.SelectField{}
+
+	for _, column := range p.UpdateStmt.List {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: column.Column,
+			},
+		})
+	}
+
+	selStmt := ast.SelectStmt{
+		SelectStmtOpts: &ast.SelectStmtOpts{},
+		From:           p.UpdateStmt.TableRefs,
+		Where:          p.UpdateStmt.Where,
+		Fields:         &ast.FieldList{Fields: fields},
+		OrderBy:        p.UpdateStmt.Order,
+		Limit:          p.UpdateStmt.Limit,
+		TableHints:     p.UpdateStmt.TableHints,
+	}
+
+	b := bytes.NewByteBuffer([]byte{})
+	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	sql := string(b.Bytes())
+	log.Infof("build select sql by update query, sql {}", sql)
+
+	return sql, nil
+}
+
+// buildSelectSQLByUpdate build select sql from update sql
+func (u *BasicUndoBuilder) buildSelectSQLByInsert(query string) (string, error) {
+	p, err := parser.DoParser(query)
+	if err != nil {
+		return "", err
+	}
+
+	if p.InsertStmt == nil {
+		return "", fmt.Errorf("invalid Insert stmt")
+	}
+
+	InsertColumns := p.InsertStmt.Columns
+	fields := []*ast.SelectField{}
+
+	for _, column := range InsertColumns {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: column,
+			},
+		})
+	}
+
+	selStmt := ast.SelectStmt{
+		SelectStmtOpts: &ast.SelectStmtOpts{},
+		From:           p.InsertStmt.Table,
+		Where:          p.InsertStmt.Lists[0][0],
+		Fields:         &ast.FieldList{Fields: fields},
+		TableHints:     p.InsertStmt.TableHints,
+	}
+
+	b := bytes.NewByteBuffer([]byte{})
+	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	sql := string(b.Bytes())
+	log.Infof("build select sql by insert query, sql {}", sql)
+
+	return sql, nil
 }
