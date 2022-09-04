@@ -34,17 +34,6 @@ jobs:
       - name: Check license header
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
-  code-style:
-    name: Code style
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Check code style
-        run: ./mvnw -B -q clean checkstyle:check
-
   dependency-license:
     name: Dependency licenses
     needs: [changes]
@@ -65,5 +54,13 @@ jobs:
           if [ ! -z "$(git diff -U0 ./dist-material/release-docs/LICENSE)" ]; then
             echo "LICENSE file is not updated correctly"
             git diff -U0 ./dist-material/release-docs/LICENSE
+            exit 1
+          fi
+      - name: Check Dependencies Licenses Invalid
+        run: |
+          go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
+          if [ ! -z "$(license-eye dependency check -v error | grep 'GPL\|LGPL\|ERROR')" ]; then
+            echo "GPL or LGPL dependency LICENSE exists"
+            license-eye dependency check -v error | grep 'GPL\|LGPL\|ERROR'
             exit 1
           fi
