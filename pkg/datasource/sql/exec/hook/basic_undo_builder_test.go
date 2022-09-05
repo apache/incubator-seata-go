@@ -62,7 +62,7 @@ func TestBasicUndoBuilder_buildSelectSQLByInsert(t *testing.T) {
 		expect string
 	}{
 		{
-			query:  "INSERT INTO t_user (name) VALUES ()",
+			query:  "insert into t_user(name) values('pp')",
 			expect: "SELECT SQL_NO_CACHE name FROM t_user ",
 		},
 	}
