@@ -65,7 +65,7 @@ func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 	return tccService
 }
 
-func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{}) (bool, error) {
+func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{}) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -75,20 +75,24 @@ func (T TestTCCServiceBusiness) Prepare(ctx context.Context, params interface{})
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Prepare, param %v", params)
 		return nil
 	})
 
-	if err != nil {
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
-func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -98,20 +102,24 @@ func (T TestTCCServiceBusiness) Commit(ctx context.Context, businessActionContex
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Commit, param %v", businessActionContext)
 		return nil
 	})
 
-	if err != nil {
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
-func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -122,16 +130,20 @@ func (T TestTCCServiceBusiness) Rollback(ctx context.Context, businessActionCont
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
 
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
+
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness Rollback, param %v", businessActionContext)
 		return nil
 	})
 
-	if err != nil {
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
 func (T TestTCCServiceBusiness) GetActionName() string {
@@ -158,7 +170,7 @@ func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 	return tccService2
 }
 
-func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}) (bool, error) {
+func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -168,20 +180,24 @@ func (T TestTCCServiceBusiness2) Prepare(ctx context.Context, params interface{}
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
+
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness2 Prepare, param %v", params)
 		return nil
 	})
 
-	if err != nil {
-		log.Error(err)
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
-func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -191,21 +207,24 @@ func (T TestTCCServiceBusiness2) Commit(ctx context.Context, businessActionConte
 	if err != nil {
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
 
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness2 Commit, param %v", businessActionContext)
 		return nil
 	})
 
-	if err != nil {
-		log.Error(err)
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
-func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (b bool, err error) {
 	db, err := sql.Open(DriverName, Url)
 	if err != nil {
 		return false, fmt.Errorf("database connect failed, msg :%s", err.Error())
@@ -216,16 +235,20 @@ func (T TestTCCServiceBusiness2) Rollback(ctx context.Context, businessActionCon
 		return false, fmt.Errorf("transaction begin failed, msg :%s", err.Error())
 	}
 
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("business method throw error: %s, rollback result: %s", err, tx.Rollback())
+			return
+		}
+		b, err = true, tx.Commit()
+	}()
+
 	err = fence.WithFence(ctx, tx, func() error {
 		log.Infof("TestTCCServiceBusiness2 Rollback, param %v", businessActionContext)
 		return nil
 	})
 
-	if err != nil {
-		return false, tx.Rollback()
-	}
-
-	return true, tx.Commit()
+	return
 }
 
 func (T TestTCCServiceBusiness2) GetActionName() string {
