@@ -90,7 +90,7 @@ func (u *BasicUndoBuilder) buildSelectSQLByInsert(query string) (string, error) 
 	}
 
 	if p.InsertStmt == nil {
-		return "", fmt.Errorf("invalid Insert stmt")
+		return "", fmt.Errorf("invalid Insert stmt by %s", query)
 	}
 
 	InsertColumns := p.InsertStmt.Columns
