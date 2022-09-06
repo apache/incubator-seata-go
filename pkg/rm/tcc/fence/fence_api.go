@@ -49,24 +49,20 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr e
 			)
 		}
 	}()
-	switch {
 
+	switch {
 	case fencePhase == constant.FencePhaseNotExist:
 		resErr = errors.NewTccFenceError(
 			errors.FencePhaseError,
 			fmt.Sprintf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx)),
 			nil,
 		)
-
 	case fencePhase == constant.FencePhasePrepare:
 		resErr = handler.GetFenceHandlerSingleton().PrepareFence(ctx, tx, callback)
-
 	case fencePhase == constant.FencePhaseCommit:
 		resErr = handler.GetFenceHandlerSingleton().CommitFence(ctx, tx, callback)
-
 	case fencePhase == constant.FencePhaseRollback:
 		resErr = handler.GetFenceHandlerSingleton().RollbackFence(ctx, tx, callback)
-
 	default:
 		resErr = errors.NewTccFenceError(
 			errors.FencePhaseError,
