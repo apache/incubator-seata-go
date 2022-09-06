@@ -18,9 +18,8 @@
 package parser
 
 import (
-	tparser "github.com/pingcap/tidb/parser"
-	"github.com/pingcap/tidb/parser/ast"
-	_ "github.com/pingcap/tidb/types/parser_driver"
+	tparser "github.com/arana-db/parser"
+	"github.com/arana-db/parser/ast"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -47,7 +46,7 @@ type ParseContext struct {
 	InsertStmt *ast.InsertStmt
 	// UpdateStmt
 	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
+	// DeleteStm
 	DeleteStmt *ast.DeleteStmt
 }
 
