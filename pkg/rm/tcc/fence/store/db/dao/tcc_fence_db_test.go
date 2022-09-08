@@ -30,14 +30,14 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 	sql2 "github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/sql"
 )
 
 func TestTccFenceStoreDatabaseMapper_SetLogTableName(t *testing.T) {
-	GetTccFenceStoreDatabaseMapperSingleton().SetLogTableName("tcc_fence_log")
-	value := reflect.ValueOf(GetTccFenceStoreDatabaseMapperSingleton())
+	GetTccFenceStoreDatabaseMapper().SetLogTableName("tcc_fence_log")
+	value := reflect.ValueOf(GetTccFenceStoreDatabaseMapper())
 	assert.Equal(t, "tcc_fence_log", value.Elem().FieldByName("logTableName").String())
 }
 
@@ -46,7 +46,7 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		Xid:        "123123124124",
 		BranchId:   12312312312,
 		ActionName: "fence_test",
-		Status:     constant.StatusSuspended,
+		Status:     enum.StatusSuspended,
 	}
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 
@@ -68,7 +68,7 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	err = GetTccFenceStoreDatabaseMapperSingleton().InsertTCCFenceDO(tx, tccFenceDo)
+	err = GetTccFenceStoreDatabaseMapper().InsertTCCFenceDO(tx, tccFenceDo)
 	tx.Commit()
 	assert.Equal(t, nil, err)
 }
@@ -79,7 +79,7 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 		Xid:         "123123124124",
 		BranchId:    12312312312,
 		ActionName:  "fence_test",
-		Status:      constant.StatusTried,
+		Status:      enum.StatusTried,
 		GmtCreate:   now,
 		GmtModified: now,
 	}
@@ -101,7 +101,7 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	actualFenceDo, err := GetTccFenceStoreDatabaseMapperSingleton().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	actualFenceDo, err := GetTccFenceStoreDatabaseMapper().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
 	tx.Commit()
 	assert.Equal(t, tccFenceDo.Xid, actualFenceDo.Xid)
 	assert.Equal(t, tccFenceDo.BranchId, actualFenceDo.BranchId)
@@ -118,7 +118,7 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 		Xid:         "123123124124",
 		BranchId:    12312312312,
 		ActionName:  "fence_test",
-		Status:      constant.StatusTried,
+		Status:      enum.StatusTried,
 		GmtCreate:   now,
 		GmtModified: now,
 	}
@@ -140,8 +140,8 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	err = GetTccFenceStoreDatabaseMapperSingleton().
-		UpdateTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, constant.StatusCommitted)
+	err = GetTccFenceStoreDatabaseMapper().
+		UpdateTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, enum.StatusCommitted)
 	tx.Commit()
 	assert.Equal(t, nil, err)
 }
@@ -152,7 +152,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 		Xid:         "123123124124",
 		BranchId:    12312312312,
 		ActionName:  "fence_test",
-		Status:      constant.StatusTried,
+		Status:      enum.StatusTried,
 		GmtCreate:   now,
 		GmtModified: now,
 	}
@@ -173,7 +173,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 
-	err = GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
+	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
 	tx.Commit()
 	assert.Equal(t, nil, err)
 }
@@ -199,7 +199,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	err = GetTccFenceStoreDatabaseMapperSingleton().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
+	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
 	tx.Commit()
 	assert.Equal(t, nil, err)
 }

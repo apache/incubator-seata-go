@@ -21,7 +21,7 @@ import (
 	"context"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 type ContextParam string
@@ -43,7 +43,7 @@ type ContextVariable struct {
 	TxName                string
 	Xid                   string
 	XidCopy               string
-	FencePhase            constant.FencePhase
+	FencePhase            enum.FencePhase
 	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
 	TxStatus              *message.GlobalStatus
@@ -160,17 +160,17 @@ func UnbindXid(ctx context.Context) {
 	}
 }
 
-func SetFencePhase(ctx context.Context, phase constant.FencePhase) {
+func SetFencePhase(ctx context.Context, phase enum.FencePhase) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		variable.(*ContextVariable).FencePhase = phase
 	}
 }
 
-func GetFencePhase(ctx context.Context) constant.FencePhase {
+func GetFencePhase(ctx context.Context) enum.FencePhase {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
 		return variable.(*ContextVariable).FencePhase
 	}
-	return constant.FencePhaseNotExist
+	return enum.FencePhaseNotExist
 }

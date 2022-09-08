@@ -21,27 +21,27 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 var (
-	// localTccLogPlaced The constant LocalTccLogPlaced
+	// localTccLogPlaced The enum LocalTccLogPlaced
 	localTccLogPlaced = " %s "
 
-	// insertLocalTccLog The constant InsertLocalTccLog
+	// insertLocalTccLog The enum InsertLocalTccLog
 	insertLocalTccLog = "insert into " + localTccLogPlaced + " (xid, branch_id, action_name, status, gmt_create, gmt_modified) values ( ?,?,?,?,?,?)"
 
-	// queryByBranchIdAndXid The constant QueryByBranchIdAndXid
+	// queryByBranchIdAndXid The enum QueryByBranchIdAndXid
 	queryByBranchIdAndXid = "select xid, branch_id, action_name, status, gmt_create, gmt_modified from " + localTccLogPlaced + " where xid = ? and branch_id = ? for update"
 
-	// updateStatusByBranchIdAndXid The constant UpdateStatusByBranchIdAndXid
+	// updateStatusByBranchIdAndXid The enum UpdateStatusByBranchIdAndXid
 	updateStatusByBranchIdAndXid = "update " + localTccLogPlaced + " set status = ?, gmt_modified = ? where xid = ? and  branch_id = ? and status = ? "
 
-	// deleteByBranchIdAndXid The constant DeleteByBranchIdAndXid
+	// deleteByBranchIdAndXid The enum DeleteByBranchIdAndXid
 	deleteByBranchIdAndXid = "delete from " + localTccLogPlaced + " where xid = ? and  branch_id = ? "
 
-	// deleteByDateAndStatus The constant DeleteByDateAndStatus
-	deleteByDateAndStatus = "delete from " + localTccLogPlaced + " where gmt_modified < ?  and status in (" + strconv.Itoa(int(constant.StatusCommitted)) + " , " + strconv.Itoa(int(constant.StatusRollbacked)) + " , " + strconv.Itoa(int(constant.StatusSuspended)) + ")"
+	// deleteByDateAndStatus The enum DeleteByDateAndStatus
+	deleteByDateAndStatus = "delete from " + localTccLogPlaced + " where gmt_modified < ?  and status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")"
 )
 
 func GetInsertLocalTCCLogSQL(localTccTable string) string {

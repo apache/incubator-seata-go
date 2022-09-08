@@ -26,7 +26,7 @@ import (
 
 	seataErrors "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 	"github.com/seata/seata-go/pkg/tm"
@@ -53,11 +53,11 @@ var (
 	fenceOnce             sync.Once
 )
 
-func GetFenceHandlerSingleton() *tccFenceDbProxyHandler {
+func GetFenceHandler() *tccFenceDbProxyHandler {
 	if fenceHandlerSingleton == nil {
 		fenceOnce.Do(func() {
 			fenceHandlerSingleton = &tccFenceDbProxyHandler{
-				tccFenceDao: dao.GetTccFenceStoreDatabaseMapperSingleton(),
+				tccFenceDao: dao.GetTccFenceStoreDatabaseMapper(),
 			}
 		})
 	}
@@ -69,7 +69,7 @@ func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
 
-	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusTried)
+	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusTried)
 	if err != nil {
 		dbError, ok := err.(seataErrors.TccFenceError)
 		if ok && dbError.Code == seataErrors.TccFenceDbDuplicateKeyError {
@@ -83,7 +83,7 @@ func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql
 		)
 	}
 
-	log.Infof("to call the business method: %p", callback)
+	log.Info("the phase 1 callback method will be called.")
 	err = callback()
 	if err != nil {
 		return seataErrors.NewTccFenceError(
@@ -114,11 +114,11 @@ func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.
 		)
 	}
 
-	if fenceDo.Status == constant.StatusCommitted {
+	if fenceDo.Status == enum.StatusCommitted {
 		log.Infof("branch transaction has already committed before. idempotency rejected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 		return nil
 	}
-	if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
+	if fenceDo.Status == enum.StatusRollbacked || fenceDo.Status == enum.StatusSuspended {
 		// enable warn level
 		log.Warnf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
 		return seataErrors.NewTccFenceError(seataErrors.CommitFenceError,
@@ -127,26 +127,25 @@ func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.
 		)
 	}
 
-	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusCommitted)
+	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusCommitted)
 }
 
 func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
-
 	fenceDo, err := handler.tccFenceDao.QueryTCCFenceDO(tx, xid, branchId)
 
 	if err != nil {
 		return seataErrors.NewTccFenceError(seataErrors.RollbackFenceError,
-			fmt.Sprintf(" commit fence method failed. xid= %s, branchId= %d ", xid, branchId),
+			fmt.Sprintf(" rollback fence method failed. xid= %s, branchId= %d ", xid, branchId),
 			err,
 		)
 	}
 
 	// record is null, mean the need suspend
 	if fenceDo == nil {
-		err = handler.insertTCCFenceLog(tx, xid, branchId, actionName, constant.StatusSuspended)
+		err = handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusSuspended)
 		if err != nil {
 			return seataErrors.NewTccFenceError(seataErrors.RollbackFenceError,
 				fmt.Sprintf("insert tcc fence suspend record error, rollback fence method failed. xid= %s, branchId= %d", xid, branchId),
@@ -157,13 +156,13 @@ func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sq
 		return nil
 	}
 
-	// have rollback or suspend
-	if fenceDo.Status == constant.StatusRollbacked || fenceDo.Status == constant.StatusSuspended {
+	// have rollbacked or suspended
+	if fenceDo.Status == enum.StatusRollbacked || fenceDo.Status == enum.StatusSuspended {
 		// enable warn level
 		log.Infof("Branch transaction had already rollbacked before, idempotency rejected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
 		return nil
 	}
-	if fenceDo.Status == constant.StatusCommitted {
+	if fenceDo.Status == enum.StatusCommitted {
 		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 		return seataErrors.NewTccFenceError(seataErrors.RollbackFenceError,
 			fmt.Sprintf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status),
@@ -171,10 +170,10 @@ func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sq
 		)
 	}
 
-	return handler.updateStatusAndInvokeTargetMethod(tx, callback, xid, branchId, constant.StatusRollbacked)
+	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusRollbacked)
 }
 
-func (handler *tccFenceDbProxyHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status constant.FenceStatus) error {
+func (handler *tccFenceDbProxyHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
@@ -184,15 +183,13 @@ func (handler *tccFenceDbProxyHandler) insertTCCFenceLog(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.InsertTCCFenceDO(tx, &tccFenceDo)
 }
 
-func (handler *tccFenceDbProxyHandler) updateStatusAndInvokeTargetMethod(tx *sql.Tx, callback func() error, xid string, branchId int64, status constant.FenceStatus) error {
-	err := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, constant.StatusTried, status)
-	if err != nil {
+func (handler *tccFenceDbProxyHandler) updateFenceStatusAndInvokeCallback(tx *sql.Tx, callback func() error, xid string, branchId int64, status enum.FenceStatus) error {
+	if err := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status); err != nil {
 		return err
 	}
 
-	log.Infof("to call the business method: %p", callback)
-	err = callback()
-	if err != nil {
+	log.Infof("the phase %d callback method will be called", status)
+	if err := callback(); err != nil {
 		return seataErrors.NewTccFenceError(
 			seataErrors.FenceBusinessError,
 			fmt.Sprintf("the business method error msg of: %p", callback),

@@ -24,7 +24,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 	"github.com/seata/seata-go/pkg/tm"
 )
@@ -50,19 +50,20 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr e
 		}
 	}()
 
+	h := handler.GetFenceHandler()
 	switch {
-	case fencePhase == constant.FencePhaseNotExist:
+	case fencePhase == enum.FencePhaseNotExist:
 		resErr = errors.NewTccFenceError(
 			errors.FencePhaseError,
 			fmt.Sprintf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx)),
 			nil,
 		)
-	case fencePhase == constant.FencePhasePrepare:
-		resErr = handler.GetFenceHandlerSingleton().PrepareFence(ctx, tx, callback)
-	case fencePhase == constant.FencePhaseCommit:
-		resErr = handler.GetFenceHandlerSingleton().CommitFence(ctx, tx, callback)
-	case fencePhase == constant.FencePhaseRollback:
-		resErr = handler.GetFenceHandlerSingleton().RollbackFence(ctx, tx, callback)
+	case fencePhase == enum.FencePhasePrepare:
+		resErr = h.PrepareFence(ctx, tx, callback)
+	case fencePhase == enum.FencePhaseCommit:
+		resErr = h.CommitFence(ctx, tx, callback)
+	case fencePhase == enum.FencePhaseRollback:
+		resErr = h.RollbackFence(ctx, tx, callback)
 	default:
 		resErr = errors.NewTccFenceError(
 			errors.FencePhaseError,

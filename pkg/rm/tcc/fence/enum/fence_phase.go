@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package config
+package enum
 
-import (
-	"go.uber.org/atomic"
+// FencePhase used to mark the stage of a tcc transaction
+type FencePhase byte
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
+const (
+	// FencePhaseNotExist fence phase not exist
+	FencePhaseNotExist = FencePhase(0)
+
+	// FencePhasePrepare prepare fence phase
+	FencePhasePrepare = FencePhase(1)
+
+	// FencePhaseCommit commit fence phase
+	FencePhaseCommit = FencePhase(2)
+
+	// FencePhaseRollback rollback fence phase
+	FencePhaseRollback = FencePhase(3)
 )
-
-type TccFenceConfig struct {
-	Initialized  atomic.Bool `default:"false"`
-	LogTableName string      `default:"tcc_fence_log"`
-}
-
-func InitFence() {
-	// todo implement
-}
-
-func InitCleanTask() {
-	handler.GetFenceHandler().InitLogCleanExecutor()
-}
-
-func Destroy() {
-	handler.GetFenceHandler().DestroyLogCleanExecutor()
-}

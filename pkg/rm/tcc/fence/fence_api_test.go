@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/common/errors"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -34,7 +36,7 @@ func TestWithFence(t *testing.T) {
 	tests := []struct {
 		xid          string
 		txName       string
-		fencePhase   constant.FencePhase
+		fencePhase   enum.FencePhase
 		bac          tm.BusinessActionContext
 		callback     func() error
 		wantErr      bool
@@ -49,7 +51,11 @@ func TestWithFence(t *testing.T) {
 				return nil
 			},
 			wantErr: true,
-			errStr:  fmt.Sprintf("xid %s, tx name %s, fence phase not exist", "123", "test"),
+			errStr: errors.NewTccFenceError(
+				errors.FencePhaseError,
+				fmt.Sprintf("xid 123, tx name test, fence phase not exist"),
+				nil,
+			).Error(),
 		},
 	}
 

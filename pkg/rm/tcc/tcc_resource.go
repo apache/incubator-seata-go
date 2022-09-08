@@ -27,7 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -138,7 +138,7 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
 	tm.SetXID(ctx, branchResource.Xid)
-	tm.SetFencePhase(ctx, constant.FencePhaseCommit)
+	tm.SetFencePhase(ctx, enum.FencePhaseCommit)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
 	_, err := tccResource.TwoPhaseAction.Commit(ctx, businessActionContext)
@@ -183,7 +183,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
 	tm.SetXID(ctx, branchResource.Xid)
-	tm.SetFencePhase(ctx, constant.FencePhaseRollback)
+	tm.SetFencePhase(ctx, enum.FencePhaseRollback)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
 	_, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)

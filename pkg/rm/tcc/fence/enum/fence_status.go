@@ -15,41 +15,21 @@
  * limitations under the License.
  */
 
-package constant
+package enum
 
+// FenceStatus Used to mark the state of a branch transaction
 type FenceStatus byte
-type FencePhase byte
 
 const (
-	// StatusTried
-	// PHASE 1: The Commit tried.
+	// StatusTried  phase 1: the commit tried.
 	StatusTried = FenceStatus(1)
 
-	// StatusCommitted
-	// PHASE 2: The Committed.
+	// StatusCommitted phase 2: the committed.
 	StatusCommitted = FenceStatus(2)
 
-	// StatusRollbacked
-	// PHASE 2: The Rollbacked.
+	// StatusRollbacked phase 2: the rollbacked.
 	StatusRollbacked = FenceStatus(3)
 
-	// StatusSuspended
-	// Suspended status.
+	// StatusSuspended suspended status.
 	StatusSuspended = FenceStatus(4)
-
-	// FencePhaseNotExist
-	// fence phase not exist
-	FencePhaseNotExist = FencePhase(0)
-
-	// FencePhasePrepare
-	// prepare fence phase
-	FencePhasePrepare = FencePhase(1)
-
-	// FencePhaseCommit
-	// commit fence phase
-	FencePhaseCommit = FencePhase(2)
-
-	// FencePhaseRollback
-	// rollback fence phase
-	FencePhaseRollback = FencePhase(3)
 )

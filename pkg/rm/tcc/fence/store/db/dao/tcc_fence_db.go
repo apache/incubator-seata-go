@@ -21,19 +21,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"sync"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/common/errors"
-
-	"sync"
-	"time"
-
-	sql2 "github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/sql"
-
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
+	sql2 "github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/sql"
 )
 
 var (
@@ -41,7 +37,7 @@ var (
 	tccFenceStoreDatabaseMapper *TccFenceStoreDatabaseMapper
 )
 
-func GetTccFenceStoreDatabaseMapperSingleton() *TccFenceStoreDatabaseMapper {
+func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 	if tccFenceStoreDatabaseMapper == nil {
 		once.Do(func() {
 			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{}
@@ -73,7 +69,7 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	result := prepareStmt.QueryRow(xid, branchId)
 	var (
 		actionName string
-		status     constant.FenceStatus
+		status     enum.FenceStatus
 		gmtCreate  time.Time
 		gmtModify  time.Time
 	)
@@ -125,7 +121,7 @@ func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *m
 	return nil
 }
 
-func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus constant.FenceStatus, newStatus constant.FenceStatus) error {
+func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetUpdateStatusSQLByBranchIdAndXid(t.logTableName))
 	if err != nil {
 		return errors.NewTccFenceError(errors.TccFenceDbError, "update tcc fence prepare sql failed", err)

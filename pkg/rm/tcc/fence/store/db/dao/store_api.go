@@ -21,7 +21,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 )
@@ -48,7 +48,7 @@ type TCCFenceStore interface {
 	// param branchId the branch transaction id
 	// param newStatus the new status
 	// return the error msg
-	UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus constant.FenceStatus, newStatus constant.FenceStatus) error
+	UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error
 
 	// DeleteTCCFenceDO tcc fence do boolean.
 	// param tx the tx will bind with user business method

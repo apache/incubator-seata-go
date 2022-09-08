@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/constant"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 func TestInitSeataContext(t *testing.T) {
@@ -138,7 +138,7 @@ func TestUnbindXid(t *testing.T) {
 
 func TestSetFencePhase(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
-	phase := constant.FencePhaseCommit
+	phase := enum.FencePhaseCommit
 	SetFencePhase(ctx, phase)
 	assert.Equal(t, phase,
 		ctx.Value(seataContextVariable).(*ContextVariable).FencePhase)
@@ -146,7 +146,7 @@ func TestSetFencePhase(t *testing.T) {
 
 func TestGetFencePhase(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
-	phase := constant.FencePhaseCommit
+	phase := enum.FencePhaseCommit
 	SetFencePhase(ctx, phase)
 	assert.Equal(t, phase,
 		GetFencePhase(ctx))
