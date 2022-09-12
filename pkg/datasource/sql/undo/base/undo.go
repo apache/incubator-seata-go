@@ -217,7 +217,7 @@ func (m *BaseUndoLogManager) RunUndo(
 		}
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, err := mysql.GetTableMetaInstance().GetTableMeta(undoLog.TableName, conn)
+			tableMeta, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, undoLog.TableName, conn)
 			if err != nil {
 				log.Errorf("[Undo] get table meta fail, err: %v", err)
 				return err

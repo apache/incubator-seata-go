@@ -56,12 +56,12 @@ func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 }
 
 // GetTableMeta
-func (c *tableMetaCache) GetTableMeta(tableName string, conn *sql.Conn) (types.TableMeta, error) {
+func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	if tableName == "" {
 		return types.TableMeta{}, errors.New("TableMeta cannot be fetched without tableName")
 	}
 
-	tableMeta, err := c.tableMetaCache.GetTableMeta(tableName, conn)
+	tableMeta, err := c.tableMetaCache.GetTableMeta(ctx, tableName, conn)
 	if err != nil {
 		return types.TableMeta{}, err
 	}

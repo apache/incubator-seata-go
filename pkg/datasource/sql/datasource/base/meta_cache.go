@@ -30,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(dbName string, table string, conn *sql.Conn) (types.TableMeta, error)
+		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -134,14 +134,14 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 }
 
 // GetTableMeta
-func (c *BaseTableMetaCache) GetTableMeta(tableName string, conn *sql.Conn) (types.TableMeta, error) {
+func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	v, ok := c.cache[tableName]
 
 	if !ok {
-		meta, err := c.trigger.LoadOne(c.dbName, tableName, conn)
+		meta, err := c.trigger.LoadOne(ctx, c.dbName, tableName, conn)
 		if err != nil {
 			return types.TableMeta{}, err
 		}
