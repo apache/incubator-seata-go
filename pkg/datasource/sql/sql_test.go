@@ -67,6 +67,8 @@ func Test_SQLOpen(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer stmt.Close()
+
+		stmt.Exec()
 		for i := 0; i < total; i++ {
 			_, err = stmt.Exec(i+offset, fmt.Sprintf("%s-%03d", prefix, i))
 			if err != nil {

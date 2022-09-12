@@ -19,6 +19,7 @@ package base
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(table string) (types.TableMeta, error)
+		LoadOne(dbName string, table string, conn *sql.Conn) (types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -47,12 +48,13 @@ type BaseTableMetaCache struct {
 	capity         int32
 	size           int32
 	cache          map[string]*entry
+	dbName         string
 	cancel         context.CancelFunc
 	trigger        trigger
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (*BaseTableMetaCache, error) {
+func NewBaseCache(capity int32, dbName string, expireDuration time.Duration, trigger trigger) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
@@ -61,23 +63,20 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
+		dbName:         dbName,
 		cancel:         cancel,
 		trigger:        trigger,
 	}
 
-	if err := c.Init(ctx); err != nil {
-		return nil, err
-	}
+	c.Init(ctx)
 
-	return c, nil
+	return c
 }
 
 // init
-func (c *BaseTableMetaCache) Init(ctx context.Context) error {
+func (c *BaseTableMetaCache) Init(ctx context.Context) {
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
-
-	return nil
 }
 
 // refresh
@@ -103,7 +102,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 	f()
 
-	ticker := time.NewTicker(time.Duration(1 * time.Minute))
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
 		f()
@@ -135,20 +134,20 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 }
 
 // GetTableMeta
-func (c *BaseTableMetaCache) GetTableMeta(table string) (types.TableMeta, error) {
+func (c *BaseTableMetaCache) GetTableMeta(tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v, ok := c.cache[table]
+	v, ok := c.cache[tableName]
 
 	if !ok {
-		meta, err := c.trigger.LoadOne(table)
+		meta, err := c.trigger.LoadOne(c.dbName, tableName, conn)
 		if err != nil {
 			return types.TableMeta{}, err
 		}
 
 		if !meta.IsEmpty() {
-			c.cache[table] = &entry{
+			c.cache[tableName] = &entry{
 				value:      meta,
 				lastAccess: time.Now(),
 			}
@@ -160,7 +159,7 @@ func (c *BaseTableMetaCache) GetTableMeta(table string) (types.TableMeta, error)
 	}
 
 	v.lastAccess = time.Now()
-	c.cache[table] = v
+	c.cache[tableName] = v
 
 	return v.value, nil
 }

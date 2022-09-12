@@ -21,8 +21,10 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"sync"
+
+	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -46,23 +48,6 @@ func Regis(m UndoLogManager) error {
 	return nil
 }
 
-// UndoLogManager
-type UndoLogManager interface {
-	Init()
-	// InsertUndoLog
-	InsertUndoLog(l []BranchUndoLog, tx driver.Tx) error
-	// DeleteUndoLog
-	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
-	// BatchDeleteUndoLog
-	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
-	// FlushUndoLog
-	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error
-	// RunUndo
-	RunUndo(xid string, branchID int64, conn *sql.Conn) error
-	// DBType
-	DBType() types.DBType
-}
-
 // GetUndoLogManager
 func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	v, ok := solts[d]
@@ -78,26 +63,21 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	return v.mgr, nil
 }
 
-// BranchUndoLog
-type BranchUndoLog struct {
-	// Xid
-	Xid string
-	// BranchID
-	BranchID string
-	// Logs
-	Logs []SQLUndoLog
-}
-
-// Marshal
-func (b *BranchUndoLog) Marshal() []byte {
-	return nil
-}
-
-// SQLUndoLog
-type SQLUndoLog struct {
-	SQLType   types.SQLType
-	TableName string
-	Images    types.RoundRecordImage
+// UndoLogManager
+type UndoLogManager interface {
+	Init()
+	// InsertUndoLog
+	InsertUndoLog(l []impl.BranchUndoLog, tx driver.Tx) error
+	// DeleteUndoLog
+	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
+	// BatchDeleteUndoLog
+	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
+	// FlushUndoLog
+	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error
+	// Undo
+	Undo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
+	// DBType
+	DBType() types.DBType
 }
 
 // UndoLogParser
@@ -107,7 +87,7 @@ type UndoLogParser interface {
 	// GetDefaultContent
 	GetDefaultContent() []byte
 	// Encode
-	Encode(l BranchUndoLog) []byte
+	Encode(l impl.BranchUndoLog) []byte
 	// Decode
-	Decode(b []byte) BranchUndoLog
+	Decode(b []byte) impl.BranchUndoLog
 }

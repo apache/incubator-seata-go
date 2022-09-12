@@ -98,7 +98,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 		return branch.BranchStatusUnknown, err
 	}
 
-	if err := undoMgr.RunUndo(req.Xid, req.BranchId, conn); err != nil {
+	if err := undoMgr.Undo(ctx, req.Xid, req.BranchId, conn); err != nil {
 		transErr, ok := err.(*types.TransactionError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err

@@ -21,7 +21,13 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
+	"strconv"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
@@ -39,12 +45,16 @@ var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
 
+func NewBaseUndoLogManager() *BaseUndoLogManager {
+	return &BaseUndoLogManager{}
+}
+
 // Init
 func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []impl.BranchUndoLog, tx driver.Tx) error {
 	return nil
 }
 
@@ -102,8 +112,146 @@ func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx dr
 	return nil
 }
 
+// Undo
+func (m *BaseUndoLogManager) Undo(
+	ctx context.Context,
+	xid string,
+	branchID int64,
+	conn *sql.Conn) error {
+
+	return nil
+}
+
 // RunUndo
-func (m *BaseUndoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) RunUndo(
+	ctx context.Context,
+	dbType types.DBType,
+	xid string,
+	branchID int64,
+	conn *sql.Conn) error {
+
+	branchUndoLogs := make([]impl.BranchUndoLog, 0)
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			if err = tx.Rollback(); err != nil {
+				log.Errorf("[RunUndo] rollback fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+				return
+			}
+		}
+	}()
+
+	stmt, err := tx.Prepare(constant.SelectUndoLogSql)
+	if err != nil {
+		log.Errorf("[Undo] prepare sql fail, err: %v", err)
+		return err
+	}
+
+	defer func() {
+		if err = stmt.Close(); err != nil {
+			log.Errorf("[RunUndo] stmt close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			return
+		}
+	}()
+
+	rows, err := stmt.Query(branchID, xid)
+	if err != nil {
+		log.Errorf("[Undo] query sql fail, err: %v", err)
+		return err
+	}
+
+	exist := false
+	for rows.Next() {
+		exist = true
+		var (
+			logStatus    string
+			context      string
+			rollbackInfo []byte
+		)
+
+		if err = rows.Scan(&logStatus, &context, &rollbackInfo); err != nil {
+			log.Errorf("[Undo] get log status fail, err: %v", err)
+			return err
+		}
+
+		state, _ := strconv.Atoi(logStatus)
+
+		// check if it can undo
+		if !m.canUndo(state) {
+			return nil
+		}
+
+		// Todo pr 242 调用对应的 parser 方法
+		/*contextMap := m.parseContext(context)
+		rollbackInfo := m.getRollbackInfo(rollbackInfo, contextMap)
+		serializer := m.getSerializer(contextMap)
+		branchUndoLog = parser.decode(rollbackInfo);
+		*/
+
+		// Todo 替换成 parser 解析器解析
+		var branchUndoLog impl.BranchUndoLog
+		if err = json.Unmarshal(rollbackInfo, &branchUndoLog); err != nil {
+			return err
+		}
+
+		branchUndoLogs = append(branchUndoLogs, branchUndoLog)
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	if err = rows.Close(); err != nil {
+		return err
+	}
+
+	for _, branchUndoLog := range branchUndoLogs {
+		sqlUndoLogs := branchUndoLog.Logs
+		if len(sqlUndoLogs) > 1 {
+			m.Reverse(sqlUndoLogs)
+		}
+
+		for _, undoLog := range sqlUndoLogs {
+			tableMeta, err := mysql.GetTableMetaInstance().GetTableMeta(undoLog.TableName, conn)
+			if err != nil {
+				log.Errorf("[Undo] get table meta fail, err: %v", err)
+				return err
+			}
+
+			undoLog.SetTableMeta(tableMeta)
+
+			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
+			if err != nil {
+				log.Errorf("[Undo] get undo executor, err: %v", err)
+				return err
+			}
+
+			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
+				log.Errorf("[Undo] execute on fail, err: %v", err)
+				return err
+			}
+		}
+	}
+
+	if exist {
+		if err = m.DeleteUndoLog(ctx, xid, branchID, conn); err != nil {
+			log.Errorf("[Undo] delete undo log fail, err: %v", err)
+			return err
+		}
+	} else {
+		// Todo 等 insertLog 合并后加上 insertUndoLogWithGlobalFinished 功能
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.Errorf("[Undo] execute on fail, err: %v", err)
+		return nil
+	}
+
 	return nil
 }
 
@@ -148,4 +296,51 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 	}
 
 	str.WriteString(") ")
+}
+
+// canUndo check if it can undo
+func (m *BaseUndoLogManager) canUndo(state int) bool {
+	return state == constant.UndoLogStatusNormal
+}
+
+// parseContext
+func (m *BaseUndoLogManager) parseContext(str string) map[string]string {
+	return util.DecodeMap(str)
+}
+
+// getRollbackInfo
+func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
+	// Todo 目前 insert undo log 未实现压缩功能，实现后补齐这块功能
+	// get compress type
+	/*compressorType, ok := undoContext[constant.CompressorTypeKey]
+	if ok {
+
+	}*/
+
+	return rollbackInfo
+}
+
+// getSerializer get serializer from undo context
+func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (serializer string) {
+	if undoLogContext == nil {
+		return
+	}
+
+	serializer, _ = undoLogContext[constant.SerializerKey]
+	return
+}
+
+// Reverse Reverses the order of the elements in the specified slice
+func (m *BaseUndoLogManager) Reverse(log []impl.SQLUndoLog) {
+	if len(log) == 0 {
+		return
+	}
+
+	left, right := 0, len(log)-1
+
+	for left < right {
+		log[left], log[right] = log[right], log[left]
+		left++
+		right--
+	}
 }

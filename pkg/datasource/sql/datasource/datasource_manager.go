@@ -176,7 +176,7 @@ type TableMetaCache interface {
 	// Init
 	Init(ctx context.Context, conn *sql.DB) error
 	// GetTableMeta
-	GetTableMeta(table string) (types.TableMeta, error)
+	GetTableMeta(table string, conn *sql.Conn) (types.TableMeta, error)
 	// Destroy
 	Destroy() error
 }

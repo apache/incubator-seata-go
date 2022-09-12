@@ -46,15 +46,17 @@ const (
 	BranchPhase_Unknown = 0
 	BranchPhase_Done    = 1
 	BranchPhase_Failed  = 2
+)
 
-	// Index_Primary primary index type.
-	IndexPrimary = 0
-	// Index_Normal normal index type.
-	IndexNormal = 1
-	// Index_Unique unique index type.
-	IndexUnique = 2
-	// Index_FullText full text index type.
-	IndexFullText = 3
+const (
+	// IndexPrimary Index_Primary primary index type.
+	IndexPrimary IndexType = iota
+	// IndexNormal Index_Normal normal index type.
+	IndexNormal
+	// IndexUnique Index_Unique unique index type.
+	IndexUnique
+	// IndexFullText Index_FullText full text index type.
+	IndexFullText
 )
 
 func ParseDBType(driverName string) DBType {

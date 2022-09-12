@@ -22,6 +22,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,6 +51,7 @@ func TestBatchDeleteUndoLogs(t *testing.T) {
 	})
 }
 
+// TestDeleteUndoLogs
 func TestDeleteUndoLogs(t *testing.T) {
 	// local test can annotation t.SkipNow()
 	t.SkipNow()
@@ -69,5 +72,35 @@ func TestDeleteUndoLogs(t *testing.T) {
 
 	t.Run("test_delete_undo_logs", func(t *testing.T) {
 		testDeleteUndoLogs()
+	})
+}
+
+func TestUndo(t *testing.T) {
+	// local test can annotation t.SkipNow()
+	t.SkipNow()
+
+	testUndoLog := func() {
+		manager := mysql.NewUndoLogManager()
+
+		db, err := sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		assert.Nil(t, err)
+
+		ctx := context.Background()
+		sqlConn, err := db.Conn(ctx)
+		assert.Nil(t, err)
+
+		defer func() {
+			_ = sqlConn.Close()
+		}()
+
+		if err = manager.Undo(ctx, "1", 1, sqlConn); err != nil {
+			t.Logf("%+v", err)
+		}
+
+		assert.Nil(t, err)
+	}
+
+	t.Run("test_undo_log", func(t *testing.T) {
+		testUndoLog()
 	})
 }

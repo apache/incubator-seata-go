@@ -17,20 +17,23 @@
 
 package types
 
-import (
-	"database/sql"
-)
+import "errors"
 
 // ColumnMeta
 type ColumnMeta struct {
+	TableCat string
 	// Schema
 	Schema string
 	// Table
 	Table string
 	// Autoincrement
 	Autoincrement bool
-	// Info
-	Info sql.ColumnType
+	ColumnName    string
+	ColumnType    string
+	DataType      int32
+	ColumnKey     string
+	IsNullable    int8
+	Extra         string
 }
 
 // IndexMeta
@@ -38,11 +41,12 @@ type IndexMeta struct {
 	// Schema
 	Schema string
 	// Table
-	Table string
-	// Name
-	Name string
+	Table      string
+	IndexName  string
+	ColumnName string
+	NonUnique  bool
 	// IType
-	IType IndexType
+	IndexType IndexType
 	// Values
 	Values []ColumnMeta
 }
@@ -56,9 +60,29 @@ type TableMeta struct {
 	// Columns
 	Columns map[string]ColumnMeta
 	// Indexs
-	Indexs map[string]IndexMeta
+	Indexs      map[string]IndexMeta
+	ColumnNames []string
 }
 
 func (m TableMeta) IsEmpty() bool {
 	return m.Name == ""
+}
+
+// GetPrimaryKeyOnlyName
+func (m TableMeta) GetPrimaryKeyOnlyName() ([]string, error) {
+	pkName := make([]string, 0)
+
+	for _, index := range m.Indexs {
+		if index.IndexType == IndexPrimary {
+			for _, col := range index.Values {
+				pkName = append(pkName, col.ColumnName)
+			}
+		}
+	}
+
+	if len(pkName) == 0 {
+		return nil, errors.New("needs to contain the primary key")
+	}
+
+	return pkName, nil
 }

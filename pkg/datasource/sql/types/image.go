@@ -17,10 +17,6 @@
 
 package types
 
-import (
-	gosql "database/sql"
-)
-
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
 	bIndex int32
@@ -91,17 +87,43 @@ type RecordImage struct {
 	// index
 	index int32
 	// Table table name
-	Table string
+	Table string `json:"tableName"`
 	// SQLType sql type
 	SQLType SQLType
 	// Rows
 	Rows []RowImage
+	// TableMeta
+	TableMeta TableMeta
 }
 
-// RowImage Mirror data information information
+// RowImage Mirror data information
 type RowImage struct {
 	// Columns All columns of image data
-	Columns []ColumnImage
+	Columns []ColumnImage `json:"fields"`
+}
+
+// PrimaryKeys Primary keys list.
+func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
+	pkFields := make([]ColumnImage, 0)
+	for key, _ := range cols {
+		if cols[key].KeyType == PrimaryKey.String() {
+			pkFields = append(pkFields, cols[key])
+		}
+	}
+
+	return pkFields
+}
+
+// NonPrimaryKeys get non-primary keys
+func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
+	nonPkFields := make([]ColumnImage, 0)
+	for key, _ := range cols {
+		if cols[key].KeyType != PrimaryKey.String() {
+			nonPkFields = append(nonPkFields, cols[key])
+		}
+	}
+
+	return nonPkFields
 }
 
 // ColumnImage The mirror data information of the column
@@ -111,7 +133,7 @@ type ColumnImage struct {
 	// Name column name
 	Name string
 	// Type column type
-	Type gosql.ColumnType
+	Type int
 	// Value column value
 	Value interface{}
 }
