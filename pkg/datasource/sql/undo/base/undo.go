@@ -243,9 +243,11 @@ func (m *BaseUndoLogManager) RunUndo(
 			log.Errorf("[Undo] delete undo log fail, err: %v", err)
 			return err
 		}
-	} else {
-		// Todo 等 insertLog 合并后加上 insertUndoLogWithGlobalFinished 功能
 	}
+	// Todo 等 insertLog 合并后加上 insertUndoLogWithGlobalFinished 功能
+	/*else {
+
+	}*/
 
 	if err = tx.Commit(); err != nil {
 		log.Errorf("[Undo] execute on fail, err: %v", err)

@@ -62,7 +62,7 @@ func (b *BaseExecutor) isRecordsEquals(before types.RecordImages, after types.Re
 	}
 
 	for key, _ := range before {
-		if strings.ToLower(before[key].Table) == strings.ToLower(after[key].Table) &&
+		if strings.EqualFold(before[key].Table, after[key].Table) &&
 			len(before[key].Rows) == len(after[key].Rows) {
 			// when image is EmptyTableRecords, getTableMeta will throw an exception
 			if len(before[key].Rows) == 0 {

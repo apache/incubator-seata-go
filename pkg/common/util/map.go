@@ -25,14 +25,16 @@ const (
 )
 
 // DecodeMap Decode undo log context string to map
-func DecodeMap(str string) (res map[string]string) {
+func DecodeMap(str string) map[string]string {
+	res := make(map[string]string)
+
 	if str == "" {
-		return
+		return nil
 	}
 
 	strSlice := strings.Split(str, PairSplit)
 	if len(strSlice) == 0 {
-		return
+		return nil
 	}
 
 	for key, _ := range strSlice {
@@ -44,5 +46,5 @@ func DecodeMap(str string) (res map[string]string) {
 		res[kv[0]] = kv[1]
 	}
 
-	return
+	return res
 }
