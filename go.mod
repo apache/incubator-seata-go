@@ -18,7 +18,6 @@ require (
 	github.com/pingcap/tipb v0.0.0-20220628092852-069ef6c8fc90 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
-	github.com/zouyx/agollo/v3 v3.4.5
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/tools v0.1.12 // indirect
