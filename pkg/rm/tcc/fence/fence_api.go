@@ -36,44 +36,33 @@ import (
 // case 3: if fencePhase is FencePhaseCommit, will do commit fence operation.
 // case 4: if fencePhase is FencePhaseRollback, will do rollback fence operation.
 // case 5: if fencePhase not in above case, will return a fence phase illegal error.
-func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (resErr error) {
-	fencePhase := tm.GetFencePhase(ctx)
-
-	// deal panic and return error
-	defer func() {
-		if rec := recover(); rec != nil {
-			log.Error(rec)
-			resErr = errors.NewTccFenceError(errors.FencePanicError,
-				fmt.Sprintf("fence throw a panic, the msg is: %v", rec),
-				nil,
-			)
-		}
-	}()
-
+func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err error) {
+	fp := tm.GetFencePhase(ctx)
 	h := handler.GetFenceHandler()
+
 	switch {
-	case fencePhase == enum.FencePhaseNotExist:
-		resErr = errors.NewTccFenceError(
+	case fp == enum.FencePhaseNotExist:
+		err = errors.NewTccFenceError(
 			errors.FencePhaseError,
 			fmt.Sprintf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx)),
 			nil,
 		)
-	case fencePhase == enum.FencePhasePrepare:
-		resErr = h.PrepareFence(ctx, tx, callback)
-	case fencePhase == enum.FencePhaseCommit:
-		resErr = h.CommitFence(ctx, tx, callback)
-	case fencePhase == enum.FencePhaseRollback:
-		resErr = h.RollbackFence(ctx, tx, callback)
+	case fp == enum.FencePhasePrepare:
+		err = h.PrepareFence(ctx, tx, callback)
+	case fp == enum.FencePhaseCommit:
+		err = h.CommitFence(ctx, tx, callback)
+	case fp == enum.FencePhaseRollback:
+		err = h.RollbackFence(ctx, tx, callback)
 	default:
-		resErr = errors.NewTccFenceError(
+		err = errors.NewTccFenceError(
 			errors.FencePhaseError,
-			fmt.Sprintf("fence phase: %v illegal", fencePhase),
+			fmt.Sprintf("fence phase: %v illegal", fp),
 			nil,
 		)
 	}
 
-	if resErr != nil {
-		log.Error(resErr)
+	if err != nil {
+		log.Error(err)
 	}
 
 	return

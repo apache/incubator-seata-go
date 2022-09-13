@@ -98,9 +98,6 @@ const (
 	// FenceBusinessError callback business method maybe return this error type
 	FenceBusinessError = TransactionErrorCode(26)
 
-	// FencePanicError fence maybe throw a panic, then we catch it and return an error
-	FencePanicError = TransactionErrorCode(27)
-
 	// FencePhaseError have fence phase but is not illegal value
-	FencePhaseError = TransactionErrorCode(28)
+	FencePhaseError = TransactionErrorCode(27)
 )

@@ -18,6 +18,7 @@
 package handler
 
 import (
+	"container/list"
 	"context"
 	"database/sql"
 	"fmt"
@@ -32,9 +33,10 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-type tccFenceDbProxyHandler struct {
+type tccFenceWrapperHandler struct {
 	tccFenceDao       dao.TCCFenceStore
 	logQueue          chan *FenceLogIdentity
+	logCache          list.List
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
 }
@@ -45,26 +47,26 @@ type FenceLogIdentity struct {
 }
 
 const (
-	MaxQueueSize = 500
+	maxQueueSize = 500
 )
 
 var (
-	fenceHandlerSingleton *tccFenceDbProxyHandler
-	fenceOnce             sync.Once
+	fenceHandler *tccFenceWrapperHandler
+	fenceOnce    sync.Once
 )
 
-func GetFenceHandler() *tccFenceDbProxyHandler {
-	if fenceHandlerSingleton == nil {
+func GetFenceHandler() *tccFenceWrapperHandler {
+	if fenceHandler == nil {
 		fenceOnce.Do(func() {
-			fenceHandlerSingleton = &tccFenceDbProxyHandler{
+			fenceHandler = &tccFenceWrapperHandler{
 				tccFenceDao: dao.GetTccFenceStoreDatabaseMapper(),
 			}
 		})
 	}
-	return fenceHandlerSingleton
+	return fenceHandler
 }
 
-func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
@@ -73,7 +75,8 @@ func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql
 	if err != nil {
 		dbError, ok := err.(seataErrors.TccFenceError)
 		if ok && dbError.Code == seataErrors.TccFenceDbDuplicateKeyError {
-			handler.addToLogCleanQueue(xid, branchId)
+			// todo add clean command to channel.
+			// handler.pushCleanChannel(xid, branchId)
 		}
 
 		return seataErrors.NewTccFenceError(
@@ -96,7 +99,7 @@ func (handler *tccFenceDbProxyHandler) PrepareFence(ctx context.Context, tx *sql
 	return nil
 }
 
-func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 
@@ -130,7 +133,7 @@ func (handler *tccFenceDbProxyHandler) CommitFence(ctx context.Context, tx *sql.
 	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusCommitted)
 }
 
-func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
@@ -173,7 +176,7 @@ func (handler *tccFenceDbProxyHandler) RollbackFence(ctx context.Context, tx *sq
 	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusRollbacked)
 }
 
-func (handler *tccFenceDbProxyHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
+func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
@@ -183,7 +186,7 @@ func (handler *tccFenceDbProxyHandler) insertTCCFenceLog(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.InsertTCCFenceDO(tx, &tccFenceDo)
 }
 
-func (handler *tccFenceDbProxyHandler) updateFenceStatusAndInvokeCallback(tx *sql.Tx, callback func() error, xid string, branchId int64, status enum.FenceStatus) error {
+func (handler *tccFenceWrapperHandler) updateFenceStatusAndInvokeCallback(tx *sql.Tx, callback func() error, xid string, branchId int64, status enum.FenceStatus) error {
 	if err := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status); err != nil {
 		return err
 	}
@@ -200,40 +203,46 @@ func (handler *tccFenceDbProxyHandler) updateFenceStatusAndInvokeCallback(tx *sq
 	return nil
 }
 
-func (handler *tccFenceDbProxyHandler) InitLogCleanExecutor() {
+func (handler *tccFenceWrapperHandler) InitLogCleanChannel() {
 	handler.logQueueOnce.Do(func() {
-		go handler.startFenceLogCleanRunnable()
+		go handler.traversalCleanChannel()
 	})
 }
 
-func (handler *tccFenceDbProxyHandler) DestroyLogCleanExecutor() {
+func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
 		close(handler.logQueue)
 	})
 }
 
-func (handler *tccFenceDbProxyHandler) deleteFence(xid string, id int64) error {
+func (handler *tccFenceWrapperHandler) deleteFence(xid string, id int64) error {
 	// todo implement
 	return nil
 }
 
-func (handler *tccFenceDbProxyHandler) deleteFenceByDate(datetime time.Time) int32 {
+func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
 	// todo implement
 	return 0
 }
 
-func (handler *tccFenceDbProxyHandler) addToLogCleanQueue(xid string, branchId int64) {
+func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
 	// todo implement
 	fenceLogIdentity := &FenceLogIdentity{
 		xid:      xid,
 		branchId: branchId,
 	}
-	handler.logQueue <- fenceLogIdentity
+	select {
+	case handler.logQueue <- fenceLogIdentity:
+
+	// todo add batch delete from log cache.
+	default:
+		handler.logCache.PushBack(fenceLogIdentity)
+	}
 	log.Infof("add one log to clean queue: %v ", fenceLogIdentity)
 }
 
-func (handler *tccFenceDbProxyHandler) startFenceLogCleanRunnable() {
-	handler.logQueue = make(chan *FenceLogIdentity, MaxQueueSize)
+func (handler *tccFenceWrapperHandler) traversalCleanChannel() {
+	handler.logQueue = make(chan *FenceLogIdentity, maxQueueSize)
 	for logIdentity := range handler.logQueue {
 		if err := handler.deleteFence(logIdentity.xid, logIdentity.branchId); err != nil {
 			log.Errorf("delete fence log failed, xid: %s, branchId: &s", logIdentity.xid, logIdentity.branchId)

@@ -33,9 +33,9 @@ func InitFence() {
 }
 
 func InitCleanTask() {
-	handler.GetFenceHandler().InitLogCleanExecutor()
+	handler.GetFenceHandler().InitLogCleanChannel()
 }
 
 func Destroy() {
-	handler.GetFenceHandler().DestroyLogCleanExecutor()
+	handler.GetFenceHandler().DestroyLogCleanChannel()
 }
