@@ -18,26 +18,30 @@
 package exec
 
 import (
+	"context"
 	"fmt"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	_ "github.com/arana-db/parser/test_driver"
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type BasicUndoBuilder struct {
 }
 
-//// buildRowImages build row iamge by exec condition
-//func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RowImage, error) {
-//	panic("implement me")
-//}
-//
-//// buildRowImages query db table to find data image
-//func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RecordImage, error) {
-//	panic("implement me")
-//}
+// buildRowImages build row iamge by exec condition
+func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RowImage, error) {
+	panic("implement me")
+}
+
+// buildRowImages query db table to find data image
+func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RecordImage, error) {
+	panic("implement me")
+}
 
 // buildSelectSQLByUpdate build select sql from update sql
 func (u *BasicUndoBuilder) buildSelectSQLByUpdate(query string) (string, error) {
@@ -100,13 +104,13 @@ func (u *BasicUndoBuilder) buildSelectSQLByInsert(query string) (string, error) 
 		})
 	}
 	insertStmtList := p.InsertStmt.Lists
-	var whereStmt ExprNode
+	var whereStmt ast.ExprNode
 
-	whereList := []ExprNode{}
+	whereList := []ast.ExprNode{}
 	if len(insertStmtList) > 0 {
 		whereList = p.InsertStmt.Lists[0]
 	}
-	whereStmt = ""
+
 	if len(whereList) > 0 {
 		whereStmt = whereList[0]
 	}

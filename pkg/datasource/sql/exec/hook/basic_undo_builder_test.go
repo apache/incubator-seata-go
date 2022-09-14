@@ -52,25 +52,3 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		})
 	}
 }
-
-func TestBasicUndoBuilder_buildSelectSQLByInsert(t *testing.T) {
-	builder := BasicUndoBuilder{}
-
-	tests := []struct {
-		name   string
-		query  string
-		expect string
-	}{
-		{
-			query:  "insert into t_user(name) values('pp')",
-			expect: "SELECT SQL_NO_CACHE name FROM t_user ",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sql, _ := builder.buildSelectSQLByInsert(tt.query)
-			assert.Equal(t, tt.expect, sql)
-		})
-	}
-
-}

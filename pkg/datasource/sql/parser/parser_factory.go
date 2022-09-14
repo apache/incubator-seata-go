@@ -18,7 +18,7 @@
 package parser
 
 import (
-	tparser "github.com/arana-db/parser"
+	aparser "github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -51,7 +51,7 @@ type ParseContext struct {
 }
 
 func DoParser(query string) (*ParseContext, error) {
-	p := tparser.New()
+	p := aparser.New()
 	stmtNode, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, err
