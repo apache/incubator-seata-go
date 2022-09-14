@@ -90,11 +90,11 @@ func CommitOrRollback(ctx context.Context, isSuccess bool) (err error) {
 
 	if isSuccess {
 		if err = GetGlobalTransactionManager().Commit(ctx, tx); err != nil {
-			log.Infof("transactionTemplate: commit transaction failed, error %v", err)
+			log.Errorf("transactionTemplate: commit transaction failed, error %v", err)
 		}
 	} else {
 		if err = GetGlobalTransactionManager().Rollback(ctx, tx); err != nil {
-			log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
+			log.Errorf("transactionTemplate: Rollback transaction failed, error %v", err)
 		}
 	}
 
