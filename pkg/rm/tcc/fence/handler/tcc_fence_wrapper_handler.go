@@ -76,7 +76,7 @@ func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql
 		dbError, ok := err.(seataErrors.TccFenceError)
 		if ok && dbError.Code == seataErrors.TccFenceDbDuplicateKeyError {
 			// todo add clean command to channel.
-			// handler.pushCleanChannel(xid, branchId)
+			handler.pushCleanChannel(xid, branchId)
 		}
 
 		return seataErrors.NewTccFenceError(
@@ -227,25 +227,24 @@ func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int
 
 func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
 	// todo implement
-	fenceLogIdentity := &FenceLogIdentity{
+	fli := &FenceLogIdentity{
 		xid:      xid,
 		branchId: branchId,
 	}
 	select {
-	case handler.logQueue <- fenceLogIdentity:
-
+	case handler.logQueue <- fli:
 	// todo add batch delete from log cache.
 	default:
-		handler.logCache.PushBack(fenceLogIdentity)
+		handler.logCache.PushBack(fli)
 	}
-	log.Infof("add one log to clean queue: %v ", fenceLogIdentity)
+	log.Infof("add one log to clean queue: %v ", fli)
 }
 
 func (handler *tccFenceWrapperHandler) traversalCleanChannel() {
 	handler.logQueue = make(chan *FenceLogIdentity, maxQueueSize)
-	for logIdentity := range handler.logQueue {
-		if err := handler.deleteFence(logIdentity.xid, logIdentity.branchId); err != nil {
-			log.Errorf("delete fence log failed, xid: %s, branchId: &s", logIdentity.xid, logIdentity.branchId)
+	for li := range handler.logQueue {
+		if err := handler.deleteFence(li.xid, li.branchId); err != nil {
+			log.Errorf("delete fence log failed, xid: %s, branchId: &s", li.xid, li.branchId)
 		}
 	}
 }
