@@ -74,7 +74,7 @@ func Begin(ctx context.Context, name string) context.Context {
 }
 
 // CommitOrRollback commit global transaction
-func CommitOrRollback(ctx context.Context, success bool) (err error) {
+func CommitOrRollback(ctx context.Context, isSuccess bool) (err error) {
 	role := *GetTransactionRole(ctx)
 	if role == PARTICIPANT {
 		// Participant has no responsibility of rollback
@@ -88,12 +88,11 @@ func CommitOrRollback(ctx context.Context, success bool) (err error) {
 		Role:   role,
 	}
 
-	switch success {
-	case true:
+	if isSuccess {
 		if err = GetGlobalTransactionManager().Commit(ctx, tx); err != nil {
 			log.Infof("transactionTemplate: commit transaction failed, error %v", err)
 		}
-	case false:
+	} else {
 		if err = GetGlobalTransactionManager().Rollback(ctx, tx); err != nil {
 			log.Infof("transactionTemplate: Rollback transaction failed, error %v", err)
 		}
