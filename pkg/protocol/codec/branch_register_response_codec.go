@@ -21,7 +21,7 @@ import (
 	"math"
 
 	"github.com/seata/seata-go/pkg/common/bytes"
-	serror "github.com/seata/seata-go/pkg/common/error"
+	serror "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -40,7 +40,7 @@ func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionExceptionCode = serror.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
 	data.BranchId = int64(bytes.ReadUInt64(buf))
 
 	return data
@@ -58,7 +58,7 @@ func (c *BranchRegisterResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString16Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionExceptionCode))
+	buf.WriteByte(byte(data.TransactionErrorCode))
 	buf.WriteInt64(data.BranchId)
 
 	return buf.Bytes()
