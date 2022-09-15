@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	_ "github.com/arana-db/parser/test_driver"
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+
+	_ "github.com/arana-db/parser/test_driver"
 )
 
 type BasicUndoBuilder struct {
