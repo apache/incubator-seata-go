@@ -15,32 +15,21 @@
  * limitations under the License.
  */
 
-package codec
+package enum
 
-import (
-	"testing"
+// FencePhase used to mark the stage of a tcc transaction
+type FencePhase byte
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
+const (
+	// FencePhaseNotExist fence phase not exist
+	FencePhaseNotExist = FencePhase(0)
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
+	// FencePhasePrepare prepare fence phase
+	FencePhasePrepare = FencePhase(1)
+
+	// FencePhaseCommit commit fence phase
+	FencePhaseCommit = FencePhase(2)
+
+	// FencePhaseRollback rollback fence phase
+	FencePhaseRollback = FencePhase(3)
 )
-
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
-
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
-}
