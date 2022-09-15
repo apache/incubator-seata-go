@@ -87,15 +87,16 @@ func TestInitActionContext(t *testing.T) {
 		Other: []int8{1, 2, 3},
 	}
 
-	now := time.Now().UnixNano()
-	gomonkey.ApplyMethod(reflect.TypeOf(time.Now()), "UnixNano", func(_ time.Time) int64 {
+	now := time.Now()
+	p := gomonkey.ApplyFunc(time.Now, func() time.Time {
 		return now
 	})
+	defer p.Reset()
 	result := testTccServiceProxy.initActionContext(param)
 	assert.Equal(t, map[string]interface{}{
 		"addr":                 "Earth",
 		"Other":                []int8{1, 2, 3},
-		common.ActionStartTime: now / 1e6,
+		common.ActionStartTime: now.UnixNano() / 1e6,
 		common.PrepareMethod:   "Prepare",
 		common.CommitMethod:    "Commit",
 		common.RollbackMethod:  "Rollback",
