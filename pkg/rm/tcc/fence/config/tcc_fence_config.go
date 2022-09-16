@@ -15,32 +15,27 @@
  * limitations under the License.
  */
 
-package codec
+package config
 
 import (
-	"testing"
+	"go.uber.org/atomic"
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 )
 
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
+type TccFenceConfig struct {
+	Initialized  atomic.Bool `default:"false"`
+	LogTableName string      `default:"tcc_fence_log"`
+}
 
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
+func InitFence() {
+	// todo implement
+}
 
-	assert.Equal(t, msg, msg2)
+func InitCleanTask() {
+	handler.GetFenceHandler().InitLogCleanChannel()
+}
+
+func Destroy() {
+	handler.GetFenceHandler().DestroyLogCleanChannel()
 }
