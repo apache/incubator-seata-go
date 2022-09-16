@@ -15,32 +15,21 @@
  * limitations under the License.
  */
 
-package codec
+package enum
 
-import (
-	"testing"
+// FenceStatus Used to mark the state of a branch transaction
+type FenceStatus byte
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
+const (
+	// StatusTried  phase 1: the commit tried.
+	StatusTried = FenceStatus(1)
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
+	// StatusCommitted phase 2: the committed.
+	StatusCommitted = FenceStatus(2)
+
+	// StatusRollbacked phase 2: the rollbacked.
+	StatusRollbacked = FenceStatus(3)
+
+	// StatusSuspended suspended status.
+	StatusSuspended = FenceStatus(4)
 )
-
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
-
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
-}
