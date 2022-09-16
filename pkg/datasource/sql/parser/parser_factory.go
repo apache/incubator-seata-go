@@ -46,7 +46,7 @@ type ParseContext struct {
 	InsertStmt *ast.InsertStmt
 	// UpdateStmt
 	UpdateStmt *ast.UpdateStmt
-	// DeleteStm
+	// DeleteStmt
 	DeleteStmt *ast.DeleteStmt
 }
 
