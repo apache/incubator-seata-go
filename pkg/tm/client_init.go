@@ -14,17 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package client
+package tm
 
 import (
-	_ "github.com/seata/seata-go/pkg/integration"
-	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
-	_ "github.com/seata/seata-go/pkg/rm/tcc"
+	"sync"
+
+	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-// Init init seata client
-func Init() {
-	initRmClient()
-	initTmClient()
+var onceInitTmClient sync.Once
+
+// InitTmClient init seata tm client
+func initTmClient() {
+	onceInitTmClient.Do(func() {
+		initConfig()
+		initRemoting()
+	})
+}
+
+// todo
+// initConfig init config processor
+func initConfig() {
+}
+
+// initRemoting init rpc client
+func initRemoting() {
+	getty.InitRpcClient()
 }
