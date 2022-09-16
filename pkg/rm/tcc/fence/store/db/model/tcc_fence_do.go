@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package codec
+package model
 
 import (
-	"testing"
+	"time"
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 )
 
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
+type TCCFenceDO struct {
 
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
+	// Xid the global transaction id
+	Xid string
 
-	assert.Equal(t, msg, msg2)
+	// BranchId the branch transaction id
+	BranchId int64
+
+	// ActionName the action name
+	ActionName string
+
+	// Status the tcc fence status
+	// tried: 1; committed: 2; rollbacked: 3; suspended: 4
+	Status enum.FenceStatus
+
+	// GmtCreate create time
+	GmtCreate time.Time
+
+	// GmtModified update time
+	GmtModified time.Time
 }

@@ -52,7 +52,7 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 	}
 	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchRollback(ctx, branchResource)
 	if err != nil {
-		log.Infof("branch rollback error: %s", err.Error())
+		log.Errorf("branch rollback error: %s", err.Error())
 		return err
 	}
 	log.Infof("branch rollback success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)

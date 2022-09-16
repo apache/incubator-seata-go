@@ -15,32 +15,17 @@
  * limitations under the License.
  */
 
-package codec
-
-import (
-	"testing"
-
-	serror "github.com/seata/seata-go/pkg/common/errors"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
-
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
-}
+-- -------------------------------- The script use tcc fence  --------------------------------
+CREATE TABLE IF NOT EXISTS `tcc_fence_log`
+(
+    `xid`           VARCHAR(128)  NOT NULL COMMENT 'global id',
+    `branch_id`     BIGINT        NOT NULL COMMENT 'branch id',
+    `action_name`   VARCHAR(64)   NOT NULL COMMENT 'action name',
+    `status`        TINYINT       NOT NULL COMMENT 'status(tried:1;committed:2;rollbacked:3;suspended:4)',
+    `gmt_create`    DATETIME(3)   NOT NULL COMMENT 'create time',
+    `gmt_modified`  DATETIME(3)   NOT NULL COMMENT 'update time',
+    PRIMARY KEY (`xid`, `branch_id`),
+    KEY `idx_gmt_modified` (`gmt_modified`),
+    KEY `idx_status` (`status`)
+) ENGINE = InnoDB
+DEFAULT CHARSET = utf8mb4;

@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package codec
-
-import (
-	"testing"
-
-	serror "github.com/seata/seata-go/pkg/common/errors"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestBranchRegisterResponseCodec(t *testing.T) {
-	msg := message.BranchRegisterResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
-		},
-		BranchId: 124356567,
-	}
-
-	codec := BranchRegisterResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
-}
+-- -------------------------------- The script used for tcc fence  --------------------------------
+CREATE TABLE tcc_fence_log
+(
+    xid              VARCHAR2(128)  NOT NULL,
+    branch_id        NUMBER(19)     NOT NULL,
+    action_name      VARCHAR2(64)   NOT NULL,
+    status           NUMBER(3)      NOT NULL,
+    gmt_create       TIMESTAMP(3)   NOT NULL,
+    gmt_modified     TIMESTAMP(3)   NOT NULL,
+    PRIMARY KEY (xid, branch_id)
+);
+CREATE INDEX idx_gmt_modified ON tcc_fence_log (gmt_modified);
+CREATE INDEX idx_status ON tcc_fence_log (status);
