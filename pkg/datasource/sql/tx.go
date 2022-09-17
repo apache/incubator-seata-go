@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql/driver"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -28,7 +30,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 const REPORT_RETRY_COUNT = 5

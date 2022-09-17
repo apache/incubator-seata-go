@@ -15,6 +15,15 @@
 # limitations under the License.
 #
 
-go get -v golang.org/x/tools/cmd/goimports
+# format go imports style
+go install -v golang.org/x/tools/cmd/goimports
 goimports  -w .
+
+# format licence style
+go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+license-eye header fix
+# check dependency licence is valid
+license-eye dependency check
+
+# format go.mod
 go mod tidy

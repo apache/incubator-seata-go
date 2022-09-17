@@ -21,7 +21,7 @@ import (
 	"math"
 
 	"github.com/seata/seata-go/pkg/common/bytes"
-	serror "github.com/seata/seata-go/pkg/common/error"
+	serror "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
@@ -44,7 +44,7 @@ func (c *GlobalBeginResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString16Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionExceptionCode))
+	buf.WriteByte(byte(data.TransactionErrorCode))
 	bytes.WriteString16Length(data.Xid, buf)
 	bytes.WriteString16Length(string(data.ExtraData), buf)
 
@@ -59,7 +59,7 @@ func (g *GlobalBeginResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionExceptionCode = serror.TransactionExceptionCode(bytes.ReadByte(buf))
+	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
 	data.Xid = bytes.ReadString16Length(buf)
 	data.ExtraData = []byte(bytes.ReadString16Length(buf))
 

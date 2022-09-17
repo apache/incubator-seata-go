@@ -25,12 +25,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/common/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -81,6 +83,9 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 			return nil, err
 		}
 	}
+
+	// to set up the fence phase
+	tm.SetFencePhase(ctx, enum.FencePhasePrepare)
 	return t.TCCResource.Prepare(ctx, params)
 }
 
@@ -176,7 +181,7 @@ func (t *TCCServiceProxy) initBusinessActionContext(ctx context.Context, params 
 // 1. null: create new BusinessActionContext
 // 2. tm.BusinessActionContext: return it
 // 3. *tm.BusinessActionContext: if nil then create new BusinessActionContext, else return it
-// 4. Struct: if there is an attribute of businessactioncontext type and it is not nil, return it
+// 4. Struct: if there is an attribute of businessactioncontext enum and it is not nil, return it
 // 5. else: create new BusinessActionContext
 func (t *TCCServiceProxy) getOrCreateBusinessActionContext(params interface{}) *tm.BusinessActionContext {
 	if params == nil {
@@ -222,7 +227,7 @@ func (t *TCCServiceProxy) getOrCreateBusinessActionContext(params interface{}) *
 	return &tm.BusinessActionContext{}
 }
 
-// obtainStructValueType check o is struct or pointer type
+// obtainStructValueType check o is struct or pointer enum
 func obtainStructValueType(o interface{}) (bool, reflect.Value, reflect.Type) {
 	v := reflect.ValueOf(o)
 	t := reflect.TypeOf(o)

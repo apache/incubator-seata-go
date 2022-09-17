@@ -65,7 +65,7 @@ func Begin(ctx context.Context, name string) context.Context {
 	}
 
 	// todo timeout should read from config
-	err := GetGlobalTransactionManager().Begin(ctx, tx, 60000*30, name)
+	err := GetGlobalTransactionManager().Begin(ctx, tx, time.Second*30, name)
 	if err != nil {
 		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
 	}
