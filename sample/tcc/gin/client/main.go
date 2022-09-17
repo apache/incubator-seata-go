@@ -34,9 +34,14 @@ func main() {
 	var serverIpPort = "http://127.0.0.1:8080"
 	request := gorequest.New()
 
+	var xid string
+	if tm.IsSeataContext(ctx) {
+		xid = tm.GetXID(ctx)
+	}
+
 	log.Infof("branch transaction begin")
 	request.Post(serverIpPort+"/prepare").
-		Set(common.XidKey, "gorequst is coming!").
+		Set(common.XidKey, xid).
 		End(func(response gorequest.Response, body string, errs []error) {
 			if len(errs) != 0 {
 				err = errs[0]

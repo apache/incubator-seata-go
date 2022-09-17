@@ -24,7 +24,7 @@ func main() {
 	}
 
 	r.POST("/prepare", func(c *gin.Context) {
-		if _, err := userProviderProxy.Prepare(c, nil); err != nil {
+		if _, err := userProviderProxy.Prepare(c, ""); err != nil {
 			c.JSON(http.StatusOK, "prepare failure")
 			return
 		}

@@ -27,7 +27,5 @@ func TransactionMiddleware() gin.HandlerFunc {
 		retContext := tm.InitSeataContext(ctx)
 		tm.SetXID(retContext, xid)
 		log.Infof("global transaction xid is :%s", xid)
-
-		ctx.Next()
 	}
 }
