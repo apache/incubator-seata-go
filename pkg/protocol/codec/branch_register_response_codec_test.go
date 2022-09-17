@@ -20,7 +20,7 @@ package codec
 import (
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/common/error"
+	serror "github.com/seata/seata-go/pkg/common/errors"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +33,7 @@ func TestBranchRegisterResponseCodec(t *testing.T) {
 				ResultCode: message.ResultCodeFailed,
 				Msg:        "FAILED",
 			},
-			TransactionExceptionCode: serror.TransactionExceptionCodeUnknown,
+			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
 		},
 		BranchId: 124356567,
 	}
