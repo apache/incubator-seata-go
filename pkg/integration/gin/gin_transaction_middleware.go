@@ -11,7 +11,7 @@ import (
 )
 
 // TransactionMiddleware filter gin invocation
-// NOTE: when use gin，must set gin.ContextWithFallback true
+// NOTE: when use gin，must set gin.ContextWithFallback true when gin version >= 1.8.1
 func TransactionMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		xid := ctx.GetHeader(common.XidKey)
@@ -25,7 +25,8 @@ func TransactionMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		newCtx := tm.InitSeataContext(ctx)
+		newCtx := ctx.Request.Context()
+		newCtx = tm.InitSeataContext(newCtx)
 		tm.SetXID(newCtx, xid)
 		ctx.Request = ctx.Request.WithContext(newCtx)
 

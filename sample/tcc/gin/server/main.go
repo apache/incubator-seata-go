@@ -16,8 +16,8 @@ func main() {
 
 	r := gin.Default()
 
-	// NOTE: when use gin，must set ContextWithFallback true
-	r.ContextWithFallback = true
+	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
+	//r.ContextWithFallback = true
 
 	r.Use(ginmiddleware.TransactionMiddleware())
 
