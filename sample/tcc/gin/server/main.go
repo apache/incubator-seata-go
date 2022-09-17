@@ -15,6 +15,10 @@ func main() {
 	client.Init()
 
 	r := gin.Default()
+
+	// NOTE: when use gin，must set ContextWithFallback true
+	r.ContextWithFallback = true
+
 	r.Use(ginmiddleware.TransactionMiddleware())
 
 	userProviderProxy, err := tcc.NewTCCServiceProxy(&RMService{})

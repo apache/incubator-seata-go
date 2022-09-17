@@ -1,6 +1,7 @@
 package gin
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,7 @@ import (
 )
 
 // TransactionMiddleware filter gin invocation
+// NOTE: when use gin，must set gin.ContextWithFallback true
 func TransactionMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		xid := ctx.GetHeader(common.XidKey)
@@ -24,8 +26,11 @@ func TransactionMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		retContext := tm.InitSeataContext(ctx)
-		tm.SetXID(retContext, xid)
+		newCtx := context.Background()
+		newCtx = tm.InitSeataContext(newCtx)
+		tm.SetXID(newCtx, xid)
+		ctx.Request = ctx.Request.WithContext(newCtx)
+
 		log.Infof("global transaction xid is :%s", xid)
 	}
 }

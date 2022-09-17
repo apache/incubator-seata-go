@@ -17,7 +17,7 @@ func main() {
 	client.Init()
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
 
 	var err error
