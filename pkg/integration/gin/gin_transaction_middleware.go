@@ -1,7 +1,6 @@
 package gin
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,8 +25,7 @@ func TransactionMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		newCtx := context.Background()
-		newCtx = tm.InitSeataContext(newCtx)
+		newCtx := tm.InitSeataContext(ctx)
 		tm.SetXID(newCtx, xid)
 		ctx.Request = ctx.Request.WithContext(newCtx)
 
