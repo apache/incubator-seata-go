@@ -18,9 +18,8 @@
 package parser
 
 import (
-	tparser "github.com/pingcap/tidb/parser"
-	"github.com/pingcap/tidb/parser/ast"
-	_ "github.com/pingcap/tidb/types/parser_driver"
+	aparser "github.com/arana-db/parser"
+	"github.com/arana-db/parser/ast"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -52,7 +51,7 @@ type ParseContext struct {
 }
 
 func DoParser(query string) (*ParseContext, error) {
-	p := tparser.New()
+	p := aparser.New()
 	stmtNode, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, err
