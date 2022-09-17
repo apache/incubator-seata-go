@@ -7,8 +7,6 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-var rm RMService
-
 type RMService struct {
 }
 
