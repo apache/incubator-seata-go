@@ -38,9 +38,9 @@ type OrderTbl struct {
 func main() {
 	client.Init()
 	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
+		Timeout: time.Second * 30,
 	}, updateData)
 	<-make(chan struct{})
 }
