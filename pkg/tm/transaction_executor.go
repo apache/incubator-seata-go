@@ -34,7 +34,35 @@ type TransactionInfo struct {
 	LockRetryTimes    int64
 }
 
-func Begin(ctx context.Context, name string) context.Context {
+type CallbackWithCtx func(ctx context.Context) error
+
+type Callback func() error
+
+func GlobalTx(ctx context.Context, business Callback) (re error) {
+	if ctx, re = begin(ctx, "DefaultGlobalTransaction"); re != nil {
+		return
+	}
+	defer func() {
+		log.Infof("global transaction result %v", commitOrRollback(ctx, re == nil))
+	}()
+	re = business()
+	return
+}
+
+func GlobalTxWithCtx(ctx context.Context, business CallbackWithCtx) (re error) {
+	if ctx, re = begin(ctx, "DefaultGlobalTransaction"); re != nil {
+		return
+	}
+
+	defer func() {
+		log.Infof("global transaction result %v", commitOrRollback(ctx, re == nil))
+	}()
+	re = business(ctx)
+
+	return
+}
+
+func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
 	}
@@ -67,14 +95,14 @@ func Begin(ctx context.Context, name string) context.Context {
 	// todo timeout should read from config
 	err := GetGlobalTransactionManager().Begin(ctx, tx, time.Second*30, name)
 	if err != nil {
-		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
+		re = fmt.Errorf("transactionTemplate: begin transaction failed, error %v", err)
 	}
 
-	return ctx
+	return ctx, re
 }
 
-// CommitOrRollback commit global transaction
-func CommitOrRollback(ctx context.Context, isSuccess bool) (re error) {
+// commitOrRollback commit global transaction
+func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 	role := *GetTransactionRole(ctx)
 	if role == PARTICIPANT {
 		// Participant has no responsibility of rollback

@@ -39,7 +39,7 @@ var (
 type TestTCCServiceBusiness struct {
 }
 
-func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
+func NewTestTCCServiceBusiness1Proxy() *tcc.TCCServiceProxy {
 	if tccService != nil {
 		return tccService
 	}

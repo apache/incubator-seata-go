@@ -28,26 +28,19 @@ import (
 
 func main() {
 	client.Init()
-	var err error
-	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
-	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		log.Infof("tx result %v", resp)
-		<-make(chan struct{})
-	}()
+	tm.GlobalTxWithCtx(context.Background(), business)
+	<-make(chan struct{})
+}
 
-	tccService := service.NewTestTCCServiceBusinessProxy()
-	tccService2 := service.NewTestTCCServiceBusiness2Proxy()
-
-	_, err = tccService.Prepare(ctx, 1)
-	if err != nil {
-		log.Errorf("TestTCCServiceBusiness prepare error, %v", err.Error())
-		return
-	}
-	_, err = tccService2.Prepare(ctx, 3)
-	if err != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", err.Error())
+func business(ctx context.Context) (re error) {
+	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
+		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
 		return
 	}
 
+	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
+		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
+		return
+	}
+	return
 }
