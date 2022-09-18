@@ -1,6 +1,6 @@
 module github.com/seata/seata-go
 
-go 1.16
+go 1.18
 
 require (
 	cloud.google.com/go v0.93.3 // indirect
