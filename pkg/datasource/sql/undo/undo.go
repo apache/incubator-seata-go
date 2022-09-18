@@ -62,7 +62,7 @@ type UndoLogManager interface {
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
-	HasUndoLogTable(ctx context.Context, conn *sql.Conn) error
+	HasUndoLogTable(ctx context.Context, conn *sql.Conn) (bool, error)
 }
 
 // GetUndoLogManager

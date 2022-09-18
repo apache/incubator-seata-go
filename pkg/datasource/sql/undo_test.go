@@ -87,8 +87,9 @@ func TestHasUndoLogTable(t *testing.T) {
 
 		undoLogManager := new(base.BaseUndoLogManager)
 
-		err = undoLogManager.HasUndoLogTable(ctx, sqlConn)
+		res, err := undoLogManager.HasUndoLogTable(ctx, sqlConn)
 		assert.Nil(t, err)
+		assert.True(t, res)
 	}
 
 	t.Run("test_has_undo_log_table", func(t *testing.T) {

@@ -69,6 +69,6 @@ func (m *undoLogManager) DBType() types.DBType {
 }
 
 // HasUndoLogTable check undo log table if exist
-func (m *undoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) error {
+func (m *undoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (bool, error) {
 	return m.Base.HasUndoLogTable(ctx, conn)
 }

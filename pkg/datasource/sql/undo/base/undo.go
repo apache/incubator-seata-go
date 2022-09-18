@@ -113,19 +113,19 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 }
 
 // HasUndoLogTable check undo log table if exist
-func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (err error) {
-	stmt, err := conn.PrepareContext(ctx, constant.CheckUndoLogTableExistSql)
+func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
+	_, err = conn.QueryContext(ctx, constant.CheckUndoLogTableExistSql)
+	// 1146 mysql table not exist fault code
+	if err != nil && strings.Contains(err.Error(), "1146") {
+		return false, nil
+	}
+
 	if err != nil {
-		log.Errorf("[HasUndoLogTable] prepare sql fail, err: %v", err)
+		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
 		return
 	}
 
-	if _, err = stmt.Query(); err != nil {
-		log.Errorf("[HasUndoLogTable] exec sql fail, err: %v", err)
-		return
-	}
-
-	return
+	return true, nil
 }
 
 // getBatchDeleteUndoLogSql build batch delete undo log
