@@ -26,3 +26,5 @@ const (
 	// CheckUndoLogTableExistSql check undo log if exist
 	CheckUndoLogTableExistSql = "SELECT 1 FROM " + UndoLogTableName + " LIMIT 1"
 )
+
+const ErrCodeTableNotExist = "1146"
