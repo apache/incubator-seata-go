@@ -89,12 +89,12 @@ func CommitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 	}
 
 	if isSuccess {
-		if re = GetGlobalTransactionManager().Commit(ctx, tx); err != nil {
-			log.Errorf("transactionTemplate: commit transaction failed, error %v", err)
+		if re = GetGlobalTransactionManager().Commit(ctx, tx); re != nil {
+			log.Errorf("transactionTemplate: commit transaction failed, error %v", re)
 		}
 	} else {
-		if re = GetGlobalTransactionManager().Rollback(ctx, tx); err != nil {
-			log.Errorf("transactionTemplate: Rollback transaction failed, error %v", err)
+		if re = GetGlobalTransactionManager().Rollback(ctx, tx); re != nil {
+			log.Errorf("transactionTemplate: Rollback transaction failed, error %v", re)
 		}
 	}
 
