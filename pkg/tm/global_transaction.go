@@ -28,6 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/util/backoff"
 )
 
 type GlobalTransaction struct {
@@ -96,35 +97,34 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		return errors.New("Commit xid should not be empty")
 	}
 
-	// todo: replace retry with config
-	var (
-		err error
-		res interface{}
-		// todo retry and retryInterval should read from config
-		retry         = 10
-		retryInterval = 200 * time.Millisecond
-		req           = message.GlobalCommitRequest{
-			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
-				Xid: gtr.Xid,
-			},
-		}
-	)
-	for ; retry > 0; retry-- {
-		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
-		if err != nil {
-			log.Errorf("GlobalCommitRequest error, xid %s, error %v", gtr.Xid, err)
-			time.Sleep(retryInterval)
-		} else {
+	bf := backoff.New(ctx, backoff.Config{
+		MaxRetries: 10,
+		MinBackoff: 100 * time.Millisecond,
+		MaxBackoff: 200 * time.Millisecond,
+	})
+
+	var req = message.GlobalCommitRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
+	}
+	var res interface{}
+
+	for bf.Ongoing() {
+		var err error
+		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
 			break
 		}
+		bf.Wait()
 	}
-	if err != nil {
-		log.Infof("send global commit request failed, xid %s, error %v", gtr.Xid, err)
-		return err
+
+	if bf.Err() != nil {
+		log.Infof("send global commit request failed, xid %s, error %v", gtr.Xid, bf.Err())
+		return bf.Err()
 	}
+
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
 	gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
 	UnbindXid(ctx)
+
 	return nil
 }
 
@@ -138,35 +138,34 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		return errors.New("Rollback xid should not be empty")
 	}
 
-	// todo: replace retry with config
-	var (
-		err error
-		res interface{}
-		// todo retry and retryInterval should read from config
-		retry         = 10
-		retryInterval = 200 * time.Millisecond
-		req           = message.GlobalRollbackRequest{
-			AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
-				Xid: gtr.Xid,
-			},
-		}
-	)
-	for ; retry > 0; retry-- {
-		res, err = getty.GetGettyRemotingClient().SendSyncRequest(req)
-		if err != nil {
-			log.Errorf("GlobalRollbackRequest error, xid %s, error %v", gtr.Xid, err)
-			time.Sleep(retryInterval)
-		} else {
+	bf := backoff.New(ctx, backoff.Config{
+		MaxRetries: 10,
+		MinBackoff: 100 * time.Millisecond,
+		MaxBackoff: 200 * time.Millisecond,
+	})
+
+	var res interface{}
+	var req = message.GlobalRollbackRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
+	}
+
+	for bf.Ongoing() {
+		var err error
+		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
 			break
 		}
+		bf.Wait()
 	}
-	if err != nil {
-		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
-		return err
+
+	if bf.Err() != nil {
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, bf.Err())
+		return bf.Err()
 	}
+
 	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
 	gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
 	UnbindXid(ctx)
+
 	return nil
 }
 
