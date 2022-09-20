@@ -30,6 +30,7 @@ require (
 	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7 // indirect
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )

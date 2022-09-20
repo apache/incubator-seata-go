@@ -1,0 +1,156 @@
+# time 时间单位对应的是 time.Duration(1)
+seata:
+  # 废弃
+  enabled: true
+  # 应用ID
+  application-id: applicationName
+  # 应用分组
+  tx-service-group: default_tx_group
+  # 注册TM时候使用
+  access-key: aliyunAccessKey
+  # 注册TM时候使用
+  secret-key: aliyunSecretKey
+  # 废弃
+  enable-auto-data-source-proxy: true
+  data-source-proxy-mode: AT
+  client:
+    rm:
+      # 异步队列的最大缓存长度
+      async-commit-buffer-limit: 10000
+      # repor上报状态时最多重试次数
+      report-retry-count: 5
+      # 定时检查db的元数据的间隔（AT模式使用）
+      table-meta-check-enable: false
+      # 如果事务执行成功，是否需要上报状态（AT模式使用）
+      report-success-enable: false
+      # 是否允许定时检查db的元数据（AT模式使用）
+      saga-branch-register-enable: false
+      saga-json-parser: fastjson
+      saga-retry-persist-mode-update: false
+      saga-compensate-persist-mode-update: false
+      #Ordered.HIGHEST_PRECEDENCE + 1000  #
+      tcc-action-interceptor-order: -2147482648
+      #【废弃】解析SQL的parser选择
+      sql-parser-type: druid
+      lock:
+        # 获取锁失败时，重试间隔（AT模式使用）
+        retry-interval: 10
+        # 获取锁失败的重试次数（AT模式使用）
+        retry-times: 30
+        # 如果锁冲突是否立即回滚（AT模式使用）
+        retry-policy-branch-rollback-on-conflict: true
+    tm:
+      # 提交全局事务失败重试次数
+      commit-retry-count: 5
+      # 回滚全局事务失败重试次数
+      rollback-retry-count: 5
+      # 全局事务超时时间，单位毫秒
+      default-global-transaction-timeout: 60000
+      #【待理解】降级用的
+      degrade-check: false
+      #【待理解】降级用的
+      degrade-check-period: 2000
+      #【待理解】降级用的
+      degrade-check-allow-times: 10
+      # Ordered.HIGHEST_PRECEDENCE + 1000  #【todo】
+      interceptor-order: -2147482648
+    undo:
+      # 判断before image和 after image是否相同，相同则不记录undo
+      data-validation: true
+      #序列化方式
+      log-serialization: jackson
+      #undo log表明
+      log-table: undo_log
+      #是否只存储修改字段
+      only-care-update-columns: true
+      compress:
+        # 是否需要压缩
+        enable: true
+        # 压缩类型
+        type: zip
+        #压缩的阈值 单位为 k
+        threshold: 64
+    load-balance:
+      type: RandomLoadBalance
+      virtual-nodes: 10
+  service:
+    vgroup-mapping:
+      # 打印日志的前缀
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:8091
+    enable-degrade: false
+    # 是否要关闭事务
+    disable-global-transaction: false
+  transport:
+    shutdown:
+      wait: 3
+    # netty相关配置
+    type: TCP
+    # netty相关配置
+    server: NIO
+    # 是否要心跳
+    heartbeat: true
+    # 编解码方式，目前zhiyouseata
+    serialization: seata
+    # 消息压缩方式
+    compressor: none
+    # 是否允许批量发送请求
+    enable-tm-client-batch-send-request: false
+    # 是否允许批量发送请求
+    enable-rm-client-batch-send-request: true
+    # RM发送请求超时时间
+    rpc-rm-request-timeout: 30000
+    # TM发送请求超时时间
+    rpc-tm-request-timeout: 30000
+  # 配置中心
+  config:
+    type: file
+    file:
+      name: config.conf
+    nacos:
+      namespace: ""
+      server-addr: 127.0.0.1:8848
+      group: SEATA_GROUP
+      username: ""
+      password: ""
+      ##if use MSE Nacos with auth, mutex with username/password attribute
+      #access-key: ""
+      #secret-key: ""
+      data-id: seata.properties
+  # 注册中心
+  registry:
+    type: file
+    file:
+      name: registry.conf
+    nacos:
+      application: seata-server
+      server-addr: 127.0.0.1:8848
+      group: "SEATA_GROUP"
+      namespace: ""
+      username: ""
+      password: ""
+      ##if use MSE Nacos with auth, mutex with username/password attribute  #
+      #access-key: ""  #
+      #secret-key: ""  #
+  log:
+    exception-rate: 100 #【废弃】
+  tcc:
+    fence: # 1111
+      # 防悬挂表名
+      log-table-name: tcc_fence_log
+      #【未使用】
+      clean-period: 60
+  # getty 相关配置
+  getty-session-param:
+    compress-encoding: false
+    tcp-no-delay: true
+    tcp-keep-alive: true
+    keep-alive-period: 120
+    tcp-r-buf-size: 262144
+    tcp-w-buf-size: 65536
+    tcp-read-timeout: 1000
+    tcp-write-timeout: 5000
+    wait-timeout: 1000
+    max-msg-len: 16498688
+    session-name: client
