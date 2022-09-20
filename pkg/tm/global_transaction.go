@@ -107,18 +107,19 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
 	}
 	var res interface{}
-
+	var err error
 	for bf.Ongoing() {
-		var err error
 		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
 			break
 		}
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, err)
 		bf.Wait()
 	}
 
 	if bf.Err() != nil {
-		log.Infof("send global commit request failed, xid %s, error %v", gtr.Xid, bf.Err())
-		return bf.Err()
+		lastErr := errors.Wrap(err, bf.Err().Error())
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
+		return lastErr
 	}
 
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
@@ -149,17 +150,19 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
 	}
 
+	var err error
 	for bf.Ongoing() {
-		var err error
 		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
 			break
 		}
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
 		bf.Wait()
 	}
 
 	if bf.Err() != nil {
-		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, bf.Err())
-		return bf.Err()
+		lastErr := errors.Wrap(err, bf.Err().Error())
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
+		return lastErr
 	}
 
 	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
