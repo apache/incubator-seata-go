@@ -17,7 +17,6 @@
 
 package client
 
-//
-//// InitRmClient init seata rm client
-//func initRmClient() {
-//}
+// InitRmClient init seata rm client
+func initRmClient() {
+}

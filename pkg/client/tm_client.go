@@ -17,28 +17,28 @@
 
 package client
 
-//import (
-//	"sync"
-//
-//	"github.com/seata/seata-go/pkg/remoting/getty"
-//)
-//
-//var onceInitTmClient sync.Once
-//
-//// InitTmClient init seata tm client
-//func initTmClient() {
-//	onceInitTmClient.Do(func() {
-//		initConfig()
-//		initRemoting()
-//	})
-//}
-//
-//// todo
-//// initConfig init config processor
-//func initConfig() {
-//}
-//
-//// initRemoting init rpc client
-//func initRemoting() {
-//	getty.InitRpcClient()
-//}
+import (
+	"sync"
+
+	"github.com/seata/seata-go/pkg/remoting/getty"
+)
+
+var onceInitTmClient sync.Once
+
+// InitTmClient init seata tm client
+func initTmClient() {
+	onceInitTmClient.Do(func() {
+		initConfig()
+		initRemoting()
+	})
+}
+
+// todo
+// initConfig init config processor
+func initConfig() {
+}
+
+// initRemoting init rpc client
+func initRemoting() {
+	getty.InitRpcClient()
+}

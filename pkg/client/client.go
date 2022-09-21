@@ -17,14 +17,14 @@
 
 package client
 
-//import (
-//	_ "github.com/seata/seata-go/pkg/integration"
-//	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
-//	_ "github.com/seata/seata-go/pkg/rm/tcc"
-//)
-//
-//// Init init seata client
-//func Init() {
-//	initRmClient()
-//	initTmClient()
-//}
+import (
+	_ "github.com/seata/seata-go/pkg/integration"
+	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
+	_ "github.com/seata/seata-go/pkg/rm/tcc"
+)
+
+// Init init seata client
+func Init() {
+	initRmClient()
+	initTmClient()
+}
