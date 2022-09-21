@@ -71,7 +71,7 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 	if xid != "" {
 		ctx = tm.InitSeataContext(ctx)
 		tm.SetXID(ctx, xid)
-		log.Infof("global transaction xid is :%s")
+		log.Infof("global transaction xid is :%s", xid)
 	} else {
 		log.Info("global transaction xid is empty")
 	}
