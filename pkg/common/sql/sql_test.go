@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"log"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestDelEscape(t *testing.T) {
 	strSlice := []string{`"scheme"."id"`, "`scheme`.`id`", `"scheme".id`, `scheme."id"`, `scheme."id"`, "scheme.`id`"}
 
 	for k, v := range strSlice {
-		res := DelEscape(v, 2)
+		res := DelEscape(v, types.DBTypeMySQL)
 		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
 		assert.Equal(t, "scheme.id", res)
 	}
@@ -40,7 +41,15 @@ func TestAddEscape(t *testing.T) {
 	strSlice := []string{`"scheme".id`, "`scheme`.id", `scheme."id"`, "scheme.`id`"}
 
 	for k, v := range strSlice {
-		res := AddEscape(v, 2)
+		res := AddEscape(v, types.DBTypeMySQL)
 		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, v, res)
+	}
+
+	strSlice1 := []string{"ALTER", "ANALYZE"}
+	for k, v := range strSlice1 {
+		res := AddEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, "`"+v+"`", res)
 	}
 }
