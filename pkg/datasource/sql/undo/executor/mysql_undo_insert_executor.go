@@ -24,10 +24,11 @@ import (
 	"fmt"
 
 	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 )
+
+const DeleteSqlTemplate = "DELETE FROM %s WHERE %s "
 
 type MySQLUndoInsertExecutor struct {
 	BaseExecutor *BaseExecutor
@@ -110,5 +111,5 @@ func (m *MySQLUndoInsertExecutor) generateDeleteSql(
 
 	whereSql := sqlUtil.BuildWhereConditionByPKs(pkList, dbType)
 
-	return fmt.Sprintf(constant.DeleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
+	return fmt.Sprintf(DeleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
 }

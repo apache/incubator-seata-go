@@ -24,9 +24,13 @@ import (
 	"strings"
 
 	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
+)
+
+const (
+	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
+	UpdateSqlTemplate = "UPDATE %s SET %s WHERE %s "
 )
 
 type MySQLUndoUpdateExecutor struct {
@@ -105,5 +109,5 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog i
 
 	whereSql := sqlUtil.BuildWhereConditionByPKs(pkNameList, dbType)
 
-	return fmt.Sprintf(constant.UpdateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
+	return fmt.Sprintf(UpdateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
 }

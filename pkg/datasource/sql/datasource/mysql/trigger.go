@@ -24,8 +24,16 @@ import (
 
 	"github.com/pkg/errors"
 	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+)
+
+// Table schema
+const (
+	IndexSchemaSql = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` " +
+		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+
+	ColumnSchemaSql = "select TABLE_CATALOG, TABLE_NAME, TABLE_SCHEMA, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY, " +
+		" IS_NULLABLE, EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 )
 
 type mysqlTrigger struct {
@@ -86,7 +94,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 
 	result := make([]types.ColumnMeta, 0)
 
-	stmt, err := conn.PrepareContext(ctx, constant.ColumnSchemaSql)
+	stmt, err := conn.PrepareContext(ctx, ColumnSchemaSql)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +170,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 
 	result := make([]types.IndexMeta, 0)
 
-	stmt, err := conn.PrepareContext(ctx, constant.IndexSchemaSql)
+	stmt, err := conn.PrepareContext(ctx, IndexSchemaSql)
 	if err != nil {
 		return nil, err
 	}

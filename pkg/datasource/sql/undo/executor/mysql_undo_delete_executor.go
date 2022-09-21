@@ -25,9 +25,13 @@ import (
 
 	"github.com/pkg/errors"
 	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
+)
+
+const (
+	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
+	InsertSqlTemplate = "INSERT INTO %s (%s) VALUES (%s)"
 )
 
 type MySQLUndoDeleteExecutor struct {
@@ -108,5 +112,5 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog i
 	insertColumns = strings.Join(insertColumnSlice, ", ")
 	insertValues = strings.Join(insertValueSlice, ", ")
 
-	return fmt.Sprintf(constant.InsertSqlTemplate, sqlUndoLog.TableName, insertColumns, insertValues), nil
+	return fmt.Sprintf(InsertSqlTemplate, sqlUndoLog.TableName, insertColumns, insertValues), nil
 }

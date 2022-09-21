@@ -21,14 +21,7 @@ const (
 	DeleteFrom                     = "DELETE FROM "
 	DefaultTransactionUndoLogTable = " undo_log "
 	// UndoLogTableName Todo get from config
-	UndoLogTableName  = DefaultTransactionUndoLogTable
-	DeleteUndoLogSql  = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
-	SelectUndoLogSql  = "SELECT `log_status`,`context`,`rollback_info` FROM " + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ? FOR UPDATE"
-	DeleteSqlTemplate = "DELETE FROM %s WHERE %s "
-	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
-	InsertSqlTemplate = "INSERT INTO %s (%s) VALUES (%s)"
-	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
-	UpdateSqlTemplate = "UPDATE %s SET %s WHERE %s "
+	UndoLogTableName = DefaultTransactionUndoLogTable
 )
 
 // undo log status
@@ -43,15 +36,6 @@ const (
 const (
 	CompressorTypeKey = "compressorTypeKey"
 	SerializerKey     = "serializerKey"
-)
-
-// table schema
-const (
-	IndexSchemaSql = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` " +
-		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
-	ColumnSchemaSql = "select TABLE_CATALOG, TABLE_NAME, TABLE_SCHEMA, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY, " +
-		" IS_NULLABLE, EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 )
 
 const DBName = "seata"

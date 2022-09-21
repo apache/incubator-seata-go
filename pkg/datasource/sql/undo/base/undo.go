@@ -42,6 +42,11 @@ var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 
+const (
+	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
+	SelectUndoLogSql = "SELECT `log_status`,`context`,`rollback_info` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
+)
+
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
 
@@ -60,7 +65,7 @@ func (m *BaseUndoLogManager) InsertUndoLog(l []impl.BranchUndoLog, tx driver.Tx)
 
 // DeleteUndoLog exec delete single undo log operate
 func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
+	stmt, err := conn.PrepareContext(ctx, DeleteUndoLogSql)
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
@@ -146,7 +151,7 @@ func (m *BaseUndoLogManager) RunUndo(
 		}
 	}()
 
-	stmt, err := tx.Prepare(constant.SelectUndoLogSql)
+	stmt, err := tx.Prepare(SelectUndoLogSql)
 	if err != nil {
 		log.Errorf("[Undo] prepare sql fail, err: %v", err)
 		return err
