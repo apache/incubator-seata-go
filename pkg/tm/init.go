@@ -26,7 +26,7 @@ import (
 var onceInitTmClient sync.Once
 
 // InitTmClient init seata tm client
-func initTmClient() {
+func InitTmClient() {
 	onceInitTmClient.Do(func() {
 		initConfig()
 		initRemoting()
