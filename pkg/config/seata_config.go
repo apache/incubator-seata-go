@@ -19,9 +19,7 @@ package config
 
 import (
 	"path/filepath"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config/parser"
 )

@@ -20,9 +20,7 @@ package parser
 import (
 	"path/filepath"
 	"testing"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/stretchr/testify/assert"
 )

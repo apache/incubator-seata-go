@@ -20,9 +20,7 @@ package parser
 import (
 	"io/ioutil"
 	"path"
-)
 
-import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
