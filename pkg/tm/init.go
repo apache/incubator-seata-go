@@ -18,8 +18,9 @@
 package tm
 
 import (
-	"github.com/seata/seata-go/pkg/remoting/getty"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
 var onceInitTmClient sync.Once
