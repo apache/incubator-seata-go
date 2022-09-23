@@ -43,6 +43,9 @@ var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 
 const (
+	PairSplit = "&"
+	KvSplit   = "="
+
 	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
 	SelectUndoLogSql = "SELECT `log_status`,`context`,`rollback_info` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
 )
@@ -312,7 +315,32 @@ func (m *BaseUndoLogManager) canUndo(state int) bool {
 
 // parseContext
 func (m *BaseUndoLogManager) parseContext(str string) map[string]string {
-	return util.DecodeMap(str)
+	return m.DecodeMap(str)
+}
+
+// DecodeMap Decode undo log context string to map
+func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
+	res := make(map[string]string)
+
+	if str == "" {
+		return nil
+	}
+
+	strSlice := strings.Split(str, PairSplit)
+	if len(strSlice) == 0 {
+		return nil
+	}
+
+	for key, _ := range strSlice {
+		kv := strings.Split(strSlice[key], KvSplit)
+		if len(kv) != 2 {
+			continue
+		}
+
+		res[kv[0]] = kv[1]
+	}
+
+	return res
 }
 
 // getRollbackInfo
