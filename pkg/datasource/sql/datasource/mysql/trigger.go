@@ -45,7 +45,8 @@ func NewMysqlTrigger() *mysqlTrigger {
 
 // LoadOne
 func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (types.TableMeta, error) {
-	tableMeta := types.TableMeta{Name: tableName,
+	tableMeta := types.TableMeta{
+		Name:    tableName,
 		Columns: make(map[string]types.ColumnMeta),
 		Indexs:  make(map[string]types.IndexMeta),
 	}
@@ -135,7 +136,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		col.Schema = tableSchema
 		col.Table = tableName
 		col.ColumnName = strings.Trim(columnName, "` ")
-		col.DataType = sqlUtil.GetSqlDataType(dataType)
+		col.DataType = types.GetSqlDataType(dataType)
 		col.ColumnType = columnType
 		col.ColumnKey = columnKey
 		if strings.ToLower(isNullable) == "yes" {
