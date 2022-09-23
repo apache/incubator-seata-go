@@ -21,7 +21,6 @@ package main
 import (
 	"context"
 	"flag"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -35,7 +34,6 @@ import (
 
 func main() {
 	flag.Parse()
-
 	// to set up grpc env
 	// set up a connection to the server.
 	conn, err := grpc.Dial("localhost:50051",
@@ -46,13 +44,9 @@ func main() {
 	}
 	defer conn.Close()
 	c1, c2 := pb.NewTCCServiceBusiness1Client(conn), pb.NewTCCServiceBusiness2Client(conn)
-	// contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 
-	// to run global transaction
 	client.Init()
-	tm.GlobalTx(ctx, func() (re error) {
+	tm.WithGlobalTx(context.Background(), func(ctx context.Context) (re error) {
 		r1, re := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
 		if re != nil {
 			log.Fatalf("could not do TestTCCServiceBusiness 1: %v", re)

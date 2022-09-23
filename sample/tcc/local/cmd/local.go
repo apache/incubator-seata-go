@@ -28,7 +28,7 @@ import (
 
 func main() {
 	client.Init()
-	tm.GlobalTxWithCtx(context.Background(), business)
+	tm.WithGlobalTx(context.Background(), business)
 	<-make(chan struct{})
 }
 

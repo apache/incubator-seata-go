@@ -40,7 +40,7 @@ func main() {
 }
 
 func run() {
-	tm.GlobalTxWithCtx(context.Background(), business)
+	tm.WithGlobalTx(context.Background(), business)
 	<-make(chan struct{})
 }
 

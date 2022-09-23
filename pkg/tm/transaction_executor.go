@@ -34,26 +34,14 @@ type TransactionInfo struct {
 	LockRetryTimes    int64
 }
 
+// CallbackWithCtx business callback definition
 type CallbackWithCtx func(ctx context.Context) error
 
-type Callback func() error
-
-func GlobalTx(ctx context.Context, business Callback) (re error) {
+// WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
+func WithGlobalTx(ctx context.Context, business CallbackWithCtx) (re error) {
 	if ctx, re = begin(ctx, "DefaultGlobalTransaction"); re != nil {
 		return
 	}
-	defer func() {
-		log.Infof("global transaction result %v", commitOrRollback(ctx, re == nil))
-	}()
-	re = business()
-	return
-}
-
-func GlobalTxWithCtx(ctx context.Context, business CallbackWithCtx) (re error) {
-	if ctx, re = begin(ctx, "DefaultGlobalTransaction"); re != nil {
-		return
-	}
-
 	defer func() {
 		log.Infof("global transaction result %v", commitOrRollback(ctx, re == nil))
 	}()
@@ -62,6 +50,7 @@ func GlobalTxWithCtx(ctx context.Context, business CallbackWithCtx) (re error) {
 	return
 }
 
+// begin begin a global transaction, it will obtain a xid from tc in tcp call.
 func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
