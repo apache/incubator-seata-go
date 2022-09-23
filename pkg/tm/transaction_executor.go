@@ -50,7 +50,7 @@ func WithGlobalTx(ctx context.Context, business CallbackWithCtx) (re error) {
 	return
 }
 
-// begin begin a global transaction, it will obtain a xid from tc in tcp call.
+// begin a global transaction, it will obtain a xid from tc in tcp call.
 func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
@@ -90,7 +90,7 @@ func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	return ctx, re
 }
 
-// commitOrRollback commit global transaction
+// commitOrRollback commit or rollback the global transaction
 func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 	role := *GetTransactionRole(ctx)
 	if role == PARTICIPANT {
