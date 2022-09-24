@@ -28,7 +28,9 @@ import (
 
 func main() {
 	client.Init()
-	tm.WithGlobalTx(context.Background(), business)
+	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+		Name: "TccSampleLocalGlobalTx",
+	}, business)
 	<-make(chan struct{})
 }
 

@@ -46,22 +46,27 @@ func main() {
 	c1, c2 := pb.NewTCCServiceBusiness1Client(conn), pb.NewTCCServiceBusiness2Client(conn)
 
 	client.Init()
-	tm.WithGlobalTx(context.Background(), func(ctx context.Context) (re error) {
-		r1, re := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
-		if re != nil {
-			log.Fatalf("could not do TestTCCServiceBusiness 1: %v", re)
-			return
-		}
-		log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
+	tm.WithGlobalTx(
+		context.Background(),
+		&tm.TransactionInfo{
+			Name: "TccSampleLocalGlobalTx",
+		},
+		func(ctx context.Context) (re error) {
+			r1, re := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
+			if re != nil {
+				log.Fatalf("could not do TestTCCServiceBusiness 1: %v", re)
+				return
+			}
+			log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
 
-		r2, re := c2.Remoting(ctx, &pb.Params{A: "3", B: "4"})
-		if re != nil {
-			log.Fatalf("could not do TestTCCServiceBusiness 2: %v", re)
-			return
-		}
-		log.Infof("TestTCCServiceBusiness#Prepare res: %v", r2)
+			r2, re := c2.Remoting(ctx, &pb.Params{A: "3", B: "4"})
+			if re != nil {
+				log.Fatalf("could not do TestTCCServiceBusiness 2: %v", re)
+				return
+			}
+			log.Infof("TestTCCServiceBusiness#Prepare res: %v", r2)
 
-		return
-	})
+			return
+		})
 	<-make(chan struct{})
 }

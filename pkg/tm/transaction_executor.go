@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -38,8 +40,15 @@ type TransactionInfo struct {
 type CallbackWithCtx func(ctx context.Context) error
 
 // WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
-func WithGlobalTx(ctx context.Context, business CallbackWithCtx) (re error) {
-	if ctx, re = begin(ctx, "DefaultGlobalTransaction"); re != nil {
+func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWithCtx) (re error) {
+	if ti == nil {
+		return errors.New("global transaction config info is required.")
+	}
+	if ti.Name == "" {
+		return errors.New("global transaction name is required.")
+	}
+
+	if ctx, re = begin(ctx, ti.Name); re != nil {
 		return
 	}
 	defer func() {
