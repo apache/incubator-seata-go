@@ -52,8 +52,11 @@ func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWit
 		return
 	}
 	defer func() {
-		log.Infof("global transaction result %v", commitOrRollback(ctx, re == nil))
+		// business maybe to throw panic, so need to recover it here.
+		re = commitOrRollback(ctx, recover() == nil && re == nil)
+		log.Infof("global transaction result %v", re)
 	}()
+
 	re = business(ctx)
 
 	return
