@@ -45,7 +45,8 @@ func NewMysqlTrigger() *mysqlTrigger {
 
 // LoadOne
 func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (types.TableMeta, error) {
-	tableMeta := types.TableMeta{Name: tableName,
+	tableMeta := types.TableMeta{
+		Name:    tableName,
 		Columns: make(map[string]types.ColumnMeta),
 		Indexs:  make(map[string]types.IndexMeta),
 	}
