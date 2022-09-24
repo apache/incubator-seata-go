@@ -124,7 +124,7 @@ func (tx *Tx) commitOnXA() error {
 // commitOnAT
 func (tx *Tx) commitOnAT() error {
 	// if TX-Mode is AT, run regis this transaction branch
-	if err := tx.regis(tx.ctx); err != nil {
+	if err := tx.register(tx.ctx); err != nil {
 		return err
 	}
 
@@ -133,7 +133,7 @@ func (tx *Tx) commitOnAT() error {
 		return err
 	}
 
-	if err := undoLogMgr.FlushUndoLog(tx.ctx, nil); err != nil {
+	if err := undoLogMgr.FlushUndoLog(tx.ctx, tx.conn.targetConn); err != nil {
 		if rerr := tx.report(false); rerr != nil {
 			return errors.WithStack(rerr)
 		}
@@ -151,8 +151,8 @@ func (tx *Tx) commitOnAT() error {
 	return nil
 }
 
-// regis
-func (tx *Tx) regis(ctx *types.TransactionContext) error {
+// register
+func (tx *Tx) register(ctx *types.TransactionContext) error {
 	if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 		return nil
 	}

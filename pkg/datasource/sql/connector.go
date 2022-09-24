@@ -21,14 +21,29 @@ import (
 	"context"
 	"database/sql/driver"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// A Connector represents a driver in a fixed configuration
+// and can create any number of equivalent Conns for use
+// by multiple goroutines.
+//
+// A Connector can be passed to sql.OpenDB, to allow drivers
+// to implement their own sql.DB constructors, or returned by
+// DriverContext's OpenConnector method, to allow drivers
+// access to context and to avoid repeated parsing of driver
+// configuration.
+//
+// If a Connector implements io.Closer, the sql package's DB.Close
+// method will call Close and return error (if any).
 type seataConnector struct {
-	conf   *seataServerConfig
-	res    *DBResource
-	once   sync.Once
-	driver driver.Driver
-	target driver.Connector
+	transType types.TransactionType
+	conf      *seataServerConfig
+	res       *DBResource
+	once      sync.Once
+	driver    driver.Driver
+	target    driver.Connector
 }
 
 // Connect returns a connection to the database.
@@ -50,7 +65,13 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{targetConn: conn, res: c.res}, nil
+	if c.transType == types.ATMode {
+		return &ATConn{
+			Conn: &Conn{txType: c.transType, targetConn: conn, res: c.res},
+		}, nil
+	}
+
+	return &XAConn{Conn: &Conn{txType: c.transType, targetConn: conn, res: c.res}}, nil
 }
 
 // Driver returns the underlying Driver of the Connector,
