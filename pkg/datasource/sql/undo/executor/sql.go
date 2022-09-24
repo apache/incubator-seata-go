@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package sql
+package executor
 
 import (
 	"strings"
@@ -152,7 +152,7 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 func checkEscape(colName string, dbType types.DBType) bool {
 	switch dbType {
 	case types.DBTypeMySQL:
-		if _, ok := GetMysqlKeyWord()[strings.ToUpper(colName)]; ok {
+		if _, ok := types.GetMysqlKeyWord()[strings.ToUpper(colName)]; ok {
 			return true
 		}
 

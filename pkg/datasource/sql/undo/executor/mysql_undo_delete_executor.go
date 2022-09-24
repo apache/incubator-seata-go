@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 )
@@ -105,7 +104,7 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog i
 	insertValueSlice := make([]string, 0)
 
 	for key, _ := range fields {
-		insertColumnSlice = append(insertColumnSlice, sqlUtil.AddEscape(fields[key].Name, dbType))
+		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].Name, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}
 

@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 
-	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 )
@@ -109,7 +108,7 @@ func (m *MySQLUndoInsertExecutor) generateDeleteSql(
 		pkList = append(pkList, colImages[key].Name)
 	}
 
-	whereSql := sqlUtil.BuildWhereConditionByPKs(pkList, dbType)
+	whereSql := BuildWhereConditionByPKs(pkList, dbType)
 
 	return fmt.Sprintf(DeleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package sql
+package executor
 
 import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

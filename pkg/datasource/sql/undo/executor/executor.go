@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/seata/seata-go/pkg/common/log"
-	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
@@ -93,7 +92,7 @@ func (b *BaseExecutor) GetOrderedPkList(image *types.RecordImage, row types.RowI
 	pkFields := make([]types.ColumnImage, 0)
 
 	for _, column := range row.PrimaryKeys(row.Columns) {
-		column.Name = sqlUtil.DelEscape(column.Name, dbType)
+		column.Name = DelEscape(column.Name, dbType)
 		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
 	}
 

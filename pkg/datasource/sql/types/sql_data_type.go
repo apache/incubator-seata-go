@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package sql
+package types
 
 import "strings"
 

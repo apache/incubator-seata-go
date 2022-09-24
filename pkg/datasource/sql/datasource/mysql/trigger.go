@@ -20,10 +20,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	sqlUtil "github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 	"strings"
 
 	"github.com/pkg/errors"
-	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -135,7 +135,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		col.Schema = tableSchema
 		col.Table = tableName
 		col.ColumnName = strings.Trim(columnName, "` ")
-		col.DataType = sqlUtil.GetSqlDataType(dataType)
+		col.DataType = types.GetSqlDataType(dataType)
 		col.ColumnType = columnType
 		col.ColumnKey = columnKey
 		if strings.ToLower(isNullable) == "yes" {

@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strings"
 
-	sqlUtil "github.com/seata/seata-go/pkg/common/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/impl"
 )
@@ -94,7 +93,7 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog i
 	pkNameList := make([]string, 0)
 	nonPkFields := row.NonPrimaryKeys(row.Columns)
 	for key, _ := range nonPkFields {
-		updateColumnSlice = append(updateColumnSlice, sqlUtil.AddEscape(nonPkFields[key].Name, dbType)+" = ? ")
+		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].Name, dbType)+" = ? ")
 	}
 
 	updateColumns = strings.Join(updateColumnSlice, ", ")
@@ -107,7 +106,7 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog i
 		pkNameList = append(pkNameList, pkList[key].Name)
 	}
 
-	whereSql := sqlUtil.BuildWhereConditionByPKs(pkNameList, dbType)
+	whereSql := BuildWhereConditionByPKs(pkNameList, dbType)
 
 	return fmt.Sprintf(UpdateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
 }
