@@ -36,6 +36,9 @@ var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 
+// CheckUndoLogTableExistSql check undo log if exist
+const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
 
@@ -114,7 +117,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	_, err = conn.QueryContext(ctx, constant.CheckUndoLogTableExistSql)
+	_, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql)
 	// 1146 mysql table not exist fault code
 	if err != nil && strings.Contains(err.Error(), constant.ErrCodeTableNotExist) {
 		return false, nil
