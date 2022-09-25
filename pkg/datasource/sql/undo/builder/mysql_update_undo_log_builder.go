@@ -44,22 +44,20 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ex
 			vals[n] = param.Value
 		}
 	}
-	querySQL, selectArgs, err := u.buildUndoLogSelectSQL(execCtx.Query, vals)
+	selectSQL, selectArgs, err := u.buildUndoLogSelectSQL(execCtx.Query, vals)
 	if err != nil {
 		return nil, err
 	}
 
-	stmt, err := execCtx.Conn.Prepare(querySQL)
+	stmt, err := execCtx.Conn.Prepare(selectSQL)
 	if err != nil {
+		log.Errorf("build prepare stmt: %+v", err)
 		return nil, err
 	}
 
 	rows, err := stmt.Query(selectArgs)
 	if err != nil {
-		return nil, err
-	}
-
-	if err != nil {
+		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
 
@@ -114,6 +112,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildUndoLogSelectSQL(query string, args []d
 	}
 
 	if p.UpdateStmt == nil {
+		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
@@ -140,7 +139,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildUndoLogSelectSQL(query string, args []d
 	b := bytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
-	log.Infof("build select sql by update sourceSQL, sql {}", sql)
+	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }

@@ -21,10 +21,8 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
 	_ "github.com/arana-db/parser/test_driver"
 	_ "github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,64 +33,42 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		sourceSQL       string
-		sourceArgs      []driver.Value
+		sourceQuery     string
+		sourceQueryArgs []driver.Value
 		expectQuery     string
 		expectQueryArgs []driver.Value
 	}{
 		{
-			sourceSQL:       "update t_user set name = ?, age = ? where id = ?",
-			sourceArgs:      []driver.Value{"Jack", 1, 100},
+			sourceQuery:     "update t_user set name = ?, age = ? where id = ?",
+			sourceQueryArgs: []driver.Value{"Jack", 1, 100},
 			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=?",
 			expectQueryArgs: []driver.Value{100},
 		},
 		{
-			sourceSQL:       "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age between ? and ?",
-			sourceArgs:      []driver.Value{"Jack", 1, 100, 18, 28},
+			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age between ? and ?",
+			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
 			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ?",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
-			sourceSQL:       "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age in (?,?)",
-			sourceArgs:      []driver.Value{"Jack", 1, 100, 18, 28},
+			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age in (?,?)",
+			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
 			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age IN (?,?)",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
-			sourceSQL:       "update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name desc limit ?",
-			sourceArgs:      []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2},
+			sourceQuery:     "update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name desc limit ?",
+			sourceQueryArgs: []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2},
 			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE kk BETWEEN ? AND ? AND id=? AND addr IN (?,?) AND age>? ORDER BY name DESC LIMIT ?",
 			expectQueryArgs: []driver.Value{10, 20, 17, "Beijing", "Guangzhou", 18, 2},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query, args, err := builder.buildUndoLogSelectSQL(tt.sourceSQL, tt.sourceArgs)
+			query, args, err := builder.buildUndoLogSelectSQL(tt.sourceQuery, tt.sourceQueryArgs)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, args)
 		})
 	}
-}
-
-func TestBuildRecordImages(t *testing.T) {
-	query := "update t_user set name = 'Jack', age = 12, addr = ? where id = ?"
-
-	p, err := parser.DoParser(query)
-	assert.Nil(t, err)
-
-	fields := []*ast.SelectField{}
-	fieldNames := make([]string, 0)
-
-	for _, column := range p.UpdateStmt.List {
-		fields = append(fields, &ast.SelectField{
-			Expr: &ast.ColumnNameExpr{
-				Name: column.Column,
-			},
-		})
-		fieldNames = append(fieldNames, column.Column.Name.O)
-	}
-
-	assert.NotNil(t, fields)
-	assert.NotNil(t, fieldNames)
 }
