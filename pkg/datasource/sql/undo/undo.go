@@ -41,7 +41,7 @@ type undoLogMgrHolder struct {
 	mgr  UndoLogManager
 }
 
-func RegistrUndoLogManager(m UndoLogManager) error {
+func RegisterUndoLogManager(m UndoLogManager) error {
 	if _, exist := solts[m.DBType()]; exist {
 		return nil
 	}

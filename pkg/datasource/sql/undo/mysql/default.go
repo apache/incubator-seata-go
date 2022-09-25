@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	if err := undo.RegistrUndoLogManager(&undoLogManager{}); err != nil {
+	if err := undo.RegisterUndoLogManager(&undoLogManager{}); err != nil {
 		panic(errors.WithStack(err))
 	}
 }
