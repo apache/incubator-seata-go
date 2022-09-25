@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
@@ -34,7 +35,34 @@ import (
 
 const REPORT_RETRY_COUNT = 5
 
-type txOption func(tx *Tx)
+var (
+	hl      sync.RWMutex
+	txHooks []txHook
+)
+
+func RegisterTxHook(h txHook) {
+	hl.Lock()
+	defer hl.Unlock()
+
+	txHooks = append(txHooks, h)
+}
+
+func CleanTxHooks() {
+	hl.Lock()
+	defer hl.Unlock()
+
+	txHooks = make([]txHook, 0, 4)
+}
+
+type (
+	txOption func(tx *Tx)
+
+	txHook interface {
+		BeforeCommit(tx *Tx)
+
+		BeforeRollback(tx *Tx)
+	}
+)
 
 func newTx(opts ...txOption) (driver.Tx, error) {
 	tx := new(Tx)
@@ -83,6 +111,15 @@ type Tx struct {
 // case 2. not need flush undolog, is XA mode, do local transaction commit
 // case 3. need run AT transaction
 func (tx *Tx) Commit() error {
+	if len(txHooks) != 0 {
+		hl.RLock()
+		defer hl.RUnlock()
+
+		for i := range txHooks {
+			txHooks[i].BeforeCommit(tx)
+		}
+	}
+
 	if tx.ctx.TransType == types.Local {
 		return tx.commitOnLocal()
 	}
@@ -96,6 +133,15 @@ func (tx *Tx) Commit() error {
 }
 
 func (tx *Tx) Rollback() error {
+	if len(txHooks) != 0 {
+		hl.RLock()
+		defer hl.RUnlock()
+
+		for i := range txHooks {
+			txHooks[i].BeforeRollback(tx)
+		}
+	}
+
 	err := tx.target.Rollback()
 	if err != nil {
 		if tx.ctx.OpenGlobalTrsnaction() && tx.ctx.IsBranchRegistered() {

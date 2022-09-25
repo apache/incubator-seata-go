@@ -35,6 +35,10 @@ func RegisCommonHook(hook SQLInterceptor) {
 	commonHook = append(commonHook, hook)
 }
 
+func CleanCommonHook() {
+	commonHook = make([]SQLInterceptor, 0, 4)
+}
+
 // RegisHook not goroutine safe
 func RegisHook(hook SQLInterceptor) {
 	_, ok := hookSolts[hook.Type()]

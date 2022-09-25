@@ -15,15 +15,32 @@
  * limitations under the License.
  */
 
-package sql
+package mock
 
-import (
-	"context"
+import "database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/tm"
-)
+type TestDriverConnector interface {
+	driver.Connector
+}
 
-// IsGlobalTx check is open global transactions
-func IsGlobalTx(ctx context.Context) bool {
-	return tm.IsTransactionOpened(ctx)
+type TestDriverConn interface {
+	driver.Conn
+	driver.ConnBeginTx
+	driver.Pinger
+	driver.ConnPrepareContext
+	driver.Queryer
+	driver.QueryerContext
+	driver.Execer
+	driver.ExecerContext
+	driver.SessionResetter
+}
+
+type TestDriverStmt interface {
+	driver.Stmt
+	driver.StmtQueryContext
+	driver.StmtExecContext
+}
+
+type TestDriverTx interface {
+	driver.Tx
 }

@@ -25,17 +25,16 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-
 // Conn is a connection to a database. It is not used concurrently
 // by multiple goroutines.
 //
 // Conn is assumed to be stateful.
 
 type Conn struct {
-	txType            types.TransactionType
-	res               *DBResource
-	txCtx             *types.TransactionContext
-	targetConn        driver.Conn
+	txType     types.TransactionType
+	res        *DBResource
+	txCtx      *types.TransactionContext
+	targetConn driver.Conn
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -47,6 +46,7 @@ func (c *Conn) ResetSession(ctx context.Context) error {
 		return driver.ErrSkip
 	}
 
+	c.txType = types.Local
 	c.txCtx = nil
 	return conn.ResetSession(ctx)
 }
@@ -69,8 +69,6 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 
 // PrepareContext
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	c.createTxCtxIfAbsent(ctx)
-
 	conn, ok := c.targetConn.(driver.ConnPrepareContext)
 	if !ok {
 		stmt, err := c.targetConn.Prepare(query)
@@ -103,7 +101,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	}
 
 	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, query)
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 		if err != nil {
 			return nil, err
 		}
@@ -133,8 +131,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 
 // ExecContext
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	c.createTxCtxIfAbsent(ctx)
-
 	targetConn, ok := c.targetConn.(driver.ExecerContext)
 	if ok {
 		values := make([]driver.Value, 0, len(args))
@@ -147,7 +143,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 	}
 
 	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, query)
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 		if err != nil {
 			return nil, err
 		}
@@ -177,40 +173,6 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 	return ret.GetResult(), nil
 }
 
-func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (types.ExecResult, error) {
-	var (
-		tx  driver.Tx
-		err error
-	)
-
-	if c.txCtx.TransType != types.Local {
-		tx, err = c.Begin()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
-		}
-	}()
-
-	ret, err := f()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-	}
-
-	return ret, nil
-}
-
 // Query
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	conn, ok := c.targetConn.(driver.Queryer)
@@ -218,7 +180,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +220,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return c.Query(query, values)
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 	if err != nil {
 		return nil, err
 	}
@@ -307,18 +269,9 @@ func (c *Conn) Begin() (driver.Tx, error) {
 	)
 }
 
-// BeginTx Open a transaction and judge whether the current transaction needs to open a 
+// BeginTx Open a transaction and judge whether the current transaction needs to open a
 // 	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-
-	c.txCtx = types.NewTxCtx()
-	c.txCtx.DBType = c.res.dbType
-	c.txCtx.TxOpt = opts
-
-	if IsGlobalTx(ctx) {
-		c.txCtx.TransType = c.txType
-	}
-
 	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
 		tx, err := conn.BeginTx(ctx, opts)
 		if err != nil {
@@ -359,10 +312,36 @@ func (c *Conn) Close() error {
 	return c.targetConn.Close()
 }
 
-func (c *Conn) createTxCtxIfAbsent(ctx context.Context) {
-	if IsGlobalTx(ctx) && c.txCtx != nil {
-		c.txCtx = types.NewTxCtx()
-		c.txCtx.DBType = c.res.dbType
-		c.txCtx.TransType = c.txType
+func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (types.ExecResult, error) {
+	var (
+		tx  driver.Tx
+		err error
+	)
+
+	if c.txCtx.TransType != types.Local {
+		tx, err = c.Begin()
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	ret, err := f()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
 }

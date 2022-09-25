@@ -17,6 +17,69 @@
 
 package sql
 
+import (
+	"context"
+	"database/sql/driver"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/tm"
+)
+
 type XAConn struct {
 	*Conn
+}
+
+// PrepareContext
+func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if c.createTxCtxIfAbsent(ctx) {
+		defer func() {
+			c.txCtx = nil
+		}()
+	}
+
+	return c.Conn.PrepareContext(ctx, query)
+}
+
+// ExecContext
+func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if c.createTxCtxIfAbsent(ctx) {
+		defer func() {
+			c.txCtx = nil
+		}()
+	}
+
+	return c.Conn.ExecContext(ctx, query, args)
+}
+
+// BeginTx
+func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	c.txCtx = types.NewTxCtx()
+	c.txCtx.DBType = c.res.dbType
+	c.txCtx.TxOpt = opts
+
+	if IsGlobalTx(ctx) {
+		c.txCtx.TransType = types.XAMode
+		c.txCtx.XaID = tm.GetXID(ctx)
+	}
+
+	return c.Conn.BeginTx(ctx, opts)
+}
+
+func (c *XAConn) createTxCtxIfAbsent(ctx context.Context) bool {
+	var onceTx bool
+
+	if IsGlobalTx(ctx) && c.txCtx == nil {
+		c.txCtx = types.NewTxCtx()
+		c.txCtx.DBType = c.res.dbType
+		c.txCtx.XaID = tm.GetXID(ctx)
+		c.txCtx.TransType = types.XAMode
+		onceTx = true
+	}
+
+	if c.txCtx == nil {
+		c.txCtx = types.NewTxCtx()
+		onceTx = true
+	}
+
+	return onceTx
 }

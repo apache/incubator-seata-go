@@ -60,8 +60,36 @@ type seataATDriver struct {
 	*seataDriver
 }
 
+func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err error) {
+	connector, err := d.seataDriver.OpenConnector(name)
+	if err != nil {
+		return nil, err
+	}
+
+	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.ATMode
+
+	return &seataATConnector{
+		seataConnector: _connector,
+	}, nil
+}
+
 type seataXADriver struct {
 	*seataDriver
+}
+
+func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err error) {
+	connector, err := d.seataDriver.OpenConnector(name)
+	if err != nil {
+		return nil, err
+	}
+
+	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.XAMode
+
+	return &seataXAConnector{
+		seataConnector: _connector,
+	}, nil
 }
 
 type seataDriver struct {
@@ -165,7 +193,6 @@ func registerResource(connector driver.Connector, txType types.TransactionType, 
 	}
 
 	return &seataConnector{
-		transType: txType,
 		res:       res,
 		target:    connector,
 		conf:      conf,

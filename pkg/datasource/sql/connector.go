@@ -25,6 +25,54 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+type seataATConnector struct {
+	*seataConnector
+	transType types.TransactionType
+}
+
+func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.seataConnector.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_conn, _ := conn.(*Conn)
+
+	return &ATConn{
+		Conn: _conn,
+	}, nil
+}
+
+func (c *seataATConnector) Driver() driver.Driver {
+	return &seataATDriver{
+		seataDriver: c.seataConnector.Driver().(*seataDriver),
+	}
+}
+
+type seataXAConnector struct {
+	*seataConnector
+	transType types.TransactionType
+}
+
+func (c *seataXAConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.seataConnector.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_conn, _ := conn.(*Conn)
+
+	return &XAConn{
+		Conn: _conn,
+	}, nil
+}
+
+func (c *seataXAConnector) Driver() driver.Driver {
+	return &seataXADriver{
+		seataDriver: c.seataConnector.Driver().(*seataDriver),
+	}
+}
+
 // A Connector represents a driver in a fixed configuration
 // and can create any number of equivalent Conns for use
 // by multiple goroutines.
@@ -65,13 +113,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	if c.transType == types.ATMode {
-		return &ATConn{
-			Conn: &Conn{txType: c.transType, targetConn: conn, res: c.res},
-		}, nil
-	}
-
-	return &XAConn{Conn: &Conn{txType: c.transType, targetConn: conn, res: c.res}}, nil
+	return &Conn{txType: types.Local, targetConn: conn, res: c.res}, nil
 }
 
 // Driver returns the underlying Driver of the Connector,
@@ -83,5 +125,7 @@ func (c *seataConnector) Driver() driver.Driver {
 		c.driver = d
 	})
 
-	return &SeataDriver{target: c.driver}
+	return &seataDriver{
+		target: c.driver,
+	}
 }
