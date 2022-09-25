@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/arana-db/parser/mysql"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -119,7 +120,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
 	_, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql)
 	// 1146 mysql table not exist fault code
-	if err != nil && strings.Contains(err.Error(), constant.ErrCodeTableNotExist) {
+	if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 		return false, nil
 	}
 

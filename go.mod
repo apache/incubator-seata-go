@@ -7,6 +7,7 @@ require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
+	github.com/arana-db/parser v0.2.5
 	github.com/dubbogo/gost v1.12.5
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.6.0
