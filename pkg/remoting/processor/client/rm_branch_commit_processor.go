@@ -52,7 +52,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 
 	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, branchResource)
 	if err != nil {
-		log.Infof("branch commit error: %s", err.Error())
+		log.Errorf("branch commit error: %s", err.Error())
 		return err
 	}
 	log.Infof("branch commit success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
@@ -69,7 +69,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 	}
 
 	// reply commit response to tc server
-	// todo add TransactionExceptionCode
+	// todo add TransactionErrorCode
 	response := message.BranchCommitResponse{
 		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
