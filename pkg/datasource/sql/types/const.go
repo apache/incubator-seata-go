@@ -79,6 +79,8 @@ var (
 	ScanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
+// JDBCType's source is seata java: java.sql.Types.java
+// it used in  undo_log.rollback_info.sqlUndoLogs.afterImage.rows.fields.type field
 type JDBCType int16
 
 const (
