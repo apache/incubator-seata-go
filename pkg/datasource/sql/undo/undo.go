@@ -24,17 +24,24 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 )
 
+func init() {
+	RegistrUndoLogBuilder(&builder.MySQLUpdateUndoLogBuilder{})
+}
+
 var solts = map[types.DBType]*undoLogMgrHolder{}
+var builders = map[types.SQLType]UndoLogBuilder{}
 
 type undoLogMgrHolder struct {
 	once sync.Once
 	mgr  UndoLogManager
 }
 
-func Regis(m UndoLogManager) error {
+func RegistrUndoLogManager(m UndoLogManager) error {
 	if _, exist := solts[m.DBType()]; exist {
 		return nil
 	}
@@ -44,6 +51,16 @@ func Regis(m UndoLogManager) error {
 		once: sync.Once{},
 	}
 	return nil
+}
+
+func RegistrUndoLogBuilder(m UndoLogBuilder) {
+	if _, ok := builders[m.GetSQLType()]; !ok {
+		builders[m.GetSQLType()] = m
+	}
+}
+
+func GetUndologBuilder(sqlType types.SQLType) UndoLogBuilder {
+	return builders[sqlType]
 }
 
 // UndoLogManager
@@ -110,4 +127,10 @@ type UndoLogParser interface {
 	Encode(l BranchUndoLog) []byte
 	// Decode
 	Decode(b []byte) BranchUndoLog
+}
+
+type UndoLogBuilder interface {
+	BeforeImage(ctx context.Context, execCtx *exec.ExecContext) (*types.RecordImage, error)
+	AfterImage(types.RecordImages) (*types.RecordImages, error)
+	GetSQLType() types.SQLType
 }

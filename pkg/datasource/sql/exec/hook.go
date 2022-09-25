@@ -25,22 +25,22 @@ import (
 )
 
 var (
-	commonHook = make([]SQLInterceptor, 0, 4)
+	commonHook = make([]SQLHook, 0, 4)
 	// todo support distinguish between different db type
-	hookSolts = map[types.SQLType][]SQLInterceptor{}
+	hookSolts = map[types.SQLType][]SQLHook{}
 )
 
 // RegisCommonHook not goroutine safe
-func RegisCommonHook(hook SQLInterceptor) {
+func RegisCommonHook(hook SQLHook) {
 	commonHook = append(commonHook, hook)
 }
 
 // RegisHook not goroutine safe
-func RegisHook(hook SQLInterceptor) {
+func RegisHook(hook SQLHook) {
 	_, ok := hookSolts[hook.Type()]
 
 	if !ok {
-		hookSolts[hook.Type()] = make([]SQLInterceptor, 0, 4)
+		hookSolts[hook.Type()] = make([]SQLHook, 0, 4)
 	}
 
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
@@ -52,18 +52,21 @@ type ExecContext struct {
 	Query       string
 	NamedValues []driver.NamedValue
 	Values      []driver.Value
+	// metaData
+	MetaData types.TableMeta
+	Conn     driver.Conn
 }
 
 // SQLHook SQL execution front and back interceptor
 // case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
 // case 2. Burning point to report
 // case 3. SQL black and white list
-type SQLInterceptor interface {
+type SQLHook interface {
 	Type() types.SQLType
 
 	// Before
-	Before(ctx context.Context, execCtx *ExecContext)
+	Before(ctx context.Context, execCtx *ExecContext) error
 
 	// After
-	After(ctx context.Context, execCtx *ExecContext)
+	After(ctx context.Context, execCtx *ExecContext) error
 }

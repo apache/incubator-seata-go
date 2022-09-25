@@ -48,7 +48,7 @@ type (
 
 	SQLExecutor interface {
 		// Interceptors
-		interceptors(interceptors []SQLInterceptor)
+		interceptors(interceptors []SQLHook)
 		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
@@ -63,7 +63,7 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 		return nil, err
 	}
 
-	hooks := make([]SQLInterceptor, 0, 4)
+	hooks := make([]SQLHook, 0, 4)
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
 
@@ -90,12 +90,12 @@ func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
 }
 
 type BaseExecutor struct {
-	is []SQLInterceptor
+	is []SQLHook
 	ex SQLExecutor
 }
 
 // Interceptors
-func (e *BaseExecutor) interceptors(interceptors []SQLInterceptor) {
+func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
 	e.is = interceptors
 }
 

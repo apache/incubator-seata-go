@@ -24,11 +24,10 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unsafe"
-
-	"github.com/seata/seata-go/pkg/common/log"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/common/reflectx"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -67,7 +66,7 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	SetUnexportedField(field, proxy)
+	reflectx.SetUnexportedField(field, proxy)
 	return conn, nil
 }
 
@@ -191,14 +190,4 @@ func parseResourceID(dsn string) string {
 	}
 
 	return strings.ReplaceAll(res, ",", "|")
-}
-
-func GetUnexportedField(field reflect.Value) interface{} {
-	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
-}
-
-func SetUnexportedField(field reflect.Value, value interface{}) {
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
-		Elem().
-		Set(reflect.ValueOf(value))
 }
