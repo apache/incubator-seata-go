@@ -118,8 +118,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	_, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql)
-	if err != nil {
+	if _, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql); err != nil {
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
