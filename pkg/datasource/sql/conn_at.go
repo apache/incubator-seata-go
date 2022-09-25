@@ -72,6 +72,7 @@ func (c *ATConn) createTxCtxIfAbsent(ctx context.Context) bool {
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
+		c.autoCommit = true
 		onceTx = true
 	}
 

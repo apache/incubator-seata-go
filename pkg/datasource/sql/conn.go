@@ -35,6 +35,7 @@ type Conn struct {
 	res        *DBResource
 	txCtx      *types.TransactionContext
 	targetConn driver.Conn
+	autoCommit bool
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -318,7 +319,7 @@ func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (type
 		err error
 	)
 
-	if c.txCtx.TransType != types.Local {
+	if c.txCtx.TransType != types.Local && c.autoCommit {
 		tx, err = c.Begin()
 		if err != nil {
 			return nil, err

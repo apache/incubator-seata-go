@@ -73,6 +73,7 @@ func (c *XAConn) createTxCtxIfAbsent(ctx context.Context) bool {
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.XAMode
+		c.autoCommit = true
 		onceTx = true
 	}
 
