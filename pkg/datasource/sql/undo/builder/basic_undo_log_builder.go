@@ -128,9 +128,6 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		return
 	}
 	switch node.(type) {
-	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
 	case *ast.BinaryOperationExpr:
 		b.traversalArgs(node.(*ast.BinaryOperationExpr).L, argsIndex)
 		b.traversalArgs(node.(*ast.BinaryOperationExpr).R, argsIndex)
@@ -143,6 +140,9 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		for i := 0; i < len(node.(*ast.PatternInExpr).List); i++ {
 			b.traversalArgs(node.(*ast.PatternInExpr).List[i], argsIndex)
 		}
+		break
+	case *test_driver.ParamMarkerExpr:
+		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
 		break
 	}
 }
