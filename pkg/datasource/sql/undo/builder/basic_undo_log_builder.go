@@ -20,6 +20,7 @@ package builder
 import (
 	"database/sql"
 	"database/sql/driver"
+	"io"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
@@ -144,4 +145,40 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		}
 		break
 	}
+}
+
+func (u *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData types.TableMeta) (*types.RecordImage, error) {
+	// select column names
+	columnNames := rowsi.Columns()
+	rowImages := make([]types.RowImage, 0)
+	ss := u.getScanSlice(columnNames, tableMetaData)
+
+	for {
+		err := rowsi.Next(ss)
+		if err == io.EOF {
+			break
+		}
+
+		columns := make([]types.ColumnImage, 0)
+		// build record image
+		for i, name := range columnNames {
+			columnMeta := tableMetaData.Columns[name]
+
+			keyType := types.IndexTypeNull
+			if data, ok := tableMetaData.Indexs[name]; ok {
+				keyType = data.IType
+			}
+			jdbcType := types.GetJDBCTypeByTypeName(columnMeta.Info.DatabaseTypeName())
+
+			columns = append(columns, types.ColumnImage{
+				KeyType: keyType,
+				Name:    name,
+				Type:    int16(jdbcType),
+				Value:   ss[i],
+			})
+		}
+		rowImages = append(rowImages, types.RowImage{Columns: columns})
+	}
+
+	return &types.RecordImage{TableName: tableMetaData.Name, Rows: rowImages}, nil
 }
