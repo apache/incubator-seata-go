@@ -21,7 +21,6 @@ package main
 import (
 	"context"
 	"flag"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,9 +33,9 @@ import (
 )
 
 func main() {
-	client.Init()
 	flag.Parse()
-	// Set up a connection to the server.
+	// to set up grpc env
+	// set up a connection to the server.
 	conn, err := grpc.Dial("localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(grpc2.ClientTransactionInterceptor))
@@ -44,34 +43,30 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c1 := pb.NewTCCServiceBusiness1Client(conn)
-	c2 := pb.NewTCCServiceBusiness2Client(conn)
-	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	c1, c2 := pb.NewTCCServiceBusiness1Client(conn), pb.NewTCCServiceBusiness2Client(conn)
 
-	// GlobalTransactional is starting
-	log.Infof("global transaction begin")
-	ctx = tm.Begin(ctx, "TestTCCServiceBusiness")
-	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		log.Infof("tx result %v", resp)
-		<-make(chan bool)
-	}()
-	defer cancel()
+	client.Init()
+	tm.WithGlobalTx(
+		context.Background(),
+		&tm.TransactionInfo{
+			Name: "TccSampleLocalGlobalTx",
+		},
+		func(ctx context.Context) (re error) {
+			r1, re := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
+			if re != nil {
+				log.Fatalf("could not do TestTCCServiceBusiness 1: %v", re)
+				return
+			}
+			log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
 
-	// BranchTransactional 1 remoting running
-	log.Infof("branch transaction 1 begin")
-	r1, err := c1.Remoting(ctx, &pb.Params{A: "1", B: "2"})
-	if err != nil {
-		log.Fatalf("could not do TestTCCServiceBusiness 1: %v", err)
-	}
-	log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
+			r2, re := c2.Remoting(ctx, &pb.Params{A: "3", B: "4"})
+			if re != nil {
+				log.Fatalf("could not do TestTCCServiceBusiness 2: %v", re)
+				return
+			}
+			log.Infof("TestTCCServiceBusiness#Prepare res: %v", r2)
 
-	// BranchTransactional 2 remoting running
-	log.Infof("branch transaction 2 begin")
-	r2, err := c2.Remoting(ctx, &pb.Params{A: "3", B: "4"})
-	if err != nil {
-		log.Fatalf("could not do TestTCCServiceBusiness 2: %v", err)
-	}
-	log.Infof("TestTCCServiceBusiness#Prepare res: %v", r2)
+			return
+		})
+	<-make(chan struct{})
 }

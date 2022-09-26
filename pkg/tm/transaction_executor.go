@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
@@ -34,7 +36,34 @@ type TransactionInfo struct {
 	LockRetryTimes    int64
 }
 
-func Begin(ctx context.Context, name string) context.Context {
+// CallbackWithCtx business callback definition
+type CallbackWithCtx func(ctx context.Context) error
+
+// WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
+func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWithCtx) (re error) {
+	if ti == nil {
+		return errors.New("global transaction config info is required.")
+	}
+	if ti.Name == "" {
+		return errors.New("global transaction name is required.")
+	}
+
+	if ctx, re = begin(ctx, ti.Name); re != nil {
+		return
+	}
+	defer func() {
+		// business maybe to throw panic, so need to recover it here.
+		re = commitOrRollback(ctx, recover() == nil && re == nil)
+		log.Infof("global transaction result %v", re)
+	}()
+
+	re = business(ctx)
+
+	return
+}
+
+// begin a global transaction, it will obtain a xid from tc in tcp call.
+func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
 	}
@@ -67,14 +96,14 @@ func Begin(ctx context.Context, name string) context.Context {
 	// todo timeout should read from config
 	err := GetGlobalTransactionManager().Begin(ctx, tx, time.Second*30, name)
 	if err != nil {
-		panic(fmt.Sprintf("transactionTemplate: begin transaction failed, error %v", err))
+		re = fmt.Errorf("transactionTemplate: begin transaction failed, error %v", err)
 	}
 
-	return ctx
+	return ctx, re
 }
 
-// CommitOrRollback commit global transaction
-func CommitOrRollback(ctx context.Context, isSuccess bool) (re error) {
+// commitOrRollback commit or rollback the global transaction
+func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 	role := *GetTransactionRole(ctx)
 	if role == PARTICIPANT {
 		// Participant has no responsibility of rollback

@@ -14,37 +14,27 @@ import (
 )
 
 func main() {
-	client.Init()
 	flag.Parse()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	client.Init()
+	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
-
-	var err error
-
-	// GlobalTransactional is starting
-	log.Infof("global transaction begin")
-	ctx = tm.Begin(ctx, "TestTCCServiceBusiness")
-	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		log.Infof("tx result %v", resp)
-		<-make(chan bool)
-	}()
-
 	var serverIpPort = "http://127.0.0.1:8080"
-	request := gorequest.New()
 
-	var xid string
-	if tm.IsSeataContext(ctx) {
-		xid = tm.GetXID(ctx)
-	}
-
-	log.Infof("branch transaction begin")
-	request.Post(serverIpPort+"/prepare").
-		Set(common.XidKey, xid).
-		End(func(response gorequest.Response, body string, errs []error) {
-			if len(errs) != 0 {
-				err = errs[0]
-			}
+	tm.WithGlobalTx(
+		bgCtx,
+		&tm.TransactionInfo{
+			Name: "TccSampleLocalGlobalTx",
+		},
+		func(ctx context.Context) (re error) {
+			request := gorequest.New()
+			log.Infof("branch transaction begin")
+			request.Post(serverIpPort+"/prepare").
+				Set(common.XidKey, tm.GetXID(ctx)).
+				End(func(response gorequest.Response, body string, errs []error) {
+					if len(errs) != 0 {
+						re = errs[0]
+					}
+				})
+			return
 		})
 }
