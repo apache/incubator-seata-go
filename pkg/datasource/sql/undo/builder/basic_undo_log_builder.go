@@ -20,10 +20,10 @@ package builder
 import (
 	"database/sql"
 	"database/sql/driver"
+	"github.com/arana-db/parser/test_driver"
 	"io"
 
 	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -128,12 +128,12 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		return
 	}
 	switch node.(type) {
+	case *test_driver.ParamMarkerExpr:
+		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
+		break
 	case *ast.BinaryOperationExpr:
 		b.traversalArgs(node.(*ast.BinaryOperationExpr).L, argsIndex)
 		b.traversalArgs(node.(*ast.BinaryOperationExpr).R, argsIndex)
-		break
-	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
 		break
 	case *ast.BetweenExpr:
 		b.traversalArgs(node.(*ast.BetweenExpr).Left, argsIndex)
