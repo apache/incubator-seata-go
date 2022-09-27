@@ -15,34 +15,30 @@
  * limitations under the License.
  */
 
-package main
+package tm
 
 import (
-	"context"
+	"sync"
 
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/local/service"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func main() {
-	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
+var onceInitTmClient sync.Once
+
+// InitTmClient init seata tm client
+func InitTmClient() {
+	onceInitTmClient.Do(func() {
+		initConfig()
+		initRemoting()
+	})
 }
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
-		return
-	}
+// initConfig init config processor
+func initConfig() {
+	// todo implement
+}
 
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
-	}
-	return
+// initRemoting init rpc client
+func initRemoting() {
+	getty.InitRpcClient()
 }

@@ -19,29 +19,35 @@ package sql
 
 import (
 	"context"
-	gosql "database/sql"
 	"database/sql/driver"
-	"errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// Conn is a connection to a database. It is not used concurrently
+// by multiple goroutines.
+//
+// Conn is assumed to be stateful.
+
 type Conn struct {
-	res               *DBResource
-	txCtx             *types.TransactionContext
-	targetConn        driver.Conn
-	isInTransaction   bool
-	autoCommit        bool
-	autoCommitChanged bool
+	txType     types.TransactionType
+	res        *DBResource
+	txCtx      *types.TransactionContext
+	targetConn driver.Conn
+	autoCommit bool
 }
 
+// ResetSession is called prior to executing a query on the connection
+// if the connection has been used before. If the driver returns ErrBadConn
+// the connection is discarded.
 func (c *Conn) ResetSession(ctx context.Context) error {
 	conn, ok := c.targetConn.(driver.SessionResetter)
 	if !ok {
 		return driver.ErrSkip
 	}
 
+	c.txType = types.Local
 	c.txCtx = nil
 	return conn.ResetSession(ctx)
 }
@@ -95,9 +101,8 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 		return nil, driver.ErrSkip
 	}
 
-	if c.txCtx != nil {
-		// in transaction, need run Executor
-		executor, err := exec.BuildExecutor(c.res.dbType, query)
+	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +114,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			Conn:   c.targetConn,
 		}
 
-		ret, err := executor.ExecWithValue(context.Background(), execCtx,
+		return executor.ExecWithValue(context.Background(), execCtx,
 			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
 				ret, err := conn.Exec(query, args)
 				if err != nil {
@@ -118,16 +123,12 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 
 				return types.NewResult(types.WithResult(ret)), nil
 			})
-		if err != nil {
-			return nil, err
-		}
+	})
 
-		// todo if user has not opened a transaction, it may call tx.Commit() method to flush undo log
-
-		return ret.GetResult(), nil
+	if err != nil {
+		return nil, err
 	}
-
-	return conn.Exec(query, args)
+	return ret.GetResult(), nil
 }
 
 // ExecContext
@@ -143,42 +144,46 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 		return c.Exec(query, values)
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+		if err != nil {
+			return nil, err
+		}
+
+		execCtx := &exec.ExecContext{
+			TxCtx:       c.txCtx,
+			Query:       query,
+			NamedValues: args,
+			Conn:        c.targetConn,
+		}
+
+		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := targetConn.ExecContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
+
+				return types.NewResult(types.WithResult(ret)), nil
+			})
+
+		return ret, err
+	})
+
 	if err != nil {
 		return nil, err
 	}
-
-	execCtx := &exec.ExecContext{
-		TxCtx:       c.txCtx,
-		Query:       query,
-		NamedValues: args,
-		Conn:        c.targetConn,
-	}
-
-	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
-		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-			ret, err := targetConn.ExecContext(ctx, query, args)
-			if err != nil {
-				return nil, err
-			}
-
-			return types.NewResult(types.WithResult(ret)), nil
-		})
-	if err != nil {
-		return nil, err
-	}
-
 	return ret.GetResult(), nil
 }
 
-// QueryContext
+// Query
 func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	conn, ok := c.targetConn.(driver.Queryer)
 	if !ok {
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +223,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return c.Query(query, values)
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
 	if err != nil {
 		return nil, err
 	}
@@ -254,10 +259,11 @@ func (c *Conn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	c.txCtx = types.NewTxCtx()
-	c.txCtx.DBType = c.res.dbType
-	c.txCtx.TxOpt = driver.TxOptions{}
-	c.autoCommit = true
+	if c.txCtx == nil {
+		c.txCtx = types.NewTxCtx()
+		c.txCtx.DBType = c.res.dbType
+		c.txCtx.TxOpt = driver.TxOptions{}
+	}
 
 	return newTx(
 		withDriverConn(c),
@@ -266,17 +272,14 @@ func (c *Conn) Begin() (driver.Tx, error) {
 	)
 }
 
+// BeginTx Open a transaction and judge whether the current transaction needs to open a
+// 	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
 		tx, err := conn.BeginTx(ctx, opts)
 		if err != nil {
 			return nil, err
 		}
-
-		c.txCtx = types.NewTxCtx()
-		c.txCtx.DBType = c.res.dbType
-		c.txCtx.TxOpt = opts
-		c.autoCommit = true
 
 		return newTx(
 			withDriverConn(c),
@@ -285,32 +288,15 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		)
 	}
 
-	// Check the transaction level. If the transaction level is non-default
-	// then return an error here as the BeginTx driver value is not supported.
-	if opts.Isolation != driver.IsolationLevel(gosql.LevelDefault) {
-		return nil, errors.New("sql: driver does not support non-default isolation level")
-	}
-
-	// If a read-only transaction is requested return an error as the
-	// BeginTx driver value is not supported.
-	if opts.ReadOnly {
-		return nil, errors.New("sql: driver does not support read-only transactions")
-	}
-
-	if ctx.Done() == nil {
-		return c.Begin()
-	}
-
 	txi, err := c.Begin()
-	if err == nil {
-		select {
-		case <-ctx.Done():
-			txi.Rollback()
-			return nil, ctx.Err()
-		default:
-		}
+	if err != nil {
+		return nil, err
 	}
-	return txi, err
+	return newTx(
+		withDriverConn(c),
+		withTxCtx(c.txCtx),
+		withOriginTx(txi),
+	)
 }
 
 // Close invalidates and potentially stops any current
@@ -327,4 +313,38 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 func (c *Conn) Close() error {
 	c.txCtx = nil
 	return c.targetConn.Close()
+}
+
+func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (types.ExecResult, error) {
+	var (
+		tx  driver.Tx
+		err error
+	)
+
+	if c.txCtx.TransType != types.Local && c.autoCommit {
+		tx, err = c.Begin()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	ret, err := f()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
 }

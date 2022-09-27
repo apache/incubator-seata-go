@@ -36,7 +36,7 @@ func Test_SQLOpen(t *testing.T) {
 	t.SkipNow()
 	log.Info("begin test")
 	var err error
-	db, err = sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/polaris_server?multiStatements=true")
+	db, err = sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}

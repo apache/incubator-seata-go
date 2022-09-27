@@ -15,34 +15,13 @@
  * limitations under the License.
  */
 
-package main
+package rm
 
-import (
-	"context"
-
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/local/service"
-)
-
-func main() {
-	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
+// Init init seata client
+func Init() {
+	initRmClient()
 }
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
-		return
-	}
-
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
-	}
-	return
+// InitRmClient init seata rm client
+func initRmClient() {
 }
