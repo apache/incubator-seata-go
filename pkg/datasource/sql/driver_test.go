@@ -19,6 +19,7 @@ package sql
 
 import (
 	"database/sql"
+	"github.com/seata/seata-go/pkg/common/reflectx"
 	"reflect"
 	"testing"
 
@@ -60,7 +61,7 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	_, ok := fieldVal.(*seataATConnector)
 	assert.True(t, ok, "need return seata at connector")
@@ -86,7 +87,7 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	_, ok := fieldVal.(*seataXAConnector)
 	assert.True(t, ok, "need return seata xa connector")
