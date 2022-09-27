@@ -19,9 +19,10 @@ package sql
 
 import (
 	"database/sql"
-	"github.com/seata/seata-go/pkg/common/reflectx"
 	"reflect"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/common/reflectx"
 
 	"github.com/golang/mock/gomock"
 

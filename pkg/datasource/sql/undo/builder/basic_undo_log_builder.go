@@ -20,8 +20,9 @@ package builder
 import (
 	"database/sql"
 	"database/sql/driver"
-	"github.com/arana-db/parser/test_driver"
 	"io"
+
+	"github.com/arana-db/parser/test_driver"
 
 	"github.com/arana-db/parser/ast"
 	gxsort "github.com/dubbogo/gost/sort"

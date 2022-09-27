@@ -21,8 +21,9 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"github.com/arana-db/parser/mysql"
 	"strings"
+
+	"github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
