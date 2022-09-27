@@ -48,7 +48,7 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 }
 
 // FlushUndoLog
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
+func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
 	return nil
 }
 
