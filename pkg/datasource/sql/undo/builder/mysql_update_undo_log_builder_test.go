@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildSelectSQLByUpdate(t *testing.T) {
+func TestBuildBeforeImageSQL(t *testing.T) {
 	var (
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
@@ -65,7 +65,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query, args, err := builder.buildUndoLogSelectSQL(tt.sourceQuery, tt.sourceQueryArgs)
+			query, args, err := builder.buildBeforeImageSQL(tt.sourceQuery, tt.sourceQueryArgs)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, args)

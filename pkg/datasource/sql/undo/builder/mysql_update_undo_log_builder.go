@@ -43,7 +43,7 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ex
 			vals[n] = param.Value
 		}
 	}
-	selectSQL, selectArgs, err := u.buildUndoLogSelectSQL(execCtx.Query, vals)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.Query, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(types.RecordImages) (*types.Recor
 	return nil, nil
 }
 
-// buildSelectSQLByUpdate build select sql from update sql
-func (u *MySQLUpdateUndoLogBuilder) buildUndoLogSelectSQL(query string, args []driver.Value) (string, []driver.Value, error) {
+// buildBeforeImageSQL build select sql from update sql
+func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []driver.Value) (string, []driver.Value, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
 		return "", nil, err
