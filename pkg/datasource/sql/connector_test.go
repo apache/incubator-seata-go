@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/seata/seata-go/pkg/common/reflectx"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func initMockAtConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f in
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	atConnector, ok := fieldVal.(*seataATConnector)
 	assert.True(t, ok, "need return seata at connector")
@@ -56,7 +57,7 @@ func initMockAtConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f in
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	SetUnexportedField(v.FieldByName("target"), f(t, ctrl))
+	reflectx.SetUnexportedField(v.FieldByName("target"), f(t, ctrl))
 
 	return fieldVal.(driver.Connector)
 }
@@ -91,7 +92,7 @@ func initMockXaConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f in
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	atConnector, ok := fieldVal.(*seataXAConnector)
 	assert.True(t, ok, "need return seata xa connector")
@@ -100,7 +101,7 @@ func initMockXaConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f in
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	SetUnexportedField(v.FieldByName("target"), f(t, ctrl))
+	reflectx.SetUnexportedField(v.FieldByName("target"), f(t, ctrl))
 
 	return fieldVal.(driver.Connector)
 }

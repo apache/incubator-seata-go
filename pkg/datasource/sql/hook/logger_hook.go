@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package exec
+package hook
 
 import (
 	"context"
@@ -23,33 +23,43 @@ import (
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"go.uber.org/zap"
 )
 
-// UpdateUndoHook build image when update executed
-type UpdateUndoHook struct {
-	basicUndoBuilder BasicUndoBuilder
+func init() {
+	exec.RegisCommonHook(&loggerSQLHook{})
 }
 
-func (u UpdateUndoHook) Type() types.SQLType {
-	return types.SQLTypeUpdate
+type loggerSQLHook struct{}
+
+func (h *loggerSQLHook) Type() types.SQLType {
+	return types.SQLTypeUnknown
 }
 
-// Before build image before execute business sql
-func (u UpdateUndoHook) Before(ctx context.Context, execCtx *exec.ExecContext) {
-	r, err := u.basicUndoBuilder.buildRecordImage(ctx, execCtx)
-	if err != nil {
-		log.Fatalf("build before iamge %v", err)
-		return
+// Before
+func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) error {
+	var txID string
+	if execCtx.TxCtx != nil {
+		txID = execCtx.TxCtx.LocalTransID
 	}
-	execCtx.TxCtx.RoundImages.AppendBeofreImages(r)
+	fields := []zap.Field{
+		zap.String("tx-id", txID),
+		zap.String("sql", execCtx.Query),
+	}
+
+	if len(execCtx.NamedValues) != 0 {
+		fields = append(fields, zap.Any("namedValues", execCtx.NamedValues))
+	}
+
+	if len(execCtx.Values) != 0 {
+		fields = append(fields, zap.Any("values", execCtx.Values))
+	}
+
+	log.Debug("sql exec log", fields)
+	return nil
 }
 
-// Before build image after execute business sql
-func (u UpdateUndoHook) After(ctx context.Context, execCtx *exec.ExecContext) {
-	r, err := u.basicUndoBuilder.buildRecordImage(ctx, execCtx)
-	if err != nil {
-		log.Fatalf("build after iamge %v", err)
-		return
-	}
-	execCtx.TxCtx.RoundImages.AppendAfterImages(r)
+// After
+func (h *loggerSQLHook) After(ctx context.Context, execCtx *exec.ExecContext) error {
+	return nil
 }

@@ -111,6 +111,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			TxCtx:  c.txCtx,
 			Query:  query,
 			Values: args,
+			Conn:   c.targetConn,
 		}
 
 		return executor.ExecWithValue(context.Background(), execCtx,
@@ -153,6 +154,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 			TxCtx:       c.txCtx,
 			Query:       query,
 			NamedValues: args,
+			Conn:        c.targetConn,
 		}
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,

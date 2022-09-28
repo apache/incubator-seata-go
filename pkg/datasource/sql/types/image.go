@@ -17,10 +17,6 @@
 
 package types
 
-import (
-	gosql "database/sql"
-)
-
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
 	bIndex int32
@@ -89,29 +85,29 @@ func (rs RecordImages) Reserve() {
 // RecordImage
 type RecordImage struct {
 	// index
-	index int32
-	// Table table name
-	Table string
+	index int32 `json:"-"`
+	// TableName table name
+	TableName string `json:"tableName"`
 	// SQLType sql type
-	SQLType SQLType
+	SQLType SQLType `json:"-"`
 	// Rows
-	Rows []RowImage
+	Rows []RowImage `json:"rows"`
 }
 
 // RowImage Mirror data information information
 type RowImage struct {
 	// Columns All columns of image data
-	Columns []ColumnImage
+	Columns []ColumnImage `json:"fields"`
 }
 
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
 	// KeyType index type
-	KeyType string
+	KeyType IndexType `json:"keyType"`
 	// Name column name
-	Name string
+	Name string `json:"name"`
 	// Type column type
-	Type gosql.ColumnType
+	Type int16 `json:"type"`
 	// Value column value
-	Value interface{}
+	Value interface{} `json:"value"`
 }

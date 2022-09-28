@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
+	"github.com/seata/seata-go/pkg/common/reflectx"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -60,7 +60,7 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	_, ok := fieldVal.(*seataATConnector)
 	assert.True(t, ok, "need return seata at connector")
@@ -86,7 +86,7 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	}
 
 	field := v.FieldByName("connector")
-	fieldVal := GetUnexportedField(field)
+	fieldVal := reflectx.GetUnexportedField(field)
 
 	_, ok := fieldVal.(*seataXAConnector)
 	assert.True(t, ok, "need return seata xa connector")

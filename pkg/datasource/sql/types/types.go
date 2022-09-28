@@ -36,6 +36,11 @@ type (
 )
 
 const (
+	IndexTypeNull       IndexType = 0
+	IndexTypePrimaryKey IndexType = 1
+)
+
+const (
 	_ DBType = iota
 	DBTypeUnknown
 	DBTypeMySQL

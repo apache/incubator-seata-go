@@ -48,7 +48,7 @@ type (
 
 	SQLExecutor interface {
 		// Interceptors
-		interceptors(interceptors []SQLInterceptor)
+		interceptors(interceptors []SQLHook)
 		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
@@ -59,7 +59,7 @@ type (
 // BuildExecutor
 func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
 	if txType == types.XAMode {
-		hooks := make([]SQLInterceptor, 0, 4)
+		hooks := make([]SQLHook, 0, 4)
 		hooks = append(hooks, commonHook...)
 
 		e := &BaseExecutor{}
@@ -72,7 +72,7 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		return nil, err
 	}
 
-	hooks := make([]SQLInterceptor, 0, 4)
+	hooks := make([]SQLHook, 0, 4)
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
 
@@ -99,12 +99,12 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 }
 
 type BaseExecutor struct {
-	is []SQLInterceptor
+	is []SQLHook
 	ex SQLExecutor
 }
 
-// interceptors
-func (e *BaseExecutor) interceptors(interceptors []SQLInterceptor) {
+// Interceptors
+func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
 	e.is = interceptors
 }
 
