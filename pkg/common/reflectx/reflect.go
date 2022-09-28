@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
-package mysql
+package reflectx
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"reflect"
+	"unsafe"
 )
 
-func init() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{}); err != nil {
-		panic(errors.WithStack(err))
-	}
+func SetUnexportedField(field reflect.Value, value interface{}) {
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
+		Elem().
+		Set(reflect.ValueOf(value))
+}
+
+func GetUnexportedField(field reflect.Value) interface{} {
+	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
 }

@@ -78,7 +78,7 @@ func TestHasUndoLogTable(t *testing.T) {
 	t.SkipNow()
 
 	testHasUndoLogTable := func() {
-		db, err := sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()

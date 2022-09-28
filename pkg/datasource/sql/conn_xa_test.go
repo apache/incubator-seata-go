@@ -43,17 +43,19 @@ func (mi *mockSQLInterceptor) Type() types.SQLType {
 }
 
 // Before
-func (mi *mockSQLInterceptor) Before(ctx context.Context, execCtx *exec.ExecContext) {
+func (mi *mockSQLInterceptor) Before(ctx context.Context, execCtx *exec.ExecContext) error {
 	if mi.before != nil {
 		mi.before(ctx, execCtx)
 	}
+	return nil
 }
 
 // After
-func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *exec.ExecContext) {
+func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *exec.ExecContext) error {
 	if mi.after != nil {
 		mi.after(ctx, execCtx)
 	}
+	return nil
 }
 
 type mockTxHook struct {

@@ -50,6 +50,10 @@ type ParseContext struct {
 	DeleteStmt *ast.DeleteStmt
 }
 
+func (p *ParseContext) HasValidStmt() bool {
+	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+}
+
 func DoParser(query string) (*ParseContext, error) {
 	p := aparser.New()
 	stmtNode, err := p.ParseOneStmt(query, "", "")

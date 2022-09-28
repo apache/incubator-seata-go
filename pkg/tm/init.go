@@ -35,7 +35,7 @@ func InitTmClient() {
 
 // initConfig init config processor
 func initConfig() {
-    // todo implement
+	// todo implement
 }
 
 // initRemoting init rpc client
