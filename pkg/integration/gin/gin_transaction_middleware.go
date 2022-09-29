@@ -15,34 +15,38 @@
  * limitations under the License.
  */
 
-package main
+package gin
 
 import (
-	"context"
+	"net/http"
 
-	"github.com/seata/seata-go/pkg/client"
+	"github.com/gin-gonic/gin"
+
+	"github.com/seata/seata-go/pkg/common"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/local/service"
 )
 
-func main() {
-	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
-}
+// TransactionMiddleware filter gin invocation
+// NOTE: when use gin，must set gin.ContextWithFallback true when gin version >= 1.8.1
+func TransactionMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		xid := ctx.GetHeader(common.XidKey)
+		if xid == "" {
+			xid = ctx.GetHeader(common.XidKeyLowercase)
+		}
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
-		return
-	}
+		if len(xid) == 0 {
+			log.Errorf("Gin: header not contain header: %s, global transaction xid", common.XidKey)
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
+		newCtx := ctx.Request.Context()
+		newCtx = tm.InitSeataContext(newCtx)
+		tm.SetXID(newCtx, xid)
+		ctx.Request = ctx.Request.WithContext(newCtx)
+
+		log.Infof("global transaction xid is :%s", xid)
 	}
-	return
 }

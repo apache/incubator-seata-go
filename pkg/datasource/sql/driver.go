@@ -34,20 +34,69 @@ import (
 )
 
 const (
-	SeataMySQLDriver = "seata-mysql"
+	// SeataATMySQLDriver MySQL driver for AT mode
+	SeataATMySQLDriver = "seata-at-mysql"
+	// SeataXAMySQLDriver MySQL driver for XA mode
+	SeataXAMySQLDriver = "seata-xa-mysql"
 )
 
 func init() {
-	sql.Register(SeataMySQLDriver, &SeataDriver{
-		target: mysql.MySQLDriver{},
+	sql.Register(SeataATMySQLDriver, &seataATDriver{
+		seataDriver: &seataDriver{
+			transType: types.ATMode,
+			target:    mysql.MySQLDriver{},
+		},
+	})
+	sql.Register(SeataXAMySQLDriver, &seataXADriver{
+		seataDriver: &seataDriver{
+			transType: types.XAMode,
+			target:    mysql.MySQLDriver{},
+		},
 	})
 }
 
-type SeataDriver struct {
-	target driver.Driver
+type seataATDriver struct {
+	*seataDriver
 }
 
-func (d *SeataDriver) Open(name string) (driver.Conn, error) {
+func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err error) {
+	connector, err := d.seataDriver.OpenConnector(name)
+	if err != nil {
+		return nil, err
+	}
+
+	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.ATMode
+
+	return &seataATConnector{
+		seataConnector: _connector,
+	}, nil
+}
+
+type seataXADriver struct {
+	*seataDriver
+}
+
+func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err error) {
+	connector, err := d.seataDriver.OpenConnector(name)
+	if err != nil {
+		return nil, err
+	}
+
+	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.XAMode
+
+	return &seataXAConnector{
+		seataConnector: _connector,
+	}, nil
+}
+
+type seataDriver struct {
+	transType types.TransactionType
+	target    driver.Driver
+}
+
+func (d *seataDriver) Open(name string) (driver.Conn, error) {
 	conn, err := d.target.Open(name)
 	if err != nil {
 		log.Errorf("open target connection: %w", err)
@@ -70,7 +119,7 @@ func (d *SeataDriver) Open(name string) (driver.Conn, error) {
 	return conn, nil
 }
 
-func (d *SeataDriver) OpenConnector(name string) (c driver.Connector, err error) {
+func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
 	c = &dsnConnector{dsn: name, driver: d.target}
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
@@ -85,7 +134,7 @@ func (d *SeataDriver) OpenConnector(name string) (c driver.Connector, err error)
 		return nil, fmt.Errorf("unsupport conn type %s", d.getTargetDriverName())
 	}
 
-	proxy, err := registerResource(c, dbType, sql.OpenDB(c), name)
+	proxy, err := registerResource(c, d.transType, dbType, sql.OpenDB(c), name)
 	if err != nil {
 		log.Errorf("register resource: %w", err)
 		return nil, err
@@ -94,8 +143,8 @@ func (d *SeataDriver) OpenConnector(name string) (c driver.Connector, err error)
 	return proxy, nil
 }
 
-func (d *SeataDriver) getTargetDriverName() string {
-	return strings.ReplaceAll(SeataMySQLDriver, "seata-", "")
+func (d *seataDriver) getTargetDriverName() string {
+	return "mysql"
 }
 
 type dsnConnector struct {
@@ -111,7 +160,7 @@ func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-func registerResource(connector driver.Connector, dbType types.DBType, db *sql.DB,
+func registerResource(connector driver.Connector, txType types.TransactionType, dbType types.DBType, db *sql.DB,
 	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 	conf := loadConfig()
 	for i := range opts {

@@ -18,31 +18,41 @@
 package main
 
 import (
-	"context"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/local/service"
+	ginmiddleware "github.com/seata/seata-go/pkg/integration/gin"
+	"github.com/seata/seata-go/pkg/rm/tcc"
 )
 
 func main() {
 	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
-}
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
+	r := gin.Default()
+
+	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
+	//r.ContextWithFallback = true
+
+	r.Use(ginmiddleware.TransactionMiddleware())
+
+	userProviderProxy, err := tcc.NewTCCServiceProxy(&RMService{})
+	if err != nil {
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
 		return
 	}
 
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
+	r.POST("/prepare", func(c *gin.Context) {
+		if _, err := userProviderProxy.Prepare(c, ""); err != nil {
+			c.JSON(http.StatusOK, "prepare failure")
+			return
+		}
+		c.JSON(http.StatusOK, "prepare ok")
+	})
+
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("start tcc server fatal: %v", err)
 	}
-	return
 }

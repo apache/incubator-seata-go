@@ -20,29 +20,28 @@ package main
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/local/service"
 )
 
-func main() {
-	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
+type RMService struct {
 }
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
-		return
-	}
+func (b *RMService) Prepare(ctx context.Context, params interface{}) (bool, error) {
+	log.Infof("TRMService Prepare, param %v", params)
+	return true, nil
+}
 
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
-	}
-	return
+func (b *RMService) Commit(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("RMService Commit, param %v", businessActionContext)
+	return true, nil
+}
+
+func (b *RMService) Rollback(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	log.Infof("RMService Rollback, param %v", businessActionContext)
+	return true, nil
+}
+
+func (b *RMService) GetActionName() string {
+	return "ginTccRMService"
 }

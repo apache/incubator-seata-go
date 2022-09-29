@@ -23,6 +23,8 @@ import (
 	"database/sql/driver"
 	"strings"
 
+	"github.com/arana-db/parser/mysql"
+
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/util"
@@ -36,6 +38,9 @@ var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 
+// CheckUndoLogTableExistSql check undo log if exist
+const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
 
@@ -44,7 +49,7 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
 	return nil
 }
 
@@ -98,7 +103,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 }
 
 // FlushUndoLog
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
+func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
 	return nil
 }
 
@@ -110,6 +115,20 @@ func (m *BaseUndoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn)
 // DBType
 func (m *BaseUndoLogManager) DBType() types.DBType {
 	panic("implement me")
+}
+
+// HasUndoLogTable check undo log table if exist
+func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
+	if _, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql); err != nil {
+		// 1146 mysql table not exist fault code
+		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
+			return false, nil
+		}
+		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
+		return
+	}
+
+	return true, nil
 }
 
 // getBatchDeleteUndoLogSql build batch delete undo log

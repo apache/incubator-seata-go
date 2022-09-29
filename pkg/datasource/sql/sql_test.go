@@ -33,24 +33,24 @@ var db *sql.DB
 
 func Test_SQLOpen(t *testing.T) {
 	client.Init()
-	//t.SkipNow()
+	t.SkipNow()
 	log.Info("begin test")
 	var err error
-	db, err = sql.Open(SeataMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")
+	db, err = sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	defer db.Close()
 
-	//sqlStmt := `
-	//create table if not exists foo (id integer not null primary key, name text);
-	//delete from foo;
-	//`
-	//_, err = db.Exec(sqlStmt)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
+	sqlStmt := `
+	create table if not exists foo (id integer not null primary key, name text);
+	delete from foo;
+	`
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	wait := sync.WaitGroup{}
 
@@ -62,19 +62,17 @@ func Test_SQLOpen(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		//res, err := tx.Exec("insert into foo(id, name) values(?, ?)", prefix, 1)
-		res, err := tx.Exec("update foo set name=? where id > ?", prefix, 1)
+		stmt, err := tx.Prepare("insert into foo(id, name) values(?, ?)")
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Sprintln(res)
-		//defer stmt.Close()
-		//for i := 0; i < total; i++ {
-		//	_, err = stmt.Exec(i+offset, fmt.Sprintf("%s-%03d", prefix, i))
-		//	if err != nil {
-		//		t.Fatal(err)
-		//	}
-		//}
+		defer stmt.Close()
+		for i := 0; i < total; i++ {
+			_, err = stmt.Exec(i+offset, fmt.Sprintf("%s-%03d", prefix, i))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 		err = tx.Commit()
 		if err != nil {
 			t.Fatal(err)

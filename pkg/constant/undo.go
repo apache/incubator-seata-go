@@ -24,3 +24,5 @@ const (
 	UndoLogTableName = DefaultTransactionUndoLogTable
 	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
 )
+
+const ErrCodeTableNotExist = "1146"

@@ -39,7 +39,7 @@ func (m *undoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
 	return m.Base.InsertUndoLog(l, tx)
 }
 
@@ -54,7 +54,7 @@ func (m *undoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn
 }
 
 // FlushUndoLog
-func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
+func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
 	return m.Base.FlushUndoLog(txCtx, tx)
 }
 
@@ -66,4 +66,9 @@ func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) err
 // DBType
 func (m *undoLogManager) DBType() types.DBType {
 	return types.DBTypeMySQL
+}
+
+// HasUndoLogTable check undo log table if exist
+func (m *undoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (bool, error) {
+	return m.Base.HasUndoLogTable(ctx, conn)
 }

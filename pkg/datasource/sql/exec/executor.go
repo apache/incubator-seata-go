@@ -59,8 +59,17 @@ type (
 	}
 )
 
-// buildExecutor
-func BuildExecutor(dbType types.DBType, query string) (SQLExecutor, error) {
+// BuildExecutor
+func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
+	if txType == types.XAMode {
+		hooks := make([]SQLHook, 0, 4)
+		hooks = append(hooks, commonHook...)
+
+		e := &BaseExecutor{}
+		e.interceptors(hooks)
+		return e, nil
+	}
+
 	parseCtx, err := parser.DoParser(query)
 	if err != nil {
 		return nil, err
@@ -102,7 +111,7 @@ func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
 	e.is = interceptors
 }
 
-// Exec
+// ExecWithNamedValue
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.is {
 		e.is[i].Before(ctx, execCtx)
@@ -150,7 +159,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 	return result, err
 }
 
-// Exec
+// ExecWithValue
 func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
 	for i := range e.is {
 		e.is[i].Before(ctx, execCtx)

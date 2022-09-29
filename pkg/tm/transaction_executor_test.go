@@ -85,7 +85,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 					assert.Equal(t, v.wantErrString, err.Error)
 				}
 			}(v)
-			Begin(v.ctx, v.name)
+			begin(v.ctx, v.name)
 		}()
 
 		// rest up stub
@@ -101,7 +101,7 @@ func TestTransactionExecutorCommit(t *testing.T) {
 	SetTransactionRole(ctx, LAUNCHER)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	assert.Equal(t, "Commit xid should not be empty", CommitOrRollback(ctx, true).Error())
+	assert.Equal(t, "Commit xid should not be empty", commitOrRollback(ctx, true).Error())
 }
 
 func TestTransactionExecurotRollback(t *testing.T) {
@@ -110,6 +110,6 @@ func TestTransactionExecurotRollback(t *testing.T) {
 	SetTransactionRole(ctx, LAUNCHER)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	errActual := CommitOrRollback(ctx, false)
+	errActual := commitOrRollback(ctx, false)
 	assert.Equal(t, "Rollback xid should not be empty", errActual.Error())
 }

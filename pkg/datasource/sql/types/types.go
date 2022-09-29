@@ -119,7 +119,7 @@ type ExecContext struct {
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
 		LockKeys:     make([]string, 0, 4),
-		TransType:    ATMode,
+		TransType:    Local,
 		LocalTransID: uuid.New().String(),
 		RoundImages:  &RoundRecordImage{},
 	}
