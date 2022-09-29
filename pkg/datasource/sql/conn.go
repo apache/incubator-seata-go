@@ -22,6 +22,7 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 	"errors"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )

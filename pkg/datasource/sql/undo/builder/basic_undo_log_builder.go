@@ -21,12 +21,13 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"io"
-	"strings"
 )
 
 type BasicUndoLogBuilder struct {
