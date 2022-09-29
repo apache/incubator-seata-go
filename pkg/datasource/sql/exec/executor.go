@@ -21,12 +21,11 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 // executorSolts
@@ -124,7 +123,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		err         error
 	)
 
-	beforeImage, err = e.BeforeImage(ctx, execCtx)
+	beforeImage, err = e.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +147,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		return nil, err
 	}
 
-	afterImage, err = e.AfterImage(ctx, execCtx, beforeImage)
+	afterImage, err = e.afterImage(ctx, execCtx, beforeImage)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +171,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		err         error
 	)
 
-	beforeImage, err = e.BeforeImage(ctx, execCtx)
+	beforeImage, err = e.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +194,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		return nil, err
 	}
 
-	afterImage, err = e.AfterImage(ctx, execCtx, beforeImage)
+	afterImage, err = e.afterImage(ctx, execCtx, beforeImage)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +205,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 	return result, err
 }
 
-func (h *BaseExecutor) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}
@@ -227,7 +226,7 @@ func (h *BaseExecutor) BeforeImage(ctx context.Context, execCtx *types.ExecConte
 }
 
 // After
-func (h *BaseExecutor) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImage *types.RecordImage) (*types.RecordImage, error) {
+func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImage *types.RecordImage) (*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}
