@@ -19,7 +19,6 @@ package hook
 
 import (
 	"context"
-
 	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -37,7 +36,7 @@ func (h *loggerSQLHook) Type() types.SQLType {
 }
 
 // Before
-func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) error {
+func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
 	var txID string
 	if execCtx.TxCtx != nil {
 		txID = execCtx.TxCtx.LocalTransID
@@ -60,6 +59,6 @@ func (h *loggerSQLHook) Before(ctx context.Context, execCtx *exec.ExecContext) e
 }
 
 // After
-func (h *loggerSQLHook) After(ctx context.Context, execCtx *exec.ExecContext) error {
+func (h *loggerSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
 	return nil
 }

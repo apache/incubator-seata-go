@@ -20,7 +20,6 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -72,7 +71,7 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  s.txCtx,
 		Query:  s.query,
 		Values: args,
@@ -110,7 +109,7 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       s.txCtx,
 		Query:       s.query,
 		NamedValues: args,
@@ -143,7 +142,7 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  s.txCtx,
 		Query:  s.query,
 		Values: args,
@@ -178,7 +177,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       s.txCtx,
 		Query:       s.query,
 		NamedValues: args,

@@ -19,8 +19,6 @@ package exec
 
 import (
 	"context"
-	"database/sql/driver"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -46,17 +44,6 @@ func RegisHook(hook SQLHook) {
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
 }
 
-// ExecContext
-type ExecContext struct {
-	TxCtx       *types.TransactionContext
-	Query       string
-	NamedValues []driver.NamedValue
-	Values      []driver.Value
-	// metaData
-	MetaData types.TableMeta
-	Conn     driver.Conn
-}
-
 // SQLHook SQL execution front and back interceptor
 // case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
 // case 2. Burning point to report
@@ -65,8 +52,8 @@ type SQLHook interface {
 	Type() types.SQLType
 
 	// Before
-	Before(ctx context.Context, execCtx *ExecContext) error
+	Before(ctx context.Context, execCtx *types.ExecContext) error
 
 	// After
-	After(ctx context.Context, execCtx *ExecContext) error
+	After(ctx context.Context, execCtx *types.ExecContext) error
 }

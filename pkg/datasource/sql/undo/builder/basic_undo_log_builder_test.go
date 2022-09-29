@@ -15,60 +15,35 @@
  * limitations under the License.
  */
 
-package types
+package builder
 
 import (
-	"database/sql"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-// ColumnMeta
-type ColumnMeta struct {
-	// Schema
-	Schema string
-	// Table
-	Table string
-	// Autoincrement
-	Autoincrement bool
-	// Info
-	Info sql.ColumnType
-}
+func TestBuildWhereConditionByPKs(t *testing.T) {
+	var (
+		builder = BasicUndoLogBuilder{}
+	)
 
-// IndexMeta
-type IndexMeta struct {
-	// Schema
-	Schema string
-	// Table
-	Table string
-	// Name
-	Name string
-	// IType
-	IType IndexType
-	// Values
-	Values []ColumnMeta
-}
-
-// TableMeta
-type TableMeta struct {
-	// Schema
-	Schema string
-	// Name
-	Name string
-	// Columns
-	Columns map[string]ColumnMeta
-	// Indexs
-	Indexs map[string]IndexMeta
-}
-
-func (m TableMeta) IsEmpty() bool {
-	return m.Name == ""
-}
-
-func (m TableMeta) GetPrimaryKeyOnlyName() []string {
-	keys := make([]string, 0)
-	for _, index := range m.Indexs {
-		if index.IType == IndexTypePrimaryKey {
-			keys = append(keys, index.Name)
-		}
+	tests := []struct {
+		name       string
+		pkNameList []string
+		rowSize    int
+		maxInSize  int
+		expectSQL  string
+	}{
+		{"test1", []string{"id", "name"}, 1, 1, "(`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 3, 2, "(`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?))"},
 	}
-	return keys
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// todo add dbType param
+			sql := builder.buildWhereConditionByPKs(test.pkNameList, test.rowSize, "", test.maxInSize)
+			assert.Equal(t, test.expectSQL, sql)
+		})
+	}
+
 }

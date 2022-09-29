@@ -20,12 +20,10 @@ package hook
 import (
 	"context"
 	"fmt"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 
@@ -36,12 +34,12 @@ type BasicUndoBuilder struct {
 }
 
 // buildRowImages build row iamge by exec condition
-func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RowImage, error) {
+func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *types.ExecContext) ([]*types.RowImage, error) {
 	panic("implement me")
 }
 
 // buildRowImages query db table to find data image
-func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RecordImage, error) {
+func (u *BasicUndoBuilder) buildRecordImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	panic("implement me")
 }
 

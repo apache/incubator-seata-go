@@ -24,7 +24,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 )
@@ -130,7 +129,7 @@ type UndoLogParser interface {
 }
 
 type UndoLogBuilder interface {
-	BeforeImage(ctx context.Context, execCtx *exec.ExecContext) (*types.RecordImage, error)
-	AfterImage(types.RecordImages) (*types.RecordImages, error)
+	BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error)
+	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImage *types.RecordImage) (*types.RecordImage, error)
 	GetSQLType() types.SQLType
 }

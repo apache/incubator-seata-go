@@ -22,7 +22,6 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 	"errors"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -102,7 +101,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			return nil, err
 		}
 
-		execCtx := &exec.ExecContext{
+		execCtx := &types.ExecContext{
 			TxCtx:  c.txCtx,
 			Query:  query,
 			Values: args,
@@ -148,7 +147,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       c.txCtx,
 		Query:       query,
 		NamedValues: args,
@@ -183,7 +182,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  c.txCtx,
 		Query:  query,
 		Values: args,
@@ -223,7 +222,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       c.txCtx,
 		Query:       query,
 		NamedValues: args,
