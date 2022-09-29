@@ -47,15 +47,15 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.TccActionInterceptorOrder, -2147482648)
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.SQLParserType, "druid")
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.Lock.RetryInterval, 10)
-	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.Lock.RetryTimes, time.Duration(30))
+	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.Lock.RetryTimes, time.Duration(30_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Rmconf.Lock.RetryPolicyBranchRollbackOnConflict, true)
 	// tm
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.CommitRetryCount, 5)
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.RollbackRetryCount, 5)
-	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DefaultGlobalTransactionTimeout, time.Duration(60000))
+	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DefaultGlobalTransactionTimeout, time.Duration(10_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DegradeCheck, false)
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DegradeCheckPeriod, 2000)
-	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DegradeCheckAllowTimes, 10)
+	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.DegradeCheckAllowTimes, time.Duration(10_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Tmconf.InterceptorOrder, -2147482648)
 	// undo
 	assert.Equal(t, DefaultSeataConf.Seata.ClientConf.Undo.DataValidation, true)
@@ -76,7 +76,7 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, DefaultSeataConf.Seata.Service.DisableGlobalTransaction, false)
 
 	// transport
-	assert.Equal(t, DefaultSeataConf.Seata.Transport.Shutdown.Wait, time.Duration(3))
+	assert.Equal(t, DefaultSeataConf.Seata.Transport.Shutdown.Wait, time.Duration(3_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.Type, "TCP")
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.Server, "NIO")
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.Heartbeat, true)
@@ -84,8 +84,8 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.Compressor, "none")
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.EnableTmClientBatchSendRequest, false)
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.EnableRmClientBatchSendRequest, true)
-	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCRmRequestTimeout, time.Duration(30000))
-	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCTmRequestTimeout, time.Duration(30000))
+	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCRmRequestTimeout, time.Duration(3_000_000_000))
+	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCTmRequestTimeout, time.Duration(3_000_000_000))
 
 	// config
 	assert.Equal(t, DefaultSeataConf.Seata.Config.Type, "file")
@@ -112,18 +112,18 @@ func TestInit(t *testing.T) {
 
 	// tcc
 	assert.Equal(t, DefaultSeataConf.Seata.TccConf.Fence.LogTableName, "tcc_fence_log")
-	assert.Equal(t, DefaultSeataConf.Seata.TccConf.Fence.CleanPeriod, time.Duration(60))
+	assert.Equal(t, DefaultSeataConf.Seata.TccConf.Fence.CleanPeriod, time.Duration(60_000_000_000))
 
 	// getty-session-param
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.CompressEncoding, false)
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPNoDelay, true)
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPKeepAlive, true)
-	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.KeepAlivePeriod, time.Duration(120))
+	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.KeepAlivePeriod, time.Duration(120_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPRBufSize, 262144)
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPWBufSize, 65536)
-	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPReadTimeout, time.Duration(1000))
-	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPWriteTimeout, time.Duration(5000))
-	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.WaitTimeout, time.Duration(1000))
+	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPReadTimeout, time.Duration(1_000_000_000))
+	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.TCPWriteTimeout, time.Duration(5_000_000_000))
+	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.WaitTimeout, time.Duration(1_000_000_000))
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.MaxMsgLen, 16498688)
 	assert.Equal(t, DefaultSeataConf.Seata.GettySessionParam.SessionName, "client")
 }

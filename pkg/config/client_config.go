@@ -87,7 +87,7 @@ type TmConf struct {
 	DefaultGlobalTransactionTimeout time.Duration `yaml:"default-global-transaction-timeout" json:"default-global-transaction-timeout,omitempty" property:"default-global-transaction-timeout"`
 	DegradeCheck                    bool          `yaml:"degrade-check" json:"degrade-check,omitempty" property:"degrade-check"`
 	DegradeCheckPeriod              int           `yaml:"degrade-check-period" json:"degrade-check-period,omitempty" property:"degrade-check-period"`
-	DegradeCheckAllowTimes          int           `yaml:"degrade-check-allow-times" json:"degrade-check-allow-times,omitempty" property:"degrade-check-allow-times"`
+	DegradeCheckAllowTimes          time.Duration `yaml:"degrade-check-allow-times" json:"degrade-check-allow-times,omitempty" property:"degrade-check-allow-times"`
 	InterceptorOrder                int           `yaml:"interceptor-order" json:"interceptor-order,omitempty" property:"interceptor-order"`
 }
 
