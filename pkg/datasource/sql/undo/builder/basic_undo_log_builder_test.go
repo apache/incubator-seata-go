@@ -24,10 +24,7 @@ import (
 )
 
 func TestBuildWhereConditionByPKs(t *testing.T) {
-	var (
-		builder = BasicUndoLogBuilder{}
-	)
-
+	builder := BasicUndoLogBuilder{}
 	tests := []struct {
 		name       string
 		pkNameList []string
