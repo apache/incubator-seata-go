@@ -17,12 +17,16 @@
 
 package types
 
+import "database/sql"
+
 // ColumnMeta
 type ColumnMeta struct {
 	// Schema
 	Schema string
 	// Table
 	Table string
+	// Info
+	Info sql.ColumnType
 	// Autoincrement
 	Autoincrement bool
 	ColumnName    string
