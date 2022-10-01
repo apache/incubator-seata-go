@@ -24,6 +24,8 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
 
+require github.com/google/go-cmp v0.5.8 // indirect
+
 require (
 	cloud.google.com/go v0.93.3 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.1 // indirect
@@ -145,6 +147,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gotest.tools v2.2.0+incompatible
 	moul.io/http2curl v1.0.0 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )

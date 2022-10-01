@@ -15,52 +15,41 @@
  * limitations under the License.
  */
 
-package types
+package mysql
 
-// ColumnMeta
-type ColumnMeta struct {
-	// Schema
-	Schema string
-	// Table
-	Table string
-	// Autoincrement
-	Autoincrement bool
-	ColumnName    string
-	ColumnType    string
-	DataType      int32
-	ColumnKey     string
-	IsNullable    int8
-	Extra         string
-}
+import (
+	"context"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
+	"gotest.tools/assert"
+	"testing"
+)
 
-// IndexMeta
-type IndexMeta struct {
-	// Schema
-	Schema string
-	// Table
-	Table      string
-	IndexName  string
-	ColumnName string
-	NonUnique  bool
-	// IType
-	IndexType IndexType
-	// Values
-	Values []ColumnMeta
-}
+// TestMetaCache
+func TestMetaCache(t *testing.T) {
+	// local test can annotation t.SkipNow()
+	t.SkipNow()
 
-// TableMeta
-type TableMeta struct {
-	// Schema
-	Schema string
-	// Name
-	Name string
-	// Columns
-	Columns map[string]ColumnMeta
-	// Indexs
-	Indexs      map[string]IndexMeta
-	ColumnNames []string
-}
+	testTableMeta := func() {
+		metaInstance := GetTableMetaInstance()
 
-func (m TableMeta) IsEmpty() bool {
-	return m.Name == ""
+		db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/seata?multiStatements=true")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer db.Close()
+
+		ctx := context.Background()
+		conn, _ := db.Conn(ctx)
+
+		tableMeta, err := metaInstance.GetTableMeta(ctx, "undo_log", conn)
+		assert.NilError(t, err)
+
+		t.Logf("%+v", tableMeta)
+	}
+
+	t.Run("testTableMeta", func(t *testing.T) {
+		testTableMeta()
+	})
 }
