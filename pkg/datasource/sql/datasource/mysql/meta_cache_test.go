@@ -25,8 +25,8 @@ import (
 	"testing"
 )
 
-// TestMetaCache
-func TestMetaCache(t *testing.T) {
+// TestGetTableMeta
+func TestGetTableMeta(t *testing.T) {
 	// local test can annotation t.SkipNow()
 	t.SkipNow()
 
