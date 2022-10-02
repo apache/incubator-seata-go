@@ -28,15 +28,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-// Table schema
-const (
-	IndexSchemaSql = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` " +
-		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
-	ColumnSchemaSql = "select TABLE_CATALOG, TABLE_NAME, TABLE_SCHEMA, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY, " +
-		" IS_NULLABLE, EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-)
-
 type mysqlTrigger struct {
 }
 
@@ -45,7 +36,7 @@ func NewMysqlTrigger() *mysqlTrigger {
 }
 
 // LoadOne get table meta column and index
-func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (types.TableMeta, error) {
+func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
 	tableMeta := types.TableMeta{
 		Name:    tableName,
 		Columns: make(map[string]types.ColumnMeta),
@@ -54,10 +45,10 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 
 	colMetas, err := m.getColumns(ctx, dbName, tableName, conn)
 	if err != nil {
-		return types.TableMeta{}, errors.Wrapf(err, "Could not found any column in the table: %s", tableName)
+		return nil, errors.Wrapf(err, "Could not found any column in the table: %s", tableName)
 	}
 
-	columns := make([]string, 0)
+	var columns []string
 	for _, column := range colMetas {
 		tableMeta.Columns[column.ColumnName] = column
 		columns = append(columns, column.ColumnName)
@@ -66,7 +57,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 
 	indexes, err := m.getIndexes(ctx, dbName, tableName, conn)
 	if err != nil {
-		return types.TableMeta{}, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
+		return nil, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
 	}
 	for _, index := range indexes {
 		col := tableMeta.Columns[index.ColumnName]
@@ -79,10 +70,10 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		}
 	}
 	if len(tableMeta.Indexs) == 0 {
-		return types.TableMeta{}, errors.Errorf("Could not found any index in the table: %s", tableName)
+		return nil, errors.Errorf("Could not found any index in the table: %s", tableName)
 	}
 
-	return tableMeta, nil
+	return &tableMeta, nil
 }
 
 // LoadAll
@@ -94,9 +85,12 @@ func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
 func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 
-	result := make([]types.ColumnMeta, 0)
+	var result []types.ColumnMeta
 
-	stmt, err := conn.PrepareContext(ctx, ColumnSchemaSql)
+	columnSchemaSql := "select TABLE_CATALOG, TABLE_NAME, TABLE_SCHEMA, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY, " +
+		" IS_NULLABLE, EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+
+	stmt, err := conn.PrepareContext(ctx, columnSchemaSql)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +166,10 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 
 	result := make([]types.IndexMeta, 0)
 
-	stmt, err := conn.PrepareContext(ctx, IndexSchemaSql)
+	indexSchemaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` " +
+		"FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+
+	stmt, err := conn.PrepareContext(ctx, indexSchemaSql)
 	if err != nil {
 		return nil, err
 	}

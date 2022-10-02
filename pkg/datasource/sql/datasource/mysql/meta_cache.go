@@ -58,17 +58,17 @@ func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 }
 
 // GetTableMeta get table info from cache or information schema
-func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (types.TableMeta, error) {
+func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
 	if tableName == "" {
-		return types.TableMeta{}, errors.New("TableMeta cannot be fetched without tableName")
+		return nil, errors.New("TableMeta cannot be fetched without tableName")
 	}
 
 	tableMeta, err := c.tableMetaCache.GetTableMeta(ctx, tableName, conn)
 	if err != nil {
-		return types.TableMeta{}, err
+		return nil, err
 	}
 
-	return tableMeta, nil
+	return &tableMeta, nil
 }
 
 // Destroy

@@ -30,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (types.TableMeta, error)
+		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -148,13 +148,13 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, tableName string,
 			return types.TableMeta{}, err
 		}
 
-		if !meta.IsEmpty() {
+		if meta != nil && !meta.IsEmpty() {
 			c.cache[tableName] = &entry{
-				value:      meta,
+				value:      *meta,
 				lastAccess: time.Now(),
 			}
 
-			return meta, nil
+			return *meta, nil
 		}
 
 		return types.TableMeta{}, errors.New("not found table metadata")
