@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"sync/atomic"
 	"testing"
 
@@ -46,7 +47,7 @@ func TestATConn_ExecContext(t *testing.T) {
 
 	defer db.Close()
 
-	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) *mock.MockTestDriverConnector {
+	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
 		mockTx := mock.NewMockTestDriverTx(ctrl)
 		mockTx.EXPECT().Commit().AnyTimes().Return(nil)
 		mockTx.EXPECT().Rollback().AnyTimes().Return(nil)
@@ -75,12 +76,12 @@ func TestATConn_ExecContext(t *testing.T) {
 		tm.SetXID(ctx, uuid.New().String())
 		t.Logf("set xid=%s", tm.GetXID(ctx))
 
-		before := func(_ context.Context, execCtx *types.ExecContext) {
+		beforeHook := func(_ context.Context, execCtx *types.ExecContext) {
 			t.Logf("on exec xid=%s", execCtx.TxCtx.XaID)
 			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XaID)
 			assert.Equal(t, types.ATMode, execCtx.TxCtx.TransType)
 		}
-		mi.before = before
+		mi.before = beforeHook
 
 		var comitCnt int32
 		beforeCommit := func(tx *Tx) {

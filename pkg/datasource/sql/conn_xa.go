@@ -33,7 +33,7 @@ type XAConn struct {
 func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if c.createTxCtxIfAbsent(ctx) {
 		defer func() {
-			c.txCtx = nil
+			c.txCtx = types.NewTxCtx()
 		}()
 	}
 
@@ -44,7 +44,7 @@ func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if c.createTxCtxIfAbsent(ctx) {
 		defer func() {
-			c.txCtx = nil
+			c.txCtx = types.NewTxCtx()
 		}()
 	}
 
@@ -53,6 +53,8 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 
 // BeginTx
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	c.autoCommit = false
+
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
@@ -62,24 +64,22 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.txCtx.XaID = tm.GetXID(ctx)
 	}
 
-	return c.Conn.BeginTx(ctx, opts)
+	tx, err := c.Conn.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &XATx{tx: tx.(*Tx)}, nil
 }
 
 func (c *XAConn) createTxCtxIfAbsent(ctx context.Context) bool {
-	var onceTx bool
+	onceTx := IsGlobalTx(ctx) && c.autoCommit
 
-	if IsGlobalTx(ctx) && c.txCtx == nil {
+	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.XAMode
-		c.autoCommit = true
-		onceTx = true
-	}
-
-	if c.txCtx == nil {
-		c.txCtx = types.NewTxCtx()
-		onceTx = true
 	}
 
 	return onceTx

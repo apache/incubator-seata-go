@@ -18,7 +18,9 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"reflect"
 	"testing"
 
@@ -38,6 +40,73 @@ func initMockResourceManager(t *testing.T, ctrl *gomock.Controller) *mock.MockDa
 	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
 	return mockResourceMgr
+}
+
+func Test_seataATDriver_Open(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := initMockResourceManager(t, ctrl)
+	_ = mockMgr
+
+	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+
+	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
+
+		v := reflect.ValueOf(db)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+
+		field := v.FieldByName("connector")
+		fieldVal := reflectx.GetUnexportedField(field)
+
+		driverVal, ok := fieldVal.(driver.Connector).Driver().(*seataATDriver)
+		assert.True(t, ok, "need seata at driver")
+
+		vv := reflect.ValueOf(driverVal)
+		if vv.Kind() == reflect.Ptr {
+			vv = vv.Elem()
+		}
+		field = vv.FieldByName("target")
+
+		mockDriver := mock.NewMockTestDriver(ctrl)
+		mockDriver.EXPECT().Open(gomock.Any()).Return(mock.NewMockTestDriverConn(ctrl), nil)
+
+		reflectx.SetUnexportedField(field, mockDriver)		
+
+		connector := &dsnConnector{
+			driver: driverVal,
+		}
+		return connector
+	})
+
+	conn, err := db.Conn(context.Background())
+	assert.NoError(t, err)
+
+	v := reflect.ValueOf(conn)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	field := v.FieldByName("dc")
+	fieldVal := reflectx.GetUnexportedField(field)
+
+	vv := reflect.ValueOf(fieldVal)
+	if vv.Kind() == reflect.Ptr {
+		vv = vv.Elem()
+	}
+
+	field = vv.FieldByName("ci")
+	fieldVal = reflectx.GetUnexportedField(field)
+
+	_, ok := fieldVal.(*ATConn)
+	assert.True(t, ok, "need return seata at connection")
 }
 
 func Test_seataATDriver_OpenConnector(t *testing.T) {

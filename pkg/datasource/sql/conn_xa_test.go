@@ -98,7 +98,7 @@ func TestXAConn_ExecContext(t *testing.T) {
 
 	defer db.Close()
 
-	_ = initMockXaConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) *mock.MockTestDriverConnector {
+	_ = initMockXaConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
 		mockTx := mock.NewMockTestDriverTx(ctrl)
 		mockTx.EXPECT().Commit().AnyTimes().Return(nil)
 		mockTx.EXPECT().Rollback().AnyTimes().Return(nil)

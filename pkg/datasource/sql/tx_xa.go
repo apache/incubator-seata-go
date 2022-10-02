@@ -17,13 +17,35 @@
 
 package sql
 
-import (
-	_ "github.com/seata/seata-go/pkg/datasource/sql/hook"
+// XATx
+type XATx struct {
+	tx *Tx
+}
 
-	// mysql 相关插件
-	_ "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	_ "github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
+// Commit do commit action
+// case 1. no open global-transaction, just do local transaction commit
+// case 2. not need flush undolog, is XA mode, do local transaction commit
+// case 3. need run AT transaction
+func (tx *XATx) Commit() error {
+	tx.tx.beforeCommit()
+	return tx.commitOnXA()
+}
 
-	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/at"
-	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
-)
+func (tx *XATx) Rollback() error {
+	err := tx.tx.Rollback()
+	if err != nil {
+
+		originTx := tx.tx
+
+		if originTx.ctx.OpenGlobalTrsnaction() && originTx.ctx.IsBranchRegistered() {
+			originTx.report(false)
+		}
+	}
+
+	return err
+}
+
+// commitOnXA
+func (tx *XATx) commitOnXA() error {
+	return nil
+}

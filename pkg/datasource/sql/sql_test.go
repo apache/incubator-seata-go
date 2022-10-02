@@ -20,20 +20,27 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"sync"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/seata/seata-go/pkg/client"
+	"github.com/golang/mock/gomock"
+	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
 var db *sql.DB
 
 func Test_SQLOpen(t *testing.T) {
-	client.Init()
-	t.SkipNow()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := initMockResourceManager(t, ctrl)
+	_ = mockMgr
+
 	log.Info("begin test")
 	var err error
 	db, err = sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
@@ -43,14 +50,35 @@ func Test_SQLOpen(t *testing.T) {
 
 	defer db.Close()
 
-	sqlStmt := `
-	create table if not exists foo (id integer not null primary key, name text);
-	delete from foo;
-	`
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
+		mockTx := mock.NewMockTestDriverTx(ctrl)
+		mockTx.EXPECT().Commit().AnyTimes().Return(nil)
+		mockTx.EXPECT().Rollback().AnyTimes().Return(nil)
+
+		mockStmt := mock.NewMockTestDriverStmt(ctrl)
+		mockStmt.EXPECT().ExecContext(gomock.Any(), gomock.Any()).AnyTimes().Return(driver.ResultNoRows, nil)
+		mockStmt.EXPECT().Exec(gomock.Any()).AnyTimes().Return(driver.ResultNoRows, nil)
+		mockStmt.EXPECT().Close().AnyTimes().Return(nil)
+		mockStmt.EXPECT().NumInput().AnyTimes().Return(2)
+
+		mockRows := mock.NewMockTestDriverRows(ctrl)
+		mockRows.EXPECT().Close().AnyTimes().Return(nil)
+		mockRows.EXPECT().Columns().AnyTimes().Return([]string{"id", "name"})
+		mockRows.EXPECT().Next(gomock.Any()).AnyTimes().Return(nil)
+
+		mockConn := mock.NewMockTestDriverConn(ctrl)
+		mockConn.EXPECT().Begin().AnyTimes().Return(mockTx, nil)
+		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(mockTx, nil)
+		mockConn.EXPECT().Prepare(gomock.Any()).AnyTimes().Return(mockStmt, nil)
+		mockConn.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).AnyTimes().Return(mockStmt, nil)
+		mockConn.EXPECT().Query(gomock.Any(), gomock.Any()).AnyTimes().Return(mockRows, nil)
+		mockConn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(mockRows, nil)
+		baseMoclConn(mockConn)
+
+		connector := mock.NewMockTestDriverConnector(ctrl)
+		connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)
+		return connector
+	})
 
 	wait := sync.WaitGroup{}
 
