@@ -25,12 +25,14 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
+// ATConn Database connection proxy object under XA transaction model
+// Conn is assumed to be stateful.
 type ATConn struct {
 	*Conn
 }
 
 func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if c.createTxCtxIfAbsent(ctx) {
+	if c.createOnceTxContext(ctx) {
 		defer func() {
 			c.txCtx = types.NewTxCtx()
 		}()
@@ -41,7 +43,7 @@ func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 
 // QueryContext
 func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if c.createTxCtxIfAbsent(ctx) {
+	if c.createOnceTxContext(ctx) {
 		defer func() {
 			c.txCtx = types.NewTxCtx()
 		}()
@@ -52,7 +54,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 
 // ExecContext
 func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if c.createTxCtxIfAbsent(ctx) {
+	if c.createOnceTxContext(ctx) {
 		defer func() {
 			c.txCtx = types.NewTxCtx()
 		}()
@@ -82,7 +84,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	return &ATTx{tx: tx.(*Tx)}, nil
 }
 
-func (c *ATConn) createTxCtxIfAbsent(ctx context.Context) bool {
+func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 	onceTx := IsGlobalTx(ctx) && c.autoCommit
 
 	if onceTx {

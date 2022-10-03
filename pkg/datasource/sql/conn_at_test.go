@@ -33,9 +33,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestATConn_ExecContext(t *testing.T) {
+func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
@@ -44,8 +43,6 @@ func TestATConn_ExecContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer db.Close()
 
 	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
 		mockTx := mock.NewMockTestDriverTx(ctrl)
@@ -68,8 +65,19 @@ func TestATConn_ExecContext(t *testing.T) {
 
 	exec.CleanCommonHook()
 	CleanTxHooks()
-	exec.RegisCommonHook(mi)
+	exec.RegisterCommonHook(mi)
 	RegisterTxHook(ti)
+
+	return ctrl, db, mi, ti
+}
+
+func TestATConn_ExecContext(t *testing.T) {
+	ctrl, db, mi, ti := initAtConnTestResource(t)
+	defer func() {
+		ctrl.Finish()
+		db.Close()
+		CleanTxHooks()
+	}()
 
 	t.Run("have xid", func(t *testing.T) {
 		ctx := tm.InitSeataContext(context.Background())
@@ -124,5 +132,94 @@ func TestATConn_ExecContext(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, int32(0), atomic.LoadInt32(&comitCnt))
+	})
+}
+
+func TestATConn_BeginTx(t *testing.T) {
+	ctrl, db, mi, ti := initAtConnTestResource(t)
+	defer func() {
+		ctrl.Finish()
+		db.Close()
+		CleanTxHooks()
+	}()
+
+	t.Run("tx-local", func(t *testing.T) {
+		tx, err := db.Begin()
+		assert.NoError(t, err)
+
+		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
+			assert.Equal(t, "", execCtx.TxCtx.XaID)
+			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
+		}
+
+		var comitCnt int32
+		ti.beforeCommit = func(tx *Tx) {
+			atomic.AddInt32(&comitCnt, 1)
+		}
+
+		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		_, err = tx.ExecContext(tm.InitSeataContext(context.Background()), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		err = tx.Commit()
+		assert.NoError(t, err)
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
+	})
+
+	t.Run("tx-local-context", func(t *testing.T) {
+		tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+		assert.NoError(t, err)
+
+		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
+			assert.Equal(t, "", execCtx.TxCtx.XaID)
+			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
+		}
+
+		var comitCnt int32
+		ti.beforeCommit = func(tx *Tx) {
+			atomic.AddInt32(&comitCnt, 1)
+		}
+
+		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		_, err = tx.ExecContext(tm.InitSeataContext(context.Background()), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		err = tx.Commit()
+		assert.NoError(t, err)
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
+	})
+
+	t.Run("tx-at-context", func(t *testing.T) {
+		ctx := tm.InitSeataContext(context.Background())
+		tm.SetXID(ctx, uuid.NewString())
+		tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+		assert.NoError(t, err)
+
+		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
+			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XaID)
+			assert.Equal(t, types.ATMode, execCtx.TxCtx.TransType)
+		}
+
+		var comitCnt int32
+		ti.beforeCommit = func(tx *Tx) {
+			atomic.AddInt32(&comitCnt, 1)
+		}
+
+		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
+		assert.NoError(t, err)
+
+		err = tx.Commit()
+		assert.NoError(t, err)
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
 }

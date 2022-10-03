@@ -22,7 +22,6 @@ import (
 	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
@@ -82,9 +81,7 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		hooks := make([]SQLHook, 0, 4)
 		hooks = append(hooks, commonHook...)
 
-		e := &BaseExecutor{
-			ex: executorSoltsXA[dbType](),
-		}
+		e := executorSoltsXA[dbType]()
 		e.Interceptors(hooks)
 		return e, nil
 	}
