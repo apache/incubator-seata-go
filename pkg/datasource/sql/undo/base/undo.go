@@ -27,6 +27,9 @@ import (
 	"github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/parser"
+	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/common/util"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -49,7 +52,25 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(ctx context.Context, l []undo.BranchUndoLog, conn *sql.Conn) error {
+
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err != nil {
+		log.Errorf("[InsertUndoLog] prepare sql fail, err: %v ", err)
+		return err
+	}
+	size := len(l)
+
+	for i := 0; i < size; i++ {
+		 parser := parser.BaseParser{}
+		 //TODO Serialized undolog protocol
+
+		tx.ExecContext(ctx, constant.InsertUndoLogSql , l[i].BranchID, l[i].Xid, l[i].)
+	}
+
 	return nil
 }
 
