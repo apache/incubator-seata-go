@@ -85,5 +85,5 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 }
 
 func (u *MySQLDeleteUndoLogBuilder) GetSQLType() types.SQLType {
-	return types.SQLTypeUpdate
+	return types.SQLTypeDelete
 }
