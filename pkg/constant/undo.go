@@ -19,10 +19,18 @@ package constant
 
 const (
 	DeleteFrom                     = "DELETE FROM "
+	InsertFrom                     = "INSERT INTO "
 	DefaultTransactionUndoLogTable = " undo_log "
 	// UndoLogTableName Todo get from config
 	UndoLogTableName = DefaultTransactionUndoLogTable
 	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
+	/**
+	 * branch_id, xid, context, rollback_info, log_status, log_created, log_modified
+	 */
+	InsertUndoLogSql = "INSERT INTO " + DefaultTransactionUndoLogTable +
+		" (" + UndoLogBranchXid + ", " + UndoLogXid + ", " + UndoLogContext + ", " +
+		UndoLogRollBackInfo + ", " + UndoLogLogStatus + ", " + UndoLogLogCreated +
+		", " + UndoLogLogModified + ")" + " VALUES (?, ?, ?, ?, ?, now(6), now(6))"
 )
 
 const ErrCodeTableNotExist = "1146"

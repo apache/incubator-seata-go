@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/parser"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
@@ -37,6 +38,7 @@ import (
 var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+var ErrorInsertUndoLogParamsFault = errors.New("undoLog can't nil")
 
 // CheckUndoLogTableExistSql check undo log if exist
 const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
@@ -49,7 +51,25 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(ctx context.Context, l []undo.BranchUndoLog, conn *sql.Conn) error {
+
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err != nil {
+		log.Errorf("[InsertUndoLog] prepare sql fail, err: %v ", err)
+		return err
+	}
+	size := len(l)
+
+	for i := 0; i < size; i++ {
+		 parser := parser.BaseParser{}
+		 //TODO Serialized undolog protocol
+
+		tx.ExecContext(ctx, constant.InsertUndoLogSql , l[i].BranchID, l[i].Xid, l[i].)
+	}
+
 	return nil
 }
 
@@ -129,6 +149,27 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 	}
 
 	return true, nil
+}
+
+// getBatchDeleteUndoLogSql build batch delete undo log
+func (m *BaseUndoLogManager) getBatchInsertUndoLogSql(logs []undo.BranchUndoLog) (string, error) {
+	if len(logs) == 0 {
+		return "", ErrorInsertUndoLogParamsFault
+	}
+
+	var undoLogInsertSql strings.Builder
+	for i := 0; i < len(logs); i++ {
+		undoLogInsertSql.WriteString(constant.InsertFrom)
+		undoLogInsertSql.WriteString(constant.UndoLogTableName)
+		undoLogInsertSql.WriteString(" VALUES ( ")
+		undoLogInsertSql.WriteString(logs[i].Xid)
+		undoLogInsertSql.WriteString(" , ")
+		undoLogInsertSql.WriteString(logs[i].BranchID)
+		undoLogInsertSql.WriteString(" , ")
+		undoLogInsertSql.WriteString(logs[i].Logs[0].SQLType)
+	}
+
+	return undoLogInsertSql.String(), nil
 }
 
 // getBatchDeleteUndoLogSql build batch delete undo log
