@@ -70,6 +70,10 @@ func (m *BaseUndoLogManager) InsertUndoLog(ctx context.Context, l []undo.BranchU
 
 		tx.ExecContext(ctx, constant.InsertUndoLogSql , l[i].BranchID, l[i].Xid, l[i].)
 	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
