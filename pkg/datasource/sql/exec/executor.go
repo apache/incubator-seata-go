@@ -225,7 +225,6 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 	return builder.BeforeImage(ctx, execCtx)
 }
 
-// After
 func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImage *types.RecordImage) (*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
