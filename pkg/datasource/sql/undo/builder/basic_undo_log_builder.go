@@ -215,8 +215,15 @@ func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowS
 		}
 		whereStr.WriteString(") IN (")
 
-		eachSize := rowSize % maxInSize
-		if batch == batchSize-1 && rowSize%maxInSize == 0 {
+		var eachSize int
+
+		if batch == batchSize-1 {
+			if rowSize%maxInSize == 0 {
+				eachSize = maxInSize
+			} else {
+				eachSize = rowSize % maxInSize
+			}
+		} else {
 			eachSize = maxInSize
 		}
 
