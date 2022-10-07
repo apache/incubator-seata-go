@@ -29,11 +29,12 @@ import (
 )
 
 func init() {
-	RegistrUndoLogBuilder(&builder.MySQLUpdateUndoLogBuilder{})
+	RegistrUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+	RegistrUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
 var solts = map[types.DBType]*undoLogMgrHolder{}
-var builders = map[types.SQLType]UndoLogBuilder{}
+var builders = map[types.ExecutorType]func() UndoLogBuilder{}
 
 type undoLogMgrHolder struct {
 	once sync.Once
@@ -52,14 +53,14 @@ func RegisterUndoLogManager(m UndoLogManager) error {
 	return nil
 }
 
-func RegistrUndoLogBuilder(m UndoLogBuilder) {
-	if _, ok := builders[m.GetSQLType()]; !ok {
-		builders[m.GetSQLType()] = m
+func RegistrUndoLogBuilder(executorType types.ExecutorType, fun func() UndoLogBuilder) {
+	if _, ok := builders[executorType]; !ok {
+		builders[executorType] = fun
 	}
 }
 
-func GetUndologBuilder(sqlType types.SQLType) UndoLogBuilder {
-	return builders[sqlType]
+func GetUndologBuilder(sqlType types.ExecutorType) UndoLogBuilder {
+	return builders[sqlType]()
 }
 
 // UndoLogManager
@@ -131,7 +132,7 @@ type UndoLogParser interface {
 }
 
 type UndoLogBuilder interface {
-	BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error)
-	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImage *types.RecordImage) (*types.RecordImage, error)
-	GetSQLType() types.SQLType
+	BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error)
+	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error)
+	GetExecutorType() types.ExecutorType
 }

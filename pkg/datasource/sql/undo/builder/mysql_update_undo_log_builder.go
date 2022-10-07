@@ -21,13 +21,13 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -39,7 +39,17 @@ type MySQLUpdateUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }
 
-func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+func GetMySQLUpdateUndoLogBuilder() undo.UndoLogBuilder {
+	return &MySQLUpdateUndoLogBuilder{
+		BasicUndoLogBuilder: BasicUndoLogBuilder{},
+	}
+}
+
+func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
+	if execCtx.ParseContext.UpdateStmt == nil {
+		return nil, nil
+	}
+
 	vals := execCtx.Values
 	if vals == nil {
 		for n, param := range execCtx.NamedValues {
@@ -47,7 +57,7 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		}
 	}
 	// use
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.Query, vals)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.ParseContext.UpdateStmt, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +74,30 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImage *types.RecordImage) (*types.RecordImage, error) {
-	selectSQL, selectArgs := u.buildAfterImageSQL(beforImage, execCtx.MetaData)
+func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+	if execCtx.ParseContext.UpdateStmt == nil {
+		return nil, nil
+	}
+
+	var beforeImage *types.RecordImage
+	if len(beforeImages) > 0 {
+		beforeImage = beforeImages[0]
+	}
+
+	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
 	if err != nil {
@@ -82,7 +111,12 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*types.RecordImage{image}, nil
 }
 
 func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
@@ -95,13 +129,8 @@ func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.Record
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []driver.Value) (string, []driver.Value, error) {
-	p, err := parser.DoParser(query)
-	if err != nil {
-		return "", nil, err
-	}
-
-	if p.UpdateStmt == nil {
+func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateStmt, args []driver.Value) (string, []driver.Value, error) {
+	if updateStmt == nil {
 		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
@@ -109,7 +138,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	fields := []*ast.SelectField{}
 
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	for _, column := range p.UpdateStmt.List {
+	for _, column := range updateStmt.List {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: column.Column,
@@ -119,12 +148,15 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           p.UpdateStmt.TableRefs,
-		Where:          p.UpdateStmt.Where,
+		From:           updateStmt.TableRefs,
+		Where:          updateStmt.Where,
 		Fields:         &ast.FieldList{Fields: fields},
-		OrderBy:        p.UpdateStmt.Order,
-		Limit:          p.UpdateStmt.Limit,
-		TableHints:     p.UpdateStmt.TableHints,
+		OrderBy:        updateStmt.Order,
+		Limit:          updateStmt.Limit,
+		TableHints:     updateStmt.TableHints,
+		LockInfo: &ast.SelectLockInfo{
+			LockType: ast.SelectLockForUpdate,
+		},
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
@@ -135,6 +167,6 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }
 
-func (u *MySQLUpdateUndoLogBuilder) GetSQLType() types.SQLType {
-	return types.SQLTypeUpdate
+func (u *MySQLUpdateUndoLogBuilder) GetExecutorType() types.ExecutorType {
+	return types.UpdateExecutor
 }
