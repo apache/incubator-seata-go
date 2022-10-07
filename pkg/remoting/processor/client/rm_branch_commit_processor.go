@@ -20,8 +20,8 @@ package client
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
@@ -32,8 +32,7 @@ func init() {
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
 }
 
-type rmBranchCommitProcessor struct {
-}
+type rmBranchCommitProcessor struct{}
 
 func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	log.Infof("the rm client received  rmBranchCommit msg %#v from tc server.", rpcMessage)

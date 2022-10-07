@@ -18,12 +18,11 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-type AbstractIdentifyRequestCodec struct {
-}
+type AbstractIdentifyRequestCodec struct{}
 
 func (c *AbstractIdentifyRequestCodec) Encode(in interface{}) []byte {
 	data := in.(message.AbstractIdentifyRequest)

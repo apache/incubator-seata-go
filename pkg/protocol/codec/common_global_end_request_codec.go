@@ -18,12 +18,11 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-type CommonGlobalEndRequestCodec struct {
-}
+type CommonGlobalEndRequestCodec struct{}
 
 func (c *CommonGlobalEndRequestCodec) Encode(in interface{}) []byte {
 	data, _ := in.(message.AbstractGlobalEndRequest)

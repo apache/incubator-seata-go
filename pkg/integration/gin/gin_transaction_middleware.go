@@ -23,8 +23,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // TransactionMiddleware filter gin invocation

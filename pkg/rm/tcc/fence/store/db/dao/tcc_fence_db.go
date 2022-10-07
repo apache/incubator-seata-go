@@ -45,7 +45,6 @@ func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 		})
 	}
 	return tccFenceStoreDatabaseMapper
-
 }
 
 func (t *TccFenceStoreDatabaseMapper) InitLogTableName() {

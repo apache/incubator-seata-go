@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // ClientTransactionInterceptor is client interceptor of grpc,
@@ -34,7 +34,7 @@ import (
 // and put it in the http header.
 func ClientTransactionInterceptor(ctx context.Context, method string, req, reply interface{},
 	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	//set the XID when intercepting a client request and release it directly when intercepting a response
+	// set the XID when intercepting a client request and release it directly when intercepting a response
 	if tm.IsSeataContext(ctx) {
 		xid := tm.GetXID(ctx)
 		header := make(map[string]string)

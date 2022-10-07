@@ -30,10 +30,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/net"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "github.com/seata/seata-go/testdata"
 )
@@ -130,7 +130,7 @@ func TestGetActionContextParameters(t *testing.T) {
 }
 
 func TestGetOrCreateBusinessActionContext(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		param interface{}
 		want  tm.BusinessActionContext
 	}{
@@ -151,7 +151,8 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 					"age":  12,
 				},
 			},
-		}, {
+		},
+		{
 			param: &tm.BusinessActionContext{
 				ActionContext: map[string]interface{}{
 					"name": "Jack",
@@ -164,7 +165,8 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 					"age":  13,
 				},
 			},
-		}, {
+		},
+		{
 			param: struct {
 				Context *tm.BusinessActionContext
 			}{
@@ -250,17 +252,23 @@ func TestNewTCCServiceProxy(t *testing.T) {
 		want    *TCCServiceProxy
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"test1", args1, &TCCServiceProxy{
-			TCCResource: &TCCResource{
-				ResourceGroupId: `default:"DEFAULT"`,
-				AppName:         "seata-go-mock-app-name",
-				TwoPhaseAction:  twoPhaseAction1}}, assert.NoError,
+		{
+			"test1", args1, &TCCServiceProxy{
+				TCCResource: &TCCResource{
+					ResourceGroupId: `default:"DEFAULT"`,
+					AppName:         "seata-go-mock-app-name",
+					TwoPhaseAction:  twoPhaseAction1,
+				},
+			}, assert.NoError,
 		},
-		{"test2", args2, &TCCServiceProxy{
-			TCCResource: &TCCResource{
-				ResourceGroupId: `default:"DEFAULT"`,
-				AppName:         "seata-go-mock-app-name",
-				TwoPhaseAction:  twoPhaseAction2}}, assert.NoError,
+		{
+			"test2", args2, &TCCServiceProxy{
+				TCCResource: &TCCResource{
+					ResourceGroupId: `default:"DEFAULT"`,
+					AppName:         "seata-go-mock-app-name",
+					TwoPhaseAction:  twoPhaseAction2,
+				},
+			}, assert.NoError,
 		},
 	}
 
@@ -290,7 +298,8 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		fields fields
 		want   tm.TransactionInfo
 	}{
-		"test1", fields{
+		"test1",
+		fields{
 			referenceName:        "test1",
 			registerResourceOnce: sync.Once{},
 			TCCResource: &TCCResource{
@@ -310,7 +319,6 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		}
 		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
 	})
-
 }
 
 func GetTestTwoPhaseService() rm.TwoPhaseInterface {

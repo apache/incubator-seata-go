@@ -25,10 +25,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/util/backoff"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type GlobalTransaction struct {
@@ -52,8 +52,7 @@ func GetGlobalTransactionManager() *GlobalTransactionManager {
 	return globalTransactionManager
 }
 
-type GlobalTransactionManager struct {
-}
+type GlobalTransactionManager struct{}
 
 // Begin a new global transaction with given timeout and given name.
 func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout time.Duration, name string) error {
@@ -103,7 +102,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		MaxBackoff: 200 * time.Millisecond,
 	})
 
-	var req = message.GlobalCommitRequest{
+	req := message.GlobalCommitRequest{
 		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
 	}
 	var res interface{}
@@ -146,7 +145,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	})
 
 	var res interface{}
-	var req = message.GlobalRollbackRequest{
+	req := message.GlobalRollbackRequest{
 		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{Xid: gtr.Xid},
 	}
 

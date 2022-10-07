@@ -26,10 +26,10 @@ import (
 	"github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/common/util"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )

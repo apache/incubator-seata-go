@@ -20,17 +20,16 @@ package codec
 import (
 	"math"
 
-	"github.com/seata/seata-go/pkg/common/bytes"
 	serror "github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
 func init() {
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterResponseCodec{})
 }
 
-type BranchRegisterResponseCodec struct {
-}
+type BranchRegisterResponseCodec struct{}
 
 func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
 	data := message.BranchRegisterResponse{}

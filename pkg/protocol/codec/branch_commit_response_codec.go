@@ -22,17 +22,16 @@ import (
 
 	serror "github.com/seata/seata-go/pkg/common/errors"
 
-	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
 func init() {
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchCommitResponseCodec{})
 }
 
-type BranchCommitResponseCodec struct {
-}
+type BranchCommitResponseCodec struct{}
 
 func (g *BranchCommitResponseCodec) Decode(in []byte) interface{} {
 	data := message.BranchCommitResponse{}

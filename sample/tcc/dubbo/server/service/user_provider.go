@@ -24,8 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-type UserProvider struct {
-}
+type UserProvider struct{}
 
 func (t *UserProvider) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	logger.Infof("Prepare result: %v, xid %v", params, tm.GetXID(ctx))

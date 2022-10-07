@@ -26,8 +26,8 @@ import (
 
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	client.Init()
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
-	var serverIpPort = "http://127.0.0.1:8080"
+	serverIpPort := "http://127.0.0.1:8080"
 
 	tm.WithGlobalTx(
 		bgCtx,
