@@ -25,7 +25,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/extension"
 	"dubbo.apache.org/dubbo-go/v3/filter"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
-	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -36,7 +36,7 @@ var (
 )
 
 func InitSeataDubbo() {
-	extension.SetFilter(common.SeataFilterKey, GetDubboTransactionFilter)
+	extension.SetFilter(constant.SeataFilterKey, GetDubboTransactionFilter)
 }
 
 type Filter interface{}
