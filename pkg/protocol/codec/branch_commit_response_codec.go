@@ -20,7 +20,7 @@ package codec
 import (
 	"math"
 
-	serror "github.com/seata/seata-go/pkg/constant/errors"
+	serror "github.com/seata/seata-go/pkg/util/errors"
 
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"

@@ -22,10 +22,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/constant/errors"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
