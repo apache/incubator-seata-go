@@ -3,7 +3,7 @@ module github.com/seata/seata-go
 go 1.18
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.0.2-0.20220508105316-b27ec53b7bab
+	dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.8
@@ -48,7 +48,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5 // indirect
 	github.com/dubbogo/grpc-go v1.42.9 // indirect
-	github.com/dubbogo/triple v1.1.8 // indirect
+	github.com/dubbogo/triple v1.1.9 // indirect
 	github.com/elazarl/goproxy v0.0.0-20220901064549-fbd10ff4f5a1 // indirect
 	github.com/emicklei/go-restful/v3 v3.7.4 // indirect
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1 // indirect
