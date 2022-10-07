@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -38,7 +38,7 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	if tm.IsSeataContext(ctx) {
 		xid := tm.GetXID(ctx)
 		header := make(map[string]string)
-		header[common.XidKey] = xid
+		header[constant.XidKey] = xid
 		ctx = metadata.NewOutgoingContext(ctx, metadata.New(header))
 	}
 
@@ -60,11 +60,11 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 		log.Errorf("missing grpc metadata")
 	}
 	var xid string
-	if slice := md.Get(common.XidKey); slice != nil && len(slice) > 0 {
+	if slice := md.Get(constant.XidKey); slice != nil && len(slice) > 0 {
 		xid = slice[0]
 	}
 	if xid == "" {
-		if slice := md.Get(common.XidKeyLowercase); slice != nil && len(slice) > 0 {
+		if slice := md.Get(constant.XidKeyLowercase); slice != nil && len(slice) > 0 {
 			xid = slice[0]
 		}
 	}

@@ -25,7 +25,7 @@ import (
 	"github.com/parnurzeal/gorequest"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -46,7 +46,7 @@ func main() {
 			request := gorequest.New()
 			log.Infof("branch transaction begin")
 			request.Post(serverIpPort+"/prepare").
-				Set(common.XidKey, tm.GetXID(ctx)).
+				Set(constant.XidKey, tm.GetXID(ctx)).
 				End(func(response gorequest.Response, body string, errs []error) {
 					if len(errs) != 0 {
 						re = errs[0]

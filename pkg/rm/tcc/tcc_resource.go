@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/common"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
@@ -155,7 +155,7 @@ func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64
 		if err := json.Unmarshal(applicationData, &tccContext); err != nil {
 			panic("application data failed to unmarshl as json")
 		}
-		if v, ok := tccContext[common.ActionContext]; ok {
+		if v, ok := tccContext[constant.ActionContext]; ok {
 			actionContextMap = v.(map[string]interface{})
 		}
 	}
