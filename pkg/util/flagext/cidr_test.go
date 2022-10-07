@@ -24,7 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func Test_CIDRSliceCSV_YamlMarshalling(t *testing.T) {
+func Test_CIDRSliceCSV_YamlMarshaling(t *testing.T) {
 	type TestStruct struct {
 		CIDRs CIDRSliceCSV `yaml:"cidrs"`
 	}
