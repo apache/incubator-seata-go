@@ -20,11 +20,10 @@ package main
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/client"
-
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 )
@@ -48,9 +47,9 @@ func run() {
 
 func business(ctx context.Context) (re error) {
 	if resp, re := service.UserProviderInstance.Prepare(ctx, 1); re != nil {
-		logger.Infof("response prepare: %v", re)
+		log.Infof("response prepare: %v", re)
 	} else {
-		logger.Infof("get resp %#v", resp)
+		log.Infof("get resp %#v", resp)
 	}
 	return
 }
