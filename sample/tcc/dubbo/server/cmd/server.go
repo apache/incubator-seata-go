@@ -24,11 +24,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/seata/seata-go/pkg/client"
-
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/sample/tcc/dubbo/server/service"
 )
@@ -38,7 +37,7 @@ func main() {
 	client.Init()
 	userProviderProxy, err := tcc.NewTCCServiceProxy(&service.UserProvider{})
 	if err != nil {
-		logger.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
+		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
 		return
 	}
 	config.SetProviderService(userProviderProxy)
@@ -54,13 +53,13 @@ func initSignal() {
 	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
 		sig := <-signals
-		logger.Infof("get signal %s", sig.String())
+		log.Infof("get signal %s", sig.String())
 		switch sig {
 		case syscall.SIGHUP:
 			// reload()
 		default:
 			time.AfterFunc(time.Duration(int(3e9)), func() {
-				logger.Warnf("app exit now by force...")
+				log.Warnf("app exit now by force...")
 				os.Exit(1)
 			})
 			// The program exits normally or timeout forcibly exits.
