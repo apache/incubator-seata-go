@@ -100,6 +100,14 @@ type RowImage struct {
 	Columns []ColumnImage `json:"fields"`
 }
 
+func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
+	m := make(map[string]*ColumnImage, 0)
+	for _, column := range r.Columns {
+		m[column.Name] = &column
+	}
+	return m
+}
+
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
 	// KeyType index type

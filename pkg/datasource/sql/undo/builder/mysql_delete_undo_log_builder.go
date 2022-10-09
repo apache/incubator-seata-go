@@ -7,7 +7,6 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/bytes"
@@ -18,7 +17,7 @@ type MySQLDeleteUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }
 
-func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *exec.ExecContext) (*types.RecordImage, error) {
+func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
 		for n, param := range execCtx.NamedValues {
