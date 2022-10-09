@@ -23,17 +23,16 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/seata/seata-go/pkg/common/bytes"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/bytes"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	_ "github.com/arana-db/parser/test_driver"
 )
 
-type BasicUndoBuilder struct {
-}
+type BasicUndoBuilder struct{}
 
 // buildRowImages build row iamge by exec condition
 func (u *BasicUndoBuilder) buildRowImages(ctx context.Context, execCtx *exec.ExecContext) ([]*types.RowImage, error) {

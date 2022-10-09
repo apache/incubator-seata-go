@@ -85,7 +85,6 @@ func baseMoclConn(mockConn *mock.MockTestDriverConn) {
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

@@ -33,8 +33,7 @@ func init() {
 	exec.RegisCommonHook(&undoLogSQLHook{})
 }
 
-type undoLogSQLHook struct {
-}
+type undoLogSQLHook struct{}
 
 func (h *undoLogSQLHook) Type() types.SQLType {
 	return types.SQLTypeUnknown

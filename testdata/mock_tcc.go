@@ -10,8 +10,7 @@ const (
 	ActionName = "TestActionName"
 )
 
-type TestTwoPhaseService struct {
-}
+type TestTwoPhaseService struct{}
 
 func (*TestTwoPhaseService) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	return true, nil

@@ -26,10 +26,10 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/common/errors"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 	sql2 "github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/sql"
+	"github.com/seata/seata-go/pkg/util/errors"
 )
 
 var (
@@ -45,7 +45,6 @@ func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 		})
 	}
 	return tccFenceStoreDatabaseMapper
-
 }
 
 func (t *TccFenceStoreDatabaseMapper) InitLogTableName() {

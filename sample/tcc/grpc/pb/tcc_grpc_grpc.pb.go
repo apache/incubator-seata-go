@@ -71,8 +71,7 @@ type TCCServiceBusiness1Server interface {
 }
 
 // UnimplementedTCCServiceBusiness1Server must be embedded to have forward compatible implementations.
-type UnimplementedTCCServiceBusiness1Server struct {
-}
+type UnimplementedTCCServiceBusiness1Server struct{}
 
 func (UnimplementedTCCServiceBusiness1Server) Remoting(context.Context, *Params) (*wrapperspb.BoolValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Remoting not implemented")
@@ -157,8 +156,7 @@ type TCCServiceBusiness2Server interface {
 }
 
 // UnimplementedTCCServiceBusiness2Server must be embedded to have forward compatible implementations.
-type UnimplementedTCCServiceBusiness2Server struct {
-}
+type UnimplementedTCCServiceBusiness2Server struct{}
 
 func (UnimplementedTCCServiceBusiness2Server) Remoting(context.Context, *Params) (*anypb.Any, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Remoting not implemented")

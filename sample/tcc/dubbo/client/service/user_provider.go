@@ -24,9 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-var (
-	UserProviderInstance = NewTwoPhaseDemoService()
-)
+var UserProviderInstance = NewTwoPhaseDemoService()
 
 type UserProvider struct {
 	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`

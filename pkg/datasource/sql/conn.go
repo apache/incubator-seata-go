@@ -124,7 +124,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 				return types.NewResult(types.WithResult(ret)), nil
 			})
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +168,6 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 		return ret, err
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +333,6 @@ func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (type
 	}()
 
 	ret, err := f()
-
 	if err != nil {
 		return nil, err
 	}
