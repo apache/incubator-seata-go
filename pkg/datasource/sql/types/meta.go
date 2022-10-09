@@ -29,6 +29,8 @@ type ColumnMeta struct {
 	Table string
 	// Autoincrement
 	Autoincrement bool
+	// ColumnDef
+	ColumnDef string
 	// Info
 	Info sql.ColumnType
 }
