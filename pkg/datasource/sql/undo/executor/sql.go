@@ -157,6 +157,7 @@ func checkEscape(colName string, dbType types.DBType) bool {
 		}
 
 		return false
+	// TODO impl Oracle PG SQLServer ...
 	default:
 		return true
 	}

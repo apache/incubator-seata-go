@@ -21,11 +21,15 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+)
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
-
+import (
 	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 )
 
 type mysqlTrigger struct {
@@ -140,7 +144,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 			col.IsNullable = 0
 		}
 		col.Extra = extra
-		col.Autoincrement = strings.Contains("auto_increment", strings.ToLower(extra))
+		col.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
 		result = append(result, col)
 	}

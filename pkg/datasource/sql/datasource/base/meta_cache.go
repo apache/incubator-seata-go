@@ -141,7 +141,6 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, tableName string,
 	defer c.lock.Unlock()
 
 	v, ok := c.cache[tableName]
-
 	if !ok {
 		meta, err := c.trigger.LoadOne(ctx, c.dbName, tableName, conn)
 		if err != nil {
