@@ -75,7 +75,7 @@ func TestATConn_ExecContext(t *testing.T) {
 		tm.SetXID(ctx, uuid.New().String())
 		t.Logf("set xid=%s", tm.GetXID(ctx))
 
-		before := func(_ context.Context, execCtx *exec.ExecContext) {
+		before := func(_ context.Context, execCtx *types.ExecContext) {
 			t.Logf("on exec xid=%s", execCtx.TxCtx.XaID)
 			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XaID)
 			assert.Equal(t, types.ATMode, execCtx.TxCtx.TransType)
@@ -101,7 +101,7 @@ func TestATConn_ExecContext(t *testing.T) {
 	})
 
 	t.Run("not xid", func(t *testing.T) {
-		mi.before = func(_ context.Context, execCtx *exec.ExecContext) {
+		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, "", execCtx.TxCtx.XaID)
 			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
 		}
