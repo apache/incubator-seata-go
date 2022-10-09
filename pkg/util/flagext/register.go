@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package util
+package flagext
 
-import (
-	"errors"
-	"strconv"
-	"strings"
-)
+import "flag"
 
-// Int64Slice2Str
-func Int64Slice2Str(values interface{}, sep string) (string, error) {
-	v, ok := values.([]int64)
-	if !ok {
-		return "", errors.New("param type is fault")
+// Registerer is a thing that can RegisterFlags
+type Registerer interface {
+	RegisterFlags(*flag.FlagSet)
+}
+
+// RegisterFlags registers flags with the provided Registerers
+func RegisterFlags(rs ...Registerer) {
+	for _, r := range rs {
+		r.RegisterFlags(flag.CommandLine)
 	}
+}
 
-	var valuesText []string
-
-	for i := range v {
-		text := strconv.FormatInt(v[i], 10)
-		valuesText = append(valuesText, text)
+// DefaultValues initiates a set of configs (Registerers) with their defaults.
+func DefaultValues(rs ...Registerer) {
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	for _, r := range rs {
+		r.RegisterFlags(fs)
 	}
-
-	return strings.Join(valuesText, sep), nil
+	_ = fs.Parse([]string{})
 }

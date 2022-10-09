@@ -21,8 +21,8 @@ import (
 	"context"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/tcc/local/service"
 )
 

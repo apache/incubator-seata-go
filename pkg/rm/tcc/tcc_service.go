@@ -24,16 +24,16 @@ import (
 	"sync"
 	"time"
 
+	gostnet "github.com/dubbogo/gost/net"
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/common/net"
-	"github.com/seata/seata-go/pkg/common/types"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/seata/seata-go/pkg/util/reflectx"
 )
 
 type TCCServiceProxy struct {
@@ -73,7 +73,7 @@ func (t *TCCServiceProxy) Reference() string {
 	if t.referenceName != "" {
 		return t.referenceName
 	}
-	return types.GetReference(t.TCCResource.TwoPhaseAction.GetTwoPhaseService())
+	return reflectx.GetReference(t.TCCResource.TwoPhaseAction.GetTwoPhaseService())
 }
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (interface{}, error) {
@@ -104,7 +104,7 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 	}
 
 	applicationData, _ := json.Marshal(map[string]interface{}{
-		common.ActionContext: actionContext,
+		constant.ActionContext: actionContext,
 	})
 	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
 		BranchType:      branch.BranchTypeTCC,
@@ -126,12 +126,12 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 // initActionContext init action context
 func (t *TCCServiceProxy) initActionContext(params interface{}) map[string]interface{} {
 	actionContext := t.getActionContextParameters(params)
-	actionContext[common.ActionStartTime] = time.Now().UnixNano() / 1e6
-	actionContext[common.PrepareMethod] = t.TCCResource.TwoPhaseAction.GetPrepareMethodName()
-	actionContext[common.CommitMethod] = t.TCCResource.TwoPhaseAction.GetCommitMethodName()
-	actionContext[common.RollbackMethod] = t.TCCResource.TwoPhaseAction.GetRollbackMethodName()
-	actionContext[common.ActionName] = t.TCCResource.TwoPhaseAction.GetActionName()
-	actionContext[common.HostName] = net.GetLocalIp()
+	actionContext[constant.ActionStartTime] = time.Now().UnixNano() / 1e6
+	actionContext[constant.PrepareMethod] = t.TCCResource.TwoPhaseAction.GetPrepareMethodName()
+	actionContext[constant.CommitMethod] = t.TCCResource.TwoPhaseAction.GetCommitMethodName()
+	actionContext[constant.RollbackMethod] = t.TCCResource.TwoPhaseAction.GetRollbackMethodName()
+	actionContext[constant.ActionName] = t.TCCResource.TwoPhaseAction.GetActionName()
+	actionContext[constant.HostName], _ = gostnet.GetLocalIP()
 	return actionContext
 }
 
@@ -155,7 +155,7 @@ func (t *TCCServiceProxy) getActionContextParameters(params interface{}) map[str
 		}
 		structField := typ.Field(i)
 		// skip ignored field
-		tagVal, hasTag := structField.Tag.Lookup(common.TccBusinessActionContextParameter)
+		tagVal, hasTag := structField.Tag.Lookup(constant.TccBusinessActionContextParameter)
 		if !hasTag || tagVal == `-` || tagVal == "" {
 			continue
 		}
@@ -246,8 +246,8 @@ func (t *TCCServiceProxy) GetTransactionInfo() tm.TransactionInfo {
 	return tm.TransactionInfo{
 		TimeOut: 10000,
 		Name:    t.GetActionName(),
-		//Propagation, Propagation
-		//LockRetryInternal, int64
-		//LockRetryTimes    int64
+		// Propagation, Propagation
+		// LockRetryInternal, int64
+		// LockRetryTimes    int64
 	}
 }

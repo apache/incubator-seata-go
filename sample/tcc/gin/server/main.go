@@ -23,9 +23,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common/log"
 	ginmiddleware "github.com/seata/seata-go/pkg/integration/gin"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 	r := gin.Default()
 
 	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
-	//r.ContextWithFallback = true
+	// r.ContextWithFallback = true
 
 	r.Use(ginmiddleware.TransactionMiddleware())
 

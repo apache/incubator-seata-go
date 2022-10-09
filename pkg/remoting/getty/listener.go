@@ -22,11 +22,11 @@ import (
 	"sync"
 
 	getty "github.com/apache/dubbo-getty"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/processor"
+	"github.com/seata/seata-go/pkg/util/log"
 	"go.uber.org/atomic"
 )
 

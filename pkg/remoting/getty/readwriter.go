@@ -20,7 +20,7 @@ package getty
 import (
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/common/bytes"
+	"github.com/seata/seata-go/pkg/util/bytes"
 
 	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
@@ -111,7 +111,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		return nil, int(header.TotalLength), nil
 	}
 
-	//r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
+	// r := byteio.BigEndianReader{Reader: bytes.NewReader(data)}
 	rpcMessage := message.RpcMessage{
 		Codec:      header.CodecType,
 		ID:         int32(header.RequestID),

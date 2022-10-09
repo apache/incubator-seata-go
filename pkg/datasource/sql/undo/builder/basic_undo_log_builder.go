@@ -28,8 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type BasicUndoLogBuilder struct {
-}
+type BasicUndoLogBuilder struct{}
 
 // getScanSlice get the column type for scann
 func (*BasicUndoLogBuilder) getScanSlice(columnNames []string, tableMeta types.TableMeta) []driver.Value {
