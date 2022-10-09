@@ -29,7 +29,7 @@ type ExecutorType int32
 
 const (
 	_ ExecutorType = iota
-	UnsupportExecutor
+	UnSupportExecutor
 	InsertExecutor
 	UpdateExecutor
 	DeleteExecutor
