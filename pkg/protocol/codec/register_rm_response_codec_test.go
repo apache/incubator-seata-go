@@ -29,7 +29,7 @@ func TestRegisterRMResponseCodec(t *testing.T) {
 		AbstractIdentifyResponse: message.AbstractIdentifyResponse{
 			AbstractResultMessage: message.AbstractResultMessage{
 				ResultCode: message.ResultCodeFailed,
-				//Msg:        "TestMsg",
+				// Msg:        "TestMsg",
 			},
 			Version:    "V1,0",
 			Identified: false,

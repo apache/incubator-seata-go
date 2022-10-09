@@ -27,7 +27,6 @@ import (
 )
 
 func TestGetRmCacheInstance(t *testing.T) {
-
 	ctl := gomock.NewController(t)
 
 	mockResourceManager := NewMockResourceManager(ctl)
@@ -43,5 +42,4 @@ func TestGetRmCacheInstance(t *testing.T) {
 		actual := GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC)
 		assert.Equalf(t, mockResourceManager, actual, "GetRmCacheInstance()")
 	})
-
 }

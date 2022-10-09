@@ -32,8 +32,10 @@ func init() {
 	RegistrUndoLogBuilder(&builder.MySQLUpdateUndoLogBuilder{})
 }
 
-var solts = map[types.DBType]*undoLogMgrHolder{}
-var builders = map[types.SQLType]UndoLogBuilder{}
+var (
+	solts    = map[types.DBType]*undoLogMgrHolder{}
+	builders = map[types.SQLType]UndoLogBuilder{}
+)
 
 type undoLogMgrHolder struct {
 	once sync.Once

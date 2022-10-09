@@ -23,8 +23,8 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 const (
@@ -123,9 +123,9 @@ func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) 
 	if messageFuture != nil {
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
-		//messageFuture.Err = rpcMessage.Err
+		// messageFuture.Err = rpcMessage.Err
 		messageFuture.Done <- struct{}{}
-		//client.msgFutures.Delete(rpcMessage.RequestID)
+		// client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
 	}

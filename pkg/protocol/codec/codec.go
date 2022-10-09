@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 	"vimagination.zapto.org/byteio"
 )
 
@@ -93,7 +93,7 @@ func (c *CodecManager) Decode(codecType CodecType, in []byte) interface{} {
 }
 
 func (c *CodecManager) Encode(codecType CodecType, in interface{}) []byte {
-	var result = make([]byte, 0)
+	result := make([]byte, 0)
 	msg := in.(message.MessageTypeAware)
 	typeCode := msg.GetTypeCode()
 

@@ -20,16 +20,15 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
-	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
@@ -41,16 +40,23 @@ const (
 )
 
 func init() {
-	datasource.RegisterResourceManager(branch.BranchTypeAT,
-		&ATSourceManager{
-			resourceCache: sync.Map{},
-			basic:         datasource.NewBasicSourceManager(),
-		})
+	atSourceManager := &ATSourceManager{
+		resourceCache: sync.Map{},
+		basic:         datasource.NewBasicSourceManager(),
+	}
+
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	asyncWorkerConf := AsyncWorkerConfig{}
+	asyncWorkerConf.RegisterFlags(fs)
+	_ = fs.Parse([]string{})
+
+	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncWorkerConf, atSourceManager)
+	datasource.RegisterResourceManager(branch.BranchTypeAT, atSourceManager)
 }
 
 type ATSourceManager struct {
 	resourceCache sync.Map
-	worker        *asyncATWorker
+	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
 }
 
@@ -61,7 +67,7 @@ func (mgr *ATSourceManager) RegisterResource(res rm.Resource) error {
 	return mgr.basic.RegisterResource(res)
 }
 
-//  Unregister a Resource from the Resource Manager
+// Unregister a Resource from the Resource Manager
 func (mgr *ATSourceManager) UnregisterResource(res rm.Resource) error {
 	return mgr.basic.UnregisterResource(res)
 }
@@ -116,7 +122,7 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 
 // BranchCommit
 func (mgr *ATSourceManager) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
-	mgr.worker.branchCommit(ctx, req)
+	mgr.worker.BranchCommit(ctx, req)
 	return branch.BranchStatusPhaseoneDone, nil
 }
 
@@ -139,133 +145,4 @@ func (mgr *ATSourceManager) BranchReport(ctx context.Context, req message.Branch
 func (mgr *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
 	db *sql.DB) (datasource.TableMetaCache, error) {
 	return mgr.basic.CreateTableMetaCache(ctx, resID, dbType, db)
-}
-
-type asyncATWorker struct {
-	asyncCommitBufferLimit int64
-	commitQueue            chan phaseTwoContext
-	resourceMgr            datasource.DataSourceManager
-}
-
-func newAsyncATWorker() *asyncATWorker {
-	asyncCommitBufferLimit := int64(10000)
-
-	val := os.Getenv("CLIENT_RM_ASYNC_COMMIT_BUFFER_LIMIT")
-	if val != "" {
-		limit, _ := strconv.ParseInt(val, 10, 64)
-		if limit != 0 {
-			asyncCommitBufferLimit = limit
-		}
-	}
-
-	worker := &asyncATWorker{
-		commitQueue: make(chan phaseTwoContext, asyncCommitBufferLimit),
-	}
-
-	return worker
-}
-
-func (w *asyncATWorker) doBranchCommitSafely() {
-	batchSize := 64
-
-	ticker := time.NewTicker(1 * time.Second)
-	phaseCtxs := make([]phaseTwoContext, 0, batchSize)
-
-	for {
-		select {
-		case phaseCtx := <-w.commitQueue:
-			phaseCtxs = append(phaseCtxs, phaseCtx)
-			if len(phaseCtxs) == batchSize {
-				tmp := phaseCtxs
-				w.doBranchCommit(tmp)
-				phaseCtxs = make([]phaseTwoContext, 0, batchSize)
-			}
-		case <-ticker.C:
-			tmp := phaseCtxs
-			w.doBranchCommit(tmp)
-
-			phaseCtxs = make([]phaseTwoContext, 0, batchSize)
-		}
-	}
-}
-
-func (w *asyncATWorker) doBranchCommit(phaseCtxs []phaseTwoContext) {
-	groupCtxs := make(map[string][]phaseTwoContext, _defaultResourceSize)
-
-	for i := range phaseCtxs {
-		if phaseCtxs[i].ResourceID == "" {
-			continue
-		}
-
-		if _, ok := groupCtxs[phaseCtxs[i].ResourceID]; !ok {
-			groupCtxs[phaseCtxs[i].ResourceID] = make([]phaseTwoContext, 0, 4)
-		}
-
-		ctxs := groupCtxs[phaseCtxs[i].ResourceID]
-		ctxs = append(ctxs, phaseCtxs[i])
-
-		groupCtxs[phaseCtxs[i].ResourceID] = ctxs
-	}
-
-	for k := range groupCtxs {
-		w.dealWithGroupedContexts(k, groupCtxs[k])
-	}
-}
-
-func (w *asyncATWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-	val, ok := w.resourceMgr.GetManagedResources()[resID]
-	if !ok {
-		for i := range phaseCtxs {
-			w.commitQueue <- phaseCtxs[i]
-		}
-		return
-	}
-
-	res := val.(*DBResource)
-
-	conn, err := res.target.Conn(context.Background())
-	if err != nil {
-		for i := range phaseCtxs {
-			w.commitQueue <- phaseCtxs[i]
-		}
-	}
-
-	defer conn.Close()
-
-	undoMgr, err := undo.GetUndoLogManager(res.dbType)
-	if err != nil {
-		for i := range phaseCtxs {
-			w.commitQueue <- phaseCtxs[i]
-		}
-
-		return
-	}
-
-	for i := range phaseCtxs {
-		phaseCtx := phaseCtxs[i]
-		if err := undoMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
-			w.commitQueue <- phaseCtx
-		}
-	}
-}
-
-func (w *asyncATWorker) branchCommit(ctx context.Context, req message.BranchCommitRequest) {
-	phaseCtx := phaseTwoContext{
-		Xid:        req.Xid,
-		BranchID:   req.BranchId,
-		ResourceID: req.ResourceId,
-	}
-
-	select {
-	case w.commitQueue <- phaseCtx:
-	case <-ctx.Done():
-	}
-
-	return
-}
-
-type phaseTwoContext struct {
-	Xid        string
-	BranchID   int64
-	ResourceID string
 }

@@ -30,9 +30,7 @@ const (
 	checkAliveInternal = 100
 )
 
-var (
-	sessionManager = newSessionManager()
-)
+var sessionManager = newSessionManager()
 
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool

@@ -27,8 +27,8 @@ import (
 
 	gxsync "github.com/dubbogo/gost/sync"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type RpcClient struct {
