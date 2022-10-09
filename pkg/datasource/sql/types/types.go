@@ -38,6 +38,7 @@ type (
 const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
+	IndexTypeUniqueKey  IndexType = 2
 )
 
 const (
