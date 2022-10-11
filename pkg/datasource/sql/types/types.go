@@ -19,8 +19,9 @@ package types
 
 import (
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 
 	"github.com/google/uuid"
 )

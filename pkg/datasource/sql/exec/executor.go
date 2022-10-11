@@ -20,18 +20,20 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 // executorSolts
-var executorSolts = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
+var executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
 
-func RegisterExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
+func RegisterExecutor(dt types.DBType, et parser.ExecutorType, builder func() SQLExecutor) {
 	if _, ok := executorSolts[dt]; !ok {
-		executorSolts[dt] = make(map[types.ExecutorType]func() SQLExecutor)
+		executorSolts[dt] = make(map[parser.ExecutorType]func() SQLExecutor)
 	}
 
 	val := executorSolts[dt]
@@ -87,7 +89,7 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 	supplier, ok := factories[parseCtx.ExecutorType]
 	if !ok {
 		log.Debugf("%s not found executor for %s, return default Executor",
-			dbType.String(), parseCtx.ExecutorType.String())
+			dbType.String(), parseCtx.ExecutorType)
 		e := &BaseExecutor{}
 		e.interceptors(hooks)
 		return e, nil
@@ -216,5 +218,28 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 		return nil, nil
 	}
 
-	return f(ctx, execCtx.Query, execCtx.Values)
+	builder := undo.GetUndologBuilder(pc.ExecutorType)
+	if builder == nil {
+		return nil, nil
+	}
+	return builder.BeforeImage(ctx, execCtx)
+}
+
+// After
+func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+	if !tm.IsTransactionOpened(ctx) {
+		return nil, nil
+	}
+	pc, err := parser.DoParser(execCtx.Query)
+	if err != nil {
+		return nil, err
+	}
+	if !pc.HasValidStmt() {
+		return nil, nil
+	}
+	builder := undo.GetUndologBuilder(pc.ExecutorType)
+	if builder == nil {
+		return nil, nil
+	}
+	return builder.AfterImage(ctx, execCtx, beforeImages)
 }

@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
@@ -28,7 +30,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
-	"strings"
 )
 
 const (

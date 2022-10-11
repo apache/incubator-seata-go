@@ -19,16 +19,10 @@ package parser
 
 import (
 	"testing"
-)
 
-import (
 	_ "github.com/arana-db/parser/test_driver"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDoParser(t *testing.T) {
