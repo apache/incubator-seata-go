@@ -20,7 +20,9 @@ package builder
 import (
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
@@ -28,8 +30,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type BasicUndoLogBuilder struct {
-}
+type BasicUndoLogBuilder struct{}
 
 // getScanSlice get the column type for scann
 func (*BasicUndoLogBuilder) getScanSlice(columnNames []string, tableMeta types.TableMeta) []driver.Value {
@@ -184,4 +185,75 @@ func (u *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 	}
 
 	return &types.RecordImage{TableName: tableMetaData.Name, Rows: rowImages}, nil
+}
+
+// buildWhereConditionByPKs build where condition by primary keys
+// each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
+func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+	var (
+		whereStr  = &strings.Builder{}
+		batchSize = rowSize/maxInSize + 1
+	)
+
+	if rowSize%maxInSize == 0 {
+		batchSize = rowSize / maxInSize
+	}
+
+	for batch := 0; batch < batchSize; batch++ {
+		if batch > 0 {
+			whereStr.WriteString(" OR ")
+		}
+		whereStr.WriteString("(")
+
+		for i := 0; i < len(pkNameList); i++ {
+			if i > 0 {
+				whereStr.WriteString(",")
+			}
+			// todo add escape
+			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+		}
+		whereStr.WriteString(") IN (")
+
+		var eachSize int
+
+		if batch == batchSize-1 {
+			if rowSize%maxInSize == 0 {
+				eachSize = maxInSize
+			} else {
+				eachSize = rowSize % maxInSize
+			}
+		} else {
+			eachSize = maxInSize
+		}
+
+		for i := 0; i < eachSize; i++ {
+			if i > 0 {
+				whereStr.WriteString(",")
+			}
+			whereStr.WriteString("(")
+			for j := 0; j < len(pkNameList); j++ {
+				if j > 0 {
+					whereStr.WriteString(",")
+				}
+				whereStr.WriteString("?")
+			}
+			whereStr.WriteString(")")
+		}
+		whereStr.WriteString(")")
+	}
+	return whereStr.String()
+}
+
+func (b *BasicUndoLogBuilder) buildPKParams(rows []types.RowImage, pkNameList []string) []driver.Value {
+	params := make([]driver.Value, 0)
+	for _, row := range rows {
+		coumnMap := row.GetColumnMap()
+		for _, pk := range pkNameList {
+			col := coumnMap[pk]
+			if col != nil {
+				params = append(params, col.Value)
+			}
+		}
+	}
+	return params
 }

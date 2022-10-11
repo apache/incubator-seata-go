@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/common/errors"
+	"github.com/seata/seata-go/pkg/util/errors"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"

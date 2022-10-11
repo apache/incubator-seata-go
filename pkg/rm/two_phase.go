@@ -266,7 +266,6 @@ func getCommitMethod(t reflect.StructField, f reflect.Value) (string, *reflect.V
 		return "", nil, false
 	}
 	return t.Name, &f, true
-
 }
 
 func getRollbackMethod(t reflect.StructField, f reflect.Value) (string, *reflect.Value, bool) {

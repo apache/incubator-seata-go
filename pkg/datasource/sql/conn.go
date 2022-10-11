@@ -107,7 +107,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			return nil, err
 		}
 
-		execCtx := &exec.ExecContext{
+		execCtx := &types.ExecContext{
 			TxCtx:  c.txCtx,
 			Query:  query,
 			Values: args,
@@ -124,7 +124,6 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 				return types.NewResult(types.WithResult(ret)), nil
 			})
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +149,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 			return nil, err
 		}
 
-		execCtx := &exec.ExecContext{
+		execCtx := &types.ExecContext{
 			TxCtx:       c.txCtx,
 			Query:       query,
 			NamedValues: args,
@@ -169,7 +168,6 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 
 		return ret, err
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +186,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  c.txCtx,
 		Query:  query,
 		Values: args,
@@ -228,7 +226,7 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       c.txCtx,
 		Query:       query,
 		NamedValues: args,
@@ -335,7 +333,6 @@ func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (type
 	}()
 
 	ret, err := f()
-
 	if err != nil {
 		return nil, err
 	}

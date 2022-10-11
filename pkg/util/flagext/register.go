@@ -15,35 +15,27 @@
  * limitations under the License.
  */
 
-package types
+package flagext
 
-import "reflect"
+import "flag"
 
-type ReferencedService interface {
-	Reference() string
+// Registerer is a thing that can RegisterFlags
+type Registerer interface {
+	RegisterFlags(*flag.FlagSet)
 }
 
-// GetReference return the reference id of the service.
-// If the service implemented the ReferencedService interface,
-// it will call the Reference method. If not, it will
-// return the struct name as the reference id.
-func GetReference(service interface{}) string {
-	if s, ok := service.(ReferencedService); ok {
-		return s.Reference()
+// RegisterFlags registers flags with the provided Registerers
+func RegisterFlags(rs ...Registerer) {
+	for _, r := range rs {
+		r.RegisterFlags(flag.CommandLine)
 	}
-	ref := ""
-	sType := reflect.TypeOf(service)
-	kind := sType.Kind()
-	switch kind {
-	case reflect.Struct:
-		ref = sType.Name()
-	case reflect.Ptr:
-		sName := sType.Elem().Name()
-		if sName != "" {
-			ref = sName
-		} else {
-			ref = sType.Elem().Field(0).Name
-		}
+}
+
+// DefaultValues initiates a set of configs (Registerers) with their defaults.
+func DefaultValues(rs ...Registerer) {
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	for _, r := range rs {
+		r.RegisterFlags(fs)
 	}
-	return ref
+	_ = fs.Parse([]string{})
 }

@@ -136,7 +136,7 @@ func encodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 }
 
 func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-	//enc.AppendString(fmt.Sprintf("\033[34m%s\033[0m", caller.TrimmedPath()))
+	// enc.AppendString(fmt.Sprintf("\033[34m%s\033[0m", caller.TrimmedPath()))
 	enc.AppendString(fmt.Sprintf("%-45s", caller.TrimmedPath()))
 }
 
@@ -168,7 +168,6 @@ func Init(logPath string, level LogLevel) {
 
 	log = zapLogger.Sugar()
 	getty.SetLogger(log)
-
 }
 
 // SetLogger: customize yourself logger.

@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-package common
+package flagext
 
-const (
-	ActionStartTime = "action-start-time"
-	HostName        = "host-name"
-	ActionContext   = "actionContext"
+import "fmt"
 
-	PrepareMethod  = "sys::prepare"
-	CommitMethod   = "sys::commit"
-	RollbackMethod = "sys::rollback"
-	ActionName     = "actionName"
+// StringSlice is a slice of strings that implements flag.Value
+type StringSlice []string
 
-	SeataXidKey     = "SEATA_XID"
-	XidKey          = "TX_XID"
-	XidKeyLowercase = "tx_xid"
-	MdcXidKey       = "X-TX-XID"
-	MdcBranchIDKey  = "X-TX-BRANCH-ID"
-	BranchTypeKey   = "TX_BRANCH_TYPE"
-	GlobalLockKey   = "TX_LOCK"
-	SeataFilterKey  = "seataDubboFilter"
+// String implements flag.Value
+func (v StringSlice) String() string {
+	return fmt.Sprintf("%s", []string(v))
+}
 
-	TccBusinessActionContextParameter = "tccParam"
-)
+// Set implements flag.Value
+func (v *StringSlice) Set(s string) error {
+	*v = append(*v, s)
+	return nil
+}

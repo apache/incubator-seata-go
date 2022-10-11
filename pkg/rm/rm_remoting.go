@@ -22,10 +22,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 var (
@@ -33,9 +33,7 @@ var (
 	onceGettyRemoting = &sync.Once{}
 )
 
-var (
-	ErrBranchReportResponseFault = errors.New("branch report response fault")
-)
+var ErrBranchReportResponseFault = errors.New("branch report response fault")
 
 func GetRMRemotingInstance() *RMRemoting {
 	if rmRemoting == nil {
@@ -46,10 +44,9 @@ func GetRMRemotingInstance() *RMRemoting {
 	return rmRemoting
 }
 
-type RMRemoting struct {
-}
+type RMRemoting struct{}
 
-//BranchRegister  Register branch of global transaction
+// BranchRegister  Register branch of global transaction
 func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	request := message.BranchRegisterRequest{
 		Xid:             param.Xid,
@@ -98,7 +95,7 @@ func (r *RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
 func (r *RMRemoting) RegisterResource(resource Resource) error {
 	req := message.RegisterRMRequest{
 		AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-			//todo replace with config
+			// todo replace with config
 			Version:                 "1.5.2",
 			ApplicationId:           "tcc-sample",
 			TransactionServiceGroup: "my_test_tx_group",

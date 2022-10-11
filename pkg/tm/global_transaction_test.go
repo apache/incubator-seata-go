@@ -128,7 +128,7 @@ func TestBegin(t *testing.T) {
 			assert.Nil(t, err)
 		}
 
-		//reset up stub
+		// reset up stub
 		if v.wantHasMock {
 			stub.Reset()
 		}

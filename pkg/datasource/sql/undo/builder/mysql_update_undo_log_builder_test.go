@@ -22,11 +22,11 @@ import (
 	"testing"
 
 	_ "github.com/arana-db/parser/test_driver"
-	_ "github.com/seata/seata-go/pkg/common/log"
+	_ "github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildBeforeImageSQL(t *testing.T) {
+func TestBuildSelectSQLByUpdate(t *testing.T) {
 	var (
 		builder = MySQLUpdateUndoLogBuilder{}
 	)

@@ -26,9 +26,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/common/log"
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 )
 

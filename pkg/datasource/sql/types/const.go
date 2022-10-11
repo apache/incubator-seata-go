@@ -145,67 +145,67 @@ func GetJDBCTypeByTypeName(typeName string) JDBCType {
 	case "ENUM":
 		return JDBCTypeTinyInt
 		// todo 待完善
-	//case fieldTypeEnum:
+	// case fieldTypeEnum:
 	//	return "ENUM"
-	//case fieldTypeFloat:
+	// case fieldTypeFloat:
 	//	return "FLOAT"
-	//case fieldTypeGeometry:
+	// case fieldTypeGeometry:
 	//	return "GEOMETRY"
-	//case fieldTypeInt24:
+	// case fieldTypeInt24:
 	//	return "MEDIUMINT"
-	//case fieldTypeJSON:
+	// case fieldTypeJSON:
 	//	return "JSON"
-	//case fieldTypeLong:
+	// case fieldTypeLong:
 	//	return "INT"
-	//case fieldTypeLongBLOB:
+	// case fieldTypeLongBLOB:
 	//	if mf.charSet != collations[binaryCollation] {
 	//		return "LONGTEXT"
 	//	}
 	//	return "LONGBLOB"
-	//case fieldTypeLongLong:
+	// case fieldTypeLongLong:
 	//	return "BIGINT"
-	//case fieldTypeMediumBLOB:
+	// case fieldTypeMediumBLOB:
 	//	if mf.charSet != collations[binaryCollation] {
 	//		return "MEDIUMTEXT"
 	//	}
 	//	return "MEDIUMBLOB"
-	//case fieldTypeNewDate:
+	// case fieldTypeNewDate:
 	//	return "DATE"
-	//case fieldTypeNewDecimal:
+	// case fieldTypeNewDecimal:
 	//	return "DECIMAL"
-	//case fieldTypeNULL:
+	// case fieldTypeNULL:
 	//	return "NULL"
-	//case fieldTypeSet:
+	// case fieldTypeSet:
 	//	return "SET"
-	//case fieldTypeShort:
+	// case fieldTypeShort:
 	//	return "SMALLINT"
-	//case fieldTypeString:
+	// case fieldTypeString:
 	//	if mf.charSet == collations[binaryCollation] {
 	//		return "BINARY"
 	//	}
 	//	return "CHAR"
-	//case fieldTypeTime:
+	// case fieldTypeTime:
 	//	return "TIME"
-	//case fieldTypeTimestamp:
+	// case fieldTypeTimestamp:
 	//	return "TIMESTAMP"
-	//case fieldTypeTiny:
+	// case fieldTypeTiny:
 	//	return "TINYINT"
-	//case fieldTypeTinyBLOB:
+	// case fieldTypeTinyBLOB:
 	//	if mf.charSet != collations[binaryCollation] {
 	//		return "TINYTEXT"
 	//	}
 	//	return "TINYBLOB"
-	//case fieldTypeVarChar:
+	// case fieldTypeVarChar:
 	//	if mf.charSet == collations[binaryCollation] {
 	//		return "VARBINARY"
 	//	}
 	//	return "VARCHAR"
-	//case fieldTypeVarString:
+	// case fieldTypeVarString:
 	//	if mf.charSet == collations[binaryCollation] {
 	//		return "VARBINARY"
 	//	}
 	//	return "VARCHAR"
-	//case fieldTypeYear:
+	// case fieldTypeYear:
 	//	return "YEAR"
 	default:
 		return -1

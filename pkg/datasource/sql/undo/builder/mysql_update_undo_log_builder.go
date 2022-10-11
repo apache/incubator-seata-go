@@ -21,28 +21,32 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/seata/seata-go/pkg/common/bytes"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/bytes"
+	"github.com/seata/seata-go/pkg/util/log"
+)
+
+const (
+	maxInSize = 1000
 )
 
 type MySQLUpdateUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }
 
-func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *exec.ExecContext) (*types.RecordImage, error) {
+func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
 		for n, param := range execCtx.NamedValues {
 			vals[n] = param.Value
 		}
 	}
+	// use
 	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.Query, vals)
 	if err != nil {
 		return nil, err
@@ -63,11 +67,34 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ex
 	return u.buildRecordImages(rows, execCtx.MetaData)
 }
 
-func (u *MySQLUpdateUndoLogBuilder) AfterImage(types.RecordImages) (*types.RecordImages, error) {
-	return nil, nil
+func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImage *types.RecordImage) (*types.RecordImage, error) {
+	selectSQL, selectArgs := u.buildAfterImageSQL(beforImage, execCtx.MetaData)
+
+	stmt, err := execCtx.Conn.Prepare(selectSQL)
+	if err != nil {
+		log.Errorf("build prepare stmt: %+v", err)
+		return nil, err
+	}
+
+	rows, err := stmt.Query(selectArgs)
+	if err != nil {
+		log.Errorf("stmt query: %+v", err)
+		return nil, err
+	}
+
+	return u.buildRecordImages(rows, execCtx.MetaData)
 }
 
-// buildBeforeImageSQL build select sql from update sql
+func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
+	sb := strings.Builder{}
+	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
+	sb.WriteString("SELECT * FROM " + meta.Name + " ")
+	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
+	sb.WriteString(" " + whereSQL + " ")
+	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
+}
+
+// buildSelectSQLByUpdate build select sql from update sql
 func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []driver.Value) (string, []driver.Value, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
@@ -81,6 +108,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 
 	fields := []*ast.SelectField{}
 
+	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
 	for _, column := range p.UpdateStmt.List {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{

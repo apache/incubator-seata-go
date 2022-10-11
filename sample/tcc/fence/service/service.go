@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 const (
@@ -48,8 +48,7 @@ var (
 	rollbackFenceTimes int
 )
 
-type TestTCCServiceBusiness struct {
-}
+type TestTCCServiceBusiness struct{}
 
 func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
 	if tccService != nil {
@@ -150,8 +149,7 @@ func (T TestTCCServiceBusiness) GetActionName() string {
 	return "TestTCCServiceBusiness"
 }
 
-type TestTCCServiceBusiness2 struct {
-}
+type TestTCCServiceBusiness2 struct{}
 
 func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 	if tccService2 != nil {

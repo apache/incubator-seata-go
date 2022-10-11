@@ -59,7 +59,7 @@ func TestGettyRemotingClient_SendAsyncResponse(t *testing.T) {
 
 // TestGettyRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
 func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name    string
 		message interface{}
 	}{
@@ -86,7 +86,7 @@ func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 
 // Test_syncCallback unit test for syncCallback function
 func Test_syncCallback(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name    string
 		respMsg *message.MessageFuture
 		reqMsg  message.RpcMessage
@@ -133,7 +133,7 @@ func Test_syncCallback(t *testing.T) {
 
 // Test_asyncCallback unit test for asyncCallback function
 func Test_asyncCallback(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name    string
 		respMsg *message.MessageFuture
 		reqMsg  message.RpcMessage

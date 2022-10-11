@@ -21,9 +21,11 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // executorSolts
@@ -50,9 +52,9 @@ type (
 		// Interceptors
 		interceptors(interceptors []SQLHook)
 		// Exec
-		ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
+		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
-		ExecWithValue(ctx context.Context, execCtx *ExecContext, f CallbackWithValue) (types.ExecResult, error)
+		ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error)
 	}
 )
 
@@ -109,9 +111,24 @@ func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
 }
 
 // ExecWithNamedValue
-func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.is {
 		e.is[i].Before(ctx, execCtx)
+	}
+
+	var (
+		beforeImage *types.RecordImage
+		afterImage  *types.RecordImage
+		result      types.ExecResult
+		err         error
+	)
+
+	beforeImage, err = e.beforeImage(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
+	if beforeImage != nil {
+		execCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	}
 
 	defer func() {
@@ -121,16 +138,45 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ExecCont
 	}()
 
 	if e.ex != nil {
-		return e.ex.ExecWithNamedValue(ctx, execCtx, f)
+		result, err = e.ex.ExecWithNamedValue(ctx, execCtx, f)
+	} else {
+		result, err = f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
 
-	return f(ctx, execCtx.Query, execCtx.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	afterImage, err = e.afterImage(ctx, execCtx, beforeImage)
+	if err != nil {
+		return nil, err
+	}
+	if afterImage != nil {
+		execCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	}
+
+	return result, err
 }
 
 // ExecWithValue
-func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
 	for i := range e.is {
 		e.is[i].Before(ctx, execCtx)
+	}
+
+	var (
+		beforeImage *types.RecordImage
+		afterImage  *types.RecordImage
+		result      types.ExecResult
+		err         error
+	)
+
+	beforeImage, err = e.beforeImage(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
+	if beforeImage != nil {
+		execCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	}
 
 	defer func() {
@@ -140,8 +186,59 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ExecContext, 
 	}()
 
 	if e.ex != nil {
-		return e.ex.ExecWithValue(ctx, execCtx, f)
+		result, err = e.ex.ExecWithValue(ctx, execCtx, f)
+	} else {
+		result, err = f(ctx, execCtx.Query, execCtx.Values)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return f(ctx, execCtx.Query, execCtx.Values)
+	afterImage, err = e.afterImage(ctx, execCtx, beforeImage)
+	if err != nil {
+		return nil, err
+	}
+	if afterImage != nil {
+		execCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	}
+
+	return result, err
+}
+
+func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+	if !tm.IsTransactionOpened(ctx) {
+		return nil, nil
+	}
+
+	pc, err := parser.DoParser(execCtx.Query)
+	if err != nil {
+		return nil, err
+	}
+	if !pc.HasValidStmt() {
+		return nil, nil
+	}
+
+	builder := undo.GetUndologBuilder(pc.SQLType)
+	if builder == nil {
+		return nil, nil
+	}
+	return builder.BeforeImage(ctx, execCtx)
+}
+
+func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImage *types.RecordImage) (*types.RecordImage, error) {
+	if !tm.IsTransactionOpened(ctx) {
+		return nil, nil
+	}
+	pc, err := parser.DoParser(execCtx.Query)
+	if err != nil {
+		return nil, err
+	}
+	if !pc.HasValidStmt() {
+		return nil, nil
+	}
+	builder := undo.GetUndologBuilder(pc.SQLType)
+	if builder == nil {
+		return nil, nil
+	}
+	return builder.AfterImage(ctx, execCtx, beforeImage)
 }

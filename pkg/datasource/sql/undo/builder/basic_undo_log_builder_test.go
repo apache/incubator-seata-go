@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package hook
+package builder
 
 import (
 	"testing"
@@ -23,32 +23,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildSelectSQLByUpdate(t *testing.T) {
-	builder := BasicUndoBuilder{}
-
+func TestBuildWhereConditionByPKs(t *testing.T) {
+	builder := BasicUndoLogBuilder{}
 	tests := []struct {
-		name   string
-		query  string
-		expect string
+		name       string
+		pkNameList []string
+		rowSize    int
+		maxInSize  int
+		expectSQL  string
 	}{
-		{
-			query:  "update t_user set name = ?, age = ? where id = ?",
-			expect: "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=?",
-		},
-		{
-			query:  "update t_user set name = ?, age = ? where id = ? and addr = ? order by id, name desc",
-			expect: "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND addr=? ORDER BY id,name DESC",
-		},
-		{
-			query:  "update t_user set name = ?, age = ? where id = ? and addr = ? order by id, name desc limit 99",
-			expect: "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND addr=? ORDER BY id,name DESC LIMIT 99",
-		},
+		{"test1", []string{"id", "name"}, 1, 1, "(`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 3, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 3, 1, "(`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 4, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?),(?,?))"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sql, err := builder.buildSelectSQLByUpdate(tt.query)
-			assert.Nil(t, err)
-			assert.Equal(t, tt.expect, sql)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// todo add dbType param
+			sql := builder.buildWhereConditionByPKs(test.pkNameList, test.rowSize, "", test.maxInSize)
+			assert.Equal(t, test.expectSQL, sql)
 		})
 	}
+
 }

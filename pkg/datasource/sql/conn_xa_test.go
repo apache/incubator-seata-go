@@ -34,8 +34,8 @@ import (
 )
 
 type mockSQLInterceptor struct {
-	before func(ctx context.Context, execCtx *exec.ExecContext)
-	after  func(ctx context.Context, execCtx *exec.ExecContext)
+	before func(ctx context.Context, execCtx *types.ExecContext)
+	after  func(ctx context.Context, execCtx *types.ExecContext)
 }
 
 func (mi *mockSQLInterceptor) Type() types.SQLType {
@@ -43,7 +43,7 @@ func (mi *mockSQLInterceptor) Type() types.SQLType {
 }
 
 // Before
-func (mi *mockSQLInterceptor) Before(ctx context.Context, execCtx *exec.ExecContext) error {
+func (mi *mockSQLInterceptor) Before(ctx context.Context, execCtx *types.ExecContext) error {
 	if mi.before != nil {
 		mi.before(ctx, execCtx)
 	}
@@ -51,7 +51,7 @@ func (mi *mockSQLInterceptor) Before(ctx context.Context, execCtx *exec.ExecCont
 }
 
 // After
-func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *exec.ExecContext) error {
+func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *types.ExecContext) error {
 	if mi.after != nil {
 		mi.after(ctx, execCtx)
 	}
@@ -85,7 +85,6 @@ func baseMoclConn(mockConn *mock.MockTestDriverConn) {
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -127,7 +126,7 @@ func TestXAConn_ExecContext(t *testing.T) {
 		tm.SetXID(ctx, uuid.New().String())
 		t.Logf("set xid=%s", tm.GetXID(ctx))
 
-		before := func(_ context.Context, execCtx *exec.ExecContext) {
+		before := func(_ context.Context, execCtx *types.ExecContext) {
 			t.Logf("on exec xid=%s", execCtx.TxCtx.XaID)
 			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XaID)
 			assert.Equal(t, types.XAMode, execCtx.TxCtx.TransType)
@@ -153,7 +152,7 @@ func TestXAConn_ExecContext(t *testing.T) {
 	})
 
 	t.Run("not xid", func(t *testing.T) {
-		before := func(_ context.Context, execCtx *exec.ExecContext) {
+		before := func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, "", execCtx.TxCtx.XaID)
 			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
 		}

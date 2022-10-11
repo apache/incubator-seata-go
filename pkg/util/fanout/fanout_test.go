@@ -15,27 +15,33 @@
  * limitations under the License.
  */
 
-package util
+package fanout
 
 import (
-	"errors"
-	"strconv"
-	"strings"
+	"context"
+	"testing"
+	"time"
 )
 
-// Int64Slice2Str
-func Int64Slice2Str(values interface{}, sep string) (string, error) {
-	v, ok := values.([]int64)
-	if !ok {
-		return "", errors.New("param type is fault")
+func TestFanout_Do(t *testing.T) {
+	ca := New("cache", WithWorker(1), WithBuffer(1024))
+	var run bool
+	ca.Do(context.Background(), func(c context.Context) {
+		run = true
+		panic("error")
+	})
+	time.Sleep(time.Millisecond * 50)
+	t.Log("not panic")
+	if !run {
+		t.Fatal("expect run be true")
 	}
+}
 
-	var valuesText []string
-
-	for i := range v {
-		text := strconv.FormatInt(v[i], 10)
-		valuesText = append(valuesText, text)
+func TestFanout_Close(t *testing.T) {
+	ca := New("cache", WithWorker(1), WithBuffer(1024))
+	ca.Close()
+	err := ca.Do(context.Background(), func(c context.Context) {})
+	if err == nil {
+		t.Fatal("expect get err")
 	}
-
-	return strings.Join(valuesText, sep), nil
 }

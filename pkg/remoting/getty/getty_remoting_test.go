@@ -25,7 +25,7 @@ import (
 )
 
 func TestGettyRemoting_GetMessageFuture(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name          string
 		msgID         int32
 		messageFuture *message.MessageFuture
@@ -61,7 +61,7 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name          string
 		msgID         int32
 		messageFuture *message.MessageFuture
@@ -90,7 +90,7 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 }
 
 func TestGettyRemoting_GetMergedMessage(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name              string
 		msgID             int32
 		mergedWarpMessage *message.MergedWarpMessage
@@ -124,7 +124,7 @@ func TestGettyRemoting_GetMergedMessage(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name              string
 		msgID             int32
 		mergedWarpMessage *message.MergedWarpMessage

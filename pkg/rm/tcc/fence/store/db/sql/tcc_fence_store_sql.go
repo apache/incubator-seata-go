@@ -46,7 +46,6 @@ var (
 
 func GetInsertLocalTCCLogSQL(localTccTable string) string {
 	return fmt.Sprintf(insertLocalTccLog, localTccTable)
-
 }
 
 func GetQuerySQLByBranchIdAndXid(localTccTable string) string {
@@ -59,7 +58,6 @@ func GetUpdateStatusSQLByBranchIdAndXid(localTccTable string) string {
 
 func GetDeleteSQLByBranchIdAndXid(localTccTable string) string {
 	return fmt.Sprintf(deleteByBranchIdAndXid, localTccTable)
-
 }
 
 func GetDeleteSQLByMdfDateAndStatus(localTccTable string) string {
