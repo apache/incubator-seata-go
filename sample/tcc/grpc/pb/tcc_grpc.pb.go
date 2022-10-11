@@ -132,12 +132,15 @@ func file_sample_tcc_grpc_pb_tcc_grpc_proto_rawDescGZIP() []byte {
 	return file_sample_tcc_grpc_pb_tcc_grpc_proto_rawDescData
 }
 
-var file_sample_tcc_grpc_pb_tcc_grpc_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_sample_tcc_grpc_pb_tcc_grpc_proto_goTypes = []interface{}{
-	(*Params)(nil),               // 0: Params
-	(*wrapperspb.BoolValue)(nil), // 1: google.protobuf.BoolValue
-	(*anypb.Any)(nil),            // 2: google.protobuf.Any
-}
+var (
+	file_sample_tcc_grpc_pb_tcc_grpc_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+	file_sample_tcc_grpc_pb_tcc_grpc_proto_goTypes  = []interface{}{
+		(*Params)(nil),               // 0: Params
+		(*wrapperspb.BoolValue)(nil), // 1: google.protobuf.BoolValue
+		(*anypb.Any)(nil),            // 2: google.protobuf.Any
+	}
+)
+
 var file_sample_tcc_grpc_pb_tcc_grpc_proto_depIdxs = []int32{
 	0, // 0: TCCServiceBusiness1.Remoting:input_type -> Params
 	0, // 1: TCCServiceBusiness2.Remoting:input_type -> Params

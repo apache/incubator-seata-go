@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package common
+package flagext
 
-const (
-	ActionStartTime = "action-start-time"
-	HostName        = "host-name"
-	ActionContext   = "actionContext"
-
-	PrepareMethod  = "sys::prepare"
-	CommitMethod   = "sys::commit"
-	RollbackMethod = "sys::rollback"
-	ActionName     = "actionName"
-
-	SeataXidKey     = "SEATA_XID"
-	XidKey          = "TX_XID"
-	XidKeyLowercase = "tx_xid"
-	MdcXidKey       = "X-TX-XID"
-	MdcBranchIDKey  = "X-TX-BRANCH-ID"
-	BranchTypeKey   = "TX_BRANCH_TYPE"
-	GlobalLockKey   = "TX_LOCK"
-	SeataFilterKey  = "seataDubboFilter"
-
-	TccBusinessActionContextParameter = "tccParam"
+import (
+	"flag"
 )
+
+type ignoredFlag struct {
+	name string
+}
+
+func (ignoredFlag) String() string {
+	return "ignored"
+}
+
+func (d ignoredFlag) Set(string) error {
+	return nil
+}
+
+// IgnoredFlag ignores set value, without any warning
+func IgnoredFlag(f *flag.FlagSet, name, message string) {
+	f.Var(ignoredFlag{name}, name, message)
+}

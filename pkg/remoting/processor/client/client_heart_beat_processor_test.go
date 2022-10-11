@@ -27,10 +27,10 @@ import (
 
 func TestClientHeartBeatProcessor(t *testing.T) {
 	// testcases
-	var tests = []struct {
+	tests := []struct {
 		name    string             // testcase name
 		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               //want testcase err or not
+		wantErr bool               // want testcase err or not
 	}{
 		{
 			name: "chb-testcase1",
@@ -82,5 +82,4 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 			}
 		})
 	}
-
 }

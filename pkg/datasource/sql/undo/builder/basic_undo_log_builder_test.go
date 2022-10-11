@@ -24,10 +24,7 @@ import (
 )
 
 func TestBuildWhereConditionByPKs(t *testing.T) {
-	var (
-		builder = BasicUndoLogBuilder{}
-	)
-
+	builder := BasicUndoLogBuilder{}
 	tests := []struct {
 		name       string
 		pkNameList []string
@@ -36,7 +33,9 @@ func TestBuildWhereConditionByPKs(t *testing.T) {
 		expectSQL  string
 	}{
 		{"test1", []string{"id", "name"}, 1, 1, "(`id`,`name`) IN ((?,?))"},
-		{"test1", []string{"id", "name"}, 3, 2, "(`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 3, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 3, 1, "(`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?))"},
+		{"test1", []string{"id", "name"}, 4, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?),(?,?))"},
 	}
 
 	for _, test := range tests {

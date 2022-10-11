@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/common"
-	"github.com/seata/seata-go/pkg/common/log"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 var (
@@ -102,12 +102,12 @@ func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchRe
 
 // LockQuery query lock status of transaction branch
 func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (t *TCCResourceManager) UnregisterResource(resource rm.Resource) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -149,13 +149,13 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 }
 
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
-	var actionContextMap = make(map[string]interface{}, 2)
+	actionContextMap := make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
 		var tccContext map[string]interface{}
 		if err := json.Unmarshal(applicationData, &tccContext); err != nil {
 			panic("application data failed to unmarshl as json")
 		}
-		if v, ok := tccContext[common.ActionContext]; ok {
+		if v, ok := tccContext[constant.ActionContext]; ok {
 			actionContextMap = v.(map[string]interface{})
 		}
 	}

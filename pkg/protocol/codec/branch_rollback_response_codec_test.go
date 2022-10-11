@@ -20,7 +20,7 @@ package codec
 import (
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/common/errors"
+	serror "github.com/seata/seata-go/pkg/util/errors"
 
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 

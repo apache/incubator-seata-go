@@ -27,10 +27,10 @@ import (
 
 func TestClientOnResponseProcessor(t *testing.T) {
 	// testcases
-	var tests = []struct {
+	tests := []struct {
 		name    string             // testcase name
 		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               //want testcase err or not
+		wantErr bool               // want testcase err or not
 	}{
 		{
 			name: "cor-testcase1-mergeResult",
@@ -106,5 +106,4 @@ func TestClientOnResponseProcessor(t *testing.T) {
 			}
 		})
 	}
-
 }

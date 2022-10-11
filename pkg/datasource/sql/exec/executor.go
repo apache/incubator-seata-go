@@ -21,11 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // executorSolts
@@ -218,28 +216,5 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 		return nil, nil
 	}
 
-	builder := undo.GetUndologBuilder(pc.ExecutorType)
-	if builder == nil {
-		return nil, nil
-	}
-	return builder.BeforeImage(ctx, execCtx)
-}
-
-// After
-func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	if !tm.IsTransactionOpened(ctx) {
-		return nil, nil
-	}
-	pc, err := parser.DoParser(execCtx.Query)
-	if err != nil {
-		return nil, err
-	}
-	if !pc.HasValidStmt() {
-		return nil, nil
-	}
-	builder := undo.GetUndologBuilder(pc.ExecutorType)
-	if builder == nil {
-		return nil, nil
-	}
-	return builder.AfterImage(ctx, execCtx, beforeImages)
+	return f(ctx, execCtx.Query, execCtx.Values)
 }

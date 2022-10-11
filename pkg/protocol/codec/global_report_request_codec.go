@@ -18,8 +18,8 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
 type GlobalReportRequestCodec struct {

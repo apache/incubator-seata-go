@@ -26,11 +26,11 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/common/reflectx"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/seata/seata-go/pkg/util/reflectx"
 )
 
 const (

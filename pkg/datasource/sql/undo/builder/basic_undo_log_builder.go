@@ -30,8 +30,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type BasicUndoLogBuilder struct {
-}
+type BasicUndoLogBuilder struct{}
 
 // getScanSlice get the column type for scann
 func (*BasicUndoLogBuilder) getScanSlice(columnNames []string, tableMeta types.TableMeta) []driver.Value {
@@ -215,8 +214,15 @@ func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowS
 		}
 		whereStr.WriteString(") IN (")
 
-		eachSize := rowSize % maxInSize
-		if batch == batchSize-1 && rowSize%maxInSize == 0 {
+		var eachSize int
+
+		if batch == batchSize-1 {
+			if rowSize%maxInSize == 0 {
+				eachSize = maxInSize
+			} else {
+				eachSize = rowSize % maxInSize
+			}
+		} else {
 			eachSize = maxInSize
 		}
 

@@ -33,8 +33,10 @@ func init() {
 	RegistrUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
-var solts = map[types.DBType]*undoLogMgrHolder{}
-var builders = map[types.ExecutorType]func() UndoLogBuilder{}
+var (
+	solts    = map[types.DBType]*undoLogMgrHolder{}
+	builders = map[types.ExecutorType]func() UndoLogBuilder{}
+)
 
 type undoLogMgrHolder struct {
 	once sync.Once

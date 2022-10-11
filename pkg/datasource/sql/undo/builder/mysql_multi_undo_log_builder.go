@@ -19,9 +19,9 @@ package builder
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 type MySQLMultiUndoLogBuilder struct {
@@ -57,10 +57,10 @@ func (u *MySQLMultiUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *typ
 			Conn:         execCtx.Conn,
 		}
 		switch parseContext.ExecutorType {
-		case types.UpdateExecutor:
+		case parser.UpdateExecutor:
 			tmpImages, err = GetMySQLUpdateUndoLogBuilder().BeforeImage(ctx, execCtx)
 			break
-		case types.DeleteExecutor:
+		case parser.DeleteExecutor:
 			// todo get delete undo log builder
 			//builder = GetMySQLUpdateUndoLogBuilder()
 			break
@@ -98,10 +98,10 @@ func (u *MySQLMultiUndoLogBuilder) AfterImage(ctx context.Context, execCtx *type
 		}
 
 		switch parseContext.ExecutorType {
-		case types.UpdateExecutor:
+		case parser.UpdateExecutor:
 			tmpImages, err = GetMySQLUpdateUndoLogBuilder().AfterImage(ctx, execCtx, []*types.RecordImage{u.beforeImages[i]})
 			break
-		case types.DeleteExecutor:
+		case parser.DeleteExecutor:
 			// todo get delete undo log builder
 			//builder = GetMySQLUpdateUndoLogBuilder()
 			break
@@ -115,6 +115,6 @@ func (u *MySQLMultiUndoLogBuilder) AfterImage(ctx context.Context, execCtx *type
 	return resultImages, err
 }
 
-func (u *MySQLMultiUndoLogBuilder) GetExecutorType() types.ExecutorType {
-	return types.MultiExecutor
+func (u *MySQLMultiUndoLogBuilder) GetExecutorType() parser.ExecutorType {
+	return parser.MultiExecutor
 }

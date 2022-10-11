@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	seataErrors "github.com/seata/seata-go/pkg/common/errors"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 	"github.com/seata/seata-go/pkg/tm"
+	seataErrors "github.com/seata/seata-go/pkg/util/errors"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type tccFenceWrapperHandler struct {
@@ -138,7 +138,6 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
 	fenceDo, err := handler.tccFenceDao.QueryTCCFenceDO(tx, xid, branchId)
-
 	if err != nil {
 		return seataErrors.NewTccFenceError(seataErrors.RollbackFenceError,
 			fmt.Sprintf(" rollback fence method failed. xid= %s, branchId= %d ", xid, branchId),

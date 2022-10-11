@@ -21,15 +21,15 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/common/util"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -87,7 +87,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 		return err
 	}
 
-	branchIDStr, err := util.Int64Slice2Str(branchID, ",")
+	branchIDStr, err := Int64Slice2Str(branchID, ",")
 	if err != nil {
 		log.Errorf("slice to string transfer fail, err: %v", err)
 		return err
@@ -167,4 +167,21 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 	}
 
 	str.WriteString(") ")
+}
+
+// Int64Slice2Str
+func Int64Slice2Str(values interface{}, sep string) (string, error) {
+	v, ok := values.([]int64)
+	if !ok {
+		return "", errors.New("param type is fault")
+	}
+
+	var valuesText []string
+
+	for i := range v {
+		text := strconv.FormatInt(v[i], 10)
+		valuesText = append(valuesText, text)
+	}
+
+	return strings.Join(valuesText, sep), nil
 }

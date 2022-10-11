@@ -29,12 +29,11 @@ import (
 )
 
 func TestRmBranchCommitProcessor(t *testing.T) {
-
 	// testcases
-	var tests = []struct {
+	tests := []struct {
 		name    string             // testcase name
 		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               //want testcase err or not
+		wantErr bool               // want testcase err or not
 	}{
 		{
 			name: "rbc-testcase1-failure",
@@ -78,5 +77,4 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 			}
 		})
 	}
-
 }

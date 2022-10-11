@@ -22,9 +22,9 @@ import (
 
 	gxtime "github.com/dubbogo/gost/time"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 	"go.uber.org/atomic"
 )
 
