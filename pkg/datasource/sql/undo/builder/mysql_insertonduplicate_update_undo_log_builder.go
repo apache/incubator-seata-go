@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -36,7 +36,7 @@ type MySQLInsertOnDuplicateUndoLogBuilder struct {
 	Args            []driver.Value
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *exec.ExecContext) (*types.RecordImage, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
 		vals = make([]driver.Value, len(execCtx.NamedValues))
@@ -66,7 +66,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 }
 
 // buildBeforeImageSQL build select sql from insert on duplicate update sql
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *exec.ExecContext, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *types.ExecContext, args []driver.Value) (string, []driver.Value, error) {
 	p, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return "", nil, err
@@ -78,7 +78,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *exec
 	if err = duplicateKeyUpdateCheck(p.InsertStmt, execCtx); err != nil {
 		return "", nil, err
 	}
-	selectArgs := make([]driver.Value, 0)
+	var selectArgs []driver.Value
 	insertNum, paramMap := buildImageParameters(p.InsertStmt, args)
 
 	sql := strings.Builder{}
@@ -130,10 +130,10 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *exec
 	return sql.String(), selectArgs, nil
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, beforeImage types.RecordImage, execCtx *exec.ExecContext) (*types.RecordImage, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, beforeImage types.RecordImage, execCtx *types.ExecContext) (*types.RecordImage, error) {
 	selectSQL, selectArgs := u.BeforeSelectSql, u.Args
 
-	primaryValueMap := make(map[string][]interface{}, 0)
+	primaryValueMap := make(map[string][]interface{})
 	for _, row := range beforeImage.Rows {
 		for _, col := range row.Columns {
 			if col.KeyType == types.IndexTypePrimaryKey {
@@ -177,19 +177,20 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) GetSQLType() types.SQLType {
 	return types.SQLTypeInsert
 }
 
-func duplicateKeyUpdateCheck(insert *ast.InsertStmt, execCtx *exec.ExecContext) error {
-	duplicateColsMap := make(map[string]bool, 0)
+func duplicateKeyUpdateCheck(insert *ast.InsertStmt, execCtx *types.ExecContext) error {
+	duplicateColsMap := make(map[string]bool)
 	for _, v := range insert.OnDuplicate {
-		duplicateColsMap[v.Column.Name.O] = true
+		duplicateColsMap[v.Column.Name.L] = true
 	}
-	if len(duplicateColsMap) != 0 {
-		for _, index := range execCtx.MetaData.Indexs {
-			if "PRIMARY" == index.Name {
-				for _, col := range index.Values {
-					if duplicateColsMap[col.Info.Name()] {
-						log.Errorf("update pk value is not supported!")
-						return fmt.Errorf("update pk value is not supported! ")
-					}
+	if len(duplicateColsMap) == 0 {
+		return nil
+	}
+	for _, index := range execCtx.MetaData.Indexs {
+		if types.IndexTypePrimaryKey == index.IType {
+			for name, col := range index.Values {
+				if duplicateColsMap[strings.ToLower(col.Info.Name())] {
+					log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.Info.Name())
+					return fmt.Errorf("update pk value is not supported! ")
 				}
 			}
 		}
@@ -199,7 +200,7 @@ func duplicateKeyUpdateCheck(insert *ast.InsertStmt, execCtx *exec.ExecContext) 
 
 // build sql params
 func buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value) {
-	parameterMap := make(map[string][]driver.Value, 0)
+	parameterMap := make(map[string][]driver.Value)
 	length := len(insert.OnDuplicate)
 	args = args[:len(args)-length]
 
