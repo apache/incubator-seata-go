@@ -58,7 +58,10 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	tableName := execCtx.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+
+	return u.buildRecordImages(rows, metaData)
 }
 
 func (u *MySQLDeleteUndoLogBuilder) AfterImage(types.RecordImages) (*types.RecordImages, error) {

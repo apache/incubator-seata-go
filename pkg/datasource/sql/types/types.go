@@ -54,13 +54,13 @@ const (
 	BranchPhase_Done    = 1
 	BranchPhase_Failed  = 2
 
-	// Index_Primary primary index type.
+	// IndexPrimary primary index type.
 	IndexPrimary = 0
-	// Index_Normal normal index type.
+	// IndexNormal normal index type.
 	IndexNormal = 1
-	// Index_Unique unique index type.
+	// IndexUnique unique index type.
 	IndexUnique = 2
-	// Index_FullText full text index type.
+	// IndexFullText full text index type.
 	IndexFullText = 3
 )
 

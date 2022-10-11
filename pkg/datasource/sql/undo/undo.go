@@ -22,17 +22,12 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
-)
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 
-func init() {
-	RegistrUndoLogBuilder(parser.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
-	RegistrUndoLogBuilder(parser.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
-}
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+)
 
 var (
 	solts    = map[types.DBType]*undoLogMgrHolder{}
@@ -63,7 +58,10 @@ func RegistrUndoLogBuilder(executorType parser.ExecutorType, fun func() UndoLogB
 }
 
 func GetUndologBuilder(sqlType parser.ExecutorType) UndoLogBuilder {
-	return builders[sqlType]()
+	if f, ok := builders[sqlType]; ok {
+		return f()
+	}
+	return nil
 }
 
 // UndoLogManager

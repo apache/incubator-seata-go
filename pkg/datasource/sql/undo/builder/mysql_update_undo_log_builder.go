@@ -36,6 +36,10 @@ const (
 	maxInSize = 1000
 )
 
+func init() {
+	undo.RegistrUndoLogBuilder(parser.UpdateExecutor, GetMySQLUpdateUndoLogBuilder)
+}
+
 type MySQLUpdateUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }

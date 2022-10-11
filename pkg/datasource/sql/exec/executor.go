@@ -20,13 +20,19 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
+
+func init() {
+	undo.RegistrUndoLogBuilder(parser.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+	undo.RegistrUndoLogBuilder(parser.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
+}
 
 // executorSolts
 var executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
