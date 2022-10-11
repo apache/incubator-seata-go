@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/bytes"
@@ -166,6 +167,6 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }
 
-func (u *MySQLUpdateUndoLogBuilder) GetExecutorType() types.ExecutorType {
-	return types.UpdateExecutor
+func (u *MySQLUpdateUndoLogBuilder) GetExecutorType() parser.ExecutorType {
+	return parser.UpdateExecutor
 }
