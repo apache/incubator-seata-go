@@ -170,7 +170,7 @@ func (u *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 
 			keyType := types.IndexTypeNull
 			if data, ok := tableMetaData.Indexs[name]; ok {
-				keyType = data.IndexType
+				keyType = data.IType
 			}
 			jdbcType := types.GetJDBCTypeByTypeName(columnMeta.Info.DatabaseTypeName())
 

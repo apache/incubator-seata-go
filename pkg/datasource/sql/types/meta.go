@@ -43,11 +43,11 @@ type IndexMeta struct {
 	Schema string
 	// Table
 	Table      string
-	IndexName  string
+	Name       string
 	ColumnName string
 	NonUnique  bool
 	// IType
-	IndexType IndexType
+	IType IndexType
 	// Values
 	Values []ColumnMeta
 }

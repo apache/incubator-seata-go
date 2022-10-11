@@ -65,12 +65,12 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 	}
 	for _, index := range indexes {
 		col := tableMeta.Columns[index.ColumnName]
-		idx, ok := tableMeta.Indexs[index.IndexName]
+		idx, ok := tableMeta.Indexs[index.Name]
 		if ok {
 			idx.Values = append(idx.Values, col)
 		} else {
 			index.Values = append(index.Values, col)
-			tableMeta.Indexs[index.IndexName] = index
+			tableMeta.Indexs[index.Name] = index
 		}
 	}
 	if len(tableMeta.Indexs) == 0 {
@@ -204,7 +204,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		index := types.IndexMeta{
 			Schema:     dbName,
 			Table:      tableName,
-			IndexName:  indexName,
+			Name:       indexName,
 			ColumnName: columnName,
 			Values:     make([]types.ColumnMeta, 0),
 		}
@@ -214,11 +214,11 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		}
 
 		if "primary" == strings.ToLower(indexName) {
-			index.IndexType = types.IndexPrimary
+			index.IType = types.IndexPrimary
 		} else if !index.NonUnique {
-			index.IndexType = types.IndexUnique
+			index.IType = types.IndexUnique
 		} else {
-			index.IndexType = types.IndexNormal
+			index.IType = types.IndexNormal
 		}
 
 		result = append(result, index)
