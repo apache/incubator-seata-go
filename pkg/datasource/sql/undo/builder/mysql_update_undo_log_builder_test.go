@@ -26,8 +26,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildBeforeImageSQL(t *testing.T) {
-	builder := MySQLUpdateUndoLogBuilder{}
+func TestBuildSelectSQLByUpdate(t *testing.T) {
+	var (
+		builder = MySQLUpdateUndoLogBuilder{}
+	)
 
 	tests := []struct {
 		name            string

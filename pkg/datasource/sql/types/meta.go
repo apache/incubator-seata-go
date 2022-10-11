@@ -64,3 +64,13 @@ type TableMeta struct {
 func (m TableMeta) IsEmpty() bool {
 	return m.Name == ""
 }
+
+func (m TableMeta) GetPrimaryKeyOnlyName() []string {
+	keys := make([]string, 0)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			keys = append(keys, index.Name)
+		}
+	}
+	return keys
+}

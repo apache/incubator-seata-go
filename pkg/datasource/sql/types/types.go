@@ -106,6 +106,17 @@ type TransactionContext struct {
 	RoundImages *RoundRecordImage
 }
 
+// ExecContext
+type ExecContext struct {
+	TxCtx       *TransactionContext
+	Query       string
+	NamedValues []driver.NamedValue
+	Values      []driver.Value
+	// metaData
+	MetaData TableMeta
+	Conn     driver.Conn
+}
+
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
 		LockKeys:     make([]string, 0, 4),
