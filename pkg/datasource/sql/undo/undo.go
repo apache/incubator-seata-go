@@ -24,14 +24,12 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 var (
 	solts    = map[types.DBType]*undoLogMgrHolder{}
-	builders = map[parser.ExecutorType]func() UndoLogBuilder{}
+	builders = map[types.ExecutorType]func() UndoLogBuilder{}
 )
 
 type undoLogMgrHolder struct {
@@ -51,13 +49,13 @@ func RegisterUndoLogManager(m UndoLogManager) error {
 	return nil
 }
 
-func RegistrUndoLogBuilder(executorType parser.ExecutorType, fun func() UndoLogBuilder) {
+func RegistrUndoLogBuilder(executorType types.ExecutorType, fun func() UndoLogBuilder) {
 	if _, ok := builders[executorType]; !ok {
 		builders[executorType] = fun
 	}
 }
 
-func GetUndologBuilder(sqlType parser.ExecutorType) UndoLogBuilder {
+func GetUndologBuilder(sqlType types.ExecutorType) UndoLogBuilder {
 	if f, ok := builders[sqlType]; ok {
 		return f()
 	}
@@ -135,5 +133,5 @@ type UndoLogParser interface {
 type UndoLogBuilder interface {
 	BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error)
 	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error)
-	GetExecutorType() parser.ExecutorType
+	GetExecutorType() types.ExecutorType
 }

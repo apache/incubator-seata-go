@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
@@ -30,16 +31,16 @@ import (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(parser.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
-	undo.RegistrUndoLogBuilder(parser.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
+	undo.RegistrUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+	undo.RegistrUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
 // executorSolts
-var executorSolts = make(map[types.DBType]map[parser.ExecutorType]func() SQLExecutor)
+var executorSolts = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
 
-func RegisterExecutor(dt types.DBType, et parser.ExecutorType, builder func() SQLExecutor) {
+func RegisterExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
 	if _, ok := executorSolts[dt]; !ok {
-		executorSolts[dt] = make(map[parser.ExecutorType]func() SQLExecutor)
+		executorSolts[dt] = make(map[types.ExecutorType]func() SQLExecutor)
 	}
 
 	val := executorSolts[dt]

@@ -21,8 +21,6 @@ import (
 	"database/sql/driver"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
 	"github.com/google/uuid"
 )
 
@@ -111,7 +109,7 @@ type TransactionContext struct {
 type ExecContext struct {
 	TxCtx        *TransactionContext
 	Query        string
-	ParseContext *parser.ParseContext
+	ParseContext *ParseContext
 	NamedValues  []driver.NamedValue
 	Values       []driver.Value
 	MetaDataMap  map[string]TableMeta
