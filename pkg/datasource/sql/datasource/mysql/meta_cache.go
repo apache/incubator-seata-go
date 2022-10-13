@@ -20,13 +20,36 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"sync"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/base"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+var (
+	capacity          int32 = 1024
+	EexpireTime             = 15 * time.Minute
+	tableMetaInstance *tableMetaCache
+	tableMetaOnce     sync.Once
+	DBName            = "seata"
+)
+
 type tableMetaCache struct {
-	cache *base.BaseTableMetaCache
+	tableMetaCache *base.BaseTableMetaCache
+}
+
+func GetTableMetaInstance() *tableMetaCache {
+	// Todo constant.DBName get from config
+	tableMetaOnce.Do(func() {
+		tableMetaInstance = &tableMetaCache{
+			tableMetaCache: base.NewBaseCache(capacity, DBName, EexpireTime, NewMysqlTrigger()),
+		}
+	})
+
+	return tableMetaInstance
 }
 
 // Init
@@ -34,9 +57,18 @@ func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 	return nil
 }
 
-// GetTableMeta
-func (c *tableMetaCache) GetTableMeta(table string) (types.TableMeta, error) {
-	return types.TableMeta{}, nil
+// GetTableMeta get table info from cache or information schema
+func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
+	if tableName == "" {
+		return nil, errors.New("TableMeta cannot be fetched without tableName")
+	}
+
+	tableMeta, err := c.tableMetaCache.GetTableMeta(ctx, tableName, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tableMeta, nil
 }
 
 // Destroy
