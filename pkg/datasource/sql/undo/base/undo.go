@@ -107,16 +107,20 @@ func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx dr
 	if !txCtx.HasUndoLog() {
 		return nil
 	}
-	logs := []undo.SQLUndoLog{{
-		SQLType:   types.SQLTypeInsert,
-		TableName: constant.UndoLogTableName,
-		Images:    *txCtx.RoundImages,
-	}}
-	branchUndoLogs := []undo.BranchUndoLog{{
-		Xid:      txCtx.XaID,
-		BranchID: strconv.FormatUint(txCtx.BranchID, 10),
-		Logs:     logs,
-	}}
+	logs := []undo.SQLUndoLog{
+		{
+			SQLType:   types.SQLTypeInsert,
+			TableName: constant.UndoLogTableName,
+			Images:    *txCtx.RoundImages,
+		},
+	}
+	branchUndoLogs := []undo.BranchUndoLog{
+		{
+			Xid:      txCtx.XaID,
+			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
+			Logs:     logs,
+		},
+	}
 	return m.InsertUndoLog(branchUndoLogs, tx)
 }
 
