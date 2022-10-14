@@ -19,10 +19,10 @@ package types
 
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
-	bIndex int32
-	before RecordImages
-	aIndex int32
-	after  RecordImages
+	bIndex int32        `json:"-"`
+	before RecordImages `json:"beforeImage"`
+	aIndex int32        `json:"-"`
+	after  RecordImages `json:"afterImage"`
 }
 
 // AppendBeofreImages
