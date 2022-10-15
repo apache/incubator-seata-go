@@ -15,42 +15,39 @@
  * limitations under the License.
  */
 
-package mysql
+package types
 
-import (
-	"context"
-	"database/sql"
-	"testing"
+import "github.com/arana-db/parser/ast"
 
-	_ "github.com/go-sql-driver/mysql"
-	"gotest.tools/assert"
+// ExecutorType
+//go:generate stringer -type=ExecutorType
+type ExecutorType int32
+
+const (
+	_ ExecutorType = iota
+	UnSupportExecutor
+	InsertExecutor
+	UpdateExecutor
+	DeleteExecutor
+	ReplaceIntoExecutor
+	MultiExecutor
+	InsertOnDuplicateExecutor
 )
 
-// TestGetTableMeta
-func TestGetTableMeta(t *testing.T) {
-	// local test can annotation t.SkipNow()
-	t.SkipNow()
+type ParseContext struct {
+	// SQLType
+	SQLType SQLType
+	// ExecutorType
+	ExecutorType ExecutorType
+	// InsertStmt
+	InsertStmt *ast.InsertStmt
+	// UpdateStmt
+	UpdateStmt *ast.UpdateStmt
+	// DeleteStmt
+	DeleteStmt *ast.DeleteStmt
+	MultiStmt  []*ParseContext
+}
 
-	testTableMeta := func() {
-		metaInstance := GetTableMetaInstance()
-
-		db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/seata?multiStatements=true")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer db.Close()
-
-		ctx := context.Background()
-		conn, _ := db.Conn(ctx)
-
-		tableMeta, err := metaInstance.GetTableMeta(ctx, "undo_log", conn)
-		assert.NilError(t, err)
-
-		t.Logf("%+v", tableMeta)
-	}
-
-	t.Run("testTableMeta", func(t *testing.T) {
-		testTableMeta()
-	})
+func (p *ParseContext) HasValidStmt() bool {
+	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
 }

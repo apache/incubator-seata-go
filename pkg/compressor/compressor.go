@@ -15,42 +15,24 @@
  * limitations under the License.
  */
 
-package mysql
+package compressor
 
-import (
-	"context"
-	"database/sql"
-	"testing"
+type CompressorType int8
 
-	_ "github.com/go-sql-driver/mysql"
-	"gotest.tools/assert"
+const (
+	CompressorNone CompressorType = iota
+	CompressorGzip
+	CompressorZip
+	CompressorSevenz
+	CompressorBzip2
+	CompressorLz4
+	CompressorDefault
+	CompressorZstd
+	CompressorMax
 )
 
-// TestGetTableMeta
-func TestGetTableMeta(t *testing.T) {
-	// local test can annotation t.SkipNow()
-	t.SkipNow()
-
-	testTableMeta := func() {
-		metaInstance := GetTableMetaInstance()
-
-		db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/seata?multiStatements=true")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer db.Close()
-
-		ctx := context.Background()
-		conn, _ := db.Conn(ctx)
-
-		tableMeta, err := metaInstance.GetTableMeta(ctx, "undo_log", conn)
-		assert.NilError(t, err)
-
-		t.Logf("%+v", tableMeta)
-	}
-
-	t.Run("testTableMeta", func(t *testing.T) {
-		testTableMeta()
-	})
+type Compressor interface {
+	Compress([]byte) ([]byte, error)
+	Decompress([]byte) ([]byte, error)
+	GetCompressorType() CompressorType
 }
