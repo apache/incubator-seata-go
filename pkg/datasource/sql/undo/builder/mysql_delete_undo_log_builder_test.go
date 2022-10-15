@@ -19,8 +19,9 @@ package builder
 
 import (
 	"database/sql/driver"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildDeleteBeforeImageSQL(t *testing.T) {
