@@ -17,9 +17,7 @@
 
 package types
 
-import (
-	"database/sql"
-)
+import "database/sql"
 
 // ColumnMeta
 type ColumnMeta struct {
@@ -27,12 +25,18 @@ type ColumnMeta struct {
 	Schema string
 	// Table
 	Table string
-	// Autoincrement
-	Autoincrement bool
 	// ColumnDef
 	ColumnDef string
 	// Info
 	Info sql.ColumnType
+	// Autoincrement
+	Autoincrement bool
+	ColumnName    string
+	ColumnType    string
+	DataType      int32
+	ColumnKey     string
+	IsNullable    int8
+	Extra         string
 }
 
 // IndexMeta
@@ -40,9 +44,10 @@ type IndexMeta struct {
 	// Schema
 	Schema string
 	// Table
-	Table string
-	// Name
-	Name string
+	Table      string
+	Name       string
+	ColumnName string
+	NonUnique  bool
 	// IType
 	IType IndexType
 	// Values
@@ -58,7 +63,8 @@ type TableMeta struct {
 	// Columns
 	Columns map[string]ColumnMeta
 	// Indexs
-	Indexs map[string]IndexMeta
+	Indexs      map[string]IndexMeta
+	ColumnNames []string
 }
 
 func (m TableMeta) IsEmpty() bool {

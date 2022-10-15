@@ -15,33 +15,24 @@
  * limitations under the License.
  */
 
-package fanout
+package compressor
 
-import (
-	"context"
-	"testing"
-	"time"
+type CompressorType int8
+
+const (
+	CompressorNone CompressorType = iota
+	CompressorGzip
+	CompressorZip
+	CompressorSevenz
+	CompressorBzip2
+	CompressorLz4
+	CompressorDefault
+	CompressorZstd
+	CompressorMax
 )
 
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	ca.Do(context.Background(), func(c context.Context) {
-		run = true
-		panic("error")
-	})
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	if !run {
-		t.Fatal("expect run be true")
-	}
-}
-
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
-	}
+type Compressor interface {
+	Compress([]byte) ([]byte, error)
+	Decompress([]byte) ([]byte, error)
+	GetCompressorType() CompressorType
 }
