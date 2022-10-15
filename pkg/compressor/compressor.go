@@ -20,7 +20,7 @@ package compressor
 type CompressorType int8
 
 const (
-	CompressorNone CompressorType = iota
+	Compressor1None CompressorType = iota
 	CompressorGzip
 	CompressorZip
 	CompressorSevenz
