@@ -21,13 +21,8 @@ import (
 	"context"
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 )

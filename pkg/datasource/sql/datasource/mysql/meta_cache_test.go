@@ -20,9 +20,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"testing"
+
 	_ "github.com/go-sql-driver/mysql"
 	"gotest.tools/assert"
-	"testing"
 )
 
 // TestGetTableMeta
