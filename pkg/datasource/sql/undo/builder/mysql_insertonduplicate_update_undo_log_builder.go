@@ -89,38 +89,39 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *type
 		paramAppenderTempList := make([]driver.Value, 0)
 		for _, index := range execCtx.MetaData.Indexs {
 			//unique index
-			if index.IType == types.IndexTypeUniqueKey {
-				columnIsNull := true
-				uniqueList := make([]string, 0)
-				for _, columnMeta := range index.Values {
-					columnName := columnMeta.Info.Name()
-					imageParameters, ok := paramMap[columnName]
-					if !ok && columnMeta.ColumnDef != "" {
-						uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
+			if index.IType != types.IndexTypeUniqueKey && index.IType != types.IndexTypePrimaryKey {
+				continue
+			}
+			columnIsNull := true
+			uniqueList := make([]string, 0)
+			for _, columnMeta := range index.Values {
+				columnName := columnMeta.ColumnName
+				imageParameters, ok := paramMap[columnName]
+				if !ok && columnMeta.ColumnDef != nil {
+					uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
+					columnIsNull = false
+					continue
+				}
+				if (!ok && columnMeta.ColumnDef == nil) || imageParameters[finalI] == nil {
+					if !strings.EqualFold("PRIMARY", index.Name) {
 						columnIsNull = false
+						uniqueList = append(uniqueList, columnName+" is ? ")
+						paramAppenderTempList = append(paramAppenderTempList, "NULL")
 						continue
 					}
-					if (!ok && columnMeta.ColumnDef == "") || imageParameters[finalI] == nil {
-						if !strings.EqualFold("PRIMARY", index.Name) {
-							columnIsNull = false
-							uniqueList = append(uniqueList, columnName+" is ? ")
-							paramAppenderTempList = append(paramAppenderTempList, "NULL")
-							continue
-						}
-						break
-					}
-					columnIsNull = false
-					uniqueList = append(uniqueList, columnName+" = ? ")
-					paramAppenderTempList = append(paramAppenderTempList, imageParameters[finalI])
+					break
 				}
+				columnIsNull = false
+				uniqueList = append(uniqueList, columnName+" = ? ")
+				paramAppenderTempList = append(paramAppenderTempList, imageParameters[finalI])
+			}
 
-				if !columnIsNull {
-					if isContainWhere {
-						sql.WriteString(" OR (" + strings.Join(uniqueList, " and ") + ") ")
-					} else {
-						sql.WriteString(" WHERE (" + strings.Join(uniqueList, " and ") + ") ")
-						isContainWhere = true
-					}
+			if !columnIsNull {
+				if isContainWhere {
+					sql.WriteString(" OR (" + strings.Join(uniqueList, " and ") + ") ")
+				} else {
+					sql.WriteString(" WHERE (" + strings.Join(uniqueList, " and ") + ") ")
+					isContainWhere = true
 				}
 			}
 		}
@@ -207,7 +208,7 @@ func buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map
 	rows := len(args) / len(insert.Columns)
 	for i, column := range insert.Columns {
 		for j := 0; j < rows; j++ {
-			parameterMap[column.Name.O] = append(parameterMap[column.Name.O], args[i*j+i])
+			parameterMap[column.Name.L] = append(parameterMap[column.Name.L], args[i+j*len(insert.Columns)])
 		}
 	}
 	return rows, parameterMap

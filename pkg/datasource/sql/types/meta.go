@@ -25,8 +25,8 @@ type ColumnMeta struct {
 	Schema string
 	// Table
 	Table string
-	// ColumnDef
-	ColumnDef string
+	// ColumnDef  the column def
+	ColumnDef []uint8
 	// Info
 	Info sql.ColumnType
 	// Autoincrement
