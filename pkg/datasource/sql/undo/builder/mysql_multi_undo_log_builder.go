@@ -48,9 +48,10 @@ func (u *MySQLMultiUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *typ
 	var (
 		err          error
 		tmpImages    []*types.RecordImage
-		resultImages = make([]*types.RecordImage, 0)
+		resultImages []*types.RecordImage
 	)
 
+	resultImages = make([]*types.RecordImage, 0)
 	for _, parseContext := range execCtx.ParseContext.MultiStmt {
 		execCtx = &types.ExecContext{
 			TxCtx:        execCtx.TxCtx,
