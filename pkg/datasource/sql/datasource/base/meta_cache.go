@@ -19,6 +19,7 @@ package base
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(table string) (types.TableMeta, error)
+		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -46,13 +47,14 @@ type BaseTableMetaCache struct {
 	expireDuration time.Duration
 	capity         int32
 	size           int32
+	dbName         string
 	cache          map[string]*entry
 	cancel         context.CancelFunc
 	trigger        trigger
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (*BaseTableMetaCache, error) {
+func NewBaseCache(capity int32, dbName string, expireDuration time.Duration, trigger trigger) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
@@ -61,15 +63,14 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) (
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
+		dbName:         dbName,
 		cancel:         cancel,
 		trigger:        trigger,
 	}
 
-	if err := c.Init(ctx); err != nil {
-		return nil, err
-	}
+	c.Init(ctx)
 
-	return c, nil
+	return c
 }
 
 // init
@@ -135,32 +136,31 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 }
 
 // GetTableMeta
-func (c *BaseTableMetaCache) GetTableMeta(table string) (types.TableMeta, error) {
+func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v, ok := c.cache[table]
-
+	v, ok := c.cache[tableName]
 	if !ok {
-		meta, err := c.trigger.LoadOne(table)
+		meta, err := c.trigger.LoadOne(ctx, c.dbName, tableName, conn)
 		if err != nil {
 			return types.TableMeta{}, err
 		}
 
-		if !meta.IsEmpty() {
-			c.cache[table] = &entry{
-				value:      meta,
+		if meta != nil && !meta.IsEmpty() {
+			c.cache[tableName] = &entry{
+				value:      *meta,
 				lastAccess: time.Now(),
 			}
 
-			return meta, nil
+			return *meta, nil
 		}
 
 		return types.TableMeta{}, errors.New("not found table metadata")
 	}
 
 	v.lastAccess = time.Now()
-	c.cache[table] = v
+	c.cache[tableName] = v
 
 	return v.value, nil
 }
