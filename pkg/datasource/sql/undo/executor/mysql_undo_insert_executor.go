@@ -58,7 +58,7 @@ func (m *MySQLUndoInsertExecutor) ExecuteOn(
 		pkValueList := make([]interface{}, 0)
 
 		for _, col := range row.Columns {
-			if col.KeyType == types.PrimaryKey.String() {
+			if col.KeyType == types.PrimaryKey.Number() {
 				pkValueList = append(pkValueList, col.Value)
 			}
 		}

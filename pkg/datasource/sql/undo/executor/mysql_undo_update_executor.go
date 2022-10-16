@@ -58,7 +58,7 @@ func (m *MySQLUndoUpdateExecutor) ExecuteOn(
 		}
 
 		for _, col := range row.Columns {
-			if col.KeyType != types.PrimaryKey.String() {
+			if col.KeyType != types.PrimaryKey.Number() {
 				undoValues = append(undoValues, col.Value)
 			}
 		}
