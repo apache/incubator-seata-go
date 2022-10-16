@@ -288,6 +288,7 @@ func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
 						O: column,
+						L: column,
 					},
 				},
 			},
