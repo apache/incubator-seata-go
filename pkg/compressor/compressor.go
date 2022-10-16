@@ -15,42 +15,24 @@
  * limitations under the License.
  */
 
-package types
+package compressor
 
-//go:generate stringer -type=SQLType
-type SQLType int32
+type CompressorType int8
 
 const (
-	_ SQLType = iota
-	SQLTypeUnknown
-	SQLTypeSelect
-	SQLTypeInsert
-	SQLTypeUpdate
-	SQLTypeDelete
-	SQLTypeSelectForUpdate
-	SQLTypeReplace
-	SQLTypeTruncate
-	SQLTypeCreate
-	SQLTypeDrop
-	SQLTypeLoad
-	SQLTypeMerge
-	SQLTypeShow
-	SQLTypeAlter
-	SQLTypeRename
-	SQLTypeDump
-	SQLTypeDebug
-	SQLTypeExplain
-	SQLTypeDesc
-	SQLTypeSet
-	SQLTypeReload
-	SQLTypeSelectUnion
-	SQLTypeCreateTable
-	SQLTypeDropTable
-	SQLTypeAlterTable
-	SQLTypeSelectFromUpdate
-	SQLTypeMultiDelete
-	SQLTypeMultiUpdate
-	SQLTypeCreateIndex
-	SQLTypeDropIndex
-	SQLTypeMulti
+	CompressorNone CompressorType = iota
+	CompressorGzip
+	CompressorZip
+	CompressorSevenz
+	CompressorBzip2
+	CompressorLz4
+	CompressorDefault
+	CompressorZstd
+	CompressorMax
 )
+
+type Compressor interface {
+	Compress([]byte) ([]byte, error)
+	Decompress([]byte) ([]byte, error)
+	GetCompressorType() CompressorType
+}
