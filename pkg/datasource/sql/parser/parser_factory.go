@@ -42,6 +42,7 @@ type ParseContext struct {
 	SQLType types.SQLType
 	// ExecutorType
 	ExecutorType ExecutorType
+	SelectStmt   *ast.SelectStmt
 	// InsertStmt
 	InsertStmt *ast.InsertStmt
 	// UpdateStmt

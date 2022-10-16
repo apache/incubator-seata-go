@@ -67,7 +67,7 @@ type DataSourceManager interface {
 	RegisterResource(resource rm.Resource) error
 	//  Unregister a Resource from the Resource Manager
 	UnregisterResource(resource rm.Resource) error
-	// Get all resources managed by this manager
+	// GetManagedResources Get all resources managed by this manager
 	GetManagedResources() map[string]rm.Resource
 	// BranchRollback
 	BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error)
