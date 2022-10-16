@@ -104,6 +104,8 @@ func TestHasUndoLogTable(t *testing.T) {
 }
 
 func TestUndo(t *testing.T) {
+	// Todo TestUndo update
+	// Todo TestUndo delete
 	// local test can annotation t.SkipNow()
 	t.SkipNow()
 
