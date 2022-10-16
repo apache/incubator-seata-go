@@ -73,7 +73,7 @@ type UndoLogManager interface {
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
 	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error
-	// RunUndo
+	// RunUndo undo sql
 	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
 	// DBType
 	DBType() types.DBType

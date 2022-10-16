@@ -29,11 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-const (
-	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
-	UpdateSqlTemplate = "UPDATE %s SET %s WHERE %s "
-)
-
 type MySQLUndoUpdateExecutor struct {
 	BaseExecutor *BaseExecutor
 }
@@ -44,10 +39,8 @@ func NewMySQLUndoUpdateExecutor() *MySQLUndoUpdateExecutor {
 }
 
 func (m *MySQLUndoUpdateExecutor) ExecuteOn(
-	ctx context.Context,
-	dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog,
-	conn *sql.Conn) error {
+	ctx context.Context, dbType types.DBType,
+	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	//m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn)
 	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
@@ -90,9 +83,11 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 	rows := beforeImage.Rows
 	row := rows[0]
 
-	var updateColumns string
-	updateColumnSlice := make([]string, 0)
-	pkNameList := make([]string, 0)
+	var (
+		updateColumns                 string
+		updateColumnSlice, pkNameList []string
+	)
+
 	nonPkFields := row.NonPrimaryKeys(row.Columns)
 	for key, _ := range nonPkFields {
 		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].Name, dbType)+" = ? ")
@@ -110,5 +105,7 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 
 	whereSql := BuildWhereConditionByPKs(pkNameList, dbType)
 
-	return fmt.Sprintf(UpdateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
+	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
+	updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
+	return fmt.Sprintf(updateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
 }

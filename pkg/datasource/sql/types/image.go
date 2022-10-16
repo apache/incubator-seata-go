@@ -90,9 +90,9 @@ type RecordImage struct {
 	TableName string `json:"tableName"`
 	// SQLType sql type
 	SQLType SQLType `json:"-"`
-	// Rows
+	// Rows data row
 	Rows []RowImage `json:"rows"`
-	// TableMeta
+	// TableMeta table information schema
 	TableMeta TableMeta
 }
 
@@ -112,9 +112,9 @@ func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 
 // PrimaryKeys Primary keys list.
 func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
-	pkFields := make([]ColumnImage, 0)
+	var pkFields []ColumnImage
 	for key, _ := range cols {
-		if cols[key].KeyType == PrimaryKey.String() {
+		if cols[key].KeyType == PrimaryKey.Number() {
 			pkFields = append(pkFields, cols[key])
 		}
 	}
@@ -124,9 +124,9 @@ func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
 
 // NonPrimaryKeys get non-primary keys
 func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
-	nonPkFields := make([]ColumnImage, 0)
+	var nonPkFields []ColumnImage
 	for key, _ := range cols {
-		if cols[key].KeyType != PrimaryKey.String() {
+		if cols[key].KeyType != PrimaryKey.Number() {
 			nonPkFields = append(nonPkFields, cols[key])
 		}
 	}

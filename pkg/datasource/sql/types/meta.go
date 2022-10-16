@@ -70,7 +70,7 @@ func (m TableMeta) IsEmpty() bool {
 }
 
 func (m TableMeta) GetPrimaryKeyOnlyName() []string {
-	pkName := make([]string, 0)
+	var pkName []string
 
 	for _, index := range m.Indexs {
 		if index.IType == IndexPrimary {

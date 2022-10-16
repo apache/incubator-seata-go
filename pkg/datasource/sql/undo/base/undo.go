@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
 	"strconv"
 	"strings"
 )
@@ -37,6 +36,7 @@ import (
 	dataSourceMysql "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -55,8 +55,6 @@ const (
 	CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 	// DeleteUndoLogSql delete undo log
 	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
-	// SelectUndoLogSql query undo log with for update
-	SelectUndoLogSql = "SELECT `log_status`,`context`,`rollback_info` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
 )
 
 // undo log status
@@ -137,18 +135,15 @@ func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx dr
 	return nil
 }
 
-// RunUndo
+// RunUndo undo sql
 func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
 	return nil
 }
 
-// Undo
+// Undo undo sql
 func (m *BaseUndoLogManager) Undo(
-	ctx context.Context,
-	dbType types.DBType,
-	xid string,
-	branchID int64,
-	conn *sql.Conn) error {
+	ctx context.Context, dbType types.DBType,
+	xid string, branchID int64, conn *sql.Conn) error {
 
 	var branchUndoLogs []undo.BranchUndoLog
 
@@ -166,7 +161,8 @@ func (m *BaseUndoLogManager) Undo(
 		}
 	}()
 
-	stmt, err := tx.Prepare(SelectUndoLogSql)
+	selectUndoLogSql := "SELECT `log_status`,`context`,`rollback_info` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
+	stmt, err := tx.Prepare(selectUndoLogSql)
 	if err != nil {
 		log.Errorf("[Undo] prepare sql fail, err: %v", err)
 		return err
@@ -386,7 +382,7 @@ func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
 	return res
 }
 
-// getRollbackInfo
+// getRollbackInfo parser rollback info
 func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
 	// Todo 目前 insert undo log 未实现压缩功能，实现后补齐这块功能
 	// get compress type

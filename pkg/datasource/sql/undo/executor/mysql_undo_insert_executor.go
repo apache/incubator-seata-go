@@ -29,8 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-const DeleteSqlTemplate = "DELETE FROM %s WHERE %s "
-
 type MySQLUndoInsertExecutor struct {
 	BaseExecutor *BaseExecutor
 }
@@ -40,12 +38,10 @@ func NewMySQLUndoInsertExecutor() *MySQLUndoInsertExecutor {
 	return &MySQLUndoInsertExecutor{}
 }
 
-// ExecuteOn
+// ExecuteOn execute insert undo logic
 func (m *MySQLUndoInsertExecutor) ExecuteOn(
-	ctx context.Context,
-	dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog,
-	conn *sql.Conn) error {
+	ctx context.Context, dbType types.DBType,
+	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn); err != nil {
 		return err
@@ -77,7 +73,7 @@ func (m *MySQLUndoInsertExecutor) ExecuteOn(
 	return nil
 }
 
-// buildUndoSQL
+// buildUndoSQL build insert undo log
 func (m *MySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
 	afterImage := sqlUndoLog.AfterImage
 	rows := afterImage.Rows
@@ -93,12 +89,10 @@ func (m *MySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 	return str, nil
 }
 
-// generateDeleteSql
+// generateDeleteSql generate delete sql
 func (m *MySQLUndoInsertExecutor) generateDeleteSql(
-	image *types.RecordImage,
-	rows []types.RowImage,
-	dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog) (string, error) {
+	image *types.RecordImage, rows []types.RowImage,
+	dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
 
 	colImages, err := GetOrderedPkList(image, rows[0], dbType)
 	if err != nil {
@@ -112,5 +106,6 @@ func (m *MySQLUndoInsertExecutor) generateDeleteSql(
 
 	whereSql := BuildWhereConditionByPKs(pkList, dbType)
 
-	return fmt.Sprintf(DeleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
+	deleteSqlTemplate := "DELETE FROM %s WHERE %s "
+	return fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
 }

@@ -33,11 +33,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-const (
-	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
-	InsertSqlTemplate = "INSERT INTO %s (%s) VALUES (%s)"
-)
-
 type MySQLUndoDeleteExecutor struct {
 	BaseExecutor *BaseExecutor
 }
@@ -48,10 +43,8 @@ func NewMySQLUndoDeleteExecutor() *MySQLUndoUpdateExecutor {
 }
 
 func (m *MySQLUndoDeleteExecutor) ExecuteOn(
-	ctx context.Context,
-	dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog,
-	conn *sql.Conn) error {
+	ctx context.Context, dbType types.DBType,
+	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
 
@@ -103,9 +96,10 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 
 	fields = append(fields, pkList...)
 
-	var insertColumns, insertValues string
-	insertColumnSlice := make([]string, 0)
-	insertValueSlice := make([]string, 0)
+	var (
+		insertColumns, insertValues         string
+		insertColumnSlice, insertValueSlice []string
+	)
 
 	for key, _ := range fields {
 		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].Name, dbType))
@@ -115,5 +109,7 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 	insertColumns = strings.Join(insertColumnSlice, ", ")
 	insertValues = strings.Join(insertValueSlice, ", ")
 
-	return fmt.Sprintf(InsertSqlTemplate, sqlUndoLog.TableName, insertColumns, insertValues), nil
+	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
+	insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
+	return fmt.Sprintf(insertSqlTemplate, sqlUndoLog.TableName, insertColumns, insertValues), nil
 }
