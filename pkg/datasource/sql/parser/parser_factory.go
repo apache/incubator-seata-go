@@ -23,69 +23,59 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-// ExecutorType
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	InsertOnDuplicateExecutor
-)
-
-type ParseContext struct {
-	// SQLType
-	SQLType types.SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	SelectStmt   *ast.SelectStmt
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-}
-
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
-}
-
-func DoParser(query string) (*ParseContext, error) {
+func DoParser(query string) (*types.ParseContext, error) {
 	p := aparser.New()
-	stmtNode, err := p.ParseOneStmt(query, "", "")
+	stmtNodes, _, err := p.Parse(query, "", "")
 	if err != nil {
 		return nil, err
 	}
 
-	parserCtx := new(ParseContext)
+	if len(stmtNodes) == 1 {
+		return parseParseContext(stmtNodes[0]), err
+	}
+
+	parserCtx := types.ParseContext{
+		SQLType:      types.SQLTypeMulti,
+		ExecutorType: types.MultiExecutor,
+		MultiStmt:    make([]*types.ParseContext, 0, len(stmtNodes)),
+	}
+
+	for _, node := range stmtNodes {
+		parserCtx.MultiStmt = append(parserCtx.MultiStmt, parseParseContext(node))
+	}
+
+	return &parserCtx, nil
+}
+
+func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {
+	parserCtx := new(types.ParseContext)
 
 	switch stmt := stmtNode.(type) {
 	case *ast.InsertStmt:
 		parserCtx.SQLType = types.SQLTypeInsert
 		parserCtx.InsertStmt = stmt
-		parserCtx.ExecutorType = InsertExecutor
+		parserCtx.ExecutorType = types.InsertExecutor
 
 		if stmt.IsReplace {
-			parserCtx.ExecutorType = ReplaceIntoExecutor
+			parserCtx.ExecutorType = types.ReplaceIntoExecutor
 		}
 
 		if len(stmt.OnDuplicate) != 0 {
-			parserCtx.ExecutorType = InsertOnDuplicateExecutor
+			parserCtx.ExecutorType = types.InsertOnDuplicateExecutor
 		}
 	case *ast.UpdateStmt:
 		parserCtx.SQLType = types.SQLTypeUpdate
 		parserCtx.UpdateStmt = stmt
-		parserCtx.ExecutorType = UpdateExecutor
+		parserCtx.ExecutorType = types.UpdateExecutor
+	case *ast.SelectStmt:
+		parserCtx.SQLType = types.SQLTypeSelectForUpdate
+		parserCtx.SelectStmt = stmt
+		parserCtx.ExecutorType = types.SelectForUpdateExecutor
 	case *ast.DeleteStmt:
 		parserCtx.SQLType = types.SQLTypeDelete
 		parserCtx.DeleteStmt = stmt
-		parserCtx.ExecutorType = DeleteExecutor
+		parserCtx.ExecutorType = types.DeleteExecutor
 	}
 
-	return parserCtx, nil
+	return parserCtx
 }

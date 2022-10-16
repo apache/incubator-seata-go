@@ -29,14 +29,12 @@ import (
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 const (
@@ -66,8 +64,12 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
+	table, err := execCtx.ParseContext.GteTableName()
+	if err != nil {
+		return nil, err
+	}
 	// build query primary key sql
-	selectPKSQL, err := s.buildSelectPKSQL(execCtx.Query, execCtx.MetaData)
+	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, execCtx.MetaDataMap[table])
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +116,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 			return nil, err
 		}
 
-		lockKey := s.buildLockKey(rows, execCtx.MetaData)
+		lockKey := s.buildLockKey(rows, execCtx.MetaDataMap[table])
 		if lockKey == "" {
 			break
 		}
@@ -174,8 +176,12 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
+	table, err := execCtx.ParseContext.GteTableName()
+	if err != nil {
+		return nil, err
+	}
 	// build query primary key sql
-	selectPKSQL, err := s.buildSelectPKSQL(execCtx.Query, execCtx.MetaData)
+	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, execCtx.MetaDataMap[table])
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +227,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 			return nil, err
 		}
 
-		lockKey := s.buildLockKey(rows, execCtx.MetaData)
+		lockKey := s.buildLockKey(rows, execCtx.MetaDataMap[table])
 		if lockKey == "" {
 			break
 		}
@@ -269,20 +275,10 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *SelectForUpdateExecutor) buildSelectPKSQL(query string, meta types.TableMeta) (string, error) {
+func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
 		return "", fmt.Errorf("%s needs to contain the primary key.", meta.Schema)
-	}
-
-	p, err := parser.DoParser(query)
-	if err != nil {
-		return "", err
-	}
-
-	if p.SelectStmt == nil {
-		log.Errorf("invalid select stmt")
-		return "", fmt.Errorf("invalid select stmt")
 	}
 
 	fields := []*ast.SelectField{}
@@ -300,12 +296,12 @@ func (u *SelectForUpdateExecutor) buildSelectPKSQL(query string, meta types.Tabl
 
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           p.SelectStmt.From,
-		Where:          p.SelectStmt.Where,
+		From:           stmt.From,
+		Where:          stmt.Where,
 		Fields:         &ast.FieldList{Fields: fields},
-		OrderBy:        p.SelectStmt.OrderBy,
-		Limit:          p.SelectStmt.Limit,
-		TableHints:     p.SelectStmt.TableHints,
+		OrderBy:        stmt.OrderBy,
+		Limit:          stmt.Limit,
+		TableHints:     stmt.TableHints,
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
