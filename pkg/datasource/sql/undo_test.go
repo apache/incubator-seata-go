@@ -21,15 +21,10 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-)
 
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestBatchDeleteUndoLogs

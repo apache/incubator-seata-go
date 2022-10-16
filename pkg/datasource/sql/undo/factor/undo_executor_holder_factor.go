@@ -19,9 +19,7 @@ package factor
 
 import (
 	"errors"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"

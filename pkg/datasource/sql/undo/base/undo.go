@@ -24,14 +24,10 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
-)
 
-import (
 	"github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/constant"
 	dataSourceMysql "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

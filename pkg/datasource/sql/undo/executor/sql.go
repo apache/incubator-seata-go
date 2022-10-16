@@ -20,9 +20,7 @@ package executor
 import (
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
