@@ -74,7 +74,7 @@ type UndoLogManager interface {
 	// FlushUndoLog
 	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error
 	// RunUndo
-	RunUndo(xid string, branchID int64, conn *sql.Conn) error
+	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
@@ -99,11 +99,11 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 // BranchUndoLog
 type BranchUndoLog struct {
 	// Xid
-	Xid string
+	Xid string `json:"xid"`
 	// BranchID
-	BranchID string
+	BranchID string `json:"branch_id"`
 	// Logs
-	Logs []SQLUndoLog
+	Logs []SQLUndoLog `json:"logs"`
 }
 
 // Marshal
@@ -111,11 +111,37 @@ func (b *BranchUndoLog) Marshal() []byte {
 	return nil
 }
 
+func (b *BranchUndoLog) Reverse() {
+	if len(b.Logs) == 0 {
+		return
+	}
+
+	left, right := 0, len(b.Logs)-1
+
+	for left < right {
+		b.Logs[left], b.Logs[right] = b.Logs[right], b.Logs[left]
+		left++
+		right--
+	}
+}
+
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType
-	TableName string
-	Images    types.RoundRecordImage
+	SQLType     types.SQLType
+	TableName   string
+	BeforeImage *types.RecordImage
+	AfterImage  *types.RecordImage
+}
+
+func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
+	if s.BeforeImage != nil {
+		s.BeforeImage.TableMeta = tableMeta
+		s.BeforeImage.TableName = tableMeta.Name
+	}
+	if s.AfterImage != nil {
+		s.AfterImage.TableMeta = tableMeta
+		s.AfterImage.TableName = tableMeta.Name
+	}
 }
 
 // UndoLogParser

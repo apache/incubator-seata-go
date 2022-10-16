@@ -34,6 +34,10 @@ type undoLogManager struct {
 	Base *base.BaseUndoLogManager
 }
 
+func NewUndoLogManager() *undoLogManager {
+	return &undoLogManager{Base: base.NewBaseUndoLogManager()}
+}
+
 // Init
 func (m *undoLogManager) Init() {
 }
@@ -59,8 +63,8 @@ func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver
 }
 
 // RunUndo
-func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) error {
-	return m.Base.RunUndo(xid, branchID, conn)
+func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	return m.Base.Undo(ctx, m.DBType(), xid, branchID, conn)
 }
 
 // DBType

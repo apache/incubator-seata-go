@@ -18,9 +18,13 @@
 package executor
 
 import (
+	"database/sql"
 	"strings"
+)
 
+import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 const (
@@ -161,4 +165,74 @@ func checkEscape(colName string, dbType types.DBType) bool {
 	default:
 		return true
 	}
+}
+
+// BuildWhereConditionByPKs each pk is a condition.the result will like :" id =? and userCode =?"
+func BuildWhereConditionByPKs(pkNameList []string, dbType types.DBType) string {
+	whereStr := strings.Builder{}
+	for i := 0; i < len(pkNameList); i++ {
+		if i > 0 {
+			whereStr.WriteString(" and ")
+		}
+
+		pkName := pkNameList[i]
+		whereStr.WriteString(AddEscape(pkName, dbType))
+		whereStr.WriteString(" = ? ")
+	}
+
+	return whereStr.String()
+}
+
+// DataValidationAndGoOn check data valid
+// Todo implement dataValidationAndGoOn
+func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
+	return true
+}
+
+// IsRecordsEquals check before record and after record if equal
+func IsRecordsEquals(before types.RecordImages, after types.RecordImages) bool {
+	lenBefore, lenAfter := len(before), len(after)
+	if lenBefore == 0 && lenAfter == 0 {
+		return true
+	}
+
+	if lenBefore > 0 && lenAfter == 0 || lenBefore == 0 && lenAfter > 0 {
+		return false
+	}
+
+	for key, _ := range before {
+		if strings.EqualFold(before[key].TableName, after[key].TableName) &&
+			len(before[key].Rows) == len(after[key].Rows) {
+			// when image is EmptyTableRecords, getTableMeta will throw an exception
+			if len(before[key].Rows) == 0 {
+				return true
+			}
+
+		}
+	}
+
+	return true
+}
+
+func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+
+	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
+
+	pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
+	pkFields := make([]types.ColumnImage, 0)
+
+	for _, column := range row.PrimaryKeys(row.Columns) {
+		column.Name = DelEscape(column.Name, dbType)
+		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
+	}
+
+	for _, pkName := range pkColumnNameListByOrder {
+		for _, col := range pkColumnNameListNoOrder {
+			if strings.Index(col.Name, pkName) > -1 {
+				pkFields = append(pkFields, col)
+			}
+		}
+	}
+
+	return pkFields, nil
 }
