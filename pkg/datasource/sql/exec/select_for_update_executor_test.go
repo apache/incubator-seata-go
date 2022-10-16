@@ -19,10 +19,10 @@ package exec
 
 import (
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"io"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/stretchr/testify/assert"

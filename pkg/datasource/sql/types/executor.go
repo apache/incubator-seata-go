@@ -19,6 +19,7 @@ package types
 
 import (
 	"fmt"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
