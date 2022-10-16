@@ -27,17 +27,6 @@ var (
 	PrimaryKey KeyType = "PRIMARY_KEY"
 )
 
-func (k KeyType) String() IndexType {
-	switch k {
-	case Null:
-		return 0
-	case PrimaryKey:
-		return 1
-	default:
-		return 0
-	}
-}
-
 func (k KeyType) Number() IndexType {
 	switch k {
 	case Null:
