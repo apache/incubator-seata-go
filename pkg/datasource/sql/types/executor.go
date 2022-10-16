@@ -17,40 +17,37 @@
 
 package types
 
-//go:generate stringer -type=SQLType
-type SQLType int32
+import "github.com/arana-db/parser/ast"
+
+// ExecutorType
+//go:generate stringer -type=ExecutorType
+type ExecutorType int32
 
 const (
-	_ SQLType = iota
-	SQLTypeUnknown
-	SQLTypeSelect
-	SQLTypeInsert
-	SQLTypeUpdate
-	SQLTypeDelete
-	SQLTypeSelectForUpdate
-	SQLTypeReplace
-	SQLTypeTruncate
-	SQLTypeCreate
-	SQLTypeDrop
-	SQLTypeLoad
-	SQLTypeMerge
-	SQLTypeShow
-	SQLTypeAlter
-	SQLTypeRename
-	SQLTypeDump
-	SQLTypeDebug
-	SQLTypeExplain
-	SQLTypeDesc
-	SQLTypeSet
-	SQLTypeReload
-	SQLTypeSelectUnion
-	SQLTypeCreateTable
-	SQLTypeDropTable
-	SQLTypeAlterTable
-	SQLTypeSelectFromUpdate
-	SQLTypeMultiDelete
-	SQLTypeMultiUpdate
-	SQLTypeCreateIndex
-	SQLTypeDropIndex
-	SQLTypeMulti
+	_ ExecutorType = iota
+	UnSupportExecutor
+	InsertExecutor
+	UpdateExecutor
+	DeleteExecutor
+	ReplaceIntoExecutor
+	MultiExecutor
+	InsertOnDuplicateExecutor
 )
+
+type ParseContext struct {
+	// SQLType
+	SQLType SQLType
+	// ExecutorType
+	ExecutorType ExecutorType
+	// InsertStmt
+	InsertStmt *ast.InsertStmt
+	// UpdateStmt
+	UpdateStmt *ast.UpdateStmt
+	// DeleteStmt
+	DeleteStmt *ast.DeleteStmt
+	MultiStmt  []*ParseContext
+}
+
+func (p *ParseContext) HasValidStmt() bool {
+	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+}

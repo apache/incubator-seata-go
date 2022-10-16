@@ -15,42 +15,4 @@
  * limitations under the License.
  */
 
-package types
-
-//go:generate stringer -type=SQLType
-type SQLType int32
-
-const (
-	_ SQLType = iota
-	SQLTypeUnknown
-	SQLTypeSelect
-	SQLTypeInsert
-	SQLTypeUpdate
-	SQLTypeDelete
-	SQLTypeSelectForUpdate
-	SQLTypeReplace
-	SQLTypeTruncate
-	SQLTypeCreate
-	SQLTypeDrop
-	SQLTypeLoad
-	SQLTypeMerge
-	SQLTypeShow
-	SQLTypeAlter
-	SQLTypeRename
-	SQLTypeDump
-	SQLTypeDebug
-	SQLTypeExplain
-	SQLTypeDesc
-	SQLTypeSet
-	SQLTypeReload
-	SQLTypeSelectUnion
-	SQLTypeCreateTable
-	SQLTypeDropTable
-	SQLTypeAlterTable
-	SQLTypeSelectFromUpdate
-	SQLTypeMultiDelete
-	SQLTypeMultiUpdate
-	SQLTypeCreateIndex
-	SQLTypeDropIndex
-	SQLTypeMulti
-)
+package compressor
