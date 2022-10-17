@@ -87,7 +87,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 	var result []types.ColumnMeta
 
 	columnSchemaSql := "select TABLE_CATALOG, TABLE_NAME, TABLE_SCHEMA, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY, " +
-		" IS_NULLABLE, EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+		" IS_NULLABLE,COLUMN_DEFAULT,EXTRA from INFORMATION_SCHEMA.COLUMNS where `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
 	stmt, err := conn.PrepareContext(ctx, columnSchemaSql)
 	if err != nil {
@@ -109,6 +109,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 			columnType   string
 			columnKey    string
 			isNullable   string
+			columnDef    []byte
 			extra        string
 		)
 
@@ -123,6 +124,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 			&columnType,
 			&columnKey,
 			&isNullable,
+			&columnDef,
 			&extra); err != nil {
 			return nil, err
 		}
@@ -138,6 +140,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		} else {
 			col.IsNullable = 0
 		}
+		col.ColumnDef = columnDef
 		col.Extra = extra
 		col.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
