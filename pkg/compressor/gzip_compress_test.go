@@ -18,49 +18,21 @@
 package compressor
 
 import (
-	"bytes"
-	"compress/gzip"
-	"io/ioutil"
+	"testing"
+
+	"gotest.tools/assert"
 )
 
-type Gzip struct {
-}
+func TestGzipCompress(t *testing.T) {
+	str := "test"
 
-// Compress gzip compress
-func (g *Gzip) Compress(b []byte) ([]byte, error) {
-	var buffer bytes.Buffer
+	g := new(Gzip)
 
-	gz := gzip.NewWriter(&buffer)
+	compressRes, err := g.Compress([]byte(str))
+	assert.NilError(t, err)
+	t.Logf("compress res: %v", string(compressRes))
 
-	if _, err := gz.Write(b); err != nil {
-		return []byte{}, err
-	}
-
-	if err := gz.Flush(); err != nil {
-		return []byte{}, err
-	}
-
-	if err := gz.Close(); err != nil {
-		return []byte{}, err
-	}
-
-	return buffer.Bytes(), nil
-}
-
-// Decompress gzip decompress
-func (g *Gzip) Decompress(in []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(in))
-	if err != nil {
-		return []byte{}, err
-	}
-
-	if err = reader.Close(); err != nil {
-		return []byte{}, err
-	}
-
-	return ioutil.ReadAll(reader)
-}
-
-func (g *Gzip) GetCompressorType() CompressorType {
-	return CompressorGzip
+	decompressRes, err := g.Decompress(compressRes)
+	assert.NilError(t, err)
+	t.Logf("decompress res: %v", string(decompressRes))
 }
