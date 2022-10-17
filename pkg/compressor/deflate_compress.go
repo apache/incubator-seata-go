@@ -17,8 +17,35 @@
 
 package compressor
 
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressType
+import (
+	"bytes"
+	"compress/flate"
+	"io"
+
+	"github.com/seata/seata-go/pkg/util/log"
+)
+
+type DeflateCompress struct{}
+
+func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	fw, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	defer fw.Close()
+	fw.Write(data)
+	fw.Flush()
+	return buf.Bytes(), nil
+}
+
+func (*DeflateCompress) Decompress(data []byte) ([]byte, error) {
+	fr := flate.NewReader(bytes.NewBuffer(data))
+	defer fr.Close()
+	return io.ReadAll(fr)
+}
+
+func (*DeflateCompress) GetCompressorType() CompressType {
+	return CompressDeflate
 }

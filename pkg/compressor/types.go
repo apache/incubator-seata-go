@@ -16,3 +16,18 @@
  */
 
 package compressor
+
+//go:generate stringer -type=CompressType
+type CompressType int8
+
+const (
+	_ CompressType = iota
+	CompressGzip
+	CompressZip
+	CompressSevenz
+	CompressBzip2
+	CompressLz4
+	CompressDeflate
+	CompressZstd
+	CompressMax
+)
