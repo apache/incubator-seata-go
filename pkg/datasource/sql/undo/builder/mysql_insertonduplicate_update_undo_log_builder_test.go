@@ -19,6 +19,7 @@ package builder
 
 import (
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -78,8 +79,8 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	}{
 		{
 			execCtx: &types.ExecContext{
-				Query:    "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
-				MetaData: tableMeta,
+				Query:       "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta},
 			},
 			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, "Link", 18},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
@@ -89,7 +90,9 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		query, args, err := builder.buildBeforeImageSQL(tt.execCtx, tt.sourceQueryArgs)
+		c, err := parser.DoParser(tt.execCtx.Query)
+		tt.execCtx.ParseContext = c
+		query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
 		assert.Nil(t, err)
 		if query == tt.expectQuery1 {
 			assert.Equal(t, tt.expectQuery1, query)
