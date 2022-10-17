@@ -25,7 +25,6 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -37,6 +36,10 @@ type MySQLInsertOnDuplicateUndoLogBuilder struct {
 }
 
 func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+	if execCtx.ParseContext.InsertStmt == nil {
+		log.Errorf("invalid insert stmt")
+		return nil, fmt.Errorf("invalid insert stmt")
+	}
 	vals := execCtx.Values
 	if vals == nil {
 		vals = make([]driver.Value, len(execCtx.NamedValues))
@@ -44,7 +47,9 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 			vals[n] = param.Value
 		}
 	}
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx, vals)
+	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.ParseContext.InsertStmt, metaData, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -61,33 +66,24 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	return u.buildRecordImages(rows, metaData)
 }
 
 // buildBeforeImageSQL build select sql from insert on duplicate update sql
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(execCtx *types.ExecContext, args []driver.Value) (string, []driver.Value, error) {
-	p, err := parser.DoParser(execCtx.Query)
-	if err != nil {
-		return "", nil, err
-	}
-	if p.InsertStmt == nil {
-		log.Errorf("invalid insert stmt")
-		return "", nil, fmt.Errorf("invalid insert stmt")
-	}
-	if err = duplicateKeyUpdateCheck(p.InsertStmt, execCtx); err != nil {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.Value) (string, []driver.Value, error) {
+	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}
 	var selectArgs []driver.Value
-	insertNum, paramMap := buildImageParameters(p.InsertStmt, args)
+	insertNum, paramMap := buildImageParameters(insertStmt, args)
 
 	sql := strings.Builder{}
-	sql.WriteString("SELECT * FROM " + execCtx.MetaData.Name + " ")
+	sql.WriteString("SELECT * FROM " + metaData.Name + " ")
 	isContainWhere := false
 	for i := 0; i < insertNum; i++ {
 		finalI := i
 		paramAppenderTempList := make([]driver.Value, 0)
-		for _, index := range execCtx.MetaData.Indexs {
+		for _, index := range metaData.Indexs {
 			//unique index
 			if index.IType != types.IndexTypeUniqueKey && index.IType != types.IndexTypePrimaryKey {
 				continue
@@ -170,15 +166,16 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, b
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+	return u.buildRecordImages(rows, metaData)
 }
 
 func (u *MySQLInsertOnDuplicateUndoLogBuilder) GetSQLType() types.SQLType {
 	return types.SQLTypeInsert
 }
 
-func duplicateKeyUpdateCheck(insert *ast.InsertStmt, execCtx *types.ExecContext) error {
+func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) error {
 	duplicateColsMap := make(map[string]bool)
 	for _, v := range insert.OnDuplicate {
 		duplicateColsMap[v.Column.Name.L] = true
@@ -186,13 +183,14 @@ func duplicateKeyUpdateCheck(insert *ast.InsertStmt, execCtx *types.ExecContext)
 	if len(duplicateColsMap) == 0 {
 		return nil
 	}
-	for _, index := range execCtx.MetaData.Indexs {
-		if types.IndexTypePrimaryKey == index.IType {
-			for name, col := range index.Values {
-				if duplicateColsMap[strings.ToLower(col.Info.Name())] {
-					log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.Info.Name())
-					return fmt.Errorf("update pk value is not supported! ")
-				}
+	for _, index := range metaData.Indexs {
+		if types.IndexTypePrimaryKey != index.IType {
+			continue
+		}
+		for name, col := range index.Values {
+			if duplicateColsMap[strings.ToLower(col.ColumnName)] {
+				log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.ColumnName)
+				return fmt.Errorf("update pk value is not supported! ")
 			}
 		}
 	}
