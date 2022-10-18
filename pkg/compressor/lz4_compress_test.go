@@ -18,35 +18,20 @@
 package compressor
 
 import (
-	"fmt"
-	"github.com/pierrec/lz4/v4"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-type Lz4 struct {
-}
+func TestLz4Compress(t *testing.T) {
+	sample := "foo"
 
-func (l *Lz4) Compress(b []byte) ([]byte, error) {
-	buf := make([]byte, lz4.CompressBlockBound(len(b)))
-	var c lz4.Compressor
-	n, err := c.CompressBlock(b, buf)
-	if err != nil {
-		return nil, err
-	}
-	if n >= len(b) {
-		return nil, fmt.Errorf("`%s` is not compressible", string(b))
-	}
-	return buf[:n], nil
-}
+	lz4 := new(Lz4)
 
-func (l *Lz4) Decompress(in []byte) ([]byte, error) {
-	out := make([]byte, 10*len(in))
-	n, err := lz4.UncompressBlock(in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out[:n], nil
-}
+	compressResult, err := lz4.Compress([]byte(sample))
+	assert.NoError(t, err)
+	t.Logf("Compressed result: %s", compressResult)
 
-func (l *Lz4) GetCompressorType() CompressorType {
-	return CompressorLz4
+	decompressResult, err := lz4.Decompress(compressResult)
+	assert.NoError(t, err)
+	t.Logf("Decompressed result: %s", decompressResult)
 }
