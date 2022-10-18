@@ -1,7 +1,6 @@
 package compressor
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,11 +29,8 @@ func TestDeflateCompress(t *testing.T) {
 
 	for _, s := range ts {
 		var data []byte = []byte(s.text)
-		fmt.Println(len(data))
 		dataCompressed, _ := dc.Compress(data)
-		fmt.Println(len(dataCompressed))
 		ret, _ := dc.Decompress(dataCompressed)
-		fmt.Println(len(ret))
 		assert.EqualValues(t, s.text, string(ret))
 	}
 }
