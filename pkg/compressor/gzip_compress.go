@@ -33,15 +33,15 @@ func (g *Gzip) Compress(b []byte) ([]byte, error) {
 	gz := gzip.NewWriter(&buffer)
 
 	if _, err := gz.Write(b); err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	if err := gz.Flush(); err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	if err := gz.Close(); err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	return buffer.Bytes(), nil
@@ -51,11 +51,11 @@ func (g *Gzip) Compress(b []byte) ([]byte, error) {
 func (g *Gzip) Decompress(in []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(in))
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	if err = reader.Close(); err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	return ioutil.ReadAll(reader)
