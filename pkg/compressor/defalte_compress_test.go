@@ -26,7 +26,7 @@ func TestDeflateCompress(t *testing.T) {
 	}
 
 	dc := &DeflateCompress{}
-	assert.EqualValues(t, CompressDeflate, dc.GetCompressorType())
+	assert.EqualValues(t, CompressorDeflate, dc.GetCompressorType())
 
 	for _, s := range ts {
 		var data []byte = []byte(s.text)

@@ -17,8 +17,23 @@
 
 package compressor
 
+type CompressorType int8
+
+const (
+	CompressorNone CompressorType = iota
+	CompressorGzip
+	CompressorZip
+	CompressorSevenz
+	CompressorBzip2
+	CompressorLz4
+	CompressorDefault
+	CompressorZstd
+	CompressorMax
+	CompressorDeflate
+)
+
 type Compressor interface {
 	Compress([]byte) ([]byte, error)
 	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressType
+	GetCompressorType() CompressorType
 }

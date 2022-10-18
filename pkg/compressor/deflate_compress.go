@@ -46,6 +46,6 @@ func (*DeflateCompress) Decompress(data []byte) ([]byte, error) {
 	return io.ReadAll(fr)
 }
 
-func (*DeflateCompress) GetCompressorType() CompressType {
-	return CompressDeflate
+func (*DeflateCompress) GetCompressorType() CompressorType {
+	return CompressorDeflate
 }
