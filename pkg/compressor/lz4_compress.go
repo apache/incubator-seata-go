@@ -25,17 +25,17 @@ import (
 type Lz4 struct {
 }
 
-func (l *Lz4) Compress(b []byte) ([]byte, error) {
-	buf := make([]byte, lz4.CompressBlockBound(len(b)))
-	var c lz4.Compressor
-	n, err := c.CompressBlock(b, buf)
+func (l *Lz4) Compress(data []byte) ([]byte, error) {
+	buffer := make([]byte, len(data))
+	ht := make([]int, 64<<10)
+	n, err := lz4.CompressBlock(data, buffer, ht)
 	if err != nil {
 		return nil, err
 	}
-	if n >= len(b) {
-		return nil, fmt.Errorf("`%s` is not compressible", string(b))
+	if n >= len(data) {
+		return nil, fmt.Errorf("`%s` is not compressible", string(data))
 	}
-	return buf[:n], nil
+	return buffer[:n], nil
 }
 
 func (l *Lz4) Decompress(in []byte) ([]byte, error) {

@@ -23,15 +23,15 @@ import (
 )
 
 func TestLz4Compress(t *testing.T) {
-	sample := "foo"
+	sample := "test"
 
 	lz4 := new(Lz4)
 
 	compressResult, err := lz4.Compress([]byte(sample))
 	assert.NoError(t, err)
-	t.Logf("Compressed result: %s", compressResult)
+	t.Logf("Compressed result: %v", string(compressResult))
 
 	decompressResult, err := lz4.Decompress(compressResult)
 	assert.NoError(t, err)
-	t.Logf("Decompressed result: %s", decompressResult)
+	t.Logf("Decompressed result: %v", string(decompressResult))
 }
