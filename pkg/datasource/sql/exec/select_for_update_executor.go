@@ -111,7 +111,11 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		if err != nil {
 			return nil, err
 		}
-		rows, err := stmt.Query(nil)
+		values := make([]driver.Value, 0, len(execCtx.NamedValues))
+		for _, val := range execCtx.NamedValues {
+			values = append(values, val.Value)
+		}
+		rows, err := stmt.Query(values)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +125,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 			break
 		}
 		// check global lock
-		exists, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
+		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
 			BranchRegisterRequest: message.BranchRegisterRequest{
 				Xid:        execCtx.TxCtx.XID,
 				BranchType: branch.BranchTypeAT,
@@ -131,7 +135,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		})
 
 		// if obtained global lock
-		if err == nil && !exists {
+		if err == nil && lockable {
 			break
 		}
 
@@ -222,7 +226,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		if err != nil {
 			return nil, err
 		}
-		rows, err := stmt.Query(nil)
+		rows, err := stmt.Query(execCtx.Values)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +236,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 			break
 		}
 		// check global lock
-		exists, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
+		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
 			BranchRegisterRequest: message.BranchRegisterRequest{
 				Xid:        execCtx.TxCtx.XID,
 				BranchType: branch.BranchTypeAT,
@@ -242,7 +246,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		})
 
 		// has obtained global lock
-		if err == nil && !exists {
+		if err == nil && lockable {
 			break
 		}
 

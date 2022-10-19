@@ -35,6 +35,7 @@ const (
 	InsertExecutor
 	UpdateExecutor
 	SelectForUpdateExecutor
+	SelectExecutor
 	DeleteExecutor
 	ReplaceIntoExecutor
 	MultiExecutor
