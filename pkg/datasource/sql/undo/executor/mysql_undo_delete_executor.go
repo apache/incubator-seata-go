@@ -38,8 +38,7 @@ func NewMySQLUndoDeleteExecutor() *MySQLUndoUpdateExecutor {
 	return &MySQLUndoUpdateExecutor{}
 }
 
-func (m *MySQLUndoDeleteExecutor) ExecuteOn(
-	ctx context.Context, dbType types.DBType,
+func (m *MySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType,
 	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)

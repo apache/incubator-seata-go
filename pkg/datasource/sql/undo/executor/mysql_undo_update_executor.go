@@ -36,8 +36,7 @@ func NewMySQLUndoUpdateExecutor() *MySQLUndoUpdateExecutor {
 	return &MySQLUndoUpdateExecutor{}
 }
 
-func (m *MySQLUndoUpdateExecutor) ExecuteOn(
-	ctx context.Context, dbType types.DBType,
+func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType,
 	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	//m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn)
