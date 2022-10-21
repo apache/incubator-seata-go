@@ -19,6 +19,7 @@ package compressor
 
 import (
 	"fmt"
+
 	"github.com/pierrec/lz4/v4"
 )
 
