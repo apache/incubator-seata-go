@@ -25,6 +25,7 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/bytes"
@@ -162,6 +163,11 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 			LockType: ast.SelectLockForUpdate,
 		},
 	}
+
+	b1 := bytes.NewByteBuffer([]byte{})
+	updateStmt.TableRefs.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b1))
+	sql1 := string(b1.Bytes())
+	log.Infof("build select sql by update sourceQuery, sql {}", sql1)
 
 	b := bytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
