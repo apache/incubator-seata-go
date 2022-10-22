@@ -271,7 +271,8 @@ func (c *Conn) Begin() (driver.Tx, error) {
 }
 
 // BeginTx Open a transaction and judge whether the current transaction needs to open a
-// 	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
+//
+//	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
 		tx, err := conn.BeginTx(ctx, opts)

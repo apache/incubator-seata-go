@@ -18,15 +18,16 @@
 package compressor
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLz4Compress(t *testing.T) {
-	sample := "test"
+	sample := strings.Repeat("hello world", 100)
 
-	lz4 := new(Lz4)
+	lz4 := Lz4{}
 
 	compressResult, err := lz4.Compress([]byte(sample))
 	assert.NoError(t, err)
@@ -34,5 +35,6 @@ func TestLz4Compress(t *testing.T) {
 
 	decompressResult, err := lz4.Decompress(compressResult)
 	assert.NoError(t, err)
+	assert.Equal(t, sample, string(decompressResult))
 	t.Logf("Decompressed result: %v", string(decompressResult))
 }

@@ -20,6 +20,7 @@ package types
 import "github.com/arana-db/parser/ast"
 
 // ExecutorType
+//
 //go:generate stringer -type=ExecutorType
 type ExecutorType int32
 
