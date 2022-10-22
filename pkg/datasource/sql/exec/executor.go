@@ -113,14 +113,14 @@ type BaseExecutor struct {
 }
 
 // Interceptors
-func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
-	e.is = interceptors
+func (baseExecutor *BaseExecutor) interceptors(interceptors []SQLHook) {
+	baseExecutor.is = interceptors
 }
 
 // ExecWithNamedValue
-func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
-	for i := range e.is {
-		e.is[i].Before(ctx, execCtx)
+func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+	for i := range baseExecutor.is {
+		baseExecutor.is[i].Before(ctx, execCtx)
 	}
 
 	var (
@@ -130,7 +130,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		err          error
 	)
 
-	beforeImages, err = e.beforeImage(ctx, execCtx)
+	beforeImages, err = baseExecutor.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +139,13 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 	}
 
 	defer func() {
-		for i := range e.is {
-			e.is[i].After(ctx, execCtx)
+		for i := range baseExecutor.is {
+			baseExecutor.is[i].After(ctx, execCtx)
 		}
 	}()
 
-	if e.ex != nil {
-		result, err = e.ex.ExecWithNamedValue(ctx, execCtx, f)
+	if baseExecutor.ex != nil {
+		result, err = baseExecutor.ex.ExecWithNamedValue(ctx, execCtx, f)
 	} else {
 		result, err = f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
@@ -154,7 +154,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		return nil, err
 	}
 
-	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
+	afterImages, err = baseExecutor.afterImage(ctx, execCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
@@ -166,9 +166,9 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 }
 
 // ExecWithValue
-func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
-	for i := range e.is {
-		e.is[i].Before(ctx, execCtx)
+func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+	for i := range baseExecutor.is {
+		baseExecutor.is[i].Before(ctx, execCtx)
 	}
 
 	var (
@@ -178,7 +178,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		err          error
 	)
 
-	beforeImages, err = e.beforeImage(ctx, execCtx)
+	beforeImages, err = baseExecutor.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +187,13 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 	}
 
 	defer func() {
-		for i := range e.is {
-			e.is[i].After(ctx, execCtx)
+		for i := range baseExecutor.is {
+			baseExecutor.is[i].After(ctx, execCtx)
 		}
 	}()
 
-	if e.ex != nil {
-		result, err = e.ex.ExecWithValue(ctx, execCtx, f)
+	if baseExecutor.ex != nil {
+		result, err = baseExecutor.ex.ExecWithValue(ctx, execCtx, f)
 	} else {
 		result, err = f(ctx, execCtx.Query, execCtx.Values)
 	}
@@ -201,7 +201,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		return nil, err
 	}
 
-	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
+	afterImages, err = baseExecutor.afterImage(ctx, execCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 	return result, err
 }
 
-func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
+func (baseExecutor *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}
@@ -233,7 +233,7 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 }
 
 // After
-func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (baseExecutor *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}

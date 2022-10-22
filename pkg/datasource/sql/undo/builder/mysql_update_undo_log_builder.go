@@ -164,11 +164,6 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 		},
 	}
 
-	b1 := bytes.NewByteBuffer([]byte{})
-	updateStmt.TableRefs.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b1))
-	sql1 := string(b1.Bytes())
-	log.Infof("build select sql by update sourceQuery, sql {}", sql1)
-
 	b := bytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
