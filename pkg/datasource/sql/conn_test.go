@@ -15,52 +15,42 @@
  * limitations under the License.
  */
 
-package hook
+package sql
 
 import (
-	"context"
+	"reflect"
+	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
-	"go.uber.org/zap"
+	"github.com/seata/seata-go/pkg/util/reflectx"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	exec.RegisterHook(&loggerSQLHook{})
+func TestConn_BuildATExecutor(t *testing.T) {
+	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.ATMode, "SELECT * FROM user")
+
+	assert.NoError(t, err)
+	_, ok := executor.(*exec.BaseExecutor)
+	assert.True(t, ok, "need base executor")
 }
 
-type loggerSQLHook struct{}
+func TestConn_BuildXAExecutor(t *testing.T) {
+	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
 
-func (h *loggerSQLHook) Type() types.SQLType {
-	return types.SQLTypeUnknown
-}
+	assert.NoError(t, err)
+	val, ok := executor.(*exec.BaseExecutor)
+	assert.True(t, ok, "need base executor")
 
-// Before
-func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
-	var txID string
-	if execCtx.TxCtx != nil {
-		txID = execCtx.TxCtx.LocalTransID
+	v := reflect.ValueOf(val)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
-	fields := []zap.Field{
-		zap.String("tx-id", txID),
-		zap.String("xid", execCtx.TxCtx.XaID),
-		zap.String("sql", execCtx.Query),
-	}
+	field := v.FieldByName("ex")
 
-	if len(execCtx.NamedValues) != 0 {
-		fields = append(fields, zap.Any("namedValues", execCtx.NamedValues))
-	}
+	fieldVal := reflectx.GetUnexportedField(field)
 
-	if len(execCtx.Values) != 0 {
-		fields = append(fields, zap.Any("values", execCtx.Values))
-	}
-
-	log.Info("sql exec log", fields)
-	return nil
-}
-
-// After
-func (h *loggerSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
-	return nil
+	_, ok = fieldVal.(*xa.XAExecutor)
+	assert.True(t, ok, "need xa executor")
 }

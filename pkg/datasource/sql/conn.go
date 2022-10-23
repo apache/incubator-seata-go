@@ -31,7 +31,6 @@ import (
 // Conn is assumed to be stateful.
 
 type Conn struct {
-	txType     types.TransactionType
 	res        *DBResource
 	txCtx      *types.TransactionContext
 	targetConn driver.Conn
@@ -47,8 +46,8 @@ func (c *Conn) ResetSession(ctx context.Context) error {
 		return driver.ErrSkip
 	}
 
-	c.txType = types.Local
-	c.txCtx = nil
+	c.autoCommit = true
+	c.txCtx = types.NewTxCtx()
 	return conn.ResetSession(ctx)
 }
 
@@ -221,26 +220,29 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return c.Query(query, values)
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
-	if err != nil {
-		return nil, err
-	}
+	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+		if err != nil {
+			return nil, err
+		}
 
-	execCtx := &types.ExecContext{
-		TxCtx:       c.txCtx,
-		Query:       query,
-		NamedValues: args,
-	}
+		execCtx := &types.ExecContext{
+			TxCtx:       c.txCtx,
+			Query:       query,
+			NamedValues: args,
+		}
 
-	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
-		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-			ret, err := conn.QueryContext(ctx, query, args)
-			if err != nil {
-				return nil, err
-			}
+		return executor.ExecWithNamedValue(ctx, execCtx,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := conn.QueryContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
 
-			return types.NewResult(types.WithRows(ret)), nil
-		})
+				return types.NewResult(types.WithRows(ret)), nil
+			})
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -252,6 +254,8 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 //
 // Deprecated: Drivers should implement ConnBeginTx instead (or additionally).
 func (c *Conn) Begin() (driver.Tx, error) {
+	c.autoCommit = false
+
 	tx, err := c.targetConn.Begin()
 	if err != nil {
 		return nil, err
@@ -271,8 +275,11 @@ func (c *Conn) Begin() (driver.Tx, error) {
 }
 
 // BeginTx Open a transaction and judge whether the current transaction needs to open a
-// 	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
+//
+//	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	c.autoCommit = false
+
 	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
 		tx, err := conn.BeginTx(ctx, opts)
 		if err != nil {
@@ -309,7 +316,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 // Drivers must ensure all network calls made by Close
 // do not block indefinitely (e.g. apply a timeout).
 func (c *Conn) Close() error {
-	c.txCtx = nil
+	c.txCtx = types.NewTxCtx()
 	return c.targetConn.Close()
 }
 

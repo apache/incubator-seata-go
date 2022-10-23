@@ -15,40 +15,26 @@
  * limitations under the License.
  */
 
-package types
+package compressor
 
-import "github.com/arana-db/parser/ast"
+import (
+	"strings"
+	"testing"
 
-// ExecutorType
-//
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	MultiExecutor
-	InsertOnDuplicateExecutor
+	"github.com/stretchr/testify/assert"
 )
 
-type ParseContext struct {
-	// SQLType
-	SQLType SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-	MultiStmt  []*ParseContext
-}
+func TestLz4Compress(t *testing.T) {
+	sample := strings.Repeat("hello world", 100)
 
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+	lz4 := Lz4{}
+
+	compressResult, err := lz4.Compress([]byte(sample))
+	assert.NoError(t, err)
+	t.Logf("Compressed result: %v", string(compressResult))
+
+	decompressResult, err := lz4.Decompress(compressResult)
+	assert.NoError(t, err)
+	assert.Equal(t, sample, string(decompressResult))
+	t.Logf("Decompressed result: %v", string(decompressResult))
 }

@@ -15,40 +15,37 @@
  * limitations under the License.
  */
 
-package types
+package compressor
 
-import "github.com/arana-db/parser/ast"
+import (
+	"bytes"
+	"compress/flate"
+	"io"
 
-// ExecutorType
-//
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	MultiExecutor
-	InsertOnDuplicateExecutor
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-type ParseContext struct {
-	// SQLType
-	SQLType SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-	MultiStmt  []*ParseContext
+type DeflateCompress struct{}
+
+func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	fw, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	defer fw.Close()
+	fw.Write(data)
+	fw.Flush()
+	return buf.Bytes(), nil
 }
 
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+func (*DeflateCompress) Decompress(data []byte) ([]byte, error) {
+	fr := flate.NewReader(bytes.NewBuffer(data))
+	defer fr.Close()
+	return io.ReadAll(fr)
+}
+
+func (*DeflateCompress) GetCompressorType() CompressorType {
+	return CompressorDeflate
 }

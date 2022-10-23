@@ -15,40 +15,15 @@
  * limitations under the License.
  */
 
-package types
+package at
 
-import "github.com/arana-db/parser/ast"
-
-// ExecutorType
-//
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	MultiExecutor
-	InsertOnDuplicateExecutor
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type ParseContext struct {
-	// SQLType
-	SQLType SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-	MultiStmt  []*ParseContext
-}
-
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+func init() {
+	exec.RegisterXAExecutor(types.DBTypeMySQL, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	})
 }
