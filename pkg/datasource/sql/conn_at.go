@@ -25,25 +25,38 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
+// ATConn Database connection proxy object under XA transaction model
+// Conn is assumed to be stateful.
 type ATConn struct {
 	*Conn
 }
 
 func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if c.createTxCtxIfAbsent(ctx) {
+	if c.createOnceTxContext(ctx) {
 		defer func() {
-			c.txCtx = nil
+			c.txCtx = types.NewTxCtx()
 		}()
 	}
 
 	return c.Conn.PrepareContext(ctx, query)
 }
 
+// QueryContext
+func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if c.createOnceTxContext(ctx) {
+		defer func() {
+			c.txCtx = types.NewTxCtx()
+		}()
+	}
+
+	return c.Conn.QueryContext(ctx, query, args)
+}
+
 // ExecContext
 func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if c.createTxCtxIfAbsent(ctx) {
+	if c.createOnceTxContext(ctx) {
 		defer func() {
-			c.txCtx = nil
+			c.txCtx = types.NewTxCtx()
 		}()
 	}
 
@@ -52,33 +65,33 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 
 // BeginTx
 func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	c.autoCommit = false
+
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
 
 	if IsGlobalTx(ctx) {
 		c.txCtx.XaID = tm.GetXID(ctx)
-		c.txCtx.TransType = c.txType
+		c.txCtx.TransType = types.ATMode
 	}
 
-	return c.Conn.BeginTx(ctx, opts)
+	tx, err := c.Conn.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ATTx{tx: tx.(*Tx)}, nil
 }
 
-func (c *ATConn) createTxCtxIfAbsent(ctx context.Context) bool {
-	var onceTx bool
+func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
+	onceTx := IsGlobalTx(ctx) && c.autoCommit
 
-	if IsGlobalTx(ctx) && c.txCtx == nil {
+	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
-		c.autoCommit = true
-		onceTx = true
-	}
-
-	if c.txCtx == nil {
-		c.txCtx = types.NewTxCtx()
-		onceTx = true
 	}
 
 	return onceTx
