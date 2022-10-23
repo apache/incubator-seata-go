@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	exec.RegisCommonHook(&loggerSQLHook{})
+	exec.RegisterHook(&loggerSQLHook{})
 }
 
 type loggerSQLHook struct{}
@@ -44,6 +44,7 @@ func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) 
 	}
 	fields := []zap.Field{
 		zap.String("tx-id", txID),
+		zap.String("xid", execCtx.TxCtx.XaID),
 		zap.String("sql", execCtx.Query),
 	}
 
@@ -55,7 +56,7 @@ func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) 
 		fields = append(fields, zap.Any("values", execCtx.Values))
 	}
 
-	log.Debug("sql exec log", fields)
+	log.Info("sql exec log", fields)
 	return nil
 }
 

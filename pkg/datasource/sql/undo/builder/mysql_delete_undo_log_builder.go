@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package builder
 
 import (
@@ -5,19 +22,30 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+func init() {
+	undo.RegistrUndoLogBuilder(types.DeleteExecutor, GetMySQLDeleteUndoLogBuilder)
+}
+
 type MySQLDeleteUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }
 
-func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+func GetMySQLDeleteUndoLogBuilder() undo.UndoLogBuilder {
+	return &MySQLDeleteUndoLogBuilder{}
+}
+
+func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
 		for n, param := range execCtx.NamedValues {
@@ -41,10 +69,18 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	return u.buildRecordImages(rows, execCtx.MetaData)
+	tableName := execCtx.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLDeleteUndoLogBuilder) AfterImage(types.RecordImages) (*types.RecordImages, error) {
+func (u *MySQLDeleteUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	return nil, nil
 }
 
@@ -73,6 +109,9 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 		OrderBy:        p.DeleteStmt.Order,
 		Limit:          p.DeleteStmt.Limit,
 		TableHints:     p.DeleteStmt.TableHints,
+		LockInfo: &ast.SelectLockInfo{
+			LockType: ast.SelectLockForUpdate,
+		},
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
@@ -83,6 +122,6 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }
 
-func (u *MySQLDeleteUndoLogBuilder) GetSQLType() types.SQLType {
-	return types.SQLTypeDelete
+func (u *MySQLDeleteUndoLogBuilder) GetExecutorType() types.ExecutorType {
+	return types.DeleteExecutor
 }

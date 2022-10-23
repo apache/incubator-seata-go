@@ -52,4 +52,5 @@ const (
 	SQLTypeMultiUpdate
 	SQLTypeCreateIndex
 	SQLTypeDropIndex
+	SQLTypeMulti
 )

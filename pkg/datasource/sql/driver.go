@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -30,7 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/seata/seata-go/pkg/util/reflectx"
 )
 
 const (
@@ -103,24 +101,11 @@ func (d *seataDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	v := reflect.ValueOf(conn)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	field := v.FieldByName("connector")
-	proxy, err := d.OpenConnector(name)
-	if err != nil {
-		log.Errorf("open connector: %w", err)
-		return nil, err
-	}
-
-	reflectx.SetUnexportedField(field, proxy)
 	return conn, nil
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
-	c = &dsnConnector{dsn: name, driver: d.target}
+	c = &dsnConnector{dsn: name, driver: d}
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {

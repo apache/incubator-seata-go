@@ -21,6 +21,8 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+
 	_ "github.com/arana-db/parser/test_driver"
 	_ "github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
@@ -41,31 +43,33 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100},
-			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=?",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? FOR UPDATE",
 			expectQueryArgs: []driver.Value{100},
 		},
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age between ? and ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
-			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ?",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ? FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age in (?,?)",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
-			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age IN (?,?)",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age IN (?,?) FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name desc limit ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2},
-			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE kk BETWEEN ? AND ? AND id=? AND addr IN (?,?) AND age>? ORDER BY name DESC LIMIT ?",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age FROM t_user WHERE kk BETWEEN ? AND ? AND id=? AND addr IN (?,?) AND age>? ORDER BY name DESC LIMIT ? FOR UPDATE",
 			expectQueryArgs: []driver.Value{10, 20, 17, "Beijing", "Guangzhou", 18, 2},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query, args, err := builder.buildBeforeImageSQL(tt.sourceQuery, tt.sourceQueryArgs)
+			c, err := parser.DoParser(tt.sourceQuery)
+			assert.Nil(t, err)
+			query, args, err := builder.buildBeforeImageSQL(c.UpdateStmt, tt.sourceQueryArgs)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, args)
