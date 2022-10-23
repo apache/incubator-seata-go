@@ -28,8 +28,8 @@ const (
 	CompressorLz4
 	CompressorDefault
 	CompressorZstd
-	CompressorMax
 	CompressorDeflate
+	CompressorMax
 )
 
 type Compressor interface {
