@@ -19,6 +19,7 @@ package fanout
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -26,12 +27,19 @@ import (
 func TestFanout_Do(t *testing.T) {
 	ca := New("cache", WithWorker(1), WithBuffer(1024))
 	var run bool
+	var mtx sync.Mutex
+
 	ca.Do(context.Background(), func(c context.Context) {
+		mtx.Lock()
 		run = true
+		mtx.Unlock()
 		panic("error")
 	})
+
 	time.Sleep(time.Millisecond * 50)
 	t.Log("not panic")
+	mtx.Lock()
+	defer mtx.Unlock()
 	if !run {
 		t.Fatal("expect run be true")
 	}
