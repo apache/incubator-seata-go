@@ -15,52 +15,16 @@
  * limitations under the License.
  */
 
-package hook
+package xa
 
 import (
-	"context"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
-	"go.uber.org/zap"
 )
 
+
 func init() {
-	exec.RegisterHook(&loggerSQLHook{})
-}
-
-type loggerSQLHook struct{}
-
-func (h *loggerSQLHook) Type() types.SQLType {
-	return types.SQLTypeUnknown
-}
-
-// Before
-func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
-	var txID string
-	if execCtx.TxCtx != nil {
-		txID = execCtx.TxCtx.LocalTransID
-	}
-	fields := []zap.Field{
-		zap.String("tx-id", txID),
-		zap.String("xid", execCtx.TxCtx.XaID),
-		zap.String("sql", execCtx.Query),
-	}
-
-	if len(execCtx.NamedValues) != 0 {
-		fields = append(fields, zap.Any("namedValues", execCtx.NamedValues))
-	}
-
-	if len(execCtx.Values) != 0 {
-		fields = append(fields, zap.Any("values", execCtx.Values))
-	}
-
-	log.Info("sql exec log", fields)
-	return nil
-}
-
-// After
-func (h *loggerSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
-	return nil
+	exec.RegisterXAExecutor(types.DBTypeMySQL, func() exec.SQLExecutor {
+		return &XAExecutor{}
+	})
 }

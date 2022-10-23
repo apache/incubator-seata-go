@@ -22,7 +22,6 @@ import (
 	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
@@ -36,16 +35,27 @@ func init() {
 }
 
 // executorSolts
-var executorSolts = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
+var (
+	executorSoltsAT = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
+	executorSoltsXA = make(map[types.DBType]func() SQLExecutor)
+)
 
-func RegisterExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
-	if _, ok := executorSolts[dt]; !ok {
-		executorSolts[dt] = make(map[types.ExecutorType]func() SQLExecutor)
+// RegisterATExecutor
+func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
+	if _, ok := executorSoltsAT[dt]; !ok {
+		executorSoltsAT[dt] = make(map[types.ExecutorType]func() SQLExecutor)
 	}
 
-	val := executorSolts[dt]
+	val := executorSoltsAT[dt]
 
 	val[et] = func() SQLExecutor {
+		return &BaseExecutor{ex: builder()}
+	}
+}
+
+// RegisterXAExecutor
+func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
+	executorSoltsXA[dt] = func() SQLExecutor {
 		return &BaseExecutor{ex: builder()}
 	}
 }
@@ -57,7 +67,7 @@ type (
 
 	SQLExecutor interface {
 		// Interceptors
-		interceptors(interceptors []SQLHook)
+		Interceptors(interceptors []SQLHook)
 		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
@@ -71,8 +81,8 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		hooks := make([]SQLHook, 0, 4)
 		hooks = append(hooks, commonHook...)
 
-		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e := executorSoltsXA[dbType]()
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
@@ -85,11 +95,12 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
 
-	factories, ok := executorSolts[dbType]
+	factories, ok := executorSoltsAT[dbType]
+
 	if !ok {
 		log.Debugf("%s not found executor factories, return default Executor", dbType.String())
 		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
@@ -98,12 +109,12 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		log.Debugf("%s not found executor for %s, return default Executor",
 			dbType.String(), parseCtx.ExecutorType)
 		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
 	executor := supplier()
-	executor.interceptors(hooks)
+	executor.Interceptors(hooks)
 	return executor, nil
 }
 
@@ -113,7 +124,7 @@ type BaseExecutor struct {
 }
 
 // Interceptors
-func (e *BaseExecutor) interceptors(interceptors []SQLHook) {
+func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
 	e.is = interceptors
 }
 
