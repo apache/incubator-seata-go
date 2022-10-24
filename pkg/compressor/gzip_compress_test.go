@@ -26,7 +26,7 @@ import (
 func TestGzipCompress(t *testing.T) {
 	str := "test"
 
-	g := new(Gzip)
+	g := &Gzip{}
 
 	compressRes, err := g.Compress([]byte(str))
 	assert.NoError(t, err)
