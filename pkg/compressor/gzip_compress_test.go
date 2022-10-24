@@ -35,4 +35,6 @@ func TestGzipCompress(t *testing.T) {
 	decompressRes, err := g.Decompress(compressRes)
 	assert.NoError(t, err)
 	t.Logf("decompress res: %v", string(decompressRes))
+
+	assert.Equal(t, str, string(decompressRes))
 }
