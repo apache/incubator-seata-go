@@ -15,4 +15,16 @@
  * limitations under the License.
  */
 
-package compressor
+package xa
+
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+)
+
+
+func init() {
+	exec.RegisterXAExecutor(types.DBTypeMySQL, func() exec.SQLExecutor {
+		return &XAExecutor{}
+	})
+}
