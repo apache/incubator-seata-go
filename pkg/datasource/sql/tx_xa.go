@@ -15,40 +15,37 @@
  * limitations under the License.
  */
 
-package types
+package sql
 
-import "github.com/arana-db/parser/ast"
-
-// ExecutorType
-//
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	MultiExecutor
-	InsertOnDuplicateExecutor
-)
-
-type ParseContext struct {
-	// SQLType
-	SQLType SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-	MultiStmt  []*ParseContext
+// XATx
+type XATx struct {
+	tx *Tx
 }
 
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+// Commit do commit action
+// case 1. no open global-transaction, just do local transaction commit
+// case 2. not need flush undolog, is XA mode, do local transaction commit
+// case 3. need run AT transaction
+func (tx *XATx) Commit() error {
+	tx.tx.beforeCommit()
+	return tx.commitOnXA()
+}
+
+func (tx *XATx) Rollback() error {
+	err := tx.tx.Rollback()
+	if err != nil {
+
+		originTx := tx.tx
+
+		if originTx.ctx.OpenGlobalTrsnaction() && originTx.ctx.IsBranchRegistered() {
+			originTx.report(false)
+		}
+	}
+
+	return err
+}
+
+// commitOnXA
+func (tx *XATx) commitOnXA() error {
+	return nil
 }
