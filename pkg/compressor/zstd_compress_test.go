@@ -18,27 +18,31 @@
 package compressor
 
 import (
-	"github.com/klauspost/compress/zstd"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type Zstd struct{}
-
-func (z Zstd) Compress(data []byte) ([]byte, error) {
-	var encoder, err = zstd.NewWriter(nil)
-	if err != nil {
-		return nil, err
+func TestZstdCompress(t *testing.T) {
+	ts := []struct {
+		text string
+	}{
+		{
+			text: strings.Repeat("Don't communicate by sharing memory, share memory by communicating.", 1000),
+		},
+		{
+			text: "88888msj0*&^^%$$#$@!~jjdjfjdlfjkhhdh//><|}{{|\"",
+		},
 	}
-	return encoder.EncodeAll(data, make([]byte, 0, len(data))), nil
-}
 
-func (z Zstd) Decompress(data []byte) ([]byte, error) {
-	var decoder, err = zstd.NewReader(nil)
-	if err != nil {
-		return nil, err
+	dc := &Zstd{}
+	assert.EqualValues(t, CompressorZstd, dc.GetCompressorType())
+
+	for _, s := range ts {
+		var data = []byte(s.text)
+		dataCompressed, _ := dc.Compress(data)
+		ret, _ := dc.Decompress(dataCompressed)
+		assert.EqualValues(t, s.text, string(ret))
 	}
-	return decoder.DecodeAll(data, nil)
-}
-
-func (z Zstd) GetCompressorType() CompressorType {
-	return CompressorZstd
 }
