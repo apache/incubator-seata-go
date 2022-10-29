@@ -99,11 +99,11 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 // BranchUndoLog
 type BranchUndoLog struct {
 	// Xid
-	Xid string
+	Xid string `json:"xid"`
 	// BranchID
-	BranchID string
+	BranchID string `json:"branchId"`
 	// Logs
-	Logs []SQLUndoLog
+	Logs []SQLUndoLog `json:"sqlUndoLogs"`
 }
 
 // Marshal
@@ -113,9 +113,9 @@ func (b *BranchUndoLog) Marshal() []byte {
 
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType
-	TableName string
-	Images    types.RoundRecordImage
+	SQLType   types.SQLType          `json:"sqlType"`
+	TableName string                 `json:"tableName"`
+	Images    types.RoundRecordImage `json:"images"`
 }
 
 // UndoLogParser
