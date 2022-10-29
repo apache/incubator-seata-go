@@ -15,40 +15,26 @@
  * limitations under the License.
  */
 
-package types
+package compressor
 
-import "github.com/arana-db/parser/ast"
+import (
+	"testing"
 
-// ExecutorType
-//
-//go:generate stringer -type=ExecutorType
-type ExecutorType int32
-
-const (
-	_ ExecutorType = iota
-	UnSupportExecutor
-	InsertExecutor
-	UpdateExecutor
-	DeleteExecutor
-	ReplaceIntoExecutor
-	MultiExecutor
-	InsertOnDuplicateExecutor
+	"github.com/stretchr/testify/assert"
 )
 
-type ParseContext struct {
-	// SQLType
-	SQLType SQLType
-	// ExecutorType
-	ExecutorType ExecutorType
-	// InsertStmt
-	InsertStmt *ast.InsertStmt
-	// UpdateStmt
-	UpdateStmt *ast.UpdateStmt
-	// DeleteStmt
-	DeleteStmt *ast.DeleteStmt
-	MultiStmt  []*ParseContext
-}
+func TestGzipCompress(t *testing.T) {
+	str := "test"
 
-func (p *ParseContext) HasValidStmt() bool {
-	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+	g := &Gzip{}
+
+	compressRes, err := g.Compress([]byte(str))
+	assert.NoError(t, err)
+	t.Logf("compress res: %v", string(compressRes))
+
+	decompressRes, err := g.Decompress(compressRes)
+	assert.NoError(t, err)
+	t.Logf("decompress res: %v", string(decompressRes))
+
+	assert.Equal(t, str, string(decompressRes))
 }

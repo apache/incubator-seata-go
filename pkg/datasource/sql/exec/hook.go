@@ -30,7 +30,7 @@ var (
 )
 
 // RegisCommonHook not goroutine safe
-func RegisCommonHook(hook SQLHook) {
+func RegisterCommonHook(hook SQLHook) {
 	commonHook = append(commonHook, hook)
 }
 
@@ -38,8 +38,8 @@ func CleanCommonHook() {
 	commonHook = make([]SQLHook, 0, 4)
 }
 
-// RegisHook not goroutine safe
-func RegisHook(hook SQLHook) {
+// RegisterHook not goroutine safe
+func RegisterHook(hook SQLHook) {
 	_, ok := hookSolts[hook.Type()]
 
 	if !ok {

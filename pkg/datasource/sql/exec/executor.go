@@ -22,7 +22,6 @@ import (
 	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
@@ -36,16 +35,27 @@ func init() {
 }
 
 // executorSolts
-var executorSolts = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
+var (
+	executorSoltsAT = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
+	executorSoltsXA = make(map[types.DBType]func() SQLExecutor)
+)
 
-func RegisterExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
-	if _, ok := executorSolts[dt]; !ok {
-		executorSolts[dt] = make(map[types.ExecutorType]func() SQLExecutor)
+// RegisterATExecutor
+func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
+	if _, ok := executorSoltsAT[dt]; !ok {
+		executorSoltsAT[dt] = make(map[types.ExecutorType]func() SQLExecutor)
 	}
 
-	val := executorSolts[dt]
+	val := executorSoltsAT[dt]
 
 	val[et] = func() SQLExecutor {
+		return &BaseExecutor{ex: builder()}
+	}
+}
+
+// RegisterXAExecutor
+func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
+	executorSoltsXA[dt] = func() SQLExecutor {
 		return &BaseExecutor{ex: builder()}
 	}
 }
@@ -57,7 +67,7 @@ type (
 
 	SQLExecutor interface {
 		// Interceptors
-		interceptors(interceptors []SQLHook)
+		Interceptors(interceptors []SQLHook)
 		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 		// Exec
@@ -71,8 +81,8 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		hooks := make([]SQLHook, 0, 4)
 		hooks = append(hooks, commonHook...)
 
-		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e := executorSoltsXA[dbType]()
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
@@ -85,11 +95,12 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
 
-	factories, ok := executorSolts[dbType]
+	factories, ok := executorSoltsAT[dbType]
+
 	if !ok {
 		log.Debugf("%s not found executor factories, return default Executor", dbType.String())
 		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
@@ -98,12 +109,12 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		log.Debugf("%s not found executor for %s, return default Executor",
 			dbType.String(), parseCtx.ExecutorType)
 		e := &BaseExecutor{}
-		e.interceptors(hooks)
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
 	executor := supplier()
-	executor.interceptors(hooks)
+	executor.Interceptors(hooks)
 	return executor, nil
 }
 
@@ -113,14 +124,14 @@ type BaseExecutor struct {
 }
 
 // Interceptors
-func (baseExecutor *BaseExecutor) interceptors(interceptors []SQLHook) {
-	baseExecutor.is = interceptors
+func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
+	e.is = interceptors
 }
 
 // ExecWithNamedValue
-func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
-	for i := range baseExecutor.is {
-		baseExecutor.is[i].Before(ctx, execCtx)
+func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+	for i := range e.is {
+		e.is[i].Before(ctx, execCtx)
 	}
 
 	var (
@@ -130,7 +141,7 @@ func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCt
 		err          error
 	)
 
-	beforeImages, err = baseExecutor.beforeImage(ctx, execCtx)
+	beforeImages, err = e.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +150,13 @@ func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCt
 	}
 
 	defer func() {
-		for i := range baseExecutor.is {
-			baseExecutor.is[i].After(ctx, execCtx)
+		for i := range e.is {
+			e.is[i].After(ctx, execCtx)
 		}
 	}()
 
-	if baseExecutor.ex != nil {
-		result, err = baseExecutor.ex.ExecWithNamedValue(ctx, execCtx, f)
+	if e.ex != nil {
+		result, err = e.ex.ExecWithNamedValue(ctx, execCtx, f)
 	} else {
 		result, err = f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
@@ -154,7 +165,7 @@ func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCt
 		return nil, err
 	}
 
-	afterImages, err = baseExecutor.afterImage(ctx, execCtx, beforeImages)
+	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
@@ -166,9 +177,9 @@ func (baseExecutor *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCt
 }
 
 // ExecWithValue
-func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
-	for i := range baseExecutor.is {
-		baseExecutor.is[i].Before(ctx, execCtx)
+func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+	for i := range e.is {
+		e.is[i].Before(ctx, execCtx)
 	}
 
 	var (
@@ -178,7 +189,7 @@ func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ty
 		err          error
 	)
 
-	beforeImages, err = baseExecutor.beforeImage(ctx, execCtx)
+	beforeImages, err = e.beforeImage(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +198,13 @@ func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ty
 	}
 
 	defer func() {
-		for i := range baseExecutor.is {
-			baseExecutor.is[i].After(ctx, execCtx)
+		for i := range e.is {
+			e.is[i].After(ctx, execCtx)
 		}
 	}()
 
-	if baseExecutor.ex != nil {
-		result, err = baseExecutor.ex.ExecWithValue(ctx, execCtx, f)
+	if e.ex != nil {
+		result, err = e.ex.ExecWithValue(ctx, execCtx, f)
 	} else {
 		result, err = f(ctx, execCtx.Query, execCtx.Values)
 	}
@@ -201,7 +212,7 @@ func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	afterImages, err = baseExecutor.afterImage(ctx, execCtx, beforeImages)
+	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +223,7 @@ func (baseExecutor *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *ty
 	return result, err
 }
 
-func (baseExecutor *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
+func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}
@@ -233,7 +244,7 @@ func (baseExecutor *BaseExecutor) beforeImage(ctx context.Context, execCtx *type
 }
 
 // After
-func (baseExecutor *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if !tm.IsTransactionOpened(ctx) {
 		return nil, nil
 	}
