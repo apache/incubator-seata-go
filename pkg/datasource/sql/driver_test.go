@@ -78,7 +78,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 		mockDriver := mock.NewMockTestDriver(ctrl)
 		mockDriver.EXPECT().Open(gomock.Any()).Return(mock.NewMockTestDriverConn(ctrl), nil)
 
-		reflectx.SetUnexportedField(field, mockDriver)		
+		reflectx.SetUnexportedField(field, mockDriver)
 
 		connector := &dsnConnector{
 			driver: driverVal,

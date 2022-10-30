@@ -67,6 +67,16 @@ func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {
 		parserCtx.SQLType = types.SQLTypeUpdate
 		parserCtx.UpdateStmt = stmt
 		parserCtx.ExecutorType = types.UpdateExecutor
+	case *ast.SelectStmt:
+		if stmt.LockInfo != nil && stmt.LockInfo.LockType == ast.SelectLockForUpdate {
+			parserCtx.SQLType = types.SQLTypeSelectForUpdate
+			parserCtx.SelectStmt = stmt
+			parserCtx.ExecutorType = types.SelectForUpdateExecutor
+		} else {
+			parserCtx.SQLType = types.SQLTypeSelect
+			parserCtx.SelectStmt = stmt
+			parserCtx.ExecutorType = types.SelectExecutor
+		}
 	case *ast.DeleteStmt:
 		parserCtx.SQLType = types.SQLTypeDelete
 		parserCtx.DeleteStmt = stmt
