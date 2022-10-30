@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	DefaultSeataConf = SeataConf{}
+	DefaultSeataConf SeataConf
 )
 
 // SeataConf is seata config object
