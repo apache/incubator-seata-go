@@ -119,7 +119,7 @@ func (dm *BasicSourceManager) BranchRegister(ctx context.Context, clientId strin
 	return 0, nil
 }
 
-//  Branch report
+// Branch report
 func (dm *BasicSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
 	return nil
 }
@@ -138,7 +138,7 @@ func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 	return nil
 }
 
-//  Unregister a   model.Resource from the   model.Resource Manager
+// Unregister a   model.Resource from the   model.Resource Manager
 func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
 	return errors.New("unsupport unregister resource")
 }
@@ -176,7 +176,7 @@ type TableMetaCache interface {
 	// Init
 	Init(ctx context.Context, conn *sql.DB) error
 	// GetTableMeta
-	GetTableMeta(table string) (types.TableMeta, error)
+	GetTableMeta(ctx context.Context, table string, conn *sql.Conn) (*types.TableMeta, error)
 	// Destroy
 	Destroy() error
 }

@@ -30,18 +30,20 @@ jobs:
     steps:
       - uses: actions/stale@v4
         with:
-          #stale issues
-          days-before-issue-stale: 28
-          days-before-issue-close: 7
+          #never automatically stale issues
+          days-before-issue-stale: -1
+          #never automatically close issues
+          days-before-issue-close: -1
           exempt-issue-labels: 'feature'
           stale-issue-message: >
             This issue has not been active for the past 4 weeks, so we will automatically close this issue after 7 days
           close-issue-message: >
             This issue has not been active for the past 5 weeks, so we are closing it now
 
-          #stale prs
-          days-before-pr-stale: 84
-          days-before-pr-close: 7
+          #never automatically stale pr
+          days-before-pr-stale: -1
+          #never automatically close pr
+          days-before-pr-close: -1
           stale-pr-message: >
             This PR has not been active for the past 12 weeks, so we will automatically close this issue after seven days
           close-pr-message: >

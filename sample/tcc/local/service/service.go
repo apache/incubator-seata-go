@@ -24,8 +24,8 @@ import (
 
 	"github.com/seata/seata-go/pkg/rm/tcc"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 var (
@@ -36,10 +36,9 @@ var (
 	tccService2Once sync.Once
 )
 
-type TestTCCServiceBusiness struct {
-}
+type TestTCCServiceBusiness struct{}
 
-func NewTestTCCServiceBusinessProxy() *tcc.TCCServiceProxy {
+func NewTestTCCServiceBusiness1Proxy() *tcc.TCCServiceProxy {
 	if tccService != nil {
 		return tccService
 	}
@@ -72,8 +71,7 @@ func (T TestTCCServiceBusiness) GetActionName() string {
 	return "TestTCCServiceBusiness"
 }
 
-type TestTCCServiceBusiness2 struct {
-}
+type TestTCCServiceBusiness2 struct{}
 
 func NewTestTCCServiceBusiness2Proxy() *tcc.TCCServiceProxy {
 	if tccService2 != nil {

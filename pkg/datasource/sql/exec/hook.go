@@ -19,51 +19,46 @@ package exec
 
 import (
 	"context"
-	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 var (
-	commonHook = make([]SQLInterceptor, 0, 4)
+	commonHook = make([]SQLHook, 0, 4)
 	// todo support distinguish between different db type
-	hookSolts = map[types.SQLType][]SQLInterceptor{}
+	hookSolts = map[types.SQLType][]SQLHook{}
 )
 
 // RegisCommonHook not goroutine safe
-func RegisCommonHook(hook SQLInterceptor) {
+func RegisterCommonHook(hook SQLHook) {
 	commonHook = append(commonHook, hook)
 }
 
-// RegisHook not goroutine safe
-func RegisHook(hook SQLInterceptor) {
+func CleanCommonHook() {
+	commonHook = make([]SQLHook, 0, 4)
+}
+
+// RegisterHook not goroutine safe
+func RegisterHook(hook SQLHook) {
 	_, ok := hookSolts[hook.Type()]
 
 	if !ok {
-		hookSolts[hook.Type()] = make([]SQLInterceptor, 0, 4)
+		hookSolts[hook.Type()] = make([]SQLHook, 0, 4)
 	}
 
 	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
-}
-
-// ExecContext
-type ExecContext struct {
-	TxCtx       *types.TransactionContext
-	Query       string
-	NamedValues []driver.NamedValue
-	Values      []driver.Value
 }
 
 // SQLHook SQL execution front and back interceptor
 // case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
 // case 2. Burning point to report
 // case 3. SQL black and white list
-type SQLInterceptor interface {
+type SQLHook interface {
 	Type() types.SQLType
 
 	// Before
-	Before(ctx context.Context, execCtx *ExecContext)
+	Before(ctx context.Context, execCtx *types.ExecContext) error
 
 	// After
-	After(ctx context.Context, execCtx *ExecContext)
+	After(ctx context.Context, execCtx *types.ExecContext) error
 }

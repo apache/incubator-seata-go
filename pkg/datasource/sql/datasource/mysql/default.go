@@ -22,6 +22,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// todo
 func init() {
 	datasource.RegisterTableCache(types.DBTypeMySQL, func() datasource.TableMetaCache {
 		return &tableMetaCache{}

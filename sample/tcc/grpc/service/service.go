@@ -20,9 +20,9 @@ package service
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/tcc/grpc/pb"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -33,8 +33,7 @@ type GrpcBusinessService1 struct {
 	Business1 *tcc.TCCServiceProxy
 }
 
-type Business1 struct {
-}
+type Business1 struct{}
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
 func (b *GrpcBusinessService1) Remoting(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
@@ -70,8 +69,7 @@ type GrpcBusinessService2 struct {
 	Business2 *tcc.TCCServiceProxy
 }
 
-type Business2 struct {
-}
+type Business2 struct{}
 
 // Remoting is your rpc method be defined in proto IDL, you must use TccServiceProxy to proxy your business Object in rpc method , e.g. the Remoting method
 func (b *GrpcBusinessService2) Remoting(ctx context.Context, params *pb.Params) (*anypb.Any, error) {

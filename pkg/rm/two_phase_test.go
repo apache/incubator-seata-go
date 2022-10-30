@@ -174,8 +174,7 @@ func TestParseTwoPhaseActionExecuteMethod1(t *testing.T) {
 	assert.Equal(t, "twoPhaseDemoService", twoPhaseService.GetActionName())
 }
 
-type TwoPhaseDemoService2 struct {
-}
+type TwoPhaseDemoService2 struct{}
 
 func (t *TwoPhaseDemoService2) Prepare(ctx context.Context, params interface{}) (bool, error) {
 	return false, fmt.Errorf("execute two phase prepare method, param %v", params)
@@ -211,7 +210,6 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 }
 
 func TestIsTwoPhaseAction(t *testing.T) {
-
 	userProvider := &testdata2.TestTwoPhaseService{}
 	userProvider1 := service.UserProviderInstance
 	type args struct {
@@ -232,11 +230,9 @@ func TestIsTwoPhaseAction(t *testing.T) {
 			assert.Equalf(t, tt.want, IsTwoPhaseAction(tt.args.v), "IsTwoPhaseAction(%v)", tt.args.v)
 		})
 	}
-
 }
 
 func TestParseTwoPhaseAction(t *testing.T) {
-
 	type args struct {
 		v interface{}
 	}
@@ -259,7 +255,6 @@ func TestParseTwoPhaseAction(t *testing.T) {
 		}
 		assert.Equalf(t, tests.want.GetTwoPhaseService(), got.GetTwoPhaseService(), "ParseTwoPhaseAction(%v)", tests.args.v)
 	})
-
 }
 
 func TestParseTwoPhaseActionByInterface(t *testing.T) {

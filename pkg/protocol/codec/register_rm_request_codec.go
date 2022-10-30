@@ -18,16 +18,15 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/common/bytes"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
 func init() {
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
 }
 
-type RegisterRMRequestCodec struct {
-}
+type RegisterRMRequestCodec struct{}
 
 func (g *RegisterRMRequestCodec) Decode(in []byte) interface{} {
 	data := message.RegisterRMRequest{}

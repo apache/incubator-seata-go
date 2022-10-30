@@ -18,9 +18,12 @@
 package sql
 
 import (
-	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/hook"
+	_ "github.com/seata/seata-go/pkg/datasource/sql/hook"
 
 	// mysql 相关插件
 	_ "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	_ "github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
+
+	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/at"
+	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 )

@@ -17,11 +17,7 @@
 
 package test
 
-import (
-	"testing"
-)
-
-func TestSendMsgWithResponse(test *testing.T) {
+/*func TestSendMsgWithResponse(test *testing.T) {
 	//request := protocol.RegisterRMRequest{
 	//	ResourceIds: "1111",
 	//	AbstractIdentifyRequest: protocol.AbstractIdentifyRequest{
@@ -36,4 +32,4 @@ func TestSendMsgWithResponse(test *testing.T) {
 	//handler := GetGettyClientHandlerInstance()
 	//handler.sendMergedMessage(mergedMessage)
 	//time.Sleep(100000 * time.Second)
-}
+}*/

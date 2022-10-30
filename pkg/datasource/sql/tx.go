@@ -20,21 +20,46 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
-	"github.com/seata/seata-go/pkg/common/log"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 const REPORT_RETRY_COUNT = 5
 
-type txOption func(tx *Tx)
+var (
+	hl      sync.RWMutex
+	txHooks []txHook
+)
+
+func RegisterTxHook(h txHook) {
+	hl.Lock()
+	defer hl.Unlock()
+
+	txHooks = append(txHooks, h)
+}
+
+func CleanTxHooks() {
+	hl.Lock()
+	defer hl.Unlock()
+
+	txHooks = make([]txHook, 0, 4)
+}
+
+type (
+	txOption func(tx *Tx)
+
+	txHook interface {
+		BeforeCommit(tx *Tx)
+
+		BeforeRollback(tx *Tx)
+	}
+)
 
 func newTx(opts ...txOption) (driver.Tx, error) {
 	tx := new(Tx)
@@ -79,31 +104,33 @@ type Tx struct {
 }
 
 // Commit do commit action
-// case 1. no open global-transaction, just do local transaction commit
-// case 2. not need flush undolog, is XA mode, do local transaction commit
-// case 3. need run AT transaction
 func (tx *Tx) Commit() error {
-	if tx.ctx.TransType == types.Local {
-		return tx.commitOnLocal()
-	}
+	tx.beforeCommit()
+	return tx.commitOnLocal()
+}
 
-	// flush undo log if need, is XA mode
-	if tx.ctx.TransType == types.XAMode {
-		return tx.commitOnXA()
-	}
+func (tx *Tx) beforeCommit() {
+	if len(txHooks) != 0 {
+		hl.RLock()
+		defer hl.RUnlock()
 
-	return tx.commitOnAT()
+		for i := range txHooks {
+			txHooks[i].BeforeCommit(tx)
+		}
+	}
 }
 
 func (tx *Tx) Rollback() error {
-	err := tx.target.Rollback()
-	if err != nil {
-		if tx.ctx.OpenGlobalTrsnaction() && tx.ctx.IsBranchRegistered() {
-			tx.report(false)
+	if len(txHooks) != 0 {
+		hl.RLock()
+		defer hl.RUnlock()
+
+		for i := range txHooks {
+			txHooks[i].BeforeRollback(tx)
 		}
 	}
 
-	return err
+	return tx.target.Rollback()
 }
 
 // init
@@ -116,43 +143,8 @@ func (tx *Tx) commitOnLocal() error {
 	return tx.target.Commit()
 }
 
-// commitOnXA
-func (tx *Tx) commitOnXA() error {
-	return nil
-}
-
-// commitOnAT
-func (tx *Tx) commitOnAT() error {
-	// if TX-Mode is AT, run regis this transaction branch
-	if err := tx.regis(tx.ctx); err != nil {
-		return err
-	}
-
-	undoLogMgr, err := undo.GetUndoLogManager(tx.ctx.DBType)
-	if err != nil {
-		return err
-	}
-
-	if err := undoLogMgr.FlushUndoLog(tx.ctx, nil); err != nil {
-		if rerr := tx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
-	}
-
-	if err := tx.commitOnLocal(); err != nil {
-		if rerr := tx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
-	}
-
-	tx.report(true)
-	return nil
-}
-
-// regis
-func (tx *Tx) regis(ctx *types.TransactionContext) error {
+// register
+func (tx *Tx) register(ctx *types.TransactionContext) error {
 	if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 		return nil
 	}

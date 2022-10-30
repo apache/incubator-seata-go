@@ -21,14 +21,77 @@ import (
 	"context"
 	"database/sql/driver"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+type seataATConnector struct {
+	*seataConnector
+	transType types.TransactionType
+}
+
+func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.seataConnector.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_conn, _ := conn.(*Conn)
+
+	return &ATConn{
+		Conn: _conn,
+	}, nil
+}
+
+func (c *seataATConnector) Driver() driver.Driver {
+	return &seataATDriver{
+		seataDriver: c.seataConnector.Driver().(*seataDriver),
+	}
+}
+
+type seataXAConnector struct {
+	*seataConnector
+	transType types.TransactionType
+}
+
+func (c *seataXAConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.seataConnector.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_conn, _ := conn.(*Conn)
+
+	return &XAConn{
+		Conn: _conn,
+	}, nil
+}
+
+func (c *seataXAConnector) Driver() driver.Driver {
+	return &seataXADriver{
+		seataDriver: c.seataConnector.Driver().(*seataDriver),
+	}
+}
+
+// A Connector represents a driver in a fixed configuration
+// and can create any number of equivalent Conns for use
+// by multiple goroutines.
+//
+// A Connector can be passed to sql.OpenDB, to allow drivers
+// to implement their own sql.DB constructors, or returned by
+// DriverContext's OpenConnector method, to allow drivers
+// access to context and to avoid repeated parsing of driver
+// configuration.
+//
+// If a Connector implements io.Closer, the sql package's DB.Close
+// method will call Close and return error (if any).
 type seataConnector struct {
-	conf   *seataServerConfig
-	res    *DBResource
-	once   sync.Once
-	driver driver.Driver
-	target driver.Connector
+	transType types.TransactionType
+	conf      *seataServerConfig
+	res       *DBResource
+	once      sync.Once
+	driver    driver.Driver
+	target    driver.Connector
 }
 
 // Connect returns a connection to the database.
@@ -50,7 +113,12 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{targetConn: conn, res: c.res}, nil
+	return &Conn{
+		targetConn: conn,
+		res:        c.res,
+		txCtx:      types.NewTxCtx(),
+		autoCommit: true,
+	}, nil
 }
 
 // Driver returns the underlying Driver of the Connector,
@@ -62,5 +130,7 @@ func (c *seataConnector) Driver() driver.Driver {
 		c.driver = d
 	})
 
-	return &SeataDriver{target: c.driver}
+	return &seataDriver{
+		target: c.driver,
+	}
 }

@@ -67,12 +67,12 @@ func (s *Stmt) NumInput() int {
 //
 // Deprecated: Drivers should implement StmtQueryContext instead (or additionally).
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransType, s.query)
 	if err != nil {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  s.txCtx,
 		Query:  s.query,
 		Values: args,
@@ -105,12 +105,12 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransType, s.query)
 	if err != nil {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       s.txCtx,
 		Query:       s.query,
 		NamedValues: args,
@@ -138,12 +138,12 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 // Deprecated: Drivers should implement StmtExecContext instead (or additionally).
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	// in transaction, need run Executor
-	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransType, s.query)
 	if err != nil {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:  s.txCtx,
 		Query:  s.query,
 		Values: args,
@@ -173,12 +173,12 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 	}
 
 	// in transaction, need run Executor
-	executor, err := exec.BuildExecutor(s.res.dbType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransType, s.query)
 	if err != nil {
 		return nil, err
 	}
 
-	execCtx := &exec.ExecContext{
+	execCtx := &types.ExecContext{
 		TxCtx:       s.txCtx,
 		Query:       s.query,
 		NamedValues: args,

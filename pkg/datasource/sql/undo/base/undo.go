@@ -21,13 +21,15 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"strconv"
 	"strings"
 
+	"github.com/arana-db/parser/mysql"
+
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/common/log"
-	"github.com/seata/seata-go/pkg/common/util"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
@@ -35,6 +37,9 @@ import (
 var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
 
 var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+
+// CheckUndoLogTableExistSql check undo log if exist
+const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
@@ -44,7 +49,7 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Tx) error {
+func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
 	return nil
 }
 
@@ -82,7 +87,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 		return err
 	}
 
-	branchIDStr, err := util.Int64Slice2Str(branchID, ",")
+	branchIDStr, err := Int64Slice2Str(branchID, ",")
 	if err != nil {
 		log.Errorf("slice to string transfer fail, err: %v", err)
 		return err
@@ -97,9 +102,26 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	return nil
 }
 
-// FlushUndoLog
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error {
-	return nil
+// FlushUndoLog flush undo log
+func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
+	if !txCtx.HasUndoLog() {
+		return nil
+	}
+	logs := []undo.SQLUndoLog{
+		{
+			SQLType:   types.SQLTypeInsert,
+			TableName: constant.UndoLogTableName,
+			Images:    *txCtx.RoundImages,
+		},
+	}
+	branchUndoLogs := []undo.BranchUndoLog{
+		{
+			Xid:      txCtx.XaID,
+			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
+			Logs:     logs,
+		},
+	}
+	return m.InsertUndoLog(branchUndoLogs, tx)
 }
 
 // RunUndo
@@ -110,6 +132,20 @@ func (m *BaseUndoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn)
 // DBType
 func (m *BaseUndoLogManager) DBType() types.DBType {
 	panic("implement me")
+}
+
+// HasUndoLogTable check undo log table if exist
+func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
+	if _, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql); err != nil {
+		// 1146 mysql table not exist fault code
+		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
+			return false, nil
+		}
+		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
+		return
+	}
+
+	return true, nil
 }
 
 // getBatchDeleteUndoLogSql build batch delete undo log
@@ -148,4 +184,21 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 	}
 
 	str.WriteString(") ")
+}
+
+// Int64Slice2Str
+func Int64Slice2Str(values interface{}, sep string) (string, error) {
+	v, ok := values.([]int64)
+	if !ok {
+		return "", errors.New("param type is fault")
+	}
+
+	var valuesText []string
+
+	for i := range v {
+		text := strconv.FormatInt(v[i], 10)
+		valuesText = append(valuesText, text)
+	}
+
+	return strings.Join(valuesText, sep), nil
 }

@@ -20,12 +20,11 @@ package main
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/client"
-
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 )
 
@@ -33,26 +32,24 @@ import (
 func main() {
 	client.Init()
 	config.SetConsumerService(service.UserProviderInstance)
-	err := config.Load()
-	if err != nil {
+	if err := config.Load(); err != nil {
 		panic(err)
 	}
-	test()
+	run()
 }
 
-func test() {
-	var err error
-	ctx := tm.Begin(context.Background(), "TestTCCServiceBusiness")
-	defer func() {
-		resp := tm.CommitOrRollback(ctx, err == nil)
-		logger.Infof("tx result %v", resp)
-		<-make(chan struct{})
-	}()
+func run() {
+	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+		Name: "TccSampleLocalGlobalTx",
+	}, business)
+	<-make(chan struct{})
+}
 
-	resp, err := service.UserProviderInstance.Prepare(ctx, 1)
-	if err != nil {
-		logger.Infof("response prepare: %v", err)
-		return
+func business(ctx context.Context) (re error) {
+	if resp, re := service.UserProviderInstance.Prepare(ctx, 1); re != nil {
+		log.Infof("response prepare: %v", re)
+	} else {
+		log.Infof("get resp %#v", resp)
 	}
-	logger.Infof("get resp %#v", resp)
+	return
 }

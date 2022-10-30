@@ -49,7 +49,6 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 		Status:     enum.StatusSuspended,
 	}
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-
 	if err != nil {
 		t.Fatalf("open db failed msg: %v", err)
 	}

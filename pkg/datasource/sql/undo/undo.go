@@ -27,14 +27,17 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-var solts = map[types.DBType]*undoLogMgrHolder{}
+var (
+	solts    = map[types.DBType]*undoLogMgrHolder{}
+	builders = map[types.ExecutorType]func() UndoLogBuilder{}
+)
 
 type undoLogMgrHolder struct {
 	once sync.Once
 	mgr  UndoLogManager
 }
 
-func Regis(m UndoLogManager) error {
+func RegisterUndoLogManager(m UndoLogManager) error {
 	if _, exist := solts[m.DBType()]; exist {
 		return nil
 	}
@@ -46,21 +49,36 @@ func Regis(m UndoLogManager) error {
 	return nil
 }
 
+func RegistrUndoLogBuilder(executorType types.ExecutorType, fun func() UndoLogBuilder) {
+	if _, ok := builders[executorType]; !ok {
+		builders[executorType] = fun
+	}
+}
+
+func GetUndologBuilder(sqlType types.ExecutorType) UndoLogBuilder {
+	if f, ok := builders[sqlType]; ok {
+		return f()
+	}
+	return nil
+}
+
 // UndoLogManager
 type UndoLogManager interface {
 	Init()
 	// InsertUndoLog
-	InsertUndoLog(l []BranchUndoLog, tx driver.Tx) error
+	InsertUndoLog(l []BranchUndoLog, tx driver.Conn) error
 	// DeleteUndoLog
 	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
 	// BatchDeleteUndoLog
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
-	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Tx) error
+	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error
 	// RunUndo
 	RunUndo(xid string, branchID int64, conn *sql.Conn) error
 	// DBType
 	DBType() types.DBType
+	// HasUndoLogTable
+	HasUndoLogTable(ctx context.Context, conn *sql.Conn) (bool, error)
 }
 
 // GetUndoLogManager
@@ -81,11 +99,11 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 // BranchUndoLog
 type BranchUndoLog struct {
 	// Xid
-	Xid string
+	Xid string `json:"xid"`
 	// BranchID
-	BranchID string
+	BranchID string `json:"branchId"`
 	// Logs
-	Logs []SQLUndoLog
+	Logs []SQLUndoLog `json:"sqlUndoLogs"`
 }
 
 // Marshal
@@ -95,9 +113,9 @@ func (b *BranchUndoLog) Marshal() []byte {
 
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType
-	TableName string
-	Images    types.RoundRecordImage
+	SQLType   types.SQLType          `json:"sqlType"`
+	TableName string                 `json:"tableName"`
+	Images    types.RoundRecordImage `json:"images"`
 }
 
 // UndoLogParser
@@ -110,4 +128,10 @@ type UndoLogParser interface {
 	Encode(l BranchUndoLog) []byte
 	// Decode
 	Decode(b []byte) BranchUndoLog
+}
+
+type UndoLogBuilder interface {
+	BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error)
+	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error)
+	GetExecutorType() types.ExecutorType
 }
