@@ -101,9 +101,9 @@ type BranchUndoLog struct {
 	// Xid
 	Xid string `json:"xid"`
 	// BranchID
-	BranchID string `json:"branch_id"`
+	BranchID string `json:"branchId"`
 	// Logs
-	Logs []SQLUndoLog `json:"logs"`
+	Logs []SQLUndoLog `json:"sqlUndoLogs"`
 }
 
 // Marshal

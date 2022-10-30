@@ -126,9 +126,26 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	return nil
 }
 
-// FlushUndoLog
+// FlushUndoLog flush undo log
 func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
-	return nil
+	if !txCtx.HasUndoLog() {
+		return nil
+	}
+	logs := []undo.SQLUndoLog{
+		{
+			SQLType:   types.SQLTypeInsert,
+			TableName: constant.UndoLogTableName,
+			Images:    *txCtx.RoundImages,
+		},
+	}
+	branchUndoLogs := []undo.BranchUndoLog{
+		{
+			Xid:      txCtx.XaID,
+			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
+			Logs:     logs,
+		},
+	}
+	return m.InsertUndoLog(branchUndoLogs, tx)
 }
 
 // RunUndo undo sql

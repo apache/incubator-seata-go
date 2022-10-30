@@ -99,6 +99,8 @@ type TransactionContext struct {
 	BranchID uint64
 	// XaID XA id
 	XaID string
+	// XID global transaction id
+	XID string
 	// GlobalLockRequire
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
@@ -114,6 +116,11 @@ type ExecContext struct {
 	Values       []driver.Value
 	MetaDataMap  map[string]TableMeta
 	Conn         driver.Conn
+	// todo set values for these 4 param
+	IsAutoCommit          bool
+	IsSupportsSavepoints  bool
+	IsInGlobalTransaction bool
+	IsRequireGlobalLock   bool
 }
 
 func NewTxCtx() *TransactionContext {
