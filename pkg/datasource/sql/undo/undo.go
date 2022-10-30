@@ -129,6 +129,7 @@ func (b *BranchUndoLog) Reverse() {
 type SQLUndoLog struct {
 	SQLType     types.SQLType
 	TableName   string
+	Images      types.RoundRecordImage
 	BeforeImage *types.RecordImage
 	AfterImage  *types.RecordImage
 }
