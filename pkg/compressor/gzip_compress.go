@@ -16,3 +16,51 @@
  */
 
 package compressor
+
+import (
+	"bytes"
+	"compress/gzip"
+	"io/ioutil"
+)
+
+type Gzip struct {
+}
+
+// Compress gzip compress
+func (g *Gzip) Compress(b []byte) ([]byte, error) {
+	var buffer bytes.Buffer
+
+	gz := gzip.NewWriter(&buffer)
+
+	if _, err := gz.Write(b); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Flush(); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+// Decompress gzip decompress
+func (g *Gzip) Decompress(in []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(in))
+	if err != nil {
+		return nil, err
+	}
+
+	if err = reader.Close(); err != nil {
+		return nil, err
+	}
+
+	return ioutil.ReadAll(reader)
+}
+
+func (g *Gzip) GetCompressorType() CompressorType {
+	return CompressorGzip
+}

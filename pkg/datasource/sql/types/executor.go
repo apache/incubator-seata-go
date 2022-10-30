@@ -26,6 +26,7 @@ import (
 )
 
 // ExecutorType
+//
 //go:generate stringer -type=ExecutorType
 type ExecutorType int32
 

@@ -28,6 +28,7 @@ const (
 	CompressorLz4
 	CompressorDefault
 	CompressorZstd
+	CompressorDeflate
 	CompressorMax
 )
 

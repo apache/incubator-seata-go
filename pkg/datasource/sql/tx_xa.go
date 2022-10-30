@@ -15,41 +15,37 @@
  * limitations under the License.
  */
 
-package fanout
+package sql
 
-import (
-	"context"
-	"sync"
-	"testing"
-	"time"
-)
-
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	var mtx sync.Mutex
-
-	ca.Do(context.Background(), func(c context.Context) {
-		mtx.Lock()
-		run = true
-		mtx.Unlock()
-		panic("error")
-	})
-
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	mtx.Lock()
-	defer mtx.Unlock()
-	if !run {
-		t.Fatal("expect run be true")
-	}
+// XATx
+type XATx struct {
+	tx *Tx
 }
 
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
+// Commit do commit action
+// case 1. no open global-transaction, just do local transaction commit
+// case 2. not need flush undolog, is XA mode, do local transaction commit
+// case 3. need run AT transaction
+func (tx *XATx) Commit() error {
+	tx.tx.beforeCommit()
+	return tx.commitOnXA()
+}
+
+func (tx *XATx) Rollback() error {
+	err := tx.tx.Rollback()
+	if err != nil {
+
+		originTx := tx.tx
+
+		if originTx.ctx.OpenGlobalTrsnaction() && originTx.ctx.IsBranchRegistered() {
+			originTx.report(false)
+		}
 	}
+
+	return err
+}
+
+// commitOnXA
+func (tx *XATx) commitOnXA() error {
+	return nil
 }

@@ -104,8 +104,7 @@ func (u *MySQLMultiUndoLogBuilder) AfterImage(ctx context.Context, execCtx *type
 
 		switch parseContext.ExecutorType {
 		case types.UpdateExecutor:
-			// todo change to use MultiUpdateExecutor
-			tmpImages, err = GetMySQLUpdateUndoLogBuilder().AfterImage(ctx, execCtx, []*types.RecordImage{u.beforeImages[i]})
+			tmpImages, err = GetMySQLMultiUpdateUndoLogBuilder().AfterImage(ctx, execCtx, []*types.RecordImage{u.beforeImages[i]})
 			break
 		case types.DeleteExecutor:
 			// todo use MultiDeleteExecutor

@@ -100,6 +100,7 @@ func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []drive
 		selectArgsIndexs = make([]int32, 0)
 		selectArgs       = make([]driver.Value, 0)
 	)
+
 	b.traversalArgs(stmt.Where, &selectArgsIndexs)
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
@@ -151,11 +152,11 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (u *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData types.TableMeta) (*types.RecordImage, error) {
+func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData types.TableMeta) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
-	ss := u.GetScanSlice(columnNames, tableMetaData)
+	ss := b.GetScanSlice(columnNames, tableMetaData)
 
 	for {
 		err := rowsi.Next(ss)

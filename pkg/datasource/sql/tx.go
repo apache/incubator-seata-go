@@ -22,14 +22,11 @@ import (
 	"database/sql/driver"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"
 
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -107,10 +104,12 @@ type Tx struct {
 }
 
 // Commit do commit action
-// case 1. no open global-transaction, just do local transaction commit
-// case 2. not need flush undolog, is XA mode, do local transaction commit
-// case 3. need run AT transaction
 func (tx *Tx) Commit() error {
+	tx.beforeCommit()
+	return tx.commitOnLocal()
+}
+
+func (tx *Tx) beforeCommit() {
 	if len(txHooks) != 0 {
 		hl.RLock()
 		defer hl.RUnlock()
@@ -119,17 +118,6 @@ func (tx *Tx) Commit() error {
 			txHooks[i].BeforeCommit(tx)
 		}
 	}
-
-	if tx.ctx.TransType == types.Local {
-		return tx.commitOnLocal()
-	}
-
-	// flush undo log if need, is XA mode
-	if tx.ctx.TransType == types.XAMode {
-		return tx.commitOnXA()
-	}
-
-	return tx.commitOnAT()
 }
 
 func (tx *Tx) Rollback() error {
@@ -142,14 +130,7 @@ func (tx *Tx) Rollback() error {
 		}
 	}
 
-	err := tx.target.Rollback()
-	if err != nil {
-		if tx.ctx.OpenGlobalTrsnaction() && tx.ctx.IsBranchRegistered() {
-			tx.report(false)
-		}
-	}
-
-	return err
+	return tx.target.Rollback()
 }
 
 // init
@@ -160,41 +141,6 @@ func (tx *Tx) init() error {
 // commitOnLocal
 func (tx *Tx) commitOnLocal() error {
 	return tx.target.Commit()
-}
-
-// commitOnXA
-func (tx *Tx) commitOnXA() error {
-	return nil
-}
-
-// commitOnAT
-func (tx *Tx) commitOnAT() error {
-	// if TX-Mode is AT, run regis this transaction branch
-	if err := tx.register(tx.ctx); err != nil {
-		return err
-	}
-
-	undoLogMgr, err := undo.GetUndoLogManager(tx.ctx.DBType)
-	if err != nil {
-		return err
-	}
-
-	if err := undoLogMgr.FlushUndoLog(tx.ctx, tx.conn.targetConn); err != nil {
-		if rerr := tx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
-	}
-
-	if err := tx.commitOnLocal(); err != nil {
-		if rerr := tx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
-	}
-
-	tx.report(true)
-	return nil
 }
 
 // register

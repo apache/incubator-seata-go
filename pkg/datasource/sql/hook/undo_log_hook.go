@@ -21,46 +21,53 @@ import (
 	"context"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
-	"go.uber.org/zap"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 func init() {
-	exec.RegisterHook(&loggerSQLHook{})
+	exec.RegisterHook(&undoLogSQLHook{})
 }
 
-type loggerSQLHook struct{}
+type undoLogSQLHook struct {
+}
 
-func (h *loggerSQLHook) Type() types.SQLType {
+func (h *undoLogSQLHook) Type() types.SQLType {
 	return types.SQLTypeUnknown
 }
 
 // Before
-func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
-	var txID string
-	if execCtx.TxCtx != nil {
-		txID = execCtx.TxCtx.LocalTransID
-	}
-	fields := []zap.Field{
-		zap.String("tx-id", txID),
-		zap.String("xid", execCtx.TxCtx.XaID),
-		zap.String("sql", execCtx.Query),
+func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
+	if !tm.IsTransactionOpened(ctx) {
+		return nil
 	}
 
-	if len(execCtx.NamedValues) != 0 {
-		fields = append(fields, zap.Any("namedValues", execCtx.NamedValues))
+	pc, err := parser.DoParser(execCtx.Query)
+	if err != nil {
+		return err
+	}
+	if !pc.HasValidStmt() {
+		return nil
 	}
 
-	if len(execCtx.Values) != 0 {
-		fields = append(fields, zap.Any("values", execCtx.Values))
+	builder := undo.GetUndologBuilder(pc.ExecutorType)
+	if builder == nil {
+		return nil
 	}
-
-	log.Info("sql exec log", fields)
+	recordImage, err := builder.BeforeImage(ctx, execCtx)
+	if err != nil {
+		return err
+	}
+	execCtx.TxCtx.RoundImages.AppendBeofreImages(recordImage)
 	return nil
 }
 
 // After
-func (h *loggerSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
+func (h *undoLogSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
+	if !tm.IsTransactionOpened(ctx) {
+		return nil
+	}
 	return nil
 }

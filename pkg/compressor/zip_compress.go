@@ -16,3 +16,44 @@
  */
 
 package compressor
+
+import (
+	"bytes"
+	"io"
+
+	"github.com/klauspost/compress/zlib"
+)
+
+type Zip struct{}
+
+func (z Zip) Compress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	var zp = zlib.NewWriter(&buf)
+	if _, err := zp.Write(data); err != nil {
+		return nil, err
+	}
+	if err := zp.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (z Zip) Decompress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Write(data)
+	r, err := zlib.NewReader(&buf)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Close(); err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(&buf, r); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (z Zip) GetCompressorType() CompressorType {
+	return CompressorZstd
+}
