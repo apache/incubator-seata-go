@@ -48,7 +48,6 @@ type SelectForUpdateExecutor struct {
 }
 
 func (s SelectForUpdateExecutor) interceptors(interceptors []SQLHook) {
-	//s.is = interceptors
 }
 
 func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
