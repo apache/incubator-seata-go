@@ -35,7 +35,7 @@ import (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.UpdateExecutor, GetMySQLMultiUpdateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.UpdateExecutor, GetMySQLMultiUpdateUndoLogBuilder)
 }
 
 type updateVisitor struct {
