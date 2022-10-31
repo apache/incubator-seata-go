@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.MultiExecutor, GetMySQLMultiUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.MultiExecutor, GetMySQLMultiUndoLogBuilder)
 }
 
 type MySQLMultiUndoLogBuilder struct {
@@ -68,6 +68,7 @@ func (u *MySQLMultiUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *typ
 			break
 		case types.DeleteExecutor:
 			// todo use MultiDeleteExecutor
+			tmpImages, err = GetMySQLMultiDeleteUndoLogBuilder().BeforeImage(ctx, execCtx)
 			break
 		}
 

@@ -30,8 +30,8 @@ import (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
-	undo.RegistrUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
 // executorSolts
@@ -131,7 +131,7 @@ func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
 // ExecWithNamedValue
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.is {
-		e.is[i].Before(ctx, execCtx)
+		_ = e.is[i].Before(ctx, execCtx)
 	}
 
 	var (
@@ -151,7 +151,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 
 	defer func() {
 		for i := range e.is {
-			e.is[i].After(ctx, execCtx)
+			_ = e.is[i].After(ctx, execCtx)
 		}
 	}()
 
@@ -199,7 +199,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 
 	defer func() {
 		for i := range e.is {
-			e.is[i].After(ctx, execCtx)
+			_ = e.is[i].After(ctx, execCtx)
 		}
 	}()
 
