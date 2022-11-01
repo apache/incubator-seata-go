@@ -15,41 +15,26 @@
  * limitations under the License.
  */
 
-package fanout
+package compressor
 
 import (
-	"context"
-	"sync"
+	"strings"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	var mtx sync.Mutex
+func TestLz4Compress(t *testing.T) {
+	sample := strings.Repeat("hello world", 100)
 
-	ca.Do(context.Background(), func(c context.Context) {
-		mtx.Lock()
-		run = true
-		mtx.Unlock()
-		panic("error")
-	})
+	lz4 := Lz4{}
 
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	mtx.Lock()
-	defer mtx.Unlock()
-	if !run {
-		t.Fatal("expect run be true")
-	}
-}
+	compressResult, err := lz4.Compress([]byte(sample))
+	assert.NoError(t, err)
+	t.Logf("Compressed result: %v", string(compressResult))
 
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
-	}
+	decompressResult, err := lz4.Decompress(compressResult)
+	assert.NoError(t, err)
+	assert.Equal(t, sample, string(decompressResult))
+	t.Logf("Decompressed result: %v", string(decompressResult))
 }

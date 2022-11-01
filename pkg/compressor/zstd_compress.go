@@ -16,3 +16,29 @@
  */
 
 package compressor
+
+import (
+	"github.com/klauspost/compress/zstd"
+)
+
+type Zstd struct{}
+
+func (z Zstd) Compress(data []byte) ([]byte, error) {
+	var encoder, err = zstd.NewWriter(nil)
+	if err != nil {
+		return nil, err
+	}
+	return encoder.EncodeAll(data, make([]byte, 0, len(data))), nil
+}
+
+func (z Zstd) Decompress(data []byte) ([]byte, error) {
+	var decoder, err = zstd.NewReader(nil)
+	if err != nil {
+		return nil, err
+	}
+	return decoder.DecodeAll(data, nil)
+}
+
+func (z Zstd) GetCompressorType() CompressorType {
+	return CompressorZstd
+}
