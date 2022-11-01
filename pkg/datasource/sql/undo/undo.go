@@ -49,7 +49,7 @@ func RegisterUndoLogManager(m UndoLogManager) error {
 	return nil
 }
 
-func RegistrUndoLogBuilder(executorType types.ExecutorType, fun func() UndoLogBuilder) {
+func RegisterUndoLogBuilder(executorType types.ExecutorType, fun func() UndoLogBuilder) {
 	if _, ok := builders[executorType]; !ok {
 		builders[executorType] = fun
 	}

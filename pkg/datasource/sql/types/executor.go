@@ -40,6 +40,7 @@ const (
 	DeleteExecutor
 	ReplaceIntoExecutor
 	MultiExecutor
+	MultiDeleteExecutor
 	InsertOnDuplicateExecutor
 )
 
