@@ -224,8 +224,8 @@ func (m *BaseUndoLogManager) Undo(
 
 		// Todo 替换成 parser 解析器解析
 		var branchUndoLog undo.BranchUndoLog
-		if err = json.Unmarshal(rollbackInfo, &branchUndoLog); err != nil {
-			return err
+		if cErr := json.Unmarshal(rollbackInfo, &branchUndoLog); cErr != nil {
+			return cErr
 		}
 
 		branchUndoLogs = append(branchUndoLogs, branchUndoLog)
@@ -246,18 +246,18 @@ func (m *BaseUndoLogManager) Undo(
 		}
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, err := dataSourceMysql.GetTableMetaInstance().GetTableMeta(ctx, undoLog.TableName, conn)
-			if err != nil {
-				log.Errorf("[Undo] get table meta fail, err: %v", err)
-				return err
+			tableMeta, cErr := dataSourceMysql.GetTableMetaInstance().GetTableMeta(ctx, undoLog.TableName, conn)
+			if cErr != nil {
+				log.Errorf("[Undo] get table meta fail, err: %v", cErr)
+				return cErr
 			}
 
 			undoLog.SetTableMeta(*tableMeta)
 
-			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
-			if err != nil {
-				log.Errorf("[Undo] get undo executor, err: %v", err)
-				return err
+			undoExecutor, cErr := factor.GetUndoExecutor(dbType, undoLog)
+			if cErr != nil {
+				log.Errorf("[Undo] get undo executor, err: %v", cErr)
+				return cErr
 			}
 
 			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
