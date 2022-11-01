@@ -44,3 +44,11 @@ type TestDriverStmt interface {
 type TestDriverTx interface {
 	driver.Tx
 }
+
+type TestDriverRows interface {
+	driver.Rows
+}
+
+type TestDriver interface {
+	driver.Driver
+}

@@ -16,3 +16,42 @@
  */
 
 package compressor
+
+import (
+	"fmt"
+
+	"github.com/pierrec/lz4/v4"
+)
+
+type Lz4 struct {
+}
+
+func (l *Lz4) Compress(data []byte) ([]byte, error) {
+
+	buffer := make([]byte, lz4.CompressBlockBound(len(data)))
+
+	var compressor lz4.Compressor
+
+	n, err := compressor.CompressBlock(data, buffer)
+	if err != nil {
+		return nil, err
+	}
+	if n >= len(data) {
+		return nil, fmt.Errorf("`%s` is not compressible", string(data))
+	}
+
+	return buffer[:n], nil
+}
+
+func (l *Lz4) Decompress(in []byte) ([]byte, error) {
+	out := make([]byte, 100*len(in))
+	n, err := lz4.UncompressBlock(in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out[:n], nil
+}
+
+func (l *Lz4) GetCompressorType() CompressorType {
+	return CompressorLz4
+}

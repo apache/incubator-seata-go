@@ -15,6 +15,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/parnurzeal/gorequest v0.2.16
+	github.com/pierrec/lz4/v4 v4.1.17
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.32.1
@@ -85,6 +86,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible // indirect
+	github.com/klauspost/compress v1.15.11
 	github.com/knadh/koanf v1.4.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect

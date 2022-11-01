@@ -17,9 +17,16 @@
 
 package types
 
-import "github.com/arana-db/parser/ast"
+import (
+	"fmt"
+
+	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
+	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
+)
 
 // ExecutorType
+//
 //go:generate stringer -type=ExecutorType
 type ExecutorType int32
 
@@ -28,9 +35,12 @@ const (
 	UnSupportExecutor
 	InsertExecutor
 	UpdateExecutor
+	SelectForUpdateExecutor
+	SelectExecutor
 	DeleteExecutor
 	ReplaceIntoExecutor
 	MultiExecutor
+	MultiDeleteExecutor
 	InsertOnDuplicateExecutor
 )
 
@@ -43,6 +53,7 @@ type ParseContext struct {
 	InsertStmt *ast.InsertStmt
 	// UpdateStmt
 	UpdateStmt *ast.UpdateStmt
+	SelectStmt *ast.SelectStmt
 	// DeleteStmt
 	DeleteStmt *ast.DeleteStmt
 	MultiStmt  []*ParseContext
@@ -50,4 +61,25 @@ type ParseContext struct {
 
 func (p *ParseContext) HasValidStmt() bool {
 	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
+}
+
+func (p *ParseContext) GteTableName() (string, error) {
+	var table *ast.TableRefsClause
+
+	if p.InsertStmt != nil {
+		table = p.InsertStmt.Table
+	} else if p.SelectStmt != nil {
+		table = p.SelectStmt.From
+	} else if p.UpdateStmt != nil {
+		table = p.UpdateStmt.TableRefs
+	} else if p.DeleteStmt != nil {
+		table = p.DeleteStmt.TableRefs
+	} else {
+		return "", fmt.Errorf("invalid stmt %v", p)
+	}
+
+	b := seatabytes.NewByteBuffer([]byte{})
+	table.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+
+	return string(b.Bytes()), nil
 }

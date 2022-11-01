@@ -15,41 +15,39 @@
  * limitations under the License.
  */
 
-package fanout
+package compressor
 
 import (
-	"context"
-	"sync"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	var mtx sync.Mutex
-
-	ca.Do(context.Background(), func(c context.Context) {
-		mtx.Lock()
-		run = true
-		mtx.Unlock()
-		panic("error")
-	})
-
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	mtx.Lock()
-	defer mtx.Unlock()
-	if !run {
-		t.Fatal("expect run be true")
+func TestDeflateCompress(t *testing.T) {
+	ts := []struct {
+		text string
+	}{
+		{
+			text: "Don't communicate by sharing memory, share memory by communicating.",
+		},
+		{
+			text: "Concurrency is not parallelism.",
+		},
+		{
+			text: "The bigger the interface, the weaker the abstraction.",
+		},
+		{
+			text: "Documentation is for users.",
+		},
 	}
-}
 
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
+	dc := &DeflateCompress{}
+	assert.EqualValues(t, CompressorDeflate, dc.GetCompressorType())
+
+	for _, s := range ts {
+		var data []byte = []byte(s.text)
+		dataCompressed, _ := dc.Compress(data)
+		ret, _ := dc.Decompress(dataCompressed)
+		assert.EqualValues(t, s.text, string(ret))
 	}
 }

@@ -15,41 +15,37 @@
  * limitations under the License.
  */
 
-package fanout
+package compressor
 
 import (
-	"context"
-	"sync"
-	"testing"
-	"time"
+	"bytes"
+	"compress/flate"
+	"io"
+
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	var mtx sync.Mutex
+type DeflateCompress struct{}
 
-	ca.Do(context.Background(), func(c context.Context) {
-		mtx.Lock()
-		run = true
-		mtx.Unlock()
-		panic("error")
-	})
-
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	mtx.Lock()
-	defer mtx.Unlock()
-	if !run {
-		t.Fatal("expect run be true")
+func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	fw, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		log.Error(err)
+		return nil, err
 	}
+	defer fw.Close()
+	fw.Write(data)
+	fw.Flush()
+	return buf.Bytes(), nil
 }
 
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
-	}
+func (*DeflateCompress) Decompress(data []byte) ([]byte, error) {
+	fr := flate.NewReader(bytes.NewBuffer(data))
+	defer fr.Close()
+	return io.ReadAll(fr)
+}
+
+func (*DeflateCompress) GetCompressorType() CompressorType {
+	return CompressorDeflate
 }
