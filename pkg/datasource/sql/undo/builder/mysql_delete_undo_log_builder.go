@@ -34,7 +34,7 @@ import (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.DeleteExecutor, GetMySQLDeleteUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.DeleteExecutor, GetMySQLDeleteUndoLogBuilder)
 }
 
 type MySQLDeleteUndoLogBuilder struct {
@@ -96,16 +96,11 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 		return "", nil, fmt.Errorf("invalid delete stmt")
 	}
 
-	fields := []*ast.SelectField{}
-	fields = append(fields, &ast.SelectField{
-		WildCard: &ast.WildCardField{},
-	})
-
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
 		From:           p.DeleteStmt.TableRefs,
 		Where:          p.DeleteStmt.Where,
-		Fields:         &ast.FieldList{Fields: fields},
+		Fields:         &ast.FieldList{Fields: []*ast.SelectField{{WildCard: &ast.WildCardField{}}}},
 		OrderBy:        p.DeleteStmt.Order,
 		Limit:          p.DeleteStmt.Limit,
 		TableHints:     p.DeleteStmt.TableHints,
@@ -115,9 +110,9 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
-	log.Infof("build select sql by delete sourceQuery, sql {}", sql)
+	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }

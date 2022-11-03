@@ -25,6 +25,7 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/bytes"
@@ -36,7 +37,7 @@ const (
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.UpdateExecutor, GetMySQLUpdateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.UpdateExecutor, GetMySQLUpdateUndoLogBuilder)
 }
 
 type MySQLUpdateUndoLogBuilder struct {
@@ -139,7 +140,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
-	fields := []*ast.SelectField{}
+	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
 	for _, column := range updateStmt.List {
@@ -164,9 +165,9 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
-	log.Infof("build select sql by update sourceQuery, sql {}", sql)
+	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }
