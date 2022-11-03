@@ -75,7 +75,7 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 	keys := make([]string, 0)
 	for _, index := range m.Indexs {
 		if index.IType == IndexTypePrimaryKey {
-			keys = append(keys, index.Name)
+			keys = append(keys, index.ColumnName)
 		}
 	}
 	return keys
