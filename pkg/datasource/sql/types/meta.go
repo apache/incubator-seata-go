@@ -19,6 +19,8 @@ package types
 
 import (
 	"reflect"
+
+	"github.com/pkg/errors"
 )
 
 // ColumnMeta
@@ -116,4 +118,15 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 		}
 	}
 	return keys
+}
+
+func (m TableMeta) GetPrimaryKeyType() (int32, error) {
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for i := range index.Columns {
+				return index.Columns[i].DatabaseType, nil
+			}
+		}
+	}
+	return 0, errors.New("get primary key type error")
 }
