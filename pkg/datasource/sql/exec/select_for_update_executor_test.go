@@ -110,8 +110,12 @@ func (m mockRows) Next(dest []driver.Value) error {
 	if index == len(rowVals) {
 		return io.EOF
 	}
-	dest[0] = rowVals[index][0]
-	dest[1] = rowVals[index][1]
-	index++
+
+	if len(dest) >= 1 {
+		dest[0] = rowVals[index][0]
+		dest[1] = rowVals[index][1]
+		index++
+	}
+	
 	return nil
 }
