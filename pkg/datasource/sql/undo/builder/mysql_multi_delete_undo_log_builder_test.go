@@ -41,13 +41,13 @@ func TestBuildSelectSQLByMultiDelete(t *testing.T) {
 		{
 			sourceQuery:     []string{"delete from table_update_executor_test2 where id = ?", "delete from table_update_executor_test2 where id = ?"},
 			sourceQueryArgs: []driver.Value{3, 2},
-			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 where id =? or id=? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE id=? OR id=? FOR UPDATE",
 			expectQueryArgs: []driver.Value{3, 2},
 		},
 		{
 			sourceQuery:     []string{"delete from table_update_executor_test2 where id = ?", "delete from table_update_executor_test2 where name = ? and age = ?"},
 			sourceQueryArgs: []driver.Value{3, "seata-go", 4},
-			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 where id =? or id=? and age=? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE id=? OR name=? AND age=? FOR UPDATE",
 			expectQueryArgs: []driver.Value{3, "seata-go", 4},
 		},
 	}
@@ -59,6 +59,7 @@ func TestBuildSelectSQLByMultiDelete(t *testing.T) {
 			items, args, err := builder.buildBeforeImageSQL(tt.sourceQuery, tt.sourceQueryArgs)
 			assert.Nil(t, err)
 			assert.Equal(t, 1, len(items))
+			assert.Equal(t, items[0], tt.expectQuery)
 			assert.Equal(t, tt.expectQueryArgs, args)
 		})
 	}
