@@ -28,10 +28,13 @@ import (
 
 func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	var (
-		builder     = MySQLInsertOnDuplicateUndoLogBuilder{}
-		tableMeta   types.TableMeta
+		builder    = MySQLInsertOnDuplicateUndoLogBuilder{}
+		tableMeta1 types.TableMeta
+		//one index table
+		tableMeta2  types.TableMeta
 		columns     = make(map[string]types.ColumnMeta)
 		index       = make(map[string]types.IndexMeta)
+		index2      = make(map[string]types.IndexMeta)
 		columnMeta1 []types.ColumnMeta
 		columnMeta2 []types.ColumnMeta
 	)
@@ -63,13 +66,26 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		Values: columnMeta2,
 	}
 
-	tableMeta = types.TableMeta{
+	tableMeta1 = types.TableMeta{
 		Name:    "t_user",
 		Columns: columns,
 		Indexs:  index,
 	}
 
+	index2["id_name_age"] = types.IndexMeta{
+		Name:   "name_age_idx",
+		IType:  types.IndexTypeUniqueKey,
+		Values: columnMeta2,
+	}
+
+	tableMeta2 = types.TableMeta{
+		Name:    "t_user",
+		Columns: columns,
+		Indexs:  index2,
+	}
+
 	tests := []struct {
+		name             string
 		execCtx          *types.ExecContext
 		sourceQueryArgs  []driver.Value
 		expectQuery1     string
@@ -80,7 +96,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		{
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta},
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, "Link", 18},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
@@ -88,18 +104,51 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
 			expectQueryArgs2: []driver.Value{"Jack1", 81, 1},
 		},
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(id, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+			},
+			sourceQueryArgs:  []driver.Value{81, "Link", 18},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs1: []driver.Value{int64(1), "Jack1", 81},
+			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
+			expectQueryArgs2: []driver.Value{"Jack1", 81, int64(1)},
+		},
+		// multi insert one index
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(id, name, age) values(?,?,?),(?,?,?) on duplicate key update name = ?,age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
+			},
+			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, 2, "Michal", 35, "Link", 18},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs1: []driver.Value{"Jack1", 81, "Michal", 35},
+		},
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(id, name, age) values(?,'Jack1',?),(?,?,35) on duplicate key update name = 'Faker',age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
+			},
+			sourceQueryArgs:  []driver.Value{1, 81, 2, "Michal", 26},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs1: []driver.Value{"Jack1", 81, "Michal", int64(35)},
+		},
 	}
 	for _, tt := range tests {
-		c, err := parser.DoParser(tt.execCtx.Query)
-		tt.execCtx.ParseContext = c
-		query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
-		assert.Nil(t, err)
-		if query == tt.expectQuery1 {
-			assert.Equal(t, tt.expectQuery1, query)
-			assert.Equal(t, tt.expectQueryArgs1, args)
-		} else {
-			assert.Equal(t, tt.expectQuery2, query)
-			assert.Equal(t, tt.expectQueryArgs2, args)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := parser.DoParser(tt.execCtx.Query)
+			assert.Nil(t, err)
+			tt.execCtx.ParseContext = c
+			query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
+			assert.Nil(t, err)
+			if query == tt.expectQuery1 {
+				assert.Equal(t, tt.expectQuery1, query)
+				assert.Equal(t, tt.expectQueryArgs1, args)
+			} else {
+				assert.Equal(t, tt.expectQuery2, query)
+				assert.Equal(t, tt.expectQueryArgs2, args)
+			}
+		})
 	}
 }

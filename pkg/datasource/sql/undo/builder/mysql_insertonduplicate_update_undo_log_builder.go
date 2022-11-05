@@ -24,10 +24,16 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/test_driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/log"
 )
+
+func init() {
+	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, GetMySQLInsertOnDuplicateUndoLogBuilder)
+}
 
 type MySQLInsertOnDuplicateUndoLogBuilder struct {
 	BasicUndoLogBuilder
@@ -35,7 +41,19 @@ type MySQLInsertOnDuplicateUndoLogBuilder struct {
 	Args            []driver.Value
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) (*types.RecordImage, error) {
+func GetMySQLInsertOnDuplicateUndoLogBuilder() undo.UndoLogBuilder {
+	return &MySQLInsertOnDuplicateUndoLogBuilder{
+		BasicUndoLogBuilder: BasicUndoLogBuilder{},
+		BeforeSelectSql:     "",
+		Args:                make([]driver.Value, 0),
+	}
+}
+
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) GetExecutorType() types.ExecutorType {
+	return types.InsertOnDuplicateExecutor
+}
+
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	if execCtx.ParseContext.InsertStmt == nil {
 		log.Errorf("invalid insert stmt")
 		return nil, fmt.Errorf("invalid insert stmt")
@@ -66,7 +84,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-	return u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+	return []*types.RecordImage{image}, nil
 }
 
 // buildBeforeImageSQL build select sql from insert on duplicate update sql
@@ -75,7 +97,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		return "", nil, err
 	}
 	var selectArgs []driver.Value
-	insertNum, paramMap := buildImageParameters(insertStmt, args)
+	insertNum, paramMap := u.buildImageParameters(insertStmt, args)
 
 	sql := strings.Builder{}
 	sql.WriteString("SELECT * FROM " + metaData.Name + " ")
@@ -127,9 +149,13 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	return sql.String(), selectArgs, nil
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, beforeImage types.RecordImage, execCtx *types.ExecContext) (*types.RecordImage, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	selectSQL, selectArgs := u.BeforeSelectSql, u.Args
 
+	var beforeImage *types.RecordImage
+	if len(beforeImages) > 0 {
+		beforeImage = beforeImages[0]
+	}
 	primaryValueMap := make(map[string][]interface{})
 	for _, row := range beforeImage.Rows {
 		for _, col := range row.Columns {
@@ -168,7 +194,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, b
 	}
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
-	return u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+	return []*types.RecordImage{image}, nil
 }
 
 func (u *MySQLInsertOnDuplicateUndoLogBuilder) GetSQLType() types.SQLType {
@@ -198,16 +228,36 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 }
 
 // build sql params
-func buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value) {
-	parameterMap := make(map[string][]driver.Value)
-	length := len(insert.OnDuplicate)
-	args = args[:len(args)-length]
-
-	rows := len(args) / len(insert.Columns)
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value) {
+	var (
+		parameterMap = make(map[string][]driver.Value)
+		selectArgs   = make([]driver.Value, 0)
+	)
+	// values (?,?,?),(?,?,"Jack")
+	for _, list := range insert.Lists {
+		for _, node := range list {
+			buildSelectArgs(node, args, &selectArgs)
+		}
+	}
+	rows := len(insert.Lists)
 	for i, column := range insert.Columns {
 		for j := 0; j < rows; j++ {
-			parameterMap[column.Name.L] = append(parameterMap[column.Name.L], args[i+j*len(insert.Columns)])
+			parameterMap[column.Name.L] = append(parameterMap[column.Name.L], selectArgs[i+j*len(insert.Columns)])
 		}
 	}
 	return rows, parameterMap
+}
+
+func buildSelectArgs(node ast.Node, args []driver.Value, selectArgs *[]driver.Value) {
+	if node == nil {
+		return
+	}
+	switch node.(type) {
+	case *test_driver.ValueExpr:
+		*selectArgs = append(*selectArgs, node.(*test_driver.ValueExpr).Datum.GetValue())
+		break
+	case *test_driver.ParamMarkerExpr:
+		*selectArgs = append(*selectArgs, args[int32(node.(*test_driver.ParamMarkerExpr).Order)])
+		break
+	}
 }
