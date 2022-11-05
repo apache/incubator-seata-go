@@ -18,14 +18,15 @@
 package parser
 
 import (
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	_ "github.com/arana-db/parser/test_driver"
 )
 
 func TestDoParser(t *testing.T) {
-	// Todo CI fault， pls solve it
-	/*type tt struct {
+	type tt struct {
 		sql     string
 		sqlType types.SQLType
 		types   types.ExecutorType
@@ -74,6 +75,5 @@ func TestDoParser(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, parser.ExecutorType, t2.types)
 		assert.Equal(t, parser.SQLType, t2.sqlType)
-	}*/
-
+	}
 }
