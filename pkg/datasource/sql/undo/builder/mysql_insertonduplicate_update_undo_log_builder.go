@@ -22,10 +22,14 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
+)
 
+import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -199,10 +203,6 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, e
 		return nil, err
 	}
 	return []*types.RecordImage{image}, nil
-}
-
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) GetSQLType() types.SQLType {
-	return types.SQLTypeInsert
 }
 
 func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) error {
