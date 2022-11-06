@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"context"
 	"testing"
 
 	"database/sql/driver"
@@ -150,6 +151,113 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 				assert.Equal(t, tt.expectQuery2, query)
 				assert.Equal(t, tt.expectQueryArgs2, args)
 			}
+		})
+	}
+}
+
+func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
+	var (
+		builder = MySQLInsertOnDuplicateUndoLogBuilder{}
+	)
+	tests := []struct {
+		name             string
+		beforeSelectSql  string
+		beforeSelectArgs []driver.Value
+		beforeImages     []*types.RecordImage
+		expectQuery      string
+		expectQueryArgs  []driver.Value
+	}{
+		{
+			beforeSelectSql:  "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
+			beforeSelectArgs: []driver.Value{1, "Jack1", 81},
+			beforeImages: []*types.RecordImage{
+				{
+					TableName: "t_user",
+					Rows: []types.RowImage{
+						{
+							Columns: []types.ColumnImage{
+								{
+									KeyType: types.IndexTypePrimaryKey,
+									Name:    "id",
+									Value:   2,
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "name",
+									Value:   "Jack",
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "age",
+									Value:   18,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? ) ",
+			expectQueryArgs: []driver.Value{1, "Jack1", 81, 2},
+		},
+		{
+			beforeSelectSql:  "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? ) ",
+			beforeSelectArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18},
+			beforeImages: []*types.RecordImage{
+				{
+					TableName: "t_user",
+					Rows: []types.RowImage{
+						{
+							Columns: []types.ColumnImage{
+								{
+									KeyType: types.IndexTypePrimaryKey,
+									Name:    "id",
+									Value:   1,
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "name",
+									Value:   "Jack",
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "age",
+									Value:   18,
+								},
+							},
+						},
+						{
+							Columns: []types.ColumnImage{
+								{
+									KeyType: types.IndexTypePrimaryKey,
+									Name:    "id",
+									Value:   2,
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "name",
+									Value:   "Michael",
+								},
+								{
+									KeyType: types.IndexTypeUniqueKey,
+									Name:    "age",
+									Value:   30,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (id = ? ) ",
+			expectQueryArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18, 1, 2},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder.BeforeSelectSql = tt.beforeSelectSql
+			builder.Args = tt.beforeSelectArgs
+			query, args := builder.buildAfterImageSQL(context.TODO(), tt.beforeImages)
+			assert.Equal(t, tt.expectQuery, query)
+			assert.Equal(t, tt.expectQueryArgs, args)
 		})
 	}
 }

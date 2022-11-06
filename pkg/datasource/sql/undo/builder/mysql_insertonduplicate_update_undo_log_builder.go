@@ -154,6 +154,28 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 }
 
 func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+	afterSelectSql, selectArgs := u.buildAfterImageSQL(ctx, beforeImages)
+	stmt, err := execCtx.Conn.Prepare(afterSelectSql)
+	if err != nil {
+		log.Errorf("build prepare stmt: %+v", err)
+		return nil, err
+	}
+
+	rows, err := stmt.Query(selectArgs)
+	if err != nil {
+		log.Errorf("stmt query: %+v", err)
+		return nil, err
+	}
+	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := execCtx.MetaDataMap[tableName]
+	image, err := u.buildRecordImages(rows, metaData)
+	if err != nil {
+		return nil, err
+	}
+	return []*types.RecordImage{image}, nil
+}
+
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildAfterImageSQL(ctx context.Context, beforeImages []*types.RecordImage) (string, []driver.Value) {
 	selectSQL, selectArgs := u.BeforeSelectSql, u.Args
 
 	var beforeImage *types.RecordImage
@@ -185,24 +207,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, e
 	}
 	selectArgs = append(selectArgs, primaryValues...)
 	log.Infof("build after select sql by insert on duplicate sourceQuery, sql {}", afterImageSql.String())
-	stmt, err := execCtx.Conn.Prepare(afterImageSql.String())
-	if err != nil {
-		log.Errorf("build prepare stmt: %+v", err)
-		return nil, err
-	}
-
-	rows, err := stmt.Query(selectArgs)
-	if err != nil {
-		log.Errorf("stmt query: %+v", err)
-		return nil, err
-	}
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-	image, err := u.buildRecordImages(rows, metaData)
-	if err != nil {
-		return nil, err
-	}
-	return []*types.RecordImage{image}, nil
+	return afterImageSql.String(), selectArgs
 }
 
 func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) error {
