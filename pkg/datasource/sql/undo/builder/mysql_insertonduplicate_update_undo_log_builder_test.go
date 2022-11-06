@@ -18,10 +18,11 @@
 package builder
 
 import (
-	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"testing"
 
+	"database/sql/driver"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
 )
