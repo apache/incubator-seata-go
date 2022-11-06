@@ -20,18 +20,24 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 	"strings"
+)
 
+import (
 	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
 func init() {
-	undo.RegistrUndoLogBuilder(types.InsertExecutor, GetMySQLInsertUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.InsertExecutor, GetMySQLInsertUndoLogBuilder)
 }
 
 type MySQLInsertUndoLogBuilder struct {
@@ -98,11 +104,6 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	}
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	// build check sql
-	sb := strings.Builder{}
-	sb.WriteString("SELECT * FROM " + tableName)
-	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkColumnNameList), "mysql", maxInSize)
-	sb.WriteString(" " + whereSQL + " ")
 
 	dataType, err := meta.GetPrimaryKeyType()
 	if err != nil {
@@ -121,6 +122,11 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 			})
 		}
 	}
+	// build check sql
+	sb := strings.Builder{}
+	sb.WriteString("SELECT * FROM " + tableName)
+	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkRowImages), "mysql", maxInSize)
+	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(pkRowImages, meta.GetPrimaryKeyOnlyName())
 }
 
@@ -180,7 +186,6 @@ func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *t
 
 	pkColumnNameListStr := strings.Join(pkColumnNameList, ",") + ","
 
-	//todo 这个方式并不快 改进一下
 	for _, column := range parseCtx.InsertStmt.Columns {
 		if strings.Contains(pkColumnNameListStr, column.Name.O) ||
 			strings.Contains(pkColumnNameListStr, column.Name.O) {
@@ -259,12 +264,13 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(columnName string
 	}
 
 	pkValuesMap := make(map[string][]interface{})
-	for pkName, pkIndex := range pkIndexMap {
-		if pkIndex >= len(parseCtx.InsertStmt.Lists) {
-			return nil, errors.New("pkIndex out of range")
-		}
-		for i := range parseCtx.InsertStmt.Lists[pkIndex] {
-			if node, ok := parseCtx.InsertStmt.Lists[pkIndex][i].(ast.ValueExpr); ok {
+
+	for _, list := range parseCtx.InsertStmt.Lists {
+		for pkName, pkIndex := range pkIndexMap {
+			if pkIndex >= len(list) {
+				return nil, errors.New("pkIndex out of range")
+			}
+			if node, ok := list[pkIndex].(ast.ValueExpr); ok {
 				pkValuesMap[pkName] = append(pkValuesMap[pkName], node.GetValue())
 			}
 		}
@@ -317,7 +323,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 	metaData := execCtx.MetaDataMap[tableName]
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
-	if len(pkValuesMap) == 0 {
+	if len(pkMetaMap) == 0 {
 		return nil, errors.New("pk map is empty")
 	}
 	var autoColumnName string
@@ -344,7 +350,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 	// If there is batch insert
 	// do auto increment base LAST_INSERT_ID and variable `auto_increment_increment`
 	if lastInsertId > 0 && updateCount > 1 && canAutoIncrement(pkMetaMap) {
-		return u.autoGeneratePks(execCtx, autoColumnName, int(lastInsertId), int(updateCount))
+		return u.autoGeneratePks(execCtx, autoColumnName, lastInsertId, updateCount)
 	}
 
 	if lastInsertId > 0 {
@@ -367,10 +373,10 @@ func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
 	return false
 }
 
-func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int) (map[string][]interface{}, error) {
-	var step int
+func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {
+	var step int64
 	if u.IncrementStep > 0 {
-		step = u.IncrementStep
+		step = int64(u.IncrementStep)
 	} else {
 		// get step by query sql
 		stmt, err := execCtx.Conn.Prepare("SHOW VARIABLES LIKE 'auto_increment_increment'")
@@ -392,7 +398,7 @@ func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, 
 			}
 
 			if curStepInt, ok := curStep[0].(int64); ok {
-				step = int(curStepInt)
+				step = curStepInt
 			}
 		} else {
 			return nil, errors.New("query is empty")
@@ -404,8 +410,9 @@ func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, 
 	}
 
 	pkValues := make([]interface{}, 0)
-	for i := 0; i < updateCount; i++ {
-		pkValues = append(pkValues, lastInsetId+updateCount*step)
+	var i int64
+	for i = 0; i < updateCount; i++ {
+		pkValues = append(pkValues, lastInsetId+i*step)
 	}
 	pkValuesMap := make(map[string][]interface{})
 	pkValuesMap[autoColumnName] = pkValues
