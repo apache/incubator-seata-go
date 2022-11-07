@@ -8,14 +8,14 @@ func (t *fieldNodeTree) ParseOmitValue(key, omitScene string, el interface{}) {
 
 	typeOf := reflect.TypeOf(el)
 	valueOf := reflect.ValueOf(el)
-TakePointerValue: //取指针的值
+TakePointerValue: //get pointer value
 	switch typeOf.Kind() {
-	case reflect.Ptr: //如果是指针类型则取地址重新判断类型
+	case reflect.Ptr: //If it is a pointer type, take the address and re-judg the type
 		typeOf = typeOf.Elem()
 		goto TakePointerValue
-	case reflect.Struct: //如果是字段结构体需要继续递归解析结构体字段所有值
+	case reflect.Struct: //If it is a field structure, you need to continue to recursively parse all the values of the structure field
 
-	TakeValueOfPointerValue: //这里主要是考虑到有可能用的不是一级指针，如果是***int 等多级指针就需要不断的取值
+	TakeValueOfPointerValue: //The main reason here is to consider that it may not be a first-level pointer. If it is a multi-level pointer such as ***int, it needs to continuously take values.
 		if valueOf.Kind() == reflect.Ptr {
 			if valueOf.IsNil() {
 				t.IsNil = true
@@ -33,7 +33,7 @@ TakePointerValue: //取指针的值
 			t.Val = valueOf.Interface()
 			return
 		}
-		if typeOf.NumField() == 0 { //如果是一个struct{}{}类型的字段或者是一个空的自定义结构体编码为{}
+		if typeOf.NumField() == 0 { //If it is a field of type struct{}{} or an empty custom structure encoded as {}
 			t.Key = key
 			t.Val = struct{}{}
 			return
@@ -55,13 +55,6 @@ TakePointerValue: //取指针的值
 				}
 				isAnonymous = typeOf.Field(i).Anonymous && tag.IsAnonymous ////什么时候才算真正的匿名字段？ Book中Article才算匿名结构体
 			}
-
-			//type Book struct {
-			//	BookName string `json:"bookName,select(resp)"`
-			//	*Page    `json:"page,select(resp)"` // 这个不算匿名字段，为什么？因为tag里打了字段名表示要当作一个字段来对待，
-			//	Article    `json:",select(resp)"` //这种情况才是真正的匿名字段，因为tag里字段名为空字符串
-			//}
-			//
 
 			tree := &fieldNodeTree{
 				Key:         tag.UseFieldName,
@@ -99,11 +92,8 @@ TakePointerValue: //取指针的值
 			}
 		}
 		if t.ChildNodes == nil && !t.IsAnonymous {
-			//t.Val = struct{}{} //这样表示返回{}
 
-			t.IsAnonymous = true //给他搞成匿名字段的处理方式，直接忽略字段
-			//说明该结构体上没有选择任何字段 应该返回"字段名:{}"？还是直接连字段名都不显示？ 我也不清楚怎么好，后面再说
-			//反正你啥也不选这字段留着也没任何意义，要就不显示了，至少还能节省一点空间
+			t.IsAnonymous = true
 		}
 	case reflect.Bool,
 		reflect.String,
@@ -162,7 +152,7 @@ TakePointerValue: //取指针的值
 	case reflect.Slice, reflect.Array:
 		l := valueOf.Len()
 		if l == 0 {
-			t.Val = nilSlice //空数组空切片直接解析为[],原生的json解析空的切片和数组会被解析为null，真的很烦，遇到脾气暴躁的前端直接跟你开撕。
+			t.Val = nilSlice // Avoid empty arrays from resolving to null
 			return
 		}
 		t.IsSlice = true
