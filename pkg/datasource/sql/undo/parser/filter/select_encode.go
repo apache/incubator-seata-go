@@ -80,7 +80,7 @@ TakePointerValue:
 			}
 
 			if tag.Omitempty {
-				if value.IsZero() { //为零值忽略
+				if value.IsZero() {
 					continue
 				}
 			}
@@ -119,7 +119,7 @@ TakePointerValue:
 			valueOf = valueOf.Elem()
 		}
 		keys := valueOf.MapKeys()
-		if len(keys) == 0 { //空map情况下解析为{}
+		if len(keys) == 0 {
 			t.Val = struct{}{}
 			return
 		}
@@ -153,7 +153,7 @@ TakePointerValue:
 	case reflect.Slice, reflect.Array:
 		l := valueOf.Len()
 		if l == 0 {
-			t.Val = nilSlice //空数组空切片直接解析为[]
+			t.Val = nilSlice
 			return
 		}
 		t.IsSlice = true

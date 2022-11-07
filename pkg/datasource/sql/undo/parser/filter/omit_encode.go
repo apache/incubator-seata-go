@@ -28,7 +28,7 @@ TakePointerValue: //get pointer value
 			}
 		}
 
-		if valueOf.Convert(timeTypes).Bool() { //是time.Time类型或者底层是time.Time类型
+		if valueOf.Convert(timeTypes).Bool() {
 			t.Key = key
 			t.Val = valueOf.Interface()
 			return
@@ -53,7 +53,7 @@ TakePointerValue: //get pointer value
 				if tag.IsOmitField || !tag.IsSelect {
 					continue
 				}
-				isAnonymous = typeOf.Field(i).Anonymous && tag.IsAnonymous ////什么时候才算真正的匿名字段？ Book中Article才算匿名结构体
+				isAnonymous = typeOf.Field(i).Anonymous && tag.IsAnonymous
 			}
 
 			tree := &fieldNodeTree{
@@ -78,7 +78,7 @@ TakePointerValue: //get pointer value
 				}
 			}
 			if tag.Omitempty {
-				if value.IsZero() { //为零值忽略
+				if value.IsZero() {
 					continue
 				}
 			}
@@ -118,7 +118,7 @@ TakePointerValue: //get pointer value
 			valueOf = valueOf.Elem()
 		}
 		keys := valueOf.MapKeys()
-		if len(keys) == 0 { //空map情况下解析为{}
+		if len(keys) == 0 {
 			t.Val = struct{}{}
 			return
 		}

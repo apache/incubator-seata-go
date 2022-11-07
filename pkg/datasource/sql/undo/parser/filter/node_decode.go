@@ -102,7 +102,6 @@ func (t *fieldNodeTree) AnonymousAddChild(tree *fieldNodeTree) *fieldNodeTree {
 // MustJSON will panic directly if parsing fails
 func (t *fieldNodeTree) MustJSON() string {
 	j, err := json.Marshal(t.Marshal())
-	//j, err := sonic.Marshal(t.Marshal()) //这个目前兼容性不是特别好，先用官方库
 	if err != nil {
 		panic(err)
 	}
