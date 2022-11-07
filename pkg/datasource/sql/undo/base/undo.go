@@ -112,7 +112,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 		return err
 	}
 
-	branchIDStr, err := Int64Slice2Str(branchID, ",")
+	branchIDStr, err := util.Int64Slice2Str(branchID, ",")
 	if err != nil {
 		log.Errorf("slice to string transfer fail, err: %v", err)
 		return err
@@ -127,26 +127,9 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 	return nil
 }
 
-// FlushUndoLog flush undo log
+// FlushUndoLog
 func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
-	if !txCtx.HasUndoLog() {
-		return nil
-	}
-	logs := []undo.SQLUndoLog{
-		{
-			SQLType:   types.SQLTypeInsert,
-			TableName: constant.UndoLogTableName,
-			Images:    *txCtx.RoundImages,
-		},
-	}
-	branchUndoLogs := []undo.BranchUndoLog{
-		{
-			Xid:      txCtx.XaID,
-			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
-			Logs:     logs,
-		},
-	}
-	return m.InsertUndoLog(branchUndoLogs, tx)
+	return nil
 }
 
 // RunUndo
@@ -171,6 +154,27 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 	}
 
 	return true, nil
+}
+
+// getBatchDeleteUndoLogSql build batch delete undo log
+func (m *BaseUndoLogManager) getBatchInsertUndoLogSql(logs []undo.BranchUndoLog) (string, error) {
+	if len(logs) == 0 {
+		return "", ErrorInsertUndoLogParamsFault
+	}
+
+	var undoLogInsertSql strings.Builder
+	for i := 0; i < len(logs); i++ {
+		undoLogInsertSql.WriteString(constant.InsertFrom)
+		undoLogInsertSql.WriteString(constant.UndoLogTableName)
+		undoLogInsertSql.WriteString(" VALUES ( ")
+		undoLogInsertSql.WriteString(logs[i].Xid)
+		undoLogInsertSql.WriteString(" , ")
+		undoLogInsertSql.WriteString(logs[i].BranchID)
+		undoLogInsertSql.WriteString(" , ")
+		undoLogInsertSql.WriteString(logs[i].Logs[0].SQLType)
+	}
+
+	return undoLogInsertSql.String(), nil
 }
 
 // getBatchDeleteUndoLogSql build batch delete undo log
@@ -209,21 +213,4 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 	}
 
 	str.WriteString(") ")
-}
-
-// Int64Slice2Str
-func Int64Slice2Str(values interface{}, sep string) (string, error) {
-	v, ok := values.([]int64)
-	if !ok {
-		return "", errors.New("param type is fault")
-	}
-
-	var valuesText []string
-
-	for i := range v {
-		text := strconv.FormatInt(v[i], 10)
-		valuesText = append(valuesText, text)
-	}
-
-	return strings.Join(valuesText, sep), nil
 }
