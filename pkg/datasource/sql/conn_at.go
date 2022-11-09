@@ -71,7 +71,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
 
-	if IsGlobalTx(ctx) {
+	if tm.IsGlobalTx(ctx) {
 		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
 	}
@@ -85,13 +85,15 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 }
 
 func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
-	onceTx := IsGlobalTx(ctx) && c.autoCommit
+	onceTx := tm.IsGlobalTx(ctx) && c.autoCommit // todo 待确认
 
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.XaID = tm.GetXID(ctx)
+		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
+		c.txCtx.GlobalLockRequire = true
 	}
 
 	return onceTx

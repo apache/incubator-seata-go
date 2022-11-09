@@ -32,9 +32,9 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.MultiDeleteExecutor, GetMySQLMultiDeleteUndoLogBuilder)
-}
+//func init() {
+//	undo.RegisterUndoLogBuilder(types.MultiDeleteExecutor, GetMySQLMultiDeleteUndoLogBuilder)
+//}
 
 type multiDelete struct {
 	sql   string
@@ -91,7 +91,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 			return nil, err
 		}
 
-		record, err = u.buildRecordImages(rows, meDataMap)
+		record, err = u.buildRecordImages(rows, &meDataMap)
 		if err != nil {
 			log.Errorf("record images : %+v", err)
 			return nil, err
