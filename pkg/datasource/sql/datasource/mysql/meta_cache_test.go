@@ -42,9 +42,8 @@ func TestGetTableMeta(t *testing.T) {
 		defer db.Close()
 
 		ctx := context.Background()
-		conn, _ := db.Conn(ctx)
 
-		tableMeta, err := metaInstance.GetTableMeta(ctx, "undo_log", conn)
+		tableMeta, err := metaInstance.GetTableMeta(ctx, "seata_client", "undo_log", nil)
 		assert.NilError(t, err)
 
 		t.Logf("%+v", tableMeta)
