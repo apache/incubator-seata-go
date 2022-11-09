@@ -100,7 +100,7 @@ type TransactionContext struct {
 	// BranchID transaction branch unique id
 	BranchID uint64
 	// XaID XA id
-	XaID string // todo 是否可以删了
+	XaID string // todo delete
 	// XID global transaction id
 	XID string
 	// GlobalLockRequire

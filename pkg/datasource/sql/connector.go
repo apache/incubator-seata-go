@@ -20,8 +20,9 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/go-sql-driver/mysql"
 	"sync"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )

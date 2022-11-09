@@ -21,9 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
+
 	"github.com/arana-db/parser/model"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"

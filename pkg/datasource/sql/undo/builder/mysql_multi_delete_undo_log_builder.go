@@ -32,10 +32,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-//func init() {
-//	undo.RegisterUndoLogBuilder(types.MultiDeleteExecutor, GetMySQLMultiDeleteUndoLogBuilder)
-//}
-
 type multiDelete struct {
 	sql   string
 	clear bool

@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"database/sql/driver"
+
 	"github.com/stretchr/testify/assert"
 )
 
