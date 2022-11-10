@@ -36,6 +36,10 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+const (
+	SqlPlaceholder = "?"
+)
+
 func init() {
 	undo.RegisterUndoLogBuilder(types.InsertExecutor, GetMySQLInsertUndoLogBuilder)
 }
@@ -104,22 +108,30 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	}
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+	if len(pkColumnNameList) == 0 {
+		return "", nil
+	}
 
-	dataType, err := meta.GetPrimaryKeyType()
+	dataTypeMap, err := meta.GetPrimaryKeyTypeMap()
 	if err != nil {
 		return "", nil
 	}
-	pkRowImages := make([]types.RowImage, 0)
-	for key, array := range pkValuesMap {
-		tmpKey := key
-		tmpArray := array
-		for _, obj := range tmpArray {
+	if len(dataTypeMap) != len(pkColumnNameList) {
+		return "", nil
+	}
+	var pkRowImages []types.RowImage
+
+	rowSize := len(pkValuesMap[pkColumnNameList[0]])
+	for i := 0; i < rowSize; i++ {
+		for _, name := range pkColumnNameList {
+			tmpKey := name
+			tmpArray := pkValuesMap[tmpKey]
 			pkRowImages = append(pkRowImages, types.RowImage{
 				Columns: []types.ColumnImage{{
 					KeyType: types.IndexTypePrimaryKey,
 					Name:    tmpKey,
-					Type:    int16(dataType),
-					Value:   obj,
+					Type:    int16(dataTypeMap[tmpKey]),
+					Value:   tmpArray[i],
 				}},
 			})
 		}
@@ -127,9 +139,9 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	// build check sql
 	sb := strings.Builder{}
 	sb.WriteString("SELECT * FROM " + tableName)
-	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkRowImages), "mysql", maxInSize)
-	sb.WriteString(" " + whereSQL + " ")
-	return sb.String(), u.buildPKParams(pkRowImages, meta.GetPrimaryKeyOnlyName())
+	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkValuesMap[pkColumnNameList[0]]), "mysql", maxInSize)
+	sb.WriteString(" WHERE " + whereSQL + " ")
+	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList)
 }
 
 func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
@@ -140,7 +152,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 	if len(pkColumnNameList) == 1 {
 		if u.containsPK(meta, parseCtx) {
 			// the insert sql contain pk value
-			pkValuesMap, err = u.getPkValuesByColumn(execCtx, pkColumnNameList[0])
+			pkValuesMap, err = u.getPkValuesByColumn(execCtx)
 			if err != nil {
 				return nil, err
 			}
@@ -151,7 +163,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 				return nil, err
 			}
 		} else {
-			pkValuesMap, err = u.getPkValuesByColumn(execCtx, pkColumnNameList[0])
+			pkValuesMap, err = u.getPkValuesByColumn(execCtx)
 			if err != nil {
 				return nil, err
 			}
@@ -160,7 +172,10 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 		//when there is multiple pk in the table
 		//1,all pk columns are filled value.
 		//2,the auto increment pk column value is null, and other pk value are not null.
-		pkValuesMap, err = u.getPkValuesByColumn(execCtx, pkColumnNameList[0])
+		pkValuesMap, err = u.getPkValuesByColumn(execCtx)
+		if err != nil {
+			return nil, err
+		}
 		for _, columnName := range pkColumnNameList {
 			if _, ok := pkValuesMap[columnName]; !ok {
 				curPkValuesMap, err := u.getPkValuesByAuto(execCtx)
@@ -190,7 +205,7 @@ func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *t
 
 	for _, column := range parseCtx.InsertStmt.Columns {
 		if strings.Contains(pkColumnNameListStr, column.Name.O) ||
-			strings.Contains(pkColumnNameListStr, column.Name.O) {
+			strings.Contains(pkColumnNameListStr, column.Name.L) {
 			return true
 		}
 	}
@@ -206,7 +221,7 @@ func (u *MySQLInsertUndoLogBuilder) containPK(columnName string, meta types.Tabl
 		return false
 	}
 	for _, name := range pkColumnNameList {
-		if strings.ToUpper(name) == strings.ToUpper(newColumnName) {
+		if strings.EqualFold(name, newColumnName) {
 			return true
 		}
 	}
@@ -215,12 +230,12 @@ func (u *MySQLInsertUndoLogBuilder) containPK(columnName string, meta types.Tabl
 
 // getPkIndex get pk index
 // return the key is pk column name and the value is index of the pk column
-func (u *MySQLInsertUndoLogBuilder) getPkIndex(columnName string, parseCtx *types.ParseContext, meta types.TableMeta) map[string]int {
+func (u *MySQLInsertUndoLogBuilder) getPkIndex(InsertStmt *ast.InsertStmt, meta types.TableMeta) map[string]int {
 	pkIndexMap := make(map[string]int)
-	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Columns == nil {
+	if InsertStmt == nil {
 		return pkIndexMap
 	}
-	insertColumnsSize := len(parseCtx.InsertStmt.Columns)
+	insertColumnsSize := len(InsertStmt.Columns)
 	if insertColumnsSize == 0 {
 		return pkIndexMap
 	}
@@ -229,7 +244,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(columnName string, parseCtx *type
 	}
 	if len(meta.Columns) > 0 {
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
-			sqlColumnName := parseCtx.InsertStmt.Columns[paramIdx].Name.O
+			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
 			if u.containPK(sqlColumnName, meta) {
 				pkIndexMap[sqlColumnName] = paramIdx
 			}
@@ -252,8 +267,11 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(columnName string, parseCtx *type
 
 // parsePkValuesFromStatement parse primary key value from statement.
 // return the primary key and values<key:primary key,value:primary key values></key:primary>
-func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(columnName string, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
-	pkIndexMap := u.getPkIndex(columnName, parseCtx, meta)
+func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
+	if insertStmt == nil {
+		return nil, nil
+	}
+	pkIndexMap := u.getPkIndex(insertStmt, meta)
 	if pkIndexMap == nil || len(pkIndexMap) == 0 {
 		return nil, errors.New("pkIndex is not found")
 	}
@@ -263,21 +281,77 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(columnName string
 		pkIndexArray = append(pkIndexArray, tmpVal)
 	}
 
-	if parseCtx == nil || parseCtx.InsertStmt == nil || len(parseCtx.InsertStmt.Lists) == 0 {
+	if insertStmt == nil || len(insertStmt.Lists) == 0 {
 		return nil, errors.New("parCtx is nil, perhaps InsertStmt is empty")
 	}
 
 	pkValuesMap := make(map[string][]interface{})
 
-	for _, list := range parseCtx.InsertStmt.Lists {
-		for pkName, pkIndex := range pkIndexMap {
-			tmpPkName := pkName
-			tmpPkIndex := pkIndex
-			if tmpPkIndex >= len(list) {
-				return nil, errors.New("pkIndex out of range")
+	if nameValues != nil && len(nameValues) > 0 {
+		//use prepared statements
+		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
+		if err != nil {
+			return nil, err
+		}
+		if insertRows == nil || len(insertRows) == 0 {
+			return nil, err
+		}
+		totalPlaceholderNum := -1
+		for _, row := range insertRows {
+			if len(row) == 0 {
+				continue
 			}
-			if node, ok := list[tmpPkIndex].(ast.ValueExpr); ok {
-				pkValuesMap[tmpPkName] = append(pkValuesMap[tmpPkName], node.GetValue())
+			currentRowPlaceholderNum := -1
+			for _, r := range row {
+				rStr, ok := r.(string)
+				if ok && strings.EqualFold(rStr, SqlPlaceholder) {
+					totalPlaceholderNum += 1
+					currentRowPlaceholderNum += 1
+				}
+			}
+			var pkKey string
+			var pkIndex int
+			var pkValues []interface{}
+			for key, index := range pkIndexMap {
+				curKey := key
+				curIndex := index
+
+				pkKey = curKey
+				pkValues = pkValuesMap[pkKey]
+
+				pkIndex = curIndex
+				pkValue := row[pkIndex]
+				pkValueStr, ok := pkValue.(string)
+				if ok && strings.EqualFold(pkValueStr, SqlPlaceholder) {
+					currentRowNotPlaceholderNumBeforePkIndex := 0
+					for i := range row {
+						r := row[i]
+						rStr, ok := r.(string)
+						if i < pkIndex && ok && !strings.EqualFold(rStr, SqlPlaceholder) {
+							currentRowNotPlaceholderNumBeforePkIndex++
+						}
+					}
+					idx := totalPlaceholderNum - currentRowPlaceholderNum + pkIndex - currentRowNotPlaceholderNumBeforePkIndex
+					pkValues = append(pkValues, nameValues[idx].Value)
+				} else {
+					pkValues = append(pkValues, pkValue)
+				}
+				if _, ok := pkValuesMap[pkKey]; !ok {
+					pkValuesMap[pkKey] = pkValues
+				}
+			}
+		}
+	} else {
+		for _, list := range insertStmt.Lists {
+			for pkName, pkIndex := range pkIndexMap {
+				tmpPkName := pkName
+				tmpPkIndex := pkIndex
+				if tmpPkIndex >= len(list) {
+					return nil, errors.New("pkIndex out of range")
+				}
+				if node, ok := list[tmpPkIndex].(ast.ValueExpr); ok {
+					pkValuesMap[tmpPkName] = append(pkValuesMap[tmpPkName], node.GetValue())
+				}
 			}
 		}
 	}
@@ -286,14 +360,14 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(columnName string
 }
 
 // getPkValuesByColumn get pk value by column.
-func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecContext, columnName string) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecContext) (map[string][]interface{}, error) {
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
 		return nil, nil
 	}
 	parseCtx := execCtx.ParseContext
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	meta := execCtx.MetaDataMap[tableName]
-	pkValuesMap, err := u.parsePkValuesFromStatement(columnName, parseCtx, meta)
+	pkValuesMap, err := u.parsePkValuesFromStatement(parseCtx.InsertStmt, meta, execCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +436,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 	}
 
 	if lastInsertId > 0 {
-		pkValues := make([]interface{}, 0)
+		var pkValues []interface{}
 		pkValues = append(pkValues, lastInsertId)
 		pkValuesMap[autoColumnName] = pkValues
 		return pkValuesMap, nil
@@ -400,7 +474,7 @@ func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, 
 		}
 
 		if len(rows.Columns()) > 0 {
-			curStep := make([]driver.Value, 0)
+			var curStep []driver.Value
 			if err := rows.Next(curStep); err != nil {
 				return nil, err
 			}
@@ -417,7 +491,7 @@ func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, 
 		return nil, errors.New("get increment step error")
 	}
 
-	pkValues := make([]interface{}, 0)
+	var pkValues []interface{}
 	var i int64
 	for i = 0; i < updateCount; i++ {
 		pkValues = append(pkValues, lastInsetId+i*step)
@@ -443,21 +517,20 @@ func containsColumns(parseCtx *types.ParseContext) bool {
 	return len(parseCtx.InsertStmt.Lists) > 0
 }
 
-func getInsertRows(parseCtx *types.ParseContext, pkIndexArray []int) ([][]interface{}, error) {
-	if parseCtx == nil || parseCtx.InsertStmt == nil {
+func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interface{}, error) {
+	if insertStmt == nil {
 		return nil, nil
 	}
-	if len(parseCtx.InsertStmt.Lists) == 0 {
+	if len(insertStmt.Lists) == 0 {
 		return nil, nil
 	}
-	rows := make([][]interface{}, 0)
+	var rows [][]interface{}
 
-	for _, nodes := range parseCtx.InsertStmt.Lists {
-		row := make([]interface{}, 0)
+	for _, nodes := range insertStmt.Lists {
+		var row []interface{}
 		for i, node := range nodes {
-			if _, ok := node.(*ast.IsNullExpr); ok {
-				//todo: row.add(Null.get());
-				row = append(row, nil)
+			if _, ok := node.(ast.ParamMarkerExpr); ok {
+				row = append(row, SqlPlaceholder)
 			} else if newNode, ok := node.(ast.ValueExpr); ok {
 				row = append(row, newNode.GetValue())
 			} else if newNode, ok := node.(*ast.VariableExpr); ok {
@@ -472,8 +545,8 @@ func getInsertRows(parseCtx *types.ParseContext, pkIndexArray []int) ([][]interf
 				}
 				row = append(row, ast.DefaultExpr{})
 			}
-			rows = append(rows, row)
 		}
+		rows = append(rows, row)
 	}
 	return rows, nil
 }

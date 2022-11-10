@@ -33,13 +33,17 @@ import (
 
 func TestBuildSelectSQLByInsert(t *testing.T) {
 	tests := []struct {
-		name             string
-		query            string
-		metaDataMap      map[string]types.TableMeta
-		expectQuery      string
-		expectQueryArgs  []driver.Value
-		mockInsertResult mockInsertResult
-		IncrementStep    int
+		name              string
+		query             string
+		queryArgs         []driver.Value
+		NamedValues       []driver.NamedValue
+		metaDataMap       map[string]types.TableMeta
+		expectQuery       string
+		expectQueryArgs   []driver.Value
+		orExpectQuery     string
+		orExpectQueryArgs []driver.Value
+		mockInsertResult  mockInsertResult
+		IncrementStep     int
 	}{
 		{
 			name:  "test-1",
@@ -69,7 +73,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
@@ -100,7 +104,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{int64(20)},
 		},
 		{
@@ -134,7 +138,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 			mockInsertResult: NewMockInsertResult(100, 1),
-			expectQuery:      "SELECT * FROM user (`user_id`) IN ((?)) ",
+			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs:  []driver.Value{int64(100)},
 		},
 		{
@@ -169,8 +173,136 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			},
 			mockInsertResult: NewMockInsertResult(100, 2),
 			IncrementStep:    2,
-			expectQuery:      "SELECT * FROM user (`user_id`) IN ((?),(?)) ",
+			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?),(?)) ",
 			expectQueryArgs:  []driver.Value{int64(100), int64(102)},
+		},
+		{
+			name:      "test-placeholder",
+			query:     "insert into user(id,name) values (?,?)",
+			queryArgs: []driver.Value{19, "Tom"},
+			NamedValues: []driver.NamedValue{
+				{
+					Name:  "id",
+					Value: 19,
+				},
+				{
+					Name:  "name",
+					Value: "Tom",
+				},
+			},
+			metaDataMap: map[string]types.TableMeta{
+				"user": {
+					ColumnNames: []string{"id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "id",
+							Values: []types.ColumnMeta{
+								{
+									ColumnName: "id",
+									DataType:   types.GetSqlDataType("BIGINT"),
+								},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName: "id",
+						},
+						"name": {
+							ColumnName: "name",
+						},
+					},
+				},
+			},
+			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?)) ",
+			expectQueryArgs: []driver.Value{19},
+		},
+		{
+			name:  "test-composite-id",
+			query: "insert into user(id,name) values (19,'Tony')",
+			metaDataMap: map[string]types.TableMeta{
+				"user": {
+					ColumnNames: []string{"id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "id",
+							Values: []types.ColumnMeta{
+								{
+									ColumnName: "id",
+									DataType:   types.GetSqlDataType("BIGINT"),
+								},
+							},
+						},
+						"name": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "name",
+							Values: []types.ColumnMeta{
+								{
+									ColumnName: "name",
+									DataType:   types.GetSqlDataType("VARCHAR"),
+								},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName: "id",
+						},
+						"name": {
+							ColumnName: "name",
+						},
+					},
+				},
+			},
+			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?)) ",
+			expectQueryArgs:   []driver.Value{int64(19), "Tony"},
+			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?)) ",
+			orExpectQueryArgs: []driver.Value{"Tony", int64(19)},
+		},
+		{
+			name:  "test-composite-id-2",
+			query: "insert into user(id,name) values (19,'Tony'),(20,'Tom')",
+			metaDataMap: map[string]types.TableMeta{
+				"user": {
+					ColumnNames: []string{"id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "id",
+							Values: []types.ColumnMeta{
+								{
+									ColumnName: "id",
+									DataType:   types.GetSqlDataType("BIGINT"),
+								},
+							},
+						},
+						"name": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "name",
+							Values: []types.ColumnMeta{
+								{
+									ColumnName: "name",
+									DataType:   types.GetSqlDataType("VARCHAR"),
+								},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName: "id",
+						},
+						"name": {
+							ColumnName: "name",
+						},
+					},
+				},
+			},
+			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?),(?,?)) ",
+			expectQueryArgs:   []driver.Value{int64(19), "Tony", int64(20), "Tom"},
+			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
+			orExpectQueryArgs: []driver.Value{"Tony", int64(19), "Tom", int64(20)},
 		},
 	}
 
@@ -181,12 +313,20 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			exec := &types.ExecContext{}
 			exec.ParseContext = c
 			exec.MetaDataMap = test.metaDataMap
+			exec.Values = test.queryArgs
+			exec.NamedValues = test.NamedValues
 			builder := MySQLInsertUndoLogBuilder{}
 			builder.InsertResult = &test.mockInsertResult
 			builder.IncrementStep = test.IncrementStep
 			sql, values := builder.buildAfterImageSQL(context.Background(), exec)
-			assert.Equal(t, sql, test.expectQuery)
-			assert.Equal(t, values, test.expectQueryArgs)
+			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
+				if test.orExpectQuery == sql {
+					assert.Equal(t, test.orExpectQueryArgs, values)
+					return
+				}
+			}
+			assert.Equal(t, test.expectQuery, sql)
+			assert.Equal(t, test.expectQueryArgs, values)
 		})
 	}
 }
