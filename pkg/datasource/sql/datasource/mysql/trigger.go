@@ -69,6 +69,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		idx, ok := tableMeta.Indexs[index.Name]
 		if ok {
 			idx.Values = append(idx.Values, col)
+			tableMeta.Indexs[index.Name] = idx
 		} else {
 			index.Values = append(index.Values, col)
 			tableMeta.Indexs[index.Name] = index
