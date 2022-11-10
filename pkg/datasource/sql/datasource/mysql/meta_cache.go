@@ -33,18 +33,18 @@ import (
 var (
 	capacity          int32 = 1024
 	EexpireTime             = 15 * time.Minute
-	tableMetaInstance *tableMetaCache
+	tableMetaInstance *TableMetaCache
 	tableMetaOnce     sync.Once
 )
 
-type tableMetaCache struct {
+type TableMetaCache struct {
 	tableMetaCache *base.BaseTableMetaCache
 }
 
-func GetTableMetaInstance() *tableMetaCache {
+func GetTableMetaInstance() *TableMetaCache {
 	// Todo constant.DBName get from config
 	tableMetaOnce.Do(func() {
-		tableMetaInstance = &tableMetaCache{
+		tableMetaInstance = &TableMetaCache{
 			tableMetaCache: base.NewBaseCache(capacity, EexpireTime, NewMysqlTrigger()),
 		}
 	})
@@ -53,12 +53,12 @@ func GetTableMetaInstance() *tableMetaCache {
 }
 
 // Init
-func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
+func (c *TableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 	return nil
 }
 
 // GetTableMeta get table info from cache or information schema
-func (c *tableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
+func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
 	if tableName == "" {
 		return nil, errors.New("TableMeta cannot be fetched without tableName")
 	}
@@ -72,6 +72,6 @@ func (c *tableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName str
 }
 
 // Destroy
-func (c *tableMetaCache) Destroy() error {
+func (c *TableMetaCache) Destroy() error {
 	return nil
 }

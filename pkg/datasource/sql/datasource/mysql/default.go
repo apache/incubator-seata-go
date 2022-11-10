@@ -25,6 +25,6 @@ import (
 // todo
 func init() {
 	datasource.RegisterTableCache(types.DBTypeMySQL, func() datasource.TableMetaCache {
-		return &tableMetaCache{}
+		return &TableMetaCache{}
 	})
 }
