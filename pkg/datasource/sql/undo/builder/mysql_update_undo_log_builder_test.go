@@ -64,7 +64,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100},
-			expectQuery:     "SELECT SQL_NO_CACHE id,name,age FROM t_user WHERE id=? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE id=? FOR UPDATE",
 			expectQueryArgs: []driver.Value{100},
 		},
 		{
