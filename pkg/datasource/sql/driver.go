@@ -85,6 +85,8 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.XAMode
+	cfg, _ := mysql.ParseDSN(name)
+	_connector.cfg = cfg
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -177,11 +179,13 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
+	cfg, _ := mysql.ParseDSN(dataSourceName)
 
 	return &seataConnector{
 		res:    res,
 		target: connector,
 		conf:   conf,
+		cfg:    cfg,
 	}, nil
 }
 
