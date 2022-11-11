@@ -70,19 +70,19 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age between ? and ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
-			expectQuery:     "SELECT SQL_NO_CACHE id,name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ? FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age in (?,?)",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
-			expectQuery:     "SELECT SQL_NO_CACHE id,name,age FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age IN (?,?) FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age IN (?,?) FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
 			sourceQuery:     "update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name desc limit ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2},
-			expectQuery:     "SELECT SQL_NO_CACHE id,name,age FROM t_user WHERE kk BETWEEN ? AND ? AND id=? AND addr IN (?,?) AND age>? ORDER BY name DESC LIMIT ? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE kk BETWEEN ? AND ? AND id=? AND addr IN (?,?) AND age>? ORDER BY name DESC LIMIT ? FOR UPDATE",
 			expectQueryArgs: []driver.Value{10, 20, 17, "Beijing", "Guangzhou", 18, 2},
 		},
 	}
