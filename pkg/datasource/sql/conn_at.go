@@ -85,7 +85,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 }
 
 func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
-	onceTx := tm.IsGlobalTx(ctx) && c.autoCommit // todo 待确认
+	onceTx := tm.IsGlobalTx(ctx) && c.autoCommit
 
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
