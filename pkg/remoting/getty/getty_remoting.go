@@ -18,6 +18,7 @@
 package getty
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -80,7 +81,7 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 	var err error
 	if session == nil || session.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
-		return nil, err
+		return nil, fmt.Errorf("session is closed")
 	}
 	resp := message.NewMessageFuture(msg)
 	g.futures.Store(msg.ID, resp)

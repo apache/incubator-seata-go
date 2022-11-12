@@ -74,7 +74,7 @@ func begin(ctx context.Context, name string) (rc context.Context, re error) {
 	}
 
 	var tx *GlobalTransaction
-	if IsTransactionOpened(ctx) {
+	if IsGlobalTx(ctx) {
 		tx = &GlobalTransaction{
 			Xid:    GetXID(ctx),
 			Status: message.GlobalStatusBegin,
