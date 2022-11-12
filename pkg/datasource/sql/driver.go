@@ -65,6 +65,8 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.ATMode
+	cfg, _ := mysql.ParseDSN(name)
+	_connector.cfg = cfg
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -83,6 +85,8 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.XAMode
+	cfg, _ := mysql.ParseDSN(name)
+	_connector.cfg = cfg
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -119,7 +123,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 		return nil, fmt.Errorf("unsupport conn type %s", d.getTargetDriverName())
 	}
 
-	proxy, err := registerResource(c, d.transType, dbType, sql.OpenDB(c), name)
+	proxy, err := getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
 	if err != nil {
 		log.Errorf("register resource: %w", err)
 		return nil, err
@@ -145,7 +149,7 @@ func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-func registerResource(connector driver.Connector, txType types.TransactionType, dbType types.DBType, db *sql.DB,
+func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *sql.DB,
 	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
 	conf := loadConfig()
 	for i := range opts {
@@ -175,11 +179,13 @@ func registerResource(connector driver.Connector, txType types.TransactionType, 
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
+	cfg, _ := mysql.ParseDSN(dataSourceName)
 
 	return &seataConnector{
 		res:    res,
 		target: connector,
 		conf:   conf,
+		cfg:    cfg,
 	}, nil
 }
 

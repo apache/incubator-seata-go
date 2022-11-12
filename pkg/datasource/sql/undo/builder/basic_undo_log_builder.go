@@ -33,7 +33,7 @@ import (
 type BasicUndoLogBuilder struct{}
 
 // getScanSlice get the column type for scann
-func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta types.TableMeta) []driver.Value {
+func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []driver.Value {
 	scanSlice := make([]driver.Value, 0, len(columnNames))
 	for _, columnNmae := range columnNames {
 		var (
@@ -152,7 +152,7 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData types.TableMeta) (*types.RecordImage, error) {
+func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -162,6 +162,9 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 		err := rowsi.Next(ss)
 		if err == io.EOF {
 			break
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		columns := make([]types.ColumnImage, 0)

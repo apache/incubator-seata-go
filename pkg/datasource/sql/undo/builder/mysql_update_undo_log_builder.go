@@ -23,6 +23,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/arana-db/parser/model"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
@@ -57,12 +60,19 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 
 	vals := execCtx.Values
 	if vals == nil {
-		for n, param := range execCtx.NamedValues {
-			vals[n] = param.Value
+		vals = make([]driver.Value, 0)
+		for _, param := range execCtx.NamedValues {
+			vals = append(vals, param.Value)
 		}
 	}
 	// use
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.ParseContext.UpdateStmt, vals)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, execCtx, vals)
+	if err != nil {
+		return nil, err
+	}
+
+	tableName, _ := execCtx.ParseContext.GteTableName()
+	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
 	if err != nil {
 		return nil, err
 	}
@@ -78,9 +88,6 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
 
 	image, err := u.buildRecordImages(rows, metaData)
 	if err != nil {
@@ -100,8 +107,11 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		beforeImage = beforeImages[0]
 	}
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	tableName, _ := execCtx.ParseContext.GteTableName()
+	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	if err != nil {
+		return nil, err
+	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
@@ -124,17 +134,18 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
+func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta *types.TableMeta) (string, []driver.Value) {
 	sb := strings.Builder{}
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.Name + " ")
+	sb.WriteString("SELECT * FROM " + meta.Name + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateStmt, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, execCtx *types.ExecContext, args []driver.Value) (string, []driver.Value, error) {
+	updateStmt := execCtx.ParseContext.UpdateStmt
 	if updateStmt == nil {
 		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")
@@ -147,6 +158,25 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmt *ast.UpdateSt
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: column.Column,
+			},
+		})
+	}
+
+	// select indexes columns
+	tableName, _ := execCtx.ParseContext.GteTableName()
+	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: &ast.ColumnName{
+					Name: model.CIStr{
+						O: columnName,
+						L: columnName,
+					},
+				},
 			},
 		})
 	}
