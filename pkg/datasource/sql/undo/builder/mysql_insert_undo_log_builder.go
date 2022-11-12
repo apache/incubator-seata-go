@@ -21,15 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"strings"
-)
 
-import (
 	"github.com/arana-db/parser/ast"
-
 	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
