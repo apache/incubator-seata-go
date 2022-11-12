@@ -42,7 +42,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 		wantMockFunction   interface{}
 	}
 	gts := []Test{
-		// this case to test Begin basic path
+		// this case to test doBegin basic path
 		{
 			ctx:           context.Background(),
 			name:          "zhangsan",
@@ -50,7 +50,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 			wantHasError:  true,
 			wantErrString: "Ignore GlobalStatusBegin(): just involved in global transaction 123456",
 		},
-		// this case to test the TransactionManager#Begin return path
+		// this case to test the TransactionManager#doBegin return path
 		{
 			ctx:                context.Background(),
 			name:               "zhangsan",
@@ -58,7 +58,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 			wantHasError:       true,
 			wantErrString:      "transactionTemplate: begin transaction failed, error mock transaction executor begin",
 			wantHasMock:        true,
-			wantMockTargetName: "Begin",
+			wantMockTargetName: "doBegin",
 			wantMockFunction: func(_ *GlobalTransactionManager, ctx context.Context, tx *GlobalTransaction, i time.Duration, s string) error {
 				return errors.New("mock transaction executor begin")
 			},
@@ -78,7 +78,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 		}
 
 		func() {
-			// Begin will throw the panic, so there need to recover it and assert.
+			// doBegin will throw the panic, so there need to recover it and assert.
 			defer func(v Test) {
 				err, ok := recover().(error)
 				if ok && err != nil && v.wantHasError {

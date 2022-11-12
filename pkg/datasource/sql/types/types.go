@@ -19,6 +19,7 @@ package types
 
 import (
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"strings"
 
 	"github.com/google/uuid"
@@ -83,12 +84,22 @@ const (
 	ATMode
 )
 
+func (t TransactionType) GetBranchType() branch.BranchType {
+	if t == XAMode {
+		return branch.BranchTypeXA
+	}
+	if t == ATMode {
+		return branch.BranchTypeAT
+	}
+	return branch.BranchTypeUnknow
+}
+
 // TransactionContext seata-go‘s context of transaction
 type TransactionContext struct {
 	// LocalTransID locals transaction id
 	LocalTransID string
 	// LockKeys
-	LockKeys []string
+	LockKeys map[string]struct{}
 	// DBType db type, eg. MySQL/PostgreSQL/SQLServer
 	DBType DBType
 	// TxOpt transaction option
@@ -120,6 +131,7 @@ type ExecContext struct {
 	MetaDataMap map[string]TableMeta
 	Conn        driver.Conn
 	DBName      string
+	DBType      DBType
 	// todo set values for these 4 param
 	IsAutoCommit          bool
 	IsSupportsSavepoints  bool
@@ -129,7 +141,7 @@ type ExecContext struct {
 
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
-		LockKeys:     make([]string, 0, 4),
+		LockKeys:     make(map[string]struct{}, 0),
 		TransType:    Local,
 		LocalTransID: uuid.New().String(),
 		RoundImages:  &RoundRecordImage{},

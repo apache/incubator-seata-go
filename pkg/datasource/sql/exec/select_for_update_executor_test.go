@@ -44,7 +44,7 @@ func TestBuildSelectPKSQL(t *testing.T) {
 	ctx, err := parser.DoParser(sql)
 
 	metaData := types.TableMeta{
-		Schema: "t_user",
+		TableName: "t_user",
 		Indexs: map[string]types.IndexMeta{
 			"id": {
 				IType:      types.IndexTypePrimaryKey,
@@ -73,7 +73,7 @@ func TestBuildSelectPKSQL(t *testing.T) {
 func TestBuildLockKey(t *testing.T) {
 	e := SelectForUpdateExecutor{BasicUndoLogBuilder: builder.BasicUndoLogBuilder{}}
 	metaData := types.TableMeta{
-		Schema: "t_user",
+		TableName: "t_user",
 		Indexs: map[string]types.IndexMeta{
 			"id": {
 				IType:      types.IndexTypePrimaryKey,

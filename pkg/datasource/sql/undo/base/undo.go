@@ -21,11 +21,11 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/goccy/go-json"
 	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
-
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -34,12 +34,20 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
+// checkUndoLogTableExistSql check undo log if exist
+var (
+	ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+)
 
-var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+const (
+	checkUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+	insertUndoLogSql          = "INSERT INTO " + constant.UndoLogTableName + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
+)
 
-// CheckUndoLogTableExistSql check undo log if exist
-const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+const (
+	serializerKey     = "serializer"
+	compressorTypeKey = "compressorType"
+)
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
@@ -49,7 +57,15 @@ func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn driver.Conn) error {
+	stmt, err := conn.Prepare(insertUndoLogSql)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, record.LogStatus})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -103,25 +119,67 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 }
 
 // FlushUndoLog flush undo log
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
-	if !txCtx.HasUndoLog() {
+func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error {
+	if tranCtx.RoundImages.IsEmpty() {
 		return nil
 	}
-	logs := []undo.SQLUndoLog{
-		{
-			SQLType:   types.SQLTypeInsert,
-			TableName: constant.UndoLogTableName,
-			Images:    *txCtx.RoundImages,
-		},
+
+	sqlUndoLogs := make([]undo.SQLUndoLog, 0)
+	beforeImages := tranCtx.RoundImages.BeofreImages()
+	afterImages := tranCtx.RoundImages.AfterImages()
+
+	for i := 0; i < len(beforeImages); i++ {
+		var (
+			tableName string
+			sqlType   types.SQLType
+		)
+
+		if beforeImages[i] != nil {
+			tableName = beforeImages[i].TableName
+			sqlType = beforeImages[i].SQLType
+		} else if afterImages[i] != nil {
+			tableName = afterImages[i].TableName
+			sqlType = afterImages[i].SQLType
+		} else {
+			continue
+		}
+
+		undoLog := undo.SQLUndoLog{
+			SQLType:     sqlType,
+			TableName:   tableName,
+			BeforeImage: beforeImages[i],
+			AfterImage:  afterImages[i],
+		}
+		sqlUndoLogs = append(sqlUndoLogs, undoLog)
 	}
-	branchUndoLogs := []undo.BranchUndoLog{
-		{
-			Xid:      txCtx.XaID,
-			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
-			Logs:     logs,
-		},
+
+	branchUndoLog := undo.BranchUndoLog{
+		Xid:      tranCtx.XID,
+		BranchID: tranCtx.BranchID,
+		Logs:     sqlUndoLogs,
 	}
-	return m.InsertUndoLog(branchUndoLogs, tx)
+
+	// use defalut encode
+	undoLogContent, err := json.Marshal(branchUndoLog)
+	if err != nil {
+		return err
+	}
+
+	parseContext := make(map[string]string, 0)
+	parseContext[serializerKey] = "jackson"
+	parseContext[compressorTypeKey] = "NONE"
+	rollbackInfo, err := json.Marshal(parseContext)
+	if err != nil {
+		return err
+	}
+
+	return m.InsertUndoLog(undo.UndologRecord{
+		BranchID:     tranCtx.BranchID,
+		XID:          tranCtx.XID,
+		Context:      undoLogContent,
+		RollbackInfo: rollbackInfo,
+		LogStatus:    undo.UndoLogStatueNormnal,
+	}, conn)
 }
 
 // RunUndo
@@ -136,7 +194,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql); err != nil {
+	if _, err = conn.QueryContext(ctx, checkUndoLogTableExistSql); err != nil {
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil

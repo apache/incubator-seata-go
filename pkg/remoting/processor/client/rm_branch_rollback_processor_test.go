@@ -19,13 +19,13 @@ package client
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/rm/at"
 	"testing"
 
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 )
 
 func TestRmBranchRollbackProcessor(t *testing.T) {
@@ -65,7 +65,7 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 	var ctx context.Context
 	var rbrProcessor rmBranchRollbackProcessor
 
-	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
+	rm.GetRmCacheInstance().RegisterResourceManager(at.GetTCCResourceManagerInstance())
 
 	// run tests
 	for _, tc := range tests {

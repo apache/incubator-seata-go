@@ -145,7 +145,7 @@ func TestXAConn_ExecContext(t *testing.T) {
 		var comitCnt int32
 		beforeCommit := func(tx *Tx) {
 			atomic.AddInt32(&comitCnt, 1)
-			assert.Equal(t, tx.ctx.TransType, types.XAMode)
+			assert.Equal(t, tx.tranCtx.TransType, types.XAMode)
 		}
 		ti.beforeCommit = beforeCommit
 

@@ -64,7 +64,11 @@ func (r *RoundRecordImage) AfterImages() RecordImages {
 }
 
 func (r *RoundRecordImage) IsEmpty() bool {
-	return false
+	return len(r.before) == 0 && len(r.after) == 0
+}
+
+func (r *RoundRecordImage) IsBeforeAfterSizeEq() bool {
+	return len(r.before) == len(r.after)
 }
 
 type RecordImages []*RecordImage
