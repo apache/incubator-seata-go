@@ -117,7 +117,7 @@ func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
 	}
 }
 
-func IsTransactionOpened(ctx context.Context) bool {
+func IsGlobalTx(ctx context.Context) bool {
 	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return false

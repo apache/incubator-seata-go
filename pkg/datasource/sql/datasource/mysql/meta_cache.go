@@ -20,6 +20,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"sync"
 	"time"
 
@@ -32,20 +33,19 @@ import (
 var (
 	capacity          int32 = 1024
 	EexpireTime             = 15 * time.Minute
-	tableMetaInstance *tableMetaCache
+	tableMetaInstance *TableMetaCache
 	tableMetaOnce     sync.Once
-	DBName            = "seata"
 )
 
-type tableMetaCache struct {
+type TableMetaCache struct {
 	tableMetaCache *base.BaseTableMetaCache
 }
 
-func GetTableMetaInstance() *tableMetaCache {
+func GetTableMetaInstance() *TableMetaCache {
 	// Todo constant.DBName get from config
 	tableMetaOnce.Do(func() {
-		tableMetaInstance = &tableMetaCache{
-			tableMetaCache: base.NewBaseCache(capacity, DBName, EexpireTime, NewMysqlTrigger()),
+		tableMetaInstance = &TableMetaCache{
+			tableMetaCache: base.NewBaseCache(capacity, EexpireTime, NewMysqlTrigger()),
 		}
 	})
 
@@ -53,17 +53,17 @@ func GetTableMetaInstance() *tableMetaCache {
 }
 
 // Init
-func (c *tableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
+func (c *TableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 	return nil
 }
 
 // GetTableMeta get table info from cache or information schema
-func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
+func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
 	if tableName == "" {
 		return nil, errors.New("TableMeta cannot be fetched without tableName")
 	}
 
-	tableMeta, err := c.tableMetaCache.GetTableMeta(ctx, tableName, conn)
+	tableMeta, err := c.tableMetaCache.GetTableMeta(ctx, dbName, tableName, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +72,6 @@ func (c *tableMetaCache) GetTableMeta(ctx context.Context, tableName string, con
 }
 
 // Destroy
-func (c *tableMetaCache) Destroy() error {
+func (c *TableMetaCache) Destroy() error {
 	return nil
 }

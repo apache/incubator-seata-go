@@ -34,9 +34,9 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.UpdateExecutor, GetMySQLMultiUpdateUndoLogBuilder)
-}
+//func init() {
+//	undo.RegisterUndoLogBuilder(types.MultiExecutor, GetMySQLMultiUpdateUndoLogBuilder)
+//}
 
 type updateVisitor struct {
 	stmt *ast.UpdateStmt
@@ -95,7 +95,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}

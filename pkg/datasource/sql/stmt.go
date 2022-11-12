@@ -193,6 +193,9 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 
 			return types.NewResult(types.WithResult(ret)), nil
 		})
+	if err != nil {
+		return nil, err
+	}
 
 	return ret.GetResult(), err
 }

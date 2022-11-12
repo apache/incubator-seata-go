@@ -72,7 +72,7 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
 
-	if IsGlobalTx(ctx) {
+	if tm.IsGlobalTx(ctx) {
 		c.txCtx.TransType = types.XAMode
 		c.txCtx.XaID = tm.GetXID(ctx)
 	}
@@ -86,7 +86,7 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 }
 
 func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
-	onceTx := IsGlobalTx(ctx) && c.autoCommit
+	onceTx := tm.IsGlobalTx(ctx) && c.autoCommit
 
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
