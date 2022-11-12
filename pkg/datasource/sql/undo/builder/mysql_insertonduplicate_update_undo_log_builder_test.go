@@ -30,7 +30,9 @@ import (
 
 func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	var (
-		builder    = MySQLInsertOnDuplicateUndoLogBuilder{}
+		builder = MySQLInsertOnDuplicateUndoLogBuilder{
+			BeforeImageSqlPrimaryKeys: make(map[string]bool),
+		}
 		tableMeta1 types.TableMeta
 		//one index table
 		tableMeta2  types.TableMeta
@@ -160,16 +162,18 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 		builder = MySQLInsertOnDuplicateUndoLogBuilder{}
 	)
 	tests := []struct {
-		name             string
-		beforeSelectSql  string
-		beforeSelectArgs []driver.Value
-		beforeImages     []*types.RecordImage
-		expectQuery      string
-		expectQueryArgs  []driver.Value
+		name                      string
+		beforeSelectSql           string
+		BeforeImageSqlPrimaryKeys map[string]bool
+		beforeSelectArgs          []driver.Value
+		beforeImages              []*types.RecordImage
+		expectQuery               string
+		expectQueryArgs           []driver.Value
 	}{
 		{
-			beforeSelectSql:  "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
-			beforeSelectArgs: []driver.Value{1, "Jack1", 81},
+			beforeSelectSql:           "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
+			BeforeImageSqlPrimaryKeys: map[string]bool{"id": true},
+			beforeSelectArgs:          []driver.Value{1, "Jack1", 81},
 			beforeImages: []*types.RecordImage{
 				{
 					TableName: "t_user",
@@ -196,12 +200,13 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? ) ",
-			expectQueryArgs: []driver.Value{1, "Jack1", 81, 2},
+			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs: []driver.Value{1, "Jack1", 81},
 		},
 		{
-			beforeSelectSql:  "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? ) ",
-			beforeSelectArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18},
+			beforeSelectSql:           "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? ) ",
+			BeforeImageSqlPrimaryKeys: map[string]bool{"id": true},
+			beforeSelectArgs:          []driver.Value{1, "Jack1", 30, 2, "Michael", 18},
 			beforeImages: []*types.RecordImage{
 				{
 					TableName: "t_user",
@@ -247,13 +252,14 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (id = ? ) ",
-			expectQueryArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18, 1, 2},
+			expectQuery:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? )  OR (id = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builder.BeforeSelectSql = tt.beforeSelectSql
+			builder.BeforeImageSqlPrimaryKeys = tt.BeforeImageSqlPrimaryKeys
 			builder.Args = tt.beforeSelectArgs
 			query, args := builder.buildAfterImageSQL(context.TODO(), tt.beforeImages)
 			assert.Equal(t, tt.expectQuery, query)

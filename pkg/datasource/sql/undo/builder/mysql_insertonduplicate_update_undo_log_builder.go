@@ -41,15 +41,17 @@ func init() {
 
 type MySQLInsertOnDuplicateUndoLogBuilder struct {
 	BasicUndoLogBuilder
-	BeforeSelectSql string
-	Args            []driver.Value
+	BeforeSelectSql           string
+	Args                      []driver.Value
+	BeforeImageSqlPrimaryKeys map[string]bool
 }
 
 func GetMySQLInsertOnDuplicateUndoLogBuilder() undo.UndoLogBuilder {
 	return &MySQLInsertOnDuplicateUndoLogBuilder{
-		BasicUndoLogBuilder: BasicUndoLogBuilder{},
-		BeforeSelectSql:     "",
-		Args:                make([]driver.Value, 0),
+		BasicUndoLogBuilder:       BasicUndoLogBuilder{},
+		BeforeSelectSql:           "",
+		Args:                      make([]driver.Value, 0),
+		BeforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
 
@@ -101,7 +103,10 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		return "", nil, err
 	}
 	var selectArgs []driver.Value
-	insertNum, paramMap := u.buildImageParameters(insertStmt, args)
+	insertNum, paramMap, err := u.buildImageParameters(insertStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
 
 	sql := strings.Builder{}
 	sql.WriteString("SELECT * FROM " + metaData.Name + " ")
@@ -120,6 +125,9 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 				columnName := columnMeta.ColumnName
 				imageParameters, ok := paramMap[columnName]
 				if !ok && columnMeta.ColumnDef != nil {
+					if strings.EqualFold("PRIMARY", index.Name) {
+						u.BeforeImageSqlPrimaryKeys[columnName] = true
+					}
 					uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
 					columnIsNull = false
 					continue
@@ -132,6 +140,9 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 						continue
 					}
 					break
+				}
+				if strings.EqualFold("PRIMARY", index.Name) {
+					u.BeforeImageSqlPrimaryKeys[columnName] = true
 				}
 				columnIsNull = false
 				uniqueList = append(uniqueList, columnName+" = ? ")
@@ -197,13 +208,14 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildAfterImageSQL(ctx context.Co
 	for i := 0; i < len(beforeImage.Rows); i++ {
 		wherePrimaryList := make([]string, 0)
 		for name, value := range primaryValueMap {
-			wherePrimaryList = append(wherePrimaryList, name+" = ? ")
-			primaryValues = append(primaryValues, value[i])
+			if !u.BeforeImageSqlPrimaryKeys[name] {
+				wherePrimaryList = append(wherePrimaryList, name+" = ? ")
+				primaryValues = append(primaryValues, value[i])
+			}
 		}
-		afterImageSql.WriteString(" OR (" + strings.Join(wherePrimaryList, " and ") + ") ")
-	}
-	if len(primaryValues) == 0 {
-		afterImageSql.WriteString(" FOR UPDATE")
+		if len(wherePrimaryList) != 0 {
+			afterImageSql.WriteString(" OR (" + strings.Join(wherePrimaryList, " and ") + ") ")
+		}
 	}
 	selectArgs = append(selectArgs, primaryValues...)
 	log.Infof("build after select sql by insert on duplicate sourceQuery, sql {}", afterImageSql.String())
@@ -233,13 +245,17 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 }
 
 // build sql params
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value, error) {
 	var (
 		parameterMap = make(map[string][]driver.Value)
 		selectArgs   = make([]driver.Value, 0)
 	)
 	// values (?,?,?),(?,?,"Jack")
 	for _, list := range insert.Lists {
+		if len(list) != len(insert.Columns) {
+			log.Errorf("insert row's column size not equal to insert column size")
+			return 0, nil, fmt.Errorf("insert row's column size not equal to insert column size")
+		}
 		for _, node := range list {
 			buildSelectArgs(node, args, &selectArgs)
 		}
@@ -250,7 +266,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.
 			parameterMap[column.Name.L] = append(parameterMap[column.Name.L], selectArgs[i+j*len(insert.Columns)])
 		}
 	}
-	return rows, parameterMap
+	return rows, parameterMap, nil
 }
 
 func buildSelectArgs(node ast.Node, args []driver.Value, selectArgs *[]driver.Value) {
