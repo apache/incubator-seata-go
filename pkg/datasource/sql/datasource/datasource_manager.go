@@ -20,6 +20,7 @@ package datasource
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"sync"
 
@@ -61,6 +62,7 @@ func GetDataSourceManager(b branch.BranchType) DataSourceManager {
 	return nil
 }
 
+// todo implements ResourceManagerOutbound interface
 // DataSourceManager
 type DataSourceManager interface {
 	// Register a Resource to be managed by Resource Manager
@@ -176,7 +178,7 @@ type TableMetaCache interface {
 	// Init
 	Init(ctx context.Context, conn *sql.DB) error
 	// GetTableMeta
-	GetTableMeta(ctx context.Context, table string, conn *sql.Conn) (*types.TableMeta, error)
+	GetTableMeta(ctx context.Context, dbName, table string, conn driver.Conn) (*types.TableMeta, error)
 	// Destroy
 	Destroy() error
 }

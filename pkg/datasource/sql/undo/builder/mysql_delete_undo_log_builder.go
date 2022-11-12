@@ -72,7 +72,7 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	tableName := execCtx.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}

@@ -38,6 +38,8 @@ type (
 const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
+	IndexUnique         IndexType = 2
+	IndexNormal         IndexType = 3
 )
 
 const (
@@ -98,7 +100,7 @@ type TransactionContext struct {
 	// BranchID transaction branch unique id
 	BranchID uint64
 	// XaID XA id
-	XaID string
+	XaID string // todo delete
 	// XID global transaction id
 	XID string
 	// GlobalLockRequire
@@ -114,8 +116,10 @@ type ExecContext struct {
 	ParseContext *ParseContext
 	NamedValues  []driver.NamedValue
 	Values       []driver.Value
-	MetaDataMap  map[string]TableMeta
-	Conn         driver.Conn
+	// todo 待删除
+	MetaDataMap map[string]TableMeta
+	Conn        driver.Conn
+	DBName      string
 	// todo set values for these 4 param
 	IsAutoCommit          bool
 	IsSupportsSavepoints  bool

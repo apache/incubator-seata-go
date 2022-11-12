@@ -37,7 +37,6 @@ func DelEscape(colName string, dbType types.DBType) string {
 	if dbType == types.DBTypeMySQL {
 		newColName = delEscape(newColName, EscapeMysql)
 	}
-
 	return newColName
 }
 
