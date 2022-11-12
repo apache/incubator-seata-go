@@ -224,7 +224,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 }
 
 func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
-	if !tm.IsTransactionOpened(ctx) {
+	if !tm.IsGlobalTx(ctx) {
 		return nil, nil
 	}
 
@@ -235,6 +235,7 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 	if !pc.HasValidStmt() {
 		return nil, nil
 	}
+	execCtx.ParseContext = pc
 
 	builder := undo.GetUndologBuilder(pc.ExecutorType)
 	if builder == nil {
@@ -245,7 +246,7 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 
 // After
 func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	if !tm.IsTransactionOpened(ctx) {
+	if !tm.IsGlobalTx(ctx) {
 		return nil, nil
 	}
 	pc, err := parser.DoParser(execCtx.Query)
@@ -255,6 +256,7 @@ func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContex
 	if !pc.HasValidStmt() {
 		return nil, nil
 	}
+	execCtx.ParseContext = pc
 	builder := undo.GetUndologBuilder(pc.ExecutorType)
 	if builder == nil {
 		return nil, nil

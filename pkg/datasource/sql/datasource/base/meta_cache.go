@@ -19,7 +19,7 @@ package base
 
 import (
 	"context"
-	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"sync"
 	"time"
@@ -30,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
+		LoadOne(ctx context.Context, dbName string, table string, conn driver.Conn) (*types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -47,14 +47,13 @@ type BaseTableMetaCache struct {
 	expireDuration time.Duration
 	capity         int32
 	size           int32
-	dbName         string
 	cache          map[string]*entry
 	cancel         context.CancelFunc
 	trigger        trigger
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, dbName string, expireDuration time.Duration, trigger trigger) *BaseTableMetaCache {
+func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
@@ -63,7 +62,6 @@ func NewBaseCache(capity int32, dbName string, expireDuration time.Duration, tri
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
-		dbName:         dbName,
 		cancel:         cancel,
 		trigger:        trigger,
 	}
@@ -136,13 +134,13 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 }
 
 // GetTableMeta
-func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, tableName string, conn *sql.Conn) (types.TableMeta, error) {
+func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn driver.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	v, ok := c.cache[tableName]
 	if !ok {
-		meta, err := c.trigger.LoadOne(ctx, c.dbName, tableName, conn)
+		meta, err := c.trigger.LoadOne(ctx, dbName, tableName, conn)
 		if err != nil {
 			return types.TableMeta{}, err
 		}

@@ -88,7 +88,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		paramAppenderTempList := make([]driver.Value, 0)
 		for _, index := range metaData.Indexs {
 			//unique index
-			if index.IType != types.IndexTypeUniqueKey && index.IType != types.IndexTypePrimaryKey {
+			if index.IType != types.IndexUnique && index.IType != types.IndexTypePrimaryKey {
 				continue
 			}
 			columnIsNull := true
@@ -168,7 +168,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, e
 	}
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}
