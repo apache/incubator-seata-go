@@ -40,7 +40,7 @@ func (h *undoLogSQLHook) Type() types.SQLType {
 
 // Before
 func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) error {
-	if !tm.IsTransactionOpened(ctx) {
+	if !tm.IsGlobalTx(ctx) {
 		return nil
 	}
 
@@ -66,7 +66,7 @@ func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext)
 
 // After
 func (h *undoLogSQLHook) After(ctx context.Context, execCtx *types.ExecContext) error {
-	if !tm.IsTransactionOpened(ctx) {
+	if !tm.IsGlobalTx(ctx) {
 		return nil
 	}
 	return nil

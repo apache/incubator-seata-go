@@ -22,6 +22,8 @@ import (
 	"database/sql/driver"
 	"sync"
 
+	"github.com/go-sql-driver/mysql"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
@@ -92,6 +94,7 @@ type seataConnector struct {
 	once      sync.Once
 	driver    driver.Driver
 	target    driver.Connector
+	cfg       *mysql.Config
 }
 
 // Connect returns a connection to the database.
@@ -118,6 +121,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
+		dbName:     c.cfg.DBName,
 	}, nil
 }
 
