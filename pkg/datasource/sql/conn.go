@@ -35,6 +35,7 @@ type Conn struct {
 	txCtx      *types.TransactionContext
 	targetConn driver.Conn
 	autoCommit bool
+	dbName     string
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -93,7 +94,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	}, nil
 }
 
-// Exec
+// Exec warning: if you want to use global transaction, please use ExecContext function
 func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	conn, ok := c.targetConn.(driver.Execer)
 	if !ok {
@@ -113,7 +114,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 			Conn:   c.targetConn,
 		}
 
-		return executor.ExecWithValue(context.Background(), execCtx,
+		return executor.ExecWithValue(context.Background(), execCtx, // todo context传的不对
 			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
 				ret, err := conn.Exec(query, args)
 				if err != nil {
@@ -132,7 +133,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 // ExecContext
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	targetConn, ok := c.targetConn.(driver.ExecerContext)
-	if ok {
+	if !ok {
 		values := make([]driver.Value, 0, len(args))
 
 		for i := range args {
@@ -153,6 +154,7 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 			Query:       query,
 			NamedValues: args,
 			Conn:        c.targetConn,
+			DBName:      c.dbName,
 		}
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,

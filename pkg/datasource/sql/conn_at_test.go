@@ -39,7 +39,7 @@ func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}

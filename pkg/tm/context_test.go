@@ -112,10 +112,10 @@ func TestGetXID(t *testing.T) {
 
 func TestIsTransactionOpened(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
-	assert.False(t, IsTransactionOpened(ctx))
+	assert.False(t, IsGlobalTx(ctx))
 	xid := "12345"
 	SetXID(ctx, xid)
-	assert.True(t, IsTransactionOpened(ctx))
+	assert.True(t, IsGlobalTx(ctx))
 }
 
 func TestSetXIDCopy(t *testing.T) {
