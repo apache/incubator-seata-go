@@ -64,7 +64,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	}
 	index["id_name_age"] = types.IndexMeta{
 		Name:   "name_age_idx",
-		IType:  types.IndexTypeUniqueKey,
+		IType:  types.IndexUnique,
 		Values: columnMeta2,
 	}
 
@@ -76,7 +76,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 
 	index2["id_name_age"] = types.IndexMeta{
 		Name:   "name_age_idx",
-		IType:  types.IndexTypeUniqueKey,
+		IType:  types.IndexUnique,
 		Values: columnMeta2,
 	}
 
@@ -182,12 +182,12 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 									Value:   2,
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "name",
 									Value:   "Jack",
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "age",
 									Value:   18,
 								},
@@ -214,12 +214,12 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 									Value:   1,
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "name",
 									Value:   "Jack",
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "age",
 									Value:   18,
 								},
@@ -233,12 +233,12 @@ func TestInsertOnDuplicateBuildAfterImageSQL(t *testing.T) {
 									Value:   2,
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "name",
 									Value:   "Michael",
 								},
 								{
-									KeyType: types.IndexTypeUniqueKey,
+									KeyType: types.IndexUnique,
 									Name:    "age",
 									Value:   30,
 								},
