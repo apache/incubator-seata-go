@@ -281,7 +281,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.Schema)
+		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
 	}
 
 	fields := []*ast.SelectField{}
@@ -322,7 +322,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 		lockKeys      bytes.Buffer
 		filedSequence int
 	)
-	lockKeys.WriteString(meta.Schema)
+	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
 	ss := s.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)

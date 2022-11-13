@@ -73,9 +73,9 @@ func (mr *MockDataSourceManagerMockRecorder) BranchCommit(ctx, req interface{}) 
 }
 
 // BranchRegister mocks base method.
-func (m *MockDataSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
+func (m *MockDataSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BranchRegister", ctx, clientId, req)
+	ret := m.ctrl.Call(m, "BranchRegister", ctx, req)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1

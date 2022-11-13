@@ -43,6 +43,7 @@ func init() {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
+		rmRemoting:    rm.GetRMRemotingInstance(),
 	}
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)
@@ -58,6 +59,7 @@ type ATSourceManager struct {
 	resourceCache sync.Map
 	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
+	rmRemoting    *rm.RMRemoting
 }
 
 // Register a Resource to be managed by Resource Manager
@@ -132,8 +134,8 @@ func (mgr *ATSourceManager) LockQuery(ctx context.Context, req message.GlobalLoc
 }
 
 // BranchRegister
-func (mgr *ATSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
-	return 0, nil
+func (mgr *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
+	return mgr.rmRemoting.BranchRegister(req)
 }
 
 // BranchReport

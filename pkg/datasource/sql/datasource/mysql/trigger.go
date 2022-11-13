@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"io"
+	"reflect"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -43,9 +44,9 @@ func NewMysqlTrigger() *mysqlTrigger {
 // LoadOne get table meta column and index
 func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn driver.Conn) (*types.TableMeta, error) {
 	tableMeta := types.TableMeta{
-		Name:    tableName,
-		Columns: make(map[string]types.ColumnMeta),
-		Indexs:  make(map[string]types.IndexMeta),
+		TableName: tableName,
+		Columns:   make(map[string]types.ColumnMeta),
+		Indexs:    make(map[string]types.IndexMeta),
 	}
 
 	colMetas, err := m.getColumns(ctx, dbName, tableName, conn)
@@ -68,10 +69,10 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		col := tableMeta.Columns[index.ColumnName]
 		idx, ok := tableMeta.Indexs[index.Name]
 		if ok {
-			idx.Values = append(idx.Values, col)
+			idx.Columns = append(idx.Columns, col)
 			tableMeta.Indexs[index.Name] = idx
 		} else {
-			index.Values = append(index.Values, col)
+			index.Columns = append(index.Columns, col)
 			tableMeta.Indexs[index.Name] = index
 		}
 	}
@@ -102,6 +103,9 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		return nil, err
 	}
 
+	columnTypes := buildColumnType(rowsi)
+	i := 0
+
 	for {
 		vals := make([]driver.Value, 8)
 		err = rowsi.Next(vals)
@@ -123,22 +127,24 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 			extra       = string(vals[7].([]uint8))
 		)
 
-		col := types.ColumnMeta{}
-		col.Schema = tableSchema
-		col.Table = tableName
-		col.ColumnName = strings.Trim(columnName, "` ")
-		col.DataType = types.GetSqlDataType(dataType)
-		col.ColumnType = columnType
-		col.ColumnKey = columnKey
+		columnMeta := types.ColumnMeta{}
+		columnMeta.Schema = tableSchema
+		columnMeta.Table = tableName
+		columnMeta.ColumnName = strings.Trim(columnName, "` ")
+		columnMeta.DataType = types.GetSqlDataType(dataType)
+		columnMeta.ColumnType = columnType
+		columnMeta.ColumnKey = columnKey
+		columnMeta.ColumnTypeInfo = *columnTypes[i]
 		if strings.ToLower(isNullable) == "yes" {
-			col.IsNullable = 1
+			columnMeta.IsNullable = 1
 		} else {
-			col.IsNullable = 0
+			columnMeta.IsNullable = 0
 		}
-		col.Extra = extra
-		col.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
+		columnMeta.Extra = extra
+		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
-		columnMetas = append(columnMetas, col)
+		columnMetas = append(columnMetas, columnMeta)
+		i++
 	}
 
 	if len(columnMetas) == 0 {
@@ -146,6 +152,37 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 	}
 
 	return columnMetas, nil
+}
+
+func buildColumnType(rowsi driver.Rows) []*types.ColumnType {
+	names := rowsi.Columns()
+
+	list := make([]*types.ColumnType, len(names))
+	for i := range list {
+		ci := &types.ColumnType{
+			Name: names[i],
+		}
+		list[i] = ci
+
+		if prop, ok := rowsi.(driver.RowsColumnTypeScanType); ok {
+			ci.ScanType = prop.ColumnTypeScanType(i)
+		} else {
+			ci.ScanType = reflect.TypeOf(new(any)).Elem()
+		}
+		if prop, ok := rowsi.(driver.RowsColumnTypeDatabaseTypeName); ok {
+			ci.DatabaseType = prop.ColumnTypeDatabaseTypeName(i)
+		}
+		if prop, ok := rowsi.(driver.RowsColumnTypeLength); ok {
+			ci.Length, ci.HasLength = prop.ColumnTypeLength(i)
+		}
+		if prop, ok := rowsi.(driver.RowsColumnTypeNullable); ok {
+			ci.Nullable, ci.HasNullable = prop.ColumnTypeNullable(i)
+		}
+		if prop, ok := rowsi.(driver.RowsColumnTypePrecisionScale); ok {
+			ci.Precision, ci.Scale, ci.HasPrecisionScale = prop.ColumnTypePrecisionScale(i)
+		}
+	}
+	return list
 }
 
 // getIndex get tableMetaIndex
@@ -189,7 +226,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 			Table:      tableName,
 			Name:       indexName,
 			ColumnName: columnName,
-			Values:     make([]types.ColumnMeta, 0),
+			Columns:    make([]types.ColumnMeta, 0),
 		}
 
 		if nonUnique == 1 {

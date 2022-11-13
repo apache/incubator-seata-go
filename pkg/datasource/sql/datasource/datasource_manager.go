@@ -78,7 +78,7 @@ type DataSourceManager interface {
 	// LockQuery
 	LockQuery(ctx context.Context, req message.GlobalLockQueryRequest) (bool, error)
 	// BranchRegister
-	BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error)
+	BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error)
 	// BranchReport
 	BranchReport(ctx context.Context, req message.BranchReportRequest) error
 	// CreateTableMetaCache
@@ -117,7 +117,7 @@ func (dm *BasicSourceManager) BranchRollback(ctx context.Context, req message.Br
 }
 
 // Branch register long
-func (dm *BasicSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
+func (dm *BasicSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
 	return 0, nil
 }
 

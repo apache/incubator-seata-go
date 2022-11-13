@@ -41,11 +41,6 @@ func NewUndoLogManager() *undoLogManager {
 func (m *undoLogManager) Init() {
 }
 
-// InsertUndoLog
-func (m *undoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
-	return m.Base.InsertUndoLog(l, tx)
-}
-
 // DeleteUndoLog
 func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
 	return m.Base.DeleteUndoLog(ctx, xid, branchID, conn)
@@ -57,8 +52,8 @@ func (m *undoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn
 }
 
 // FlushUndoLog
-func (m *undoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
-	return m.Base.FlushUndoLog(txCtx, tx)
+func (m *undoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error {
+	return m.Base.FlushUndoLog(tranCtx, conn)
 }
 
 // RunUndo undo sql
