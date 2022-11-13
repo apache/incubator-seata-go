@@ -90,8 +90,10 @@ type RecordImage struct {
 	TableName string `json:"tableName"`
 	// SQLType sql type
 	SQLType SQLType `json:"-"`
-	// Rows
+	// Rows data row
 	Rows []RowImage `json:"rows"`
+	// TableMeta table information schema
+	TableMeta TableMeta
 }
 
 // RowImage Mirror data information information
@@ -106,6 +108,30 @@ func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 		m[column.Name] = &column
 	}
 	return m
+}
+
+// PrimaryKeys Primary keys list.
+func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
+	var pkFields []ColumnImage
+	for key, _ := range cols {
+		if cols[key].KeyType == PrimaryKey.Number() {
+			pkFields = append(pkFields, cols[key])
+		}
+	}
+
+	return pkFields
+}
+
+// NonPrimaryKeys get non-primary keys
+func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
+	var nonPkFields []ColumnImage
+	for key, _ := range cols {
+		if cols[key].KeyType != PrimaryKey.Number() {
+			nonPkFields = append(nonPkFields, cols[key])
+		}
+	}
+
+	return nonPkFields
 }
 
 // ColumnImage The mirror data information of the column

@@ -68,13 +68,13 @@ type UndoLogManager interface {
 	// InsertUndoLog
 	InsertUndoLog(l []BranchUndoLog, tx driver.Conn) error
 	// DeleteUndoLog
-	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
+	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error
 	// BatchDeleteUndoLog
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
 	// FlushUndoLog
 	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error
-	// RunUndo
-	RunUndo(xid string, branchID int64, conn *sql.Conn) error
+	// RunUndo undo sql
+	RunUndo(ctx context.Context, xid string, branchID int64, conn driver.Conn) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
@@ -111,11 +111,38 @@ func (b *BranchUndoLog) Marshal() []byte {
 	return nil
 }
 
+func (b *BranchUndoLog) Reverse() {
+	if len(b.Logs) == 0 {
+		return
+	}
+
+	left, right := 0, len(b.Logs)-1
+
+	for left < right {
+		b.Logs[left], b.Logs[right] = b.Logs[right], b.Logs[left]
+		left++
+		right--
+	}
+}
+
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType          `json:"sqlType"`
-	TableName string                 `json:"tableName"`
-	Images    types.RoundRecordImage `json:"images"`
+	SQLType     types.SQLType
+	TableName   string
+	Images      types.RoundRecordImage
+	BeforeImage *types.RecordImage
+	AfterImage  *types.RecordImage
+}
+
+func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
+	if s.BeforeImage != nil {
+		s.BeforeImage.TableMeta = tableMeta
+		s.BeforeImage.TableName = tableMeta.Name
+	}
+	if s.AfterImage != nil {
+		s.AfterImage.TableMeta = tableMeta
+		s.AfterImage.TableName = tableMeta.Name
+	}
 }
 
 // UndoLogParser
