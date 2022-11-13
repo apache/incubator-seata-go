@@ -101,12 +101,12 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 		return branch.BranchStatusUnknown, err
 	}
 
-	conn, err := res.target.Conn(ctx)
+	/*conn, err := res.target.Conn(ctx)
 	if err != nil {
 		return branch.BranchStatusUnknown, err
-	}
+	}*/
 
-	if err := undoMgr.RunUndo(req.Xid, req.BranchId, conn); err != nil {
+	if err := undoMgr.RunUndo(ctx, req.Xid, req.BranchId, res.conn); err != nil {
 		transErr, ok := err.(*types.TransactionError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err

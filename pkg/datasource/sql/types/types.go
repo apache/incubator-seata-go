@@ -40,8 +40,6 @@ type (
 const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
-	IndexUnique         IndexType = 2
-	IndexNormal         IndexType = 3
 )
 
 const (
@@ -57,13 +55,13 @@ const (
 	BranchPhase_Failed  = 2
 
 	// IndexPrimary primary index type.
-	IndexPrimary = 0
+	IndexPrimary IndexType = iota
 	// IndexNormal normal index type.
-	//IndexNormal = 1
+	IndexNormal
 	// IndexUnique unique index type.
-	//IndexUnique = 2
+	IndexUnique
 	// IndexFullText full text index type.
-	IndexFullText = 3
+	IndexFullText
 )
 
 func ParseDBType(driverName string) DBType {

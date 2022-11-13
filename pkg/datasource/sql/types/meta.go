@@ -104,5 +104,6 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 			}
 		}
 	}
+
 	return keys
 }

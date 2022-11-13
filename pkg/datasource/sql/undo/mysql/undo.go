@@ -22,9 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )
 
@@ -34,12 +33,16 @@ type undoLogManager struct {
 	Base *base.BaseUndoLogManager
 }
 
-// Init
+func NewUndoLogManager() *undoLogManager {
+	return &undoLogManager{Base: base.NewBaseUndoLogManager()}
+}
+
+// Init init
 func (m *undoLogManager) Init() {
 }
 
 // DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
 	return m.Base.DeleteUndoLog(ctx, xid, branchID, conn)
 }
 
@@ -53,9 +56,9 @@ func (m *undoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn dr
 	return m.Base.FlushUndoLog(tranCtx, conn)
 }
 
-// RunUndo
-func (m *undoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) error {
-	return m.Base.RunUndo(xid, branchID, conn)
+// RunUndo undo sql
+func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
+	return m.Base.Undo(ctx, m.DBType(), xid, branchID, conn)
 }
 
 // DBType

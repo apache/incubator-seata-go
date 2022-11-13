@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	gosql "database/sql"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
@@ -76,7 +77,7 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 	return db, db.init()
 }
 
-// DB proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
+// DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
 	// groupID
 	groupID string
@@ -86,6 +87,8 @@ type DBResource struct {
 	conf seataServerConfig
 	// target
 	target *gosql.DB
+	// conn
+	conn driver.Conn
 	// dbType
 	dbType types.DBType
 	// undoLogMgr
