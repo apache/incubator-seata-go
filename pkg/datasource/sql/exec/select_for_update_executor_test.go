@@ -49,14 +49,23 @@ func TestBuildSelectPKSQL(t *testing.T) {
 			"id": {
 				IType:      types.IndexTypePrimaryKey,
 				ColumnName: "id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
 			},
 			"order_id": {
 				IType:      types.IndexTypePrimaryKey,
 				ColumnName: "order_id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "order_id"},
+				},
 			},
 			"age": {
 				IType:      types.IndexTypeNull,
 				ColumnName: "age",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "age"},
+				},
 			},
 		},
 	}
@@ -78,14 +87,23 @@ func TestBuildLockKey(t *testing.T) {
 			"id": {
 				IType:      types.IndexTypePrimaryKey,
 				ColumnName: "id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
 			},
 			"order_id": {
 				IType:      types.IndexTypePrimaryKey,
 				ColumnName: "order_id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "order_id"},
+				},
 			},
 			"age": {
 				IType:      types.IndexTypeNull,
 				ColumnName: "age",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "age"},
+				},
 			},
 		},
 	}
