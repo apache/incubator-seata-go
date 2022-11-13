@@ -19,7 +19,7 @@ package client
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/rm/at"
+	"github.com/seata/seata-go/pkg/rm/tcc"
 	"testing"
 
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
@@ -65,7 +65,7 @@ func TestRmBranchCommitProcessor(t *testing.T) {
 	var ctx context.Context
 	var rbcProcessor rmBranchCommitProcessor
 
-	rm.GetRmCacheInstance().RegisterResourceManager(at.GetTCCResourceManagerInstance())
+	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
 
 	// run tests
 	for _, tc := range tests {
