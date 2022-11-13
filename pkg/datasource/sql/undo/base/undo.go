@@ -22,8 +22,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/util/convert"
 
 	"github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
@@ -51,6 +54,9 @@ const (
 	CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 	// DeleteUndoLogSql delete undo log
 	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
+
+	// UndoLog Todo get from config
+	Seata = "seata"
 )
 
 // undo log status
@@ -78,14 +84,14 @@ func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Con
 }
 
 // DeleteUndoLog exec delete single undo log operate
-func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
+func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
+	stmt, err := conn.Prepare(constant.DeleteUndoLogSql)
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
 	}
 
-	if _, err = stmt.ExecContext(ctx, branchID, xid); err != nil {
+	if _, err = stmt.Exec([]driver.Value{branchID, xid}); err != nil {
 		log.Errorf("[DeleteUndoLog] exec delete undo log fail, err: %v", err)
 		return err
 	}
@@ -149,18 +155,17 @@ func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx dr
 }
 
 // RunUndo undo sql
-func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
 	return nil
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(
-	ctx context.Context, dbType types.DBType,
-	xid string, branchID int64, conn *sql.Conn) error {
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType,
+	xid string, branchID int64, conn driver.Conn) error {
 
 	var branchUndoLogs []undo.BranchUndoLog
 
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := conn.Begin()
 	if err != nil {
 		return err
 	}
@@ -175,7 +180,7 @@ func (m *BaseUndoLogManager) Undo(
 	}()
 
 	selectUndoLogSql := "SELECT `log_status`,`context`,`rollback_info` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
-	stmt, err := tx.Prepare(selectUndoLogSql)
+	stmt, err := conn.Prepare(selectUndoLogSql)
 	if err != nil {
 		log.Errorf("[Undo] prepare sql fail, err: %v", err)
 		return err
@@ -188,30 +193,47 @@ func (m *BaseUndoLogManager) Undo(
 		}
 	}()
 
-	rows, err := stmt.Query(branchID, xid)
+	rows, err := stmt.Query([]driver.Value{branchID, xid})
 	if err != nil {
 		log.Errorf("[Undo] query sql fail, err: %v", err)
 		return err
 	}
 
-	exist := false
-	for rows.Next() {
-		exist = true
-		var (
-			logStatus    string
-			contextx     string
-			rollbackInfo []byte
-		)
+	var (
+		//logStatus    string
+		//contextx     string
+		//rollbackInfo []byte
+		logStatus    sql.NullInt32
+		contextx     sql.NullString
+		rollbackInfo sql.RawBytes
+	)
+	vals := make([]driver.Value, 5)
+	dest := []interface{}{&logStatus, &contextx, &rollbackInfo}
 
-		if err = rows.Scan(&logStatus, &contextx, &rollbackInfo); err != nil {
+	exist := false
+	for {
+		if err = rows.Next(vals); err != nil {
+			break
+		}
+
+		exist = true
+
+		for i, sv := range vals {
+			err := convert.ConvertAssignRows(dest[i], sv)
+			if err != nil {
+				return fmt.Errorf(`sql: Scan error on column index %d, name %q: %v`, i, rows.Columns()[i], err)
+			}
+		}
+
+		/*if err = rows.Scan(&logStatus, &contextx, &rollbackInfo); err != nil {
 			log.Errorf("[Undo] get log status fail, err: %v", err)
 			return err
 		}
 
-		state, _ := strconv.Atoi(logStatus)
+		state, _ := strconv.Atoi(logStatus)*/
 
 		// check if it can undo
-		if !m.canUndo(state) {
+		if !m.canUndo(logStatus.Int32) {
 			return nil
 		}
 
@@ -231,9 +253,9 @@ func (m *BaseUndoLogManager) Undo(
 		branchUndoLogs = append(branchUndoLogs, branchUndoLog)
 	}
 
-	if err = rows.Err(); err != nil {
+	/*if err = rows.Err(); err != nil {
 		return err
-	}
+	}*/
 
 	if err = rows.Close(); err != nil {
 		return err
@@ -246,7 +268,7 @@ func (m *BaseUndoLogManager) Undo(
 		}
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, cErr := dataSourceMysql.GetTableMetaInstance().GetTableMeta(ctx, undoLog.TableName, conn)
+			tableMeta, cErr := dataSourceMysql.GetTableMetaInstance().GetTableMeta(ctx, Seata, undoLog.TableName, conn)
 			if cErr != nil {
 				log.Errorf("[Undo] get table meta fail, err: %v", cErr)
 				return cErr
@@ -361,7 +383,7 @@ func Int64Slice2Str(values interface{}, sep string) (string, error) {
 }
 
 // canUndo check if it can undo
-func (m *BaseUndoLogManager) canUndo(state int) bool {
+func (m *BaseUndoLogManager) canUndo(state int32) bool {
 	return state == UndoLogStatusNormal
 }
 

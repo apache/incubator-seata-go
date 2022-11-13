@@ -19,11 +19,11 @@ package undo
 
 import (
 	"context"
-	"database/sql"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type UndoExecutor interface {
-	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn *sql.Conn) error
+	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn driver.Conn) error
 }

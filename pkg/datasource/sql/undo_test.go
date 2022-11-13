@@ -55,7 +55,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 	t.SkipNow()
 
 	testDeleteUndoLogs := func() {
-		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		/*db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()
@@ -65,7 +65,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 		undoLogManager := new(base.BaseUndoLogManager)
 
 		err = undoLogManager.DeleteUndoLog(ctx, "1", 1, sqlConn)
-		assert.Nil(t, err)
+		assert.Nil(t, err)*/
 	}
 
 	t.Run("test_delete_undo_logs", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestUndo(t *testing.T) {
 			_ = sqlConn.Close()
 		}()
 
-		if err = manager.RunUndo(ctx, "1", 1, sqlConn); err != nil {
+		if err = manager.RunUndo(ctx, "1", 1, nil); err != nil {
 			t.Logf("%+v", err)
 		}
 
