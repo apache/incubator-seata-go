@@ -94,7 +94,7 @@ func TestATConn_ExecContext(t *testing.T) {
 		var comitCnt int32
 		beforeCommit := func(tx *Tx) {
 			atomic.AddInt32(&comitCnt, 1)
-			assert.Equal(t, types.ATMode, tx.ctx.TransType)
+			assert.Equal(t, types.ATMode, tx.tranCtx.TransType)
 		}
 		ti.beforeCommit = beforeCommit
 

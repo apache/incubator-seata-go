@@ -122,6 +122,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
 		dbName:     c.cfg.DBName,
+		dbType:     types.DBTypeMySQL,
 	}, nil
 }
 

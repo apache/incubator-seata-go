@@ -43,7 +43,7 @@ func (tx *ATTx) Rollback() error {
 
 		originTx := tx.tx
 
-		if originTx.ctx.OpenGlobalTrsnaction() && originTx.ctx.IsBranchRegistered() {
+		if originTx.tranCtx.OpenGlobalTrsnaction() && originTx.tranCtx.IsBranchRegistered() {
 			originTx.report(false)
 		}
 	}
@@ -55,16 +55,16 @@ func (tx *ATTx) Rollback() error {
 func (tx *ATTx) commitOnAT() error {
 	originTx := tx.tx
 
-	if err := originTx.register(originTx.ctx); err != nil {
+	if err := originTx.register(originTx.tranCtx); err != nil {
 		return err
 	}
 
-	undoLogMgr, err := undo.GetUndoLogManager(originTx.ctx.DBType)
+	undoLogMgr, err := undo.GetUndoLogManager(originTx.tranCtx.DBType)
 	if err != nil {
 		return err
 	}
 
-	if err := undoLogMgr.FlushUndoLog(originTx.ctx, originTx.conn.targetConn); err != nil {
+	if err = undoLogMgr.FlushUndoLog(originTx.tranCtx, originTx.conn.targetConn); err != nil {
 		if rerr := originTx.report(false); rerr != nil {
 			return errors.WithStack(rerr)
 		}

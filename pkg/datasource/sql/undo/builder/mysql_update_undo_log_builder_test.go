@@ -47,9 +47,11 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 	stub := gomonkey.ApplyMethod(reflect.TypeOf(mysql.GetTableMetaInstance()), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
 		return &types.TableMeta{
 			Indexs: map[string]types.IndexMeta{
-				"id": types.IndexMeta{
-					ColumnName: "id",
-					IType:      types.IndexTypePrimaryKey,
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
 				},
 			},
 		}, nil

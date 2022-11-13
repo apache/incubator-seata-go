@@ -94,6 +94,9 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
+	lockKey := u.buildLockKey2(image, *metaData)
+	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+
 	return []*types.RecordImage{image}, nil
 }
 
@@ -131,13 +134,16 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
+	lockKey := u.buildLockKey(rows, *metaData)
+	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+
 	return []*types.RecordImage{image}, nil
 }
 
 func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta *types.TableMeta) (string, []driver.Value) {
 	sb := strings.Builder{}
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.Name + " WHERE ")
+	sb.WriteString("SELECT * FROM " + meta.TableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
