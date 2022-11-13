@@ -19,8 +19,9 @@ package types
 
 import (
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 
 	"github.com/google/uuid"
 )

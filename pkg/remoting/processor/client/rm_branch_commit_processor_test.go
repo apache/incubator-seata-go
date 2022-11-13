@@ -19,8 +19,9 @@ package client
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/rm/tcc"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/rm/tcc"
 
 	model2 "github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/codec"

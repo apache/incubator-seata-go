@@ -21,8 +21,8 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/tm"
 )

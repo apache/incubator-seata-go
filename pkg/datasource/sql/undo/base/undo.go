@@ -21,9 +21,10 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"github.com/goccy/go-json"
 	"strconv"
 	"strings"
+
+	"github.com/goccy/go-json"
 
 	"github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
