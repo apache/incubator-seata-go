@@ -15,41 +15,15 @@
  * limitations under the License.
  */
 
-package fanout
+package undo
 
 import (
 	"context"
-	"sync"
-	"testing"
-	"time"
+	"database/sql/driver"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-func TestFanout_Do(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	var run bool
-	var mtx sync.Mutex
-
-	ca.Do(context.Background(), func(c context.Context) {
-		mtx.Lock()
-		run = true
-		mtx.Unlock()
-		//panic("error")
-	})
-
-	time.Sleep(time.Millisecond * 50)
-	t.Log("not panic")
-	mtx.Lock()
-	defer mtx.Unlock()
-	if !run {
-		t.Fatal("expect run be true")
-	}
-}
-
-func TestFanout_Close(t *testing.T) {
-	ca := New("cache", WithWorker(1), WithBuffer(1024))
-	ca.Close()
-	err := ca.Do(context.Background(), func(c context.Context) {})
-	if err == nil {
-		t.Fatal("expect get err")
-	}
+type UndoExecutor interface {
+	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn driver.Conn) error
 }
