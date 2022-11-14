@@ -50,7 +50,7 @@ func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() S
 	val := executorSoltsAT[dt]
 
 	val[et] = func() SQLExecutor {
-		return &BaseExecutor{ex: builder()}
+		return builder()
 	}
 }
 
@@ -78,15 +78,6 @@ type (
 
 // BuildExecutor
 func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
-	if txType == types.XAMode {
-		hooks := make([]SQLHook, 0, 4)
-		hooks = append(hooks, commonHook...)
-
-		e := executorSoltsXA[dbType]()
-		e.Interceptors(hooks)
-		return e, nil
-	}
-
 	parseCtx, err := parser.DoParser(query)
 	if err != nil {
 		return nil, err
@@ -95,6 +86,19 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 	hooks := make([]SQLHook, 0, 4)
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
+	hooks = append(hooks, commonHook...)
+
+	if txType == types.XAMode {
+		e := executorSoltsXA[dbType]()
+		e.Interceptors(hooks)
+		return e, nil
+	}
+
+	if txType == types.ATMode {
+		e := executorSoltsAT[dbType][parseCtx.ExecutorType]()
+		e.Interceptors(hooks)
+		return e, nil
+	}
 
 	factories, ok := executorSoltsAT[dbType]
 
