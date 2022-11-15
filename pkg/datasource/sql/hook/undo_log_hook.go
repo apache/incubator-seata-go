@@ -35,7 +35,7 @@ type undoLogSQLHook struct {
 }
 
 func (h *undoLogSQLHook) Type() types.SQLType {
-	return types.SQLTypeUpdate
+	return types.SQLTypeUnknown
 }
 
 // Before
@@ -56,7 +56,6 @@ func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext)
 	if builder == nil {
 		return nil
 	}
-	execCtx.ParseContext = pc
 	recordImage, err := builder.BeforeImage(ctx, execCtx)
 	if err != nil {
 		return err
@@ -70,17 +69,5 @@ func (h *undoLogSQLHook) After(ctx context.Context, execCtx *types.ExecContext) 
 	if !tm.IsGlobalTx(ctx) {
 		return nil
 	}
-	if execCtx == nil || execCtx.ParseContext == nil {
-		return nil
-	}
-	builder := undo.GetUndologBuilder(execCtx.ParseContext.ExecutorType)
-	if builder == nil {
-		return nil
-	}
-	recordImage, err := builder.AfterImage(ctx, execCtx, execCtx.TxCtx.RoundImages.BeofreImages())
-	if err != nil {
-		return err
-	}
-	execCtx.TxCtx.RoundImages.AppendAfterImages(recordImage)
 	return nil
 }
