@@ -50,7 +50,7 @@ func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() S
 	val := executorSoltsAT[dt]
 
 	val[et] = func() SQLExecutor {
-		return builder()
+		return &BaseExecutor{ex: builder()}
 	}
 }
 
