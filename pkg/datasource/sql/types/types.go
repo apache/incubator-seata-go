@@ -38,7 +38,7 @@ type (
 	IndexType int16
 )
 
-var (
+const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
 )
@@ -54,10 +54,10 @@ func (i IndexType) MarshalText() (text []byte, err error) {
 func (i *IndexType) UnmarshalText(text []byte) error {
 	switch string(text) {
 	case "PRIMARY_KEY":
-		i = &IndexTypePrimaryKey
+		*i = IndexTypePrimaryKey
 		return nil
 	case "NULL":
-		i = &IndexTypeNull
+		*i = IndexTypeNull
 		return nil
 	default:
 		return fmt.Errorf("invalid index type")
