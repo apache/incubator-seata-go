@@ -54,7 +54,7 @@ func GetMySQLUpdateUndoLogBuilder() undo.UndoLogBuilder {
 }
 
 func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
-	if execCtx.ParseContext.UpdateStmt == nil {
+	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.UpdateStmt == nil {
 		return nil, nil
 	}
 
