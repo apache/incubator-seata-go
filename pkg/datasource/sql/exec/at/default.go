@@ -23,7 +23,16 @@ import (
 )
 
 func init() {
-	exec.RegisterXAExecutor(types.DBTypeMySQL, func() exec.SQLExecutor {
+	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	})
+	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	})
+	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	})
+	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
 		return &ATExecutor{}
 	})
 }
