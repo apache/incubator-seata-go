@@ -142,11 +142,10 @@ func (b *BranchUndoLog) Reverse() {
 
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType     types.SQLType
-	TableName   string
-	Images      types.RoundRecordImage
-	BeforeImage *types.RecordImage
-	AfterImage  *types.RecordImage
+	SQLType     types.SQLType      `json:"sqlType"`
+	TableName   string             `json:"tableName"`
+	BeforeImage *types.RecordImage `json:"beforeImage"`
+	AfterImage  *types.RecordImage `json:"afterImage"`
 }
 
 func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
