@@ -92,8 +92,8 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		for i := range v {
 			tm := v[i]
-			if _, ok := c.cache[tm.Name]; !ok {
-				c.cache[tm.Name] = &entry{
+			if _, ok := c.cache[tm.TableName]; !ok {
+				c.cache[tm.TableName] = &entry{
 					value: tm,
 				}
 			}

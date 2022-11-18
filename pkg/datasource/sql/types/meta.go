@@ -17,7 +17,9 @@
 
 package types
 
-import "database/sql"
+import (
+	"reflect"
+)
 
 // ColumnMeta
 type ColumnMeta struct {
@@ -27,8 +29,8 @@ type ColumnMeta struct {
 	Table string
 	// ColumnDef  the column def
 	ColumnDef []byte
-	// Info
-	Info sql.ColumnType
+	// ColumnTypeInfo
+	ColumnTypeInfo ColumnType
 	// Autoincrement
 	Autoincrement bool
 	ColumnName    string
@@ -39,27 +41,51 @@ type ColumnMeta struct {
 	Extra         string
 }
 
+type ColumnType struct {
+	Name string
+
+	HasNullable       bool
+	HasLength         bool
+	HasPrecisionScale bool
+
+	Nullable     bool
+	Length       int64
+	DatabaseType string
+	Precision    int64
+	Scale        int64
+	ScanType     reflect.Type
+}
+
+// DatabaseTypeName returns the database system name of the column type. If an empty
+// string is returned, then the driver type name is not supported.
+// Consult your driver documentation for a list of driver data types. Length specifiers
+// are not included.
+// Common type names include "VARCHAR", "TEXT", "NVARCHAR", "DECIMAL", "BOOL",
+// "INT", and "BIGINT".
+func (ci *ColumnType) DatabaseTypeName() string {
+	return ci.DatabaseType
+}
+
 // IndexMeta
 type IndexMeta struct {
 	// Schema
 	Schema string
 	// Table
-	Table      string
-	Name       string
+	Table string
+	Name  string
+	// todo 待删除
 	ColumnName string
 	NonUnique  bool
 	// IType
 	IType IndexType
-	// Values
-	Values []ColumnMeta
+	// Columns
+	Columns []ColumnMeta
 }
 
 // TableMeta
 type TableMeta struct {
-	// Schema
-	Schema string
-	// Name
-	Name string
+	// TableName
+	TableName string
 	// Columns
 	Columns map[string]ColumnMeta
 	// Indexs
@@ -68,14 +94,28 @@ type TableMeta struct {
 }
 
 func (m TableMeta) IsEmpty() bool {
-	return m.Name == ""
+	return m.TableName == ""
+}
+
+func (m TableMeta) GetPrimaryKeyMap() map[string]ColumnMeta {
+	pk := make(map[string]ColumnMeta)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for _, column := range index.Columns {
+				pk[column.ColumnName] = column
+			}
+		}
+	}
+	return pk
 }
 
 func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 	keys := make([]string, 0)
 	for _, index := range m.Indexs {
 		if index.IType == IndexTypePrimaryKey {
-			keys = append(keys, index.ColumnName)
+			for _, column := range index.Columns {
+				keys = append(keys, column.ColumnName)
+			}
 		}
 	}
 	return keys

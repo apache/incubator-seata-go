@@ -19,8 +19,10 @@ package sql
 
 import (
 	"context"
+	gosql "database/sql"
 	"database/sql/driver"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/tm"
 )
@@ -49,7 +51,32 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 		}()
 	}
 
-	return c.Conn.QueryContext(ctx, query, args)
+	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+		if err != nil {
+			return nil, err
+		}
+
+		execCtx := &types.ExecContext{
+			TxCtx:       c.txCtx,
+			Query:       query,
+			NamedValues: args,
+			Conn:        c.targetConn,
+		}
+
+		return executor.ExecWithNamedValue(ctx, execCtx,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := c.Conn.QueryContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
+				return types.NewResult(types.WithRows(ret)), nil
+			})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.GetRows(), nil
 }
 
 // ExecContext
@@ -60,7 +87,35 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		}()
 	}
 
-	return c.Conn.ExecContext(ctx, query, args)
+	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+		if err != nil {
+			return nil, err
+		}
+
+		execCtx := &types.ExecContext{
+			TxCtx:       c.txCtx,
+			Query:       query,
+			NamedValues: args,
+			Conn:        c.targetConn,
+			DBName:      c.dbName,
+		}
+
+		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := c.Conn.ExecContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
+				return types.NewResult(types.WithResult(ret)), nil
+			})
+
+		return ret, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.GetResult(), nil
 }
 
 // BeginTx
@@ -72,7 +127,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.TxOpt = opts
 
 	if tm.IsGlobalTx(ctx) {
-		c.txCtx.XaID = tm.GetXID(ctx)
+		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
 	}
 
@@ -90,11 +145,43 @@ func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
-		c.txCtx.XaID = tm.GetXID(ctx)
 		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
 		c.txCtx.GlobalLockRequire = true
 	}
 
 	return onceTx
+}
+
+func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
+	var (
+		tx  driver.Tx
+		err error
+	)
+
+	if c.txCtx.TransType != types.Local && c.autoCommit {
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	ret, err := f()
+	if err != nil {
+		return nil, err
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
 }

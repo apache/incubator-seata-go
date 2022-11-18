@@ -24,6 +24,9 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// todo
+// 完善XA prepare
+//
 type XAExecutor struct {
 	is []exec.SQLHook
 	ex exec.SQLExecutor

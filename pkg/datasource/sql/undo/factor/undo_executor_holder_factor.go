@@ -15,24 +15,33 @@
  * limitations under the License.
  */
 
-package at
+package factor
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"errors"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 )
 
-func init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
+var undoExecutorHolderMap map[types.DBType]undo.UndoExecutorHolder
+
+var ErrNotImplDBType = errors.New("db type executor not implement")
+
+// GetUndoExecutorHolder get exactly executor holder
+func GetUndoExecutorHolder(dbType types.DBType) (undo.UndoExecutorHolder, error) {
+	// lazy init
+	if undoExecutorHolderMap == nil {
+		undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{
+			// todo impl oracle, mariadb, postgresql etc ...
+			types.DBTypeMySQL: executor.NewMySQLUndoExecutorHolder(),
+		}
+	}
+
+	if executorHolder, ok := undoExecutorHolderMap[dbType]; ok {
+		return executorHolder, nil
+	} else {
+		return nil, ErrNotImplDBType
+	}
 }

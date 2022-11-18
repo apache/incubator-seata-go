@@ -27,10 +27,11 @@ type (
 )
 
 const (
-	BranchTypeAT   BranchType = 0
-	BranchTypeTCC  BranchType = 1
-	BranchTypeSAGA BranchType = 2
-	BranchTypeXA   BranchType = 3
+	BranchTypeUnknow BranchType = -1
+	BranchTypeAT     BranchType = 0
+	BranchTypeTCC    BranchType = 1
+	BranchTypeSAGA   BranchType = 2
+	BranchTypeXA     BranchType = 3
 )
 
 const (

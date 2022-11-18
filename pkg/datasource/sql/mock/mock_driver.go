@@ -107,7 +107,7 @@ func (m *MockTestDriverConn) EXPECT() *MockTestDriverConnMockRecorder {
 // Begin mocks base method.
 func (m *MockTestDriverConn) Begin() (driver.Tx, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Begin")
+	ret := m.ctrl.Call(m, "doBegin")
 	ret0, _ := ret[0].(driver.Tx)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -116,7 +116,7 @@ func (m *MockTestDriverConn) Begin() (driver.Tx, error) {
 // Begin indicates an expected call of Begin.
 func (mr *MockTestDriverConnMockRecorder) Begin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Begin", reflect.TypeOf((*MockTestDriverConn)(nil).Begin))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "doBegin", reflect.TypeOf((*MockTestDriverConn)(nil).Begin))
 }
 
 // BeginTx mocks base method.
