@@ -85,7 +85,9 @@ func TestTransactionExecutorBegin(t *testing.T) {
 					assert.Equal(t, v.wantErrString, err.Error)
 				}
 			}(v)
-			begin(v.ctx, v.name)
+			begin(v.ctx, &TransactionInfo{
+				Name: v.name,
+			})
 		}()
 
 		// rest up stub
