@@ -43,7 +43,7 @@ var (
 	ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
 )
 
-const (
+var (
 	checkUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 	insertUndoLogSql          = "INSERT INTO " + constant.UndoLogTableName + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
 )
@@ -89,7 +89,7 @@ func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn drive
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, record.LogStatus})
+	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	}
 
 	// use defalut encode
-	undoLogContent, err := json.Marshal(branchUndoLog)
+	rollbackInfo, err := json.Marshal(branchUndoLog)
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	parseContext := make(map[string]string, 0)
 	parseContext[SerializerKey] = "jackson"
 	parseContext[CompressorTypeKey] = "NONE"
-	rollbackInfo, err := json.Marshal(parseContext)
+	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {
 		return err
 	}

@@ -95,6 +95,18 @@ func (m TableMeta) IsEmpty() bool {
 	return m.TableName == ""
 }
 
+func (m TableMeta) GetPrimaryKeyMap() map[string]ColumnMeta {
+	pk := make(map[string]ColumnMeta)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for _, column := range index.Columns {
+				pk[column.ColumnName] = column
+			}
+		}
+	}
+	return pk
+}
+
 func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 	keys := make([]string, 0)
 	for _, index := range m.Indexs {
@@ -104,6 +116,5 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 			}
 		}
 	}
-
 	return keys
 }

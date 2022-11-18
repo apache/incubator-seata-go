@@ -154,7 +154,7 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 		lockKey += k + ";"
 	}
 	request := rm.BranchRegisterParam{
-		Xid:        ctx.XaID,
+		Xid:        ctx.XID,
 		BranchType: ctx.TransType.GetBranchType(),
 		ResourceId: ctx.ResourceID,
 		LockKeys:   lockKey,
@@ -176,7 +176,7 @@ func (tx *Tx) report(success bool) error {
 	}
 	status := getStatus(success)
 	request := message.BranchReportRequest{
-		Xid:        tx.tranCtx.XaID,
+		Xid:        tx.tranCtx.XID,
 		BranchId:   int64(tx.tranCtx.BranchID),
 		ResourceId: tx.tranCtx.ResourceID,
 		Status:     status,
@@ -187,7 +187,7 @@ func (tx *Tx) report(success bool) error {
 		err := dataSourceManager.BranchReport(context.Background(), request)
 		if err != nil {
 			retry--
-			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XaID, success, retry)
+			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 			if retry == 0 {
 				log.Infof("Failed to report branch status: %s", err.Error())
 				return err

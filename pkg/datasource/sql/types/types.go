@@ -19,6 +19,7 @@ package types
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"strings"
 
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -41,6 +42,27 @@ const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
 )
+
+func (i IndexType) MarshalText() (text []byte, err error) {
+	switch i {
+	case IndexTypePrimaryKey:
+		return []byte("PRIMARY_KEY"), nil
+	}
+	return []byte("NULL"), nil
+}
+
+func (i *IndexType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRIMARY_KEY":
+		*i = IndexTypePrimaryKey
+		return nil
+	case "NULL":
+		*i = IndexTypeNull
+		return nil
+	default:
+		return fmt.Errorf("invalid index type")
+	}
+}
 
 const (
 	_ DBType = iota
@@ -109,8 +131,6 @@ type TransactionContext struct {
 	ResourceID string
 	// BranchID transaction branch unique id
 	BranchID uint64
-	// XaID XA id
-	XaID string // todo delete
 	// XID global transaction id
 	XID string
 	// GlobalLockRequire
