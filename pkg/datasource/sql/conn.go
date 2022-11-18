@@ -37,7 +37,6 @@ type Conn struct {
 	autoCommit bool
 	dbName     string
 	dbType     types.DBType
-	superConn  *Conn
 }
 
 // ResetSession is called prior to executing a query on the connection

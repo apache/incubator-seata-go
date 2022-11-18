@@ -100,6 +100,8 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return nil, err
 	}
 
+	image.SQLType = execCtx.ParseContext.SQLType
+
 	return []*types.RecordImage{image}, nil
 }
 
@@ -130,6 +132,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 		return nil, err
 	}
 
+	image.SQLType = execCtx.ParseContext.SQLType
 	return []*types.RecordImage{image}, nil
 }
 

@@ -97,7 +97,7 @@ type RecordImage struct {
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
-	TableMeta TableMeta
+	TableMeta TableMeta `json:"-"`
 }
 
 // RowImage Mirror data information information
