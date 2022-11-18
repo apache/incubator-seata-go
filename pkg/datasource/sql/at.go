@@ -43,6 +43,7 @@ func init() {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
+		rmRemoting:    rm.GetRMRemotingInstance(),
 	}
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)
@@ -58,6 +59,7 @@ type ATSourceManager struct {
 	resourceCache sync.Map
 	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
+	rmRemoting    *rm.RMRemoting
 }
 
 // Register a Resource to be managed by Resource Manager
@@ -99,12 +101,12 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 		return branch.BranchStatusUnknown, err
 	}
 
-	conn, err := res.target.Conn(ctx)
+	/*conn, err := res.target.Conn(ctx)
 	if err != nil {
 		return branch.BranchStatusUnknown, err
-	}
+	}*/
 
-	if err := undoMgr.RunUndo(req.Xid, req.BranchId, conn); err != nil {
+	if err := undoMgr.RunUndo(ctx, req.Xid, req.BranchId, res.conn); err != nil {
 		transErr, ok := err.(*types.TransactionError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
@@ -132,8 +134,8 @@ func (mgr *ATSourceManager) LockQuery(ctx context.Context, req message.GlobalLoc
 }
 
 // BranchRegister
-func (mgr *ATSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
-	return 0, nil
+func (mgr *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
+	return mgr.rmRemoting.BranchRegister(req)
 }
 
 // BranchReport

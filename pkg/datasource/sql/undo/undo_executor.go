@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package at
+package undo
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"context"
+	"database/sql/driver"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-func init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
+type UndoExecutor interface {
+	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn driver.Conn) error
 }

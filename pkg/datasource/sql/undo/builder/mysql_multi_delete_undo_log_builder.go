@@ -93,6 +93,9 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 			return nil, err
 		}
 		records = append(records, record)
+
+		lockKey := u.buildLockKey(rows, meDataMap)
+		execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 
 	return records, nil

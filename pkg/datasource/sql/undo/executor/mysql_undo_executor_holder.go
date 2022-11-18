@@ -15,16 +15,30 @@
  * limitations under the License.
  */
 
-package mysql
+package executor
 
 import (
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )
 
-func init() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
-		panic(errors.WithStack(err))
-	}
+type MySQLUndoExecutorHolder struct {
+}
+
+func NewMySQLUndoExecutorHolder() undo.UndoExecutorHolder {
+	return &MySQLUndoExecutorHolder{}
+}
+
+// GetInsertExecutor get the mysql Insert UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetInsertExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	return NewMySQLUndoInsertExecutor()
+}
+
+// GetUpdateExecutor get the mysql Update UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetUpdateExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	return NewMySQLUndoUpdateExecutor()
+}
+
+// GetDeleteExecutor get the mysql Delete UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetDeleteExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	return NewMySQLUndoDeleteExecutor()
 }

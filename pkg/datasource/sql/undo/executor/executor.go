@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package at
+package executor
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"context"
+	"database/sql"
+	"database/sql/driver"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-func init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
+var _ undo.UndoExecutor = (*BaseExecutor)(nil)
+
+type BaseExecutor struct {
+}
+
+// ExecuteOn
+func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn driver.Conn) error {
+	// check data if valid
+	return nil
+}
+
+// UndoPrepare
+func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnImage, pkValueList []types.ColumnImage) {
+
 }

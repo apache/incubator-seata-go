@@ -15,24 +15,33 @@
  * limitations under the License.
  */
 
-package at
+package factor
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"fmt"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-func init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
+func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (res undo.UndoExecutor, err error) {
+	undoExecutorHolder, err := GetUndoExecutorHolder(dbType)
+	if err != nil {
+		log.Errorf("[GetUndoExecutor] get undo executor holder fail, err: %v", err)
+		return nil, err
+	}
+
+	switch sqlUndoLog.SQLType {
+	case types.SQLTypeInsert:
+		res = undoExecutorHolder.GetInsertExecutor(sqlUndoLog)
+	case types.SQLTypeDelete:
+		res = undoExecutorHolder.GetDeleteExecutor(sqlUndoLog)
+	case types.SQLTypeUpdate:
+		res = undoExecutorHolder.GetDeleteExecutor(sqlUndoLog)
+	default:
+		return nil, fmt.Errorf("sql type: %d not support", sqlUndoLog.SQLType)
+	}
+
+	return
 }
