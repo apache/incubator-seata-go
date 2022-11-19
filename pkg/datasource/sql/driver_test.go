@@ -47,7 +47,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open(SeataATMySQLDriver, "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 		if vv.Kind() == reflect.Ptr {
 			vv = vv.Elem()
 		}
-		field = vv.FieldByName("db")
+		field = vv.FieldByName("target")
 
 		mockDriver := mock.NewMockTestDriver(ctrl)
 		mockDriver.EXPECT().Open(gomock.Any()).Return(mock.NewMockTestDriverConn(ctrl), nil)

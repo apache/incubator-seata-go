@@ -57,7 +57,7 @@ func initMockAtConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f in
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	reflectx.SetUnexportedField(v.FieldByName("db"), f(t, ctrl))
+	reflectx.SetUnexportedField(v.FieldByName("target"), f(t, ctrl))
 
 	return fieldVal.(driver.Connector)
 }
