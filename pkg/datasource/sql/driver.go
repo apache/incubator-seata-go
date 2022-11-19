@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -101,7 +102,7 @@ type seataDriver struct {
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
 	conn, err := d.target.Open(name)
 	if err != nil {
-		log.Errorf("open target connection: %w", err)
+		log.Errorf("open db connection: %w", err)
 		return nil, err
 	}
 
@@ -175,6 +176,7 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 		return nil, err
 	}
 
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
 	if err = datasource.GetDataSourceManager(conf.BranchType).RegisterResource(res); err != nil {
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err

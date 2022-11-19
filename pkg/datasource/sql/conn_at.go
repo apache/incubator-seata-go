@@ -39,7 +39,6 @@ func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 			c.txCtx = types.NewTxCtx()
 		}()
 	}
-
 	return c.Conn.PrepareContext(ctx, query)
 }
 
@@ -125,6 +124,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
+	c.txCtx.ResourceID = c.res.resourceID
 
 	if tm.IsGlobalTx(ctx) {
 		c.txCtx.XID = tm.GetXID(ctx)
@@ -145,6 +145,7 @@ func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
+		c.txCtx.ResourceID = c.res.resourceID
 		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
 		c.txCtx.GlobalLockRequire = true

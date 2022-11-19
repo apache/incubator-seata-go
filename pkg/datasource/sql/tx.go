@@ -24,7 +24,6 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/util/log"
 
@@ -175,11 +174,10 @@ func (tx *Tx) report(success bool) error {
 		return nil
 	}
 	status := getStatus(success)
-	request := message.BranchReportRequest{
-		Xid:        tx.tranCtx.XID,
-		BranchId:   int64(tx.tranCtx.BranchID),
-		ResourceId: tx.tranCtx.ResourceID,
-		Status:     status,
+	request := rm.BranchReportParam{
+		Xid:      tx.tranCtx.XID,
+		BranchId: int64(tx.tranCtx.BranchID),
+		Status:   status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(tx.tranCtx.TransType))
 	retry := REPORT_RETRY_COUNT

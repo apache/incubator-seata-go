@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"flag"
+	"github.com/seata/seata-go/pkg/rm"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/fanout"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -102,7 +102,7 @@ func NewAsyncWorker(prom prometheus.Registerer, conf AsyncWorkerConfig, sourceMa
 }
 
 // BranchCommit commit branch transaction
-func (aw *AsyncWorker) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
+func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) (branch.BranchStatus, error) {
 	phaseCtx := phaseTwoContext{
 		Xid:        req.Xid,
 		BranchID:   req.BranchId,
@@ -170,7 +170,7 @@ func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
 }
 
 func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-	val, ok := aw.resourceMgr.GetManagedResources()[resID]
+	val, ok := aw.resourceMgr.GetCachedResources().Load(resID)
 	if !ok {
 		for i := range phaseCtxs {
 			aw.rePutBackToQueue.Add(1)
@@ -180,7 +180,7 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 	}
 
 	res := val.(*DBResource)
-	conn, err := res.target.Conn(context.Background())
+	conn, err := res.db.Conn(context.Background())
 	if err != nil {
 		for i := range phaseCtxs {
 			aw.commitQueue <- phaseCtxs[i]

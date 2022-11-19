@@ -73,7 +73,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 		if vv.Kind() == reflect.Ptr {
 			vv = vv.Elem()
 		}
-		field = vv.FieldByName("target")
+		field = vv.FieldByName("db")
 
 		mockDriver := mock.NewMockTestDriver(ctrl)
 		mockDriver.EXPECT().Open(gomock.Any()).Return(mock.NewMockTestDriverConn(ctrl), nil)

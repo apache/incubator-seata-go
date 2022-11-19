@@ -18,10 +18,7 @@
 package sql
 
 import (
-	"context"
-	gosql "database/sql"
-	"database/sql/driver"
-
+	"database/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -55,9 +52,9 @@ func withDBType(dt types.DBType) dbOption {
 	}
 }
 
-func withTarget(source *gosql.DB) dbOption {
+func withTarget(source *sql.DB) dbOption {
 	return func(db *DBResource) {
-		db.target = source
+		db.db = source
 	}
 }
 
@@ -85,10 +82,8 @@ type DBResource struct {
 	resourceID string
 	// conf
 	conf seataServerConfig
-	// target
-	target *gosql.DB
-	// conn
-	conn driver.Conn
+	// db
+	db *sql.DB
 	// dbType
 	dbType types.DBType
 	// undoLogMgr
@@ -98,16 +93,21 @@ type DBResource struct {
 }
 
 func (db *DBResource) init() error {
-	mgr := datasource.GetDataSourceManager(db.GetBranchType())
-	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.target)
-	if err != nil {
-		return err
-	}
-
-	db.metaCache = metaCache
-
 	return nil
 }
+
+// todo do not put meta data to rm
+//func (db *DBResource) init() error {
+//	mgr := datasource.GetDataSourceManager(db.GetBranchType())
+//	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.db)
+//	if err != nil {
+//		return err
+//	}
+//
+//	db.metaCache = metaCache
+//
+//	return nil
+//}
 
 func (db *DBResource) GetResourceGroupId() string {
 	return db.groupID

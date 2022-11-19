@@ -21,13 +21,12 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"strings"
-
-	"github.com/arana-db/parser/model"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/arana-db/parser/model"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -72,7 +71,7 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	}
 
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +111,7 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 	}
 
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +171,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, exe
 
 	// select indexes columns
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}
