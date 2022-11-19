@@ -18,14 +18,11 @@
 package sql
 
 import (
-	"context"
-	gosql "database/sql"
-	"database/sql/driver"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"database/sql"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
@@ -55,9 +52,15 @@ func withDBType(dt types.DBType) dbOption {
 	}
 }
 
-func withTarget(source *gosql.DB) dbOption {
+func withTarget(source *sql.DB) dbOption {
 	return func(db *DBResource) {
-		db.target = source
+		db.db = source
+	}
+}
+
+func withDBName(dbName string) dbOption {
+	return func(db *DBResource) {
+		db.dbName = dbName
 	}
 }
 
@@ -85,10 +88,9 @@ type DBResource struct {
 	resourceID string
 	// conf
 	conf seataServerConfig
-	// target
-	target *gosql.DB
-	// conn
-	conn driver.Conn
+	// db
+	db     *sql.DB
+	dbName string
 	// dbType
 	dbType types.DBType
 	// undoLogMgr
@@ -98,16 +100,21 @@ type DBResource struct {
 }
 
 func (db *DBResource) init() error {
-	mgr := datasource.GetDataSourceManager(db.GetBranchType())
-	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.target)
-	if err != nil {
-		return err
-	}
-
-	db.metaCache = metaCache
-
 	return nil
 }
+
+// todo do not put meta data to rm
+//func (db *DBResource) init() error {
+//	mgr := datasource.GetDataSourceManager(db.GetBranchType())
+//	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.db)
+//	if err != nil {
+//		return err
+//	}
+//
+//	db.metaCache = metaCache
+//
+//	return nil
+//}
 
 func (db *DBResource) GetResourceGroupId() string {
 	return db.groupID
@@ -119,4 +126,17 @@ func (db *DBResource) GetResourceId() string {
 
 func (db *DBResource) GetBranchType() branch.BranchType {
 	return db.conf.BranchType
+}
+
+type SqlDBProxy struct {
+	db     *sql.DB
+	dbName string
+}
+
+func (s *SqlDBProxy) GetDB() *sql.DB {
+	return s.db
+}
+
+func (s *SqlDBProxy) GetDBName() string {
+	return s.dbName
 }

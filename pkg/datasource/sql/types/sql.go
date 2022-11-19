@@ -120,3 +120,69 @@ func (s SQLType) MarshalText() (text []byte, err error) {
 	}
 	return []byte("INVALID_SQLTYPE"), nil
 }
+
+func (s *SQLType) UnmarshalText(b []byte) error {
+	switch string(b) {
+	case "SELECT":
+		*s = SQLTypeSelect
+	case "INSERT":
+		*s = SQLTypeInsert
+	case "UPDATE":
+		*s = SQLTypeUpdate
+	case "DELETE":
+		*s = SQLTypeDelete
+	case "SELECT_FOR_UPDATE":
+		*s = SQLTypeSelectForUpdate
+	case "REPLACE":
+		*s = SQLTypeReplace
+	case "TRUNCATE":
+		*s = SQLTypeTruncate
+	case "CREATE":
+		*s = SQLTypeCreate
+	case "DROP":
+		*s = SQLTypeDrop
+	case "LOAD":
+		*s = SQLTypeLoad
+	case "MERGE":
+		*s = SQLTypeMerge
+	case "SHOW":
+		*s = SQLTypeShow
+	case "ALTER":
+		*s = SQLTypeAlter
+	case "RENAME":
+		*s = SQLTypeRename
+	case "DUMP":
+		*s = SQLTypeDump
+	case "DEBUG":
+		*s = SQLTypeDebug
+	case "EXPLAIN":
+		*s = SQLTypeExplain
+	case "DESC":
+		*s = SQLTypeDesc
+	case "SET":
+		*s = SQLTypeSet
+	case "RELOAD":
+		*s = SQLTypeReload
+	case "SELECT_UNION":
+		*s = SQLTypeSelectUnion
+	case "CREATE_TABLE":
+		*s = SQLTypeCreateTable
+	case "DROP_TABLE":
+		*s = SQLTypeDropTable
+	case "ALTER_TABLE":
+		*s = SQLTypeAlterTable
+	case "SELECT_FROM_UPDATE":
+		*s = SQLTypeSelectFromUpdate
+	case "MULTI_DELETE":
+		*s = SQLTypeMultiDelete
+	case "MULTI_UPDATE":
+		*s = SQLTypeMultiUpdate
+	case "CREATE_INDEX":
+		*s = SQLTypeCreateIndex
+	case "DROP_INDEX":
+		*s = SQLTypeDropIndex
+	case "MULTI":
+		*s = SQLTypeMulti
+	}
+	return nil
+}
