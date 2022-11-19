@@ -22,16 +22,16 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
-	"github.com/arana-db/parser/mysql"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
 	"strconv"
 	"strings"
 
+	"github.com/arana-db/parser/mysql"
+	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/constant"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 

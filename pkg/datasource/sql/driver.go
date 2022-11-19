@@ -22,8 +22,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"strings"
+
+	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"

@@ -22,7 +22,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/seata/seata-go/pkg/rm"
 	"io"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
 	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
 )

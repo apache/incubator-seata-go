@@ -19,10 +19,10 @@ package sql
 
 import (
 	"database/sql"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 

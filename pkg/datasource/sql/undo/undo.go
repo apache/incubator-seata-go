@@ -22,8 +22,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 var (

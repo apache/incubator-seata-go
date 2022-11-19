@@ -20,8 +20,9 @@ package sql
 import (
 	"context"
 	"flag"
-	"github.com/seata/seata-go/pkg/rm"
 	"time"
+
+	"github.com/seata/seata-go/pkg/rm"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
