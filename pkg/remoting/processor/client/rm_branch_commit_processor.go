@@ -87,6 +87,6 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 		log.Errorf("send branch commit response error: {%#v}", err.Error())
 		return err
 	}
-	log.Infof("send branch commit response success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("send branch commit success: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
 	return nil
 }
