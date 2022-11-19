@@ -23,9 +23,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/convert"
 	"strconv"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/util/convert"
 
 	"github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
