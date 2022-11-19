@@ -38,7 +38,6 @@ type OrderTbl struct {
 func main() {
 	client.Init()
 	initService()
-	selectData()
 	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
 		Name:    "ATSampleLocalGlobalTx",
 		TimeOut: time.Second * 30,

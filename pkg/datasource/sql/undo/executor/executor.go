@@ -20,7 +20,6 @@ package executor
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -32,7 +31,7 @@ type BaseExecutor struct {
 }
 
 // ExecuteOn
-func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn driver.Conn) error {
+func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 	// check data if valid
 	return nil
 }

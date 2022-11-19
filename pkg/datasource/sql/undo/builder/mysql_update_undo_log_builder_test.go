@@ -20,6 +20,7 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"reflect"
 	"testing"
 
@@ -39,12 +40,8 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 	var (
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
-	//stub := gomonkey.ApplyMethod(reflect.TypeOf(mysql.GetTableMetaInstance()), "GetTableMeta", func(_ *datasource.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
-	//	return &types.TableMeta{
-	//
-	//	}, nil
-	//})
-	stub := gomonkey.ApplyMethod(reflect.TypeOf(mysql.GetTableMetaInstance()), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
+
+	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
 		return &types.TableMeta{
 			Indexs: map[string]types.IndexMeta{
 				"id": {

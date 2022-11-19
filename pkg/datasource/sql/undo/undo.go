@@ -72,7 +72,7 @@ type UndoLogManager interface {
 	//FlushUndoLog
 	FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error
 	// RunUndo
-	RunUndo(ctx context.Context, xid string, branchID int64, conn driver.Conn) error
+	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
@@ -107,8 +107,12 @@ type UndologRecord struct {
 	Context      []byte        `json:"context"`
 	RollbackInfo []byte        `json:"rollbackInfo"`
 	LogStatus    UndoLogStatue `json:"logStatus"`
-	LogCreated   uint64        `json:"logCreated"`
-	LogModified  uint64        `json:"logModified"`
+	LogCreated   []byte        `json:"logCreated"`
+	LogModified  []byte        `json:"logModified"`
+}
+
+func (u *UndologRecord) CanUndo() bool {
+	return u.LogStatus == UndoLogStatueNormnal
 }
 
 // BranchUndoLog
