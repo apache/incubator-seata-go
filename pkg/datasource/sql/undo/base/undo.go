@@ -219,7 +219,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	defer func() {
 		if err != nil {
 			if err = tx.Rollback(); err != nil {
-				log.Errorf("[RunUndo] rollback fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+				log.Errorf("rollback fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
 				return
 			}
 		}
@@ -231,17 +231,27 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	}
 	stmt, err := conn.PrepareContext(ctx, selectUndoLogSql)
 	if err != nil {
-		log.Errorf("[Undo] prepare sql fail, err: %v", err)
+		log.Errorf("prepare sql fail, err: %v", err)
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		if err = stmt.Close(); err != nil {
+			log.Errorf("stmt close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			return
+		}
+	}()
 
 	rows, err := stmt.Query(branchID, xid)
 	if err != nil {
-		log.Errorf("[Undo] query sql fail, err: %v", err)
+		log.Errorf("query sql fail, err: %v", err)
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if err = rows.Close(); err != nil {
+			log.Errorf("rows close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			return
+		}
+	}()
 
 	var undoLogRecords []undo.UndologRecord
 	for rows.Next() {
@@ -274,7 +284,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		for _, undoLog := range sqlUndoLogs {
 			tableMeta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, dbName, undoLog.TableName)
 			if err != nil {
-				log.Errorf("[Undo] get table meta fail, err: %v", err)
+				log.Errorf("get table meta fail, err: %v", err)
 				return err
 			}
 
@@ -282,12 +292,12 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
 			if err != nil {
-				log.Errorf("[Undo] get undo executor, err: %v", err)
+				log.Errorf("get undo executor, err: %v", err)
 				return err
 			}
 
 			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
-				log.Errorf("[Undo] execute on fail, err: %v", err)
+				log.Errorf("execute on fail, err: %v", err)
 				return err
 			}
 		}
