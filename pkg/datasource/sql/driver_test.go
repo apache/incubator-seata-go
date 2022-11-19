@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/rm"
 	"reflect"
 	"testing"
 
@@ -32,7 +33,7 @@ import (
 
 func initMockResourceManager(t *testing.T, ctrl *gomock.Controller) *mock.MockDataSourceManager {
 	mockResourceMgr := mock.NewMockDataSourceManager(ctrl)
-
+	rm.GetRmCacheInstance().RegisterResourceManager(mockResourceMgr)
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
 	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
@@ -46,7 +47,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open(SeataATMySQLDriver, "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}

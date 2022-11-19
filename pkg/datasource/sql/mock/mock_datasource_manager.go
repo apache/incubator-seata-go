@@ -116,10 +116,7 @@ func (mr *MockDataSourceManagerMockRecorder) CreateTableMetaCache(ctx, resID, db
 
 // GetBranchType mocks base method.
 func (m *MockDataSourceManager) GetBranchType() branch.BranchType {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBranchType")
-	ret0, _ := ret[0].(branch.BranchType)
-	return ret0
+	return branch.BranchTypeAT
 }
 
 // GetBranchType indicates an expected call of GetBranchType.
