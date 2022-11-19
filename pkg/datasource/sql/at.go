@@ -30,7 +30,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
@@ -52,7 +51,7 @@ func init() {
 	_ = fs.Parse([]string{})
 
 	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncWorkerConf, atSourceManager)
-	datasource.RegisterResourceManager(branch.BranchTypeAT, atSourceManager)
+	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
 
 type ATSourceManager struct {
@@ -62,51 +61,43 @@ type ATSourceManager struct {
 	rmRemoting    *rm.RMRemoting
 }
 
-// Register a Resource to be managed by Resource Manager
-func (mgr *ATSourceManager) RegisterResource(res rm.Resource) error {
-	mgr.resourceCache.Store(res.GetResourceId(), res)
-
-	return mgr.basic.RegisterResource(res)
-}
-
-// Unregister a Resource from the Resource Manager
-func (mgr *ATSourceManager) UnregisterResource(res rm.Resource) error {
-	return mgr.basic.UnregisterResource(res)
+func (a *ATSourceManager) GetBranchType() branch.BranchType {
+	return branch.BranchTypeAT
 }
 
 // Get all resources managed by this manager
-func (mgr *ATSourceManager) GetManagedResources() map[string]rm.Resource {
-	ret := make(map[string]rm.Resource)
-
-	mgr.resourceCache.Range(func(key, value interface{}) bool {
-		ret[key.(string)] = value.(rm.Resource)
-		return true
-	})
-
-	return ret
+func (a *ATSourceManager) GetCachedResources() *sync.Map {
+	return &a.resourceCache
 }
 
-// BranchRollback Rollback the corresponding transactions according to the request
-func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error) {
-	val, ok := mgr.resourceCache.Load(req.ResourceId)
+// Register a Resource to be managed by Resource Manager
+func (a *ATSourceManager) RegisterResource(res rm.Resource) error {
+	a.resourceCache.Store(res.GetResourceId(), res)
 
-	if !ok {
-		return branch.BranchStatusPhaseoneFailed, fmt.Errorf("resource %s not found", req.ResourceId)
+	return a.basic.RegisterResource(res)
+}
+
+// Unregister a Resource from the Resource Manager
+func (a *ATSourceManager) UnregisterResource(res rm.Resource) error {
+	return a.basic.UnregisterResource(res)
+}
+
+// Rollback a branch transaction
+func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	var dbResource *DBResource
+	if resource, ok := a.resourceCache.Load(branchResource.ResourceId); !ok {
+		err := fmt.Errorf("DB resource is not exist, resourceId: %s", branchResource.ResourceId)
+		return branch.BranchStatusUnknown, err
+	} else {
+		dbResource, _ = resource.(*DBResource)
 	}
 
-	res := val.(*DBResource)
-
-	undoMgr, err := undo.GetUndoLogManager(res.dbType)
+	undoMgr, err := undo.GetUndoLogManager(dbResource.dbType)
 	if err != nil {
 		return branch.BranchStatusUnknown, err
 	}
 
-	/*conn, err := res.target.Conn(ctx)
-	if err != nil {
-		return branch.BranchStatusUnknown, err
-	}*/
-
-	if err := undoMgr.RunUndo(ctx, req.Xid, req.BranchId, res.conn); err != nil {
+	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName); err != nil {
 		transErr, ok := err.(*types.TransactionError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
@@ -123,28 +114,28 @@ func (mgr *ATSourceManager) BranchRollback(ctx context.Context, req message.Bran
 }
 
 // BranchCommit
-func (mgr *ATSourceManager) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
-	mgr.worker.BranchCommit(ctx, req)
+func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
+	a.worker.BranchCommit(ctx, resource)
 	return branch.BranchStatusPhaseoneDone, nil
 }
 
 // LockQuery
-func (mgr *ATSourceManager) LockQuery(ctx context.Context, req message.GlobalLockQueryRequest) (bool, error) {
+func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	return false, nil
 }
 
 // BranchRegister
-func (mgr *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
-	return mgr.rmRemoting.BranchRegister(req)
+func (a *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
+	return a.rmRemoting.BranchRegister(req)
 }
 
 // BranchReport
-func (mgr *ATSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
+func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return nil
 }
 
 // CreateTableMetaCache
-func (mgr *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
+func (a *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
 	db *sql.DB) (datasource.TableMetaCache, error) {
-	return mgr.basic.CreateTableMetaCache(ctx, resID, dbType, db)
+	return a.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
