@@ -22,6 +22,8 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 
+	"github.com/seata/seata-go/pkg/util/log"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/tm"
@@ -166,10 +168,14 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 			return nil, err
 		}
 	}
-
 	defer func() {
-		if tx != nil {
-			tx.Rollback()
+		recoverErr := recover()
+		if err != nil || recoverErr != nil {
+			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+			if tx != nil {
+				rollbackErr := tx.Rollback()
+				log.Errorf("conn at rollback error:%v", rollbackErr)
+			}
 		}
 	}()
 

@@ -39,7 +39,8 @@ func main() {
 	client.Init()
 	initService()
 	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "ATSampleLocalGlobalTx",
+		Name:    "ATSampleLocalGlobalTx",
+		TimeOut: time.Second * 30,
 	}, updateData)
 	<-make(chan struct{})
 }
