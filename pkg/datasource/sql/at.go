@@ -87,7 +87,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 	var dbResource *DBResource
 	if resource, ok := a.resourceCache.Load(branchResource.ResourceId); !ok {
 		err := fmt.Errorf("DB resource is not exist, resourceId: %s", branchResource.ResourceId)
-		return 0, err
+		return branch.BranchStatusUnknown, err
 	} else {
 		dbResource, _ = resource.(*DBResource)
 	}
