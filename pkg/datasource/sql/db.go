@@ -58,6 +58,12 @@ func withTarget(source *sql.DB) dbOption {
 	}
 }
 
+func withDBName(dbName string) dbOption {
+	return func(db *DBResource) {
+		db.dbName = dbName
+	}
+}
+
 func withConf(conf *seataServerConfig) dbOption {
 	return func(db *DBResource) {
 		db.conf = *conf
@@ -83,7 +89,8 @@ type DBResource struct {
 	// conf
 	conf seataServerConfig
 	// db
-	db *sql.DB
+	db     *sql.DB
+	dbName string
 	// dbType
 	dbType types.DBType
 	// undoLogMgr
@@ -119,4 +126,17 @@ func (db *DBResource) GetResourceId() string {
 
 func (db *DBResource) GetBranchType() branch.BranchType {
 	return db.conf.BranchType
+}
+
+type SqlDBProxy struct {
+	db     *sql.DB
+	dbName string
+}
+
+func (s *SqlDBProxy) GetDB() *sql.DB {
+	return s.db
+}
+
+func (s *SqlDBProxy) GetDBName() string {
+	return s.dbName
 }

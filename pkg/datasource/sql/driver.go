@@ -163,12 +163,14 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 		return connector, err
 	}
 
+	cfg, _ := mysql.ParseDSN(dataSourceName)
 	options := []dbOption{
 		withGroupID(conf.GroupID),
 		withResourceID(parseResourceID(dataSourceName)),
 		withConf(conf),
 		withTarget(db),
 		withDBType(dbType),
+		withDBName(cfg.DBName),
 	}
 
 	res, err := newResource(options...)
@@ -182,7 +184,6 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
-	cfg, _ := mysql.ParseDSN(dataSourceName)
 
 	return &seataConnector{
 		res:    res,
@@ -225,12 +226,9 @@ func loadConfig() *seataServerConfig {
 
 func parseResourceID(dsn string) string {
 	i := strings.Index(dsn, "?")
-
 	res := dsn
-
 	if i > 0 {
 		res = dsn[:i]
 	}
-
 	return strings.ReplaceAll(res, ",", "|")
 }

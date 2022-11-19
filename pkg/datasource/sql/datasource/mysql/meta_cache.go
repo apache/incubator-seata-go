@@ -56,7 +56,7 @@ func (c *TableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 // GetTableMeta get table info from cache or information schema
 func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 	if tableName == "" {
-		return nil, errors.New("TableMeta cannot be fetched without tableName")
+		return nil, errors.New("table name is empty")
 	}
 
 	conn, err := c.db.Conn(ctx)

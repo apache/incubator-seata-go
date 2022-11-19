@@ -20,7 +20,6 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -30,7 +29,7 @@ import (
 
 const (
 	columnMetaSql = "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-	indexMetaSql  = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	indexMetaSql  = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 )
 
 type mysqlTrigger struct {
@@ -105,21 +104,19 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 
 	for rows.Next() {
 		var (
-			tableCatalog string
-			tableName    string
-			tableSchema  string
-			columnName   string
-			dataType     string
-			columnType   string
-			columnKey    string
-			isNullable   string
-			extra        string
+			tableName   string
+			tableSchema string
+			columnName  string
+			dataType    string
+			columnType  string
+			columnKey   string
+			isNullable  string
+			extra       string
 		)
 
 		columnMeta := types.ColumnMeta{}
 
 		if err = rows.Scan(
-			&tableCatalog,
 			&tableName,
 			&tableSchema,
 			&columnName,
@@ -165,7 +162,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		return nil, err
 	}
 
-	rows, err := stmt.Query([]driver.Value{dbName, tableName})
+	rows, err := stmt.Query(dbName, tableName)
 	if err != nil {
 		return nil, err
 	}

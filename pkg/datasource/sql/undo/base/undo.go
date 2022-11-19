@@ -57,9 +57,6 @@ const (
 	CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 	// DeleteUndoLogSql delete undo log
 	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
-
-	// UndoLog Todo get from config
-	Seata = "seata"
 )
 
 // undo log status
@@ -208,13 +205,12 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 }
 
 // RunUndo undo sql
-func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB) error {
+func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
 	return nil
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType,
-	xid string, branchID int64, db *sql.DB) error {
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -276,22 +272,21 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType,
 		branchUndoLog.Reverse()
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, cErr := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, Seata, undoLog.TableName)
-			if cErr != nil {
-				log.Errorf("[Undo] get table meta fail, err: %v", cErr)
-				return cErr
+			tableMeta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, dbName, undoLog.TableName)
+			if err != nil {
+				log.Errorf("[Undo] get table meta fail, err: %v", err)
+				return err
 			}
 
 			undoLog.SetTableMeta(*tableMeta)
 
-			undoExecutor, cErr := factor.GetUndoExecutor(dbType, undoLog)
-			if cErr != nil {
-				log.Errorf("[Undo] get undo executor, err: %v", cErr)
-				return cErr
+			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
+			if err != nil {
+				log.Errorf("[Undo] get undo executor, err: %v", err)
+				return err
 			}
 
-			// todo fix
-			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, nil); err != nil {
+			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
 				log.Errorf("[Undo] execute on fail, err: %v", err)
 				return err
 			}

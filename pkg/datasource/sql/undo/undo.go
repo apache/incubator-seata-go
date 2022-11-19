@@ -72,7 +72,7 @@ type UndoLogManager interface {
 	//FlushUndoLog
 	FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error
 	// RunUndo
-	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB) error
+	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
