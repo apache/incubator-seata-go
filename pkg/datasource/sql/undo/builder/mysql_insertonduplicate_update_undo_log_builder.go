@@ -109,7 +109,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	}
 
 	sql := strings.Builder{}
-	sql.WriteString("SELECT * FROM " + metaData.Name + " ")
+	sql.WriteString("SELECT * FROM " + metaData.TableName + " ")
 	isContainWhere := false
 	for i := 0; i < insertNum; i++ {
 		finalI := i
@@ -121,7 +121,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 			}
 			columnIsNull := true
 			uniqueList := make([]string, 0)
-			for _, columnMeta := range index.Values {
+			for _, columnMeta := range index.Columns {
 				columnName := columnMeta.ColumnName
 				imageParameters, ok := paramMap[columnName]
 				if !ok && columnMeta.ColumnDef != nil {
@@ -234,7 +234,7 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 		if types.IndexTypePrimaryKey != index.IType {
 			continue
 		}
-		for name, col := range index.Values {
+		for name, col := range index.Columns {
 			if duplicateColsMap[strings.ToLower(col.ColumnName)] {
 				log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.ColumnName)
 				return fmt.Errorf("update pk value is not supported! ")
