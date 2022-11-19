@@ -60,32 +60,32 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	columnMeta1 = append(columnMeta1, columnId)
 	columnMeta2 = append(columnMeta2, columnName, columnAge)
 	index["id"] = types.IndexMeta{
-		Name:   "PRIMARY",
-		IType:  types.IndexTypePrimaryKey,
-		Values: columnMeta1,
+		Name:    "PRIMARY",
+		IType:   types.IndexTypePrimaryKey,
+		Columns: columnMeta1,
 	}
 	index["id_name_age"] = types.IndexMeta{
-		Name:   "name_age_idx",
-		IType:  types.IndexUnique,
-		Values: columnMeta2,
+		Name:    "name_age_idx",
+		IType:   types.IndexUnique,
+		Columns: columnMeta2,
 	}
 
 	tableMeta1 = types.TableMeta{
-		Name:    "t_user",
-		Columns: columns,
-		Indexs:  index,
+		TableName: "t_user",
+		Columns:   columns,
+		Indexs:    index,
 	}
 
 	index2["id_name_age"] = types.IndexMeta{
-		Name:   "name_age_idx",
-		IType:  types.IndexUnique,
-		Values: columnMeta2,
+		Name:    "name_age_idx",
+		IType:   types.IndexUnique,
+		Columns: columnMeta2,
 	}
 
 	tableMeta2 = types.TableMeta{
-		Name:    "t_user",
-		Columns: columns,
-		Indexs:  index2,
+		TableName: "t_user",
+		Columns:   columns,
+		Indexs:    index2,
 	}
 
 	tests := []struct {
