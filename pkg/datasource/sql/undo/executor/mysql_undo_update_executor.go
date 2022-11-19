@@ -19,7 +19,7 @@ package executor
 
 import (
 	"context"
-	"database/sql/driver"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -36,13 +36,12 @@ func NewMySQLUndoUpdateExecutor() *MySQLUndoUpdateExecutor {
 	return &MySQLUndoUpdateExecutor{}
 }
 
-func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog, conn driver.Conn) error {
+func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
 
 	//m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn)
 	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
 
-	stmt, err := conn.Prepare(undoSql)
+	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err
 	}
@@ -66,7 +65,7 @@ func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 			undoValues = append(undoValues, col.Value)
 		}
 
-		if _, err = stmt.Exec([]driver.Value{undoValues}); err != nil {
+		if _, err = stmt.Exec(undoValues); err != nil {
 			return err
 		}
 	}

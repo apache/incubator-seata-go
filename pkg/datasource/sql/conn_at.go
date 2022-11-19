@@ -22,6 +22,8 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 
+	"github.com/seata/seata-go/pkg/util/log"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/tm"
@@ -39,7 +41,6 @@ func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 			c.txCtx = types.NewTxCtx()
 		}()
 	}
-
 	return c.Conn.PrepareContext(ctx, query)
 }
 
@@ -125,6 +126,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
+	c.txCtx.ResourceID = c.res.resourceID
 
 	if tm.IsGlobalTx(ctx) {
 		c.txCtx.XID = tm.GetXID(ctx)
@@ -145,6 +147,7 @@ func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 	if onceTx {
 		c.txCtx = types.NewTxCtx()
 		c.txCtx.DBType = c.res.dbType
+		c.txCtx.ResourceID = c.res.resourceID
 		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransType = types.ATMode
 		c.txCtx.GlobalLockRequire = true
@@ -165,10 +168,14 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 			return nil, err
 		}
 	}
-
 	defer func() {
-		if tx != nil {
-			tx.Rollback()
+		recoverErr := recover()
+		if err != nil || recoverErr != nil {
+			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+			if tx != nil {
+				rollbackErr := tx.Rollback()
+				log.Errorf("conn at rollback error:%v", rollbackErr)
+			}
 		}
 	}()
 

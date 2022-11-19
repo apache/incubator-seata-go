@@ -21,21 +21,19 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/rm"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/reflectx"
 	"github.com/stretchr/testify/assert"
 )
 
 func initMockResourceManager(t *testing.T, ctrl *gomock.Controller) *mock.MockDataSourceManager {
 	mockResourceMgr := mock.NewMockDataSourceManager(ctrl)
-	datasource.RegisterResourceManager(branch.BranchTypeAT, mockResourceMgr)
-
+	rm.GetRmCacheInstance().RegisterResourceManager(mockResourceMgr)
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
 	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
