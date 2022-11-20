@@ -187,13 +187,10 @@ func deleteData(insertID int64) error {
 }
 
 func batchDeleteData(userIds []string) error {
-	sql := "delete from order_tbl where user_id in ("
+	var sql string
 	for _, v := range userIds {
-		sql += "'" + v + "'" + ","
+		sql += fmt.Sprintf("delete from order_tbl where user_id = '%s';", v)
 	}
-	sql = sql[:len(sql)-1]
-	sql += ")"
-
 	ret, err := db.Exec(sql)
 	if err != nil {
 		fmt.Printf("batch delete failed, err:%v\n", err)
