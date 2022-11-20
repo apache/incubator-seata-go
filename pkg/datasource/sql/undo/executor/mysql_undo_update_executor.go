@@ -27,27 +27,35 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-type MySQLUndoUpdateExecutor struct {
-	BaseExecutor *BaseExecutor
+type mySQLUndoUpdateExecutor struct {
+	baseExecutor *BaseExecutor
+	sqlUndoLog   undo.SQLUndoLog
 }
 
-// NewMySQLUndoUpdateExecutor init
-func NewMySQLUndoUpdateExecutor() *MySQLUndoUpdateExecutor {
-	return &MySQLUndoUpdateExecutor{}
+// newMySQLUndoUpdateExecutor init
+func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExecutor {
+	return &mySQLUndoUpdateExecutor{
+		sqlUndoLog:   sqlUndoLog,
+		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog},
+	}
 }
 
-func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
+func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	ok, err := m.baseExecutor.dataValidationAndGoOn(conn)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
 
-	//m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn)
-	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
-
+	undoSql, _ := m.buildUndoSQL(dbType)
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err
 	}
 
-	beforeImage := sqlUndoLog.BeforeImage
-
+	beforeImage := m.sqlUndoLog.BeforeImage
 	for _, row := range beforeImage.Rows {
 		undoValues := make([]interface{}, 0)
 		pkList, err := GetOrderedPkList(beforeImage, row, dbType)
@@ -56,7 +64,7 @@ func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 		}
 
 		for _, col := range row.Columns {
-			if col.KeyType != types.PrimaryKey.Number() {
+			if col.KeyType != types.IndexTypePrimaryKey {
 				undoValues = append(undoValues, col.Value)
 			}
 		}
@@ -74,8 +82,8 @@ func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 }
 
 // BuildUndoSQL
-func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
-	beforeImage := sqlUndoLog.BeforeImage
+func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, error) {
+	beforeImage := m.sqlUndoLog.BeforeImage
 	rows := beforeImage.Rows
 	row := rows[0]
 
@@ -86,7 +94,7 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 
 	nonPkFields := row.NonPrimaryKeys(row.Columns)
 	for key, _ := range nonPkFields {
-		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].Name, dbType)+" = ? ")
+		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].ColumnName, dbType)+" = ? ")
 	}
 
 	updateColumns = strings.Join(updateColumnSlice, ", ")
@@ -96,12 +104,12 @@ func (m *MySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 	}
 
 	for key, _ := range pkList {
-		pkNameList = append(pkNameList, pkList[key].Name)
+		pkNameList = append(pkNameList, pkList[key].ColumnName)
 	}
 
 	whereSql := BuildWhereConditionByPKs(pkNameList, dbType)
 
 	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
 	updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
-	return fmt.Sprintf(updateSqlTemplate, sqlUndoLog.TableName, updateColumns, whereSql), nil
+	return fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), nil
 }

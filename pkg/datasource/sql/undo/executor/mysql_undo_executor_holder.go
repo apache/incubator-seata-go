@@ -30,15 +30,15 @@ func NewMySQLUndoExecutorHolder() undo.UndoExecutorHolder {
 
 // GetInsertExecutor get the mysql Insert UndoExecutor by sqlUndoLog
 func (m *MySQLUndoExecutorHolder) GetInsertExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
-	return NewMySQLUndoInsertExecutor()
+	return newMySQLUndoInsertExecutor(sqlUndoLog)
 }
 
 // GetUpdateExecutor get the mysql Update UndoExecutor by sqlUndoLog
 func (m *MySQLUndoExecutorHolder) GetUpdateExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
-	return NewMySQLUndoUpdateExecutor()
+	return newMySQLUndoUpdateExecutor(sqlUndoLog)
 }
 
 // GetDeleteExecutor get the mysql Delete UndoExecutor by sqlUndoLog
 func (m *MySQLUndoExecutorHolder) GetDeleteExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
-	return NewMySQLUndoDeleteExecutor()
+	return newMySQLUndoDeleteExecutor(sqlUndoLog)
 }

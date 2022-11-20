@@ -19,54 +19,39 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/tm"
+	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 )
 
-type OrderTbl struct {
-	id            int
-	userID        string
-	commodityCode string
-	count         int64
-	money         int64
-	descs         string
-}
+var (
+	db *sql.DB
+)
 
-func main() {
-	client.Init()
-	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
-	}, updateData)
-	<-make(chan struct{})
-}
-
-func selectData() {
-	var orderTbl OrderTbl
-	row := db.QueryRow("select id,user_id,commodity_code,count,money,descs from  order_tbl where id = ? ", 1)
-	err := row.Scan(&orderTbl.id, &orderTbl.userID, &orderTbl.commodityCode, &orderTbl.count, &orderTbl.money, &orderTbl.descs)
+func initService() {
+	var err error
+	db, err = sql.Open(sql2.SeataATMySQLDriver, "root:123456@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")
 	if err != nil {
-		panic(err)
+		panic("init service error")
 	}
-	fmt.Println(orderTbl)
 }
 
+// case1 : tm commit success
 func updateData(ctx context.Context) error {
 	sql := "update order_tbl set descs=? where id=?"
 	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return err
+		return nil
 	}
+
 	rows, err := ret.RowsAffected()
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return err
+		return nil
 	}
 	fmt.Printf("update success： %d.\n", rows)
-	return fmt.Errorf("test error")
+	return nil
 }

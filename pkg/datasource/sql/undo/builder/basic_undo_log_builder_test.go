@@ -59,8 +59,8 @@ func TestBuildLockKey(t *testing.T) {
 	records := types.RecordImage{
 		TableName: "test_name",
 		Rows: []types.RowImage{
-			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, Name: "id", Value: 1}, {KeyType: types.IndexTypePrimaryKey, Name: "userId", Value: "one"}}},
-			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, Name: "id", Value: 2}, {KeyType: types.IndexTypePrimaryKey, Name: "userId", Value: "two"}}},
+			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 1}, {KeyType: types.IndexTypePrimaryKey, ColumnName: "userId", Value: "one"}}},
+			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 2}, {KeyType: types.IndexTypePrimaryKey, ColumnName: "userId", Value: "two"}}},
 		},
 	}
 

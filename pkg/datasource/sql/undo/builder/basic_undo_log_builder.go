@@ -180,10 +180,10 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 			jdbcType := types.GetJDBCTypeByTypeName(columnMeta.ColumnTypeInfo.DatabaseTypeName())
 
 			columns = append(columns, types.ColumnImage{
-				KeyType: keyType,
-				Name:    name,
-				Type:    int16(jdbcType),
-				Value:   ss[i],
+				KeyType:    keyType,
+				ColumnName: name,
+				Type:       int16(jdbcType),
+				Value:      ss[i],
 			})
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
@@ -315,7 +315,7 @@ func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta typ
 		for _, column := range row.Columns {
 			var hasKeyColumn bool
 			for _, key := range keys {
-				if column.Name == key {
+				if column.ColumnName == key {
 					hasKeyColumn = true
 					if pkSplitIndex > 0 {
 						lockKeys.WriteString("_")
