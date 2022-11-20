@@ -181,7 +181,7 @@ func (tx *Tx) report(success bool) error {
 		Status:   status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
-	if dataSourceManager != nil {
+	if dataSourceManager == nil {
 		return errors.New("get dataSourceManager failed")
 	}
 	retry := REPORT_RETRY_COUNT

@@ -174,28 +174,41 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, exe
 
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
-	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	for _, column := range updateStmt.List {
-		fields = append(fields, &ast.SelectField{
-			Expr: &ast.ColumnNameExpr{
-				Name: column.Column,
-			},
-		})
-	}
+	// todo: OnlyCareUpdateColumns should load from config first
+	if OnlyCareUpdateColumns {
+		for _, column := range updateStmt.List {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
 
-	// select indexes columns
-	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
-	if err != nil {
-		return "", nil, err
-	}
-	for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+		// select indexes columns
+		tableName, _ := execCtx.ParseContext.GteTableName()
+		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
+		if err != nil {
+			return "", nil, err
+		}
+		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
-						O: columnName,
-						L: columnName,
+						O: "*",
+						L: "*",
 					},
 				},
 			},
