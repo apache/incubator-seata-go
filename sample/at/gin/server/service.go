@@ -38,10 +38,9 @@ func initService() {
 	}
 }
 
-// case1 : tm commit success
-func updateData(ctx context.Context) error {
+func updateDataSuccess(ctx context.Context) error {
 	sql := "update order_tbl set descs=? where id=?"
-	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
+	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
 		return nil
