@@ -96,7 +96,7 @@ func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, recor
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
+	_, err = stmt.Exec(record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus))
 	if err != nil {
 		return err
 	}
@@ -328,7 +328,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 			log.Errorf("[Undo] insert undo with global finished fail, err: %v", err)
 			return err
 		}
-		log.Errorf("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
 	}
 
 	if err = tx.Commit(); err != nil {
