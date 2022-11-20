@@ -139,6 +139,10 @@ func (aw *AsyncWorker) run() {
 }
 
 func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
+	if len(*phaseCtxs) == 0 {
+		return
+	}
+
 	copyPhaseCtxs := make([]phaseTwoContext, len(*phaseCtxs))
 	copy(copyPhaseCtxs, *phaseCtxs)
 	*phaseCtxs = (*phaseCtxs)[:0]
