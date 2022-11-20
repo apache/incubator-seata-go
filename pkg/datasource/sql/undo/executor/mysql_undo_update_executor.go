@@ -65,7 +65,7 @@ func (m *MySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 			undoValues = append(undoValues, col.Value)
 		}
 
-		if _, err = stmt.Exec(undoValues); err != nil {
+		if _, err = stmt.Exec(undoValues...); err != nil {
 			return err
 		}
 	}
