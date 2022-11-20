@@ -19,8 +19,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/parnurzeal/gorequest"
@@ -57,8 +59,8 @@ func updateData(ctx context.Context) (re error) {
 	request.Post(serverIpPort+"/updateDataSuccess").
 		Set(constant.XidKey, tm.GetXID(ctx)).
 		End(func(response gorequest.Response, body string, errs []error) {
-			if len(errs) != 0 {
-				re = errs[0]
+			if response.StatusCode != http.StatusOK {
+				re = errors.New("update data fail")
 			}
 		})
 	return

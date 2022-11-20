@@ -41,7 +41,7 @@ func main() {
 	r.POST("/updateDataFail", func(c *gin.Context) {
 		log.Infof("get tm updateData")
 		if err := updateDataFail(c); err != nil {
-			c.JSON(http.StatusOK, "updateData failure")
+			c.JSON(http.StatusBadRequest, "updateData failure")
 			return
 		}
 		c.JSON(http.StatusOK, "updateData ok")
