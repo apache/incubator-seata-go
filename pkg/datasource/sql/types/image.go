@@ -93,7 +93,7 @@ type RecordImage struct {
 	// TableName table name
 	TableName string `json:"tableName"`
 	// SQLType sql type
-	SQLType SQLType `json:"-"`
+	SQLType SQLType `json:"sqlType"`
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
@@ -109,7 +109,7 @@ type RowImage struct {
 func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 	m := make(map[string]*ColumnImage, 0)
 	for _, column := range r.Columns {
-		m[column.Name] = &column
+		m[column.ColumnName] = &column
 	}
 	return m
 }
@@ -142,8 +142,8 @@ func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 type ColumnImage struct {
 	// KeyType index type
 	KeyType IndexType `json:"keyType"`
-	// Name column name
-	Name string `json:"name"`
+	// ColumnName column name
+	ColumnName string `json:"name"`
 	// Type column type
 	Type int16 `json:"type"`
 	// Value column value

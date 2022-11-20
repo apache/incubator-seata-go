@@ -73,7 +73,6 @@ func (a *ATSourceManager) GetCachedResources() *sync.Map {
 // Register a Resource to be managed by Resource Manager
 func (a *ATSourceManager) RegisterResource(res rm.Resource) error {
 	a.resourceCache.Store(res.GetResourceId(), res)
-
 	return a.basic.RegisterResource(res)
 }
 
