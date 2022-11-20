@@ -35,7 +35,8 @@ import (
 )
 
 const (
-	maxInSize = 1000
+	maxInSize             = 1000
+	OnlyCareUpdateColumns = true
 )
 
 func init() {
@@ -140,9 +141,24 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 }
 
 func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta *types.TableMeta) (string, []driver.Value) {
+	if beforeImage == nil || beforeImage.Rows == nil {
+		return "", nil
+	}
 	sb := strings.Builder{}
-	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.TableName + " WHERE ")
+	// todo: OnlyCareUpdateColumns should load from config first
+	var selectFields string
+	var separator = ","
+	if OnlyCareUpdateColumns {
+		for _, row := range beforeImage.Rows {
+			for _, column := range row.Columns {
+				selectFields += column.Name + separator
+			}
+		}
+		selectFields = strings.TrimSuffix(selectFields, separator)
+	} else {
+		selectFields = "*"
+	}
+	sb.WriteString("SELECT " + selectFields + " FROM " + meta.TableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
@@ -158,28 +174,41 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, exe
 
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
-	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	for _, column := range updateStmt.List {
-		fields = append(fields, &ast.SelectField{
-			Expr: &ast.ColumnNameExpr{
-				Name: column.Column,
-			},
-		})
-	}
+	// todo: OnlyCareUpdateColumns should load from config first
+	if OnlyCareUpdateColumns {
+		for _, column := range updateStmt.List {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
 
-	// select indexes columns
-	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
-	if err != nil {
-		return "", nil, err
-	}
-	for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+		// select indexes columns
+		tableName, _ := execCtx.ParseContext.GteTableName()
+		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
+		if err != nil {
+			return "", nil, err
+		}
+		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
-						O: columnName,
-						L: columnName,
+						O: "*",
+						L: "*",
 					},
 				},
 			},

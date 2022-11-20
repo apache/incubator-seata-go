@@ -20,6 +20,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -180,6 +181,9 @@ func (tx *Tx) report(success bool) error {
 		Status:   status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
+	if dataSourceManager == nil {
+		return errors.New("get dataSourceManager failed")
+	}
 	retry := REPORT_RETRY_COUNT
 	for retry > 0 {
 		err := dataSourceManager.BranchReport(context.Background(), request)
