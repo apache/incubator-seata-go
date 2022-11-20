@@ -151,7 +151,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.Record
 	if OnlyCareUpdateColumns {
 		for _, row := range beforeImage.Rows {
 			for _, column := range row.Columns {
-				selectFields += column.Name + separator
+				selectFields += column.ColumnName + separator
 			}
 		}
 		selectFields = strings.TrimSuffix(selectFields, separator)
