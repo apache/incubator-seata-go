@@ -33,7 +33,7 @@ import (
 
 type BasicUndoLogBuilder struct{}
 
-// getScanSlice get the column type for scann
+// GetScanSlice get the column type for scann
 func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []driver.Value {
 	scanSlice := make([]driver.Value, 0, len(columnNames))
 	for _, columnNmae := range columnNames {
@@ -264,7 +264,7 @@ func (b *BasicUndoLogBuilder) buildPKParams(rows []types.RowImage, pkNameList []
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
+func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
 	var (
 		lockKeys      bytes.Buffer
 		filedSequence int
@@ -272,7 +272,7 @@ func (s BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
-	pks := s.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
+	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
 	for {
 		err := rows.Next(pks)
 		if err == io.EOF {
@@ -297,7 +297,7 @@ func (s BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
+func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
 	var (
 		lockKeys      bytes.Buffer
 		filedSequence int
