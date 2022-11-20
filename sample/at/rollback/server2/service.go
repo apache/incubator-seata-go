@@ -43,13 +43,13 @@ func updateDataFail(ctx context.Context) error {
 	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 10000)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return err
 	}
 
 	rows, err := ret.RowsAffected()
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return err
 	}
 	fmt.Printf("update success： %d.\n", rows)
 	return nil
