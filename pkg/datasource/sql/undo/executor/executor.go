@@ -23,15 +23,22 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
 
+const (
+	selectSQL = "SELECT * FROM %s WHERE %s FOR UPDATE"
+)
+
 type BaseExecutor struct {
+	sqlUndoLog undo.SQLUndoLog
+	undoImage  *types.RecordImage
 }
 
 // ExecuteOn
-func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
+func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 	// check data if valid
 	return nil
 }
@@ -40,3 +47,34 @@ func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUn
 func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnImage, pkValueList []types.ColumnImage) {
 
 }
+
+func (b *BaseExecutor) dataValidationAndGoOn(conn *sql.Conn) (bool, error) {
+	beforeImage := b.sqlUndoLog.BeforeImage
+	afterImage := b.sqlUndoLog.AfterImage
+
+	equal, err := IsRecordsEquals(beforeImage, afterImage)
+	if err != nil {
+		return false, err
+	}
+	if equal {
+		log.Infof("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
+		return false, nil
+	}
+
+	// todo compare from current db data to old image data
+
+	return true, nil
+}
+
+// todo
+//func (b *BaseExecutor) queryCurrentRecords(conn *sql.Conn) *types.RecordImage {
+//	tableMeta := b.undoImage.TableMeta
+//	pkNameList := tableMeta.GetPrimaryKeyOnlyName()
+//
+//	b.undoImage.Rows
+//
+//}
+//
+//func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) {
+//
+//}

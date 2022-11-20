@@ -42,7 +42,7 @@ func (m *undoLogManager) Init() {
 }
 
 // DeleteUndoLog
-func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
+func (m *undoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
 	return m.Base.DeleteUndoLog(ctx, xid, branchID, conn)
 }
 
