@@ -22,7 +22,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -70,7 +69,7 @@ func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 		BranchId:        param.BranchId,
 		Status:          param.Status,
 		ApplicationData: []byte(param.ApplicationData),
-		BranchType:      branch.BranchTypeAT,
+		BranchType:      param.BranchType,
 	}
 
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)

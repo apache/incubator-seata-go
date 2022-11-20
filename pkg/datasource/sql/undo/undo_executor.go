@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package mysql
+package undo
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"context"
+	"database/sql"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-// todo
-func init() {
-	datasource.RegisterTableCache(types.DBTypeMySQL, func() datasource.TableMetaCache {
-		return &TableMetaCache{}
-	})
+type UndoExecutor interface {
+	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn *sql.Conn) error
 }

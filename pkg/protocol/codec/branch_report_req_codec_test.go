@@ -15,4 +15,29 @@
  * limitations under the License.
  */
 
-package test
+package codec
+
+import (
+	"testing"
+
+	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBranchReportRequestCodec(t *testing.T) {
+	msg := message.BranchReportRequest{
+		Xid:             "123344",
+		ResourceId:      "root:12345678@tcp(127.0.0.1:3306)/seata_client",
+		Status:          model2.BranchStatusPhaseoneDone,
+		BranchId:        56678,
+		BranchType:      model2.BranchTypeAT,
+		ApplicationData: []byte("TestExtraData"),
+	}
+
+	codec := BranchReportRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
+}

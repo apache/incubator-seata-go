@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +55,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 	t.SkipNow()
 
 	testDeleteUndoLogs := func() {
-		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		/*db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()
@@ -64,7 +65,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 		undoLogManager := new(base.BaseUndoLogManager)
 
 		err = undoLogManager.DeleteUndoLog(ctx, "1", 1, sqlConn)
-		assert.Nil(t, err)
+		assert.Nil(t, err)*/
 	}
 
 	t.Run("test_delete_undo_logs", func(t *testing.T) {
@@ -94,5 +95,37 @@ func TestHasUndoLogTable(t *testing.T) {
 
 	t.Run("test_has_undo_log_table", func(t *testing.T) {
 		testHasUndoLogTable()
+	})
+}
+
+func TestUndo(t *testing.T) {
+	// Todo TestUndo update
+	// Todo TestUndo delete
+	// local test can annotation t.SkipNow()
+	t.SkipNow()
+
+	testUndoLog := func() {
+		manager := mysql.NewUndoLogManager()
+
+		db, err := sql.Open(SeataATMySQLDriver, "root:123456@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		assert.Nil(t, err)
+
+		ctx := context.Background()
+		sqlConn, err := db.Conn(ctx)
+		assert.Nil(t, err)
+
+		defer func() {
+			_ = sqlConn.Close()
+		}()
+
+		if err = manager.RunUndo(ctx, "1", 1, nil, ""); err != nil {
+			t.Logf("%+v", err)
+		}
+
+		assert.Nil(t, err)
+	}
+
+	t.Run("test_undo_log", func(t *testing.T) {
+		testUndoLog()
 	})
 }

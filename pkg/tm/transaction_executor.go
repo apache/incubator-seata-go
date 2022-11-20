@@ -28,8 +28,10 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+const DefaultTimeOut = time.Second * 30
+
 type TransactionInfo struct {
-	TimeOut           int32
+	TimeOut           time.Duration
 	Name              string
 	Propagation       Propagation
 	LockRetryInternal int64
@@ -48,12 +50,16 @@ func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWit
 		return errors.New("global transaction name is required.")
 	}
 
-	if ctx, re = begin(ctx, ti.Name); re != nil {
+	if ctx, re = begin(ctx, ti); re != nil {
 		return
 	}
 	defer func() {
 		// business maybe to throw panic, so need to recover it here.
-		re = commitOrRollback(ctx, recover() == nil && re == nil)
+		err := recover()
+		if err != nil {
+			log.Errorf("business callback panic:%v", err)
+		}
+		re = commitOrRollback(ctx, err == nil && re == nil)
 		log.Infof("global transaction result %v", re)
 	}()
 
@@ -63,12 +69,18 @@ func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWit
 }
 
 // begin a global transaction, it will obtain a xid from tc in tcp call.
-func begin(ctx context.Context, name string) (rc context.Context, re error) {
+func begin(ctx context.Context, ti *TransactionInfo) (rc context.Context, re error) {
+	if ti == nil {
+		return nil, errors.New("transaction info is nil")
+	}
+	if ti.TimeOut == 0 {
+		ti.TimeOut = DefaultTimeOut
+	}
 	if !IsSeataContext(ctx) {
 		ctx = InitSeataContext(ctx)
 	}
 
-	SetTxName(ctx, name)
+	SetTxName(ctx, ti.Name)
 	if GetTransactionRole(ctx) == nil {
 		SetTransactionRole(ctx, LAUNCHER)
 	}
@@ -93,8 +105,7 @@ func begin(ctx context.Context, name string) (rc context.Context, re error) {
 		SetTxStatus(ctx, message.GlobalStatusUnKnown)
 	}
 
-	// todo timeout should read from config
-	err := GetGlobalTransactionManager().Begin(ctx, tx, time.Second*30, name)
+	err := GetGlobalTransactionManager().Begin(ctx, tx, ti.TimeOut, ti.Name)
 	if err != nil {
 		re = fmt.Errorf("transactionTemplate: begin transaction failed, error %v", err)
 	}

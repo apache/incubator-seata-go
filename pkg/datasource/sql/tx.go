@@ -24,7 +24,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -92,15 +92,15 @@ func withOriginTx(tx driver.Tx) txOption {
 // withTxCtx
 func withTxCtx(ctx *types.TransactionContext) txOption {
 	return func(t *Tx) {
-		t.ctx = ctx
+		t.tranCtx = ctx
 	}
 }
 
 // Tx
 type Tx struct {
-	conn   *Conn
-	ctx    *types.TransactionContext
-	target driver.Tx
+	conn    *Conn
+	tranCtx *types.TransactionContext
+	target  driver.Tx
 }
 
 // Commit do commit action
@@ -149,18 +149,17 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 		return nil
 	}
 	lockKey := ""
-	for _, v := range ctx.LockKeys {
-		lockKey += v + ";"
+	for k, _ := range ctx.LockKeys {
+		lockKey += k + ";"
 	}
-	request := message.BranchRegisterRequest{
-		Xid:             ctx.XaID,
-		BranchType:      branch.BranchType(ctx.TransType),
-		ResourceId:      ctx.ResourceID,
-		LockKey:         lockKey,
-		ApplicationData: nil,
+	request := rm.BranchRegisterParam{
+		Xid:        ctx.XID,
+		BranchType: ctx.TransType.GetBranchType(),
+		ResourceId: ctx.ResourceID,
+		LockKeys:   lockKey,
 	}
-	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(ctx.TransType))
-	branchId, err := dataSourceManager.BranchRegister(context.Background(), "", request)
+	dataSourceManager := datasource.GetDataSourceManager(ctx.TransType.GetBranchType())
+	branchId, err := dataSourceManager.BranchRegister(context.Background(), request)
 	if err != nil {
 		log.Infof("Failed to report branch status: %s", err.Error())
 		return err
@@ -171,23 +170,22 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 
 // report
 func (tx *Tx) report(success bool) error {
-	if tx.ctx.BranchID == 0 {
+	if tx.tranCtx.BranchID == 0 {
 		return nil
 	}
 	status := getStatus(success)
-	request := message.BranchReportRequest{
-		Xid:        tx.ctx.XaID,
-		BranchId:   int64(tx.ctx.BranchID),
-		ResourceId: tx.ctx.ResourceID,
-		Status:     status,
+	request := rm.BranchReportParam{
+		Xid:      tx.tranCtx.XID,
+		BranchId: int64(tx.tranCtx.BranchID),
+		Status:   status,
 	}
-	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(tx.ctx.TransType))
+	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
 	retry := REPORT_RETRY_COUNT
 	for retry > 0 {
 		err := dataSourceManager.BranchReport(context.Background(), request)
 		if err != nil {
 			retry--
-			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.ctx.BranchID, tx.ctx.XaID, success, retry)
+			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 			if retry == 0 {
 				log.Infof("Failed to report branch status: %s", err.Error())
 				return err

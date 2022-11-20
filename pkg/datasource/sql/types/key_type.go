@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package test
+package types
 
-/*func TestSendMsgWithResponse(test *testing.T) {
-	//request := protocol.RegisterRMRequest{
-	//	ResourceIds: "1111",
-	//	AbstractIdentifyRequest: protocol.AbstractIdentifyRequest{
-	//		ApplicationId:           "ApplicationID",
-	//		TransactionServiceGroup: "TransactionServiceGroup",
-	//	},
-	//}
-	//mergedMessage := protocol.MergedWarpMessage{
-	//	Msgs:   []protocol.MessageTypeAware{request},
-	//	MsgIds: []int32{1212},
-	//}
-	//handler := GetGettyClientHandlerInstance()
-	//handler.sendMergedMessage(mergedMessage)
-	//time.Sleep(100000 * time.Second)
-}*/
+type KeyType string
+
+var (
+	// Null key type.
+	Null KeyType = "NULL"
+
+	// PrimaryKey The Primary key
+	PrimaryKey KeyType = "PRIMARY_KEY"
+)
+
+func (k KeyType) Number() IndexType {
+	switch k {
+	case Null:
+		return 0
+	case PrimaryKey:
+		return 1
+	default:
+		return 0
+	}
+}

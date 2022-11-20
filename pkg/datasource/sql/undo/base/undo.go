@@ -21,47 +21,85 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
-
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/util/log"
-
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var _ undo.UndoLogManager = (*BaseUndoLogManager)(nil)
+// checkUndoLogTableExistSql check undo log if exist
+var (
+	ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+)
 
-var ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
+var (
+	checkUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+	insertUndoLogSql          = "INSERT INTO " + constant.UndoLogTableName + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
+	selectUndoLogSql          = "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
+)
 
-// CheckUndoLogTableExistSql check undo log if exist
-const CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+const (
+	PairSplit = "&"
+	KvSplit   = "="
+
+	CompressorTypeKey = "compressorTypeKey"
+	SerializerKey     = "serializerKey"
+
+	// CheckUndoLogTableExistSql check undo log if exist
+	CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
+	// DeleteUndoLogSql delete undo log
+	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
+)
+
+// undo log status
+const (
+	// UndoLogStatusNormal This state can be properly rolled back by services
+	UndoLogStatusNormal = iota
+	// UndoLogStatusGlobalFinished This state prevents the branch transaction from inserting undo_log after the global transaction is rolled back.
+	UndoLogStatusGlobalFinished
+)
 
 // BaseUndoLogManager
 type BaseUndoLogManager struct{}
+
+func NewBaseUndoLogManager() *BaseUndoLogManager {
+	return &BaseUndoLogManager{}
+}
 
 // Init
 func (m *BaseUndoLogManager) Init() {
 }
 
 // InsertUndoLog
-func (m *BaseUndoLogManager) InsertUndoLog(l []undo.BranchUndoLog, tx driver.Conn) error {
+func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn driver.Conn) error {
+	stmt, err := conn.Prepare(insertUndoLogSql)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // DeleteUndoLog exec delete single undo log operate
-func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
+func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
+	stmt, err := conn.Prepare(constant.DeleteUndoLogSql)
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
 	}
 
-	if _, err = stmt.ExecContext(ctx, branchID, xid); err != nil {
+	if _, err = stmt.Exec([]driver.Value{branchID, xid}); err != nil {
 		log.Errorf("[DeleteUndoLog] exec delete undo log fail, err: %v", err)
 		return err
 	}
@@ -103,29 +141,184 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 }
 
 // FlushUndoLog flush undo log
-func (m *BaseUndoLogManager) FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error {
-	if !txCtx.HasUndoLog() {
+func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error {
+	if tranCtx.RoundImages.IsEmpty() {
 		return nil
 	}
-	logs := []undo.SQLUndoLog{
-		{
-			SQLType:   types.SQLTypeInsert,
-			TableName: constant.UndoLogTableName,
-			Images:    *txCtx.RoundImages,
-		},
+
+	sqlUndoLogs := make([]undo.SQLUndoLog, 0)
+	beforeImages := tranCtx.RoundImages.BeofreImages()
+	afterImages := tranCtx.RoundImages.AfterImages()
+
+	for i := 0; i < len(beforeImages); i++ {
+		var (
+			tableName string
+			sqlType   types.SQLType
+		)
+
+		if beforeImages[i] != nil {
+			tableName = beforeImages[i].TableName
+			sqlType = beforeImages[i].SQLType
+		} else if afterImages[i] != nil {
+			tableName = afterImages[i].TableName
+			sqlType = afterImages[i].SQLType
+		} else {
+			continue
+		}
+
+		undoLog := undo.SQLUndoLog{
+			SQLType:     sqlType,
+			TableName:   tableName,
+			BeforeImage: beforeImages[i],
+			AfterImage:  afterImages[i],
+		}
+		sqlUndoLogs = append(sqlUndoLogs, undoLog)
 	}
-	branchUndoLogs := []undo.BranchUndoLog{
-		{
-			Xid:      txCtx.XaID,
-			BranchID: strconv.FormatUint(txCtx.BranchID, 10),
-			Logs:     logs,
-		},
+
+	branchUndoLog := undo.BranchUndoLog{
+		Xid:      tranCtx.XID,
+		BranchID: tranCtx.BranchID,
+		Logs:     sqlUndoLogs,
 	}
-	return m.InsertUndoLog(branchUndoLogs, tx)
+
+	// use defalut encode
+	rollbackInfo, err := json.Marshal(branchUndoLog)
+	if err != nil {
+		return err
+	}
+
+	parseContext := make(map[string]string, 0)
+	parseContext[SerializerKey] = "jackson"
+	parseContext[CompressorTypeKey] = "NONE"
+	undoLogContent, err := json.Marshal(parseContext)
+	if err != nil {
+		return err
+	}
+
+	return m.InsertUndoLog(undo.UndologRecord{
+		BranchID:     tranCtx.BranchID,
+		XID:          tranCtx.XID,
+		Context:      undoLogContent,
+		RollbackInfo: rollbackInfo,
+		LogStatus:    undo.UndoLogStatueNormnal,
+	}, conn)
 }
 
-// RunUndo
-func (m *BaseUndoLogManager) RunUndo(xid string, branchID int64, conn *sql.Conn) error {
+// RunUndo undo sql
+func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
+	return nil
+}
+
+// Undo undo sql
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			if err = tx.Rollback(); err != nil {
+				log.Errorf("rollback fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+				return
+			}
+		}
+	}()
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	stmt, err := conn.PrepareContext(ctx, selectUndoLogSql)
+	if err != nil {
+		log.Errorf("prepare sql fail, err: %v", err)
+		return err
+	}
+	defer func() {
+		if err = stmt.Close(); err != nil {
+			log.Errorf("stmt close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			return
+		}
+	}()
+
+	rows, err := stmt.Query(branchID, xid)
+	if err != nil {
+		log.Errorf("query sql fail, err: %v", err)
+		return err
+	}
+	defer func() {
+		if err = rows.Close(); err != nil {
+			log.Errorf("rows close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			return
+		}
+	}()
+
+	var undoLogRecords []undo.UndologRecord
+	for rows.Next() {
+		var record undo.UndologRecord
+		err = rows.Scan(&record.BranchID, &record.XID, &record.Context, &record.RollbackInfo, &record.LogStatus)
+		if err != nil {
+			return err
+		}
+		undoLogRecords = append(undoLogRecords, record)
+	}
+
+	for _, record := range undoLogRecords {
+		if !record.CanUndo() {
+			log.Infof("xid %v branch %v, ignore %v undo_log", record.XID, record.BranchID, record.LogStatus)
+			continue
+		}
+
+		// todo use serializer and decode
+		var branchUndoLog undo.BranchUndoLog
+		if err = json.Unmarshal(record.RollbackInfo, &branchUndoLog); err != nil {
+			return err
+		}
+
+		sqlUndoLogs := branchUndoLog.Logs
+		if len(sqlUndoLogs) == 0 {
+			return nil
+		}
+		branchUndoLog.Reverse()
+
+		for _, undoLog := range sqlUndoLogs {
+			tableMeta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, dbName, undoLog.TableName)
+			if err != nil {
+				log.Errorf("get table meta fail, err: %v", err)
+				return err
+			}
+
+			undoLog.SetTableMeta(*tableMeta)
+
+			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
+			if err != nil {
+				log.Errorf("get undo executor, err: %v", err)
+				return err
+			}
+
+			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
+				log.Errorf("execute on fail, err: %v", err)
+				return err
+			}
+		}
+	}
+
+	//if exist {
+	//	if err = m.DeleteUndoLog(ctx, xid, branchID, conn); err != nil {
+	//		log.Errorf("[Undo] delete undo log fail, err: %v", err)
+	//		return err
+	//	}
+	//}
+	// Todo 等 insertLog 合并后加上 insertUndoLogWithGlobalFinished 功能
+	/*else {
+
+	}*/
+
+	if err = tx.Commit(); err != nil {
+		log.Errorf("[Undo] execute on fail, err: %v", err)
+		return nil
+	}
+
 	return nil
 }
 
@@ -136,7 +329,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, CheckUndoLogTableExistSql); err != nil {
+	if _, err = conn.QueryContext(ctx, checkUndoLogTableExistSql); err != nil {
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
@@ -201,4 +394,60 @@ func Int64Slice2Str(values interface{}, sep string) (string, error) {
 	}
 
 	return strings.Join(valuesText, sep), nil
+}
+
+// canUndo check if it can undo
+func (m *BaseUndoLogManager) canUndo(state int32) bool {
+	return state == UndoLogStatusNormal
+}
+
+// parseContext parse undo context
+func (m *BaseUndoLogManager) parseContext(str string) map[string]string {
+	return m.DecodeMap(str)
+}
+
+// DecodeMap Decode undo log context string to map
+func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
+	res := make(map[string]string)
+
+	if str == "" {
+		return nil
+	}
+
+	strSlice := strings.Split(str, PairSplit)
+	if len(strSlice) == 0 {
+		return nil
+	}
+
+	for key, _ := range strSlice {
+		kv := strings.Split(strSlice[key], KvSplit)
+		if len(kv) != 2 {
+			continue
+		}
+
+		res[kv[0]] = kv[1]
+	}
+
+	return res
+}
+
+// getRollbackInfo parser rollback info
+func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
+	// Todo 目前 insert undo log 未实现压缩功能，实现后补齐这块功能
+	// get compress type
+	/*compressorType, ok := undoContext[constant.CompressorTypeKey]
+	if ok {
+
+	}*/
+
+	return rollbackInfo
+}
+
+// getSerializer get serializer from undo context
+func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (serializer string) {
+	if undoLogContext == nil {
+		return
+	}
+	serializer, _ = undoLogContext[SerializerKey]
+	return
 }

@@ -23,11 +23,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/model"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/arana-db/parser/model"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -54,7 +53,7 @@ func GetMySQLUpdateUndoLogBuilder() undo.UndoLogBuilder {
 }
 
 func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
-	if execCtx.ParseContext.UpdateStmt == nil {
+	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.UpdateStmt == nil {
 		return nil, nil
 	}
 
@@ -72,7 +71,7 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	}
 
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +93,10 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
+	lockKey := u.buildLockKey2(image, *metaData)
+	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	image.SQLType = execCtx.ParseContext.SQLType
+
 	return []*types.RecordImage{image}, nil
 }
 
@@ -108,7 +111,7 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 	}
 
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +134,15 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
+	image.SQLType = execCtx.ParseContext.SQLType
+
 	return []*types.RecordImage{image}, nil
 }
 
 func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta *types.TableMeta) (string, []driver.Value) {
 	sb := strings.Builder{}
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.Name + " WHERE ")
+	sb.WriteString("SELECT * FROM " + meta.TableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
@@ -164,7 +169,7 @@ func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, exe
 
 	// select indexes columns
 	tableName, _ := execCtx.ParseContext.GteTableName()
-	metaData, err := mysql.GetTableMetaInstance().GetTableMeta(ctx, execCtx.DBName, tableName, execCtx.Conn)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}

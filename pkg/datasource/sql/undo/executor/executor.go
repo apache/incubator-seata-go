@@ -15,41 +15,28 @@
  * limitations under the License.
  */
 
-package mysql
+package executor
 
 import (
 	"context"
 	"database/sql"
-	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
-	"gotest.tools/assert"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-// TestGetTableMeta
-func TestGetTableMeta(t *testing.T) {
-	// local test can annotation t.SkipNow()
-	t.SkipNow()
+var _ undo.UndoExecutor = (*BaseExecutor)(nil)
 
-	testTableMeta := func() {
-		metaInstance := GetTableMetaInstance()
+type BaseExecutor struct {
+}
 
-		db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/seata?multiStatements=true")
-		if err != nil {
-			t.Fatal(err)
-		}
+// ExecuteOn
+func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
+	// check data if valid
+	return nil
+}
 
-		defer db.Close()
+// UndoPrepare
+func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnImage, pkValueList []types.ColumnImage) {
 
-		ctx := context.Background()
-
-		tableMeta, err := metaInstance.GetTableMeta(ctx, "seata_client", "undo_log", nil)
-		assert.NilError(t, err)
-
-		t.Logf("%+v", tableMeta)
-	}
-
-	t.Run("testTableMeta", func(t *testing.T) {
-		testTableMeta()
-	})
 }

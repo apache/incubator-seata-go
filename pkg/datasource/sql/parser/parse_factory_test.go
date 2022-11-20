@@ -20,9 +20,10 @@ package parser
 import (
 	"testing"
 
-	_ "github.com/arana-db/parser/test_driver"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
+
+	_ "github.com/arana-db/parser/test_driver"
 )
 
 func TestDoParser(t *testing.T) {
@@ -76,5 +77,4 @@ func TestDoParser(t *testing.T) {
 		assert.Equal(t, parser.ExecutorType, t2.types)
 		assert.Equal(t, parser.SQLType, t2.sqlType)
 	}
-
 }

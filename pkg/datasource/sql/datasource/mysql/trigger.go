@@ -19,8 +19,7 @@ package mysql
 
 import (
 	"context"
-	"database/sql/driver"
-	"io"
+	"database/sql"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -30,7 +29,7 @@ import (
 
 const (
 	columnMetaSql = "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-	indexMetaSql  = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE`, `INDEX_TYPE`, `COLLATION`, `CARDINALITY` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	indexMetaSql  = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 )
 
 type mysqlTrigger struct {
@@ -41,11 +40,11 @@ func NewMysqlTrigger() *mysqlTrigger {
 }
 
 // LoadOne get table meta column and index
-func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn driver.Conn) (*types.TableMeta, error) {
+func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
 	tableMeta := types.TableMeta{
-		Name:    tableName,
-		Columns: make(map[string]types.ColumnMeta),
-		Indexs:  make(map[string]types.IndexMeta),
+		TableName: tableName,
+		Columns:   make(map[string]types.ColumnMeta),
+		Indexs:    make(map[string]types.IndexMeta),
 	}
 
 	colMetas, err := m.getColumns(ctx, dbName, tableName, conn)
@@ -68,10 +67,10 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		col := tableMeta.Columns[index.ColumnName]
 		idx, ok := tableMeta.Indexs[index.Name]
 		if ok {
-			idx.Values = append(idx.Values, col)
+			idx.Columns = append(idx.Columns, col)
 			tableMeta.Indexs[index.Name] = idx
 		} else {
-			index.Values = append(index.Values, col)
+			index.Columns = append(index.Columns, col)
 			tableMeta.Indexs[index.Name] = index
 		}
 	}
@@ -88,57 +87,62 @@ func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
 }
 
 // getColumns get tableMeta column
-func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table string, conn driver.Conn) ([]types.ColumnMeta, error) {
+func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
 
-	stmt, err := conn.Prepare(columnMetaSql)
+	stmt, err := conn.PrepareContext(ctx, columnMetaSql)
 	if err != nil {
 		return nil, err
 	}
 
-	rowsi, err := stmt.Query([]driver.Value{dbName, table})
+	rows, err := stmt.Query(dbName, table)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	for {
-		vals := make([]driver.Value, 8)
-		err = rowsi.Next(vals)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+	for rows.Next() {
+		var (
+			tableName   string
+			tableSchema string
+			columnName  string
+			dataType    string
+			columnType  string
+			columnKey   string
+			isNullable  string
+			extra       string
+		)
+
+		columnMeta := types.ColumnMeta{}
+
+		if err = rows.Scan(
+			&tableName,
+			&tableSchema,
+			&columnName,
+			&dataType,
+			&columnType,
+			&columnKey,
+			&isNullable,
+			&extra); err != nil {
 			return nil, err
 		}
 
-		var (
-			tableName   = string(vals[0].([]uint8))
-			tableSchema = string(vals[1].([]uint8))
-			columnName  = string(vals[2].([]uint8))
-			dataType    = string(vals[3].([]uint8))
-			columnType  = string(vals[4].([]uint8))
-			columnKey   = string(vals[5].([]uint8))
-			isNullable  = string(vals[6].([]uint8))
-			extra       = string(vals[7].([]uint8))
-		)
-
-		col := types.ColumnMeta{}
-		col.Schema = tableSchema
-		col.Table = tableName
-		col.ColumnName = strings.Trim(columnName, "` ")
-		col.DataType = types.GetSqlDataType(dataType)
-		col.ColumnType = columnType
-		col.ColumnKey = columnKey
+		columnMeta.Schema = tableSchema
+		columnMeta.Table = tableName
+		columnMeta.ColumnName = strings.Trim(columnName, "` ")
+		columnMeta.DataType = types.GetSqlDataType(dataType)
+		columnMeta.ColumnType = columnType
+		columnMeta.ColumnKey = columnKey
 		if strings.ToLower(isNullable) == "yes" {
-			col.IsNullable = 1
+			columnMeta.IsNullable = 1
 		} else {
-			col.IsNullable = 0
+			columnMeta.IsNullable = 0
 		}
-		col.Extra = extra
-		col.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
+		columnMeta.Extra = extra
+		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
-		columnMetas = append(columnMetas, col)
+		columnMetas = append(columnMetas, columnMeta)
 	}
 
 	if len(columnMetas) == 0 {
@@ -149,47 +153,39 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 }
 
 // getIndex get tableMetaIndex
-func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn driver.Conn) ([]types.IndexMeta, error) {
+func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
 	tableName = executor.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
 
-	stmt, err := conn.Prepare(indexMetaSql)
+	stmt, err := conn.PrepareContext(ctx, indexMetaSql)
 	if err != nil {
 		return nil, err
 	}
 
-	rowsi, err := stmt.Query([]driver.Value{dbName, tableName})
+	rows, err := stmt.Query(dbName, tableName)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	defer rowsi.Close()
+	for rows.Next() {
+		var (
+			indexName  string
+			columnName string
+			nonUnique  int64
+		)
 
-	for {
-		vals := make([]driver.Value, 6)
-		err = rowsi.Next(vals)
-		if err == io.EOF {
-			break
-		}
+		err = rows.Scan(&indexName, &columnName, &nonUnique)
 		if err != nil {
 			return nil, err
 		}
-
-		var (
-			indexName  = string(vals[0].([]uint8))
-			columnName = string(vals[1].([]uint8))
-			nonUnique  = vals[2].(int64)
-			//indexType   = string(vals[3].([]uint8))
-			//collation   = string(vals[4].([]uint8))
-			//cardinality = int(vals[6].([]uint8))
-		)
 
 		index := types.IndexMeta{
 			Schema:     dbName,
 			Table:      tableName,
 			Name:       indexName,
 			ColumnName: columnName,
-			Values:     make([]types.ColumnMeta, 0),
+			Columns:    make([]types.ColumnMeta, 0),
 		}
 
 		if nonUnique == 1 {
@@ -205,6 +201,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		}
 
 		result = append(result, index)
+
 	}
 
 	return result, nil
