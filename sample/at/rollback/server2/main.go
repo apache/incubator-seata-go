@@ -18,48 +18,36 @@
 package main
 
 import (
-	"context"
-	"flag"
-	"fmt"
-	"time"
+	"net/http"
 
-	"github.com/parnurzeal/gorequest"
+	"github.com/gin-gonic/gin"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
+	ginmiddleware "github.com/seata/seata-go/pkg/integration/gin"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var serverIpPort = "http://127.0.0.1:8080"
-
 func main() {
-	flag.Parse()
 	client.Init()
+	initService()
 
-	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
-	defer cancel()
+	r := gin.Default()
 
-	transInfo := &tm.TransactionInfo{
-		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
+	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
+	// r.ContextWithFallback = true
+
+	r.Use(ginmiddleware.TransactionMiddleware())
+
+	r.POST("/updateDataFail", func(c *gin.Context) {
+		log.Infof("get tm updateData")
+		if err := updateDataFail(c); err != nil {
+			c.JSON(http.StatusOK, "updateData failure")
+			return
+		}
+		c.JSON(http.StatusOK, "updateData ok")
+	})
+
+	if err := r.Run(":8081"); err != nil {
+		log.Fatalf("start tcc server fatal: %v", err)
 	}
-
-	if err := tm.WithGlobalTx(bgCtx, transInfo, updateData); err != nil {
-		panic(fmt.Sprintf("tm update data err, %v", err))
-	}
-}
-
-func updateData(ctx context.Context) (re error) {
-	request := gorequest.New()
-	log.Infof("branch transaction begin")
-
-	request.Post(serverIpPort+"/updateDataSuccess").
-		Set(constant.XidKey, tm.GetXID(ctx)).
-		End(func(response gorequest.Response, body string, errs []error) {
-			if len(errs) != 0 {
-				re = errs[0]
-			}
-		})
-	return
 }
