@@ -344,6 +344,9 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 	parseContext[SerializerKey] = "jackson"
 	parseContext[CompressorTypeKey] = "NONE"
 	undoLogContent, err := json.Marshal(parseContext)
+	if err != nil {
+		return err
+	}
 
 	record := undo.UndologRecord{
 		BranchID:     branchID,
