@@ -179,7 +179,7 @@ func (tx *Tx) report(success bool) error {
 		BranchId: int64(tx.tranCtx.BranchID),
 		Status:   status,
 	}
-	dataSourceManager := datasource.GetDataSourceManager(branch.BranchType(tx.tranCtx.TransType))
+	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
 	retry := REPORT_RETRY_COUNT
 	for retry > 0 {
 		err := dataSourceManager.BranchReport(context.Background(), request)
