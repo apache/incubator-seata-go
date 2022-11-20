@@ -43,7 +43,7 @@ var (
 var (
 	checkUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
 	insertUndoLogSql          = "INSERT INTO " + constant.UndoLogTableName + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
-	selectUndoLogSql          = "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE"
+	selectUndoLogSql          = "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE" // todo 替换成常量吧，不用使用变量来表示字段名
 )
 
 const (
@@ -91,15 +91,27 @@ func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn drive
 	return nil
 }
 
+func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, record undo.UndologRecord, conn *sql.Conn) error {
+	stmt, err := conn.PrepareContext(ctx, insertUndoLogSql)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteUndoLog exec delete single undo log operate
-func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error {
-	stmt, err := conn.Prepare(constant.DeleteUndoLogSql)
+func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
 	}
 
-	if _, err = stmt.Exec([]driver.Value{branchID, xid}); err != nil {
+	if _, err = stmt.Exec(branchID, xid); err != nil {
 		log.Errorf("[DeleteUndoLog] exec delete undo log fail, err: %v", err)
 		return err
 	}
@@ -210,12 +222,16 @@ func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID i
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) error {
-	tx, err := db.Begin()
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) (err error) {
+	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
 	}
 
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			if err = tx.Rollback(); err != nil {
@@ -225,10 +241,6 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		}
 	}()
 
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		return err
-	}
 	stmt, err := conn.PrepareContext(ctx, selectUndoLogSql)
 	if err != nil {
 		log.Errorf("prepare sql fail, err: %v", err)
@@ -263,10 +275,12 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		undoLogRecords = append(undoLogRecords, record)
 	}
 
+	var exists bool
 	for _, record := range undoLogRecords {
+		exists = true
 		if !record.CanUndo() {
 			log.Infof("xid %v branch %v, ignore %v undo_log", record.XID, record.BranchID, record.LogStatus)
-			continue
+			return nil
 		}
 
 		// todo use serializer and decode
@@ -296,29 +310,56 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 				return err
 			}
 
-			if err = undoExecutor.ExecuteOn(ctx, dbType, undoLog, conn); err != nil {
+			if err = undoExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
 				log.Errorf("execute on fail, err: %v", err)
 				return err
 			}
 		}
 	}
 
-	//if exist {
-	//	if err = m.DeleteUndoLog(ctx, xid, branchID, conn); err != nil {
-	//		log.Errorf("[Undo] delete undo log fail, err: %v", err)
-	//		return err
-	//	}
-	//}
-	// Todo 等 insertLog 合并后加上 insertUndoLogWithGlobalFinished 功能
-	/*else {
-
-	}*/
+	if exists {
+		if err = m.DeleteUndoLog(ctx, xid, branchID, conn); err != nil {
+			log.Errorf("[Undo] delete undo fail, err: %v", err)
+			return err
+		}
+		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+	} else {
+		if err = m.insertUndoLogWithGlobalFinished(ctx, xid, uint64(branchID), conn); err != nil {
+			log.Errorf("[Undo] insert undo with global finished fail, err: %v", err)
+			return err
+		}
+		log.Errorf("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+	}
 
 	if err = tx.Commit(); err != nil {
 		log.Errorf("[Undo] execute on fail, err: %v", err)
 		return nil
 	}
+	return nil
+}
 
+func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
+	// todo use config to replace
+	parseContext := make(map[string]string, 0)
+	parseContext[SerializerKey] = "jackson"
+	parseContext[CompressorTypeKey] = "NONE"
+	undoLogContent, err := json.Marshal(parseContext)
+	if err != nil {
+		return err
+	}
+
+	record := undo.UndologRecord{
+		BranchID:     branchID,
+		XID:          xid,
+		RollbackInfo: []byte("{}"),
+		LogStatus:    UndoLogStatusGlobalFinished,
+		Context:      undoLogContent,
+	}
+	err = m.InsertUndoLogWithSqlConn(ctx, record, conn)
+	if err != nil {
+		log.Errorf("insert undo log fail, err: %v", err)
+		return err
+	}
 	return nil
 }
 

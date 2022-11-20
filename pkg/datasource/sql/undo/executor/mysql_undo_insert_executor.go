@@ -27,32 +27,32 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-type MySQLUndoInsertExecutor struct {
+type mySQLUndoInsertExecutor struct {
 	BaseExecutor *BaseExecutor
+	sqlUndoLog   undo.SQLUndoLog
 }
 
-// NewMySQLUndoInsertExecutor init
-func NewMySQLUndoInsertExecutor() *MySQLUndoInsertExecutor {
-	return &MySQLUndoInsertExecutor{}
+// newMySQLUndoInsertExecutor init
+func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExecutor {
+	return &mySQLUndoInsertExecutor{sqlUndoLog: sqlUndoLog}
 }
 
 // ExecuteOn execute insert undo logic
-func (m *MySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) error {
+func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 
-	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, sqlUndoLog, conn); err != nil {
+	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
 		return err
 	}
 
 	// build delete sql
-	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
+	undoSql, _ := m.buildUndoSQL(dbType)
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err
 	}
 
-	afterImage := sqlUndoLog.AfterImage
+	afterImage := m.sqlUndoLog.AfterImage
 	for _, row := range afterImage.Rows {
 		pkValueList := make([]interface{}, 0)
 
@@ -71,14 +71,14 @@ func (m *MySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 }
 
 // buildUndoSQL build insert undo log
-func (m *MySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
-	afterImage := sqlUndoLog.AfterImage
+func (m *mySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string, error) {
+	afterImage := m.sqlUndoLog.AfterImage
 	rows := afterImage.Rows
 	if len(rows) == 0 {
 		return "", errors.New("invalid undo log")
 	}
 
-	str, err := m.generateDeleteSql(afterImage, rows, dbType, sqlUndoLog)
+	str, err := m.generateDeleteSql(afterImage, rows, dbType, m.sqlUndoLog)
 	if err != nil {
 		return "", err
 	}
@@ -87,7 +87,7 @@ func (m *MySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 }
 
 // generateDeleteSql generate delete sql
-func (m *MySQLUndoInsertExecutor) generateDeleteSql(
+func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	image *types.RecordImage, rows []types.RowImage,
 	dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
 
@@ -98,7 +98,7 @@ func (m *MySQLUndoInsertExecutor) generateDeleteSql(
 
 	var pkList []string
 	for key, _ := range colImages {
-		pkList = append(pkList, colImages[key].Name)
+		pkList = append(pkList, colImages[key].ColumnName)
 	}
 
 	whereSql := BuildWhereConditionByPKs(pkList, dbType)
