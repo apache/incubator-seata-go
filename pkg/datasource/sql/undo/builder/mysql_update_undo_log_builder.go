@@ -134,8 +134,6 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey(rows, *metaData)
-	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	image.SQLType = execCtx.ParseContext.SQLType
 
 	return []*types.RecordImage{image}, nil

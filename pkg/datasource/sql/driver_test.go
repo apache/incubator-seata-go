@@ -21,9 +21,10 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/rm"
 	"reflect"
 	"testing"
+
+	"github.com/seata/seata-go/pkg/rm"
 
 	"github.com/golang/mock/gomock"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"

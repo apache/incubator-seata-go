@@ -20,6 +20,7 @@ package builder
 import (
 	"testing"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,5 +46,25 @@ func TestBuildWhereConditionByPKs(t *testing.T) {
 			assert.Equal(t, test.expectSQL, sql)
 		})
 	}
+}
 
+func TestBuildLockKey(t *testing.T) {
+	metaData := types.TableMeta{
+		TableName: "test_name",
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}, {ColumnName: "userId"}}},
+		},
+	}
+
+	records := types.RecordImage{
+		TableName: "test_name",
+		Rows: []types.RowImage{
+			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, Name: "id", Value: 1}, {KeyType: types.IndexTypePrimaryKey, Name: "userId", Value: "one"}}},
+			{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, Name: "id", Value: 2}, {KeyType: types.IndexTypePrimaryKey, Name: "userId", Value: "two"}}},
+		},
+	}
+
+	builder := BasicUndoLogBuilder{}
+	lockKeys := builder.buildLockKey2(&records, metaData)
+	assert.Equal(t, "test_name:1_one,2_two", lockKeys)
 }

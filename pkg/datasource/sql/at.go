@@ -116,7 +116,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 // BranchCommit
 func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
 	a.worker.BranchCommit(ctx, resource)
-	return branch.BranchStatusPhaseoneDone, nil
+	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
 // LockQuery
@@ -131,7 +131,7 @@ func (a *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegis
 
 // BranchReport
 func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
-	return nil
+	return a.rmRemoting.BranchReport(param)
 }
 
 // CreateTableMetaCache
