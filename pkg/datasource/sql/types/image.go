@@ -17,6 +17,13 @@
 
 package types
 
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
 	bIndex int32
@@ -138,6 +145,9 @@ func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	return nonPkFields
 }
 
+var _ json.Unmarshaler = (*ColumnImage)(nil)
+var _ json.Marshaler = (*ColumnImage)(nil)
+
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
 	// KeyType index type
@@ -148,4 +158,110 @@ type ColumnImage struct {
 	Type int16 `json:"type"`
 	// Value column value
 	Value interface{} `json:"value"`
+}
+
+// columnImageAlias support ColumnImage to json serialization
+type columnImageAlias ColumnImage
+
+// columnImageSerialization support ColumnImage to json serialization
+type columnImageSerialization struct {
+	ValueType string `json:"valueType"`
+	*columnImageAlias
+}
+
+func (c *ColumnImage) MarshalJSON() ([]byte, error) {
+	tmp := columnImageSerialization{
+		columnImageAlias: (*columnImageAlias)(c),
+	}
+	tmp.ValueType = fmt.Sprintf("%T", tmp.Value)
+	data, err := json.Marshal(&tmp)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (c *ColumnImage) UnmarshalJSON(data []byte) error {
+	tmp := columnImageSerialization{
+		columnImageAlias: (*columnImageAlias)(c),
+	}
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+
+	switch tmp.ValueType {
+	case getTypeStr([]uint8{}):
+		if str, ok := tmp.Value.(string); ok {
+			// base64 decode
+			if strB, err := base64.StdEncoding.DecodeString(str); err == nil {
+				tmp.columnImageAlias.Value = strB
+			}
+		}
+
+	case getTypeStr(int32(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int32(float64Tmp)
+
+	case getTypeStr(uint8(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint8(float64Tmp)
+
+	case getTypeStr(int32(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int32(float64Tmp)
+
+	case getTypeStr(0):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int(float64Tmp)
+	case getTypeStr(uint(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint(float64Tmp)
+	case getTypeStr(int8(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int8(float64Tmp)
+
+	case getTypeStr(uint8(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint8(float64Tmp)
+
+	case getTypeStr(int16(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int16(float64Tmp)
+
+	case getTypeStr(uint16(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint16(float64Tmp)
+
+	case getTypeStr(int32(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int32(float64Tmp)
+
+	case getTypeStr(uint32(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint32(float64Tmp)
+
+	case getTypeStr(int64(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = int64(float64Tmp)
+
+	case getTypeStr(uint64(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = uint64(float64Tmp)
+
+	case getTypeStr(float32(0)):
+		float64Tmp, _ := tmp.Value.(float64)
+		tmp.columnImageAlias.Value = float32(float64Tmp)
+
+	case getTypeStr(float64(0)):
+		tmp.Value, _ = tmp.Value.(float64)
+
+	case getTypeStr(time.Now()):
+		strTmp, _ := tmp.Value.(string)
+		tmp.columnImageAlias.Value, _ = time.ParseInLocation("2006-01-02T15:04:05.999999Z07:00", strTmp, time.Local)
+	}
+	return nil
+}
+
+func getTypeStr(src interface{}) string {
+	return fmt.Sprintf("%T", src)
 }

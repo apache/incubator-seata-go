@@ -19,6 +19,7 @@ package executor
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -57,7 +58,7 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 			if newValue == nil {
 				return false, fmt.Errorf("compare row failed, rowKey %s, fieldName %s, reason [newField is null]", key, fieldName)
 			}
-			if newValue != oldValue {
+			if !reflect.DeepEqual(newValue, oldValue) {
 				return false, nil
 			}
 		}
