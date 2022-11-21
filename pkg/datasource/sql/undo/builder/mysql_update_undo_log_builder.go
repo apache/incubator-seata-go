@@ -105,6 +105,9 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 	if execCtx.ParseContext.UpdateStmt == nil {
 		return nil, nil
 	}
+	if len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
+		return []*types.RecordImage{{}}, nil
+	}
 
 	var beforeImage *types.RecordImage
 	if len(beforeImages) > 0 {
@@ -141,7 +144,7 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 }
 
 func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta *types.TableMeta) (string, []driver.Value) {
-	if beforeImage == nil || beforeImage.Rows == nil {
+	if beforeImage == nil || len(beforeImage.Rows) == 0 {
 		return "", nil
 	}
 	sb := strings.Builder{}
