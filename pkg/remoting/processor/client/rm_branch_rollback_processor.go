@@ -41,7 +41,7 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 	branchID := request.BranchId
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
-	log.Infof("Branch rollback request: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("Branch rollback request: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
 	branchResource := rm.BranchResource{
 		BranchType:      request.BranchType,
 		Xid:             xid,

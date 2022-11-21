@@ -18,6 +18,7 @@
 package types
 
 import (
+	"database/sql"
 	"reflect"
 )
 
@@ -28,7 +29,7 @@ type ColumnMeta struct {
 	// Table
 	Table string
 	// ColumnTypeInfo
-	ColumnTypeInfo ColumnType
+	ColumnTypeInfo *sql.ColumnType
 	// Autoincrement
 	Autoincrement bool
 	ColumnName    string
