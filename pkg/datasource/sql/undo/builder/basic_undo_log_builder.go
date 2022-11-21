@@ -31,6 +31,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// todo the executor should be stateful
 type BasicUndoLogBuilder struct{}
 
 // GetScanSlice get the column type for scann
@@ -43,7 +44,7 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 			columnMeta = tableMeta.Columns[columnNmae]
 		)
 
-		switch columnMeta.ColumnTypeInfo.ScanType {
+		switch columnMeta.ColumnTypeInfo.ScanType() {
 		case types.ScanTypeFloat32:
 			scanVal = float32(0)
 			break

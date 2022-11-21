@@ -47,15 +47,15 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		Indexs:    make(map[string]types.IndexMeta),
 	}
 
-	colMetas, err := m.getColumns(ctx, dbName, tableName, conn)
+	columnMetas, err := m.getColumnMetas(ctx, dbName, tableName, conn)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not found any column in the table: %s", tableName)
+		return nil, errors.Wrapf(err, "Could not found any columnMeta in the table: %s", tableName)
 	}
 
 	var columns []string
-	for _, column := range colMetas {
-		tableMeta.Columns[column.ColumnName] = column
-		columns = append(columns, column.ColumnName)
+	for _, columnMeta := range columnMetas {
+		tableMeta.Columns[columnMeta.ColumnName] = columnMeta
+		columns = append(columns, columnMeta.ColumnName)
 	}
 	tableMeta.ColumnNames = columns
 
@@ -86,8 +86,8 @@ func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
 	return []types.TableMeta{}, nil
 }
 
-// getColumns get tableMeta column
-func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+// getColumnMetas get tableMeta column
+func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
 
@@ -102,7 +102,16 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 	}
 	defer rows.Close()
 
+	var columnTypes []*sql.ColumnType
+	i := 0
+
 	for rows.Next() {
+		if columnTypes == nil {
+			columnTypes, err = rows.ColumnTypes()
+			if err != nil {
+				return nil, err
+			}
+		}
 		var (
 			tableName   string
 			tableSchema string
@@ -134,6 +143,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		columnMeta.DataType = types.GetSqlDataType(dataType)
 		columnMeta.ColumnType = columnType
 		columnMeta.ColumnKey = columnKey
+		columnMeta.ColumnTypeInfo = columnTypes[i]
 		if strings.ToLower(isNullable) == "yes" {
 			columnMeta.IsNullable = 1
 		} else {
@@ -143,6 +153,7 @@ func (m *mysqlTrigger) getColumns(ctx context.Context, dbName string, table stri
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
 		columnMetas = append(columnMetas, columnMeta)
+		i++
 	}
 
 	if len(columnMetas) == 0 {
