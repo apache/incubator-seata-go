@@ -34,6 +34,7 @@ import (
 )
 
 var serverIpPort = "http://127.0.0.1:8080"
+var serverIpPort2 = "http://127.0.0.1:8081"
 
 func main() {
 	flag.Parse()
@@ -59,6 +60,14 @@ func updateData(ctx context.Context) (re error) {
 	request.Post(serverIpPort+"/updateDataSuccess").
 		Set(constant.XidKey, tm.GetXID(ctx)).
 		End(func(response gorequest.Response, body string, errs []error) {
+			if response.StatusCode != http.StatusOK {
+				re = errors.New("update data fail")
+			}
+		})
+
+	request.Post(serverIpPort2+"/updateDataFail").
+		Set(constant.XidKey, tm.GetXID(ctx)).
+		End(func(response gorequest.Response, body string, errs1 []error) {
 			if response.StatusCode != http.StatusOK {
 				re = errors.New("update data fail")
 			}

@@ -170,7 +170,7 @@ func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
 
 	if err := aw.commitWorker.Do(context.Background(), doBranchCommit); err != nil {
 		aw.doBranchCommitFailureTotal.Add(1)
-		log.Errorf("do branch commit err:%v", err)
+		log.Errorf("do branch commit err:%v,phaseCtxs=%v", err, phaseCtxs)
 	}
 }
 
