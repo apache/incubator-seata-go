@@ -146,7 +146,7 @@ func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	return nonPkFields
 }
 
-//var _ json.Unmarshaler = (*ColumnImage)(nil)
+var _ json.Unmarshaler = (*ColumnImage)(nil)
 var _ json.Marshaler = (*ColumnImage)(nil)
 
 type CommonValue struct {
@@ -164,28 +164,6 @@ type ColumnImage struct {
 	// Value column value
 	Value interface{} `json:"value"`
 }
-
-//// MarshalJSON returns m as the JSON encoding of m.
-//func (m CommonValue) MarshalJSON() ([]byte, error) {
-//	if m.Value == nil {
-//		return []byte("null"), nil
-//	}
-//	v := reflect.ValueOf(m.Value)
-//	switch val := v.(type) {
-//	case int8, int16, int32, int64, bool, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128:
-//
-//	}
-//	return m, nil
-//}
-//
-//// UnmarshalJSON sets *m to a copy of data.
-//func (m *CommonValue) UnmarshalJSON(data []byte) error {
-//	if m == nil {
-//		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
-//	}
-//	*m = append((*m)[0:0], data...)
-//	return nil
-//}
 
 func (c *ColumnImage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(*c)
@@ -236,28 +214,28 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 		binary.Read(valueBuffer, binary.BigEndian, &val)
 		actualValue = val
 	case JDBCTypeTimestamp: // 4 Bytes
-		var val = make([]byte, 0)
+		var val []byte
 		// todo
 		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
 			return err
 		}
 		actualValue = string(val)
 	case JDBCTypeDate: // 3Bytes
-		var val = make([]byte, 0)
+		var val []byte
 		// todo
 		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
 			return err
 		}
 		actualValue = string(val)
 	case JDBCTypeTime: // 3Bytes
-		var val = make([]byte, 0)
+		var val []byte
 		// todo
 		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
 			return err
 		}
 		actualValue = string(val)
 	case JDBCTypeChar, JDBCTypeVarchar:
-		var val = make([]byte, 0)
+		var val []byte
 		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
 			return err
 		}
