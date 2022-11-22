@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 )
 
@@ -32,7 +34,7 @@ var (
 
 func initService() {
 	var err error
-	db, err = sql.Open(sql2.SeataATMySQLDriver, "root:123456@tcp(127.0.0.1:3306)/seata_client1?multiStatements=true&interpolateParams=true")
+	db, err = sql.Open(sql2.SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_client1?multiStatements=true&interpolateParams=true")
 	if err != nil {
 		panic("init service error")
 	}
@@ -52,5 +54,8 @@ func updateDataFail(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("update success： %d.\n", rows)
+	if rows == 0 {
+		return errors.New("rows affected 0")
+	}
 	return nil
 }

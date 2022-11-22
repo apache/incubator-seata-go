@@ -13,6 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/parnurzeal/gorequest v0.2.16
 	github.com/pierrec/lz4/v4 v4.1.17
@@ -85,7 +86,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
