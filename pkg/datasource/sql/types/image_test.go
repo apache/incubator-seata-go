@@ -68,7 +68,7 @@ func TestColumnImage_UnmarshalJSON(t *testing.T) {
 				KeyType:    IndexTypeNull,
 				ColumnName: "CreateTime",
 				ColumnType: JDBCTypeTime,
-				Value:      time.Now(),
+				Value:      now,
 			},
 			expectValue: now,
 		},
