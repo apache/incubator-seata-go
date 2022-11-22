@@ -178,12 +178,12 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 			if _, ok := tableMetaData.GetPrimaryKeyMap()[name]; ok {
 				keyType = types.IndexTypePrimaryKey
 			}
-			jdbcType := types.GetJDBCTypeByTypeName(columnMeta.ColumnTypeInfo.DatabaseTypeName())
+			jdbcType := types.MySQLStrToJavaType(columnMeta.ColumnTypeInfo.DatabaseTypeName())
 
 			columns = append(columns, types.ColumnImage{
 				KeyType:    keyType,
 				ColumnName: name,
-				Type:       int16(jdbcType),
+				ColumnType: jdbcType,
 				Value:      ss[i],
 			})
 		}

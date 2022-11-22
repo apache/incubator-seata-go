@@ -18,10 +18,11 @@
 package types
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"time"
 )
 
 // RoundRecordImage Front and rear mirror data
@@ -145,8 +146,12 @@ func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	return nonPkFields
 }
 
-var _ json.Unmarshaler = (*ColumnImage)(nil)
+//var _ json.Unmarshaler = (*ColumnImage)(nil)
 var _ json.Marshaler = (*ColumnImage)(nil)
+
+type CommonValue struct {
+	Value interface{}
+}
 
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
@@ -154,110 +159,117 @@ type ColumnImage struct {
 	KeyType IndexType `json:"keyType"`
 	// ColumnName column name
 	ColumnName string `json:"name"`
-	// Type column type
-	Type int16 `json:"type"`
+	// ColumnType column type
+	ColumnType JDBCType `json:"type"`
 	// Value column value
 	Value interface{} `json:"value"`
 }
 
-// columnImageAlias support ColumnImage to json serialization
-type columnImageAlias ColumnImage
-
-// columnImageSerialization support ColumnImage to json serialization
-type columnImageSerialization struct {
-	ValueType string `json:"valueType"`
-	*columnImageAlias
-}
+//// MarshalJSON returns m as the JSON encoding of m.
+//func (m CommonValue) MarshalJSON() ([]byte, error) {
+//	if m.Value == nil {
+//		return []byte("null"), nil
+//	}
+//	v := reflect.ValueOf(m.Value)
+//	switch val := v.(type) {
+//	case int8, int16, int32, int64, bool, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128:
+//
+//	}
+//	return m, nil
+//}
+//
+//// UnmarshalJSON sets *m to a copy of data.
+//func (m *CommonValue) UnmarshalJSON(data []byte) error {
+//	if m == nil {
+//		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
+//	}
+//	*m = append((*m)[0:0], data...)
+//	return nil
+//}
 
 func (c *ColumnImage) MarshalJSON() ([]byte, error) {
-	tmp := columnImageSerialization{
-		columnImageAlias: (*columnImageAlias)(c),
-	}
-	tmp.ValueType = fmt.Sprintf("%T", tmp.Value)
-	data, err := json.Marshal(&tmp)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return json.Marshal(*c)
 }
 
 func (c *ColumnImage) UnmarshalJSON(data []byte) error {
-	tmp := columnImageSerialization{
-		columnImageAlias: (*columnImageAlias)(c),
-	}
-	if err := json.Unmarshal(data, &tmp); err != nil {
+	var err error
+	tmpImage := make(map[string]interface{})
+	if err := json.Unmarshal(data, &tmpImage); err != nil {
 		return err
 	}
+	var (
+		keyType     string
+		columnType  int16
+		columnName  string
+		valueBytes  []byte
+		valueBuffer *bytes.Buffer
+		actualValue interface{}
+	)
+	keyType = tmpImage["keyType"].(string)
+	columnType = int16(int64(tmpImage["type"].(float64)))
+	columnName = tmpImage["name"].(string)
+	actualValue = tmpImage["value"]
 
-	switch tmp.ValueType {
-	case getTypeStr([]uint8{}):
-		if str, ok := tmp.Value.(string); ok {
-			// base64 decode
-			if strB, err := base64.StdEncoding.DecodeString(str); err == nil {
-				tmp.columnImageAlias.Value = strB
-			}
+	switch JDBCType(columnType) {
+	case JDBCTypeReal: // 4 Bytes
+		var val float32
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeDecimal, JDBCTypeDouble: // 8 Bytes
+		var val float64
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeTinyInt: // 1 Bytes
+		var val int8
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeSmallInt: // 2 Bytes
+		var val int16
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeInteger: // 4 Bytes
+		var val int32
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeBigInt: // 8Bytes
+		var val int64
+		binary.Read(valueBuffer, binary.BigEndian, &val)
+		actualValue = val
+	case JDBCTypeTimestamp: // 4 Bytes
+		var val = make([]byte, 0)
+		// todo
+		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
+			return err
 		}
-
-	case getTypeStr(int32(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int32(float64Tmp)
-
-	case getTypeStr(uint8(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint8(float64Tmp)
-
-	case getTypeStr(int32(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int32(float64Tmp)
-
-	case getTypeStr(0):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int(float64Tmp)
-	case getTypeStr(uint(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint(float64Tmp)
-	case getTypeStr(int8(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int8(float64Tmp)
-
-	case getTypeStr(uint8(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint8(float64Tmp)
-
-	case getTypeStr(int16(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int16(float64Tmp)
-
-	case getTypeStr(uint16(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint16(float64Tmp)
-
-	case getTypeStr(int32(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int32(float64Tmp)
-
-	case getTypeStr(uint32(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint32(float64Tmp)
-
-	case getTypeStr(int64(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = int64(float64Tmp)
-
-	case getTypeStr(uint64(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = uint64(float64Tmp)
-
-	case getTypeStr(float32(0)):
-		float64Tmp, _ := tmp.Value.(float64)
-		tmp.columnImageAlias.Value = float32(float64Tmp)
-
-	case getTypeStr(float64(0)):
-		tmp.Value, _ = tmp.Value.(float64)
-
-	case getTypeStr(time.Now()):
-		strTmp, _ := tmp.Value.(string)
-		tmp.columnImageAlias.Value, _ = time.ParseInLocation("2006-01-02T15:04:05.999999Z07:00", strTmp, time.Local)
+		actualValue = string(val)
+	case JDBCTypeDate: // 3Bytes
+		var val = make([]byte, 0)
+		// todo
+		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
+			return err
+		}
+		actualValue = string(val)
+	case JDBCTypeTime: // 3Bytes
+		var val = make([]byte, 0)
+		// todo
+		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
+			return err
+		}
+		actualValue = string(val)
+	case JDBCTypeChar, JDBCTypeVarchar:
+		var val = make([]byte, 0)
+		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
+			return err
+		}
+		actualValue = string(val)
+	case JDBCTypeBinary, JDBCTypeVarBinary, JDBCTypeLongVarBinary, JDBCTypeBit:
+		actualValue = valueBytes
+	}
+	*c = ColumnImage{
+		KeyType:    ParseIndexType(keyType),
+		ColumnName: columnName,
+		ColumnType: JDBCType(columnType),
+		Value:      actualValue,
 	}
 	return nil
 }
