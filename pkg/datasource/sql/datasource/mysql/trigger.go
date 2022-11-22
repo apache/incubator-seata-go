@@ -102,16 +102,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	}
 	defer rows.Close()
 
-	var columnTypes []*sql.ColumnType
-	i := 0
-
 	for rows.Next() {
-		if columnTypes == nil {
-			columnTypes, err = rows.ColumnTypes()
-			if err != nil {
-				return nil, err
-			}
-		}
 		var (
 			tableName   string
 			tableSchema string
@@ -124,7 +115,6 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		)
 
 		columnMeta := types.ColumnMeta{}
-
 		if err = rows.Scan(
 			&tableName,
 			&tableSchema,
@@ -140,10 +130,10 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		columnMeta.Schema = tableSchema
 		columnMeta.Table = tableName
 		columnMeta.ColumnName = strings.Trim(columnName, "` ")
-		columnMeta.DataType = types.GetSqlDataType(dataType)
+		columnMeta.DatabaseType = types.GetSqlDataType(dataType)
+		columnMeta.DatabaseTypeString = dataType
 		columnMeta.ColumnType = columnType
 		columnMeta.ColumnKey = columnKey
-		columnMeta.ColumnTypeInfo = columnTypes[i]
 		if strings.ToLower(isNullable) == "yes" {
 			columnMeta.IsNullable = 1
 		} else {
@@ -153,7 +143,6 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 
 		columnMetas = append(columnMetas, columnMeta)
-		i++
 	}
 
 	if len(columnMetas) == 0 {

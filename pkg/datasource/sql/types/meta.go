@@ -18,26 +18,24 @@
 package types
 
 import (
-	"database/sql"
 	"reflect"
 )
 
 // ColumnMeta
 type ColumnMeta struct {
 	// Schema
-	Schema string
-	// Table
-	Table string
-	// ColumnTypeInfo
-	ColumnTypeInfo *sql.ColumnType
-	// Autoincrement
+	Schema        string
+	Table         string
 	Autoincrement bool
-	ColumnName    string
-	ColumnType    string
-	DataType      int32
-	ColumnKey     string
-	IsNullable    int8
-	Extra         string
+	// todo get columnType
+	//ColumnTypeInfo *sql.ColumnType
+	ColumnName         string
+	ColumnType         string
+	DatabaseType       int32
+	DatabaseTypeString string
+	ColumnKey          string
+	IsNullable         int8
+	Extra              string
 }
 
 type ColumnType struct {
