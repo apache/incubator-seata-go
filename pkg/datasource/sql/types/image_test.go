@@ -19,52 +19,72 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestColumnImage(t *testing.T) {
-	now, _ := time.Parse(time.RFC3339, time.Now().String())
-	values := []interface{}{
-		[]byte("test"),
-		true,
-		false,
-		byte(10),
-		rune(100),
-		int(10),
-		uint(10),
-		int8(10),
-		uint8(10),
-		int64(10),
-		uint16(10),
-		int32(10),
-		uint32(10),
-		int64(10),
-		uint64(10),
-		float32(10),
-		float64(10),
-		now,
-		string("test"),
+func TestColumnImage_UnmarshalJSON(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name        string
+		image       *ColumnImage
+		expectValue interface{}
+	}{
+		{
+			name: "test-string",
+			image: &ColumnImage{
+				KeyType:    IndexTypePrimaryKey,
+				ColumnName: "Name",
+				ColumnType: JDBCTypeVarchar,
+				Value:      []byte("Seata-go"),
+			},
+			expectValue: "Seata-go",
+		},
+		{
+			name: "test-int",
+			image: &ColumnImage{
+				KeyType:    IndexTypeNull,
+				ColumnName: "Age",
+				ColumnType: JDBCTypeTinyInt,
+				Value:      int8(20),
+			},
+			expectValue: int8(20),
+		},
+		{
+			name: "test-double",
+			image: &ColumnImage{
+				KeyType:    IndexTypeNull,
+				ColumnName: "Salary",
+				ColumnType: JDBCTypeDouble,
+				Value:      8899.778,
+			},
+			expectValue: float64(8899.778),
+		},
+		{
+			name: "test-time",
+			image: &ColumnImage{
+				KeyType:    IndexTypeNull,
+				ColumnName: "CreateTime",
+				ColumnType: JDBCTypeTime,
+				Value:      time.Now(),
+			},
+			expectValue: now,
+		},
 	}
-	for _, val := range values {
-		t.Run(fmt.Sprintf("%T", val), func(t *testing.T) {
-			c := ColumnImage{
-				ColumnName: "test",
-				Value:      val,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.image)
+			assert.Nil(t, err)
+			var after ColumnImage
+			err = json.Unmarshal(data, &after)
+			assert.Nil(t, err)
+			if ti, ok := tt.expectValue.(time.Time); ok {
+				assert.Equal(t, ti.Format(time.RFC3339Nano), after.Value.(time.Time).Format(time.RFC3339Nano))
+			} else {
+				assert.Equal(t, tt.expectValue, after.Value)
 			}
-			cBytes, err := json.Marshal(&c)
-			if err != nil {
-				t.Errorf("Marshal error:%v", err)
-			}
-			cT := ColumnImage{}
-			err = json.Unmarshal(cBytes, &cT)
-			if err != nil {
-				t.Errorf("Unmarshal error:%v", err)
-			}
-			assert.Equal(t, c.Value, cT.Value)
 		})
 	}
 }

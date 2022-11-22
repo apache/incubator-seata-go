@@ -18,11 +18,10 @@
 package types
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // RoundRecordImage Front and rear mirror data
@@ -165,8 +164,22 @@ type ColumnImage struct {
 	Value interface{} `json:"value"`
 }
 
+type columnImageAlias ColumnImage
+
 func (c *ColumnImage) MarshalJSON() ([]byte, error) {
-	return json.Marshal(*c)
+	if c == nil || c.Value == nil {
+		return json.Marshal(*c)
+	}
+	value := c.Value
+	if t, ok := c.Value.(time.Time); ok {
+		value = t.Format(time.RFC3339Nano)
+	}
+	return json.Marshal(&columnImageAlias{
+		KeyType:    c.KeyType,
+		ColumnName: c.ColumnName,
+		ColumnType: c.ColumnType,
+		Value:      value,
+	})
 }
 
 func (c *ColumnImage) UnmarshalJSON(data []byte) error {
@@ -179,69 +192,52 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 		keyType     string
 		columnType  int16
 		columnName  string
-		valueBytes  []byte
-		valueBuffer *bytes.Buffer
+		value       interface{}
 		actualValue interface{}
 	)
 	keyType = tmpImage["keyType"].(string)
 	columnType = int16(int64(tmpImage["type"].(float64)))
 	columnName = tmpImage["name"].(string)
-	actualValue = tmpImage["value"]
+	value = tmpImage["value"]
 
-	switch JDBCType(columnType) {
-	case JDBCTypeReal: // 4 Bytes
-		var val float32
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeDecimal, JDBCTypeDouble: // 8 Bytes
-		var val float64
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeTinyInt: // 1 Bytes
-		var val int8
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeSmallInt: // 2 Bytes
-		var val int16
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeInteger: // 4 Bytes
-		var val int32
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeBigInt: // 8Bytes
-		var val int64
-		binary.Read(valueBuffer, binary.BigEndian, &val)
-		actualValue = val
-	case JDBCTypeTimestamp: // 4 Bytes
-		var val []byte
-		// todo
-		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
-			return err
+	if value != nil {
+		switch JDBCType(columnType) {
+		case JDBCTypeReal: // 4 Bytes
+			actualValue = value.(float32)
+		case JDBCTypeDecimal, JDBCTypeDouble: // 8 Bytes
+			actualValue = value.(float64)
+		case JDBCTypeTinyInt: // 1 Bytes
+			actualValue = int8(value.(float64))
+		case JDBCTypeSmallInt: // 2 Bytes
+			actualValue = int16(value.(float64))
+		case JDBCTypeInteger: // 4 Bytes
+			actualValue = int32(value.(float64))
+		case JDBCTypeBigInt: // 8Bytes
+			actualValue = int64(value.(float64))
+		case JDBCTypeTimestamp: // 4 Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeDate: // 3Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeTime: // 3Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeChar, JDBCTypeVarchar:
+			var val []byte
+			if val, err = base64.StdEncoding.DecodeString(value.(string)); err != nil {
+				return err
+			}
+			actualValue = string(val)
+		case JDBCTypeBinary, JDBCTypeVarBinary, JDBCTypeLongVarBinary, JDBCTypeBit:
+			actualValue = value
 		}
-		actualValue = string(val)
-	case JDBCTypeDate: // 3Bytes
-		var val []byte
-		// todo
-		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
-			return err
-		}
-		actualValue = string(val)
-	case JDBCTypeTime: // 3Bytes
-		var val []byte
-		// todo
-		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
-			return err
-		}
-		actualValue = string(val)
-	case JDBCTypeChar, JDBCTypeVarchar:
-		var val []byte
-		if val, err = base64.StdEncoding.DecodeString(actualValue.(string)); err != nil {
-			return err
-		}
-		actualValue = string(val)
-	case JDBCTypeBinary, JDBCTypeVarBinary, JDBCTypeLongVarBinary, JDBCTypeBit:
-		actualValue = valueBytes
 	}
 	*c = ColumnImage{
 		KeyType:    ParseIndexType(keyType),
