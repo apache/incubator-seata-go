@@ -36,12 +36,12 @@ type mySQLUndoUpdateExecutor struct {
 func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExecutor {
 	return &mySQLUndoUpdateExecutor{
 		sqlUndoLog:   sqlUndoLog,
-		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog},
+		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
 	}
 }
 
 func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
-	ok, err := m.baseExecutor.dataValidationAndGoOn(conn)
+	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
 	if err != nil {
 		return err
 	}
