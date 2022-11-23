@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"strings"
 
 	"github.com/goccy/go-json"
@@ -100,6 +101,9 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 }
 
 func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) (*types.RecordImage, error) {
+	if b.undoImage == nil {
+		return nil, errors.Newf("undo image is nil")
+	}
 	tableMeta := b.undoImage.TableMeta
 	pkNameList := tableMeta.GetPrimaryKeyOnlyName()
 	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList)
@@ -163,7 +167,7 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 	for _, row := range rows {
 		for _, column := range row.Columns {
 			for _, pk := range pkNameList {
-				if strings.EqualFold(strings.ToUpper(pk), strings.ToUpper(column.ColumnName)) {
+				if strings.EqualFold(pk, column.ColumnName) {
 					values := pkValues[strings.ToUpper(pk)]
 					if values == nil {
 						values = make([]types.ColumnImage, 0)
