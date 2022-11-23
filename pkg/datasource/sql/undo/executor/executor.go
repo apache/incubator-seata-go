@@ -95,9 +95,6 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 				"tableName:[%s], oldRows:[%s],newRows:[%s].", afterImage.TableName, oldRowJson, newRowJson)
 			return false, fmt.Errorf("Has dirty records when undo.")
 		}
-
-		log.Infof("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
-		return false, nil
 	}
 	return true, nil
 }
@@ -166,7 +163,7 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 	for _, row := range rows {
 		for _, column := range row.Columns {
 			for _, pk := range pkNameList {
-				if strings.ToUpper(pk) == strings.ToUpper(column.ColumnName) {
+				if strings.EqualFold(strings.ToUpper(pk), strings.ToUpper(column.ColumnName)) {
 					values := pkValues[strings.ToUpper(pk)]
 					if values == nil {
 						values = make([]types.ColumnImage, 0)
