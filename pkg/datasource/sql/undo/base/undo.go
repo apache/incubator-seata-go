@@ -162,6 +162,10 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	beforeImages := tranCtx.RoundImages.BeofreImages()
 	afterImages := tranCtx.RoundImages.AfterImages()
 
+	if beforeImages.IsEmptyImage() && afterImages.IsEmptyImage() {
+		return nil
+	}
+
 	for i := 0; i < len(beforeImages); i++ {
 		var (
 			tableName string
@@ -474,7 +478,7 @@ func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
 
 // getRollbackInfo parser rollback info
 func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
-	// Todo 目前 insert undo log 未实现压缩功能，实现后补齐这块功能
+	// Todo use compressor
 	// get compress type
 	/*compressorType, ok := undoContext[constant.CompressorTypeKey]
 	if ok {

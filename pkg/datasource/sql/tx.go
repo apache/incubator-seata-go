@@ -20,8 +20,9 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
