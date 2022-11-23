@@ -35,6 +35,7 @@ import (
 type BasicUndoLogBuilder struct{}
 
 // GetScanSlice get the column type for scann
+// todo to use ColumnInfo get slice
 func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []driver.Value {
 	scanSlice := make([]driver.Value, 0, len(columnNames))
 	for _, columnNmae := range columnNames {

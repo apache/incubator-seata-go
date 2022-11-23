@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -91,6 +92,19 @@ func (rs RecordImages) Reserve() {
 		l++
 		r--
 	}
+}
+
+func (rs RecordImages) IsEmptyImage() bool {
+	if len(rs) == 0 {
+		return true
+	}
+	for _, r := range rs {
+		if r == nil || len(r.Rows) == 0 {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // RecordImage
@@ -250,4 +264,17 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 
 func getTypeStr(src interface{}) string {
 	return fmt.Sprintf("%T", src)
+}
+
+func (c *ColumnImage) GetActualValue() interface{} {
+	if c.Value == nil {
+		return nil
+	}
+	value := reflect.ValueOf(c.Value)
+	kind := reflect.TypeOf(c.Value).Kind()
+	switch kind {
+	case reflect.Ptr:
+		return value.Elem().Interface()
+	}
+	return c.Value
 }
