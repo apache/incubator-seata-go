@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"strings"
 
 	"github.com/goccy/go-json"
@@ -102,7 +101,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 
 func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) (*types.RecordImage, error) {
 	if b.undoImage == nil {
-		return nil, errors.Newf("undo image is nil")
+		return nil, fmt.Errorf("undo image is nil")
 	}
 	tableMeta := b.undoImage.TableMeta
 	pkNameList := tableMeta.GetPrimaryKeyOnlyName()
