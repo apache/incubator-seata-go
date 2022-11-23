@@ -21,10 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/utils"
-	"github.com/seata/seata-go/pkg/util/log"
-
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // IsRecordsEquals check before record and after record if equal
@@ -62,7 +61,7 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 				log.Errorf("compare row failed, rowKey %s, fieldName %s, reason new value is null", key, fieldName)
 				return false, fmt.Errorf("compare image failed for new value is null")
 			}
-			if !utils.DeepEqual(newValue, oldValue) {
+			if !datasource.DeepEqual(newValue, oldValue) {
 				return false, nil
 			}
 		}

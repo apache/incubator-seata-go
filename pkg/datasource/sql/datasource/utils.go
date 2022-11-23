@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package utils
+package datasource
 
 import (
 	"database/sql"

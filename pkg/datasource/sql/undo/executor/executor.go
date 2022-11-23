@@ -24,9 +24,9 @@ import (
 	"strings"
 
 	"github.com/goccy/go-json"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	sql2 "github.com/seata/seata-go/pkg/datasource/sql/utils"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -137,7 +137,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		if err != nil {
 			return nil, err
 		}
-		slice := sql2.GetScanSlice(columnTypes)
+		slice := datasource.GetScanSlice(columnTypes)
 		if err = rows.Scan(slice...); err != nil {
 			return nil, err
 		}
@@ -163,6 +163,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 
 func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
 	pkValues := make(map[string][]types.ColumnImage)
+	// todo optimize 3 fors
 	for _, row := range rows {
 		for _, column := range row.Columns {
 			for _, pk := range pkNameList {
