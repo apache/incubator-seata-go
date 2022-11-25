@@ -16,3 +16,45 @@
  */
 
 package compressor
+
+import (
+	"bytes"
+	bzip2 "github.com/larzconwell/bzip2"
+	_ "io"
+)
+
+type Bzip2 struct {
+}
+
+func (z Bzip2) Compress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	var zp = bzip2.NewWriter(&buf)
+	if _, err := zp.Write(data); err != nil {
+		return nil, err
+	}
+	if err := zp.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+//
+//func (z Bzip2) Decompress(data []byte) ([]byte, error) {
+//  //var buf bytes.Buffer
+//  //buf.Write(data)
+//  //r, err := bzip2.read(&buf)
+//  //if err != nil {
+//  //  return nil, err
+//  //}
+//  //if err := r.Close(); err != nil {
+//  //  return nil, err
+//  //}
+//  //if _, err := io.Copy(&buf, r); err != nil {
+//  //  return nil, err
+//  //}
+//  //return buf.Bytes(), nil
+//}
+
+func (z Bzip2) GetCompressorType() CompressorType {
+	return CompressorZstd
+}
