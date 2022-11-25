@@ -14,6 +14,7 @@ require (
 	github.com/goccy/go-json v0.9.7
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/larzconwell/bzip2 v0.0.0-20160405040150-ecf7a0ddeda1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/parnurzeal/gorequest v0.2.16
