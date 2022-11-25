@@ -20,7 +20,6 @@ package types
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -260,10 +259,6 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 		Value:      actualValue,
 	}
 	return nil
-}
-
-func getTypeStr(src interface{}) string {
-	return fmt.Sprintf("%T", src)
 }
 
 func (c *ColumnImage) GetActualValue() interface{} {
