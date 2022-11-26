@@ -25,20 +25,22 @@ import (
 type ColumnMeta struct {
 	// Schema
 	Schema string
-	// Table
-	Table string
+	Table  string
 	// ColumnDef  the column def
 	ColumnDef []byte
 	// ColumnTypeInfo
 	ColumnTypeInfo ColumnType
 	// Autoincrement
 	Autoincrement bool
-	ColumnName    string
-	ColumnType    string
-	DataType      int32
-	ColumnKey     string
-	IsNullable    int8
-	Extra         string
+	// todo get columnType
+	//ColumnTypeInfo *sql.ColumnType
+	ColumnName         string
+	ColumnType         string
+	DatabaseType       int32
+	DatabaseTypeString string
+	ColumnKey          string
+	IsNullable         int8
+	Extra              string
 }
 
 type ColumnType struct {

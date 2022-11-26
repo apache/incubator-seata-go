@@ -43,6 +43,13 @@ const (
 	IndexTypePrimaryKey IndexType = 1
 )
 
+func ParseIndexType(str string) IndexType {
+	if str == "PRIMARY_KEY" {
+		return IndexTypePrimaryKey
+	}
+	return IndexTypeNull
+}
+
 func (i IndexType) MarshalText() (text []byte, err error) {
 	switch i {
 	case IndexTypePrimaryKey:

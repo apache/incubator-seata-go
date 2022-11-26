@@ -186,31 +186,6 @@ func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
 	return true
 }
 
-// IsRecordsEquals check before record and after record if equal
-func IsRecordsEquals(before types.RecordImages, after types.RecordImages) bool {
-	lenBefore, lenAfter := len(before), len(after)
-	if lenBefore == 0 && lenAfter == 0 {
-		return true
-	}
-
-	if lenBefore > 0 && lenAfter == 0 || lenBefore == 0 && lenAfter > 0 {
-		return false
-	}
-
-	for key, _ := range before {
-		if strings.EqualFold(before[key].TableName, after[key].TableName) &&
-			len(before[key].Rows) == len(after[key].Rows) {
-			// when image is EmptyTableRecords, getTableMeta will throw an exception
-			if len(before[key].Rows) == 0 {
-				return true
-			}
-
-		}
-	}
-
-	return true
-}
-
 func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
 
 	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
@@ -219,13 +194,13 @@ func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types
 	pkFields := make([]types.ColumnImage, 0)
 
 	for _, column := range row.PrimaryKeys(row.Columns) {
-		column.Name = DelEscape(column.Name, dbType)
+		column.ColumnName = DelEscape(column.ColumnName, dbType)
 		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
 	}
 
 	for _, pkName := range pkColumnNameListByOrder {
 		for _, col := range pkColumnNameListNoOrder {
-			if strings.Index(col.Name, pkName) > -1 {
+			if strings.Index(col.ColumnName, pkName) > -1 {
 				pkFields = append(pkFields, col)
 			}
 		}

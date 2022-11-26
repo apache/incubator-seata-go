@@ -139,6 +139,10 @@ func (aw *AsyncWorker) run() {
 }
 
 func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
+	if len(*phaseCtxs) == 0 {
+		return
+	}
+
 	copyPhaseCtxs := make([]phaseTwoContext, len(*phaseCtxs))
 	copy(copyPhaseCtxs, *phaseCtxs)
 	*phaseCtxs = (*phaseCtxs)[:0]
@@ -166,7 +170,7 @@ func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
 
 	if err := aw.commitWorker.Do(context.Background(), doBranchCommit); err != nil {
 		aw.doBranchCommitFailureTotal.Add(1)
-		log.Errorf("do branch commit err:%v", err)
+		log.Errorf("do branch commit err:%v,phaseCtxs=%v", err, phaseCtxs)
 	}
 }
 

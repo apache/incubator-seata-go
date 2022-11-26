@@ -29,26 +29,26 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-type MySQLUndoDeleteExecutor struct {
+type mySQLUndoDeleteExecutor struct {
 	BaseExecutor *BaseExecutor
+	sqlUndoLog   undo.SQLUndoLog
 }
 
-// NewMySQLUndoDeleteExecutor init
-func NewMySQLUndoDeleteExecutor() *MySQLUndoUpdateExecutor {
-	return &MySQLUndoUpdateExecutor{}
+// newMySQLUndoDeleteExecutor init
+func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExecutor {
+	return &mySQLUndoUpdateExecutor{sqlUndoLog: sqlUndoLog}
 }
 
-func (m *MySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType,
-	sqlUndoLog undo.SQLUndoLog, conn driver.Conn) error {
+func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn driver.Conn) error {
 
-	undoSql, _ := m.buildUndoSQL(dbType, sqlUndoLog)
+	undoSql, _ := m.buildUndoSQL(dbType)
 
 	stmt, err := conn.Prepare(undoSql)
 	if err != nil {
 		return err
 	}
 
-	beforeImage := sqlUndoLog.BeforeImage
+	beforeImage := m.sqlUndoLog.BeforeImage
 
 	for _, row := range beforeImage.Rows {
 		undoValues := make([]interface{}, 0)
@@ -75,8 +75,8 @@ func (m *MySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	return nil
 }
 
-func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
-	beforeImage := sqlUndoLog.BeforeImage
+func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, error) {
+	beforeImage := m.sqlUndoLog.BeforeImage
 	rows := beforeImage.Rows
 	if len(rows) == 0 {
 		return "", errors.New("invalid undo log")
@@ -97,7 +97,7 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 	)
 
 	for key, _ := range fields {
-		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].Name, dbType))
+		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}
 
@@ -106,5 +106,5 @@ func (m *MySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType, sqlUndoLog u
 
 	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
 	insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
-	return fmt.Sprintf(insertSqlTemplate, sqlUndoLog.TableName, insertColumns, insertValues), nil
+	return fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), nil
 }

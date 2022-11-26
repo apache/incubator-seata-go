@@ -19,44 +19,49 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/parnurzeal/gorequest"
+
 	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-type OrderTbl struct {
-	id            int
-	userID        string
-	commodityCode string
-	count         int64
-	money         int64
-	descs         string
-}
+var serverIpPort = "http://127.0.0.1:8080"
 
 func main() {
+	flag.Parse()
 	client.Init()
-	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+
+	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	defer cancel()
+
+	transInfo := &tm.TransactionInfo{
 		Name:    "ATSampleLocalGlobalTx",
 		TimeOut: time.Second * 30,
-	}, updateData)
-	<-make(chan struct{})
+	}
+
+	if err := tm.WithGlobalTx(bgCtx, transInfo, updateData); err != nil {
+		panic(fmt.Sprintf("tm update data err, %v", err))
+	}
 }
 
-func updateData(ctx context.Context) error {
-	sql := "update order_tbl set descs=? where id=?"
-	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return err
-	}
-	rows, err := ret.RowsAffected()
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return err
-	}
-	fmt.Printf("update success： %d.\n", rows)
-	return nil
+func updateData(ctx context.Context) (re error) {
+	request := gorequest.New()
+	log.Infof("branch transaction begin")
+
+	request.Post(serverIpPort+"/updateDataSuccess").
+		Set(constant.XidKey, tm.GetXID(ctx)).
+		End(func(response gorequest.Response, body string, errs []error) {
+			if response.StatusCode != http.StatusOK {
+				re = errors.New("update data fail")
+			}
+		})
+	return
 }

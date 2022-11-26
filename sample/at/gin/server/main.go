@@ -18,45 +18,36 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"time"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/tm"
+	ginmiddleware "github.com/seata/seata-go/pkg/integration/gin"
+	"github.com/seata/seata-go/pkg/util/log"
 )
-
-type OrderTbl struct {
-	id            int
-	userID        string
-	commodityCode string
-	count         int64
-	money         int64
-	descs         string
-}
 
 func main() {
 	client.Init()
 	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
-	}, updateData)
-	<-make(chan struct{})
-}
 
-func updateData(ctx context.Context) error {
-	sql := "update order_tbl set descs=? where id=?"
-	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return err
+	r := gin.Default()
+
+	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
+	// r.ContextWithFallback = true
+
+	r.Use(ginmiddleware.TransactionMiddleware())
+
+	r.POST("/updateDataSuccess", func(c *gin.Context) {
+		log.Infof("get tm updateData")
+		if err := updateDataSuccess(c); err != nil {
+			c.JSON(http.StatusBadRequest, "updateData failure")
+			return
+		}
+		c.JSON(http.StatusOK, "updateData ok")
+	})
+
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("start tcc server fatal: %v", err)
 	}
-	rows, err := ret.RowsAffected()
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return err
-	}
-	fmt.Printf("update success： %d.\n", rows)
-	return nil
 }
