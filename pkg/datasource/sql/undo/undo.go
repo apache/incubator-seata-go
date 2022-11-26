@@ -66,7 +66,7 @@ func GetUndologBuilder(sqlType types.ExecutorType) UndoLogBuilder {
 type UndoLogManager interface {
 	Init()
 	// DeleteUndoLog
-	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn driver.Conn) error
+	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
 	// BatchDeleteUndoLog
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
 	//FlushUndoLog

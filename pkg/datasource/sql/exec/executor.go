@@ -22,12 +22,16 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
+
+	"github.com/mitchellh/copystructure"
 )
 
 func init() {
@@ -151,7 +155,15 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		return nil, err
 	}
 	if beforeImages != nil {
-		execCtx.TxCtx.RoundImages.AppendBeofreImages(beforeImages)
+		beforeImagesTmp, err := copystructure.Copy(beforeImages)
+		if err != nil {
+			return nil, err
+		}
+		newBeforeImages, ok := beforeImagesTmp.([]*types.RecordImage)
+		if !ok {
+			return nil, errors.New("copy beforeImages failed")
+		}
+		execCtx.TxCtx.RoundImages.AppendBeofreImages(newBeforeImages)
 	}
 
 	defer func() {

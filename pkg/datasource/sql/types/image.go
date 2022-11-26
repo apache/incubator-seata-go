@@ -17,6 +17,13 @@
 
 package types
 
+import (
+	"encoding/base64"
+	"encoding/json"
+	"reflect"
+	"time"
+)
+
 // RoundRecordImage Front and rear mirror data
 type RoundRecordImage struct {
 	bIndex int32
@@ -86,6 +93,19 @@ func (rs RecordImages) Reserve() {
 	}
 }
 
+func (rs RecordImages) IsEmptyImage() bool {
+	if len(rs) == 0 {
+		return true
+	}
+	for _, r := range rs {
+		if r == nil || len(r.Rows) == 0 {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 // RecordImage
 type RecordImage struct {
 	// index
@@ -93,7 +113,7 @@ type RecordImage struct {
 	// TableName table name
 	TableName string `json:"tableName"`
 	// SQLType sql type
-	SQLType SQLType `json:"-"`
+	SQLType SQLType `json:"sqlType"`
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
@@ -109,7 +129,7 @@ type RowImage struct {
 func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 	m := make(map[string]*ColumnImage, 0)
 	for _, column := range r.Columns {
-		m[column.Name] = &column
+		m[column.ColumnName] = &column
 	}
 	return m
 }
@@ -138,14 +158,118 @@ func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	return nonPkFields
 }
 
+var _ json.Unmarshaler = (*ColumnImage)(nil)
+var _ json.Marshaler = (*ColumnImage)(nil)
+
+type CommonValue struct {
+	Value interface{}
+}
+
 // ColumnImage The mirror data information of the column
 type ColumnImage struct {
 	// KeyType index type
 	KeyType IndexType `json:"keyType"`
-	// Name column name
-	Name string `json:"name"`
-	// Type column type
-	Type int16 `json:"type"`
+	// ColumnName column name
+	ColumnName string `json:"name"`
+	// ColumnType column type
+	ColumnType JDBCType `json:"type"`
 	// Value column value
 	Value interface{} `json:"value"`
+}
+
+type columnImageAlias ColumnImage
+
+func (c *ColumnImage) MarshalJSON() ([]byte, error) {
+	if c == nil || c.Value == nil {
+		return json.Marshal(*c)
+	}
+	value := c.Value
+	if t, ok := c.Value.(time.Time); ok {
+		value = t.Format(time.RFC3339Nano)
+	}
+	return json.Marshal(&columnImageAlias{
+		KeyType:    c.KeyType,
+		ColumnName: c.ColumnName,
+		ColumnType: c.ColumnType,
+		Value:      value,
+	})
+}
+
+func (c *ColumnImage) UnmarshalJSON(data []byte) error {
+	var err error
+	tmpImage := make(map[string]interface{})
+	if err := json.Unmarshal(data, &tmpImage); err != nil {
+		return err
+	}
+	var (
+		keyType     string
+		columnType  int16
+		columnName  string
+		value       interface{}
+		actualValue interface{}
+	)
+	keyType = tmpImage["keyType"].(string)
+	columnType = int16(int64(tmpImage["type"].(float64)))
+	columnName = tmpImage["name"].(string)
+	value = tmpImage["value"]
+
+	if value != nil {
+		switch JDBCType(columnType) {
+		case JDBCTypeReal: // 4 Bytes
+			actualValue = value.(float32)
+		case JDBCTypeDecimal, JDBCTypeDouble: // 8 Bytes
+			actualValue = value.(float64)
+		case JDBCTypeTinyInt: // 1 Bytes
+			actualValue = int8(value.(float64))
+		case JDBCTypeSmallInt: // 2 Bytes
+			actualValue = int16(value.(float64))
+		case JDBCTypeInteger: // 4 Bytes
+			actualValue = int32(value.(float64))
+		case JDBCTypeBigInt: // 8Bytes
+			actualValue = int64(value.(float64))
+		case JDBCTypeTimestamp: // 4 Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeDate: // 3Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeTime: // 3Bytes
+			actualValue, err = time.Parse(time.RFC3339Nano, value.(string))
+			if err != nil {
+				return err
+			}
+		case JDBCTypeChar, JDBCTypeVarchar:
+			var val []byte
+			if val, err = base64.StdEncoding.DecodeString(value.(string)); err != nil {
+				return err
+			}
+			actualValue = string(val)
+		case JDBCTypeBinary, JDBCTypeVarBinary, JDBCTypeLongVarBinary, JDBCTypeBit:
+			actualValue = value
+		}
+	}
+	*c = ColumnImage{
+		KeyType:    ParseIndexType(keyType),
+		ColumnName: columnName,
+		ColumnType: JDBCType(columnType),
+		Value:      actualValue,
+	}
+	return nil
+}
+
+func (c *ColumnImage) GetActualValue() interface{} {
+	if c.Value == nil {
+		return nil
+	}
+	value := reflect.ValueOf(c.Value)
+	kind := reflect.TypeOf(c.Value).Kind()
+	switch kind {
+	case reflect.Ptr:
+		return value.Elem().Interface()
+	}
+	return c.Value
 }

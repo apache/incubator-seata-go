@@ -22,6 +22,8 @@ import (
 	"database/sql/driver"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
@@ -180,6 +182,9 @@ func (tx *Tx) report(success bool) error {
 		Status:   status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
+	if dataSourceManager == nil {
+		return errors.New("get dataSourceManager failed")
+	}
 	retry := REPORT_RETRY_COUNT
 	for retry > 0 {
 		err := dataSourceManager.BranchReport(context.Background(), request)

@@ -63,7 +63,7 @@ type TCCFenceStore interface {
 	// return the error msg
 	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error
 
-	// SetLogTableName LogTable Name
+	// SetLogTableName LogTable ColumnName
 	// param logTableName logTableName
 	SetLogTableName(logTable string)
 }

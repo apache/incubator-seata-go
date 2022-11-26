@@ -25,5 +25,5 @@ import (
 )
 
 type UndoExecutor interface {
-	ExecuteOn(ctx context.Context, dbType types.DBType, sqlUndoLog SQLUndoLog, conn *sql.Conn) error
+	ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error
 }
