@@ -130,3 +130,18 @@ func (m TableMeta) GetPrimaryKeyType() (int32, error) {
 	}
 	return 0, errors.New("get primary key type error")
 }
+
+func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
+	pkMap := make(map[string]string)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for i := range index.Columns {
+				pkMap[index.ColumnName] = index.Columns[i].DatabaseTypeString
+			}
+		}
+	}
+	if len(pkMap) == 0 {
+		return nil, errors.New("get primary key type error")
+	}
+	return pkMap, nil
+}

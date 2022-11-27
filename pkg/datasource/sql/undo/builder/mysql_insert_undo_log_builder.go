@@ -76,7 +76,7 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, &metaData)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 		return "", nil
 	}
 
-	dataTypeMap, err := meta.GetPrimaryKeyTypeMap()
+	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
 	if err != nil {
 		return "", nil
 	}
@@ -122,10 +122,10 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 			tmpArray := pkValuesMap[tmpKey]
 			pkRowImages = append(pkRowImages, types.RowImage{
 				Columns: []types.ColumnImage{{
-					KeyType: types.IndexTypePrimaryKey,
-					Name:    tmpKey,
-					Type:    int16(dataTypeMap[tmpKey]),
-					Value:   tmpArray[i],
+					KeyType:    types.IndexTypePrimaryKey,
+					ColumnName: tmpKey,
+					ColumnType: types.MySQLStrToJavaType(dataTypeMap[tmpKey]),
+					Value:      tmpArray[i],
 				}},
 			})
 		}

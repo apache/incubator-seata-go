@@ -197,10 +197,10 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 						"id": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "id",
-							Values: []types.ColumnMeta{
+							Columns: []types.ColumnMeta{
 								{
-									ColumnName: "id",
-									DataType:   types.GetSqlDataType("BIGINT"),
+									ColumnName:   "id",
+									DatabaseType: types.GetSqlDataType("BIGINT"),
 								},
 							},
 						},
@@ -228,20 +228,20 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 						"id": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "id",
-							Values: []types.ColumnMeta{
+							Columns: []types.ColumnMeta{
 								{
-									ColumnName: "id",
-									DataType:   types.GetSqlDataType("BIGINT"),
+									ColumnName:   "id",
+									DatabaseType: types.GetSqlDataType("BIGINT"),
 								},
 							},
 						},
 						"name": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "name",
-							Values: []types.ColumnMeta{
+							Columns: []types.ColumnMeta{
 								{
-									ColumnName: "name",
-									DataType:   types.GetSqlDataType("VARCHAR"),
+									ColumnName:   "name",
+									DatabaseType: types.GetSqlDataType("VARCHAR"),
 								},
 							},
 						},
@@ -271,20 +271,20 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 						"id": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "id",
-							Values: []types.ColumnMeta{
+							Columns: []types.ColumnMeta{
 								{
-									ColumnName: "id",
-									DataType:   types.GetSqlDataType("BIGINT"),
+									ColumnName:   "id",
+									DatabaseType: types.GetSqlDataType("BIGINT"),
 								},
 							},
 						},
 						"name": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "name",
-							Values: []types.ColumnMeta{
+							Columns: []types.ColumnMeta{
 								{
-									ColumnName: "name",
-									DataType:   types.GetSqlDataType("VARCHAR"),
+									ColumnName:   "name",
+									DatabaseType: types.GetSqlDataType("VARCHAR"),
 								},
 							},
 						},
