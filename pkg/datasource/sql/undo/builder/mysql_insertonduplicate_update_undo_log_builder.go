@@ -197,7 +197,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildAfterImageSQL(ctx context.Co
 	for _, row := range beforeImage.Rows {
 		for _, col := range row.Columns {
 			if col.KeyType == types.IndexTypePrimaryKey {
-				primaryValueMap[col.Name] = append(primaryValueMap[col.Name], col.Value)
+				primaryValueMap[col.ColumnName] = append(primaryValueMap[col.ColumnName], col.Value)
 			}
 		}
 	}
