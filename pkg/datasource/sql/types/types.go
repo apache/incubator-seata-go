@@ -132,8 +132,8 @@ type TransactionContext struct {
 	DBType DBType
 	// TxOpt transaction option
 	TxOpt driver.TxOptions
-	// TransType transaction mode, eg. XA/AT
-	TransType TransactionType
+	// TxType transaction mode, eg. XA/AT
+	TxType TransactionType
 	// ResourceID resource id, database-table
 	ResourceID string
 	// BranchID transaction branch unique id
@@ -168,7 +168,7 @@ type ExecContext struct {
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
 		LockKeys:     make(map[string]struct{}, 0),
-		TransType:    Local,
+		TxType:       Local,
 		LocalTransID: uuid.New().String(),
 		RoundImages:  &RoundRecordImage{},
 	}
@@ -176,7 +176,7 @@ func NewTxCtx() *TransactionContext {
 
 // HasUndoLog
 func (t *TransactionContext) HasUndoLog() bool {
-	return t.TransType == ATMode && !t.RoundImages.IsEmpty()
+	return t.TxType == ATMode && !t.RoundImages.IsEmpty()
 }
 
 // HasLockKey
@@ -185,7 +185,7 @@ func (t *TransactionContext) HasLockKey() bool {
 }
 
 func (t *TransactionContext) OpenGlobalTrsnaction() bool {
-	return t.TransType != Local
+	return t.TxType != Local
 }
 
 func (t *TransactionContext) IsBranchRegistered() bool {

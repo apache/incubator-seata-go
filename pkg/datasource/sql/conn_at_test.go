@@ -87,14 +87,14 @@ func TestATConn_ExecContext(t *testing.T) {
 		beforeHook := func(_ context.Context, execCtx *types.ExecContext) {
 			t.Logf("on exec xid=%s", execCtx.TxCtx.XID)
 			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XID)
-			assert.Equal(t, types.ATMode, execCtx.TxCtx.TransType)
+			assert.Equal(t, types.ATMode, execCtx.TxCtx.TxType)
 		}
 		mi.before = beforeHook
 
 		var comitCnt int32
 		beforeCommit := func(tx *Tx) {
 			atomic.AddInt32(&comitCnt, 1)
-			assert.Equal(t, types.ATMode, tx.tranCtx.TransType)
+			assert.Equal(t, types.ATMode, tx.tranCtx.TxType)
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -112,7 +112,7 @@ func TestATConn_ExecContext(t *testing.T) {
 	t.Run("not xid", func(t *testing.T) {
 		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, "", execCtx.TxCtx.XID)
-			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
+			assert.Equal(t, types.Local, execCtx.TxCtx.TxType)
 		}
 
 		var comitCnt int32
@@ -149,7 +149,7 @@ func TestATConn_BeginTx(t *testing.T) {
 
 		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, "", execCtx.TxCtx.XID)
-			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
+			assert.Equal(t, types.Local, execCtx.TxCtx.TxType)
 		}
 
 		var comitCnt int32
@@ -175,7 +175,7 @@ func TestATConn_BeginTx(t *testing.T) {
 
 		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, "", execCtx.TxCtx.XID)
-			assert.Equal(t, types.Local, execCtx.TxCtx.TransType)
+			assert.Equal(t, types.Local, execCtx.TxCtx.TxType)
 		}
 
 		var comitCnt int32
@@ -203,7 +203,7 @@ func TestATConn_BeginTx(t *testing.T) {
 
 		mi.before = func(_ context.Context, execCtx *types.ExecContext) {
 			assert.Equal(t, tm.GetXID(ctx), execCtx.TxCtx.XID)
-			assert.Equal(t, types.ATMode, execCtx.TxCtx.TransType)
+			assert.Equal(t, types.ATMode, execCtx.TxCtx.TxType)
 		}
 
 		var comitCnt int32
