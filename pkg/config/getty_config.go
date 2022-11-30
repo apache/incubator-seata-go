@@ -58,18 +58,34 @@ func GetDefaultGettyConfig() GettyConfig {
 	}
 }
 
-// GettySessionParam getty session param
+type Shutdown struct {
+	Wait time.Duration `yaml:"wait" json:"wait,omitempty" property:"wait"`
+}
+
+type Transport struct {
+	Shutdown                       Shutdown      `yaml:"shutdown" json:"shutdown,omitempty" property:"shutdown"`
+	Type                           string        `yaml:"type" json:"type,omitempty" property:"type"`
+	Server                         string        `yaml:"server" json:"server,omitempty" property:"server"`
+	Heartbeat                      bool          `yaml:"heartbeat" json:"heartbeat,omitempty" property:"heartbeat"`
+	Serialization                  string        `yaml:"serialization" json:"serialization,omitempty" property:"serialization"`
+	Compressor                     string        `yaml:"compressor" json:"compressor,omitempty" property:"compressor"`
+	EnableTmClientBatchSendRequest bool          `yaml:"enable-tm-client-batch-send-request" json:"enable-tm-client-batch-send-request,omitempty" property:"enable-tm-client-batch-send-request"`
+	EnableRmClientBatchSendRequest bool          `yaml:"enable-rm-client-batch-send-request" json:"enable-rm-client-batch-send-request,omitempty" property:"enable-rm-client-batch-send-request"`
+	RPCRmRequestTimeout            time.Duration `yaml:"rpc-rm-request-timeout" json:"rpc-rm-request-timeout,omitempty" property:"rpc-rm-request-timeout"`
+	RPCTmRequestTimeout            time.Duration `yaml:"rpc-tm-request-timeout" json:"rpc-tm-request-timeout,omitempty" property:"rpc-tm-request-timeout"`
+}
+
 type GettySessionParam struct {
-	CompressEncoding bool          `default:"false" yaml:"compress_encoding" json:"compress_encoding,omitempty"`
-	TCPNoDelay       bool          `default:"true" yaml:"tcp_no_delay" json:"tcp_no_delay,omitempty"`
-	TCPKeepAlive     bool          `default:"true" yaml:"tcp_keep_alive" json:"tcp_keep_alive,omitempty"`
-	KeepAlivePeriod  time.Duration `default:"180" yaml:"keep_alive_period" json:"keep_alive_period,omitempty"`
+	CompressEncoding bool          `yaml:"compress-encoding" json:"compress-encoding,omitempty" property:"compress-encoding"`
+	TCPNoDelay       bool          `yaml:"tcp-no-delay" json:"tcp-no-delay,omitempty" property:"tcp-no-delay"`
+	TCPKeepAlive     bool          `yaml:"tcp-keep-alive" json:"tcp-keep-alive,omitempty" property:"tcp-keep-alive"`
+	KeepAlivePeriod  time.Duration `yaml:"keep-alive-period" json:"keep-alive-period,omitempty" property:"keep-alive-period"`
+	TCPRBufSize      int           `yaml:"tcp-r-buf-size" json:"tcp-r-buf-size,omitempty" property:"tcp-r-buf-size"`
+	TCPWBufSize      int           `yaml:"tcp-w-buf-size" json:"tcp-w-buf-size,omitempty" property:"tcp-w-buf-size"`
+	TCPReadTimeout   time.Duration `yaml:"tcp-read-timeout" json:"tcp-read-timeout,omitempty" property:"tcp-read-timeout"`
+	TCPWriteTimeout  time.Duration `yaml:"tcp-write-timeout" json:"tcp-write-timeout,omitempty" property:"tcp-write-timeout"`
+	WaitTimeout      time.Duration `yaml:"wait-timeout" json:"wait-timeout,omitempty" property:"wait-timeout"`
+	MaxMsgLen        int           `yaml:"max-msg-len" json:"max-msg-len,omitempty" property:"max-msg-len"`
+	SessionName      string        `yaml:"session-name" json:"session-name,omitempty" property:"session-name"`
 	CronPeriod       time.Duration `default:"1" yaml:"cron_period" json:"cron_period,omitempty"`
-	TCPRBufSize      int           `default:"262144" yaml:"tcp_r_buf_size" json:"tcp_r_buf_size,omitempty"`
-	TCPWBufSize      int           `default:"65536" yaml:"tcp_w_buf_size" json:"tcp_w_buf_size,omitempty"`
-	TCPReadTimeout   time.Duration `default:"1" yaml:"tcp_read_timeout" json:"tcp_read_timeout,omitempty"`
-	TCPWriteTimeout  time.Duration `default:"5" yaml:"tcp_write_timeout" json:"tcp_write_timeout,omitempty"`
-	WaitTimeout      time.Duration `default:"7" yaml:"wait_timeout" json:"wait_timeout,omitempty"`
-	MaxMsgLen        int           `default:"4096" yaml:"max_msg_len" json:"max_msg_len,omitempty"`
-	SessionName      string        `default:"rpc" yaml:"session_name" json:"session_name,omitempty"`
 }
