@@ -30,6 +30,16 @@ const (
 	seataContextVariable = ContextParam("seataContextVariable")
 )
 
+type GlobalTransaction struct {
+	Xid     string
+	XidCopy string
+	TxName  string
+	// TxStatus Identify a global transaction in a certain status
+	TxStatus message.GlobalStatus
+	// TxRole Roles in the transaction propagation behavior
+	TxRole GlobalTransactionRole
+}
+
 type BusinessActionContext struct {
 	Xid           string
 	BranchId      int64
@@ -40,13 +50,10 @@ type BusinessActionContext struct {
 }
 
 type ContextVariable struct {
-	TxName                string
-	Xid                   string
-	XidCopy               string
 	FencePhase            enum.FencePhase
-	TxRole                *GlobalTransactionRole
 	BusinessActionContext *BusinessActionContext
-	TxStatus              *message.GlobalStatus
+	// GlobalTransaction Represent seata ctx is a global transaction
+	GlobalTransaction
 }
 
 func InitSeataContext(ctx context.Context) context.Context {
@@ -58,13 +65,13 @@ func GetTxStatus(ctx context.Context) *message.GlobalStatus {
 	if variable == nil {
 		return nil
 	}
-	return variable.(*ContextVariable).TxStatus
+	return &variable.(*ContextVariable).TxStatus
 }
 
 func SetTxStatus(ctx context.Context, status message.GlobalStatus) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
-		variable.(*ContextVariable).TxStatus = &status
+		variable.(*ContextVariable).TxStatus = status
 	}
 }
 
@@ -102,18 +109,18 @@ func SetBusinessActionContext(ctx context.Context, businessActionContext *Busine
 	}
 }
 
-func GetTransactionRole(ctx context.Context) *GlobalTransactionRole {
+func GetTxRole(ctx context.Context) *GlobalTransactionRole {
 	variable := ctx.Value(seataContextVariable)
 	if variable == nil {
 		return nil
 	}
-	return variable.(*ContextVariable).TxRole
+	return &variable.(*ContextVariable).TxRole
 }
 
-func SetTransactionRole(ctx context.Context, role GlobalTransactionRole) {
+func SetTxRole(ctx context.Context, role GlobalTransactionRole) {
 	variable := ctx.Value(seataContextVariable)
 	if variable != nil {
-		variable.(*ContextVariable).TxRole = &role
+		variable.(*ContextVariable).TxRole = role
 	}
 }
 
@@ -122,8 +129,7 @@ func IsGlobalTx(ctx context.Context) bool {
 	if variable == nil {
 		return false
 	}
-	xid := variable.(*ContextVariable).Xid
-	return xid != ""
+	return variable.(*ContextVariable).Xid != ""
 }
 
 func GetXID(ctx context.Context) string {
@@ -158,6 +164,21 @@ func UnbindXid(ctx context.Context) {
 		variable.(*ContextVariable).Xid = ""
 		variable.(*ContextVariable).XidCopy = ""
 	}
+}
+
+func SetTx(ctx context.Context, tx *GlobalTransaction) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		variable.(*ContextVariable).GlobalTransaction = *tx
+	}
+}
+
+func GetTx(ctx context.Context) (tx *GlobalTransaction) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		tx = &variable.(*ContextVariable).GlobalTransaction
+	}
+	return
 }
 
 func SetFencePhase(ctx context.Context, phase enum.FencePhase) {
