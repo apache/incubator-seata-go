@@ -62,7 +62,10 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
-	selectSQL, selectArgs := u.buildAfterImageSQL(ctx, execCtx)
+	selectSQL, selectArgs, err := u.buildAfterImageSQL(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
 	if err != nil {
@@ -85,33 +88,33 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 }
 
 // buildAfterImageSQL build select sql from insert sql
-func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, execCtx *types.ExecContext) (string, []driver.Value) {
+func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, execCtx *types.ExecContext) (string, []driver.Value, error) {
 	// get all pk value
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
-		return "", nil
+		return "", nil, errors.New("can't found execCtx or ParseContext or InsertStmt")
 	}
 	parseCtx := execCtx.ParseContext
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	if execCtx.MetaDataMap == nil {
-		return "", nil
+		return "", nil, errors.New("can't found  MetaDataMap")
 	}
 	meta := execCtx.MetaDataMap[tableName]
 	pkValuesMap, err := u.getPkValues(execCtx, parseCtx, meta)
 	if err != nil {
-		return "", nil
+		return "", nil, err
 	}
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
-		return "", nil
+		return "", nil, errors.New("Pk columnName size is zero")
 	}
 
 	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
 	if err != nil {
-		return "", nil
+		return "", nil, err
 	}
 	if len(dataTypeMap) != len(pkColumnNameList) {
-		return "", nil
+		return "", nil, errors.New("PK columnName size don't equal PK DataType size")
 	}
 	var pkRowImages []types.RowImage
 
@@ -135,7 +138,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	sb.WriteString("SELECT * FROM " + tableName)
 	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkValuesMap[pkColumnNameList[0]]), "mysql", maxInSize)
 	sb.WriteString(" WHERE " + whereSQL + " ")
-	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList)
+	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 
 func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
@@ -183,6 +186,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 	return pkValuesMap, nil
 }
 
+//containsPK the columns contains table meta pk
 func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *types.ParseContext) bool {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
@@ -195,16 +199,17 @@ func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *t
 		return false
 	}
 
-	pkColumnNameListStr := strings.Join(pkColumnNameList, ",") + ","
-
+	matchCounter := 0
 	for _, column := range parseCtx.InsertStmt.Columns {
-		if strings.Contains(pkColumnNameListStr, column.Name.O) ||
-			strings.Contains(pkColumnNameListStr, column.Name.L) {
-			return true
+		for _, pkName := range pkColumnNameList {
+			if strings.EqualFold(pkName, column.Name.O) ||
+				strings.EqualFold(pkName, column.Name.L) {
+				matchCounter++
+			}
 		}
 	}
 
-	return false
+	return matchCounter == len(pkColumnNameList)
 }
 
 // containPK compare column name and primary key name
@@ -314,6 +319,9 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 				pkValues = pkValuesMap[pkKey]
 
 				pkIndex = curIndex
+				if pkIndex > len(row)-1 {
+					continue
+				}
 				pkValue := row[pkIndex]
 				pkValueStr, ok := pkValue.(string)
 				if ok && strings.EqualFold(pkValueStr, SqlPlaceholder) {
@@ -505,10 +513,10 @@ func pkValuesMapMerge(dest *map[string][]interface{}, src map[string][]interface
 
 // containsColumns judge sql specify column
 func containsColumns(parseCtx *types.ParseContext) bool {
-	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Lists == nil {
+	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Columns == nil {
 		return false
 	}
-	return len(parseCtx.InsertStmt.Lists) > 0
+	return len(parseCtx.InsertStmt.Columns) > 0
 }
 
 func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interface{}, error) {

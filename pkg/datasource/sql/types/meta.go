@@ -120,6 +120,7 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 	return keys
 }
 
+// GetPrimaryKeyType get PK database type
 func (m TableMeta) GetPrimaryKeyType() (int32, error) {
 	for _, index := range m.Indexs {
 		if index.IType == IndexTypePrimaryKey {
@@ -131,6 +132,7 @@ func (m TableMeta) GetPrimaryKeyType() (int32, error) {
 	return 0, errors.New("get primary key type error")
 }
 
+// GetPrimaryKeyTypeStrMap get all PK type to map
 func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
 	pkMap := make(map[string]string)
 	for _, index := range m.Indexs {
