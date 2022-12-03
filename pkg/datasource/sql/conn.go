@@ -135,7 +135,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TxType, query)
 	if err != nil {
 		return nil, err
 	}

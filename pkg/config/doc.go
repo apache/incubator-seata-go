@@ -15,14 +15,5 @@
  * limitations under the License.
  */
 
-package tm
-
-type SuspendedResourcesHolder struct {
-	Xid string
-}
-
-func NewSuspendedResourcesHolder(xid string) SuspendedResourcesHolder {
-	return SuspendedResourcesHolder{
-		Xid: xid,
-	}
-}
+// package config defines interfaces to be implemented by Config
+package config

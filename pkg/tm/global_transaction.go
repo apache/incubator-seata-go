@@ -19,7 +19,6 @@ package tm
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -30,12 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/backoff"
 	"github.com/seata/seata-go/pkg/util/log"
 )
-
-type GlobalTransaction struct {
-	Xid    string
-	Status message.GlobalStatus
-	Role   GlobalTransactionRole
-}
 
 var (
 	// globalTransactionManager singleton ResourceManagerFacade
@@ -54,19 +47,10 @@ func GetGlobalTransactionManager() *GlobalTransactionManager {
 
 type GlobalTransactionManager struct{}
 
-// Begin a new global transaction with given timeout and given name.
-func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransaction, timeout time.Duration, name string) error {
-	if gtr.Role != LAUNCHER {
-		log.Infof("Ignore GlobalStatusBegin(): just involved in global transaction %s", gtr.Xid)
-		return nil
-	}
-	if gtr.Xid != "" {
-		return fmt.Errorf("Global transaction already "+
-			"exists,can't begin a new global transaction, currentXid = %s ", gtr.Xid)
-	}
-
+// Begin a global transaction with given timeout and given name.
+func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Duration) error {
 	req := message.GlobalBeginRequest{
-		TransactionName: name,
+		TransactionName: GetTxName(ctx),
 		Timeout:         timeout,
 	}
 	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
@@ -78,17 +62,15 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, gtr *GlobalTransac
 		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
 		return errors.New("GlobalBeginRequest result is empty or result code is failed.")
 	}
-	log.Infof("GlobalBeginRequest success, xid %s, res %v", gtr.Xid, res)
+	log.Infof("GlobalBeginRequest success, res %v", res)
 
-	gtr.Status = message.GlobalStatusBegin
-	gtr.Xid = res.(message.GlobalBeginResponse).Xid
 	SetXID(ctx, res.(message.GlobalBeginResponse).Xid)
 	return nil
 }
 
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
-	if gtr.Role != LAUNCHER {
+	if gtr.TxRole != Launcher {
 		log.Infof("Ignore Commit(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
@@ -122,15 +104,14 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	}
 
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
-	gtr.Status = res.(message.GlobalCommitResponse).GlobalStatus
-	UnbindXid(ctx)
+	gtr.TxStatus = res.(message.GlobalCommitResponse).GlobalStatus
 
 	return nil
 }
 
 // Rollback the global transaction.
 func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTransaction) error {
-	if gtr.Role != LAUNCHER {
+	if gtr.TxRole != Launcher {
 		log.Infof("Ignore Rollback(): just involved in global gtr %s", gtr.Xid)
 		return nil
 	}
@@ -165,23 +146,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	}
 
 	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
-	gtr.Status = res.(message.GlobalRollbackResponse).GlobalStatus
-	UnbindXid(ctx)
+	gtr.TxStatus = res.(message.GlobalRollbackResponse).GlobalStatus
 
 	return nil
-}
-
-// Suspend the global transaction.
-func (g *GlobalTransactionManager) Suspend() (SuspendedResourcesHolder, error) {
-	panic("implement me")
-}
-
-// Resume the global transaction.
-func (g *GlobalTransactionManager) Resume(suspendedResourcesHolder SuspendedResourcesHolder) error {
-	panic("implement me")
-}
-
-// GlobalReport report the global transaction status.
-func (g *GlobalTransactionManager) GlobalReport(globalStatus message.GlobalStatus) error {
-	panic("implement me")
 }

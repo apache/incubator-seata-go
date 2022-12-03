@@ -42,9 +42,9 @@ func main() {
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
 
-	transInfo := &tm.TransactionInfo{
+	transInfo := &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
+		Timeout: time.Second * 30,
 	}
 
 	if err := tm.WithGlobalTx(bgCtx, transInfo, updateData); err != nil {
