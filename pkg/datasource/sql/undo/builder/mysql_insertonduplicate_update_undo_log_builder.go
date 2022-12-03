@@ -49,7 +49,6 @@ type MySQLInsertOnDuplicateUndoLogBuilder struct {
 func GetMySQLInsertOnDuplicateUndoLogBuilder() undo.UndoLogBuilder {
 	return &MySQLInsertOnDuplicateUndoLogBuilder{
 		BasicUndoLogBuilder:       BasicUndoLogBuilder{},
-		BeforeSelectSql:           "",
 		Args:                      make([]driver.Value, 0),
 		BeforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
@@ -116,7 +115,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		paramAppenderTempList := make([]driver.Value, 0)
 		for _, index := range metaData.Indexs {
 			//unique index
-			if index.IType != types.IndexUnique && index.IType != types.IndexTypePrimaryKey {
+			if index.NonUnique {
 				continue
 			}
 			columnIsNull := true
