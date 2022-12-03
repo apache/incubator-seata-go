@@ -15,34 +15,15 @@
  * limitations under the License.
  */
 
-package main
+package config
 
-import (
-	"context"
+import "time"
 
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/seata/seata-go/sample/tcc/local/service"
-)
-
-func main() {
-	client.Init()
-	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
-		Name: "TccSampleLocalGlobalTx",
-	}, business)
-	<-make(chan struct{})
+type Fence struct {
+	LogTableName string        `yaml:"log-table-name" json:"log-table-name,omitempty" property:"log-table-name"`
+	CleanPeriod  time.Duration `yaml:"clean-period" json:"clean-period,omitempty" property:"clean-period"`
 }
 
-func business(ctx context.Context) (re error) {
-	if _, re = service.NewTestTCCServiceBusiness1Proxy().Prepare(ctx, 1); re != nil {
-		log.Errorf("TestTCCServiceBusiness1 prepare error, %v", re)
-		return
-	}
-
-	if _, re = service.NewTestTCCServiceBusiness2Proxy().Prepare(ctx, 3); re != nil {
-		log.Errorf("TestTCCServiceBusiness2 prepare error, %v", re)
-		return
-	}
-	return
+type TccConf struct {
+	Fence Fence `yaml:"fence" json:"fence,omitempty" property:"fence"`
 }

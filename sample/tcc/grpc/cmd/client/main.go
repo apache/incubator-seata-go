@@ -48,7 +48,7 @@ func main() {
 	client.Init()
 	tm.WithGlobalTx(
 		context.Background(),
-		&tm.TransactionInfo{
+		&tm.GtxConfig{
 			Name: "TccSampleLocalGlobalTx",
 		},
 		func(ctx context.Context) (re error) {

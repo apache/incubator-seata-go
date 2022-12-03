@@ -15,43 +15,24 @@
  * limitations under the License.
  */
 
-package main
+package parser
 
 import (
-	"context"
-	"flag"
-	"time"
+	"path/filepath"
+	"testing"
 
-	"github.com/parnurzeal/gorequest"
-
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/stretchr/testify/assert"
 )
 
-func main() {
-	flag.Parse()
-	client.Init()
-	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
-	defer cancel()
-	serverIpPort := "http://127.0.0.1:8080"
-
-	tm.WithGlobalTx(
-		bgCtx,
-		&tm.GtxConfig{
-			Name: "TccSampleLocalGlobalTx",
-		},
-		func(ctx context.Context) (re error) {
-			request := gorequest.New()
-			log.Infof("branch transaction begin")
-			request.Post(serverIpPort+"/prepare").
-				Set(constant.XidKey, tm.GetXID(ctx)).
-				End(func(response gorequest.Response, body string, errs []error) {
-					if len(errs) != 0 {
-						re = errs[0]
-					}
-				})
-			return
-		})
+func TestLoadYMLConfig(t *testing.T) {
+	conPath, err := filepath.Abs("../../../conf/seata_config.yml")
+	if err != nil {
+		log.Infof(err.Error())
+	}
+	confBytes, err := LoadYMLConfig(conPath)
+	if err != nil {
+		log.Infof(err.Error())
+	}
+	assert.NotEmpty(t, confBytes)
 }
