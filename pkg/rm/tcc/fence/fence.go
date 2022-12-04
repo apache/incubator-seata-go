@@ -15,8 +15,20 @@
  * limitations under the License.
  */
 
-package client
+package fence
 
-// InitRmClient init seata rm client
-func initRmClient() {
+import (
+	"flag"
+	"time"
+)
+
+type Config struct {
+	LogTableName string        `yaml:"log-table-name"`
+	CleanPeriod  time.Duration `yaml:"clean-period"`
+}
+
+// RegisterFlagsWithPrefix for Config.
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.LogTableName, prefix+".log-table-name", "tcc_fence_log", "Undo log table name.")
+	f.DurationVar(&cfg.CleanPeriod, prefix+".clean-period", 24*time.Hour, "Undo log retention time.")
 }

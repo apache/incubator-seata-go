@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package client
+package seata
 
 import (
-	"sync"
+	"testing"
+	"time"
 
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/stretchr/testify/assert"
 )
 
-var onceInitTmClient sync.Once
+func TestLoadPath(t *testing.T) {
+	c := LoadPath("../../testdata/conf/seatago.yml")
+	assert.NotNil(t, c)
+	assert.NotNil(t, c.TCCConfig)
+	assert.NotNil(t, c.TCCConfig.FenceConfig)
 
-// InitTmClient init seata tm client
-func initTmClient() {
-	onceInitTmClient.Do(func() {
-		initConfig()
-		initRemoting()
-	})
-}
-
-// todo
-// initConfig init config processor
-func initConfig() {
-}
-
-// initRemoting init rpc client
-func initRemoting() {
-	getty.InitRpcClient()
+	assert.Equal(t, "tcc_fence_log_test", c.TCCConfig.FenceConfig.LogTableName)
+	assert.Equal(t, time.Second*60, c.TCCConfig.FenceConfig.CleanPeriod)
 }

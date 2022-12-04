@@ -138,8 +138,7 @@ seata:
   tcc:
     fence:
       # Anti suspension table name
-      log-table-name: tcc_fence_log
-
+      log-table-name: tcc_fence_log_test
       clean-period: 60s
   # getty configuration
   getty-session-param:
