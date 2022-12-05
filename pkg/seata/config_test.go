@@ -25,11 +25,23 @@ import (
 )
 
 func TestLoadPath(t *testing.T) {
-	c := LoadPath("../../testdata/conf/seatago.yml")
-	assert.NotNil(t, c)
-	assert.NotNil(t, c.TCCConfig)
-	assert.NotNil(t, c.TCCConfig.FenceConfig)
+	cfg := LoadPath("../../testdata/conf/seatago.yml")
+	assert.NotNil(t, cfg)
+	assert.NotNil(t, cfg.TCCConfig)
+	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
 
-	assert.Equal(t, "tcc_fence_log_test", c.TCCConfig.FenceConfig.LogTableName)
-	assert.Equal(t, time.Second*60, c.TCCConfig.FenceConfig.CleanPeriod)
+	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
+	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+}
+
+func TestLoadJson(t *testing.T) {
+	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
+
+	cfg := LoadJson([]byte(confJson))
+	assert.NotNil(t, cfg)
+	assert.NotNil(t, cfg.TCCConfig)
+	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
+
+	assert.Equal(t, "tcc_fence_log_test2", cfg.TCCConfig.FenceConfig.LogTableName)
+	assert.Equal(t, time.Second*80, cfg.TCCConfig.FenceConfig.CleanPeriod)
 }

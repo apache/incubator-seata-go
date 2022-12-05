@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -43,7 +42,7 @@ const (
 )
 
 type Config struct {
-	TCCConfig tcc.Config `yaml:"tcc"`
+	TCCConfig tcc.Config `yaml:"tcc" json:"tcc" koanf:"tcc"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -58,28 +57,50 @@ type loaderConf struct {
 	name   string // config file name
 }
 
+// Load parse config from system variable
 func Load() *Config {
-	configFilePath := "../../conf/seatago.yaml"
 	if configFilePathFromEnv := os.Getenv(configFileEnvKey); configFilePathFromEnv != "" {
-		configFilePath = configFilePathFromEnv
+		return LoadPath(configFilePathFromEnv)
 	}
-	return LoadPath(configFilePath)
+	panic("system variable SEATA_GO_CONFIG_PATH is empty")
 }
 
+// Load parse config from user config path
 func LoadPath(configFilePath string) *Config {
-	conf := NewLoaderConf(configFilePath)
-	koan := GetConfigResolver(conf)
-
 	var cfg Config
 	// This sets default values from flags to the config.
 	// It needs to be called before parsing the config file!
 	flagext.RegisterFlags(&cfg)
 
-	//koan = conf.MergeConfig(koan)
+	conf := newLoaderConf(configFilePath)
+	koan := getConfigResolver(conf)
 	if err := koan.UnmarshalWithConf(configPrefix, &cfg, koanf.UnmarshalConf{Tag: "yaml"}); err != nil {
 		panic(err)
 	}
 	return &cfg
+}
+
+// Load parse config from json bytes
+func LoadJson(bytes []byte) *Config {
+	var cfg Config
+	// This sets default values from flags to the config.
+	// It needs to be called before parsing the config file!
+	flagext.RegisterFlags(&cfg)
+
+	koan := getJsonConfigResolver(bytes)
+	if err := koan.Unmarshal("", &cfg); err != nil {
+		panic(err)
+	}
+	return &cfg
+}
+
+// getJsonConfigResolver get json config resolver
+func getJsonConfigResolver(bytes []byte) *koanf.Koanf {
+	k := koanf.New(".")
+	if err := k.Load(rawbytes.Provider(bytes), json.Parser()); err != nil {
+		panic(err)
+	}
+	return k
 }
 
 //resolverFilePath resolver file path
@@ -93,8 +114,8 @@ func resolverFilePath(path string) (name, suffix string) {
 	return fileName[0], fileName[1]
 }
 
-// GetConfigResolver get config resolver
-func GetConfigResolver(conf *loaderConf) *koanf.Koanf {
+// getConfigResolver get config resolver
+func getConfigResolver(conf *loaderConf) *koanf.Koanf {
 	var (
 		k   *koanf.Koanf
 		err error
@@ -128,7 +149,7 @@ func GetConfigResolver(conf *loaderConf) *koanf.Koanf {
 	return k
 }
 
-func NewLoaderConf(configFilePath string) *loaderConf {
+func newLoaderConf(configFilePath string) *loaderConf {
 	name, suffix := resolverFilePath(configFilePath)
 	conf := &loaderConf{
 		suffix: suffix,
@@ -145,19 +166,6 @@ func NewLoaderConf(configFilePath string) *loaderConf {
 		}
 	}
 	return conf
-}
-
-// LoadYMLConfig Load yml config byte from file check file type is *.yml or *.yaml`
-func LoadYMLConfig(confProFile string) ([]byte, error) {
-	if len(confProFile) == 0 {
-		return nil, fmt.Errorf("application configure(provider) file name is nil")
-	}
-
-	if path.Ext(confProFile) != ".yml" && path.Ext(confProFile) != ".yaml" {
-		return nil, fmt.Errorf("application configure file name{%v} suffix must be .yml or .yaml", confProFile)
-	}
-
-	return ioutil.ReadFile(confProFile)
 }
 
 // absolutePath get absolut path

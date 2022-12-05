@@ -23,8 +23,8 @@ import (
 )
 
 type Config struct {
-	LogTableName string        `yaml:"log-table-name"`
-	CleanPeriod  time.Duration `yaml:"clean-period"`
+	LogTableName string        `yaml:"log-table-name" json:"log-table-name" koanf:"log-table-name"`
+	CleanPeriod  time.Duration `yaml:"clean-period" json:"clean-period" koanf:"clean-period"`
 }
 
 // RegisterFlagsWithPrefix for Config.

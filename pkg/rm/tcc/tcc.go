@@ -24,7 +24,7 @@ import (
 )
 
 type Config struct {
-	FenceConfig fence.Config `yaml:"fence"`
+	FenceConfig fence.Config `yaml:"fence" json:"fence" koanf:"fence"`
 }
 
 // RegisterFlagsWithPrefix for Config.
