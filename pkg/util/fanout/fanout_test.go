@@ -33,7 +33,7 @@ func TestFanout_Do(t *testing.T) {
 		mtx.Lock()
 		run = true
 		mtx.Unlock()
-		panic("error")
+		//panic("error")
 	})
 
 	time.Sleep(time.Millisecond * 50)

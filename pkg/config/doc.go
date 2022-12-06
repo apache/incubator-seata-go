@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 
-package test
+// package config defines interfaces to be implemented by Config
+package config

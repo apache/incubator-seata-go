@@ -20,6 +20,9 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -27,6 +30,8 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
+
+	"github.com/mitchellh/copystructure"
 )
 
 func init() {
@@ -77,15 +82,6 @@ type (
 
 // BuildExecutor
 func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
-	if txType == types.XAMode {
-		hooks := make([]SQLHook, 0, 4)
-		hooks = append(hooks, commonHook...)
-
-		e := executorSoltsXA[dbType]()
-		e.Interceptors(hooks)
-		return e, nil
-	}
-
 	parseCtx, err := parser.DoParser(query)
 	if err != nil {
 		return nil, err
@@ -94,6 +90,19 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 	hooks := make([]SQLHook, 0, 4)
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
+	hooks = append(hooks, commonHook...)
+
+	if txType == types.XAMode {
+		e := executorSoltsXA[dbType]()
+		e.Interceptors(hooks)
+		return e, nil
+	}
+
+	if txType == types.ATMode {
+		e := executorSoltsAT[dbType][parseCtx.ExecutorType]()
+		e.Interceptors(hooks)
+		return e, nil
+	}
 
 	factories, ok := executorSoltsAT[dbType]
 
@@ -146,7 +155,15 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 		return nil, err
 	}
 	if beforeImages != nil {
-		execCtx.TxCtx.RoundImages.AppendBeofreImages(beforeImages)
+		beforeImagesTmp, err := copystructure.Copy(beforeImages)
+		if err != nil {
+			return nil, err
+		}
+		newBeforeImages, ok := beforeImagesTmp.([]*types.RecordImage)
+		if !ok {
+			return nil, errors.New("copy beforeImages failed")
+		}
+		execCtx.TxCtx.RoundImages.AppendBeofreImages(newBeforeImages)
 	}
 
 	defer func() {
@@ -174,6 +191,23 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 	}
 
 	return result, err
+}
+
+func (e *BaseExecutor) prepareUndoLog(ctx context.Context, execCtx *types.ExecContext) error {
+	if execCtx.TxCtx.RoundImages.IsEmpty() {
+		return nil
+	}
+
+	if execCtx.ParseContext.UpdateStmt != nil {
+		if !execCtx.TxCtx.RoundImages.IsBeforeAfterSizeEq() {
+			return fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		}
+	}
+	undoLogManager, err := undo.GetUndoLogManager(execCtx.DBType)
+	if err != nil {
+		return err
+	}
+	return undoLogManager.FlushUndoLog(execCtx.TxCtx, execCtx.Conn)
 }
 
 // ExecWithValue

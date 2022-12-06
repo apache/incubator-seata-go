@@ -26,58 +26,37 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-type Foo struct {
-	id   int
-	name string
+type OrderTbl struct {
+	id            int
+	userID        string
+	commodityCode string
+	count         int64
+	money         int64
+	descs         string
 }
 
 func main() {
 	client.Init()
 	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
-		Name: "ATSampleLocalGlobalTx",
+	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
+		Name:    "ATSampleLocalGlobalTx",
+		Timeout: time.Second * 30,
 	}, updateData)
 	<-make(chan struct{})
 }
 
-func selectData() {
-	var foo Foo
-	row := db.QueryRow("select * from  foo where id = ? ", 1)
-	err := row.Scan(&foo.id, &foo.name)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(foo)
-}
-
 func updateData(ctx context.Context) error {
-	sql := "update foo set name=? where id=?"
-	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("Zhangsan-%d", time.Now().UnixMilli()), 1)
+	sql := "update order_tbl set descs=? where id=?"
+	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return err
 	}
 	rows, err := ret.RowsAffected()
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return err
 	}
 	fmt.Printf("update success： %d.\n", rows)
-	return nil
-}
-
-func insertData(ctx context.Context) error {
-	sqlStr := "insert into foo(name) values (?)"
-	ret, err := db.ExecContext(ctx, sqlStr, fmt.Sprintf("Zhangsan-%d", time.Now().UnixMilli()))
-	if err != nil {
-		fmt.Printf("insert failed, err:%v\n", err)
-		return err
-	}
-	theID, err := ret.LastInsertId()
-	if err != nil {
-		fmt.Printf("get lastinsert ID failed, err:%v\n", err)
-		return err
-	}
-	fmt.Printf("insert success, the id is %d.\n", theID)
 	return nil
 }

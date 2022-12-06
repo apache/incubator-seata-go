@@ -36,6 +36,7 @@ type Conn struct {
 	targetConn driver.Conn
 	autoCommit bool
 	dbName     string
+	dbType     types.DBType
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -101,33 +102,12 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 		return nil, driver.ErrSkip
 	}
 
-	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &types.ExecContext{
-			TxCtx:  c.txCtx,
-			Query:  query,
-			Values: args,
-			Conn:   c.targetConn,
-		}
-
-		return executor.ExecWithValue(context.Background(), execCtx, // todo context传的不对
-			func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-				ret, err := conn.Exec(query, args)
-				if err != nil {
-					return nil, err
-				}
-
-				return types.NewResult(types.WithResult(ret)), nil
-			})
-	})
+	ret, err := conn.Exec(query, args)
 	if err != nil {
 		return nil, err
 	}
-	return ret.GetResult(), nil
+
+	return types.NewResult(types.WithResult(ret)).GetResult(), nil
 }
 
 // ExecContext
@@ -135,44 +115,17 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 	targetConn, ok := c.targetConn.(driver.ExecerContext)
 	if !ok {
 		values := make([]driver.Value, 0, len(args))
-
 		for i := range args {
 			values = append(values, args[i].Value)
 		}
-
 		return c.Exec(query, values)
 	}
 
-	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &types.ExecContext{
-			TxCtx:       c.txCtx,
-			Query:       query,
-			NamedValues: args,
-			Conn:        c.targetConn,
-			DBName:      c.dbName,
-		}
-
-		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
-			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				ret, err := targetConn.ExecContext(ctx, query, args)
-				if err != nil {
-					return nil, err
-				}
-
-				return types.NewResult(types.WithResult(ret)), nil
-			})
-
-		return ret, err
-	})
+	ret, err := targetConn.ExecContext(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
-	return ret.GetResult(), nil
+	return types.NewResult(types.WithResult(ret)).GetResult(), nil
 }
 
 // Query
@@ -182,7 +135,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TxType, query)
 	if err != nil {
 		return nil, err
 	}
@@ -222,34 +175,12 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.Nam
 		return c.Query(query, values)
 	}
 
-	ret, err := c.createNewTxOnExecIfNeed(func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransType, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &types.ExecContext{
-			TxCtx:       c.txCtx,
-			Query:       query,
-			NamedValues: args,
-		}
-
-		return executor.ExecWithNamedValue(ctx, execCtx,
-			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				ret, err := conn.QueryContext(ctx, query, args)
-				if err != nil {
-					return nil, err
-				}
-
-				return types.NewResult(types.WithRows(ret)), nil
-			})
-	})
-
+	ret, err := conn.QueryContext(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
 
-	return ret.GetRows(), nil
+	return types.NewResult(types.WithRows(ret)).GetRows(), nil
 }
 
 // Begin starts and returns a new transaction.
@@ -278,7 +209,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 
 // BeginTx Open a transaction and judge whether the current transaction needs to open a
 //
-//	global transaction according to ctx. If so, it needs to be included in the transaction management of seata
+//	global transaction according to tranCtx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	c.autoCommit = false
 
@@ -320,37 +251,4 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 func (c *Conn) Close() error {
 	c.txCtx = types.NewTxCtx()
 	return c.targetConn.Close()
-}
-
-func (c *Conn) createNewTxOnExecIfNeed(f func() (types.ExecResult, error)) (types.ExecResult, error) {
-	var (
-		tx  driver.Tx
-		err error
-	)
-
-	if c.txCtx.TransType != types.Local && c.autoCommit {
-		tx, err = c.Begin()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
-		}
-	}()
-
-	ret, err := f()
-	if err != nil {
-		return nil, err
-	}
-
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-	}
-
-	return ret, nil
 }

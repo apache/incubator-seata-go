@@ -19,7 +19,7 @@ package base
 
 import (
 	"context"
-	"database/sql/driver"
+	"database/sql"
 	"errors"
 	"sync"
 	"time"
@@ -30,7 +30,7 @@ import (
 type (
 	// trigger
 	trigger interface {
-		LoadOne(ctx context.Context, dbName string, table string, conn driver.Conn) (*types.TableMeta, error)
+		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
 
 		LoadAll() ([]types.TableMeta, error)
 	}
@@ -92,8 +92,8 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		for i := range v {
 			tm := v[i]
-			if _, ok := c.cache[tm.Name]; !ok {
-				c.cache[tm.Name] = &entry{
+			if _, ok := c.cache[tm.TableName]; !ok {
+				c.cache[tm.TableName] = &entry{
 					value: tm,
 				}
 			}
@@ -134,7 +134,7 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 }
 
 // GetTableMeta
-func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn driver.Conn) (types.TableMeta, error) {
+func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

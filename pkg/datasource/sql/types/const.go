@@ -20,6 +20,7 @@ package types
 import (
 	"database/sql"
 	"reflect"
+	"strings"
 )
 
 // https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
@@ -125,89 +126,231 @@ const (
 	JDBCTypeTimestampWithTimezone JDBCType = 2014
 )
 
-// todo perfect all type name
-func GetJDBCTypeByTypeName(typeName string) JDBCType {
-	switch typeName {
+type MySQLDefCode int64
+
+var (
+	COM_BINLOG_DUMP     MySQLDefCode = 18
+	COM_CHANGE_USER     MySQLDefCode = 17
+	COM_CLOSE_STATEMENT MySQLDefCode = 25
+	COM_CONNECT_OUT     MySQLDefCode = 20
+	COM_END             MySQLDefCode = 29
+	COM_EXECUTE         MySQLDefCode = 23
+	COM_FETCH           MySQLDefCode = 28
+	COM_LONG_DATA       MySQLDefCode = 24
+	COM_PREPARE         MySQLDefCode = 22
+	COM_REGISTER_SLAVE  MySQLDefCode = 21
+	COM_RESET_STMT      MySQLDefCode = 26
+	COM_SET_OPTION      MySQLDefCode = 27
+	COM_TABLE_DUMP      MySQLDefCode = 19
+	CONNECT             MySQLDefCode = 11
+	CREATE_DB           MySQLDefCode = 5 // Not used; deprecated?
+
+	DEBUG          MySQLDefCode = 13
+	DELAYED_INSERT MySQLDefCode = 16
+	DROP_DB        MySQLDefCode = 6 // Not used; deprecated?
+
+	FIELD_LIST MySQLDefCode = 4 // Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+
+	FIELD_TYPE_BIT      MySQLDefCode = 16
+	FIELD_TYPE_BLOB     MySQLDefCode = 252
+	FIELD_TYPE_DATE     MySQLDefCode = 10
+	FIELD_TYPE_DATETIME MySQLDefCode = 12
+
+	// Data Types
+	FIELD_TYPE_DECIMAL     MySQLDefCode = 0
+	FIELD_TYPE_DOUBLE      MySQLDefCode = 5
+	FIELD_TYPE_ENUM        MySQLDefCode = 247
+	FIELD_TYPE_FLOAT       MySQLDefCode = 4
+	FIELD_TYPE_GEOMETRY    MySQLDefCode = 255
+	FIELD_TYPE_INT24       MySQLDefCode = 9
+	FIELD_TYPE_LONG        MySQLDefCode = 3
+	FIELD_TYPE_LONG_BLOB   MySQLDefCode = 251
+	FIELD_TYPE_LONGLONG    MySQLDefCode = 8
+	FIELD_TYPE_MEDIUM_BLOB MySQLDefCode = 250
+	FIELD_TYPE_NEW_DECIMAL MySQLDefCode = 246
+	FIELD_TYPE_NEWDATE     MySQLDefCode = 14
+	FIELD_TYPE_NULL        MySQLDefCode = 6
+	FIELD_TYPE_SET         MySQLDefCode = 248
+	FIELD_TYPE_SHORT       MySQLDefCode = 2
+	FIELD_TYPE_STRING      MySQLDefCode = 254
+	FIELD_TYPE_TIME        MySQLDefCode = 11
+	FIELD_TYPE_TIMESTAMP   MySQLDefCode = 7
+	FIELD_TYPE_TINY        MySQLDefCode = 1
+
+	// Older data types
+	FIELD_TYPE_TINY_BLOB  MySQLDefCode = 249
+	FIELD_TYPE_VAR_STRING MySQLDefCode = 253
+	FIELD_TYPE_VARCHAR    MySQLDefCode = 15
+
+	// Newer data types
+	FIELD_TYPE_YEAR   MySQLDefCode = 13
+	FIELD_TYPE_JSON   MySQLDefCode = 245
+	INIT_DB           MySQLDefCode = 2
+	LENGTH_BLOB       MySQLDefCode = 65535
+	LENGTH_LONGBLOB   MySQLDefCode = 4294967295
+	LENGTH_MEDIUMBLOB MySQLDefCode = 16777215
+	LENGTH_TINYBLOB   MySQLDefCode = 255
+
+	// Limitations
+	MAX_ROWS MySQLDefCode = 50000000 // From the MySQL FAQ
+
+	/**
+	 * Used to indicate that the server sent no field-level character set information, so the driver should use the connection-level character encoding instead.
+	 */
+	NO_CHARSET_INFO  MySQLDefCode = -1
+	OPEN_CURSOR_FLAG MySQLDefCode = 1
+	PING             MySQLDefCode = 14
+	PROCESS_INFO     MySQLDefCode = 10 // Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+
+	PROCESS_KILL MySQLDefCode = 12 // Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+
+	QUERY  MySQLDefCode = 3
+	QUIT   MySQLDefCode = 1
+	RELOAD MySQLDefCode = 7 // Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+
+	SHUTDOWN MySQLDefCode = 8 // Deprecated in MySQL 5.7.9 and MySQL 8.0.0.
+
+	//
+	// Constants defined from mysql
+	//
+	// DB Operations
+	SLEEP      MySQLDefCode = 0
+	STATISTICS MySQLDefCode = 9
+	TIME       MySQLDefCode = 15
+)
+
+func MySQLCodeToJava(mysqlType MySQLDefCode) JDBCType {
+	var jdbcType JDBCType
+
+	switch mysqlType {
+	case FIELD_TYPE_NEW_DECIMAL, FIELD_TYPE_DECIMAL:
+		jdbcType = JDBCTypeDecimal
+	case FIELD_TYPE_TINY:
+		jdbcType = JDBCTypeTinyInt
+	case FIELD_TYPE_SHORT:
+		jdbcType = JDBCTypeSmallInt
+	case FIELD_TYPE_LONG:
+		jdbcType = JDBCTypeInteger
+	case FIELD_TYPE_FLOAT:
+		jdbcType = JDBCTypeReal
+	case FIELD_TYPE_DOUBLE:
+		jdbcType = JDBCTypeDouble
+	case FIELD_TYPE_NULL:
+		jdbcType = JDBCTypeNull
+	case FIELD_TYPE_TIMESTAMP:
+		jdbcType = JDBCTypeTimestamp
+	case FIELD_TYPE_LONGLONG:
+		jdbcType = JDBCTypeBigInt
+	case FIELD_TYPE_INT24:
+		jdbcType = JDBCTypeInteger
+	case FIELD_TYPE_DATE:
+		jdbcType = JDBCTypeDate
+	case FIELD_TYPE_TIME:
+		jdbcType = JDBCTypeTime
+	case FIELD_TYPE_DATETIME:
+		jdbcType = JDBCTypeTimestamp
+	case FIELD_TYPE_YEAR:
+		jdbcType = JDBCTypeDate
+	case FIELD_TYPE_NEWDATE:
+		jdbcType = JDBCTypeDate
+	case FIELD_TYPE_ENUM:
+		jdbcType = JDBCTypeChar
+	case FIELD_TYPE_SET:
+		jdbcType = JDBCTypeChar
+	case FIELD_TYPE_TINY_BLOB:
+		jdbcType = JDBCTypeVarBinary
+	case FIELD_TYPE_MEDIUM_BLOB:
+		jdbcType = JDBCTypeLongVarBinary
+	case FIELD_TYPE_LONG_BLOB:
+		jdbcType = JDBCTypeLongVarBinary
+	case FIELD_TYPE_BLOB:
+		jdbcType = JDBCTypeLongVarBinary
+	case FIELD_TYPE_VAR_STRING, FIELD_TYPE_VARCHAR:
+		jdbcType = JDBCTypeVarchar
+	case FIELD_TYPE_JSON, FIELD_TYPE_STRING:
+		jdbcType = JDBCTypeChar
+	case FIELD_TYPE_GEOMETRY:
+		jdbcType = JDBCTypeBinary
+	case FIELD_TYPE_BIT:
+		jdbcType = JDBCTypeBit
+	default:
+		jdbcType = JDBCTypeVarchar
+	}
+
+	return jdbcType
+}
+
+func MySQLStrToJavaType(mysqlType string) JDBCType {
+	switch strings.ToUpper(mysqlType) {
 	case "BIT":
-		return JDBCTypeBit
+		return MySQLCodeToJava(FIELD_TYPE_BIT)
+	case "TINYINT":
+		return MySQLCodeToJava(FIELD_TYPE_TINY)
+	case "SMALLINT":
+		return MySQLCodeToJava(FIELD_TYPE_SHORT)
+	case "MEDIUMINT":
+		return MySQLCodeToJava(FIELD_TYPE_INT24)
+	case "INT", "INTEGER":
+		return MySQLCodeToJava(FIELD_TYPE_LONG)
+	case "BIGINT":
+		return MySQLCodeToJava(FIELD_TYPE_LONGLONG)
+	case "INT24":
+		return MySQLCodeToJava(FIELD_TYPE_INT24)
+	case "REAL":
+		return MySQLCodeToJava(FIELD_TYPE_DOUBLE)
+	case "FLOAT":
+		return MySQLCodeToJava(FIELD_TYPE_FLOAT)
+	case "DECIMAL":
+		return MySQLCodeToJava(FIELD_TYPE_DECIMAL)
+	case "NUMERIC":
+		return MySQLCodeToJava(FIELD_TYPE_DECIMAL)
+	case "DOUBLE":
+		return MySQLCodeToJava(FIELD_TYPE_DOUBLE)
+	case "CHAR":
+		return MySQLCodeToJava(FIELD_TYPE_STRING)
+	case "VARCHAR":
+		return MySQLCodeToJava(FIELD_TYPE_VAR_STRING)
+	case "DATE":
+		return MySQLCodeToJava(FIELD_TYPE_DATE)
+	case "TIME":
+		return MySQLCodeToJava(FIELD_TYPE_TIME)
+	case "YEAR":
+		return MySQLCodeToJava(FIELD_TYPE_YEAR)
+	case "TIMESTAMP":
+		return MySQLCodeToJava(FIELD_TYPE_TIMESTAMP)
+	case "DATETIME":
+		return MySQLCodeToJava(FIELD_TYPE_DATETIME)
+	case "TINYBLOB":
+		return JDBCTypeBinary
+	case "BLOB":
+		return JDBCTypeLongVarBinary
+	case "MEDIUMBLOB":
+		return JDBCTypeLongVarBinary
+	case "LONGBLOB":
+		return JDBCTypeLongVarBinary
+	case "TINYTEXT":
+		return JDBCTypeVarchar
 	case "TEXT":
 		return JDBCTypeLongVarchar
-	case "BLOB":
-		return JDBCTypeBlob
-	case "DATE":
-		return JDBCTypeDate
-	case "DATETIME":
-		return JDBCTypeTimestamp
-	case "DECIMAL":
-		return JDBCTypeDecimal
-	case "DOUBLE":
-		return JDBCTypeDouble
+	case "MEDIUMTEXT":
+		return JDBCTypeLongVarchar
+	case "LONGTEXT":
+		return JDBCTypeLongVarchar
 	case "ENUM":
-		return JDBCTypeTinyInt
-		// todo 待完善
-	// case fieldTypeEnum:
-	//	return "ENUM"
-	// case fieldTypeFloat:
-	//	return "FLOAT"
-	// case fieldTypeGeometry:
-	//	return "GEOMETRY"
-	// case fieldTypeInt24:
-	//	return "MEDIUMINT"
-	// case fieldTypeJSON:
-	//	return "JSON"
-	// case fieldTypeLong:
-	//	return "INT"
-	// case fieldTypeLongBLOB:
-	//	if mf.charSet != collations[binaryCollation] {
-	//		return "LONGTEXT"
-	//	}
-	//	return "LONGBLOB"
-	// case fieldTypeLongLong:
-	//	return "BIGINT"
-	// case fieldTypeMediumBLOB:
-	//	if mf.charSet != collations[binaryCollation] {
-	//		return "MEDIUMTEXT"
-	//	}
-	//	return "MEDIUMBLOB"
-	// case fieldTypeNewDate:
-	//	return "DATE"
-	// case fieldTypeNewDecimal:
-	//	return "DECIMAL"
-	// case fieldTypeNULL:
-	//	return "NULL"
-	// case fieldTypeSet:
-	//	return "SET"
-	// case fieldTypeShort:
-	//	return "SMALLINT"
-	// case fieldTypeString:
-	//	if mf.charSet == collations[binaryCollation] {
-	//		return "BINARY"
-	//	}
-	//	return "CHAR"
-	// case fieldTypeTime:
-	//	return "TIME"
-	// case fieldTypeTimestamp:
-	//	return "TIMESTAMP"
-	// case fieldTypeTiny:
-	//	return "TINYINT"
-	// case fieldTypeTinyBLOB:
-	//	if mf.charSet != collations[binaryCollation] {
-	//		return "TINYTEXT"
-	//	}
-	//	return "TINYBLOB"
-	// case fieldTypeVarChar:
-	//	if mf.charSet == collations[binaryCollation] {
-	//		return "VARBINARY"
-	//	}
-	//	return "VARCHAR"
-	// case fieldTypeVarString:
-	//	if mf.charSet == collations[binaryCollation] {
-	//		return "VARBINARY"
-	//	}
-	//	return "VARCHAR"
-	// case fieldTypeYear:
-	//	return "YEAR"
+		return MySQLCodeToJava(FIELD_TYPE_ENUM)
+	case "SET":
+		return MySQLCodeToJava(FIELD_TYPE_SET)
+	case "GEOMETRY":
+		return MySQLCodeToJava(FIELD_TYPE_GEOMETRY)
+	case "BINARY":
+		return JDBCTypeBinary
+	// no concrete type on the wire
+	case "VARBINARY":
+		return JDBCTypeVarBinary
+	case "JSON":
+		return MySQLCodeToJava(FIELD_TYPE_JSON)
 	default:
-		return -1
+		// Punt
+		return JDBCTypeOther
 	}
 }

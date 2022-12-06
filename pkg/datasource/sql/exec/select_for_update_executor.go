@@ -32,7 +32,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm"
 	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -124,13 +124,11 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 			break
 		}
 		// check global lock
-		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
-			BranchRegisterRequest: message.BranchRegisterRequest{
-				Xid:        execCtx.TxCtx.XID,
-				BranchType: branch.BranchTypeAT,
-				ResourceId: execCtx.TxCtx.ResourceID,
-				LockKey:    lockKey,
-			},
+		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
+			Xid:        execCtx.TxCtx.XID,
+			BranchType: branch.BranchTypeAT,
+			ResourceId: execCtx.TxCtx.ResourceID,
+			LockKeys:   lockKey,
 		})
 
 		// if obtained global lock
@@ -235,13 +233,11 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 			break
 		}
 		// check global lock
-		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, message.GlobalLockQueryRequest{
-			BranchRegisterRequest: message.BranchRegisterRequest{
-				Xid:        execCtx.TxCtx.XID,
-				BranchType: branch.BranchTypeAT,
-				ResourceId: execCtx.TxCtx.ResourceID,
-				LockKey:    lockKey,
-			},
+		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
+			Xid:        execCtx.TxCtx.XID,
+			BranchType: branch.BranchTypeAT,
+			ResourceId: execCtx.TxCtx.ResourceID,
+			LockKeys:   lockKey,
 		})
 
 		// has obtained global lock
@@ -281,7 +277,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.Schema)
+		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
 	}
 
 	fields := []*ast.SelectField{}
@@ -322,7 +318,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 		lockKeys      bytes.Buffer
 		filedSequence int
 	)
-	lockKeys.WriteString(meta.Schema)
+	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
 	ss := s.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)

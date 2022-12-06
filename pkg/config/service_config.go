@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package tm
+package config
 
-import (
-	"testing"
+type Grouplist struct {
+	Default string `yaml:"default" json:"default,omitempty" property:"default"`
+}
 
-	"github.com/stretchr/testify/assert"
-)
+type VgroupMapping struct {
+	DefaultTxGroup string `yaml:"default_tx_group" json:"default_tx_group,omitempty" property:"default_tx_group"`
+}
 
-func TestNewSuspendedResourcesHolder(t *testing.T) {
-	xid := "123456"
-	holder := NewSuspendedResourcesHolder(xid)
-	assert.NotEmpty(t, holder)
-	assert.Equal(t, xid, holder.Xid)
+type Service struct {
+	VgroupMapping            VgroupMapping `yaml:"vgroup-mapping" json:"vgroup-mapping,omitempty" property:"vgroup-mapping"`
+	Grouplist                Grouplist     `yaml:"grouplist" json:"grouplist,omitempty" property:"grouplist"`
+	EnableDegrade            bool          `yaml:"enable-degrade" json:"enable-degrade,omitempty" property:"enable-degrade"`
+	DisableGlobalTransaction bool          `yaml:"disable-global-transaction" json:"disable-global-transaction,omitempty" property:"disable-global-transaction"`
 }

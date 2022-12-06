@@ -241,10 +241,10 @@ func obtainStructValueType(o interface{}) (bool, reflect.Value, reflect.Type) {
 	}
 }
 
-func (t *TCCServiceProxy) GetTransactionInfo() tm.TransactionInfo {
+func (t *TCCServiceProxy) GetTransactionInfo() tm.GtxConfig {
 	// todo replace with config
-	return tm.TransactionInfo{
-		TimeOut: 10000,
+	return tm.GtxConfig{
+		Timeout: time.Second * 10,
 		Name:    t.GetActionName(),
 		// Propagation, Propagation
 		// LockRetryInternal, int64

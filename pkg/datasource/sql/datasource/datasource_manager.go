@@ -20,7 +20,6 @@ package datasource
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"sync"
 
@@ -31,33 +30,26 @@ import (
 )
 
 var (
-	atOnce sync.Once
-	atMgr  DataSourceManager
-	xaMgr  DataSourceManager
-	solts  = map[types.DBType]func() TableMetaCache{}
+	atOnce            sync.Once
+	tableMetaCacheMap = map[types.DBType]TableMetaCache{}
 )
 
 // RegisterTableCache
-func RegisterTableCache(dbType types.DBType, builder func() TableMetaCache) {
-	solts[dbType] = builder
+func RegisterTableCache(dbType types.DBType, tableMetaCache TableMetaCache) {
+	tableMetaCacheMap[dbType] = tableMetaCache
 }
 
-func RegisterResourceManager(b branch.BranchType, d DataSourceManager) {
-	if b == branch.BranchTypeAT {
-		atMgr = d
-	}
-
-	if b == branch.BranchTypeXA {
-		xaMgr = d
-	}
+func GetTableCache(dbType types.DBType) TableMetaCache {
+	return tableMetaCacheMap[dbType]
 }
 
-func GetDataSourceManager(b branch.BranchType) DataSourceManager {
-	if b == branch.BranchTypeAT {
-		return atMgr
+func GetDataSourceManager(branchType branch.BranchType) DataSourceManager {
+	resourceManager := rm.GetRmCacheInstance().GetResourceManager(branchType)
+	if resourceManager == nil {
+		return nil
 	}
-	if b == branch.BranchTypeXA {
-		return xaMgr
+	if d, ok := resourceManager.(DataSourceManager); ok {
+		return d
 	}
 	return nil
 }
@@ -65,22 +57,7 @@ func GetDataSourceManager(b branch.BranchType) DataSourceManager {
 // todo implements ResourceManagerOutbound interface
 // DataSourceManager
 type DataSourceManager interface {
-	// Register a Resource to be managed by Resource Manager
-	RegisterResource(resource rm.Resource) error
-	//  Unregister a Resource from the Resource Manager
-	UnregisterResource(resource rm.Resource) error
-	// GetManagedResources Get all resources managed by this manager
-	GetManagedResources() map[string]rm.Resource
-	// BranchRollback
-	BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error)
-	// BranchCommit
-	BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error)
-	// LockQuery
-	LockQuery(ctx context.Context, req message.GlobalLockQueryRequest) (bool, error)
-	// BranchRegister
-	BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error)
-	// BranchReport
-	BranchReport(ctx context.Context, req message.BranchReportRequest) error
+	rm.ResourceManager
 	// CreateTableMetaCache
 	CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error)
 }
@@ -95,6 +72,7 @@ type BasicSourceManager struct {
 	// lock
 	lock sync.RWMutex
 	// tableMetaCache
+	// todo do not put meta cache here
 	tableMetaCache map[string]*entry
 }
 
@@ -117,7 +95,7 @@ func (dm *BasicSourceManager) BranchRollback(ctx context.Context, req message.Br
 }
 
 // Branch register long
-func (dm *BasicSourceManager) BranchRegister(ctx context.Context, clientId string, req message.BranchRegisterRequest) (int64, error) {
+func (dm *BasicSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
 	return 0, nil
 }
 
@@ -178,14 +156,15 @@ type TableMetaCache interface {
 	// Init
 	Init(ctx context.Context, conn *sql.DB) error
 	// GetTableMeta
-	GetTableMeta(ctx context.Context, dbName, table string, conn driver.Conn) (*types.TableMeta, error)
+	GetTableMeta(ctx context.Context, dbName, table string) (*types.TableMeta, error)
 	// Destroy
 	Destroy() error
 }
 
 // buildResource
+// todo not here
 func buildResource(ctx context.Context, dbType types.DBType, db *sql.DB) (*entry, error) {
-	cache := solts[dbType]()
+	cache := tableMetaCacheMap[dbType]
 
 	if err := cache.Init(ctx, db); err != nil {
 		return nil, err

@@ -37,7 +37,7 @@ func (tx *XATx) Rollback() error {
 
 		originTx := tx.tx
 
-		if originTx.ctx.OpenGlobalTrsnaction() && originTx.ctx.IsBranchRegistered() {
+		if originTx.tranCtx.OpenGlobalTrsnaction() && originTx.tranCtx.IsBranchRegistered() {
 			originTx.report(false)
 		}
 	}

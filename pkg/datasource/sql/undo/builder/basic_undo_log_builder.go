@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -30,9 +31,11 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// todo the executor should be stateful
 type BasicUndoLogBuilder struct{}
 
-// getScanSlice get the column type for scann
+// GetScanSlice get the column type for scann
+// todo to use ColumnInfo get slice
 func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []driver.Value {
 	scanSlice := make([]driver.Value, 0, len(columnNames))
 	for _, columnNmae := range columnNames {
@@ -41,57 +44,28 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 			// 从metData获取该列的元信息
 			columnMeta = tableMeta.Columns[columnNmae]
 		)
-
-		switch columnMeta.Info.ScanType() {
-		case types.ScanTypeFloat32:
-			scanVal = float32(0)
-			break
-		case types.ScanTypeFloat64:
-			scanVal = float64(0)
-			break
-		case types.ScanTypeInt8:
-			scanVal = int8(0)
-			break
-		case types.ScanTypeInt16:
-			scanVal = int16(0)
-			break
-		case types.ScanTypeInt32:
-			scanVal = int32(0)
-			break
-		case types.ScanTypeInt64:
-			scanVal = int64(0)
-			break
-		case types.ScanTypeNullFloat:
-			scanVal = sql.NullFloat64{}
-			break
-		case types.ScanTypeNullInt:
-			scanVal = sql.NullInt64{}
-			break
-		case types.ScanTypeNullTime:
-			scanVal = sql.NullTime{}
-			break
-		case types.ScanTypeUint8:
-			scanVal = uint8(0)
-			break
-		case types.ScanTypeUint16:
-			scanVal = uint16(0)
-			break
-		case types.ScanTypeUint32:
-			scanVal = uint32(0)
-			break
-		case types.ScanTypeUint64:
-			scanVal = uint64(0)
-			break
-		case types.ScanTypeRawBytes:
+		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
+		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
 			scanVal = sql.RawBytes{}
-			break
-		case types.ScanTypeUnknown:
-			scanVal = new(interface{})
-			break
+		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
+			if columnMeta.IsNullable == 0 {
+				scanVal = int64(0)
+			} else {
+				scanVal = sql.NullInt64{}
+			}
+		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
+			scanVal = sql.NullTime{}
+		case "DECIMAL", "DOUBLE", "FLOAT":
+			if columnMeta.IsNullable == 0 {
+				scanVal = float64(0)
+			} else {
+				scanVal = sql.NullFloat64{}
+			}
+		default:
+			scanVal = sql.RawBytes{}
 		}
 		scanSlice = append(scanSlice, &scanVal)
 	}
-
 	return scanSlice
 }
 
@@ -173,22 +147,22 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 			columnMeta := tableMetaData.Columns[name]
 
 			keyType := types.IndexTypeNull
-			if data, ok := tableMetaData.Indexs[name]; ok {
-				keyType = data.IType
+			if _, ok := tableMetaData.GetPrimaryKeyMap()[name]; ok {
+				keyType = types.IndexTypePrimaryKey
 			}
-			jdbcType := types.GetJDBCTypeByTypeName(columnMeta.Info.DatabaseTypeName())
+			jdbcType := types.MySQLStrToJavaType(columnMeta.DatabaseTypeString)
 
 			columns = append(columns, types.ColumnImage{
-				KeyType: keyType,
-				Name:    name,
-				Type:    int16(jdbcType),
-				Value:   ss[i],
+				KeyType:    keyType,
+				ColumnName: name,
+				ColumnType: jdbcType,
+				Value:      ss[i],
 			})
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
 	}
 
-	return &types.RecordImage{TableName: tableMetaData.Name, Rows: rowImages}, nil
+	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages}, nil
 }
 
 // buildWhereConditionByPKs build where condition by primary keys
@@ -260,4 +234,74 @@ func (b *BasicUndoLogBuilder) buildPKParams(rows []types.RowImage, pkNameList []
 		}
 	}
 	return params
+}
+
+// the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
+func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
+	var (
+		lockKeys      bytes.Buffer
+		filedSequence int
+	)
+	lockKeys.WriteString(meta.TableName)
+	lockKeys.WriteString(":")
+
+	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
+	for {
+		err := rows.Next(pks)
+		if err == io.EOF {
+			break
+		}
+
+		if filedSequence > 0 {
+			lockKeys.WriteString(",")
+		}
+
+		pkSplitIndex := 0
+		for _, value := range pks {
+			if pkSplitIndex > 0 {
+				lockKeys.WriteString("_")
+			}
+			lockKeys.WriteString(fmt.Sprintf("%v", value))
+			pkSplitIndex++
+		}
+		filedSequence++
+	}
+	return lockKeys.String()
+}
+
+// the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
+func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
+	var (
+		lockKeys      bytes.Buffer
+		filedSequence int
+	)
+	lockKeys.WriteString(meta.TableName)
+	lockKeys.WriteString(":")
+
+	keys := meta.GetPrimaryKeyOnlyName()
+
+	for _, row := range records.Rows {
+		if filedSequence > 0 {
+			lockKeys.WriteString(",")
+		}
+		pkSplitIndex := 0
+		for _, column := range row.Columns {
+			var hasKeyColumn bool
+			for _, key := range keys {
+				if column.ColumnName == key {
+					hasKeyColumn = true
+					if pkSplitIndex > 0 {
+						lockKeys.WriteString("_")
+					}
+					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
+					pkSplitIndex++
+				}
+			}
+			if hasKeyColumn {
+				filedSequence++
+			}
+		}
+	}
+
+	return lockKeys.String()
 }
