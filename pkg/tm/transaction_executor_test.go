@@ -20,13 +20,13 @@ package tm
 import (
 	"context"
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/agiledragon/gomonkey"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"

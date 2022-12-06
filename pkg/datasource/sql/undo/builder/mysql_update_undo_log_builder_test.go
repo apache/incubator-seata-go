@@ -20,12 +20,12 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/agiledragon/gomonkey/v2"
 	"reflect"
 	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 
-	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 

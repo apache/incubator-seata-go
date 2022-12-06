@@ -20,13 +20,13 @@ package tcc
 import (
 	"context"
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey"
 	gostnet "github.com/dubbogo/gost/net"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/stretchr/testify/assert"

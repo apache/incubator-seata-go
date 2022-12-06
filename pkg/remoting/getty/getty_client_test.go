@@ -19,10 +19,10 @@ package getty
 
 import (
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey"
 	getty "github.com/apache/dubbo-getty"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
