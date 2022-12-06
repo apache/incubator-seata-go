@@ -26,7 +26,6 @@ import (
 	"runtime"
 	"strings"
 
-	"dubbo.apache.org/dubbo-go/v3/common/constant/file"
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
@@ -39,6 +38,13 @@ import (
 const (
 	configFileEnvKey = "SEATA_GO_CONFIG_PATH"
 	configPrefix     = "seata"
+)
+
+const (
+	jsonSuffix = "json"
+	tomlSuffix = "toml"
+	yamlSuffix = "yaml"
+	ymlSuffix  = "yml"
 )
 
 type Config struct {
@@ -74,7 +80,7 @@ func LoadPath(configFilePath string) *Config {
 
 	conf := newLoaderConf(configFilePath)
 	koan := getConfigResolver(conf)
-	if err := koan.UnmarshalWithConf(configPrefix, &cfg, koanf.UnmarshalConf{Tag: "yaml"}); err != nil {
+	if err := koan.UnmarshalWithConf(configPrefix, &cfg, koanf.UnmarshalConf{Tag: yamlSuffix}); err != nil {
 		panic(err)
 	}
 	return &cfg
@@ -109,7 +115,7 @@ func resolverFilePath(path string) (name, suffix string) {
 	paths := strings.Split(path, "/")
 	fileName := strings.Split(paths[len(paths)-1], ".")
 	if len(fileName) < 2 {
-		return fileName[0], string(file.YAML)
+		return fileName[0], yamlSuffix
 	}
 	return fileName[0], fileName[1]
 }
@@ -121,7 +127,7 @@ func getConfigResolver(conf *loaderConf) *koanf.Koanf {
 		err error
 	)
 	if len(conf.suffix) <= 0 {
-		conf.suffix = string(file.YAML)
+		conf.suffix = yamlSuffix
 	}
 	if len(conf.delim) <= 0 {
 		conf.delim = "."
@@ -133,11 +139,11 @@ func getConfigResolver(conf *loaderConf) *koanf.Koanf {
 	k = koanf.New(conf.delim)
 
 	switch conf.suffix {
-	case "yaml", "yml":
+	case yamlSuffix, ymlSuffix:
 		err = k.Load(rawbytes.Provider(bytes), yaml.Parser())
-	case "json":
+	case jsonSuffix:
 		err = k.Load(rawbytes.Provider(bytes), json.Parser())
-	case "toml":
+	case tomlSuffix:
 		err = k.Load(rawbytes.Provider(bytes), toml.Parser())
 	default:
 		err = fmt.Errorf("no support %s file suffix", conf.suffix)
