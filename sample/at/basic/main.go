@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/seata"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -36,7 +36,7 @@ type OrderTbl struct {
 }
 
 func main() {
-	client.Init()
+	seata.Init()
 	initService()
 	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
