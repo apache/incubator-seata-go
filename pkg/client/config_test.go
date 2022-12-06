@@ -27,9 +27,6 @@ import (
 )
 
 func TestLoadPath(t *testing.T) {
-	// reset flag.CommandLine
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, cfg.TCCConfig)
@@ -37,14 +34,12 @@ func TestLoadPath(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+	// reset flag.CommandLine
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
-	// reset flag.CommandLine
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
 	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
-
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, cfg.TCCConfig)
