@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package seata
+package client
 
 import (
 	"sync"
@@ -26,12 +26,12 @@ import (
 	_ "github.com/seata/seata-go/pkg/rm/tcc"
 )
 
-// Init init seata client
+// Init init client client
 func Init() {
 	InitPath("")
 }
 
-// Init init seata client with config path
+// Init init client client with config path
 func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
 
@@ -41,7 +41,7 @@ func InitPath(configFilePath string) {
 
 var onceInitTmClient sync.Once
 
-// InitTmClient init seata tm client
+// InitTmClient init client tm client
 func initTmClient(cfg *Config) {
 	onceInitTmClient.Do(func() {
 		initRemoting(cfg)
@@ -53,6 +53,6 @@ func initRemoting(cfg *Config) {
 	getty.InitRpcClient()
 }
 
-// InitRmClient init seata rm client
+// InitRmClient init client rm client
 func initRmClient(cfg *Config) {
 }

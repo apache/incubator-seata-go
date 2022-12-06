@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package seata
+package client
 
 import (
 	"flag"
@@ -38,7 +38,7 @@ import (
 
 const (
 	configFileEnvKey = "SEATA_GO_CONFIG_PATH"
-	configPrefix     = "seata"
+	configPrefix     = "client"
 )
 
 type Config struct {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package seata
+package client
 
 import (
 	"testing"
