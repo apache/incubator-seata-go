@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	solts    = map[types.DBType]*undoLogMgrHolder{}
-	builders = map[types.ExecutorType]func() UndoLogBuilder{}
+	undoLogManagerMap = map[types.DBType]*undoLogMgrHolder{}
+	builders          = map[types.ExecutorType]func() UndoLogBuilder{}
 )
 
 type undoLogMgrHolder struct {
@@ -38,11 +38,11 @@ type undoLogMgrHolder struct {
 }
 
 func RegisterUndoLogManager(m UndoLogManager) error {
-	if _, exist := solts[m.DBType()]; exist {
+	if _, exist := undoLogManagerMap[m.DBType()]; exist {
 		return nil
 	}
 
-	solts[m.DBType()] = &undoLogMgrHolder{
+	undoLogManagerMap[m.DBType()] = &undoLogMgrHolder{
 		mgr:  m,
 		once: sync.Once{},
 	}
@@ -65,16 +65,14 @@ func GetUndologBuilder(sqlType types.ExecutorType) UndoLogBuilder {
 // UndoLogManager
 type UndoLogManager interface {
 	Init()
-	// InsertUndoLog
-	InsertUndoLog(l []BranchUndoLog, tx driver.Conn) error
 	// DeleteUndoLog
 	DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error
 	// BatchDeleteUndoLog
 	BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error
-	// FlushUndoLog
-	FlushUndoLog(txCtx *types.TransactionContext, tx driver.Conn) error
+	//FlushUndoLog
+	FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error
 	// RunUndo
-	RunUndo(xid string, branchID int64, conn *sql.Conn) error
+	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
@@ -83,7 +81,7 @@ type UndoLogManager interface {
 
 // GetUndoLogManager
 func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
-	v, ok := solts[d]
+	v, ok := undoLogManagerMap[d]
 
 	if !ok {
 		return nil, errors.New("not found UndoLogManager")
@@ -96,12 +94,33 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	return v.mgr, nil
 }
 
+type UndoLogStatue int8
+
+const (
+	UndoLogStatueNormnal        UndoLogStatue = 0
+	UndoLogStatueGlobalFinished UndoLogStatue = 1
+)
+
+type UndologRecord struct {
+	BranchID     uint64        `json:"branchId"`
+	XID          string        `json:"xid"`
+	Context      []byte        `json:"context"`
+	RollbackInfo []byte        `json:"rollbackInfo"`
+	LogStatus    UndoLogStatue `json:"logStatus"`
+	LogCreated   []byte        `json:"logCreated"`
+	LogModified  []byte        `json:"logModified"`
+}
+
+func (u *UndologRecord) CanUndo() bool {
+	return u.LogStatus == UndoLogStatueNormnal
+}
+
 // BranchUndoLog
 type BranchUndoLog struct {
 	// Xid
 	Xid string `json:"xid"`
 	// BranchID
-	BranchID string `json:"branchId"`
+	BranchID uint64 `json:"branchId"`
 	// Logs
 	Logs []SQLUndoLog `json:"sqlUndoLogs"`
 }
@@ -111,11 +130,37 @@ func (b *BranchUndoLog) Marshal() []byte {
 	return nil
 }
 
+func (b *BranchUndoLog) Reverse() {
+	if len(b.Logs) == 0 {
+		return
+	}
+
+	left, right := 0, len(b.Logs)-1
+
+	for left < right {
+		b.Logs[left], b.Logs[right] = b.Logs[right], b.Logs[left]
+		left++
+		right--
+	}
+}
+
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType   types.SQLType          `json:"sqlType"`
-	TableName string                 `json:"tableName"`
-	Images    types.RoundRecordImage `json:"images"`
+	SQLType     types.SQLType      `json:"sqlType"`
+	TableName   string             `json:"tableName"`
+	BeforeImage *types.RecordImage `json:"beforeImage"`
+	AfterImage  *types.RecordImage `json:"afterImage"`
+}
+
+func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
+	if s.BeforeImage != nil {
+		s.BeforeImage.TableMeta = tableMeta
+		s.BeforeImage.TableName = tableMeta.TableName
+	}
+	if s.AfterImage != nil {
+		s.AfterImage.TableMeta = tableMeta
+		s.AfterImage.TableName = tableMeta.TableName
+	}
 }
 
 // UndoLogParser

@@ -39,7 +39,7 @@ func main() {
 
 	tm.WithGlobalTx(
 		bgCtx,
-		&tm.TransactionInfo{
+		&tm.GtxConfig{
 			Name: "TccSampleLocalGlobalTx",
 		},
 		func(ctx context.Context) (re error) {

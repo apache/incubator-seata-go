@@ -11,7 +11,7 @@ const (
 	TestTxName   = "TesttxName"
 	TestXid      = "TestXid"
 	TestXidCopy  = "TestXid"
-	TestTxRole   = tm.LAUNCHER
+	TestTxRole   = tm.Launcher
 	TestTxStatus = message.GlobalStatusBegin
 )
 
@@ -21,7 +21,7 @@ func GetTestContext() context.Context {
 	tm.SetTxName(ctx, TestTxName)
 	tm.SetXID(ctx, TestXid)
 	tm.SetXIDCopy(ctx, TestXidCopy)
-	tm.SetTransactionRole(ctx, TestTxRole)
+	tm.SetTxRole(ctx, TestTxRole)
 	tm.SetTxStatus(ctx, TestTxStatus)
 	return ctx
 }

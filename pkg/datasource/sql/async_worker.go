@@ -22,13 +22,14 @@ import (
 	"flag"
 	"time"
 
+	"github.com/seata/seata-go/pkg/rm"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/fanout"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -102,7 +103,7 @@ func NewAsyncWorker(prom prometheus.Registerer, conf AsyncWorkerConfig, sourceMa
 }
 
 // BranchCommit commit branch transaction
-func (aw *AsyncWorker) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
+func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) (branch.BranchStatus, error) {
 	phaseCtx := phaseTwoContext{
 		Xid:        req.Xid,
 		BranchID:   req.BranchId,
@@ -138,6 +139,10 @@ func (aw *AsyncWorker) run() {
 }
 
 func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
+	if len(*phaseCtxs) == 0 {
+		return
+	}
+
 	copyPhaseCtxs := make([]phaseTwoContext, len(*phaseCtxs))
 	copy(copyPhaseCtxs, *phaseCtxs)
 	*phaseCtxs = (*phaseCtxs)[:0]
@@ -165,12 +170,12 @@ func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
 
 	if err := aw.commitWorker.Do(context.Background(), doBranchCommit); err != nil {
 		aw.doBranchCommitFailureTotal.Add(1)
-		log.Errorf("do branch commit err:%v", err)
+		log.Errorf("do branch commit err:%v,phaseCtxs=%v", err, phaseCtxs)
 	}
 }
 
 func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-	val, ok := aw.resourceMgr.GetManagedResources()[resID]
+	val, ok := aw.resourceMgr.GetCachedResources().Load(resID)
 	if !ok {
 		for i := range phaseCtxs {
 			aw.rePutBackToQueue.Add(1)
@@ -180,7 +185,7 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 	}
 
 	res := val.(*DBResource)
-	conn, err := res.target.Conn(context.Background())
+	conn, err := res.db.Conn(context.Background())
 	if err != nil {
 		for i := range phaseCtxs {
 			aw.commitQueue <- phaseCtxs[i]

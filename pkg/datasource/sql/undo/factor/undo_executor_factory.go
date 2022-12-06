@@ -15,16 +15,33 @@
  * limitations under the License.
  */
 
-package mysql
+package factor
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"fmt"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-// todo
-func init() {
-	datasource.RegisterTableCache(types.DBTypeMySQL, func() datasource.TableMetaCache {
-		return &TableMetaCache{}
-	})
+func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (res undo.UndoExecutor, err error) {
+	undoExecutorHolder, err := GetUndoExecutorHolder(dbType)
+	if err != nil {
+		log.Errorf("[GetUndoExecutor] get undo executor holder fail, err: %v", err)
+		return nil, err
+	}
+
+	switch sqlUndoLog.SQLType {
+	case types.SQLTypeInsert:
+		res = undoExecutorHolder.GetInsertExecutor(sqlUndoLog)
+	case types.SQLTypeDelete:
+		res = undoExecutorHolder.GetDeleteExecutor(sqlUndoLog)
+	case types.SQLTypeUpdate:
+		res = undoExecutorHolder.GetUpdateExecutor(sqlUndoLog)
+	default:
+		return nil, fmt.Errorf("sql type: %d not support", sqlUndoLog.SQLType)
+	}
+
+	return
 }

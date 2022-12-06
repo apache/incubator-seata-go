@@ -19,7 +19,10 @@ package types
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 
 	"github.com/google/uuid"
 )
@@ -38,9 +41,35 @@ type (
 const (
 	IndexTypeNull       IndexType = 0
 	IndexTypePrimaryKey IndexType = 1
-	IndexUnique         IndexType = 2
-	IndexNormal         IndexType = 3
 )
+
+func ParseIndexType(str string) IndexType {
+	if str == "PRIMARY_KEY" {
+		return IndexTypePrimaryKey
+	}
+	return IndexTypeNull
+}
+
+func (i IndexType) MarshalText() (text []byte, err error) {
+	switch i {
+	case IndexTypePrimaryKey:
+		return []byte("PRIMARY_KEY"), nil
+	}
+	return []byte("NULL"), nil
+}
+
+func (i *IndexType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRIMARY_KEY":
+		*i = IndexTypePrimaryKey
+		return nil
+	case "NULL":
+		*i = IndexTypeNull
+		return nil
+	default:
+		return fmt.Errorf("invalid index type")
+	}
+}
 
 const (
 	_ DBType = iota
@@ -55,13 +84,13 @@ const (
 	BranchPhase_Failed  = 2
 
 	// IndexPrimary primary index type.
-	IndexPrimary = 0
+	IndexPrimary IndexType = iota
 	// IndexNormal normal index type.
-	//IndexNormal = 1
+	IndexNormal
 	// IndexUnique unique index type.
-	//IndexUnique = 2
+	IndexUnique
 	// IndexFullText full text index type.
-	IndexFullText = 3
+	IndexFullText
 )
 
 func ParseDBType(driverName string) DBType {
@@ -83,24 +112,32 @@ const (
 	ATMode
 )
 
+func (t TransactionType) GetBranchType() branch.BranchType {
+	if t == XAMode {
+		return branch.BranchTypeXA
+	}
+	if t == ATMode {
+		return branch.BranchTypeAT
+	}
+	return branch.BranchTypeUnknow
+}
+
 // TransactionContext seata-go‘s context of transaction
 type TransactionContext struct {
 	// LocalTransID locals transaction id
 	LocalTransID string
 	// LockKeys
-	LockKeys []string
+	LockKeys map[string]struct{}
 	// DBType db type, eg. MySQL/PostgreSQL/SQLServer
 	DBType DBType
 	// TxOpt transaction option
 	TxOpt driver.TxOptions
-	// TransType transaction mode, eg. XA/AT
-	TransType TransactionType
+	// TxType transaction mode, eg. XA/AT
+	TxType TransactionType
 	// ResourceID resource id, database-table
 	ResourceID string
 	// BranchID transaction branch unique id
 	BranchID uint64
-	// XaID XA id
-	XaID string // todo delete
 	// XID global transaction id
 	XID string
 	// GlobalLockRequire
@@ -120,6 +157,7 @@ type ExecContext struct {
 	MetaDataMap map[string]TableMeta
 	Conn        driver.Conn
 	DBName      string
+	DBType      DBType
 	// todo set values for these 4 param
 	IsAutoCommit          bool
 	IsSupportsSavepoints  bool
@@ -129,8 +167,8 @@ type ExecContext struct {
 
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
-		LockKeys:     make([]string, 0, 4),
-		TransType:    Local,
+		LockKeys:     make(map[string]struct{}, 0),
+		TxType:       Local,
 		LocalTransID: uuid.New().String(),
 		RoundImages:  &RoundRecordImage{},
 	}
@@ -138,7 +176,7 @@ func NewTxCtx() *TransactionContext {
 
 // HasUndoLog
 func (t *TransactionContext) HasUndoLog() bool {
-	return t.TransType == ATMode && !t.RoundImages.IsEmpty()
+	return t.TxType == ATMode && !t.RoundImages.IsEmpty()
 }
 
 // HasLockKey
@@ -147,7 +185,7 @@ func (t *TransactionContext) HasLockKey() bool {
 }
 
 func (t *TransactionContext) OpenGlobalTrsnaction() bool {
-	return t.TransType != Local
+	return t.TxType != Local
 }
 
 func (t *TransactionContext) IsBranchRegistered() bool {

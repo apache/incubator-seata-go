@@ -44,7 +44,7 @@ func (h *loggerSQLHook) Before(ctx context.Context, execCtx *types.ExecContext) 
 	}
 	fields := []zap.Field{
 		zap.String("tx-id", txID),
-		zap.String("xid", execCtx.TxCtx.XaID),
+		zap.String("xid", execCtx.TxCtx.XID),
 		zap.String("sql", execCtx.Query),
 	}
 

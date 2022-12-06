@@ -17,24 +17,52 @@
 
 package types
 
-import "database/sql"
+import (
+	"reflect"
+
+	"github.com/pkg/errors"
+)
 
 // ColumnMeta
 type ColumnMeta struct {
 	// Schema
-	Schema string
-	// Table
-	Table string
-	// Info
-	Info sql.ColumnType
-	// Autoincrement
+	Schema        string
+	Table         string
 	Autoincrement bool
-	ColumnName    string
-	ColumnType    string
-	DataType      int32
-	ColumnKey     string
-	IsNullable    int8
-	Extra         string
+	// todo get columnType
+	//ColumnTypeInfo *sql.ColumnType
+	ColumnName         string
+	ColumnType         string
+	DatabaseType       int32
+	DatabaseTypeString string
+	ColumnKey          string
+	IsNullable         int8
+	Extra              string
+}
+
+type ColumnType struct {
+	Name string
+
+	HasNullable       bool
+	HasLength         bool
+	HasPrecisionScale bool
+
+	Nullable     bool
+	Length       int64
+	DatabaseType string
+	Precision    int64
+	Scale        int64
+	ScanType     reflect.Type
+}
+
+// DatabaseTypeName returns the database system name of the column type. If an empty
+// string is returned, then the driver type name is not supported.
+// Consult your driver documentation for a list of driver data types. Length specifiers
+// are not included.
+// Common type names include "VARCHAR", "TEXT", "NVARCHAR", "DECIMAL", "BOOL",
+// "INT", and "BIGINT".
+func (ci *ColumnType) DatabaseTypeName() string {
+	return ci.DatabaseType
 }
 
 // IndexMeta
@@ -42,22 +70,21 @@ type IndexMeta struct {
 	// Schema
 	Schema string
 	// Table
-	Table      string
-	Name       string
+	Table string
+	Name  string
+	// todo 待删除
 	ColumnName string
 	NonUnique  bool
 	// IType
 	IType IndexType
-	// Values
-	Values []ColumnMeta
+	// Columns
+	Columns []ColumnMeta
 }
 
 // TableMeta
 type TableMeta struct {
-	// Schema
-	Schema string
-	// Name
-	Name string
+	// TableName
+	TableName string
 	// Columns
 	Columns map[string]ColumnMeta
 	// Indexs
@@ -66,15 +93,57 @@ type TableMeta struct {
 }
 
 func (m TableMeta) IsEmpty() bool {
-	return m.Name == ""
+	return m.TableName == ""
+}
+
+func (m TableMeta) GetPrimaryKeyMap() map[string]ColumnMeta {
+	pk := make(map[string]ColumnMeta)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for _, column := range index.Columns {
+				pk[column.ColumnName] = column
+			}
+		}
+	}
+	return pk
 }
 
 func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 	keys := make([]string, 0)
 	for _, index := range m.Indexs {
 		if index.IType == IndexTypePrimaryKey {
-			keys = append(keys, index.ColumnName)
+			for _, column := range index.Columns {
+				keys = append(keys, column.ColumnName)
+			}
 		}
 	}
 	return keys
+}
+
+// GetPrimaryKeyType get PK database type
+func (m TableMeta) GetPrimaryKeyType() (int32, error) {
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for i := range index.Columns {
+				return index.Columns[i].DatabaseType, nil
+			}
+		}
+	}
+	return 0, errors.New("get primary key type error")
+}
+
+// GetPrimaryKeyTypeStrMap get all PK type to map
+func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
+	pkMap := make(map[string]string)
+	for _, index := range m.Indexs {
+		if index.IType == IndexTypePrimaryKey {
+			for i := range index.Columns {
+				pkMap[index.ColumnName] = index.Columns[i].DatabaseTypeString
+			}
+		}
+	}
+	if len(pkMap) == 0 {
+		return nil, errors.New("get primary key type error")
+	}
+	return pkMap, nil
 }

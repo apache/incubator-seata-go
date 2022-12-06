@@ -18,9 +18,11 @@
 package executor
 
 import (
+	"database/sql"
 	"strings"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 const (
@@ -160,4 +162,49 @@ func checkEscape(colName string, dbType types.DBType) bool {
 	default:
 		return true
 	}
+}
+
+// BuildWhereConditionByPKs each pk is a condition.the result will like :" id =? and userCode =?"
+func BuildWhereConditionByPKs(pkNameList []string, dbType types.DBType) string {
+	whereStr := strings.Builder{}
+	for i := 0; i < len(pkNameList); i++ {
+		if i > 0 {
+			whereStr.WriteString(" and ")
+		}
+
+		pkName := pkNameList[i]
+		whereStr.WriteString(AddEscape(pkName, dbType))
+		whereStr.WriteString(" = ? ")
+	}
+
+	return whereStr.String()
+}
+
+// DataValidationAndGoOn check data valid
+// Todo implement dataValidationAndGoOn
+func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
+	return true
+}
+
+func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+
+	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
+
+	pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
+	pkFields := make([]types.ColumnImage, 0)
+
+	for _, column := range row.PrimaryKeys(row.Columns) {
+		column.ColumnName = DelEscape(column.ColumnName, dbType)
+		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
+	}
+
+	for _, pkName := range pkColumnNameListByOrder {
+		for _, col := range pkColumnNameListNoOrder {
+			if strings.Index(col.ColumnName, pkName) > -1 {
+				pkFields = append(pkFields, col)
+			}
+		}
+	}
+
+	return pkFields, nil
 }

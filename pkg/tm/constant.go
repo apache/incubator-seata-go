@@ -19,16 +19,6 @@ package tm
 
 import "github.com/seata/seata-go/pkg/protocol/message"
 
-const (
-	LAUNCHER    GlobalTransactionRole = 0
-	PARTICIPANT GlobalTransactionRole = 1
-)
-
-type (
-	Propagation           int8
-	GlobalTransactionRole int8
-)
-
 type TransactionManager interface {
 	// Begin a new global transaction.
 	Begin(applicationId, transactionServiceGroup, name string, timeout int64) (string, error)
@@ -46,153 +36,75 @@ type TransactionManager interface {
 	GlobalReport(xid string, globalStatus message.GlobalStatus) (message.GlobalStatus, error)
 }
 
+// GlobalTransactionRole Identifies whether a global transaction is beginNewGtx or participates in something else
+type GlobalTransactionRole int8
+
 const (
-	/*
-	 * The REQUIRED.
-	 * The default propagation.
-	 *
-	 * <p>
-	 * If transaction is existing, execute with current transaction,
-	 * else execute with new transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     if (tx == null) {
-	 *         try {
-	 *             tx = beginNewTransaction(); // begin new transaction, is not existing
-	 *             Object rs = business.execute(); // execute with new transaction
-	 *             commitTransaction(tx);
-	 *             return rs;
-	 *         } catch (Exception ex) {
-	 *             rollbackTransaction(tx);
-	 *             throw ex;
-	 *         }
-	 *     } else {
-	 *         return business.execute(); // execute with current transaction
-	 *     }
-	 * </pre></code>
-	 * </p>
-	 */
-	REQUIRED = Propagation(0)
-
-	/*
-	 * The REQUIRES_NEW.
-	 *
-	 * <p>
-	 * If transaction is existing, suspend it, and then execute business with new transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     try {
-	 *         if (tx != null) {
-	 *             suspendedResource = suspendTransaction(tx); // suspend current transaction
-	 *         }
-	 *         try {
-	 *             tx = beginNewTransaction(); // begin new transaction
-	 *             Object rs = business.execute(); // execute with new transaction
-	 *             commitTransaction(tx);
-	 *             return rs;
-	 *         } catch (Exception ex) {
-	 *             rollbackTransaction(tx);
-	 *             throw ex;
-	 *         }
-	 *     } finally {
-	 *         if (suspendedResource != null) {
-	 *             resumeTransaction(suspendedResource); // resume transaction
-	 *         }
-	 *     }
-	 * </pre></code>
-	 * </p>
-	 */
-	REQUIRES_NEW = Propagation(1)
-
-	/*
-	 * The NOT_SUPPORTED.
-	 *
-	 * <p>
-	 * If transaction is existing, suspend it, and then execute business without transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     try {
-	 *         if (tx != null) {
-	 *             suspendedResource = suspendTransaction(tx); // suspend current transaction
-	 *         }
-	 *         return business.execute(); // execute without transaction
-	 *     } finally {
-	 *         if (suspendedResource != null) {
-	 *             resumeTransaction(suspendedResource); // resume transaction
-	 *         }
-	 *     }
-	 * </pre></code>
-	 * </p>
-	 */
-	NOT_SUPPORTED = Propagation(2)
-
-	/*
-	 * The SUPPORTS.
-	 *
-	 * <p>
-	 * If transaction is not existing, execute without global transaction,
-	 * else execute business with current transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     if (tx != null) {
-	 *         return business.execute(); // execute with current transaction
-	 *     } else {
-	 *         return business.execute(); // execute without transaction
-	 *     }
-	 * </pre></code>
-	 * </p>
-	 */
-	SUPPORTS = Propagation(3)
-
-	/*
-	 * The NEVER.
-	 *
-	 * <p>
-	 * If transaction is existing, throw exception,
-	 * else execute business without transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     if (tx != null) {
-	 *         throw new TransactionException("existing transaction");
-	 *     }
-	 *     return business.execute(); // execute without transaction
-	 * </pre></code>
-	 * </p>
-	 */
-	NEVER = Propagation(4)
-
-	/*
-	 * The MANDATORY.
-	 *
-	 * <p>
-	 * If transaction is not existing, throw exception,
-	 * else execute business with current transaction.
-	 * </p>
-	 *
-	 * <p>
-	 * The logic is similar to the following code:
-	 * <code><pre>
-	 *     if (tx == null) {
-	 *         throw new TransactionException("not existing transaction");
-	 *     }
-	 *     return business.execute(); // execute with current transaction
-	 * </pre></code>
-	 * </p>
-	 */
-	MANDATORY = Propagation(5)
+	UnKnow      = GlobalTransactionRole(0)
+	Launcher    = GlobalTransactionRole(1)
+	Participant = GlobalTransactionRole(2)
 )
+
+func (role GlobalTransactionRole) String() string {
+	switch role {
+	case UnKnow:
+		return "UnKnow"
+	case Launcher:
+		return "Launcher"
+	case Participant:
+		return "Participant"
+	}
+	return "UnKnow"
+}
+
+// Propagation Used to identify the spread of the global transaction enumerated types
+type Propagation int8
+
+const (
+	// Required
+	// The default propagation.
+	// If transaction is existing, execute with current transaction,
+	// else execute with beginNewGtx transaction.
+	Required = Propagation(0)
+
+	// RequiresNew
+	// If transaction is existing, suspend it, and then execute business with beginNewGtx transaction.
+	RequiresNew = Propagation(1)
+
+	// NotSupported
+	// If transaction is existing, suspend it, and then execute business without transaction.
+	NotSupported = Propagation(2)
+
+	// Supports
+	// If transaction is not existing, execute without global transaction,
+	// else execute business with current transaction.
+	Supports = Propagation(3)
+
+	// Never
+	// If transaction is existing, throw exception,
+	// else execute business without transaction.
+	Never = Propagation(4)
+
+	// Mandatory
+	// If transaction is not existing, throw exception,
+	// else execute business with current transaction.
+	Mandatory = Propagation(5)
+)
+
+func (p Propagation) String() string {
+	switch p {
+	case Required:
+		return "Required"
+	case RequiresNew:
+		return "RequiresNew"
+	case NotSupported:
+		return "NotSupported"
+	case Supports:
+		return "Supports"
+	case Never:
+		return "Never"
+	case Mandatory:
+		return "Mandatory"
+	}
+	return "UnKnow"
+}
