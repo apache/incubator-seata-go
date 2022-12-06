@@ -18,6 +18,8 @@
 package client
 
 import (
+	"flag"
+	"os"
 	"testing"
 	"time"
 
@@ -32,6 +34,8 @@ func TestLoadPath(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+	// reset flag.CommandLine
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
@@ -44,4 +48,6 @@ func TestLoadJson(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test2", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*80, cfg.TCCConfig.FenceConfig.CleanPeriod)
+	// reset flag.CommandLine
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
