@@ -63,16 +63,15 @@ type loaderConf struct {
 	name   string // config file name
 }
 
-// Load parse config from system variable
-func Load() *Config {
-	if configFilePathFromEnv := os.Getenv(configFileEnvKey); configFilePathFromEnv != "" {
-		return LoadPath(configFilePathFromEnv)
-	}
-	panic("system variable SEATA_GO_CONFIG_PATH is empty")
-}
-
 // Load parse config from user config path
 func LoadPath(configFilePath string) *Config {
+	if configFilePath == "" {
+		configFilePath = os.Getenv(configFileEnvKey)
+		if configFilePath == "" {
+			panic("system variable SEATA_GO_CONFIG_PATH is empty")
+		}
+	}
+
 	var cfg Config
 	// This sets default values from flags to the config.
 	// It needs to be called before parsing the config file!
