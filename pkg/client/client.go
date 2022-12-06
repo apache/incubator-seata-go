@@ -26,7 +26,7 @@ import (
 	_ "github.com/seata/seata-go/pkg/rm/tcc"
 )
 
-// Init init client client
+// Init seata client client
 func Init() {
 	InitPath("")
 }

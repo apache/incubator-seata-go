@@ -38,7 +38,7 @@ import (
 
 const (
 	configFileEnvKey = "SEATA_GO_CONFIG_PATH"
-	configPrefix     = "client"
+	configPrefix     = "seata"
 )
 
 type Config struct {
