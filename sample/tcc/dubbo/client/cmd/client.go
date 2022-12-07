@@ -39,7 +39,7 @@ func main() {
 }
 
 func run() {
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name: "TccSampleLocalGlobalTx",
 	}, business)
 	<-make(chan struct{})

@@ -36,7 +36,7 @@ func TestSetTxStatus(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	assert.Equal(t, message.GlobalStatusBegin,
-		*(ctx.Value(seataContextVariable).(*ContextVariable).TxStatus))
+		ctx.Value(seataContextVariable).(*ContextVariable).TxStatus)
 }
 
 func TestGetTxStatus(t *testing.T) {
@@ -82,16 +82,16 @@ func TestGetBusinessActionContext(t *testing.T) {
 
 func TestSetTransactionRole(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
-	SetTransactionRole(ctx, LAUNCHER)
-	assert.Equal(t, LAUNCHER,
-		*(ctx.Value(seataContextVariable).(*ContextVariable).TxRole))
+	SetTxRole(ctx, Launcher)
+	assert.Equal(t, Launcher,
+		ctx.Value(seataContextVariable).(*ContextVariable).TxRole)
 }
 
 func TestGetTransactionRole(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
-	SetTransactionRole(ctx, LAUNCHER)
-	assert.Equal(t, LAUNCHER,
-		*GetTransactionRole(ctx))
+	SetTxRole(ctx, Launcher)
+	assert.Equal(t, Launcher,
+		*GetTxRole(ctx))
 }
 
 func TestSetXID(t *testing.T) {
@@ -110,7 +110,7 @@ func TestGetXID(t *testing.T) {
 		GetXID(ctx))
 }
 
-func TestIsTransactionOpened(t *testing.T) {
+func TestIsGlobalTx(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
 	assert.False(t, IsGlobalTx(ctx))
 	xid := "12345"

@@ -156,11 +156,11 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 	}
 	request := rm.BranchRegisterParam{
 		Xid:        ctx.XID,
-		BranchType: ctx.TransType.GetBranchType(),
+		BranchType: ctx.TxType.GetBranchType(),
 		ResourceId: ctx.ResourceID,
 		LockKeys:   lockKey,
 	}
-	dataSourceManager := datasource.GetDataSourceManager(ctx.TransType.GetBranchType())
+	dataSourceManager := datasource.GetDataSourceManager(ctx.TxType.GetBranchType())
 	branchId, err := dataSourceManager.BranchRegister(context.Background(), request)
 	if err != nil {
 		log.Infof("Failed to report branch status: %s", err.Error())
@@ -181,7 +181,7 @@ func (tx *Tx) report(success bool) error {
 		BranchId: int64(tx.tranCtx.BranchID),
 		Status:   status,
 	}
-	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransType.GetBranchType())
+	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TxType.GetBranchType())
 	if dataSourceManager == nil {
 		return errors.New("get dataSourceManager failed")
 	}

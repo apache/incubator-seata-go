@@ -38,21 +38,11 @@ type OrderTbl struct {
 func main() {
 	client.Init()
 	initService()
-	tm.WithGlobalTx(context.Background(), &tm.TransactionInfo{
+	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
-		TimeOut: time.Second * 30,
+		Timeout: time.Second * 30,
 	}, updateData)
 	<-make(chan struct{})
-}
-
-func selectData() {
-	var orderTbl OrderTbl
-	row := db.QueryRow("select id,user_id,commodity_code,count,money,descs from  order_tbl where id = ? ", 1)
-	err := row.Scan(&orderTbl.id, &orderTbl.userID, &orderTbl.commodityCode, &orderTbl.count, &orderTbl.money, &orderTbl.descs)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(orderTbl)
 }
 
 func updateData(ctx context.Context) error {
@@ -68,5 +58,5 @@ func updateData(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("update success： %d.\n", rows)
-	return fmt.Errorf("test error")
+	return nil
 }

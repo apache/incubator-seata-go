@@ -28,39 +28,58 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-const DefaultTimeOut = time.Second * 30
-
-type TransactionInfo struct {
-	TimeOut           time.Duration
+type GtxConfig struct {
+	Timeout           time.Duration
 	Name              string
 	Propagation       Propagation
-	LockRetryInternal int64
-	LockRetryTimes    int64
+	LockRetryInternal time.Duration
+	LockRetryTimes    int16
 }
+
+const (
+	defaultTimeout = time.Second * 30
+)
 
 // CallbackWithCtx business callback definition
 type CallbackWithCtx func(ctx context.Context) error
 
 // WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
-func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWithCtx) (re error) {
-	if ti == nil {
+func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) (re error) {
+	if gc == nil {
 		return errors.New("global transaction config info is required.")
 	}
-	if ti.Name == "" {
+
+	if gc.Name == "" {
 		return errors.New("global transaction name is required.")
 	}
 
-	if ctx, re = begin(ctx, ti); re != nil {
+	// open global transaction for the first time
+	if !IsSeataContext(ctx) {
+		ctx = InitSeataContext(ctx)
+	}
+
+	// use new context to process current global transaction.
+	if IsGlobalTx(ctx) {
+		ctx = transferTx(ctx)
+	}
+
+	if re = begin(ctx, gc); re != nil {
 		return
 	}
+
 	defer func() {
-		// business maybe to throw panic, so need to recover it here.
-		err := recover()
-		if err != nil {
-			log.Errorf("business callback panic:%v", err)
+		var err error
+		// no need to do second phase if propagation is some type e.g. NotSupported.
+		if IsGlobalTx(ctx) {
+			// business maybe to throw panic, so need to recover it here.
+			if err = commitOrRollback(ctx, recover() == nil && re == nil); err != nil {
+				log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
+			}
 		}
-		re = commitOrRollback(ctx, err == nil && re == nil)
-		log.Infof("global transaction result %v", re)
+
+		if re != nil || err != nil {
+			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+		}
 	}()
 
 	re = business(ctx)
@@ -68,76 +87,131 @@ func WithGlobalTx(ctx context.Context, ti *TransactionInfo, business CallbackWit
 	return
 }
 
-// begin a global transaction, it will obtain a xid from tc in tcp call.
-func begin(ctx context.Context, ti *TransactionInfo) (rc context.Context, re error) {
-	if ti == nil {
-		return nil, errors.New("transaction info is nil")
-	}
-	if ti.TimeOut == 0 {
-		ti.TimeOut = DefaultTimeOut
-	}
-	if !IsSeataContext(ctx) {
-		ctx = InitSeataContext(ctx)
-	}
+// begin a global transaction, it will obtain a xid and put into ctx from tc by tcp rpc.
+// it will to call two function beginNewGtx and useExistGtx
+// they do these operations on the transaction：
+// beginNewGtx:
+// start a new transaction, the previous transaction may be suspended or not exist
+// useExistGtx:
+// use the previous transaction, but the transaction obtained by propagation,
+// but will modify the current transaction role to participant.
+// in local transaction mode, the transaction role may be overwritten due to sharing a ctx,
+// so it is also necessary to provide suspend and resume operations like xid,
+// but here I do not use this method, instead, simulate the call in rpc mode,
+// construct a new context object and set the xid.
+// the advantage of this is that the suspend and resume operations of xid need not to be considered.
+func begin(ctx context.Context, gc *GtxConfig) error {
 
-	SetTxName(ctx, ti.Name)
-	if GetTransactionRole(ctx) == nil {
-		SetTransactionRole(ctx, LAUNCHER)
-	}
-
-	var tx *GlobalTransaction
-	if IsGlobalTx(ctx) {
-		tx = &GlobalTransaction{
-			Xid:    GetXID(ctx),
-			Status: message.GlobalStatusBegin,
-			Role:   PARTICIPANT,
+	switch pg := gc.Propagation; pg {
+	case NotSupported:
+		// If transaction is existing, suspend it
+		// return then to execute without transaction
+		if IsGlobalTx(ctx) {
+			// because each global transaction operation will use a new context,
+			// there is no need to implement a suspend operation, just unbind the xid here.
+			// the same is true for the following case that needs to be suspended.
+			UnbindXid(ctx)
 		}
-		SetTxStatus(ctx, message.GlobalStatusBegin)
-	}
-
-	// todo: Handle the transaction propagation.
-
-	if tx == nil {
-		tx = &GlobalTransaction{
-			Status: message.GlobalStatusUnKnown,
-			Role:   LAUNCHER,
+		return nil
+	case Supports:
+		// if transaction is not existing, return then to execute without transaction
+		// else beginNewGtx transaction then return
+		if IsGlobalTx(ctx) {
+			useExistGtx(ctx, gc)
 		}
-		SetTxStatus(ctx, message.GlobalStatusUnKnown)
+		return nil
+	case RequiresNew:
+		// if transaction is existing, suspend it, and then Begin beginNewGtx transaction.
+		if IsGlobalTx(ctx) {
+			UnbindXid(ctx)
+		}
+	case Required:
+		// default case, If current transaction is existing, execute with current transaction,
+		// else continue and execute with beginNewGtx transaction.
+		if IsGlobalTx(ctx) {
+			useExistGtx(ctx, gc)
+			return nil
+		}
+	case Never:
+		// if transaction is existing, throw exception.
+		if IsGlobalTx(ctx) {
+			return fmt.Errorf("existing transaction found for transaction marked with pg 'never', xid = %s", GetXID(ctx))
+		}
+		// return then to execute without transaction.
+		return nil
+	case Mandatory:
+		// if transaction is not existing, throw exception.
+		// else execute with current transaction.
+		if IsGlobalTx(ctx) {
+			useExistGtx(ctx, gc)
+			return nil
+		}
+		return errors.New("no existing transaction found for transaction marked with pg 'mandatory'")
+	default:
+		return fmt.Errorf("not supported propagation:%d", pg)
 	}
 
-	err := GetGlobalTransactionManager().Begin(ctx, tx, ti.TimeOut, ti.Name)
-	if err != nil {
-		re = fmt.Errorf("transactionTemplate: begin transaction failed, error %v", err)
-	}
-
-	return ctx, re
+	// the follow will to construct a new transaction with xid.
+	return beginNewGtx(ctx, gc)
 }
 
 // commitOrRollback commit or rollback the global transaction
 func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
-	role := *GetTransactionRole(ctx)
-	if role == PARTICIPANT {
-		// Participant has no responsibility of rollback
-		log.Debugf("Ignore Rollback(): just involved in global transaction [%s]", GetXID(ctx))
-		return
-	}
-
-	tx := &GlobalTransaction{
-		Xid:    GetXID(ctx),
-		Status: *GetTxStatus(ctx),
-		Role:   role,
-	}
-
-	if isSuccess {
-		if re = GetGlobalTransactionManager().Commit(ctx, tx); re != nil {
-			log.Errorf("transactionTemplate: commit transaction failed, error %v", re)
+	switch *GetTxRole(ctx) {
+	case Launcher:
+		if tx := GetTx(ctx); isSuccess {
+			if re = GetGlobalTransactionManager().Commit(ctx, tx); re != nil {
+				log.Errorf("transactionTemplate: commit transaction failed, error %v", re)
+			}
+		} else {
+			if re = GetGlobalTransactionManager().Rollback(ctx, tx); re != nil {
+				log.Errorf("transactionTemplate: Rollback transaction failed, error %v", re)
+			}
 		}
-	} else {
-		if re = GetGlobalTransactionManager().Rollback(ctx, tx); re != nil {
-			log.Errorf("transactionTemplate: Rollback transaction failed, error %v", re)
-		}
+	case Participant:
+		// participant has no responsibility of rollback
+		log.Infof("ignore second phase(commit or rollback): just involved in global transaction [%s/%s]", GetTxName(ctx), GetXID(ctx))
+	case UnKnow:
+		re = errors.New("global transaction role is UnKnow.")
 	}
 
-	// todo unbind xid
 	return
+}
+
+// beginNewGtx to construct a default global transaction
+func beginNewGtx(ctx context.Context, gc *GtxConfig) error {
+	timeout := defaultTimeout
+	if gc.Timeout != 0 {
+		timeout = gc.Timeout
+	}
+
+	SetTxRole(ctx, Launcher)
+	SetTxName(ctx, gc.Name)
+	SetTxStatus(ctx, message.GlobalStatusBegin)
+
+	// todo timeout should read from config if transaction info is nil.
+	if err := GetGlobalTransactionManager().Begin(ctx, timeout); err != nil {
+		return fmt.Errorf("transactionTemplate: Begin transaction failed, error %v", err)
+	}
+	return nil
+}
+
+// useExistGtx if xid is not empty, then construct a global transaction
+func useExistGtx(ctx context.Context, gc *GtxConfig) {
+	if xid := GetXID(ctx); xid != "" {
+		SetTx(ctx, &GlobalTransaction{
+			Xid:      GetXID(ctx),
+			TxStatus: message.GlobalStatusBegin,
+			TxRole:   Participant,
+			TxName:   gc.Name,
+		})
+	}
+}
+
+// transferTx transfer the gtx into a new ctx from old ctx.
+// use it to implement suspend and resume instead of seata java
+func transferTx(ctx context.Context) context.Context {
+	newCtx := InitSeataContext(context.Background())
+	SetXID(newCtx, GetXID(ctx))
+	return newCtx
 }

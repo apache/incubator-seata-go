@@ -111,7 +111,7 @@ func (d *seataDriver) Open(name string) (driver.Conn, error) {
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
-	c = &dsnConnector{dsn: name, driver: d}
+	c = &dsnConnector{dsn: name, driver: d.target}
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {
