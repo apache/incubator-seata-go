@@ -71,16 +71,14 @@ type (
 	CallbackWithValue func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error)
 
 	SQLExecutor interface {
-		// Interceptors
 		Interceptors(interceptors []SQLHook)
-		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
-		// Exec
 		ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error)
 	}
 )
 
-// BuildExecutor
+// BuildExecutor use db type and transaction type to build an executor. the executor can
+// add custom hook, and intercept the user's business sql to generate the undo log.
 func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
 	parseCtx, err := parser.DoParser(query)
 	if err != nil {
