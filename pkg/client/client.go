@@ -20,8 +20,10 @@ package client
 import (
 	"sync"
 
+	"github.com/seata/seata-go/pkg/integration"
 	_ "github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/remoting/processor/client"
 	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
 	_ "github.com/seata/seata-go/pkg/rm/tcc"
 )
@@ -29,6 +31,10 @@ import (
 // Init seata client client
 func Init() {
 	InitPath("")
+	integration.Init()
+	client.InitProcessorClient()
+	initRmClient()
+	initTmClient()
 }
 
 // Init init client client with config path
