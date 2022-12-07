@@ -40,16 +40,16 @@ func CleanCommonHook() {
 
 // RegisterHook not goroutine safe
 func RegisterHook(hook SQLHook) {
-	hookType := hook.Type()
-	if hookType == types.SQLTypeUnknown {
+	sqlType := hook.Type()
+	if sqlType == types.SQLTypeUnknown {
 		return
 	}
 
-	_, ok := hookSolts[hookType]
+	_, ok := hookSolts[sqlType]
 	if !ok {
-		hookSolts[hookType] = make([]SQLHook, 0, 4)
+		hookSolts[sqlType] = make([]SQLHook, 0, 4)
 	}
-	hookSolts[hookType] = append(hookSolts[hookType], hook)
+	hookSolts[sqlType] = append(hookSolts[sqlType], hook)
 }
 
 // SQLHook SQL execution front and back interceptor

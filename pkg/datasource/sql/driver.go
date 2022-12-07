@@ -47,6 +47,7 @@ func init() {
 			target:    mysql.MySQLDriver{},
 		},
 	})
+
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
 			transType: types.XAMode,
@@ -96,7 +97,7 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 }
 
 type seataDriver struct {
-	transType types.TransactionType
+	transType types.TransactionMode
 	target    driver.Driver
 }
 
