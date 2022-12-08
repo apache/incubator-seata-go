@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
@@ -30,8 +31,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/mitchellh/copystructure"
 )
 
 func init() {
@@ -39,13 +38,12 @@ func init() {
 	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
-// executorSolts
 var (
 	executorSoltsAT = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
 	executorSoltsXA = make(map[types.DBType]func() SQLExecutor)
 )
 
-// RegisterATExecutor
+// RegisterATExecutor AT executor
 func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
 	if _, ok := executorSoltsAT[dt]; !ok {
 		executorSoltsAT[dt] = make(map[types.ExecutorType]func() SQLExecutor)
@@ -58,7 +56,7 @@ func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() S
 	}
 }
 
-// RegisterXAExecutor
+// RegisterXAExecutor XA executor
 func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
 	executorSoltsXA[dt] = func() SQLExecutor {
 		return &BaseExecutor{ex: builder()}
@@ -71,41 +69,37 @@ type (
 	CallbackWithValue func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error)
 
 	SQLExecutor interface {
-		// Interceptors
 		Interceptors(interceptors []SQLHook)
-		// Exec
 		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
-		// Exec
 		ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error)
 	}
 )
 
-// BuildExecutor
-func BuildExecutor(dbType types.DBType, txType types.TransactionType, query string) (SQLExecutor, error) {
-	parseCtx, err := parser.DoParser(query)
+// BuildExecutor use db type and transaction type to build an executor. the executor can
+// add custom hook, and intercept the user's business sql to generate the undo log.
+func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, query string) (SQLExecutor, error) {
+	parseContext, err := parser.DoParser(query)
 	if err != nil {
 		return nil, err
 	}
 
 	hooks := make([]SQLHook, 0, 4)
 	hooks = append(hooks, commonHook...)
-	hooks = append(hooks, hookSolts[parseCtx.SQLType]...)
-	hooks = append(hooks, commonHook...)
+	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	if txType == types.XAMode {
+	if transactionMode == types.XAMode {
 		e := executorSoltsXA[dbType]()
 		e.Interceptors(hooks)
 		return e, nil
 	}
 
-	if txType == types.ATMode {
-		e := executorSoltsAT[dbType][parseCtx.ExecutorType]()
+	if transactionMode == types.ATMode {
+		e := executorSoltsAT[dbType][parseContext.ExecutorType]()
 		e.Interceptors(hooks)
 		return e, nil
 	}
 
 	factories, ok := executorSoltsAT[dbType]
-
 	if !ok {
 		log.Debugf("%s not found executor factories, return default Executor", dbType.String())
 		e := &BaseExecutor{}
@@ -113,10 +107,10 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 		return e, nil
 	}
 
-	supplier, ok := factories[parseCtx.ExecutorType]
+	supplier, ok := factories[parseContext.ExecutorType]
 	if !ok {
 		log.Debugf("%s not found executor for %s, return default Executor",
-			dbType.String(), parseCtx.ExecutorType)
+			dbType.String(), parseContext.ExecutorType)
 		e := &BaseExecutor{}
 		e.Interceptors(hooks)
 		return e, nil
@@ -128,19 +122,17 @@ func BuildExecutor(dbType types.DBType, txType types.TransactionType, query stri
 }
 
 type BaseExecutor struct {
-	is []SQLHook
-	ex SQLExecutor
+	hooks []SQLHook
+	ex    SQLExecutor
 }
 
-// Interceptors
-func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
-	e.is = interceptors
+func (e *BaseExecutor) Interceptors(hooks []SQLHook) {
+	e.hooks = hooks
 }
 
-// ExecWithNamedValue
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
-	for i := range e.is {
-		_ = e.is[i].Before(ctx, execCtx)
+	for _, hook := range e.hooks {
+		hook.Before(ctx, execCtx)
 	}
 
 	var (
@@ -167,8 +159,8 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 	}
 
 	defer func() {
-		for i := range e.is {
-			_ = e.is[i].After(ctx, execCtx)
+		for _, hook := range e.hooks {
+			hook.After(ctx, execCtx)
 		}
 	}()
 
@@ -210,10 +202,9 @@ func (e *BaseExecutor) prepareUndoLog(ctx context.Context, execCtx *types.ExecCo
 	return undoLogManager.FlushUndoLog(execCtx.TxCtx, execCtx.Conn)
 }
 
-// ExecWithValue
 func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
-	for i := range e.is {
-		e.is[i].Before(ctx, execCtx)
+	for _, hook := range e.hooks {
+		hook.Before(ctx, execCtx)
 	}
 
 	var (
@@ -232,8 +223,8 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 	}
 
 	defer func() {
-		for i := range e.is {
-			_ = e.is[i].After(ctx, execCtx)
+		for _, hook := range e.hooks {
+			hook.After(ctx, execCtx)
 		}
 	}()
 
@@ -257,7 +248,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 	return result, err
 }
 
-func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
+func (e *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	if !tm.IsGlobalTx(ctx) {
 		return nil, nil
 	}
@@ -279,7 +270,7 @@ func (h *BaseExecutor) beforeImage(ctx context.Context, execCtx *types.ExecConte
 }
 
 // After
-func (h *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (e *BaseExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if !tm.IsGlobalTx(ctx) {
 		return nil, nil
 	}

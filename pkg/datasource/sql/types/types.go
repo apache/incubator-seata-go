@@ -27,11 +27,9 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:generate stringer -type=DBType
 type DBType int16
 
 type (
-	// DBType
 	// BranchPhase
 	BranchPhase int8
 	// IndexType index type
@@ -102,24 +100,24 @@ func ParseDBType(driverName string) DBType {
 	}
 }
 
-// TransactionType
-type TransactionType int8
+type TransactionMode int8
 
 const (
-	_ TransactionType = iota
+	_ TransactionMode = iota
 	Local
 	XAMode
 	ATMode
 )
 
-func (t TransactionType) GetBranchType() branch.BranchType {
-	if t == XAMode {
+func (t TransactionMode) BranchType() branch.BranchType {
+	switch t {
+	case XAMode:
 		return branch.BranchTypeXA
-	}
-	if t == ATMode {
+	case ATMode:
 		return branch.BranchTypeAT
+	default:
+		return branch.BranchTypeUnknow
 	}
-	return branch.BranchTypeUnknow
 }
 
 // TransactionContext seata-go‘s context of transaction
@@ -132,8 +130,8 @@ type TransactionContext struct {
 	DBType DBType
 	// TxOpt transaction option
 	TxOpt driver.TxOptions
-	// TxType transaction mode, eg. XA/AT
-	TxType TransactionType
+	// TransactionMode transaction mode, eg. XA/AT
+	TransactionMode TransactionMode
 	// ResourceID resource id, database-table
 	ResourceID string
 	// BranchID transaction branch unique id
@@ -167,16 +165,16 @@ type ExecContext struct {
 
 func NewTxCtx() *TransactionContext {
 	return &TransactionContext{
-		LockKeys:     make(map[string]struct{}, 0),
-		TxType:       Local,
-		LocalTransID: uuid.New().String(),
-		RoundImages:  &RoundRecordImage{},
+		LockKeys:        make(map[string]struct{}, 0),
+		TransactionMode: Local,
+		LocalTransID:    uuid.New().String(),
+		RoundImages:     &RoundRecordImage{},
 	}
 }
 
 // HasUndoLog
 func (t *TransactionContext) HasUndoLog() bool {
-	return t.TxType == ATMode && !t.RoundImages.IsEmpty()
+	return t.TransactionMode == ATMode && !t.RoundImages.IsEmpty()
 }
 
 // HasLockKey
@@ -184,8 +182,8 @@ func (t *TransactionContext) HasLockKey() bool {
 	return len(t.LockKeys) != 0
 }
 
-func (t *TransactionContext) OpenGlobalTrsnaction() bool {
-	return t.TxType != Local
+func (t *TransactionContext) OpenGlobalTransaction() bool {
+	return t.TransactionMode != Local
 }
 
 func (t *TransactionContext) IsBranchRegistered() bool {
