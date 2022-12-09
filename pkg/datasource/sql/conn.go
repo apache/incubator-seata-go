@@ -29,7 +29,6 @@ import (
 // by multiple goroutines.
 //
 // Conn is assumed to be stateful.
-
 type Conn struct {
 	res        *DBResource
 	txCtx      *types.TransactionContext
@@ -135,7 +134,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TxType, query)
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
 	if err != nil {
 		return nil, err
 	}
