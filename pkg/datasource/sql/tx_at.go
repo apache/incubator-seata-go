@@ -43,7 +43,7 @@ func (tx *ATTx) Rollback() error {
 
 		originTx := tx.tx
 
-		if originTx.tranCtx.OpenGlobalTrsnaction() && originTx.tranCtx.IsBranchRegistered() {
+		if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
 			originTx.report(false)
 		}
 	}

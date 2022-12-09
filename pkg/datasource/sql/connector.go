@@ -29,7 +29,7 @@ import (
 
 type seataATConnector struct {
 	*seataConnector
-	transType types.TransactionType
+	transType types.TransactionMode
 }
 
 func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -53,7 +53,7 @@ func (c *seataATConnector) Driver() driver.Driver {
 
 type seataXAConnector struct {
 	*seataConnector
-	transType types.TransactionType
+	transType types.TransactionMode
 }
 
 func (c *seataXAConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -88,7 +88,7 @@ func (c *seataXAConnector) Driver() driver.Driver {
 // If a Connector implements io.Closer, the sql package's DB.Close
 // method will call Close and return error (if any).
 type seataConnector struct {
-	transType types.TransactionType
+	transType types.TransactionMode
 	conf      *seataServerConfig
 	res       *DBResource
 	once      sync.Once

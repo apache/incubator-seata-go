@@ -53,7 +53,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 	}
 
 	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TxType, query)
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 	}
 
 	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TxType, query)
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 	if tm.IsGlobalTx(ctx) {
 		c.txCtx.XID = tm.GetXID(ctx)
-		c.txCtx.TxType = types.ATMode
+		c.txCtx.TransactionMode = types.ATMode
 	}
 
 	tx, err := c.Conn.BeginTx(ctx, opts)
@@ -149,7 +149,7 @@ func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 		c.txCtx.DBType = c.res.dbType
 		c.txCtx.ResourceID = c.res.resourceID
 		c.txCtx.XID = tm.GetXID(ctx)
-		c.txCtx.TxType = types.ATMode
+		c.txCtx.TransactionMode = types.ATMode
 		c.txCtx.GlobalLockRequire = true
 	}
 
@@ -162,7 +162,7 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		err error
 	)
 
-	if c.txCtx.TxType != types.Local && c.autoCommit {
+	if c.txCtx.TransactionMode != types.Local && c.autoCommit {
 		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
 		if err != nil {
 			return nil, err
