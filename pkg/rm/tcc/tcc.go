@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package client
+package tcc
 
 import (
-	"sync"
+	"flag"
 
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/rm/tcc/fence"
 )
 
-var onceInitTmClient sync.Once
-
-// InitTmClient init seata tm client
-func initTmClient() {
-	onceInitTmClient.Do(func() {
-		initConfig()
-		initRemoting()
-	})
+type Config struct {
+	FenceConfig fence.Config `yaml:"fence" json:"fence" koanf:"fence"`
 }
 
-// todo
-// initConfig init config processor
-func initConfig() {
-}
-
-// initRemoting init rpc client
-func initRemoting() {
-	getty.InitRpcClient()
+// RegisterFlagsWithPrefix for Config.
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	cfg.FenceConfig.RegisterFlagsWithPrefix(prefix+".fence", f)
 }

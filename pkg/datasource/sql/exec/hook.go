@@ -29,7 +29,7 @@ var (
 	hookSolts = map[types.SQLType][]SQLHook{}
 )
 
-// RegisCommonHook not goroutine safe
+// RegisterCommonHook not goroutine safe
 func RegisterCommonHook(hook SQLHook) {
 	commonHook = append(commonHook, hook)
 }
@@ -40,13 +40,16 @@ func CleanCommonHook() {
 
 // RegisterHook not goroutine safe
 func RegisterHook(hook SQLHook) {
-	_, ok := hookSolts[hook.Type()]
-
-	if !ok {
-		hookSolts[hook.Type()] = make([]SQLHook, 0, 4)
+	sqlType := hook.Type()
+	if sqlType == types.SQLTypeUnknown {
+		return
 	}
 
-	hookSolts[hook.Type()] = append(hookSolts[hook.Type()], hook)
+	_, ok := hookSolts[sqlType]
+	if !ok {
+		hookSolts[sqlType] = make([]SQLHook, 0, 4)
+	}
+	hookSolts[sqlType] = append(hookSolts[sqlType], hook)
 }
 
 // SQLHook SQL execution front and back interceptor
@@ -55,10 +58,6 @@ func RegisterHook(hook SQLHook) {
 // case 3. SQL black and white list
 type SQLHook interface {
 	Type() types.SQLType
-
-	// Before
 	Before(ctx context.Context, execCtx *types.ExecContext) error
-
-	// After
 	After(ctx context.Context, execCtx *types.ExecContext) error
 }

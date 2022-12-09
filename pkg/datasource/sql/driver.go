@@ -47,6 +47,7 @@ func init() {
 			target:    mysql.MySQLDriver{},
 		},
 	})
+
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
 			transType: types.XAMode,
@@ -96,7 +97,7 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 }
 
 type seataDriver struct {
-	transType types.TransactionType
+	transType types.TransactionMode
 	target    driver.Driver
 }
 
@@ -111,7 +112,7 @@ func (d *seataDriver) Open(name string) (driver.Conn, error) {
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
-	c = &dsnConnector{dsn: name, driver: d}
+	c = &dsnConnector{dsn: name, driver: d.target}
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {

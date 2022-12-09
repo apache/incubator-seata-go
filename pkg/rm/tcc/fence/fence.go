@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package tm
+package fence
 
 import (
-	"sync"
-
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"flag"
+	"time"
 )
 
-var onceInitTmClient sync.Once
-
-// InitTmClient init seata tm client
-func InitTmClient() {
-	onceInitTmClient.Do(func() {
-		initConfig()
-		initRemoting()
-	})
+type Config struct {
+	LogTableName string        `yaml:"log-table-name" json:"log-table-name" koanf:"log-table-name"`
+	CleanPeriod  time.Duration `yaml:"clean-period" json:"clean-period" koanf:"clean-period"`
 }
 
-// initConfig init config processor
-func initConfig() {
-	// todo implement
-}
-
-// initRemoting init rpc client
-func initRemoting() {
-	getty.InitRpcClient()
+// RegisterFlagsWithPrefix for Config.
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.LogTableName, prefix+".log-table-name", "tcc_fence_log", "Undo log table name.")
+	f.DurationVar(&cfg.CleanPeriod, prefix+".clean-period", 24*time.Hour, "Undo log retention time.")
 }
