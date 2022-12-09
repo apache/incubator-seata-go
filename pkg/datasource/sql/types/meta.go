@@ -28,8 +28,6 @@ type ColumnMeta struct {
 	Table  string
 	// ColumnDef  the column def
 	ColumnDef []byte
-	// ColumnTypeInfo
-	ColumnTypeInfo ColumnType
 	// Autoincrement
 	Autoincrement bool
 	// todo get columnType
