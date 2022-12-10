@@ -38,9 +38,7 @@ func TestConn_BuildXAExecutor(t *testing.T) {
 	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
 
 	assert.NoError(t, err)
-	_, ok := executor.(*exec.BaseExecutor)
-	assert.True(t, ok, "need base executor")
 
-	_, ok = executor.(*xa.XAExecutor)
+	_, ok := executor.(*xa.XAExecutor)
 	assert.True(t, ok, "need xa executor")
 }
