@@ -20,7 +20,7 @@ package base
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -154,7 +154,7 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 			return *meta, nil
 		}
 
-		return types.TableMeta{}, errors.New("not found table metadata")
+		return types.TableMeta{}, fmt.Errorf("not found table metadata")
 	}
 
 	v.lastAccess = time.Now()

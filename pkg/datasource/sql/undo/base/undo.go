@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -428,7 +429,7 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 func Int64Slice2Str(values interface{}, sep string) (string, error) {
 	v, ok := values.([]int64)
 	if !ok {
-		return "", errors.New("param type is fault")
+		return "", fmt.Errorf("param type is fault")
 	}
 
 	var valuesText []string

@@ -18,6 +18,7 @@
 package rm
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -126,7 +127,7 @@ func isRegisterSuccess(response interface{}) bool {
 func isReportSuccess(response interface{}) error {
 	if res, ok := response.(message.BranchReportResponse); ok {
 		if res.ResultCode == message.ResultCodeFailed {
-			return errors.New(res.Msg)
+			return fmt.Errorf(res.Msg)
 		}
 	} else {
 		return ErrBranchReportResponseFault

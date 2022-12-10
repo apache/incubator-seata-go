@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"github.com/mitchellh/copystructure"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/tm"
@@ -63,7 +62,7 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 		}
 		newBeforeImages, ok := beforeImagesTmp.([]*types.RecordImage)
 		if !ok {
-			return nil, errors.New("copy beforeImages failed")
+			return nil, fmt.Errorf("copy beforeImages failed")
 		}
 		execCtx.TxCtx.RoundImages.AppendBeofreImages(newBeforeImages)
 	}

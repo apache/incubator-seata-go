@@ -146,7 +146,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	}
 
 	if len(columnMetas) == 0 {
-		return nil, errors.New("can't find column")
+		return nil, fmt.Errorf("can't find column")
 	}
 
 	return columnMetas, nil

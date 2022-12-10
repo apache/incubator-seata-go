@@ -18,9 +18,8 @@
 package types
 
 import (
+	"fmt"
 	"reflect"
-
-	"github.com/pkg/errors"
 )
 
 // ColumnMeta
@@ -129,7 +128,7 @@ func (m TableMeta) GetPrimaryKeyType() (int32, error) {
 			}
 		}
 	}
-	return 0, errors.New("get primary key type error")
+	return 0, fmt.Errorf("get primary key type error")
 }
 
 // GetPrimaryKeyTypeStrMap get all PK type to map
@@ -143,7 +142,7 @@ func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
 		}
 	}
 	if len(pkMap) == 0 {
-		return nil, errors.New("get primary key type error")
+		return nil, fmt.Errorf("get primary key type error")
 	}
 	return pkMap, nil
 }
