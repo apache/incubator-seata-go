@@ -55,8 +55,6 @@ var (
 	fenceOnce    sync.Once
 )
 
-const ()
-
 func GetFenceHandler() *tccFenceWrapperHandler {
 	if fenceHandler == nil {
 		fenceOnce.Do(func() {

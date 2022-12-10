@@ -23,11 +23,10 @@ import (
 	"fmt"
 	"strings"
 
-	"errors"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	serr "github.com/seata/seata-go/pkg/util/errors"
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -206,11 +205,11 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 	fakeSql := "select * from t where " + whereCondition.String()
 	fakeStmt, err := parser.New().ParseOneStmt(fakeSql, "", "")
 	if err != nil {
-		return "", nil, serr.New(serr.ErrorCodeUnknown, "multi update parse fake sql error", err)
+		return "", nil, errors.Wrap(err, "multi update parse fake sql error")
 	}
 	fakeNode, ok := fakeStmt.Accept(&updateVisitor{})
 	if !ok {
-		return "", nil, serr.New(serr.ErrorCodeUnknown, "multi update accept update visitor error", err)
+		return "", nil, errors.Wrap(err, "multi update accept update visitor error")
 	}
 	fakeSelectStmt, ok := fakeNode.(*ast.SelectStmt)
 	if !ok {

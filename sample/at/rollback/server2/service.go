@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	"errors"
+	"github.com/pkg/errors"
 
 	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 )

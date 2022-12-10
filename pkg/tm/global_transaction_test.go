@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"

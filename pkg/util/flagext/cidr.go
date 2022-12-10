@@ -18,11 +18,10 @@
 package flagext
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
-	serr "github.com/seata/seata-go/pkg/util/errors"
+	"github.com/pkg/errors"
 )
 
 // CIDR is a network CIDR.
@@ -69,7 +68,7 @@ func (c *CIDRSliceCSV) Set(s string) error {
 	for _, part := range parts {
 		cidr := &CIDR{}
 		if err := cidr.Set(part); err != nil {
-			return serr.New(serr.ErrorCodeUnknown, fmt.Sprintf("cidr: %s", part), err)
+			return errors.Wrapf(err, "cidr: %s", part)
 		}
 
 		*c = append(*c, *cidr)

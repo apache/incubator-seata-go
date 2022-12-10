@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"

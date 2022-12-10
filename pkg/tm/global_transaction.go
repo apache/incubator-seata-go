@@ -22,8 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"errors"
-	serr "github.com/seata/seata-go/pkg/util/errors"
+	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
@@ -61,7 +60,7 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Durat
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
 		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
-		return errors.New("globalBeginRequest result is empty or result code is failed")
+		return errors.New("GlobalBeginRequest result is empty or result code is failed.")
 	}
 	log.Infof("GlobalBeginRequest success, res %v", res)
 
@@ -76,7 +75,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		return nil
 	}
 	if gtr.Xid == "" {
-		return errors.New("commit xid should not be empty")
+		return errors.New("Commit xid should not be empty")
 	}
 
 	bf := backoff.New(ctx, backoff.Config{
@@ -99,7 +98,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	}
 
 	if bf.Err() != nil {
-		lastErr := serr.New(serr.ErrorCodeUnknown, bf.Err().Error(), err)
+		lastErr := errors.Wrap(err, bf.Err().Error())
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}
@@ -141,7 +140,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	}
 
 	if bf.Err() != nil {
-		lastErr := serr.New(serr.ErrorCodeUnknown, bf.Err().Error(), err)
+		lastErr := errors.Wrap(err, bf.Err().Error())
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}

@@ -19,7 +19,8 @@ package sql
 
 import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	serr "github.com/seata/seata-go/pkg/util/errors"
+
+	"github.com/pkg/errors"
 )
 
 // ATTx
@@ -65,16 +66,16 @@ func (tx *ATTx) commitOnAT() error {
 
 	if err = undoLogMgr.FlushUndoLog(originTx.tranCtx, originTx.conn.targetConn); err != nil {
 		if rerr := originTx.report(false); rerr != nil {
-			return serr.New(serr.ErrorCodeUnknown, rerr.Error(), err)
+			return errors.WithStack(rerr)
 		}
-		return err
+		return errors.WithStack(err)
 	}
 
-	if err = originTx.commitOnLocal(); err != nil {
+	if err := originTx.commitOnLocal(); err != nil {
 		if rerr := originTx.report(false); rerr != nil {
-			return serr.New(serr.ErrorCodeUnknown, rerr.Error(), err)
+			return errors.WithStack(rerr)
 		}
-		return err
+		return errors.WithStack(err)
 	}
 
 	originTx.report(true)
