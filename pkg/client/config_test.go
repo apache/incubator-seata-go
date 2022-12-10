@@ -45,7 +45,7 @@ func TestLoadPath(t *testing.T) {
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
+	confJson := `{"client":{"tm":{"commit-retry-count":5,"default-global-transaction-timeout":"10s"}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, cfg.TCCConfig)
@@ -53,6 +53,11 @@ func TestLoadJson(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test2", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*80, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.ClientConfig)
+	assert.NotNil(t, cfg.ClientConfig.Tmconf)
+	assert.Equal(t, 5, cfg.ClientConfig.Tmconf.CommitRetryCount)
+	assert.Equal(t, time.Second*10, cfg.ClientConfig.Tmconf.DefaultGlobalTransactionTimeout)
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
