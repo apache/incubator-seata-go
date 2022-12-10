@@ -19,6 +19,7 @@ package parser
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path"
@@ -32,7 +33,7 @@ type ConfigurationParser interface {
 // LoadYMLConfig Load yml config byte from file check file type is *.yml or *.yaml`
 func LoadYMLConfig(confProFile string) ([]byte, error) {
 	if len(confProFile) == 0 {
-		return nil, fmt.Errorf("application configure(provider) file name is nil")
+		return nil, errors.New("application configure(provider) file name is nil")
 	}
 
 	if path.Ext(confProFile) != ".yml" && path.Ext(confProFile) != ".yaml" {

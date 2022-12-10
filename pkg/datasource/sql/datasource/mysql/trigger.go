@@ -20,11 +20,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
-	serr "github.com/seata/seata-go/pkg/util/errors"
 	"strings"
 )
 
@@ -50,7 +49,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 
 	columnMetas, err := m.getColumnMetas(ctx, dbName, tableName, conn)
 	if err != nil {
-		return nil, serr.New(serr.ErrorCodeUnknown, fmt.Sprintf("Could not found any columnMeta in the table: %s", tableName), err)
+		return nil, errors.Wrapf(err, "Could not found any columnMeta in the table: %s", tableName)
 	}
 
 	var columns []string
@@ -62,7 +61,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 
 	indexes, err := m.getIndexes(ctx, dbName, tableName, conn)
 	if err != nil {
-		return nil, serr.New(serr.ErrorCodeUnknown, fmt.Sprintf("Could not found any index in the table: %s", tableName), err)
+		return nil, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
 	}
 	for _, index := range indexes {
 		col := tableMeta.Columns[index.ColumnName]
