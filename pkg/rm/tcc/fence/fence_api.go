@@ -25,7 +25,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/errors"
+	serr "github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -42,8 +42,8 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err erro
 
 	switch {
 	case fp == enum.FencePhaseNotExist:
-		err = errors.NewTccFenceError(
-			errors.FencePhaseError,
+		err = serr.New(
+			serr.ErrorCodeFencePhase,
 			fmt.Sprintf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx)),
 			nil,
 		)
@@ -54,8 +54,8 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err erro
 	case fp == enum.FencePhaseRollback:
 		err = h.RollbackFence(ctx, tx, callback)
 	default:
-		err = errors.NewTccFenceError(
-			errors.FencePhaseError,
+		err = serr.New(
+			serr.ErrorCodeFencePhase,
 			fmt.Sprintf("fence phase: %v illegal", fp),
 			nil,
 		)

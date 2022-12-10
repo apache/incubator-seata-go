@@ -26,7 +26,6 @@ import (
 	getty "github.com/apache/dubbo-getty"
 
 	gxsync "github.com/dubbogo/gost/sync"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/config"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -95,7 +94,7 @@ func (c *RpcClient) newSession(session getty.Session) error {
 
 	if _, ok = session.Conn().(*tls.Conn); !ok {
 		if tcpConn, ok = session.Conn().(*net.TCPConn); !ok {
-			return errors.New(fmt.Sprintf("%s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn()))
+			return fmt.Errorf("%s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn())
 		}
 
 		if err = tcpConn.SetNoDelay(c.conf.GettyConfig.GettySessionParam.TCPNoDelay); err != nil {

@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error

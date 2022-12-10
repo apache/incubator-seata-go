@@ -53,7 +53,7 @@ func (c *CommonGlobalEndResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
+	data.TransactionErrorCode = serror.ErrorCode(bytes.ReadByte(buf))
 	data.GlobalStatus = message.GlobalStatus(bytes.ReadByte(buf))
 
 	return data

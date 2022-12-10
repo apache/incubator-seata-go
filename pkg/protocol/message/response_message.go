@@ -24,7 +24,7 @@ import (
 
 type AbstractTransactionResponse struct {
 	AbstractResultMessage
-	TransactionErrorCode errors.TransactionErrorCode
+	TransactionErrorCode errors.ErrorCode
 }
 
 type AbstractBranchEndResponse struct {

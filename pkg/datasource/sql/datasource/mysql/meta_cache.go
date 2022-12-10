@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/base"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

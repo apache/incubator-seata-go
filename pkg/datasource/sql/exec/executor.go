@@ -20,10 +20,7 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
-
-	"github.com/pkg/errors"
-
+	"errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -200,7 +197,7 @@ func (e *BaseExecutor) prepareUndoLog(ctx context.Context, execCtx *types.ExecCo
 
 	if execCtx.ParseContext.UpdateStmt != nil {
 		if !execCtx.TxCtx.RoundImages.IsBeforeAfterSizeEq() {
-			return fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+			return errors.New("before image size is not equaled to after image size, probably because you updated the primary keys")
 		}
 	}
 	undoLogManager, err := undo.GetUndoLogManager(execCtx.DBType)

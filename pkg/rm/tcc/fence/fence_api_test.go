@@ -51,8 +51,8 @@ func TestWithFence(t *testing.T) {
 				return nil
 			},
 			wantErr: true,
-			errStr: errors.NewTccFenceError(
-				errors.FencePhaseError,
+			errStr: errors.New(
+				errors.ErrorCodeFencePhase,
 				fmt.Sprintf("xid 123, tx name test, fence phase not exist"),
 				nil,
 			).Error(),

@@ -21,7 +21,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/seata/seata-go/pkg/tm"
 )
 

@@ -33,7 +33,7 @@ func TestBranchRegisterResponseCodec(t *testing.T) {
 				ResultCode: message.ResultCodeFailed,
 				Msg:        "FAILED",
 			},
-			TransactionErrorCode: serror.TransactionErrorCodeUnknown,
+			TransactionErrorCode: serror.ErrorCodeUnknown,
 		},
 		BranchId: 124356567,
 	}

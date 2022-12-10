@@ -22,7 +22,7 @@ import (
 	"database/sql/driver"
 	"sync"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/protocol/branch"

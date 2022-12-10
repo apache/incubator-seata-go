@@ -39,7 +39,7 @@ func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
+	data.TransactionErrorCode = serror.ErrorCode(bytes.ReadByte(buf))
 	data.BranchId = int64(bytes.ReadUInt64(buf))
 
 	return data

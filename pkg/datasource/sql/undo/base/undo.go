@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"errors"
 	"github.com/arana-db/parser/mysql"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

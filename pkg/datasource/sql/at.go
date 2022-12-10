@@ -31,6 +31,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	serr "github.com/seata/seata-go/pkg/util/errors"
 )
 
 const (
@@ -97,12 +98,12 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 	}
 
 	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName); err != nil {
-		transErr, ok := err.(*types.TransactionError)
+		transErr, ok := err.(*serr.SeataError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
 		}
 
-		if transErr.Code() == types.ErrorCodeBranchRollbackFailedUnretriable {
+		if transErr.Code == serr.ErrorCodeBranchRollbackFailedUnretriable {
 			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, nil
 		}
 

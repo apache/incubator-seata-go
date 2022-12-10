@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"errors"
 	gostnet "github.com/dubbogo/gost/net"
-	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"

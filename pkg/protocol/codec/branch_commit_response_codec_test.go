@@ -34,7 +34,7 @@ func TestBranchCommitResponseCodec(t *testing.T) {
 			BranchId:     56678,
 			BranchStatus: model2.BranchStatusPhaseoneFailed,
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
+				TransactionErrorCode: serror.ErrorCodeBeginFailed,
 				AbstractResultMessage: message.AbstractResultMessage{
 					ResultCode: message.ResultCodeFailed,
 					Msg:        "FAILED",
