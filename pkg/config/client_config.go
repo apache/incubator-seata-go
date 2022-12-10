@@ -97,8 +97,8 @@ func (cfg *TmConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.IntVar(&cfg.RollbackRetryCount, prefix+".rollback-retry-count", 5, "The maximum number of retries when rollback global transaction.")
 	f.DurationVar(&cfg.DefaultGlobalTransactionTimeout, prefix+".default-global-transaction-timeout", 10*time.Second, "The timeout for a global transaction.")
 	f.BoolVar(&cfg.DegradeCheck, prefix+".degrade-check", false, "The switch for degrade check.")
-	f.IntVar(&cfg.DegradeCheckPeriod, prefix+".degrade-check-period", 2000, "The period of degrade checking.")
-	f.DurationVar(&cfg.DegradeCheckAllowTimes, prefix+".degrade-check-allow-times", 10*time.Second, "The duration allowed or degrade checking.")
+	f.IntVar(&cfg.DegradeCheckPeriod, prefix+".degrade-check-period", 2000, "The period for degrade checking.")
+	f.DurationVar(&cfg.DegradeCheckAllowTimes, prefix+".degrade-check-allow-times", 10*time.Second, "The duration allowed for degrade checking.")
 	f.IntVar(&cfg.InterceptorOrder, prefix+".interceptor-order", -2147482648, "The order of interceptor.")
 }
 
