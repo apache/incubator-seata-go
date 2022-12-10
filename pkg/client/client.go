@@ -20,16 +20,11 @@ package client
 import (
 	"sync"
 
-	"github.com/seata/seata-go/pkg/remoting/processor/client"
-
 	at "github.com/seata/seata-go/pkg/datasource/sql"
-	"github.com/seata/seata-go/pkg/rm/tcc"
-
 	"github.com/seata/seata-go/pkg/integration"
-	_ "github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
-	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
-	_ "github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/remoting/processor/client"
+	"github.com/seata/seata-go/pkg/rm/tcc"
 )
 
 // Init seata client client
