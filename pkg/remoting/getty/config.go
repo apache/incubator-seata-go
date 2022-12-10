@@ -23,17 +23,17 @@ import (
 )
 
 type Config struct {
-	CompressEncoding bool          `yaml:"compress-encoding" json:"compress-encoding" property:"compress-encoding" koanf:"compress-encoding"`
-	TCPNoDelay       bool          `yaml:"tcp-no-delay" json:"tcp-no-delay" property:"tcp-no-delay" koanf:"tcp-no-delay"`
-	TCPKeepAlive     bool          `yaml:"tcp-keep-alive" json:"tcp-keep-alive" property:"tcp-keep-alive" koanf:"tcp-keep-alive"`
-	KeepAlivePeriod  time.Duration `yaml:"keep-alive-period" json:"keep-alive-period" property:"keep-alive-period" koanf:"keep-alive-period"`
-	TCPRBufSize      int           `yaml:"tcp-r-buf-size" json:"tcp-r-buf-size" property:"tcp-r-buf-size" koanf:"tcp-r-buf-size"`
-	TCPWBufSize      int           `yaml:"tcp-w-buf-size" json:"tcp-w-buf-size" property:"tcp-w-buf-size" koanf:"tcp-w-buf-size"`
-	TCPReadTimeout   time.Duration `yaml:"tcp-read-timeout" json:"tcp-read-timeout" property:"tcp-read-timeout" koanf:"tcp-read-timeout"`
-	TCPWriteTimeout  time.Duration `yaml:"tcp-write-timeout" json:"tcp-write-timeout" property:"tcp-write-timeout" koanf:"tcp-write-timeout"`
-	WaitTimeout      time.Duration `yaml:"wait-timeout" json:"wait-timeout" property:"wait-timeout" koanf:"wait-timeout"`
-	MaxMsgLen        int           `yaml:"max-msg-len" json:"max-msg-len" property:"max-msg-len" koanf:"max-msg-len"`
-	SessionName      string        `yaml:"session-name" json:"session-name" property:"session-name" koanf:"session-name"`
+	CompressEncoding bool          `yaml:"compress-encoding" json:"compress-encoding" koanf:"compress-encoding"`
+	TCPNoDelay       bool          `yaml:"tcp-no-delay" json:"tcp-no-delay" koanf:"tcp-no-delay"`
+	TCPKeepAlive     bool          `yaml:"tcp-keep-alive" json:"tcp-keep-alive" koanf:"tcp-keep-alive"`
+	KeepAlivePeriod  time.Duration `yaml:"keep-alive-period" json:"keep-alive-period" koanf:"keep-alive-period"`
+	TCPRBufSize      int           `yaml:"tcp-r-buf-size" json:"tcp-r-buf-size" koanf:"tcp-r-buf-size"`
+	TCPWBufSize      int           `yaml:"tcp-w-buf-size" json:"tcp-w-buf-size" koanf:"tcp-w-buf-size"`
+	TCPReadTimeout   time.Duration `yaml:"tcp-read-timeout" json:"tcp-read-timeout" koanf:"tcp-read-timeout"`
+	TCPWriteTimeout  time.Duration `yaml:"tcp-write-timeout" json:"tcp-write-timeout" koanf:"tcp-write-timeout"`
+	WaitTimeout      time.Duration `yaml:"wait-timeout" json:"wait-timeout" koanf:"wait-timeout"`
+	MaxMsgLen        int           `yaml:"max-msg-len" json:"max-msg-len" koanf:"max-msg-len"`
+	SessionName      string        `yaml:"session-name" json:"session-name" koanf:"session-name"`
 }
 
 // RegisterFlagsWithPrefix for Config.
