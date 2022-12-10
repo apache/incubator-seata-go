@@ -31,6 +31,7 @@ import (
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
@@ -48,11 +49,13 @@ const (
 )
 
 type Config struct {
-	TCCConfig tcc.Config `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	TCCConfig   tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	GettyConfig getty.Config `yaml:"getty-session-param" json:"getty-session-param" koanf:"getty-session-param"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
+	c.GettyConfig.RegisterFlagsWithPrefix("getty-session-param", f)
 }
 
 type loaderConf struct {

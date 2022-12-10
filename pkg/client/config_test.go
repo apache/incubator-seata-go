@@ -29,24 +29,35 @@ import (
 func TestLoadPath(t *testing.T) {
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
 	assert.NotNil(t, cfg)
+
 	assert.NotNil(t, cfg.TCCConfig)
 	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
-
 	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.GettyConfig)
+	assert.Equal(t, 16498688, cfg.GettyConfig.MaxMsgLen)
+	assert.Equal(t, time.Minute*2, cfg.GettyConfig.KeepAlivePeriod)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
+	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
+				"getty-session-param":{"max-msg-len":16498688,"keep-alive-period":"120s"}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
+
 	assert.NotNil(t, cfg.TCCConfig)
 	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
-
 	assert.Equal(t, "tcc_fence_log_test2", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*80, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.GettyConfig)
+	assert.Equal(t, 16498688, cfg.GettyConfig.MaxMsgLen)
+	assert.Equal(t, time.Minute*2, cfg.GettyConfig.KeepAlivePeriod)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
