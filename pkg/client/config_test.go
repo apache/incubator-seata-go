@@ -34,6 +34,12 @@ func TestLoadPath(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.ClientConfig)
+	assert.NotNil(t, cfg.ClientConfig.Tmconf)
+	assert.Equal(t, 5, cfg.ClientConfig.Tmconf.CommitRetryCount)
+	assert.Equal(t, time.Second*10, cfg.ClientConfig.Tmconf.DefaultGlobalTransactionTimeout)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }

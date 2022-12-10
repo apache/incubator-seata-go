@@ -26,7 +26,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
@@ -49,9 +49,20 @@ const (
 	ymlSuffix  = "yml"
 )
 
+type ClientConf struct {
+	Tmconf tm.TmConf `yaml:"tm" json:"tm,omitempty" property:"tm"`
+}
+
+func (c *ClientConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	// TODO: RmConf RegisterFlagsWithPrefix
+	// TODO: Undo RegisterFlagsWithPrefix
+	// TODO: LoadBalance RegisterFlagsWithPrefix
+	c.Tmconf.RegisterFlagsWithPrefix(prefix+".tm", f)
+}
+
 type Config struct {
-	TCCConfig    tcc.Config        `yaml:"tcc" json:"tcc" koanf:"tcc"`
-	ClientConfig config.ClientConf `yaml:"client" json:"client" koanf:"client"`
+	TCCConfig    tcc.Config `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	ClientConfig ClientConf `yaml:"client" json:"client" koanf:"client"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
