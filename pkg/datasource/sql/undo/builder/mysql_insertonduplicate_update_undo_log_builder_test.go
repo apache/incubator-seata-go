@@ -41,6 +41,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		index2      = make(map[string]types.IndexMeta)
 		columnMeta1 []types.ColumnMeta
 		columnMeta2 []types.ColumnMeta
+		ColumnNames []string
 	)
 	columnId := types.ColumnMeta{
 		ColumnDef:  nil,
@@ -70,10 +71,12 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		Columns: columnMeta2,
 	}
 
+	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName: "t_user",
-		Columns:   columns,
-		Indexs:    index,
+		TableName:   "t_user",
+		Columns:     columns,
+		Indexs:      index,
+		ColumnNames: ColumnNames,
 	}
 
 	index2["id_name_age"] = types.IndexMeta{
@@ -83,9 +86,10 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName: "t_user",
-		Columns:   columns,
-		Indexs:    index2,
+		TableName:   "t_user",
+		Columns:     columns,
+		Indexs:      index2,
+		ColumnNames: ColumnNames,
 	}
 
 	tests := []struct {

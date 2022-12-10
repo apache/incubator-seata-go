@@ -26,12 +26,12 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/test_driver"
 )
 
 import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -40,7 +40,7 @@ func init() {
 }
 
 type MySQLInsertOnDuplicateUndoLogBuilder struct {
-	BasicUndoLogBuilder
+	MySQLInsertUndoLogBuilder
 	BeforeSelectSql           string
 	Args                      []driver.Value
 	BeforeImageSqlPrimaryKeys map[string]bool
@@ -48,7 +48,7 @@ type MySQLInsertOnDuplicateUndoLogBuilder struct {
 
 func GetMySQLInsertOnDuplicateUndoLogBuilder() undo.UndoLogBuilder {
 	return &MySQLInsertOnDuplicateUndoLogBuilder{
-		BasicUndoLogBuilder:       BasicUndoLogBuilder{},
+		MySQLInsertUndoLogBuilder: MySQLInsertUndoLogBuilder{},
 		Args:                      make([]driver.Value, 0),
 		BeforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
@@ -76,6 +76,10 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
+	if len(selectArgs) == 0 {
+		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
+		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
+	}
 	u.BeforeSelectSql = selectSQL
 	u.Args = selectArgs
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
@@ -102,7 +106,18 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		return "", nil, err
 	}
 	var selectArgs []driver.Value
-	insertNum, paramMap, err := u.buildImageParameters(insertStmt, args)
+	pkIndexMap := u.getPkIndex(insertStmt, metaData)
+	var pkIndexArray []int
+	for _, val := range pkIndexMap {
+		tmpVal := val
+		pkIndexArray = append(pkIndexArray, tmpVal)
+	}
+	insertRows, err := getInsertRows(insertStmt, pkIndexArray)
+	if err != nil {
+		return "", nil, err
+	}
+	insertNum := len(insertRows)
+	paramMap, err := u.buildImageParameters(insertStmt, args, insertRows)
 	if err != nil {
 		return "", nil, err
 	}
@@ -115,7 +130,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		paramAppenderTempList := make([]driver.Value, 0)
 		for _, index := range metaData.Indexs {
 			//unique index
-			if index.NonUnique {
+			if index.NonUnique || isIndexValueNotNull(index, paramMap, finalI) == false {
 				continue
 			}
 			columnIsNull := true
@@ -130,15 +145,6 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 					uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
 					columnIsNull = false
 					continue
-				}
-				if (!ok && columnMeta.ColumnDef == nil) || imageParameters[finalI] == nil {
-					if !strings.EqualFold("PRIMARY", index.Name) {
-						columnIsNull = false
-						uniqueList = append(uniqueList, columnName+" is ? ")
-						paramAppenderTempList = append(paramAppenderTempList, "NULL")
-						continue
-					}
-					break
 				}
 				if strings.EqualFold("PRIMARY", index.Name) {
 					u.BeforeImageSqlPrimaryKeys[columnName] = true
@@ -244,40 +250,57 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 }
 
 // build sql params
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value) (int, map[string][]driver.Value, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value, insertRows [][]interface{}) (map[string][]driver.Value, error) {
 	var (
 		parameterMap = make(map[string][]driver.Value)
-		selectArgs   = make([]driver.Value, 0)
 	)
-	// values (?,?,?),(?,?,"Jack")
-	for _, list := range insert.Lists {
-		if len(list) != len(insert.Columns) {
+	insertColumns := getInsertColumns(insert)
+	var placeHolderIndex = 0
+	for _, row := range insertRows {
+		if len(row) != len(insertColumns) {
 			log.Errorf("insert row's column size not equal to insert column size")
-			return 0, nil, fmt.Errorf("insert row's column size not equal to insert column size")
+			return nil, fmt.Errorf("insert row's column size not equal to insert column size")
 		}
-		for _, node := range list {
-			buildSelectArgs(node, args, &selectArgs)
+		for i, col := range insertColumns {
+			columnName := executor.DelEscape(col, types.DBTypeMySQL)
+			val := row[i]
+			rStr, ok := val.(string)
+			if ok && strings.EqualFold(rStr, SqlPlaceholder) {
+				objects := args[placeHolderIndex]
+				parameterMap[columnName] = append(parameterMap[col], objects)
+				placeHolderIndex++
+			} else {
+				parameterMap[columnName] = append(parameterMap[col], val)
+			}
 		}
 	}
-	rows := len(insert.Lists)
-	for i, column := range insert.Columns {
-		for j := 0; j < rows; j++ {
-			parameterMap[column.Name.L] = append(parameterMap[column.Name.L], selectArgs[i+j*len(insert.Columns)])
-		}
-	}
-	return rows, parameterMap, nil
+	return parameterMap, nil
 }
 
-func buildSelectArgs(node ast.Node, args []driver.Value, selectArgs *[]driver.Value) {
-	if node == nil {
-		return
+func getInsertColumns(insertStmt *ast.InsertStmt) []string {
+	if insertStmt == nil {
+		return nil
 	}
-	switch node.(type) {
-	case *test_driver.ValueExpr:
-		*selectArgs = append(*selectArgs, node.(*test_driver.ValueExpr).Datum.GetValue())
-		break
-	case *test_driver.ParamMarkerExpr:
-		*selectArgs = append(*selectArgs, args[int32(node.(*test_driver.ParamMarkerExpr).Order)])
-		break
+	colList := insertStmt.Columns
+	if len(colList) == 0 {
+		return nil
 	}
+	var list []string
+	for _, col := range colList {
+		list = append(list, col.Name.L)
+	}
+	return list
+}
+
+func isIndexValueNotNull(indexMeta types.IndexMeta, imageParameterMap map[string][]driver.Value, rowIndex int) bool {
+	for _, colMeta := range indexMeta.Columns {
+		columnName := colMeta.ColumnName
+		imageParameters := imageParameterMap[columnName]
+		if imageParameters == nil && colMeta.ColumnDef == nil {
+			return false
+		} else if imageParameters != nil && (rowIndex >= len(imageParameters) || imageParameters[rowIndex] == nil) {
+			return false
+		}
+	}
+	return true
 }
