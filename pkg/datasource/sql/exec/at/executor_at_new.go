@@ -74,5 +74,5 @@ func (e AtExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContex
 	}
 	execCtx.NamedValues = nvargs
 
-	return e.ExecWithValue(ctx, execCtx, f)
+	return e.ExecWithNamedValue(ctx, execCtx, f)
 }
