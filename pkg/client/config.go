@@ -50,7 +50,7 @@ const (
 )
 
 type ClientConf struct {
-	Tmconf tm.TmConf `yaml:"tm" json:"tm,omitempty" property:"tm"`
+	Tmconf tm.TmConf `yaml:"tm" json:"tm,omitempty" property:"tm" koanf:"tm"`
 }
 
 func (c *ClientConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
