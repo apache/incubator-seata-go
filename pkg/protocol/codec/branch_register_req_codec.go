@@ -24,10 +24,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterRequestCodec{})
-}
-
 type BranchRegisterRequestCodec struct{}
 
 func (g *BranchRegisterRequestCodec) Decode(in []byte) interface{} {
