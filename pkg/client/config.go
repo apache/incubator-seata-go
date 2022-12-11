@@ -50,14 +50,14 @@ const (
 )
 
 type ClientConf struct {
-	Tmconf tm.TmConf `yaml:"tm" json:"tm,omitempty" property:"tm" koanf:"tm"`
+	TmConfig tm.TmConfig `yaml:"tm" json:"tm,omitempty" property:"tm" koanf:"tm"`
 }
 
 func (c *ClientConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	// TODO: RmConf RegisterFlagsWithPrefix
 	// TODO: Undo RegisterFlagsWithPrefix
 	// TODO: LoadBalance RegisterFlagsWithPrefix
-	c.Tmconf.RegisterFlagsWithPrefix(prefix+".tm", f)
+	c.TmConfig.RegisterFlagsWithPrefix(prefix+".tm", f)
 }
 
 type Config struct {
