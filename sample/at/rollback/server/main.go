@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	client.Init()
+	client.InitPath("./testdata/conf/seatago.yml")
 	initService()
 
 	r := gin.Default()
