@@ -186,7 +186,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 	return pkValuesMap, nil
 }
 
-//containsPK the columns contains table meta pk
+// containsPK the columns contains table meta pk
 func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *types.ParseContext) bool {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
