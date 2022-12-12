@@ -28,7 +28,7 @@ type ColumnMeta struct {
 	// Schema
 	Schema string
 	Table  string
-	// ColumnDef  the column def
+	// ColumnDef  the column default
 	ColumnDef []byte
 	// Autoincrement
 	Autoincrement bool
