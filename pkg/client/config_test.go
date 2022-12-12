@@ -34,12 +34,23 @@ func TestLoadPath(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*60, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.ClientConfig)
+	assert.NotNil(t, cfg.ClientConfig.TmConfig)
+	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.CommitRetryCount)
+	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.RollbackRetryCount)
+	assert.Equal(t, time.Second*60, cfg.ClientConfig.TmConfig.DefaultGlobalTransactionTimeout)
+	assert.Equal(t, false, cfg.ClientConfig.TmConfig.DegradeCheck)
+	assert.Equal(t, 2000, cfg.ClientConfig.TmConfig.DegradeCheckPeriod)
+	assert.Equal(t, time.Second*10, cfg.ClientConfig.TmConfig.DegradeCheckAllowTimes)
+	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
+	confJson := `{"client":{"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, cfg.TCCConfig)
@@ -47,6 +58,17 @@ func TestLoadJson(t *testing.T) {
 
 	assert.Equal(t, "tcc_fence_log_test2", cfg.TCCConfig.FenceConfig.LogTableName)
 	assert.Equal(t, time.Second*80, cfg.TCCConfig.FenceConfig.CleanPeriod)
+
+	assert.NotNil(t, cfg.ClientConfig)
+	assert.NotNil(t, cfg.ClientConfig.TmConfig)
+	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.CommitRetryCount)
+	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.RollbackRetryCount)
+	assert.Equal(t, time.Second*60, cfg.ClientConfig.TmConfig.DefaultGlobalTransactionTimeout)
+	assert.Equal(t, false, cfg.ClientConfig.TmConfig.DegradeCheck)
+	assert.Equal(t, 2000, cfg.ClientConfig.TmConfig.DegradeCheckPeriod)
+	assert.Equal(t, time.Second*10, cfg.ClientConfig.TmConfig.DegradeCheckAllowTimes)
+	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
