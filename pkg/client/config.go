@@ -49,11 +49,11 @@ const (
 	ymlSuffix  = "yml"
 )
 
-type ClientConf struct {
+type ClientConfig struct {
 	TmConfig tm.TmConfig `yaml:"tm" json:"tm,omitempty" property:"tm" koanf:"tm"`
 }
 
-func (c *ClientConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	// TODO: RmConf RegisterFlagsWithPrefix
 	// TODO: Undo RegisterFlagsWithPrefix
 	// TODO: LoadBalance RegisterFlagsWithPrefix
@@ -61,8 +61,8 @@ func (c *ClientConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
-	TCCConfig    tcc.Config `yaml:"tcc" json:"tcc" koanf:"tcc"`
-	ClientConfig ClientConf `yaml:"client" json:"client" koanf:"client"`
+	TCCConfig    tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	ClientConfig ClientConfig `yaml:"client" json:"client" koanf:"client"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
