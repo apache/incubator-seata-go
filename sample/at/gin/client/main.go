@@ -37,7 +37,7 @@ var serverIpPort = "http://127.0.0.1:8080"
 
 func main() {
 	flag.Parse()
-	client.Init()
+	client.InitPath("./testdata/conf/seatago.yml")
 
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
