@@ -103,7 +103,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 			return branch.BranchStatusPhaseoneFailed, err
 		}
 
-		if transErr.Code == serr.ErrorCodeBranchRollbackFailedUnretriable {
+		if transErr.Code == serr.TransactionErrorCodeBranchRollbackFailedUnretriable {
 			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, nil
 		}
 

@@ -28,7 +28,7 @@ import (
 func TestBranchReportResponseCodec(t *testing.T) {
 	msg := message.BranchReportResponse{
 		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			TransactionErrorCode: serror.ErrorCodeBeginFailed,
+			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
 			AbstractResultMessage: message.AbstractResultMessage{
 				ResultCode: message.ResultCodeFailed,
 				Msg:        "FAILED",

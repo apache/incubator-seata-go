@@ -17,88 +17,88 @@
 
 package errors
 
-type ErrorCode int32
+type TransactionErrorCode int32
 
 const (
-	_ ErrorCode = iota
-	// ErrorCodeUnknown Unknown transaction errors code.
-	ErrorCodeUnknown
+	_ TransactionErrorCode = iota
+	// TransactionErrorCodeUnknown Unknown transaction errors code.
+	TransactionErrorCodeUnknown
 
-	// ErrorCodeBeginFailed BeginFailed
-	ErrorCodeBeginFailed
+	// TransactionErrorCodeBeginFailed BeginFailed
+	TransactionErrorCodeBeginFailed
 
-	// ErrorCodeLockKeyConflict Lock key conflict transaction errors code.
-	ErrorCodeLockKeyConflict
+	// TransactionErrorCodeLockKeyConflict Lock key conflict transaction errors code.
+	TransactionErrorCodeLockKeyConflict
 
-	// ErrorCodeIO transaction errors code.
-	ErrorCodeIO
+	// TransactionErrorCodeIO transaction errors code.
+	TransactionErrorCodeIO
 
-	// ErrorCodeBranchRollbackFailedRetriable Branch rollback failed retriable transaction errors code.
-	ErrorCodeBranchRollbackFailedRetriable
+	// TransactionErrorCodeBranchRollbackFailedRetriable Branch rollback failed retriable transaction errors code.
+	TransactionErrorCodeBranchRollbackFailedRetriable
 
-	// ErrorCodeBranchRollbackFailedUnretriable Branch rollback failed unretriable transaction errors code.
-	ErrorCodeBranchRollbackFailedUnretriable
+	// TransactionErrorCodeBranchRollbackFailedUnretriable Branch rollback failed unretriable transaction errors code.
+	TransactionErrorCodeBranchRollbackFailedUnretriable
 
-	// ErrorCodeBranchRegisterFailed Branch register failed transaction errors code.
-	ErrorCodeBranchRegisterFailed
+	// TransactionErrorCodeBranchRegisterFailed Branch register failed transaction errors code.
+	TransactionErrorCodeBranchRegisterFailed
 
-	// ErrorCodeBranchReportFailed Branch report failed transaction errors code.
-	ErrorCodeBranchReportFailed
+	// TransactionErrorCodeBranchReportFailed Branch report failed transaction errors code.
+	TransactionErrorCodeBranchReportFailed
 
-	// ErrorCodeLockableCheckFailed Lockable check failed transaction errors code.
-	ErrorCodeLockableCheckFailed
+	// TransactionErrorCodeLockableCheckFailed Lockable check failed transaction errors code.
+	TransactionErrorCodeLockableCheckFailed
 
-	// ErrorCodeBranchTransactionNotExist Branch transaction not exist transaction errors code.
-	ErrorCodeBranchTransactionNotExist
+	// TransactionErrorCodeBranchTransactionNotExist Branch transaction not exist transaction errors code.
+	TransactionErrorCodeBranchTransactionNotExist
 
-	// ErrorCodeGlobalTransactionNotExist Global transaction not exist transaction errors code.
-	ErrorCodeGlobalTransactionNotExist
+	// TransactionErrorCodeGlobalTransactionNotExist Global transaction not exist transaction errors code.
+	TransactionErrorCodeGlobalTransactionNotExist
 
-	// ErrorCodeGlobalTransactionNotActive Global transaction not active transaction errors code.
-	ErrorCodeGlobalTransactionNotActive
+	// TransactionErrorCodeGlobalTransactionNotActive Global transaction not active transaction errors code.
+	TransactionErrorCodeGlobalTransactionNotActive
 
-	// ErrorCodeGlobalTransactionStatusInvalid Global transaction status invalid transaction errors code.
-	ErrorCodeGlobalTransactionStatusInvalid
+	// TransactionErrorCodeGlobalTransactionStatusInvalid Global transaction status invalid transaction errors code.
+	TransactionErrorCodeGlobalTransactionStatusInvalid
 
-	// ErrorCodeFailedToSendBranchCommitRequest Failed to send branch commit request transaction errors code.
-	ErrorCodeFailedToSendBranchCommitRequest
+	// TransactionErrorCodeFailedToSendBranchCommitRequest Failed to send branch commit request transaction errors code.
+	TransactionErrorCodeFailedToSendBranchCommitRequest
 
-	// ErrorCodeFailedToSendBranchRollbackRequest Failed to send branch rollback request transaction errors code.
-	ErrorCodeFailedToSendBranchRollbackRequest
+	// TransactionErrorCodeFailedToSendBranchRollbackRequest Failed to send branch rollback request transaction errors code.
+	TransactionErrorCodeFailedToSendBranchRollbackRequest
 
-	// ErrorCodeFailedToAddBranch Failed to add branch transaction errors code.
-	ErrorCodeFailedToAddBranch
+	// TransactionErrorCodeFailedToAddBranch Failed to add branch transaction errors code.
+	TransactionErrorCodeFailedToAddBranch
 
-	// ErrorCodeFailedLockGlobalTranscation Failed to lock global transaction errors code.
-	ErrorCodeFailedLockGlobalTranscation
+	// TransactionErrorCodeFailedLockGlobalTranscation Failed to lock global transaction errors code.
+	TransactionErrorCodeFailedLockGlobalTranscation
 
-	// ErrorCodeFailedWriteSession FailedWriteSession
-	ErrorCodeFailedWriteSession
+	// TransactionErrorCodeFailedWriteSession FailedWriteSession
+	TransactionErrorCodeFailedWriteSession
 
-	// ErrorCodeFailedStore Failed to holder errors code
-	ErrorCodeFailedStore
+	// FailedStore Failed to holder errors code
+	FailedStore
 
-	// ErrorCodeLockKeyConflictFailFast Lock key conflict fail fast transaction exception code.
-	ErrorCodeLockKeyConflictFailFast
+	// LockKeyConflictFailFast Lock key conflict fail fast transaction exception code.
+	LockKeyConflictFailFast
 
-	// ErrorCodeTccFenceDbDuplicateKey Insert tcc fence record duplicate key errors
-	ErrorCodeTccFenceDbDuplicateKey
+	// TccFenceDbDuplicateKeyError Insert tcc fence record duplicate key errors
+	TccFenceDbDuplicateKeyError
 
-	// ErrorCodeRollbackFence rollback tcc fence error
-	ErrorCodeRollbackFence
+	// RollbackFenceError rollback tcc fence error
+	RollbackFenceError
 
-	// ErrorCodeCommitFence commit tcc fence  error
-	ErrorCodeCommitFence
+	// CommitFenceError commit tcc fence  error
+	CommitFenceError
 
-	// ErrorCodeTccFenceDb query tcc fence prepare sql failed
-	ErrorCodeTccFenceDb
+	// TccFenceDbError query tcc fence prepare sql failed
+	TccFenceDbError
 
-	// ErrorCodePrepareFence prepare tcc fence error
-	ErrorCodePrepareFence
+	// PrepareFenceError prepare tcc fence error
+	PrepareFenceError
 
-	// ErrorCodeFenceBusiness callback business method maybe return this error type
-	ErrorCodeFenceBusiness
+	// FenceBusinessError callback business method maybe return this error type
+	FenceBusinessError
 
-	// ErrorCodeFencePhase have fence phase but is not illegal value
-	ErrorCodeFencePhase
+	// FencePhaseError have fence phase but is not illegal value
+	FencePhaseError
 )

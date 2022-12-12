@@ -33,7 +33,7 @@ func TestGlobalBeginResponseCodec(t *testing.T) {
 				ResultCode: message.ResultCodeFailed,
 				Msg:        "FAILED",
 			},
-			TransactionErrorCode: serror.ErrorCodeBeginFailed,
+			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
 		},
 
 		Xid:       "test-transaction-id",

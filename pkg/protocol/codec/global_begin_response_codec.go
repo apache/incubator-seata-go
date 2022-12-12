@@ -58,7 +58,7 @@ func (g *GlobalBeginResponseCodec) Decode(in []byte) interface{} {
 	if data.ResultCode == message.ResultCodeFailed {
 		data.Msg = bytes.ReadString16Length(buf)
 	}
-	data.TransactionErrorCode = serror.ErrorCode(bytes.ReadByte(buf))
+	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
 	data.Xid = bytes.ReadString16Length(buf)
 	data.ExtraData = []byte(bytes.ReadString16Length(buf))
 

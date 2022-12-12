@@ -22,7 +22,7 @@ import (
 )
 
 type SeataError struct {
-	Code    ErrorCode
+	Code    TransactionErrorCode
 	Message string
 	Parent  error
 }
@@ -31,7 +31,7 @@ func (e SeataError) Error() string {
 	return fmt.Sprintf("SeataError code %d, msg %s, parent msg is %s", e.Code, e.Message, e.Parent)
 }
 
-func New(code ErrorCode, msg string, parent error) *SeataError {
+func New(code TransactionErrorCode, msg string, parent error) *SeataError {
 	return &SeataError{
 		code,
 		msg,
