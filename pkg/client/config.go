@@ -61,9 +61,9 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
-	TCCConfig   tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	TCCConfig    tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
 	ClientConfig ClientConfig `yaml:"client" json:"client" koanf:"client"`
-	GettyConfig getty.Config `yaml:"getty" json:"getty" koanf:"getty"`
+	GettyConfig  getty.Config `yaml:"getty" json:"getty" koanf:"getty"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {

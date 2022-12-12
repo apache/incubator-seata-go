@@ -46,25 +46,30 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
 
 	assert.NotNil(t, cfg.GettyConfig)
-	assert.Equal(t, true, cfg.GettyConfig.CompressEncoding)
-	assert.Equal(t, false, cfg.GettyConfig.TCPNoDelay)
-	assert.Equal(t, false, cfg.GettyConfig.TCPKeepAlive)
-	assert.Equal(t, time.Minute*2, cfg.GettyConfig.KeepAlivePeriod)
-	assert.Equal(t, 261120, cfg.GettyConfig.TCPRBufSize)
-	assert.Equal(t, 32768, cfg.GettyConfig.TCPWBufSize)
-	assert.Equal(t, time.Second*2, cfg.GettyConfig.TCPReadTimeout)
-	assert.Equal(t, time.Second*8, cfg.GettyConfig.TCPWriteTimeout)
-	assert.Equal(t, time.Second*2, cfg.GettyConfig.WaitTimeout)
-	assert.Equal(t, 261120, cfg.GettyConfig.MaxMsgLen)
-	assert.Equal(t, "client_test", cfg.GettyConfig.SessionName)
+	assert.NotNil(t, cfg.GettyConfig.SessionConfig)
+	assert.Equal(t, 0, cfg.GettyConfig.ReconnectInterval)
+	assert.Equal(t, 16, cfg.GettyConfig.ConnectionNum)
+	assert.Equal(t, time.Second*15, cfg.GettyConfig.HeartbeatPeriod)
+	assert.Equal(t, false, cfg.GettyConfig.SessionConfig.CompressEncoding)
+	assert.Equal(t, true, cfg.GettyConfig.SessionConfig.TCPNoDelay)
+	assert.Equal(t, true, cfg.GettyConfig.SessionConfig.TCPKeepAlive)
+	assert.Equal(t, time.Minute*2, cfg.GettyConfig.SessionConfig.KeepAlivePeriod)
+	assert.Equal(t, 262144, cfg.GettyConfig.SessionConfig.TCPRBufSize)
+	assert.Equal(t, 65536, cfg.GettyConfig.SessionConfig.TCPWBufSize)
+	assert.Equal(t, time.Second, cfg.GettyConfig.SessionConfig.TCPReadTimeout)
+	assert.Equal(t, time.Second*5, cfg.GettyConfig.SessionConfig.TCPWriteTimeout)
+	assert.Equal(t, time.Second, cfg.GettyConfig.SessionConfig.WaitTimeout)
+	assert.Equal(t, 16498688, cfg.GettyConfig.SessionConfig.MaxMsgLen)
+	assert.Equal(t, "client_test", cfg.GettyConfig.SessionConfig.SessionName)
+	assert.Equal(t, time.Second, cfg.GettyConfig.SessionConfig.CronPeriod)
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"client":{"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}}
-				"getty-session-param":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test"}}`
+	confJson := `{"client":{"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
+				"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 
@@ -84,17 +89,22 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
 
 	assert.NotNil(t, cfg.GettyConfig)
-	assert.Equal(t, true, cfg.GettyConfig.CompressEncoding)
-	assert.Equal(t, false, cfg.GettyConfig.TCPNoDelay)
-	assert.Equal(t, false, cfg.GettyConfig.TCPKeepAlive)
-	assert.Equal(t, time.Minute*2, cfg.GettyConfig.KeepAlivePeriod)
-	assert.Equal(t, 261120, cfg.GettyConfig.TCPRBufSize)
-	assert.Equal(t, 32768, cfg.GettyConfig.TCPWBufSize)
-	assert.Equal(t, time.Second*2, cfg.GettyConfig.TCPReadTimeout)
-	assert.Equal(t, time.Second*8, cfg.GettyConfig.TCPWriteTimeout)
-	assert.Equal(t, time.Second*2, cfg.GettyConfig.WaitTimeout)
-	assert.Equal(t, 261120, cfg.GettyConfig.MaxMsgLen)
-	assert.Equal(t, "client_test", cfg.GettyConfig.SessionName)
+	assert.NotNil(t, cfg.GettyConfig.SessionConfig)
+	assert.Equal(t, 1, cfg.GettyConfig.ReconnectInterval)
+	assert.Equal(t, 10, cfg.GettyConfig.ConnectionNum)
+	assert.Equal(t, time.Second*10, cfg.GettyConfig.HeartbeatPeriod)
+	assert.Equal(t, true, cfg.GettyConfig.SessionConfig.CompressEncoding)
+	assert.Equal(t, false, cfg.GettyConfig.SessionConfig.TCPNoDelay)
+	assert.Equal(t, false, cfg.GettyConfig.SessionConfig.TCPKeepAlive)
+	assert.Equal(t, time.Minute*2, cfg.GettyConfig.SessionConfig.KeepAlivePeriod)
+	assert.Equal(t, 261120, cfg.GettyConfig.SessionConfig.TCPRBufSize)
+	assert.Equal(t, 32768, cfg.GettyConfig.SessionConfig.TCPWBufSize)
+	assert.Equal(t, time.Second*2, cfg.GettyConfig.SessionConfig.TCPReadTimeout)
+	assert.Equal(t, time.Second*8, cfg.GettyConfig.SessionConfig.TCPWriteTimeout)
+	assert.Equal(t, time.Second*2, cfg.GettyConfig.SessionConfig.WaitTimeout)
+	assert.Equal(t, 261120, cfg.GettyConfig.SessionConfig.MaxMsgLen)
+	assert.Equal(t, "client_test", cfg.GettyConfig.SessionConfig.SessionName)
+	assert.Equal(t, time.Second*2, cfg.GettyConfig.SessionConfig.CronPeriod)
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)

@@ -23,30 +23,16 @@ import (
 )
 
 type Config struct {
-	CompressEncoding bool          `yaml:"compress-encoding" json:"compress-encoding" koanf:"compress-encoding"`
-	TCPNoDelay       bool          `yaml:"tcp-no-delay" json:"tcp-no-delay" koanf:"tcp-no-delay"`
-	TCPKeepAlive     bool          `yaml:"tcp-keep-alive" json:"tcp-keep-alive" koanf:"tcp-keep-alive"`
-	KeepAlivePeriod  time.Duration `yaml:"keep-alive-period" json:"keep-alive-period" koanf:"keep-alive-period"`
-	TCPRBufSize      int           `yaml:"tcp-r-buf-size" json:"tcp-r-buf-size" koanf:"tcp-r-buf-size"`
-	TCPWBufSize      int           `yaml:"tcp-w-buf-size" json:"tcp-w-buf-size" koanf:"tcp-w-buf-size"`
-	TCPReadTimeout   time.Duration `yaml:"tcp-read-timeout" json:"tcp-read-timeout" koanf:"tcp-read-timeout"`
-	TCPWriteTimeout  time.Duration `yaml:"tcp-write-timeout" json:"tcp-write-timeout" koanf:"tcp-write-timeout"`
-	WaitTimeout      time.Duration `yaml:"wait-timeout" json:"wait-timeout" koanf:"wait-timeout"`
-	MaxMsgLen        int           `yaml:"max-msg-len" json:"max-msg-len" koanf:"max-msg-len"`
-	SessionName      string        `yaml:"session-name" json:"session-name" koanf:"session-name"`
+	ReconnectInterval int           `yaml:"reconnect-interval" json:"reconnect-interval" koanf:"reconnect-interval"`
+	ConnectionNum     int           `yaml:"connection-num" json:"connection-num" koanf:"connection-num"`
+	HeartbeatPeriod   time.Duration `yaml:"heartbeat-period" json:"heartbeat-period" koanf:"heartbeat-period"`
+	SessionConfig     SessionConfig `yaml:"session" json:"session" koanf:"session"`
 }
 
 // RegisterFlagsWithPrefix for Config.
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&cfg.CompressEncoding, prefix+".compress-encoding", false, "Enable eompress encoding")
-	f.BoolVar(&cfg.TCPNoDelay, prefix+".tcp-no-delay", true, "Disable the nagle algorithm.")
-	f.BoolVar(&cfg.TCPKeepAlive, prefix+".tcp-keep-alive", true, "Keep connection alive.")
-	f.DurationVar(&cfg.KeepAlivePeriod, prefix+".keep-alive-period", 3*time.Minute, "Period between keep-alives.")
-	f.IntVar(&cfg.TCPRBufSize, prefix+".tcp-r-buf-size", 262144, "The size of the socket receive buffer.")
-	f.IntVar(&cfg.TCPWBufSize, prefix+".tcp-w-buf-size", 65536, "The size of the socket send buffer.")
-	f.DurationVar(&cfg.TCPReadTimeout, prefix+".tcp-read-timeout", time.Second, "The read timeout of the channel.")
-	f.DurationVar(&cfg.TCPWriteTimeout, prefix+".tcp-write-timeout", 5*time.Second, "The write timeout of the channel.")
-	f.DurationVar(&cfg.WaitTimeout, prefix+".wait-timeout", time.Second, "Maximum wait time when session got error or got exit signal.")
-	f.IntVar(&cfg.MaxMsgLen, prefix+".max-msg-len", 102400, "maximum package length of every package in (EventListener)OnMessage(@pkgs).")
-	f.StringVar(&cfg.SessionName, prefix+".session-name", "client", "The session name")
+	f.IntVar(&cfg.ReconnectInterval, prefix+".reconnect-interval", 0, "Reconnect interval.")
+	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 16, "The getty_session pool.")
+	f.DurationVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 15*time.Second, "The heartbeat period.")
+	cfg.SessionConfig.RegisterFlagsWithPrefix(prefix+".session", f)
 }
