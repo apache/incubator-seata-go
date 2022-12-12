@@ -19,6 +19,64 @@ package conn
 
 import "time"
 
+const (
+	// TMENDICANT Ends a recovery scan.
+	TMENDRSCAN = 0x00800000
+
+	/**
+	 * Disassociates the caller and marks the transaction branch
+	 * rollback-only.
+	 */
+	TMFAIL = 0x20000000
+
+	/**
+	 * Caller is joining existing transaction branch.
+	 */
+	TMJOIN = 0x00200000
+
+	/**
+	 * Use TMNOFLAGS to indicate no flags value is selected.
+	 */
+	TMNOFLAGS = 0x00000000
+
+	/**
+	 * Caller is using one-phase optimization.
+	 */
+	TMONEPHASE = 0x40000000
+
+	/**
+	 * Caller is resuming association with a suspended
+	 * transaction branch.
+	 */
+	TMRESUME = 0x08000000
+
+	/**
+	 * Starts a recovery scan.
+	 */
+	TMSTARTRSCAN = 0x01000000
+
+	/**
+	 * Disassociates caller from a transaction branch.
+	 */
+	TMSUCCESS = 0x04000000
+
+	/**
+	 * Caller is suspending (not ending) its association with
+	 * a transaction branch.
+	 */
+	TMSUSPEND = 0x02000000
+
+	/**
+	 * The transaction branch has been read-only and has been committed.
+	 */
+	XA_RDONLY = 0x00000003
+
+	/**
+	 * The transaction work has been prepared normally.
+	 */
+	XA_OK = 0
+)
+
 type XAResource interface {
 	Commit(xid string, onePhase bool) error
 	End(xid string, flags int) error
