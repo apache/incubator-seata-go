@@ -32,6 +32,7 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
@@ -48,14 +49,27 @@ const (
 	ymlSuffix  = "yml"
 )
 
+type ClientConfig struct {
+	TmConfig tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
+}
+
+func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	// TODO: RmConf RegisterFlagsWithPrefix
+	// TODO: Undo RegisterFlagsWithPrefix
+	// TODO: LoadBalance RegisterFlagsWithPrefix
+	c.TmConfig.RegisterFlagsWithPrefix(prefix+".tm", f)
+}
+
 type Config struct {
 	TCCConfig   tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
-	GettyConfig getty.Config `yaml:"getty-session-param" json:"getty-session-param" koanf:"getty-session-param"`
+	ClientConfig ClientConfig `yaml:"client" json:"client" koanf:"client"`
+	GettyConfig getty.Config `yaml:"getty" json:"getty" koanf:"getty"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
-	c.GettyConfig.RegisterFlagsWithPrefix("getty-session-param", f)
+	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
+	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 }
 
 type loaderConf struct {
@@ -111,7 +125,7 @@ func getJsonConfigResolver(bytes []byte) *koanf.Koanf {
 	return k
 }
 
-//resolverFilePath resolver file path
+// resolverFilePath resolver file path
 // eg: give a ./conf/seatago.yaml return seatago and yaml
 func resolverFilePath(path string) (name, suffix string) {
 	paths := strings.Split(path, "/")
@@ -178,7 +192,6 @@ func newLoaderConf(configFilePath string) *loaderConf {
 
 // absolutePath get absolut path
 func absolutePath(inPath string) string {
-
 	if inPath == "$HOME" || strings.HasPrefix(inPath, "$HOME"+string(os.PathSeparator)) {
 		inPath = userHomeDir() + inPath[5:]
 	}
@@ -195,7 +208,7 @@ func absolutePath(inPath string) string {
 	return ""
 }
 
-//userHomeDir get gopath
+// userHomeDir get gopath
 func userHomeDir() string {
 	if runtime.GOOS == "windows" {
 		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
