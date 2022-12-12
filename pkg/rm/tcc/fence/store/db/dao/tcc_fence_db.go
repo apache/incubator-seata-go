@@ -61,7 +61,7 @@ type TccFenceStoreDatabaseMapper struct {
 func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) (*model.TCCFenceDO, error) {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetQuerySQLByBranchIdAndXid(t.logTableName))
 	if err != nil {
-		return nil, serr.New(serr.ErrorCodeTccFenceDb, "query tcc fence prepare sql failed", err)
+		return nil, serr.New(serr.TccFenceDbError, "query tcc fence prepare sql failed", err)
 	}
 	defer prepareStmt.Close()
 
@@ -76,9 +76,9 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	if err = result.Scan(&xid, &branchId, &actionName, &status, &gmtCreate, &gmtModify); err != nil {
 		// will return error, if rows is empty
 		if err.Error() == "sql: no rows in result set" {
-			return nil, serr.New(serr.ErrorCodeTccFenceDb, "query tcc fence get scan row，no rows in result set", err)
+			return nil, serr.New(serr.TccFenceDbError, "query tcc fence get scan row，no rows in result set", err)
 		} else {
-			return nil, serr.New(serr.ErrorCodeTccFenceDb, "query tcc fence get scan row failed", err)
+			return nil, serr.New(serr.TccFenceDbError, "query tcc fence get scan row failed", err)
 		}
 	}
 
@@ -96,7 +96,7 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetInsertLocalTCCLogSQL(t.logTableName))
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "insert tcc fence prepare sql failed", err)
+		return serr.New(serr.TccFenceDbError, "insert tcc fence prepare sql failed", err)
 	}
 	defer prepareStmt.Close()
 
@@ -104,17 +104,17 @@ func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *m
 	result, err := prepareStmt.Exec(tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.ActionName, tccFenceDo.Status, timeNow, timeNow)
 	if err != nil {
 		if mysqlError, ok := err.(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
-			return serr.New(serr.ErrorCodeTccFenceDbDuplicateKey,
+			return serr.New(serr.TccFenceDbDuplicateKeyError,
 				fmt.Sprintf("Insert tcc fence record duplicate key exception. xid= %s, branchId= %d", tccFenceDo.Xid, tccFenceDo.BranchId),
 				err)
 		} else {
-			return serr.New(serr.ErrorCodeTccFenceDb, "insert tcc fence exec sql failed", err)
+			return serr.New(serr.TccFenceDbError, "insert tcc fence exec sql failed", err)
 		}
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return serr.New(serr.ErrorCodeTccFenceDb, "insert tcc fence get row affect failed", err)
+		return serr.New(serr.TccFenceDbError, "insert tcc fence get row affect failed", err)
 	}
 
 	return nil
@@ -123,18 +123,18 @@ func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *m
 func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetUpdateStatusSQLByBranchIdAndXid(t.logTableName))
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "update tcc fence prepare sql failed", err)
+		return serr.New(serr.TccFenceDbError, "update tcc fence prepare sql failed", err)
 	}
 	defer prepareStmt.Close()
 
 	result, err := prepareStmt.Exec(newStatus, time.Now(), xid, branchId, oldStatus)
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "update tcc fence exec sql failed", err)
+		return serr.New(serr.TccFenceDbError, "update tcc fence exec sql failed", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return serr.New(serr.ErrorCodeTccFenceDb, "update tcc fence get row affect failed", err)
+		return serr.New(serr.TccFenceDbError, "update tcc fence get row affect failed", err)
 	}
 
 	return nil
@@ -143,18 +143,18 @@ func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, b
 func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetDeleteSQLByBranchIdAndXid(t.logTableName))
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence prepare sql failed ", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence prepare sql failed ", err)
 	}
 	defer prepareStmt.Close()
 
 	result, err := prepareStmt.Exec(xid, branchId)
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence execute sql failed", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence execute sql failed", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence get rows affected failed", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence get rows affected failed", err)
 	}
 
 	return nil
@@ -163,18 +163,18 @@ func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, b
 func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetDeleteSQLByMdfDateAndStatus(t.logTableName))
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence prepare sql failed", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence prepare sql failed", err)
 	}
 	defer prepareStmt.Close()
 
 	result, err := prepareStmt.Exec(datetime)
 	if err != nil {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence exec sql failed", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence exec sql failed", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return serr.New(serr.ErrorCodeTccFenceDb, "delete tcc fence get rows affected failed", err)
+		return serr.New(serr.TccFenceDbError, "delete tcc fence get rows affected failed", err)
 	}
 
 	return nil

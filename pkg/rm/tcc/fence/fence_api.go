@@ -43,7 +43,7 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err erro
 	switch {
 	case fp == enum.FencePhaseNotExist:
 		err = serr.New(
-			serr.ErrorCodeFencePhase,
+			serr.FencePhaseError,
 			fmt.Sprintf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx)),
 			nil,
 		)
@@ -55,7 +55,7 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err erro
 		err = h.RollbackFence(ctx, tx, callback)
 	default:
 		err = serr.New(
-			serr.ErrorCodeFencePhase,
+			serr.FencePhaseError,
 			fmt.Sprintf("fence phase: %v illegal", fp),
 			nil,
 		)
