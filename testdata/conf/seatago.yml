@@ -141,15 +141,20 @@ seata:
       log-table-name: tcc_fence_log_test
       clean-period: 60s
   # getty configuration
-  getty-session-param:
-    compress-encoding: false
-    tcp-no-delay: true
-    tcp-keep-alive: true
-    keep-alive-period: 120s
-    tcp-r-buf-size: 262144
-    tcp-w-buf-size: 65536
-    tcp-read-timeout: 1s
-    tcp-write-timeout: 5s
-    wait-timeout: 1s
-    max-msg-len: 16498688
-    session-name: client
+  getty:
+    reconnect-interval: 0
+    connection-num: 16
+    heartbeat-period: 15s
+    session:
+      compress-encoding: false
+      tcp-no-delay: true
+      tcp-keep-alive: true
+      keep-alive-period: 120s
+      tcp-r-buf-size: 262144
+      tcp-w-buf-size: 65536
+      tcp-read-timeout: 1s
+      tcp-write-timeout: 5s
+      wait-timeout: 1s
+      max-msg-len: 16498688
+      session-name: client_test
+      cron-period: 1s

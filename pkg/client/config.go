@@ -26,13 +26,13 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
@@ -63,11 +63,13 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 type Config struct {
 	TCCConfig    tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
 	ClientConfig ClientConfig `yaml:"client" json:"client" koanf:"client"`
+	GettyConfig  getty.Config `yaml:"getty" json:"getty" koanf:"getty"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
+	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 }
 
 type loaderConf struct {
