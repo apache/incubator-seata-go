@@ -60,10 +60,11 @@ func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
 		return 0, err
 	}
-	if resp.(message.BranchRegisterResponse).ResultCode == message.ResultCodeFailed {
-		return 0, fmt.Errorf("Response %s", err.Error())
+	branchResp := resp.(message.BranchRegisterResponse)
+	if branchResp.ResultCode == message.ResultCodeFailed {
+		return 0, fmt.Errorf("Response %s", branchResp.Msg)
 	}
-	return resp.(message.BranchRegisterResponse).BranchId, nil
+	return branchResp.BranchId, nil
 }
 
 // BranchReport Report status of transaction branch
