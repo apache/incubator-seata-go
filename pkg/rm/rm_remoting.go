@@ -18,6 +18,7 @@
 package rm
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -58,6 +59,9 @@ func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	if err != nil || resp == nil {
 		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
 		return 0, err
+	}
+	if resp.(message.BranchRegisterResponse).ResultCode == message.ResultCodeFailed {
+		return 0, fmt.Errorf("Response %s", err.Error())
 	}
 	return resp.(message.BranchRegisterResponse).BranchId, nil
 }
