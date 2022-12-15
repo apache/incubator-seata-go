@@ -37,6 +37,7 @@ type OrderTbl struct {
 
 func main() {
 	client.InitPath("./testdata/conf/seatago.yml")
+	//test
 	initService()
 	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
