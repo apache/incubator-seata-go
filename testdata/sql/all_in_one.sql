@@ -33,6 +33,7 @@ CREATE TABLE `order_tbl`
     `commodity_code` varchar(255) DEFAULT NULL,
     `count`          int(11) DEFAULT 0,
     `money`          int(11) DEFAULT 0,
+    `descs`          varchar(255) DEFAULT NULL,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

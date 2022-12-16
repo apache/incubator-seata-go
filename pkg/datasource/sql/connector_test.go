@@ -82,7 +82,7 @@ func Test_seataATConnector_Connect(t *testing.T) {
 
 	atConn, ok := conn.(*ATConn)
 	assert.True(t, ok, "need return seata at connection")
-	assert.True(t, atConn.txCtx.TxType == types.Local, "init need local tx")
+	assert.True(t, atConn.txCtx.TransactionMode == types.Local, "init need local tx")
 }
 
 func initMockXaConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f initConnectorFunc) driver.Connector {
@@ -126,5 +126,5 @@ func Test_seataXAConnector_Connect(t *testing.T) {
 
 	xaConn, ok := conn.(*XAConn)
 	assert.True(t, ok, "need return seata xa connection")
-	assert.True(t, xaConn.txCtx.TxType == types.Local, "init need local tx")
+	assert.True(t, xaConn.txCtx.TransactionMode == types.Local, "init need local tx")
 }
