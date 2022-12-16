@@ -3,9 +3,9 @@ package data
 import (
 	"context"
 
-	"kratos/internal/biz"
-
 	"github.com/go-kratos/kratos/v2/log"
+
+	"server/internal/biz"
 )
 
 type accountRepo struct {

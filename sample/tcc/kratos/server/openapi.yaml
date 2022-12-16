@@ -7,29 +7,11 @@ info:
     description: The greeting service definition.
     version: 0.0.1
 paths:
-    /account/{name}:
-        get:
-            tags:
-                - Account
-            description: Sends a greeting
-            operationId: Account_SayHello
-            parameters:
-                - name: name
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/account.v1.AccountReply'
     /v1/transFrom:
         post:
             tags:
                 - Account
+            description: TransFrom transfer money from an account
             operationId: Account_TransFrom
             requestBody:
                 content:
@@ -48,6 +30,7 @@ paths:
         post:
             tags:
                 - Account
+            description: TransTo transfer money to an account
             operationId: Account_TransTo
             requestBody:
                 content:
@@ -69,12 +52,13 @@ components:
             properties:
                 message:
                     type: string
-            description: The response message containing the greetings
         account.v1.AccountRequest:
             type: object
             properties:
                 name:
                     type: string
-            description: The request message containing the user's name.
+                money:
+                    type: integer
+                    format: int32
 tags:
     - name: Account

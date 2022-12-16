@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"kratos/internal/biz"
 
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	"server/internal/biz"
 
-	pb "kratos/api/account/v1"
+	pb "server/api/account/v1"
 )
 
 type AccountService struct {
@@ -22,9 +22,6 @@ func NewAccountService(tt *biz.TransTo, tf *biz.TransFrom) *AccountService {
 	}
 }
 
-func (s *AccountService) SayHello(ctx context.Context, req *pb.AccountRequest) (*pb.AccountReply, error) {
-	return &pb.AccountReply{}, nil
-}
 func (s *AccountService) TransFrom(ctx context.Context, req *pb.AccountRequest) (*pb.AccountReply, error) {
 	proxy, err := tcc.NewTCCServiceProxy(s.transFrom)
 	if err != nil {
@@ -33,8 +30,9 @@ func (s *AccountService) TransFrom(ctx context.Context, req *pb.AccountRequest) 
 	if _, err := proxy.Prepare(ctx, nil); err != nil {
 		return nil, err
 	}
-	return &pb.AccountReply{}, nil
+	return &pb.AccountReply{Message: "success"}, nil
 }
+
 func (s *AccountService) TransTo(ctx context.Context, req *pb.AccountRequest) (*pb.AccountReply, error) {
 	proxy, err := tcc.NewTCCServiceProxy(s.transTo)
 	if err != nil {
@@ -43,5 +41,5 @@ func (s *AccountService) TransTo(ctx context.Context, req *pb.AccountRequest) (*
 	if _, err := proxy.Prepare(ctx, nil); err != nil {
 		return nil, err
 	}
-	return &pb.AccountReply{}, nil
+	return &pb.AccountReply{Message: "success"}, nil
 }

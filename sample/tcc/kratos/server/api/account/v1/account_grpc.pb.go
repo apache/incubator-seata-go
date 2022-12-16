@@ -22,9 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AccountClient interface {
-	// Sends a greeting
-	SayHello(ctx context.Context, in *AccountRequest, opts ...grpc.CallOption) (*AccountReply, error)
+	// TransFrom transfer money from an account
 	TransFrom(ctx context.Context, in *AccountRequest, opts ...grpc.CallOption) (*AccountReply, error)
+	// TransTo transfer money to an account
 	TransTo(ctx context.Context, in *AccountRequest, opts ...grpc.CallOption) (*AccountReply, error)
 }
 
@@ -34,15 +34,6 @@ type accountClient struct {
 
 func NewAccountClient(cc grpc.ClientConnInterface) AccountClient {
 	return &accountClient{cc}
-}
-
-func (c *accountClient) SayHello(ctx context.Context, in *AccountRequest, opts ...grpc.CallOption) (*AccountReply, error) {
-	out := new(AccountReply)
-	err := c.cc.Invoke(ctx, "/account.v1.Account/SayHello", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *accountClient) TransFrom(ctx context.Context, in *AccountRequest, opts ...grpc.CallOption) (*AccountReply, error) {
@@ -67,9 +58,9 @@ func (c *accountClient) TransTo(ctx context.Context, in *AccountRequest, opts ..
 // All implementations must embed UnimplementedAccountServer
 // for forward compatibility
 type AccountServer interface {
-	// Sends a greeting
-	SayHello(context.Context, *AccountRequest) (*AccountReply, error)
+	// TransFrom transfer money from an account
 	TransFrom(context.Context, *AccountRequest) (*AccountReply, error)
+	// TransTo transfer money to an account
 	TransTo(context.Context, *AccountRequest) (*AccountReply, error)
 	mustEmbedUnimplementedAccountServer()
 }
@@ -78,9 +69,6 @@ type AccountServer interface {
 type UnimplementedAccountServer struct {
 }
 
-func (UnimplementedAccountServer) SayHello(context.Context, *AccountRequest) (*AccountReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
-}
 func (UnimplementedAccountServer) TransFrom(context.Context, *AccountRequest) (*AccountReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TransFrom not implemented")
 }
@@ -98,24 +86,6 @@ type UnsafeAccountServer interface {
 
 func RegisterAccountServer(s grpc.ServiceRegistrar, srv AccountServer) {
 	s.RegisterService(&Account_ServiceDesc, srv)
-}
-
-func _Account_SayHello_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AccountRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AccountServer).SayHello(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/account.v1.Account/SayHello",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AccountServer).SayHello(ctx, req.(*AccountRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Account_TransFrom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -161,10 +131,6 @@ var Account_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "account.v1.Account",
 	HandlerType: (*AccountServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "SayHello",
-			Handler:    _Account_SayHello_Handler,
-		},
 		{
 			MethodName: "TransFrom",
 			Handler:    _Account_TransFrom_Handler,

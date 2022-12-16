@@ -19,43 +19,18 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
-const OperationAccountSayHello = "/account.v1.Account/SayHello"
 const OperationAccountTransFrom = "/account.v1.Account/TransFrom"
 const OperationAccountTransTo = "/account.v1.Account/TransTo"
 
 type AccountHTTPServer interface {
-	SayHello(context.Context, *AccountRequest) (*AccountReply, error)
 	TransFrom(context.Context, *AccountRequest) (*AccountReply, error)
 	TransTo(context.Context, *AccountRequest) (*AccountReply, error)
 }
 
 func RegisterAccountHTTPServer(s *http.Server, srv AccountHTTPServer) {
 	r := s.Route("/")
-	r.GET("/account/{name}", _Account_SayHello0_HTTP_Handler(srv))
 	r.POST("/v1/transFrom", _Account_TransFrom0_HTTP_Handler(srv))
 	r.POST("/v1/transTo", _Account_TransTo0_HTTP_Handler(srv))
-}
-
-func _Account_SayHello0_HTTP_Handler(srv AccountHTTPServer) func(ctx http.Context) error {
-	return func(ctx http.Context) error {
-		var in AccountRequest
-		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindVars(&in); err != nil {
-			return err
-		}
-		http.SetOperation(ctx, OperationAccountSayHello)
-		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.SayHello(ctx, req.(*AccountRequest))
-		})
-		out, err := h(ctx, &in)
-		if err != nil {
-			return err
-		}
-		reply := out.(*AccountReply)
-		return ctx.Result(200, reply)
-	}
 }
 
 func _Account_TransFrom0_HTTP_Handler(srv AccountHTTPServer) func(ctx http.Context) error {
@@ -97,7 +72,6 @@ func _Account_TransTo0_HTTP_Handler(srv AccountHTTPServer) func(ctx http.Context
 }
 
 type AccountHTTPClient interface {
-	SayHello(ctx context.Context, req *AccountRequest, opts ...http.CallOption) (rsp *AccountReply, err error)
 	TransFrom(ctx context.Context, req *AccountRequest, opts ...http.CallOption) (rsp *AccountReply, err error)
 	TransTo(ctx context.Context, req *AccountRequest, opts ...http.CallOption) (rsp *AccountReply, err error)
 }
@@ -108,19 +82,6 @@ type AccountHTTPClientImpl struct {
 
 func NewAccountHTTPClient(client *http.Client) AccountHTTPClient {
 	return &AccountHTTPClientImpl{client}
-}
-
-func (c *AccountHTTPClientImpl) SayHello(ctx context.Context, in *AccountRequest, opts ...http.CallOption) (*AccountReply, error) {
-	var out AccountReply
-	pattern := "/account/{name}"
-	path := binding.EncodeURL(pattern, in, true)
-	opts = append(opts, http.Operation(OperationAccountSayHello))
-	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &out, err
 }
 
 func (c *AccountHTTPClientImpl) TransFrom(ctx context.Context, in *AccountRequest, opts ...http.CallOption) (*AccountReply, error) {

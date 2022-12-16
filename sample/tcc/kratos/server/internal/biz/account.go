@@ -5,7 +5,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/tm"
 
-	v1 "kratos/api/account/v1"
+	v1 "server/api/account/v1"
 
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
