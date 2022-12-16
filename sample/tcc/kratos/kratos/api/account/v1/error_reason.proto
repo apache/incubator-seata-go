@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package account.v1;
+
+option go_package = "kratos/api/account/v1;v1";
+option java_multiple_files = true;
+option java_package = "account.v1";
+option objc_class_prefix = "APIAccountV1";
+
+enum ErrorReason {
+  GREETER_UNSPECIFIED = 0;
+  USER_NOT_FOUND = 1;
+}

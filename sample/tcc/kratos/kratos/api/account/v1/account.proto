@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package account.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "kratos/api/account/v1;v1";
+option java_multiple_files = true;
+option java_package = "dev.kratos.api.account.v1";
+option java_outer_classname = "AccountProtoV1";
+
+// The greeting service definition.
+service Account {
+  // Sends a greeting
+  rpc SayHello (AccountRequest) returns (AccountReply) {
+    option (google.api.http) = {
+      get: "/account/{name}"
+    };
+  }
+  rpc TransFrom (AccountRequest) returns (AccountReply) {
+    option (google.api.http) = {
+      post: "/v1/transFrom"
+      body: "*"
+    };
+  }
+  rpc TransTo (AccountRequest) returns (AccountReply) {
+    option (google.api.http) = {
+      post: "/v1/transTo"
+      body: "*"
+    };
+  }
+}
+
+// The request message containing the user's name.
+message AccountRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings
+message AccountReply {
+  string message = 1;
+}

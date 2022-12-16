@@ -1,0 +1,80 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: Account API
+    description: The greeting service definition.
+    version: 0.0.1
+paths:
+    /account/{name}:
+        get:
+            tags:
+                - Account
+            description: Sends a greeting
+            operationId: Account_SayHello
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/account.v1.AccountReply'
+    /v1/transFrom:
+        post:
+            tags:
+                - Account
+            operationId: Account_TransFrom
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/account.v1.AccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/account.v1.AccountReply'
+    /v1/transTo:
+        post:
+            tags:
+                - Account
+            operationId: Account_TransTo
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/account.v1.AccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/account.v1.AccountReply'
+components:
+    schemas:
+        account.v1.AccountReply:
+            type: object
+            properties:
+                message:
+                    type: string
+            description: The response message containing the greetings
+        account.v1.AccountRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+            description: The request message containing the user's name.
+tags:
+    - name: Account
