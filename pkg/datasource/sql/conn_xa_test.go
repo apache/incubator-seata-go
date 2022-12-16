@@ -77,7 +77,7 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 	}
 }
 
-func baseMoclConn(mockConn *mock.MockTestDriverConn) {
+func baseMockConn(mockConn *mock.MockTestDriverConn) {
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().Exec(gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().ResetSession(gomock.Any()).AnyTimes().Return(nil)
@@ -103,7 +103,7 @@ func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 		mockConn := mock.NewMockTestDriverConn(ctrl)
 		mockConn.EXPECT().Begin().AnyTimes().Return(mockTx, nil)
 		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(mockTx, nil)
-		baseMoclConn(mockConn)
+		baseMockConn(mockConn)
 
 		connector := mock.NewMockTestDriverConnector(ctrl)
 		connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)
