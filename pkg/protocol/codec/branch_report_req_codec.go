@@ -23,10 +23,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchReportRequestCodec{})
-}
-
 type BranchReportRequestCodec struct {
 }
 

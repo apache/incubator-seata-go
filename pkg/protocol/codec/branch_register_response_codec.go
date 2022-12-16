@@ -25,10 +25,6 @@ import (
 	serror "github.com/seata/seata-go/pkg/util/errors"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterResponseCodec{})
-}
-
 type BranchRegisterResponseCodec struct{}
 
 func (g *BranchRegisterResponseCodec) Decode(in []byte) interface{} {

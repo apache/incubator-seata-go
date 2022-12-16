@@ -68,7 +68,7 @@ func (t *TCCResource) GetBranchType() branch.BranchType {
 	return branch.BranchTypeTCC
 }
 
-func init() {
+func InitTCC() {
 	rm.GetRmCacheInstance().RegisterResourceManager(GetTCCResourceManagerInstance())
 }
 

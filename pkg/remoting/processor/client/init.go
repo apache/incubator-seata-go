@@ -17,26 +17,10 @@
 
 package client
 
-import (
-	"context"
-
-	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-)
-
-func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
-}
-
-type clientHeartBeatProcessor struct{}
-
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
-			log.Debug("received PONG from {}", ctx)
-		}
-	}
-	return nil
+// RegisterProcessor register processor
+func RegisterProcessor() {
+	initHeartBeat()
+	initOnResponse()
+	initBranchCommit()
+	initBranchRollback()
 }
