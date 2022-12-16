@@ -18,29 +18,31 @@
 package reflectx
 
 import (
-	"reflect"
-	"unsafe"
+	"testing"
 )
 
-func SetUnexportedField(field reflect.Value, value interface{}) {
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
-		Elem().
-		Set(reflect.ValueOf(value))
-}
+func TestGetElemDataValue(t *testing.T) {
+	var aa = 10
+	var bb = "name"
+	var cc bool
 
-func GetUnexportedField(field reflect.Value) interface{} {
-	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
-}
-
-func GetElemDataValue(data interface{}) interface{} {
-	if data == nil {
-		return data
+	tests := []struct {
+		name string
+		args interface{}
+		want interface{}
+	}{
+		{name: "test1", args: aa, want: aa},
+		{name: "test2", args: &aa, want: aa},
+		{name: "test3", args: bb, want: bb},
+		{name: "test4", args: &bb, want: bb},
+		{name: "test5", args: cc, want: cc},
+		{name: "test6", args: &cc, want: cc},
 	}
-	value := reflect.ValueOf(data)
-	kind := reflect.TypeOf(data).Kind()
-	switch kind {
-	case reflect.Ptr:
-		return value.Elem().Interface()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetElemDataValue(tt.args); got != tt.want {
+				t.Errorf("GetElemDataValue() = %v, want %v", got, tt.want)
+			}
+		})
 	}
-	return value.Interface()
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 )
 
 // Conn is a connection to a database. It is not used concurrently
@@ -146,8 +147,8 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	}
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
-		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-			ret, err := conn.Query(query, args)
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			ret, err := conn.Query(query, util.NamedValueToValue(args))
 			if err != nil {
 				return nil, err
 			}

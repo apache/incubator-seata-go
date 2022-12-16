@@ -23,6 +23,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 )
 
 type Stmt struct {
@@ -75,8 +76,8 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	}
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
-		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-			ret, err := s.stmt.Query(args)
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			ret, err := s.stmt.Query(util.NamedValueToValue(args))
 			if err != nil {
 				return nil, err
 			}
@@ -144,8 +145,8 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	}
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
-		func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
-			ret, err := s.stmt.Exec(args)
+		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			ret, err := s.stmt.Exec(util.NamedValueToValue(args))
 			if err != nil {
 				return nil, err
 			}

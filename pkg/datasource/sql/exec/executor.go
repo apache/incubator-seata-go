@@ -25,35 +25,25 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
-	"github.com/seata/seata-go/pkg/util/log"
 )
 
 func init() {
-	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
 	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 }
 
 var (
-	executorSoltsAT = make(map[types.DBType]map[types.ExecutorType]func() SQLExecutor)
-	executorSoltsXA = make(map[types.DBType]func() SQLExecutor)
+	atExecutors = make(map[types.DBType]func() SQLExecutor)
+	xaExecutors = make(map[types.DBType]func() SQLExecutor)
 )
 
 // RegisterATExecutor AT executor
-func RegisterATExecutor(dt types.DBType, et types.ExecutorType, builder func() SQLExecutor) {
-	if _, ok := executorSoltsAT[dt]; !ok {
-		executorSoltsAT[dt] = make(map[types.ExecutorType]func() SQLExecutor)
-	}
-
-	val := executorSoltsAT[dt]
-
-	val[et] = func() SQLExecutor {
-		return &BaseExecutor{ex: builder()}
-	}
+func RegisterATExecutor(dt types.DBType, builder func() SQLExecutor) {
+	atExecutors[dt] = builder
 }
 
 // RegisterXAExecutor XA executor
 func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
-	executorSoltsXA[dt] = func() SQLExecutor {
+	xaExecutors[dt] = func() SQLExecutor {
 		return builder()
 	}
 }
@@ -66,7 +56,7 @@ type (
 	SQLExecutor interface {
 		Interceptors(interceptors []SQLHook)
 		ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
-		ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error)
+		ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error)
 	}
 )
 
@@ -83,37 +73,14 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
 	if transactionMode == types.XAMode {
-		e := executorSoltsXA[dbType]()
+		e := xaExecutors[dbType]()
 		e.Interceptors(hooks)
 		return e, nil
 	}
 
-	if transactionMode == types.ATMode {
-		e := executorSoltsAT[dbType][parseContext.ExecutorType]()
-		e.Interceptors(hooks)
-		return e, nil
-	}
-
-	factories, ok := executorSoltsAT[dbType]
-	if !ok {
-		log.Debugf("%s not found executor factories, return default Executor", dbType.String())
-		e := &BaseExecutor{}
-		e.Interceptors(hooks)
-		return e, nil
-	}
-
-	supplier, ok := factories[parseContext.ExecutorType]
-	if !ok {
-		log.Debugf("%s not found executor for %s, return default Executor",
-			dbType.String(), parseContext.ExecutorType)
-		e := &BaseExecutor{}
-		e.Interceptors(hooks)
-		return e, nil
-	}
-
-	executor := supplier()
-	executor.Interceptors(hooks)
-	return executor, nil
+	e := atExecutors[dbType]()
+	e.Interceptors(hooks)
+	return e, nil
 }
 
 type BaseExecutor struct {
@@ -146,7 +113,7 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 }
 
 // ExecWithValue
-func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.hooks {
 		e.hooks[i].Before(ctx, execCtx)
 	}
@@ -161,5 +128,13 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		return e.ex.ExecWithValue(ctx, execCtx, f)
 	}
 
-	return f(ctx, execCtx.Query, execCtx.Values)
+	nvargs := make([]driver.NamedValue, len(execCtx.Values))
+	for i, value := range execCtx.Values {
+		nvargs = append(nvargs, driver.NamedValue{
+			Value:   value,
+			Ordinal: i,
+		})
+	}
+
+	return f(ctx, execCtx.Query, nvargs)
 }

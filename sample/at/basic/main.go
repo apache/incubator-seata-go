@@ -46,7 +46,7 @@ func main() {
 }
 
 func updateData(ctx context.Context) error {
-	sql := "update order_tbl set descs=? where id=?"
+	sql := "update order_tbl2 set descs=? where id=?"
 	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
@@ -58,5 +58,5 @@ func updateData(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("update success： %d.\n", rows)
-	return nil
+	return fmt.Errorf("test error")
 }

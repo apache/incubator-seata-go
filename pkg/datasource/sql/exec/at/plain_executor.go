@@ -34,6 +34,5 @@ func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext)
 }
 
 func (u *PlainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	//TODO implement me
-	panic("implement me")
+	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
 }
