@@ -32,7 +32,6 @@ import (
 
 const (
 	SqlPlaceholder = "?"
-	maxInSize      = 1000
 )
 
 func init() {
