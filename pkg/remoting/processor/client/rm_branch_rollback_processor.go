@@ -27,7 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-func init() {
+func initBranchRollback() {
 	rmBranchRollbackProcessor := &rmBranchRollbackProcessor{}
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchRollback, rmBranchRollbackProcessor)
 }

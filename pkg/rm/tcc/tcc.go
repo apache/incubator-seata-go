@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package client
+package tcc
 
-// InitRmClient init seata rm client
-func initRmClient() {
+import (
+	"flag"
+
+	"github.com/seata/seata-go/pkg/rm/tcc/fence"
+)
+
+type Config struct {
+	FenceConfig fence.Config `yaml:"fence" json:"fence" koanf:"fence"`
+}
+
+// RegisterFlagsWithPrefix for Config.
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	cfg.FenceConfig.RegisterFlagsWithPrefix(prefix+".fence", f)
 }

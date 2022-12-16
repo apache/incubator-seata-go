@@ -21,10 +21,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalCommitRequestCodec{})
-}
-
 type GlobalCommitRequestCodec struct {
 	CommonGlobalEndRequestCodec
 }

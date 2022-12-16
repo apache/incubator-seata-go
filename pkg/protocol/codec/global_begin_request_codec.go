@@ -24,10 +24,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginRequestCodec{})
-}
-
 type GlobalBeginRequestCodec struct{}
 
 func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {

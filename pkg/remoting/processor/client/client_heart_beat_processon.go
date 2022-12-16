@@ -26,7 +26,7 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func init() {
+func initHeartBeat() {
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
 }
 

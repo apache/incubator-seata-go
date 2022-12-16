@@ -26,15 +26,11 @@ import (
 )
 
 type Stmt struct {
-	conn *Conn
-	// res
-	res *DBResource
-	// txCtx
+	conn  *Conn
+	res   *DBResource
 	txCtx *types.TransactionContext
-	// query
 	query string
-	// stmt
-	stmt driver.Stmt
+	stmt  driver.Stmt
 }
 
 // Close closes the statement.
@@ -67,7 +63,7 @@ func (s *Stmt) NumInput() int {
 //
 // Deprecated: Drivers should implement StmtQueryContext instead (or additionally).
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TxType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +90,8 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	return ret.GetRows(), nil
 }
 
-// StmtQueryContext enhances the Stmt interface by providing Query with context.
-// QueryContext executes a query that may return rows, such as a
-// SELECT.
-//
+// QueryContext StmtQueryContext enhances the Stmt interface by providing Query with context.
+// QueryContext executes a query that may return rows, such as a  SELECT.
 // QueryContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	stmt, ok := s.stmt.(driver.StmtQueryContext)
@@ -105,7 +99,7 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, driver.ErrSkip
 	}
 
-	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TxType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +132,7 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 // Deprecated: Drivers should implement StmtExecContext instead (or additionally).
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	// in transaction, need run Executor
-	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TxType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +167,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 	}
 
 	// in transaction, need run Executor
-	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TxType, s.query)
+	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
 		return nil, err
 	}
