@@ -20,15 +20,14 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/agiledragon/gomonkey"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"reflect"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-
-	"github.com/agiledragon/gomonkey"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
@@ -39,18 +38,20 @@ import (
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
-	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
-		return &types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
+		func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+			return &types.TableMeta{
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{
+							{ColumnName: "id"},
+						},
 					},
 				},
-			},
-		}, nil
-	})
+			}, nil
+		})
 	defer stub.Reset()
 
 	tests := []struct {
