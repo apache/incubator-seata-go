@@ -21,6 +21,6 @@ import (
 	"github.com/seata/seata-go/pkg/integration/dubbo"
 )
 
-func init() {
+func Init() {
 	dubbo.InitSeataDubbo()
 }

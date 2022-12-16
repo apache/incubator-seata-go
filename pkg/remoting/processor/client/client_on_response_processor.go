@@ -26,7 +26,7 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/getty"
 )
 
-func init() {
+func initOnResponse() {
 	clientOnResponseProcessor := &clientOnResponseProcessor{}
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeSeataMergeResult, clientOnResponseProcessor)
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchRegisterResult, clientOnResponseProcessor)
