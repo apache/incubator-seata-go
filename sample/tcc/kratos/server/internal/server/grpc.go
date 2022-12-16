@@ -1,13 +1,13 @@
 package server
 
 import (
-	v1 "server/api/account/v1"
-	"server/internal/conf"
-	"server/internal/service"
-
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
+
+	v1 "server/api/account/v1"
+	"server/internal/conf"
+	"server/internal/service"
 )
 
 // NewGRPCServer new a gRPC server.
