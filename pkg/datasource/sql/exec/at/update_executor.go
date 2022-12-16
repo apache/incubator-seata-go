@@ -108,14 +108,13 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
+		}
 	} else {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
-	}
-
-	if err != nil {
-		log.Errorf("stmt query: %+v", err)
-		return nil, err
 	}
 
 	image, err := u.buildRecordImages(rowsi, metaData)
@@ -154,6 +153,10 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
+		}
 	} else {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
