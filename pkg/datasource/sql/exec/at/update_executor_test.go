@@ -94,7 +94,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 			query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
-			assert.Equal(t, util.ValueToNamedValue(tt.expectQueryArgs), args)
+			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))
 		})
 	}
 }
