@@ -32,7 +32,6 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/remoting/transport"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/flagext"
@@ -62,10 +61,10 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
-	TCCConfig       tcc.Config       `yaml:"tcc" json:"tcc" koanf:"tcc"`
-	ClientConfig    ClientConfig     `yaml:"client" json:"client" koanf:"client"`
-	GettyConfig     getty.Config     `yaml:"getty" json:"getty" koanf:"getty"`
-	TransportConfig transport.Config `yaml:"transport" json:"transport" koanf:"transport"`
+	TCCConfig       tcc.Config            `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	ClientConfig    ClientConfig          `yaml:"client" json:"client" koanf:"client"`
+	GettyConfig     getty.Config          `yaml:"getty" json:"getty" koanf:"getty"`
+	TransportConfig getty.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {

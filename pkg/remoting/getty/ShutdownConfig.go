@@ -1,4 +1,4 @@
-package transport
+package getty
 
 import (
 	"flag"

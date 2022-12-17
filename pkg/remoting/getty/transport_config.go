@@ -1,15 +1,11 @@
-package transport
+package getty
 
 import (
 	"flag"
 	"time"
 )
 
-type Shutdown struct {
-	Wait time.Duration `yaml:"wait" json:"wait" konaf:"wait"`
-}
-
-type Config struct {
+type TransportConfig struct {
 	ShutdownConfig                 ShutdownConfig `yaml:"shutdown" json:"shutdown" koanf:"shutdown"`
 	Type                           string         `yaml:"type" json:"type" koanf:"type"`
 	Server                         string         `yaml:"server" json:"server" koanf:"server"`
@@ -23,7 +19,7 @@ type Config struct {
 }
 
 // RegisterFlagsWithPrefix for Config.
-func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	cfg.ShutdownConfig.RegisterFlagsWithPrefix(prefix+".shutdown", f)
 	f.StringVar(&cfg.Type, prefix+".type", "TCP", "Transport protocol type.")
 	f.StringVar(&cfg.Server, prefix+".server", "NIO", "Server type.")
