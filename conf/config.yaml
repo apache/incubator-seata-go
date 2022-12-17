@@ -26,7 +26,7 @@ seata:
     heartbeat: true
     # the client batch send request enable
     enableClientBatchSendRequest: true
-    compressor: nome
+    compressor: none
   service:
     
   
