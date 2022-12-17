@@ -30,7 +30,6 @@ import (
 	getty "github.com/apache/dubbo-getty"
 
 	gxsync "github.com/dubbogo/gost/sync"
-	"github.com/pkg/errors"
 )
 
 type RpcClient struct {
