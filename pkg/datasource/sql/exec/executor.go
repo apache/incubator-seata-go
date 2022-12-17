@@ -20,6 +20,7 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"

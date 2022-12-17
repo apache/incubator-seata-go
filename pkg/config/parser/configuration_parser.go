@@ -19,9 +19,10 @@ package parser
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path"
+
+	"gopkg.in/yaml.v2"
 )
 
 // ConfigurationParser interface

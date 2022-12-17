@@ -20,9 +20,8 @@ package errors
 type TransactionErrorCode int32
 
 const (
-	_ TransactionErrorCode = iota
 	// TransactionErrorCodeUnknown Unknown transaction errors code.
-	TransactionErrorCodeUnknown
+	TransactionErrorCodeUnknown TransactionErrorCode = iota + 1
 
 	// TransactionErrorCodeBeginFailed BeginFailed
 	TransactionErrorCodeBeginFailed
