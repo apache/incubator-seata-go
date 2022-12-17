@@ -52,13 +52,12 @@ func TestWithFence(t *testing.T) {
 			},
 			wantErr: true,
 			errStr: errors.New(
-				errors.ErrorCodeFencePhase,
+				errors.FencePhaseError,
 				fmt.Sprintf("xid 123, tx name test, fence phase not exist"),
 				nil,
 			).Error(),
 		},
 	}
-
 	for _, v := range tests {
 		db, mock, _ := sqlmock.New()
 		mock.ExpectBegin()
