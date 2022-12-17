@@ -23,11 +23,14 @@ import (
 	"net"
 	"sync"
 
+	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/protocol/codec"
+	"github.com/seata/seata-go/pkg/util/log"
+
 	getty "github.com/apache/dubbo-getty"
 
 	gxsync "github.com/dubbogo/gost/sync"
-	"github.com/seata/seata-go/pkg/config"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/pkg/errors"
 )
 
 type RpcClient struct {
@@ -41,6 +44,7 @@ func InitRpcClient() {
 		conf:         config.GetClientConfig(),
 		gettyClients: make([]getty.Client, 0),
 	}
+	codec.Init()
 	rpcClient.init()
 }
 

@@ -15,28 +15,32 @@
  * limitations under the License.
  */
 
-package client
+package xa
 
 import (
-	"context"
+	"testing"
 
-	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/stretchr/testify/assert"
 )
 
-func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
+func TestXABranchXidBuild(t *testing.T) {
+	xid := "111"
+	branchId := int64(222)
+	x := Build(xid, branchId)
+	assert.Equal(t, x.GetGlobalXid(), xid)
+	assert.Equal(t, x.GetBranchId(), branchId)
+
+	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
+	assert.Equal(t, x.GetBranchQualifier(), []byte("-222"))
 }
 
-type clientHeartBeatProcessor struct{}
+func TestXABranchXidBuildWithByte(t *testing.T) {
+	xid := []byte("111")
+	branchId := []byte(BranchIdPrefix + "222")
+	x := BuildWithByte(xid, branchId)
+	assert.Equal(t, x.GetGlobalTransactionId(), xid)
+	assert.Equal(t, x.GetBranchQualifier(), branchId)
 
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
-			log.Debug("received PONG from {}", ctx)
-		}
-	}
-	return nil
+	assert.Equal(t, x.GetGlobalXid(), "111")
+	assert.Equal(t, x.GetBranchId(), int64(222))
 }

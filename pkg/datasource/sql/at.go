@@ -39,7 +39,7 @@ const (
 	_undoLogDeleteLimitSize = 1000
 )
 
-func init() {
+func InitAT() {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),

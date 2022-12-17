@@ -27,7 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-func init() {
+func initBranchCommit() {
 	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
 }

@@ -28,11 +28,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 )
 
-const (
-	columnMetaSql = "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-	indexMetaSql  = "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-)
-
 type mysqlTrigger struct {
 }
 
@@ -92,6 +87,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
 
+	columnMetaSql := "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `COLUMN_DEFAULT`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	stmt, err := conn.PrepareContext(ctx, columnMetaSql)
 	if err != nil {
 		return nil, err
@@ -105,14 +101,15 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 
 	for rows.Next() {
 		var (
-			tableName   string
-			tableSchema string
-			columnName  string
-			dataType    string
-			columnType  string
-			columnKey   string
-			isNullable  string
-			extra       string
+			tableName     string
+			tableSchema   string
+			columnName    string
+			dataType      string
+			columnType    string
+			columnKey     string
+			isNullable    string
+			columnDefault []byte
+			extra         string
 		)
 
 		columnMeta := types.ColumnMeta{}
@@ -124,6 +121,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 			&columnType,
 			&columnKey,
 			&isNullable,
+			&columnDefault,
 			&extra); err != nil {
 			return nil, err
 		}
@@ -140,9 +138,9 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		} else {
 			columnMeta.IsNullable = 0
 		}
+		columnMeta.ColumnDef = columnDefault
 		columnMeta.Extra = extra
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
-
 		columnMetas = append(columnMetas, columnMeta)
 	}
 
@@ -158,6 +156,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 	tableName = executor.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
 
+	indexMetaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	stmt, err := conn.PrepareContext(ctx, indexMetaSql)
 	if err != nil {
 		return nil, err

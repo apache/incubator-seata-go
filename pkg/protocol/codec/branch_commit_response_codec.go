@@ -27,10 +27,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchCommitResponseCodec{})
-}
-
 type BranchCommitResponseCodec struct{}
 
 func (g *BranchCommitResponseCodec) Decode(in []byte) interface{} {
