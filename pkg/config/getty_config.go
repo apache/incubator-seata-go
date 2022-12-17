@@ -61,7 +61,6 @@ func GetDefaultGettyConfig() GettyConfig {
 type Shutdown struct {
 	Wait time.Duration `yaml:"wait" json:"wait,omitempty" property:"wait"`
 }
-
 type Transport struct {
 	Shutdown                       Shutdown      `yaml:"shutdown" json:"shutdown,omitempty" property:"shutdown"`
 	Type                           string        `yaml:"type" json:"type,omitempty" property:"type"`
