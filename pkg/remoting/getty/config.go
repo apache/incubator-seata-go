@@ -29,20 +29,8 @@ type Config struct {
 	SessionConfig     SessionConfig `yaml:"session" json:"session" koanf:"session"`
 }
 
-// RegisterFlagsWithPrefix for Config.
-func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.IntVar(&cfg.ReconnectInterval, prefix+".reconnect-interval", 0, "Reconnect interval.")
-	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 16, "The getty_session pool.")
-	f.DurationVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 15*time.Second, "The heartbeat period.")
-	cfg.SessionConfig.RegisterFlagsWithPrefix(prefix+".session", f)
-}
-
 type ShutdownConfig struct {
 	Wait time.Duration `yaml:"wait" json:"wait" konaf:"wait"`
-}
-
-func (cfg *ShutdownConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.DurationVar(&cfg.Wait, prefix+".wait", 3*time.Second, "Shutdown wait time.")
 }
 
 type TransportConfig struct {
@@ -56,6 +44,18 @@ type TransportConfig struct {
 	EnableRmClientBatchSendRequest bool           `yaml:"enable-rm-client-batch-send-request" json:"enable-rm-client-batch-send-request" koanf:"enable-rm-client-batch-send-request"`
 	RPCRmRequestTimeout            time.Duration  `yaml:"rpc-rm-request-timeout" json:"rpc-rm-request-timeout" koanf:"rpc-rm-request-timeout"`
 	RPCTmRequestTimeout            time.Duration  `yaml:"rpc-tm-request-timeout" json:"rpc-tm-request-timeout" koanf:"rpc-tm-request-timeout"`
+}
+
+// RegisterFlagsWithPrefix for Config.
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.IntVar(&cfg.ReconnectInterval, prefix+".reconnect-interval", 0, "Reconnect interval.")
+	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 16, "The getty_session pool.")
+	f.DurationVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 15*time.Second, "The heartbeat period.")
+	cfg.SessionConfig.RegisterFlagsWithPrefix(prefix+".session", f)
+}
+
+func (cfg *ShutdownConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.DurationVar(&cfg.Wait, prefix+".wait", 3*time.Second, "Shutdown wait time.")
 }
 
 func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
