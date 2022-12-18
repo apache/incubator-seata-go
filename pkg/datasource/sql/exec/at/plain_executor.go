@@ -24,15 +24,15 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type PlainExecutor struct {
+type plainExecutor struct {
 	parserCtx *types.ParseContext
 	execCtx   *types.ExecContext
 }
 
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) *PlainExecutor {
-	return &PlainExecutor{parserCtx: parserCtx, execCtx: execCtx}
+func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
+	return &plainExecutor{parserCtx: parserCtx, execCtx: execCtx}
 }
 
-func (u *PlainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
 }

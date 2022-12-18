@@ -20,13 +20,14 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"reflect"
+	"testing"
+
 	"github.com/agiledragon/gomonkey"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"reflect"
-	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 
