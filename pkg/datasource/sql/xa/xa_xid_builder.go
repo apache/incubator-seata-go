@@ -15,28 +15,12 @@
  * limitations under the License.
  */
 
-package client
+package xa
 
-import (
-	"context"
-
-	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-)
-
-func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
+func Build(xid string, branchId int64) *XABranchXid {
+	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 }
 
-type clientHeartBeatProcessor struct{}
-
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
-			log.Debug("received PONG from {}", ctx)
-		}
-	}
-	return nil
+func BuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
+	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
 }

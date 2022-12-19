@@ -110,3 +110,34 @@ func (c *CodecManager) Encode(codecType CodecType, in interface{}) []byte {
 
 	return result
 }
+
+func Init() {
+	// Global
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalCommitRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalCommitResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalRollbackRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalRollbackResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalStatusRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalStatusResponseCodec{})
+
+	// Branch
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchCommitRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchCommitResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRegisterResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchReportRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRollbackRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchRollbackResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &BranchReportResponseCodec{})
+
+	// RM
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMResponseCodec{})
+
+	// TM
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMRequestCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMResponseCodec{})
+}

@@ -22,10 +22,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/bytes"
 )
 
-func init() {
-	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
-}
-
 type RegisterRMRequestCodec struct{}
 
 func (g *RegisterRMRequestCodec) Decode(in []byte) interface{} {
