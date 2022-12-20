@@ -41,8 +41,24 @@ func main() {
 	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
 		Timeout: time.Second * 30,
-	}, updateData)
+	}, deleteData)
 	<-make(chan struct{})
+}
+
+func deleteData(ctx context.Context) error {
+	sql := "delete from order_tbl where id=?"
+	ret, err := db.ExecContext(ctx, sql, 1)
+	if err != nil {
+		fmt.Printf("delete failed, err:%v\n", err)
+		return err
+	}
+	rows, err := ret.RowsAffected()
+	if err != nil {
+		fmt.Printf("delete failed, err:%v\n", err)
+		return err
+	}
+	fmt.Printf("delete success： %d.\n", rows)
+	return nil
 }
 
 func updateData(ctx context.Context) error {
