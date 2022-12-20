@@ -19,182 +19,61 @@ package at
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/mitchellh/copystructure"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type ATExecutor struct {
-	hooks []exec.SQLHook
-	ex    exec.SQLExecutor
+func init() {
+	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &AtExecutor{} })
 }
 
-func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
+type executor interface {
+	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
+}
+
+type AtExecutor struct {
+	hooks []exec.SQLHook
+}
+
+func (e *AtExecutor) Interceptors(hooks []exec.SQLHook) {
 	e.hooks = hooks
 }
 
-func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	for _, hook := range e.hooks {
-		hook.Before(ctx, execCtx)
-	}
-
-	var (
-		beforeImages []*types.RecordImage
-		afterImages  []*types.RecordImage
-		result       types.ExecResult
-		err          error
-	)
-
-	beforeImages, err = e.beforeImage(ctx, execCtx)
-	if err != nil {
-		return nil, err
-	}
-	if beforeImages != nil {
-		beforeImagesTmp, err := copystructure.Copy(beforeImages)
-		if err != nil {
-			return nil, err
-		}
-		newBeforeImages, ok := beforeImagesTmp.([]*types.RecordImage)
-		if !ok {
-			return nil, errors.New("copy beforeImages failed")
-		}
-		execCtx.TxCtx.RoundImages.AppendBeofreImages(newBeforeImages)
-	}
-
-	defer func() {
-		for _, hook := range e.hooks {
-			hook.After(ctx, execCtx)
-		}
-	}()
-
-	if e.ex != nil {
-		result, err = e.ex.ExecWithNamedValue(ctx, execCtx, f)
-	} else {
-		result, err = f(ctx, execCtx.Query, execCtx.NamedValues)
-	}
-
+//ExecWithNamedValue
+func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	parser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
-	if err != nil {
-		return nil, err
-	}
-	if afterImages != nil {
-		execCtx.TxCtx.RoundImages.AppendAfterImages(afterImages)
-	}
+	var exec executor
 
-	return result, err
-}
-
-func (e *ATExecutor) prepareUndoLog(ctx context.Context, execCtx *types.ExecContext) error {
-	if execCtx.TxCtx.RoundImages.IsEmpty() {
-		return nil
-	}
-
-	if execCtx.ParseContext.UpdateStmt != nil {
-		if !execCtx.TxCtx.RoundImages.IsBeforeAfterSizeEq() {
-			return fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
-		}
-	}
-	undoLogManager, err := undo.GetUndoLogManager(execCtx.DBType)
-	if err != nil {
-		return err
-	}
-	return undoLogManager.FlushUndoLog(execCtx.TxCtx, execCtx.Conn)
-}
-
-func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithValue) (types.ExecResult, error) {
-	for _, hook := range e.hooks {
-		hook.Before(ctx, execCtx)
-	}
-
-	var (
-		beforeImages []*types.RecordImage
-		afterImages  []*types.RecordImage
-		result       types.ExecResult
-		err          error
-	)
-
-	beforeImages, err = e.beforeImage(ctx, execCtx)
-	if err != nil {
-		return nil, err
-	}
-	if beforeImages != nil {
-		execCtx.TxCtx.RoundImages.AppendBeofreImages(beforeImages)
-	}
-
-	defer func() {
-		for _, hook := range e.hooks {
-			hook.After(ctx, execCtx)
-		}
-	}()
-
-	if e.ex != nil {
-		result, err = e.ex.ExecWithValue(ctx, execCtx, f)
-	} else {
-		result, err = f(ctx, execCtx.Query, execCtx.Values)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	afterImages, err = e.afterImage(ctx, execCtx, beforeImages)
-	if err != nil {
-		return nil, err
-	}
-	if afterImages != nil {
-		execCtx.TxCtx.RoundImages.AppendAfterImages(afterImages)
-	}
-
-	return result, err
-}
-
-func (e *ATExecutor) beforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	if !tm.IsGlobalTx(ctx) {
-		return nil, nil
+		exec = NewPlainExecutor(parser, execCtx)
+	} else {
+		switch parser.SQLType {
+		//case types.SQLTypeInsert:
+		case types.SQLTypeUpdate:
+			exec = NewUpdateExecutor(parser, execCtx, e.hooks)
+		//case types.SQLTypeDelete:
+		//case types.SQLTypeSelectForUpdate:
+		//case types.SQLTypeMultiDelete:
+		//case types.SQLTypeMultiUpdate:
+		default:
+			exec = NewPlainExecutor(parser, execCtx)
+		}
 	}
 
-	pc, err := parser.DoParser(execCtx.Query)
-	if err != nil {
-		return nil, err
-	}
-	if !pc.HasValidStmt() {
-		return nil, nil
-	}
-	execCtx.ParseContext = pc
-
-	builder := undo.GetUndologBuilder(pc.ExecutorType)
-	if builder == nil {
-		return nil, nil
-	}
-	return builder.BeforeImage(ctx, execCtx)
+	return exec.ExecContext(ctx, f)
 }
 
-// After
-func (e *ATExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	if !tm.IsGlobalTx(ctx) {
-		return nil, nil
-	}
-	pc, err := parser.DoParser(execCtx.Query)
-	if err != nil {
-		return nil, err
-	}
-	if !pc.HasValidStmt() {
-		return nil, nil
-	}
-	execCtx.ParseContext = pc
-	builder := undo.GetUndologBuilder(pc.ExecutorType)
-	if builder == nil {
-		return nil, nil
-	}
-	return builder.AfterImage(ctx, execCtx, beforeImages)
+//ExecWithValue
+func (e *AtExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
+	return e.ExecWithNamedValue(ctx, execCtx, f)
 }
