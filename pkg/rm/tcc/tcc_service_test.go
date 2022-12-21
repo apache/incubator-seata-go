@@ -171,7 +171,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				Context *tm.BusinessActionContext
 			}{
-
 				Context: &tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",
@@ -190,7 +189,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				Context tm.BusinessActionContext
 			}{
-
 				Context: tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",
@@ -209,7 +207,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				context tm.BusinessActionContext
 			}{
-
 				context: tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",
@@ -309,7 +306,7 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 				TwoPhaseAction:  twoPhaseAction1,
 			},
 		},
-		tm.GtxConfig{Name: "TwoPhaseDemoService", Timeout: time.Second * 10, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
+		tm.GtxConfig{Name: "TwoPhaseDemoService", Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
 	}
 
 	t1.Run(tests.name, func(t1 *testing.T) {

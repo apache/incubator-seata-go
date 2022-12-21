@@ -46,12 +46,12 @@ type updateExecutor struct {
 	execContent *types.ExecContext
 }
 
-//NewUpdateExecutor get update executor
+// NewUpdateExecutor get update executor
 func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
 	return &updateExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
-//ExecContext exec SQL, and generate before image and after image
+// ExecContext exec SQL, and generate before image and after image
 func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	u.beforeHooks(ctx, u.execContent)
 	defer func() {
@@ -83,7 +83,7 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	return res, nil
 }
 
-//beforeImage build before image
+// beforeImage build before image
 func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
@@ -129,7 +129,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	return image, nil
 }
 
-//afterImage build after image
+// afterImage build after image
 func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.RecordImage) (*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
@@ -175,7 +175,7 @@ func (u *updateExecutor) isAstStmtValid() bool {
 	return u.parserCtx != nil && u.parserCtx.UpdateStmt != nil
 }
 
-//buildAfterImageSQL build the SQL to query after image data
+// buildAfterImageSQL build the SQL to query after image data
 func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta *types.TableMeta) (string, []driver.NamedValue) {
 	if len(beforeImage.Rows) == 0 {
 		return "", nil
@@ -200,7 +200,7 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
 }
 
-//buildAfterImageSQL build the SQL to query before image data
+// buildAfterImageSQL build the SQL to query before image data
 func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid update stmt")

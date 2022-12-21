@@ -43,8 +43,7 @@ func main() {
 	defer cancel()
 
 	transInfo := &tm.GtxConfig{
-		Name:    "ATSampleLocalGlobalTx",
-		Timeout: time.Second * 30,
+		Name: "ATSampleLocalGlobalTx",
 	}
 
 	if err := tm.WithGlobalTx(bgCtx, transInfo, updateData); err != nil {
