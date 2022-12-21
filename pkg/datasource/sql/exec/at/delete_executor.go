@@ -24,6 +24,7 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -95,15 +96,17 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	tableName := d.execContent.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := d.execContent.MetaDataMap[tableName]
+	tableName, _ := d.parserCtx.GteTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)
 
-	image, err := d.buildRecordImages(rowsi, &metaData)
+	image, err := d.buildRecordImages(rowsi, metaData)
 	if err != nil {
 		return nil, err
 	}
+	image.SQLType = types.SQLTypeDelete
+	image.TableMeta = *metaData
 
-	lockKey := d.buildLockKey(image, metaData)
+	lockKey := d.buildLockKey(image, *metaData)
 	d.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return image, nil
@@ -144,5 +147,5 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 //afterImage build after image
 func (d *deleteExecutor) afterImage() (*types.RecordImage, error) {
-	return nil, nil
+	return &types.RecordImage{}, nil
 }

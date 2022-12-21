@@ -80,6 +80,7 @@ func (m *BaseUndoLogManager) Init() {
 
 // InsertUndoLog
 func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn driver.Conn) error {
+	log.Infof("begin to insert undo log, xid %v, branch id %v", record.XID, record.BranchID)
 	stmt, err := conn.Prepare(insertUndoLogSql)
 	if err != nil {
 		return err

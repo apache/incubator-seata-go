@@ -47,7 +47,7 @@ func main() {
 
 func deleteData(ctx context.Context) error {
 	sql := "delete from order_tbl where id=?"
-	ret, err := db.ExecContext(ctx, sql, 1)
+	ret, err := db.ExecContext(ctx, sql, 2)
 	if err != nil {
 		fmt.Printf("delete failed, err:%v\n", err)
 		return err
@@ -58,7 +58,7 @@ func deleteData(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("delete success： %d.\n", rows)
-	return nil
+	return fmt.Errorf("test error")
 }
 
 func updateData(ctx context.Context) error {
