@@ -21,21 +21,21 @@ import (
 	"flag"
 )
 
-type Compress struct {
+type CompressConfig struct {
 	Enable    bool   `yaml:"enable" json:"enable,omitempty" property:"enable"`
 	Type      string `yaml:"type" json:"type,omitempty" property:"type"`
 	Threshold int    `yaml:"threshold" json:"threshold,omitempty" property:"threshold"`
 }
 
-type Config struct {
-	DataValidation        bool     `yaml:"data-validation" json:"data-validation,omitempty" property:"data-validation"`
-	LogSerialization      string   `yaml:"log-serialization" json:"log-serialization,omitempty" property:"log-serialization"`
-	LogTable              string   `yaml:"log-table" json:"log-table,omitempty" property:"log-table"`
-	OnlyCareUpdateColumns bool     `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" property:"only-care-update-columns"`
-	Compress              Compress `yaml:"compress" json:"compress,omitempty" property:"compress"`
+type UndoConfig struct {
+	DataValidation        bool           `yaml:"data-validation" json:"data-validation,omitempty" property:"data-validation"`
+	LogSerialization      string         `yaml:"log-serialization" json:"log-serialization,omitempty" property:"log-serialization"`
+	LogTable              string         `yaml:"log-table" json:"log-table,omitempty" property:"log-table"`
+	OnlyCareUpdateColumns bool           `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" property:"only-care-update-columns"`
+	Compress              CompressConfig `yaml:"compress" json:"compress,omitempty" property:"compress"`
 }
 
-func (ufg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (ufg *UndoConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.BoolVar(&ufg.DataValidation, prefix+".data-validation", true, "Judge whether the before image and after image are the same，If it is the same, undo will not be recorded")
 	f.StringVar(&ufg.LogSerialization, prefix+".log-serialization", "jackson", "Serialization method.")
 	f.StringVar(&ufg.LogTable, prefix+".log-table", "undo_log", "undo log table name.")
@@ -44,7 +44,7 @@ func (ufg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 // RegisterFlagsWithPrefix for Compress.
-func (cfg *Compress) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (cfg *CompressConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.BoolVar(&cfg.Enable, prefix+".log-table-name", true, "Whether compression is required.")
 	f.StringVar(&cfg.Type, prefix+".clean-period", "zip", "Compression type")
 	f.IntVar(&cfg.Threshold, prefix+".clean-period", 64, "Compression threshold Unit: k")
