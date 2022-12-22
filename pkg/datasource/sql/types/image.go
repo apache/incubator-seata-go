@@ -129,7 +129,8 @@ type RowImage struct {
 func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 	m := make(map[string]*ColumnImage, 0)
 	for _, column := range r.Columns {
-		m[column.ColumnName] = &column
+		tmpColumn := column
+		m[column.ColumnName] = &tmpColumn
 	}
 	return m
 }
@@ -245,7 +246,7 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 		case JDBCTypeChar, JDBCTypeVarchar:
 			var val []byte
 			if val, err = base64.StdEncoding.DecodeString(value.(string)); err != nil {
-				return err
+				val = []byte(value.(string))
 			}
 			actualValue = string(val)
 		case JDBCTypeBinary, JDBCTypeVarBinary, JDBCTypeLongVarBinary, JDBCTypeBit:

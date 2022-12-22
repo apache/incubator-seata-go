@@ -15,22 +15,34 @@
  * limitations under the License.
  */
 
-package sql
+package reflectx
 
 import (
 	"testing"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestConn_BuildXAExecutor(t *testing.T) {
-	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
+func TestGetElemDataValue(t *testing.T) {
+	var aa = 10
+	var bb = "name"
+	var cc bool
 
-	assert.NoError(t, err)
-
-	_, ok := executor.(*xa.XAExecutor)
-	assert.True(t, ok, "need xa executor")
+	tests := []struct {
+		name string
+		args interface{}
+		want interface{}
+	}{
+		{name: "test1", args: aa, want: aa},
+		{name: "test2", args: &aa, want: aa},
+		{name: "test3", args: bb, want: bb},
+		{name: "test4", args: &bb, want: bb},
+		{name: "test5", args: cc, want: cc},
+		{name: "test6", args: &cc, want: cc},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetElemDataValue(tt.args); got != tt.want {
+				t.Errorf("GetElemDataValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

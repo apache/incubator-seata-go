@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package sql
+package at
 
 import (
-	"testing"
+	"context"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestConn_BuildXAExecutor(t *testing.T) {
-	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
+type PlainExecutor struct {
+	parserCtx *types.ParseContext
+	execCtx   *types.ExecContext
+}
 
-	assert.NoError(t, err)
+func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) *PlainExecutor {
+	return &PlainExecutor{parserCtx: parserCtx, execCtx: execCtx}
+}
 
-	_, ok := executor.(*xa.XAExecutor)
-	assert.True(t, ok, "need xa executor")
+func (u *PlainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
 }
