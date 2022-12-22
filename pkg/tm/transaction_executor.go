@@ -29,6 +29,7 @@ import (
 )
 
 type GtxConfig struct {
+	Timeout           time.Duration
 	Name              string
 	Propagation       Propagation
 	LockRetryInternal time.Duration
@@ -174,11 +175,16 @@ func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 
 // beginNewGtx to construct a default global transaction
 func beginNewGtx(ctx context.Context, gc *GtxConfig) error {
+	timeout := gc.Timeout
+	if timeout == 0 {
+		timeout = config.DefaultGlobalTransactionTimeout
+	}
+
 	SetTxRole(ctx, Launcher)
 	SetTxName(ctx, gc.Name)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 
-	if err := GetGlobalTransactionManager().Begin(ctx, config.DefaultGlobalTransactionTimeout); err != nil {
+	if err := GetGlobalTransactionManager().Begin(ctx, timeout); err != nil {
 		return fmt.Errorf("transactionTemplate: Begin transaction failed, error %v", err)
 	}
 	return nil

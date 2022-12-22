@@ -39,7 +39,8 @@ func main() {
 	client.InitPath("./testdata/conf/seatago.yml")
 	initService()
 	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
-		Name: "ATSampleLocalGlobalTx",
+		Name:    "ATSampleLocalGlobalTx",
+		Timeout: time.Second * 30,
 	}, updateData)
 	<-make(chan struct{})
 }
