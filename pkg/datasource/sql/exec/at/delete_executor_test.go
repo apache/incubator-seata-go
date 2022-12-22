@@ -29,7 +29,7 @@ import (
 )
 
 func TestNewDeleteExecutor(t *testing.T) {
-	executor := NewPlainExecutor(nil, nil)
+	executor := NewDeleteExecutor(nil, nil, nil)
 	_, ok := executor.(*deleteExecutor)
 	assert.Equalf(t, true, ok, "should be *deleteExecutor")
 }
