@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
@@ -87,8 +88,8 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 
 	tableName, _ := i.parserCtx.GteTableName()
-	metaData := i.execContent.MetaDataMap[tableName]
-	selectSQL, selectArgs, err := i.buildAfterImageSQL()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	selectSQL, selectArgs, err := i.buildAfterImageSQL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := i.buildRecordImages(rowsi, &metaData)
+	image, err := i.buildRecordImages(rowsi, metaData)
 	if err != nil {
 		return nil, err
 	}
@@ -119,14 +120,12 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 }
 
 // buildAfterImageSQL build select sql from insert sql
-func (i *insertExecutor) buildAfterImageSQL() (string, []driver.NamedValue, error) {
+func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
 	// get all pk value
 	tableName, _ := i.parserCtx.GteTableName()
-	if i.execContent.MetaDataMap == nil {
-		return "", nil, fmt.Errorf("can't found  MetaDataMap")
-	}
-	meta := i.execContent.MetaDataMap[tableName]
-	pkValuesMap, err := i.getPkValues(i.execContent, i.parserCtx, meta)
+
+	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	pkValuesMap, err := i.getPkValues(ctx, i.execContent, i.parserCtx, *meta)
 	if err != nil {
 		return "", nil, err
 	}
@@ -168,7 +167,7 @@ func (i *insertExecutor) buildAfterImageSQL() (string, []driver.NamedValue, erro
 	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 
-func (i *insertExecutor) getPkValues(execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
+func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	pkValuesMap := make(map[string][]interface{})
 	var err error
@@ -176,18 +175,18 @@ func (i *insertExecutor) getPkValues(execCtx *types.ExecContext, parseCtx *types
 	if len(pkColumnNameList) == 1 {
 		if i.containsPK(meta, parseCtx) {
 			// the insert sql contain pk value
-			pkValuesMap, err = i.getPkValuesByColumn(execCtx)
+			pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
 			if err != nil {
 				return nil, err
 			}
 		} else if containsColumns(parseCtx) {
 			// the insert table pk auto generated
-			pkValuesMap, err = i.getPkValuesByAuto(execCtx)
+			pkValuesMap, err = i.getPkValuesByAuto(ctx, execCtx)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			pkValuesMap, err = i.getPkValuesByColumn(execCtx)
+			pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
 			if err != nil {
 				return nil, err
 			}
@@ -196,13 +195,13 @@ func (i *insertExecutor) getPkValues(execCtx *types.ExecContext, parseCtx *types
 		//when there is multiple pk in the table
 		//1,all pk columns are filled value.
 		//2,the auto increment pk column value is null, and other pk value are not null.
-		pkValuesMap, err = i.getPkValuesByColumn(execCtx)
+		pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
 		if err != nil {
 			return nil, err
 		}
 		for _, columnName := range pkColumnNameList {
 			if _, ok := pkValuesMap[columnName]; !ok {
-				curPkValuesMap, err := i.getPkValuesByAuto(execCtx)
+				curPkValuesMap, err := i.getPkValuesByAuto(ctx, execCtx)
 				if err != nil {
 					return nil, err
 				}
@@ -389,13 +388,13 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 }
 
 // getPkValuesByColumn get pk value by column.
-func (i *insertExecutor) getPkValuesByColumn(execCtx *types.ExecContext) (map[string][]interface{}, error) {
+func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types.ExecContext) (map[string][]interface{}, error) {
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
 	tableName, _ := i.parserCtx.GteTableName()
-	meta := execCtx.MetaDataMap[tableName]
-	pkValuesMap, err := i.parsePkValuesFromStatement(i.parserCtx.InsertStmt, meta, execCtx.NamedValues)
+	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	pkValuesMap, err := i.parsePkValuesFromStatement(i.parserCtx.InsertStmt, *meta, execCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +405,7 @@ func (i *insertExecutor) getPkValuesByColumn(execCtx *types.ExecContext) (map[st
 		if len(tmpV) == 1 {
 			// pk auto generated while single insert primary key is expression
 			if _, ok := tmpV[0].(*ast.FuncCallExpr); ok {
-				curPkValueMap, err := i.getPkValuesByAuto(execCtx)
+				curPkValueMap, err := i.getPkValuesByAuto(ctx, execCtx)
 				if err != nil {
 					return nil, err
 				}
@@ -414,7 +413,7 @@ func (i *insertExecutor) getPkValuesByColumn(execCtx *types.ExecContext) (map[st
 			}
 		} else if len(tmpV) > 0 && tmpV[0] == nil {
 			// pk auto generated while column exists and value is null
-			curPkValueMap, err := i.getPkValuesByAuto(execCtx)
+			curPkValueMap, err := i.getPkValuesByAuto(ctx, execCtx)
 			if err != nil {
 				return nil, err
 			}
@@ -424,12 +423,12 @@ func (i *insertExecutor) getPkValuesByColumn(execCtx *types.ExecContext) (map[st
 	return pkValuesMap, nil
 }
 
-func (i *insertExecutor) getPkValuesByAuto(execCtx *types.ExecContext) (map[string][]interface{}, error) {
-	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
+func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.ExecContext) (map[string][]interface{}, error) {
+	if !i.isAstStmtValid() {
 		return nil, nil
 	}
 	tableName, _ := i.parserCtx.GteTableName()
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {
