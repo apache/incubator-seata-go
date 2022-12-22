@@ -711,6 +711,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
 
 			got, err := executor.(*insertExecutor).getPkValuesByAuto(tt.args.execCtx)
 			assert.Nil(t, err)
