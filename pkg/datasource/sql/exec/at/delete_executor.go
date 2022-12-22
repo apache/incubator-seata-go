@@ -98,6 +98,9 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 
 	tableName, _ := d.parserCtx.GteTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
 
 	image, err := d.buildRecordImages(rowsi, metaData)
 	if err != nil {
