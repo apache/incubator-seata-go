@@ -20,6 +20,7 @@ package client
 import (
 	"flag"
 	"fmt"
+	"github.com/seata/seata-go/pkg/rm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,8 +33,8 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
@@ -51,6 +52,7 @@ const (
 
 type ClientConfig struct {
 	TmConfig tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
+	RmConfig rm.Config   `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
 }
 
 func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -58,6 +60,7 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	// TODO: Undo RegisterFlagsWithPrefix
 	// TODO: LoadBalance RegisterFlagsWithPrefix
 	c.TmConfig.RegisterFlagsWithPrefix(prefix+".tm", f)
+	c.RmConfig.RegisterFlagsWithPrefix(prefix+".rm", f)
 }
 
 type Config struct {
