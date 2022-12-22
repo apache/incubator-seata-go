@@ -22,17 +22,17 @@ import (
 )
 
 type CompressConfig struct {
-	Enable    bool   `yaml:"enable" json:"enable,omitempty" property:"enable"`
-	Type      string `yaml:"type" json:"type,omitempty" property:"type"`
-	Threshold int    `yaml:"threshold" json:"threshold,omitempty" property:"threshold"`
+	Enable    bool   `yaml:"enable" json:"enable,omitempty" `
+	Type      string `yaml:"type" json:"type,omitempty" `
+	Threshold int    `yaml:"threshold" json:"threshold,omitempty" `
 }
 
 type UndoConfig struct {
-	DataValidation        bool           `yaml:"data-validation" json:"data-validation,omitempty" property:"data-validation"`
-	LogSerialization      string         `yaml:"log-serialization" json:"log-serialization,omitempty" property:"log-serialization"`
-	LogTable              string         `yaml:"log-table" json:"log-table,omitempty" property:"log-table"`
-	OnlyCareUpdateColumns bool           `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" property:"only-care-update-columns"`
-	Compress              CompressConfig `yaml:"compress" json:"compress,omitempty" property:"compress"`
+	DataValidation        bool           `yaml:"data-validation" json:"data-validation,omitempty" `
+	LogSerialization      string         `yaml:"log-serialization" json:"log-serialization,omitempty" `
+	LogTable              string         `yaml:"log-table" json:"log-table,omitempty" `
+	OnlyCareUpdateColumns bool           `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" `
+	Compress              CompressConfig `yaml:"compress" json:"compress,omitempty" `
 }
 
 func (ufg *UndoConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
