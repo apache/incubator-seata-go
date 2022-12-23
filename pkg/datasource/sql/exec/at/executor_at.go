@@ -44,7 +44,7 @@ func (e *AtExecutor) Interceptors(hooks []exec.SQLHook) {
 	e.hooks = hooks
 }
 
-//ExecWithNamedValue
+// ExecWithNamedValue
 func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	parser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
@@ -72,7 +72,7 @@ func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 	return exec.ExecContext(ctx, f)
 }
 
-//ExecWithValue
+// ExecWithValue
 func (e *AtExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
