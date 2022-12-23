@@ -56,7 +56,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		i.afterHooks(ctx, i.execContent)
 	}()
 
-	beforeImage, err := i.beforeImage()
+	beforeImage, err := i.beforeImage(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,13 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 }
 
 //beforeImage build before image
-func (i *insertExecutor) beforeImage() (*types.RecordImage, error) {
-	return &types.RecordImage{}, nil
+func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	tableName, _ := i.parserCtx.GteTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+	return types.NewEmptyRecordImage(metaData, types.SQLTypeInsert), nil
 }
 
 //afterImage build after image
@@ -116,6 +121,8 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, err
 	}
 
+	lockKey := i.buildLockKey(image, *metaData)
+	i.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
 	return image, nil
 }
 

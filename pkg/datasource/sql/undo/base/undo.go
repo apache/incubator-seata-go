@@ -307,7 +307,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 				return err
 			}
 
-			undoLog.SetTableMeta(*tableMeta)
+			undoLog.SetTableMeta(tableMeta)
 
 			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
 			if err != nil {

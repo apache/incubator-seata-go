@@ -62,7 +62,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	afterImage, err := d.afterImage()
+	afterImage, err := d.afterImage(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 	image.SQLType = types.SQLTypeDelete
-	image.TableMeta = *metaData
+	image.TableMeta = metaData
 
 	lockKey := d.buildLockKey(image, *metaData)
 	d.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
@@ -149,6 +149,11 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 }
 
 //afterImage build after image
-func (d *deleteExecutor) afterImage() (*types.RecordImage, error) {
-	return &types.RecordImage{}, nil
+func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
+	tableName, _ := d.parserCtx.GteTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+	return types.NewEmptyRecordImage(metaData, types.SQLTypeDelete), nil
 }
