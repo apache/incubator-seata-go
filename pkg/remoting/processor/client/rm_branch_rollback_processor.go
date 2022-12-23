@@ -85,6 +85,6 @@ func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage mess
 		log.Errorf("send branch rollback response error: {%#v}", err.Error())
 		return err
 	}
-	log.Infof("send branch rollback response success: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("send branch rollback response success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	return nil
 }

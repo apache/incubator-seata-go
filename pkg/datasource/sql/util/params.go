@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package at
+package util
 
-import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-)
+import "database/sql/driver"
 
-func init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.UpdateExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.SelectExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.InsertExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
-	exec.RegisterATExecutor(types.DBTypeMySQL, types.DeleteExecutor, func() exec.SQLExecutor {
-		return &ATExecutor{}
-	})
+func NamedValueToValue(nvs []driver.NamedValue) []driver.Value {
+	vs := make([]driver.Value, 0, len(nvs))
+	for _, nv := range nvs {
+		vs = append(vs, nv.Value)
+	}
+	return vs
+}
+
+func ValueToNamedValue(vs []driver.Value) []driver.NamedValue {
+	nvs := make([]driver.NamedValue, 0, len(vs))
+	for i, v := range vs {
+		nvs = append(nvs, driver.NamedValue{
+			Value:   v,
+			Ordinal: i,
+		})
+	}
+	return nvs
 }
