@@ -32,6 +32,15 @@ import (
 )
 
 func TestBegin(t *testing.T) {
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		gtx                GlobalTransaction
 		wantHasError       bool
@@ -124,6 +133,15 @@ func TestBegin(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		gtx                GlobalTransaction
 		wantHasError       bool
@@ -205,6 +223,15 @@ func TestCommit(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		globalTransaction  GlobalTransaction
 		wantHasError       bool
