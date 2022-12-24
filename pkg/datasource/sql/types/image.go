@@ -117,7 +117,15 @@ type RecordImage struct {
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
-	TableMeta TableMeta `json:"-"`
+	TableMeta *TableMeta `json:"-"`
+}
+
+func NewEmptyRecordImage(tableMeta *TableMeta, sqlType SQLType) *RecordImage {
+	return &RecordImage{
+		TableName: tableMeta.TableName,
+		TableMeta: tableMeta,
+		SQLType:   sqlType,
+	}
 }
 
 // RowImage Mirror data information information

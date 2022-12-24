@@ -61,7 +61,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
 		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
-			var scanVal string
+			var scanVal sql.NullString
 			scanSlice = append(scanSlice, &scanVal)
 		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
 			if columnMeta.IsNullable == 0 {
@@ -72,7 +72,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 				scanSlice = append(scanSlice, &scanVal)
 			}
 		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
-			scanVal := sql.NullTime{}
+			var scanVal sql.NullTime
 			scanSlice = append(scanSlice, &scanVal)
 		case "DECIMAL", "DOUBLE", "FLOAT":
 			if columnMeta.IsNullable == 0 {
@@ -177,13 +177,68 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 				KeyType:    keyType,
 				ColumnName: name,
 				ColumnType: jdbcType,
-				Value:      reflectx.GetElemDataValue(ss[i]),
+				Value:      getSqlNullValue(reflectx.GetElemDataValue(ss[i])),
 			})
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
 	}
 
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages}, nil
+}
+
+func getSqlNullValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+	if v, ok := value.(sql.NullString); ok {
+		if v.Valid {
+			return v.String
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullFloat64); ok {
+		if v.Valid {
+			return v.Float64
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullBool); ok {
+		if v.Valid {
+			return v.Bool
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullTime); ok {
+		if v.Valid {
+			return v.Time
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullByte); ok {
+		if v.Valid {
+			return v.Byte
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullInt16); ok {
+		if v.Valid {
+			return v.Int16
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullInt32); ok {
+		if v.Valid {
+			return v.Int32
+		}
+		return nil
+	}
+	if v, ok := value.(sql.NullInt64); ok {
+		if v.Valid {
+			return v.Int64
+		}
+		return nil
+	}
+	return value
 }
 
 // buildWhereConditionByPKs build where condition by primary keys

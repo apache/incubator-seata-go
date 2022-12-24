@@ -27,6 +27,7 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // Init seata client client
@@ -38,6 +39,7 @@ func Init() {
 func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
 
+	initLog(cfg)
 	initRmClient(cfg)
 	initTmClient(cfg)
 }
@@ -45,6 +47,7 @@ func InitPath(configFilePath string) {
 var (
 	onceInitTmClient sync.Once
 	onceInitRmClient sync.Once
+	onceInitLog      sync.Once
 )
 
 // InitTmClient init client tm client
@@ -67,5 +70,12 @@ func initRmClient(cfg *Config) {
 		integration.Init()
 		tcc.InitTCC()
 		at.InitAT()
+	})
+}
+
+// initLog init log
+func initLog(cfg *Config) {
+	onceInitLog.Do(func() {
+		log.Init()
 	})
 }
