@@ -46,6 +46,7 @@ var (
 )
 
 func InitMock() {
+	log.Init()
 	var (
 		registerResource = func(_ *TCCServiceProxy) error {
 			return nil
