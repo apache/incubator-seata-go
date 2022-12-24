@@ -94,6 +94,9 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 
 	tableName, _ := i.parserCtx.GteTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
 	selectSQL, selectArgs, err := i.buildAfterImageSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -132,6 +135,9 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	tableName, _ := i.parserCtx.GteTableName()
 
 	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	if err != nil {
+		return "", nil, err
+	}
 	pkValuesMap, err := i.getPkValues(ctx, i.execContent, i.parserCtx, *meta)
 	if err != nil {
 		return "", nil, err
@@ -401,6 +407,9 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	}
 	tableName, _ := i.parserCtx.GteTableName()
 	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
 	pkValuesMap, err := i.parsePkValuesFromStatement(i.parserCtx.InsertStmt, *meta, execCtx.NamedValues)
 	if err != nil {
 		return nil, err
