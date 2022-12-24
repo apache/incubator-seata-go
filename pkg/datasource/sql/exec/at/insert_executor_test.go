@@ -113,6 +113,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
 			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &test.metaData, nil
