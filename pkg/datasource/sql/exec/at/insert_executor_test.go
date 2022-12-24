@@ -20,6 +20,10 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/agiledragon/gomonkey"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
+	"reflect"
 	"testing"
 
 	"github.com/arana-db/parser/ast"
@@ -38,7 +42,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 		query             string
 		queryArgs         []driver.Value
 		NamedValues       []driver.NamedValue
-		metaDataMap       map[string]types.TableMeta
+		metaData          types.TableMeta
 		expectQuery       string
 		expectQueryArgs   []driver.Value
 		orExpectQuery     string
@@ -49,59 +53,56 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 		{
 			name:  "test-1",
 			query: "insert into user(id,name) values (19,'Tony'),(21,'tony')",
-			metaDataMap: map[string]types.TableMeta{
-				"user": {
-					ColumnNames: []string{"id", "name"},
-					Indexs: map[string]types.IndexMeta{
-						"id": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
-							Columns: []types.ColumnMeta{
-								{
-									ColumnName:   "id",
-									DatabaseType: types.GetSqlDataType("BIGINT"),
-								},
+			metaData: types.TableMeta{
+				ColumnNames: []string{"id", "name"},
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType:      types.IndexTypePrimaryKey,
+						ColumnName: "id",
+						Columns: []types.ColumnMeta{
+							{
+								ColumnName:   "id",
+								DatabaseType: types.GetSqlDataType("BIGINT"),
 							},
 						},
 					},
-					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-						"name": {
-							ColumnName: "name",
-						},
+				},
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+					},
+					"name": {
+						ColumnName: "name",
 					},
 				},
 			},
+
 			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
 			name:  "test-2",
 			query: "insert into user(user_id,name) values (20,'Tony')",
-			metaDataMap: map[string]types.TableMeta{
-				"user": {
-					ColumnNames: []string{"user_id", "name"},
-					Indexs: map[string]types.IndexMeta{
-						"user_id": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "user_id",
-							Columns: []types.ColumnMeta{
-								{
-									ColumnName:   "user_id",
-									DatabaseType: types.GetSqlDataType("BIGINT"),
-								},
+			metaData: types.TableMeta{
+				ColumnNames: []string{"user_id", "name"},
+				Indexs: map[string]types.IndexMeta{
+					"user_id": {
+						IType:      types.IndexTypePrimaryKey,
+						ColumnName: "user_id",
+						Columns: []types.ColumnMeta{
+							{
+								ColumnName:   "user_id",
+								DatabaseType: types.GetSqlDataType("BIGINT"),
 							},
 						},
 					},
-					Columns: map[string]types.ColumnMeta{
-						"user_id": {
-							ColumnName: "user_id",
-						},
-						"name": {
-							ColumnName: "name",
-						},
+				},
+				Columns: map[string]types.ColumnMeta{
+					"user_id": {
+						ColumnName: "user_id",
+					},
+					"name": {
+						ColumnName: "name",
 					},
 				},
 			},
@@ -112,13 +113,18 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
+				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+					return &test.metaData, nil
+				})
+			defer stub.Reset()
+
 			c, err := parser.DoParser(test.query)
 			assert.Nil(t, err)
 
 			executor := NewInsertExecutor(c, &types.ExecContext{
 				Values:      test.queryArgs,
 				NamedValues: test.NamedValues,
-				MetaDataMap: test.metaDataMap,
 			}, []exec.SQLHook{})
 
 			executor.(*insertExecutor).businesSQLResult = &test.mockInsertResult
