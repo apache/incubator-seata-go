@@ -15,22 +15,42 @@
  * limitations under the License.
  */
 
-package sql
+package at
 
 import (
+	"log"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConn_BuildXAExecutor(t *testing.T) {
-	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
+// TestDelEscape
+func TestDelEscape(t *testing.T) {
+	strSlice := []string{`"scheme"."id"`, "`scheme`.`id`", `"scheme".id`, `scheme."id"`, `scheme."id"`, "scheme.`id`"}
 
-	assert.NoError(t, err)
+	for k, v := range strSlice {
+		res := DelEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, "scheme.id", res)
+	}
+}
 
-	_, ok := executor.(*xa.XAExecutor)
-	assert.True(t, ok, "need xa executor")
+// TestAddEscape
+func TestAddEscape(t *testing.T) {
+	strSlice := []string{`"scheme".id`, "`scheme`.id", `scheme."id"`, "scheme.`id`"}
+
+	for k, v := range strSlice {
+		res := AddEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, v, res)
+	}
+
+	strSlice1 := []string{"ALTER", "ANALYZE"}
+	for k, v := range strSlice1 {
+		res := AddEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, "`"+v+"`", res)
+	}
 }

@@ -42,7 +42,7 @@ func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordIma
 		return true, nil
 	}
 
-	return compareRows(beforeImage.TableMeta, beforeImage.Rows, afterImage.Rows)
+	return compareRows(*beforeImage.TableMeta, beforeImage.Rows, afterImage.Rows)
 }
 
 func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) {

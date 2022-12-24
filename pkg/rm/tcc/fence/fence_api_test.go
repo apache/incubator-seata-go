@@ -23,16 +23,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/errors"
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
-	"github.com/seata/seata-go/pkg/tm"
 )
 
 func TestWithFence(t *testing.T) {
+	log.Init()
 	tests := []struct {
 		xid          string
 		txName       string

@@ -46,6 +46,7 @@ var (
 )
 
 func InitMock() {
+	log.Init()
 	var (
 		registerResource = func(_ *TCCServiceProxy) error {
 			return nil
@@ -171,7 +172,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				Context *tm.BusinessActionContext
 			}{
-
 				Context: &tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",
@@ -190,7 +190,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				Context tm.BusinessActionContext
 			}{
-
 				Context: tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",
@@ -209,7 +208,6 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 			param: struct {
 				context tm.BusinessActionContext
 			}{
-
 				context: tm.BusinessActionContext{
 					ActionContext: map[string]interface{}{
 						"name": "Jack",

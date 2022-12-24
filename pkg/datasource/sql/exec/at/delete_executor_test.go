@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package builder
+package at
 
 import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/util/log"
-
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildDeleteBeforeImageSQL(t *testing.T) {
-	log.Init()
-	var (
-		builder = MySQLDeleteUndoLogBuilder{}
-	)
+func TestNewDeleteExecutor(t *testing.T) {
+	executor := NewDeleteExecutor(nil, nil, nil)
+	_, ok := executor.(*deleteExecutor)
+	assert.Equalf(t, true, ok, "should be *deleteExecutor")
+}
+
+func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
 	tests := []struct {
 		name            string
 		sourceQuery     string
@@ -65,10 +69,13 @@ func TestBuildDeleteBeforeImageSQL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query, args, err := builder.buildBeforeImageSQL(tt.sourceQuery, tt.sourceQueryArgs)
+			c, err := parser.DoParser(tt.sourceQuery)
+			assert.Nil(t, err)
+			executor := NewDeleteExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL(tt.sourceQuery, util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
-			assert.Equal(t, tt.expectQueryArgs, args)
+			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))
 		})
 	}
 }

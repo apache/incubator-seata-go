@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seata/seata-go/pkg/util/log"
+
 	"github.com/agiledragon/gomonkey"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,16 @@ import (
 )
 
 func TestBegin(t *testing.T) {
+	log.Init()
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		gtx                GlobalTransaction
 		wantHasError       bool
@@ -124,6 +136,15 @@ func TestBegin(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		gtx                GlobalTransaction
 		wantHasError       bool
@@ -205,6 +226,15 @@ func TestCommit(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
+	InitTm(TmConfig{
+		CommitRetryCount:                5,
+		RollbackRetryCount:              5,
+		DefaultGlobalTransactionTimeout: 60 * time.Second,
+		DegradeCheck:                    false,
+		DegradeCheckPeriod:              2000,
+		DegradeCheckAllowTimes:          10 * time.Second,
+		InterceptorOrder:                -2147482648,
+	})
 	gts := []struct {
 		globalTransaction  GlobalTransaction
 		wantHasError       bool
