@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seata/seata-go/pkg/util/log"
+
 	"github.com/agiledragon/gomonkey"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,7 @@ import (
 )
 
 func TestBegin(t *testing.T) {
+	log.Init()
 	InitTm(TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,

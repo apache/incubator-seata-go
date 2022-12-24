@@ -18,21 +18,39 @@
 package at
 
 import (
-	"context"
+	"log"
+	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type plainExecutor struct {
-	parserCtx *types.ParseContext
-	execCtx   *types.ExecContext
+// TestDelEscape
+func TestDelEscape(t *testing.T) {
+	strSlice := []string{`"scheme"."id"`, "`scheme`.`id`", `"scheme".id`, `scheme."id"`, `scheme."id"`, "scheme.`id`"}
+
+	for k, v := range strSlice {
+		res := DelEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, "scheme.id", res)
+	}
 }
 
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
-	return &plainExecutor{parserCtx: parserCtx, execCtx: execCtx}
-}
+// TestAddEscape
+func TestAddEscape(t *testing.T) {
+	strSlice := []string{`"scheme".id`, "`scheme`.id", `scheme."id"`, "scheme.`id`"}
 
-func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
+	for k, v := range strSlice {
+		res := AddEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, v, res)
+	}
+
+	strSlice1 := []string{"ALTER", "ANALYZE"}
+	for k, v := range strSlice1 {
+		res := AddEscape(v, types.DBTypeMySQL)
+		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
+		assert.Equal(t, "`"+v+"`", res)
+	}
 }
