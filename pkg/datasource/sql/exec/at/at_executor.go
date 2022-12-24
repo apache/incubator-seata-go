@@ -57,10 +57,12 @@ func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 		exec = NewPlainExecutor(parser, execCtx)
 	} else {
 		switch parser.SQLType {
-		//case types.SQLTypeInsert:
+		case types.SQLTypeInsert:
+			exec = NewInsertExecutor(parser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
 			exec = NewUpdateExecutor(parser, execCtx, e.hooks)
-		//case types.SQLTypeDelete:
+		case types.SQLTypeDelete:
+			exec = NewDeleteExecutor(parser, execCtx, e.hooks)
 		//case types.SQLTypeSelectForUpdate:
 		//case types.SQLTypeMultiDelete:
 		//case types.SQLTypeMultiUpdate:
