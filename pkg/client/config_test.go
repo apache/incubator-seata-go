@@ -65,7 +65,7 @@ func TestLoadPath(t *testing.T) {
 
 	assert.NotNil(t, cfg.TransportConfig)
 	assert.NotNil(t, cfg.TransportConfig.ShutdownConfig)
-	assert.NotNil(t, 3*time.Second, cfg.TransportConfig.ShutdownConfig.Wait)
+	assert.NotNil(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
 	assert.Equal(t, "TCP", cfg.TransportConfig.Type)
 	assert.Equal(t, "NIO", cfg.TransportConfig.Server)
 	assert.Equal(t, true, cfg.TransportConfig.Heartbeat)
@@ -73,8 +73,8 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, "none", cfg.TransportConfig.Compressor)
 	assert.Equal(t, false, cfg.TransportConfig.EnableTmClientBatchSendRequest)
 	assert.Equal(t, true, cfg.TransportConfig.EnableRmClientBatchSendRequest)
-	assert.Equal(t, 30*time.Second, cfg.TransportConfig.RPCRmRequestTimeout)
-	assert.Equal(t, 30*time.Second, cfg.TransportConfig.RPCTmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -123,7 +123,7 @@ func TestLoadJson(t *testing.T) {
 
 	assert.NotNil(t, cfg.TransportConfig)
 	assert.NotNil(t, cfg.TransportConfig.ShutdownConfig)
-	assert.NotNil(t, 3*time.Second, cfg.TransportConfig.ShutdownConfig.Wait)
+	assert.Equal(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
 	assert.Equal(t, "TCP", cfg.TransportConfig.Type)
 	assert.Equal(t, "NIO", cfg.TransportConfig.Server)
 	assert.Equal(t, true, cfg.TransportConfig.Heartbeat)
@@ -131,8 +131,8 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, "none", cfg.TransportConfig.Compressor)
 	assert.Equal(t, false, cfg.TransportConfig.EnableTmClientBatchSendRequest)
 	assert.Equal(t, true, cfg.TransportConfig.EnableRmClientBatchSendRequest)
-	assert.Equal(t, 30*time.Second, cfg.TransportConfig.RPCRmRequestTimeout)
-	assert.Equal(t, 30*time.Second, cfg.TransportConfig.RPCTmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
