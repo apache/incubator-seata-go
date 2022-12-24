@@ -211,7 +211,6 @@ func (rs *ScanRows) Err() error {
 	return rs.lasterrOrErrLocked(nil)
 }
 
-//
 var errRowsClosed = errors.New("sql: ScanRows are closed")
 
 // Scan copies the columns in the current row into the values pointed
@@ -221,16 +220,16 @@ var errRowsClosed = errors.New("sql: ScanRows are closed")
 // Scan converts columns read from the database into the following
 // common Go types and special types provided by the sql package:
 //
-//    *string
-//    *[]byte
-//    *int, *int8, *int16, *int32, *int64
-//    *uint, *uint8, *uint16, *uint32, *uint64
-//    *bool
-//    *float32, *float64
-//    *interface{}
-//    *RawBytes
-//    *ScanRows (cursor value)
-//    any type implementing Scanner (see Scanner docs)
+//	*string
+//	*[]byte
+//	*int, *int8, *int16, *int32, *int64
+//	*uint, *uint8, *uint16, *uint32, *uint64
+//	*bool
+//	*float32, *float64
+//	*interface{}
+//	*RawBytes
+//	*ScanRows (cursor value)
+//	any type implementing Scanner (see Scanner docs)
 //
 // In the most simple case, if the type of the value from the source
 // column is an integer, bool or string type T and dest is of type *T,

@@ -36,10 +36,6 @@ type GtxConfig struct {
 	LockRetryTimes    int16
 }
 
-const (
-	defaultTimeout = time.Second * 30
-)
-
 // CallbackWithCtx business callback definition
 type CallbackWithCtx func(ctx context.Context) error
 
@@ -101,7 +97,6 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 // construct a new context object and set the xid.
 // the advantage of this is that the suspend and resume operations of xid need not to be considered.
 func begin(ctx context.Context, gc *GtxConfig) error {
-
 	switch pg := gc.Propagation; pg {
 	case NotSupported:
 		// If transaction is existing, suspend it
@@ -180,16 +175,15 @@ func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 
 // beginNewGtx to construct a default global transaction
 func beginNewGtx(ctx context.Context, gc *GtxConfig) error {
-	timeout := defaultTimeout
-	if gc.Timeout != 0 {
-		timeout = gc.Timeout
+	timeout := gc.Timeout
+	if timeout == 0 {
+		timeout = config.DefaultGlobalTransactionTimeout
 	}
 
 	SetTxRole(ctx, Launcher)
 	SetTxName(ctx, gc.Name)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 
-	// todo timeout should read from config if transaction info is nil.
 	if err := GetGlobalTransactionManager().Begin(ctx, timeout); err != nil {
 		return fmt.Errorf("transactionTemplate: Begin transaction failed, error %v", err)
 	}
