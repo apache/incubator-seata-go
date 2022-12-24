@@ -26,8 +26,11 @@ import (
 // ColumnMeta
 type ColumnMeta struct {
 	// Schema
-	Schema        string
-	Table         string
+	Schema string
+	Table  string
+	// ColumnDef  the column default
+	ColumnDef []byte
+	// Autoincrement
 	Autoincrement bool
 	// todo get columnType
 	//ColumnTypeInfo *sql.ColumnType

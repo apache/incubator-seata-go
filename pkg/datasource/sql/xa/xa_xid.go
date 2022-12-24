@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package sql
+package xa
 
-import (
-	"testing"
+type Xid interface {
+	GetFormatId() int
+	GetGlobalTransactionId() []byte
+	GetBranchQualifier() []byte
+}
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestConn_BuildXAExecutor(t *testing.T) {
-	executor, err := exec.BuildExecutor(types.DBTypeMySQL, types.XAMode, "SELECT * FROM user")
-
-	assert.NoError(t, err)
-
-	_, ok := executor.(*xa.XAExecutor)
-	assert.True(t, ok, "need xa executor")
+type XAXid interface {
+	Xid
+	GetGlobalXid() string
+	GetBranchId() int64
 }

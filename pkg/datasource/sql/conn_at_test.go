@@ -52,7 +52,7 @@ func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 		mockConn := mock.NewMockTestDriverConn(ctrl)
 		mockConn.EXPECT().Begin().AnyTimes().Return(mockTx, nil)
 		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(mockTx, nil)
-		baseMoclConn(mockConn)
+		baseMockConn(mockConn)
 
 		connector := mock.NewMockTestDriverConnector(ctrl)
 		connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)

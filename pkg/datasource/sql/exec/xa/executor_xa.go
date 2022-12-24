@@ -19,6 +19,7 @@ package xa
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -55,7 +56,7 @@ func (e *XAExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 }
 
 // ExecWithValue
-func (e *XAExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithValue) (types.ExecResult, error) {
+func (e *XAExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	for _, hook := range e.hooks {
 		hook.Before(ctx, execCtx)
 	}
@@ -70,5 +71,14 @@ func (e *XAExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecConte
 		return e.ex.ExecWithValue(ctx, execCtx, f)
 	}
 
-	return f(ctx, execCtx.Query, execCtx.Values)
+	nvargs := make([]driver.NamedValue, len(execCtx.Values))
+	for i, value := range execCtx.Values {
+		nvargs = append(nvargs, driver.NamedValue{
+			Value:   value,
+			Ordinal: i,
+		})
+	}
+	execCtx.NamedValues = nvargs
+
+	return f(ctx, execCtx.Query, execCtx.NamedValues)
 }
