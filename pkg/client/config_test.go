@@ -65,7 +65,7 @@ func TestLoadPath(t *testing.T) {
 
 	assert.NotNil(t, cfg.TransportConfig)
 	assert.NotNil(t, cfg.TransportConfig.ShutdownConfig)
-	assert.NotNil(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
+	assert.Equal(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
 	assert.Equal(t, "TCP", cfg.TransportConfig.Type)
 	assert.Equal(t, "NIO", cfg.TransportConfig.Server)
 	assert.Equal(t, true, cfg.TransportConfig.Heartbeat)
