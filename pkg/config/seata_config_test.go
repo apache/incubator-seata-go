@@ -84,8 +84,8 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.Compressor, "none")
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.EnableTmClientBatchSendRequest, false)
 	assert.Equal(t, DefaultSeataConf.Seata.Transport.EnableRmClientBatchSendRequest, true)
-	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCRmRequestTimeout, time.Duration(3_000_000_000))
-	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCTmRequestTimeout, time.Duration(3_000_000_000))
+	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCRmRequestTimeout, time.Duration(30_000_000_000))
+	assert.Equal(t, DefaultSeataConf.Seata.Transport.RPCTmRequestTimeout, time.Duration(30_000_000_000))
 
 	// config
 	assert.Equal(t, DefaultSeataConf.Seata.Config.Type, "file")
