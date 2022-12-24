@@ -117,7 +117,6 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &test.metaData, nil
 				})
-			defer stub.Reset()
 
 			c, err := parser.DoParser(test.query)
 			assert.Nil(t, err)
@@ -140,6 +139,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			}
 			assert.Equal(t, test.expectQuery, sql)
 			assert.Equal(t, test.expectQueryArgs, util.NamedValueToValue(values))
+			stub.Reset()
 		})
 	}
 }
