@@ -558,6 +558,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	}
 	type args struct {
 		execCtx *types.ExecContext
+		meta    types.TableMeta
 	}
 	tests := []struct {
 		name   string
@@ -569,6 +570,22 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 			name:   "test-1",
 			fields: fields{},
 			args: args{
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName: "id",
+						},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
 				execCtx: &types.ExecContext{
 					ParseContext: &types.ParseContext{
 						InsertStmt: &ast.InsertStmt{
@@ -596,24 +613,6 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
-						"test": {
-							ColumnNames: []string{"id"},
-							Columns: map[string]types.ColumnMeta{
-								"id": {
-									ColumnName: "id",
-								},
-							},
-							Indexs: map[string]types.IndexMeta{
-								"id": {
-									IType: types.IndexTypePrimaryKey,
-									Columns: []types.ColumnMeta{{
-										ColumnName: "id",
-									}},
-								},
-							},
-						},
-					},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(1)},
@@ -622,6 +621,12 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
+				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+					return &tt.args.meta, nil
+				})
+
 			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
@@ -629,6 +634,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
+			stub.Reset()
 		})
 	}
 }
@@ -640,6 +646,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	}
 	type args struct {
 		execCtx *types.ExecContext
+		meta    types.TableMeta
 	}
 	tests := []struct {
 		name    string
@@ -655,6 +662,30 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 				IncrementStep: 1,
 			},
 			args: args{
+				meta: types.TableMeta{
+					ColumnNames: []string{"id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "id",
+							Columns: []types.ColumnMeta{
+								{
+									ColumnName:    "id",
+									DatabaseType:  types.GetSqlDataType("BIGINT"),
+									Autoincrement: true,
+								},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName: "id",
+						},
+						"name": {
+							ColumnName: "name",
+						},
+					},
+				},
 				execCtx: &types.ExecContext{
 					ParseContext: &types.ParseContext{
 						InsertStmt: &ast.InsertStmt{
@@ -682,32 +713,6 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
-						"test": {
-							ColumnNames: []string{"id", "name"},
-							Indexs: map[string]types.IndexMeta{
-								"id": {
-									IType:      types.IndexTypePrimaryKey,
-									ColumnName: "id",
-									Columns: []types.ColumnMeta{
-										{
-											ColumnName:    "id",
-											DatabaseType:  types.GetSqlDataType("BIGINT"),
-											Autoincrement: true,
-										},
-									},
-								},
-							},
-							Columns: map[string]types.ColumnMeta{
-								"id": {
-									ColumnName: "id",
-								},
-								"name": {
-									ColumnName: "name",
-								},
-							},
-						},
-					},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(100)},
@@ -716,6 +721,11 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
+				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+					return &tt.args.meta, nil
+				})
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
@@ -724,6 +734,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
+			stub.Reset()
 		})
 	}
 }
@@ -738,6 +749,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 		autoColumnName string
 		lastInsetId    int64
 		updateCount    int64
+		meta           types.TableMeta
 	}
 	tests := []struct {
 		name   string
@@ -748,6 +760,22 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 		{name: "test", fields: fields{
 			IncrementStep: 1,
 		}, args: args{
+			meta: types.TableMeta{
+				ColumnNames: []string{"id"},
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+					},
+				},
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{{
+							ColumnName: "id",
+						}},
+					},
+				},
+			},
 			execCtx: &types.ExecContext{
 				ParseContext: &types.ParseContext{
 					InsertStmt: &ast.InsertStmt{
@@ -775,24 +803,6 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 						},
 					},
 				},
-				MetaDataMap: map[string]types.TableMeta{
-					"test": {
-						ColumnNames: []string{"id"},
-						Columns: map[string]types.ColumnMeta{
-							"id": {
-								ColumnName: "id",
-							},
-						},
-						Indexs: map[string]types.IndexMeta{
-							"id": {
-								IType: types.IndexTypePrimaryKey,
-								Columns: []types.ColumnMeta{{
-									ColumnName: "id",
-								}},
-							},
-						},
-					},
-				},
 			},
 			autoColumnName: "id",
 			lastInsetId:    100,
@@ -803,6 +813,12 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
+				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+					return &tt.args.meta, nil
+				})
+
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
@@ -810,6 +826,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 			got, err := executor.(*insertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "autoGeneratePks(%v, %v, %v, %v)", tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
+			stub.Reset()
 		})
 	}
 }
