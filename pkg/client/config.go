@@ -61,15 +61,17 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
-	TCCConfig    tcc.Config   `yaml:"tcc" json:"tcc" koanf:"tcc"`
-	ClientConfig ClientConfig `yaml:"client" json:"client" koanf:"client"`
-	GettyConfig  getty.Config `yaml:"getty" json:"getty" koanf:"getty"`
+	TCCConfig       tcc.Config            `yaml:"tcc" json:"tcc" koanf:"tcc"`
+	ClientConfig    ClientConfig          `yaml:"client" json:"client" koanf:"client"`
+	GettyConfig     getty.Config          `yaml:"getty" json:"getty" koanf:"getty"`
+	TransportConfig getty.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
+	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 }
 
 type loaderConf struct {

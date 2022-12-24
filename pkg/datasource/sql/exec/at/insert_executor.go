@@ -45,7 +45,7 @@ type insertExecutor struct {
 	businesSQLResult types.ExecResult
 }
 
-//NewInsertExecutor get insert executor
+// NewInsertExecutor get insert executor
 func NewInsertExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
 	return &insertExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
@@ -76,7 +76,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	return res, nil
 }
 
-//beforeImage build before image
+// beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := i.parserCtx.GteTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
@@ -86,7 +86,7 @@ func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	return types.NewEmptyRecordImage(metaData, types.SQLTypeInsert), nil
 }
 
-//afterImage build after image
+// afterImage build after image
 func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	if !i.isAstStmtValid() {
 		return nil, nil
