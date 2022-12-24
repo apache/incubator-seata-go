@@ -18,6 +18,7 @@
 package at
 
 import (
+	"context"
 	"database/sql/driver"
 	"testing"
 
@@ -123,7 +124,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			executor.(*insertExecutor).businesSQLResult = &test.mockInsertResult
 			executor.(*insertExecutor).incrementStep = test.IncrementStep
 
-			sql, values, err := executor.(*insertExecutor).buildAfterImageSQL()
+			sql, values, err := executor.(*insertExecutor).buildAfterImageSQL(context.Background())
 			assert.Nil(t, err)
 			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
 				if test.orExpectQuery == sql {
@@ -618,7 +619,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).getPkValuesByColumn(tt.args.execCtx)
+			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
 		})
@@ -713,7 +714,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
 
-			got, err := executor.(*insertExecutor).getPkValuesByAuto(tt.args.execCtx)
+			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
 		})
