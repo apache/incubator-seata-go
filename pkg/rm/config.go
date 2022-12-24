@@ -19,6 +19,7 @@ package rm
 
 import (
 	"flag"
+	"time"
 )
 
 type Config struct {
@@ -35,6 +36,12 @@ type Config struct {
 	LockConfig                      LockConfig `yaml:"lock" json:"lock,omitempty" koanf:"lock"`
 }
 
+type LockConfig struct {
+	RetryInterval                       int           `yaml:"retry-interval" json:"retry-interval,omitempty" koanf:"retry-interval"`
+	RetryTimes                          time.Duration `yaml:"retry-times" json:"retry-times,omitempty" koanf:"retry-times"`
+	RetryPolicyBranchRollbackOnConflict bool          `yaml:"retry-policy-branch-rollback-on-conflict" json:"retry-policy-branch-rollback-on-conflict,omitempty" koanf:"retry-policy-branch-rollback-on-conflict"`
+}
+
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.IntVar(&cfg.AsyncCommitBufferLimit, prefix+".async_commit_buffer_limit", 10000, "The Maximum cache length of asynchronous queue.")
 	f.IntVar(&cfg.ReportRetryCount, prefix+".report_retry_count", 5, "The maximum number of retries when report reports the status.")
@@ -46,5 +53,7 @@ func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.BoolVar(&cfg.SagaCompensatePersistModeUpdate, prefix+".saga_compensate_persist_mode_update", false, "")
 	f.IntVar(&cfg.TccActionInterceptorOrder, prefix+".tcc_action_interceptor_order", -2147482648, "The order of tccActionInterceptor.")
 	f.StringVar(&cfg.SqlParserType, prefix+".sql_parser_type", "druid", "The type of sql parser.")
-	cfg.LockConfig.RegisterFlagsWithPrefix(prefix+".lock", f)
+	f.IntVar(&cfg.LockConfig.RetryInterval, prefix+".retry-interval", 10, "The maximum number of retries when lock fail.")
+	f.DurationVar(&cfg.LockConfig.RetryTimes, prefix+".retry-times", 30*time.Second, "The duration allowed for lock retrying.")
+	f.BoolVar(&cfg.LockConfig.RetryPolicyBranchRollbackOnConflict, prefix+".retry-policy-branch-rollback-on-conflict", true, "The switch for lock conflict.")
 }
