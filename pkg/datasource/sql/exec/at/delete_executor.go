@@ -40,12 +40,12 @@ type deleteExecutor struct {
 	execContent *types.ExecContext
 }
 
-//NewDeleteExecutor get delete executor
+// NewDeleteExecutor get delete executor
 func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
 	return &deleteExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
-//ExecContext exec SQL, and generate before image and after image
+// ExecContext exec SQL, and generate before image and after image
 func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	d.beforeHooks(ctx, d.execContent)
 	defer func() {
@@ -72,7 +72,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	return res, nil
 }
 
-//beforeImage build before image
+// beforeImage build before image
 func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContent.Query, d.execContent.NamedValues)
 	if err != nil {
@@ -148,7 +148,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 	return sql, d.buildSelectArgs(&selStmt, args), nil
 }
 
-//afterImage build after image
+// afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GteTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)

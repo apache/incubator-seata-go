@@ -77,15 +77,30 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, "client_test", cfg.GettyConfig.SessionConfig.SessionName)
 	assert.Equal(t, time.Second, cfg.GettyConfig.SessionConfig.CronPeriod)
 
+	assert.NotNil(t, cfg.TransportConfig)
+	assert.NotNil(t, cfg.TransportConfig.ShutdownConfig)
+	assert.Equal(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
+	assert.Equal(t, "TCP", cfg.TransportConfig.Type)
+	assert.Equal(t, "NIO", cfg.TransportConfig.Server)
+	assert.Equal(t, true, cfg.TransportConfig.Heartbeat)
+	assert.Equal(t, "seata", cfg.TransportConfig.Serialization)
+	assert.Equal(t, "none", cfg.TransportConfig.Compressor)
+	assert.Equal(t, false, cfg.TransportConfig.EnableTmClientBatchSendRequest)
+	assert.Equal(t, true, cfg.TransportConfig.EnableRmClientBatchSendRequest)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
 	confJson := `{"client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},
-"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},
-"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s",
-"session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}}}`
+  "tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},
+  "tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
+  "getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
+  "transport":{"shutdown":{"wait":"3s"},"type":"TCP","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"}}`
+
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 
@@ -135,6 +150,19 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, 261120, cfg.GettyConfig.SessionConfig.MaxMsgLen)
 	assert.Equal(t, "client_test", cfg.GettyConfig.SessionConfig.SessionName)
 	assert.Equal(t, time.Second*2, cfg.GettyConfig.SessionConfig.CronPeriod)
+
+	assert.NotNil(t, cfg.TransportConfig)
+	assert.NotNil(t, cfg.TransportConfig.ShutdownConfig)
+	assert.Equal(t, time.Second*3, cfg.TransportConfig.ShutdownConfig.Wait)
+	assert.Equal(t, "TCP", cfg.TransportConfig.Type)
+	assert.Equal(t, "NIO", cfg.TransportConfig.Server)
+	assert.Equal(t, true, cfg.TransportConfig.Heartbeat)
+	assert.Equal(t, "seata", cfg.TransportConfig.Serialization)
+	assert.Equal(t, "none", cfg.TransportConfig.Compressor)
+	assert.Equal(t, false, cfg.TransportConfig.EnableTmClientBatchSendRequest)
+	assert.Equal(t, true, cfg.TransportConfig.EnableRmClientBatchSendRequest)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
+	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
