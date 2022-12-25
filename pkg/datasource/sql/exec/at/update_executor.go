@@ -40,6 +40,7 @@ var (
 	maxInSize             = 1000
 )
 
+// updateExecutor execute update SQL
 type updateExecutor struct {
 	baseExecutor
 	parserCtx   *types.ParseContext
