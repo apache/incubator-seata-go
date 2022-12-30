@@ -61,7 +61,7 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 			}
 		}
 
-		if _, err = stmt.Exec(pkValueList); err != nil {
+		if _, err = stmt.Exec(pkValueList...); err != nil {
 			return err
 		}
 	}

@@ -100,9 +100,9 @@ seata:
     # Allow batch sending of requests (RM)
     enable-rm-client-batch-send-request: true
     # RM send request timeout
-    rpc-rm-request-timeout: 3s
+    rpc-rm-request-timeout: 30s
     # TM send request timeout
-    rpc-tm-request-timeout: 3s
+    rpc-tm-request-timeout: 30s
   # Configuration Center
   config:
     type: file

@@ -152,7 +152,7 @@ type SQLUndoLog struct {
 	AfterImage  *types.RecordImage `json:"afterImage"`
 }
 
-func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
+func (s SQLUndoLog) SetTableMeta(tableMeta *types.TableMeta) {
 	if s.BeforeImage != nil {
 		s.BeforeImage.TableMeta = tableMeta
 		s.BeforeImage.TableName = tableMeta.TableName

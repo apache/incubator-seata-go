@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-package at
+package tm
 
-import (
-	"context"
+var config TmConfig
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-)
-
-type plainExecutor struct {
-	parserCtx *types.ParseContext
-	execCtx   *types.ExecContext
-}
-
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
-	return &plainExecutor{parserCtx: parserCtx, execCtx: execCtx}
-}
-
-func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
+func InitTm(tmConfig TmConfig) {
+	config = tmConfig
 }

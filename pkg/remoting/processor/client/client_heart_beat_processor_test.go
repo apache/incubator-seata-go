@@ -23,9 +23,11 @@ import (
 
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 func TestClientHeartBeatProcessor(t *testing.T) {
+	log.Init()
 	// testcases
 	tests := []struct {
 		name    string             // testcase name

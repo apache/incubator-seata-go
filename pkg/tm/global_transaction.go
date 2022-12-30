@@ -80,7 +80,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	}
 
 	bf := backoff.New(ctx, backoff.Config{
-		MaxRetries: 10,
+		MaxRetries: config.CommitRetryCount,
 		MinBackoff: 100 * time.Millisecond,
 		MaxBackoff: 200 * time.Millisecond,
 	})
@@ -121,7 +121,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	}
 
 	bf := backoff.New(ctx, backoff.Config{
-		MaxRetries: 10,
+		MaxRetries: config.RollbackRetryCount,
 		MinBackoff: 100 * time.Millisecond,
 		MaxBackoff: 200 * time.Millisecond,
 	})
