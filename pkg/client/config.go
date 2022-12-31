@@ -75,7 +75,7 @@ type Config struct {
 	ClientConfig    ClientConfig          `yaml:"client" json:"client" koanf:"client"`
 	GettyConfig     getty.Config          `yaml:"getty" json:"getty" koanf:"getty"`
 	TransportConfig getty.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
-	ServiceConfig tm.ServiceConfig `yaml:"service" json:"service" koanf:"service"`
+	ServiceConfig   tm.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -92,8 +92,6 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
-
-	tm.NewServiceConfig(&c.ServiceConfig)
 }
 
 type loaderConf struct {
