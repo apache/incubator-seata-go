@@ -45,6 +45,20 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, time.Second*10, cfg.ClientConfig.TmConfig.DegradeCheckAllowTimes)
 	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
 
+	assert.Equal(t, 10000, cfg.ClientConfig.RmConfig.AsyncCommitBufferLimit)
+	assert.Equal(t, 5, cfg.ClientConfig.RmConfig.ReportRetryCount)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.TableMetaCheckEnable)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.ReportSuccessEnable)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaBranchRegisterEnable)
+	assert.Equal(t, "fastjson", cfg.ClientConfig.RmConfig.SagaJsonParser)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaCompensatePersistModeUpdate)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaRetryPersistModeUpdate)
+	assert.Equal(t, -2147482648, cfg.ClientConfig.RmConfig.TccActionInterceptorOrder)
+	assert.Equal(t, "druid", cfg.ClientConfig.RmConfig.SqlParserType)
+	assert.Equal(t, 10, cfg.ClientConfig.RmConfig.LockConfig.RetryInterval)
+	assert.Equal(t, time.Second*30, cfg.ClientConfig.RmConfig.LockConfig.RetryTimes)
+	assert.Equal(t, true, cfg.ClientConfig.RmConfig.LockConfig.RetryPolicyBranchRollbackOnConflict)
+
 	assert.NotNil(t, cfg.GettyConfig)
 	assert.NotNil(t, cfg.GettyConfig.SessionConfig)
 	assert.Equal(t, 0, cfg.GettyConfig.ReconnectInterval)
@@ -81,12 +95,28 @@ func TestLoadPath(t *testing.T) {
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"client":{"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
-					"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
-				    "transport":{"shutdown":{"wait":"3s"}, "type":"TCP", "server":"NIO", "heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"}}`
+	confJson := `{"client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},
+  "tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},
+  "tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
+  "getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
+  "transport":{"shutdown":{"wait":"3s"},"type":"TCP","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"}}`
 
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
+
+	assert.Equal(t, 10000, cfg.ClientConfig.RmConfig.AsyncCommitBufferLimit)
+	assert.Equal(t, 5, cfg.ClientConfig.RmConfig.ReportRetryCount)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.TableMetaCheckEnable)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.ReportSuccessEnable)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaBranchRegisterEnable)
+	assert.Equal(t, "fastjson", cfg.ClientConfig.RmConfig.SagaJsonParser)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaCompensatePersistModeUpdate)
+	assert.Equal(t, false, cfg.ClientConfig.RmConfig.SagaRetryPersistModeUpdate)
+	assert.Equal(t, -2147482648, cfg.ClientConfig.RmConfig.TccActionInterceptorOrder)
+	assert.Equal(t, "druid", cfg.ClientConfig.RmConfig.SqlParserType)
+	assert.Equal(t, 10, cfg.ClientConfig.RmConfig.LockConfig.RetryInterval)
+	assert.Equal(t, time.Second*30, cfg.ClientConfig.RmConfig.LockConfig.RetryTimes)
+	assert.Equal(t, true, cfg.ClientConfig.RmConfig.LockConfig.RetryPolicyBranchRollbackOnConflict)
 
 	assert.NotNil(t, cfg.TCCConfig)
 	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
