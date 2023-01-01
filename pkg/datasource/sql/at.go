@@ -33,12 +33,11 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-const (
-	_defaultResourceSize    = 16
-	_undoLogDeleteLimitSize = 1000
+var (
+	UndoConfig undo.Config
 )
 
-func InitAT() {
+func InitAT(cfg undo.Config) {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
@@ -49,6 +48,7 @@ func InitAT() {
 	asyncWorkerConf := AsyncWorkerConfig{}
 	asyncWorkerConf.RegisterFlags(fs)
 	_ = fs.Parse([]string{})
+	UndoConfig = cfg
 
 	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncWorkerConf, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
