@@ -144,7 +144,6 @@ seata:
   getty:
     reconnect-interval: 0
     connection-num: 16
-    heartbeat-period: 15s
     session:
       compress-encoding: false
       tcp-no-delay: true

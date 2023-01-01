@@ -94,6 +94,8 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
+
+	getty.NewGettyConfig(c)
 }
 
 type loaderConf struct {
