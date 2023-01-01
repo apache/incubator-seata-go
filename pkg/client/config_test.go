@@ -29,6 +29,13 @@ import (
 func TestLoadPath(t *testing.T) {
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
 	assert.NotNil(t, cfg)
+	assert.Equal(t, true, cfg.Enabled)
+	assert.Equal(t, "applicationName", cfg.ApplicationID)
+	assert.Equal(t, "default_tx_group", cfg.TxServiceGroup)
+	assert.Equal(t, "aliyunAccessKey", cfg.AccessKey)
+	assert.Equal(t, "aliyunSecretKey", cfg.SecretKey)
+	assert.Equal(t, true, cfg.EnableAutoDataSourceProxy)
+	assert.Equal(t, "AT", cfg.DataSourceProxyMode)
 
 	assert.NotNil(t, cfg.TCCConfig)
 	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
@@ -90,19 +97,32 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
 	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
 
+	assert.NotNil(t, cfg.ServiceConfig)
+	assert.Equal(t, false, cfg.ServiceConfig.EnableDegrade)
+	assert.Equal(t, false, cfg.ServiceConfig.DisableGlobalTransaction)
+	assert.Equal(t, "default", cfg.ServiceConfig.VgroupMapping["default_tx_group"])
+	assert.Equal(t, "127.0.0.1:8091", cfg.ServiceConfig.Grouplist["default"])
+
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},
-  "tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},
-  "tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
-  "getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
-  "transport":{"shutdown":{"wait":"3s"},"type":"TCP","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"}}`
-
+	confJson := `{"enabled":false,"application-id":"application_test","tx-service-group":"default_tx_group","access-key":"test","secret-key":"test","enable-auto-data-source-proxy":false,"data-source-proxy-mode":"AT",
+				"client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},
+				"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
+				"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
+				"transport":{"shutdown":{"wait":"3s"}, "type":"TCP", "server":"NIO", "heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"},
+				"service":{"enable-degrade":true,"disable-global-transaction":true,"vgroup-mapping":{"default_tx_group":"default_test"},"grouplist":{"default":"127.0.0.1:8092"}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
+	assert.Equal(t, false, cfg.Enabled)
+	assert.Equal(t, "application_test", cfg.ApplicationID)
+	assert.Equal(t, "default_tx_group", cfg.TxServiceGroup)
+	assert.Equal(t, "test", cfg.AccessKey)
+	assert.Equal(t, "test", cfg.SecretKey)
+	assert.Equal(t, false, cfg.EnableAutoDataSourceProxy)
+	assert.Equal(t, "AT", cfg.DataSourceProxyMode)
 
 	assert.Equal(t, 10000, cfg.ClientConfig.RmConfig.AsyncCommitBufferLimit)
 	assert.Equal(t, 5, cfg.ClientConfig.RmConfig.ReportRetryCount)
@@ -163,6 +183,12 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, true, cfg.TransportConfig.EnableRmClientBatchSendRequest)
 	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCRmRequestTimeout)
 	assert.Equal(t, time.Second*30, cfg.TransportConfig.RPCTmRequestTimeout)
+
+	assert.NotNil(t, cfg.ServiceConfig)
+	assert.Equal(t, true, cfg.ServiceConfig.EnableDegrade)
+	assert.Equal(t, true, cfg.ServiceConfig.DisableGlobalTransaction)
+	assert.Equal(t, "default_test", cfg.ServiceConfig.VgroupMapping["default_tx_group"])
+	assert.Equal(t, "127.0.0.1:8092", cfg.ServiceConfig.Grouplist["default"])
 
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
