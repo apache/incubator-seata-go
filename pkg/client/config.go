@@ -26,6 +26,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
@@ -51,15 +53,15 @@ const (
 )
 
 type ClientConfig struct {
-	TmConfig tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
-	RmConfig rm.Config   `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
+	TmConfig   tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
+	RmConfig   rm.Config   `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
+	UndoConfig undo.Config `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
 }
 
 func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	// TODO: Undo RegisterFlagsWithPrefix
-	// TODO: LoadBalance RegisterFlagsWithPrefix
 	c.TmConfig.RegisterFlagsWithPrefix(prefix+".tm", f)
 	c.RmConfig.RegisterFlagsWithPrefix(prefix+".rm", f)
+	c.UndoConfig.RegisterFlagsWithPrefix(prefix+".undo", f)
 }
 
 type Config struct {
@@ -87,7 +89,7 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.EnableAutoDataSourceProxy, "enable-auto-data-source-proxy", true, "Whether enable auto proxying of datasource bean.")
 	f.StringVar(&c.DataSourceProxyMode, "data-source-proxy-mode", "AT", "Data source proxy mode.")
 
-	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
+	c.TCCConfig.RegisterFlagsWithPrefix("tcc", f)
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)

@@ -19,8 +19,9 @@ package tm
 
 import (
 	"flag"
-	"github.com/seata/seata-go/pkg/util/flagext"
 	"time"
+
+	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
 type TmConfig struct {
