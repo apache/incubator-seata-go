@@ -63,17 +63,35 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
+	Enabled                   bool   `yaml:"enabled" json:"enabled,omitempty" koanf:"enabled"`
+	ApplicationID             string `yaml:"application-id" json:"application-id,omitempty" koanf:"application-id"`
+	TxServiceGroup            string `yaml:"tx-service-group" json:"tx-service-group,omitempty" koanf:"tx-service-group"`
+	AccessKey                 string `yaml:"access-key" json:"access-key,omitempty" koanf:"access-key"`
+	SecretKey                 string `yaml:"secret-key" json:"secret-key,omitempty" koanf:"secret-key"`
+	EnableAutoDataSourceProxy bool   `yaml:"enable-auto-data-source-proxy" json:"enable-auto-data-source-proxy,omitempty" koanf:"enable-auto-data-source-proxy"`
+	DataSourceProxyMode       string `yaml:"data-source-proxy-mode" json:"data-source-proxy-mode,omitempty" koanf:"data-source-proxy-mode"`
+
 	TCCConfig       tcc.Config            `yaml:"tcc" json:"tcc" koanf:"tcc"`
 	ClientConfig    ClientConfig          `yaml:"client" json:"client" koanf:"client"`
 	GettyConfig     getty.Config          `yaml:"getty" json:"getty" koanf:"getty"`
 	TransportConfig getty.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
+	ServiceConfig   tm.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
+	f.BoolVar(&c.Enabled, "enabled", true, "Whether enable auto configuration.")
+	f.StringVar(&c.ApplicationID, "application-id", "seata-go", "Application id.")
+	f.StringVar(&c.TxServiceGroup, "tx-service-group", "default_tx_group", "Transaction service group.")
+	f.StringVar(&c.AccessKey, "access-key", "", "Used for aliyun accessKey.")
+	f.StringVar(&c.SecretKey, "secret-key", "", "Used for aliyun secretKey.")
+	f.BoolVar(&c.EnableAutoDataSourceProxy, "enable-auto-data-source-proxy", true, "Whether enable auto proxying of datasource bean.")
+	f.StringVar(&c.DataSourceProxyMode, "data-source-proxy-mode", "AT", "Data source proxy mode.")
+
 	c.TCCConfig.FenceConfig.RegisterFlagsWithPrefix("tcc", f)
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
+	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
 }
 
 type loaderConf struct {
