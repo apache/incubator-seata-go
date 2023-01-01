@@ -23,6 +23,7 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/processor"
@@ -65,7 +66,7 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	g.sessionManager.registerSession(session)
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-			Version:                 "1.1.0",
+			Version:                 constant.SeataVersion,
 			ApplicationId:           g.conf.ApplicationID,
 			TransactionServiceGroup: g.conf.TxServiceGroup,
 		}}
