@@ -66,6 +66,16 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, time.Second*30, cfg.ClientConfig.RmConfig.LockConfig.RetryTimes)
 	assert.Equal(t, true, cfg.ClientConfig.RmConfig.LockConfig.RetryPolicyBranchRollbackOnConflict)
 
+	assert.NotNil(t, cfg.ClientConfig.UndoConfig)
+	assert.Equal(t, true, cfg.ClientConfig.UndoConfig.DataValidation)
+	assert.Equal(t, "jackson", cfg.ClientConfig.UndoConfig.LogSerialization)
+	assert.Equal(t, "undo_log", cfg.ClientConfig.UndoConfig.LogTable)
+	assert.Equal(t, true, cfg.ClientConfig.UndoConfig.OnlyCareUpdateColumns)
+	assert.NotNil(t, cfg.ClientConfig.UndoConfig.CompressConfig)
+	assert.Equal(t, true, cfg.ClientConfig.UndoConfig.CompressConfig.Enable)
+	assert.Equal(t, "zip", cfg.ClientConfig.UndoConfig.CompressConfig.Type)
+	assert.Equal(t, "64k", cfg.ClientConfig.UndoConfig.CompressConfig.Threshold)
+
 	assert.NotNil(t, cfg.GettyConfig)
 	assert.NotNil(t, cfg.GettyConfig.SessionConfig)
 	assert.Equal(t, 0, cfg.GettyConfig.ReconnectInterval)
@@ -108,12 +118,7 @@ func TestLoadPath(t *testing.T) {
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"enabled":false,"application-id":"application_test","tx-service-group":"default_tx_group","access-key":"test","secret-key":"test","enable-auto-data-source-proxy":false,"data-source-proxy-mode":"AT",
-				"client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},
-				"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},
-				"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},
-				"transport":{"shutdown":{"wait":"3s"}, "type":"TCP", "server":"NIO", "heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"},
-				"service":{"enable-degrade":true,"disable-global-transaction":true,"vgroup-mapping":{"default_tx_group":"default_test"},"grouplist":{"default":"127.0.0.1:8092"}}}`
+	confJson := `{"enabled":false,"application-id":"application_test","tx-service-group":"default_tx_group","access-key":"test","secret-key":"test","enable-auto-data-source-proxy":false,"data-source-proxy-mode":"AT","client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":10,"retry-times":"30s","retry-policy-branch-rollback-on-conflict":true}},"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648},"undo":{"data-validation":false,"log-serialization":"jackson222","only-care-update-columns":false,"log-table":"undo_log333","compress":{"enable":false,"type":"zip111","threshold":"128k"}}},"tcc":{"fence":{"log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},"getty":{"reconnect-interval":1,"connection-num":10,"heartbeat-period":"10s","session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"}},"transport":{"shutdown":{"wait":"3s"},"type":"TCP","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none"," enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"},"service":{"enable-degrade":true,"disable-global-transaction":true,"vgroup-mapping":{"default_tx_group":"default_test"},"grouplist":{"default":"127.0.0.1:8092"}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 	assert.Equal(t, false, cfg.Enabled)
@@ -137,6 +142,16 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, 10, cfg.ClientConfig.RmConfig.LockConfig.RetryInterval)
 	assert.Equal(t, time.Second*30, cfg.ClientConfig.RmConfig.LockConfig.RetryTimes)
 	assert.Equal(t, true, cfg.ClientConfig.RmConfig.LockConfig.RetryPolicyBranchRollbackOnConflict)
+
+	assert.NotNil(t, cfg.ClientConfig.UndoConfig)
+	assert.Equal(t, false, cfg.ClientConfig.UndoConfig.DataValidation)
+	assert.Equal(t, "jackson222", cfg.ClientConfig.UndoConfig.LogSerialization)
+	assert.Equal(t, "undo_log333", cfg.ClientConfig.UndoConfig.LogTable)
+	assert.Equal(t, false, cfg.ClientConfig.UndoConfig.OnlyCareUpdateColumns)
+	assert.NotNil(t, cfg.ClientConfig.UndoConfig.CompressConfig)
+	assert.Equal(t, false, cfg.ClientConfig.UndoConfig.CompressConfig.Enable)
+	assert.Equal(t, "zip111", cfg.ClientConfig.UndoConfig.CompressConfig.Type)
+	assert.Equal(t, "128k", cfg.ClientConfig.UndoConfig.CompressConfig.Threshold)
 
 	assert.NotNil(t, cfg.TCCConfig)
 	assert.NotNil(t, cfg.TCCConfig.FenceConfig)
