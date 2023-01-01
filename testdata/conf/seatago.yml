@@ -70,7 +70,7 @@ seata:
         # Compression type
         type: zip
         #  Compression threshold Unit: k
-        threshold: 64
+        threshold: 64k
     load-balance:
       type: RandomLoadBalance
       virtual-nodes: 10
