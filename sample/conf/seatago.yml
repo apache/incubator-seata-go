@@ -143,8 +143,8 @@ seata:
   # getty configuration
   getty:
     reconnect-interval: 0
+    # temporary not supported connection-num
     connection-num: 1
-    heartbeat-period: 15s
     session:
       compress-encoding: false
       tcp-no-delay: true

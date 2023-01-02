@@ -58,7 +58,8 @@ func (c *RpcClient) init() {
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
-			getty.WithConnectionNumber(c.gettyConf.ConnectionNum),
+			// todo if read c.gettyConf.ConnectionNum, will cause the connect to fail
+			getty.WithConnectionNumber(1),
 			getty.WithReconnectInterval(c.gettyConf.ReconnectInterval),
 			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)
