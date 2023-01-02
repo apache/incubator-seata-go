@@ -108,7 +108,11 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer rowsi.Close()
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
 		if err != nil {
 			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
@@ -154,7 +158,11 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer rowsi.Close()
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
 		if err != nil {
 			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
