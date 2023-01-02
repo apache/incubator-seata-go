@@ -34,18 +34,16 @@ import (
 
 type RpcClient struct {
 	gettyConf    *Config
-	serviceConf  *ServiceConfig
 	seataConf    *SeataConfig
 	gettyClients []getty.Client
 	futures      *sync.Map
 }
 
-func InitRpcClient(gettyConfig *Config, seataConfig *SeataConfig, serviceConfig *ServiceConfig) {
-	NewGettyConfig(seataConfig)
+func InitRpcClient(gettyConfig *Config, seataConfig *SeataConfig) {
+	iniConfig(seataConfig)
 	rpcClient := &RpcClient{
 		gettyConf:    gettyConfig,
 		seataConf:    seataConfig,
-		serviceConf:  serviceConfig,
 		gettyClients: make([]getty.Client, 0),
 	}
 	codec.Init()
@@ -75,11 +73,11 @@ func (c *RpcClient) getAvailServerList() []string {
 	if txServiceGroup == "" {
 		return defaultAddressList
 	}
-	clusterName := c.serviceConf.VgroupMapping[txServiceGroup]
+	clusterName := c.seataConf.ServiceVgroupMapping[txServiceGroup]
 	if clusterName == "" {
 		return defaultAddressList
 	}
-	grouplist := c.serviceConf.Grouplist[clusterName]
+	grouplist := c.seataConf.ServiceGrouplist[clusterName]
 	if grouplist == "" {
 		return defaultAddressList
 	}

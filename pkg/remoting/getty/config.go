@@ -75,17 +75,14 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
 }
 
-type ServiceConfig struct {
-	VgroupMapping flagext.StringMap
-	Grouplist     flagext.StringMap
-}
-
 type SeataConfig struct {
-	ApplicationID  string
-	TxServiceGroup string
+	ApplicationID        string
+	TxServiceGroup       string
+	ServiceVgroupMapping flagext.StringMap
+	ServiceGrouplist     flagext.StringMap
 }
 
-func NewGettyConfig(seataConf *SeataConfig) {
+func iniConfig(seataConf *SeataConfig) {
 	seataConfig = seataConf
 }
 
