@@ -82,42 +82,41 @@ func NewConnectionProxyXA(originalConnection sql.Conn, xaConnection XAConnection
 	return connectionProxyXA, nil
 }
 
-func (c ConnectionProxyXA) keepIfNecessary() {
+func (c *ConnectionProxyXA) keepIfNecessary() {
 	if c.ShouldBeHeld() {
 		c.resource.Hold(c.xaBranchXid.String(), c)
 	}
 }
 
-func (c ConnectionProxyXA) releaseIfNecessary() {
+func (c *ConnectionProxyXA) releaseIfNecessary() {
 	if c.ShouldBeHeld() {
 		if reflect.DeepEqual(c.xaBranchXid, XABranchXid{}) {
 			if c.IsHeld() {
-				xaBranchXid := c.xaBranchXid.String()
-				c.resource.Release(xaBranchXid, c)
+				c.resource.Release(c.xaBranchXid.String(), c)
 			}
 		}
 	}
 }
 
-func (c ConnectionProxyXA) XaCommit(xid string, branchId int64, applicationData string) error {
+func (c *ConnectionProxyXA) XaCommit(xid string, branchId int64, applicationData string) error {
 	xaXid := Build(xid, branchId)
 	err := c.xaResource.Commit(xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64, applicationData string) {
+func (c *ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64, applicationData string) {
 	xaXid := Build(xid, branchId)
 	c.XaRollback(xaXid)
 }
 
-func (c ConnectionProxyXA) XaRollback(xaXid XAXid) error {
+func (c *ConnectionProxyXA) XaRollback(xaXid XAXid) error {
 	err := c.xaResource.Rollback(xaXid.GetGlobalXid())
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c ConnectionProxyXA) SetAutoCommit(autoCommit bool) error {
+func (c *ConnectionProxyXA) SetAutoCommit(autoCommit bool) error {
 	if c.currentAutoCommitStatus == autoCommit {
 		return nil
 	}
@@ -153,11 +152,11 @@ func (c ConnectionProxyXA) SetAutoCommit(autoCommit bool) error {
 	return nil
 }
 
-func (c ConnectionProxyXA) GetAutoCommit() bool {
+func (c *ConnectionProxyXA) GetAutoCommit() bool {
 	return c.currentAutoCommitStatus
 }
 
-func (c ConnectionProxyXA) Commit() error {
+func (c *ConnectionProxyXA) Commit() error {
 	if c.currentAutoCommitStatus {
 		return nil
 	}
@@ -177,7 +176,7 @@ func (c ConnectionProxyXA) Commit() error {
 	return nil
 }
 
-func (c ConnectionProxyXA) commitErrorHandle() error {
+func (c *ConnectionProxyXA) commitErrorHandle() error {
 	req := message.BranchReportRequest{
 		BranchType:      branch.BranchTypeXA,
 		Xid:             c.xid,
@@ -194,7 +193,7 @@ func (c ConnectionProxyXA) commitErrorHandle() error {
 	return fmt.Errorf("Failed to end(TMSUCCESS)/prepare xa branch on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
 }
 
-func (c ConnectionProxyXA) Rollback() error {
+func (c *ConnectionProxyXA) Rollback() error {
 	if c.currentAutoCommitStatus {
 		return nil
 	}
@@ -226,11 +225,11 @@ func (c ConnectionProxyXA) Rollback() error {
 	return nil
 }
 
-func (c ConnectionProxyXA) rollbackErrorHandle() error {
+func (c *ConnectionProxyXA) rollbackErrorHandle() error {
 	return fmt.Errorf("failed to end(TMFAIL) xa branch on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
 }
 
-func (c ConnectionProxyXA) start() error {
+func (c *ConnectionProxyXA) start() error {
 	err := c.xaResource.Start(c.xaBranchXid.String(), exec.TMNOFLAGS)
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
 		c.xaResource.End(c.xaBranchXid.String(), exec.TMFAIL)
@@ -240,7 +239,7 @@ func (c ConnectionProxyXA) start() error {
 	return err
 }
 
-func (c ConnectionProxyXA) end(flags int) error {
+func (c *ConnectionProxyXA) end(flags int) error {
 	err := c.termination(c.xaBranchXid.String())
 	if err != nil {
 		return err
@@ -252,7 +251,7 @@ func (c ConnectionProxyXA) end(flags int) error {
 	return nil
 }
 
-func (c ConnectionProxyXA) cleanXABranchContext() {
+func (c *ConnectionProxyXA) cleanXABranchContext() {
 	c.branchRegisterTime = 0
 	c.prepareTime = 0
 	c.timeout = 0
@@ -262,7 +261,7 @@ func (c ConnectionProxyXA) cleanXABranchContext() {
 	}
 }
 
-func (c ConnectionProxyXA) checkTimeout(now int64) error {
+func (c *ConnectionProxyXA) checkTimeout(now int64) error {
 	if now-c.branchRegisterTime > int64(c.timeout) {
 		c.XaRollback(c.xaBranchXid)
 		return fmt.Errorf("XA branch timeout error")
@@ -270,7 +269,7 @@ func (c ConnectionProxyXA) checkTimeout(now int64) error {
 	return nil
 }
 
-func (c ConnectionProxyXA) Close() error {
+func (c *ConnectionProxyXA) Close() error {
 	c.rollBacked = false
 	if c.IsHeld() && c.ShouldBeHeld() {
 		return nil
@@ -282,7 +281,7 @@ func (c ConnectionProxyXA) Close() error {
 	return nil
 }
 
-func (c ConnectionProxyXA) CloseForce() error {
+func (c *ConnectionProxyXA) CloseForce() error {
 	physicalConn := c.originalConnection
 	err := physicalConn.Close()
 	c.rollBacked = false
@@ -292,27 +291,27 @@ func (c ConnectionProxyXA) CloseForce() error {
 	return err
 }
 
-func (c ConnectionProxyXA) SetHeld(kept bool) {
+func (c *ConnectionProxyXA) SetHeld(kept bool) {
 	c.kept = kept
 }
 
-func (c ConnectionProxyXA) IsHeld() bool {
+func (c *ConnectionProxyXA) IsHeld() bool {
 	return c.kept
 }
 
-func (c ConnectionProxyXA) ShouldBeHeld() bool {
+func (c *ConnectionProxyXA) ShouldBeHeld() bool {
 	return c.proxyShouldBeHeld || c.resource.GetDB() != nil
 }
 
-func (c ConnectionProxyXA) GetPrepareTime() int64 {
+func (c *ConnectionProxyXA) GetPrepareTime() int64 {
 	return c.prepareTime
 }
 
-func (c ConnectionProxyXA) setPrepareTime(prepareTime int64) {
+func (c *ConnectionProxyXA) setPrepareTime(prepareTime int64) {
 	c.prepareTime = prepareTime
 }
 
-func (c ConnectionProxyXA) termination(xaBranchXid string) error {
+func (c *ConnectionProxyXA) termination(xaBranchXid string) error {
 	branchStatus, err := c.resource.GetBranchStatus(xaBranchXid)
 	if err != nil {
 		c.releaseIfNecessary()
