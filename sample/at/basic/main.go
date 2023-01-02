@@ -49,7 +49,7 @@ func insertData(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("insert success： %d.\n", rows)
-	return fmt.Errorf("111")
+	return nil
 }
 
 func deleteData(ctx context.Context) error {
