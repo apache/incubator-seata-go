@@ -40,8 +40,8 @@ func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
 
 	initLog(cfg)
-	initRmClient(cfg)
 	initTmClient(cfg)
+	initRmClient(cfg)
 }
 
 var (
