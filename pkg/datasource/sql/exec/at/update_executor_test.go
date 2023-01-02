@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"reflect"
 	"testing"
 
@@ -39,6 +40,7 @@ import (
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
 	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 		func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
