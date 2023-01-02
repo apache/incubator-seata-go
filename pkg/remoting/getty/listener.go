@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	getty "github.com/apache/dubbo-getty"
-	"github.com/seata/seata-go/pkg/config"
+	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/processor"
@@ -36,7 +36,7 @@ var (
 )
 
 type gettyClientHandler struct {
-	conf           *config.ClientConfig
+	conf           *SeataConfig
 	idGenerator    *atomic.Uint32
 	msgFutures     *sync.Map
 	mergeMsgMap    *sync.Map
@@ -48,7 +48,7 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 	if clientHandler == nil {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
-				conf:           config.GetDefaultClientConfig("seata-go"),
+				conf:           getSeataConfig(),
 				idGenerator:    &atomic.Uint32{},
 				msgFutures:     &sync.Map{},
 				mergeMsgMap:    &sync.Map{},
@@ -65,9 +65,9 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	g.sessionManager.registerSession(session)
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
-			Version:                 g.conf.SeataVersion,
+			Version:                 constant.SeataVersion,
 			ApplicationId:           g.conf.ApplicationID,
-			TransactionServiceGroup: g.conf.TransactionServiceGroup,
+			TransactionServiceGroup: g.conf.TxServiceGroup,
 		}}
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {

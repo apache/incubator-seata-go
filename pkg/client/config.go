@@ -26,18 +26,16 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/rm/tcc"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/seata/seata-go/pkg/datasource/sql"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
@@ -83,7 +81,7 @@ type Config struct {
 	ServiceConfig     tm.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 }
 
-func (c *Config) RegisterFlagsWithPrefix(f *flag.FlagSet) {
+func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.Enabled, "enabled", true, "Whether enable auto configuration.")
 	f.StringVar(&c.ApplicationID, "application-id", "seata-go", "Application id.")
 	f.StringVar(&c.TxServiceGroup, "tx-service-group", "default_tx_group", "Transaction service group.")

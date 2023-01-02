@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -101,14 +102,11 @@ type seataDriver struct {
 	target    driver.Driver
 }
 
+// Open never be called, because seataDriver implemented dri.DriverContext interface.
+// reference package: datasource/sql [https://cs.opensource.google/go/go/+/master:src/database/sql/sql.go;l=813]
+// and maybe the sql.BD will be call Driver() method, but it obtain the Driver is fron Connector that is proxed by seataConnector.
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
-	conn, err := d.target.Open(name)
-	if err != nil {
-		log.Errorf("open db connection: %w", err)
-		return nil, err
-	}
-
-	return conn, nil
+	return nil, errors.New(("operation unsupport."))
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
@@ -161,7 +159,7 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 
 	if err := conf.validate(); err != nil {
 		log.Errorf("invalid conf: %w", err)
-		return connector, err
+		return nil, err
 	}
 
 	cfg, _ := mysql.ParseDSN(dataSourceName)
@@ -213,11 +211,9 @@ func (c *seataServerConfig) validate() error {
 }
 
 // loadConfig
-// TODO wait finish
 func loadConfig() *seataServerConfig {
-	// 先设置默认配置
-
-	// 从默认文件获取
+	// set default value first.
+	// todo read from configuration file.
 	return &seataServerConfig{
 		GroupID:    "DEFAULT_GROUP",
 		BranchType: branch.BranchTypeAT,
