@@ -110,6 +110,11 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
 		if err != nil {
 			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
