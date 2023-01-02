@@ -21,6 +21,14 @@ import (
 	"flag"
 )
 
+var (
+	UndoConfig Config
+)
+
+func InitUndoConfig(cfg Config) {
+	UndoConfig = cfg
+}
+
 type CompressConfig struct {
 	Enable    bool   `yaml:"enable" json:"enable,omitempty" koanf:"enable"`
 	Type      string `yaml:"type" json:"type,omitempty" koanf:"type"`

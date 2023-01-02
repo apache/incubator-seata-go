@@ -34,7 +34,7 @@ import (
 
 // need to setup environment variable "DUBBO_GO_CONFIG_PATH" to "conf/dubbogo.yml" before run
 func main() {
-	client.Init()
+	client.InitPath("./sample/conf/seatago.yml")
 	userProviderProxy, err := tcc.NewTCCServiceProxy(&service.UserProvider{})
 	if err != nil {
 		log.Errorf("get userProviderProxy tcc service proxy error, %v", err.Error())
