@@ -141,6 +141,6 @@ func (c *RpcClient) setSessionConfig(session getty.Session) {
 	session.SetEventListener(GetGettyClientHandlerInstance())
 	session.SetReadTimeout(c.gettyConf.SessionConfig.TCPReadTimeout)
 	session.SetWriteTimeout(c.gettyConf.SessionConfig.TCPWriteTimeout)
-	session.SetCronPeriod((int)(c.gettyConf.SessionConfig.CronPeriod.Nanoseconds() / 1e6))
+	session.SetCronPeriod((int)(c.gettyConf.SessionConfig.CronPeriod.Milliseconds()))
 	session.SetWaitTime(c.gettyConf.SessionConfig.WaitTimeout)
 }
