@@ -20,13 +20,12 @@ package client
 import (
 	"sync"
 
-	"github.com/seata/seata-go/pkg/tm"
-
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -39,7 +38,6 @@ func Init() {
 func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
 
-	initLog(cfg)
 	initRmClient(cfg)
 	initTmClient(cfg)
 }
@@ -47,13 +45,11 @@ func InitPath(configFilePath string) {
 var (
 	onceInitTmClient sync.Once
 	onceInitRmClient sync.Once
-	onceInitLog      sync.Once
 )
 
 // InitTmClient init client tm client
 func initTmClient(cfg *Config) {
 	onceInitTmClient.Do(func() {
-		initRemoting(cfg)
 		tm.InitTm(cfg.ClientConfig.TmConfig)
 	})
 }
@@ -71,16 +67,11 @@ func initRemoting(cfg *Config) {
 // InitRmClient init client rm client
 func initRmClient(cfg *Config) {
 	onceInitRmClient.Do(func() {
+		log.Init()
+		initRemoting(cfg)
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
-	})
-}
-
-// initLog init log
-func initLog(cfg *Config) {
-	onceInitLog.Do(func() {
-		log.Init()
 	})
 }

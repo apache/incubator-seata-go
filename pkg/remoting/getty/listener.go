@@ -36,7 +36,6 @@ var (
 )
 
 type gettyClientHandler struct {
-	conf           *SeataConfig
 	idGenerator    *atomic.Uint32
 	msgFutures     *sync.Map
 	mergeMsgMap    *sync.Map
@@ -48,7 +47,6 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 	if clientHandler == nil {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
-				conf:           getSeataConfig(),
 				idGenerator:    &atomic.Uint32{},
 				msgFutures:     &sync.Map{},
 				mergeMsgMap:    &sync.Map{},
@@ -63,11 +61,12 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	log.Infof("Open new getty session ")
 	g.sessionManager.registerSession(session)
+	conf := getSeataConfig()
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			Version:                 constant.SeataVersion,
-			ApplicationId:           g.conf.ApplicationID,
-			TransactionServiceGroup: g.conf.TxServiceGroup,
+			ApplicationId:           conf.ApplicationID,
+			TransactionServiceGroup: conf.TxServiceGroup,
 		}}
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {
