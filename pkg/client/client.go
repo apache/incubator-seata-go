@@ -69,7 +69,7 @@ func initRmClient(cfg *Config) {
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC()
-		at.InitAT(cfg.ClientConfig.UndoConfig)
+		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 	})
 }
 

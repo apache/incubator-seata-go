@@ -21,13 +21,13 @@ import "flag"
 
 // Registerer is a thing that can RegisterFlags
 type Registerer interface {
-	RegisterFlags(*flag.FlagSet)
+	RegisterFlagsWithPrefix(*flag.FlagSet)
 }
 
 // RegisterFlags registers flags with the provided Registerers
 func RegisterFlags(rs ...Registerer) {
 	for _, r := range rs {
-		r.RegisterFlags(flag.CommandLine)
+		r.RegisterFlagsWithPrefix(flag.CommandLine)
 	}
 }
 
@@ -35,7 +35,7 @@ func RegisterFlags(rs ...Registerer) {
 func DefaultValues(rs ...Registerer) {
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	for _, r := range rs {
-		r.RegisterFlags(fs)
+		r.RegisterFlagsWithPrefix(fs)
 	}
 	_ = fs.Parse([]string{})
 }

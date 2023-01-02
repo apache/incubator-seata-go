@@ -20,7 +20,6 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"sync"
 
@@ -33,20 +32,15 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-func InitAT(cfg undo.Config) {
+func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
 		rmRemoting:    rm.GetRMRemotingInstance(),
 	}
 
-	fs := flag.NewFlagSet("", flag.PanicOnError)
-	asyncWorkerConf := AsyncWorkerConfig{}
-	asyncWorkerConf.RegisterFlags(fs)
-	_ = fs.Parse([]string{})
 	undo.InitUndoConfig(cfg)
-
-	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncWorkerConf, atSourceManager)
+	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
 

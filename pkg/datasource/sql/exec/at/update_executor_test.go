@@ -20,21 +20,18 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey"
+	_ "github.com/arana-db/parser/test_driver"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
-	_ "github.com/arana-db/parser/test_driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	_ "github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
 )
