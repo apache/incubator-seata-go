@@ -40,6 +40,7 @@ func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
 
 	initLog(cfg)
+	initRemoting(cfg)
 	initRmClient(cfg)
 	initTmClient(cfg)
 }
@@ -48,23 +49,25 @@ var (
 	onceInitTmClient sync.Once
 	onceInitRmClient sync.Once
 	onceInitLog      sync.Once
+	onceRemotingLog  sync.Once
 )
 
 // InitTmClient init client tm client
 func initTmClient(cfg *Config) {
 	onceInitTmClient.Do(func() {
-		initRemoting(cfg)
 		tm.InitTm(cfg.ClientConfig.TmConfig)
 	})
 }
 
 // initRemoting init rpc client
 func initRemoting(cfg *Config) {
-	getty.InitRpcClient(&cfg.GettyConfig, &getty.SeataConfig{
-		ApplicationID:        cfg.ApplicationID,
-		TxServiceGroup:       cfg.TxServiceGroup,
-		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
-		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
+	onceRemotingLog.Do(func() {
+		getty.InitRpcClient(&cfg.GettyConfig, &getty.SeataConfig{
+			ApplicationID:        cfg.ApplicationID,
+			TxServiceGroup:       cfg.TxServiceGroup,
+			ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
+			ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
+		})
 	})
 }
 
