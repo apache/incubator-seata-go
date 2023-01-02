@@ -20,12 +20,17 @@ package getty
 import (
 	"flag"
 	"time"
+
+	"github.com/seata/seata-go/pkg/util/flagext"
+)
+
+var (
+	seataConfig *SeataConfig
 )
 
 type Config struct {
 	ReconnectInterval int           `yaml:"reconnect-interval" json:"reconnect-interval" koanf:"reconnect-interval"`
 	ConnectionNum     int           `yaml:"connection-num" json:"connection-num" koanf:"connection-num"`
-	HeartbeatPeriod   time.Duration `yaml:"heartbeat-period" json:"heartbeat-period" koanf:"heartbeat-period"`
 	SessionConfig     SessionConfig `yaml:"session" json:"session" koanf:"session"`
 }
 
@@ -50,7 +55,6 @@ type TransportConfig struct {
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.IntVar(&cfg.ReconnectInterval, prefix+".reconnect-interval", 0, "Reconnect interval.")
 	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 16, "The getty_session pool.")
-	f.DurationVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 15*time.Second, "The heartbeat period.")
 	cfg.SessionConfig.RegisterFlagsWithPrefix(prefix+".session", f)
 }
 
@@ -69,4 +73,19 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.BoolVar(&cfg.EnableRmClientBatchSendRequest, prefix+".enable-rm-client-batch-send-request", true, "Allow batch sending of requests (RM).")
 	f.DurationVar(&cfg.RPCRmRequestTimeout, prefix+".rpc-rm-request-timeout", 30*time.Second, "RM send request timeout.")
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
+}
+
+type SeataConfig struct {
+	ApplicationID        string
+	TxServiceGroup       string
+	ServiceVgroupMapping flagext.StringMap
+	ServiceGrouplist     flagext.StringMap
+}
+
+func iniConfig(seataConf *SeataConfig) {
+	seataConfig = seataConf
+}
+
+func getSeataConfig() *SeataConfig {
+	return seataConfig
 }

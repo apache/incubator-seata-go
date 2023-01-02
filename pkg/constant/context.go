@@ -36,5 +36,7 @@ const (
 	GlobalLockKey   = "TX_LOCK"
 	SeataFilterKey  = "seataDubboFilter"
 
+	SeataVersion = "1.1.0"
+
 	TccBusinessActionContextParameter = "tccParam"
 )

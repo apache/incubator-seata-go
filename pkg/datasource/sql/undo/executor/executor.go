@@ -54,6 +54,9 @@ func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnI
 }
 
 func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn) (bool, error) {
+	if !undo.UndoConfig.DataValidation {
+		return true, nil
+	}
 	beforeImage := b.sqlUndoLog.BeforeImage
 	afterImage := b.sqlUndoLog.AfterImage
 
