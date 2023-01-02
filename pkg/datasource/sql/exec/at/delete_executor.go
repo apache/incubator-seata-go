@@ -87,6 +87,11 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
 		if err != nil {
 			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
