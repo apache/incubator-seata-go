@@ -143,8 +143,8 @@ seata:
   # getty configuration
   getty:
     reconnect-interval: 0
-    connection-num: 16
-    heartbeat-period: 15s
+    # temporary not supported connection-num
+    connection-num: 1
     session:
       compress-encoding: false
       tcp-no-delay: true
@@ -152,7 +152,7 @@ seata:
       keep-alive-period: 120s
       tcp-r-buf-size: 262144
       tcp-w-buf-size: 65536
-      tcp-read-timeout: 1s
+      tcp-read-timeout: 5s
       tcp-write-timeout: 5s
       wait-timeout: 1s
       max-msg-len: 16498688

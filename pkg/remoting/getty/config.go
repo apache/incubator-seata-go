@@ -54,7 +54,7 @@ type TransportConfig struct {
 // RegisterFlagsWithPrefix for Config.
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.IntVar(&cfg.ReconnectInterval, prefix+".reconnect-interval", 0, "Reconnect interval.")
-	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 16, "The getty_session pool.")
+	f.IntVar(&cfg.ConnectionNum, prefix+".connection-num", 1, "The getty_session pool.")
 	cfg.SessionConfig.RegisterFlagsWithPrefix(prefix+".session", f)
 }
 

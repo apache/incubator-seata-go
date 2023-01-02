@@ -79,7 +79,7 @@ func TestLoadPath(t *testing.T) {
 	assert.NotNil(t, cfg.GettyConfig)
 	assert.NotNil(t, cfg.GettyConfig.SessionConfig)
 	assert.Equal(t, 0, cfg.GettyConfig.ReconnectInterval)
-	assert.Equal(t, 16, cfg.GettyConfig.ConnectionNum)
+	assert.Equal(t, 1, cfg.GettyConfig.ConnectionNum)
 	assert.Equal(t, false, cfg.GettyConfig.SessionConfig.CompressEncoding)
 	assert.Equal(t, true, cfg.GettyConfig.SessionConfig.TCPNoDelay)
 	assert.Equal(t, true, cfg.GettyConfig.SessionConfig.TCPKeepAlive)
