@@ -28,7 +28,6 @@ import (
 
 	"github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
-	seatasql "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -46,8 +45,8 @@ const (
 )
 
 func getUndoLogTableName() string {
-	if seatasql.UndoConfig.LogTable != "" {
-		return seatasql.UndoConfig.LogTable
+	if undo.UndoConfig.LogTable != "" {
+		return undo.UndoConfig.LogTable
 	}
 	return defaultUndoLogTableName
 }

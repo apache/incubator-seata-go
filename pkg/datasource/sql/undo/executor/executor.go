@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/goccy/go-json"
-	seatasql "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -55,7 +54,7 @@ func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnI
 }
 
 func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn) (bool, error) {
-	if !seatasql.UndoConfig.DataValidation {
+	if !undo.UndoConfig.DataValidation {
 		return true, nil
 	}
 	beforeImage := b.sqlUndoLog.BeforeImage

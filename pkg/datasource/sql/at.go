@@ -33,10 +33,6 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
-var (
-	UndoConfig undo.Config
-)
-
 func InitAT(cfg undo.Config) {
 	atSourceManager := &ATSourceManager{
 		resourceCache: sync.Map{},
@@ -48,7 +44,7 @@ func InitAT(cfg undo.Config) {
 	asyncWorkerConf := AsyncWorkerConfig{}
 	asyncWorkerConf.RegisterFlags(fs)
 	_ = fs.Parse([]string{})
-	UndoConfig = cfg
+	undo.InitUndoConfig(cfg)
 
 	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncWorkerConf, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)

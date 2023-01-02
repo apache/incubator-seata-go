@@ -23,14 +23,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -185,7 +184,7 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	// todo: OnlyCareUpdateColumns should load from config first
 	var selectFields string
 	var separator = ","
-	if sql.UndoConfig.OnlyCareUpdateColumns {
+	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, row := range beforeImage.Rows {
 			for _, column := range row.Columns {
 				selectFields += column.ColumnName + separator
@@ -211,7 +210,7 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	updateStmt := u.parserCtx.UpdateStmt
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
-	if sql.UndoConfig.OnlyCareUpdateColumns {
+	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, column := range updateStmt.List {
 			fields = append(fields, &ast.SelectField{
 				Expr: &ast.ColumnNameExpr{
