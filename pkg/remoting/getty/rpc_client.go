@@ -24,9 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 
 	getty "github.com/apache/dubbo-getty"
@@ -36,8 +34,8 @@ import (
 
 type RpcClient struct {
 	gettyConf    *Config
-	serviceConf  *tm.ServiceConfig
-	seataConf    *client.Config
+	serviceConf  *ServiceConfig
+	seataConf    *SeataConfig
 	gettyClients []getty.Client
 	futures      *sync.Map
 }

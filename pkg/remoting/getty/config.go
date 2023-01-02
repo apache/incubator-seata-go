@@ -19,13 +19,15 @@ package getty
 
 import (
 	"flag"
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/tm"
 	"time"
+
+	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
 var (
-	seataConfig *client.Config
+	seataConfig   *SeataConfig
+	serviceConfig *ServiceConfig
+	gettyConfig   *Config
 )
 
 type Config struct {
@@ -75,18 +77,30 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
 }
 
-func NewGettyConfig(config *client.Config) {
-	seataConfig = config
+type ServiceConfig struct {
+	VgroupMapping flagext.StringMap
+	Grouplist     flagext.StringMap
+}
+
+type SeataConfig struct {
+	ApplicationID  string
+	TxServiceGroup string
+}
+
+func NewGettyConfig(gettyConf *Config, seataConf *SeataConfig, serviceConf *ServiceConfig) {
+	gettyConfig = gettyConf
+	seataConfig = seataConf
+	serviceConfig = serviceConf
 }
 
 func getGettyConfig() *Config {
-	return &seataConfig.GettyConfig
+	return gettyConfig
 }
 
-func getSeataConfig() *client.Config {
+func getSeataConfig() *SeataConfig {
 	return seataConfig
 }
 
-func getServiceConfig() *tm.ServiceConfig {
-	return &seataConfig.ServiceConfig
+func getServiceConfig() *ServiceConfig {
+	return serviceConfig
 }

@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	getty "github.com/apache/dubbo-getty"
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -37,7 +36,7 @@ var (
 )
 
 type gettyClientHandler struct {
-	conf           *client.Config
+	conf           *SeataConfig
 	idGenerator    *atomic.Uint32
 	msgFutures     *sync.Map
 	mergeMsgMap    *sync.Map

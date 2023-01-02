@@ -95,7 +95,14 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
 
-	getty.NewGettyConfig(c)
+	getty.NewGettyConfig(&c.GettyConfig,
+		&getty.SeataConfig{
+			ApplicationID:  c.ApplicationID,
+			TxServiceGroup: c.TxServiceGroup,
+		}, &getty.ServiceConfig{
+			VgroupMapping: c.ServiceConfig.VgroupMapping,
+			Grouplist:     c.ServiceConfig.Grouplist,
+		})
 }
 
 type loaderConf struct {
