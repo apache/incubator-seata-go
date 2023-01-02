@@ -40,11 +40,12 @@ type RpcClient struct {
 	futures      *sync.Map
 }
 
-func InitRpcClient() {
+func InitRpcClient(gettyConfig *Config, seataConfig *SeataConfig, serviceConfig *ServiceConfig) {
+	NewGettyConfig(seataConfig)
 	rpcClient := &RpcClient{
-		gettyConf:    getGettyConfig(),
-		seataConf:    getSeataConfig(),
-		serviceConf:  getServiceConfig(),
+		gettyConf:    gettyConfig,
+		seataConf:    seataConfig,
+		serviceConf:  serviceConfig,
 		gettyClients: make([]getty.Client, 0),
 	}
 	codec.Init()

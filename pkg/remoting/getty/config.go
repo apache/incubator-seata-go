@@ -25,9 +25,7 @@ import (
 )
 
 var (
-	seataConfig   *SeataConfig
-	serviceConfig *ServiceConfig
-	gettyConfig   *Config
+	seataConfig *SeataConfig
 )
 
 type Config struct {
@@ -87,20 +85,10 @@ type SeataConfig struct {
 	TxServiceGroup string
 }
 
-func NewGettyConfig(gettyConf *Config, seataConf *SeataConfig, serviceConf *ServiceConfig) {
-	gettyConfig = gettyConf
+func NewGettyConfig(seataConf *SeataConfig) {
 	seataConfig = seataConf
-	serviceConfig = serviceConf
-}
-
-func getGettyConfig() *Config {
-	return gettyConfig
 }
 
 func getSeataConfig() *SeataConfig {
 	return seataConfig
-}
-
-func getServiceConfig() *ServiceConfig {
-	return serviceConfig
 }

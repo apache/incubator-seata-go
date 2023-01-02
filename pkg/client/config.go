@@ -26,13 +26,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
@@ -94,15 +93,6 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
-
-	getty.NewGettyConfig(&c.GettyConfig,
-		&getty.SeataConfig{
-			ApplicationID:  c.ApplicationID,
-			TxServiceGroup: c.TxServiceGroup,
-		}, &getty.ServiceConfig{
-			VgroupMapping: c.ServiceConfig.VgroupMapping,
-			Grouplist:     c.ServiceConfig.Grouplist,
-		})
 }
 
 type loaderConf struct {
