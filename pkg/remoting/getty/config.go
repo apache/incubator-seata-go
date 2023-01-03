@@ -75,6 +75,7 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
 }
 
+// todo refactor config
 type SeataConfig struct {
 	ApplicationID        string
 	TxServiceGroup       string
