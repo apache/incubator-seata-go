@@ -24,6 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
+	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -69,6 +70,10 @@ func initRmClient(cfg *Config) {
 	onceInitRmClient.Do(func() {
 		log.Init()
 		initRemoting(cfg)
+		rm.InitRm(rm.RmConfig{
+			ApplicationID:  cfg.ApplicationID,
+			TxServiceGroup: cfg.TxServiceGroup,
+		})
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC()
