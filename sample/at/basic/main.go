@@ -26,17 +26,8 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-type OrderTbl struct {
-	id            int
-	userID        string
-	commodityCode string
-	count         int64
-	money         int64
-	descs         string
-}
-
 func main() {
-	client.InitPath("./testdata/conf/seatago.yml")
+	client.InitPath("./sample/conf/seatago.yml")
 	initService()
 	tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
 		Name:    "ATSampleLocalGlobalTx",
@@ -47,7 +38,7 @@ func main() {
 
 func insertData(ctx context.Context) error {
 	sql := "INSERT INTO `order_tbl` (`id`, `user_id`, `commodity_code`, `count`, `money`, `descs`) VALUES (?, ?, ?, ?, ?, ?);"
-	ret, err := db.ExecContext(ctx, sql, 3, "NO-100001", "C100000", 100, nil, "init desc")
+	ret, err := db.ExecContext(ctx, sql, 333, "NO-100001", "C100000", 100, nil, "init desc")
 	if err != nil {
 		fmt.Printf("insert failed, err:%v\n", err)
 		return err
