@@ -283,12 +283,16 @@ func (c *ConnectionProxyXA) Close() error {
 
 func (c *ConnectionProxyXA) CloseForce() error {
 	physicalConn := c.originalConnection
-	err := physicalConn.Close()
+	if err := physicalConn.Close(); err != nil {
+		return err
+	}
 	c.rollBacked = false
 	c.cleanXABranchContext()
-	err = c.originalConnection.Close()
+	if err := c.originalConnection.Close(); err != nil {
+		return err
+	}
 	c.releaseIfNecessary()
-	return err
+	return nil
 }
 
 func (c *ConnectionProxyXA) SetHeld(kept bool) {
