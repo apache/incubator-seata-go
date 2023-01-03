@@ -30,7 +30,7 @@ import (
 
 // need to setup environment variable "DUBBO_GO_CONFIG_PATH" to "conf/dubbogo.yml" before run
 func main() {
-	client.Init()
+	client.InitPath("./sample/conf/seatago.yml")
 	config.SetConsumerService(service.UserProviderInstance)
 	if err := config.Load(); err != nil {
 		panic(err)

@@ -15,19 +15,34 @@
  * limitations under the License.
  */
 
-package config
+package flagext
 
-type Grouplist struct {
-	Default string `yaml:"default" json:"default,omitempty" property:"default"`
-}
+import (
+	"encoding/json"
+	"testing"
 
-type VgroupMapping struct {
-	DefaultTxGroup string `yaml:"default_tx_group" json:"default_tx_group,omitempty" property:"default_tx_group"`
-}
+	"github.com/stretchr/testify/assert"
+)
 
-type Service struct {
-	VgroupMapping            VgroupMapping `yaml:"vgroup-mapping" json:"vgroup-mapping,omitempty" property:"vgroup-mapping"`
-	Grouplist                Grouplist     `yaml:"grouplist" json:"grouplist,omitempty" property:"grouplist"`
-	EnableDegrade            bool          `yaml:"enable-degrade" json:"enable-degrade,omitempty" property:"enable-degrade"`
-	DisableGlobalTransaction bool          `yaml:"disable-global-transaction" json:"disable-global-transaction,omitempty" property:"disable-global-transaction"`
+func Test_StringMap(t *testing.T) {
+	type TestStruct struct {
+		Val StringMap `json:"val"`
+	}
+
+	var testStruct TestStruct
+	s := `{"aaa":"bb"}`
+	assert.Nil(t, testStruct.Val.Set(s))
+	assert.Equal(t, s, testStruct.Val.String())
+
+	expected := []byte(`{"val":{"aaa":"bb"}}`)
+	actual, err := json.Marshal(testStruct)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, actual)
+
+	var testStruct2 TestStruct
+
+	err = json.Unmarshal(expected, &testStruct2)
+	assert.Nil(t, err)
+	assert.Equal(t, testStruct, testStruct2)
+
 }

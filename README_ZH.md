@@ -18,12 +18,12 @@ Seata-go 的原理和 Seata-java 保持一致，都是由 TM、RM 和 TC 组成�
 
 - [x] TCC
 - [ ] XA
-- [ ] AT
+- [x] AT
 - [ ] SAGA
 - [ ] TM
 - [x] RPC 通信
-- [ ] 事务防悬挂
-- [ ] 空补偿
+- [x] 事务防悬挂
+- [x] 空补偿
 - [ ] 配置中心
 - [ ] 注册中心
 - [ ] Metric监控
@@ -45,6 +45,8 @@ Seata-go 的原理和 Seata-java 保持一致，都是由 TM、RM 和 TC 组成�
 ## 如何给Seata-go贡献代码？
 
 Seata-go 目前正在建设阶段，欢迎行业同仁入群参与其中，与我们一起推动 seata-go 的建设！如果你想给 seata-go 贡献代码，可以参考 **[代码贡献规范](./CONTRIBUTING.md)** 文档来了解社区的规范，也可以加入我们的社区钉钉群：33069364，一起沟通交流！
+
+![image](https://user-images.githubusercontent.com/38887641/210141444-0ba6b11d-16e6-48af-945b-cb99ecfa70ef.png)
 
 ## 协议
 

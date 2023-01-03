@@ -48,12 +48,12 @@ type AsyncWorkerConfig struct {
 	CommitWorkerBufferSize int           `yaml:"commit_worker_buffer_size" json:"commit_worker_buffer_size"`
 }
 
-func (cfg *AsyncWorkerConfig) RegisterFlags(f *flag.FlagSet) {
-	f.IntVar(&cfg.BufferLimit, "async-worker.commit.buffer_size", 10000, "async worker commit buffer limit.")
-	f.DurationVar(&cfg.BufferCleanInterval, "async-worker.commit.buffer.clean_interval", time.Second, "async worker commit buffer interval")
-	f.IntVar(&cfg.ReceiveChanSize, "async-worker.commit.channel_size", 10000, "async worker commit channel size")
-	f.IntVar(&cfg.CommitWorkerCount, "async-worker.commit.worker_count", 10, "async worker commit worker count")
-	f.IntVar(&cfg.CommitWorkerBufferSize, "async-worker.commit.worker_buffer_size", 1000, "async worker commit worker buffer size")
+func (cfg *AsyncWorkerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.IntVar(&cfg.BufferLimit, prefix+".buffer_size", 10000, "async worker commit buffer limit.")
+	f.DurationVar(&cfg.BufferCleanInterval, prefix+".buffer.clean_interval", time.Second, "async worker commit buffer interval")
+	f.IntVar(&cfg.ReceiveChanSize, prefix+".channel_size", 10000, "async worker commit channel size")
+	f.IntVar(&cfg.CommitWorkerCount, prefix+".worker_count", 10, "async worker commit worker count")
+	f.IntVar(&cfg.CommitWorkerBufferSize, prefix+".worker_buffer_size", 1000, "async worker commit worker buffer size")
 }
 
 // AsyncWorker executor for branch transaction commit and undo log

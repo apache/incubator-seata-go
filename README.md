@@ -18,12 +18,12 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 
 - [x] TCC
 - [ ] XA
-- [ ] AT
+- [x] AT
 - [ ] SAGA
 - [ ] TM
 - [x] RPC communication
-- [ ] Transaction anti suspension
-- [ ] Null compensation
+- [x] Transaction anti suspension
+- [x] Null compensation
 - [ ] Configuration center
 - [ ] Registration Center
 - [ ] Metric monitoring
@@ -46,6 +46,7 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 
 Seata-go is currently in the construction stage. Welcome colleagues in the industry to join the group and work with us to promote the construction of seata-go! If you want to contribute code to seata-go, you can refer to the  [**code contribution Specification**](./CONTRIBUTING_CN.md)  document to understand the specifications of the community, or you can join our community DingTalk group: 33069364 and communicate together!
 
+![image](https://user-images.githubusercontent.com/38887641/210141444-0ba6b11d-16e6-48af-945b-cb99ecfa70ef.png)
 
 ## Licence
 

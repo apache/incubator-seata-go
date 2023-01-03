@@ -40,7 +40,7 @@ var (
 
 func main() {
 	flag.Parse()
-	client.InitPath("./testdata/conf/seatago.yml")
+	client.InitPath("./sample/conf/seatago.yml")
 
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()

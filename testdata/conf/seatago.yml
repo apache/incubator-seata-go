@@ -70,7 +70,7 @@ seata:
         # Compression type
         type: zip
         #  Compression threshold Unit: k
-        threshold: 64
+        threshold: 64k
     load-balance:
       type: RandomLoadBalance
       virtual-nodes: 10
@@ -143,8 +143,8 @@ seata:
   # getty configuration
   getty:
     reconnect-interval: 0
-    connection-num: 16
-    heartbeat-period: 15s
+    # temporary not supported connection-num
+    connection-num: 1
     session:
       compress-encoding: false
       tcp-no-delay: true
