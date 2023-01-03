@@ -19,22 +19,47 @@ package service
 
 import (
 	"context"
-)
+	"database/sql"
+	"fmt"
+	"time"
 
-import (
+	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var UserProviderInstance = NewATDubboRespService()
-
-type UserProvider struct{}
+type UserProvider struct {
+	db *sql.DB
+}
 
 func NewATDubboRespService() *UserProvider {
-	return &UserProvider{}
+	var err error
+	db, err := sql.Open(sql2.SeataATMySQLDriver, "root:123456@tcp(172.16.85.180:3306)/seata_client?multiStatements=true&interpolateParams=true")
+	if err != nil {
+		panic("init service error")
+	}
+
+	return &UserProvider{
+		db: db,
+	}
 }
 
 func (t *UserProvider) UpdateData(ctx context.Context, params interface{}) (bool, error) {
 	log.Infof("Update data result: params:%v, xid %v", params, tm.GetXID(ctx))
+
+	sql := "update order_tbl set descs=? where id=?"
+	ret, err := t.db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 1)
+	if err != nil {
+		fmt.Printf("update failed, err:%v\n", err)
+		return false, err
+	}
+
+	rows, err := ret.RowsAffected()
+	if err != nil {
+		fmt.Printf("update failed, err:%v\n", err)
+		return false, err
+	}
+	fmt.Printf("update success: %d.\n", rows)
+
 	return true, nil
 }

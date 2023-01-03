@@ -23,14 +23,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-)
 
-import (
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/seata/seata-go/sample/at/dubbo/server/service"
@@ -40,7 +35,7 @@ import (
 func main() {
 	client.Init()
 
-	config.SetProviderService(service.UserProviderInstance)
+	config.SetProviderService(service.NewATDubboRespService())
 	if err := config.Load(); err != nil {
 		panic(err)
 	}

@@ -20,14 +20,9 @@ package main
 import (
 	"context"
 	"time"
-)
 
-import (
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
