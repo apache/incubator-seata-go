@@ -24,21 +24,20 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey"
+	_ "github.com/arana-db/parser/test_driver"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-
-	_ "github.com/arana-db/parser/test_driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	_ "github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
 	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 		func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {

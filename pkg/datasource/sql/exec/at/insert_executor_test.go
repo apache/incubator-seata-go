@@ -20,15 +20,15 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/agiledragon/gomonkey"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

@@ -15,14 +15,25 @@
  * limitations under the License.
  */
 
-package constant
+package flagext
 
-const (
-	DeleteFrom                     = "DELETE FROM "
-	DefaultTransactionUndoLogTable = " undo_log "
-	// UndoLogTableName Todo get from config
-	UndoLogTableName = DefaultTransactionUndoLogTable
-	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
+import (
+	"encoding/json"
 )
 
-const ErrCodeTableNotExist = "1146"
+// StringMap is a map of string that implements flag.Value
+type StringMap map[string]string
+
+// String implements flag.Value
+func (v StringMap) String() string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
+// Set implements flag.Value
+func (v *StringMap) Set(s string) error {
+	return json.Unmarshal([]byte(s), &v)
+}
