@@ -34,7 +34,7 @@ type UserProvider struct {
 
 func NewATDubboRespService() *UserProvider {
 	var err error
-	db, err := sql.Open(sql2.SeataATMySQLDriver, "root:123456@tcp(172.16.85.180:3306)/seata_client?multiStatements=true&interpolateParams=true")
+	db, err := sql.Open(sql2.SeataATMySQLDriver, "root:123456@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")
 	if err != nil {
 		panic("init service error")
 	}
