@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
