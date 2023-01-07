@@ -18,7 +18,7 @@
 version: '3'
 services:
   seata-server:
-    image: seataio/seata-server:1.5.2
+    image: seataio/seata-server:1.6.0
     ports:
       - "8091:8091"
       - "7091:7091"
@@ -33,7 +33,7 @@ services:
     restart: on-failure
 
   mysql:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=12345678
