@@ -20,6 +20,8 @@ package client
 import (
 	"sync"
 
+	"github.com/seata/seata-go/pkg/datasource"
+
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
@@ -41,11 +43,13 @@ func InitPath(configFilePath string) {
 
 	initRmClient(cfg)
 	initTmClient(cfg)
+	initDatasource(cfg)
 }
 
 var (
-	onceInitTmClient sync.Once
-	onceInitRmClient sync.Once
+	onceInitTmClient   sync.Once
+	onceInitRmClient   sync.Once
+	onceInitDatasource sync.Once
 )
 
 // InitTmClient init client tm client
@@ -78,5 +82,11 @@ func initRmClient(cfg *Config) {
 		integration.Init()
 		tcc.InitTCC()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
+	})
+}
+
+func initDatasource(cfg *Config) {
+	onceInitDatasource.Do(func() {
+		datasource.Init()
 	})
 }

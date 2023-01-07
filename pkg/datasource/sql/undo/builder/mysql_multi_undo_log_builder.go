@@ -24,10 +24,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.MultiExecutor, GetMySQLMultiUndoLogBuilder)
-}
-
 type MySQLMultiUndoLogBuilder struct {
 	BasicUndoLogBuilder
 	beforeImages []*types.RecordImage

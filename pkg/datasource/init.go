@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package mysql
+package datasource
 
-import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
-)
+import sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 
-func InitUndoLogManager() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
-		panic(errors.WithStack(err))
-	}
+func Init() {
+	sql2.Init()
 }
