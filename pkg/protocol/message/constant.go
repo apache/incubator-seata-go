@@ -29,125 +29,122 @@ const (
 	/**
 	 * The constant TypeGlobalBegin.
 	 */
-	MessageTypeGlobalBegin MessageType = 1
+	MessageTypeGlobalBegin MessageType = iota + 1
 	/**
 	 * The constant TypeGlobalBeginResult.
 	 */
-	MessageTypeGlobalBeginResult MessageType = 2
-	/**
-	 * The constant TypeGlobalCommit.
-	 */
-	MessageTypeGlobalCommit MessageType = 7
-	/**
-	 * The constant TypeGlobalCommitResult.
-	 */
-	MessageTypeGlobalCommitResult MessageType = 8
-	/**
-	 * The constant TypeGlobalRollback.
-	 */
-	MessageTypeGlobalRollback MessageType = 9
-	/**
-	 * The constant TypeGlobalRollbackResult.
-	 */
-	MessageTypeGlobalRollbackResult MessageType = 10
-	/**
-	 * The constant TypeGlobalStatus.
-	 */
-	MessageTypeGlobalStatus MessageType = 15
-	/**
-	 * The constant TypeGlobalStatusResult.
-	 */
-	MessageTypeGlobalStatusResult MessageType = 16
-	/**
-	 * The constant TypeGlobalReport.
-	 */
-	MessageTypeGlobalReport MessageType = 17
-	/**
-	 * The constant TypeGlobalReportResult.
-	 */
-	MessageTypeGlobalReportResult MessageType = 18
-	/**
-	 * The constant TypeGlobalLockQuery.
-	 */
-	MessageTypeGlobalLockQuery MessageType = 21
-	/**
-	 * The constant TypeGlobalLockQueryResult.
-	 */
-	MessageTypeGlobalLockQueryResult MessageType = 22
-
+	MessageTypeGlobalBeginResult
 	/**
 	 * The constant TypeBranchCommit.
 	 */
-	MessageTypeBranchCommit MessageType = 3
+	MessageTypeBranchCommit
 	/**
 	 * The constant TypeBranchCommitResult.
 	 */
-	MessageTypeBranchCommitResult MessageType = 4
+	MessageTypeBranchCommitResult
 	/**
 	 * The constant TypeBranchRollback.
 	 */
-	MessageTypeBranchRollback MessageType = 5
+	MessageTypeBranchRollback
 	/**
 	 * The constant TypeBranchRollbackResult.
 	 */
-	MessageTypeBranchRollbackResult MessageType = 6
+	MessageTypeBranchRollbackResult
+	/**
+	 * The constant TypeGlobalCommit.
+	 */
+	MessageTypeGlobalCommit
+	/**
+	 * The constant TypeGlobalCommitResult.
+	 */
+	MessageTypeGlobalCommitResult
+	/**
+	 * The constant TypeGlobalRollback.
+	 */
+	MessageTypeGlobalRollback
+	/**
+	 * The constant TypeGlobalRollbackResult.
+	 */
+	MessageTypeGlobalRollbackResult
 	/**
 	 * The constant TypeBranchRegister.
 	 */
-	MessageTypeBranchRegister MessageType = 11
+	MessageTypeBranchRegister
 	/**
 	 * The constant TypeBranchRegisterResult.
 	 */
-	MessageTypeBranchRegisterResult MessageType = 12
+	MessageTypeBranchRegisterResult
 	/**
 	 * The constant TypeBranchStatusReport.
 	 */
-	MessageTypeBranchStatusReport MessageType = 13
+	MessageTypeBranchStatusReport
 	/**
 	 * The constant TypeBranchStatusReportResult.
 	 */
-	MessageTypeBranchStatusReportResult MessageType = 14
+	MessageTypeBranchStatusReportResult
+	/**
+	 * The constant TypeGlobalStatus.
+	 */
+	MessageTypeGlobalStatus
+	/**
+	 * The constant TypeGlobalStatusResult.
+	 */
+	MessageTypeGlobalStatusResult
+	/**
+	 * The constant TypeGlobalReport.
+	 */
+	MessageTypeGlobalReport
+	/**
+	 * The constant TypeGlobalReportResult.
+	 */
+	MessageTypeGlobalReportResult
+	/**
+	 * The constant TypeGlobalLockQuery.
+	 */
+	MessageTypeGlobalLockQuery MessageType = iota + 3
+	/**
+	 * The constant TypeGlobalLockQueryResult.
+	 */
+	MessageTypeGlobalLockQueryResult
 
 	/**
 	 * The constant TypeSeataMerge.
 	 */
-	MessageTypeSeataMerge MessageType = 59
+	MessageTypeSeataMerge MessageType = iota + 39
 	/**
 	 * The constant TypeSeataMergeResult.
 	 */
-	MessageTypeSeataMergeResult MessageType = 60
+	MessageTypeSeataMergeResult
 
 	/**
 	 * The constant TypeRegClt.
 	 */
-	MessageTypeRegClt MessageType = 101
+	MessageTypeRegClt MessageType = iota + 79
 	/**
 	 * The constant TypeRegCltResult.
 	 */
-	MessageTypeRegCltResult MessageType = 102
+	MessageTypeRegCltResult
 	/**
 	 * The constant TypeRegRm.
 	 */
-	MessageTypeRegRm MessageType = 103
+	MessageTypeRegRm
 	/**
 	 * The constant TypeRegRmResult.
 	 */
-
-	MessageTypeRegRmResult MessageType = 104
+	MessageTypeRegRmResult
 	/**
 	 * The constant TypeRmDeleteUndolog.
 	 */
-	MessageTypeRmDeleteUndolog MessageType = 111
+	MessageTypeRmDeleteUndolog MessageType = iota + 85
 	/**
 	 * the constant TypeHeartbeatMsg
 	 */
-	MessageTypeHeartbeatMsg MessageType = 120
+	MessageTypeHeartbeatMsg MessageType = iota + 93
 
 	/**
 	 * the constant MessageTypeBatchResultMsg
 	 */
-
-	MessageTypeBatchResultMsg MessageType = 121
+	MessageTypeBatchResultMsg
 )
 
 const (
