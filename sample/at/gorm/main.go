@@ -67,7 +67,7 @@ func insertData(ctx context.Context) error {
 		Descs:         "insert desc",
 	}
 
-	gormDB = gormDB.Table("order_tbl").Create(&data)
+	gormDB = gormDB.WithContext(ctx).Table("order_tbl").Create(&data)
 	if gormDB.Error != nil {
 		fmt.Println(gormDB.Error)
 		return err
