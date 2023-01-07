@@ -21,7 +21,7 @@ type TransactionErrorCode int32
 
 const (
 	// TransactionErrorCodeUnknown Unknown transaction errors code.
-	TransactionErrorCodeUnknown TransactionErrorCode = iota + 1
+	TransactionErrorCodeUnknown TransactionErrorCode = iota
 
 	// TransactionErrorCodeBeginFailed BeginFailed
 	TransactionErrorCodeBeginFailed
