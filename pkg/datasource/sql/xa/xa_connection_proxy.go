@@ -20,6 +20,8 @@ package xa
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"time"
 
 	"github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -27,9 +29,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
-
-	"reflect"
-	"time"
 )
 
 type ConnectionProxyXA struct {
@@ -48,6 +47,8 @@ type ConnectionProxyXA struct {
 	resource                sql.BaseDataSourceResource
 	xid                     string
 }
+
+const timeout int = 60000
 
 func NewConnectionProxyXA(originalConnection sql.Conn, xaConnection XAConnection, resource sql.BaseDataSourceResource, xid string) (*ConnectionProxyXA, error) {
 	connectionProxyXA := &ConnectionProxyXA{}
@@ -68,10 +69,10 @@ func NewConnectionProxyXA(originalConnection sql.Conn, xaConnection XAConnection
 	var rootContext sql.RootContext
 	transactionTimeout, ok := rootContext.GetTimeout()
 	if !ok {
-		transactionTimeout = int(60000)
+		transactionTimeout = timeout
 	}
-	if transactionTimeout < 60000 {
-		transactionTimeout = 60000
+	if transactionTimeout < timeout {
+		transactionTimeout = timeout
 	}
 	connectionProxyXA.timeout = transactionTimeout
 	connectionProxyXA.currentAutoCommitStatus = connectionProxyXA.originalConnection.GetAutoCommit()
@@ -98,14 +99,14 @@ func (c *ConnectionProxyXA) releaseIfNecessary() {
 	}
 }
 
-func (c *ConnectionProxyXA) XaCommit(xid string, branchId int64, applicationData string) error {
+func (c *ConnectionProxyXA) XaCommit(xid string, branchId int64) error {
 	xaXid := Build(xid, branchId)
 	err := c.xaResource.Commit(xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c *ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64, applicationData string) {
+func (c *ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64) {
 	xaXid := Build(xid, branchId)
 	c.XaRollback(xaXid)
 }

@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluele/gcache"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-
-	"github.com/bluele/gcache"
 )
 
 type Holdable interface {
