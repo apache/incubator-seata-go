@@ -66,6 +66,10 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
+	if i.businesSQLResult == nil {
+		i.businesSQLResult = res
+	}
+
 	afterImage, err := i.afterImage(ctx)
 	if err != nil {
 		return nil, err
