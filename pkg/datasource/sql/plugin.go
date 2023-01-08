@@ -26,11 +26,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
-	// mysql 相关插件
-	//_ "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	//_ "github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
-	//_ "github.com/seata/seata-go/pkg/datasource/sql/exec/at"
-	//_ "github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 )
 
 func Init() {
