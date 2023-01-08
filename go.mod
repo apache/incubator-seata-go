@@ -8,6 +8,7 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.2.0
 	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
 	github.com/arana-db/parser v0.2.5
+	github.com/dsnet/compress v0.0.1
 	github.com/dubbogo/gost v1.12.6-0.20220824084206-300e27e9e524
 	github.com/gin-gonic/gin v1.8.0
 	github.com/go-sql-driver/mysql v1.6.0
@@ -50,7 +51,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5 // indirect
 	github.com/dubbogo/grpc-go v1.42.10 // indirect
 	github.com/dubbogo/triple v1.1.9 // indirect
