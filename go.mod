@@ -5,7 +5,7 @@ go 1.18
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/agiledragon/gomonkey v2.0.2+incompatible
+	github.com/agiledragon/gomonkey/v2 v2.2.0
 	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
 	github.com/arana-db/parser v0.2.5
 	github.com/dubbogo/gost v1.12.6-0.20220824084206-300e27e9e524

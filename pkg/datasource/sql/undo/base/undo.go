@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -433,7 +432,7 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 func Int64Slice2Str(values interface{}, sep string) (string, error) {
 	v, ok := values.([]int64)
 	if !ok {
-		return "", errors.New("param type is fault")
+		return "", fmt.Errorf("param type is fault")
 	}
 
 	var valuesText []string

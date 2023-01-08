@@ -20,10 +20,10 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
@@ -91,12 +91,12 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, execCtx *types.ExecContext) (string, []driver.Value, error) {
 	// get all pk value
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
-		return "", nil, errors.New("can't found execCtx or ParseContext or InsertStmt")
+		return "", nil, fmt.Errorf("can't found execCtx or ParseContext or InsertStmt")
 	}
 	parseCtx := execCtx.ParseContext
 	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	if execCtx.MetaDataMap == nil {
-		return "", nil, errors.New("can't found  MetaDataMap")
+		return "", nil, fmt.Errorf("can't found  MetaDataMap")
 	}
 	meta := execCtx.MetaDataMap[tableName]
 	pkValuesMap, err := u.getPkValues(execCtx, parseCtx, meta)
@@ -106,7 +106,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
-		return "", nil, errors.New("Pk columnName size is zero")
+		return "", nil, fmt.Errorf("Pk columnName size is zero")
 	}
 
 	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
@@ -114,7 +114,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 		return "", nil, err
 	}
 	if len(dataTypeMap) != len(pkColumnNameList) {
-		return "", nil, errors.New("PK columnName size don't equal PK DataType size")
+		return "", nil, fmt.Errorf("PK columnName size don't equal PK DataType size")
 	}
 	var pkRowImages []types.RowImage
 
@@ -272,7 +272,7 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 	}
 	pkIndexMap := u.getPkIndex(insertStmt, meta)
 	if pkIndexMap == nil || len(pkIndexMap) == 0 {
-		return nil, errors.New("pkIndex is not found")
+		return nil, fmt.Errorf("pkIndex is not found")
 	}
 	var pkIndexArray []int
 	for _, val := range pkIndexMap {
@@ -281,7 +281,7 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 	}
 
 	if insertStmt == nil || len(insertStmt.Lists) == 0 {
-		return nil, errors.New("parCtx is nil, perhaps InsertStmt is empty")
+		return nil, fmt.Errorf("parCtx is nil, perhaps InsertStmt is empty")
 	}
 
 	pkValuesMap := make(map[string][]interface{})
@@ -349,7 +349,7 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 				tmpPkName := pkName
 				tmpPkIndex := pkIndex
 				if tmpPkIndex >= len(list) {
-					return nil, errors.New("pkIndex out of range")
+					return nil, fmt.Errorf("pkIndex out of range")
 				}
 				if node, ok := list[tmpPkIndex].(ast.ValueExpr); ok {
 					pkValuesMap[tmpPkName] = append(pkValuesMap[tmpPkName], node.GetValue())
@@ -407,7 +407,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {
-		return nil, errors.New("pk map is empty")
+		return nil, fmt.Errorf("pk map is empty")
 	}
 	var autoColumnName string
 	for _, columnMeta := range pkMetaMap {
@@ -418,7 +418,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 		}
 	}
 	if len(autoColumnName) == 0 {
-		return nil, errors.New("auto increment column not exist")
+		return nil, fmt.Errorf("auto increment column not exist")
 	}
 
 	updateCount, err := u.InsertResult.GetResult().RowsAffected()
@@ -485,12 +485,12 @@ func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, 
 				step = curStepInt
 			}
 		} else {
-			return nil, errors.New("query is empty")
+			return nil, fmt.Errorf("query is empty")
 		}
 	}
 
 	if step == 0 {
-		return nil, errors.New("get increment step error")
+		return nil, fmt.Errorf("get increment step error")
 	}
 
 	var pkValues []interface{}
@@ -542,7 +542,7 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 			} else {
 				for _, index := range pkIndexArray {
 					if index == i {
-						return nil, errors.Errorf("Unknown SQLExpr:%v", node)
+						return nil, fmt.Errorf("Unknown SQLExpr:%v", node)
 					}
 				}
 				row = append(row, ast.DefaultExpr{})
