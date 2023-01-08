@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+
 	"github.com/pkg/errors"
 
-	"github.com/agiledragon/gomonkey"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/message"

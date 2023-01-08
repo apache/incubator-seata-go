@@ -26,7 +26,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey"
+	"github.com/agiledragon/gomonkey/v2"
+
 	gostnet "github.com/dubbogo/gost/net"
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/stretchr/testify/assert"

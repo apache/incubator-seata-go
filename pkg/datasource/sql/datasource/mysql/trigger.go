@@ -20,6 +20,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -70,7 +71,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		}
 	}
 	if len(tableMeta.Indexs) == 0 {
-		return nil, errors.Errorf("Could not found any index in the table: %s", tableName)
+		return nil, fmt.Errorf("could not found any index in the table: %s", tableName)
 	}
 
 	return &tableMeta, nil
@@ -144,7 +145,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	}
 
 	if len(columnMetas) == 0 {
-		return nil, errors.New("can't find column")
+		return nil, fmt.Errorf("can't find column")
 	}
 
 	return columnMetas, nil

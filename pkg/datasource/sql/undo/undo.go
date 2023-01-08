@@ -21,7 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -84,7 +84,7 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	v, ok := undoLogManagerMap[d]
 
 	if !ok {
-		return nil, errors.New("not found UndoLogManager")
+		return nil, fmt.Errorf("not found UndoLogManager")
 	}
 
 	v.once.Do(func() {

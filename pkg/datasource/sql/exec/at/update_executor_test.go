@@ -23,8 +23,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey"
-	_ "github.com/arana-db/parser/test_driver"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"

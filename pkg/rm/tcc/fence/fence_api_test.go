@@ -20,12 +20,10 @@ package fence
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -52,14 +50,9 @@ func TestWithFence(t *testing.T) {
 				return nil
 			},
 			wantErr: true,
-			errStr: errors.NewTccFenceError(
-				errors.FencePhaseError,
-				fmt.Sprintf("xid 123, tx name test, fence phase not exist"),
-				nil,
-			).Error(),
+			errStr:  "xid 123, tx name test, fence phase not exist",
 		},
 	}
-
 	for _, v := range tests {
 		db, mock, _ := sqlmock.New()
 		mock.ExpectBegin()
