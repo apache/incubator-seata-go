@@ -34,10 +34,6 @@ const (
 	SqlPlaceholder = "?"
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.InsertExecutor, GetMySQLInsertUndoLogBuilder)
-}
-
 type MySQLInsertUndoLogBuilder struct {
 	BasicUndoLogBuilder
 	// InsertResult after insert sql

@@ -28,7 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-func init() {
+func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &AtExecutor{} })
 }
 
