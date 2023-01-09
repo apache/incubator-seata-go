@@ -18,12 +18,43 @@
 package sql
 
 import (
-	_ "github.com/seata/seata-go/pkg/datasource/sql/hook"
-
-	// mysql 相关插件
-	_ "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	_ "github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
-
-	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/at"
-	_ "github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/at"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
+	"github.com/seata/seata-go/pkg/datasource/sql/hook"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
 )
+
+func Init() {
+	hookRegister()
+	executorRegister()
+	undoInit()
+	initDriver()
+}
+
+func hookRegister() {
+	exec.RegisterHook(hook.NewLoggerSQLHook())
+	exec.RegisterHook(hook.NewUndoLogSQLHook())
+}
+
+func executorRegister() {
+	at.Init()
+	xa.Init()
+}
+
+func undoInit() {
+	mysqlUndoLogInit()
+}
+
+func mysqlUndoLogInit() {
+	mysql.InitUndoLogManager()
+
+	undo.RegisterUndoLogBuilder(types.DeleteExecutor, builder.GetMySQLDeleteUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.InsertExecutor, builder.GetMySQLInsertUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, builder.GetMySQLInsertOnDuplicateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+}

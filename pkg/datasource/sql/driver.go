@@ -41,7 +41,7 @@ const (
 	SeataXAMySQLDriver = "seata-xa-mysql"
 )
 
-func init() {
+func initDriver() {
 	sql.Register(SeataATMySQLDriver, &seataATDriver{
 		seataDriver: &seataDriver{
 			transType: types.ATMode,
