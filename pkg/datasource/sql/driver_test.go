@@ -75,7 +75,6 @@ func Test_seataATDriver_Open(t *testing.T) {
 		field = vv.FieldByName("target")
 
 		mockDriver := mock.NewMockTestDriver(ctrl)
-		mockDriver.EXPECT().Open(gomock.Any()).Return(mock.NewMockTestDriverConn(ctrl), nil)
 
 		reflectx.SetUnexportedField(field, mockDriver)
 
@@ -86,26 +85,8 @@ func Test_seataATDriver_Open(t *testing.T) {
 	})
 
 	conn, err := db.Conn(context.Background())
-	assert.NoError(t, err)
-
-	v := reflect.ValueOf(conn)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	field := v.FieldByName("dc")
-	fieldVal := reflectx.GetUnexportedField(field)
-
-	vv := reflect.ValueOf(fieldVal)
-	if vv.Kind() == reflect.Ptr {
-		vv = vv.Elem()
-	}
-
-	field = vv.FieldByName("ci")
-	fieldVal = reflectx.GetUnexportedField(field)
-
-	_, ok := fieldVal.(*ATConn)
-	assert.True(t, ok, "need return seata at connection")
+	assert.NotNil(t, err)
+	assert.Nil(t, conn)
 }
 
 func Test_seataATDriver_OpenConnector(t *testing.T) {

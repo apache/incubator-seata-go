@@ -15,14 +15,25 @@
  * limitations under the License.
  */
 
-package constant
+package util
 
-const (
-	DeleteFrom                     = "DELETE FROM "
-	DefaultTransactionUndoLogTable = " undo_log "
-	// UndoLogTableName Todo get from config
-	UndoLogTableName = DefaultTransactionUndoLogTable
-	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
-)
+import "database/sql/driver"
 
-const ErrCodeTableNotExist = "1146"
+func NamedValueToValue(nvs []driver.NamedValue) []driver.Value {
+	vs := make([]driver.Value, 0, len(nvs))
+	for _, nv := range nvs {
+		vs = append(vs, nv.Value)
+	}
+	return vs
+}
+
+func ValueToNamedValue(vs []driver.Value) []driver.NamedValue {
+	nvs := make([]driver.NamedValue, 0, len(vs))
+	for i, v := range vs {
+		nvs = append(nvs, driver.NamedValue{
+			Value:   v,
+			Ordinal: i,
+		})
+	}
+	return nvs
+}

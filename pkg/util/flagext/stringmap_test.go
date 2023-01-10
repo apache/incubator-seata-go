@@ -15,8 +15,34 @@
  * limitations under the License.
  */
 
-package config
+package flagext
 
-type LogConf struct {
-	ExceptionRate int `yaml:"exception-rate" json:"exception-rate,omitempty" property:"exception-rate"`
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func Test_StringMap(t *testing.T) {
+	type TestStruct struct {
+		Val StringMap `json:"val"`
+	}
+
+	var testStruct TestStruct
+	s := `{"aaa":"bb"}`
+	assert.Nil(t, testStruct.Val.Set(s))
+	assert.Equal(t, s, testStruct.Val.String())
+
+	expected := []byte(`{"val":{"aaa":"bb"}}`)
+	actual, err := json.Marshal(testStruct)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, actual)
+
+	var testStruct2 TestStruct
+
+	err = json.Unmarshal(expected, &testStruct2)
+	assert.Nil(t, err)
+	assert.Equal(t, testStruct, testStruct2)
+
 }

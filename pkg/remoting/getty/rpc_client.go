@@ -21,9 +21,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/config"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/util/log"
 
@@ -33,14 +33,17 @@ import (
 )
 
 type RpcClient struct {
-	conf         *config.ClientConfig
+	gettyConf    *Config
+	seataConf    *SeataConfig
 	gettyClients []getty.Client
 	futures      *sync.Map
 }
 
-func InitRpcClient() {
+func InitRpcClient(gettyConfig *Config, seataConfig *SeataConfig) {
+	iniConfig(seataConfig)
 	rpcClient := &RpcClient{
-		conf:         config.GetClientConfig(),
+		gettyConf:    gettyConfig,
+		seataConf:    seataConfig,
 		gettyClients: make([]getty.Client, 0),
 	}
 	codec.Init()
@@ -48,15 +51,16 @@ func InitRpcClient() {
 }
 
 func (c *RpcClient) init() {
-	addressList := getAvailServerList()
+	addressList := c.getAvailServerList()
 	if len(addressList) == 0 {
 		log.Warn("no have valid seata server list")
 	}
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
 			getty.WithServerAddress(address),
-			getty.WithConnectionNumber(c.conf.GettyConfig.ConnectionNum),
-			getty.WithReconnectInterval(c.conf.GettyConfig.ReconnectInterval),
+			// todo if read c.gettyConf.ConnectionNum, will cause the connect to fail
+			getty.WithConnectionNumber(1),
+			getty.WithReconnectInterval(c.gettyConf.ReconnectInterval),
 			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
 		)
 		go gettyClient.RunEventLoop(c.newSession)
@@ -64,9 +68,21 @@ func (c *RpcClient) init() {
 	}
 }
 
-// todo mock
-func getAvailServerList() []string {
-	return []string{"127.0.0.1:8091"}
+func (c *RpcClient) getAvailServerList() []string {
+	defaultAddressList := []string{"127.0.0.1:8091"}
+	txServiceGroup := c.seataConf.TxServiceGroup
+	if txServiceGroup == "" {
+		return defaultAddressList
+	}
+	clusterName := c.seataConf.ServiceVgroupMapping[txServiceGroup]
+	if clusterName == "" {
+		return defaultAddressList
+	}
+	grouplist := c.seataConf.ServiceGrouplist[clusterName]
+	if grouplist == "" {
+		return defaultAddressList
+	}
+	return strings.Split(grouplist, ",")
 }
 
 func (c *RpcClient) newSession(session getty.Session) error {
@@ -76,18 +92,11 @@ func (c *RpcClient) newSession(session getty.Session) error {
 		err     error
 	)
 
-	if c.conf.GettyConfig.GettySessionParam.CompressEncoding {
+	if c.gettyConf.SessionConfig.CompressEncoding {
 		session.SetCompressType(getty.CompressZip)
 	}
 	if _, ok = session.Conn().(*tls.Conn); ok {
-		session.SetName(c.conf.GettyConfig.GettySessionParam.SessionName)
-		session.SetMaxMsgLen(c.conf.GettyConfig.GettySessionParam.MaxMsgLen)
-		session.SetPkgHandler(rpcPkgHandler)
-		session.SetEventListener(GetGettyClientHandlerInstance())
-		session.SetReadTimeout(c.conf.GettyConfig.GettySessionParam.TCPReadTimeout)
-		session.SetWriteTimeout(c.conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
-		session.SetCronPeriod((int)(c.conf.GettyConfig.GettySessionParam.CronPeriod))
-		session.SetWaitTime(c.conf.GettyConfig.GettySessionParam.WaitTimeout)
+		c.setSessionConfig(session)
 		log.Debugf("server accepts new tls session:%s\n", session.Stat())
 		return nil
 	}
@@ -100,34 +109,38 @@ func (c *RpcClient) newSession(session getty.Session) error {
 			return errors.New(fmt.Sprintf("%s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn()))
 		}
 
-		if err = tcpConn.SetNoDelay(c.conf.GettyConfig.GettySessionParam.TCPNoDelay); err != nil {
+		if err = tcpConn.SetNoDelay(c.gettyConf.SessionConfig.TCPNoDelay); err != nil {
 			return err
 		}
-		if err = tcpConn.SetKeepAlive(c.conf.GettyConfig.GettySessionParam.TCPKeepAlive); err != nil {
+		if err = tcpConn.SetKeepAlive(c.gettyConf.SessionConfig.TCPKeepAlive); err != nil {
 			return err
 		}
-		if c.conf.GettyConfig.GettySessionParam.TCPKeepAlive {
-			if err = tcpConn.SetKeepAlivePeriod(c.conf.GettyConfig.GettySessionParam.KeepAlivePeriod); err != nil {
+		if c.gettyConf.SessionConfig.TCPKeepAlive {
+			if err = tcpConn.SetKeepAlivePeriod(c.gettyConf.SessionConfig.KeepAlivePeriod); err != nil {
 				return err
 			}
 		}
-		if err = tcpConn.SetReadBuffer(c.conf.GettyConfig.GettySessionParam.TCPRBufSize); err != nil {
+		if err = tcpConn.SetReadBuffer(c.gettyConf.SessionConfig.TCPRBufSize); err != nil {
 			return err
 		}
-		if err = tcpConn.SetWriteBuffer(c.conf.GettyConfig.GettySessionParam.TCPWBufSize); err != nil {
+		if err = tcpConn.SetWriteBuffer(c.gettyConf.SessionConfig.TCPWBufSize); err != nil {
 			return err
 		}
 	}
 
-	session.SetName(c.conf.GettyConfig.GettySessionParam.SessionName)
-	session.SetMaxMsgLen(c.conf.GettyConfig.GettySessionParam.MaxMsgLen)
-	session.SetPkgHandler(rpcPkgHandler)
-	session.SetEventListener(GetGettyClientHandlerInstance())
-	session.SetReadTimeout(c.conf.GettyConfig.GettySessionParam.TCPReadTimeout)
-	session.SetWriteTimeout(c.conf.GettyConfig.GettySessionParam.TCPWriteTimeout)
-	session.SetCronPeriod((int)(c.conf.GettyConfig.GettySessionParam.CronPeriod.Nanoseconds() / 1e6))
-	session.SetWaitTime(c.conf.GettyConfig.GettySessionParam.WaitTimeout)
+	c.setSessionConfig(session)
 	log.Debugf("rpc_client new session:%s\n", session.Stat())
 
 	return nil
+}
+
+func (c *RpcClient) setSessionConfig(session getty.Session) {
+	session.SetName(c.gettyConf.SessionConfig.SessionName)
+	session.SetMaxMsgLen(c.gettyConf.SessionConfig.MaxMsgLen)
+	session.SetPkgHandler(rpcPkgHandler)
+	session.SetEventListener(GetGettyClientHandlerInstance())
+	session.SetReadTimeout(c.gettyConf.SessionConfig.TCPReadTimeout)
+	session.SetWriteTimeout(c.gettyConf.SessionConfig.TCPWriteTimeout)
+	session.SetCronPeriod((int)(c.gettyConf.SessionConfig.CronPeriod.Nanoseconds() / 1e6))
+	session.SetWaitTime(c.gettyConf.SessionConfig.WaitTimeout)
 }

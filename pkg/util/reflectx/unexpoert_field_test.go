@@ -15,24 +15,34 @@
  * limitations under the License.
  */
 
-package parser
+package reflectx
 
 import (
-	"path/filepath"
 	"testing"
-
-	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadYMLConfig(t *testing.T) {
-	conPath, err := filepath.Abs("../../../conf/seata_config.yml")
-	if err != nil {
-		log.Infof(err.Error())
+func TestGetElemDataValue(t *testing.T) {
+	var aa = 10
+	var bb = "name"
+	var cc bool
+
+	tests := []struct {
+		name string
+		args interface{}
+		want interface{}
+	}{
+		{name: "test1", args: aa, want: aa},
+		{name: "test2", args: &aa, want: aa},
+		{name: "test3", args: bb, want: bb},
+		{name: "test4", args: &bb, want: bb},
+		{name: "test5", args: cc, want: cc},
+		{name: "test6", args: &cc, want: cc},
 	}
-	confBytes, err := LoadYMLConfig(conPath)
-	if err != nil {
-		log.Infof(err.Error())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetElemDataValue(tt.args); got != tt.want {
+				t.Errorf("GetElemDataValue() = %v, want %v", got, tt.want)
+			}
+		})
 	}
-	assert.NotEmpty(t, confBytes)
 }

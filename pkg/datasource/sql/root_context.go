@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package config
+package sql
 
-import "time"
+import (
+	"github.com/seata/seata-go/pkg/protocol/branch"
+)
 
-type Fence struct {
-	LogTableName string        `yaml:"log-table-name" json:"log-table-name,omitempty" property:"log-table-name"`
-	CleanPeriod  time.Duration `yaml:"clean-period" json:"clean-period,omitempty" property:"clean-period"`
-}
-
-type TccConf struct {
-	Fence Fence `yaml:"fence" json:"fence,omitempty" property:"fence"`
+type RootContext interface {
+	RootContext()
+	SetDefaultBranchType(branchType branch.BranchType)
+	GetXID() string
+	Bind(xid string)
+	GetTimeout() (int, bool)
+	SetTimeout(timeout int)
 }

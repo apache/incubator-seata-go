@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package config
+package tm
 
-// Configurator is the interface which wraps GetSeataConfig
-type Configurator interface {
-	GetSeataConfig() *SeataConf
+var config TmConfig
+
+func InitTm(tmConfig TmConfig) {
+	config = tmConfig
 }

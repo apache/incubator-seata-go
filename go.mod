@@ -8,6 +8,7 @@ require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
 	github.com/arana-db/parser v0.2.5
+	github.com/bluele/gcache v0.0.2
 	github.com/dubbogo/gost v1.12.6-0.20220824084206-300e27e9e524
 	github.com/gin-gonic/gin v1.8.0
 	github.com/go-sql-driver/mysql v1.6.0
@@ -15,7 +16,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/knadh/koanf v1.4.3
-	github.com/mitchellh/copystructure v1.2.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/parnurzeal/gorequest v0.2.16
 	github.com/pierrec/lz4/v4 v4.1.17
@@ -86,6 +86,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
