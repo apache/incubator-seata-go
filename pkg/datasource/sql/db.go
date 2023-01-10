@@ -19,6 +19,9 @@ package sql
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -82,39 +85,21 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
-	// groupID
-	groupID string
-	// resourceID
-	resourceID string
-	// conf
-	conf seataServerConfig
-	// db
-	db     *sql.DB
-	dbName string
-	// dbType
-	dbType types.DBType
-	// undoLogMgr
-	undoLogMgr undo.UndoLogManager
-	// metaCache
-	metaCache datasource.TableMetaCache
+	groupID      string
+	resourceID   string
+	conf         seataServerConfig
+	db           *sql.DB
+	dbName       string
+	dbType       types.DBType
+	undoLogMgr   undo.UndoLogManager
+	metaCache    datasource.TableMetaCache
+	shouldBeHeld bool
+	keeper       sync.Map
 }
 
 func (db *DBResource) init() error {
 	return nil
 }
-
-// todo do not put meta data to rm
-//func (db *DBResource) init() error {
-//	mgr := datasource.GetDataSourceManager(db.GetBranchType())
-//	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.db)
-//	if err != nil {
-//		return err
-//	}
-//
-//	db.metaCache = metaCache
-//
-//	return nil
-//}
 
 func (db *DBResource) GetResourceGroupId() string {
 	return db.groupID
@@ -126,6 +111,33 @@ func (db *DBResource) GetResourceId() string {
 
 func (db *DBResource) GetBranchType() branch.BranchType {
 	return db.conf.BranchType
+}
+
+// Hold the xa connection.
+// TODO if the connection done, instead the v of xa connecton struct
+func (db *DBResource) Hold(xaBranchID string, v string) error {
+	existConnection, exist := db.keeper.Load(xaBranchID)
+	if !exist {
+		db.keeper.Store(xaBranchID, v)
+		return nil
+	}
+
+	if _, ok := existConnection.(string); !ok {
+		return errors.New("the exist connection cask error")
+	}
+
+	if existConnection != v {
+		return fmt.Errorf("something wrong with keeper, keeping %v but %v is also kept with the same key %s", existConnection, v, xaBranchID)
+	}
+	return nil
+}
+
+func (db *DBResource) Release(xaBranchID string) {
+	db.keeper.Delete(xaBranchID)
+}
+
+func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
+	return db.keeper.Load(xaBranchID)
 }
 
 type SqlDBProxy struct {

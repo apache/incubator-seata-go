@@ -17,15 +17,12 @@
 
 package xa
 
-type Xid interface {
-	GetFormatId() int
-	GetGlobalTransactionId() []byte
-	GetBranchQualifier() []byte
+import "github.com/seata/seata-go/pkg/datasource/sql"
+
+type DbResourceXA struct {
+	sql.DBResource
 }
 
-type XAXid interface {
-	Xid
-	GetGlobalXid() string
-	GetBranchId() int64
-	String() string
+func (d *DbResourceXA) getConnectionForXA(xaid XAXid) (string, error) {
+	return "", nil
 }

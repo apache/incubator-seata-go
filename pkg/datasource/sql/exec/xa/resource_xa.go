@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package exec
+package xa
 
 import (
 	"time"

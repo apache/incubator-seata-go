@@ -17,10 +17,10 @@
 
 package xa
 
-func Build(xid string, branchId int64) *XABranchXid {
+func XaIdBuild(xid string, branchId int64) *XABranchXid {
 	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 }
 
-func BuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
+func XaIdBuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
 	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
 }
