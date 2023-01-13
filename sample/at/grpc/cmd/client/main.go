@@ -49,15 +49,15 @@ func main() {
 	tm.WithGlobalTx(
 		context.Background(),
 		&tm.GtxConfig{
-			Name: "TccSampleLocalGlobalTx",
+			Name: "XASampleLocalGlobalTx",
 		},
 		func(ctx context.Context) (re error) {
 			r1, re := businessClient.UpdateDataSuccess(ctx, &pb.Params{A: "1", B: "2"})
 			if re != nil {
-				log.Fatalf("could not do TestTCCServiceBusiness 1: %v", re)
+				log.Fatalf("could not do TestXAServiceBusiness: %v", re)
 				return
 			}
-			log.Infof("TestTCCServiceBusiness#Prepare res: %s", r1)
+			log.Infof("TestXAServiceBusiness res: %s", r1)
 
 			return
 		})

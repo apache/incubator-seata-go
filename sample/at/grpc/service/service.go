@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/seata/seata-go/sample/at/grpc/pb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"time"
 
 	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
@@ -41,24 +42,21 @@ func InitService() {
 
 type GrpcBusinessService struct {
 	pb.UnimplementedATServiceBusinessServer
-	Business Business
 }
 
-type Business struct{}
-
-func (b Business) UpdateDataSuccess(ctx context.Context) error {
+func (service GrpcBusinessService) UpdateDataSuccess(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
 	sql := "update order_tbl set descs=? where id=?"
 	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return wrapperspb.Bool(false), err
 	}
 
 	rows, err := ret.RowsAffected()
 	if err != nil {
 		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+		return wrapperspb.Bool(false), err
 	}
 	fmt.Printf("update success： %d.\n", rows)
-	return nil
+	return wrapperspb.Bool(true), nil
 }
