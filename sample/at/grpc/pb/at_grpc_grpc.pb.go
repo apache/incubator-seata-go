@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.12
-// source: tcc_grpc.proto
+// source: at_grpc.proto
 
-package pb
+package __
 
 import (
 	context "context"
@@ -102,5 +102,5 @@ var ATServiceBusiness_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "tcc_grpc.proto",
+	Metadata: "at_grpc.proto",
 }

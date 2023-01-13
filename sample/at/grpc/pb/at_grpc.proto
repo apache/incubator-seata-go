@@ -16,8 +16,7 @@
  */
 
 syntax = "proto3";
-option go_package="github.com/seata/seata-go/sample/at/grpc/pb";
-import "google/protobuf/any.proto";
+option go_package="./";
 import "google/protobuf/wrappers.proto";
 
 message Params {

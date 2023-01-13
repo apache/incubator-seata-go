@@ -22,14 +22,13 @@ import (
 	"context"
 	"flag"
 	"github.com/seata/seata-go/pkg/client"
-
+	__ "github.com/seata/seata-go/sample/at/grpc/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	grpc2 "github.com/seata/seata-go/pkg/integration/grpc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/seata/seata-go/sample/at/grpc/pb"
 )
 
 func main() {
@@ -43,16 +42,16 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	businessClient := pb.NewATServiceBusinessClient(conn)
+	businessClient := __.NewATServiceBusinessClient(conn)
 
-	client.Init()
+	client.InitPath("./testdata/conf/seatago.yml")
 	tm.WithGlobalTx(
 		context.Background(),
 		&tm.GtxConfig{
 			Name: "XASampleLocalGlobalTx",
 		},
 		func(ctx context.Context) (re error) {
-			r1, re := businessClient.UpdateDataSuccess(ctx, &pb.Params{A: "1", B: "2"})
+			r1, re := businessClient.UpdateDataSuccess(ctx, &__.Params{A: "1", B: "2"})
 			if re != nil {
 				log.Fatalf("could not do TestXAServiceBusiness: %v", re)
 				return

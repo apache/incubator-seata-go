@@ -41,10 +41,10 @@ func InitService() {
 }
 
 type GrpcBusinessService struct {
-	pb.UnimplementedATServiceBusinessServer
+	__.UnimplementedATServiceBusinessServer
 }
 
-func (service GrpcBusinessService) UpdateDataSuccess(ctx context.Context, params *pb.Params) (*wrapperspb.BoolValue, error) {
+func (service GrpcBusinessService) UpdateDataSuccess(ctx context.Context, params *__.Params) (*wrapperspb.BoolValue, error) {
 	sql := "update order_tbl set descs=? where id=?"
 	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 1)
 	if err != nil {
