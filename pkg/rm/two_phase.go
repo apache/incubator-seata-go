@@ -19,9 +19,9 @@ package rm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
-	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/tm"
 )
 
@@ -164,7 +164,7 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 	typeOf := valueOfElem.Type()
 	k := typeOf.Kind()
 	if k != reflect.Struct {
-		return nil, errors.New("param should be a struct, instead of a pointer")
+		return nil, fmt.Errorf("param should be a struct, instead of a pointer")
 	}
 	numField := typeOf.NumField()
 
@@ -195,17 +195,17 @@ func ParseTwoPhaseActionByInterface(v interface{}) (*TwoPhaseAction, error) {
 		}
 	}
 	if !hasPrepareMethodName {
-		return nil, errors.New("missing prepare method")
+		return nil, fmt.Errorf("missing prepare method")
 	}
 	if !hasCommitMethodName {
-		return nil, errors.New("missing commit method")
+		return nil, fmt.Errorf("missing commit method")
 	}
 	if !hasRollbackMethod {
-		return nil, errors.New("missing rollback method")
+		return nil, fmt.Errorf("missing rollback method")
 	}
 	twoPhaseName = getActionName(v)
 	if twoPhaseName == "" {
-		return nil, errors.New("missing two phase name")
+		return nil, fmt.Errorf("missing two phase name")
 	}
 	result.actionName = twoPhaseName
 	return &result, nil

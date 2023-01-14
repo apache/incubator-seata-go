@@ -20,7 +20,7 @@ package datasource
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -120,7 +120,7 @@ func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 
 // Unregister a   model.Resource from the   model.Resource Manager
 func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
-	return errors.New("unsupport unregister resource")
+	return fmt.Errorf("unsupport unregister resource")
 }
 
 // Get all resources managed by this manager
