@@ -27,7 +27,7 @@ func TestTransactionErrorCode(t *testing.T) {
 	assert.Equal(t, int(TransactionErrorCodeUnknown), 0)
 	assert.Equal(t, int(TransactionErrorCodeBeginFailed), 1)
 	assert.Equal(t, int(TransactionErrorCodeLockKeyConflict), 2)
-	assert.Equal(t, int(IO), 3)
+	assert.Equal(t, int(TransactionErrorCodeIO), 3)
 	assert.Equal(t, int(TransactionErrorCodeBranchRollbackFailedRetriable), 4)
 	assert.Equal(t, int(TransactionErrorCodeBranchRollbackFailedUnretriable), 5)
 	assert.Equal(t, int(TransactionErrorCodeBranchRegisterFailed), 6)
@@ -49,6 +49,6 @@ func TestTransactionErrorCode(t *testing.T) {
 	assert.Equal(t, int(CommitFenceError), 22)
 	assert.Equal(t, int(TccFenceDbError), 23)
 	assert.Equal(t, int(PrepareFenceError), 24)
-	assert.Equal(t, int(FenceBusinessError), 26)
-	assert.Equal(t, int(FencePhaseError), 27)
+	assert.Equal(t, int(FenceBusinessError), 25)
+	assert.Equal(t, int(FencePhaseError), 26)
 }
