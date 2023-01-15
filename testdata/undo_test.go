@@ -31,7 +31,7 @@ func TestUndo(t *testing.T) {
 			_ = sqlConn.Close()
 		}()
 
-		if err = manager.RunUndo(ctx, "172.18.0.4:8091:36375516866494489", 36375516866494490, db, "seata_client"); err != nil {
+		if err = manager.RunUndo(ctx, "36375516866494489", 36375516866494490, db, "seata_client"); err != nil {
 			t.Logf("%+v", err)
 		}
 
