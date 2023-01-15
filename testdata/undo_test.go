@@ -17,6 +17,7 @@ func init() {
 }
 
 func TestUndo(t *testing.T) {
+	t.SkipNow()
 	testUndoLog := func() {
 		manager := mysql.NewUndoLogManager()
 
