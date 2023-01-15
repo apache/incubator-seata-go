@@ -23,10 +23,12 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
 	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
+	"github.com/seata/seata-go/pkg/compressor"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -213,7 +215,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "jackson"
-	parseContext[compressorTypeKey] = "NONE"
+	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {
 		return err
@@ -295,9 +297,21 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 			return nil
 		}
 
+		// DeCompress rollback info
+		contextMap, err := m.UnmarshalContext(record.Context)
+		if err != nil {
+			log.Errorf("decode rollback info context fail, err: %+v", err)
+			return err
+		}
+
+		rollbackInfo, err := m.getRollbackInfo(record.RollbackInfo, contextMap)
+		if err != nil {
+			return err
+		}
+
 		// todo use serializer and decode
 		var branchUndoLog undo.BranchUndoLog
-		if err = json.Unmarshal(record.RollbackInfo, &branchUndoLog); err != nil {
+		if err = json.Unmarshal(rollbackInfo, &branchUndoLog); err != nil {
 			return err
 		}
 
@@ -354,7 +368,7 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 	// todo use config to replace
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "jackson"
-	parseContext[compressorTypeKey] = "NONE"
+	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {
 		return err
@@ -480,16 +494,30 @@ func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
 	return res
 }
 
+func (m *BaseUndoLogManager) UnmarshalContext(undoContext []byte) (map[string]string, error) {
+	res := make(map[string]string)
+
+	if err := json.Unmarshal(undoContext, &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // getRollbackInfo parser rollback info
-func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
-	// Todo use compressor
+func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) ([]byte, error) {
+	var err error
+	res := rollbackInfo
 	// get compress type
-	/*compressorType, ok := undoContext[constant.compressorTypeKey]
-	if ok {
+	if v, ok := undoContext[compressorTypeKey]; ok {
+		res, err = compressor.GetByName(v).GetCompressor().Decompress(rollbackInfo)
+		if err != nil {
+			log.Errorf("[getRollbackInfo] decompress fail, err: %+v", err)
+			return nil, err
+		}
+	}
 
-	}*/
-
-	return rollbackInfo
+	return res, nil
 }
 
 // getSerializer get serializer from undo context

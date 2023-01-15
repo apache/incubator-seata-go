@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource"
-
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"

@@ -20,11 +20,25 @@ package compressor
 import (
 	"bytes"
 	"io"
+	"sync"
 
 	"github.com/klauspost/compress/zlib"
 )
 
 type Zip struct{}
+
+var (
+	zipOnce     sync.Once
+	zipInstance *Zip
+)
+
+func ZipInstanceInstance() *Zip {
+	zipOnce.Do(func() {
+		zipInstance = &Zip{}
+	})
+
+	return zipInstance
+}
 
 func (z Zip) Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer

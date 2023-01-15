@@ -20,11 +20,25 @@ package compressor
 import (
 	"bytes"
 	"io/ioutil"
+	"sync"
 
 	"github.com/dsnet/compress/bzip2"
 )
 
 type Bzip2 struct {
+}
+
+var (
+	bizp2Once             sync.Once
+	bizp2CompressInstance *Bzip2
+)
+
+func Bizp2CompressInstance() *Bzip2 {
+	bizp2Once.Do(func() {
+		bizp2CompressInstance = &Bzip2{}
+	})
+
+	return bizp2CompressInstance
 }
 
 // Compress Bzip2 compress

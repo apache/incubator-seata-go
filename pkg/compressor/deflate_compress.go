@@ -21,11 +21,25 @@ import (
 	"bytes"
 	"compress/flate"
 	"io"
+	"sync"
 
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type DeflateCompress struct{}
+
+var (
+	deflateOnce             sync.Once
+	deflateCompressInstance *DeflateCompress
+)
+
+func DeflateCompressInstance() *DeflateCompress {
+	deflateOnce.Do(func() {
+		deflateCompressInstance = &DeflateCompress{}
+	})
+
+	return deflateCompressInstance
+}
 
 func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer

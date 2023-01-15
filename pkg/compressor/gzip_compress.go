@@ -21,9 +21,23 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io/ioutil"
+	"sync"
 )
 
 type Gzip struct {
+}
+
+var (
+	gzipOnce     sync.Once
+	gzipInstance *Gzip
+)
+
+func GzipInstanceInstance() *Gzip {
+	gzipOnce.Do(func() {
+		gzipInstance = &Gzip{}
+	})
+
+	return gzipInstance
 }
 
 // Compress gzip compress

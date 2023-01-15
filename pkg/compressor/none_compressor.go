@@ -17,43 +17,32 @@
 
 package compressor
 
-import (
-	"sync"
+import "sync"
 
-	"github.com/klauspost/compress/zstd"
-)
-
-type Zstd struct{}
+type NoneCompressor struct {
+}
 
 var (
-	zstdOnce     sync.Once
-	zstdInstance *Zstd
+	noneOnce               sync.Once
+	noneCompressorInstance *NoneCompressor
 )
 
-func ZstdInstanceInstance() *Zstd {
-	zstdOnce.Do(func() {
-		zstdInstance = &Zstd{}
+func NoneCompressorInstance() *NoneCompressor {
+	noneOnce.Do(func() {
+		noneCompressorInstance = &NoneCompressor{}
 	})
 
-	return zstdInstance
+	return noneCompressorInstance
 }
 
-func (z Zstd) Compress(data []byte) ([]byte, error) {
-	var encoder, err = zstd.NewWriter(nil)
-	if err != nil {
-		return nil, err
-	}
-	return encoder.EncodeAll(data, make([]byte, 0, len(data))), nil
+func (n *NoneCompressor) Compress(data []byte) ([]byte, error) {
+	return data, nil
 }
 
-func (z Zstd) Decompress(data []byte) ([]byte, error) {
-	var decoder, err = zstd.NewReader(nil)
-	if err != nil {
-		return nil, err
-	}
-	return decoder.DecodeAll(data, nil)
+func (n *NoneCompressor) Decompress(data []byte) ([]byte, error) {
+	return data, nil
 }
 
-func (z Zstd) GetCompressorType() CompressorType {
-	return CompressorZstd
+func (n *NoneCompressor) GetCompressorType() CompressorType {
+	return CompressorNone
 }

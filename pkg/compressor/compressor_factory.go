@@ -17,43 +17,26 @@
 
 package compressor
 
-import (
-	"sync"
+var compressorFactory map[string]Compressor
 
-	"github.com/klauspost/compress/zstd"
-)
-
-type Zstd struct{}
-
-var (
-	zstdOnce     sync.Once
-	zstdInstance *Zstd
-)
-
-func ZstdInstanceInstance() *Zstd {
-	zstdOnce.Do(func() {
-		zstdInstance = &Zstd{}
-	})
-
-	return zstdInstance
-}
-
-func (z Zstd) Compress(data []byte) ([]byte, error) {
-	var encoder, err = zstd.NewWriter(nil)
-	if err != nil {
-		return nil, err
+func init() {
+	if compressorFactory == nil {
+		compressorFactory = map[string]Compressor{
+			CompressorNone.String():    NoneCompressorInstance(),
+			CompressorGzip.String():    GzipInstanceInstance(),
+			CompressorZip.String():     ZipInstanceInstance(),
+			CompressorBzip2.String():   Bizp2CompressInstance(),
+			CompressorLz4.String():     Lz4InstanceInstance(),
+			CompressorZstd.String():    ZstdInstanceInstance(),
+			CompressorDeflate.String(): DeflateCompressInstance(),
+		}
 	}
-	return encoder.EncodeAll(data, make([]byte, 0, len(data))), nil
 }
 
-func (z Zstd) Decompress(data []byte) ([]byte, error) {
-	var decoder, err = zstd.NewReader(nil)
-	if err != nil {
-		return nil, err
+func (c CompressorType) GetCompressor() Compressor {
+	if v, ok := compressorFactory[c.String()]; ok {
+		return v
+	} else {
+		panic("compressor type not implement")
 	}
-	return decoder.DecodeAll(data, nil)
-}
-
-func (z Zstd) GetCompressorType() CompressorType {
-	return CompressorZstd
 }
