@@ -237,6 +237,7 @@ func TestInsertOnUpdateAfterImageSQL(t *testing.T) {
 			expectQueryArgs: []driver.Value{1, "Jack1", 30, 2, "Michael", 18},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ioe.BeforeSelectSql = tt.beforeSelectSql
