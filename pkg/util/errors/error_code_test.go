@@ -27,7 +27,7 @@ func TestTransactionErrorCode(t *testing.T) {
 	assert.Equal(t, int(TransactionErrorCodeUnknown), 0)
 	assert.Equal(t, int(TransactionErrorCodeBeginFailed), 1)
 	assert.Equal(t, int(TransactionErrorCodeLockKeyConflict), 2)
-	assert.Equal(t, int(IO), 3)
+	assert.Equal(t, int(TransactionErrorCodeIO), 3)
 	assert.Equal(t, int(TransactionErrorCodeBranchRollbackFailedRetriable), 4)
 	assert.Equal(t, int(TransactionErrorCodeBranchRollbackFailedUnretriable), 5)
 	assert.Equal(t, int(TransactionErrorCodeBranchRegisterFailed), 6)
