@@ -205,7 +205,7 @@ func useExistGtx(ctx context.Context, gc *GtxConfig) {
 // transferTx transfer the gtx into a new ctx from old ctx.
 // use it to implement suspend and resume instead of seata java
 func transferTx(ctx context.Context) context.Context {
-	newCtx := InitSeataContext(context.Background())
+	newCtx := InitSeataContext(ctx)
 	SetXID(newCtx, GetXID(ctx))
 	return newCtx
 }
