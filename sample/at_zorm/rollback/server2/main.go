@@ -18,39 +18,37 @@
 package main
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-	"time"
+	"net/http"
 
-	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
+	"github.com/gin-gonic/gin"
+
+	"github.com/seata/seata-go/pkg/client"
+	ginmiddleware "github.com/seata/seata-go/pkg/integration/gin"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var (
-	db *sql.DB
-)
+func main() {
+	// client.InitPath("./sample/conf/seatago.yml")
+	client.InitPath("./seatago.yml")
+	initService()
 
-func initService() {
-	var err error
-	db, err = sql.Open(sql2.SeataATMySQLDriver, "root:12345678@tcp(demo.wuxian.pro:3306)/seata_client?multiStatements=true&interpolateParams=true")
-	if err != nil {
-		panic("init service error")
-	}
-}
+	r := gin.Default()
 
-func updateDataSuccess(ctx context.Context) error {
-	sql := "update order_tbl set descs=? where id=?"
-	ret, err := db.ExecContext(ctx, sql, fmt.Sprintf("NewDescs1-%d", time.Now().UnixMilli()), 1)
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return nil
-	}
+	// NOTE: when use gin，must set ContextWithFallback true when gin version >= 1.8.1
+	// r.ContextWithFallback = true
 
-	rows, err := ret.RowsAffected()
-	if err != nil {
-		fmt.Printf("update failed, err:%v\n", err)
-		return nil
+	r.Use(ginmiddleware.TransactionMiddleware())
+
+	r.POST("/updateDataFail", func(c *gin.Context) {
+		log.Infof("get tm updateData")
+		if err := updateDataFail(c); err != nil {
+			c.JSON(http.StatusBadRequest, "updateData failure")
+			return
+		}
+		c.JSON(http.StatusOK, "updateData ok")
+	})
+
+	if err := r.Run(":8081"); err != nil {
+		log.Fatalf("start tcc server fatal: %v", err)
 	}
-	fmt.Printf("update success： %d.\n", rows)
-	return nil
 }

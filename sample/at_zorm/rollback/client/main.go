@@ -32,11 +32,17 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var serverIpPort = "http://demo.wuxian.pro:8080"
+var (
+	// serverIpPort  = "http://demo.wuxian.pro:8080"
+	serverIpPort = "http://demo.wuxian.pro:8080"
+	// serverIpPort2 = "http://demo.wuxian.pro:8081"
+	serverIpPort2 = "http://demo.wuxian.pro:8081"
+)
 
 func main() {
 	flag.Parse()
-	client.InitPath("./sample/conf/seatago.yml")
+	// client.InitPath("./sample/conf/seatago.yml")
+	client.InitPath("./seatago.yml")
 
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
@@ -58,6 +64,14 @@ func updateData(ctx context.Context) (re error) {
 	request.Post(serverIpPort+"/updateDataSuccess").
 		Set(constant.XidKey, tm.GetXID(ctx)).
 		End(func(response gorequest.Response, body string, errs []error) {
+			if response.StatusCode != http.StatusOK {
+				re = fmt.Errorf("update data fail")
+			}
+		})
+
+	request.Post(serverIpPort2+"/updateDataFail").
+		Set(constant.XidKey, tm.GetXID(ctx)).
+		End(func(response gorequest.Response, body string, errs1 []error) {
 			if response.StatusCode != http.StatusOK {
 				re = fmt.Errorf("update data fail")
 			}

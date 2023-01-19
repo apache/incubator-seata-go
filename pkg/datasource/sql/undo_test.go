@@ -33,7 +33,7 @@ func TestBatchDeleteUndoLogs(t *testing.T) {
 	t.SkipNow()
 
 	testBatchDeleteUndoLogs := func() {
-		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(demo.wuxian.pro:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		sqlConn, err := db.Conn(context.Background())
@@ -55,7 +55,7 @@ func TestDeleteUndoLogs(t *testing.T) {
 	t.SkipNow()
 
 	testDeleteUndoLogs := func() {
-		/*db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		/*db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(demo.wuxian.pro:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()
@@ -79,7 +79,7 @@ func TestHasUndoLogTable(t *testing.T) {
 	t.SkipNow()
 
 	testHasUndoLogTable := func() {
-		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(demo.wuxian.pro:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()
@@ -107,7 +107,7 @@ func TestUndo(t *testing.T) {
 	testUndoLog := func() {
 		manager := mysql.NewUndoLogManager()
 
-		db, err := sql.Open(SeataATMySQLDriver, "root:123456@tcp(127.0.0.1:3306)/seata_order?multiStatements=true")
+		db, err := sql.Open(SeataATMySQLDriver, "root:123456@tcp(demo.wuxian.pro:3306)/seata_order?multiStatements=true")
 		assert.Nil(t, err)
 
 		ctx := context.Background()

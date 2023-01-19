@@ -130,6 +130,7 @@ require (
 
 require (
 	cloud.google.com/go v0.93.3 // indirect
+	gitee.com/chunanyong/zorm v1.6.4
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20220901064549-fbd10ff4f5a1 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect

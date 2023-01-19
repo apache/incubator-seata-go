@@ -217,7 +217,7 @@ func loadConfig() *seataServerConfig {
 	return &seataServerConfig{
 		GroupID:    "DEFAULT_GROUP",
 		BranchType: branch.BranchTypeAT,
-		Endpoints:  []string{"127.0.0.1:8888"},
+		Endpoints:  []string{"demo.wuxian.pro:8888"},
 	}
 }
 

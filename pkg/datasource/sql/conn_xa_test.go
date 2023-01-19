@@ -89,8 +89,8 @@ func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
-	//db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
-	db, err := sql.Open("seata-xa-mysql", "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")
+	//db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(demo.wuxian.pro:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open("seata-xa-mysql", "root:12345678@tcp(demo.wuxian.pro:3306)/seata_client?multiStatements=true&interpolateParams=true")
 	if err != nil {
 		t.Fatal(err)
 	}

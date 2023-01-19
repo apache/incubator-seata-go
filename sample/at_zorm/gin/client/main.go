@@ -36,7 +36,7 @@ var serverIpPort = "http://demo.wuxian.pro:8080"
 
 func main() {
 	flag.Parse()
-	client.InitPath("./sample/conf/seatago.yml")
+	client.InitPath("./seatago.yml")
 
 	bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
