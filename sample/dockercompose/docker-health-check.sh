@@ -15,16 +15,16 @@
 # limitations under the License.
 #
 
-curl demo.wuxian.pro:7091
+curl 127.0.0.1:7091
 res=$?
 passCode=52
 while [ "$res" != "$passCode" ];do
   sleep 5
-  curl demo.wuxian.pro:7091
+  curl 127.0.0.1:7091
   res=$?
 done
 
 sleep 5
-curl http://demo.wuxian.pro:7091
+curl http://127.0.0.1:7091
 sleep 10
 

@@ -21,7 +21,7 @@ dubbo:
     demoZK:
       protocol: zookeeper
       timeout: 3s
-      address: demo.wuxian.pro:2181
+      address: 127.0.0.1:2181
   protocols:
     dubbo:
       name: dubbo

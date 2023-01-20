@@ -28,7 +28,7 @@ import (
 func TestBranchReportRequestCodec(t *testing.T) {
 	msg := message.BranchReportRequest{
 		Xid:             "123344",
-		ResourceId:      "root:12345678@tcp(demo.wuxian.pro:3306)/seata_client",
+		ResourceId:      "root:12345678@tcp(127.0.0.1:3306)/seata_client",
 		Status:          model2.BranchStatusPhaseoneDone,
 		BranchId:        56678,
 		BranchType:      model2.BranchTypeAT,

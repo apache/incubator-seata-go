@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	serverIpPort  = "http://demo.wuxian.pro:8080"
-	serverIpPort2 = "http://demo.wuxian.pro:8081"
+	serverIpPort  = "http://127.0.0.1:8080"
+	serverIpPort2 = "http://127.0.0.1:8081"
 )
 
 func main() {

@@ -69,7 +69,7 @@ func (c *RpcClient) init() {
 }
 
 func (c *RpcClient) getAvailServerList() []string {
-	defaultAddressList := []string{"demo.wuxian.pro:8091"}
+	defaultAddressList := []string{"127.0.0.1:8091"}
 	txServiceGroup := c.seataConf.TxServiceGroup
 	if txServiceGroup == "" {
 		return defaultAddressList

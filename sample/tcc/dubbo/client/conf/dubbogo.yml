@@ -20,7 +20,7 @@ dubbo:
   registries:
     demoZK:
       protocol: zookeeper
-      address: demo.wuxian.pro:2181
+      address: 127.0.0.1:2181
   consumer:
     filter: seataDubboFilter
     references:

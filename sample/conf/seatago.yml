@@ -79,7 +79,7 @@ seata:
       # Prefix for Print Log
       default_tx_group: default
     grouplist:
-      default: demo.wuxian.pro:8091
+      default: 127.0.0.1:8091
     enable-degrade: false
     # close the transaction
     disable-global-transaction: false
@@ -110,7 +110,7 @@ seata:
       name: config.conf
     nacos:
       namespace: ""
-      server-addr: demo.wuxian.pro:8848
+      server-addr: 127.0.0.1:8848
       group: SEATA_GROUP
       username: ""
       password: ""
@@ -125,7 +125,7 @@ seata:
       name: registry.conf
     nacos:
       application: seata-server
-      server-addr: demo.wuxian.pro:8848
+      server-addr: 127.0.0.1:8848
       group: "SEATA_GROUP"
       namespace: ""
       username: ""

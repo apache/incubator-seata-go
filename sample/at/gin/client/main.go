@@ -32,7 +32,7 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var serverIpPort = "http://demo.wuxian.pro:8080"
+var serverIpPort = "http://127.0.0.1:8080"
 
 func main() {
 	flag.Parse()

@@ -38,12 +38,12 @@ func Test_CIDRSliceCSV_YamlMarshaling(t *testing.T) {
 			expected: nil,
 		},
 		"should marshal single value": {
-			input:    "cidrs: demo.wuxian.pro/32\n",
-			expected: []string{"demo.wuxian.pro/32"},
+			input:    "cidrs: 127.0.0.1/32\n",
+			expected: []string{"127.0.0.1/32"},
 		},
 		"should marshal multiple comma-separated values": {
-			input:    "cidrs: demo.wuxian.pro/32,10.0.10.0/28,fdf8:f53b:82e4::/100,192.168.0.0/20\n",
-			expected: []string{"demo.wuxian.pro/32", "10.0.10.0/28", "fdf8:f53b:82e4::/100", "192.168.0.0/20"},
+			input:    "cidrs: 127.0.0.1/32,10.0.10.0/28,fdf8:f53b:82e4::/100,192.168.0.0/20\n",
+			expected: []string{"127.0.0.1/32", "10.0.10.0/28", "fdf8:f53b:82e4::/100", "192.168.0.0/20"},
 		},
 	}
 

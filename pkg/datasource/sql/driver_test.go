@@ -48,7 +48,7 @@ func Test_seataATDriver_Open(t *testing.T) {
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(demo.wuxian.pro:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(demo.wuxian.pro:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	mockMgr := initMockResourceManager(t, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(demo.wuxian.pro:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}

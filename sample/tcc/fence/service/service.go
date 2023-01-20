@@ -31,7 +31,7 @@ import (
 
 const (
 	DriverName = "mysql"
-	Url        = "root:root@tcp(demo.wuxian.pro:3306)/seata?charset=utf8&parseTime=True"
+	Url        = "root:root@tcp(127.0.0.1:3306)/seata?charset=utf8&parseTime=True"
 )
 
 var (
