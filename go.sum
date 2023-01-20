@@ -47,6 +47,8 @@ contrib.go.opencensus.io/exporter/prometheus v0.4.1/go.mod h1:t9wvfitlUjGXG2IXAZ
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2 h1:avSjSWlQQVqRtHP48uv9SSkUutRHnGcYbmvP+RgzV3c=
 dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2/go.mod h1:mIavtIfTek76GyrqVOt0WTvUm4Aw3NnzHNRvHy7cdRI=
+gitee.com/chunanyong/zorm v1.6.5 h1:UZyG4ZSBl1XyL0vf+wJOiUIbuUU8RzL5A3ONyflUH8Y=
+gitee.com/chunanyong/zorm v1.6.5/go.mod h1:Sk+vofBqQXgNrDTe+nWhV6iMXhiBObFHdCo1MfvAdi8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.1.0 h1:ksErzDEI1khOiGPgpwuI7x2ebx/uXQNw7xJpn9Eq1+I=
 github.com/BurntSushi/toml v1.1.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=

@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2
+	gitee.com/chunanyong/zorm v1.6.5
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/agiledragon/gomonkey/v2 v2.2.0
 	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
