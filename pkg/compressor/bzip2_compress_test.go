@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-package config
+package compressor
 
-type Grouplist struct {
-	Default string `yaml:"default" json:"default,omitempty" property:"default"`
-}
+import (
+	"strings"
+	"testing"
 
-type VgroupMapping struct {
-	DefaultTxGroup string `yaml:"default_tx_group" json:"default_tx_group,omitempty" property:"default_tx_group"`
-}
+	"github.com/stretchr/testify/assert"
+)
 
-type Service struct {
-	VgroupMapping            VgroupMapping `yaml:"vgroup-mapping" json:"vgroup-mapping,omitempty" property:"vgroup-mapping"`
-	Grouplist                Grouplist     `yaml:"grouplist" json:"grouplist,omitempty" property:"grouplist"`
-	EnableDegrade            bool          `yaml:"enable-degrade" json:"enable-degrade,omitempty" property:"enable-degrade"`
-	DisableGlobalTransaction bool          `yaml:"disable-global-transaction" json:"disable-global-transaction,omitempty" property:"disable-global-transaction"`
+func TestBzip2Compress(t *testing.T) {
+	str := strings.Repeat(" bzip2 ", 100)
+
+	b := &Bzip2{}
+	compressRes, err := b.Compress([]byte(str))
+	assert.NoError(t, err)
+	t.Logf("compress res: %v", string(compressRes))
+
+	decompressRes, err := b.Decompress(compressRes)
+	assert.NoError(t, err)
+	assert.Equal(t, str, string(decompressRes))
+
+	t.Logf("decompress res: %v", string(decompressRes))
 }

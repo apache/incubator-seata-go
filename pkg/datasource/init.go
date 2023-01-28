@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package config
+package datasource
 
-// Configurator is the interface which wraps GetSeataConfig
-type Configurator interface {
-	GetSeataConfig() *SeataConf
+import sql2 "github.com/seata/seata-go/pkg/datasource/sql"
+
+func Init() {
+	sql2.Init()
 }

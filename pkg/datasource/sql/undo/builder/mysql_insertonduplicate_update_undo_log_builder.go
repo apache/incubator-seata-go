@@ -22,22 +22,13 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strings"
-)
 
-import (
 	"github.com/arana-db/parser/ast"
-)
-
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
 	"github.com/seata/seata-go/pkg/util/log"
 )
-
-func init() {
-	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, GetMySQLInsertOnDuplicateUndoLogBuilder)
-}
 
 type MySQLInsertOnDuplicateUndoLogBuilder struct {
 	MySQLInsertUndoLogBuilder

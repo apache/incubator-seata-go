@@ -22,12 +22,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -35,29 +34,37 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-// checkUndoLogTableExistSql check undo log if exist
-var (
-	ErrorDeleteUndoLogParamsFault = errors.New("xid or branch_id can't nil")
-)
-
-var (
-	checkUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
-	insertUndoLogSql          = "INSERT INTO " + constant.UndoLogTableName + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
-	selectUndoLogSql          = "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ? FOR UPDATE" // todo 替换成常量吧，不用使用变量来表示字段名
-)
-
 const (
 	PairSplit = "&"
 	KvSplit   = "="
 
-	CompressorTypeKey = "compressorTypeKey"
-	SerializerKey     = "serializerKey"
-
-	// CheckUndoLogTableExistSql check undo log if exist
-	CheckUndoLogTableExistSql = "SELECT 1 FROM " + constant.UndoLogTableName + " LIMIT 1"
-	// DeleteUndoLogSql delete undo log
-	DeleteUndoLogSql = constant.DeleteFrom + constant.UndoLogTableName + " WHERE " + constant.UndoLogBranchXid + " = ? AND " + constant.UndoLogXid + " = ?"
+	compressorTypeKey       = "compressorTypeKey"
+	serializerKey           = "serializerKey"
+	defaultUndoLogTableName = " undo_log "
 )
+
+func getUndoLogTableName() string {
+	if undo.UndoConfig.LogTable != "" {
+		return undo.UndoConfig.LogTable
+	}
+	return defaultUndoLogTableName
+}
+
+func getCheckUndoLogTableExistSql() string {
+	return "SELECT 1 FROM " + getUndoLogTableName() + " LIMIT 1"
+}
+
+func getInsertUndoLogSql() string {
+	return "INSERT INTO " + getUndoLogTableName() + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
+}
+
+func getSelectUndoLogSql() string {
+	return "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ? FOR UPDATE"
+}
+
+func getDeleteUndoLogSql() string {
+	return "DELETE FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ?"
+}
 
 // undo log status
 const (
@@ -80,7 +87,8 @@ func (m *BaseUndoLogManager) Init() {
 
 // InsertUndoLog
 func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn driver.Conn) error {
-	stmt, err := conn.Prepare(insertUndoLogSql)
+	log.Infof("begin to insert undo log, xid %v, branch id %v", record.XID, record.BranchID)
+	stmt, err := conn.Prepare(getInsertUndoLogSql())
 	if err != nil {
 		return err
 	}
@@ -92,7 +100,7 @@ func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn drive
 }
 
 func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, record undo.UndologRecord, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, insertUndoLogSql)
+	stmt, err := conn.PrepareContext(ctx, getInsertUndoLogSql())
 	if err != nil {
 		return err
 	}
@@ -105,7 +113,7 @@ func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, recor
 
 // DeleteUndoLog exec delete single undo log operate
 func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, constant.DeleteUndoLogSql)
+	stmt, err := conn.PrepareContext(ctx, getDeleteUndoLogSql())
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
@@ -204,8 +212,8 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	}
 
 	parseContext := make(map[string]string, 0)
-	parseContext[SerializerKey] = "jackson"
-	parseContext[CompressorTypeKey] = "NONE"
+	parseContext[serializerKey] = "jackson"
+	parseContext[compressorTypeKey] = "NONE"
 	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {
 		return err
@@ -245,7 +253,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		}
 	}()
 
-	stmt, err := conn.PrepareContext(ctx, selectUndoLogSql)
+	stmt, err := conn.PrepareContext(ctx, getSelectUndoLogSql())
 	if err != nil {
 		log.Errorf("prepare sql fail, err: %v", err)
 		return err
@@ -306,7 +314,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 				return err
 			}
 
-			undoLog.SetTableMeta(*tableMeta)
+			undoLog.SetTableMeta(tableMeta)
 
 			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
 			if err != nil {
@@ -345,8 +353,8 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
 	// todo use config to replace
 	parseContext := make(map[string]string, 0)
-	parseContext[SerializerKey] = "jackson"
-	parseContext[CompressorTypeKey] = "NONE"
+	parseContext[serializerKey] = "jackson"
+	parseContext[compressorTypeKey] = "NONE"
 	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {
 		return err
@@ -374,7 +382,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, checkUndoLogTableExistSql); err != nil {
+	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil {
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
@@ -389,19 +397,15 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 // getBatchDeleteUndoLogSql build batch delete undo log
 func (m *BaseUndoLogManager) getBatchDeleteUndoLogSql(xid []string, branchID []int64) (string, error) {
 	if len(xid) == 0 || len(branchID) == 0 {
-		return "", ErrorDeleteUndoLogParamsFault
+		return "", fmt.Errorf("xid or branch_id can't nil")
 	}
 
 	var undoLogDeleteSql strings.Builder
-	undoLogDeleteSql.WriteString(constant.DeleteFrom)
-	undoLogDeleteSql.WriteString(constant.UndoLogTableName)
-	undoLogDeleteSql.WriteString(" WHERE ")
-	undoLogDeleteSql.WriteString(constant.UndoLogBranchXid)
-	undoLogDeleteSql.WriteString(" IN ")
+	undoLogDeleteSql.WriteString(" DELETE FROM ")
+	undoLogDeleteSql.WriteString(getUndoLogTableName())
+	undoLogDeleteSql.WriteString(" WHERE branch_id IN ")
 	m.appendInParam(len(branchID), &undoLogDeleteSql)
-	undoLogDeleteSql.WriteString(" AND ")
-	undoLogDeleteSql.WriteString(constant.UndoLogXid)
-	undoLogDeleteSql.WriteString(" IN ")
+	undoLogDeleteSql.WriteString(" AND xid IN ")
 	m.appendInParam(len(xid), &undoLogDeleteSql)
 
 	return undoLogDeleteSql.String(), nil
@@ -428,7 +432,7 @@ func (m *BaseUndoLogManager) appendInParam(size int, str *strings.Builder) {
 func Int64Slice2Str(values interface{}, sep string) (string, error) {
 	v, ok := values.([]int64)
 	if !ok {
-		return "", errors.New("param type is fault")
+		return "", fmt.Errorf("param type is fault")
 	}
 
 	var valuesText []string
@@ -480,7 +484,7 @@ func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
 func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
 	// Todo use compressor
 	// get compress type
-	/*compressorType, ok := undoContext[constant.CompressorTypeKey]
+	/*compressorType, ok := undoContext[constant.compressorTypeKey]
 	if ok {
 
 	}*/
@@ -493,6 +497,6 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	if undoLogContext == nil {
 		return
 	}
-	serializer, _ = undoLogContext[SerializerKey]
+	serializer, _ = undoLogContext[serializerKey]
 	return
 }

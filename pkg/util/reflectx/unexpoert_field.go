@@ -31,3 +31,16 @@ func SetUnexportedField(field reflect.Value, value interface{}) {
 func GetUnexportedField(field reflect.Value) interface{} {
 	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
 }
+
+func GetElemDataValue(data interface{}) interface{} {
+	if data == nil {
+		return data
+	}
+	value := reflect.ValueOf(data)
+	kind := reflect.TypeOf(data).Kind()
+	switch kind {
+	case reflect.Ptr:
+		return value.Elem().Interface()
+	}
+	return value.Interface()
+}

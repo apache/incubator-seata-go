@@ -33,10 +33,6 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.DeleteExecutor, GetMySQLDeleteUndoLogBuilder)
-}
-
 type MySQLDeleteUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }

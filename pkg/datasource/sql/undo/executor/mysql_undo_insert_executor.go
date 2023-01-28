@@ -20,7 +20,6 @@ package executor
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -62,7 +61,7 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 			}
 		}
 
-		if _, err = stmt.Exec(pkValueList); err != nil {
+		if _, err = stmt.Exec(pkValueList...); err != nil {
 			return err
 		}
 	}
@@ -75,7 +74,7 @@ func (m *mySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string, err
 	afterImage := m.sqlUndoLog.AfterImage
 	rows := afterImage.Rows
 	if len(rows) == 0 {
-		return "", errors.New("invalid undo log")
+		return "", fmt.Errorf("invalid undo log")
 	}
 
 	str, err := m.generateDeleteSql(afterImage, rows, dbType, m.sqlUndoLog)

@@ -15,15 +15,34 @@
  * limitations under the License.
  */
 
-package config
+package reflectx
 
-import "time"
+import (
+	"testing"
+)
 
-type Fence struct {
-	LogTableName string        `yaml:"log-table-name" json:"log-table-name,omitempty" property:"log-table-name"`
-	CleanPeriod  time.Duration `yaml:"clean-period" json:"clean-period,omitempty" property:"clean-period"`
-}
+func TestGetElemDataValue(t *testing.T) {
+	var aa = 10
+	var bb = "name"
+	var cc bool
 
-type TccConf struct {
-	Fence Fence `yaml:"fence" json:"fence,omitempty" property:"fence"`
+	tests := []struct {
+		name string
+		args interface{}
+		want interface{}
+	}{
+		{name: "test1", args: aa, want: aa},
+		{name: "test2", args: &aa, want: aa},
+		{name: "test3", args: bb, want: bb},
+		{name: "test4", args: &bb, want: bb},
+		{name: "test5", args: cc, want: cc},
+		{name: "test6", args: &cc, want: cc},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetElemDataValue(tt.args); got != tt.want {
+				t.Errorf("GetElemDataValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

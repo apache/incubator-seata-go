@@ -146,12 +146,14 @@ type TransactionContext struct {
 
 // ExecContext
 type ExecContext struct {
-	TxCtx        *TransactionContext
-	Query        string
+	TxCtx *TransactionContext
+	Query string
+	// todo delete
 	ParseContext *ParseContext
 	NamedValues  []driver.NamedValue
-	Values       []driver.Value
-	// todo 待删除
+	// todo delete
+	Values []driver.Value
+	// todo delete
 	MetaDataMap map[string]TableMeta
 	Conn        driver.Conn
 	DBName      string

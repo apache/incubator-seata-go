@@ -19,7 +19,6 @@ package log
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"time"
 
@@ -52,7 +51,7 @@ const (
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
 	if l == nil {
-		return errors.New("can't unmarshal a nil *Level")
+		return fmt.Errorf("can't unmarshal a nil *Level")
 	}
 	if !l.unmarshalText(text) && !l.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized level: %q", text)
@@ -140,14 +139,14 @@ func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder)
 	enc.AppendString(fmt.Sprintf("%-45s", caller.TrimmedPath()))
 }
 
-func init() {
+func Init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	log = zapLogger.Sugar()
 	getty.SetLogger(log)
 }
 
-func Init(logPath string, level LogLevel) {
+func InitWithOption(logPath string, level LogLevel) {
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    10,
@@ -182,60 +181,96 @@ func GetLogger() Logger {
 
 // Debug ...
 func Debug(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Debug(v...)
 }
 
 // Debugf ...
 func Debugf(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Debugf(format, v...)
 }
 
 // Info ...
 func Info(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Info(v...)
 }
 
 // Infof ...
 func Infof(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Infof(format, v...)
 }
 
 // Warn ...
 func Warn(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Warn(v...)
 }
 
 // Warnf ...
 func Warnf(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Warnf(format, v...)
 }
 
 // Error ...
 func Error(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Error(v...)
 }
 
 // Errorf ...
 func Errorf(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Errorf(format, v...)
 }
 
 // Panic ...
 func Panic(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Panic(v...)
 }
 
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Panicf(format, v...)
 }
 
 // Fatal ...
 func Fatal(v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Fatal(v...)
 }
 
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
+	if log == nil {
+		return
+	}
 	log.Fatalf(format, v...)
 }

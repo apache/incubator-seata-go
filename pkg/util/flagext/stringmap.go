@@ -15,5 +15,25 @@
  * limitations under the License.
  */
 
-// package config defines interfaces to be implemented by Config
-package config
+package flagext
+
+import (
+	"encoding/json"
+)
+
+// StringMap is a map of string that implements flag.Value
+type StringMap map[string]string
+
+// String implements flag.Value
+func (v StringMap) String() string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
+// Set implements flag.Value
+func (v *StringMap) Set(s string) error {
+	return json.Unmarshal([]byte(s), &v)
+}

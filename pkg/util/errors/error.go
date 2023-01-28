@@ -19,36 +19,20 @@ package errors
 
 import (
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
-var (
-	ErrorTooManySessions  = errors.New("too many sessions")
-	ErrorHeartBeatTimeOut = errors.New("heart beat time out")
-)
-
-type TransactionError struct {
-	Code    byte
-	Message string
-}
-
-func (e TransactionError) Error() string {
-	return fmt.Sprintf("TransactionError code %d, msg %s", e.Code, e.Message)
-}
-
-type TccFenceError struct {
+type SeataError struct {
 	Code    TransactionErrorCode
 	Message string
 	Parent  error
 }
 
-func (e TccFenceError) Error() string {
-	return fmt.Sprintf("TccFenceError code %d, msg %s, parent msg is %s", e.Code, e.Message, e.Parent)
+func (e SeataError) Error() string {
+	return fmt.Sprintf("SeataError code %d, msg %s, parent msg is %s", e.Code, e.Message, e.Parent)
 }
 
-func NewTccFenceError(code TransactionErrorCode, msg string, parent error) *TccFenceError {
-	return &TccFenceError{
+func New(code TransactionErrorCode, msg string, parent error) *SeataError {
+	return &SeataError{
 		code,
 		msg,
 		parent,

@@ -19,31 +19,32 @@ package executor
 
 import (
 	"context"
-	"database/sql/driver"
+	"database/sql"
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 type mySQLUndoDeleteExecutor struct {
-	BaseExecutor *BaseExecutor
+	baseExecutor *BaseExecutor
 	sqlUndoLog   undo.SQLUndoLog
 }
 
 // newMySQLUndoDeleteExecutor init
-func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExecutor {
-	return &mySQLUndoUpdateExecutor{sqlUndoLog: sqlUndoLog}
+func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoDeleteExecutor {
+	return &mySQLUndoDeleteExecutor{
+		sqlUndoLog:   sqlUndoLog,
+		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+	}
 }
 
-func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn driver.Conn) error {
+func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 
 	undoSql, _ := m.buildUndoSQL(dbType)
 
-	stmt, err := conn.Prepare(undoSql)
+	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 			undoValues = append(undoValues, col.Value)
 		}
 
-		if _, err = stmt.Exec([]driver.Value{undoValues}); err != nil {
+		if _, err = stmt.Exec(undoValues...); err != nil {
 			return err
 		}
 	}
@@ -79,7 +80,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 	beforeImage := m.sqlUndoLog.BeforeImage
 	rows := beforeImage.Rows
 	if len(rows) == 0 {
-		return "", errors.New("invalid undo log")
+		return "", fmt.Errorf("invalid undo log")
 	}
 
 	row := rows[0]

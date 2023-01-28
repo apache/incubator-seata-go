@@ -23,7 +23,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )
 
-func init() {
+func InitUndoLogManager() {
 	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
 		panic(errors.WithStack(err))
 	}

@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package constant
+package at
 
-const (
-	DeleteFrom                     = "DELETE FROM "
-	DefaultTransactionUndoLogTable = " undo_log "
-	// UndoLogTableName Todo get from config
-	UndoLogTableName = DefaultTransactionUndoLogTable
-	DeleteUndoLogSql = DeleteFrom + UndoLogTableName + " WHERE " + UndoLogBranchXid + " = ? AND " + UndoLogXid + " = ?"
+import (
+	"context"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-const ErrCodeTableNotExist = "1146"
+type plainExecutor struct {
+	parserCtx *types.ParseContext
+	execCtx   *types.ExecContext
+}
+
+func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
+	return &plainExecutor{parserCtx: parserCtx, execCtx: execCtx}
+}
+
+func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return f(ctx, u.execCtx.Query, u.execCtx.NamedValues)
+}

@@ -19,6 +19,7 @@ package tm
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -60,7 +61,7 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Durat
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
 		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
-		return errors.New("GlobalBeginRequest result is empty or result code is failed.")
+		return fmt.Errorf("GlobalBeginRequest result is empty or result code is failed.")
 	}
 	log.Infof("GlobalBeginRequest success, res %v", res)
 
@@ -75,11 +76,11 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		return nil
 	}
 	if gtr.Xid == "" {
-		return errors.New("Commit xid should not be empty")
+		return fmt.Errorf("Commit xid should not be empty")
 	}
 
 	bf := backoff.New(ctx, backoff.Config{
-		MaxRetries: 10,
+		MaxRetries: config.CommitRetryCount,
 		MinBackoff: 100 * time.Millisecond,
 		MaxBackoff: 200 * time.Millisecond,
 	})
@@ -116,11 +117,11 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		return nil
 	}
 	if gtr.Xid == "" {
-		return errors.New("Rollback xid should not be empty")
+		return fmt.Errorf("Rollback xid should not be empty")
 	}
 
 	bf := backoff.New(ctx, backoff.Config{
-		MaxRetries: 10,
+		MaxRetries: config.RollbackRetryCount,
 		MinBackoff: 100 * time.Millisecond,
 		MaxBackoff: 200 * time.Millisecond,
 	})

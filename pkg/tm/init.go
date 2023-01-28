@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-package parser
+package tm
 
-import (
-	"path/filepath"
-	"testing"
+var config TmConfig
 
-	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestLoadYMLConfig(t *testing.T) {
-	conPath, err := filepath.Abs("../../../conf/seata_config.yml")
-	if err != nil {
-		log.Infof(err.Error())
-	}
-	confBytes, err := LoadYMLConfig(conPath)
-	if err != nil {
-		log.Infof(err.Error())
-	}
-	assert.NotEmpty(t, confBytes)
+func InitTm(tmConfig TmConfig) {
+	config = tmConfig
 }

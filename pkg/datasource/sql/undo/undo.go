@@ -21,7 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -84,7 +84,7 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	v, ok := undoLogManagerMap[d]
 
 	if !ok {
-		return nil, errors.New("not found UndoLogManager")
+		return nil, fmt.Errorf("not found UndoLogManager")
 	}
 
 	v.once.Do(func() {
@@ -152,7 +152,7 @@ type SQLUndoLog struct {
 	AfterImage  *types.RecordImage `json:"afterImage"`
 }
 
-func (s SQLUndoLog) SetTableMeta(tableMeta types.TableMeta) {
+func (s SQLUndoLog) SetTableMeta(tableMeta *types.TableMeta) {
 	if s.BeforeImage != nil {
 		s.BeforeImage.TableMeta = tableMeta
 		s.BeforeImage.TableName = tableMeta.TableName
