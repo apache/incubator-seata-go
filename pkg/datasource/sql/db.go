@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -101,6 +102,10 @@ func (db *DBResource) init() error {
 	return nil
 }
 
+func (db *DBResource) Conn(ctx context.Context) (*sql.Conn, error) {
+	return db.db.Conn(ctx)
+}
+
 func (db *DBResource) GetResourceGroupId() string {
 	return db.groupID
 }
@@ -111,6 +116,14 @@ func (db *DBResource) GetResourceId() string {
 
 func (db *DBResource) GetBranchType() branch.BranchType {
 	return db.conf.BranchType
+}
+
+func (db *DBResource) GetDbType() types.DBType {
+	return db.dbType
+}
+
+func (db *DBResource) SetDbType(dbType types.DBType) {
+	db.dbType = dbType
 }
 
 // Hold the xa connection.

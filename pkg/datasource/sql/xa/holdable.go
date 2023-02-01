@@ -17,12 +17,8 @@
 
 package xa
 
-import "github.com/seata/seata-go/pkg/datasource/sql"
-
-type DbResourceXA struct {
-	sql.DBResource
-}
-
-func (d *DbResourceXA) getConnectionForXA(xaid XAXid) (string, error) {
-	return "", nil
+type Holdable interface {
+	SetHeld(held bool)
+	IsHeld() bool
+	ShouldBeHeld() bool
 }
