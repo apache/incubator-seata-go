@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
 import (
 	"context"
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/log"
 	"sync"
 	"time"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type ResourceManagerXAConfig struct {
@@ -81,8 +82,8 @@ func (x *ResourceManagerXA) UnregisterResource(resource rm.Resource) error {
 	return x.basic.UnregisterResource(resource)
 }
 
-func (x *ResourceManagerXA) xaIDBuilder(xid string, branchId int64) XAXid {
-	return XaIdBuild(xid, branchId)
+func (x *ResourceManagerXA) xaIDBuilder(xid string, branchId int64) xa.XAXid {
+	return xa.XaIdBuild(xid, branchId)
 }
 
 func (x *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
@@ -91,21 +92,66 @@ func (x *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.
 	if !ok {
 		err := fmt.Errorf("unknow resource for xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
-		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
 	}
 
-	dbResource, ok := resource.(DbResourceXA)
+	dbResource, ok := resource.(XADatasourceResource)
 	if !ok {
 		err := fmt.Errorf("unknow resource for xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+	}
+
+	connectionProxyXA, err := dbResource.ConnectionForXA(ctx, xaID)
+	if err != nil {
+		err := fmt.Errorf("get connection for xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+	}
+
+	if rollbackErr := connectionProxyXA.Commit(); rollbackErr != nil {
+		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+	}
+
+	log.Infof("%s was committed", xaID.String())
+
+	return branch.BranchStatusPhasetwoCommitted, nil
+}
+
+func (x *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	xaID := x.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
+	resource, ok := x.resourceCache.Load(branchResource.ResourceId)
+	if !ok {
+		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
-	return 0, nil
-}
+	dbResource, ok := resource.(XADatasourceResource)
+	if !ok {
+		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+	}
 
-func (x *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	return 0, nil
+	connectionProxyXA, err := dbResource.ConnectionForXA(ctx, xaID)
+	if err != nil {
+		err := fmt.Errorf("get connection for rollback xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+	}
+
+	if rollbackErr := connectionProxyXA.Rollback(); rollbackErr != nil {
+		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
+		log.Errorf(err.Error())
+		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+	}
+
+	log.Infof("%s was rollback", xaID.String())
+
+	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 
 func (x *ResourceManagerXA) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {

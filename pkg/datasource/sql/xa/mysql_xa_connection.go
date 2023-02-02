@@ -31,6 +31,10 @@ type MysqlXAConn struct {
 	driver.Conn
 }
 
+func (c *MysqlXAConn) GetXAResource() (XAResource, error) {
+	return &MysqlXAConn{}, nil
+}
+
 func (c *MysqlXAConn) Commit(xid string, onePhase bool) error {
 	var sb strings.Builder
 	sb.WriteString("XA COMMIT ")
