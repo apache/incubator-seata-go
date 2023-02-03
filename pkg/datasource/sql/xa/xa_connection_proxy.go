@@ -20,7 +20,6 @@ package xa
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/seata/seata-go/pkg/datasource/sql"
@@ -91,7 +90,7 @@ func (c *ConnectionProxyXA) keepIfNecessary() {
 
 func (c *ConnectionProxyXA) releaseIfNecessary() {
 	if c.ShouldBeHeld() {
-		if reflect.DeepEqual(c.xaBranchXid, XABranchXid{}) {
+		if c.xaBranchXid == nil {
 			if c.IsHeld() {
 				c.resource.Release(c.xaBranchXid.String(), c)
 			}
