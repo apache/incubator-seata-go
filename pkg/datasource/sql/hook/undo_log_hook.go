@@ -27,8 +27,8 @@ import (
 	"github.com/seata/seata-go/pkg/tm"
 )
 
-func init() {
-	exec.RegisterHook(&undoLogSQLHook{})
+func NewUndoLogSQLHook() exec.SQLHook {
+	return &undoLogSQLHook{}
 }
 
 type undoLogSQLHook struct {

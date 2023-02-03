@@ -39,10 +39,6 @@ const (
 	OnlyCareUpdateColumns = true
 )
 
-func init() {
-	undo.RegisterUndoLogBuilder(types.UpdateExecutor, GetMySQLUpdateUndoLogBuilder)
-}
-
 type MySQLUpdateUndoLogBuilder struct {
 	BasicUndoLogBuilder
 }

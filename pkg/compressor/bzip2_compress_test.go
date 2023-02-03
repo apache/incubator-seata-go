@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package mysql
+package compressor
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func InitUndoLogManager() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
-		panic(errors.WithStack(err))
-	}
+func TestBzip2Compress(t *testing.T) {
+	str := strings.Repeat(" bzip2 ", 100)
+
+	b := &Bzip2{}
+	compressRes, err := b.Compress([]byte(str))
+	assert.NoError(t, err)
+	t.Logf("compress res: %v", string(compressRes))
+
+	decompressRes, err := b.Decompress(compressRes)
+	assert.NoError(t, err)
+	assert.Equal(t, str, string(decompressRes))
+
+	t.Logf("decompress res: %v", string(decompressRes))
 }

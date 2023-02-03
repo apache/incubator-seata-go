@@ -22,11 +22,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
+
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"
 
-	"github.com/agiledragon/gomonkey"
 	getty "github.com/apache/dubbo-getty"
 	"github.com/stretchr/testify/assert"
 )

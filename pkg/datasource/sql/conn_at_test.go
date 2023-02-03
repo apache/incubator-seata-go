@@ -33,6 +33,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMain(m *testing.M) {
+	Init()
+	m.Run()
+}
+
 func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
 	ctrl := gomock.NewController(t)
 

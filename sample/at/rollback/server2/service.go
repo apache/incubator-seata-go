@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 )
 
@@ -55,7 +53,7 @@ func updateDataFail(ctx context.Context) error {
 	}
 	fmt.Printf("update success： %d.\n", rows)
 	if rows == 0 {
-		return errors.New("rows affected 0")
+		return fmt.Errorf("rows affected 0")
 	}
 	return nil
 }

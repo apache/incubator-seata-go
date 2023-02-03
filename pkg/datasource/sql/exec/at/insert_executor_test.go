@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"

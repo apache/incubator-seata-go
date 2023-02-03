@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -60,7 +59,7 @@ func updateData(ctx context.Context) (re error) {
 		Set(constant.XidKey, tm.GetXID(ctx)).
 		End(func(response gorequest.Response, body string, errs []error) {
 			if response.StatusCode != http.StatusOK {
-				re = errors.New("update data fail")
+				re = fmt.Errorf("update data fail")
 			}
 		})
 	return
