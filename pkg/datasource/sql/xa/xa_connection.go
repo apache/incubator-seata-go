@@ -17,10 +17,6 @@
 
 package xa
 
-import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-)
-
 type XAConnection interface {
-	getXAResource() (exec.XAResource, error)
+	GetXAResource() (XAResource, error)
 }

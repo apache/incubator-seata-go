@@ -17,15 +17,15 @@
 
 package xa
 
-type Xid interface {
-	GetFormatId() int
-	GetGlobalTransactionId() []byte
-	GetBranchQualifier() []byte
-}
+import (
+	"github.com/seata/seata-go/pkg/protocol/branch"
+)
 
-type XAXid interface {
-	Xid
-	GetGlobalXid() string
-	GetBranchId() int64
-	String() string
+type RootContext interface {
+	RootContext()
+	SetDefaultBranchType(branchType branch.BranchType)
+	GetXID() string
+	Bind(xid string)
+	GetTimeout() (int, bool)
+	SetTimeout(timeout int)
 }

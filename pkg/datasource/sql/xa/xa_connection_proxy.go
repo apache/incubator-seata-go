@@ -19,12 +19,12 @@ package xa
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"reflect"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
@@ -32,24 +32,22 @@ import (
 
 type ConnectionProxyXA struct {
 	xaBranchXid             *XABranchXid
-	currentAutoCommitStatus bool  `default:"true"`
-	xaActive                bool  `default:"false"`
-	kept                    bool  `default:"false"`
-	rollBacked              bool  `default:"false"`
-	branchRegisterTime      int64 `default:"0"`
-	prepareTime             int64 `default:"0"`
-	timeout                 int   `default:"0"`
-	proxyShouldBeHeld       bool  `default:"false"`
-	originalConnection      sql.Conn
+	currentAutoCommitStatus bool
+	xaActive                bool
+	kept                    bool
+	rollBacked              bool
+	branchRegisterTime      int64
+	prepareTime             int64
+	timeout                 int
+	proxyShouldBeHeld       bool
+	originalConnection      *sql.Conn
 	xaConnection            XAConnection
-	xaResource              exec.XAResource
-	resource                sql.BaseDataSourceResource
+	xaResource              XAResource
+	resource                *XADatasourceResource
 	xid                     string
 }
 
-const timeout int = 60000
-
-func NewConnectionProxyXA(originalConnection sql.Conn, xaConnection XAConnection, resource sql.BaseDataSourceResource, xid string) (*ConnectionProxyXA, error) {
+func NewConnectionProxyXA(originalConnection *sql.Conn, xaConnection XAConnection, resource *XADatasourceResource, xid string) (*ConnectionProxyXA, error) {
 	connectionProxyXA := &ConnectionProxyXA{}
 
 	connectionProxyXA.originalConnection = originalConnection
@@ -59,19 +57,19 @@ func NewConnectionProxyXA(originalConnection sql.Conn, xaConnection XAConnection
 
 	connectionProxyXA.proxyShouldBeHeld = connectionProxyXA.resource.IsShouldBeHeld()
 
-	xaResource, err := xaConnection.getXAResource()
+	xaResource, err := xaConnection.GetXAResource()
 	if err != nil {
 		return nil, fmt.Errorf("get xa resource failed")
 	} else {
 		connectionProxyXA.xaResource = xaResource
 	}
-	var rootContext sql.RootContext
+	var rootContext RootContext
 	transactionTimeout, ok := rootContext.GetTimeout()
 	if !ok {
-		transactionTimeout = timeout
+		transactionTimeout = int(60000)
 	}
-	if transactionTimeout < timeout {
-		transactionTimeout = timeout
+	if transactionTimeout < 60000 {
+		transactionTimeout = 60000
 	}
 	connectionProxyXA.timeout = transactionTimeout
 	connectionProxyXA.currentAutoCommitStatus = connectionProxyXA.originalConnection.GetAutoCommit()
@@ -90,7 +88,7 @@ func (c *ConnectionProxyXA) keepIfNecessary() {
 
 func (c *ConnectionProxyXA) releaseIfNecessary() {
 	if c.ShouldBeHeld() {
-		if c.xaBranchXid == nil {
+		if reflect.DeepEqual(c.xaBranchXid, XABranchXid{}) {
 			if c.IsHeld() {
 				c.resource.Release(c.xaBranchXid.String(), c)
 			}
@@ -98,15 +96,15 @@ func (c *ConnectionProxyXA) releaseIfNecessary() {
 	}
 }
 
-func (c *ConnectionProxyXA) XaCommit(xid string, branchId int64) error {
-	xaXid := Build(xid, branchId)
+func (c *ConnectionProxyXA) XaCommit(xid string, branchId int64, applicationData string) error {
+	xaXid := XaIdBuild(xid, branchId)
 	err := c.xaResource.Commit(xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c *ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64) {
-	xaXid := Build(xid, branchId)
+func (c *ConnectionProxyXA) XaRollbackByBranchId(xid string, branchId int64, applicationData string) {
+	xaXid := XaIdBuild(xid, branchId)
 	c.XaRollback(xaXid)
 }
 
@@ -139,7 +137,7 @@ func (c *ConnectionProxyXA) SetAutoCommit(autoCommit bool) error {
 			c.cleanXABranchContext()
 			return fmt.Errorf("failed to register xa branch [%v]", c.xid)
 		}
-		c.xaBranchXid = Build(c.xid, branchId)
+		c.xaBranchXid = XaIdBuild(c.xid, branchId)
 		c.keepIfNecessary()
 		err = c.start()
 		if err != nil {
@@ -164,7 +162,7 @@ func (c *ConnectionProxyXA) Commit() error {
 		return fmt.Errorf("should NOT commit on an inactive session")
 	}
 	now := time.Now().UnixMilli()
-	if c.end(exec.TMSUCCESS) != nil {
+	if c.end(TMSuccess) != nil {
 		return c.commitErrorHandle()
 	}
 	if c.checkTimeout(now) != nil {
@@ -187,10 +185,10 @@ func (c *ConnectionProxyXA) commitErrorHandle() error {
 	}
 	if datasource.NewBasicSourceManager().BranchReport(context.TODO(), req) != nil {
 		c.cleanXABranchContext()
-		return fmt.Errorf("Failed to report XA branch commit-failure on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
+		return fmt.Errorf("failed to report XA branch commit-failure on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
 	}
 	c.cleanXABranchContext()
-	return fmt.Errorf("Failed to end(TMSUCCESS)/prepare xa branch on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
+	return fmt.Errorf("failed to end(TMSUCCESS)/prepare xa branch on [%v] - [%v]", c.xid, c.xaBranchXid.GetBranchId())
 }
 
 func (c *ConnectionProxyXA) Rollback() error {
@@ -201,7 +199,7 @@ func (c *ConnectionProxyXA) Rollback() error {
 		return fmt.Errorf("should NOT rollback on an inactive session")
 	}
 	if !c.rollBacked {
-		if c.xaResource.End(c.xaBranchXid.String(), exec.TMFAIL) != nil {
+		if c.xaResource.End(c.xaBranchXid.String(), TMFail) != nil {
 			return c.rollbackErrorHandle()
 		}
 		if c.XaRollback(c.xaBranchXid) != nil {
@@ -230,9 +228,9 @@ func (c *ConnectionProxyXA) rollbackErrorHandle() error {
 }
 
 func (c *ConnectionProxyXA) start() error {
-	err := c.xaResource.Start(c.xaBranchXid.String(), exec.TMNOFLAGS)
+	err := c.xaResource.Start(c.xaBranchXid.String(), TMNoFlags)
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
-		c.xaResource.End(c.xaBranchXid.String(), exec.TMFAIL)
+		c.xaResource.End(c.xaBranchXid.String(), TMFail)
 		c.XaRollback(c.xaBranchXid)
 		return err
 	}

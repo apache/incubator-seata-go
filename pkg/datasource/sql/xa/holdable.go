@@ -15,17 +15,10 @@
  * limitations under the License.
  */
 
-package sql
+package xa
 
-import (
-	"github.com/seata/seata-go/pkg/protocol/branch"
-)
-
-type RootContext interface {
-	RootContext()
-	SetDefaultBranchType(branchType branch.BranchType)
-	GetXID() string
-	Bind(xid string)
-	GetTimeout() (int, bool)
-	SetTimeout(timeout int)
+type Holdable interface {
+	SetHeld(held bool)
+	IsHeld() bool
+	ShouldBeHeld() bool
 }

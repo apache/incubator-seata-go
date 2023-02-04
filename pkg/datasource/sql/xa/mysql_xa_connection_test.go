@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package exec
+package xa
 
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -27,7 +28,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 )
@@ -102,7 +102,7 @@ func TestMysqlXAConn_End(t *testing.T) {
 			name: "tm success",
 			input: args{
 				xid:   "xid",
-				flags: TMSUCCESS,
+				flags: TMSuccess,
 			},
 			wantErr: false,
 		},
@@ -110,7 +110,7 @@ func TestMysqlXAConn_End(t *testing.T) {
 			name: "tm failed",
 			input: args{
 				xid:   "xid",
-				flags: TMFAIL,
+				flags: TMFail,
 			},
 			wantErr: false,
 		},
@@ -148,7 +148,7 @@ func TestMysqlXAConn_Start(t *testing.T) {
 			name: "normal start",
 			input: args{
 				xid:   "xid",
-				flags: TMNOFLAGS,
+				flags: TMNoFlags,
 			},
 			wantErr: false,
 		},
@@ -219,7 +219,7 @@ func TestMysqlXAConn_Recover(t *testing.T) {
 		{
 			name: "normal recover",
 			args: args{
-				flag: TMSTARTRSCAN | TMENDRSCAN,
+				flag: TMStartRScan | TMEndRScan,
 			},
 			want:    []string{"xid", "another_xid"},
 			wantErr: false,
@@ -227,14 +227,14 @@ func TestMysqlXAConn_Recover(t *testing.T) {
 		{
 			name: "invalid flag for recover",
 			args: args{
-				flag: TMFAIL,
+				flag: TMFail,
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid flag for recover but don't scan",
 			args: args{
-				flag: TMENDRSCAN,
+				flag: TMEndRScan,
 			},
 			want:    nil,
 			wantErr: false,

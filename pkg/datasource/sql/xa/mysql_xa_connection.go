@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package exec
+package xa
 
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 type MysqlXAConn struct {
 	driver.Conn
+}
+
+func (c *MysqlXAConn) GetXAResource() (XAResource, error) {
+	return &MysqlXAConn{}, nil
 }
 
 func (c *MysqlXAConn) Commit(xid string, onePhase bool) error {
@@ -51,12 +54,12 @@ func (c *MysqlXAConn) End(xid string, flags int) error {
 	sb.WriteString(xid)
 
 	switch flags {
-	case TMSUCCESS:
+	case TMSuccess:
 		break
-	case TMSUSPEND:
+	case TMSuspend:
 		sb.WriteString(" SUSPEND")
 		break
-	case TMFAIL:
+	case TMFail:
 		break
 	default:
 		return errors.New("invalid arguments")
@@ -97,10 +100,10 @@ func (c *MysqlXAConn) XAPrepare(xid string) error {
 // The transaction manager calls this method during recovery to obtain the list of transaction branches
 // that are currently in prepared or heuristically completed states.
 func (c *MysqlXAConn) Recover(flag int) (xids []string, err error) {
-	startRscan := (flag & TMSTARTRSCAN) > 0
-	endRscan := (flag & TMENDRSCAN) > 0
+	startRscan := (flag & TMStartRScan) > 0
+	endRscan := (flag & TMEndRScan) > 0
 
-	if !startRscan && !endRscan && flag != TMNOFLAGS {
+	if !startRscan && !endRscan && flag != TMNoFlags {
 		return nil, errors.New("invalid arguments")
 	}
 
@@ -153,13 +156,13 @@ func (c *MysqlXAConn) Start(xid string, flags int) error {
 	sb.WriteString(xid)
 
 	switch flags {
-	case TMJOIN:
+	case TMJoin:
 		sb.WriteString(" JOIN")
 		break
-	case TMRESUME:
+	case TMResume:
 		sb.WriteString(" RESUME")
 		break
-	case TMNOFLAGS:
+	case TMNoFlags:
 		break
 	default:
 		return errors.New("invalid arguments")
