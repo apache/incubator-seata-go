@@ -43,9 +43,9 @@ type insertOnUpdateExecutor struct {
 	// businesSQLResult after insert sql
 	businesSQLResult types.ExecResult
 
-	BeforeSelectSql           string
-	Args                      []driver.Value
-	BeforeImageSqlPrimaryKeys map[string]bool
+	beforeSelectSql           string
+	args                      []driver.Value
+	beforeImageSqlPrimaryKeys map[string]bool
 }
 
 // NewInsertOnUpdateExecutor get insert on update executor
@@ -54,8 +54,8 @@ func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types
 		parserCtx:                 parserCtx,
 		execContent:               execContent,
 		baseExecutor:              baseExecutor{hooks: hooks},
-		Args:                      make([]driver.Value, 0),
-		BeforeImageSqlPrimaryKeys: make(map[string]bool),
+		args:                      make([]driver.Value, 0),
+		beforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
 
@@ -114,8 +114,8 @@ func (iu *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Recor
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
 		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
 	}
-	iu.BeforeSelectSql = selectSQL
-	iu.Args = selectArgs
+	iu.beforeSelectSql = selectSQL
+	iu.args = selectArgs
 	stmt, err := iu.execContent.Conn.Prepare(selectSQL)
 	if err != nil {
 		log.Errorf("build prepare stmt: %+v", err)
@@ -175,14 +175,14 @@ func (iu *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt
 				imageParameters, ok := paramMap[columnName]
 				if !ok && columnMeta.ColumnDef != nil {
 					if strings.EqualFold("PRIMARY", index.Name) {
-						iu.BeforeImageSqlPrimaryKeys[columnName] = true
+						iu.beforeImageSqlPrimaryKeys[columnName] = true
 					}
 					uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
 					columnIsNull = false
 					continue
 				}
 				if strings.EqualFold("PRIMARY", index.Name) {
-					iu.BeforeImageSqlPrimaryKeys[columnName] = true
+					iu.beforeImageSqlPrimaryKeys[columnName] = true
 				}
 				columnIsNull = false
 				uniqueList = append(uniqueList, columnName+" = ? ")
@@ -227,7 +227,7 @@ func (iu *insertOnUpdateExecutor) afterImage(ctx context.Context, execCtx *types
 }
 
 func (iu *insertOnUpdateExecutor) buildAfterImageSQL(ctx context.Context, beforeImage *types.RecordImage) (string, []driver.Value) {
-	selectSQL, selectArgs := iu.BeforeSelectSql, iu.Args
+	selectSQL, selectArgs := iu.beforeSelectSql, iu.args
 	primaryValueMap := make(map[string][]interface{})
 	for _, row := range beforeImage.Rows {
 		for _, col := range row.Columns {
@@ -243,7 +243,7 @@ func (iu *insertOnUpdateExecutor) buildAfterImageSQL(ctx context.Context, before
 	for i := 0; i < len(beforeImage.Rows); i++ {
 		wherePrimaryList := make([]string, 0)
 		for name, value := range primaryValueMap {
-			if !iu.BeforeImageSqlPrimaryKeys[name] {
+			if !iu.beforeImageSqlPrimaryKeys[name] {
 				wherePrimaryList = append(wherePrimaryList, name+" = ? ")
 				primaryValues = append(primaryValues, value[i])
 			}

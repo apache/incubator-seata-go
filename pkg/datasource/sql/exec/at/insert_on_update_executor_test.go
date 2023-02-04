@@ -31,7 +31,7 @@ import (
 func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 	var (
 		ioe = insertOnUpdateExecutor{
-			BeforeImageSqlPrimaryKeys: make(map[string]bool),
+			beforeImageSqlPrimaryKeys: make(map[string]bool),
 		}
 		tableMeta1 types.TableMeta
 		//one index table
@@ -240,9 +240,9 @@ func TestInsertOnUpdateAfterImageSQL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ioe.BeforeSelectSql = tt.beforeSelectSql
-			ioe.BeforeImageSqlPrimaryKeys = tt.BeforeImageSqlPrimaryKeys
-			ioe.Args = tt.beforeSelectArgs
+			ioe.beforeSelectSql = tt.beforeSelectSql
+			ioe.beforeImageSqlPrimaryKeys = tt.BeforeImageSqlPrimaryKeys
+			ioe.args = tt.beforeSelectArgs
 			query, args := ioe.buildAfterImageSQL(context.TODO(), tt.beforeImage)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, args)
