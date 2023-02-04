@@ -37,19 +37,19 @@ import (
 type deleteExecutor struct {
 	baseExecutor
 	parserCtx   *types.ParseContext
-	execContent *types.ExecContext
+	execContext *types.ExecContext
 }
 
 // NewDeleteExecutor get delete executor
 func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &deleteExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+	return &deleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	d.beforeHooks(ctx, d.execContent)
+	d.beforeHooks(ctx, d.execContext)
 	defer func() {
-		d.afterHooks(ctx, d.execContent)
+		d.afterHooks(ctx, d.execContext)
 	}()
 
 	beforeImage, err := d.beforeImage(ctx)
@@ -57,7 +57,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	res, err := f(ctx, d.execContent.Query, d.execContent.NamedValues)
+	res, err := f(ctx, d.execContext.Query, d.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -67,23 +67,23 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	d.execContent.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	d.execContent.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	d.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	d.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
 }
 
 // beforeImage build before image
 func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContent.Query, d.execContent.NamedValues)
+	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContext.Query, d.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
 	var rowsi driver.Rows
-	queryerCtx, ok := d.execContent.Conn.(driver.QueryerContext)
+	queryerCtx, ok := d.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	if !ok {
-		queryer, ok = d.execContent.Conn.(driver.Queryer)
+		queryer, ok = d.execContext.Conn.(driver.Queryer)
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
@@ -102,7 +102,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	tableName, _ := d.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	image.TableMeta = metaData
 
 	lockKey := d.buildLockKey(image, *metaData)
-	d.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
+	d.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return image, nil
 }
@@ -156,7 +156,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContent.DBName, tableName)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

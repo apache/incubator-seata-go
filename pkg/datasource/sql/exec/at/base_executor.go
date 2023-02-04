@@ -50,7 +50,7 @@ func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContex
 	}
 }
 
-// GetScanSlice get the column type for scann
+// GetScanSlice get the column type for scan
 // todo to use ColumnInfo get slice
 func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
 	scanSlice := make([]interface{}, 0, len(columnNames))
