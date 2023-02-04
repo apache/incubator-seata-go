@@ -35,7 +35,7 @@ const (
 
 var compressor map[string]CompressorType
 
-func init() {
+func GetByName(name string) CompressorType {
 	if compressor == nil {
 		compressor = map[string]CompressorType{
 			CompressorNone.String():    CompressorNone,
@@ -50,9 +50,7 @@ func init() {
 			CompressorMaxl.String():    CompressorMaxl,
 		}
 	}
-}
 
-func GetByName(name string) CompressorType {
 	if v, ok := compressor[name]; ok {
 		return v
 	} else {

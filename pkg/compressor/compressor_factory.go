@@ -19,7 +19,7 @@ package compressor
 
 var compressorFactory map[string]Compressor
 
-func init() {
+func (c CompressorType) GetCompressor() Compressor {
 	if compressorFactory == nil {
 		compressorFactory = map[string]Compressor{
 			CompressorNone.String():    NoneCompressorInstance(),
@@ -31,9 +31,7 @@ func init() {
 			CompressorDeflate.String(): DeflateCompressInstance(),
 		}
 	}
-}
 
-func (c CompressorType) GetCompressor() Compressor {
 	if v, ok := compressorFactory[c.String()]; ok {
 		return v
 	} else {
