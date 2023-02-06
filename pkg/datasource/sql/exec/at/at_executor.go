@@ -29,23 +29,23 @@ import (
 )
 
 func Init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &AtExecutor{} })
+	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
 }
 
 type executor interface {
 	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
 }
 
-type AtExecutor struct {
+type ATExecutor struct {
 	hooks []exec.SQLHook
 }
 
-func (e *AtExecutor) Interceptors(hooks []exec.SQLHook) {
+func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 	e.hooks = hooks
 }
 
 // ExecWithNamedValue
-func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	parser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 }
 
 // ExecWithValue
-func (e *AtExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
 }

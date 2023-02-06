@@ -15,24 +15,12 @@
  * limitations under the License.
  */
 
-package at
+package xa
 
 import (
-	"context"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
-type plainExecutor struct {
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
-}
-
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
-	return &plainExecutor{parserCtx: parserCtx, execContext: execCtx}
-}
-
-func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	return f(ctx, u.execContext.Query, u.execContext.NamedValues)
+type XAConnection interface {
+	getXAResource() (exec.XAResource, error)
 }

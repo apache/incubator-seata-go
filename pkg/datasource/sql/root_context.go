@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package at
+package sql
 
 import (
-	"context"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
-type plainExecutor struct {
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
-}
-
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
-	return &plainExecutor{parserCtx: parserCtx, execContext: execCtx}
-}
-
-func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	return f(ctx, u.execContext.Query, u.execContext.NamedValues)
+type RootContext interface {
+	RootContext()
+	SetDefaultBranchType(branchType branch.BranchType)
+	GetXID() string
+	Bind(xid string)
+	GetTimeout() (int, bool)
+	SetTimeout(timeout int)
 }
