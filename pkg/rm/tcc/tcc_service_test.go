@@ -35,7 +35,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+	//"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "github.com/seata/seata-go/testdata"
 )
 
@@ -45,6 +45,13 @@ var (
 	names               []interface{}
 	values              = make([]reflect.Value, 0, 2)
 )
+
+type UserProvider struct {
+	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+	GetActionName func() string
+}
 
 func InitMock() {
 	log.Init()
@@ -239,7 +246,7 @@ func TestNewTCCServiceProxy(t *testing.T) {
 		service interface{}
 	}
 
-	userProvider := &service.UserProvider{}
+	userProvider := &UserProvider{}
 	args1 := args{service: userProvider}
 	args2 := args{service: userProvider}
 
@@ -290,7 +297,7 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		TCCResource          *TCCResource
 	}
 
-	userProvider := &service.UserProvider{}
+	userProvider := &UserProvider{}
 	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
 
 	tests := struct {
