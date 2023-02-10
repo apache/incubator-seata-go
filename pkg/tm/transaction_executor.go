@@ -54,9 +54,8 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		ctx = InitSeataContext(ctx)
 	}
 
-	// use new context to process current global transaction.
 	if IsGlobalTx(ctx) {
-		ctx = transferTx(ctx)
+		clearTxConf(ctx)
 	}
 
 	if re = begin(ctx, gc); re != nil {
@@ -202,10 +201,7 @@ func useExistGtx(ctx context.Context, gc *GtxConfig) {
 	}
 }
 
-// transferTx transfer the gtx into a new ctx from old ctx.
-// use it to implement suspend and resume instead of seata java
-func transferTx(ctx context.Context) context.Context {
-	newCtx := InitSeataContext(context.Background())
-	SetXID(newCtx, GetXID(ctx))
-	return newCtx
+// clearTxConf When using global transactions in local mode, you need to clear tx config to use the propagation of global transactions.
+func clearTxConf(ctx context.Context) {
+	SetTx(ctx, &GlobalTransaction{Xid: GetXID(ctx)})
 }
