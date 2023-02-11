@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
@@ -30,83 +32,65 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-const (
-	SqlPlaceholder = "?"
-)
-
-// insertExecutor execute insert SQL
+// insertOnUpdateExecutor execute insert on update SQL
 type insertOnUpdateExecutor struct {
 	baseExecutor
-	parserCtx     *types.ParseContext
-	execContent   *types.ExecContext
-	incrementStep int
-	// businesSQLResult after insert sql
-	businesSQLResult types.ExecResult
-
-	beforeSelectSql           string
-	args                      []driver.Value
+	parserCtx                 *types.ParseContext
+	execContext               *types.ExecContext
 	beforeImageSqlPrimaryKeys map[string]bool
+	beforeSelectSql           string
+	beforeSelectArgs          []driver.NamedValue
 }
 
 // NewInsertOnUpdateExecutor get insert on update executor
 func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
 	return &insertOnUpdateExecutor{
-		parserCtx:                 parserCtx,
-		execContent:               execContent,
 		baseExecutor:              baseExecutor{hooks: hooks},
-		args:                      make([]driver.Value, 0),
+		parserCtx:                 parserCtx,
+		execContext:               execContent,
+		beforeSelectArgs:          make([]driver.NamedValue, 0),
 		beforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
 
-func (iu *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	iu.beforeHooks(ctx, iu.execContent)
+func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	i.beforeHooks(ctx, i.execContext)
 	defer func() {
-		iu.afterHooks(ctx, iu.execContent)
+		i.afterHooks(ctx, i.execContext)
 	}()
 
-	beforeImage, err := iu.beforeImage(ctx)
+	beforeImage, err := i.beforeImage(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := f(ctx, iu.execContent.Query, iu.execContent.NamedValues)
+	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	if iu.businesSQLResult == nil {
-		iu.businesSQLResult = res
-	}
-
-	afterImage, err := iu.afterImage(ctx, iu.execContent, beforeImage)
+	afterImage, err := i.afterImage(ctx, beforeImage)
 	if err != nil {
 		return nil, err
 	}
 
-	iu.execContent.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	iu.execContent.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
 }
 
-func (iu *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	if iu.parserCtx.InsertStmt == nil {
+// beforeImage build before image
+func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	if !i.isAstStmtValid() {
 		log.Errorf("invalid insert stmt")
 		return nil, fmt.Errorf("invalid insert stmt")
 	}
-	vals := iu.execContent.Values
-	if vals == nil {
-		vals = make([]driver.Value, len(iu.execContent.NamedValues))
-		for n, param := range iu.execContent.NamedValues {
-			vals[n] = param.Value
-		}
-	}
-	tableName, _ := iu.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, iu.execContent.DBName, tableName)
+	tableName, _ := i.parserCtx.GteTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
-	selectSQL, selectArgs, err := iu.buildBeforeImageSQL(iu.execContent.ParseContext.InsertStmt, *metaData, vals)
+	selectSQL, selectArgs, err := i.buildBeforeImageSQL(i.execContext.ParseContext.InsertStmt, *metaData, i.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -114,58 +98,58 @@ func (iu *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Recor
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
 		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
 	}
-	iu.beforeSelectSql = selectSQL
-	iu.args = selectArgs
-	stmt, err := iu.execContent.Conn.Prepare(selectSQL)
-	if err != nil {
-		log.Errorf("build prepare stmt: %+v", err)
-		return nil, err
+	i.beforeSelectSql = selectSQL
+	i.beforeSelectArgs = selectArgs
+
+	var rowsi driver.Rows
+	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = i.execContext.Conn.(driver.Queryer)
 	}
-	rows, err := stmt.Query(selectArgs)
-	if err != nil {
-		log.Errorf("stmt query: %+v", err)
-		return nil, err
+	if ok {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
+		}
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
 	}
-	image, err := iu.buildRecordImages(rows, metaData)
-	if err != nil {
-		return nil, err
-	}
+
+	image, err := i.buildRecordImages(rowsi, metaData)
 	if err != nil {
 		return nil, err
 	}
 	return image, nil
 }
 
-func (iu *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.Value) (string, []driver.Value, error) {
+// buildBeforeImageSQL build the SQL to query before image data
+func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}
-	var selectArgs []driver.Value
-	pkIndexMap := iu.getPkIndex(insertStmt, metaData)
-	var pkIndexArray []int
-	for _, val := range pkIndexMap {
-		tmpVal := val
-		pkIndexArray = append(pkIndexArray, tmpVal)
-	}
-	insertRows, err := getInsertRows(insertStmt, pkIndexArray)
-	if err != nil {
-		return "", nil, err
-	}
-	insertNum := len(insertRows)
-	paramMap, err := iu.buildImageParameters(insertStmt, args, insertRows)
-	if err != nil {
-		return "", nil, err
-	}
 
+	paramMap, insertNum, err := i.buildBeforeImageSQLParameters(insertStmt, args, metaData)
+	if err != nil {
+		return "", nil, err
+	}
 	sql := strings.Builder{}
 	sql.WriteString("SELECT * FROM " + metaData.TableName + " ")
 	isContainWhere := false
-	for i := 0; i < insertNum; i++ {
-		finalI := i
-		paramAppenderTempList := make([]driver.Value, 0)
+	var selectArgs []driver.NamedValue
+	for j := 0; j < insertNum; j++ {
+		finalJ := j
+		paramAppenderTempList := make([]driver.NamedValue, 0)
 		for _, index := range metaData.Indexs {
-			//unique index
-			if index.NonUnique || isIndexValueNotNull(index, paramMap, finalI) == false {
+			// unique index
+			if index.NonUnique || isIndexValueNull(index, paramMap, finalJ) {
 				continue
 			}
 			columnIsNull := true
@@ -175,18 +159,18 @@ func (iu *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt
 				imageParameters, ok := paramMap[columnName]
 				if !ok && columnMeta.ColumnDef != nil {
 					if strings.EqualFold("PRIMARY", index.Name) {
-						iu.beforeImageSqlPrimaryKeys[columnName] = true
+						i.beforeImageSqlPrimaryKeys[columnName] = true
 					}
 					uniqueList = append(uniqueList, columnName+" = DEFAULT("+columnName+") ")
 					columnIsNull = false
 					continue
 				}
 				if strings.EqualFold("PRIMARY", index.Name) {
-					iu.beforeImageSqlPrimaryKeys[columnName] = true
+					i.beforeImageSqlPrimaryKeys[columnName] = true
 				}
 				columnIsNull = false
 				uniqueList = append(uniqueList, columnName+" = ? ")
-				paramAppenderTempList = append(paramAppenderTempList, imageParameters[finalI])
+				paramAppenderTempList = append(paramAppenderTempList, imageParameters[finalJ])
 			}
 
 			if !columnIsNull {
@@ -204,31 +188,83 @@ func (iu *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt
 	return sql.String(), selectArgs, nil
 }
 
-func (iu *insertOnUpdateExecutor) afterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages *types.RecordImage) (*types.RecordImage, error) {
-	afterSelectSql, selectArgs := iu.buildAfterImageSQL(ctx, beforeImages)
-	stmt, err := execCtx.Conn.Prepare(afterSelectSql)
+// buildBeforeImageSQLParameters build the SQL parameters to query before image data
+func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.InsertStmt, args []driver.NamedValue, metaData types.TableMeta) (map[string][]driver.NamedValue, int, error) {
+	pkIndexArray := i.getPkIndexArray(insertStmt, metaData)
+	insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 	if err != nil {
-		log.Errorf("build prepare stmt: %+v", err)
-		return nil, err
+		return nil, 0, err
 	}
 
-	rows, err := stmt.Query(selectArgs)
-	if err != nil {
-		log.Errorf("stmt query: %+v", err)
-		return nil, err
+	parameterMap := make(map[string][]driver.NamedValue)
+	insertColumns := getInsertColumns(insertStmt)
+	placeHolderIndex := 0
+	for _, rowColumns := range insertRows {
+		if len(rowColumns) != len(insertColumns) {
+			log.Errorf("insert row's column size not equal to insert column size")
+			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size")
+		}
+		for i, col := range insertColumns {
+			columnName := DelEscape(col, types.DBTypeMySQL)
+			val := rowColumns[i]
+			rStr, ok := val.(string)
+			if ok && strings.EqualFold(rStr, sqlPlaceholder) {
+				objects := args[placeHolderIndex]
+				parameterMap[columnName] = append(parameterMap[col], objects)
+				placeHolderIndex++
+			} else {
+				parameterMap[columnName] = append(parameterMap[col], driver.NamedValue{
+					Name:  columnName,
+					Value: val,
+				})
+			}
+		}
 	}
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-	image, err := iu.buildRecordImages(rows, &metaData)
-	if err != nil {
-		return nil, err
-	}
-	return image, nil
+	return parameterMap, len(insertRows), nil
 }
 
-func (iu *insertOnUpdateExecutor) buildAfterImageSQL(ctx context.Context, beforeImage *types.RecordImage) (string, []driver.Value) {
-	selectSQL, selectArgs := iu.beforeSelectSql, iu.args
+// afterImage build after image
+func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *types.RecordImage) (*types.RecordImage, error) {
+	afterSelectSql, selectArgs := i.buildAfterImageSQL(beforeImages)
+	var rowsi driver.Rows
+	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = i.execContext.Conn.(driver.Queryer)
+	}
+	if ok {
+		rowsi, err := util.CtxDriverQuery(ctx, queryerCtx, queryer, afterSelectSql, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
+		}
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
+	}
+
+	tableName, _ := i.parserCtx.GteTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+	afterImage, err := i.buildRecordImages(rowsi, metaData)
+	if err != nil {
+		return nil, err
+	}
+	return afterImage, nil
+}
+
+// buildAfterImageSQL build the SQL to query after image data
+func (i *insertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage) (string, []driver.NamedValue) {
+	selectSQL, selectArgs := i.beforeSelectSql, i.beforeSelectArgs
 	primaryValueMap := make(map[string][]interface{})
+
 	for _, row := range beforeImage.Rows {
 		for _, col := range row.Columns {
 			if col.KeyType == types.IndexTypePrimaryKey {
@@ -238,14 +274,17 @@ func (iu *insertOnUpdateExecutor) buildAfterImageSQL(ctx context.Context, before
 	}
 
 	var afterImageSql strings.Builder
-	var primaryValues []driver.Value
+	var primaryValues []driver.NamedValue
 	afterImageSql.WriteString(selectSQL)
-	for i := 0; i < len(beforeImage.Rows); i++ {
+	for j := 0; j < len(beforeImage.Rows); j++ {
 		wherePrimaryList := make([]string, 0)
 		for name, value := range primaryValueMap {
-			if !iu.beforeImageSqlPrimaryKeys[name] {
+			if !i.beforeImageSqlPrimaryKeys[name] {
 				wherePrimaryList = append(wherePrimaryList, name+" = ? ")
-				primaryValues = append(primaryValues, value[i])
+				primaryValues = append(primaryValues, driver.NamedValue{
+					Name:  name,
+					Value: value[j],
+				})
 			}
 		}
 		if len(wherePrimaryList) != 0 {
@@ -257,104 +296,8 @@ func (iu *insertOnUpdateExecutor) buildAfterImageSQL(ctx context.Context, before
 	return afterImageSql.String(), selectArgs
 }
 
-func (iu *insertOnUpdateExecutor) buildImageParameters(insert *ast.InsertStmt, args []driver.Value, insertRows [][]interface{}) (map[string][]driver.Value, error) {
-	var (
-		parameterMap = make(map[string][]driver.Value)
-	)
-	insertColumns := getInsertColumns(insert)
-	var placeHolderIndex = 0
-	for _, row := range insertRows {
-		if len(row) != len(insertColumns) {
-			log.Errorf("insert row's column size not equal to insert column size")
-			return nil, fmt.Errorf("insert row's column size not equal to insert column size")
-		}
-		for i, col := range insertColumns {
-			columnName := DelEscape(col, types.DBTypeMySQL)
-			val := row[i]
-			rStr, ok := val.(string)
-			if ok && strings.EqualFold(rStr, SqlPlaceholder) {
-				objects := args[placeHolderIndex]
-				parameterMap[columnName] = append(parameterMap[col], objects)
-				placeHolderIndex++
-			} else {
-				parameterMap[columnName] = append(parameterMap[col], val)
-			}
-		}
-	}
-	return parameterMap, nil
-}
-
-func (iu *insertOnUpdateExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	pkValuesMap := make(map[string][]interface{})
-	var err error
-	//when there is only one pk in the table
-	if len(pkColumnNameList) == 1 {
-		if iu.containsPK(meta, parseCtx) {
-			// the insert sql contain pk value
-			pkValuesMap, err = iu.getPkValuesByColumn(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		} else if containsColumns(parseCtx) {
-			// the insert table pk auto generated
-			pkValuesMap, err = iu.getPkValuesByAuto(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			pkValuesMap, err = iu.getPkValuesByColumn(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		//when there is multiple pk in the table
-		//1,all pk columns are filled value.
-		//2,the auto increment pk column value is null, and other pk value are not null.
-		pkValuesMap, err = iu.getPkValuesByColumn(ctx, execCtx)
-		if err != nil {
-			return nil, err
-		}
-		for _, columnName := range pkColumnNameList {
-			if _, ok := pkValuesMap[columnName]; !ok {
-				curPkValuesMap, err := iu.getPkValuesByAuto(ctx, execCtx)
-				if err != nil {
-					return nil, err
-				}
-				pkValuesMapMerge(&pkValuesMap, curPkValuesMap)
-			}
-		}
-	}
-	return pkValuesMap, nil
-}
-
-func (iu *insertOnUpdateExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseContext) bool {
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	if len(pkColumnNameList) == 0 {
-		return false
-	}
-	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Columns == nil {
-		return false
-	}
-	if len(parseCtx.InsertStmt.Columns) == 0 {
-		return false
-	}
-
-	matchCounter := 0
-	for _, column := range parseCtx.InsertStmt.Columns {
-		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column.Name.O) ||
-				strings.EqualFold(pkName, column.Name.L) {
-				matchCounter++
-			}
-		}
-	}
-
-	return matchCounter == len(pkColumnNameList)
-}
-
-func (iu *insertOnUpdateExecutor) containPK(columnName string, meta types.TableMeta) bool {
+// isPKColumn check the column name to see if it is a primary key column
+func (i *insertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableMeta) bool {
 	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
@@ -368,26 +311,27 @@ func (iu *insertOnUpdateExecutor) containPK(columnName string, meta types.TableM
 	return false
 }
 
-func (iu *insertOnUpdateExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.TableMeta) map[string]int {
-	pkIndexMap := make(map[string]int)
-	if InsertStmt == nil {
-		return pkIndexMap
+// getPkIndexArray get index of primary key from insert statement
+func (i *insertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, meta types.TableMeta) []int {
+	pkIndexArray := make([]int, 0)
+	if insertStmt == nil {
+		return pkIndexArray
 	}
-	insertColumnsSize := len(InsertStmt.Columns)
+	insertColumnsSize := len(insertStmt.Columns)
 	if insertColumnsSize == 0 {
-		return pkIndexMap
+		return pkIndexArray
 	}
 	if meta.ColumnNames == nil {
-		return pkIndexMap
+		return pkIndexArray
 	}
 	if len(meta.Columns) > 0 {
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
-			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if iu.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+			sqlColumnName := insertStmt.Columns[paramIdx].Name.O
+			if i.isPKColumn(sqlColumnName, meta) {
+				pkIndexArray = append(pkIndexArray, paramIdx)
 			}
 		}
-		return pkIndexMap
+		return pkIndexArray
 	}
 
 	pkIndex := -1
@@ -395,261 +339,33 @@ func (iu *insertOnUpdateExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta ty
 	for _, columnMeta := range allColumns {
 		tmpColumnMeta := columnMeta
 		pkIndex++
-		if iu.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+		if i.isPKColumn(tmpColumnMeta.ColumnName, meta) {
+			pkIndexArray = append(pkIndexArray, pkIndex)
 		}
 	}
 
-	return pkIndexMap
+	return pkIndexArray
 }
 
-func (iu *insertOnUpdateExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
-	if insertStmt == nil {
-		return nil, nil
-	}
-	pkIndexMap := iu.getPkIndex(insertStmt, meta)
-	if pkIndexMap == nil || len(pkIndexMap) == 0 {
-		return nil, fmt.Errorf("pkIndex is not found")
-	}
-	var pkIndexArray []int
-	for _, val := range pkIndexMap {
-		tmpVal := val
-		pkIndexArray = append(pkIndexArray, tmpVal)
-	}
-
-	if insertStmt == nil || len(insertStmt.Lists) == 0 {
-		return nil, fmt.Errorf("parCtx is nil, perhaps InsertStmt is empty")
-	}
-
-	pkValuesMap := make(map[string][]interface{})
-
-	if nameValues != nil && len(nameValues) > 0 {
-		//use prepared statements
-		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
-		if err != nil {
-			return nil, err
-		}
-		if insertRows == nil || len(insertRows) == 0 {
-			return nil, err
-		}
-		totalPlaceholderNum := -1
-		for _, row := range insertRows {
-			if len(row) == 0 {
-				continue
-			}
-			currentRowPlaceholderNum := -1
-			for _, r := range row {
-				rStr, ok := r.(string)
-				if ok && strings.EqualFold(rStr, sqlPlaceholder) {
-					totalPlaceholderNum += 1
-					currentRowPlaceholderNum += 1
-				}
-			}
-			var pkKey string
-			var pkIndex int
-			var pkValues []interface{}
-			for key, index := range pkIndexMap {
-				curKey := key
-				curIndex := index
-
-				pkKey = curKey
-				pkValues = pkValuesMap[pkKey]
-
-				pkIndex = curIndex
-				if pkIndex > len(row)-1 {
-					continue
-				}
-				pkValue := row[pkIndex]
-				pkValueStr, ok := pkValue.(string)
-				if ok && strings.EqualFold(pkValueStr, sqlPlaceholder) {
-					currentRowNotPlaceholderNumBeforePkIndex := 0
-					for i := range row {
-						r := row[i]
-						rStr, ok := r.(string)
-						if i < pkIndex && ok && !strings.EqualFold(rStr, sqlPlaceholder) {
-							currentRowNotPlaceholderNumBeforePkIndex++
-						}
-					}
-					idx := totalPlaceholderNum - currentRowPlaceholderNum + pkIndex - currentRowNotPlaceholderNumBeforePkIndex
-					pkValues = append(pkValues, nameValues[idx].Value)
-				} else {
-					pkValues = append(pkValues, pkValue)
-				}
-				if _, ok := pkValuesMap[pkKey]; !ok {
-					pkValuesMap[pkKey] = pkValues
-				}
-			}
-		}
-	} else {
-		for _, list := range insertStmt.Lists {
-			for pkName, pkIndex := range pkIndexMap {
-				tmpPkName := pkName
-				tmpPkIndex := pkIndex
-				if tmpPkIndex >= len(list) {
-					return nil, fmt.Errorf("pkIndex out of range")
-				}
-				if node, ok := list[tmpPkIndex].(ast.ValueExpr); ok {
-					pkValuesMap[tmpPkName] = append(pkValuesMap[tmpPkName], node.GetValue())
-				}
-			}
-		}
-	}
-
-	return pkValuesMap, nil
+func (i *insertOnUpdateExecutor) isAstStmtValid() bool {
+	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
 }
 
-func (iu *insertOnUpdateExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types.ExecContext) (map[string][]interface{}, error) {
-	if !iu.isAstStmtValid() {
-		return nil, nil
-	}
-	tableName, _ := iu.parserCtx.GteTableName()
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, iu.execContent.DBName, tableName)
-	if err != nil {
-		return nil, err
-	}
-	pkValuesMap, err := iu.parsePkValuesFromStatement(iu.parserCtx.InsertStmt, *meta, execCtx.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
-	// generate pkValue by auto increment
-	for _, v := range pkValuesMap {
-		tmpV := v
-		if len(tmpV) == 1 {
-			// pk auto generated while single insert primary key is expression
-			if _, ok := tmpV[0].(*ast.FuncCallExpr); ok {
-				curPkValueMap, err := iu.getPkValuesByAuto(ctx, execCtx)
-				if err != nil {
-					return nil, err
-				}
-				pkValuesMapMerge(&pkValuesMap, curPkValueMap)
-			}
-		} else if len(tmpV) > 0 && tmpV[0] == nil {
-			// pk auto generated while column exists and value is null
-			curPkValueMap, err := iu.getPkValuesByAuto(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-			pkValuesMapMerge(&pkValuesMap, curPkValueMap)
-		}
-	}
-	return pkValuesMap, nil
-}
-
-func (iu *insertOnUpdateExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.ExecContext) (map[string][]interface{}, error) {
-	if !iu.isAstStmtValid() {
-		return nil, nil
-	}
-	tableName, _ := iu.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, iu.execContent.DBName, tableName)
-	if err != nil {
-		return nil, err
-	}
-	pkValuesMap := make(map[string][]interface{})
-	pkMetaMap := metaData.GetPrimaryKeyMap()
-	if len(pkMetaMap) == 0 {
-		return nil, fmt.Errorf("pk map is empty")
-	}
-	var autoColumnName string
-	for _, columnMeta := range pkMetaMap {
-		tmpColumnMeta := columnMeta
-		if tmpColumnMeta.Autoincrement {
-			autoColumnName = tmpColumnMeta.ColumnName
-			break
-		}
-	}
-	if len(autoColumnName) == 0 {
-		return nil, fmt.Errorf("auto increment column not exist")
-	}
-
-	updateCount, err := iu.businesSQLResult.GetResult().RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	lastInsertId, err := iu.businesSQLResult.GetResult().LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
-	// If there is batch insert
-	// do auto increment base LAST_INSERT_ID and variable `auto_increment_increment`
-	if lastInsertId > 0 && updateCount > 1 && canAutoIncrement(pkMetaMap) {
-		return iu.autoGeneratePks(execCtx, autoColumnName, lastInsertId, updateCount)
-	}
-
-	if lastInsertId > 0 {
-		var pkValues []interface{}
-		pkValues = append(pkValues, lastInsertId)
-		pkValuesMap[autoColumnName] = pkValues
-		return pkValuesMap, nil
-	}
-
-	return nil, nil
-}
-
-func (iu *insertOnUpdateExecutor) isAstStmtValid() bool {
-	return iu.parserCtx != nil && iu.parserCtx.InsertStmt != nil
-}
-
-func (iu *insertOnUpdateExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {
-	var step int64
-	if iu.incrementStep > 0 {
-		step = int64(iu.incrementStep)
-	} else {
-		// get step by query sql
-		stmt, err := execCtx.Conn.Prepare("SHOW VARIABLES LIKE 'auto_increment_increment'")
-		if err != nil {
-			log.Errorf("build prepare stmt: %+v", err)
-			return nil, err
-		}
-
-		rows, err := stmt.Query(nil)
-		if err != nil {
-			log.Errorf("stmt query: %+v", err)
-			return nil, err
-		}
-
-		if len(rows.Columns()) > 0 {
-			var curStep []driver.Value
-			if err := rows.Next(curStep); err != nil {
-				return nil, err
-			}
-
-			if curStepInt, ok := curStep[0].(int64); ok {
-				step = curStepInt
-			}
-		} else {
-			return nil, fmt.Errorf("query is empty")
-		}
-	}
-
-	if step == 0 {
-		return nil, fmt.Errorf("get increment step error")
-	}
-
-	var pkValues []interface{}
-	for j := int64(0); j < updateCount; j++ {
-		pkValues = append(pkValues, lastInsetId+j*step)
-	}
-	pkValuesMap := make(map[string][]interface{})
-	pkValuesMap[autoColumnName] = pkValues
-	return pkValuesMap, nil
-}
-
-func isIndexValueNotNull(indexMeta types.IndexMeta, imageParameterMap map[string][]driver.Value, rowIndex int) bool {
+// isIndexValueNull check if the index value is null
+func isIndexValueNull(indexMeta types.IndexMeta, imageParameterMap map[string][]driver.NamedValue, rowIndex int) bool {
 	for _, colMeta := range indexMeta.Columns {
 		columnName := colMeta.ColumnName
 		imageParameters := imageParameterMap[columnName]
 		if imageParameters == nil && colMeta.ColumnDef == nil {
-			return false
-		} else if imageParameters != nil && (rowIndex >= len(imageParameters) || imageParameters[rowIndex] == nil) {
-			return false
+			return true
+		} else if imageParameters != nil && (rowIndex >= len(imageParameters) || imageParameters[rowIndex].Value == nil) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
+// getInsertColumns get insert columns from insert statement
 func getInsertColumns(insertStmt *ast.InsertStmt) []string {
 	if insertStmt == nil {
 		return nil
@@ -665,10 +381,11 @@ func getInsertColumns(insertStmt *ast.InsertStmt) []string {
 	return list
 }
 
+// checkDuplicateKeyUpdate check whether insert on update sql wants to update the duplicate keys
 func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) error {
 	duplicateColsMap := make(map[string]bool)
 	for _, v := range insert.OnDuplicate {
-		duplicateColsMap[v.Column.Name.L] = true
+		duplicateColsMap[strings.ToLower(v.Column.Name.L)] = true
 	}
 	if len(duplicateColsMap) == 0 {
 		return nil

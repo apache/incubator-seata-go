@@ -18,10 +18,10 @@
 package at
 
 import (
-	"context"
+	"database/sql/driver"
 	"testing"
 
-	"database/sql/driver"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -34,7 +34,7 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 			beforeImageSqlPrimaryKeys: make(map[string]bool),
 		}
 		tableMeta1 types.TableMeta
-		//one index table
+		// one index table
 		tableMeta2  types.TableMeta
 		columns     = make(map[string]types.ColumnMeta)
 		index       = make(map[string]types.IndexMeta)
@@ -148,23 +148,21 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 			c, err := parser.DoParser(tt.execCtx.Query)
 			assert.Nil(t, err)
 			tt.execCtx.ParseContext = c
-			query, args, err := ioe.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
+			query, args, err := ioe.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			if query == tt.expectQuery1 {
 				assert.Equal(t, tt.expectQuery1, query)
-				assert.Equal(t, tt.expectQueryArgs1, args)
+				assert.Equal(t, tt.expectQueryArgs1, util.NamedValueToValue(args))
 			} else {
 				assert.Equal(t, tt.expectQuery2, query)
-				assert.Equal(t, tt.expectQueryArgs2, args)
+				assert.Equal(t, tt.expectQueryArgs2, util.NamedValueToValue(args))
 			}
 		})
 	}
 }
 
 func TestInsertOnUpdateAfterImageSQL(t *testing.T) {
-	var (
-		ioe = insertOnUpdateExecutor{}
-	)
+	ioe := insertOnUpdateExecutor{}
 	tests := []struct {
 		name                      string
 		beforeSelectSql           string
@@ -242,10 +240,10 @@ func TestInsertOnUpdateAfterImageSQL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ioe.beforeSelectSql = tt.beforeSelectSql
 			ioe.beforeImageSqlPrimaryKeys = tt.BeforeImageSqlPrimaryKeys
-			ioe.args = tt.beforeSelectArgs
-			query, args := ioe.buildAfterImageSQL(context.TODO(), tt.beforeImage)
+			ioe.beforeSelectArgs = util.ValueToNamedValue(tt.beforeSelectArgs)
+			query, args := ioe.buildAfterImageSQL(tt.beforeImage)
 			assert.Equal(t, tt.expectQuery, query)
-			assert.Equal(t, tt.expectQueryArgs, args)
+			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))
 		})
 	}
 }
