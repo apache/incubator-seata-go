@@ -22,13 +22,13 @@ var compressorFactory map[string]Compressor
 func (c CompressorType) GetCompressor() Compressor {
 	if compressorFactory == nil {
 		compressorFactory = map[string]Compressor{
-			CompressorNone.String():    NoneCompressorInstance(),
-			CompressorGzip.String():    GzipInstanceInstance(),
-			CompressorZip.String():     ZipInstanceInstance(),
-			CompressorBzip2.String():   Bizp2CompressInstance(),
-			CompressorLz4.String():     Lz4InstanceInstance(),
-			CompressorZstd.String():    ZstdInstanceInstance(),
-			CompressorDeflate.String(): DeflateCompressInstance(),
+			CompressorNone.String():    NewNone(),
+			CompressorGzip.String():    NewGzip(),
+			CompressorZip.String():     NewZip(),
+			CompressorBzip2.String():   NewBizp2(),
+			CompressorLz4.String():     NewLz4(),
+			CompressorZstd.String():    NewZstd(),
+			CompressorDeflate.String(): NewDeflateCompress(),
 		}
 	}
 

@@ -19,7 +19,6 @@ package compressor
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/pierrec/lz4/v4"
 )
@@ -27,17 +26,8 @@ import (
 type Lz4 struct {
 }
 
-var (
-	lz4Once     sync.Once
-	lz4Instance *Lz4
-)
-
-func Lz4InstanceInstance() *Lz4 {
-	lz4Once.Do(func() {
-		lz4Instance = &Lz4{}
-	})
-
-	return lz4Instance
+func NewLz4() *Lz4 {
+	return &Lz4{}
 }
 
 func (l *Lz4) Compress(data []byte) ([]byte, error) {

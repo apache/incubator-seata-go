@@ -17,22 +17,11 @@
 
 package compressor
 
-import "sync"
-
 type NoneCompressor struct {
 }
 
-var (
-	noneOnce               sync.Once
-	noneCompressorInstance *NoneCompressor
-)
-
-func NoneCompressorInstance() *NoneCompressor {
-	noneOnce.Do(func() {
-		noneCompressorInstance = &NoneCompressor{}
-	})
-
-	return noneCompressorInstance
+func NewNone() *NoneCompressor {
+	return &NoneCompressor{}
 }
 
 func (n *NoneCompressor) Compress(data []byte) ([]byte, error) {

@@ -18,24 +18,13 @@
 package compressor
 
 import (
-	"sync"
-
 	"github.com/klauspost/compress/zstd"
 )
 
 type Zstd struct{}
 
-var (
-	zstdOnce     sync.Once
-	zstdInstance *Zstd
-)
-
-func ZstdInstanceInstance() *Zstd {
-	zstdOnce.Do(func() {
-		zstdInstance = &Zstd{}
-	})
-
-	return zstdInstance
+func NewZstd() *Zstd {
+	return &Zstd{}
 }
 
 func (z Zstd) Compress(data []byte) ([]byte, error) {
