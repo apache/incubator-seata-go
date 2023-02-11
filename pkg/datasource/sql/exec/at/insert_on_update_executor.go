@@ -47,7 +47,6 @@ func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types
 		baseExecutor:              baseExecutor{hooks: hooks},
 		parserCtx:                 parserCtx,
 		execContext:               execContent,
-		beforeSelectArgs:          make([]driver.NamedValue, 0),
 		beforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
@@ -81,10 +80,13 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 // beforeImage build before image
 func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !i.isAstStmtValid() {
-		log.Errorf("invalid insert stmt")
-		return nil, fmt.Errorf("invalid insert stmt")
+		log.Errorf("invalid insert statement! parser ctx:%v", i.parserCtx)
+		return nil, fmt.Errorf("invalid insert statement! parser ctx:%v", i.parserCtx)
 	}
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, err := i.parserCtx.GteTableName()
+	if err != nil {
+		return nil, err
+	}
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -94,34 +96,36 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 		return nil, err
 	}
 	if len(selectArgs) == 0 {
-		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
-		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
+		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
+			"recommend to convert to a normal insert statement. db name:%s table name:%s named values:%v", i.execContext.DBName, tableName, i.execContext.NamedValues)
+		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
+			"recommend to convert to a normal insert statement. db name:%s table name:%s named values:%v", i.execContext.DBName, tableName, i.execContext.NamedValues)
 	}
 	i.beforeSelectSql = selectSQL
 	i.beforeSelectArgs = selectArgs
 
 	var rowsi driver.Rows
-	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
+	queryerCtx, queryerCtxExists := i.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = i.execContext.Conn.(driver.Queryer)
+	var queryerExists bool
+
+	if !queryerCtxExists {
+		queryer, queryerExists = i.execContext.Conn.(driver.Queryer)
 	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
-		}
-	} else {
+	if !queryerExists && !queryerCtxExists {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
 	}
-
+	rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
+		}
+	}()
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
+	}
 	image, err := i.buildRecordImages(rowsi, metaData)
 	if err != nil {
 		return nil, err
@@ -145,14 +149,14 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 	var selectArgs []driver.NamedValue
 	for j := 0; j < insertNum; j++ {
 		finalJ := j
-		paramAppenderTempList := make([]driver.NamedValue, 0)
+		var paramAppenderTempList []driver.NamedValue
 		for _, index := range metaData.Indexs {
 			// unique index
 			if index.NonUnique || isIndexValueNull(index, paramMap, finalJ) {
 				continue
 			}
 			columnIsNull := true
-			uniqueList := make([]string, 0)
+			var uniqueList []string
 			for _, columnMeta := range index.Columns {
 				columnName := columnMeta.ColumnName
 				imageParameters, ok := paramMap[columnName]
@@ -200,8 +204,8 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 	placeHolderIndex := 0
 	for _, rowColumns := range insertRows {
 		if len(rowColumns) != len(insertColumns) {
-			log.Errorf("insert row's column size not equal to insert column size")
-			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size")
+			log.Errorf("insert row's column size not equal to insert column size. row columns:%v insert columns:%v", rowColumns, insertColumns)
+			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size.  row columns:%v insert columns:%v", rowColumns, insertColumns)
 		}
 		for i, col := range insertColumns {
 			columnName := DelEscape(col, types.DBTypeMySQL)
@@ -226,28 +230,30 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *types.RecordImage) (*types.RecordImage, error) {
 	afterSelectSql, selectArgs := i.buildAfterImageSQL(beforeImages)
 	var rowsi driver.Rows
-	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
+	queryerCtx, queryerCtxExists := i.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = i.execContext.Conn.(driver.Queryer)
+	var queryerExists bool
+	if !queryerCtxExists {
+		queryer, queryerExists = i.execContext.Conn.(driver.Queryer)
 	}
-	if ok {
-		rowsi, err := util.CtxDriverQuery(ctx, queryerCtx, queryer, afterSelectSql, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
-		}
-	} else {
+	if !queryerCtxExists && !queryerExists {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
 	}
-
-	tableName, _ := i.parserCtx.GteTableName()
+	rowsi, err := util.CtxDriverQuery(ctx, queryerCtx, queryer, afterSelectSql, selectArgs)
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
+		}
+	}()
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
+	}
+	tableName, err := i.parserCtx.GteTableName()
+	if err != nil {
+		return nil, err
+	}
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -276,7 +282,7 @@ func (i *insertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordIma
 	var primaryValues []driver.NamedValue
 	afterImageSql.WriteString(selectSQL)
 	for j := 0; j < len(beforeImage.Rows); j++ {
-		wherePrimaryList := make([]string, 0)
+		var wherePrimaryList []string
 		for name, value := range primaryValueMap {
 			if !i.beforeImageSqlPrimaryKeys[name] {
 				wherePrimaryList = append(wherePrimaryList, name+" = ? ")
@@ -312,7 +318,7 @@ func (i *insertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableM
 
 // getPkIndexArray get index of primary key from insert statement
 func (i *insertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, meta types.TableMeta) []int {
-	pkIndexArray := make([]int, 0)
+	var pkIndexArray []int
 	if insertStmt == nil {
 		return pkIndexArray
 	}
@@ -393,10 +399,10 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 		if types.IndexTypePrimaryKey != index.IType {
 			continue
 		}
-		for name, col := range index.Columns {
+		for _, col := range index.Columns {
 			if duplicateColsMap[strings.ToLower(col.ColumnName)] {
-				log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.ColumnName)
-				return fmt.Errorf("update pk value is not supported! ")
+				log.Errorf("update pk value is not supported! index name:%s update column name: %s", index.Name, col.ColumnName)
+				return fmt.Errorf("update pk value is not supported! index name:%s update column name: %s", index.Name, col.ColumnName)
 			}
 		}
 	}
