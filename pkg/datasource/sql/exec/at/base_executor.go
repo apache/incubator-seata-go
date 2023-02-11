@@ -54,10 +54,10 @@ func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContex
 // todo to use ColumnInfo get slice
 func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
 	scanSlice := make([]interface{}, 0, len(columnNames))
-	for _, columnNmae := range columnNames {
+	for _, columnName := range columnNames {
 		var (
-			// 从metData获取该列的元信息
-			columnMeta = tableMeta.Columns[columnNmae]
+			// get from metaData from this column
+			columnMeta = tableMeta.Columns[columnName]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
 		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":

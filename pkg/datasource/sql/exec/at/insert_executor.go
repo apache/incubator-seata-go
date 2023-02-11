@@ -82,7 +82,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, nil
 	}
 
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 // buildAfterImageSQL build select sql from insert sql
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
 	// get all pk value
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 
 	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	if err != nil {
@@ -414,7 +414,7 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -452,7 +452,7 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
 	if err != nil {
 		return nil, err
