@@ -63,7 +63,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
-	table, err := execCtx.ParseContext.GteTableName()
+	table, err := execCtx.ParseContext.GetTableName()
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
-	table, err := execCtx.ParseContext.GteTableName()
+	table, err := execCtx.ParseContext.GetTableName()
 	if err != nil {
 		return nil, err
 	}

@@ -101,8 +101,9 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	tableName, _ := d.parserCtx.GteTableName()
+	tableName, _ := d.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +156,10 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
-	tableName, _ := d.parserCtx.GteTableName()
+
+	tableName, _ := d.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+
 	if err != nil {
 		return nil, err
 	}

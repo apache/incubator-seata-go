@@ -21,8 +21,8 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource"
-
 	at "github.com/seata/seata-go/pkg/datasource/sql"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/config"
 	"github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
@@ -44,12 +44,14 @@ func InitPath(configFilePath string) {
 	initRmClient(cfg)
 	initTmClient(cfg)
 	initDatasource(cfg)
+	initExecutor(cfg)
 }
 
 var (
 	onceInitTmClient   sync.Once
 	onceInitRmClient   sync.Once
 	onceInitDatasource sync.Once
+	onceExecutor       sync.Once
 )
 
 // InitTmClient init client tm client
@@ -88,5 +90,11 @@ func initRmClient(cfg *Config) {
 func initDatasource(cfg *Config) {
 	onceInitDatasource.Do(func() {
 		datasource.Init()
+	})
+}
+
+func initExecutor(cfg *Config) {
+	onceExecutor.Do(func() {
+		config.Init(cfg.ExecutorConfig)
 	})
 }

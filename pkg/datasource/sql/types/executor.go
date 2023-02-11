@@ -55,7 +55,7 @@ func (p *ParseContext) HasValidStmt() bool {
 	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil
 }
 
-func (p *ParseContext) GteTableName() (string, error) {
+func (p *ParseContext) GetTableName() (string, error) {
 	var table *ast.TableRefsClause
 
 	if p.InsertStmt != nil {
