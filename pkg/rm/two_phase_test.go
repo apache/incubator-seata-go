@@ -25,9 +25,34 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "github.com/seata/seata-go/testdata"
 )
+
+var UserProviderInstance = NewTwoPhaseDemoService()
+
+type UserProvider struct {
+	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
+	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
+	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
+	GetActionName func() string
+}
+
+func NewTwoPhaseDemoService() *UserProvider {
+	return &UserProvider{
+		Prepare: func(ctx context.Context, params ...interface{}) (bool, error) {
+			return false, fmt.Errorf("execute two phase prepare method, param %v", params)
+		},
+		Commit: func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+			return false, fmt.Errorf("execute two phase commit method, xid %v", businessActionContext.Xid)
+		},
+		Rollback: func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+			return true, nil
+		},
+		GetActionName: func() string {
+			return "TwoPhaseDemoService"
+		},
+	}
+}
 
 func TestParseTwoPhaseActionGetMethodName(t *testing.T) {
 	tests := []struct {
@@ -211,7 +236,7 @@ func TestParseTwoPhaseActionExecuteMethod2(t *testing.T) {
 
 func TestIsTwoPhaseAction(t *testing.T) {
 	userProvider := &testdata2.TestTwoPhaseService{}
-	userProvider1 := service.UserProviderInstance
+	userProvider1 := UserProviderInstance
 	type args struct {
 		v interface{}
 	}
@@ -237,7 +262,7 @@ func TestParseTwoPhaseAction(t *testing.T) {
 		v interface{}
 	}
 
-	userProvider := service.UserProviderInstance
+	userProvider := UserProviderInstance
 	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
 	args1 := args{v: userProvider}
 
@@ -262,7 +287,7 @@ func TestParseTwoPhaseActionByInterface(t *testing.T) {
 		v interface{}
 	}
 
-	userProvider := &service.UserProvider{}
+	userProvider := &UserProvider{}
 	twoPhaseAction, _ := ParseTwoPhaseAction(userProvider)
 	args1 := args{v: userProvider}
 
