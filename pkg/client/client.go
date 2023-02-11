@@ -21,13 +21,15 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource"
-
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/integration"
+	_ "github.com/seata/seata-go/pkg/integration"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
+	_ "github.com/seata/seata-go/pkg/remoting/processor/client"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	_ "github.com/seata/seata-go/pkg/rm/tcc"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -44,6 +46,7 @@ func InitPath(configFilePath string) {
 	initRmClient(cfg)
 	initTmClient(cfg)
 	initDatasource(cfg)
+	tm.StatDegradeCheck()
 }
 
 var (

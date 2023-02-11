@@ -26,6 +26,12 @@ const (
 	// TransactionErrorCodeBeginFailed BeginFailed
 	TransactionErrorCodeBeginFailed
 
+	// TransactionErrorCodeCommitFailed CommitFailed
+	TransactionErrorCodeCommitFailed
+
+	// TransactionErrorCodeRollbackFiled RollbackFiled
+	TransactionErrorCodeRollbackFiled
+
 	// TransactionErrorCodeLockKeyConflict Lock key conflict transaction errors code.
 	TransactionErrorCodeLockKeyConflict
 

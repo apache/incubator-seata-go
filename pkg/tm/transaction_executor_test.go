@@ -25,12 +25,12 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-
 	"github.com/pkg/errors"
-
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
+	serror "github.com/seata/seata-go/pkg/util/errors"
 )
 
 func TestTransactionExecutorBegin(t *testing.T) {
@@ -197,7 +197,8 @@ func TestTransactionExecutorCommit(t *testing.T) {
 	SetTxRole(ctx, Launcher)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	assert.Equal(t, "Commit xid should not be empty", commitOrRollback(ctx, true).Error())
+	TxErr := commitOrRollback(ctx, true).(*serror.SeataError)
+	assert.Equal(t, serror.TransactionErrorCodeCommitFailed, TxErr.Code)
 }
 
 func TestTransactionExecurotRollback(t *testing.T) {
@@ -206,8 +207,8 @@ func TestTransactionExecurotRollback(t *testing.T) {
 	SetTxRole(ctx, Launcher)
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 	SetXID(ctx, "")
-	errActual := commitOrRollback(ctx, false)
-	assert.Equal(t, "Rollback xid should not be empty", errActual.Error())
+	TxErr := commitOrRollback(ctx, false).(*serror.SeataError)
+	assert.Equal(t, serror.TransactionErrorCodeRollbackFiled, TxErr.Code)
 }
 
 func TestCommitOrRollback(t *testing.T) {
@@ -220,6 +221,7 @@ func TestCommitOrRollback(t *testing.T) {
 		wantMockFunction   interface{}
 		wantHasError       bool
 		wantErrorString    string
+		wantErrorCode      serror.TransactionErrorCode
 	}
 
 	gts := []Test{
@@ -228,8 +230,10 @@ func TestCommitOrRollback(t *testing.T) {
 			tx: GlobalTransaction{
 				TxRole: UnKnow,
 			},
-			wantHasError:    true,
-			wantErrorString: "global transaction role is UnKnow.",
+			wantHasError: true,
+			wantErrorString: fmt.Sprintf("TransactionError code %d, msg %s",
+				serror.TransactionErrorCodeUnknown, "global transaction role is UnKnow."),
+			wantErrorCode: serror.TransactionErrorCodeUnknown,
 		},
 		//ok with nil
 		{
@@ -258,6 +262,7 @@ func TestCommitOrRollback(t *testing.T) {
 			},
 			wantHasError:    true,
 			wantErrorString: "Mock error",
+			wantErrorCode:   serror.TransactionErrorCodeCommitFailed,
 		},
 		// false with nil
 		{
@@ -286,6 +291,7 @@ func TestCommitOrRollback(t *testing.T) {
 			},
 			wantHasError:    true,
 			wantErrorString: "Mock error",
+			wantErrorCode:   serror.TransactionErrorCodeRollbackFiled,
 		},
 		{
 			ctx: context.Background(),
@@ -307,7 +313,8 @@ func TestCommitOrRollback(t *testing.T) {
 		err := commitOrRollback(v.ctx, v.ok)
 
 		if v.wantHasError {
-			assert.Equal(t, v.wantErrorString, err.Error())
+			tt := err.(*serror.SeataError)
+			assert.Equal(t, v.wantErrorCode, tt.Code)
 		} else {
 			assert.Nil(t, err)
 		}
@@ -490,4 +497,37 @@ func TestWithGlobalTx(t *testing.T) {
 			secondStub.Reset()
 		}
 	}
+}
+
+func Test_startTask(t *testing.T) {
+	var (
+		timeout     = 10 * time.Second
+		duration    = 1 * time.Second
+		executeTime = 2 * time.Second
+		want        = timeout / (maxDuration(duration, executeTime)) // want is expected to be equal or larger (timeout / max(duration, executeTime))
+		cnt         = atomic.Int32{}
+	)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+
+	task := func() {
+		time.Sleep(executeTime)
+		cnt.Inc()
+	}
+
+	startTask(ctx, duration, task)
+
+	<-ctx.Done()
+
+	if cnt.Load() > int32(want) {
+		t.Errorf("there is some err when execute task, want: %d, actual: %d", want, cnt.Load())
+	}
+}
+
+func maxDuration(a, b time.Duration) time.Duration {
+	if int64(a) > int64(b) {
+		return a
+	}
+	return b
 }

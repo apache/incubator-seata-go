@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
+	serror "github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -34,6 +35,42 @@ type GtxConfig struct {
 	Propagation       Propagation
 	LockRetryInternal time.Duration
 	LockRetryTimes    int16
+}
+
+const (
+	defaultTimeout = time.Second * 30
+)
+
+type status int32
+
+const (
+	_      status = iota
+	OPEN          = 1
+	CLOSED        = 2
+)
+
+var (
+	degradeSwitch         atomic.Bool
+	degradeNum            atomic.Int32 // if degradeNum >= degradeCheckThreshold, then the svcStatus is (CLOSED)
+	reachNum              atomic.Int32 // if reachNum >= degradeCheckThreshold, then the svcStatus is (OPEN)
+	degradeCheckThreshold int32
+	degradeCheckPeriod    int32
+	svcStatus             atomic.Int32
+)
+
+func StatDegradeCheck() {
+	// todo(lql): need to read param from config
+	degradeCheckPeriod = 2000
+	degradeCheckThreshold = 10
+	degradeSwitch.Store(false)
+
+	// check if can start cronjob for degrade check
+	if degradeSwitch.Load() {
+		if degradeCheckPeriod > 0 && degradeCheckThreshold > 0 {
+			svcStatus.Store(OPEN)
+			startDegradeCheck(context.Background(), time.Duration(degradeCheckPeriod))
+		}
+	}
 }
 
 // CallbackWithCtx business callback definition
@@ -49,34 +86,40 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		return fmt.Errorf("global transaction name is required.")
 	}
 
-	// open global transaction for the first time
-	if !IsSeataContext(ctx) {
-		ctx = InitSeataContext(ctx)
-	}
+	if !checkSvcDegraded() {
+		// open global transaction for the first time
+		if !IsSeataContext(ctx) {
+			ctx = InitSeataContext(ctx)
+		}
 
-	// use new context to process current global transaction.
-	if IsGlobalTx(ctx) {
-		ctx = transferTx(ctx)
-	}
-
-	if re = begin(ctx, gc); re != nil {
-		return
-	}
-
-	defer func() {
-		var err error
-		// no need to do second phase if propagation is some type e.g. NotSupported.
+		// use new context to process current global transaction.
 		if IsGlobalTx(ctx) {
-			// business maybe to throw panic, so need to recover it here.
-			if err = commitOrRollback(ctx, recover() == nil && re == nil); err != nil {
-				log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
-			}
+			ctx = transferTx(ctx)
 		}
 
-		if re != nil || err != nil {
-			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+		re = begin(ctx, gc)
+		onDegradeCheckWithErr(re)
+		if re != nil {
+			return
 		}
-	}()
+
+		defer func() {
+			var err error
+			// no need to do second phase if propagation is some type e.g. NotSupported.
+			if IsGlobalTx(ctx) {
+				// business maybe to throw panic, so need to recover it here.
+				if err = commitOrRollback(ctx, recover() == nil && re == nil); err != nil {
+					log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
+				}
+			}
+
+			if re != nil || err != nil {
+				re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+			}
+
+			onDegradeCheckWithErr(err)
+		}()
+	}
 
 	re = business(ctx)
 
@@ -130,7 +173,9 @@ func begin(ctx context.Context, gc *GtxConfig) error {
 	case Never:
 		// if transaction is existing, throw exception.
 		if IsGlobalTx(ctx) {
-			return fmt.Errorf("existing transaction found for transaction marked with pg 'never', xid = %s", GetXID(ctx))
+			str := fmt.Sprintf(
+				"existing transaction found for transaction marked with pg 'never', xid = %s", GetXID(ctx))
+			return serror.New(serror.TransactionErrorCodeUnknown, str, nil)
 		}
 		// return then to execute without transaction.
 		return nil
@@ -141,9 +186,11 @@ func begin(ctx context.Context, gc *GtxConfig) error {
 			useExistGtx(ctx, gc)
 			return nil
 		}
-		return fmt.Errorf("no existing transaction found for transaction marked with pg 'mandatory'")
+		str := fmt.Sprint("no existing transaction found for transaction marked with pg 'mandatory'")
+		return serror.New(serror.TransactionErrorCodeUnknown, str, nil)
 	default:
-		return fmt.Errorf("not supported propagation:%d", pg)
+		str := fmt.Sprintf("not supported propagation:%d", pg)
+		return serror.New(serror.TransactionErrorCodeUnknown, str, nil)
 	}
 
 	// the follow will to construct a new transaction with xid.
@@ -156,18 +203,21 @@ func commitOrRollback(ctx context.Context, isSuccess bool) (re error) {
 	case Launcher:
 		if tx := GetTx(ctx); isSuccess {
 			if re = GetGlobalTransactionManager().Commit(ctx, tx); re != nil {
-				log.Errorf("transactionTemplate: commit transaction failed, error %v", re)
+				str := fmt.Sprintf("transactionTemplate: commit transaction failed")
+				re = serror.New(serror.TransactionErrorCodeCommitFailed, str, re)
 			}
 		} else {
 			if re = GetGlobalTransactionManager().Rollback(ctx, tx); re != nil {
-				log.Errorf("transactionTemplate: Rollback transaction failed, error %v", re)
+				str := fmt.Sprintf("transactionTemplate: Rollback transaction failed")
+				re = serror.New(serror.TransactionErrorCodeRollbackFiled, str, re)
 			}
 		}
 	case Participant:
 		// participant has no responsibility of rollback
 		log.Infof("ignore second phase(commit or rollback): just involved in global transaction [%s/%s]", GetTxName(ctx), GetXID(ctx))
 	case UnKnow:
-		re = errors.New("global transaction role is UnKnow.")
+		str := "global transaction role is UnKnow."
+		re = serror.New(serror.TransactionErrorCodeUnknown, str, nil)
 	}
 
 	return
@@ -185,7 +235,10 @@ func beginNewGtx(ctx context.Context, gc *GtxConfig) error {
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 
 	if err := GetGlobalTransactionManager().Begin(ctx, timeout); err != nil {
-		return fmt.Errorf("transactionTemplate: Begin transaction failed, error %v", err)
+		return serror.New(
+			serror.TransactionErrorCodeBeginFailed,
+			fmt.Sprint("transactionTemplate: Begin transaction failed"),
+			err)
 	}
 	return nil
 }
@@ -208,4 +261,86 @@ func transferTx(ctx context.Context) context.Context {
 	newCtx := InitSeataContext(context.Background())
 	SetXID(newCtx, GetXID(ctx))
 	return newCtx
+}
+
+// onDegradeCheckWithErr check if there is a need to degrade service
+func onDegradeCheckWithErr(err error) {
+	if err != nil {
+		onDegradeCheck(false)
+	} else {
+		onDegradeCheck(true)
+	}
+}
+
+func onDegradeCheck(success bool) {
+	switch svcStatus.Load() {
+	case CLOSED: // if the service is downgraded
+		if success && reachNum.Inc() >= degradeCheckThreshold {
+			svcStatus.Store(OPEN) // the svc is set to available
+			resetChecker()
+			log.Info("degradeSwitch: the current global transaction has been restored")
+		}
+	case OPEN: // if the service is available
+		if !success && degradeNum.Inc() >= degradeCheckThreshold {
+			svcStatus.Store(CLOSED) // the svc is set to downgraded
+			resetChecker()
+			log.Warn("degradeSwitch: the current global transaction has been automatically downgraded")
+		}
+	}
+}
+
+// startDegradeCheck auto upgrade service detection
+func startDegradeCheck(ctx context.Context, duration time.Duration) {
+	task := func() {
+		if !degradeSwitch.Load() {
+			return
+		}
+
+		tx := &GlobalTransaction{
+			TxStatus: message.GlobalStatusUnKnown,
+			TxRole:   Launcher,
+			TxName:   "degradeSwitch",
+		}
+
+		SetTx(ctx, tx)
+
+		if err := GetGlobalTransactionManager().Begin(ctx, 6000); err != nil {
+			onDegradeCheck(false)
+			return
+		}
+		if err := GetGlobalTransactionManager().Commit(ctx, tx); err != nil {
+			onDegradeCheck(false)
+			return
+		}
+		onDegradeCheck(true)
+	}
+
+	startTask(ctx, duration, task)
+}
+
+// startTask start a job periodically
+func startTask(ctx context.Context, duration time.Duration, f func()) {
+	ticker := time.NewTicker(duration)
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				f()
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// checkSvcDegraded check if the service is degraded
+func checkSvcDegraded() bool {
+	return !(degradeSwitch.Load() && svcStatus.Load() == OPEN)
+}
+
+func resetChecker() {
+	reachNum.Store(0)
+	degradeNum.Store(0)
 }
