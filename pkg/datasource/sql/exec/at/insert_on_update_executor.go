@@ -23,12 +23,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
