@@ -23,13 +23,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
 )
-
-func init() {
-	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
-}
 
 var (
 	atExecutors = make(map[types.DBType]func() SQLExecutor)

@@ -15,16 +15,12 @@
  * limitations under the License.
  */
 
-package mysql
+package xa
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 )
 
-func InitUndoLogManager() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
-		panic(errors.WithStack(err))
-	}
+type XAConnection interface {
+	getXAResource() (exec.XAResource, error)
 }

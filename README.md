@@ -32,15 +32,7 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 
 ## How to run？
 
-1. Start the seata-server service with the docker file under the sample/dockercomposer folder
-
-   ~~~shell
-   cd sample/dockercompose
-   docker-compose -f docker-compose.yml up -d seata-server
-   ~~~
-
-2. Just execute the main function under samples/ in the root directory
-
+if you want to know how to use and integrate seata-go, please refer to [seata/seata-go-samples](https://github.com/seata/seata-go-samples)
 
 ## How to join us？
 

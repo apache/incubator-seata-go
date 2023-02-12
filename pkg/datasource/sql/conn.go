@@ -237,6 +237,10 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	)
 }
 
+func (c *Conn) GetAutoCommit() bool {
+	return c.autoCommit
+}
+
 // Close invalidates and potentially stops any current
 // prepared statements and transactions, marking this
 // connection as no longer in use.

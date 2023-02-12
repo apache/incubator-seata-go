@@ -19,7 +19,6 @@ package log
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"time"
 
@@ -52,7 +51,7 @@ const (
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
 	if l == nil {
-		return errors.New("can't unmarshal a nil *Level")
+		return fmt.Errorf("can't unmarshal a nil *Level")
 	}
 	if !l.unmarshalText(text) && !l.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized level: %q", text)

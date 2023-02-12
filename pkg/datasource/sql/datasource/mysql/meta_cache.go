@@ -20,10 +20,9 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/base"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -56,7 +55,7 @@ func (c *TableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 // GetTableMeta get table info from cache or information schema
 func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 	if tableName == "" {
-		return nil, errors.New("table name is empty")
+		return nil, fmt.Errorf("table name is empty")
 	}
 
 	conn, err := c.db.Conn(ctx)

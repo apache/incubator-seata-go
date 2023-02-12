@@ -209,7 +209,7 @@ func ConvertAssignRows(dest, src interface{}) error {
 
 	dpv := reflect.ValueOf(dest)
 	if dpv.Kind() != reflect.Ptr {
-		return errors.New("destination not a pointer")
+		return fmt.Errorf("destination not a pointer")
 	}
 	if dpv.IsNil() {
 		return errNilPtr

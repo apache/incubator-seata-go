@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package mysql
+package sql
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
-func InitUndoLogManager() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
-		panic(errors.WithStack(err))
-	}
+type RootContext interface {
+	RootContext()
+	SetDefaultBranchType(branchType branch.BranchType)
+	GetXID() string
+	Bind(xid string)
+	GetTimeout() (int, bool)
+	SetTimeout(timeout int)
 }

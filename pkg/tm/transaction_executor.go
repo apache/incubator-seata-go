@@ -42,11 +42,11 @@ type CallbackWithCtx func(ctx context.Context) error
 // WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
 func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) (re error) {
 	if gc == nil {
-		return errors.New("global transaction config info is required.")
+		return fmt.Errorf("global transaction config info is required.")
 	}
 
 	if gc.Name == "" {
-		return errors.New("global transaction name is required.")
+		return fmt.Errorf("global transaction name is required.")
 	}
 
 	// open global transaction for the first time
@@ -54,9 +54,8 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		ctx = InitSeataContext(ctx)
 	}
 
-	// use new context to process current global transaction.
 	if IsGlobalTx(ctx) {
-		ctx = transferTx(ctx)
+		clearTxConf(ctx)
 	}
 
 	if re = begin(ctx, gc); re != nil {
@@ -141,7 +140,7 @@ func begin(ctx context.Context, gc *GtxConfig) error {
 			useExistGtx(ctx, gc)
 			return nil
 		}
-		return errors.New("no existing transaction found for transaction marked with pg 'mandatory'")
+		return fmt.Errorf("no existing transaction found for transaction marked with pg 'mandatory'")
 	default:
 		return fmt.Errorf("not supported propagation:%d", pg)
 	}
@@ -202,10 +201,7 @@ func useExistGtx(ctx context.Context, gc *GtxConfig) {
 	}
 }
 
-// transferTx transfer the gtx into a new ctx from old ctx.
-// use it to implement suspend and resume instead of seata java
-func transferTx(ctx context.Context) context.Context {
-	newCtx := InitSeataContext(context.Background())
-	SetXID(newCtx, GetXID(ctx))
-	return newCtx
+// clearTxConf When using global transactions in local mode, you need to clear tx config to use the propagation of global transactions.
+func clearTxConf(ctx context.Context) {
+	SetTx(ctx, &GlobalTransaction{Xid: GetXID(ctx)})
 }

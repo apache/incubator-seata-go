@@ -62,7 +62,7 @@ func TestPlainExecutor_ExecContext(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &plainExecutor{execCtx: &types.ExecContext{}}
+			u := &plainExecutor{execContext: &types.ExecContext{}}
 			val, err := u.ExecContext(context.Background(), tt.f)
 			assert.Equalf(t, tt.wantVal, val, "")
 			assert.Equalf(t, tt.wantErr, err, "")
