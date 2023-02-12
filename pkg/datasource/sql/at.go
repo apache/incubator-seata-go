@@ -21,11 +21,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/lock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -111,7 +114,9 @@ func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchRe
 
 // LockQuery
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	return false, nil
+	lockManager := lock.GetLockManager()
+	locker := lockManager.GetLocker("db")
+	return locker.IsLockable(lock.CollectRowLocks(param.LockKeys, param.ResourceId, param.Xid, getTransactionId(param.Xid), -1))
 }
 
 // BranchRegister
@@ -128,4 +133,16 @@ func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchRepor
 func (a *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
 	db *sql.DB) (datasource.TableMetaCache, error) {
 	return a.basic.CreateTableMetaCache(ctx, resID, dbType, db)
+}
+
+func getTransactionId(xid string) int64 {
+	if xid == "" {
+		return -1
+	}
+	idx := strings.LastIndex(xid, ":")
+	tid, err := strconv.ParseInt(xid[idx+1:], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return tid
 }

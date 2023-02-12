@@ -15,4 +15,25 @@
  * limitations under the License.
  */
 
-package sql
+package types
+
+type LockStatus byte
+
+var (
+	// The Locked.
+	Locked LockStatus = 0
+
+	// The Rollbacking.
+	Rollbacking LockStatus = 1
+)
+
+func (l LockStatus) GetCode() byte {
+	switch l {
+	case Locked:
+		return 0
+	case Rollbacking:
+		return 1
+	default:
+		return 0
+	}
+}
