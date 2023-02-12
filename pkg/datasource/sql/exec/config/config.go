@@ -7,7 +7,7 @@ import (
 )
 
 func Init(config Config) {
-	*at.ATConfig = config.ATExecutor
+	at.ATConfig = config.ATExecutor
 }
 
 type Config struct {

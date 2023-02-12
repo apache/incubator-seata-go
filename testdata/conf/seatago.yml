@@ -158,3 +158,8 @@ seata:
       max-msg-len: 16498688
       session-name: client_test
       cron-period: 1s
+  executor:
+    at:
+      select-for-update:
+        retry-times: 3
+        retry-interval: 20ms

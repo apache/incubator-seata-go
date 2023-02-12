@@ -44,13 +44,13 @@ import (
 )
 
 type SelectForUpdateExecutorConfig struct {
-	RetryTimes    int
-	RetryInterval time.Duration
+	RetryTimes    int           `yaml:"retry-times" json:"retry-times" koanf:"retry-times"`
+	RetryInterval time.Duration `yaml:"retry-interval" json:"retry-interval" koanf:"retry-interval"`
 }
 
 func (cfg *SelectForUpdateExecutorConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.IntVar(&cfg.RetryTimes, prefix+".retryTimes", 5, "the retry times when exec failed")
-	f.DurationVar(&cfg.RetryInterval, prefix+".retryInterval", 20*time.Millisecond, "the retry interval of retry times")
+	f.IntVar(&cfg.RetryTimes, prefix+".retry-times", 5, "the retry times when exec failed")
+	f.DurationVar(&cfg.RetryInterval, prefix+".retry-interval", 20*time.Millisecond, "the retry interval of retry times")
 }
 
 type selectForUpdateExecutor struct {

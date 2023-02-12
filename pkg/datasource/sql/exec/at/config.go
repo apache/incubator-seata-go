@@ -19,7 +19,7 @@ package at
 
 import "flag"
 
-var ATConfig *Config
+var ATConfig Config
 
 type Config struct {
 	SelectForUpdate SelectForUpdateExecutorConfig `yaml:"select-for-update" json:"select-for-update" koanf:"select-for-update"`
