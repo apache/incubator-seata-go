@@ -80,8 +80,8 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 // beforeImage build before image
 func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !i.isAstStmtValid() {
-		log.Errorf("invalid insert statement! parser ctx:%v", i.parserCtx)
-		return nil, fmt.Errorf("invalid insert statement! parser ctx:%v", i.parserCtx)
+		log.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
+		return nil, fmt.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
 	}
 	tableName, err := i.parserCtx.GteTableName()
 	if err != nil {
@@ -91,15 +91,15 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 	if err != nil {
 		return nil, err
 	}
-	selectSQL, selectArgs, err := i.buildBeforeImageSQL(i.execContext.ParseContext.InsertStmt, *metaData, i.execContext.NamedValues)
+	selectSQL, selectArgs, err := i.buildBeforeImageSQL(i.parserCtx.InsertStmt, *metaData, i.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 	if len(selectArgs) == 0 {
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
-			"recommend to convert to a normal insert statement. db name:%s table name:%s named values:%v", i.execContext.DBName, tableName, i.execContext.NamedValues)
+			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
 		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
-			"recommend to convert to a normal insert statement. db name:%s table name:%s named values:%v", i.execContext.DBName, tableName, i.execContext.NamedValues)
+			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
 	}
 	i.beforeSelectSql = selectSQL
 	i.beforeSelectArgs = selectArgs
@@ -204,8 +204,8 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 	placeHolderIndex := 0
 	for _, rowColumns := range insertRows {
 		if len(rowColumns) != len(insertColumns) {
-			log.Errorf("insert row's column size not equal to insert column size. row columns:%v insert columns:%v", rowColumns, insertColumns)
-			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size.  row columns:%v insert columns:%v", rowColumns, insertColumns)
+			log.Errorf("insert row's column size not equal to insert column size. row columns:%+v insert columns:%+v", rowColumns, insertColumns)
+			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size.  row columns:%+v insert columns:%+v", rowColumns, insertColumns)
 		}
 		for i, col := range insertColumns {
 			columnName := DelEscape(col, types.DBTypeMySQL)
@@ -217,8 +217,9 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 				placeHolderIndex++
 			} else {
 				parameterMap[columnName] = append(parameterMap[col], driver.NamedValue{
-					Name:  columnName,
-					Value: val,
+					Ordinal: i + 1,
+					Name:    columnName,
+					Value:   val,
 				})
 			}
 		}
