@@ -44,6 +44,7 @@ func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	}
 
 	undo.InitUndoConfig(cfg)
+	lock.GetLockManager().RegisterLocker(types.DataBase, &lock.DatabaseLocker{})
 	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
@@ -115,7 +116,7 @@ func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchRe
 // LockQuery
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	lockManager := lock.GetLockManager()
-	locker := lockManager.GetLocker("db")
+	locker := lockManager.GetLocker(types.DataBase)
 	return locker.IsLockable(lock.CollectRowLocks(param.LockKeys, param.ResourceId, param.Xid, getTransactionId(param.Xid), -1))
 }
 

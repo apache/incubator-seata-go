@@ -22,17 +22,17 @@ import "github.com/seata/seata-go/pkg/datasource/sql/types"
 type DatabaseLocker struct{}
 
 // Acquire lock boolean.
-func (l *DatabaseLocker) AcquireLock(rowLock []RowLock) (bool, error) {
+func (l *DatabaseLocker) AcquireLock(rowLock []*RowLock) (bool, error) {
 	return false, nil
 }
 
 // Release lock boolean.
-func (l *DatabaseLocker) ReleaseLock(rowLock []RowLock) (bool, error) {
+func (l *DatabaseLocker) ReleaseLock(rowLock []*RowLock) (bool, error) {
 	return false, nil
 }
 
 // Is lockable boolean.
-func (l *DatabaseLocker) IsLockable(rowLock []RowLock) (bool, error) {
+func (l *DatabaseLocker) IsLockable(rowLock []*RowLock) (bool, error) {
 	return false, nil
 }
 
