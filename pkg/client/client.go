@@ -44,14 +44,12 @@ func InitPath(configFilePath string) {
 	initRmClient(cfg)
 	initTmClient(cfg)
 	initDatasource(cfg)
-	initExecutor(cfg)
 }
 
 var (
 	onceInitTmClient   sync.Once
 	onceInitRmClient   sync.Once
 	onceInitDatasource sync.Once
-	onceExecutor       sync.Once
 )
 
 // InitTmClient init client tm client
@@ -77,9 +75,11 @@ func initRmClient(cfg *Config) {
 		log.Init()
 		initRemoting(cfg)
 		rm.InitRm(rm.RmConfig{
+			Config:         cfg.ClientConfig.RmConfig,
 			ApplicationID:  cfg.ApplicationID,
 			TxServiceGroup: cfg.TxServiceGroup,
 		})
+		config.Init(cfg.ClientConfig.RmConfig.LockConfig)
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC()
@@ -90,11 +90,5 @@ func initRmClient(cfg *Config) {
 func initDatasource(cfg *Config) {
 	onceInitDatasource.Do(func() {
 		datasource.Init()
-	})
-}
-
-func initExecutor(cfg *Config) {
-	onceExecutor.Do(func() {
-		config.Init(cfg.ExecutorConfig)
 	})
 }

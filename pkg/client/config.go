@@ -20,7 +20,6 @@ package client
 import (
 	"flag"
 	"fmt"
-
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -34,7 +33,6 @@ import (
 	"github.com/knadh/koanf/providers/rawbytes"
 
 	"github.com/seata/seata-go/pkg/datasource/sql"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/config"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
@@ -82,7 +80,6 @@ type Config struct {
 	GettyConfig       getty.Config          `yaml:"getty" json:"getty" koanf:"getty"`
 	TransportConfig   getty.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 	ServiceConfig     tm.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
-	ExecutorConfig    config.Config         `yaml:"executor" json:"executor" koanf:"executor"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -100,7 +97,6 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
-	c.ExecutorConfig.RegisterFlagsWithPrefix("executor", f)
 }
 
 type loaderConf struct {

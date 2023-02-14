@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -82,7 +83,6 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-
 	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
@@ -457,10 +457,10 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 
 	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
-
 	if err != nil {
 		return nil, err
 	}
+
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {

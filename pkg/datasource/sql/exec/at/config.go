@@ -17,14 +17,6 @@
 
 package at
 
-import "flag"
+import "github.com/seata/seata-go/pkg/rm"
 
-var ATConfig Config
-
-type Config struct {
-	SelectForUpdate SelectForUpdateExecutorConfig `yaml:"select-for-update" json:"select-for-update" koanf:"select-for-update"`
-}
-
-func (c *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	c.SelectForUpdate.RegisterFlagsWithPrefix(prefix+".select-for-update", f)
-}
+var LockConfig rm.LockConfig

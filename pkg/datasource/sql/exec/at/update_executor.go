@@ -26,6 +26,7 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -230,7 +231,6 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		}
 
 		// select indexes columns
-
 		tableName, _ := u.parserCtx.GetTableName()
 		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {

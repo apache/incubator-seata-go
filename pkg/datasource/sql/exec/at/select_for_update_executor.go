@@ -21,12 +21,10 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"flag"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/util/backoff"
 	"io"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/arana-db/parser/ast"
@@ -39,29 +37,33 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/util/backoff"
 	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-type SelectForUpdateExecutorConfig struct {
-	RetryTimes    int           `yaml:"retry-times" json:"retry-times" koanf:"retry-times"`
-	RetryInterval time.Duration `yaml:"retry-interval" json:"retry-interval" koanf:"retry-interval"`
-}
-
-func (cfg *SelectForUpdateExecutorConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.IntVar(&cfg.RetryTimes, prefix+".retry-times", 5, "the retry times when exec failed")
-	f.DurationVar(&cfg.RetryInterval, prefix+".retry-interval", 20*time.Millisecond, "the retry interval of retry times")
-}
-
 type selectForUpdateExecutor struct {
 	baseExecutor
 
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
-	cfg         *SelectForUpdateExecutorConfig
-	tx          driver.Tx
-	tableName   string
-	selectPKSQL string
+	parserCtx     *types.ParseContext
+	execContext   *types.ExecContext
+	cfg           *rm.LockConfig
+	tx            driver.Tx
+	tableName     string
+	selectPKSQL   string
+	metaData      *types.TableMeta
+	savepointName string
+}
+
+func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) executor {
+	return &selectForUpdateExecutor{
+		baseExecutor: baseExecutor{
+			hooks: hooks,
+		},
+		parserCtx:   parserCtx,
+		execContext: execContext,
+		cfg:         &LockConfig,
+	}
 }
 
 func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
@@ -84,8 +86,12 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
+	if s.metaData, err = datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+		return nil, err
+	}
+
 	// build query primary key sql
-	if s.selectPKSQL, err = s.buildSelectPKSQL(s.execContext.ParseContext.SelectStmt, s.execContext.MetaDataMap[s.tableName]); err != nil {
+	if s.selectPKSQL, err = s.buildSelectPKSQL(s.execContext.ParseContext.SelectStmt, s.metaData); err != nil {
 		return nil, err
 	}
 
@@ -96,16 +102,27 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 	})
 
 	for bf.Ongoing() {
-		if res, err := s.selectForUpdate(ctx, f); err == nil {
-			result = res
+		if result, err = s.doExecContext(ctx, f); err == nil {
 			break
+		}
+
+		// if there is an err in doExecContext, we should rollback first
+		if s.savepointName != "" {
+			if _, err := s.exec(fmt.Sprintf("rollback to %s;", s.savepointName), nil); err != nil {
+				log.Error(err)
+				return nil, err
+			}
+		} else {
+			if err = s.tx.Rollback(); err != nil {
+				return nil, err
+			}
 		}
 
 		bf.Wait()
 	}
 
 	if bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
+		lastErr := fmt.Errorf("lastErr %v, backoff error: %v", err, bf.Err())
 		log.Warnf("select for update executor failed: %v", lastErr)
 		return nil, lastErr
 	}
@@ -120,22 +137,10 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 	return result, nil
 }
 
-func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &selectForUpdateExecutor{
-		baseExecutor: baseExecutor{
-			hooks: hooks,
-		},
-		parserCtx:   parserCtx,
-		execContext: execContext,
-		cfg:         &ATConfig.SelectForUpdate,
-	}
-}
-
-func (s *selectForUpdateExecutor) selectForUpdate(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	var (
 		now                = time.Now().Unix()
 		result             types.ExecResult
-		savepointName      string
 		originalAutoCommit = s.execContext.IsAutoCommit
 		err                error
 	)
@@ -155,6 +160,7 @@ func (s *selectForUpdateExecutor) selectForUpdate(ctx context.Context, f exec.Ca
 		if _, err = s.exec(fmt.Sprintf("savepoint %d;", now), nil); err != nil {
 			return nil, err
 		}
+		s.savepointName = strconv.FormatInt(now, 10)
 	} else {
 		return nil, fmt.Errorf("not support savepoint. please check your db version")
 	}
@@ -168,7 +174,7 @@ func (s *selectForUpdateExecutor) selectForUpdate(ctx context.Context, f exec.Ca
 	// query primary key values
 	var lockKey string
 	if _, err = s.exec(s.selectPKSQL, func(rows driver.Rows) {
-		lockKey = s.buildLockKey(rows, s.execContext.MetaDataMap[s.tableName])
+		lockKey = s.buildLockKey(rows, s.metaData)
 	}); err != nil {
 		return nil, err
 	}
@@ -186,27 +192,16 @@ func (s *selectForUpdateExecutor) selectForUpdate(ctx context.Context, f exec.Ca
 	if err != nil {
 		return nil, err
 	}
-	// has obtained global lock
-	if lockable {
-		return nil, nil
-	}
 
-	if savepointName != "" {
-		if _, err := s.exec(fmt.Sprintf("rollback to %s;", savepointName), nil); err != nil {
-			log.Error(err)
-			return nil, err
-		}
-	} else {
-		if err = s.tx.Rollback(); err != nil {
-			return nil, err
-		}
+	if !lockable {
+		return nil, fmt.Errorf("get lock failed, lockKey: %v", lockKey)
 	}
 
 	return result, nil
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
+func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
 		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
@@ -234,6 +229,9 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 		OrderBy:        stmt.OrderBy,
 		Limit:          stmt.Limit,
 		TableHints:     stmt.TableHints,
+		LockInfo: &ast.SelectLockInfo{
+			LockType: ast.SelectLockForUpdate,
+		},
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
@@ -245,7 +243,7 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
+func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) string {
 	var (
 		lockKeys    bytes.Buffer
 		idx         int
@@ -257,7 +255,7 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Tabl
 	columnNames = meta.GetPrimaryKeyOnlyName()
 	sqlRows := util.NewScanRows(rows)
 	for sqlRows.Next() {
-		ss := s.GetScanSlice(columnNames, &meta)
+		ss := s.GetScanSlice(columnNames, meta)
 		if err := sqlRows.Scan(ss...); err != nil {
 			if err == io.EOF {
 				break
@@ -294,17 +292,19 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Tabl
 
 func (s *selectForUpdateExecutor) exec(sql string, f func(rows driver.Rows)) (driver.Rows, error) {
 	var (
-		queryerCtx driver.QueryerContext
-		queryer    driver.Queryer
-		ok         bool
+		querierContext driver.QueryerContext
+		querier        driver.Queryer
+		ok             bool
 	)
-	if queryerCtx, ok = s.execContext.Conn.(driver.QueryerContext); !ok {
-		if queryer, ok = s.execContext.Conn.(driver.Queryer); !ok {
-			return nil, fmt.Errorf("invalid conn")
+	if querierContext, ok = s.execContext.Conn.(driver.QueryerContext); !ok {
+		err := fmt.Sprintf("invalid conn, can't convert %v to driver.QueryerContext", s.execContext.Conn)
+		if querier, ok = s.execContext.Conn.(driver.Queryer); !ok {
+			err = err + fmt.Sprintf(", also can't convert %v to drvier.Queryer", s.execContext.Conn)
+			return nil, fmt.Errorf(err)
 		}
 	}
 
-	rows, err := util.CtxDriverQuery(context.TODO(), queryerCtx, queryer, sql, nil)
+	rows, err := util.CtxDriverQuery(context.TODO(), querierContext, querier, sql, nil)
 	defer func() {
 		if rows != nil {
 			_ = rows.Close()

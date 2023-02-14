@@ -156,12 +156,11 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
-
 	tableName, _ := d.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
-
 	if err != nil {
 		return nil, err
 	}
+
 	return types.NewEmptyRecordImage(metaData, types.SQLTypeDelete), nil
 }

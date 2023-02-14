@@ -39,7 +39,7 @@ var (
 
 func TestBuildSelectPKSQL(t *testing.T) {
 	e := selectForUpdateExecutor{}
-	sql := "select name, order_id from t_user where age > ?"
+	sql := "select name, order_id from t_user where age > ? for update"
 
 	ctx, err := parser.DoParser(sql)
 
@@ -74,9 +74,11 @@ func TestBuildSelectPKSQL(t *testing.T) {
 	assert.NotNil(t, ctx)
 	assert.NotNil(t, ctx.SelectStmt)
 
-	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, metaData)
+	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT SQL_NO_CACHE id,order_id FROM t_user WHERE age>?", selSQL)
+	equal := "SELECT SQL_NO_CACHE order_id,id FROM t_user WHERE age>? FOR UPDATE" == selSQL ||
+		"SELECT SQL_NO_CACHE id,order_id FROM t_user WHERE age>? FOR UPDATE" == selSQL
+	assert.Equal(t, equal, true)
 }
 
 func TestBuildLockKey(t *testing.T) {
@@ -123,7 +125,7 @@ func TestBuildLockKey(t *testing.T) {
 		},
 	}
 	rows := mockRows{}
-	lockKey := e.buildLockKey(rows, metaData)
+	lockKey := e.buildLockKey(rows, &metaData)
 	assert.Equal(t, "t_user:1_oid11,2_oid22,3_oid33", lockKey)
 }
 
