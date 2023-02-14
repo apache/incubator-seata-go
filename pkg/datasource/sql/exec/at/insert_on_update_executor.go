@@ -263,6 +263,8 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 	if err != nil {
 		return nil, err
 	}
+	lockKey := i.buildLockKey(afterImage, *metaData)
+	i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	return afterImage, nil
 }
 
