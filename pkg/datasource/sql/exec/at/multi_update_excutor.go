@@ -33,6 +33,13 @@ func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.Ex
 // ExecContext exec SQL, and generate before image and after image
 func (u *MultiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	u.beforeHooks(ctx, u.execContext)
+
+	//single update sql handler
+	if len(u.execContext.ParseContext.MultiStmt) == 1 {
+		u.execContext.ParseContext.UpdateStmt = u.execContext.ParseContext.MultiStmt[0].UpdateStmt
+		return NewUpdateExecutor(u.parserCtx, u.execContext, u.hooks).ExecContext(ctx, f)
+	}
+
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
 	}()
@@ -79,14 +86,14 @@ func (u *MultiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		updateStmts = append(updateStmts, v.UpdateStmt)
 	}
 
+	tableName := u.execContext.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData := u.execContext.MetaDataMap[tableName]
+
 	// use
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(updateStmts, u.execContext.Values)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(updateStmts, u.execContext.Values, metaData)
 	if err != nil {
 		return nil, err
 	}
-
-	tableName := u.execContext.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := u.execContext.MetaDataMap[tableName]
 
 	var rows driver.Rows
 	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
@@ -159,13 +166,14 @@ func (u *MultiUpdateExecutor) afterImage(beforeImages []*types.RecordImage) ([]*
 
 // buildAfterImageSQL build the SQL to query after image data
 func (u *MultiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
-	if len(beforeImage.Rows) == 0 {
+	if !u.isAstStmtValid() {
 		return "", nil
 	}
 
 	sb := strings.Builder{}
 	var selectFields string
 	var separator = ","
+
 	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, row := range beforeImage.Rows {
 			for _, column := range row.Columns {
@@ -174,7 +182,7 @@ func (u *MultiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 		}
 		selectFields = strings.TrimSuffix(selectFields, separator)
 	} else {
-		selectFields = "*"
+		selectFields = strings.Join(meta.ColumnNames, separator)
 	}
 
 	sb.WriteString("SELECT " + selectFields + " FROM " + meta.TableName + " WHERE ")
@@ -184,7 +192,7 @@ func (u *MultiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *MultiUpdateExecutor) buildBeforeImageSQL(_ []*ast.UpdateStmt, args []driver.Value) (string, []driver.Value, error) {
+func (u *MultiUpdateExecutor) buildBeforeImageSQL(_ []*ast.UpdateStmt, args []driver.Value, meta types.TableMeta) (string, []driver.Value, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid multi update stmt")
 		return "", nil, fmt.Errorf("invalid muliti update stmt")
@@ -195,6 +203,7 @@ func (u *MultiUpdateExecutor) buildBeforeImageSQL(_ []*ast.UpdateStmt, args []dr
 	fieldsExits := make(map[string]struct{})
 	var whereCondition strings.Builder
 	multiStmts := u.parserCtx.MultiStmt
+
 	for _, multiStmt := range multiStmts {
 		updateStmt := multiStmt.UpdateStmt
 		if updateStmt.Limit != nil {
@@ -204,30 +213,32 @@ func (u *MultiUpdateExecutor) buildBeforeImageSQL(_ []*ast.UpdateStmt, args []dr
 			return "", nil, fmt.Errorf("multi update SQL with orderBy condition is not support yet")
 		}
 
-		if undo.UndoConfig.OnlyCareUpdateColumns {
-			for _, column := range updateStmt.List {
-				if _, exist := fieldsExits[column.Column.String()]; exist {
-					continue
-				}
-				fieldsExits[column.Column.String()] = struct{}{}
+		for _, column := range updateStmt.List {
+			if _, exist := fieldsExits[column.Column.String()]; exist {
+				continue
+			}
 
+			fieldsExits[column.Column.String()] = struct{}{}
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
+
+		if !undo.UndoConfig.OnlyCareUpdateColumns {
+			fields = make([]*ast.SelectField, len(meta.Columns))
+			for _, column := range meta.ColumnNames {
 				fields = append(fields, &ast.SelectField{
 					Expr: &ast.ColumnNameExpr{
-						Name: column.Column,
+						Name: &ast.ColumnName{
+							Name: model.CIStr{
+								O: column,
+							},
+						},
 					},
 				})
 			}
-		} else {
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: &ast.ColumnName{
-						Name: model.CIStr{
-							O: "*",
-							L: "*",
-						},
-					},
-				},
-			})
 		}
 
 		tmpSelectStmt := ast.SelectStmt{
