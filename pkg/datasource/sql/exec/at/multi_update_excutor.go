@@ -64,8 +64,8 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	}()
 
 	//single update sql handler
-	if len(u.execContext.ParseContext.MultiStmt) == 1 {
-		u.execContext.ParseContext.UpdateStmt = u.execContext.ParseContext.MultiStmt[0].UpdateStmt
+	if len(u.parserCtx.MultiStmt) == 1 {
+		u.parserCtx.UpdateStmt = u.parserCtx.MultiStmt[0].UpdateStmt
 		return NewUpdateExecutor(u.parserCtx, u.execContext, u.hooks).ExecContext(ctx, f)
 	}
 
@@ -164,7 +164,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, err
 	}
 
-	image.SQLType = u.execContext.ParseContext.SQLType
+	image.SQLType = u.parserCtx.SQLType
 	return []*types.RecordImage{image}, nil
 }
 

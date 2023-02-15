@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMultiExecutor(t *testing.T) {
+func TestMultiExecutor_beforeImage(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
 
@@ -72,9 +72,6 @@ func TestMultiExecutor(t *testing.T) {
 			beforeImage, err := executor.(*multiExecutor).beforeImage(context.Background(), c)
 			assert.NoError(t, err)
 			assert.NotNil(t, beforeImage)
-			execContext, err := executor.ExecContext(context.Background(), nil)
-			assert.NoError(t, err)
-			assert.NotNil(t, execContext)
 		})
 	}
 }

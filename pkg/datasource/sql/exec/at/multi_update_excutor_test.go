@@ -145,7 +145,7 @@ func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 			//for _, v := range c.MultiStmt {
 			//	updateStmts = append(updateStmts, v.UpdateStmt)
 			//}
-			executor := NewMultiUpdateExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 
 			query, args, err := executor.buildBeforeImageSQL(util.ValueToNamedValue(tt.sourceQueryArgs), &meta)
 			assert.NoError(t, err)
@@ -159,12 +159,8 @@ func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 	sourceQueryArgs := []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2, "Jack2", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2}
 	c, err := parser.DoParser(sourceQuery)
 	assert.NoError(t, err)
-	//updateStmts := make([]*ast.UpdateStmt, 0, len(c.MultiStmt))
-	//for _, v := range c.MultiStmt {
-	//	updateStmts = append(updateStmts, v.UpdateStmt)
-	//}
 
-	executor := NewMultiUpdateExecutor(c, &types.ExecContext{Values: sourceQueryArgs, NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
+	executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
 	_, _, err = executor.buildBeforeImageSQL(util.ValueToNamedValue(sourceQueryArgs), &meta)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "multi update SQL with orderBy condition is not support yet")
