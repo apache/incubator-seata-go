@@ -15,22 +15,12 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
-option go_package="github.com/seata/seata-go/sample/tcc/grpc/pb";
-import "google/protobuf/any.proto";
-import "google/protobuf/wrappers.proto";
+package xa
 
-message Params {
-    string a = 1;
-    string b = 2;
-}
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+)
 
-service TCCServiceBusiness1 {
-    rpc Remoting (Params) returns (google.protobuf.BoolValue){
-    }
-}
-
-service TCCServiceBusiness2 {
-    rpc Remoting (Params) returns (google.protobuf.Any){
-    }
+type XAConnection interface {
+	getXAResource() (exec.XAResource, error)
 }
