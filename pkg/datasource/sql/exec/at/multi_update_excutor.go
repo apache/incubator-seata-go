@@ -38,17 +38,14 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-var (
-	rows    driver.Rows
-	queryer driver.Queryer
-)
-
 // multiUpdateExecutor execute multiple update SQL
 type multiUpdateExecutor struct {
 	baseExecutor
 	parserCtx   *types.ParseContext
 	execContext *types.ExecContext
 }
+
+var rows driver.Rows
 
 // NewMultiUpdateExecutor get new multi update executor
 func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *multiUpdateExecutor {
@@ -68,7 +65,6 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 		u.parserCtx.UpdateStmt = u.parserCtx.MultiStmt[0].UpdateStmt
 		return NewUpdateExecutor(u.parserCtx, u.execContext, u.hooks).ExecContext(ctx, f)
 	}
-
 	beforeImages, err := u.beforeImage(ctx)
 	if err != nil {
 		return nil, err
@@ -119,6 +115,12 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	}
 
 	rows, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Errorf("rows close fail, err:%v", err)
+			return
+		}
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +156,13 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 	// use
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData)
 
-	rows, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+	rows, err = u.rowsPrepare(ctx, selectSQL, selectArgs)
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Errorf("rows close fail, err:%v", err)
+			return
+		}
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -169,19 +177,16 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 }
 
 func (u *multiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
-	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
 
+	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
 	if !ok {
 		queryer, ok = u.execContext.Conn.(driver.Queryer)
 	}
 	if ok {
-		rows, err := util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
-		defer func() {
-			if err = rows.Close(); err != nil {
-				log.Errorf("rows close fail, err:%v", err)
-				return
-			}
-		}()
+		var err error
+		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
+
 		if err != nil {
 			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
@@ -199,16 +204,22 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 		return "", nil
 	}
 
-	selectSql, selectFields := strings.Builder{}, strings.Builder{}
+	selectSql := strings.Builder{}
+	selectFields := make([]string, 0, len(meta.ColumnNames))
 	var selectFieldsStr string
-
+	var fieldsExits = make(map[string]struct{})
 	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, row := range beforeImage.Rows {
 			for _, column := range row.Columns {
-				selectFields.WriteString(column.ColumnName + constant.Comma)
+				if _, exist := fieldsExits[column.ColumnName]; exist {
+					continue
+				}
+
+				fieldsExits[column.ColumnName] = struct{}{}
+				selectFields = append(selectFields, column.ColumnName)
 			}
 		}
-		selectFieldsStr = selectFields.String()
+		selectFieldsStr = strings.Join(selectFields, constant.Comma)
 	} else {
 		selectFieldsStr = strings.Join(meta.ColumnNames, constant.Comma)
 	}
@@ -240,16 +251,29 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 			return "", nil, fmt.Errorf("multi update SQL with orderBy condition is not support yet")
 		}
 
-		for _, column := range updateStmt.List {
-			if _, exist := fieldsExits[column.Column.String()]; exist {
-				continue
+		if undo.UndoConfig.OnlyCareUpdateColumns {
+			//select update columns
+			for _, column := range updateStmt.List {
+				if _, exist := fieldsExits[column.Column.String()]; exist {
+					continue
+				}
+
+				fieldsExits[column.Column.String()] = struct{}{}
+				fields = append(fields, &ast.SelectField{Expr: &ast.ColumnNameExpr{Name: column.Column}})
 			}
 
-			fieldsExits[column.Column.String()] = struct{}{}
-			fields = append(fields, &ast.SelectField{Expr: &ast.ColumnNameExpr{Name: column.Column}})
-		}
+			for _, columnName := range meta.GetPrimaryKeyOnlyName() {
+				if _, exist := fieldsExits[columnName]; exist {
+					continue
+				}
 
-		if !undo.UndoConfig.OnlyCareUpdateColumns {
+				//select index columns
+				fieldsExits[columnName] = struct{}{}
+				fields = append(fields, &ast.SelectField{
+					Expr: &ast.ColumnNameExpr{Name: &ast.ColumnName{Name: model.CIStr{O: columnName, L: columnName}}},
+				})
+			}
+		} else {
 			fields = make([]*ast.SelectField, 0, len(meta.ColumnNames))
 			for _, column := range meta.ColumnNames {
 				fields = append(fields, &ast.SelectField{

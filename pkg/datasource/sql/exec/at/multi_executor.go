@@ -23,13 +23,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-)
-
-var (
-	err          error
-	afterImages  = make([]*types.RecordImage, 0)
-	beforeImages = make([]*types.RecordImage, 0)
+	types "github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type multiExecutor struct {
@@ -51,7 +45,7 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		m.afterHooks(ctx, m.execContext)
 	}()
 
-	beforeImages, err = m.beforeImage(ctx, m.parserCtx)
+	beforeImages, err := m.beforeImage(ctx, m.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +55,7 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	afterImages, err = m.afterImage(ctx, m.parserCtx, beforeImages)
+	afterImages, err := m.afterImage(ctx, m.parserCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +81,9 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 		return nil, nil
 	}
 	tmpImages := make([]*types.RecordImage, 0)
+	var err error
 
+	var beforeImages = make([]*types.RecordImage, 0)
 	for _, multiStmt := range parseContext.MultiStmt {
 		switch multiStmt.ExecutorType {
 		case types.UpdateExecutor:
@@ -115,7 +111,9 @@ func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 		return nil, nil
 	}
 	tmpImages := make([]*types.RecordImage, 0)
+	var err error
 
+	var afterImages = make([]*types.RecordImage, 0)
 	for _, multiStmt := range parseContext.MultiStmt {
 		switch multiStmt.ExecutorType {
 		case types.UpdateExecutor:
@@ -126,11 +124,10 @@ func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 			// todo use MultiDeleteExecutor
 			break
 		}
-		if err != nil {
-			return nil, err
-		}
 		afterImages = append(afterImages, tmpImages...)
 	}
-
+	if err != nil {
+		return nil, err
+	}
 	return afterImages, err
 }
