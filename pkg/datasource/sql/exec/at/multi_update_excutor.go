@@ -142,10 +142,10 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, nil
 	}
 
-	var beforeImage *types.RecordImage
-	if len(beforeImages) > 0 {
-		beforeImage = beforeImages[0]
+	if len(beforeImages) == 0 {
+		return nil, errors.New("empty beforeImages")
 	}
+	beforeImage := beforeImages[0]
 
 	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
