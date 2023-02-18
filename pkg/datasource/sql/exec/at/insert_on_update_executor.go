@@ -83,7 +83,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 		log.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
 		return nil, fmt.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
 	}
-	tableName, err := i.parserCtx.GteTableName()
+	tableName, err := i.parserCtx.GetTableName()
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 		log.Errorf("ctx driver query: %+v", err)
 		return nil, err
 	}
-	tableName, err := i.parserCtx.GteTableName()
+	tableName, err := i.parserCtx.GetTableName()
 	if err != nil {
 		return nil, err
 	}
