@@ -20,12 +20,11 @@ package at
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 func Init() {
@@ -63,11 +62,12 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 			exec = NewUpdateExecutor(parser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
 			exec = NewDeleteExecutor(parser, execCtx, e.hooks)
+		case types.SQLTypeSelectForUpdate:
+			exec = NewSelectForUpdateExecutor(parser, execCtx, e.hooks)
 		case types.SQLTypeInsertOnUpdate:
 			exec = NewInsertOnUpdateExecutor(parser, execCtx, e.hooks)
-		// case types.SQLTypeSelectForUpdate:
-		// case types.SQLTypeMultiDelete:
-		// case types.SQLTypeMultiUpdate:
+		//case types.SQLTypeMultiDelete:
+		//case types.SQLTypeMultiUpdate:
 		default:
 			exec = NewPlainExecutor(parser, execCtx)
 		}
