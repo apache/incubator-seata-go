@@ -21,14 +21,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"strings"
-
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -36,6 +33,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
+	"strings"
 )
 
 // multiUpdateExecutor execute multiple update SQL
@@ -46,6 +44,7 @@ type multiUpdateExecutor struct {
 }
 
 var rows driver.Rows
+var comma = ","
 
 // NewMultiUpdateExecutor get new multi update executor
 func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *multiUpdateExecutor {
@@ -219,9 +218,9 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 				selectFields = append(selectFields, column.ColumnName)
 			}
 		}
-		selectFieldsStr = strings.Join(selectFields, constant.Comma)
+		selectFieldsStr = strings.Join(selectFields, comma)
 	} else {
-		selectFieldsStr = strings.Join(meta.ColumnNames, constant.Comma)
+		selectFieldsStr = strings.Join(meta.ColumnNames, comma)
 	}
 	selectSql.WriteString("SELECT " + selectFieldsStr + " FROM " + meta.TableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)

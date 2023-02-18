@@ -22,8 +22,7 @@ import (
 	"fmt"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-
-	types "github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
 type multiExecutor struct {

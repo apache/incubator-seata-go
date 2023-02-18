@@ -20,8 +20,6 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"testing"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
@@ -30,6 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestMultiExecutor_beforeImage(t *testing.T) {
