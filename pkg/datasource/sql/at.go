@@ -21,8 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -135,16 +133,4 @@ func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchRepor
 func (a *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
 	db *sql.DB) (datasource.TableMetaCache, error) {
 	return a.basic.CreateTableMetaCache(ctx, resID, dbType, db)
-}
-
-func getTransactionId(xid string) int64 {
-	if xid == "" {
-		return -1
-	}
-	idx := strings.LastIndex(xid, ":")
-	tid, err := strconv.ParseInt(xid[idx+1:], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return tid
 }
