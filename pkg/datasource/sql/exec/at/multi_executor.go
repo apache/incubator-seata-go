@@ -64,7 +64,7 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	}
 
 	for i, afterImage := range afterImages {
-		beforeImage := afterImages[i]
+		beforeImage := beforeImages[i]
 		if len(beforeImage.Rows) != len(afterImage.Rows) {
 			return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
