@@ -125,10 +125,11 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		}
 		// check global lock
 		lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
-			Xid:        execCtx.TxCtx.XID,
-			BranchType: branch.BranchTypeAT,
-			ResourceId: execCtx.TxCtx.ResourceID,
-			LockKeys:   lockKey,
+			Xid:                 execCtx.TxCtx.XID,
+			BranchType:          branch.BranchTypeAT,
+			ResourceId:          execCtx.TxCtx.ResourceID,
+			LockKeys:            lockKey,
+			IsRequireGlobalLock: execCtx.IsRequireGlobalLock,
 		})
 
 		// if obtained global lock

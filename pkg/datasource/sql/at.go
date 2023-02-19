@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -32,6 +33,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
 	serr "github.com/seata/seata-go/pkg/util/errors"
 )
 
@@ -113,7 +115,10 @@ func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchRe
 
 // LockQuery
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	return a.rmRemoting.LockQuery(param)
+	if tm.IsGlobalTx(ctx) || param.IsRequireGlobalLock {
+		return a.rmRemoting.LockQuery(param)
+	}
+	return false, errors.New("lock query err: unknow situation !")
 }
 
 // BranchRegister

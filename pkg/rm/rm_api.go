@@ -69,10 +69,11 @@ type BranchReportParam struct {
 
 // LockQueryParam Lock query function param for ResourceManager
 type LockQueryParam struct {
-	BranchType branch.BranchType
-	ResourceId string
-	Xid        string
-	LockKeys   string
+	BranchType          branch.BranchType
+	ResourceId          string
+	Xid                 string
+	LockKeys            string
+	IsRequireGlobalLock bool
 }
 
 // Resource Manager: send outbound request to TC
