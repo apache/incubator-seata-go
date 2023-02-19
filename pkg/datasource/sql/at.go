@@ -28,7 +28,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/lock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -44,7 +43,6 @@ func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	}
 
 	undo.InitUndoConfig(cfg)
-	lock.GetLockManager().RegisterLocker(types.DataBase, &lock.DatabaseLocker{})
 	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
@@ -115,9 +113,7 @@ func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchRe
 
 // LockQuery
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	lockManager := lock.GetLockManager()
-	locker := lockManager.GetLocker(types.DataBase)
-	return locker.IsLockable(lock.CollectRowLocks(param.LockKeys, param.ResourceId, param.Xid, getTransactionId(param.Xid), -1))
+	return a.rmRemoting.LockQuery(param)
 }
 
 // BranchRegister
