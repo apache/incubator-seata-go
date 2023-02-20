@@ -19,10 +19,14 @@ package at
 
 import (
 	"database/sql/driver"
+	"testing"
+)
+
+import (
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/log"
+
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestNewMultiDeleteExecutor(t *testing.T) {
