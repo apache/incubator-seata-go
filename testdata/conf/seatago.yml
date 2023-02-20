@@ -44,8 +44,8 @@ seata:
       # Parse SQL parser selection
       sql-parser-type: druid
       lock:
-        retry-interval: 10
-        retry-times: 30s
+        retry-interval: 30s
+        retry-times: 10
         retry-policy-branch-rollback-on-conflict: true
     tm:
       commit-retry-count: 5

@@ -59,8 +59,8 @@ func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {
 		if stmt.IsReplace {
 			parserCtx.ExecutorType = types.ReplaceIntoExecutor
 		}
-
 		if len(stmt.OnDuplicate) != 0 {
+			parserCtx.SQLType = types.SQLTypeInsertOnUpdate
 			parserCtx.ExecutorType = types.InsertOnDuplicateExecutor
 		}
 	case *ast.UpdateStmt:
@@ -82,6 +82,5 @@ func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {
 		parserCtx.DeleteStmt = stmt
 		parserCtx.ExecutorType = types.DeleteExecutor
 	}
-
 	return parserCtx
 }
