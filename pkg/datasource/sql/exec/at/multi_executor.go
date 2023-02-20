@@ -19,6 +19,7 @@ package at
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
@@ -60,13 +61,13 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	}
 
 	if len(afterImages) != len(beforeImages) {
-		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 	}
 
 	for i, afterImage := range afterImages {
 		beforeImage := beforeImages[i]
 		if len(beforeImage.Rows) != len(afterImage.Rows) {
-			return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
 
 		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
@@ -88,10 +89,8 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 		case types.UpdateExecutor:
 			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
 			tmpImages, err = multiUpdateExec.beforeImage(ctx)
-			break
 		case types.DeleteExecutor:
 			//todo use MultiDeleteExecutor
-			break
 		default:
 			return nil, fmt.Errorf("not support sql %s", m.execContext.Query)
 		}
@@ -118,10 +117,8 @@ func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 		case types.UpdateExecutor:
 			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
 			tmpImages, err = multiUpdateExec.afterImage(ctx, beforeImages)
-			break
 		case types.DeleteExecutor:
 			// todo use MultiDeleteExecutor
-			break
 		}
 		afterImages = append(afterImages, tmpImages...)
 	}

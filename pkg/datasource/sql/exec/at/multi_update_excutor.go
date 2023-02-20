@@ -20,7 +20,6 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -80,13 +79,13 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	}
 
 	if len(afterImages) != len(beforeImages) {
-		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 	}
 
 	for i, afterImage := range afterImages {
 		beforeImage := afterImages[i]
 		if len(beforeImage.Rows) != len(afterImage.Rows) {
-			return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
 
 		u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
@@ -192,7 +191,7 @@ func (u *multiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string,
 		}
 	} else {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
+		return nil, errors.New("invalid conn")
 	}
 	return rows, nil
 }
@@ -232,7 +231,7 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta *types.TableMeta) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid multi update stmt")
-		return "", nil, fmt.Errorf("invalid muliti update stmt")
+		return "", nil, errors.New("invalid muliti update stmt")
 	}
 
 	var whereCondition strings.Builder
@@ -244,10 +243,10 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 	for _, multiStmt := range multiStmts {
 		updateStmt := multiStmt.UpdateStmt
 		if updateStmt.Limit != nil {
-			return "", nil, fmt.Errorf("multi update SQL with limit condition is not support yet")
+			return "", nil, errors.New("multi update SQL with limit condition is not support yet")
 		}
 		if updateStmt.Order != nil {
-			return "", nil, fmt.Errorf("multi update SQL with orderBy condition is not support yet")
+			return "", nil, errors.New("multi update SQL with orderBy condition is not support yet")
 		}
 
 		if undo.UndoConfig.OnlyCareUpdateColumns {
@@ -316,7 +315,7 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 	}
 	fakeSelectStmt, ok := fakeNode.(*ast.SelectStmt)
 	if !ok {
-		return "", nil, fmt.Errorf("multi update fake node is not select stmt")
+		return "", nil, errors.New("multi update fake node is not select stmt")
 	}
 
 	selStmt := ast.SelectStmt{
