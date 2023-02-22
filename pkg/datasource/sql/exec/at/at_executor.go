@@ -43,40 +43,40 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 	e.hooks = hooks
 }
 
-// ExecWithNamedValue
+// ExecWithNamedValue find the executor by sql type
 func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	parser, err := parser.DoParser(execCtx.Query)
+	queryParser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	var exec executor
+	var executor executor
 
 	if !tm.IsGlobalTx(ctx) {
-		exec = NewPlainExecutor(parser, execCtx)
+		executor = NewPlainExecutor(queryParser, execCtx)
 	} else {
-		switch parser.SQLType {
+		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
-			exec = NewInsertExecutor(parser, execCtx, e.hooks)
+			executor = NewInsertExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
-			exec = NewUpdateExecutor(parser, execCtx, e.hooks)
+			executor = NewUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
-			exec = NewDeleteExecutor(parser, execCtx, e.hooks)
+			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeSelectForUpdate:
-			exec = NewSelectForUpdateExecutor(parser, execCtx, e.hooks)
+			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeInsertOnUpdate:
-			exec = NewInsertOnUpdateExecutor(parser, execCtx, e.hooks)
-		// case types.SQLTypeMultiDelete:
-		// case types.SQLTypeMultiUpdate:
+			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
+		case types.SQLTypeMulti:
+			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
 		default:
-			exec = NewPlainExecutor(parser, execCtx)
+			executor = NewPlainExecutor(queryParser, execCtx)
 		}
 	}
 
-	return exec.ExecContext(ctx, f)
+	return executor.ExecContext(ctx, f)
 }
 
-// ExecWithValue
+// ExecWithValue transfer value to nameValue execute
 func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
