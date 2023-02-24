@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	BranchIdPrefix     = "-"
-	SeataXaXidFormatId = 9752
+	BranchIdPrefix = "-"
 )
 
 type XABranchXid struct {
@@ -65,10 +64,6 @@ func (x *XABranchXid) GetGlobalXid() string {
 
 func (x *XABranchXid) GetBranchId() int64 {
 	return x.branchId
-}
-
-func (x *XABranchXid) GetFormatId() int {
-	return SeataXaXidFormatId
 }
 
 func (x *XABranchXid) GetGlobalTransactionId() []byte {

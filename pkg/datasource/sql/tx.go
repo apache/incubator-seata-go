@@ -24,14 +24,11 @@ import (
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
-
-const REPORT_RETRY_COUNT = 5
 
 var (
 	hl      sync.RWMutex
@@ -184,7 +181,7 @@ func (tx *Tx) report(success bool) error {
 	if dataSourceManager == nil {
 		return fmt.Errorf("get dataSourceManager failed")
 	}
-	retry := REPORT_RETRY_COUNT
+	retry := 5
 	for retry > 0 {
 		err := dataSourceManager.BranchReport(context.Background(), request)
 		if err != nil {

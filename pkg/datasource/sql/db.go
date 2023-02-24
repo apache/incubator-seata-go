@@ -20,17 +20,26 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"database/sql/driver"
 	"fmt"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa/xaresource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)
+
+func withDsn(dsn string) dbOption {
+	return func(db *DBResource) {
+		db.dsn = dsn
+	}
+}
 
 func withGroupID(id string) dbOption {
 	return func(db *DBResource) {
@@ -62,6 +71,12 @@ func withTarget(source *sql.DB) dbOption {
 	}
 }
 
+func withConnector(ci driver.Connector) dbOption {
+	return func(db *DBResource) {
+		db.connector = ci
+	}
+}
+
 func withDBName(dbName string) dbOption {
 	return func(db *DBResource) {
 		db.dbName = dbName
@@ -86,10 +101,13 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
+	conf seataServerConfig
+
+	dsn          string
 	groupID      string
 	resourceID   string
-	conf         seataServerConfig
 	db           *sql.DB
+	connector    driver.Connector
 	dbName       string
 	dbType       types.DBType
 	undoLogMgr   undo.UndoLogManager
@@ -100,23 +118,6 @@ type DBResource struct {
 
 func (db *DBResource) init() error {
 	return nil
-}
-
-// todo do not put meta data to rm
-//func (db *DBResource) init() error {
-//	mgr := datasource.GetDataSourceManager(db.GetBranchType())
-//	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.db)
-//	if err != nil {
-//		return err
-//	}
-//
-//	db.metaCache = metaCache
-//
-//	return nil
-//}
-
-func (db *DBResource) Conn(ctx context.Context) (*sql.Conn, error) {
-	return db.db.Conn(ctx)
 }
 
 func (db *DBResource) GetResourceGroupId() string {
@@ -140,20 +141,11 @@ func (db *DBResource) SetDbType(dbType types.DBType) {
 }
 
 // Hold the xa connection.
-// TODO if the connection done, instead the v of xa connecton struct
-func (db *DBResource) Hold(xaBranchID string, v string) error {
-	existConnection, exist := db.keeper.Load(xaBranchID)
+func (db *DBResource) Hold(xaBranchID string, v interface{}) error {
+	_, exist := db.keeper.Load(xaBranchID)
 	if !exist {
 		db.keeper.Store(xaBranchID, v)
 		return nil
-	}
-
-	if _, ok := existConnection.(string); !ok {
-		return errors.New("the exist connection cask error")
-	}
-
-	if existConnection != v {
-		return fmt.Errorf("something wrong with keeper, keeping %v but %v is also kept with the same key %s", existConnection, v, xaBranchID)
 	}
 	return nil
 }
@@ -164,6 +156,44 @@ func (db *DBResource) Release(xaBranchID string) {
 
 func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
 	return db.keeper.Load(xaBranchID)
+}
+
+func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.ConnectionProxyXA, error) {
+	xaBranchXid := xaXid.String()
+	tmpConn, ok := db.Lookup(xaBranchXid)
+	if ok && tmpConn != nil {
+		connectionProxyXa, isConnectionProxyXa := tmpConn.(*xa.ConnectionProxyXA)
+		if !isConnectionProxyXa {
+			return nil, fmt.Errorf("get connection proxy xa from cache error, xid:%s", xaXid.String())
+		}
+		return connectionProxyXa, nil
+	}
+
+	// why here need a new connection?
+	// 1. because there maybe a rm cluster
+	// 2. the first phase select a rm1, and store the connection is the keeper
+	// 3. tc request the second phase. but the rm1 is shutdown, so the tc select another rm (like rm2)
+	// 4. so when the second phase request coming to rm2, rm2 must not store the connection.
+	// 5. the rm2 get the second phase do the two thing.
+	// 	  1. in mysql version >= 8.0.29, mysql support the xa transaction commit by another connection. so just commit
+	//    2. when the version < 8.0.29. so just make the transaction rollback
+	newDriverConn, err := db.connector.Connect(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
+	}
+
+	connectionProxyXA, err := xa.NewConnectionProxyXA(newDriverConn, db, xaXid.String())
+	if err != nil {
+		log.Errorf("create connection proxy xa id:%s err:%v", xaXid.String(), err)
+		return nil, err
+	}
+
+	xaResource, err := xaresource.CreateXAResource(newDriverConn, db.GetDbType())
+	if err != nil {
+		return nil, err
+	}
+	connectionProxyXA.SetXAResource(xaResource)
+	return connectionProxyXA, nil
 }
 
 type SqlDBProxy struct {

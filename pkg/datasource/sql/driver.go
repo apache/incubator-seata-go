@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"strings"
 
-	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-
 	"github.com/go-sql-driver/mysql"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -170,6 +170,7 @@ func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *
 		withTarget(db),
 		withDBType(dbType),
 		withDBName(cfg.DBName),
+		withConnector(connector),
 	}
 
 	res, err := newResource(options...)

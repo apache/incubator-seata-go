@@ -17,14 +17,7 @@
 
 package xa
 
-type Xid interface {
-	GetFormatId() int
-	GetGlobalTransactionId() []byte
-	GetBranchQualifier() []byte
-}
-
 type XAXid interface {
-	Xid
 	GetGlobalXid() string
 	GetBranchId() int64
 	String() string

@@ -15,39 +15,28 @@
  * limitations under the License.
  */
 
-package xa
+package xaresource
 
 import (
-	"context"
-	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-const (
-	DbTypeOracle  = "oracle"
-	DbTypeMysql   = "mysql"
-	DbTypeDB2     = "db2"
-	DbTypeMariadb = "mariadb"
-	DbTypePG      = "postgresql"
-)
-
-// CreateXAConnection create a connection for xa with the different db type.
+// CreateXAResource create a connection for xa with the different db type.
 // Such as mysql, oracle, MARIADB, POSTGRESQL
-func CreateXAConnection(ctx context.Context, conn *sql.Conn, dbType string) (XAConnection, error) {
+func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error) {
 	var err error
-	var xaConnection XAConnection
+	var xaConnection XAResource
 	switch dbType {
-	case DbTypeMysql:
-		var mysqlXaConn MysqlXAConn
-		xaConnection, err = mysqlXaConn.GetXAResource()
-	case DbTypeOracle:
-	case DbTypeMariadb:
-	case DbTypePG:
-	case DbTypeDB2:
+	case types.DBTypeMySQL:
+		xaConnection = NewMysqlXaConn(conn)
+	case types.DBTypeOracle:
+	case types.DBTypePostgreSQL:
 	default:
-		err = fmt.Errorf("not support db type for :%s", dbType)
+		err = fmt.Errorf("not support db type for :%s", dbType.String())
 	}
 
 	if err != nil {

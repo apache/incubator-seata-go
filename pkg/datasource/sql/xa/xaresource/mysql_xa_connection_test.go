@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package xa
+package xaresource
 
 import (
 	"context"
@@ -78,7 +78,7 @@ func TestMysqlXAConn_Commit(t *testing.T) {
 			c := &MysqlXAConn{
 				Conn: mockConn,
 			}
-			if err := c.Commit(tt.input.xid, tt.input.onePhase); (err != nil) != tt.wantErr {
+			if err := c.Commit(context.Background(), tt.input.xid, tt.input.onePhase); (err != nil) != tt.wantErr {
 				t.Errorf("Commit() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -124,7 +124,7 @@ func TestMysqlXAConn_End(t *testing.T) {
 			c := &MysqlXAConn{
 				Conn: mockConn,
 			}
-			if err := c.End(tt.input.xid, tt.input.flags); (err != nil) != tt.wantErr {
+			if err := c.End(context.Background(), tt.input.xid, tt.input.flags); (err != nil) != tt.wantErr {
 				t.Errorf("End() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -161,7 +161,7 @@ func TestMysqlXAConn_Start(t *testing.T) {
 			c := &MysqlXAConn{
 				Conn: mockConn,
 			}
-			if err := c.Start(tt.input.xid, tt.input.flags); (err != nil) != tt.wantErr {
+			if err := c.Start(context.Background(), tt.input.xid, tt.input.flags); (err != nil) != tt.wantErr {
 				t.Errorf("Start() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -196,7 +196,7 @@ func TestMysqlXAConn_XAPrepare(t *testing.T) {
 			c := &MysqlXAConn{
 				Conn: mockConn,
 			}
-			if err := c.XAPrepare(tt.input.xid); (err != nil) != tt.wantErr {
+			if err := c.XAPrepare(context.Background(), tt.input.xid); (err != nil) != tt.wantErr {
 				t.Errorf("XAPrepare() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -257,7 +257,7 @@ func TestMysqlXAConn_Recover(t *testing.T) {
 			c := &MysqlXAConn{
 				Conn: mockConn,
 			}
-			got, err := c.Recover(tt.args.flag)
+			got, err := c.Recover(context.Background(), tt.args.flag)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Recover() error = %v, wantErr %v", err, tt.wantErr)
 				return

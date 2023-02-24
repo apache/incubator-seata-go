@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package xa
+package xaresource
 
 import (
 	"context"
@@ -31,11 +31,11 @@ type MysqlXAConn struct {
 	driver.Conn
 }
 
-func (c *MysqlXAConn) GetXAResource() (XAResource, error) {
-	return &MysqlXAConn{}, nil
+func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
+	return &MysqlXAConn{Conn: conn}
 }
 
-func (c *MysqlXAConn) Commit(xid string, onePhase bool) error {
+func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
 	var sb strings.Builder
 	sb.WriteString("XA COMMIT ")
 	sb.WriteString(xid)
@@ -44,11 +44,11 @@ func (c *MysqlXAConn) Commit(xid string, onePhase bool) error {
 	}
 
 	conn, _ := c.Conn.(driver.ExecerContext)
-	_, err := conn.ExecContext(context.TODO(), sb.String(), nil)
+	_, err := conn.ExecContext(ctx, sb.String(), nil)
 	return err
 }
 
-func (c *MysqlXAConn) End(xid string, flags int) error {
+func (c *MysqlXAConn) End(ctx context.Context, xid string, flags int) error {
 	var sb strings.Builder
 	sb.WriteString("XA END ")
 	sb.WriteString(xid)
@@ -66,11 +66,11 @@ func (c *MysqlXAConn) End(xid string, flags int) error {
 	}
 
 	conn, _ := c.Conn.(driver.ExecerContext)
-	_, err := conn.ExecContext(context.TODO(), sb.String(), nil)
+	_, err := conn.ExecContext(ctx, sb.String(), nil)
 	return err
 }
 
-func (c *MysqlXAConn) Forget(xid string) error {
+func (c *MysqlXAConn) Forget(ctx context.Context, xid string) error {
 	// mysql doesn't support this
 	return errors.New("mysql doesn't support this")
 }
@@ -81,25 +81,25 @@ func (c *MysqlXAConn) GetTransactionTimeout() time.Duration {
 
 // IsSameRM is called to determine if the resource manager instance represented by the target object
 // is the same as the resource manager instance represented by the parameter xares.
-func (c *MysqlXAConn) IsSameRM(xares XAResource) bool {
+func (c *MysqlXAConn) IsSameRM(ctx context.Context, xares XAResource) bool {
 	// todo: the fn depends on the driver.Conn, but it doesn't support
 	return false
 }
 
-func (c *MysqlXAConn) XAPrepare(xid string) error {
+func (c *MysqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 	var sb strings.Builder
 	sb.WriteString("XA PREPARE ")
 	sb.WriteString(xid)
 
 	conn, _ := c.Conn.(driver.ExecerContext)
-	_, err := conn.ExecContext(context.TODO(), sb.String(), nil)
+	_, err := conn.ExecContext(ctx, sb.String(), nil)
 	return err
 }
 
 // Recover Obtains a list of prepared transaction branches from a resource manager.
 // The transaction manager calls this method during recovery to obtain the list of transaction branches
 // that are currently in prepared or heuristically completed states.
-func (c *MysqlXAConn) Recover(flag int) (xids []string, err error) {
+func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err error) {
 	startRscan := (flag & TMStartRScan) > 0
 	endRscan := (flag & TMEndRScan) > 0
 
@@ -112,7 +112,7 @@ func (c *MysqlXAConn) Recover(flag int) (xids []string, err error) {
 	}
 
 	conn := c.Conn.(driver.QueryerContext)
-	res, err := conn.QueryContext(context.TODO(), "XA RECOVER", nil)
+	res, err := conn.QueryContext(ctx, "XA RECOVER", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +136,13 @@ func (c *MysqlXAConn) Recover(flag int) (xids []string, err error) {
 	return xids, err
 }
 
-func (c *MysqlXAConn) Rollback(xid string) error {
+func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
 	var sb strings.Builder
 	sb.WriteString("XA ROLLBACK ")
 	sb.WriteString(xid)
 
 	conn, _ := c.Conn.(driver.ExecerContext)
-	_, err := conn.ExecContext(context.TODO(), sb.String(), nil)
+	_, err := conn.ExecContext(ctx, sb.String(), nil)
 	return err
 }
 
@@ -150,7 +150,7 @@ func (c *MysqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
 	return false
 }
 
-func (c *MysqlXAConn) Start(xid string, flags int) error {
+func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
 	var sb strings.Builder
 	sb.WriteString("XA START")
 	sb.WriteString(xid)
@@ -169,6 +169,6 @@ func (c *MysqlXAConn) Start(xid string, flags int) error {
 	}
 
 	conn, _ := c.Conn.(driver.ExecerContext)
-	_, err := conn.ExecContext(context.TODO(), sb.String(), nil)
+	_, err := conn.ExecContext(ctx, sb.String(), nil)
 	return err
 }

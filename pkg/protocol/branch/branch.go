@@ -35,70 +35,41 @@ const (
 )
 
 const (
-	/**
-	 * The BranchStatus_Unknown.
-	 * description:BranchStatus_Unknown branch status.
-	 */
+	// BranchStatusUnknown the BranchStatus_Unknown. description:BranchStatus_Unknown branch status.
 	BranchStatusUnknown = BranchStatus(0)
 
-	/**
-	 * The BranchStatus_Registered.
-	 * description:BranchStatus_Registered to TC.
-	 */
+	// BranchStatusRegistered the BranchStatus_Registered. description:BranchStatus_Registered to TC.
 	BranchStatusRegistered = BranchStatus(1)
 
-	/**
-	 * The Phase one done.
-	 * description:Branch logic is successfully done at phase one.
-	 */
+	// BranchStatusPhaseoneDone the Phase one done. description:Branch logic is successfully done at phase one.
 	BranchStatusPhaseoneDone = BranchStatus(2)
 
-	/**
-	 * The Phase one failed.
-	 * description:Branch logic is failed at phase one.
-	 */
+	// BranchStatusPhaseoneFailed the Phase one failed. description:Branch logic is failed at phase one.
 	BranchStatusPhaseoneFailed = BranchStatus(3)
 
-	/**
-	 * The Phase one timeout.
-	 * description:Branch logic is NOT reported for a timeout.
-	 */
+	// BranchStatusPhaseoneTimeout the Phase one timeout. description:Branch logic is NOT reported for a timeout.
 	BranchStatusPhaseoneTimeout = BranchStatus(4)
 
-	/**
-	 * The Phase two committed.
-	 * description:Commit logic is successfully done at phase two.
-	 */
+	// BranchStatusPhasetwoCommitted the Phase two committed. description:Commit logic is successfully done at phase two.
 	BranchStatusPhasetwoCommitted = BranchStatus(5)
 
-	/**
-	 * The Phase two commit failed retryable.
-	 * description:Commit logic is failed but retryable.
-	 */
+	// BranchStatusPhasetwoCommitFailedRetryable the Phase two commit failed retryable. description:Commit logic is failed but retryable.
 	BranchStatusPhasetwoCommitFailedRetryable = BranchStatus(6)
 
-	/**
-	 * The Phase two commit failed unretryable.
-	 * description:Commit logic is failed and NOT retryable.
-	 */
+	// BranchStatusPhasetwoCommitFailedUnretryable the Phase two commit failed unretryable.
+	// description:Commit logic is failed and NOT retryable.
 	BranchStatusPhasetwoCommitFailedUnretryable = BranchStatus(7)
 
-	/**
-	 * The Phase two rollbacked.
-	 * description:Rollback logic is successfully done at phase two.
-	 */
+	// BranchStatusPhasetwoRollbacked The Phase two rollbacked.
+	// description:Rollback logic is successfully done at phase two.
 	BranchStatusPhasetwoRollbacked = BranchStatus(8)
 
-	/**
-	 * The Phase two rollback failed retryable.
-	 * description:Rollback logic is failed but retryable.
-	 */
+	// BranchStatusPhasetwoRollbackFailedRetryable the Phase two rollback failed retryable.
+	// description:Rollback logic is failed but retryable.
 	BranchStatusPhasetwoRollbackFailedRetryable = BranchStatus(9)
 
-	/**
-	 * The Phase two rollback failed unretryable.
-	 * description:Rollback logic is failed but NOT retryable.
-	 */
+	// BranchStatusPhasetwoRollbackFailedUnretryable the Phase two rollback failed unretryable.
+	// description:Rollback logic is failed but NOT retryable.
 	BranchStatusPhasetwoRollbackFailedUnretryable = BranchStatus(10)
 )
 

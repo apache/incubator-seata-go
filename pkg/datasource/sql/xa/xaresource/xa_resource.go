@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package xa
+package xaresource
 
 import (
+	"context"
 	"time"
 )
 
@@ -57,16 +58,14 @@ const (
 )
 
 type XAResource interface {
-	XAConnection
-
-	Commit(xid string, onePhase bool) error
-	End(xid string, flags int) error
-	Forget(xid string) error
+	Commit(ctx context.Context, xid string, onePhase bool) error
+	End(ctx context.Context, xid string, flags int) error
+	Forget(ctx context.Context, xid string) error
 	GetTransactionTimeout() time.Duration
-	IsSameRM(resource XAResource) bool
-	XAPrepare(xid string) error
-	Recover(flag int) ([]string, error)
-	Rollback(xid string) error
+	IsSameRM(ctx context.Context, resource XAResource) bool
+	XAPrepare(ctx context.Context, xid string) error
+	Recover(ctx context.Context, flag int) ([]string, error)
+	Rollback(ctx context.Context, xid string) error
 	SetTransactionTimeout(duration time.Duration) bool
-	Start(xid string, flags int) error
+	Start(ctx context.Context, xid string, flags int) error
 }

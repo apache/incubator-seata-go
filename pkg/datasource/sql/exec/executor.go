@@ -37,9 +37,7 @@ func RegisterATExecutor(dt types.DBType, builder func() SQLExecutor) {
 
 // RegisterXAExecutor XA executor
 func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
-	xaExecutors[dt] = func() SQLExecutor {
-		return builder()
-	}
+	xaExecutors[dt] = builder
 }
 
 type (
@@ -66,15 +64,16 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	if transactionMode == types.XAMode {
-		e := xaExecutors[dbType]()
-		e.Interceptors(hooks)
-		return e, nil
+	var executor SQLExecutor
+	switch transactionMode {
+	case types.XAMode:
+		executor = xaExecutors[dbType]()
+		executor.Interceptors(hooks)
+	case types.ATMode:
+		executor = atExecutors[dbType]()
+		executor.Interceptors(hooks)
 	}
-
-	e := atExecutors[dbType]()
-	e.Interceptors(hooks)
-	return e, nil
+	return executor, nil
 }
 
 type BaseExecutor struct {
@@ -82,12 +81,10 @@ type BaseExecutor struct {
 	ex    SQLExecutor
 }
 
-// Interceptors
 func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
 	e.hooks = interceptors
 }
 
-// ExecWithNamedValue
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.hooks {
 		e.hooks[i].Before(ctx, execCtx)

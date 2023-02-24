@@ -40,14 +40,7 @@ func (cfg *ResourceManagerXAConfig) RegisterFlagsWithPrefix(prefix string, f *fl
 	f.DurationVar(&cfg.TwoPhaseHoldTime, prefix+".two_phase_hold_time", time.Millisecond*1000, "Undo log table name.")
 }
 
-type ResourceManagerXA struct {
-	config        ResourceManagerXAConfig
-	resourceCache sync.Map
-	basic         *datasource.BasicSourceManager
-	rmRemoting    *rm.RMRemoting
-}
-
-func NewXAResourceManager(config ResourceManagerXAConfig) *ResourceManagerXA {
+func InitXA(config ResourceManagerXAConfig) *ResourceManagerXA {
 	xaSourceManager := &ResourceManagerXA{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
@@ -61,33 +54,40 @@ func NewXAResourceManager(config ResourceManagerXAConfig) *ResourceManagerXA {
 	return xaSourceManager
 }
 
-func (x *ResourceManagerXA) xaTwoPhaseTimeoutChecker() {
+type ResourceManagerXA struct {
+	config        ResourceManagerXAConfig
+	resourceCache sync.Map
+	basic         *datasource.BasicSourceManager
+	rmRemoting    *rm.RMRemoting
 }
 
-func (x *ResourceManagerXA) GetBranchType() branch.BranchType {
+func (xaManager *ResourceManagerXA) xaTwoPhaseTimeoutChecker() {
+}
+
+func (xaManager *ResourceManagerXA) GetBranchType() branch.BranchType {
 	return branch.BranchTypeXA
 }
 
-func (x *ResourceManagerXA) GetCachedResources() *sync.Map {
-	return &x.resourceCache
+func (xaManager *ResourceManagerXA) GetCachedResources() *sync.Map {
+	return &xaManager.resourceCache
 }
 
-func (x *ResourceManagerXA) RegisterResource(res rm.Resource) error {
-	x.resourceCache.Store(res.GetResourceId(), res)
-	return x.basic.RegisterResource(res)
+func (xaManager *ResourceManagerXA) RegisterResource(res rm.Resource) error {
+	xaManager.resourceCache.Store(res.GetResourceId(), res)
+	return xaManager.basic.RegisterResource(res)
 }
 
-func (x *ResourceManagerXA) UnregisterResource(resource rm.Resource) error {
-	return x.basic.UnregisterResource(resource)
+func (xaManager *ResourceManagerXA) UnregisterResource(resource rm.Resource) error {
+	return xaManager.basic.UnregisterResource(resource)
 }
 
-func (x *ResourceManagerXA) xaIDBuilder(xid string, branchId int64) XAXid {
+func (xaManager *ResourceManagerXA) xaIDBuilder(xid string, branchId int64) XAXid {
 	return XaIdBuild(xid, branchId)
 }
 
-func (x *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	xaID := x.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
-	resource, ok := x.resourceCache.Load(branchResource.ResourceId)
+func (xaManager *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	xaID := xaManager.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
+	resource, ok := xaManager.resourceCache.Load(branchResource.ResourceId)
 	if !ok {
 		err := fmt.Errorf("unknow resource for xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
@@ -108,7 +108,7 @@ func (x *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.
 		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
 	}
 
-	if rollbackErr := connectionProxyXA.Commit(); rollbackErr != nil {
+	if rollbackErr := connectionProxyXA.XaCommit(xaID.String(), branchResource.BranchId); rollbackErr != nil {
 		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
@@ -119,9 +119,9 @@ func (x *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
-func (x *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	xaID := x.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
-	resource, ok := x.resourceCache.Load(branchResource.ResourceId)
+func (xaManager *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	xaID := xaManager.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
+	resource, ok := xaManager.resourceCache.Load(branchResource.ResourceId)
 	if !ok {
 		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
@@ -142,7 +142,7 @@ func (x *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource r
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
-	if rollbackErr := connectionProxyXA.Rollback(); rollbackErr != nil {
+	if rollbackErr := connectionProxyXA.XaRollbackByBranchId(xaID.String(), branchResource.BranchId); rollbackErr != nil {
 		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
@@ -153,19 +153,18 @@ func (x *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource r
 	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 
-func (x *ResourceManagerXA) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
+func (xaManager *ResourceManagerXA) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	return false, nil
 }
 
-func (x *ResourceManagerXA) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
-	return x.rmRemoting.BranchRegister(req)
+func (xaManager *ResourceManagerXA) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
+	return xaManager.rmRemoting.BranchRegister(req)
 }
 
-func (x *ResourceManagerXA) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
-	return x.rmRemoting.BranchReport(param)
+func (xaManager *ResourceManagerXA) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
+	return xaManager.rmRemoting.BranchReport(param)
 }
 
-func (x *ResourceManagerXA) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
-	db *sql.DB) (datasource.TableMetaCache, error) {
-	return x.basic.CreateTableMetaCache(ctx, resID, dbType, db)
+func (xaManager *ResourceManagerXA) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
+	return xaManager.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
