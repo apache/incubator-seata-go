@@ -97,7 +97,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, fmt.Errorf("invalid conn")
 	}
 	if ok {
-		for _, sql := range multiQuery {
+		for i, sql := range multiQuery {
 			rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, sql, args)
 			defer func() {
 				if rowsi != nil {
@@ -108,12 +108,10 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 				log.Errorf("ctx driver query: %+v", err)
 				return nil, err
 			}
-			tableName, _ := m.parserCtx.GetTableName()
+			tableName := m.parserCtx.MultiStmt[i].DeleteStmt.
+				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 			metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
-			if err != nil {
-				log.Errorf("stmt query: %+v", err)
-				return nil, err
-			}
+
 			image, err = m.buildRecordImages(rowsi, metaData)
 			if err != nil {
 				log.Errorf("record images : %+v", err)
