@@ -111,7 +111,9 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 			tableName := m.parserCtx.MultiStmt[i].DeleteStmt.
 				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 			metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
-
+			if err != nil {
+				return nil, err
+			}
 			image, err = m.buildRecordImages(rowsi, metaData)
 			if err != nil {
 				log.Errorf("record images : %+v", err)
