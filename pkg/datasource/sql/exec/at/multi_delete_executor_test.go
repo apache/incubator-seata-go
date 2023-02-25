@@ -20,20 +20,11 @@ package at
 import (
 	"database/sql/driver"
 	"testing"
-)
 
-import (
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/log"
-
 	"github.com/stretchr/testify/assert"
 )
-
-func TestNewMultiDeleteExecutor(t *testing.T) {
-	executor := NewMultiDeleteExecutor(nil, nil, nil)
-	_, ok := executor.(*multiDeleteExecutor)
-	assert.Equalf(t, true, ok, "should be *multiDeleteExecutor")
-}
 
 func Test_multiDeleteExecutor_buildBeforeImageSQL(t *testing.T) {
 	log.Init()
@@ -68,7 +59,7 @@ func Test_multiDeleteExecutor_buildBeforeImageSQL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query, args, err := builder.buildBeforeImageSQL(tt.sourceQuery, util.ValueToNamedValue(tt.sourceQueryArgs))
+			query, args, err := builder.buildBeforeImageSQL()
 			assert.Nil(t, err)
 			assert.Equal(t, 1, len(query))
 			assert.Equal(t, query[0], tt.expectQuery)

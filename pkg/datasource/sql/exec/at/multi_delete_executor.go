@@ -23,12 +23,9 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strings"
-)
 
-import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
@@ -49,7 +46,7 @@ func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 		m.afterHooks(ctx, m.execContext)
 	}()
 
-	beforeImage, err := m.BeforeImage(ctx)
+	beforeImage, err := m.beforeImage(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +56,7 @@ func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 		return nil, err
 	}
 
-	afterImage, err := m.AfterImage(ctx)
+	afterImage, err := m.afterImage(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -75,19 +72,17 @@ type multiDelete struct {
 }
 
 //NewMultiDeleteExecutor get multiDelete executor
-func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
+func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *multiDeleteExecutor {
 	return &multiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
-func (m *multiDeleteExecutor) BeforeImage(ctx context.Context) ([]*types.RecordImage, error) {
-	deletes := strings.Split(m.execContext.Query, ";")
-	multiQuery, args, err := m.buildBeforeImageSQL(deletes, m.execContext.NamedValues)
+func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
+	multiQuery, args, err := m.buildBeforeImageSQL()
 	if err != nil {
 		return nil, err
 	}
 	var (
-		rowsi driver.Rows
-
+		rowsi   driver.Rows
 		image   *types.RecordImage
 		records []*types.RecordImage
 	)
@@ -96,6 +91,10 @@ func (m *multiDeleteExecutor) BeforeImage(ctx context.Context) ([]*types.RecordI
 	var queryer driver.Queryer
 	if !ok {
 		queryer, ok = m.execContext.Conn.(driver.Queryer)
+	}
+	if !ok {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
 	}
 	if ok {
 		for _, sql := range multiQuery {
@@ -121,29 +120,31 @@ func (m *multiDeleteExecutor) BeforeImage(ctx context.Context) ([]*types.RecordI
 				return nil, err
 			}
 			records = append(records, image)
-
 			lockKey := m.buildLockKey(image, *metaData)
 			m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
 	}
-
 	return records, err
-
 }
 
-func (m *multiDeleteExecutor) AfterImage(ctx context.Context) ([]*types.RecordImage, error) {
-	return nil, nil
+func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordImage, error) {
+	tableName, _ := m.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+	image := types.NewEmptyRecordImage(metaData, types.SQLTypeDelete)
+	return []*types.RecordImage{image}, nil
 }
 
-func (m *multiDeleteExecutor) buildBeforeImageSQL(multiQuery []string, args []driver.NamedValue) ([]string, []driver.NamedValue, error) {
+func (m *multiDeleteExecutor) buildBeforeImageSQL() ([]string, []driver.NamedValue, error) {
 	var (
 		err        error
 		buf, param bytes.Buffer
 		p          *types.ParseContext
 		tableName  string
+		args       = m.execContext.NamedValues
+		multiQuery = strings.Split(m.execContext.Query, ";")
 		tables     = make(map[string]multiDelete, len(multiQuery))
 	)
 

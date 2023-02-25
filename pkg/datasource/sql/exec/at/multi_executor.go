@@ -90,7 +90,8 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
 			tmpImages, err = multiUpdateExec.beforeImage(ctx)
 		case types.DeleteExecutor:
-			//todo use MultiDeleteExecutor
+			multiDeleteExec := NewMultiDeleteExecutor(m.parserCtx, m.execContext, m.hooks)
+			tmpImages, err = multiDeleteExec.beforeImage(ctx)
 		default:
 			return nil, fmt.Errorf("not support sql %s", m.execContext.Query)
 		}
