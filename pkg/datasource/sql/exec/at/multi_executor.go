@@ -80,7 +80,7 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
-	tmpImages := make([]*types.RecordImage, 0)
+	var tmpImages []*types.RecordImage
 	var err error
 
 	var beforeImages = make([]*types.RecordImage, 0)
