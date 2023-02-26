@@ -20,6 +20,7 @@ package client
 import (
 	"flag"
 	"fmt"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -56,12 +57,14 @@ type ClientConfig struct {
 	TmConfig   tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
 	RmConfig   rm.Config   `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
 	UndoConfig undo.Config `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
+	XaConfig   xa.XAConfig `yaml:"xa" json:"xa" koanf:"xa"`
 }
 
 func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	c.TmConfig.RegisterFlagsWithPrefix(prefix+".tm", f)
 	c.RmConfig.RegisterFlagsWithPrefix(prefix+".rm", f)
 	c.UndoConfig.RegisterFlagsWithPrefix(prefix+".undo", f)
+	c.XaConfig.RegisterFlagsWithPrefix(prefix+".xa", f)
 }
 
 type Config struct {

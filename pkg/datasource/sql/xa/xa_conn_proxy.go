@@ -21,11 +21,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/xa/xaresource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
@@ -42,10 +42,11 @@ type ConnectionProxyXA struct {
 	xaActive           bool
 	rollBacked         bool
 	branchRegisterTime int64
-	prepareTime        int64
+	prepareTime        time.Time
 	timeout            int
 
 	currentAutoCommitStatus bool
+	isConnKept              bool
 }
 
 func NewConnectionProxyXA(originalConnection driver.Conn, resource *sql.DBResource, xid string) (*ConnectionProxyXA, error) {
@@ -74,16 +75,17 @@ func (c *ConnectionProxyXA) SetXAResource(resource xaresource.XAResource) {
 
 func (c *ConnectionProxyXA) keepIfNecessary() {
 	if c.ShouldBeHeld() {
-		c.resource.Hold(c.xaBranchXid.String(), c)
+		if err := c.resource.Hold(c.xaBranchXid.String(), c); err == nil {
+			c.isConnKept = true
+		}
 	}
 }
 
 func (c *ConnectionProxyXA) releaseIfNecessary() {
-	if c.ShouldBeHeld() {
-		if reflect.DeepEqual(c.xaBranchXid, XABranchXid{}) {
-			if c.IsHeld() {
-				c.resource.Release(c.xaBranchXid.String())
-			}
+	if c.ShouldBeHeld() && c.xaBranchXid.String() != "" {
+		if c.isConnKept {
+			c.resource.Release(c.xaBranchXid.String())
+			c.isConnKept = false
 		}
 	}
 }
@@ -246,7 +248,7 @@ func (c *ConnectionProxyXA) cleanXABranchContext() {
 	c.prepareTime = 0
 	c.timeout = 0
 	c.xaActive = false
-	if !c.IsHeld() {
+	if !c.isConnKept {
 		c.xaBranchXid = nil
 	}
 }
@@ -261,7 +263,7 @@ func (c *ConnectionProxyXA) checkTimeout(ctx context.Context, now int64) error {
 
 func (c *ConnectionProxyXA) Close() error {
 	c.rollBacked = false
-	if c.IsHeld() && c.ShouldBeHeld() {
+	if c.isConnKept && c.ShouldBeHeld() {
 		return nil
 	}
 	c.cleanXABranchContext()
@@ -285,19 +287,11 @@ func (c *ConnectionProxyXA) CloseForce() error {
 	return nil
 }
 
-func (c *ConnectionProxyXA) SetHeld(kept bool) {
-	c.kept = kept
-}
-
-func (c *ConnectionProxyXA) IsHeld() bool {
-	return c.kept
-}
-
 func (c *ConnectionProxyXA) ShouldBeHeld() bool {
-	return c.proxyShouldBeHeld || c.resource.GetDB() != nil
+	return c.resource.IsShouldBeHeld() || (c.resource.GetDbType().String() != "" && c.resource.GetDbType() != types.DBTypeUnknown)
 }
 
-func (c *ConnectionProxyXA) GetPrepareTime() int64 {
+func (c *ConnectionProxyXA) GetPrepareTime() time.Time {
 	return c.prepareTime
 }
 

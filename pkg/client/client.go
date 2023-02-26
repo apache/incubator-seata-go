@@ -18,6 +18,7 @@
 package client
 
 import (
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource"
@@ -82,6 +83,7 @@ func initRmClient(cfg *Config) {
 		integration.Init()
 		tcc.InitTCC()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
+		xa.InitXA(cfg.ClientConfig.XaConfig)
 	})
 }
 

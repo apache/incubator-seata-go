@@ -76,6 +76,7 @@ const (
 	DBTypePostgreSQL
 	DBTypeSQLServer
 	DBTypeOracle
+	DBTypeMARIADB
 
 	BranchPhase_Unknown = 0
 	BranchPhase_Done    = 1

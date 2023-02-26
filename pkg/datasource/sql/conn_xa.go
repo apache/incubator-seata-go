@@ -71,6 +71,7 @@ func (c *XAConn) QueryContext(ctx context.Context, query string, args []driver.N
 		if err != nil {
 			return nil, fmt.Errorf("create xa connection proxy err: %w", err)
 		}
+
 		xaResource, err := xaresource.CreateXAResource(c.Conn.targetConn, c.dbType)
 		if err != nil {
 			return nil, fmt.Errorf("create xa resoruce err:%w", err)

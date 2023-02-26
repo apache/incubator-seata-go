@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -103,6 +104,8 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 type DBResource struct {
 	conf seataServerConfig
 
+	// only use by mysql
+	dbVersion    string
 	dsn          string
 	groupID      string
 	resourceID   string
@@ -117,6 +120,7 @@ type DBResource struct {
 }
 
 func (db *DBResource) init() error {
+	db.checkDbVersion()
 	return nil
 }
 
@@ -132,12 +136,32 @@ func (db *DBResource) GetBranchType() branch.BranchType {
 	return db.conf.BranchType
 }
 
+func (db *DBResource) GetDB() *sql.DB {
+	return db.db
+}
+
+func (db *DBResource) GetDBName() string {
+	return db.dbName
+}
+
 func (db *DBResource) GetDbType() types.DBType {
 	return db.dbType
 }
 
 func (db *DBResource) SetDbType(dbType types.DBType) {
 	db.dbType = dbType
+}
+
+func (db *DBResource) SetDbVersion(v string) {
+	db.dbVersion = v
+}
+
+func (db *DBResource) GetDbVersion() string {
+	return db.dbVersion
+}
+
+func (db *DBResource) IsShouldBeHeld() bool {
+	return db.shouldBeHeld
 }
 
 // Hold the xa connection.
@@ -156,6 +180,10 @@ func (db *DBResource) Release(xaBranchID string) {
 
 func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
 	return db.keeper.Load(xaBranchID)
+}
+
+func (db *DBResource) GetKeeper() interface{} {
+	return db.keeper
 }
 
 func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.ConnectionProxyXA, error) {
@@ -196,15 +224,24 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.
 	return connectionProxyXA, nil
 }
 
-type SqlDBProxy struct {
-	db     *sql.DB
-	dbName string
-}
+func (db *DBResource) checkDbVersion() error {
+	switch db.dbType {
+	case types.DBTypeMySQL:
+		currentVersion, err := util.ConvertDbVersion(db.dbVersion)
+		if err != nil {
+			return fmt.Errorf("new connection xa proxy convert db version:%s err:%v", db.GetDbVersion(), err)
+		}
 
-func (s *SqlDBProxy) GetDB() *sql.DB {
-	return s.db
-}
+		shouldKeptVersion, err := util.ConvertDbVersion("8.0.29")
+		if err != nil {
+			return fmt.Errorf("new connection xa proxy convert db version 8.0.29 err:%v", err)
+		}
 
-func (s *SqlDBProxy) GetDBName() string {
-	return s.dbName
+		if currentVersion < shouldKeptVersion {
+			db.shouldBeHeld = true
+		}
+	case types.DBTypeMARIADB:
+		db.shouldBeHeld = true
+	}
+	return nil
 }
