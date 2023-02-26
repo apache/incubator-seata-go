@@ -17,17 +17,19 @@
 
 package compressor
 
-type NoneCompressor struct {
-}
+import (
+	"testing"
 
-func (n *NoneCompressor) Compress(data []byte) ([]byte, error) {
-	return data, nil
-}
+	"github.com/stretchr/testify/assert"
+)
 
-func (n *NoneCompressor) Decompress(data []byte) ([]byte, error) {
-	return data, nil
-}
-
-func (n *NoneCompressor) GetCompressorType() CompressorType {
-	return CompressorNone
+func TestCompressorType(t *testing.T) {
+	assert.Equal(t, CompressorNone, CompressorType(0))
+	assert.Equal(t, CompressorGzip, CompressorType(1))
+	assert.Equal(t, CompressorZip, CompressorType(2))
+	assert.Equal(t, CompressorSevenz, CompressorType(3))
+	assert.Equal(t, CompressorBzip2, CompressorType(4))
+	assert.Equal(t, CompressorLz4, CompressorType(5))
+	assert.Equal(t, CompressorDeflate, CompressorType(6))
+	assert.Equal(t, CompressorZstd, CompressorType(7))
 }

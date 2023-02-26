@@ -23,10 +23,6 @@ import (
 
 type Zstd struct{}
 
-func NewZstd() *Zstd {
-	return &Zstd{}
-}
-
 func (z Zstd) Compress(data []byte) ([]byte, error) {
 	var encoder, err = zstd.NewWriter(nil)
 	if err != nil {

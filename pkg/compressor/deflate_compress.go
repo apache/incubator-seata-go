@@ -27,10 +27,6 @@ import (
 
 type DeflateCompress struct{}
 
-func NewDeflateCompress() *DeflateCompress {
-	return &DeflateCompress{}
-}
-
 func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	fw, err := flate.NewWriter(&buf, flate.BestCompression)

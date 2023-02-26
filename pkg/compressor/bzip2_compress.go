@@ -27,10 +27,6 @@ import (
 type Bzip2 struct {
 }
 
-func NewBizp2() *Bzip2 {
-	return &Bzip2{}
-}
-
 // Compress Bzip2 compress
 func (g *Bzip2) Compress(b []byte) ([]byte, error) {
 	var buffer bytes.Buffer

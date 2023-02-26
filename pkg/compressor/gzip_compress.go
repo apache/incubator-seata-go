@@ -26,10 +26,6 @@ import (
 type Gzip struct {
 }
 
-func NewGzip() *Gzip {
-	return &Gzip{}
-}
-
 // Compress gzip compress
 func (g *Gzip) Compress(b []byte) ([]byte, error) {
 	var buffer bytes.Buffer

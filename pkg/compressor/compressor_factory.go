@@ -17,24 +17,23 @@
 
 package compressor
 
-var compressorFactory map[string]Compressor
-
 func (c CompressorType) GetCompressor() Compressor {
-	if compressorFactory == nil {
-		compressorFactory = map[string]Compressor{
-			CompressorNone.String():    NewNone(),
-			CompressorGzip.String():    NewGzip(),
-			CompressorZip.String():     NewZip(),
-			CompressorBzip2.String():   NewBizp2(),
-			CompressorLz4.String():     NewLz4(),
-			CompressorZstd.String():    NewZstd(),
-			CompressorDeflate.String(): NewDeflateCompress(),
-		}
-	}
-
-	if v, ok := compressorFactory[c.String()]; ok {
-		return v
-	} else {
+	switch c.String() {
+	case CompressorNone.String():
+		return &NoneCompressor{}
+	case CompressorGzip.String():
+		return &Gzip{}
+	case CompressorZip.String():
+		return &Zip{}
+	case CompressorBzip2.String():
+		return &Bzip2{}
+	case CompressorLz4.String():
+		return &Lz4{}
+	case CompressorZstd.String():
+		return &Zstd{}
+	case CompressorDeflate.String():
+		return &DeflateCompress{}
+	default:
 		panic("compressor type not implement")
 	}
 }

@@ -26,10 +26,6 @@ import (
 
 type Zip struct{}
 
-func NewZip() *Zip {
-	return &Zip{}
-}
-
 func (z Zip) Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	var zp = zlib.NewWriter(&buf)

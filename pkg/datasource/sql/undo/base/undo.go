@@ -215,6 +215,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "jackson"
+	// Todo use config
 	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent, err := json.Marshal(parseContext)
 	if err != nil {

@@ -26,10 +26,6 @@ import (
 type Lz4 struct {
 }
 
-func NewLz4() *Lz4 {
-	return &Lz4{}
-}
-
 func (l *Lz4) Compress(data []byte) ([]byte, error) {
 
 	buffer := make([]byte, lz4.CompressBlockBound(len(data)))

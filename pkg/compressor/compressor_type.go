@@ -17,7 +17,6 @@
 
 package compressor
 
-//go:generate stringer -type=CompressorType
 type CompressorType int8
 
 const (
@@ -27,11 +26,32 @@ const (
 	CompressorSevenz
 	CompressorBzip2
 	CompressorLz4
-	CompressorDefault
-	CompressorZstd
 	CompressorDeflate
-	CompressorMaxl
+	CompressorZstd
 )
+
+func (c CompressorType) String() string {
+	switch c {
+	case CompressorNone:
+		return "CompressorNone"
+	case CompressorGzip:
+		return "CompressorGzip"
+	case CompressorZip:
+		return "CompressorZip"
+	case CompressorSevenz:
+		return "CompressorSevenz"
+	case CompressorBzip2:
+		return "CompressorBzip2"
+	case CompressorLz4:
+		return "CompressorLz4"
+	case CompressorZstd:
+		return "CompressorZstd"
+	case CompressorDeflate:
+		return "CompressorDeflate"
+	default:
+		return ""
+	}
+}
 
 var compressor map[string]CompressorType
 
@@ -44,10 +64,8 @@ func GetByName(name string) CompressorType {
 			CompressorSevenz.String():  CompressorSevenz,
 			CompressorBzip2.String():   CompressorBzip2,
 			CompressorLz4.String():     CompressorLz4,
-			CompressorDefault.String(): CompressorDefault,
 			CompressorZstd.String():    CompressorZstd,
 			CompressorDeflate.String(): CompressorDeflate,
-			CompressorMaxl.String():    CompressorMaxl,
 		}
 	}
 
