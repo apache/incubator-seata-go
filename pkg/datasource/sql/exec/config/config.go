@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package rm
+package config
 
-var rmConfig RmConfig
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/at"
+	"github.com/seata/seata-go/pkg/rm"
+)
 
-type RmConfig struct {
-	Config
-
-	ApplicationID  string
-	TxServiceGroup string
-}
-
-// InitRmClient init seata rm client
-func InitRm(cfg RmConfig) {
-	rmConfig = cfg
+func Init(config rm.LockConfig) {
+	at.LockConfig = config
 }

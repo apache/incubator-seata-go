@@ -23,9 +23,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
 	"sync"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
