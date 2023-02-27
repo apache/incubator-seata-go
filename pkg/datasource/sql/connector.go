@@ -21,12 +21,12 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"github.com/seata/seata-go/pkg/client"
 	"io"
 	"sync"
 
 	"github.com/go-sql-driver/mysql"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
 )

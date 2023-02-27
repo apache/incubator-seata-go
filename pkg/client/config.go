@@ -20,7 +20,6 @@ package client
 import (
 	"flag"
 	"fmt"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,8 +31,10 @@ import (
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
+
 	"github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
