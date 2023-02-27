@@ -20,6 +20,7 @@ package xa
 import (
 	"context"
 	"database/sql/driver"
+	"flag"
 	"fmt"
 	"time"
 
@@ -32,6 +33,14 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
+type ConnectionProxyXAConf struct {
+	xaBranchExecutionTimeout time.Duration `json:"xa_branch_execution_timeout" xml:"xa_branch_execution_timeout" koanf:"xa_branch_execution_timeout"`
+}
+
+func (cfg *ConnectionProxyXAConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.DurationVar(&cfg.xaBranchExecutionTimeout, prefix+".xa_branch_execution_timeout", time.Minute, "Undo log table name.")
+}
+
 type ConnectionProxyXA struct {
 	xaConn     *sql.XAConn
 	resource   *sql.DBResource
@@ -41,15 +50,15 @@ type ConnectionProxyXA struct {
 	xaBranchXid        *XABranchXid
 	xaActive           bool
 	rollBacked         bool
-	branchRegisterTime int64
+	branchRegisterTime time.Time
 	prepareTime        time.Time
-	timeout            int
+	timeout            time.Duration
 
 	currentAutoCommitStatus bool
 	isConnKept              bool
 }
 
-func NewConnectionProxyXA(originalConnection driver.Conn, resource *sql.DBResource, xid string) (*ConnectionProxyXA, error) {
+func NewConnectionProxyXA(cfg ConnectionProxyXAConf, originalConnection driver.Conn, resource *sql.DBResource, xid string) (*ConnectionProxyXA, error) {
 	xaConn, isXAConn := originalConnection.(*sql.XAConn)
 	if !isXAConn {
 		return nil, fmt.Errorf("new xa connection proxy failure because originalConnection is not sql.XAConn, xid:%s", xid)
@@ -59,6 +68,7 @@ func NewConnectionProxyXA(originalConnection driver.Conn, resource *sql.DBResour
 		xaConn:   xaConn,
 		resource: resource,
 		xid:      xid,
+		timeout:  cfg.xaBranchExecutionTimeout,
 	}
 
 	connectionProxyXA.currentAutoCommitStatus = connectionProxyXA.xaConn.GetAutoCommit()
@@ -114,27 +124,31 @@ func (c *ConnectionProxyXA) SetAutoCommit(ctx context.Context, autoCommit bool) 
 	}
 	if autoCommit {
 		if c.xaActive {
-			_ = c.Commit(ctx)
+			if err := c.Commit(ctx); err != nil {
+				return fmt.Errorf("set auto commit xid:%s err:%v", c.xid, err)
+			}
 		}
 	} else {
 		if c.xaActive {
-			return fmt.Errorf("should NEVER happen: setAutoCommit from true to false while xa branch is active")
+			return fmt.Errorf("should never happen: setAutoCommit from true to false while xa branch is active")
 		}
 
-		c.branchRegisterTime = time.Now().UnixMilli()
 		var branchRegisterParam rm.BranchRegisterParam
 		branchRegisterParam.BranchType = branch.BranchTypeXA
 		branchRegisterParam.ResourceId = c.resource.GetResourceId()
 		branchRegisterParam.Xid = c.xid
-		branchId, err := datasource.GetDataSourceManager(branch.BranchTypeXA).BranchRegister(context.TODO(), branchRegisterParam)
+
+		c.branchRegisterTime = time.Now()
+		branchId, err := datasource.GetDataSourceManager(branch.BranchTypeXA).BranchRegister(ctx, branchRegisterParam)
 		if err != nil {
 			c.cleanXABranchContext()
 			return fmt.Errorf("failed to register xa branch [%v]", c.xid)
 		}
+
 		c.xaBranchXid = XaIdBuild(c.xid, branchId)
 		c.keepIfNecessary()
-		err = c.start(ctx)
-		if err != nil {
+
+		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
 			return fmt.Errorf("failed to start xa branch [%v]", c.xid)
 		}
@@ -152,16 +166,20 @@ func (c *ConnectionProxyXA) Commit(ctx context.Context) error {
 	if c.currentAutoCommitStatus {
 		return nil
 	}
+
 	if !c.xaActive || c.xaBranchXid == nil {
 		return fmt.Errorf("should NOT commit on an inactive session")
 	}
-	now := time.Now().UnixMilli()
+
+	now := time.Now()
 	if c.end(ctx, xaresource.TMSuccess) != nil {
 		return c.commitErrorHandle()
 	}
+
 	if c.checkTimeout(ctx, now) != nil {
 		return c.commitErrorHandle()
 	}
+
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
 		return c.commitErrorHandle()
 	}
@@ -244,8 +262,9 @@ func (c *ConnectionProxyXA) end(ctx context.Context, flags int) error {
 }
 
 func (c *ConnectionProxyXA) cleanXABranchContext() {
-	c.branchRegisterTime = 0
-	c.prepareTime = 0
+	h, _ := time.ParseDuration("-1000h")
+	c.branchRegisterTime = time.Now().Add(h)
+	c.prepareTime = time.Now().Add(h)
 	c.timeout = 0
 	c.xaActive = false
 	if !c.isConnKept {
@@ -253,8 +272,8 @@ func (c *ConnectionProxyXA) cleanXABranchContext() {
 	}
 }
 
-func (c *ConnectionProxyXA) checkTimeout(ctx context.Context, now int64) error {
-	if now-c.branchRegisterTime > int64(c.timeout) {
+func (c *ConnectionProxyXA) checkTimeout(ctx context.Context, now time.Time) error {
+	if now.Sub(c.branchRegisterTime) > c.timeout {
 		c.XaRollback(ctx, c.xaBranchXid)
 		return fmt.Errorf("XA branch timeout error")
 	}
@@ -291,16 +310,8 @@ func (c *ConnectionProxyXA) ShouldBeHeld() bool {
 	return c.resource.IsShouldBeHeld() || (c.resource.GetDbType().String() != "" && c.resource.GetDbType() != types.DBTypeUnknown)
 }
 
-func (c *ConnectionProxyXA) GetPrepareTime() time.Time {
-	return c.prepareTime
-}
-
-func (c *ConnectionProxyXA) setPrepareTime(prepareTime int64) {
-	c.prepareTime = prepareTime
-}
-
 func (c *ConnectionProxyXA) termination(xaBranchXid string) error {
-	branchStatus, err := c.resource.GetBranchStatus(xaBranchXid)
+	branchStatus, err := branchStatus(xaBranchXid)
 	if err != nil {
 		c.releaseIfNecessary()
 		return fmt.Errorf("failed xa branch [%v] the global transaction has finish, branch status: [%v]", c.xid, branchStatus)

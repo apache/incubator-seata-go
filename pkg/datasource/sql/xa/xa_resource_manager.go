@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluele/gcache"
+
 	sql2 "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -33,21 +35,27 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+var branchStatusCache gcache.Cache
+
 type XAConfig struct {
+	ConnectionProxyXAConf
 	TwoPhaseHoldTime time.Duration `json:"two_phase_hold_time" yaml:"xa_two_phase_hold_time" koanf:"xa_two_phase_hold_time"`
 }
 
 func (cfg *XAConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.DurationVar(&cfg.TwoPhaseHoldTime, prefix+".two_phase_hold_time", time.Millisecond*1000, "Undo log table name.")
+	cfg.ConnectionProxyXAConf.RegisterFlagsWithPrefix(prefix, f)
 }
 
-func InitXA(config XAConfig) *ResourceManagerXA {
-	xaSourceManager := &ResourceManagerXA{
+func InitXA(config XAConfig) *XAResourceManager {
+	xaSourceManager := &XAResourceManager{
 		resourceCache: sync.Map{},
 		basic:         datasource.NewBasicSourceManager(),
 		rmRemoting:    rm.GetRMRemotingInstance(),
 		config:        config,
 	}
+
+	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
 
 	rm.GetRmCacheInstance().RegisterResourceManager(xaSourceManager)
 
@@ -56,14 +64,14 @@ func InitXA(config XAConfig) *ResourceManagerXA {
 	return xaSourceManager
 }
 
-type ResourceManagerXA struct {
+type XAResourceManager struct {
 	config        XAConfig
 	resourceCache sync.Map
 	basic         *datasource.BasicSourceManager
 	rmRemoting    *rm.RMRemoting
 }
 
-func (xaManager *ResourceManagerXA) xaTwoPhaseTimeoutChecker() {
+func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
 	var dbResource *sql2.DBResource
 	xaManager.resourceCache.Range(func(key, value any) bool {
 		if source, ok := value.(*sql2.DBResource); ok {
@@ -91,7 +99,7 @@ func (xaManager *ResourceManagerXA) xaTwoPhaseTimeoutChecker() {
 						return true
 					}
 
-					if time.Now().Sub(connectionXA.GetPrepareTime()) > xaManager.config.TwoPhaseHoldTime {
+					if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
 						if err := connectionXA.CloseForce(); err != nil {
 							log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.xid)
 						}
@@ -105,28 +113,28 @@ func (xaManager *ResourceManagerXA) xaTwoPhaseTimeoutChecker() {
 
 }
 
-func (xaManager *ResourceManagerXA) GetBranchType() branch.BranchType {
+func (xaManager *XAResourceManager) GetBranchType() branch.BranchType {
 	return branch.BranchTypeXA
 }
 
-func (xaManager *ResourceManagerXA) GetCachedResources() *sync.Map {
+func (xaManager *XAResourceManager) GetCachedResources() *sync.Map {
 	return &xaManager.resourceCache
 }
 
-func (xaManager *ResourceManagerXA) RegisterResource(res rm.Resource) error {
+func (xaManager *XAResourceManager) RegisterResource(res rm.Resource) error {
 	xaManager.resourceCache.Store(res.GetResourceId(), res)
 	return xaManager.basic.RegisterResource(res)
 }
 
-func (xaManager *ResourceManagerXA) UnregisterResource(resource rm.Resource) error {
+func (xaManager *XAResourceManager) UnregisterResource(resource rm.Resource) error {
 	return xaManager.basic.UnregisterResource(resource)
 }
 
-func (xaManager *ResourceManagerXA) xaIDBuilder(xid string, branchId int64) XAXid {
+func (xaManager *XAResourceManager) xaIDBuilder(xid string, branchId int64) XAXid {
 	return XaIdBuild(xid, branchId)
 }
 
-func (xaManager *ResourceManagerXA) finishBranch(ctx context.Context, xaID XAXid, branchResource rm.BranchResource) (*ConnectionProxyXA, error) {
+func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid, branchResource rm.BranchResource) (*ConnectionProxyXA, error) {
 	resource, ok := xaManager.resourceCache.Load(branchResource.ResourceId)
 	if !ok {
 		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
@@ -151,7 +159,7 @@ func (xaManager *ResourceManagerXA) finishBranch(ctx context.Context, xaID XAXid
 	return connectionProxyXA, nil
 }
 
-func (xaManager *ResourceManagerXA) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
 	xaID := xaManager.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
@@ -161,6 +169,7 @@ func (xaManager *ResourceManagerXA) BranchCommit(ctx context.Context, branchReso
 	if commitErr := connectionProxyXA.XaCommit(ctx, xaID.String(), branchResource.BranchId); commitErr != nil {
 		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
+		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
 	}
 
@@ -168,7 +177,7 @@ func (xaManager *ResourceManagerXA) BranchCommit(ctx context.Context, branchReso
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
-func (xaManager *ResourceManagerXA) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
 	xaID := xaManager.xaIDBuilder(branchResource.Xid, branchResource.BranchId)
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
@@ -178,6 +187,7 @@ func (xaManager *ResourceManagerXA) BranchRollback(ctx context.Context, branchRe
 	if rollbackErr := connectionProxyXA.XaRollbackByBranchId(ctx, xaID.String(), branchResource.BranchId); rollbackErr != nil {
 		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
+		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
@@ -185,18 +195,34 @@ func (xaManager *ResourceManagerXA) BranchRollback(ctx context.Context, branchRe
 	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 
-func (xaManager *ResourceManagerXA) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
+func (xaManager *XAResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	return false, nil
 }
 
-func (xaManager *ResourceManagerXA) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
+func (xaManager *XAResourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
 	return xaManager.rmRemoting.BranchRegister(req)
 }
 
-func (xaManager *ResourceManagerXA) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
+func (xaManager *XAResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return xaManager.rmRemoting.BranchReport(param)
 }
 
-func (xaManager *ResourceManagerXA) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
+func (xaManager *XAResourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
 	return xaManager.basic.CreateTableMetaCache(ctx, resID, dbType, db)
+}
+
+func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {
+	tmpBranchStatus, err := branchStatusCache.GetIFPresent(xaBranchXid)
+	if err != nil {
+		return branch.BranchStatusUnknown, err
+	}
+	branchStatus, isBranchStatus := tmpBranchStatus.(branch.BranchStatus)
+	if !isBranchStatus {
+		return branch.BranchStatusUnknown, fmt.Errorf("branchId:%s get result isn't branch status", xaBranchXid)
+	}
+	return branchStatus, nil
+}
+
+func setBranchStatus(xaBranchXid string, status branch.BranchStatus) {
+	branchStatusCache.Set(xaBranchXid, status)
 }

@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec/at"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
@@ -28,11 +29,11 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
 )
 
-func Init() {
+func Init(cfg *client.Config) {
 	hookRegister()
 	executorRegister()
 	undoInit()
-	initDriver()
+	initDriver(cfg)
 }
 
 func hookRegister() {

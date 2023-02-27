@@ -22,12 +22,13 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"sync"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/datasource/sql/xa/xaresource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -66,6 +67,12 @@ func withDBType(dt types.DBType) dbOption {
 	}
 }
 
+func withBranchType(dt branch.BranchType) dbOption {
+	return func(db *DBResource) {
+		db.branchType = dt
+	}
+}
+
 func withTarget(source *sql.DB) dbOption {
 	return func(db *DBResource) {
 		db.db = source
@@ -84,9 +91,9 @@ func withDBName(dbName string) dbOption {
 	}
 }
 
-func withConf(conf *seataServerConfig) dbOption {
+func withConf(conf *client.Config) dbOption {
 	return func(db *DBResource) {
-		db.conf = *conf
+		db.conf = conf
 	}
 }
 
@@ -102,18 +109,21 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
-	conf seataServerConfig
+	conf *client.Config
 
 	// only use by mysql
-	dbVersion    string
-	dsn          string
-	groupID      string
-	resourceID   string
-	db           *sql.DB
-	connector    driver.Connector
-	dbName       string
-	dbType       types.DBType
-	undoLogMgr   undo.UndoLogManager
+	dbVersion  string
+	dsn        string
+	groupID    string
+	resourceID string
+	db         *sql.DB
+	connector  driver.Connector
+	dbName     string
+	dbType     types.DBType
+	undoLogMgr undo.UndoLogManager
+	branchType branch.BranchType
+
+	// for xa
 	metaCache    datasource.TableMetaCache
 	shouldBeHeld bool
 	keeper       sync.Map
@@ -133,7 +143,7 @@ func (db *DBResource) GetResourceId() string {
 }
 
 func (db *DBResource) GetBranchType() branch.BranchType {
-	return db.conf.BranchType
+	return db.branchType
 }
 
 func (db *DBResource) GetDB() *sql.DB {
@@ -210,7 +220,8 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
 
-	connectionProxyXA, err := xa.NewConnectionProxyXA(newDriverConn, db, xaXid.String())
+	xaConnConf := db.conf.ClientConfig.XaConfig.ConnectionProxyXAConf
+	connectionProxyXA, err := xa.NewConnectionProxyXA(xaConnConf, newDriverConn, db, xaXid.String())
 	if err != nil {
 		log.Errorf("create connection proxy xa id:%s err:%v", xaXid.String(), err)
 		return nil, err

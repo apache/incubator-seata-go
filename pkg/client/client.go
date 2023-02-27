@@ -89,6 +89,6 @@ func initRmClient(cfg *Config) {
 
 func initDatasource(cfg *Config) {
 	onceInitDatasource.Do(func() {
-		datasource.Init()
+		datasource.Init(cfg)
 	})
 }

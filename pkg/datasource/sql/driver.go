@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
+	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -41,9 +42,10 @@ const (
 	SeataXAMySQLDriver = "seata-xa-mysql"
 )
 
-func initDriver() {
+func initDriver(cfg *client.Config) {
 	sql.Register(SeataATMySQLDriver, &seataATDriver{
 		seataDriver: &seataDriver{
+			cfg:       cfg,
 			transType: types.ATMode,
 			target:    mysql.MySQLDriver{},
 		},
@@ -51,6 +53,7 @@ func initDriver() {
 
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
+			cfg:       cfg,
 			transType: types.XAMode,
 			target:    mysql.MySQLDriver{},
 		},
@@ -71,6 +74,7 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 	_connector.transType = types.ATMode
 	cfg, _ := mysql.ParseDSN(name)
 	_connector.cfg = cfg
+	d.branchType = branch.BranchTypeAT
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -91,6 +95,7 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 	_connector.transType = types.XAMode
 	cfg, _ := mysql.ParseDSN(name)
 	_connector.cfg = cfg
+	d.branchType = branch.BranchTypeXA
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -98,8 +103,10 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 }
 
 type seataDriver struct {
-	transType types.TransactionMode
-	target    driver.Driver
+	cfg        *client.Config
+	branchType branch.BranchType
+	transType  types.TransactionMode
+	target     driver.Driver
 }
 
 // Open never be called, because seataDriver implemented dri.DriverContext interface.
@@ -124,13 +131,48 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 		return nil, fmt.Errorf("unsupport conn type %s", d.getTargetDriverName())
 	}
 
-	proxy, err := getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
+	proxy, err := d.getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
 	if err != nil {
 		log.Errorf("register resource: %w", err)
 		return nil, err
 	}
 
 	return proxy, nil
+}
+
+func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType types.DBType,
+	db *sql.DB, dataSourceName string) (driver.Connector, error) {
+	cfg, _ := mysql.ParseDSN(dataSourceName)
+	options := []dbOption{
+		withGroupID(d.cfg.ApplicationID),
+		withResourceID(parseResourceID(dataSourceName)),
+		withConf(d.cfg),
+		withTarget(db),
+		withBranchType(d.branchType),
+		withDBType(dbType),
+		withDBName(cfg.DBName),
+		withConnector(connector),
+	}
+
+	res, err := newResource(options...)
+	if err != nil {
+		log.Errorf("create new resource: %w", err)
+		return nil, err
+	}
+
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
+
+	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
+		log.Errorf("regisiter resource: %w", err)
+		return nil, err
+	}
+
+	return &seataConnector{
+		res:        res,
+		target:     connector,
+		serverConf: d.cfg,
+		cfg:        cfg,
+	}, nil
 }
 
 func (d *seataDriver) getTargetDriverName() string {
@@ -148,78 +190,6 @@ func (t *dsnConnector) Connect(_ context.Context) (driver.Conn, error) {
 
 func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
-}
-
-func getOpenConnectorProxy(connector driver.Connector, dbType types.DBType, db *sql.DB,
-	dataSourceName string, opts ...seataOption) (driver.Connector, error) {
-	conf := loadConfig()
-	for i := range opts {
-		opts[i](conf)
-	}
-
-	if err := conf.validate(); err != nil {
-		log.Errorf("invalid conf: %w", err)
-		return nil, err
-	}
-
-	cfg, _ := mysql.ParseDSN(dataSourceName)
-	options := []dbOption{
-		withGroupID(conf.GroupID),
-		withResourceID(parseResourceID(dataSourceName)),
-		withConf(conf),
-		withTarget(db),
-		withDBType(dbType),
-		withDBName(cfg.DBName),
-		withConnector(connector),
-	}
-
-	res, err := newResource(options...)
-	if err != nil {
-		log.Errorf("create new resource: %w", err)
-		return nil, err
-	}
-
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
-	if err = datasource.GetDataSourceManager(conf.BranchType).RegisterResource(res); err != nil {
-		log.Errorf("regisiter resource: %w", err)
-		return nil, err
-	}
-
-	return &seataConnector{
-		res:    res,
-		target: connector,
-		conf:   conf,
-		cfg:    cfg,
-	}, nil
-}
-
-type (
-	seataOption func(cfg *seataServerConfig)
-
-	// seataServerConfig
-	seataServerConfig struct {
-		// GroupID
-		GroupID string `yaml:"groupID"`
-		// BranchType
-		BranchType branch.BranchType
-		// Endpoints
-		Endpoints []string `yaml:"endpoints" json:"endpoints"`
-	}
-)
-
-func (c *seataServerConfig) validate() error {
-	return nil
-}
-
-// loadConfig
-func loadConfig() *seataServerConfig {
-	// set default value first.
-	// todo read from configuration file.
-	return &seataServerConfig{
-		GroupID:    "DEFAULT_GROUP",
-		BranchType: branch.BranchTypeAT,
-		Endpoints:  []string{"127.0.0.1:8888"},
-	}
 }
 
 func parseResourceID(dsn string) string {

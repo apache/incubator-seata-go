@@ -67,7 +67,8 @@ func (c *XAConn) QueryContext(ctx context.Context, query string, args []driver.N
 		}
 
 		// build xa connection proxy
-		xaConnectionProxy, err := xa.NewConnectionProxyXA(c, c.res, c.txCtx.XID)
+		xaConnConf := c.conf.ClientConfig.XaConfig.ConnectionProxyXAConf
+		xaConnectionProxy, err := xa.NewConnectionProxyXA(xaConnConf, c, c.res, c.txCtx.XID)
 		if err != nil {
 			return nil, fmt.Errorf("create xa connection proxy err: %w", err)
 		}
