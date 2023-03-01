@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -92,13 +91,12 @@ func (c *seataXAConnector) Driver() driver.Driver {
 // If a Connector implements io.Closer, the sql package's DB.Close
 // method will call Close and return error (if any).
 type seataConnector struct {
-	transType  types.TransactionMode
-	serverConf *client.Config
-	res        *DBResource
-	once       sync.Once
-	driver     driver.Driver
-	target     driver.Connector
-	cfg        *mysql.Config
+	transType types.TransactionMode
+	res       *DBResource
+	once      sync.Once
+	driver    driver.Driver
+	target    driver.Connector
+	cfg       *mysql.Config
 }
 
 // Connect returns a connection to the database.
@@ -130,7 +128,6 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	}
 
 	return &Conn{
-		conf:       c.serverConf,
 		targetConn: conn,
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),

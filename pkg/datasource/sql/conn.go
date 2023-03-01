@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
@@ -38,7 +37,6 @@ type Conn struct {
 	autoCommit bool
 	dbName     string
 	dbType     types.DBType
-	conf       *client.Config
 }
 
 // ResetSession is called prior to executing a query on the connection
