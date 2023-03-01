@@ -43,7 +43,7 @@ func InitPath(configFilePath string) {
 
 	initRmClient(cfg)
 	initTmClient(cfg)
-	initDatasource(cfg)
+	initDatasource()
 }
 
 var (
@@ -88,8 +88,8 @@ func initRmClient(cfg *Config) {
 	})
 }
 
-func initDatasource(cfg *Config) {
+func initDatasource() {
 	onceInitDatasource.Do(func() {
-		datasource.Init(cfg)
+		datasource.Init()
 	})
 }

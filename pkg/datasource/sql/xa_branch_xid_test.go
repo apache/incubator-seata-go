@@ -25,8 +25,8 @@ import (
 
 func TestXABranchXidBuild(t *testing.T) {
 	xid := "111"
-	branchId := int64(222)
-	x := Build(xid, branchId)
+	branchId := uint64(222)
+	x := XaIdBuild(xid, branchId)
 	assert.Equal(t, x.GetGlobalXid(), xid)
 	assert.Equal(t, x.GetBranchId(), branchId)
 
@@ -37,7 +37,7 @@ func TestXABranchXidBuild(t *testing.T) {
 func TestXABranchXidBuildWithByte(t *testing.T) {
 	xid := []byte("111")
 	branchId := []byte(BranchIdPrefix + "222")
-	x := BuildWithByte(xid, branchId)
+	x := XaIdBuildWithByte(xid, branchId)
 	assert.Equal(t, x.GetGlobalTransactionId(), xid)
 	assert.Equal(t, x.GetBranchQualifier(), branchId)
 

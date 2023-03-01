@@ -18,10 +18,9 @@
 package datasource
 
 import (
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql"
 )
 
-func Init(cfg *client.Config) {
-	sql.Init(cfg)
+func Init() {
+	sql.Init()
 }

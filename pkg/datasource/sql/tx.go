@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/backoff"
 	"sync"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/util/backoff"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
