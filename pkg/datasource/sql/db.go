@@ -180,8 +180,8 @@ func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
 	return db.keeper.Load(xaBranchID)
 }
 
-func (db *DBResource) GetKeeper() interface{} {
-	return db.keeper
+func (db *DBResource) GetKeeper() *sync.Map {
+	return &db.keeper
 }
 
 func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn, error) {

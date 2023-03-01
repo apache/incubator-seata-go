@@ -103,16 +103,19 @@ func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
 						return true
 					}
 
-					connectionXA, isConnectionXA := source.GetKeeper().(*XAConn)
-					if !isConnectionXA {
-						return true
-					}
-
-					if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
-						if err := connectionXA.CloseForce(); err != nil {
-							log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
+					source.GetKeeper().Range(func(key, value any) bool {
+						connectionXA, isConnectionXA := value.(*XAConn)
+						if !isConnectionXA {
+							return true
 						}
-					}
+
+						if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
+							if err := connectionXA.CloseForce(); err != nil {
+								log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
+							}
+						}
+						return true
+					})
 					return true
 				})
 			}
