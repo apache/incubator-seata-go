@@ -96,33 +96,31 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
 	}
-	if ok {
-		for i, sql := range multiQuery {
-			rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, sql, args)
-			defer func() {
-				if rowsi != nil {
-					rowsi.Close()
-				}
-			}()
-			if err != nil {
-				log.Errorf("ctx driver query: %+v", err)
-				return nil, err
+	for i, sql := range multiQuery {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, sql, args)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
 			}
-			tableName := m.parserCtx.MultiStmt[i].DeleteStmt.
-				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-			metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
-			if err != nil {
-				return nil, err
-			}
-			image, err = m.buildRecordImages(rowsi, metaData)
-			if err != nil {
-				log.Errorf("record images : %+v", err)
-				return nil, err
-			}
-			records = append(records, image)
-			lockKey := m.buildLockKey(image, *metaData)
-			m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
 		}
+		tableName := m.parserCtx.MultiStmt[i].DeleteStmt.
+			TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+		if err != nil {
+			return nil, err
+		}
+		image, err = m.buildRecordImages(rowsi, metaData)
+		if err != nil {
+			log.Errorf("record images : %+v", err)
+			return nil, err
+		}
+		records = append(records, image)
+		lockKey := m.buildLockKey(image, *metaData)
+		m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 	return records, err
 }
@@ -148,13 +146,12 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() ([]string, []driver.NamedVal
 		tables     = make(map[string]multiDelete, len(multiQuery))
 	)
 
-	for _, query := range multiQuery {
-		p, err = parser.DoParser(query)
-		if err != nil {
-			return nil, nil, err
-		}
+	ps, err := parser.DoParser(m.execContext.Query)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, p := range ps.MultiStmt {
 		tableName = p.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-
 		v, ok := tables[tableName]
 		if ok && v.clear {
 			continue
