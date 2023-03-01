@@ -27,7 +27,6 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -42,10 +41,9 @@ const (
 	SeataXAMySQLDriver = "seata-xa-mysql"
 )
 
-func initDriver(cfg *client.Config) {
+func initDriver() {
 	sql.Register(SeataATMySQLDriver, &seataATDriver{
 		seataDriver: &seataDriver{
-			cfg:       cfg,
 			transType: types.ATMode,
 			target:    mysql.MySQLDriver{},
 		},
@@ -53,7 +51,6 @@ func initDriver(cfg *client.Config) {
 
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
-			cfg:       cfg,
 			transType: types.XAMode,
 			target:    mysql.MySQLDriver{},
 		},
@@ -103,7 +100,7 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 }
 
 type seataDriver struct {
-	cfg        *client.Config
+	cfg        *XAConfig
 	branchType branch.BranchType
 	transType  types.TransactionMode
 	target     driver.Driver
@@ -144,9 +141,6 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
 	cfg, _ := mysql.ParseDSN(dataSourceName)
 	options := []dbOption{
-		withGroupID(d.cfg.ApplicationID),
-		withResourceID(parseResourceID(dataSourceName)),
-		withConf(d.cfg),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
@@ -168,10 +162,9 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	}
 
 	return &seataConnector{
-		res:        res,
-		target:     connector,
-		serverConf: d.cfg,
-		cfg:        cfg,
+		res:    res,
+		target: connector,
+		cfg:    cfg,
 	}, nil
 }
 

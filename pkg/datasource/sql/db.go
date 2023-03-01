@@ -24,14 +24,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)
@@ -39,12 +36,6 @@ type dbOption func(db *DBResource)
 func withDsn(dsn string) dbOption {
 	return func(db *DBResource) {
 		db.dsn = dsn
-	}
-}
-
-func withGroupID(id string) dbOption {
-	return func(db *DBResource) {
-		db.groupID = id
 	}
 }
 
@@ -90,9 +81,9 @@ func withDBName(dbName string) dbOption {
 	}
 }
 
-func withConf(conf *client.Config) dbOption {
+func withConf(conf *XAConnConf) dbOption {
 	return func(db *DBResource) {
-		db.conf = conf
+		db.xaConnConf = conf
 	}
 }
 
@@ -108,12 +99,10 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
-	conf *client.Config
-
+	xaConnConf *XAConnConf
 	// only use by mysql
 	dbVersion  string
 	dsn        string
-	groupID    string
 	resourceID string
 	db         *sql.DB
 	connector  driver.Connector
@@ -128,13 +117,13 @@ type DBResource struct {
 	keeper       sync.Map
 }
 
+func (db *DBResource) GetResourceGroupId() string {
+	panic("implement me")
+}
+
 func (db *DBResource) init() error {
 	db.checkDbVersion()
 	return nil
-}
-
-func (db *DBResource) GetResourceGroupId() string {
-	return db.groupID
 }
 
 func (db *DBResource) GetResourceId() string {
@@ -218,20 +207,10 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	if err != nil {
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
-
-	xaConnConf := db.conf.ClientConfig.XaConfig.ConnectionProxyXAConf
-	connectionProxyXA, err := xa.NewConnectionProxyXA(xaConnConf, newDriverConn, db, xaXid.String())
-	if err != nil {
-		log.Errorf("create connection proxy xa id:%s err:%v", xaXid.String(), err)
-		return nil, err
+	xaConn := &XAConn{
+		Conn: newDriverConn.(*Conn),
 	}
-
-	xaResource, err := xa.CreateXAResource(newDriverConn, db.GetDbType())
-	if err != nil {
-		return nil, err
-	}
-	connectionProxyXA.SetXAResource(xaResource)
-	return connectionProxyXA, nil
+	return xaConn, nil
 }
 
 func (db *DBResource) checkDbVersion() error {

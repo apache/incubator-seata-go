@@ -21,7 +21,6 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
-	"flag"
 	"fmt"
 	"time"
 
@@ -31,28 +30,20 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-type XAConnConf struct {
-	xaBranchExecutionTimeout time.Duration `json:"xa_branch_execution_timeout" xml:"xa_branch_execution_timeout" koanf:"xa_branch_execution_timeout"`
-}
-
-func (cfg *XAConnConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.DurationVar(&cfg.xaBranchExecutionTimeout, prefix+".xa_branch_execution_timeout", time.Minute, "Undo log table name.")
-}
+var xaConnTimeout time.Duration
 
 // XAConn Database connection proxy object under XA transaction model
 // Conn is assumed to be stateful.
 type XAConn struct {
 	*Conn
 
-	tx driver.Tx
-
+	tx                 driver.Tx
 	xaResource         xa.XAResource
 	xaBranchXid        *XABranchXid
 	xaActive           bool
 	rollBacked         bool
 	branchRegisterTime time.Time
 	prepareTime        time.Time
-	timeout            time.Duration
 	isConnKept         bool
 }
 
@@ -277,7 +268,6 @@ func (c *XAConn) cleanXABranchContext() {
 	h, _ := time.ParseDuration("-1000h")
 	c.branchRegisterTime = time.Now().Add(h)
 	c.prepareTime = time.Now().Add(h)
-	c.timeout = 0
 	c.xaActive = false
 	if !c.isConnKept {
 		c.xaBranchXid = nil
@@ -352,7 +342,7 @@ func (c *XAConn) ShouldBeHeld() bool {
 }
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
-	if now.Sub(c.branchRegisterTime) > c.timeout {
+	if now.Sub(c.branchRegisterTime) > xaConnTimeout {
 		c.XaRollback(ctx, c.xaBranchXid)
 		return fmt.Errorf("XA branch timeout error xid:%s", c.txCtx.XID)
 	}

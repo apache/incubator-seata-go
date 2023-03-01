@@ -36,12 +36,22 @@ import (
 
 var branchStatusCache gcache.Cache
 
+type XAConnConf struct {
+	XaBranchExecutionTimeout time.Duration `json:"xa_branch_execution_timeout" xml:"xa_branch_execution_timeout" koanf:"xa_branch_execution_timeout"`
+}
+
+func (cfg *XAConnConf) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.DurationVar(&cfg.XaBranchExecutionTimeout, prefix+".xa_branch_execution_timeout", time.Minute, "Undo log table name.")
+}
+
 type XAConfig struct {
+	xaConnConf       XAConnConf
 	TwoPhaseHoldTime time.Duration `json:"two_phase_hold_time" yaml:"xa_two_phase_hold_time" koanf:"xa_two_phase_hold_time"`
 }
 
 func (cfg *XAConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.DurationVar(&cfg.TwoPhaseHoldTime, prefix+".two_phase_hold_time", time.Millisecond*1000, "Undo log table name.")
+	cfg.xaConnConf.RegisterFlagsWithPrefix(prefix, f)
 }
 
 func InitXA(config XAConfig) *XAResourceManager {
@@ -51,6 +61,8 @@ func InitXA(config XAConfig) *XAResourceManager {
 		rmRemoting:    rm.GetRMRemotingInstance(),
 		config:        config,
 	}
+
+	xaConnTimeout = config.xaConnConf.XaBranchExecutionTimeout
 
 	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
 
