@@ -151,7 +151,7 @@ func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid
 		return nil, err
 	}
 
-	dbResource, ok := resource.(DBResource)
+	dbResource, ok := resource.(*DBResource)
 	if !ok {
 		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
