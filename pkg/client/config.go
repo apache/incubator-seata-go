@@ -34,7 +34,6 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/remoting/getty"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
@@ -55,10 +54,10 @@ const (
 )
 
 type ClientConfig struct {
-	TmConfig   tm.TmConfig `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
-	RmConfig   rm.Config   `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
-	UndoConfig undo.Config `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
-	XaConfig   xa.XAConfig `yaml:"xa" json:"xa" koanf:"xa"`
+	TmConfig   tm.TmConfig  `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
+	RmConfig   rm.Config    `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
+	UndoConfig undo.Config  `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
+	XaConfig   sql.XAConfig `yaml:"xa" json:"xa" koanf:"xa"`
 }
 
 func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {

@@ -514,8 +514,8 @@ func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
 	return false
 }
 
-func (u *insertExecutor) isAstStmtValid() bool {
-	return u.parserCtx != nil && u.parserCtx.InsertStmt != nil
+func (i *insertExecutor) isAstStmtValid() bool {
+	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
 }
 
 func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {

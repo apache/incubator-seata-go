@@ -20,6 +20,7 @@ package datasource
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -83,6 +84,10 @@ func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 		return err
 	}
 	return nil
+}
+
+func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
+	return fmt.Errorf("unsupport unregister resource")
 }
 
 // CreateTableMetaCache create a table meta cache

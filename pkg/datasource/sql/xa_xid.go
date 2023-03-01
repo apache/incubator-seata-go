@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
 type XAXid interface {
 	GetGlobalXid() string
-	GetBranchId() int64
+	GetBranchId() uint64
 	String() string
 }

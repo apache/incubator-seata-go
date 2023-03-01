@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package xaresource
+package xa
 
 import (
 	"context"

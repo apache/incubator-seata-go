@@ -30,7 +30,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/datasource/sql/xa"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa/xaresource"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -196,11 +195,11 @@ func (db *DBResource) GetKeeper() interface{} {
 	return db.keeper
 }
 
-func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.ConnectionProxyXA, error) {
+func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn, error) {
 	xaBranchXid := xaXid.String()
 	tmpConn, ok := db.Lookup(xaBranchXid)
 	if ok && tmpConn != nil {
-		connectionProxyXa, isConnectionProxyXa := tmpConn.(*xa.ConnectionProxyXA)
+		connectionProxyXa, isConnectionProxyXa := tmpConn.(*XAConn)
 		if !isConnectionProxyXa {
 			return nil, fmt.Errorf("get connection proxy xa from cache error, xid:%s", xaXid.String())
 		}
@@ -227,7 +226,7 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid xa.XAXid) (*xa.
 		return nil, err
 	}
 
-	xaResource, err := xaresource.CreateXAResource(newDriverConn, db.GetDbType())
+	xaResource, err := xa.CreateXAResource(newDriverConn, db.GetDbType())
 	if err != nil {
 		return nil, err
 	}

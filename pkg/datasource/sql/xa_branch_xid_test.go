@@ -15,34 +15,32 @@
  * limitations under the License.
  */
 
-package xaresource
+package sql
 
 import (
-	"database/sql/driver"
-	"fmt"
+	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/stretchr/testify/assert"
 )
 
-// CreateXAResource create a connection for xa with the different db type.
-// Such as mysql, oracle, MARIADB, POSTGRESQL
-func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error) {
-	var err error
-	var xaConnection XAResource
-	switch dbType {
-	case types.DBTypeMySQL:
-		xaConnection = NewMysqlXaConn(conn)
-	case types.DBTypeOracle:
-	case types.DBTypePostgreSQL:
-	default:
-		err = fmt.Errorf("not support db type for :%s", dbType.String())
-	}
+func TestXABranchXidBuild(t *testing.T) {
+	xid := "111"
+	branchId := int64(222)
+	x := Build(xid, branchId)
+	assert.Equal(t, x.GetGlobalXid(), xid)
+	assert.Equal(t, x.GetBranchId(), branchId)
 
-	if err != nil {
-		log.Errorf(err.Error())
-		return nil, err
-	}
+	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
+	assert.Equal(t, x.GetBranchQualifier(), []byte("-222"))
+}
 
-	return xaConnection, nil
+func TestXABranchXidBuildWithByte(t *testing.T) {
+	xid := []byte("111")
+	branchId := []byte(BranchIdPrefix + "222")
+	x := BuildWithByte(xid, branchId)
+	assert.Equal(t, x.GetGlobalTransactionId(), xid)
+	assert.Equal(t, x.GetBranchQualifier(), branchId)
+
+	assert.Equal(t, x.GetGlobalXid(), "111")
+	assert.Equal(t, x.GetBranchId(), int64(222))
 }

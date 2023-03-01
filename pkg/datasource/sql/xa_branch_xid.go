@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
 import (
 	"strconv"
@@ -28,7 +28,7 @@ const (
 
 type XABranchXid struct {
 	xid                 string
-	branchId            int64
+	branchId            uint64
 	globalTransactionId []byte
 	branchQualifier     []byte
 }
@@ -62,7 +62,7 @@ func (x *XABranchXid) GetGlobalXid() string {
 	return x.xid
 }
 
-func (x *XABranchXid) GetBranchId() int64 {
+func (x *XABranchXid) GetBranchId() uint64 {
 	return x.branchId
 }
 
@@ -75,7 +75,7 @@ func (x *XABranchXid) GetBranchQualifier() []byte {
 }
 
 func (x *XABranchXid) String() string {
-	return x.xid + BranchIdPrefix + strconv.FormatInt(x.branchId, 10)
+	return x.xid + BranchIdPrefix + strconv.FormatUint(x.branchId, 10)
 }
 
 func WithXid(xid string) Option {
@@ -84,7 +84,7 @@ func WithXid(xid string) Option {
 	}
 }
 
-func WithBranchId(branchId int64) Option {
+func WithBranchId(branchId uint64) Option {
 	return func(x *XABranchXid) {
 		x.branchId = branchId
 	}
@@ -108,7 +108,7 @@ func encode(x *XABranchXid) {
 	}
 
 	if x.branchId != 0 {
-		x.branchQualifier = []byte(BranchIdPrefix + strconv.FormatInt(x.branchId, 10))
+		x.branchQualifier = []byte(BranchIdPrefix + strconv.FormatUint(x.branchId, 10))
 	}
 }
 
@@ -119,6 +119,6 @@ func decode(x *XABranchXid) {
 
 	if len(x.branchQualifier) > 0 {
 		branchId := strings.TrimLeft(string(x.branchQualifier), BranchIdPrefix)
-		x.branchId, _ = strconv.ParseInt(branchId, 10, 64)
+		x.branchId, _ = strconv.ParseUint(branchId, 10, 64)
 	}
 }

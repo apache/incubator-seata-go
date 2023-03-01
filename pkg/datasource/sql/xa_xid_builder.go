@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
-func XaIdBuild(xid string, branchId int64) *XABranchXid {
+func XaIdBuild(xid string, branchId uint64) *XABranchXid {
 	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 }
 
