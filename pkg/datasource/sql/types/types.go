@@ -20,7 +20,6 @@ package types
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/seata/seata-go/pkg/datasource/sql"
 	"strings"
 
 	"github.com/google/uuid"
@@ -144,7 +143,6 @@ type TransactionContext struct {
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
-	XABranchXid *sql.XABranchXid
 }
 
 // ExecContext
