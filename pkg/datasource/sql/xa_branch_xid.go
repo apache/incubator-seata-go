@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	BranchIdPrefix = "-"
+	branchIdPrefix = "-"
 )
 
 type XABranchXid struct {
@@ -75,7 +75,7 @@ func (x *XABranchXid) GetBranchQualifier() []byte {
 }
 
 func (x *XABranchXid) String() string {
-	return x.xid + BranchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
 }
 
 func WithXid(xid string) Option {
@@ -108,7 +108,7 @@ func encode(x *XABranchXid) {
 	}
 
 	if x.branchId != 0 {
-		x.branchQualifier = []byte(BranchIdPrefix + strconv.FormatUint(x.branchId, 10))
+		x.branchQualifier = []byte(branchIdPrefix + strconv.FormatUint(x.branchId, 10))
 	}
 }
 
@@ -118,7 +118,7 @@ func decode(x *XABranchXid) {
 	}
 
 	if len(x.branchQualifier) > 0 {
-		branchId := strings.TrimLeft(string(x.branchQualifier), BranchIdPrefix)
+		branchId := strings.TrimLeft(string(x.branchQualifier), branchIdPrefix)
 		x.branchId, _ = strconv.ParseUint(branchId, 10, 64)
 	}
 }

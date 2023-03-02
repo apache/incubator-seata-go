@@ -44,15 +44,17 @@ const (
 func initDriver() {
 	sql.Register(SeataATMySQLDriver, &seataATDriver{
 		seataDriver: &seataDriver{
-			transType: types.ATMode,
-			target:    mysql.MySQLDriver{},
+			branchType: branch.BranchTypeAT,
+			transType:  types.ATMode,
+			target:     mysql.MySQLDriver{},
 		},
 	})
 
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
-			transType: types.XAMode,
-			target:    mysql.MySQLDriver{},
+			branchType: branch.BranchTypeXA,
+			transType:  types.XAMode,
+			target:     mysql.MySQLDriver{},
 		},
 	})
 }
@@ -71,7 +73,6 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 	_connector.transType = types.ATMode
 	cfg, _ := mysql.ParseDSN(name)
 	_connector.cfg = cfg
-	d.branchType = branch.BranchTypeAT
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -92,7 +93,6 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 	_connector.transType = types.XAMode
 	cfg, _ := mysql.ParseDSN(name)
 	_connector.cfg = cfg
-	d.branchType = branch.BranchTypeXA
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -100,7 +100,6 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 }
 
 type seataDriver struct {
-	cfg        *XAConfig
 	branchType branch.BranchType
 	transType  types.TransactionMode
 	target     driver.Driver

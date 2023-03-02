@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 	"time"
 
@@ -226,8 +227,12 @@ func (xaManager *XAResourceManager) CreateTableMetaCache(ctx context.Context, re
 func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {
 	tmpBranchStatus, err := branchStatusCache.GetIFPresent(xaBranchXid)
 	if err != nil {
+		if errors.Is(err, gcache.KeyNotFoundError) {
+			return branch.BranchStatusUnknown, nil
+		}
 		return branch.BranchStatusUnknown, err
 	}
+
 	branchStatus, isBranchStatus := tmpBranchStatus.(branch.BranchStatus)
 	if !isBranchStatus {
 		return branch.BranchStatusUnknown, fmt.Errorf("branchId:%s get result isn't branch status", xaBranchXid)
