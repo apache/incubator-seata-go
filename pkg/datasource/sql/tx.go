@@ -145,6 +145,14 @@ func (tx *Tx) commitOnLocal() error {
 
 // register
 func (tx *Tx) register(ctx *types.TransactionContext) error {
+	if ctx.TransactionMode.BranchType() == branch.BranchTypeUnknow {
+		return nil
+	}
+
+	if ctx.TransactionMode.BranchType() == branch.BranchTypeAT && !ctx.HasUndoLog() || !ctx.HasLockKey() {
+		return nil
+	}
+
 	request := rm.BranchRegisterParam{
 		Xid:        ctx.XID,
 		BranchType: ctx.TransactionMode.BranchType(),
