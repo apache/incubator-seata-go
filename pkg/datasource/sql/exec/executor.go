@@ -27,17 +27,11 @@ import (
 
 var (
 	atExecutors = make(map[types.DBType]func() SQLExecutor)
-	xaExecutors = make(map[types.DBType]func() SQLExecutor)
 )
 
 // RegisterATExecutor AT executor
 func RegisterATExecutor(dt types.DBType, builder func() SQLExecutor) {
 	atExecutors[dt] = builder
-}
-
-// RegisterXAExecutor XA executor
-func RegisterXAExecutor(dt types.DBType, builder func() SQLExecutor) {
-	xaExecutors[dt] = builder
 }
 
 type (
@@ -64,16 +58,9 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	var executor SQLExecutor
-	switch transactionMode {
-	case types.XAMode:
-		executor = xaExecutors[dbType]()
-		executor.Interceptors(hooks)
-	case types.ATMode:
-		executor = atExecutors[dbType]()
-		executor.Interceptors(hooks)
-	}
-	return executor, nil
+	e := atExecutors[dbType]()
+	e.Interceptors(hooks)
+	return e, nil
 }
 
 type BaseExecutor struct {
