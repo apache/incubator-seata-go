@@ -65,12 +65,7 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 		return b
 	}
 
-	var cnt int
-	if len(dest) == 0 {
-		cnt = len(m.data[0])
-	}
-
-	cnt = min(len(m.data[0]), len(dest))
+	cnt := min(len(m.data[0]), len(dest))
 
 	for i := 0; i < cnt; i++ {
 		dest[i] = m.data[m.idx][i]

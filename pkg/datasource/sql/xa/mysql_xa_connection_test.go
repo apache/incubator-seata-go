@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -295,10 +294,7 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 		}
 		return b
 	}
-
 	cnt := min(len(m.data[0]), len(dest))
-	fmt.Printf("cnt: %d", cnt)
-
 	for i := 0; i < cnt; i++ {
 		dest[i] = m.data[m.idx][i]
 	}
