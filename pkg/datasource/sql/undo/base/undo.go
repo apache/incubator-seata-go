@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -31,13 +30,12 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
+	"github.com/seata/seata-go/pkg/datasource/sql/undo/parser"
+	"github.com/seata/seata-go/pkg/util/collection"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
 const (
-	PairSplit = "&"
-	KvSplit   = "="
-
 	compressorTypeKey       = "compressorTypeKey"
 	serializerKey           = "serializerKey"
 	defaultUndoLogTableName = " undo_log "
@@ -205,16 +203,12 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		Logs:     sqlUndoLogs,
 	}
 
-	// use defalut encode
-	rollbackInfo, err := json.Marshal(branchUndoLog)
-	if err != nil {
-		return err
-	}
-
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "jackson"
 	parseContext[compressorTypeKey] = "NONE"
-	undoLogContent, err := json.Marshal(parseContext)
+	undoLogContent := m.encodeUndoLogCtx(parseContext)
+
+	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
 	if err != nil {
 		return err
 	}
@@ -295,9 +289,19 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 			return nil
 		}
 
-		// todo use serializer and decode
-		var branchUndoLog undo.BranchUndoLog
-		if err = json.Unmarshal(record.RollbackInfo, &branchUndoLog); err != nil {
+		var logCtx map[string]string
+		if record.Context != nil && string(record.Context) != "" {
+			logCtx = m.decodeUndoLogCtx(record.Context)
+		}
+
+		if logCtx == nil {
+			return fmt.Errorf("undo log context not exist in record %+v", record)
+		}
+
+		rbInfo := m.decompressRollbackInfo(record.RollbackInfo, logCtx)
+
+		var branchUndoLog *undo.BranchUndoLog
+		if branchUndoLog, err = m.deserializeBranchUndoLog(rbInfo, logCtx); err != nil {
 			return err
 		}
 
@@ -355,15 +359,19 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "jackson"
 	parseContext[compressorTypeKey] = "NONE"
-	undoLogContent, err := json.Marshal(parseContext)
-	if err != nil {
+	undoLogContent := m.encodeUndoLogCtx(parseContext)
+
+	logParse,err:= parser.GetCache().Load(parseContext[serializerKey])
+	if err!=nil{
 		return err
 	}
+
+	rbInfo := logParse.GetDefaultContent()
 
 	record := undo.UndologRecord{
 		BranchID:     branchID,
 		XID:          xid,
-		RollbackInfo: []byte("{}"),
+		RollbackInfo: rbInfo,
 		LogStatus:    UndoLogStatusGlobalFinished,
 		Context:      undoLogContent,
 	}
@@ -450,38 +458,8 @@ func (m *BaseUndoLogManager) canUndo(state int32) bool {
 	return state == UndoLogStatusNormal
 }
 
-// parseContext parse undo context
-func (m *BaseUndoLogManager) parseContext(str string) map[string]string {
-	return m.DecodeMap(str)
-}
-
-// DecodeMap Decode undo log context string to map
-func (m *BaseUndoLogManager) DecodeMap(str string) map[string]string {
-	res := make(map[string]string)
-
-	if str == "" {
-		return nil
-	}
-
-	strSlice := strings.Split(str, PairSplit)
-	if len(strSlice) == 0 {
-		return nil
-	}
-
-	for key, _ := range strSlice {
-		kv := strings.Split(strSlice[key], KvSplit)
-		if len(kv) != 2 {
-			continue
-		}
-
-		res[kv[0]] = kv[1]
-	}
-
-	return res
-}
-
-// getRollbackInfo parser rollback info
-func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
+// decompressRollbackInfo parser rollback info
+func (m *BaseUndoLogManager) decompressRollbackInfo(rollbackInfo []byte, undoContext map[string]string) []byte {
 	// Todo use compressor
 	// get compress type
 	/*compressorType, ok := undoContext[constant.compressorTypeKey]
@@ -499,4 +477,41 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	}
 	serializer, _ = undoLogContext[serializerKey]
 	return
+}
+
+func (m *BaseUndoLogManager) deserializeBranchUndoLog(rbInfo []byte, logCtx map[string]string) (*undo.BranchUndoLog, error) {
+	var (
+		err       error
+		logParser parser.UndoLogParser
+	)
+
+	if serialzerType := m.getSerializer(logCtx); serialzerType != "" {
+		if logParser, err = parser.GetCache().Load(serialzerType); err != nil {
+			return nil, err
+		}
+	}
+
+	var branchUndoLog *undo.BranchUndoLog
+	if branchUndoLog, err = logParser.Decode(rbInfo); err != nil {
+		return nil, err
+	}
+
+	return branchUndoLog, nil
+}
+
+func (m *BaseUndoLogManager) serializeBranchUndoLog(log *undo.BranchUndoLog, serializerType string) ([]byte, error) {
+	logParser, err := parser.GetCache().Load(serializerType)
+	if err != nil {
+		return nil, err
+	}
+
+	return logParser.Encode(log)
+}
+
+func (m *BaseUndoLogManager) encodeUndoLogCtx(undoLogCtx map[string]string) []byte {
+	return collection.EncodeMap(undoLogCtx)
+}
+
+func (m *BaseUndoLogManager) decodeUndoLogCtx(undoLogCtx []byte) map[string]string {
+	return collection.DecodeMap(undoLogCtx)
 }
