@@ -20,6 +20,8 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"strings"
+
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -32,7 +34,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/bytes"
 	"github.com/seata/seata-go/pkg/util/log"
-	"strings"
 )
 
 // multiUpdateExecutor execute multiple update SQL
