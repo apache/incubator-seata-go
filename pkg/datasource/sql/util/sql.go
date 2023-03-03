@@ -295,6 +295,9 @@ func (rs *ScanRows) Scan(dest ...interface{}) error {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(rs.lastcols), len(dest))
 	}
 	for i, sv := range rs.lastcols {
+		if sv == nil {
+			continue
+		}
 		// the type of dest may be NullString, NullInt64, int64, etc, we should call its Scan()
 		ty := reflect.TypeOf(dest[i])
 		fn, ok := ty.MethodByName("Scan")

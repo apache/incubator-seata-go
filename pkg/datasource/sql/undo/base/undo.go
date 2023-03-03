@@ -172,27 +172,41 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		return nil
 	}
 
-	for i := 0; i < len(beforeImages); i++ {
+	size := len(beforeImages)
+	if size < len(afterImages) {
+		size = len(afterImages)
+	}
+
+	for i := 0; i < size; i++ {
 		var (
-			tableName string
-			sqlType   types.SQLType
+			tableName   string
+			sqlType     types.SQLType
+			beforeImage *types.RecordImage
+			afterImage  *types.RecordImage
 		)
 
-		if beforeImages[i] != nil {
+		if i < len(beforeImages) && beforeImages[i] != nil {
 			tableName = beforeImages[i].TableName
 			sqlType = beforeImages[i].SQLType
-		} else if afterImages[i] != nil {
+		} else if i < len(afterImages) && afterImages[i] != nil {
 			tableName = afterImages[i].TableName
 			sqlType = afterImages[i].SQLType
 		} else {
 			continue
 		}
 
+		if i < len(beforeImages) {
+			beforeImage = beforeImages[i]
+		}
+		if i < len(afterImages) {
+			afterImage = afterImages[i]
+		}
+
 		undoLog := undo.SQLUndoLog{
 			SQLType:     sqlType,
 			TableName:   tableName,
-			BeforeImage: beforeImages[i],
-			AfterImage:  afterImages[i],
+			BeforeImage: beforeImage,
+			AfterImage:  afterImage,
 		}
 		sqlUndoLogs = append(sqlUndoLogs, undoLog)
 	}
