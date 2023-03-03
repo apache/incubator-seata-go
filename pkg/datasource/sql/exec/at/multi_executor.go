@@ -83,25 +83,23 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
-
-	var table *ast.TableRefsClause
 	tmpImages := make([]*types.RecordImage, 0)
 	var err error
-	if parseContext.InsertStmt != nil {
-		table = parseContext.InsertStmt.Table
-	} else if parseContext.SelectStmt != nil {
-		table = parseContext.SelectStmt.From
-	} else if parseContext.UpdateStmt != nil {
-		table = parseContext.UpdateStmt.TableRefs
-	} else if parseContext.DeleteStmt != nil {
-		table = parseContext.DeleteStmt.TableRefs
-	} else {
-		return nil, fmt.Errorf("invalid stmt %v", parseContext)
-	}
-	b := seatabytes.NewByteBuffer([]byte{})
-	table.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	var beforeImages = make([]*types.RecordImage, 0)
 
+	var mm map[string]*types.ParseContext // tableName -> []
+	for _, multiStmt := range parseContext.MultiStmt {
+		tableName, _ := multiStmt.GetTableName()
+
+		if stmtList, ok := mm[tableName]; ok {
+			sts := append(stmtList.MultiStmt, multiStmt)
+			stmt := stmtList.MultiStmt
+			append(stmt, sts...)
+		} else {
+			mm[tableName] = &types.ParseContext{MultiStmt: []*types.ParseContext{multiStmt}, SQLType: multiStmt.SQLType, ExecutorType: multiStmt.ExecutorType}
+		}
+	}
+
+	var beforeImages = make([]*types.RecordImage, 0)
 	for _, multiStmt := range parseContext.MultiStmt {
 		switch multiStmt.ExecutorType {
 		case types.UpdateExecutor:
