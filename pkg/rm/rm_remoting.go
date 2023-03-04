@@ -93,6 +93,25 @@ func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 
 // LockQuery Query lock status of transaction branch
 func (r *RMRemoting) LockQuery(param LockQueryParam) (bool, error) {
+	req := message.GlobalLockQueryRequest{
+		BranchRegisterRequest: message.BranchRegisterRequest{
+			Xid:        param.Xid,
+			LockKey:    param.LockKeys,
+			ResourceId: param.ResourceId,
+			BranchType: param.BranchType,
+		},
+	}
+	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	if err != nil {
+		log.Errorf("send lock query request error: {%#v}", err.Error())
+		return false, err
+	}
+
+	if isQueryLockSuccess(res) {
+		log.Infof("lock is lockable, lock %s", param.LockKeys)
+		return true, nil
+	}
+	log.Infof("lock is unlockable, lock %s", param.LockKeys)
 	return false, nil
 }
 
@@ -118,6 +137,13 @@ func (r *RMRemoting) RegisterResource(resource Resource) error {
 	}
 
 	return nil
+}
+
+func isQueryLockSuccess(response interface{}) bool {
+	if res, ok := response.(message.GlobalLockQueryResponse); ok {
+		return res.Lockable
+	}
+	return false
 }
 
 func isRegisterSuccess(response interface{}) bool {
