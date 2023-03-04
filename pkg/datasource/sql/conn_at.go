@@ -59,10 +59,12 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 		}
 
 		execCtx := &types.ExecContext{
-			TxCtx:       c.txCtx,
-			Query:       query,
-			NamedValues: args,
-			Conn:        c.targetConn,
+			TxCtx:                c.txCtx,
+			Query:                query,
+			NamedValues:          args,
+			Conn:                 c.targetConn,
+			IsSupportsSavepoints: true,
+			IsAutoCommit:         c.GetAutoCommit(),
 		}
 
 		return executor.ExecWithNamedValue(ctx, execCtx,
@@ -95,11 +97,13 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		}
 
 		execCtx := &types.ExecContext{
-			TxCtx:       c.txCtx,
-			Query:       query,
-			NamedValues: args,
-			Conn:        c.targetConn,
-			DBName:      c.dbName,
+			TxCtx:                c.txCtx,
+			Query:                query,
+			NamedValues:          args,
+			Conn:                 c.targetConn,
+			DBName:               c.dbName,
+			IsSupportsSavepoints: true,
+			IsAutoCommit:         c.GetAutoCommit(),
 		}
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
@@ -162,7 +166,7 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		err error
 	)
 
-	if c.txCtx.TransactionMode != types.Local && c.autoCommit {
+	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
 		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
 		if err != nil {
 			return nil, err

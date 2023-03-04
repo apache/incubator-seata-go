@@ -19,14 +19,25 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 - [x] TCC
 - [ ] XA
 - [x] AT
+  - [x] Insert SQL
+  - [x] Delete SQL
+  - [x] Insert on update SQL
+  - [x] Multi update SQL
+  - [x] Multi delete SQL
+  - [x] Select for update SQL
+  - [x] Update SQL
 - [ ] SAGA
-- [ ] TM
+- [x] TM
 - [x] RPC communication
 - [x] Transaction anti suspension
+  - [x] Manually way
+  - [x] Proxy datasource way 
 - [x] Null compensation
 - [ ] Configuration center
+  - [x] Configuration file
 - [ ] Registration Center
 - [ ] Metric monitoring
+- [x] Compressor algorithm
 - [x] Examples
 
 

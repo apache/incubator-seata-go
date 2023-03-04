@@ -159,10 +159,9 @@ type ExecContext struct {
 	DBName      string
 	DBType      DBType
 	// todo set values for these 4 param
-	IsAutoCommit          bool
-	IsSupportsSavepoints  bool
-	IsInGlobalTransaction bool
-	IsRequireGlobalLock   bool
+	IsAutoCommit         bool
+	IsSupportsSavepoints bool
+	IsRequireGlobalLock  bool
 }
 
 func NewTxCtx() *TransactionContext {
