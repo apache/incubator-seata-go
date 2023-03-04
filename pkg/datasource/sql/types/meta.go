@@ -127,9 +127,6 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 		order[name] = i
 	}
 	sort.Slice(keys, func(i, j int) bool {
-		if order == nil {
-			return false
-		}
 		return order[keys[i]] < order[keys[j]]
 	})
 	return keys
