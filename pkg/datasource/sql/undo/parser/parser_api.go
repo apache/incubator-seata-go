@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package rm
+package parser
 
-var rmConfig RmConfig
+import "github.com/seata/seata-go/pkg/datasource/sql/undo"
 
-type RmConfig struct {
-	Config
+// The interface Undo log parser.
+type UndoLogParser interface {
 
-	ApplicationID  string
-	TxServiceGroup string
-}
+	// Get the name of parser;
+	// return the name of parser
+	GetName() string
 
-// InitRmClient init seata rm client
-func InitRm(cfg RmConfig) {
-	rmConfig = cfg
+	// Get default context of this parser
+	// return the default content if undo log is empty
+	GetDefaultContent() []byte
+
+	// Encode branch undo log to byte array.
+	// param branchUndoLog the branch undo log
+	// return the byte array
+	Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, error)
+
+	// Decode byte array to branch undo log.
+	// param bytes the byte array
+	// return the branch undo log
+	Decode(bytes []byte) (*undo.BranchUndoLog, error)
 }

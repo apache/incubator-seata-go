@@ -15,18 +15,8 @@
  * limitations under the License.
  */
 
-package rm
+package parser
 
-var rmConfig RmConfig
-
-type RmConfig struct {
-	Config
-
-	ApplicationID  string
-	TxServiceGroup string
-}
-
-// InitRmClient init seata rm client
-func InitRm(cfg RmConfig) {
-	rmConfig = cfg
-}
+const (
+	DefaultSerializer = "jackson"
+)

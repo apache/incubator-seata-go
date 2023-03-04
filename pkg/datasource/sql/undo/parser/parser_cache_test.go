@@ -15,18 +15,33 @@
  * limitations under the License.
  */
 
-package rm
+package parser
 
-var rmConfig RmConfig
+import (
+	"testing"
 
-type RmConfig struct {
-	Config
+	"github.com/stretchr/testify/assert"
+)
 
-	ApplicationID  string
-	TxServiceGroup string
+func TestInitCache(t *testing.T) {
+	assert.Nil(t, cache)
+	initCache()
+	assert.NotNil(t, cache)
 }
 
-// InitRmClient init seata rm client
-func InitRm(cfg RmConfig) {
-	rmConfig = cfg
+func TestGetCache(t *testing.T) {
+	assert.NotNil(t, GetCache())
+}
+
+func TestGetDefault(t *testing.T) {
+	logParser, err := GetCache().GetDefault()
+	assert.Nil(t, err)
+	assert.NotNil(t, logParser)
+	assert.Equal(t, DefaultSerializer, logParser.GetName())
+}
+
+func TestLoad(t *testing.T) {
+	jacksonParser, err := GetCache().Load("jackson")
+	assert.Nil(t, err)
+	assert.NotNil(t, jacksonParser)
 }

@@ -28,6 +28,7 @@ const (
 	SQLTypeUpdate
 	SQLTypeDelete
 	SQLTypeSelectForUpdate
+	SQLTypeInsertOnUpdate
 	SQLTypeReplace
 	SQLTypeTruncate
 	SQLTypeCreate
@@ -67,6 +68,8 @@ func (s SQLType) MarshalText() (text []byte, err error) {
 		return []byte("DELETE"), nil
 	case SQLTypeSelectForUpdate:
 		return []byte("SELECT_FOR_UPDATE"), nil
+	case SQLTypeInsertOnUpdate:
+		return []byte("INSERT_ON_UPDATE"), nil
 	case SQLTypeReplace:
 		return []byte("REPLACE"), nil
 	case SQLTypeTruncate:
@@ -133,6 +136,8 @@ func (s *SQLType) UnmarshalText(b []byte) error {
 		*s = SQLTypeDelete
 	case "SELECT_FOR_UPDATE":
 		*s = SQLTypeSelectForUpdate
+	case "INSERT_ON_UPDATE":
+		*s = SQLTypeInsertOnUpdate
 	case "REPLACE":
 		*s = SQLTypeReplace
 	case "TRUNCATE":
