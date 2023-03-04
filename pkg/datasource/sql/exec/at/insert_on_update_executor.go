@@ -126,7 +126,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 		log.Errorf("ctx driver query: %+v", err)
 		return nil, err
 	}
-	image, err := i.buildRecordImages(rowsi, metaData)
+	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsertOnDuplicateUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 	if err != nil {
 		return nil, err
 	}
-	afterImage, err := i.buildRecordImages(rowsi, metaData)
+	afterImage, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsertOnDuplicateUpdate)
 	if err != nil {
 		return nil, err
 	}

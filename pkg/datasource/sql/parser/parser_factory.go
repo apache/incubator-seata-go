@@ -60,7 +60,7 @@ func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {
 			parserCtx.ExecutorType = types.ReplaceIntoExecutor
 		}
 		if len(stmt.OnDuplicate) != 0 {
-			parserCtx.SQLType = types.SQLTypeInsertOnUpdate
+			parserCtx.SQLType = types.SQLTypeInsertOnDuplicateUpdate
 			parserCtx.ExecutorType = types.InsertOnDuplicateExecutor
 		}
 	case *ast.UpdateStmt:
