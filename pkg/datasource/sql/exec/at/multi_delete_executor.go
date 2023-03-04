@@ -113,7 +113,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		if err != nil {
 			return nil, err
 		}
-		image, err = m.buildRecordImages(rowsi, metaData)
+		image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
 		if err != nil {
 			log.Errorf("record images : %+v", err)
 			return nil, err
@@ -150,7 +150,7 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() ([]string, []driver.NamedVal
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, p := range ps.MultiStmt {
+	for _, p = range ps.MultiStmt {
 		tableName = p.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 		v, ok := tables[tableName]
 		if ok && v.clear {

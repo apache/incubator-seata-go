@@ -20,15 +20,13 @@ package types
 //go:generate stringer -type=SQLType
 type SQLType int32
 
+// reference:https://github.com/seata/seata/blob/2.x/sqlparser/seata-sqlparser-core/src/main/java/io/seata/sqlparser/SQLType.java
 const (
-	_ SQLType = iota
-	SQLTypeUnknown
-	SQLTypeSelect
+	SQLTypeSelect = iota
 	SQLTypeInsert
 	SQLTypeUpdate
 	SQLTypeDelete
 	SQLTypeSelectForUpdate
-	SQLTypeInsertOnUpdate
 	SQLTypeReplace
 	SQLTypeTruncate
 	SQLTypeCreate
@@ -41,19 +39,38 @@ const (
 	SQLTypeDump
 	SQLTypeDebug
 	SQLTypeExplain
+	SQLTypeProcedure
 	SQLTypeDesc
+	SQLLastInsertID
+	SQLSelectWithoutTable
+	SQLCreateSequence
+	SQLShowSequence
+	SQLGetSequence
+	SQLAlterSequence
+	SQLDropSequence
+	SQLTddlShow
 	SQLTypeSet
 	SQLTypeReload
 	SQLTypeSelectUnion
 	SQLTypeCreateTable
 	SQLTypeDropTable
 	SQLTypeAlterTable
+	SQLTypeSavePoint
 	SQLTypeSelectFromUpdate
 	SQLTypeMultiDelete
 	SQLTypeMultiUpdate
 	SQLTypeCreateIndex
 	SQLTypeDropIndex
-	SQLTypeMulti
+	SQLTypeKill
+	SQLTypeLockTables
+	SQLTypeUnLockTables
+	SQLTypeCheckTable
+	SQLTypeSelectFoundRows
+	SQLTypeInsertIgnore = iota + 57
+	SQLTypeInsertOnDuplicateUpdate
+	// SQLTypeMulti and SQLTypeUnknown is different from seata-java
+	SQLTypeMulti = iota + 999
+	SQLTypeUnknown
 )
 
 func (s SQLType) MarshalText() (text []byte, err error) {
@@ -68,7 +85,7 @@ func (s SQLType) MarshalText() (text []byte, err error) {
 		return []byte("DELETE"), nil
 	case SQLTypeSelectForUpdate:
 		return []byte("SELECT_FOR_UPDATE"), nil
-	case SQLTypeInsertOnUpdate:
+	case SQLTypeInsertOnDuplicateUpdate:
 		return []byte("INSERT_ON_UPDATE"), nil
 	case SQLTypeReplace:
 		return []byte("REPLACE"), nil
@@ -137,7 +154,7 @@ func (s *SQLType) UnmarshalText(b []byte) error {
 	case "SELECT_FOR_UPDATE":
 		*s = SQLTypeSelectForUpdate
 	case "INSERT_ON_UPDATE":
-		*s = SQLTypeInsertOnUpdate
+		*s = SQLTypeInsertOnDuplicateUpdate
 	case "REPLACE":
 		*s = SQLTypeReplace
 	case "TRUNCATE":
