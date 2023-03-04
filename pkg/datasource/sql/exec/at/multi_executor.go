@@ -19,7 +19,6 @@ package at
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -63,17 +62,10 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	if len(afterImages) != len(beforeImages) {
-		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
-	}
-
-	for i, afterImage := range afterImages {
-		beforeImage := beforeImages[i]
-		if len(beforeImage.Rows) != len(afterImage.Rows) {
-			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
-		}
-
+	for _, beforeImage := range beforeImages {
 		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	}
+	for _, afterImage := range afterImages {
 		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	}
 
