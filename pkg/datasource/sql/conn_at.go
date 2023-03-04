@@ -174,8 +174,8 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}
 	defer func() {
 		recoverErr := recover()
-		if err != nil || recoverErr != nil {
-			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+		if recoverErr != nil {
+			log.Errorf("at exec panic, recoverErr:%v", recoverErr)
 			if tx != nil {
 				rollbackErr := tx.Rollback()
 				if rollbackErr != nil {

@@ -124,7 +124,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData)
+	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
