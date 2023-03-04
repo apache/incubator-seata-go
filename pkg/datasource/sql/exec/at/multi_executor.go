@@ -72,7 +72,7 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
-	tmpImages := make([]*types.RecordImage, 0)
+	var tmpImages []*types.RecordImage
 	var err error
 
 	var beforeImages = make([]*types.RecordImage, 0)
@@ -82,7 +82,8 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
 			tmpImages, err = multiUpdateExec.beforeImage(ctx)
 		case types.DeleteExecutor:
-			//todo use MultiDeleteExecutor
+			multiDeleteExec := NewMultiDeleteExecutor(m.parserCtx, m.execContext, m.hooks)
+			tmpImages, err = multiDeleteExec.beforeImage(ctx)
 		default:
 			return nil, fmt.Errorf("not support sql %s", m.execContext.Query)
 		}
