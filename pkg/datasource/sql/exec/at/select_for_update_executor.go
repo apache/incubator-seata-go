@@ -122,7 +122,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		}
 		// if there is an err in doExecContext, we should rollback first
 		if s.savepointName != "" {
-			if _, rollerr := s.exec(fmt.Sprintf("rollback to %s;", s.savepointName), nil, nil); rollerr != nil {
+			if _, rollerr := s.exec(ctx, fmt.Sprintf("rollback to %s;", s.savepointName), nil, nil); rollerr != nil {
 				log.Error("rollback to %s failed, err %s", s.savepointName, rollerr.Error())
 				return nil, err
 			}
@@ -166,7 +166,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		// create a save point if original auto commit was false, then use the save point here to release db
 		// lock during global lock checking if necessary
 		savepointName := fmt.Sprintf("seatago%dpoint;", now)
-		if _, err = s.exec(fmt.Sprintf("savepoint %s;", savepointName), nil, nil); err != nil {
+		if _, err = s.exec(ctx, fmt.Sprintf("savepoint %s;", savepointName), nil, nil); err != nil {
 			return nil, err
 		}
 		s.savepointName = savepointName
@@ -182,7 +182,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 
 	// query primary key values
 	var lockKey string
-	_, err = s.exec(s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
+	_, err = s.exec(ctx, s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
 		lockKey = s.buildLockKey(rows, s.metaData)
 	})
 
@@ -302,21 +302,21 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 	return lockKeys.String()
 }
 
-func (s *selectForUpdateExecutor) exec(sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
+func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
 	var (
-		querierContext driver.QueryerContext
-		querier        driver.Queryer
-		ok             bool
+		querierContext                  driver.QueryerContext
+		querier                         driver.Queryer
+		queryerCtxExists, queryerExists bool
 	)
-	if querierContext, ok = s.execContext.Conn.(driver.QueryerContext); !ok {
-		err := fmt.Sprintf("invalid conn, can't convert %v to driver.QueryerContext", s.execContext.Conn)
-		if querier, ok = s.execContext.Conn.(driver.Queryer); !ok {
-			err = err + fmt.Sprintf(", also can't convert %v to drvier.Queryer", s.execContext.Conn)
-			return nil, fmt.Errorf(err)
+
+	if querierContext, queryerCtxExists = s.execContext.Conn.(driver.QueryerContext); !queryerCtxExists {
+		if querier, queryerExists = s.execContext.Conn.(driver.Queryer); !queryerExists {
+			log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+			return nil, fmt.Errorf("invalid conn")
 		}
 	}
 
-	rows, err := util.CtxDriverQuery(context.TODO(), querierContext, querier, sql, nvdargs)
+	rows, err := util.CtxDriverQuery(ctx, querierContext, querier, sql, nvdargs)
 	defer func() {
 		if rows != nil {
 			_ = rows.Close()
