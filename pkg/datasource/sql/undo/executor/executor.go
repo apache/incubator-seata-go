@@ -114,13 +114,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		return nil, nil
 	}
 
-	var rowSize int
-	for _, images := range pkValues {
-		rowSize = len(images)
-		break
-	}
-
-	where := buildWhereConditionByPKs(pkNameList, rowSize, maxInSize)
+	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize)
 	checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
 	params := buildPKParams(b.undoImage.Rows, pkNameList)
 

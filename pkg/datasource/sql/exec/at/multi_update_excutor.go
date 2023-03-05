@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"strings"
 
 	"github.com/arana-db/parser"
@@ -54,7 +55,6 @@ func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.Ex
 // ExecContext exec SQL, and generate before image and after image
 func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	u.beforeHooks(ctx, u.execContext)
-
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
 	}()
@@ -235,19 +235,21 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 		return "", nil, errors.New("invalid muliti update stmt")
 	}
 
-	var whereCondition strings.Builder
-	multiStmts := u.parserCtx.MultiStmt
-	newArgs := make([]driver.NamedValue, 0, len(multiStmts))
-	fields := make([]*ast.SelectField, 0, len(meta.ColumnNames))
-	fieldsExits := make(map[string]struct{}, len(meta.ColumnNames))
+	var (
+		whereCondition strings.Builder
+		multiStmts     = u.parserCtx.MultiStmt
+		newArgs        = make([]driver.NamedValue, 0, len(u.parserCtx.MultiStmt))
+		fields         = make([]*ast.SelectField, 0, len(meta.ColumnNames))
+		fieldsExits    = make(map[string]struct{}, len(meta.ColumnNames))
+	)
 
-	for _, multiStmt := range multiStmts {
+	for _, multiStmt := range u.parserCtx.MultiStmt {
 		updateStmt := multiStmt.UpdateStmt
 		if updateStmt.Limit != nil {
-			return "", nil, errors.New("multi update SQL with limit condition is not support yet")
+			return "", nil, fmt.Errorf("multi update SQL with limit condition is not support yet")
 		}
 		if updateStmt.Order != nil {
-			return "", nil, errors.New("multi update SQL with orderBy condition is not support yet")
+			return "", nil, fmt.Errorf("multi update SQL with orderBy condition is not support yet")
 		}
 
 		if undo.UndoConfig.OnlyCareUpdateColumns {
@@ -296,27 +298,29 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 
 		in := bytes.NewByteBuffer([]byte{})
 		_ = updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))
-		whereConditionStr := string(in.Bytes())
 
 		if whereCondition.Len() > 0 {
 			whereCondition.Write([]byte(" OR "))
 		}
-		whereCondition.Write([]byte(whereConditionStr))
+		whereCondition.Write(in.Bytes())
 	}
 
 	// only just get the where condition
 	fakeSql := "select * from t where " + whereCondition.String()
 	fakeStmt, err := parser.New().ParseOneStmt(fakeSql, "", "")
 	if err != nil {
-		return "", nil, errors.Wrap(err, "multi update parse fake sql error")
+		log.Errorf("multi update parse fake sql error")
+		return "", nil, err
 	}
 	fakeNode, ok := fakeStmt.Accept(&updateVisitor{})
 	if !ok {
-		return "", nil, errors.Wrap(err, "multi update accept update visitor error")
+		log.Errorf("multi update accept update visitor error")
+		return "", nil, err
 	}
 	fakeSelectStmt, ok := fakeNode.(*ast.SelectStmt)
 	if !ok {
-		return "", nil, errors.New("multi update fake node is not select stmt")
+		log.Errorf("multi update fake node is not select stmt")
+		return "", nil, err
 	}
 
 	selStmt := ast.SelectStmt{
@@ -331,11 +335,10 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
-	log.Infof("build select sql by update sourceQuery, sql {}", sql)
+	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	log.Infof("build select sql by update sourceQuery, sql {}", string(b.Bytes()))
 
-	return sql, newArgs, nil
+	return string(b.Bytes()), newArgs, nil
 }
 
 func (u *multiUpdateExecutor) isAstStmtValid() bool {
