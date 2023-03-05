@@ -39,6 +39,7 @@ type insertOnUpdateExecutor struct {
 	beforeImageSqlPrimaryKeys map[string]bool
 	beforeSelectSql           string
 	beforeSelectArgs          []driver.NamedValue
+	isUpdateFlag              bool
 }
 
 // NewInsertOnUpdateExecutor get insert on update executor
@@ -72,6 +73,14 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 		return nil, err
 	}
 
+	if len(beforeImage.Rows) > 0 {
+		beforeImage.SQLType = types.SQLTypeUpdate
+		afterImage.SQLType = types.SQLTypeUpdate
+	} else {
+		beforeImage.SQLType = types.SQLTypeInsert
+		afterImage.SQLType = types.SQLTypeInsert
+	}
+
 	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
@@ -98,8 +107,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 	if len(selectArgs) == 0 {
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
 			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
-		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
-			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
+		return nil, fmt.Errorf("invalid insert or update sql")
 	}
 	i.beforeSelectSql = selectSQL
 	i.beforeSelectArgs = selectArgs
@@ -205,7 +213,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 	for _, rowColumns := range insertRows {
 		if len(rowColumns) != len(insertColumns) {
 			log.Errorf("insert row's column size not equal to insert column size. row columns:%+v insert columns:%+v", rowColumns, insertColumns)
-			return nil, 0, fmt.Errorf("insert row's column size not equal to insert column size.  row columns:%+v insert columns:%+v", rowColumns, insertColumns)
+			return nil, 0, fmt.Errorf("invalid insert row's column size")
 		}
 		for i, col := range insertColumns {
 			columnName := DelEscape(col, types.DBTypeMySQL)
