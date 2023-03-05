@@ -66,6 +66,16 @@ func (p *ParseContext) GetTableName() (string, error) {
 		table = p.UpdateStmt.TableRefs
 	} else if p.DeleteStmt != nil {
 		table = p.DeleteStmt.TableRefs
+	} else if len(p.MultiStmt) > 0 {
+		for _, parser := range p.MultiStmt {
+			tableName, err := parser.GetTableName()
+			if err != nil {
+				return "", err
+			}
+			if tableName != "" {
+				return tableName, nil
+			}
+		}
 	} else {
 		return "", fmt.Errorf("invalid stmt %v", p)
 	}
