@@ -22,13 +22,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -77,7 +75,7 @@ func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.Ex
 }
 
 func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
-	multiQuery, args, err := m.buildBeforeImageSQL()
+	selectSQL, args, err := m.buildBeforeImageSQL()
 	if err != nil {
 		return nil, err
 	}
@@ -96,32 +94,35 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
 	}
-	for i, sql := range multiQuery {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, sql, args)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
+
+	rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, args)
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
 		}
-		tableName := m.parserCtx.MultiStmt[i].DeleteStmt.
-			TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
-		if err != nil {
-			return nil, err
-		}
-		image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
-		if err != nil {
-			log.Errorf("record images : %+v", err)
-			return nil, err
-		}
-		records = append(records, image)
-		lockKey := m.buildLockKey(image, *metaData)
-		m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+	}()
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
 	}
+
+	tableName, err := m.getFromTableInSQL()
+	if err != nil {
+		return nil, err
+	}
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+	image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	if err != nil {
+		log.Errorf("record images : %+v", err)
+		return nil, err
+	}
+	records = append(records, image)
+	lockKey := m.buildLockKey(image, *metaData)
+	m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+
 	return records, err
 }
 
@@ -135,78 +136,66 @@ func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordIm
 	return []*types.RecordImage{image}, nil
 }
 
-func (m *multiDeleteExecutor) buildBeforeImageSQL() ([]string, []driver.NamedValue, error) {
-	var (
-		err        error
-		buf, param bytes.Buffer
-		p          *types.ParseContext
-		tableName  string
-		args       = m.execContext.NamedValues
-		multiQuery = strings.Split(m.execContext.Query, ";")
-		tables     = make(map[string]multiDelete, len(multiQuery))
-	)
-
-	ps, err := parser.DoParser(m.execContext.Query)
+func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue, error) {
+	tableName, err := m.getFromTableInSQL()
 	if err != nil {
-		return nil, nil, err
-	}
-	for _, p = range ps.MultiStmt {
-		tableName = p.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-		v, ok := tables[tableName]
-		if ok && v.clear {
-			continue
-		}
-		buf.WriteString("delete from ")
-		buf.WriteString(tableName)
-		if p.DeleteStmt.Where == nil {
-			tables[tableName] = multiDelete{sql: buf.String(), clear: true}
-			buf.Reset()
-			continue
-		} else {
-			buf.WriteString(" where ")
-		}
-
-		_ = p.DeleteStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, &param))
-		v, ok = tables[tableName]
-		if ok {
-			buf.Reset()
-			buf.WriteString(v.sql)
-			buf.WriteString(" or ")
-		}
-
-		buf.Write(param.Bytes())
-		tables[tableName] = multiDelete{sql: buf.String()}
-
-		buf.Reset()
-		param.Reset()
+		return "", nil, err
 	}
 
 	var (
-		items   = make([]string, 0, len(tables))
-		values  = make([]driver.NamedValue, 0, len(tables))
-		selStmt = ast.SelectStmt{
-			SelectStmtOpts: &ast.SelectStmtOpts{},
-			From:           p.DeleteStmt.TableRefs,
-			Where:          p.DeleteStmt.Where,
-			Fields:         &ast.FieldList{Fields: []*ast.SelectField{{WildCard: &ast.WildCardField{}}}},
-			OrderBy:        p.DeleteStmt.Order,
-			TableHints:     p.DeleteStmt.TableHints,
-			LockInfo:       &ast.SelectLockInfo{LockType: ast.SelectLockForUpdate},
-		}
+		// todo optimize replace * by use columns
+		selectSQL         = "SELECT SQL_NO_CACHE * FROM " + tableName
+		params            []driver.NamedValue
+		whereCondition    string
+		hasWhereCondition = true
 	)
-	for _, table := range tables {
-		p, _ = parser.DoParser(table.sql)
 
-		selStmt.From = p.DeleteStmt.TableRefs
-		selStmt.Where = p.DeleteStmt.Where
-		_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, &buf))
-		items = append(items, buf.String())
-		buf.Reset()
-		if table.clear {
-			values = append(values, m.buildSelectArgs(&selStmt, nil)...)
-		} else {
-			values = append(values, m.buildSelectArgs(&selStmt, args)...)
+	for _, parser := range m.parserCtx.MultiStmt {
+		deleteParser := parser.DeleteStmt
+		if deleteParser == nil {
+			continue
+		}
+
+		if deleteParser.Limit != nil {
+			return "", nil, fmt.Errorf("Multi delete SQL with limit condition is not support yet!")
+		}
+		if deleteParser.Order != nil {
+			return "", nil, fmt.Errorf("Multi delete SQL with orderBy condition is not support yet!")
+		}
+		if deleteParser.Where == nil || !hasWhereCondition {
+			hasWhereCondition = false
+			continue
+		}
+
+		var whereBuffer bytes.Buffer
+		if err = deleteParser.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, &whereBuffer)); err != nil {
+			return "", nil, err
+		}
+
+		if whereCondition != "" {
+			whereCondition += " OR "
+		}
+		whereCondition += fmt.Sprintf("(%s)", string(whereBuffer.Bytes()))
+
+		newParams := m.buildSelectArgs(&ast.SelectStmt{Where: parser.DeleteStmt.Where}, m.execContext.NamedValues)
+		params = append(params, newParams...)
+	}
+
+	if hasWhereCondition {
+		selectSQL += " WHERE " + whereCondition
+	} else {
+		params = []driver.NamedValue{}
+	}
+	selectSQL += " FOR UPDATE"
+
+	return selectSQL, params, nil
+}
+
+func (m *multiDeleteExecutor) getFromTableInSQL() (string, error) {
+	for _, parser := range m.parserCtx.MultiStmt {
+		if parser != nil {
+			return parser.GetTableName()
 		}
 	}
-	return items, values, nil
+	return "", fmt.Errorf("multi delete sql has no table name")
 }

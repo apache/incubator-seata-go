@@ -187,7 +187,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 		}
 		selectArgs = append(selectArgs, paramAppenderTempList...)
 	}
-	log.Infof("build select sql by insert on update sourceQuery, sql {}", sql.String())
+	log.Infof("build select sql by insert on update sourceQuery, sql %s", sql.String())
 	return sql.String(), selectArgs, nil
 }
 

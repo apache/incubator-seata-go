@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -46,24 +47,25 @@ func Test_multiDeleteExecutor_buildBeforeImageSQL(t *testing.T) {
 		{
 			sourceQuery:     "delete from table_update_executor_test2 where id = ?; delete from table_update_executor_test2 where id = ?",
 			sourceQueryArgs: []driver.Value{3, 2},
-			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE id=? OR id=? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE (id=?) OR (id=?) FOR UPDATE",
 			expectQueryArgs: []driver.Value{3, 2},
 		},
 		{
 			sourceQuery:     "delete from table_update_executor_test2 where id = ?; delete from table_update_executor_test2 where name = ? and age = ?",
 			sourceQueryArgs: []driver.Value{3, "seata-go", 4},
-			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE id=? OR name=? AND age=? FOR UPDATE",
+			expectQuery:     "SELECT SQL_NO_CACHE * FROM table_update_executor_test2 WHERE (id=?) OR (name=? AND age=?) FOR UPDATE",
 			expectQueryArgs: []driver.Value{3, "seata-go", 4},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewMultiDeleteExecutor(&types.ParseContext{}, &types.ExecContext{Query: tt.sourceQuery, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			queryParser, err := parser.DoParser(tt.sourceQuery)
+			assert.Nil(t, err)
+			executor := NewMultiDeleteExecutor(queryParser, &types.ExecContext{Query: tt.sourceQuery, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 			query, args, err := executor.buildBeforeImageSQL()
 			assert.Nil(t, err)
-			assert.Equal(t, 1, len(query))
-			assert.Equal(t, query[0], tt.expectQuery)
+			assert.Equal(t, query, tt.expectQuery)
 			assert.Equal(t, util.ValueToNamedValue(tt.expectQueryArgs), args)
 		})
 	}
