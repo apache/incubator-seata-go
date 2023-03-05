@@ -23,6 +23,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type multiExecutor struct {
@@ -72,26 +73,31 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
-	var tmpImages []*types.RecordImage
-	var err error
+
+	tableParsers, err := m.groupParsersByTableName(parseContext)
+	if err != nil {
+		log.Infof("group parsers by table name failed, %s", err)
+		return nil, err
+	}
 
 	var beforeImages = make([]*types.RecordImage, 0)
-	for _, multiStmt := range parseContext.MultiStmt {
-		switch multiStmt.ExecutorType {
+	for _, multiParser := range tableParsers {
+		var images []*types.RecordImage
+		switch multiParser.ExecutorType {
 		case types.UpdateExecutor:
-			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
-			tmpImages, err = multiUpdateExec.beforeImage(ctx)
+			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.execContext, m.hooks)
+			images, err = multiUpdateExec.beforeImage(ctx)
 		case types.DeleteExecutor:
-			multiDeleteExec := NewMultiDeleteExecutor(m.parserCtx, m.execContext, m.hooks)
-			tmpImages, err = multiDeleteExec.beforeImage(ctx)
+			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.execContext, m.hooks)
+			images, err = multiDeleteExec.beforeImage(ctx)
 		default:
-			return nil, fmt.Errorf("not support sql %s", m.execContext.Query)
+			return nil, fmt.Errorf("not support multi sql %s", m.execContext.Query)
 		}
 
 		if err != nil {
 			return nil, err
 		}
-		beforeImages = append(beforeImages, tmpImages...)
+		beforeImages = append(beforeImages, images...)
 	}
 
 	return beforeImages, err
@@ -101,22 +107,61 @@ func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
-	tmpImages := make([]*types.RecordImage, 0)
-	var err error
 
-	var afterImages = make([]*types.RecordImage, 0)
-	for _, multiStmt := range parseContext.MultiStmt {
-		switch multiStmt.ExecutorType {
-		case types.UpdateExecutor:
-			multiUpdateExec := NewMultiUpdateExecutor(m.parserCtx, m.execContext, m.hooks)
-			tmpImages, err = multiUpdateExec.afterImage(ctx, beforeImages)
-		case types.DeleteExecutor:
-			// todo use MultiDeleteExecutor
-		}
-		afterImages = append(afterImages, tmpImages...)
-	}
+	tableParsers, err := m.groupParsersByTableName(parseContext)
 	if err != nil {
+		log.Infof("group parsers by table name failed, %s", err)
 		return nil, err
 	}
+
+	var afterImages = make([]*types.RecordImage, 0)
+	for _, multiParser := range tableParsers {
+		var images []*types.RecordImage
+		switch multiParser.ExecutorType {
+		case types.UpdateExecutor:
+			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.execContext, m.hooks)
+			images, err = multiUpdateExec.afterImage(ctx, beforeImages)
+		case types.DeleteExecutor:
+			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.execContext, m.hooks)
+			images, err = multiDeleteExec.afterImage(ctx)
+		default:
+			return nil, fmt.Errorf("not support multi sql %s", m.execContext.Query)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+		afterImages = append(afterImages, images...)
+	}
+
 	return afterImages, err
+}
+
+func (m *multiExecutor) groupParsersByTableName(parseContext *types.ParseContext) (map[string]*types.ParseContext, error) {
+	var (
+		err          error
+		tableName    string
+		tableParsers = make(map[string]*types.ParseContext, len(parseContext.MultiStmt))
+	)
+
+	for _, parser := range parseContext.MultiStmt {
+		tempParser := *parser
+		tableName, err = parser.GetTableName()
+		if err != nil {
+			return nil, err
+		}
+
+		if stmtList, ok := tableParsers[tableName]; ok {
+			sts := append(stmtList.MultiStmt, &tempParser)
+			tableParsers[tableName].MultiStmt = sts
+		} else {
+			tableParsers[tableName] = &types.ParseContext{
+				SQLType:      parser.SQLType,
+				ExecutorType: parser.ExecutorType,
+				MultiStmt:    []*types.ParseContext{&tempParser},
+			}
+		}
+	}
+
+	return tableParsers, err
 }
