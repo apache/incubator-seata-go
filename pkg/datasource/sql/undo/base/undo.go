@@ -375,8 +375,8 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 	parseContext[compressorTypeKey] = "NONE"
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
-	logParse,err:= parser.GetCache().Load(parseContext[serializerKey])
-	if err!=nil{
+	logParse, err := parser.GetCache().Load(parseContext[serializerKey])
+	if err != nil {
 		return err
 	}
 

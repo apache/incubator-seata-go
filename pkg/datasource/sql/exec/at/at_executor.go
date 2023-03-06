@@ -64,7 +64,7 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeSelectForUpdate:
 			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeInsertOnUpdate:
+		case types.SQLTypeInsertOnDuplicateUpdate:
 			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeMulti:
 			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
