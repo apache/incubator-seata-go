@@ -20,6 +20,7 @@ package executor
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"strings"
 
@@ -146,9 +147,13 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 
 		columns := make([]types.ColumnImage, 0)
 		for i, val := range slice {
+			actualVal := val
+			if v, ok := val.(driver.Valuer); ok {
+				actualVal, _ = v.Value()
+			}
 			columns = append(columns, types.ColumnImage{
 				ColumnName: colNames[i],
-				Value:      val,
+				Value:      actualVal,
 			})
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
