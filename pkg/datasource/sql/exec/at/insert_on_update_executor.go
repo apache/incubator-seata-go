@@ -126,7 +126,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 		log.Errorf("ctx driver query: %+v", err)
 		return nil, err
 	}
-	image, err := i.buildRecordImages(rowsi, metaData)
+	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsertOnDuplicateUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 		}
 		selectArgs = append(selectArgs, paramAppenderTempList...)
 	}
-	log.Infof("build select sql by insert on update sourceQuery, sql {}", sql.String())
+	log.Infof("build select sql by insert on update sourceQuery, sql %s", sql.String())
 	return sql.String(), selectArgs, nil
 }
 
@@ -259,7 +259,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 	if err != nil {
 		return nil, err
 	}
-	afterImage, err := i.buildRecordImages(rowsi, metaData)
+	afterImage, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsertOnDuplicateUpdate)
 	if err != nil {
 		return nil, err
 	}

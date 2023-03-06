@@ -123,7 +123,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := u.buildRecordImages(rowsi, metaData)
+	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	afterImage, err := u.buildRecordImages(rowsi, metaData)
+	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
