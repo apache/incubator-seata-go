@@ -162,7 +162,7 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 	dataSourceManager := datasource.GetDataSourceManager(ctx.TransactionMode.BranchType())
 	branchId, err := dataSourceManager.BranchRegister(context.Background(), request)
 	if err != nil {
-		log.Infof("Failed to report branch status: %s", err.Error())
+		log.Errorf("Failed to register branch: %s", err.Error())
 		return err
 	}
 	ctx.BranchID = uint64(branchId)
@@ -191,7 +191,7 @@ func (tx *Tx) report(success bool) error {
 			retry--
 			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 			if retry == 0 {
-				log.Infof("Failed to report branch status: %s", err.Error())
+				log.Errorf("Failed to report branch status: %s", err.Error())
 				return err
 			}
 		} else {

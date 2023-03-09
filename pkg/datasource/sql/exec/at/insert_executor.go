@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -39,7 +40,7 @@ const (
 type insertExecutor struct {
 	baseExecutor
 	parserCtx     *types.ParseContext
-	execContent   *types.ExecContext
+	execContext   *types.ExecContext
 	incrementStep int
 	// businesSQLResult after insert sql
 	businesSQLResult types.ExecResult
@@ -47,13 +48,13 @@ type insertExecutor struct {
 
 // NewInsertExecutor get insert executor
 func NewInsertExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &insertExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+	return &insertExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
 func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	i.beforeHooks(ctx, i.execContent)
+	i.beforeHooks(ctx, i.execContext)
 	defer func() {
-		i.afterHooks(ctx, i.execContent)
+		i.afterHooks(ctx, i.execContext)
 	}()
 
 	beforeImage, err := i.beforeImage(ctx)
@@ -61,7 +62,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	res, err := f(ctx, i.execContent.Query, i.execContent.NamedValues)
+	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -75,15 +76,15 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	i.execContent.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	i.execContent.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
 }
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	tableName, _ := i.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	tableName, _ := i.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +97,8 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, nil
 	}
 
-	tableName, _ := i.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	tableName, _ := i.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +108,10 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 
 	var rowsi driver.Rows
-	queryerCtx, ok := i.execContent.Conn.(driver.QueryerContext)
+	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	if !ok {
-		queryer, ok = i.execContent.Conn.(driver.Queryer)
+		queryer, ok = i.execContext.Conn.(driver.Queryer)
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
@@ -128,26 +129,26 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := i.buildRecordImages(rowsi, metaData)
+	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert)
 	if err != nil {
 		return nil, err
 	}
 
 	lockKey := i.buildLockKey(image, *metaData)
-	i.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
+	i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	return image, nil
 }
 
 // buildAfterImageSQL build select sql from insert sql
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
 	// get all pk value
-	tableName, _ := i.parserCtx.GteTableName()
+	tableName, _ := i.parserCtx.GetTableName()
 
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}
-	pkValuesMap, err := i.getPkValues(ctx, i.execContent, i.parserCtx, *meta)
+	pkValuesMap, err := i.getPkValues(ctx, i.execContext, i.parserCtx, *meta)
 	if err != nil {
 		return "", nil, err
 	}
@@ -193,7 +194,7 @@ func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecCon
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	pkValuesMap := make(map[string][]interface{})
 	var err error
-	//when there is only one pk in the table
+	// when there is only one pk in the table
 	if len(pkColumnNameList) == 1 {
 		if i.containsPK(meta, parseCtx) {
 			// the insert sql contain pk value
@@ -214,9 +215,9 @@ func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecCon
 			}
 		}
 	} else {
-		//when there is multiple pk in the table
-		//1,all pk columns are filled value.
-		//2,the auto increment pk column value is null, and other pk value are not null.
+		// when there is multiple pk in the table
+		// 1,all pk columns are filled value.
+		// 2,the auto increment pk column value is null, and other pk value are not null.
 		pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
 		if err != nil {
 			return nil, err
@@ -335,7 +336,7 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 	pkValuesMap := make(map[string][]interface{})
 
 	if nameValues != nil && len(nameValues) > 0 {
-		//use prepared statements
+		// use prepared statements
 		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 		if err != nil {
 			return nil, err
@@ -414,8 +415,9 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
-	tableName, _ := i.parserCtx.GteTableName()
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+
+	tableName, _ := i.parserCtx.GetTableName()
+	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -452,11 +454,13 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
-	tableName, _ := i.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContent.DBName, tableName)
+
+	tableName, _ := i.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
+
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {

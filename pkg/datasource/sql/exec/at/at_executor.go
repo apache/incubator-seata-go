@@ -20,62 +20,64 @@ package at
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/tm"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
+	"github.com/seata/seata-go/pkg/tm"
 )
 
 func Init() {
-	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &AtExecutor{} })
+	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
 }
 
 type executor interface {
 	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
 }
 
-type AtExecutor struct {
+type ATExecutor struct {
 	hooks []exec.SQLHook
 }
 
-func (e *AtExecutor) Interceptors(hooks []exec.SQLHook) {
+func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 	e.hooks = hooks
 }
 
-// ExecWithNamedValue
-func (e *AtExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	parser, err := parser.DoParser(execCtx.Query)
+// ExecWithNamedValue find the executor by sql type
+func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	queryParser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return nil, err
 	}
 
-	var exec executor
+	var executor executor
 
 	if !tm.IsGlobalTx(ctx) {
-		exec = NewPlainExecutor(parser, execCtx)
+		executor = NewPlainExecutor(queryParser, execCtx)
 	} else {
-		switch parser.SQLType {
+		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
-			exec = NewInsertExecutor(parser, execCtx, e.hooks)
+			executor = NewInsertExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
-			exec = NewUpdateExecutor(parser, execCtx, e.hooks)
+			executor = NewUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
-			exec = NewDeleteExecutor(parser, execCtx, e.hooks)
-		//case types.SQLTypeSelectForUpdate:
-		//case types.SQLTypeMultiDelete:
-		//case types.SQLTypeMultiUpdate:
+			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
+		case types.SQLTypeSelectForUpdate:
+			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
+		case types.SQLTypeInsertOnDuplicateUpdate:
+			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
+		case types.SQLTypeMulti:
+			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
 		default:
-			exec = NewPlainExecutor(parser, execCtx)
+			executor = NewPlainExecutor(queryParser, execCtx)
 		}
 	}
 
-	return exec.ExecContext(ctx, f)
+	return executor.ExecContext(ctx, f)
 }
 
-// ExecWithValue
-func (e *AtExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+// ExecWithValue transfer value to nameValue execute
+func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
 }

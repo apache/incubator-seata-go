@@ -38,6 +38,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 )
 
@@ -294,9 +295,22 @@ func (rs *ScanRows) Scan(dest ...interface{}) error {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(rs.lastcols), len(dest))
 	}
 	for i, sv := range rs.lastcols {
-		err := convertAssignRows(dest[i], sv, rs)
-		if err != nil {
-			return fmt.Errorf(`sql: Scan error on column index %d, name %q: %w`, i, rs.rowsi.Columns()[i], err)
+		if sv == nil {
+			continue
+		}
+		// the type of dest may be NullString, NullInt64, int64, etc, we should call its Scan()
+		ty := reflect.TypeOf(dest[i])
+		fn, ok := ty.MethodByName("Scan")
+		if !ok {
+			err := convertAssignRows(dest[i], sv, rs)
+			if err != nil {
+				return fmt.Errorf(`sql: Scan error on column index %d, name %q: %w`, i, rs.rowsi.Columns()[i], err)
+			}
+		} else {
+			res := fn.Func.Call([]reflect.Value{reflect.ValueOf(dest[i]), reflect.ValueOf(sv)})
+			if len(res) > 0 && !res[0].IsNil() {
+				return fmt.Errorf(`sql: Scan error on column index %d, name %q: %v`, i, rs.rowsi.Columns()[i], res[0].Elem().String())
+			}
 		}
 	}
 	return nil

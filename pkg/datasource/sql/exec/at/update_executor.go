@@ -26,6 +26,7 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -43,19 +44,19 @@ var (
 type updateExecutor struct {
 	baseExecutor
 	parserCtx   *types.ParseContext
-	execContent *types.ExecContext
+	execContext *types.ExecContext
 }
 
 // NewUpdateExecutor get update executor
 func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &updateExecutor{parserCtx: parserCtx, execContent: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+	return &updateExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	u.beforeHooks(ctx, u.execContent)
+	u.beforeHooks(ctx, u.execContext)
 	defer func() {
-		u.afterHooks(ctx, u.execContent)
+		u.afterHooks(ctx, u.execContext)
 	}()
 
 	beforeImage, err := u.beforeImage(ctx)
@@ -63,7 +64,7 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	res, err := f(ctx, u.execContent.Query, u.execContent.NamedValues)
+	res, err := f(ctx, u.execContext.Query, u.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +78,8 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 	}
 
-	u.execContent.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	u.execContent.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 
 	return res, nil
 }
@@ -89,22 +90,22 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, nil
 	}
 
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContent.NamedValues)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	tableName, _ := u.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContent.DBName, tableName)
+	tableName, _ := u.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
 
 	var rowsi driver.Rows
-	queryerCtx, ok := u.execContent.Conn.(driver.QueryerContext)
+	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	if !ok {
-		queryer, ok = u.execContent.Conn.(driver.Queryer)
+		queryer, ok = u.execContext.Conn.(driver.Queryer)
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
@@ -122,13 +123,13 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := u.buildRecordImages(rowsi, metaData)
+	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
 
 	lockKey := u.buildLockKey(image, *metaData)
-	u.execContent.TxCtx.LockKeys[lockKey] = struct{}{}
+	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	image.SQLType = u.parserCtx.SQLType
 
 	return image, nil
@@ -143,18 +144,18 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return &types.RecordImage{}, nil
 	}
 
-	tableName, _ := u.parserCtx.GteTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContent.DBName, tableName)
+	tableName, _ := u.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
 	var rowsi driver.Rows
-	queryerCtx, ok := u.execContent.Conn.(driver.QueryerContext)
+	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	if !ok {
-		queryer, ok = u.execContent.Conn.(driver.Queryer)
+		queryer, ok = u.execContext.Conn.(driver.Queryer)
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
@@ -172,7 +173,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	afterImage, err := u.buildRecordImages(rowsi, metaData)
+	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +231,8 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		}
 
 		// select indexes columns
-		tableName, _ := u.parserCtx.GteTableName()
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContent.DBName, tableName)
+		tableName, _ := u.parserCtx.GetTableName()
+		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {
 			return "", nil, err
 		}
