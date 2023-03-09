@@ -19,14 +19,27 @@ Seata-go 的原理和 Seata-java 保持一致，都是由 TM、RM 和 TC 组成�
 - [x] TCC
 - [ ] XA
 - [x] AT
+  - [x] Insert SQL
+  - [x] Delete SQL
+  - [x] Insert on update SQL
+  - [x] Multi update SQL
+  - [x] Multi delete SQL
+  - [x] Select for update SQL
+  - [x] Update SQL
 - [ ] SAGA
-- [ ] TM
+- [x] TM
 - [x] RPC 通信
 - [x] 事务防悬挂
+  - [x] 手动方式
+  - [x] 代理数据源方式
 - [x] 空补偿
+  - [x] 手动方式
+  - [x] 代理数据源方式
 - [ ] 配置中心
+  - [x] 配置文件
 - [ ] 注册中心
 - [ ] Metric 监控
+- [x] 压缩算法
 - [x] Sample 例子
 
 

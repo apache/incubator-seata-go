@@ -20,6 +20,8 @@ package rm
 var rmConfig RmConfig
 
 type RmConfig struct {
+	Config
+
 	ApplicationID  string
 	TxServiceGroup string
 }
