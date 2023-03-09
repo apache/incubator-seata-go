@@ -26,6 +26,7 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
@@ -94,7 +95,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 
-	tableName, _ := u.parserCtx.GteTableName()
+	tableName, _ := u.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -122,7 +123,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := u.buildRecordImages(rowsi, metaData)
+	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return &types.RecordImage{}, nil
 	}
 
-	tableName, _ := u.parserCtx.GteTableName()
+	tableName, _ := u.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
@@ -172,7 +173,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	afterImage, err := u.buildRecordImages(rowsi, metaData)
+	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +231,7 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		}
 
 		// select indexes columns
-		tableName, _ := u.parserCtx.GteTableName()
+		tableName, _ := u.parserCtx.GetTableName()
 		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {
 			return "", nil, err

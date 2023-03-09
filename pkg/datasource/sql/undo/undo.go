@@ -163,18 +163,6 @@ func (s SQLUndoLog) SetTableMeta(tableMeta *types.TableMeta) {
 	}
 }
 
-// UndoLogParser
-type UndoLogParser interface {
-	// GetName
-	GetName() string
-	// GetDefaultContent
-	GetDefaultContent() []byte
-	// Encode
-	Encode(l BranchUndoLog) []byte
-	// Decode
-	Decode(b []byte) BranchUndoLog
-}
-
 type UndoLogBuilder interface {
 	BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error)
 	AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error)

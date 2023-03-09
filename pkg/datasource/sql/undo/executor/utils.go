@@ -52,16 +52,13 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 	for key, oldRow := range oldRowMap {
 		newRow := newRowMap[key]
 		if newRow == nil {
-			log.Errorf("compare row failed, rowKey %s, reason new field is null", key)
-			return false, fmt.Errorf("compare image failed for new row is null")
+			log.Infof("compare row failed, rowKey %s, reason new field is null", key)
+			return false, nil
 		}
 		for fieldName, oldValue := range oldRow {
 			newValue := newRow[fieldName]
-			if newValue == nil {
-				log.Errorf("compare row failed, rowKey %s, fieldName %s, reason new value is null", key, fieldName)
-				return false, fmt.Errorf("compare image failed for new value is null")
-			}
 			if !datasource.DeepEqual(newValue, oldValue) {
+				log.Infof("compare row failed, rowKey %s, fieldName %s, oldValue %v, newValud %v", key, fieldName, oldValue, newValue)
 				return false, nil
 			}
 		}

@@ -18,7 +18,12 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
+
+	aparser "github.com/arana-db/parser"
+	"github.com/arana-db/parser/format"
+	"github.com/seata/seata-go/pkg/util/bytes"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
@@ -77,4 +82,16 @@ func TestDoParser(t *testing.T) {
 		assert.Equal(t, parser.ExecutorType, t2.types)
 		assert.Equal(t, parser.SQLType, t2.sqlType)
 	}
+}
+
+func TestK(t *testing.T) {
+	sql := "update aa set name = ?, age = ? where id = 123"
+	p := aparser.New()
+	stmt, _, _ := p.Parse(sql, "", "")
+
+	var bytes = bytes.NewByteBuffer([]byte{})
+	var cc = format.NewRestoreCtx(format.RestoreKeyWordUppercase, bytes)
+	stmt[0].Restore(cc)
+
+	fmt.Println(stmt)
 }

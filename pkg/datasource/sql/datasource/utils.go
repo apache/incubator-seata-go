@@ -97,6 +97,10 @@ func GetScanSlice(types []*sql.ColumnType) []interface{} {
 }
 
 func DeepEqual(x, y interface{}) bool {
+	if x == nil || y == nil {
+		return x == y
+	}
+
 	typx := reflect.ValueOf(x)
 	typy := reflect.ValueOf(y)
 
@@ -110,5 +114,23 @@ func DeepEqual(x, y interface{}) bool {
 		typy = typy.Elem()
 	}
 
+	flx, okx := parseFloatIfOk(typx)
+	fly, oky := parseFloatIfOk(typy)
+	if okx && oky {
+		return flx == fly
+	}
+
 	return reflect.DeepEqual(typx.Interface(), typy.Interface())
+}
+
+func parseFloatIfOk(val reflect.Value) (float64, bool) {
+	switch val.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(val.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return float64(val.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return float64(val.Float()), true
+	}
+	return 0, false
 }
