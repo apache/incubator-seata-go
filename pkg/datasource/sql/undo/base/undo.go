@@ -225,7 +225,6 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	// Todo use config
 	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
-
 	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
 	if err != nil {
 		return err
