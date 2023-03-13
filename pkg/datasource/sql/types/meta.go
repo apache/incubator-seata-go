@@ -20,6 +20,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 // ColumnMeta
@@ -119,6 +120,15 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 			}
 		}
 	}
+
+	// need sort again according the m.ColumnNames
+	order := make(map[string]int, len(m.ColumnNames))
+	for i, name := range m.ColumnNames {
+		order[name] = i
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return order[keys[i]] < order[keys[j]]
+	})
 	return keys
 }
 
