@@ -17,8 +17,23 @@
 
 package compressor
 
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressorType
+func (c CompressorType) GetCompressor() Compressor {
+	switch c.String() {
+	case CompressorNone.String():
+		return &NoneCompressor{}
+	case CompressorGzip.String():
+		return &Gzip{}
+	case CompressorZip.String():
+		return &Zip{}
+	case CompressorBzip2.String():
+		return &Bzip2{}
+	case CompressorLz4.String():
+		return &Lz4{}
+	case CompressorZstd.String():
+		return &Zstd{}
+	case CompressorDeflate.String():
+		return &DeflateCompress{}
+	default:
+		panic("compressor type not implement")
+	}
 }
