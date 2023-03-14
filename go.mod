@@ -5,7 +5,6 @@ go 1.18
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/agiledragon/gomonkey/v2 v2.2.0
 	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
 	github.com/arana-db/parser v0.2.5
 	github.com/bluele/gcache v0.0.2
@@ -30,6 +29,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
+
+require github.com/agiledragon/gomonkey/v2 v2.9.0
 
 require (
 	github.com/RoaringBitmap/roaring v1.2.0 // indirect
@@ -74,7 +75,7 @@ require (
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -89,8 +90,8 @@ require (
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pingcap/log v0.0.0-20210906054005-afc726e70354 // indirect
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
-	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
-	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
