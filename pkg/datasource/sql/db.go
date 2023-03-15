@@ -94,7 +94,8 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 		opts[i](db)
 	}
 
-	return db, db.init()
+	db.init()
+	return db, nil
 }
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
@@ -121,9 +122,8 @@ func (db *DBResource) GetResourceGroupId() string {
 	panic("implement me")
 }
 
-func (db *DBResource) init() error {
+func (db *DBResource) init() {
 	db.checkDbVersion()
-	return nil
 }
 
 func (db *DBResource) GetResourceId() string {

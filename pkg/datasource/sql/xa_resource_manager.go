@@ -20,9 +20,9 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
 

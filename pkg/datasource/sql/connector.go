@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"io"
 	"sync"
 
@@ -141,7 +140,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (string, error) {
 	queryConn, isQueryContext := conn.(driver.QueryerContext)
 	if !isQueryContext {
-		return "", fmt.Errorf("get db version error for unexecpt driver conn")
+		return "", errors.New("get db version error for unexpected driver conn")
 	}
 
 	res, err := queryConn.QueryContext(ctx, "SELECT VERSION()", nil)

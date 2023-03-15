@@ -384,7 +384,7 @@ func ConvertDbVersion(version string) (int, error) {
 	size := len(parts)
 	maxVersionDot := 3
 	if size > maxVersionDot+1 {
-		return 0, fmt.Errorf("incompatible version format: %s" + version)
+		return 0, fmt.Errorf("incompatible version format: %s", version)
 	}
 
 	var res int
