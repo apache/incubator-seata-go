@@ -15,10 +15,30 @@
  * limitations under the License.
  */
 
-package compressor
+package codec
 
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressorType
+import (
+	"testing"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGlobalLockQueryRequestCodec(t *testing.T) {
+	msg := message.GlobalLockQueryRequest{
+		BranchRegisterRequest: message.BranchRegisterRequest{
+			Xid:             "abc134",
+			ResourceId:      "124",
+			LockKey:         "a:1,b:2",
+			ApplicationData: []byte("abc"),
+			BranchType:      branch.BranchTypeTCC,
+		},
+	}
+
+	codec := GlobalLockQueryRequestCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }

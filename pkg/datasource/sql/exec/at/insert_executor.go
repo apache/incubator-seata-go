@@ -129,7 +129,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := i.buildRecordImages(rowsi, metaData)
+	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert)
 	if err != nil {
 		return nil, err
 	}

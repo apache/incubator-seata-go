@@ -17,8 +17,17 @@
 
 package compressor
 
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressorType
+type NoneCompressor struct {
+}
+
+func (n *NoneCompressor) Compress(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (n *NoneCompressor) Decompress(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (n *NoneCompressor) GetCompressorType() CompressorType {
+	return CompressorNone
 }

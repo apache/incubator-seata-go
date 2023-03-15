@@ -25,6 +25,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/seata/seata-go/pkg/tm"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
@@ -52,7 +54,7 @@ func (s SelectForUpdateExecutor) interceptors(interceptors []SQLHook) {
 }
 
 func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
-	if !execCtx.IsInGlobalTransaction && !execCtx.IsRequireGlobalLock {
+	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
 
@@ -166,7 +168,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 }
 
 func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
-	if !execCtx.IsInGlobalTransaction && !execCtx.IsRequireGlobalLock {
+	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.Values)
 	}
 

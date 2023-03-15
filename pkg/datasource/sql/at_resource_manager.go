@@ -110,7 +110,7 @@ func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchRe
 }
 
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	return false, nil
+	return a.rmRemoting.LockQuery(param)
 }
 
 // BranchRegister branch transaction register

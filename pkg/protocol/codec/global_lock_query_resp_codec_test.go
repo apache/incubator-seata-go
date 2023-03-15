@@ -15,10 +15,32 @@
  * limitations under the License.
  */
 
-package compressor
+package codec
 
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Decompress([]byte) ([]byte, error)
-	GetCompressorType() CompressorType
+import (
+	"testing"
+
+	serror "github.com/seata/seata-go/pkg/util/errors"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGlobalLockQueryResponseCodec(t *testing.T) {
+	msg := message.GlobalLockQueryResponse{
+		AbstractTransactionResponse: message.AbstractTransactionResponse{
+			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
+			AbstractResultMessage: message.AbstractResultMessage{
+				ResultCode: message.ResultCodeFailed,
+				Msg:        "FAILED",
+			},
+		},
+		Lockable: true,
+	}
+
+	codec := GlobalLockQueryResponseCodec{}
+	bytes := codec.Encode(msg)
+	msg2 := codec.Decode(bytes)
+
+	assert.Equal(t, msg, msg2)
 }

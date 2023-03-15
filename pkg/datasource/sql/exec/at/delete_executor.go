@@ -108,7 +108,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 
-	image, err := d.buildRecordImages(rowsi, metaData)
+	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
 	if err != nil {
 		return nil, err
 	}

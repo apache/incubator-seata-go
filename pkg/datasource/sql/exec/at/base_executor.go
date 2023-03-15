@@ -147,7 +147,7 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta) (*types.RecordImage, error) {
+func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -183,7 +183,7 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
 	}
 
-	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages}, nil
+	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
 }
 
 func getSqlNullValue(value interface{}) interface{} {
