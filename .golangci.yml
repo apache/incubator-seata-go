@@ -18,6 +18,11 @@
 linters-settings:
   govet:
     check-shadowing: false
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
   golint:
     min-confidence: 0
   gocyclo:
@@ -48,6 +53,20 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+  errcheck:
+    check-type-assertions: true
+  funlen:
+    # every fun's len should not above 50 lines
+    lines: 50
+    statements: 40
+  gocognit:
+    min-complexity: 15
+  nestif:
+    min-complexity: 4
+  gofmt:
+    simplify: true
+  errorlint:
+    errorf: true
 
 linters:
   disable-all: true
@@ -56,6 +75,19 @@ linters:
     - staticcheck
     - ineffassign
     - misspell
+    - errcheck
+    - errorlint
+    - funlen
+    - lll
+    - prealloc
+    - forcetypeassert
+    - execinquery
+    - goerr113
+    - gofmt
+    - gofumpt
+    - goimports
+    - gomnd
+    - gosec  #for the security
 
 run:
   skip-dirs:
