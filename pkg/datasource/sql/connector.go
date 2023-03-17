@@ -20,11 +20,14 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
+	"io"
 	"sync"
 
 	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type seataATConnector struct {
@@ -89,7 +92,6 @@ func (c *seataXAConnector) Driver() driver.Driver {
 // method will call Close and return error (if any).
 type seataConnector struct {
 	transType types.TransactionMode
-	conf      *seataServerConfig
 	res       *DBResource
 	once      sync.Once
 	driver    driver.Driver
@@ -116,6 +118,15 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
+	// get the version of mysql for xa.
+	if c.transType == types.XAMode {
+		version, err := c.dbVersion(ctx, conn)
+		if err != nil {
+			return nil, err
+		}
+		c.res.SetDbVersion(version)
+	}
+
 	return &Conn{
 		targetConn: conn,
 		res:        c.res,
@@ -124,6 +135,40 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		dbName:     c.cfg.DBName,
 		dbType:     types.DBTypeMySQL,
 	}, nil
+}
+
+func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (string, error) {
+	queryConn, isQueryContext := conn.(driver.QueryerContext)
+	if !isQueryContext {
+		return "", errors.New("get db version error for unexpected driver conn")
+	}
+
+	res, err := queryConn.QueryContext(ctx, "SELECT VERSION()", nil)
+	if err != nil {
+		log.Errorf("seata connector get the xa mysql version err:%v", err)
+		return "", err
+	}
+
+	dest := make([]driver.Value, 1)
+	var version string
+	for true {
+		if err = res.Next(dest); err != nil {
+			if err == io.EOF {
+				return version, nil
+			}
+			return "", err
+		}
+		if len(dest) != 1 {
+			return "", errors.New("get the mysql version is not column 1")
+		}
+
+		var isVersionOk bool
+		version, isVersionOk = dest[0].(string)
+		if !isVersionOk {
+			return "", errors.New("get the mysql version is not a string")
+		}
+	}
+	return "", errors.New("get the mysql version is error")
 }
 
 // Driver returns the underlying Driver of the Connector,

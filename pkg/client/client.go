@@ -43,7 +43,7 @@ func InitPath(configFilePath string) {
 
 	initRmClient(cfg)
 	initTmClient(cfg)
-	initDatasource(cfg)
+	initDatasource()
 }
 
 var (
@@ -84,10 +84,11 @@ func initRmClient(cfg *Config) {
 		integration.Init()
 		tcc.InitTCC()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
+		at.InitXA(cfg.ClientConfig.XaConfig)
 	})
 }
 
-func initDatasource(cfg *Config) {
+func initDatasource() {
 	onceInitDatasource.Do(func() {
 		datasource.Init()
 	})

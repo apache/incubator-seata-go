@@ -20,7 +20,6 @@ package sql
 import (
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec/at"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/xa"
 	"github.com/seata/seata-go/pkg/datasource/sql/hook"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -42,7 +41,6 @@ func hookRegister() {
 
 func executorRegister() {
 	at.Init()
-	xa.Init()
 }
 
 func undoInit() {

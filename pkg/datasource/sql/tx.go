@@ -22,16 +22,15 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/util/backoff"
 	"github.com/seata/seata-go/pkg/util/log"
-
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
-
-const REPORT_RETRY_COUNT = 5
 
 var (
 	hl      sync.RWMutex
@@ -146,19 +145,31 @@ func (tx *Tx) commitOnLocal() error {
 
 // register
 func (tx *Tx) register(ctx *types.TransactionContext) error {
-	if !ctx.HasUndoLog() || !ctx.HasLockKey() {
+	if ctx.TransactionMode.BranchType() == branch.BranchTypeUnknow {
 		return nil
 	}
-	lockKey := ""
-	for k, _ := range ctx.LockKeys {
-		lockKey += k + ";"
+
+	if ctx.TransactionMode.BranchType() == branch.BranchTypeAT && !ctx.HasUndoLog() || !ctx.HasLockKey() {
+		return nil
 	}
+
 	request := rm.BranchRegisterParam{
 		Xid:        ctx.XID,
 		BranchType: ctx.TransactionMode.BranchType(),
 		ResourceId: ctx.ResourceID,
-		LockKeys:   lockKey,
 	}
+
+	var lockKey string
+	if ctx.TransactionMode == types.ATMode {
+		if !ctx.HasUndoLog() || !ctx.HasLockKey() {
+			return nil
+		}
+		for k, _ := range ctx.LockKeys {
+			lockKey += k + ";"
+		}
+		request.LockKeys = lockKey
+	}
+
 	dataSourceManager := datasource.GetDataSourceManager(ctx.TransactionMode.BranchType())
 	branchId, err := dataSourceManager.BranchRegister(context.Background(), request)
 	if err != nil {
@@ -184,21 +195,22 @@ func (tx *Tx) report(success bool) error {
 	if dataSourceManager == nil {
 		return fmt.Errorf("get dataSourceManager failed")
 	}
-	retry := REPORT_RETRY_COUNT
-	for retry > 0 {
-		err := dataSourceManager.BranchReport(context.Background(), request)
-		if err != nil {
-			retry--
-			log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
-			if retry == 0 {
-				log.Errorf("Failed to report branch status: %s", err.Error())
-				return err
-			}
-		} else {
-			return nil
+
+	retry := backoff.New(context.Background(), backoff.Config{
+		MinBackoff: 100 * time.Millisecond,
+		MaxBackoff: 200 * time.Millisecond,
+		MaxRetries: 5,
+	})
+
+	var err error
+	for retry.Ongoing() {
+		if err = dataSourceManager.BranchReport(context.Background(), request); err == nil {
+			break
 		}
+		log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
+		retry.Wait()
 	}
-	return nil
+	return err
 }
 
 func getStatus(success bool) branch.BranchStatus {

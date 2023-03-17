@@ -38,6 +38,7 @@ import (
 type MockDataSourceManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockDataSourceManagerMockRecorder
+	branchType branch.BranchType
 }
 
 // MockDataSourceManagerMockRecorder is the mock recorder for MockDataSourceManager.
@@ -131,9 +132,13 @@ func (mr *MockDataSourceManagerMockRecorder) CreateTableMetaCache(ctx, resID, db
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTableMetaCache", reflect.TypeOf((*MockDataSourceManager)(nil).CreateTableMetaCache), ctx, resID, dbType, db)
 }
 
+func (m *MockDataSourceManager) SetBranchType(branchType branch.BranchType) {
+	m.branchType = branchType
+}
+
 // GetBranchType mocks base method.
 func (m *MockDataSourceManager) GetBranchType() branch.BranchType {
-	return branch.BranchTypeAT
+	return m.branchType
 }
 
 // GetBranchType indicates an expected call of GetBranchType.

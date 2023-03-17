@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-
 	"github.com/google/uuid"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 type DBType int16
@@ -76,6 +76,7 @@ const (
 	DBTypePostgreSQL
 	DBTypeSQLServer
 	DBTypeOracle
+	DBTypeMARIADB
 
 	BranchPhase_Unknown = 0
 	BranchPhase_Done    = 1

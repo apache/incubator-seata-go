@@ -17,7 +17,6 @@
 
 package sql
 
-// XATx
 type XATx struct {
 	tx *Tx
 }
@@ -32,20 +31,14 @@ func (tx *XATx) Commit() error {
 }
 
 func (tx *XATx) Rollback() error {
-	err := tx.tx.Rollback()
-	if err != nil {
-
-		originTx := tx.tx
-
-		if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
-			originTx.report(false)
-		}
+	originTx := tx.tx
+	if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
+		return originTx.report(false)
 	}
-
-	return err
+	return nil
 }
 
-// commitOnXA
+// commitOnXA commit xa and register branch transaction
 func (tx *XATx) commitOnXA() error {
 	return nil
 }
