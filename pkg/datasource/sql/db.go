@@ -18,19 +18,24 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
+	"fmt"
+	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
 type dbOption func(db *DBResource)
 
-func withGroupID(id string) dbOption {
+func withDsn(dsn string) dbOption {
 	return func(db *DBResource) {
-		db.groupID = id
+		db.dsn = dsn
 	}
 }
 
@@ -52,9 +57,21 @@ func withDBType(dt types.DBType) dbOption {
 	}
 }
 
+func withBranchType(dt branch.BranchType) dbOption {
+	return func(db *DBResource) {
+		db.branchType = dt
+	}
+}
+
 func withTarget(source *sql.DB) dbOption {
 	return func(db *DBResource) {
 		db.db = source
+	}
+}
+
+func withConnector(ci driver.Connector) dbOption {
+	return func(db *DBResource) {
+		db.connector = ci
 	}
 }
 
@@ -64,9 +81,9 @@ func withDBName(dbName string) dbOption {
 	}
 }
 
-func withConf(conf *seataServerConfig) dbOption {
+func withConf(conf *XAConnConf) dbOption {
 	return func(db *DBResource) {
-		db.conf = *conf
+		db.xaConnConf = conf
 	}
 }
 
@@ -77,47 +94,36 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 		opts[i](db)
 	}
 
-	return db, db.init()
+	db.init()
+	return db, nil
 }
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
 type DBResource struct {
-	// groupID
-	groupID string
-	// resourceID
+	xaConnConf *XAConnConf
+	// only use by mysql
+	dbVersion  string
+	dsn        string
 	resourceID string
-	// conf
-	conf seataServerConfig
-	// db
-	db     *sql.DB
-	dbName string
-	// dbType
-	dbType types.DBType
-	// undoLogMgr
+	db         *sql.DB
+	connector  driver.Connector
+	dbName     string
+	dbType     types.DBType
 	undoLogMgr undo.UndoLogManager
-	// metaCache
-	metaCache datasource.TableMetaCache
-}
+	branchType branch.BranchType
 
-func (db *DBResource) init() error {
-	return nil
+	// for xa
+	metaCache    datasource.TableMetaCache
+	shouldBeHeld bool
+	keeper       sync.Map
 }
-
-// todo do not put meta data to rm
-//func (db *DBResource) init() error {
-//	mgr := datasource.GetDataSourceManager(db.GetBranchType())
-//	metaCache, err := mgr.CreateTableMetaCache(context.Background(), db.resourceID, db.dbType, db.db)
-//	if err != nil {
-//		return err
-//	}
-//
-//	db.metaCache = metaCache
-//
-//	return nil
-//}
 
 func (db *DBResource) GetResourceGroupId() string {
-	return db.groupID
+	panic("implement me")
+}
+
+func (db *DBResource) init() {
+	db.checkDbVersion()
 }
 
 func (db *DBResource) GetResourceId() string {
@@ -125,18 +131,106 @@ func (db *DBResource) GetResourceId() string {
 }
 
 func (db *DBResource) GetBranchType() branch.BranchType {
-	return db.conf.BranchType
+	return db.branchType
 }
 
-type SqlDBProxy struct {
-	db     *sql.DB
-	dbName string
+func (db *DBResource) GetDB() *sql.DB {
+	return db.db
 }
 
-func (s *SqlDBProxy) GetDB() *sql.DB {
-	return s.db
+func (db *DBResource) GetDBName() string {
+	return db.dbName
 }
 
-func (s *SqlDBProxy) GetDBName() string {
-	return s.dbName
+func (db *DBResource) GetDbType() types.DBType {
+	return db.dbType
+}
+
+func (db *DBResource) SetDbType(dbType types.DBType) {
+	db.dbType = dbType
+}
+
+func (db *DBResource) SetDbVersion(v string) {
+	db.dbVersion = v
+}
+
+func (db *DBResource) GetDbVersion() string {
+	return db.dbVersion
+}
+
+func (db *DBResource) IsShouldBeHeld() bool {
+	return db.shouldBeHeld
+}
+
+// Hold the xa connection.
+func (db *DBResource) Hold(xaBranchID string, v interface{}) error {
+	_, exist := db.keeper.Load(xaBranchID)
+	if !exist {
+		db.keeper.Store(xaBranchID, v)
+		return nil
+	}
+	return nil
+}
+
+func (db *DBResource) Release(xaBranchID string) {
+	db.keeper.Delete(xaBranchID)
+}
+
+func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
+	return db.keeper.Load(xaBranchID)
+}
+
+func (db *DBResource) GetKeeper() *sync.Map {
+	return &db.keeper
+}
+
+func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn, error) {
+	xaBranchXid := xaXid.String()
+	tmpConn, ok := db.Lookup(xaBranchXid)
+	if ok && tmpConn != nil {
+		connectionProxyXa, isConnectionProxyXa := tmpConn.(*XAConn)
+		if !isConnectionProxyXa {
+			return nil, fmt.Errorf("get connection proxy xa from cache error, xid:%s", xaXid.String())
+		}
+		return connectionProxyXa, nil
+	}
+
+	// why here need a new connection?
+	// 1. because there maybe a rm cluster
+	// 2. the first phase select a rm1, and store the connection is the keeper
+	// 3. tc request the second phase. but the rm1 is shutdown, so the tc select another rm (like rm2)
+	// 4. so when the second phase request coming to rm2, rm2 must not store the connection.
+	// 5. the rm2 get the second phase do the two thing.
+	// 	  1. in mysql version >= 8.0.29, mysql support the xa transaction commit by another connection. so just commit
+	//    2. when the version < 8.0.29. so just make the transaction rollback
+	newDriverConn, err := db.connector.Connect(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
+	}
+	xaConn := &XAConn{
+		Conn: newDriverConn.(*Conn),
+	}
+	return xaConn, nil
+}
+
+func (db *DBResource) checkDbVersion() error {
+	switch db.dbType {
+	case types.DBTypeMySQL:
+		currentVersion, err := util.ConvertDbVersion(db.dbVersion)
+		if err != nil {
+			return fmt.Errorf("new connection xa proxy convert db version:%s err:%v", db.GetDbVersion(), err)
+		}
+
+		shouldKeptVersion, err := util.ConvertDbVersion("8.0.29")
+		if err != nil {
+			return fmt.Errorf("new connection xa proxy convert db version 8.0.29 err:%v", err)
+		}
+
+		if currentVersion < shouldKeptVersion {
+			db.shouldBeHeld = true
+		}
+	case types.DBTypeMARIADB:
+		db.shouldBeHeld = true
+	}
+	return nil
 }

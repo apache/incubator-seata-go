@@ -56,23 +56,23 @@ func (a *ATSourceManager) GetBranchType() branch.BranchType {
 	return branch.BranchTypeAT
 }
 
-// Get all resources managed by this manager
+// GetCachedResources get all resources managed by this manager
 func (a *ATSourceManager) GetCachedResources() *sync.Map {
 	return &a.resourceCache
 }
 
-// Register a Resource to be managed by Resource Manager
+// RegisterResource register a Resource to be managed by Resource Manager
 func (a *ATSourceManager) RegisterResource(res rm.Resource) error {
 	a.resourceCache.Store(res.GetResourceId(), res)
 	return a.basic.RegisterResource(res)
 }
 
-// Unregister a Resource from the Resource Manager
+// UnregisterResource unregister a Resource from the Resource Manager
 func (a *ATSourceManager) UnregisterResource(res rm.Resource) error {
 	return a.basic.UnregisterResource(res)
 }
 
-// Rollback a branch transaction
+// BranchRollback rollback a branch transaction
 func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
 	var dbResource *DBResource
 	if resource, ok := a.resourceCache.Load(branchResource.ResourceId); !ok {
@@ -103,28 +103,26 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 
-// BranchCommit
+// BranchCommit commit the branch transaction
 func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
 	a.worker.BranchCommit(ctx, resource)
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
-// LockQuery
 func (a *ATSourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
 	return a.rmRemoting.LockQuery(param)
 }
 
-// BranchRegister
+// BranchRegister branch transaction register
 func (a *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
 	return a.rmRemoting.BranchRegister(req)
 }
 
-// BranchReport
+// BranchReport Report status of transaction branch
 func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return a.rmRemoting.BranchReport(param)
 }
 
-// CreateTableMetaCache
 func (a *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
 	db *sql.DB) (datasource.TableMetaCache, error) {
 	return a.basic.CreateTableMetaCache(ctx, resID, dbType, db)

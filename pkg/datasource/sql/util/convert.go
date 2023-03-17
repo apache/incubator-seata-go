@@ -28,8 +28,10 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -374,4 +376,31 @@ type decimalCompose interface {
 	// Compose sets the internal decimal value from parts. If the value cannot be
 	// represented then an error should be returned.
 	Compose(form byte, negative bool, coefficient []byte, exponent int32) error
+}
+
+// ConvertDbVersion convert a string db version to a number.
+func ConvertDbVersion(version string) (int, error) {
+	parts := strings.Split(version, ".")
+	size := len(parts)
+	maxVersionDot := 3
+	if size > maxVersionDot+1 {
+		return 0, fmt.Errorf("incompatible version format: %s", version)
+	}
+
+	var res int
+	for idx, part := range parts {
+		if partInt, err := strconv.Atoi(part); err == nil {
+			res += calculatePartValue(partInt, size, idx)
+		} else {
+			subParts := strings.Split(part, "-")
+			if subPartInt, err := strconv.Atoi(subParts[0]); err == nil {
+				res += calculatePartValue(subPartInt, size, idx)
+			}
+		}
+	}
+	return res, nil
+}
+
+func calculatePartValue(partNumeric, size, index int) int {
+	return partNumeric * int(math.Pow(100, float64(size-index)))
 }

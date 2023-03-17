@@ -17,8 +17,10 @@
 
 package datasource
 
-import sql2 "github.com/seata/seata-go/pkg/datasource/sql"
+import (
+	"github.com/seata/seata-go/pkg/datasource/sql"
+)
 
 func Init() {
-	sql2.Init()
+	sql.Init()
 }
