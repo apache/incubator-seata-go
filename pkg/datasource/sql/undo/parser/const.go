@@ -18,5 +18,5 @@
 package parser
 
 const (
-	DefaultSerializer = "jackson"
+	DefaultSerializer = "json"
 )

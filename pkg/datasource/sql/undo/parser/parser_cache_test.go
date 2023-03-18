@@ -41,7 +41,7 @@ func TestGetDefault(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	jacksonParser, err := GetCache().Load("jackson")
+	jsonParser, err := GetCache().Load("json")
 	assert.Nil(t, err)
-	assert.NotNil(t, jacksonParser)
+	assert.NotNil(t, jsonParser)
 }
