@@ -1,0 +1,118 @@
+syntax = "proto3";
+package parser;
+import "google/protobuf/struct.proto";
+
+option go_package="/pkg/datasource/sql/undo/parser";
+
+message BranchUndoLog{
+	string Xid = 1;
+	uint64 BranchID = 2;
+	repeated SQLUndoLog Logs =3;
+}
+
+message SQLUndoLog{
+	SQLType SQLType = 1;
+	string TableName = 2;
+	RecordImage BeforeImage =3;
+	RecordImage AfterImage =4;
+}
+
+message RecordImage{
+	string TableName = 1;
+	SQLType SQLType = 2;
+	repeated RowImage Rows = 3;
+}
+
+message RowImage{
+	repeated  google.protobuf.Struct Columns = 1;
+}
+
+/*message ColumnImage{
+	IndexType KeyType = 1;
+	string ColumnName = 2;
+	JDBCType ColumnType = 3;
+	google.protobuf.Struct Value = 4;
+}
+*/
+
+enum IndexType{
+	IndexTypeNull = 0;
+	IndexTypePrimaryKey = 1;
+}
+
+enum JDBCType{
+	JDBCTypeNull                   = 0;
+	JDBCTypeBit                    = -7;
+	JDBCTypeTinyInt                = -6;
+	JDBCTypeSmallInt               = 5;
+	JDBCTypeInteger                = 4;
+	JDBCTypeBigInt                 = -5;
+	JDBCTypeFloat                  = 6;
+	JDBCTypeReal                   = 7;
+	JDBCTypeDouble                 = 8;
+	JDBCTypeNumberic               = 2;
+	JDBCTypeDecimal                = 3;
+	JDBCTypeChar                   = 1;
+	JDBCTypeVarchar                = 12;
+	JDBCTypeLongVarchar            = -1;
+	JDBCTypeDate                   = 91;
+	JDBCTypeTime                   = 92;
+	JDBCTypeTimestamp              = 93;
+	JDBCTypeBinary                 = -2;
+	JDBCTypeVarBinary              = -3;
+	JDBCTypeLongVarBinary          = -4;
+	JDBCTypeOther                  = 1111;
+	JDBCTypeJavaObject             = 2000;
+	JDBCTypeDistinct               = 2001;
+	JDBCTypeStruct                 = 2002;
+	JDBCTypeArray                  = 2003;
+	JDBCTypeBlob                   = 2004;
+	JDBCTypeClob                   = 2005;
+	JDBCTypeRef                    = 2006;
+	JDBCTypeDateLink               = 70;
+	JDBCTypeBoolean                = 16;
+	JDBCTypeRowID                  = -8;
+	JDBCTypeNchar                  = -15;
+	JDBCTypeNvarchar               = -9;
+	JDBCTypeLongNvVarchar          = -16;
+	JDBCTypeNclob                  = 2011;
+	JDBCTypeSqlXML                 = 2009;
+	JDBCTypeRefCursor              = 2012;
+	JDBCTypeTimeWithTimeZone       = 2013;
+	JDBCTypeTimestampWithTimezone  = 2014;
+}
+
+enum SQLType{
+	SQLTypeDefault = 0;
+    SQLTypeUnknown = 1;
+	SQLTypeSelect = 2;
+	SQLTypeInsert = 3;
+	SQLTypeUpdate = 4;
+	SQLTypeDelete = 5;
+	SQLTypeSelectForUpdate = 6;
+	SQLTypeReplace = 7;
+	SQLTypeTruncate = 8;
+	SQLTypeCreate = 9;
+	SQLTypeDrop = 10;
+	SQLTypeLoad = 11;
+	SQLTypeMerge = 12;
+	SQLTypeShow = 13;
+	SQLTypeAlter = 14;
+	SQLTypeRename = 15;
+	SQLTypeDump = 16;
+	SQLTypeDebug = 17;
+	SQLTypeExplain = 18;
+	SQLTypeDesc = 19;
+	SQLTypeSet = 20;
+	SQLTypeReload = 21;
+	SQLTypeSelectUnion = 22;
+	SQLTypeCreateTable = 23;
+	SQLTypeDropTable = 24;
+	SQLTypeAlterTable = 25;
+	SQLTypeSelectFromUpdate = 26;
+	SQLTypeMultiDelete = 27;
+	SQLTypeMultiUpdate = 28;
+	SQLTypeCreateIndex = 29;
+	SQLTypeDropIndex = 30;
+	SQLTypeMulti = 31;
+}
