@@ -25,11 +25,11 @@ import (
 )
 
 func TestGetName(t *testing.T) {
-	assert.Equal(t, "jackson", (&JacksonParser{}).GetName())
+	assert.Equal(t, "json", (&JsonParser{}).GetName())
 }
 
 func TestGetDefaultContext(t *testing.T) {
-	assert.Equal(t, []byte("{}"), (&JacksonParser{}).GetDefaultContent())
+	assert.Equal(t, []byte("{}"), (&JsonParser{}).GetDefaultContent())
 }
 
 func TestEncode(t *testing.T) {
@@ -53,7 +53,7 @@ func TestEncode(t *testing.T) {
 
 	for _, Case := range TestCases {
 		t.Run(Case.CaseName, func(t *testing.T) {
-			logParser := &JacksonParser{}
+			logParser := &JsonParser{}
 			bytes, err := logParser.Encode(Case.UndoLog)
 			if Case.ExpectErr {
 				assert.NotNil(t, err)
@@ -87,7 +87,7 @@ func TestDecode(t *testing.T) {
 
 	for _, Case := range TestCases {
 		t.Run(Case.CaseName, func(t *testing.T) {
-			logParser := &JacksonParser{}
+			logParser := &JsonParser{}
 			undoLog, err := logParser.Decode([]byte(Case.InputBytes))
 			if Case.ExpectErr {
 				assert.NotNil(t, err)
