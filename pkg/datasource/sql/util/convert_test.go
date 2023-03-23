@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-package xa
+package util
 
-type Xid interface {
-	GetFormatId() int
-	GetGlobalTransactionId() []byte
-	GetBranchQualifier() []byte
-}
+import (
+	"testing"
 
-type XAXid interface {
-	Xid
-	GetGlobalXid() string
-	GetBranchId() int64
+	"github.com/stretchr/testify/assert"
+)
+
+func TestConvertDbVersion(t *testing.T) {
+	version1 := "3.1.2"
+	v1Int, err1 := ConvertDbVersion(version1)
+	assert.NoError(t, err1)
+
+	version2 := "3.1.3"
+	v2Int, err2 := ConvertDbVersion(version2)
+	assert.NoError(t, err2)
+
+	assert.Less(t, v1Int, v2Int)
+
+	version3 := "3.1.3"
+	v3Int, err3 := ConvertDbVersion(version3)
+	assert.NoError(t, err3)
+	assert.Equal(t, v2Int, v3Int)
 }

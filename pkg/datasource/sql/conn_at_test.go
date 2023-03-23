@@ -26,11 +26,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -41,7 +43,7 @@ func TestMain(m *testing.M) {
 func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
 	ctrl := gomock.NewController(t)
 
-	mockMgr := initMockResourceManager(t, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
 	_ = mockMgr
 
 	db, err := sql.Open(SeataATMySQLDriver, "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true")
@@ -57,6 +59,14 @@ func initAtConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 		mockConn := mock.NewMockTestDriverConn(ctrl)
 		mockConn.EXPECT().Begin().AnyTimes().Return(mockTx, nil)
 		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(mockTx, nil)
+		mockConn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+			func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+				rows := &mysqlMockRows{}
+				rows.data = [][]interface{}{
+					{"8.0.29"},
+				}
+				return rows, nil
+			})
 		baseMockConn(mockConn)
 
 		connector := mock.NewMockTestDriverConnector(ctrl)

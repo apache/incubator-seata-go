@@ -25,10 +25,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/reflectx"
-	"github.com/stretchr/testify/assert"
 )
 
 type initConnectorFunc func(t *testing.T, ctrl *gomock.Controller) driver.Connector
@@ -38,6 +40,14 @@ func initMockConnector(t *testing.T, ctrl *gomock.Controller) driver.Connector {
 
 	connector := mock.NewMockTestDriverConnector(ctrl)
 	connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)
+	mockConn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+			rows := &mysqlMockRows{}
+			rows.data = [][]interface{}{
+				{"8.0.29"},
+			}
+			return rows, nil
+		})
 	return connector
 }
 
@@ -66,10 +76,10 @@ func Test_seataATConnector_Connect(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockMgr := initMockResourceManager(t, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open(SeataATMySQLDriver, "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,10 +120,10 @@ func Test_seataXAConnector_Connect(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockMgr := initMockResourceManager(t, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
 	_ = mockMgr
 
-	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	db, err := sql.Open(SeataXAMySQLDriver, "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	if err != nil {
 		t.Fatal(err)
 	}

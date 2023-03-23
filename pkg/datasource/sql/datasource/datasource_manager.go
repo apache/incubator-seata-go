@@ -25,7 +25,6 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 )
 
@@ -34,7 +33,7 @@ var (
 	tableMetaCacheMap = map[types.DBType]TableMetaCache{}
 )
 
-// RegisterTableCache
+// RegisterTableCache register the table meta cache for at and xa
 func RegisterTableCache(dbType types.DBType, tableMetaCache TableMetaCache) {
 	tableMetaCacheMap[dbType] = tableMetaCache
 }
@@ -54,11 +53,8 @@ func GetDataSourceManager(branchType branch.BranchType) DataSourceManager {
 	return nil
 }
 
-// todo implements ResourceManagerOutbound interface
-// DataSourceManager
 type DataSourceManager interface {
 	rm.ResourceManager
-	// CreateTableMetaCache
 	CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error)
 }
 
@@ -67,9 +63,8 @@ type entry struct {
 	metaCache TableMetaCache
 }
 
-// BasicSourceManager
+// BasicSourceManager the basic source manager for xa and at
 type BasicSourceManager struct {
-	// lock
 	lock sync.RWMutex
 	// tableMetaCache
 	// todo do not put meta cache here
@@ -82,34 +77,7 @@ func NewBasicSourceManager() *BasicSourceManager {
 	}
 }
 
-// Commit a branch transaction
-// TODO wait finish
-func (dm *BasicSourceManager) BranchCommit(ctx context.Context, req message.BranchCommitRequest) (branch.BranchStatus, error) {
-	return branch.BranchStatusPhaseoneDone, nil
-}
-
-// Rollback a branch transaction
-// TODO wait finish
-func (dm *BasicSourceManager) BranchRollback(ctx context.Context, req message.BranchRollbackRequest) (branch.BranchStatus, error) {
-	return branch.BranchStatusPhaseoneFailed, nil
-}
-
-// Branch register long
-func (dm *BasicSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {
-	return 0, nil
-}
-
-// Branch report
-func (dm *BasicSourceManager) BranchReport(ctx context.Context, req message.BranchReportRequest) error {
-	return nil
-}
-
-// Lock query boolean
-func (dm *BasicSourceManager) LockQuery(ctx context.Context, branchType branch.BranchType, resourceId, xid, lockKeys string) (bool, error) {
-	return true, nil
-}
-
-// Register a   model.Resource to be managed by   model.Resource Manager
+// RegisterResource register a model.Resource to be managed by model.Resource Manager
 func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 	err := rm.GetRMRemotingInstance().RegisterResource(resource)
 	if err != nil {
@@ -118,22 +86,11 @@ func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
 	return nil
 }
 
-// Unregister a   model.Resource from the   model.Resource Manager
 func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
 	return fmt.Errorf("unsupport unregister resource")
 }
 
-// Get all resources managed by this manager
-func (dm *BasicSourceManager) GetManagedResources() *sync.Map {
-	return nil
-}
-
-// Get the model.BranchType
-func (dm *BasicSourceManager) GetBranchType() branch.BranchType {
-	return branch.BranchTypeAT
-}
-
-// CreateTableMetaCache
+// CreateTableMetaCache create a table meta cache
 func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
@@ -144,28 +101,19 @@ func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID st
 	}
 
 	dm.tableMetaCache[resID] = res
-
-	// 注册 AT 数据资源
-	// dm.resourceMgr.RegisterResource(ATResource)
-
 	return res.metaCache, err
 }
 
 // TableMetaCache tables metadata cache, default is open
 type TableMetaCache interface {
-	// Init
 	Init(ctx context.Context, conn *sql.DB) error
-	// GetTableMeta
 	GetTableMeta(ctx context.Context, dbName, table string) (*types.TableMeta, error)
-	// Destroy
 	Destroy() error
 }
 
 // buildResource
-// todo not here
 func buildResource(ctx context.Context, dbType types.DBType, db *sql.DB) (*entry, error) {
 	cache := tableMetaCacheMap[dbType]
-
 	if err := cache.Init(ctx, db); err != nil {
 		return nil, err
 	}

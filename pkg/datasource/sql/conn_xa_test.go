@@ -21,17 +21,58 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"io"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/bluele/gcache"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/stretchr/testify/assert"
 )
+
+type mysqlMockRows struct {
+	idx  int
+	data [][]interface{}
+}
+
+func (m *mysqlMockRows) Columns() []string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mysqlMockRows) Close() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mysqlMockRows) Next(dest []driver.Value) error {
+	if m.idx == len(m.data) {
+		return io.EOF
+	}
+
+	min := func(a, b int) int {
+		if a < b {
+			return a
+		}
+		return b
+	}
+
+	cnt := min(len(m.data[0]), len(dest))
+
+	for i := 0; i < cnt; i++ {
+		dest[i] = m.data[m.idx][i]
+	}
+	m.idx++
+	return nil
+}
 
 type mockSQLInterceptor struct {
 	before func(ctx context.Context, execCtx *types.ExecContext)
@@ -78,16 +119,27 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 }
 
 func baseMockConn(mockConn *mock.MockTestDriverConn) {
+	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
+
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().Exec(gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().ResetSession(gomock.Any()).AnyTimes().Return(nil)
 	mockConn.EXPECT().Close().AnyTimes().Return(nil)
+
+	mockConn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+			rows := &mysqlMockRows{}
+			rows.data = [][]interface{}{
+				{"8.0.29"},
+			}
+			return rows, nil
+		})
 }
 
 func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
 	ctrl := gomock.NewController(t)
 
-	mockMgr := initMockResourceManager(t, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
 	_ = mockMgr
 	//db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	db, err := sql.Open("seata-xa-mysql", "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")

@@ -18,9 +18,31 @@
 package xa
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"database/sql/driver"
+	"fmt"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
-type XAConnection interface {
-	getXAResource() (exec.XAResource, error)
+// CreateXAResource create a connection for xa with the different db type.
+// Such as mysql, oracle, MARIADB, POSTGRESQL
+func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error) {
+	var err error
+	var xaConnection XAResource
+	switch dbType {
+	case types.DBTypeMySQL:
+		xaConnection = NewMysqlXaConn(conn)
+	case types.DBTypeOracle:
+	case types.DBTypePostgreSQL:
+	default:
+		err = fmt.Errorf("not support db type for :%s", dbType.String())
+	}
+
+	if err != nil {
+		log.Errorf(err.Error())
+		return nil, err
+	}
+
+	return xaConnection, nil
 }
