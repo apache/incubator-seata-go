@@ -13,9 +13,6 @@ type RegistryService interface {
 	// DeRegisterServiceInstance deRegister new service to nacos
 	DeRegisterServiceInstance(address net.TCPAddr)
 
-	// GetService Get service with serviceName, groupName , clusters
-	GetService(cluster string, groupName string)
-
 	// Subscribe key=serviceName+groupName+cluster
 	// Note:We call add multiple SubscribeCallback with the same key.
 	Subscribe(cluster string, groupName string)
