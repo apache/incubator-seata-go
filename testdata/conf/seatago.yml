@@ -120,16 +120,17 @@ seata:
       data-id: seata.properties
   # Registration Center
   registry:
-    type: file
+    type: nacos
     file:
       name: registry.conf
     nacos:
-      application: seata-server
+      serviceName: seata-server
       server-addr: 127.0.0.1:8848
-      group: "SEATA_GROUP"
-      namespace: ""
-      username: ""
-      password: ""
+      groupName: "SEATA_GROUP"
+      namespaceId: "public"
+      username: "nacos"
+      password: "nacos"
+      clusters: ["cluster-a"]
       ##if use MSE Nacos with auth, mutex with username/password attribute  #
       #access-key: ""  #
       #secret-key: ""  #
