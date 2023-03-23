@@ -88,6 +88,7 @@ linters:
     - goimports
     - gomnd
     - gosec  #for the security
+    - nestif
 
 run:
   skip-dirs:

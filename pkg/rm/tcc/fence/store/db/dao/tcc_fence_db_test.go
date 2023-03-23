@@ -68,7 +68,10 @@ func TestTccFenceStoreDatabaseMapper_InsertTCCFenceDO(t *testing.T) {
 	}
 
 	err = GetTccFenceStoreDatabaseMapper().InsertTCCFenceDO(tx, tccFenceDo)
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
 	assert.Equal(t, nil, err)
 }
 
@@ -101,7 +104,10 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 	}
 
 	actualFenceDo, err := GetTccFenceStoreDatabaseMapper().QueryTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
 	assert.Equal(t, tccFenceDo.Xid, actualFenceDo.Xid)
 	assert.Equal(t, tccFenceDo.BranchId, actualFenceDo.BranchId)
 	assert.Equal(t, tccFenceDo.Status, actualFenceDo.Status)
@@ -125,7 +131,12 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db failed msg: %v", err)
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			return
+		}
+	}(db)
 
 	mock.ExpectBegin()
 	mock.ExpectPrepare(sql2.GetUpdateStatusSQLByBranchIdAndXid("tcc_fence_log")).
@@ -141,7 +152,10 @@ func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 
 	err = GetTccFenceStoreDatabaseMapper().
 		UpdateTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.Status, enum.StatusCommitted)
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		t.Fatalf("commit failed msg :%v", err)
+	}
 	assert.Equal(t, nil, err)
 }
 

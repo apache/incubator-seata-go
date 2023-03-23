@@ -19,7 +19,10 @@ package bytes
 
 func ReadBytes(n int, buf *ByteBuffer) []byte {
 	bytes := make([]byte, n)
-	buf.Read(bytes)
+	_, err := buf.Read(bytes)
+	if err != nil {
+		return nil
+	}
 	return bytes
 }
 
@@ -50,25 +53,37 @@ func ReadUInt64(buf *ByteBuffer) uint64 {
 
 func ReadString8(buf *ByteBuffer) string {
 	bytes := make([]byte, 1)
-	buf.Read(bytes)
+	_, err := buf.Read(bytes)
+	if err != nil {
+		return ""
+	}
 	return string(bytes)
 }
 
 func Read1String16(buf *ByteBuffer) string {
 	bytes := make([]byte, 2)
-	buf.Read(bytes)
+	_, err := buf.Read(bytes)
+	if err != nil {
+		return ""
+	}
 	return string(bytes)
 }
 
 func ReadString32(buf *ByteBuffer) string {
 	bytes := make([]byte, 4)
-	buf.Read(bytes)
+	_, err := buf.Read(bytes)
+	if err != nil {
+		return ""
+	}
 	return string(bytes)
 }
 
 func ReadString64(buf *ByteBuffer) string {
 	bytes := make([]byte, 8)
-	buf.Read(bytes)
+	_, err := buf.Read(bytes)
+	if err != nil {
+		return ""
+	}
 	return string(bytes)
 }
 
@@ -76,7 +91,10 @@ func ReadString8Length(buf *ByteBuffer) string {
 	length, _ := buf.ReadByte()
 	if length > 0 {
 		p := make([]byte, length)
-		buf.Read(p)
+		_, err := buf.Read(p)
+		if err != nil {
+			return ""
+		}
 		return string(p)
 	}
 	return ""
@@ -86,7 +104,10 @@ func ReadString16Length(buf *ByteBuffer) string {
 	length, _ := buf.ReadUint16()
 	if length > 0 {
 		p := make([]byte, length)
-		buf.Read(p)
+		_, err := buf.Read(p)
+		if err != nil {
+			return ""
+		}
 		return string(p)
 	}
 	return ""
@@ -96,7 +117,10 @@ func ReadString32Length(buf *ByteBuffer) string {
 	length, _ := buf.ReadUint32()
 	if length > 0 {
 		p := make([]byte, length)
-		buf.Read(p)
+		_, err := buf.Read(p)
+		if err != nil {
+			return ""
+		}
 		return string(p)
 	}
 	return ""
@@ -106,7 +130,10 @@ func ReadString64Length(buf *ByteBuffer) string {
 	length, _ := buf.ReadUint64()
 	if length > 0 {
 		p := make([]byte, length)
-		buf.Read(p)
+		_, err := buf.Read(p)
+		if err != nil {
+			return ""
+		}
 		return string(p)
 	}
 	return ""
@@ -114,36 +141,72 @@ func ReadString64Length(buf *ByteBuffer) string {
 
 func WriteString8Length(value string, buf *ByteBuffer) {
 	if value != "" {
-		buf.WriteByte(byte(len(value)))
-		buf.WriteString(value)
+		err := buf.WriteByte(byte(len(value)))
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(value)
+		if err != nil {
+			return
+		}
 	} else {
-		buf.WriteByte(byte(0))
+		err := buf.WriteByte(byte(0))
+		if err != nil {
+			return
+		}
 	}
 }
 
 func WriteString16Length(value string, buf *ByteBuffer) {
 	if value != "" {
-		buf.WriteUint16(uint16(len(value)))
-		buf.WriteString(value)
+		_, err := buf.WriteUint16(uint16(len(value)))
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(value)
+		if err != nil {
+			return
+		}
 	} else {
-		buf.WriteUint16(uint16(0))
+		_, err := buf.WriteUint16(uint16(0))
+		if err != nil {
+			return
+		}
 	}
 }
 
 func WriteString32Length(value string, buf *ByteBuffer) {
 	if value != "" {
-		buf.WriteUint32(uint32(len(value)))
-		buf.WriteString(value)
+		_, err := buf.WriteUint32(uint32(len(value)))
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(value)
+		if err != nil {
+			return
+		}
 	} else {
-		buf.WriteUint32(uint32(0))
+		_, err := buf.WriteUint32(uint32(0))
+		if err != nil {
+			return
+		}
 	}
 }
 
 func WriteString64Length(value string, buf *ByteBuffer) {
 	if value != "" {
-		buf.WriteUint64(uint64(len(value)))
-		buf.WriteString(value)
+		_, err := buf.WriteUint64(uint64(len(value)))
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(value)
+		if err != nil {
+			return
+		}
 	} else {
-		buf.WriteUint64(uint64(0))
+		_, err := buf.WriteUint64(uint64(0))
+		if err != nil {
+			return
+		}
 	}
 }

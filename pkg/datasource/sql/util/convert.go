@@ -198,10 +198,10 @@ func convertAssignRows(dest, src interface{}, rows *ScanRows) error {
 		}
 	case *bool:
 		bv, err := driver.Bool.ConvertValue(src)
-		if err == nil {
-			*d = bv.(bool)
+		if err != nil {
+			return err
 		}
-		return err
+		*d = bv.(bool)
 	case *interface{}:
 		*d = src
 		return nil
