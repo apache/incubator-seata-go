@@ -2,12 +2,12 @@ package registry //nolint:typecheck
 
 import (
 	"fmt"
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/util"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/util"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"net"
 	"strconv"
 )
@@ -49,6 +49,15 @@ func NewNacosRegistryService(config NacosConfig) *NacosRegistryService {
 	return &NacosRegistryService{client: client, config: config}
 }
 func (n *NacosRegistryService) RegisterServiceInstance(address net.TCPAddr) {
+	param := n.createRegistryParam(address)
+	success, err := n.client.RegisterInstance(param)
+	if !success || err != nil {
+		panic("RegisterServiceInstance failed!" + err.Error())
+	}
+	fmt.Printf("RegisterServiceInstance,param:%+v,result:%+v \n\n", param, success)
+}
+
+func (n *NacosRegistryService) createRegistryParam(address net.TCPAddr) vo.RegisterInstanceParam {
 	param := vo.RegisterInstanceParam{
 		Ip:          address.IP.String(),
 		Port:        uint64(address.Port),
@@ -58,14 +67,9 @@ func (n *NacosRegistryService) RegisterServiceInstance(address net.TCPAddr) {
 		Healthy:     n.config.Healthy,
 		Ephemeral:   n.config.Ephemeral,
 		Metadata:    n.config.MetaData,
-		//ClusterName: n.config.Clusters[0], // default value is DEFAULT
-		GroupName: n.config.GroupName, // default value is DEFAULT_GROUP
+		GroupName:   n.config.GroupName, // default value is DEFAULT_GROUP
 	}
-	success, err := n.client.RegisterInstance(param)
-	if !success || err != nil {
-		panic("RegisterServiceInstance failed!" + err.Error())
-	}
-	fmt.Printf("RegisterServiceInstance,param:%+v,result:%+v \n\n", param, success)
+	return param
 }
 
 func (n *NacosRegistryService) DeRegisterServiceInstance(address net.TCPAddr) {
@@ -86,13 +90,23 @@ func (n *NacosRegistryService) DeRegisterServiceInstance(address net.TCPAddr) {
 
 }
 
-//func (n *NacosRegistryService) BatchRegisterServiceInstance( param vo.RegisterInstanceParam) {
-//	success, err :=n. client.BatchRegisterInstance(param)
-//	if !success || err != nil {
-//		panic("BatchRegisterServiceInstance failed!" + err.Error())
-//	}
-//	fmt.Printf("BatchRegisterServiceInstance,param:%+v,result:%+v \n\n", param, success)
-//}
+func (n *NacosRegistryService) BatchRegisterServiceInstance(addresses []net.TCPAddr) {
+	Instances := make([]vo.RegisterInstanceParam, 2)
+	for _, address := range addresses {
+		param := n.createRegistryParam(address)
+		Instances = append(Instances, param)
+	}
+	instanceParam := vo.BatchRegisterInstanceParam{
+		ServiceName: n.config.ServiceName,
+		GroupName:   n.config.GroupName,
+		Instances:   Instances,
+	}
+	success, err := n.client.BatchRegisterInstance(instanceParam)
+	if !success || err != nil {
+		panic("BatchRegisterServiceInstance failed!" + err.Error())
+	}
+	fmt.Printf("BatchRegisterServiceInstance,param:%+v,result:%+v \n\n", instanceParam, success)
+}
 
 func (n *NacosRegistryService) GetService(cluster string, groupName string) {
 	param := vo.GetServiceParam{
@@ -156,7 +170,7 @@ func (n *NacosRegistryService) Subscribe(cluster string, groupName string) {
 		ServiceName: n.config.ServiceName,
 		GroupName:   groupName,
 		Clusters:    []string{cluster},
-		SubscribeCallback: func(services []model.SubscribeService, err error) {
+		SubscribeCallback: func(services []model.Instance, err error) {
 			fmt.Printf("callback return services:%s \n\n", util.ToJsonString(services))
 		},
 	}
@@ -172,7 +186,7 @@ func (n *NacosRegistryService) UnSubscribe(cluster string, groupName string) {
 		ServiceName: n.config.ServiceName,
 		GroupName:   groupName,
 		Clusters:    []string{cluster},
-		SubscribeCallback: func(services []model.SubscribeService, err error) {
+		SubscribeCallback: func(services []model.Instance, err error) {
 			fmt.Printf("callback return services:%s \n\n", util.ToJsonString(services))
 		},
 	}

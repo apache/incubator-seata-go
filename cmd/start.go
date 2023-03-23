@@ -20,13 +20,19 @@ package main
 import (
 	"github.com/seata/seata-go/pkg/client"
 	"github.com/seata/seata-go/pkg/registry"
+	"net"
 	"time"
 )
 
 func main() {
 	cfg := client.LoadPath("/Users/ali/Desktop/GO/vader/seata-go/testdata/conf/seatago.yml")
 	register, _ := registry.GetRegistry(&cfg.RegistryConfig)
-	register.RegisterServiceInstance(cfg.RegistryConfig)
+	address := net.TCPAddr{
+		IP:   net.IPv4zero,
+		Port: 9001,
+	}
+	register.RegisterServiceInstance(address)
+	register.RegisterServiceInstance(address)
 	for i := 0; i < 10; i++ {
 		time.Sleep(10000 * time.Second)
 	}
