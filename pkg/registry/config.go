@@ -38,9 +38,9 @@ type NacosConfig struct {
 }
 
 func (c *NacosConfig) NacosFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&c.NamespaceId, prefix+".namespace", "", "nacos registry center namespace")
+	f.StringVar(&c.NamespaceId, prefix+".namespace", "public", "nacos registry center namespace")
 	f.StringVar(&c.ServerAddr, prefix+".serverAddr", "127.0.0.1", "nacos registry center server address")
-	f.StringVar(&c.GroupName, prefix+".group", "default", "nacos registry center group name")
+	f.StringVar(&c.GroupName, prefix+".group", "DEFAULT_GROUP", "nacos registry center group name")
 	f.StringVar(&c.Username, prefix+".username", "nacos", "nacos registry center username")
 	f.StringVar(&c.Password, prefix+".password", "nacos", "nacos registry center password")
 	f.StringVar(&c.AccessKey, prefix+".accessKey", "", "nacos registry center access key")
@@ -67,7 +67,7 @@ func (c *NacosConfig) NacosFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 
 type Config struct {
 	Type        string      `yaml:"type" json:"type" koanf:"type"`
-	FileConfig  string      `yaml:"file" json:"file" koanf:"file"`
+	FileConfig  string      `yaml:"file.name" json:"file.name" koanf:"file.name"`
 	NacosConfig NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
 }
 

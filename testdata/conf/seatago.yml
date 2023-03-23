@@ -110,7 +110,8 @@ seata:
       name: config.conf
     nacos:
       namespace: ""
-      server-addr: 127.0.0.1:8848
+      server-addr: 127.0.0.1
+      port: 8848
       group: SEATA_GROUP
       username: ""
       password: ""
@@ -125,7 +126,8 @@ seata:
       name: registry.conf
     nacos:
       serviceName: seata-server
-      server-addr: 127.0.0.1:8848
+      server-addr: 127.0.0.1
+      port: 8848
       groupName: "SEATA_GROUP"
       namespaceId: "public"
       username: "nacos"

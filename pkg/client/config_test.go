@@ -210,8 +210,11 @@ func TestLoadJson(t *testing.T) {
 
 func TestConfig_RegisterFlags(t *testing.T) {
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
-	register, err := registry.GetRegister(&cfg.RegistryConfig)
+	register, err := registry.GetRegistry(&cfg.RegistryConfig)
 	assert.Nil(t, err)
 	assert.NotNil(t, &register)
 	register.RegisterServiceInstance(cfg.RegistryConfig)
+	for i := 0; i < 10; i++ {
+		time.Sleep(10000)
+	}
 }

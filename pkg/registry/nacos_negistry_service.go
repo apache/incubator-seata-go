@@ -31,8 +31,6 @@ func NewNacosRegistryService(config NacosConfig) *NacosRegistryService {
 		constant.WithLogLevel(config.LogLevel),
 		constant.WithAccessKey(config.AccessKey),
 		constant.WithSecretKey(config.SecretKey),
-		constant.WithNamespaceId(config.NamespaceId),
-		constant.WithAccessKey(config.AccessKey),
 		constant.WithEndpoint(config.Endpoint+strconv.FormatUint(config.Port, 10)),
 	)
 

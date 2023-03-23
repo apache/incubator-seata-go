@@ -17,6 +17,17 @@
 
 package main
 
+import (
+	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/registry"
+	"time"
+)
+
 func main() {
-	// start the server
+	cfg := client.LoadPath("/Users/ali/Desktop/GO/vader/seata-go/testdata/conf/seatago.yml")
+	register, _ := registry.GetRegistry(&cfg.RegistryConfig)
+	register.RegisterServiceInstance(cfg.RegistryConfig)
+	for i := 0; i < 10; i++ {
+		time.Sleep(10000 * time.Second)
+	}
 }
