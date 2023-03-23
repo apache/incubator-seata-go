@@ -33,7 +33,7 @@ require (
 require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
-	github.com/nacos-group/nacos-sdk-go/v2 v2.2.0
+	github.com/nacos-group/nacos-sdk-go/v2 v2.1.3
 )
 
 require (

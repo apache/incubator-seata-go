@@ -48,6 +48,7 @@ func NewNacosRegistryService(config NacosConfig) *NacosRegistryService {
 	}
 	return &NacosRegistryService{client: client, config: config}
 }
+
 func (n *NacosRegistryService) RegisterServiceInstance(address net.TCPAddr) {
 	param := n.createRegistryParam(address)
 	success, err := n.client.RegisterInstance(param)
@@ -57,29 +58,14 @@ func (n *NacosRegistryService) RegisterServiceInstance(address net.TCPAddr) {
 	fmt.Printf("RegisterServiceInstance,param:%+v,result:%+v \n\n", param, success)
 }
 
-func (n *NacosRegistryService) createRegistryParam(address net.TCPAddr) vo.RegisterInstanceParam {
-	param := vo.RegisterInstanceParam{
-		Ip:          address.IP.String(),
-		Port:        uint64(address.Port),
-		ServiceName: n.config.ServiceName,
-		Weight:      n.config.Weight,
-		Enable:      n.config.Enable,
-		Healthy:     n.config.Healthy,
-		Ephemeral:   n.config.Ephemeral,
-		Metadata:    n.config.MetaData,
-		GroupName:   n.config.GroupName, // default value is DEFAULT_GROUP
-	}
-	return param
-}
-
 func (n *NacosRegistryService) DeRegisterServiceInstance(address net.TCPAddr) {
 	param := vo.DeregisterInstanceParam{
 		Ip:          address.IP.String(),
 		Port:        uint64(address.Port),
-		ServiceName: n.config.ServiceName,
+		ServiceName: n.config.GroupName + "@@" + n.config.ServiceName,
 		GroupName:   n.config.GroupName,
-		Cluster:     n.config.Clusters[0],
-		Ephemeral:   n.config.Ephemeral, //it must be true
+		Cluster:     n.config.Cluster,
+		Ephemeral:   true, //it must be true
 	}
 
 	success, err := n.client.DeregisterInstance(param)
@@ -88,24 +74,6 @@ func (n *NacosRegistryService) DeRegisterServiceInstance(address net.TCPAddr) {
 	}
 	fmt.Printf("DeRegisterServiceInstance,param:%+v,result:%+v \n\n", param, success)
 
-}
-
-func (n *NacosRegistryService) BatchRegisterServiceInstance(addresses []net.TCPAddr) {
-	Instances := make([]vo.RegisterInstanceParam, 2)
-	for _, address := range addresses {
-		param := n.createRegistryParam(address)
-		Instances = append(Instances, param)
-	}
-	instanceParam := vo.BatchRegisterInstanceParam{
-		ServiceName: n.config.ServiceName,
-		GroupName:   n.config.GroupName,
-		Instances:   Instances,
-	}
-	success, err := n.client.BatchRegisterInstance(instanceParam)
-	if !success || err != nil {
-		panic("BatchRegisterServiceInstance failed!" + err.Error())
-	}
-	fmt.Printf("BatchRegisterServiceInstance,param:%+v,result:%+v \n\n", instanceParam, success)
 }
 
 func (n *NacosRegistryService) GetService(cluster string, groupName string) {
@@ -119,49 +87,6 @@ func (n *NacosRegistryService) GetService(cluster string, groupName string) {
 		panic("GetService failed!" + err.Error())
 	}
 	fmt.Printf("GetService,param:%+v, result:%+v \n\n", param, service)
-
-}
-
-func (n *NacosRegistryService) SelectAllInstances(cluster string, groupName string) {
-	param := vo.SelectAllInstancesParam{
-		ServiceName: n.config.ServiceName,
-		GroupName:   groupName,
-		Clusters:    []string{cluster},
-	}
-	instances, err := n.client.SelectAllInstances(param)
-	if err != nil {
-		panic("SelectAllInstances failed!" + err.Error())
-	}
-	fmt.Printf("SelectAllInstance,param:%+v, result:%+v \n\n", param, instances)
-
-}
-
-func (n *NacosRegistryService) SelectInstances(cluster string, groupName string) {
-	param := vo.SelectInstancesParam{
-		ServiceName: n.config.ServiceName,
-		GroupName:   groupName,
-		Clusters:    []string{cluster},
-		HealthyOnly: n.config.HealthyOnly,
-	}
-	instances, err := n.client.SelectInstances(param)
-	if err != nil {
-		panic("SelectInstances failed!" + err.Error())
-	}
-	fmt.Printf("SelectInstances,param:%+v, result:%+v \n\n", param, instances)
-
-}
-
-func (n *NacosRegistryService) SelectOneHealthyInstance(cluster string, groupName string) {
-	param := vo.SelectOneHealthInstanceParam{
-		ServiceName: n.config.ServiceName,
-		GroupName:   groupName,
-		Clusters:    []string{cluster},
-	}
-	instances, err := n.client.SelectOneHealthyInstance(param)
-	if err != nil {
-		panic("SelectOneHealthyInstance failed!")
-	}
-	fmt.Printf("SelectOneHealthyInstance,param:%+v, result:%+v \n\n", param, instances)
 
 }
 
@@ -197,34 +122,18 @@ func (n *NacosRegistryService) UnSubscribe(cluster string, groupName string) {
 
 }
 
-func (n *NacosRegistryService) UpdateServiceInstance(address net.TCPAddr, cluster string, groupName string) {
-	param := vo.UpdateInstanceParam{
-		Ip:          address.IP.String(), //update ip
+func (n *NacosRegistryService) createRegistryParam(address net.TCPAddr) vo.RegisterInstanceParam {
+	param := vo.RegisterInstanceParam{
+		Ip:          address.IP.String(),
 		Port:        uint64(address.Port),
 		ServiceName: n.config.ServiceName,
-		GroupName:   groupName,
-		ClusterName: cluster,
 		Weight:      n.config.Weight,
 		Enable:      n.config.Enable,
+		Healthy:     n.config.Healthy,
 		Ephemeral:   n.config.Ephemeral,
-		Metadata:    n.config.MetaData, //update metadata
+		Metadata:    n.config.MetaData,
+		ClusterName: n.config.Cluster,
+		GroupName:   n.config.GroupName, // default value is DEFAULT_GROUP
 	}
-	success, err := n.client.UpdateInstance(param)
-	if !success || err != nil {
-		panic("UpdateInstance failed!" + err.Error())
-	}
-	fmt.Printf("UpdateServiceInstance,param:%+v,result:%+v \n\n", param, success)
-}
-
-func (n *NacosRegistryService) GetAllService(groupName string, pageInfo PageInfo) {
-	param := vo.GetAllServiceInfoParam{
-		GroupName: groupName,
-		PageNo:    pageInfo.pageNo,
-		PageSize:  pageInfo.pageSize,
-	}
-	service, err := n.client.GetAllServicesInfo(param)
-	if err != nil {
-		panic("GetAllService failed!")
-	}
-	fmt.Printf("GetAllService,param:%+v, result:%+v \n\n", param, service)
+	return param
 }

@@ -20,7 +20,7 @@ type NacosConfig struct {
 	CacheDir             string            `yaml:"GroupName" json:"GroupName" koanf:"GroupName"`                               // the directory for persist nacos service info,default value is current path
 	LogLevel             string            `yaml:"logLevel" json:"logLevel" koanf:"logLevel"`                                  // the level of log, it's must be debug,info,warn,error, default value is info
 	ServiceName          string            `yaml:"serviceName" json:"serviceName" koanf:"serviceName"`
-	Clusters             []string          `yaml:"clusters" json:"clusters" koanf:"clusters"`
+	Cluster              string            `yaml:"cluster" json:"cluster" koanf:"cluster"`
 	HealthyOnly          bool              `yaml:"healthyOnly" json:"healthyOnly" koanf:"healthyOnly"`
 	Weight               float64           `yaml:"weight" json:"weight" koanf:"weight"`
 	Enable               bool              `yaml:"enable" json:"enable" koanf:"enable"`
@@ -55,6 +55,7 @@ func (c *NacosConfig) NacosFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.Float64Var(&c.Weight, prefix+".weight", 10, "nacos registry center Weight")
 	f.BoolVar(&c.Enable, prefix+".enable", true, "nacos registry center Enable")
 	f.BoolVar(&c.Ephemeral, prefix+".ephemeral", true, "nacos registry center Ephemeral")
+	f.StringVar(&c.Cluster, prefix+".cluster", "DEFAULT", "nacos registry center cluster")
 	f.StringVar(&c.Endpoint, prefix+".endpoint", "", "nacos registry center Endpoint")
 	f.StringVar(&c.RegionId, prefix+".regionId", "", "nacos registry center RegionId")
 	f.BoolVar(&c.OpenKMS, prefix+".openKMS", true, "nacos registry center OpenKMS")
