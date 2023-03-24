@@ -109,7 +109,7 @@ seata:
     file:
       name: config.conf
     nacos:
-      namespace: ""
+      namespaceId: ""
       server-addr: 127.0.0.1
       port: 8848
       group: SEATA_GROUP
@@ -132,7 +132,7 @@ seata:
       namespaceId: "public"
       username: "nacos"
       password: "nacos"
-      clusters: ["cluster-a"]
+      cluster: cluster-a
       ##if use MSE Nacos with auth, mutex with username/password attribute  #
       #access-key: ""  #
       #secret-key: ""  #

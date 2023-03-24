@@ -25,10 +25,10 @@ import (
 )
 
 func main() {
-	//register()
+	register()
 	//deregister()
 	//getService()
-	subscribe()
+	//subscribe()
 }
 
 func initConfig() (registry.RegistryService, error) {
@@ -59,9 +59,4 @@ func deregister() {
 func subscribe() {
 	register, _ := initConfig()
 	register.Subscribe("DEFAULT", "GroupName:SEATA_GROUP")
-}
-
-func getService() {
-	register, _ := initConfig()
-	register.GetService("", "SEATA_GROUP")
 }

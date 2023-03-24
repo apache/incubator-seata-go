@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-// RegistryService registers
+// RegistryService defined registry service
 type RegistryService interface {
 
 	// RegisterServiceInstance register new service to nacos

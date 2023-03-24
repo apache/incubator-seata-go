@@ -41,6 +41,7 @@ func (c *NacosConfig) NacosFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&c.NamespaceId, prefix+".namespace", "public", "nacos registry center namespace")
 	f.StringVar(&c.ServerAddr, prefix+".serverAddr", "127.0.0.1", "nacos registry center server address")
 	f.StringVar(&c.GroupName, prefix+".group", "DEFAULT_GROUP", "nacos registry center group name")
+	f.StringVar(&c.ServiceName, prefix+".serviceName", "seata-server", "nacos registry center group name")
 	f.StringVar(&c.Username, prefix+".username", "nacos", "nacos registry center username")
 	f.StringVar(&c.Password, prefix+".password", "nacos", "nacos registry center password")
 	f.StringVar(&c.AccessKey, prefix+".accessKey", "", "nacos registry center access key")
