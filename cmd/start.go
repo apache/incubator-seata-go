@@ -17,46 +17,5 @@
 
 package main
 
-import (
-	"github.com/seata/seata-go/pkg/client"
-	"github.com/seata/seata-go/pkg/registry"
-	"net"
-	"time"
-)
-
 func main() {
-	register()
-	//deregister()
-	//getService()
-	//subscribe()
-}
-
-func initConfig() (registry.RegistryService, error) {
-	path := &client.LoadPath("/Users/ali/Desktop/GO/vader/seata-go/testdata/conf/seatago.yml").RegistryConfig
-	return registry.GetRegistry(path)
-}
-func register() {
-	register, _ := initConfig()
-	address := net.TCPAddr{
-		IP:   net.IPv4zero,
-		Port: 9001,
-	}
-	register.RegisterServiceInstance(address)
-	//for i := 0; i < 10; i++ {
-	time.Sleep(1000 * time.Second)
-	//}
-}
-
-func deregister() {
-	register, _ := initConfig()
-	address := net.TCPAddr{
-		IP:   net.IPv4zero,
-		Port: 9001,
-	}
-	register.DeRegisterServiceInstance(address)
-}
-
-func subscribe() {
-	register, _ := initConfig()
-	register.Subscribe("DEFAULT", "GroupName:SEATA_GROUP")
 }
