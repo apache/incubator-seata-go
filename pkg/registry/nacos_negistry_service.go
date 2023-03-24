@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package registry //nolint:typecheck
+package registry
 
 import (
 	"fmt"
