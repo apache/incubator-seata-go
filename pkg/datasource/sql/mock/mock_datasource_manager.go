@@ -36,8 +36,8 @@ import (
 
 // MockDataSourceManager is a mock of DataSourceManager interface.
 type MockDataSourceManager struct {
-	ctrl     *gomock.Controller
-	recorder *MockDataSourceManagerMockRecorder
+	ctrl       *gomock.Controller
+	recorder   *MockDataSourceManagerMockRecorder
 	branchType branch.BranchType
 }
 

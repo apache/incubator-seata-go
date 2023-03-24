@@ -20,9 +20,10 @@ package tcc
 import (
 	"context"
 	"encoding/json"
-	"github.com/agiledragon/gomonkey"
 	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey"
 
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"

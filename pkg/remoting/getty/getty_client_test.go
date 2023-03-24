@@ -19,9 +19,10 @@ package getty
 
 import (
 	"fmt"
-	"github.com/agiledragon/gomonkey"
 	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey"
 
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"

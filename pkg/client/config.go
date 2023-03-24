@@ -20,12 +20,13 @@ package client
 import (
 	"flag"
 	"fmt"
-	"github.com/seata/seata-go/pkg/registry"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/registry"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
