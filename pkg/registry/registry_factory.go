@@ -27,13 +27,13 @@ import (
 func GetRegistry(config *Config) (rs RegistryService, e error) {
 	switch config.Type {
 	case types.File:
-		rs = NewFileRegistryService(config.NacosConfig)
+		e = fmt.Errorf("not implemented file register center")
 	case types.Nacos:
 		rs = NewNacosRegistryService(config.NacosConfig)
 	case types.Etcd:
 		e = fmt.Errorf("not implemented etcd register center")
 	default:
-		rs = NewFileRegistryService(config.NacosConfig)
+		rs = NewNacosRegistryService(config.NacosConfig)
 	}
 	return rs, e
 }

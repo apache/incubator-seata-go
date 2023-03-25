@@ -36,12 +36,10 @@ type NacosRegistryService struct {
 }
 
 func NewNacosRegistryService(config NacosConfig) *NacosRegistryService {
-	//create ServerConfig
 	sc := []constant.ServerConfig{
 		*constant.NewServerConfig(config.ServerAddr, config.Port, constant.WithContextPath("/nacos")),
 	}
 
-	//create ClientConfig
 	cc := *constant.NewClientConfig(
 		constant.WithNamespaceId(config.NamespaceId),
 		constant.WithTimeoutMs(config.TimeoutMs),
