@@ -38,7 +38,7 @@ func initCache() {
 		serializerNameToParser: make(map[string]UndoLogParser, 0),
 	}
 
-	cache.store(&JacksonParser{})
+	cache.store(&JsonParser{})
 }
 
 func GetCache() *UndoLogParserCache {
