@@ -30,7 +30,10 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
 
-require github.com/agiledragon/gomonkey/v2 v2.9.0
+require (
+	github.com/agiledragon/gomonkey v2.0.2+incompatible
+	github.com/agiledragon/gomonkey/v2 v2.9.0
+)
 
 require (
 	github.com/RoaringBitmap/roaring v1.2.0 // indirect
