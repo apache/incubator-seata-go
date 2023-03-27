@@ -80,7 +80,6 @@ func (c *XAConn) QueryContext(ctx context.Context, query string, args []driver.N
 		}
 		return types.NewResult(types.WithRows(ret)), nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -367,9 +366,6 @@ func (c *XAConn) CloseForce() error {
 	}
 	c.rollBacked = false
 	c.cleanXABranchContext()
-	if err := c.Conn.Close(); err != nil {
-		return err
-	}
 	c.releaseIfNecessary()
 	return nil
 }
