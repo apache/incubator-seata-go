@@ -50,7 +50,9 @@ type BusinessActionContext struct {
 }
 
 type ContextVariable struct {
-	FencePhase            enum.FencePhase
+	FencePhase     enum.FencePhase
+	FenceTxBegined bool
+
 	BusinessActionContext *BusinessActionContext
 	// GlobalTransaction Represent seata ctx is a global transaction
 	GlobalTransaction
@@ -194,4 +196,18 @@ func GetFencePhase(ctx context.Context) enum.FencePhase {
 		return variable.(*ContextVariable).FencePhase
 	}
 	return enum.FencePhaseNotExist
+}
+
+func SetFenceTxBeginedFlag(ctx context.Context, fenceTxBegined bool) {
+	if variable := ctx.Value(seataContextVariable); variable != nil {
+		variable.(*ContextVariable).FenceTxBegined = fenceTxBegined
+	}
+}
+
+func IsFenceTxBegin(ctx context.Context) bool {
+	if variable := ctx.Value(seataContextVariable); variable != nil {
+		return variable.(*ContextVariable).FenceTxBegined
+	}
+
+	return false
 }
