@@ -15,39 +15,23 @@
  * limitations under the License.
  */
 
-package getty
+package loadbalance
 
 import (
-	"testing"
-	"time"
+	"sync"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	getty "github.com/apache/dubbo-getty"
 )
 
-func TestRpcPackageHandler(t *testing.T) {
-	msg := message.RpcMessage{
-		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
-		Codec:      byte(codec.CodecTypeSeata),
-		Compressor: byte(1),
-		HeadMap: map[string]string{
-			"name":    " Jack",
-			"age":     "12",
-			"address": "Beijing",
-		},
-		Body: message.GlobalBeginRequest{
-			Timeout:         2 * time.Second,
-			TransactionName: "SeataGoTransaction",
-		},
-	}
-
-	codec := RpcPackageHandler{}
-	bytes, err := codec.Write(nil, msg)
-	assert.Nil(t, err)
-	msg2, _, _ := codec.Read(nil, bytes)
-
-	assert.Equal(t, msg, msg2)
+func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
+	var session getty.Session
+	sessions.Range(func(key, value interface{}) bool {
+		session = key.(getty.Session)
+		if session.IsClosed() {
+			sessions.Delete(session)
+			return true
+		}
+		return false
+	})
+	return session
 }

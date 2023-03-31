@@ -24,23 +24,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/util/log"
-
 	getty "github.com/apache/dubbo-getty"
-
 	gxsync "github.com/dubbogo/gost/sync"
+
+	"github.com/seata/seata-go/pkg/protocol/codec"
+	"github.com/seata/seata-go/pkg/remoting/config"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type RpcClient struct {
-	gettyConf    *Config
-	seataConf    *SeataConfig
+	gettyConf    *config.Config
+	seataConf    *config.SeataConfig
 	gettyClients []getty.Client
 	futures      *sync.Map
 }
 
-func InitRpcClient(gettyConfig *Config, seataConfig *SeataConfig) {
-	iniConfig(seataConfig)
+func InitRpcClient(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
+	config.IniConfig(seataConfig)
 	rpcClient := &RpcClient{
 		gettyConf:    gettyConfig,
 		seataConf:    seataConfig,

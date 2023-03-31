@@ -15,39 +15,29 @@
  * limitations under the License.
  */
 
-package getty
+package loadbalance
 
 import (
-	"testing"
-	"time"
+	"sync"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	getty "github.com/apache/dubbo-getty"
 )
 
-func TestRpcPackageHandler(t *testing.T) {
-	msg := message.RpcMessage{
-		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
-		Codec:      byte(codec.CodecTypeSeata),
-		Compressor: byte(1),
-		HeadMap: map[string]string{
-			"name":    " Jack",
-			"age":     "12",
-			"address": "Beijing",
-		},
-		Body: message.GlobalBeginRequest{
-			Timeout:         2 * time.Second,
-			TransactionName: "SeataGoTransaction",
-		},
+const (
+	randomLoadBalance         = "RandomLoadBalance"
+	xidLoadBalance            = "XID"
+	roundRobinLoadBalance     = "RoundRobinLoadBalance"
+	consistentHashLoadBalance = "ConsistentHashLoadBalance"
+	leastActiveLoadBalance    = "LeastActiveLoadBalance"
+)
+
+func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+	switch loadBalanceType {
+	case randomLoadBalance:
+		return RandomLoadBalance(sessions, xid)
+	case xidLoadBalance:
+		return XidLoadBalance(sessions, xid)
+	default:
+		return RandomLoadBalance(sessions, xid)
 	}
-
-	codec := RpcPackageHandler{}
-	bytes, err := codec.Write(nil, msg)
-	assert.Nil(t, err)
-	msg2, _, _ := codec.Read(nil, bytes)
-
-	assert.Equal(t, msg, msg2)
 }

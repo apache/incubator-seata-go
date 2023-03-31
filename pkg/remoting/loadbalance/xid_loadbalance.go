@@ -15,39 +15,42 @@
  * limitations under the License.
  */
 
-package getty
+package loadbalance
 
 import (
-	"testing"
-	"time"
+	"strings"
+	"sync"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	getty "github.com/apache/dubbo-getty"
 )
 
-func TestRpcPackageHandler(t *testing.T) {
-	msg := message.RpcMessage{
-		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
-		Codec:      byte(codec.CodecTypeSeata),
-		Compressor: byte(1),
-		HeadMap: map[string]string{
-			"name":    " Jack",
-			"age":     "12",
-			"address": "Beijing",
-		},
-		Body: message.GlobalBeginRequest{
-			Timeout:         2 * time.Second,
-			TransactionName: "SeataGoTransaction",
-		},
+func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
+	var session getty.Session
+
+	// ip:port:transactionId
+	tmpSplits := strings.Split(xid, ":")
+	if len(tmpSplits) == 3 {
+		ip := tmpSplits[0]
+		port := tmpSplits[1]
+		ipPort := ip + ":" + port
+		sessions.Range(func(key, value interface{}) bool {
+			tmpSession := key.(getty.Session)
+			if tmpSession.IsClosed() {
+				sessions.Delete(tmpSession)
+				return true
+			}
+			connectedIpPort := session.RemoteAddr()
+			if ipPort == connectedIpPort {
+				session = tmpSession
+				return false
+			}
+			return true
+		})
 	}
 
-	codec := RpcPackageHandler{}
-	bytes, err := codec.Write(nil, msg)
-	assert.Nil(t, err)
-	msg2, _, _ := codec.Read(nil, bytes)
+	if session == nil {
+		return RandomLoadBalance(sessions, xid)
+	}
 
-	assert.Equal(t, msg, msg2)
+	return session
 }

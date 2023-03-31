@@ -23,13 +23,12 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	getty "github.com/apache/dubbo-getty"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"
-
-	getty "github.com/apache/dubbo-getty"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestGettyRemotingClient_SendSyncRequest unit test for SendSyncRequest function
