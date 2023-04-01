@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 name: "integrate-test"
 
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: "*"
+    branches: [ master ]
   pull_request:
     branches: "*"
 
