@@ -15,12 +15,25 @@
  * limitations under the License.
  */
 
-package datasource
+package compressor
 
-import (
-	"github.com/seata/seata-go/pkg/datasource/sql"
-)
-
-func Init() {
-	sql.Init()
+func (c CompressorType) GetCompressor() Compressor {
+	switch c.String() {
+	case CompressorNone.String():
+		return &NoneCompressor{}
+	case CompressorGzip.String():
+		return &Gzip{}
+	case CompressorZip.String():
+		return &Zip{}
+	case CompressorBzip2.String():
+		return &Bzip2{}
+	case CompressorLz4.String():
+		return &Lz4{}
+	case CompressorZstd.String():
+		return &Zstd{}
+	case CompressorDeflate.String():
+		return &DeflateCompress{}
+	default:
+		panic("compressor type not implement")
+	}
 }

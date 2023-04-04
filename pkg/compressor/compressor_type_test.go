@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package sql
+package compressor
 
 import (
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type RootContext interface {
-	RootContext()
-	SetDefaultBranchType(branchType branch.BranchType)
-	GetXID() string
-	Bind(xid string)
-	GetTimeout() (int, bool)
-	SetTimeout(timeout int)
+func TestCompressorType(t *testing.T) {
+	assert.Equal(t, CompressorNone, CompressorType(0))
+	assert.Equal(t, CompressorGzip, CompressorType(1))
+	assert.Equal(t, CompressorZip, CompressorType(2))
+	assert.Equal(t, CompressorSevenz, CompressorType(3))
+	assert.Equal(t, CompressorBzip2, CompressorType(4))
+	assert.Equal(t, CompressorLz4, CompressorType(5))
+	assert.Equal(t, CompressorDeflate, CompressorType(6))
+	assert.Equal(t, CompressorZstd, CompressorType(7))
 }

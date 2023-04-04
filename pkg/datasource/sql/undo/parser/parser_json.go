@@ -23,25 +23,25 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
-type JacksonParser struct {
+type JsonParser struct {
 }
 
 // Get the name of parser;
 // return the name of parser
-func (j *JacksonParser) GetName() string {
-	return "jackson"
+func (j *JsonParser) GetName() string {
+	return "json"
 }
 
 // Get default context of this parser
 // return the default content if undo log is empty
-func (j *JacksonParser) GetDefaultContent() []byte {
+func (j *JsonParser) GetDefaultContent() []byte {
 	return []byte("{}")
 }
 
 // Encode branch undo log to byte array.
 // param branchUndoLog the branch undo log
 // return the byte array
-func (j *JacksonParser) Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, error) {
+func (j *JsonParser) Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, error) {
 	bytes, err := json.Marshal(branchUndoLog)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (j *JacksonParser) Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, error
 // Decode byte array to branch undo log.
 // param bytes the byte array
 // return the branch undo log
-func (j *JacksonParser) Decode(bytes []byte) (*undo.BranchUndoLog, error) {
+func (j *JsonParser) Decode(bytes []byte) (*undo.BranchUndoLog, error) {
 	var branchUndoLog *undo.BranchUndoLog
 	if err := json.Unmarshal(bytes, &branchUndoLog); err != nil {
 		return nil, err

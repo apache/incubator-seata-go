@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package xa
+package compressor
 
-import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-)
+type NoneCompressor struct {
+}
 
-type XAConnection interface {
-	getXAResource() (exec.XAResource, error)
+func (n *NoneCompressor) Compress(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (n *NoneCompressor) Decompress(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (n *NoneCompressor) GetCompressorType() CompressorType {
+	return CompressorNone
 }

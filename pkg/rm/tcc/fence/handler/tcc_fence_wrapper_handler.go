@@ -68,7 +68,7 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 	return fenceHandler
 }
 
-func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
@@ -82,16 +82,10 @@ func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql
 		return fmt.Errorf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
 	}
 
-	log.Info("the phase 1 callback method will be called.")
-	err = callback()
-	if err != nil {
-		return fmt.Errorf("the business method error msg of: %p, [%w]", callback, err)
-	}
-
 	return nil
 }
 
-func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.Tx) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 
@@ -113,10 +107,10 @@ func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.
 		return fmt.Errorf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 	}
 
-	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusCommitted)
+	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusCommitted)
 }
 
-func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sql.Tx, callback func() error) error {
+func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sql.Tx) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
@@ -146,7 +140,7 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 		return fmt.Errorf("branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 	}
 
-	return handler.updateFenceStatusAndInvokeCallback(tx, callback, xid, branchId, enum.StatusRollbacked)
+	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusRollbacked)
 }
 
 func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
@@ -159,17 +153,8 @@ func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.InsertTCCFenceDO(tx, &tccFenceDo)
 }
 
-func (handler *tccFenceWrapperHandler) updateFenceStatusAndInvokeCallback(tx *sql.Tx, callback func() error, xid string, branchId int64, status enum.FenceStatus) error {
-	if err := handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status); err != nil {
-		return err
-	}
-
-	log.Infof("the phase %d callback method will be called", status)
-	if err := callback(); err != nil {
-		return fmt.Errorf("the business method error msg of: %p, [%w]", callback, err)
-	}
-
-	return nil
+func (handler *tccFenceWrapperHandler) updateFenceStatus(tx *sql.Tx, xid string, branchId int64, status enum.FenceStatus) error {
+	return handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status)
 }
 
 func (handler *tccFenceWrapperHandler) InitLogCleanChannel() {

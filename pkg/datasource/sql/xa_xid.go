@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
-func Build(xid string, branchId int64) *XABranchXid {
-	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
-}
-
-func BuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
-	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
+type XAXid interface {
+	GetGlobalXid() string
+	GetBranchId() uint64
+	String() string
 }

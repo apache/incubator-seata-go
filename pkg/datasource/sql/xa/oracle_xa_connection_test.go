@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package conn
+package xa
 
 import (
 	"database/sql/driver"

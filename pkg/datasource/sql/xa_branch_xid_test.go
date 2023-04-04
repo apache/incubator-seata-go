@@ -15,16 +15,32 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
-type Xid interface {
-	GetFormatId() int
-	GetGlobalTransactionId() []byte
-	GetBranchQualifier() []byte
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestXABranchXidBuild(t *testing.T) {
+	xid := "111"
+	branchId := uint64(222)
+	x := XaIdBuild(xid, branchId)
+	assert.Equal(t, x.GetGlobalXid(), xid)
+	assert.Equal(t, x.GetBranchId(), branchId)
+
+	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
+	assert.Equal(t, x.GetBranchQualifier(), []byte("-222"))
 }
 
-type XAXid interface {
-	Xid
-	GetGlobalXid() string
-	GetBranchId() int64
+func TestXABranchXidBuildWithByte(t *testing.T) {
+	xid := []byte("111")
+	branchId := []byte(branchIdPrefix + "222")
+	x := XaIdBuildWithByte(xid, branchId)
+	assert.Equal(t, x.GetGlobalTransactionId(), xid)
+	assert.Equal(t, x.GetBranchQualifier(), branchId)
+
+	assert.Equal(t, x.GetGlobalXid(), "111")
+	assert.Equal(t, x.GetBranchId(), uint64(222))
 }

@@ -25,36 +25,42 @@ import (
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
 	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
 )
 
-// WithFence This method is a suspended API interface that asserts the phase timing of a transaction
+// WithFence Execute the fence database operation first and then call back the business method
+func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err error) {
+	if err = DoFence(ctx, tx); err != nil {
+		return err
+	}
+
+	if err := callback(); err != nil {
+		return fmt.Errorf("the business method error msg of: %p, [%w]", callback, err)
+	}
+
+	return
+}
+
+// DeFence This method is a suspended API interface that asserts the phase timing of a transaction
 // and performs corresponding database operations to ensure transaction consistency
 // case 1: if fencePhase is FencePhaseNotExist, will return a fence not found error.
 // case 2: if fencePhase is FencePhasePrepare, will do prepare fence operation.
 // case 3: if fencePhase is FencePhaseCommit, will do commit fence operation.
 // case 4: if fencePhase is FencePhaseRollback, will do rollback fence operation.
 // case 5: if fencePhase not in above case, will return a fence phase illegal error.
-func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err error) {
-	fp := tm.GetFencePhase(ctx)
-	h := handler.GetFenceHandler()
+func DoFence(ctx context.Context, tx *sql.Tx) error {
+	hd := handler.GetFenceHandler()
+	phase := tm.GetFencePhase(ctx)
 
-	switch {
-	case fp == enum.FencePhaseNotExist:
-		err = fmt.Errorf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx))
-	case fp == enum.FencePhasePrepare:
-		err = h.PrepareFence(ctx, tx, callback)
-	case fp == enum.FencePhaseCommit:
-		err = h.CommitFence(ctx, tx, callback)
-	case fp == enum.FencePhaseRollback:
-		err = h.RollbackFence(ctx, tx, callback)
-	default:
-		err = fmt.Errorf("fence phase: %v illegal", fp)
+	switch phase {
+	case enum.FencePhaseNotExist:
+		return fmt.Errorf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx))
+	case enum.FencePhasePrepare:
+		return hd.PrepareFence(ctx, tx)
+	case enum.FencePhaseCommit:
+		return hd.CommitFence(ctx, tx)
+	case enum.FencePhaseRollback:
+		return hd.RollbackFence(ctx, tx)
 	}
 
-	if err != nil {
-		log.Error(err)
-	}
-
-	return
+	return fmt.Errorf("fence phase: %v illegal", phase)
 }

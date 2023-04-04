@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package datasource
+package sql
 
-import (
-	"github.com/seata/seata-go/pkg/datasource/sql"
-)
+func XaIdBuild(xid string, branchId uint64) *XABranchXid {
+	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
+}
 
-func Init() {
-	sql.Init()
+func XaIdBuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
+	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
 }
