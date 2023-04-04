@@ -22,10 +22,11 @@ import (
 	"sync"
 
 	gxtime "github.com/dubbogo/gost/time"
+	"go.uber.org/atomic"
+
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"
-	"go.uber.org/atomic"
 )
 
 var (
