@@ -24,6 +24,7 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
 )

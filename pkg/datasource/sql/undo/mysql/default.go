@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
 )

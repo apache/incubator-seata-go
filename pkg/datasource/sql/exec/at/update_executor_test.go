@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
@@ -32,7 +34,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	_ "github.com/seata/seata-go/pkg/util/log"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {

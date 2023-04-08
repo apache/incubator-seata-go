@@ -26,8 +26,9 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/util/log"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"

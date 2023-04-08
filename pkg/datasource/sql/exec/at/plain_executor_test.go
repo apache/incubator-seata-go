@@ -24,10 +24,11 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewPlainExecutor(t *testing.T) {

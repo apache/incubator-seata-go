@@ -20,8 +20,9 @@ package parser
 import (
 	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 )
 
 func TestGetName(t *testing.T) {
