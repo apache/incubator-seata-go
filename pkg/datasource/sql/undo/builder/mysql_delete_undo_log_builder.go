@@ -79,7 +79,11 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLDeleteUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLDeleteUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	return nil, nil
 }
 

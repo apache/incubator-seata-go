@@ -23,7 +23,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-
 	"strconv"
 	"strings"
 
@@ -56,11 +55,15 @@ func getCheckUndoLogTableExistSql() string {
 }
 
 func getInsertUndoLogSql() string {
-	return "INSERT INTO " + getUndoLogTableName() + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
+	return "INSERT INTO " +
+		getUndoLogTableName() +
+		"(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
 }
 
 func getSelectUndoLogSql() string {
-	return "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ? FOR UPDATE"
+	return "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " +
+		getUndoLogTableName() +
+		" WHERE branch_id = ? AND xid = ? FOR UPDATE"
 }
 
 func getDeleteUndoLogSql() string {
@@ -71,7 +74,8 @@ func getDeleteUndoLogSql() string {
 const (
 	// UndoLogStatusNormal This state can be properly rolled back by services
 	UndoLogStatusNormal = iota
-	// UndoLogStatusGlobalFinished This state prevents the branch transaction from inserting undo_log after the global transaction is rolled back.
+	// UndoLogStatusGlobalFinished
+	// This state prevents the branch transaction from inserting undo_log after the global transaction is rolled back.
 	UndoLogStatusGlobalFinished
 )
 
@@ -162,7 +166,10 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 }
 
 // FlushUndoLog flush undo log
-func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error {
+func (m *BaseUndoLogManager) FlushUndoLog(
+	tranCtx *types.TransactionContext,
+	conn driver.Conn,
+) error {
 	if tranCtx.RoundImages.IsEmpty() {
 		return nil
 	}

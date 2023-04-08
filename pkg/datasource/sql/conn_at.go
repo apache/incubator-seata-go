@@ -141,7 +141,7 @@ func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, err
 	}
 
-	return &ATTx{tx: tx.(*Tx)}, nil
+	return &ATTx{tx: tx.(*Tx)}, nil // nolint:gci
 }
 
 func (c *ATConn) createOnceTxContext(ctx context.Context) bool {

@@ -176,7 +176,8 @@ func (t *TCCServiceProxy) initBusinessActionContext(ctx context.Context, params 
 	return tccContext
 }
 
-// getOrCreateBusinessActionContext When the parameters of the prepare method are the following scenarios, obtain the context in the following ways：
+// getOrCreateBusinessActionContext When the parameters of the prepare method are the following scenarios,
+// obtain the context in the following ways：
 // 1. null: create new BusinessActionContext
 // 2. tm.BusinessActionContext: return it
 // 3. *tm.BusinessActionContext: if nil then create new BusinessActionContext, else return it

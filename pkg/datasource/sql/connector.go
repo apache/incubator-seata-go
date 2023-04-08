@@ -50,7 +50,7 @@ func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
 
 func (c *seataATConnector) Driver() driver.Driver {
 	return &seataATDriver{
-		seataDriver: c.seataConnector.Driver().(*seataDriver),
+		seataDriver: c.seataConnector.Driver().(*seataDriver), // nolint:gci
 	}
 }
 

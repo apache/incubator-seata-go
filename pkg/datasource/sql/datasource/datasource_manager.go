@@ -91,7 +91,12 @@ func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
 }
 
 // CreateTableMetaCache create a table meta cache
-func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (TableMetaCache, error) {
+func (dm *BasicSourceManager) CreateTableMetaCache(
+	ctx context.Context,
+	resID string,
+	dbType types.DBType,
+	db *sql.DB,
+) (TableMetaCache, error) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 

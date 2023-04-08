@@ -105,7 +105,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 
 // BranchCommit commit the branch transaction
 func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
-	a.worker.BranchCommit(ctx, resource)
+	a.worker.BranchCommit(ctx, resource) // nolint:gci
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 

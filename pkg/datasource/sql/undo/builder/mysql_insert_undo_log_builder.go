@@ -51,7 +51,11 @@ func (u *MySQLInsertUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	return []*types.RecordImage{}, nil
 }
 
-func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLInsertUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
 		return nil, nil
 	}
@@ -137,7 +141,11 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 
-func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) getPkValues(
+	execCtx *types.ExecContext,
+	parseCtx *types.ParseContext,
+	meta types.TableMeta,
+) (map[string][]interface{}, error) {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	pkValuesMap := make(map[string][]interface{})
 	var err error
@@ -453,7 +461,12 @@ func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
 	return false
 }
 
-func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) autoGeneratePks(
+	execCtx *types.ExecContext,
+	autoColumnName string,
+	lastInsetId,
+	updateCount int64,
+) (map[string][]interface{}, error) {
 	var step int64
 	if u.IncrementStep > 0 {
 		step = int64(u.IncrementStep)

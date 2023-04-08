@@ -37,6 +37,7 @@ import (
 
 var branchStatusCache gcache.Cache
 
+// nolint:gci
 type XAConnConf struct {
 	XaBranchExecutionTimeout time.Duration `json:"xa_branch_execution_timeout" xml:"xa_branch_execution_timeout" koanf:"xa_branch_execution_timeout"`
 }
@@ -220,7 +221,12 @@ func (xaManager *XAResourceManager) BranchReport(ctx context.Context, param rm.B
 	return xaManager.rmRemoting.BranchReport(param)
 }
 
-func (xaManager *XAResourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
+func (xaManager *XAResourceManager) CreateTableMetaCache(
+	ctx context.Context,
+	resID string,
+	dbType types.DBType,
+	db *sql.DB,
+) (datasource.TableMetaCache, error) {
 	return xaManager.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
 
@@ -241,5 +247,8 @@ func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {
 }
 
 func setBranchStatus(xaBranchXid string, status branch.BranchStatus) {
-	branchStatusCache.Set(xaBranchXid, status)
+	err := branchStatusCache.Set(xaBranchXid, status)
+	if err != nil {
+		return
+	}
 }

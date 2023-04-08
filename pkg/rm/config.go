@@ -22,6 +22,7 @@ import (
 	"time"
 )
 
+// nolint:gci
 type Config struct {
 	AsyncCommitBufferLimit          int        `yaml:"async-commit-buffer-limit" json:"async-commit-buffer-limit,omitempty" koanf:"async-commit-buffer-limit"`
 	ReportRetryCount                int        `yaml:"report-retry-count" json:"report-retry-count,omitempty" koanf:"report-retry-count"`

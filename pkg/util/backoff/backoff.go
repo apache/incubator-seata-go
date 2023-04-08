@@ -19,9 +19,10 @@ package backoff
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 )
 
@@ -111,7 +112,8 @@ func (b *Backoff) NextDelay() time.Duration {
 	}
 
 	// Add a jitter within the next exponential backoff range
-	sleepTime := b.nextDelayMin + time.Duration(rand.Int63n(int64(b.nextDelayMax-b.nextDelayMin)))
+	randDelay, _ := rand.Int(rand.Reader, big.NewInt(int64(b.nextDelayMax-b.nextDelayMin)))
+	sleepTime := b.nextDelayMin + time.Duration(randDelay.Int64())
 
 	// Apply the exponential backoff to calculate the next jitter
 	// range, unless we've already reached the max

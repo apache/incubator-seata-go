@@ -68,8 +68,10 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 		return nil, err
 	}
 	if len(selectArgs) == 0 {
-		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
-		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data.recommend to convert to a normal insert statement")
+		log.Errorf("the SQL statement has no primary key or unique index value, " +
+			"it will not hit any row data.recommend to convert to a normal insert statement")
+		return nil, fmt.Errorf("the SQL statement has no primary key or unique index value, i" +
+			"t will not hit any row data.recommend to convert to a normal insert statement")
 	}
 	u.BeforeSelectSql = selectSQL
 	u.Args = selectArgs
@@ -160,7 +162,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	return sql.String(), selectArgs, nil
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	afterSelectSql, selectArgs := u.buildAfterImageSQL(ctx, beforeImages)
 	stmt, err := execCtx.Conn.Prepare(afterSelectSql)
 	if err != nil {
@@ -182,7 +188,10 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, e
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildAfterImageSQL(ctx context.Context, beforeImages []*types.RecordImage) (string, []driver.Value) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildAfterImageSQL(
+	ctx context.Context,
+	beforeImages []*types.RecordImage,
+) (string, []driver.Value) {
 	selectSQL, selectArgs := u.BeforeSelectSql, u.Args
 
 	var beforeImage *types.RecordImage
@@ -241,7 +250,11 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 }
 
 // build sql params
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.InsertStmt, args []driver.Value, insertRows [][]interface{}) (map[string][]driver.Value, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(
+	insert *ast.InsertStmt,
+	args []driver.Value,
+	insertRows [][]interface{},
+) (map[string][]driver.Value, error) {
 	var (
 		parameterMap = make(map[string][]driver.Value)
 	)

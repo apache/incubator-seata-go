@@ -101,7 +101,11 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 	return records, nil
 }
 
-func (u *MySQLMultiDeleteUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLMultiDeleteUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	return nil, nil
 }
 

@@ -70,7 +70,12 @@ func (d *dubboTransactionFilter) Invoke(ctx context.Context, invoker protocol.In
 	// todo why should unbind xid???
 }
 
-func (*dubboTransactionFilter) OnResponse(ctx context.Context, result protocol.Result, invoker protocol.Invoker, invocation protocol.Invocation) protocol.Result {
+func (*dubboTransactionFilter) OnResponse(
+	ctx context.Context,
+	result protocol.Result,
+	invoker protocol.Invoker,
+	invocation protocol.Invocation,
+) protocol.Result {
 	return result
 }
 

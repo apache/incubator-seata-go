@@ -78,7 +78,11 @@ func (u *MySQLMultiUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *typ
 	return resultImages, err
 }
 
-func (u *MySQLMultiUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLMultiUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	if len(execCtx.ParseContext.MultiStmt) == 0 {
 		return nil, nil
 	}

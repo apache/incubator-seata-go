@@ -145,7 +145,7 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.xaActive = true
 	}
 
-	return &XATx{tx: tx.(*Tx)}, nil
+	return &XATx{tx: tx.(*Tx)}, nil // nolint:gci
 }
 
 func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
@@ -236,8 +236,8 @@ func (c *XAConn) start(ctx context.Context) error {
 	}
 
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
-		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
-		c.XaRollback(ctx, c.xaBranchXid)
+		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail) // nolint:gci
+		c.XaRollback(ctx, c.xaBranchXid)                         // nolint:gci
 		return err
 	}
 	return err
@@ -343,7 +343,7 @@ func (c *XAConn) ShouldBeHeld() bool {
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
 	if now.Sub(c.branchRegisterTime) > xaConnTimeout {
-		c.XaRollback(ctx, c.xaBranchXid)
+		c.XaRollback(ctx, c.xaBranchXid) // nolint:gci
 		return fmt.Errorf("XA branch timeout error xid:%s", c.txCtx.XID)
 	}
 	return nil

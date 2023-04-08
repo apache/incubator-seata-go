@@ -97,7 +97,11 @@ func (u *MySQLUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLUpdateUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	if execCtx.ParseContext.UpdateStmt == nil {
 		return nil, nil
 	}

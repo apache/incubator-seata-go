@@ -133,7 +133,12 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	businessActionContext := t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData)
+	businessActionContext := t.getBusinessActionContext(
+		branchResource.Xid,
+		branchResource.BranchId,
+		branchResource.ResourceId,
+		branchResource.ApplicationData,
+	)
 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)
@@ -148,7 +153,12 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 	return branch.BranchStatusPhasetwoCommitted, err
 }
 
-func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
+func (t *TCCResourceManager) getBusinessActionContext(
+	xid string,
+	branchID int64,
+	resourceID string,
+	applicationData []byte,
+) *tm.BusinessActionContext {
 	actionContextMap := make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
 		var tccContext map[string]interface{}
@@ -178,7 +188,12 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 		tccResource, _ = resource.(*TCCResource)
 	}
 
-	businessActionContext := t.getBusinessActionContext(branchResource.Xid, branchResource.BranchId, branchResource.ResourceId, branchResource.ApplicationData)
+	businessActionContext := t.getBusinessActionContext(
+		branchResource.Xid,
+		branchResource.BranchId,
+		branchResource.ResourceId,
+		branchResource.ApplicationData,
+	)
 
 	// to set up the fence phase
 	ctx = tm.InitSeataContext(ctx)

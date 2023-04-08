@@ -105,7 +105,11 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	var beforeImage *types.RecordImage
 	if len(beforeImages) > 0 {
 		beforeImage = beforeImages[0]
@@ -192,7 +196,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 		newArgs = append(newArgs, u.buildSelectArgs(&tmpSelectStmt, args)...)
 
 		in := bytes.NewByteBuffer([]byte{})
-		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))
+		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in)) // nolint:gci
 		whereConditionStr := string(in.Bytes())
 
 		if whereCondition.Len() > 0 {
@@ -228,7 +232,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)) // nolint:gci
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 

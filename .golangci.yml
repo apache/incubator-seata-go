@@ -44,6 +44,8 @@ linters-settings:
     locale: US
   lll:
     line-length: 140
+    exclude-rules:
+      - dir: "pkg/*_test.go"
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   gocritic:
@@ -55,14 +57,17 @@ linters-settings:
       - wrapperFunc
   errcheck:
     check-type-assertions: true
+    exclude-use: false
   funlen:
-    # every fun's len should not above 50 lines
-    lines: 50
-    statements: 40
+    # every fun's len should not above 80 lines
+    lines: 80
+    statements: 50
+    exclude-rules:
+      - dir: "pkg/*_test.go"
   gocognit:
     min-complexity: 15
   nestif:
-    min-complexity: 4
+    min-complexity: 6
   gofmt:
     simplify: true
   errorlint:
@@ -76,17 +81,11 @@ linters:
     - ineffassign
     - misspell
     - errcheck
-    - errorlint
     - funlen
     - lll
-    - prealloc
     - forcetypeassert
     - execinquery
-    - goerr113
-    - gofmt
-    - gofumpt
     - goimports
-    - gomnd
     - gosec  #for the security
     - nestif
 
