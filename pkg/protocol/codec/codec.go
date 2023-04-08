@@ -21,9 +21,10 @@ import (
 	"bytes"
 	"sync"
 
+	"vimagination.zapto.org/byteio"
+
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/util/log"
-	"vimagination.zapto.org/byteio"
 )
 
 type CodecType byte

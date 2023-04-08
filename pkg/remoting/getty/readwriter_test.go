@@ -21,9 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRpcPackageHandler(t *testing.T) {

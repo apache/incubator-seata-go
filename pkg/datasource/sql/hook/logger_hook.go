@@ -22,9 +22,10 @@ import (
 
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 
+	"go.uber.org/zap"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
-	"go.uber.org/zap"
 )
 
 func NewLoggerSQLHook() exec.SQLHook {

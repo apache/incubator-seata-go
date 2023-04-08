@@ -33,8 +33,9 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 
 	_ "github.com/arana-db/parser/test_driver"
-	_ "github.com/seata/seata-go/pkg/util/log"
 	"github.com/stretchr/testify/assert"
+
+	_ "github.com/seata/seata-go/pkg/util/log"
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
