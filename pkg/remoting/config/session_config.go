@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package getty
+package config
 
 import (
 	"flag"

@@ -18,11 +18,16 @@
 package getty
 
 import (
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	getty "github.com/apache/dubbo-getty"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/remoting/config"
+	"github.com/seata/seata-go/pkg/remoting/loadbalance"
 )
 
 const (
@@ -47,20 +52,12 @@ func newSessionManager() *SessionManager {
 	}
 }
 
-func (g *SessionManager) selectSession() getty.Session {
-	var session getty.Session
-	g.allSessions.Range(func(key, value interface{}) bool {
-		session = key.(getty.Session)
-		if session.IsClosed() {
-			g.releaseSession(session)
-		} else {
-			return false
-		}
-		return true
-	})
+func (g *SessionManager) selectSession(msg interface{}) getty.Session {
+	session := loadbalance.Select(config.GetSeataConfig().LoadBalanceType, &g.allSessions, g.getXid(msg))
 	if session != nil {
 		return session
 	}
+
 	if g.sessionSize == 0 {
 		ticker := time.NewTicker(time.Duration(checkAliveInternal) * time.Millisecond)
 		defer ticker.Stop()
@@ -81,6 +78,27 @@ func (g *SessionManager) selectSession() getty.Session {
 		}
 	}
 	return nil
+}
+
+func (g *SessionManager) getXid(msg interface{}) string {
+	var xid string
+	if tmpMsg, ok := msg.(message.AbstractGlobalEndRequest); ok {
+		xid = tmpMsg.Xid
+	} else if tmpMsg, ok := msg.(message.GlobalBeginRequest); ok {
+		xid = tmpMsg.TransactionName
+	} else if tmpMsg, ok := msg.(message.BranchRegisterRequest); ok {
+		xid = tmpMsg.Xid
+	} else if tmpMsg, ok := msg.(message.BranchReportRequest); ok {
+		xid = tmpMsg.Xid
+	} else {
+		msgType := reflect.TypeOf(msg)
+		msgValue := reflect.ValueOf(msg)
+		if msgType.Kind() == reflect.Ptr {
+			msgValue = msgValue.Elem()
+		}
+		xid = msgValue.FieldByName("Xid").String()
+	}
+	return xid
 }
 
 func (g *SessionManager) releaseSession(session getty.Session) {
