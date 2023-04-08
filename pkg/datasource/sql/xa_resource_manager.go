@@ -90,6 +90,10 @@ func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
 		return false
 	})
 
+	if dbResource == nil {
+		return
+	}
+
 	if dbResource.IsShouldBeHeld() {
 		ticker := time.NewTicker(time.Second)
 		for {
