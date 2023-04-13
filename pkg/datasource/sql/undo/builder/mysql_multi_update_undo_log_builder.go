@@ -232,7 +232,10 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	err = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	if err != nil {
+		return "", nil, err
+	}
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 

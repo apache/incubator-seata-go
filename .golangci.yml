@@ -74,6 +74,8 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+  stylecheck:
+    checks: ["-ST1003"]
 issues:
   exclude-rules:
     - linters:
@@ -86,13 +88,14 @@ issues:
         - structcheck
         - unused
       text: "`data` is unused"
-    - path: pkg/*_test.go
+    - path: _test\.go
       linters:
         - gosec # it is not need to make security in test sense
         - lll # ditto
         - rowserrcheck # ditto
         - makezero # ditto
         - unused # ditto
+        - exportloopref #ditto
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration

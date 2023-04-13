@@ -30,7 +30,10 @@ func (c *GlobalBeginRequestCodec) Encode(in interface{}) []byte {
 	data := in.(message.GlobalBeginRequest)
 	buf := bytes.NewByteBuffer([]byte{})
 	re := uint32(int64(data.Timeout) / 1e6)
-	buf.WriteUint32(re)
+	_, err := buf.WriteUint32(re)
+	if err != nil {
+		return nil
+	}
 	bytes.WriteString16Length(data.TransactionName, buf)
 
 	return buf.Bytes()

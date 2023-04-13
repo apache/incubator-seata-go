@@ -102,7 +102,10 @@ func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 	if mm, ok := rpcMessage.Body.(message.MessageTypeAware); ok {
 		processor := g.processorMap[mm.GetTypeCode()]
 		if processor != nil {
-			processor.Process(ctx, rpcMessage)
+			err := processor.Process(ctx, rpcMessage)
+			if err != nil {
+				log.Errorf("The processor has err during processing.", err)
+			}
 		} else {
 			log.Errorf("This message type %v has no processor.", mm.GetTypeCode())
 		}

@@ -160,17 +160,50 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	}
 
 	buf := bytes.NewByteBuffer([]byte{})
-	buf.WriteByte(message.MagicCodeBytes[0])
-	buf.WriteByte(message.MagicCodeBytes[1])
-	buf.WriteByte(message.VERSION)
-	buf.WriteUint32(uint32(totalLength))
-	buf.WriteUint16(uint16(headLength))
-	buf.WriteByte(byte(msg.Type))
-	buf.WriteByte(msg.Codec)
-	buf.WriteByte(msg.Compressor)
-	buf.WriteUint32(uint32(msg.ID))
-	buf.Write(headMapBytes)
-	buf.Write(bodyBytes)
+	err := buf.WriteByte(message.MagicCodeBytes[0])
+	if err != nil {
+		return nil, err
+	}
+	err = buf.WriteByte(message.MagicCodeBytes[1])
+	if err != nil {
+		return nil, err
+	}
+	err = buf.WriteByte(message.VERSION)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.WriteUint32(uint32(totalLength))
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.WriteUint16(uint16(headLength))
+	if err != nil {
+		return nil, err
+	}
+	err = buf.WriteByte(byte(msg.Type))
+	if err != nil {
+		return nil, err
+	}
+	err = buf.WriteByte(msg.Codec)
+	if err != nil {
+		return nil, err
+	}
+	err = buf.WriteByte(msg.Compressor)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.WriteUint32(uint32(msg.ID))
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(headMapBytes)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(bodyBytes)
+	if err != nil {
+		return nil, err
+	}
 
 	return buf.Bytes(), nil
 }
@@ -179,17 +212,29 @@ func encodeHeapMap(data map[string]string) ([]byte, int) {
 	buf := bytes.NewByteBuffer([]byte{})
 	for k, v := range data {
 		if k == "" {
-			buf.WriteUint16(uint16(0))
+			_, err := buf.WriteUint16(uint16(0))
+			if err != nil {
+				return nil, 0
+			}
 		} else {
-			buf.WriteUint16(uint16(len(k)))
-			buf.WriteString(k)
+			_, err := buf.WriteUint16(uint16(len(k)))
+			if err != nil {
+				return nil, 0
+			}
+			_, err = buf.WriteString(k)
+			if err != nil {
+				return nil, 0
+			}
 		}
 
 		if v == "" {
 			buf.WriteUint16(uint16(0))
 		} else {
 			buf.WriteUint16(uint16(len(v)))
-			buf.WriteString(v)
+			_, err := buf.WriteString(v)
+			if err != nil {
+				return nil, 0
+			}
 		}
 	}
 	res := buf.Bytes()
@@ -210,7 +255,10 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 			key = ""
 		} else {
 			keyBytes := make([]byte, keyLength)
-			in.Read(keyBytes)
+			_, err := in.Read(keyBytes)
+			if err != nil {
+				return nil
+			}
 			key = string(keyBytes)
 		}
 
@@ -219,7 +267,10 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 			key = ""
 		} else {
 			valueBytes := make([]byte, valueLength)
-			in.Read(valueBytes)
+			_, err := in.Read(valueBytes)
+			if err != nil {
+				return nil
+			}
 			value = string(valueBytes)
 		}
 

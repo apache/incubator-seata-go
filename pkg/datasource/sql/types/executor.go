@@ -81,7 +81,10 @@ func (p *ParseContext) GetTableName() (string, error) {
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
-	table.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	err := table.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	if err != nil {
+		return "", err
+	}
 
 	return string(b.Bytes()), nil
 }

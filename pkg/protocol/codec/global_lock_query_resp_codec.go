@@ -49,7 +49,10 @@ func (c *GlobalLockQueryResponseCodec) Encode(in interface{}) []byte {
 	data, _ := in.(message.GlobalLockQueryResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(data.ResultCode))
+	err := buf.WriteByte(byte(data.ResultCode))
+	if err != nil {
+		return nil
+	}
 	if data.ResultCode == message.ResultCodeFailed {
 		msg := data.Msg
 		if len(data.Msg) > math.MaxInt8 {
@@ -57,12 +60,18 @@ func (c *GlobalLockQueryResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString8Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionErrorCode))
+	err = buf.WriteByte(byte(data.TransactionErrorCode))
+	if err != nil {
+		return nil
+	}
 	var lockable uint16
 	if data.Lockable {
 		lockable = 1
 	}
-	buf.WriteUint16(lockable)
+	_, err = buf.WriteUint16(lockable)
+	if err != nil {
+		return nil
+	}
 
 	return buf.Bytes()
 }

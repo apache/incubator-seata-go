@@ -74,12 +74,18 @@ func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
 
 func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.hooks {
-		e.hooks[i].Before(ctx, execCtx)
+		err := e.hooks[i].Before(ctx, execCtx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	defer func() {
 		for i := range e.hooks {
-			e.hooks[i].After(ctx, execCtx)
+			err := e.hooks[i].After(ctx, execCtx)
+			if err != nil {
+				return
+			}
 		}
 	}()
 
@@ -93,12 +99,18 @@ func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Ex
 // ExecWithValue
 func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
 	for i := range e.hooks {
-		e.hooks[i].Before(ctx, execCtx)
+		err := e.hooks[i].Before(ctx, execCtx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	defer func() {
 		for i := range e.hooks {
-			e.hooks[i].After(ctx, execCtx)
+			err := e.hooks[i].After(ctx, execCtx)
+			if err != nil {
+				return
+			}
 		}
 	}()
 
