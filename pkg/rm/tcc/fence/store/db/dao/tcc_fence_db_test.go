@@ -187,7 +187,10 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 	}
 
 	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDO(tx, tccFenceDo.Xid, tccFenceDo.BranchId)
-	tx.Commit()
+	e := tx.Commit()
+	if e != nil {
+		return
+	}
 	assert.Equal(t, nil, err)
 }
 
@@ -213,6 +216,9 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
 	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
-	tx.Commit()
+	e := tx.Commit()
+	if e != nil {
+		return
+	}
 	assert.Equal(t, nil, err)
 }

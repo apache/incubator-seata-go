@@ -184,7 +184,7 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 		return
 	}
 
-	res := val.(*DBResource) // nolint:gci
+	res := val.(*DBResource)
 	conn, err := res.db.Conn(context.Background())
 	if err != nil {
 		for i := range phaseCtxs {

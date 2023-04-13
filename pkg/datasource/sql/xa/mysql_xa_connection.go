@@ -111,7 +111,7 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 		return nil, nil
 	}
 
-	conn := c.Conn.(driver.QueryerContext) // nolint:gci
+	conn := c.Conn.(driver.QueryerContext)
 	res, err := conn.QueryContext(ctx, "XA RECOVER", nil)
 	if err != nil {
 		return nil, err

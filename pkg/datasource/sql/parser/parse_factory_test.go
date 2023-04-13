@@ -91,7 +91,10 @@ func TestK(t *testing.T) {
 
 	var bytes = bytes.NewByteBuffer([]byte{})
 	var cc = format.NewRestoreCtx(format.RestoreKeyWordUppercase, bytes)
-	stmt[0].Restore(cc)
+	err := stmt[0].Restore(cc)
+	if err != nil {
+		return
+	}
 
 	fmt.Println(stmt)
 }

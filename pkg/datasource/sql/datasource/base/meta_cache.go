@@ -66,7 +66,10 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) *
 		trigger:        trigger,
 	}
 
-	c.Init(ctx)
+	err := c.Init(ctx)
+	if err != nil {
+		return nil
+	}
 
 	return c
 }

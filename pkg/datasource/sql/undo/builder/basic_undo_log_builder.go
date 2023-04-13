@@ -105,7 +105,7 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 	switch node.(type) {
 	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr) // nolint:gci
+		expr := node.(*ast.BinaryOperationExpr)
 		b.traversalArgs(expr.L, argsIndex)
 		b.traversalArgs(expr.R, argsIndex)
 		break

@@ -123,7 +123,7 @@ func (db *DBResource) GetResourceGroupId() string {
 }
 
 func (db *DBResource) init() {
-	db.checkDbVersion() // nolint:gci
+	db.checkDbVersion()
 }
 
 func (db *DBResource) GetResourceId() string {

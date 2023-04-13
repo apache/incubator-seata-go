@@ -14,15 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+run:
+  skip-dirs:
+    - test/testdata_etc
+    - pkg/golinters/goanalysis/(checker|passes)
+  timeout: 5m
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - durationcheck
+    - errcheck
+    - errorlint
+    - exportloopref
+    - goimports
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - predeclared
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unused
 
 linters-settings:
   govet:
     check-shadowing: false
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
   golint:
     min-confidence: 0
   gocyclo:
@@ -44,8 +65,6 @@ linters-settings:
     locale: US
   lll:
     line-length: 140
-    exclude-rules:
-      - dir: "pkg/*_test.go"
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   gocritic:
@@ -55,53 +74,25 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
-  errcheck:
-    check-type-assertions: true
-    exclude-use: false
-  funlen:
-    # every fun's len should not above 80 lines
-    lines: 80
-    statements: 50
-    exclude-rules:
-      - dir: "pkg/*_test.go"
-  gocognit:
-    min-complexity: 15
-  nestif:
-    min-complexity: 6
-  gofmt:
-    simplify: true
-  errorlint:
-    errorf: true
-
-linters:
-  disable-all: true
-  enable:
-    - govet
-    - staticcheck
-    - ineffassign
-    - misspell
-    - errcheck
-    - funlen
-    - lll
-    - forcetypeassert
-    - execinquery
-    - goimports
-    - gosec  #for the security
-    - nestif
-
-run:
-  skip-dirs:
-    - test/testdata_etc
-    - pkg/golinters/goanalysis/(checker|passes)
-
 issues:
   exclude-rules:
-    - text: "weak cryptographic primitive"
-      linters:
+    - linters:
         - gosec
+      text: "weak cryptographic primitive"
     - linters:
         - staticcheck
       text: "SA1019:"
+    - linters:
+        - structcheck
+        - unused
+      text: "`data` is unused"
+    - path: pkg/*_test.go
+      linters:
+        - gosec # it is not need to make security in test sense
+        - lll # ditto
+        - rowserrcheck # ditto
+        - makezero # ditto
+        - unused # ditto
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration

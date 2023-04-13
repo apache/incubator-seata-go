@@ -37,7 +37,6 @@ import (
 
 var branchStatusCache gcache.Cache
 
-// nolint:gci
 type XAConnConf struct {
 	XaBranchExecutionTimeout time.Duration `json:"xa_branch_execution_timeout" xml:"xa_branch_execution_timeout" koanf:"xa_branch_execution_timeout"`
 }

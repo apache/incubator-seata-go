@@ -196,7 +196,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 		newArgs = append(newArgs, u.buildSelectArgs(&tmpSelectStmt, args)...)
 
 		in := bytes.NewByteBuffer([]byte{})
-		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in)) // nolint:gci
+		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))
 		whereConditionStr := string(in.Bytes())
 
 		if whereCondition.Len() > 0 {
@@ -232,7 +232,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)) // nolint:gci
+	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
