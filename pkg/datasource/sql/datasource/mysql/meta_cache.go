@@ -28,6 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
+// nolint:unused
 var (
 	capacity      int32 = 1024
 	EexpireTime         = 15 * time.Minute

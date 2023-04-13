@@ -247,7 +247,10 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	err := selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	if err != nil {
+		return "", err
+	}
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
@@ -269,7 +272,7 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 	for sqlRows.Next() {
 		ss := s.GetScanSlice(columnNames, meta)
 		if err := sqlRows.Scan(ss...); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return ""
@@ -302,7 +305,12 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 	return lockKeys.String()
 }
 
-func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
+func (s *selectForUpdateExecutor) exec(
+	ctx context.Context,
+	sql string,
+	nvdargs []driver.NamedValue,
+	f func(rows driver.Rows),
+) (driver.Rows, error) {
 	var (
 		querierContext                  driver.QueryerContext
 		querier                         driver.Queryer

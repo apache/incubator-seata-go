@@ -44,7 +44,11 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 }
 
 // ExecWithNamedValue find the executor by sql type
-func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *ATExecutor) ExecWithNamedValue(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	f exec.CallbackWithNamedValue,
+) (types.ExecResult, error) {
 	queryParser, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return nil, err
@@ -77,7 +81,11 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 }
 
 // ExecWithValue transfer value to nameValue execute
-func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *ATExecutor) ExecWithValue(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	f exec.CallbackWithNamedValue,
+) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
 }

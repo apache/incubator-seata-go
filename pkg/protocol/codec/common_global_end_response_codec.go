@@ -31,7 +31,10 @@ func (c *CommonGlobalEndResponseCodec) Encode(in interface{}) []byte {
 	data := in.(message.AbstractGlobalEndResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(data.ResultCode))
+	err := buf.WriteByte(byte(data.ResultCode))
+	if err != nil {
+		return nil
+	}
 	if data.ResultCode == message.ResultCodeFailed {
 		msg := data.Msg
 		if len(data.Msg) > math.MaxInt16 {
@@ -39,8 +42,14 @@ func (c *CommonGlobalEndResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString16Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionErrorCode))
-	buf.WriteByte(byte(data.GlobalStatus))
+	err = buf.WriteByte(byte(data.TransactionErrorCode))
+	if err != nil {
+		return nil
+	}
+	err = buf.WriteByte(byte(data.GlobalStatus))
+	if err != nil {
+		return nil
+	}
 
 	return buf.Bytes()
 }

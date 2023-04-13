@@ -96,6 +96,8 @@ issues:
         - makezero # ditto
         - unused # ditto
         - exportloopref #ditto
+        - ineffassign
+        - staticcheck
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration

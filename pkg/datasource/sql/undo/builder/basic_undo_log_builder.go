@@ -25,6 +25,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
@@ -134,7 +136,7 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 
 	for {
 		err := rowsi.Next(ss)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -251,7 +253,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
 	for {
 		err := rows.Next(pks)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 

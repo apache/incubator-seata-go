@@ -335,7 +335,10 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	err = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	if err != nil {
+		return "", nil, err
+	}
 	log.Infof("build select sql by update sourceQuery, sql {}", string(b.Bytes()))
 
 	return string(b.Bytes()), newArgs, nil
@@ -345,6 +348,7 @@ func (u *multiUpdateExecutor) isAstStmtValid() bool {
 	return u.parserCtx != nil && u.parserCtx.MultiStmt != nil && len(u.parserCtx.MultiStmt) > 0
 }
 
+// nolint:unused
 type updateVisitor struct {
 	stmt *ast.UpdateStmt
 }

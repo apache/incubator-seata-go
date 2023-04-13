@@ -86,7 +86,7 @@ func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
 func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
-
+	// nolint:lll
 	columnMetaSql := "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `COLUMN_DEFAULT`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	stmt, err := conn.PrepareContext(ctx, columnMetaSql)
 	if err != nil {
@@ -155,7 +155,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
 	tableName = executor.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
-
+	// nolint:lll
 	indexMetaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	stmt, err := conn.PrepareContext(ctx, indexMetaSql)
 	if err != nil {

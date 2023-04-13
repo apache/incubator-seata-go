@@ -88,6 +88,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 	}
 
 	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName); err != nil {
+		// nolint:errorlint
 		transErr, ok := err.(*serr.SeataError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
@@ -105,7 +106,10 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 
 // BranchCommit commit the branch transaction
 func (a *ATSourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
-	a.worker.BranchCommit(ctx, resource)
+	_, err := a.worker.BranchCommit(ctx, resource)
+	if err != nil {
+		return 0, err
+	}
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 

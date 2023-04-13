@@ -236,8 +236,14 @@ func (c *XAConn) start(ctx context.Context) error {
 	}
 
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
-		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
-		c.XaRollback(ctx, c.xaBranchXid)
+		err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
+		if err != nil {
+			return err
+		}
+		err = c.XaRollback(ctx, c.xaBranchXid)
+		if err != nil {
+			return err
+		}
 		return err
 	}
 	return err
@@ -343,7 +349,10 @@ func (c *XAConn) ShouldBeHeld() bool {
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
 	if now.Sub(c.branchRegisterTime) > xaConnTimeout {
-		c.XaRollback(ctx, c.xaBranchXid)
+		err := c.XaRollback(ctx, c.xaBranchXid)
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("XA branch timeout error xid:%s", c.txCtx.XID)
 	}
 	return nil

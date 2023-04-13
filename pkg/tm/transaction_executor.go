@@ -73,6 +73,7 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		}
 
 		if re != nil || err != nil {
+			// nolint:errorlint
 			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
 		}
 	}()
@@ -184,6 +185,7 @@ func beginNewGtx(ctx context.Context, gc *GtxConfig) error {
 	SetTxStatus(ctx, message.GlobalStatusBegin)
 
 	if err := GetGlobalTransactionManager().Begin(ctx, timeout); err != nil {
+		// nolint:errorlint
 		return fmt.Errorf("transactionTemplate: Begin transaction failed, error %v", err)
 	}
 	return nil

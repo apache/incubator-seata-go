@@ -33,18 +33,21 @@ import (
 
 type dbOption func(db *DBResource)
 
+// nolint:unused
 func withDsn(dsn string) dbOption {
 	return func(db *DBResource) {
 		db.dsn = dsn
 	}
 }
 
+// nolint:unused
 func withResourceID(id string) dbOption {
 	return func(db *DBResource) {
 		db.resourceID = id
 	}
 }
 
+// nolint:unused
 func withTableMetaCache(c datasource.TableMetaCache) dbOption {
 	return func(db *DBResource) {
 		db.metaCache = c
@@ -81,6 +84,7 @@ func withDBName(dbName string) dbOption {
 	}
 }
 
+// nolint:unused
 func withConf(conf *XAConnConf) dbOption {
 	return func(db *DBResource) {
 		db.xaConnConf = conf
@@ -99,6 +103,7 @@ func newResource(opts ...dbOption) (*DBResource, error) {
 }
 
 // DBResource proxy sql.DB, enchance database/sql.DB to add distribute transaction ability
+// nolint:unused
 type DBResource struct {
 	xaConnConf *XAConnConf
 	// only use by mysql
@@ -123,7 +128,10 @@ func (db *DBResource) GetResourceGroupId() string {
 }
 
 func (db *DBResource) init() {
-	db.checkDbVersion()
+	err := db.checkDbVersion()
+	if err != nil {
+		return
+	}
 }
 
 func (db *DBResource) GetResourceId() string {
@@ -205,6 +213,7 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	//    2. when the version < 8.0.29. so just make the transaction rollback
 	newDriverConn, err := db.connector.Connect(ctx)
 	if err != nil {
+		// nolint:errorlint
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
 	xaConn := &XAConn{
@@ -218,11 +227,13 @@ func (db *DBResource) checkDbVersion() error {
 	case types.DBTypeMySQL:
 		currentVersion, err := util.ConvertDbVersion(db.dbVersion)
 		if err != nil {
+			// nolint:errorlint
 			return fmt.Errorf("new connection xa proxy convert db version:%s err:%v", db.GetDbVersion(), err)
 		}
 
 		shouldKeptVersion, err := util.ConvertDbVersion("8.0.29")
 		if err != nil {
+			// nolint:errorlint
 			return fmt.Errorf("new connection xa proxy convert db version 8.0.29 err:%v", err)
 		}
 

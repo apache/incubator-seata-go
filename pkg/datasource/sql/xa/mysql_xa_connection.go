@@ -120,7 +120,7 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 	dest := make([]driver.Value, 4)
 	for true {
 		if err = res.Next(dest); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return xids, nil
 			}
 			return nil, err

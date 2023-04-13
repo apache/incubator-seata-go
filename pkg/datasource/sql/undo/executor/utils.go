@@ -92,7 +92,9 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 }
 
 // buildWhereConditionByPKs build where condition by primary keys
-// each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
+// each pk is a condition.the result will like :
+//
+//	" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
 func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}

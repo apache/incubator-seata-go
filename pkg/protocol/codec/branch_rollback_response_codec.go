@@ -48,7 +48,10 @@ func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
 	data, _ := in.(message.BranchRollbackResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(data.ResultCode))
+	err := buf.WriteByte(byte(data.ResultCode))
+	if err != nil {
+		return nil
+	}
 	if data.ResultCode == message.ResultCodeFailed {
 		msg := data.Msg
 		if len(data.Msg) > math.MaxInt16 {
@@ -56,10 +59,19 @@ func (g *BranchRollbackResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString8Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionErrorCode))
+	err = buf.WriteByte(byte(data.TransactionErrorCode))
+	if err != nil {
+		return nil
+	}
 	bytes.WriteString16Length(data.Xid, buf)
-	buf.WriteInt64(data.BranchId)
-	buf.WriteByte(byte(data.BranchStatus))
+	_, err = buf.WriteInt64(data.BranchId)
+	if err != nil {
+		return nil
+	}
+	err = buf.WriteByte(byte(data.BranchStatus))
+	if err != nil {
+		return nil
+	}
 
 	return buf.Bytes()
 }

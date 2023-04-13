@@ -44,7 +44,10 @@ func (tx *ATTx) Rollback() error {
 		originTx := tx.tx
 
 		if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
-			originTx.report(false)
+			err := originTx.report(false)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -77,6 +80,9 @@ func (tx *ATTx) commitOnAT() error {
 		return errors.WithStack(err)
 	}
 
-	originTx.report(true)
+	err = originTx.report(true)
+	if err != nil {
+		return err
+	}
 	return nil
 }

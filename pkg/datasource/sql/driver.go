@@ -184,6 +184,7 @@ func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
+// nolint:unused
 func parseResourceID(dsn string) string {
 	i := strings.Index(dsn, "?")
 	res := dsn

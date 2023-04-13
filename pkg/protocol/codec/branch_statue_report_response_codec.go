@@ -44,7 +44,10 @@ func (g *BranchReportResponseCodec) Encode(in interface{}) []byte {
 	data, _ := in.(message.BranchReportResponse)
 	buf := bytes.NewByteBuffer([]byte{})
 
-	buf.WriteByte(byte(data.ResultCode))
+	err := buf.WriteByte(byte(data.ResultCode))
+	if err != nil {
+		return nil
+	}
 	if data.ResultCode == message.ResultCodeFailed {
 		msg := data.Msg
 		if len(data.Msg) > math.MaxInt8 {
@@ -52,7 +55,10 @@ func (g *BranchReportResponseCodec) Encode(in interface{}) []byte {
 		}
 		bytes.WriteString8Length(msg, buf)
 	}
-	buf.WriteByte(byte(data.TransactionErrorCode))
+	err = buf.WriteByte(byte(data.TransactionErrorCode))
+	if err != nil {
+		return nil
+	}
 
 	return buf.Bytes()
 }

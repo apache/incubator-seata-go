@@ -40,13 +40,19 @@ type baseExecutor struct {
 
 func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
 	for _, hook := range b.hooks {
-		hook.Before(ctx, execCtx)
+		err := hook.Before(ctx, execCtx)
+		if err != nil {
+			return
+		}
 	}
 }
 
 func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
 	for _, hook := range b.hooks {
-		hook.After(ctx, execCtx)
+		err := hook.After(ctx, execCtx)
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -147,7 +153,11 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
+func (b *baseExecutor) buildRecordImages(
+	rowsi driver.Rows,
+	tableMetaData *types.TableMeta,
+	sqlType types.SQLType,
+) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -241,6 +251,7 @@ func getSqlNullValue(value interface{}) interface{} {
 	return value
 }
 
+// nolint:lll
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
 func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {

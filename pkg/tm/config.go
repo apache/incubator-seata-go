@@ -24,6 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
+// nolint:lll
 type TmConfig struct {
 	CommitRetryCount                int           `yaml:"commit-retry-count" json:"commit-retry-count" koanf:"commit-retry-count"`
 	RollbackRetryCount              int           `yaml:"rollback-retry-count" json:"rollback-retry-count" koanf:"rollback-retry-count"`
@@ -35,15 +36,51 @@ type TmConfig struct {
 }
 
 func (cfg *TmConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.IntVar(&cfg.CommitRetryCount, prefix+".commit-retry-count", 5, "The maximum number of retries when commit global transaction.")
-	f.IntVar(&cfg.RollbackRetryCount, prefix+".rollback-retry-count", 5, "The maximum number of retries when rollback global transaction.")
-	f.DurationVar(&cfg.DefaultGlobalTransactionTimeout, prefix+".default-global-transaction-timeout", 60*time.Second, "The timeout for a global transaction.")
-	f.BoolVar(&cfg.DegradeCheck, prefix+".degrade-check", false, "The switch for degrade check.")
-	f.IntVar(&cfg.DegradeCheckPeriod, prefix+".degrade-check-period", 2000, "The period for degrade checking.")
-	f.DurationVar(&cfg.DegradeCheckAllowTimes, prefix+".degrade-check-allow-times", 10*time.Second, "The duration allowed for degrade checking.")
-	f.IntVar(&cfg.InterceptorOrder, prefix+".interceptor-order", -2147482648, "The order of interceptor.")
+	f.IntVar(
+		&cfg.CommitRetryCount,
+		prefix+".commit-retry-count",
+		5,
+		"The maximum number of retries when commit global transaction.",
+	)
+	f.IntVar(
+		&cfg.RollbackRetryCount,
+		prefix+".rollback-retry-count",
+		5,
+		"The maximum number of retries when rollback global transaction.",
+	)
+	f.DurationVar(
+		&cfg.DefaultGlobalTransactionTimeout,
+		prefix+".default-global-transaction-timeout",
+		60*time.Second,
+		"The timeout for a global transaction.",
+	)
+	f.BoolVar(
+		&cfg.DegradeCheck,
+		prefix+".degrade-check",
+		false,
+		"The switch for degrade check.",
+	)
+	f.IntVar(
+		&cfg.DegradeCheckPeriod,
+		prefix+".degrade-check-period",
+		2000,
+		"The period for degrade checking.",
+	)
+	f.DurationVar(
+		&cfg.DegradeCheckAllowTimes,
+		prefix+".degrade-check-allow-times",
+		10*time.Second,
+		"The duration allowed for degrade checking.",
+	)
+	f.IntVar(
+		&cfg.InterceptorOrder,
+		prefix+".interceptor-order",
+		-2147482648,
+		"The order of interceptor.",
+	)
 }
 
+// nolint:lll
 type ServiceConfig struct {
 	VgroupMapping            flagext.StringMap `yaml:"vgroup-mapping" json:"vgroup-mapping" koanf:"vgroup-mapping"`
 	Grouplist                flagext.StringMap `yaml:"grouplist" json:"grouplist" koanf:"grouplist"`

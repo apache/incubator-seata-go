@@ -72,6 +72,7 @@ func NewScanRows(rowsi driver.Rows) *ScanRows {
 
 // lasterrOrErrLocked returns either lasterr or the provided err.
 // rs.closemu must be read-locked.
+// nolint:errorlint
 func (rs *ScanRows) lasterrOrErrLocked(err error) error {
 	if rs.lasterr != nil && rs.lasterr != io.EOF {
 		return rs.lasterr
@@ -81,8 +82,10 @@ func (rs *ScanRows) lasterrOrErrLocked(err error) error {
 
 // bypassRowsAwaitDone is only used for testing.
 // If true, it will not close the ScanRows automatically from the context.
+// nolint:unused
 var bypassRowsAwaitDone = false
 
+// nolint:unused
 func (rs *ScanRows) initContextClose(ctx, txctx context.Context) {
 	if ctx.Done() == nil && (txctx == nil || txctx.Done() == nil) {
 		return
@@ -98,6 +101,7 @@ func (rs *ScanRows) initContextClose(ctx, txctx context.Context) {
 // from the query context and is canceled when the query ScanRows is closed.
 // If the query was issued in a transaction, the transaction's context
 // is also provided in txctx to ensure ScanRows is closed if the Tx is closed.
+// nolint:unused
 func (rs *ScanRows) awaitDone(ctx, txctx context.Context) {
 	var txctxDone <-chan struct{}
 	if txctx != nil {
@@ -144,6 +148,7 @@ func (rs *ScanRows) nextLocked() (doClose, ok bool) {
 	rs.lasterr = rs.rowsi.Next(rs.lastcols)
 	if rs.lasterr != nil {
 		// Close the connection if there is a driver error.
+		// nolint:errorlint
 		if rs.lasterr != io.EOF {
 			return true, false
 		}
@@ -277,6 +282,7 @@ var errRowsClosed = errors.New("sql: ScanRows are closed")
 func (rs *ScanRows) Scan(dest ...interface{}) error {
 	rs.closemu.RLock()
 
+	// nolint:errorlint
 	if rs.lasterr != nil && rs.lasterr != io.EOF {
 		rs.closemu.RUnlock()
 		return rs.lasterr

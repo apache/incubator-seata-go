@@ -72,7 +72,11 @@ func (e *BaseExecutor) Interceptors(interceptors []SQLHook) {
 	e.hooks = interceptors
 }
 
-func (e *BaseExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+func (e *BaseExecutor) ExecWithNamedValue(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	f CallbackWithNamedValue,
+) (types.ExecResult, error) {
 	for i := range e.hooks {
 		err := e.hooks[i].Before(ctx, execCtx)
 		if err != nil {
@@ -120,6 +124,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 
 	nvargs := make([]driver.NamedValue, len(execCtx.Values))
 	for i, value := range execCtx.Values {
+		// nolint:makezero
 		nvargs = append(nvargs, driver.NamedValue{
 			Value:   value,
 			Ordinal: i,

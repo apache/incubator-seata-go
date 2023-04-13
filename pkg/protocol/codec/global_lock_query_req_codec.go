@@ -44,7 +44,10 @@ func (c *GlobalLockQueryRequestCodec) Encode(in interface{}) []byte {
 	buf := bytes.NewByteBuffer([]byte{})
 
 	bytes.WriteString16Length(data.Xid, buf)
-	buf.WriteByte(byte(data.BranchType))
+	err := buf.WriteByte(byte(data.BranchType))
+	if err != nil {
+		return nil
+	}
 	bytes.WriteString16Length(data.ResourceId, buf)
 	bytes.WriteString32Length(data.LockKey, buf)
 	bytes.WriteString32Length(string(data.ApplicationData), buf)

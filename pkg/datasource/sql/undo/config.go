@@ -35,6 +35,7 @@ type CompressConfig struct {
 	Threshold string `yaml:"threshold" json:"threshold,omitempty"  koanf:"threshold"`
 }
 
+//nolint:lll
 type Config struct {
 	DataValidation        bool           `yaml:"data-validation" json:"data-validation,omitempty" koanf:"data-validation"`
 	LogSerialization      string         `yaml:"log-serialization" json:"log-serialization,omitempty" koanf:"log-serialization"`
@@ -44,10 +45,30 @@ type Config struct {
 }
 
 func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&u.DataValidation, prefix+".data-validation", true, "Judge whether the before image and after image are the same，If it is the same, undo will not be recorded")
-	f.StringVar(&u.LogSerialization, prefix+".log-serialization", "jackson", "Serialization method.")
-	f.StringVar(&u.LogTable, prefix+".log-table", "undo_log", "undo log table name.")
-	f.BoolVar(&u.OnlyCareUpdateColumns, prefix+".only-care-update-columns", true, "The switch for degrade check.")
+	f.BoolVar(
+		&u.DataValidation,
+		prefix+".data-validation",
+		true,
+		"Judge whether the before image and after image are the same，If it is the same, undo will not be recorded",
+	)
+	f.StringVar(
+		&u.LogSerialization,
+		prefix+".log-serialization",
+		"jackson",
+		"Serialization method.",
+	)
+	f.StringVar(
+		&u.LogTable,
+		prefix+".log-table",
+		"undo_log",
+		"undo log table name.",
+	)
+	f.BoolVar(
+		&u.OnlyCareUpdateColumns,
+		prefix+".only-care-update-columns",
+		true,
+		"The switch for degrade check.",
+	)
 	u.CompressConfig.RegisterFlagsWithPrefix(prefix+".compress", f)
 }
 

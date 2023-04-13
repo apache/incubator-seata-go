@@ -28,6 +28,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 )
 
+// nolint:unused
 var (
 	atOnce            sync.Once
 	tableMetaCacheMap = map[types.DBType]TableMetaCache{}

@@ -27,6 +27,7 @@ import (
 	"errors"
 )
 
+//nolint:unused
 func ctxDriverPrepare(ctx context.Context, ci driver.Conn, query string) (driver.Stmt, error) {
 	if ciCtx, is := ci.(driver.ConnPrepareContext); is {
 		return ciCtx.PrepareContext(ctx, query)
@@ -43,7 +44,14 @@ func ctxDriverPrepare(ctx context.Context, ci driver.Conn, query string) (driver
 	return si, err
 }
 
-func ctxDriverExec(ctx context.Context, execerCtx driver.ExecerContext, execer driver.Execer, query string, nvdargs []driver.NamedValue) (driver.Result, error) {
+// nolint:unused
+func ctxDriverExec(
+	ctx context.Context,
+	execerCtx driver.ExecerContext,
+	execer driver.Execer,
+	query string,
+	nvdargs []driver.NamedValue,
+) (driver.Result, error) {
 	if execerCtx != nil {
 		return execerCtx.ExecContext(ctx, query, nvdargs)
 	}
@@ -60,7 +68,13 @@ func ctxDriverExec(ctx context.Context, execerCtx driver.ExecerContext, execer d
 	return execer.Exec(query, dargs)
 }
 
-func CtxDriverQuery(ctx context.Context, queryerCtx driver.QueryerContext, queryer driver.Queryer, query string, nvdargs []driver.NamedValue) (driver.Rows, error) {
+func CtxDriverQuery(
+	ctx context.Context,
+	queryerCtx driver.QueryerContext,
+	queryer driver.Queryer,
+	query string,
+	nvdargs []driver.NamedValue,
+) (driver.Rows, error) {
 	if queryerCtx != nil {
 		return queryerCtx.QueryContext(ctx, query, nvdargs)
 	}
@@ -77,6 +91,7 @@ func CtxDriverQuery(ctx context.Context, queryerCtx driver.QueryerContext, query
 	return queryer.Query(query, dargs)
 }
 
+//nolint:unused
 func ctxDriverStmtExec(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Result, error) {
 	if siCtx, is := si.(driver.StmtExecContext); is {
 		return siCtx.ExecContext(ctx, nvdargs)
@@ -94,6 +109,7 @@ func ctxDriverStmtExec(ctx context.Context, si driver.Stmt, nvdargs []driver.Nam
 	return si.Exec(dargs)
 }
 
+//nolint:unused
 func ctxDriverStmtQuery(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Rows, error) {
 	if siCtx, is := si.(driver.StmtQueryContext); is {
 		return siCtx.QueryContext(ctx, nvdargs)

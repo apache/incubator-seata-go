@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -252,7 +253,14 @@ func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID i
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) (err error) {
+func (m *BaseUndoLogManager) Undo(
+	ctx context.Context,
+	dbType types.DBType,
+	xid string,
+	branchID int64,
+	db *sql.DB,
+	dbName string,
+) (err error) {
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
@@ -419,7 +427,8 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
 	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil {
 		// 1146 mysql table not exist fault code
-		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
+		var sqlErr *mysql.SQLError
+		if errors.As(err, &sqlErr) && sqlErr.Code == mysql.ErrNoSuchTable {
 			return false, nil
 		}
 		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
@@ -480,6 +489,7 @@ func Int64Slice2Str(values interface{}, sep string) (string, error) {
 	return strings.Join(valuesText, sep), nil
 }
 
+// nolint:unused
 // canUndo check if it can undo
 func (m *BaseUndoLogManager) canUndo(state int32) bool {
 	return state == UndoLogStatusNormal

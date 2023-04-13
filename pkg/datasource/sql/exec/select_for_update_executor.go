@@ -25,6 +25,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
@@ -50,10 +52,15 @@ type SelectForUpdateExecutor struct {
 	builder.BasicUndoLogBuilder
 }
 
+// nolint:unused
 func (s SelectForUpdateExecutor) interceptors(interceptors []SQLHook) {
 }
 
-func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+func (s SelectForUpdateExecutor) ExecWithNamedValue(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	f CallbackWithNamedValue,
+) (types.ExecResult, error) {
 	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
@@ -167,7 +174,11 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 	return result, nil
 }
 
-func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+func (s SelectForUpdateExecutor) ExecWithValue(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	f CallbackWithValue,
+) (types.ExecResult, error) {
 	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.Values)
 	}
@@ -308,7 +319,10 @@ func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	err := selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	if err != nil {
+		return "", err
+	}
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
@@ -327,7 +341,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 	ss := s.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
 	for {
 		err := rows.Next(ss)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 

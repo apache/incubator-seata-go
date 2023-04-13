@@ -22,6 +22,7 @@ import (
 	"time"
 )
 
+// nolint:lll
 type Config struct {
 	AsyncCommitBufferLimit          int        `yaml:"async-commit-buffer-limit" json:"async-commit-buffer-limit,omitempty" koanf:"async-commit-buffer-limit"`
 	ReportRetryCount                int        `yaml:"report-retry-count" json:"report-retry-count,omitempty" koanf:"report-retry-count"`
@@ -36,6 +37,7 @@ type Config struct {
 	LockConfig                      LockConfig `yaml:"lock" json:"lock,omitempty" koanf:"lock"`
 }
 
+// nolint:lll
 type LockConfig struct {
 	RetryInterval                       time.Duration `yaml:"retry-interval" json:"retry-interval,omitempty" koanf:"retry-interval"`
 	RetryTimes                          int           `yaml:"retry-times" json:"retry-times,omitempty" koanf:"retry-times"`
@@ -43,21 +45,86 @@ type LockConfig struct {
 }
 
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.IntVar(&cfg.AsyncCommitBufferLimit, prefix+".async-commit-buffer-limit", 10000, "The Maximum cache length of asynchronous queue.")
-	f.IntVar(&cfg.ReportRetryCount, prefix+".report-retry-count", 5, "The maximum number of retries when report reports the status.")
-	f.BoolVar(&cfg.TableMetaCheckEnable, prefix+".table-meta-check-enable", false, "Whether to check the metadata of the db（AT）.")
-	f.BoolVar(&cfg.ReportSuccessEnable, prefix+".report-success-enable", false, "Whether to report the status if the transaction is successfully executed（AT）")
-	f.BoolVar(&cfg.SagaBranchRegisterEnable, prefix+".saga-branch-register-enable", false, "Whether to allow regular check of db metadata（AT）")
-	f.StringVar(&cfg.SagaJsonParser, prefix+".saga-json-parser", "fastjson", "The saga JsonParser.")
-	f.BoolVar(&cfg.SagaRetryPersistModeUpdate, prefix+".saga-retry-persist-mode-update", false, "Whether to retry SagaRetryPersistModeUpdate")
-	f.BoolVar(&cfg.SagaCompensatePersistModeUpdate, prefix+".saga-compensate-persist-mode-update", false, "")
-	f.IntVar(&cfg.TccActionInterceptorOrder, prefix+".tcc-action-interceptor-order", -2147482648, "The order of tccActionInterceptor.")
-	f.StringVar(&cfg.SqlParserType, prefix+".sql-parser-type", "druid", "The type of sql parser.")
+	f.IntVar(
+		&cfg.AsyncCommitBufferLimit,
+		prefix+".async-commit-buffer-limit",
+		10000,
+		"The Maximum cache length of asynchronous queue.",
+	)
+	f.IntVar(
+		&cfg.ReportRetryCount,
+		prefix+".report-retry-count",
+		5,
+		"The maximum number of retries when report reports the status.",
+	)
+	f.BoolVar(
+		&cfg.TableMetaCheckEnable,
+		prefix+".table-meta-check-enable",
+		false,
+		"Whether to check the metadata of the db（AT）.",
+	)
+	f.BoolVar(
+		&cfg.ReportSuccessEnable,
+		prefix+".report-success-enable",
+		false,
+		"Whether to report the status if the transaction is successfully executed（AT）",
+	)
+	f.BoolVar(
+		&cfg.SagaBranchRegisterEnable,
+		prefix+".saga-branch-register-enable",
+		false,
+		"Whether to allow regular check of db metadata（AT）",
+	)
+	f.StringVar(
+		&cfg.SagaJsonParser,
+		prefix+".saga-json-parser",
+		"fastjson",
+		"The saga JsonParser.",
+	)
+	f.BoolVar(
+		&cfg.SagaRetryPersistModeUpdate,
+		prefix+".saga-retry-persist-mode-update",
+		false,
+		"Whether to retry SagaRetryPersistModeUpdate",
+	)
+	f.BoolVar(
+		&cfg.SagaCompensatePersistModeUpdate,
+		prefix+".saga-compensate-persist-mode-update",
+		false,
+		"",
+	)
+	f.IntVar(
+		&cfg.TccActionInterceptorOrder,
+		prefix+".tcc-action-interceptor-order",
+		-2147482648,
+		"The order of tccActionInterceptor.",
+	)
+	f.StringVar(
+		&cfg.SqlParserType,
+		prefix+".sql-parser-type",
+		"druid",
+		"The type of sql parser.",
+	)
 	cfg.LockConfig.RegisterFlagsWithPrefix(prefix, f)
 }
 
 func (cfg *LockConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.DurationVar(&cfg.RetryInterval, prefix+".retry-interval", 30*time.Second, "The maximum number of retries when lock fail.")
-	f.IntVar(&cfg.RetryTimes, prefix+".retry-times", 10, "The duration allowed for lock retrying.")
-	f.BoolVar(&cfg.RetryPolicyBranchRollbackOnConflict, prefix+".retry-policy-branch-rollback-on-conflict", true, "The switch for lock conflict.")
+	f.DurationVar(
+		&cfg.RetryInterval,
+		prefix+".retry-interval",
+		30*time.Second,
+		"The maximum number of retries when lock fail.",
+	)
+	f.IntVar(
+		&cfg.RetryTimes,
+		prefix+".retry-times",
+		10,
+		"The duration allowed for lock retrying.",
+	)
+	f.BoolVar(
+		&cfg.RetryPolicyBranchRollbackOnConflict,
+		prefix+".retry-policy-branch-rollback-on-conflict",
+		true,
+		"The switch for lock conflict.",
+	)
 }

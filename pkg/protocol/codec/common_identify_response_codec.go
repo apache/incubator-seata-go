@@ -29,9 +29,15 @@ func (c *AbstractIdentifyResponseCodec) Encode(in interface{}) []byte {
 	buf := bytes.NewByteBuffer([]byte{})
 
 	if data.Identified {
-		buf.WriteByte(byte(1))
+		err := buf.WriteByte(byte(1))
+		if err != nil {
+			return nil
+		}
 	} else {
-		buf.WriteByte(byte(0))
+		err := buf.WriteByte(byte(0))
+		if err != nil {
+			return nil
+		}
 	}
 	bytes.WriteString16Length(data.Version, buf)
 

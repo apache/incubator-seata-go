@@ -75,7 +75,8 @@ func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql
 
 	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusTried)
 	if err != nil {
-		if mysqlError, ok := errors.Unwrap(err).(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
+		var mysqlError *mysql.MySQLError
+		if errors.As(err, &mysqlError) && mysqlError.Number == 1062 {
 			// todo add clean command to channel.
 			handler.pushCleanChannel(xid, branchId)
 		}
@@ -96,7 +97,7 @@ func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.
 	if fenceDo == nil {
 		return fmt.Errorf("tcc fence record not exists, commit fence method failed. xid= %s, branchId= %d", xid, branchId)
 	}
-
+	//nolint:lll
 	if fenceDo.Status == enum.StatusCommitted {
 		log.Infof("branch transaction has already committed before. idempotency rejected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
 		return nil
@@ -132,6 +133,7 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 	// have rollbacked or suspended
 	if fenceDo.Status == enum.StatusRollbacked || fenceDo.Status == enum.StatusSuspended {
 		// enable warn level
+		// nolint:lll
 		log.Infof("Branch transaction had already rollbacked before, idempotency rejected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
 		return nil
 	}
@@ -143,7 +145,13 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusRollbacked)
 }
 
-func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
+func (handler *tccFenceWrapperHandler) insertTCCFenceLog(
+	tx *sql.Tx,
+	xid string,
+	branchId int64,
+	actionName string,
+	status enum.FenceStatus,
+) error {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
@@ -174,6 +182,7 @@ func (handler *tccFenceWrapperHandler) deleteFence(xid string, id int64) error {
 	return nil
 }
 
+// nolint:unused
 func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
 	// todo implement
 	return 0

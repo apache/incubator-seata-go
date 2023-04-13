@@ -67,6 +67,7 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	c.XaConfig.RegisterFlagsWithPrefix(prefix+".xa", f)
 }
 
+// nolint:lll
 type Config struct {
 	Enabled                   bool   `yaml:"enabled" json:"enabled,omitempty" koanf:"enabled"`
 	ApplicationID             string `yaml:"application-id" json:"application-id,omitempty" koanf:"application-id"`

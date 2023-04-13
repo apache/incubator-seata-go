@@ -94,7 +94,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 }
 
 // buildBeforeImageSQL build select sql from insert on duplicate update sql
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(
+	insertStmt *ast.InsertStmt,
+	metaData types.TableMeta,
+	args []driver.Value,
+) (string, []driver.Value, error) {
 	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}

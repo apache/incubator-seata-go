@@ -30,6 +30,7 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+// nolint:unused
 type seataATConnector struct {
 	*seataConnector
 	transType types.TransactionMode
@@ -54,6 +55,7 @@ func (c *seataATConnector) Driver() driver.Driver {
 	}
 }
 
+// nolint:unused
 type seataXAConnector struct {
 	*seataConnector
 	transType types.TransactionMode
@@ -153,7 +155,7 @@ func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (strin
 	var version string
 	for true {
 		if err = res.Next(dest); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return version, nil
 			}
 			return "", err

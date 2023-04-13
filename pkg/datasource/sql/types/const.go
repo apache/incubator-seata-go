@@ -195,7 +195,8 @@ var (
 	MAX_ROWS MySQLDefCode = 50000000 // From the MySQL FAQ
 
 	/**
-	 * Used to indicate that the server sent no field-level character set information, so the driver should use the connection-level character encoding instead.
+	 * Used to indicate that the server sent no field-level character set information,
+	 *   so the driver should use the connection-level character encoding instead.
 	 */
 	NO_CHARSET_INFO  MySQLDefCode = -1
 	OPEN_CURSOR_FLAG MySQLDefCode = 1

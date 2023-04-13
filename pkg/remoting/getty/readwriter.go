@@ -228,10 +228,16 @@ func encodeHeapMap(data map[string]string) ([]byte, int) {
 		}
 
 		if v == "" {
-			buf.WriteUint16(uint16(0))
+			_, err := buf.WriteUint16(uint16(0))
+			if err != nil {
+				return nil, 0
+			}
 		} else {
-			buf.WriteUint16(uint16(len(v)))
-			_, err := buf.WriteString(v)
+			_, err := buf.WriteUint16(uint16(len(v)))
+			if err != nil {
+				return nil, 0
+			}
+			_, err = buf.WriteString(v)
 			if err != nil {
 				return nil, 0
 			}

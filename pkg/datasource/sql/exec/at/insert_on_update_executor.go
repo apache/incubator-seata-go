@@ -31,6 +31,7 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+// nolint:unused
 // insertOnUpdateExecutor execute insert on update SQL
 type insertOnUpdateExecutor struct {
 	baseExecutor
@@ -105,6 +106,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 		return nil, err
 	}
 	if len(selectArgs) == 0 {
+		//nolint:lll
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
 			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
 		return nil, fmt.Errorf("invalid insert or update sql")
@@ -142,7 +144,11 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 }
 
 // buildBeforeImageSQL build the SQL to query before image data
-func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (i *insertOnUpdateExecutor) buildBeforeImageSQL(
+	insertStmt *ast.InsertStmt,
+	metaData types.TableMeta,
+	args []driver.NamedValue,
+) (string, []driver.NamedValue, error) {
 	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}
@@ -200,7 +206,11 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 }
 
 // buildBeforeImageSQLParameters build the SQL parameters to query before image data
-func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.InsertStmt, args []driver.NamedValue, metaData types.TableMeta) (map[string][]driver.NamedValue, int, error) {
+func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(
+	insertStmt *ast.InsertStmt,
+	args []driver.NamedValue,
+	metaData types.TableMeta,
+) (map[string][]driver.NamedValue, int, error) {
 	pkIndexArray := i.getPkIndexArray(insertStmt, metaData)
 	insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 	if err != nil {

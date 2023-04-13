@@ -103,7 +103,11 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	return beforeImages, err
 }
 
-func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.ParseContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (m *multiExecutor) afterImage(
+	ctx context.Context,
+	parseContext *types.ParseContext,
+	beforeImages []*types.RecordImage,
+) ([]*types.RecordImage, error) {
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}

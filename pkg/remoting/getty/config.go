@@ -38,6 +38,7 @@ type ShutdownConfig struct {
 	Wait time.Duration `yaml:"wait" json:"wait" konaf:"wait"`
 }
 
+//nolint:lll
 type TransportConfig struct {
 	ShutdownConfig                 ShutdownConfig `yaml:"shutdown" json:"shutdown" koanf:"shutdown"`
 	Type                           string         `yaml:"type" json:"type" koanf:"type"`
@@ -64,15 +65,60 @@ func (cfg *ShutdownConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 
 func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	cfg.ShutdownConfig.RegisterFlagsWithPrefix(prefix+".shutdown", f)
-	f.StringVar(&cfg.Type, prefix+".type", "TCP", "Transport protocol type.")
-	f.StringVar(&cfg.Server, prefix+".server", "NIO", "Server type.")
-	f.BoolVar(&cfg.Heartbeat, prefix+".heartbeat", true, "Heartbeat.")
-	f.StringVar(&cfg.Serialization, prefix+".serialization", "seata", "Encoding and decoding mode.")
-	f.StringVar(&cfg.Compressor, prefix+".compressor", "none", "Message compression mode.")
-	f.BoolVar(&cfg.EnableTmClientBatchSendRequest, prefix+".enable-tm-client-batch-send-request", false, "Allow batch sending of requests (TM).")
-	f.BoolVar(&cfg.EnableRmClientBatchSendRequest, prefix+".enable-rm-client-batch-send-request", true, "Allow batch sending of requests (RM).")
-	f.DurationVar(&cfg.RPCRmRequestTimeout, prefix+".rpc-rm-request-timeout", 30*time.Second, "RM send request timeout.")
-	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
+	f.StringVar(
+		&cfg.Type,
+		prefix+".type",
+		"TCP",
+		"Transport protocol type.",
+	)
+	f.StringVar(
+		&cfg.Server,
+		prefix+".server",
+		"NIO",
+		"Server type.",
+	)
+	f.BoolVar(
+		&cfg.Heartbeat,
+		prefix+".heartbeat",
+		true,
+		"Heartbeat.",
+	)
+	f.StringVar(
+		&cfg.Serialization,
+		prefix+".serialization",
+		"seata",
+		"Encoding and decoding mode.",
+	)
+	f.StringVar(
+		&cfg.Compressor,
+		prefix+".compressor",
+		"none",
+		"Message compression mode.",
+	)
+	f.BoolVar(
+		&cfg.EnableTmClientBatchSendRequest,
+		prefix+".enable-tm-client-batch-send-request",
+		false,
+		"Allow batch sending of requests (TM).",
+	)
+	f.BoolVar(
+		&cfg.EnableRmClientBatchSendRequest,
+		prefix+".enable-rm-client-batch-send-request",
+		true,
+		"Allow batch sending of requests (RM).",
+	)
+	f.DurationVar(
+		&cfg.RPCRmRequestTimeout,
+		prefix+".rpc-rm-request-timeout",
+		30*time.Second,
+		"RM send request timeout.",
+	)
+	f.DurationVar(
+		&cfg.RPCTmRequestTimeout,
+		prefix+".rpc-tm-request-timeout",
+		30*time.Second,
+		"TM send request timeout.",
+	)
 }
 
 // todo refactor config

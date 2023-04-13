@@ -172,7 +172,11 @@ func (u *MySQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.Record
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(ctx context.Context, execCtx *types.ExecContext, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLUpdateUndoLogBuilder) buildBeforeImageSQL(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	args []driver.Value,
+) (string, []driver.Value, error) {
 	updateStmt := execCtx.ParseContext.UpdateStmt
 	if updateStmt == nil {
 		log.Errorf("invalid update stmt")

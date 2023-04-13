@@ -260,6 +260,7 @@ func convertAssignRows(dest, src interface{}, rows *ScanRows) error {
 		i64, err := strconv.ParseInt(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
+			// nolint:errorlint
 			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetInt(i64)
@@ -272,6 +273,7 @@ func convertAssignRows(dest, src interface{}, rows *ScanRows) error {
 		u64, err := strconv.ParseUint(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
+			// nolint:errorlint
 			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetUint(u64)
@@ -284,6 +286,7 @@ func convertAssignRows(dest, src interface{}, rows *ScanRows) error {
 		f64, err := strconv.ParseFloat(s, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
+			// nolint:errorlint
 			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetFloat(f64)
@@ -305,6 +308,7 @@ func convertAssignRows(dest, src interface{}, rows *ScanRows) error {
 	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, dest)
 }
 
+// nolint:errorlint
 func strconvErr(err error) error {
 	if ne, ok := err.(*strconv.NumError); ok {
 		return ne.Err
@@ -363,6 +367,7 @@ func asBytes(buf []byte, rv reflect.Value) (b []byte, ok bool) {
 	return
 }
 
+//nolint:unused
 var valuerReflectType = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 
 type decimalDecompose interface {

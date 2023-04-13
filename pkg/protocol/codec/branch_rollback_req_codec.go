@@ -43,8 +43,14 @@ func (g *BranchRollbackRequestCodec) Encode(in interface{}) []byte {
 	buf := bytes.NewByteBuffer([]byte{})
 
 	bytes.WriteString16Length(data.Xid, buf)
-	buf.WriteInt64(data.BranchId)
-	buf.WriteByte(byte(data.BranchType))
+	_, err := buf.WriteInt64(data.BranchId)
+	if err != nil {
+		return nil
+	}
+	err = buf.WriteByte(byte(data.BranchType))
+	if err != nil {
+		return nil
+	}
 	bytes.WriteString16Length(data.ResourceId, buf)
 	bytes.WriteString32Length(string(data.ApplicationData), buf)
 

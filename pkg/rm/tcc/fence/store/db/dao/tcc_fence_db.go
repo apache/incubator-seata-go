@@ -102,7 +102,9 @@ func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *m
 	timeNow := time.Now()
 	result, err := prepareStmt.Exec(tccFenceDo.Xid, tccFenceDo.BranchId, tccFenceDo.ActionName, tccFenceDo.Status, timeNow, timeNow)
 	if err != nil {
+		//nolint:errorlint
 		if mysqlError, ok := err.(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
+			//nolint:lll
 			return fmt.Errorf("insert tcc fence record duplicate key exception. xid= %s, branchId= %d, [%w]", tccFenceDo.Xid, tccFenceDo.BranchId, err)
 		} else {
 			return fmt.Errorf("insert tcc fence exec sql failed, [%w]", err)
@@ -117,7 +119,13 @@ func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *m
 	return nil
 }
 
-func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error {
+func (t *TccFenceStoreDatabaseMapper) UpdateTCCFenceDO(
+	tx *sql.Tx,
+	xid string,
+	branchId int64,
+	oldStatus enum.FenceStatus,
+	newStatus enum.FenceStatus,
+) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetUpdateStatusSQLByBranchIdAndXid(t.logTableName))
 	if err != nil {
 		return fmt.Errorf("update tcc fence prepare sql failed, [%w]", err)

@@ -24,6 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 )
 
+// nolint:lll
 var (
 	// localTccLogPlaced The enum LocalTccLogPlaced
 	localTccLogPlaced = " %s "

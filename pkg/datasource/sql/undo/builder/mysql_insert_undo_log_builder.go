@@ -270,7 +270,11 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(InsertStmt *ast.InsertStmt, meta 
 
 // parsePkValuesFromStatement parse primary key value from statement.
 // return the primary key and values<key:primary key,value:primary key values></key:primary>
-func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(
+	insertStmt *ast.InsertStmt,
+	meta types.TableMeta,
+	nameValues []driver.NamedValue,
+) (map[string][]interface{}, error) {
 	if insertStmt == nil {
 		return nil, nil
 	}

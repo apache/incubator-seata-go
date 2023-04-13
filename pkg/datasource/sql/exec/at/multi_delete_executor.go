@@ -64,12 +64,14 @@ func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	return res, nil
 }
 
+// nolint:unused
 type multiDelete struct {
 	sql   string
 	clear bool
 }
 
-//NewMultiDeleteExecutor get multiDelete executor
+// NewMultiDeleteExecutor get multiDelete executor
+// nolint:goimports
 func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *multiDeleteExecutor {
 	return &multiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }

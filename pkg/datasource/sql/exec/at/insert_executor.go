@@ -190,7 +190,12 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 
-func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
+func (i *insertExecutor) getPkValues(
+	ctx context.Context,
+	execCtx *types.ExecContext,
+	parseCtx *types.ParseContext,
+	meta types.TableMeta,
+) (map[string][]interface{}, error) {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	pkValuesMap := make(map[string][]interface{})
 	var err error
@@ -315,7 +320,11 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 
 // parsePkValuesFromStatement parse primary key value from statement.
 // return the primary key and values<key:primary key,value:primary key values></key:primary>
-func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
+func (i *insertExecutor) parsePkValuesFromStatement(
+	insertStmt *ast.InsertStmt,
+	meta types.TableMeta,
+	nameValues []driver.NamedValue,
+) (map[string][]interface{}, error) {
 	if insertStmt == nil {
 		return nil, nil
 	}
@@ -518,7 +527,12 @@ func (i *insertExecutor) isAstStmtValid() bool {
 	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
 }
 
-func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {
+func (i *insertExecutor) autoGeneratePks(
+	execCtx *types.ExecContext,
+	autoColumnName string,
+	lastInsetId,
+	updateCount int64,
+) (map[string][]interface{}, error) {
 	var step int64
 	if i.incrementStep > 0 {
 		step = int64(i.incrementStep)

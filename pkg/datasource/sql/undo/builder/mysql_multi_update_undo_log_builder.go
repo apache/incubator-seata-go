@@ -38,6 +38,7 @@ import (
 //	undo.RegisterUndoLogBuilder(types.MultiExecutor, GetMySQLMultiUpdateUndoLogBuilder)
 //}
 
+// nolint:unused
 type updateVisitor struct {
 	stmt *ast.UpdateStmt
 }
@@ -150,7 +151,10 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.R
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.UpdateStmt, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(
+	updateStmts []*ast.UpdateStmt,
+	args []driver.Value,
+) (string, []driver.Value, error) {
 	if len(updateStmts) == 0 {
 		log.Errorf("invalid multi update stmt")
 		return "", nil, fmt.Errorf("invalid muliti update stmt")
@@ -196,7 +200,10 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 		newArgs = append(newArgs, u.buildSelectArgs(&tmpSelectStmt, args)...)
 
 		in := bytes.NewByteBuffer([]byte{})
-		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))
+		err := updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))
+		if err != nil {
+			return "", nil, err
+		}
 		whereConditionStr := string(in.Bytes())
 
 		if whereCondition.Len() > 0 {

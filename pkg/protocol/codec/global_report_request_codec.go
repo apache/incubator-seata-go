@@ -46,7 +46,10 @@ func (g *GlobalReportRequestCodec) Encode(in interface{}) []byte {
 	req := in.(message.GlobalReportRequest)
 	b := g.CommonGlobalEndRequestCodec.Encode(req.AbstractGlobalEndRequest)
 	buf := bytes.NewByteBuffer(b)
-	buf.WriteByte(byte(req.GlobalStatus))
+	err := buf.WriteByte(byte(req.GlobalStatus))
+	if err != nil {
+		return nil
+	}
 	return buf.Bytes()
 }
 

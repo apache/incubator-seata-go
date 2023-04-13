@@ -173,10 +173,12 @@ func (r *RMRemoting) onRegisterRMFailure(response message.RegisterRMResponse) {
 	log.Infof("register RM failure. response: %#v", response)
 }
 
+// nolint:unused
 func (r *RMRemoting) onRegisterTMSuccess(response message.RegisterTMResponse) {
 	log.Infof("register TM success. response: %#v", response)
 }
 
+// nolint:unused
 func (r *RMRemoting) onRegisterTMFailure(response message.RegisterTMResponse) {
 	log.Infof("register TM failure. response: %#v", response)
 }

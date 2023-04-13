@@ -32,6 +32,7 @@ import (
 	gxsync "github.com/dubbogo/gost/sync"
 )
 
+// nolint:unused
 type RpcClient struct {
 	gettyConf    *Config
 	seataConf    *SeataConfig
