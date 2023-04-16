@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )

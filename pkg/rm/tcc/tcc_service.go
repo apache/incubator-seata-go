@@ -26,6 +26,7 @@ import (
 	"time"
 
 	gostnet "github.com/dubbogo/gost/net"
+
 	"github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/rm"

@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
+
 	"github.com/seata/seata-go/pkg/compressor"
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

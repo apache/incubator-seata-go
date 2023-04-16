@@ -59,14 +59,14 @@ func GetGettyRemotingInstance() *GettyRemoting {
 
 func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
-		s = sessionManager.selectSession()
+		s = sessionManager.selectSession(msg)
 	}
 	return g.sendAsync(s, msg, callback)
 }
 
 func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
-		s = sessionManager.selectSession()
+		s = sessionManager.selectSession(msg)
 	}
 	_, err := g.sendAsync(s, msg, callback)
 	return err

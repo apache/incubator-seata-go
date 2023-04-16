@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
 func TestGlobalBeginRequestCodec(t *testing.T) {

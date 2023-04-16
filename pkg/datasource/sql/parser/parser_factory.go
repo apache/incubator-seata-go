@@ -20,6 +20,7 @@ package parser
 import (
 	aparser "github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 )
 
