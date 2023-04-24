@@ -112,6 +112,16 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, "default", cfg.ServiceConfig.VgroupMapping["default_tx_group"])
 	assert.Equal(t, "127.0.0.1:8091", cfg.ServiceConfig.Grouplist["default"])
 
+	assert.NotNil(t, cfg.RegistryConfig)
+	assert.Equal(t, "nacos", cfg.RegistryConfig.Type)
+	assert.NotNil(t, cfg.RegistryConfig.NacosConfig)
+	assert.Equal(t, "seata-server", cfg.RegistryConfig.NacosConfig.ServiceName)
+	assert.Equal(t, "cluster-a", cfg.RegistryConfig.NacosConfig.Cluster)
+	assert.Equal(t, "SEATA_GROUP", cfg.RegistryConfig.NacosConfig.GroupName)
+	assert.Equal(t, uint64(8848), cfg.RegistryConfig.NacosConfig.Port)
+	assert.Equal(t, "public", cfg.RegistryConfig.NacosConfig.NamespaceId)
+	assert.Equal(t, "nacos", cfg.RegistryConfig.NacosConfig.Username)
+	assert.Equal(t, "nacos", cfg.RegistryConfig.NacosConfig.Password)
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
