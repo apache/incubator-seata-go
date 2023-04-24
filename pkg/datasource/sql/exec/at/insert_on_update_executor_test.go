@@ -21,10 +21,11 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {

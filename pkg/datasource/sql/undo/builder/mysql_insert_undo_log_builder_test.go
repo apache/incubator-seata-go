@@ -30,10 +30,11 @@ import (
 	"github.com/arana-db/parser/model"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/datasource/sql/parser"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildSelectSQLByInsert(t *testing.T) {

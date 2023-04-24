@@ -15,33 +15,16 @@
  * limitations under the License.
  */
 
-package codec
+package fence
 
 import (
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/util/errors"
-
 	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
 )
 
-func TestGlobalLockQueryResponseCodec(t *testing.T) {
-	msg := message.GlobalLockQueryResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-		},
-		Lockable: true,
-	}
-
-	codec := GlobalLockQueryResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
+func TestBegin(t *testing.T) {
+	tx, err := (&FenceConn{}).Begin()
+	assert.NotNil(t, err)
+	assert.Nil(t, tx)
 }

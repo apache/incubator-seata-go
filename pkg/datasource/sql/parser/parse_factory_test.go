@@ -23,10 +23,12 @@ import (
 
 	aparser "github.com/arana-db/parser"
 	"github.com/arana-db/parser/format"
+
 	"github.com/seata/seata-go/pkg/util/bytes"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 
 	_ "github.com/arana-db/parser/test_driver"
 )

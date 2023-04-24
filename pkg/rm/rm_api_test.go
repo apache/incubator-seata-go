@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/golang/mock/gomock"
+
 	"github.com/seata/seata-go/pkg/protocol/branch"
 )
 
