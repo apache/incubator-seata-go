@@ -19,7 +19,6 @@ package registry
 
 import (
 	"flag"
-
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
