@@ -20,7 +20,7 @@ package types
 type RegisterType string
 
 const (
-	File  = "file"
-	Nacos = "nacos"
-	Etcd  = "etcd"
+	File  RegisterType = "file"
+	Nacos RegisterType = "nacos"
+	Etcd  RegisterType = "etcd"
 )
