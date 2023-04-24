@@ -125,11 +125,11 @@ seata:
     file:
       name: registry.conf
     nacos:
-      serviceName: seata-server
+      application: seata-server
       server-addr: 127.0.0.1
       port: 8848
-      groupName: "SEATA_GROUP"
-      namespaceId: "public"
+      group: "SEATA_GROUP"
+      namespace: "public"
       username: "nacos"
       password: "nacos"
       cluster: cluster-a

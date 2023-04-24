@@ -24,9 +24,9 @@ import (
 )
 
 type NacosConfig struct {
-	NamespaceId          string            `yaml:"namespaceId" json:"namespaceId" koanf:"namespaceId"` // the namespaceId of Nacos
+	NamespaceId          string            `yaml:"namespace" json:"namespace" koanf:"namespace"` // the namespace of Nacos
 	ServerAddr           string            `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
-	GroupName            string            `yaml:"groupName" json:"groupName" koanf:"groupName"`
+	GroupName            string            `yaml:"group" json:"group" koanf:"group"`
 	Username             string            `yaml:"username" json:"username" koanf:"username"`    // the username for nacos auth
 	Password             string            `yaml:"password" json:"password" koanf:"password"`    // the password for nacos auth
 	AccessKey            string            `yaml:"accessKey" json:"accessKey" koanf:"accessKey"` // the AccessKey for ACM & KMS
@@ -37,7 +37,7 @@ type NacosConfig struct {
 	LogDir               string            `yaml:"logDir" json:"logDir" koanf:"logDir"`                                        // the directory for log, default is current path
 	CacheDir             string            `yaml:"GroupName" json:"GroupName" koanf:"GroupName"`                               // the directory for persist nacos service info,default value is current path
 	LogLevel             string            `yaml:"logLevel" json:"logLevel" koanf:"logLevel"`                                  // the level of log, it's must be debug,info,warn,error, default value is info
-	ServiceName          string            `yaml:"serviceName" json:"serviceName" koanf:"serviceName"`
+	ServiceName          string            `yaml:"application" json:"application" koanf:"application"`
 	Cluster              string            `yaml:"cluster" json:"cluster" koanf:"cluster"`
 	HealthyOnly          bool              `yaml:"healthyOnly" json:"healthyOnly" koanf:"healthyOnly"`
 	Weight               float64           `yaml:"weight" json:"weight" koanf:"weight"`
