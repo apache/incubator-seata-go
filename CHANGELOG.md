@@ -1,38 +1,208 @@
-# Release Notes
----
+# Changelog
 
-## 0.1.0-rc1
+All notable changes to this project will be documented in this file.
 
-### feature：
+## [unreleased]
 
-- [[#1](https://github.com/seata/seata-go/commit/06b9969bb3fd24071adc271dc543c3eb684070c9)] initialize project structure and support tcc local
-- [[#2](https://github.com/seata/seata-go/commit/80913fa73e38fd3c159dcd28804344b9a87f718c)] add github Actions
-- [[#122](https://github.com/seata/seata-go/pull/122)] feat: add two phase and tcc dubbo
-- [[#127](https://github.com/seata/seata-go/pull/127)] feat: transaction at datasource
+### Bug Fixes
 
-### bugfix：
+- Remove duplicate code (#532)
 
-- [[#5](https://github.com/seata/seata-go/commit/48f1b6bf6c8890d649ceac3d048f61695dce2f7a)] fix cli bug
-- [[#15](https://github.com/seata/seata-go/commit/de615531e9d17af66067c54452ee5bce2d670008)] fix branch commit bug
-- [[#34](https://github.com/seata/seata-go/commit/846a3b336194f9d188f07bf6af65f617b0baf489)] style:change bool to struct{}
-- [[#130](https://github.com/seata/seata-go/pull/130)] fix: getty session auto close bug
-- [[#155](https://github.com/seata/seata-go/pull/155)] bugfix: fix rollback response status bug
+### Features
 
-### optimize：
+- Undolog add decompressor func (#457)
+- Add xa (#467)
+- Implement fence use datasource proxy (#420)
+- Add xid loadbalance (#534)
+- Fix init panic (#540)
+- Integrate test (#535)
+- :sparkles: fix (#548)
 
-- [[#3](https://github.com/seata/seata-go/commit/65c2e1ed676a2306eb10f7d43e3bf5b37271ee3e)] adjust the structure of the project
-- [[#18](https://github.com/seata/seata-go/commit/de615531e9d17af66067c54452ee5bce2d670008)] remove goetty
-- [[#19](https://github.com/seata/seata-go/commit/de615531e9d17af66067c54452ee5bce2d670008)] optimize codec code
-- [[#125](https://github.com/seata/seata-go/pull/125)] optimize named for the resource manager api
-- [[#165](https://github.com/seata/seata-go/pull/165)] test: add unit test and labeler workflow
+### Optimize
 
-### test:
+- Change default parser name to json from jackson (#525)
 
-- [[#9f4d8](https://github.com/seata/seata-go/commit/9f4d8cc0b6f1e26860cded5ab05b504ad6a6d6ff)] add unit test for codec
+## [1.1.0] - 2023-03-07
 
-### doc:
+### Bug Fixes
 
-- [[#0](https://github.com/seata/seata-go/commit/fcda132629032321a7cc733a7a2ed02e05c2151b)] hello world
-- [[#146](https://github.com/seata/seata-go/pull/146)] doc: add license
-- [[#153](https://github.com/seata/seata-go/pull/153)] docs: add readme ,contributing and pr template doc
-- [[#167](https://github.com/seata/seata-go/pull/167)] fix typo in reademe
+- Fix some typo (#466)
+
+### Documentation
+
+- Update readme (#492)
+- Add v1.1.0 change log (#489)
+- Update change log of v1.1.0 (#512)
+
+### Features
+
+- XA connect manager (#433)
+- Add the use of undo log serialization (#477)
+
+### Refactor
+
+- Insert on update executor (#456)
+
+### [WIP]feat
+
+- Support xa oracle connection  (#391)
+
+### Bugfix
+
+- Fix missing value of context (#472)
+
+### Ftr
+
+- Optimize the datasource init (#447)
+
+### Optimize
+
+- MessageType and TransactionErrorCode (#453)
+- Insert on update executor (#509)
+
+### Reactor
+
+- Select for update executor (#478)
+- Multiple update executor (#481)
+- Multiple delete executor (#482)
+
+## [1.0.3] - 2023-01-05
+
+### Bug Fixes
+
+- Loop recursion problem in OpenConnector (#387)
+
+### Documentation
+
+- Add v1.0.2-RC3  change log (#431)
+
+### Features
+
+- Add tm config (#398)
+- Add getty config (#399)
+- Support xa mysql connection (#380)
+- Add transport config (#406)
+- Add RM config (#412)
+- Add service and seata config (#413)
+- Add  Undo  config (#410)
+- Use undo config (#419)
+
+### Refactor
+
+- Use new tm config in tm module. (#411)
+- Rename defalte_compress_test.go to deflate_compress_test.go (#414)
+
+### Bugfix
+
+- Repair init getty failed (#423)
+- At model execution failed (#429)
+
+### Opt
+
+- Optimize comments and dead code (#388)
+
+### Optimize
+
+- Refactor at executor  (#397)
+- Add log init (#408)
+
+### Roptimize
+
+- Efactor delete and insert executor (#409)
+
+## [2] - 2022-12-03
+
+### Features
+
+- Add yml config  (#285)
+- Support for propagation of global transactions (#262)
+- Build undo log by insert target SQL (#333)
+
+### Optimize
+
+- Simplify to make codes more readable (#367)
+
+## [1.0.2-rc1] - 2022-11-26
+
+### Bug Fixes
+
+- Do register resource where execute OpenConnector function (#237)
+- Timeout config & panic log lost (#350)
+- At sample (#374)
+
+### Documentation
+
+- Add sample undo_log table sql
+- V1.0.2-RC1 release file (#338)
+- Update 1.0.2-RC1 change log (#370)
+
+### Features
+
+- Add undo log manager delete (#240)
+- Add license github action (#254)
+- Add http tcc (#280)
+- Optimize retry (#284)
+- Add has undo log table (#245)
+- Add mysql update undo log builder (#288)
+- Add sync worker and fmt (#303)
+- Add mysql table meta func && sql addEscape, delEscape func issue… (#294)
+- Init compressor type (#309)
+- Fix fanout test data race (#326)
+- Deflate compress (#321)
+- Add undo log manager-flush undo log func #269 (#307)
+- Add select for update (#319)
+- Modify some receiver name (#353)
+- Add gin for at and fix async worker bug (#357)
+- Support ONLY_CARE_UPDATE_COLUMNS (#355)
+
+### Refactor
+
+- Optimize function's parameters into one struct (#196)
+
+### Testing
+
+- Add DoParser ut (#299)
+- Strengthen ut (#332)
+
+### Bugfix
+
+- Fix infinite loop of asyncCallback (#230)
+
+### Frature
+
+- Add update sql parser (#243)
+- Add update sql parser and remove tidb parser (#264)
+
+### Optimize
+
+- Optimise way of init seata (#187)
+- Remove unnecessary codes (#208)
+- Support instance BusinessActionContext outside the TCC try … (#179)
+- Add some todo comment, add a undo hook sample (#238)
+- Nested loop retries (#261)
+- Split client.Init into rm.Init and tm.Init methods (#286)
+- Optimize global transaction usage (#281)
+- Add insert undo log function (#337)
+- Remove unless function (#369)
+
+### Wip
+
+- Multi delete sql (#330)
+
+## [0.1.0-rc1] - 2022-07-30
+
+### Documentation
+
+- Add readme ,contributing and pr template doc (#153)
+- Add seata server startup docker compose file (#172)
+- Add release 0.1.0 changes note (#169)
+
+### Styling
+
+- Change bool to struct{}
+
+### Bugfix
+
+- Fix rollback response status bug (#155)
+
+<!-- generated by git-cliff -->
