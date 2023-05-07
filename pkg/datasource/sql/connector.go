@@ -21,10 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"io"
-	"sync"
-
 	"github.com/go-sql-driver/mysql"
+	"io"
+	"reflect"
+	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -151,24 +151,28 @@ func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (strin
 
 	dest := make([]driver.Value, 1)
 	var version string
-	for true {
-		if err = res.Next(dest); err != nil {
-			if err == io.EOF {
-				return version, nil
-			}
-			return "", err
-		}
-		if len(dest) != 1 {
-			return "", errors.New("get the mysql version is not column 1")
-		}
 
-		var isVersionOk bool
-		version, isVersionOk = dest[0].(string)
-		if !isVersionOk {
-			return "", errors.New("get the mysql version is not a string")
+	if err = res.Next(dest); err != nil {
+		if err == io.EOF {
+			return version, nil
 		}
+		return "", err
 	}
-	return "", errors.New("get the mysql version is error")
+	if len(dest) != 1 {
+		return "", errors.New("get the mysql version is not column 1")
+	}
+
+	switch reflect.TypeOf(dest[0]).Kind() {
+	case reflect.Slice, reflect.Array:
+		val := reflect.ValueOf(dest[0]).Bytes()
+		version = string(val)
+	case reflect.String:
+		version = reflect.ValueOf(dest[0]).String()
+	default:
+		return "", errors.New("get the mysql version is not a string")
+	}
+
+	return version, nil
 }
 
 // Driver returns the underlying Driver of the Connector,
