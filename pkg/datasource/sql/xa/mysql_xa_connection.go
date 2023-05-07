@@ -153,7 +153,9 @@ func (c *MysqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
 func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
 	var sb strings.Builder
 	sb.WriteString("XA START")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 
 	switch flags {
 	case TMJoin:
