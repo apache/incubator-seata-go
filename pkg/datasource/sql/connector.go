@@ -166,6 +166,8 @@ func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (strin
 	case reflect.Slice, reflect.Array:
 		val := reflect.ValueOf(dest[0]).Bytes()
 		version = string(val)
+	case reflect.String:
+		version = reflect.ValueOf(dest[0]).String()
 	default:
 		return "", errors.New("get the mysql version is not a string")
 	}
