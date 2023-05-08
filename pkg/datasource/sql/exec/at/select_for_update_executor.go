@@ -134,7 +134,8 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		}
 		return nil, err
 	}
-
+	s.execContext.TxCtx.RoundImages.AppendBeofreImage(types.NewEmptyRecordImage(s.metaData, types.SQLTypeSelectForUpdate))
+	s.execContext.TxCtx.RoundImages.AppendAfterImage(types.NewEmptyRecordImage(s.metaData, types.SQLTypeSelectForUpdate))
 	if originalAutoCommit {
 		if err = s.tx.Commit(); err != nil {
 			return nil, err
@@ -208,7 +209,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	if !lockable {
 		return nil, lockConflictError
 	}
-
+	s.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	return result, nil
 }
 
