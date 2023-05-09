@@ -70,6 +70,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 		return executor.ExecWithNamedValue(ctx, execCtx,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 				ret, err := c.Conn.QueryContext(ctx, query, args)
+				defer ret.Close()
 				if err != nil {
 					return nil, err
 				}
