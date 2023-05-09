@@ -199,7 +199,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
 		Xid:        s.execContext.TxCtx.XID,
 		BranchType: branch.BranchTypeAT,
-		ResourceId: s.execContext.TxCtx.ResourceID,
+		ResourceId: s.tableName,
 		LockKeys:   lockKey,
 	})
 	if err != nil {
