@@ -44,13 +44,12 @@ type mysqlMockRows struct {
 }
 
 func (m *mysqlMockRows) Columns() []string {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m *mysqlMockRows) Close() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mysqlMockRows) Next(dest []driver.Value) error {
@@ -141,7 +140,7 @@ func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 
 	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
 	_ = mockMgr
-	//db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
+	// db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
 	db, err := sql.Open("seata-xa-mysql", "root:12345678@tcp(127.0.0.1:3306)/seata_client?multiStatements=true&interpolateParams=true")
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +173,6 @@ func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
-
 	ctrl, db, mi, ti := initXAConnTestResource(t)
 	defer func() {
 		ctrl.Finish()
@@ -328,5 +326,4 @@ func TestXAConn_BeginTx(t *testing.T) {
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
-
 }

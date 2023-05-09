@@ -21,10 +21,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"github.com/go-sql-driver/mysql"
 	"io"
 	"reflect"
 	"sync"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -148,7 +149,7 @@ func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (strin
 		log.Errorf("seata connector get the xa mysql version err:%v", err)
 		return "", err
 	}
-
+	defer res.Close()
 	dest := make([]driver.Value, 1)
 	var version string
 
