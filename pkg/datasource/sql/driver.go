@@ -23,6 +23,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io"
+	"reflect"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -146,20 +148,16 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		withDBName(cfg.DBName),
 		withConnector(connector),
 	}
-
 	res, err := newResource(options...)
 	if err != nil {
 		log.Errorf("create new resource: %w", err)
 		return nil, err
 	}
-
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
-
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
-
 	return &seataConnector{
 		res:    res,
 		target: connector,
@@ -191,4 +189,42 @@ func parseResourceID(dsn string) string {
 		res = dsn[:i]
 	}
 	return strings.ReplaceAll(res, ",", "|")
+}
+
+func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
+	queryConn, isQueryContext := conn.(driver.QueryerContext)
+	if !isQueryContext {
+		return "", errors.New("get db version error for unexpected driver conn")
+	}
+
+	res, err := queryConn.QueryContext(ctx, "SELECT VERSION()", nil)
+	if err != nil {
+		log.Errorf("seata connector get the xa mysql version err:%v", err)
+		return "", err
+	}
+
+	dest := make([]driver.Value, 1)
+	var version string
+
+	if err = res.Next(dest); err != nil {
+		if err == io.EOF {
+			return version, nil
+		}
+		return "", err
+	}
+	if len(dest) != 1 {
+		return "", errors.New("get the mysql version is not column 1")
+	}
+
+	switch reflect.TypeOf(dest[0]).Kind() {
+	case reflect.Slice, reflect.Array:
+		val := reflect.ValueOf(dest[0]).Bytes()
+		version = string(val)
+	case reflect.String:
+		version = reflect.ValueOf(dest[0]).String()
+	default:
+		return "", errors.New("get the mysql version is not a string")
+	}
+
+	return version, nil
 }

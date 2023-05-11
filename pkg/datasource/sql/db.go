@@ -29,6 +29,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)
@@ -123,6 +124,16 @@ func (db *DBResource) GetResourceGroupId() string {
 }
 
 func (db *DBResource) init() {
+	ctx := context.Background()
+	conn, err := db.connector.Connect(ctx)
+	if err != nil {
+		log.Errorf("connect: %w", err)
+	}
+	version, err := selectDBVersion(ctx, conn)
+	if err != nil {
+		log.Errorf("select db version: %w", err)
+	}
+	db.SetDbVersion(version)
 	db.checkDbVersion()
 }
 
