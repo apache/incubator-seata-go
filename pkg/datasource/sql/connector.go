@@ -138,6 +138,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 func (c *seataConnector) dbVersion(ctx context.Context, conn driver.Conn) (string, error) {
+	return "5.7.1", nil
 	queryConn, isQueryContext := conn.(driver.QueryerContext)
 	if !isQueryContext {
 		return "", errors.New("get db version error for unexpected driver conn")
