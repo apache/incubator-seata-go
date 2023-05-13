@@ -123,7 +123,7 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
 	_ = mockMgr
 
 	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
