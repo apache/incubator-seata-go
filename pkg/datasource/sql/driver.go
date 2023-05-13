@@ -199,7 +199,7 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 
 	res, err := queryConn.QueryContext(ctx, "SELECT VERSION()", nil)
 	if err != nil {
-		log.Errorf("seata connector get the xa mysql version err:%v", err)
+		log.Errorf("get db version error:%v", err)
 		return "", err
 	}
 
@@ -213,7 +213,7 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 		return "", err
 	}
 	if len(dest) != 1 {
-		return "", errors.New("get the mysql version is not column 1")
+		return "", errors.New("get db version is not column 1")
 	}
 
 	switch reflect.TypeOf(dest[0]).Kind() {
@@ -223,7 +223,7 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 	case reflect.String:
 		version = reflect.ValueOf(dest[0]).String()
 	default:
-		return "", errors.New("get the mysql version is not a string")
+		return "", errors.New("get db version is not a string")
 	}
 
 	return version, nil
