@@ -140,6 +140,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
 	cfg, _ := mysql.ParseDSN(dataSourceName)
 	options := []dbOption{
+		withResourceID(parseResourceID(dataSourceName)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
