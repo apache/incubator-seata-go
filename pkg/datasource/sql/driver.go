@@ -28,10 +28,10 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -192,21 +192,33 @@ func parseResourceID(dsn string) string {
 }
 
 func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
-	queryConn, isQueryContext := conn.(driver.QueryerContext)
-	if !isQueryContext {
-		return "", errors.New("get db version error for unexpected driver conn")
-	}
+	var rowsi driver.Rows
+	var err error
 
-	res, err := queryConn.QueryContext(ctx, "SELECT VERSION()", nil)
-	if err != nil {
-		log.Errorf("get db version error:%v", err)
-		return "", err
+	queryerCtx, ok := conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = conn.(driver.Queryer)
+	}
+	if ok {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, "SELECT VERSION()", nil)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return "", err
+		}
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return "", fmt.Errorf("invalid conn")
 	}
 
 	dest := make([]driver.Value, 1)
 	var version string
-
-	if err = res.Next(dest); err != nil {
+	if err = rowsi.Next(dest); err != nil {
 		if err == io.EOF {
 			return version, nil
 		}
