@@ -113,7 +113,7 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:8091", cfg.ServiceConfig.Grouplist["default"])
 
 	assert.NotNil(t, cfg.RegistryConfig)
-	assert.Equal(t, "nacos", cfg.RegistryConfig.Type)
+	assert.Equal(t, "nacos", cfg.RegistryConfig.Type.String())
 	assert.NotNil(t, cfg.RegistryConfig.NacosConfig)
 	assert.Equal(t, "seata-server", cfg.RegistryConfig.NacosConfig.ServiceName)
 	assert.Equal(t, "cluster-a", cfg.RegistryConfig.NacosConfig.Cluster)
