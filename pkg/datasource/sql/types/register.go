@@ -19,6 +19,23 @@ package types
 
 type RegisterType string
 
+func (r RegisterType) String() string {
+	switch r {
+	case File:
+		return "file"
+	case Nacos:
+		return "nacos"
+	case Etcd:
+		return "etcd"
+	default:
+		return ""
+	}
+}
+
+func (r RegisterType) Set(s string) error {
+	panic("implement me")
+}
+
 const (
 	File  RegisterType = "file"
 	Nacos RegisterType = "nacos"

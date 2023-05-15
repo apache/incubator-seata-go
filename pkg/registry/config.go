@@ -19,6 +19,7 @@ package registry
 
 import (
 	"flag"
+	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
@@ -85,13 +86,13 @@ func (c *NacosConfig) NacosFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 type Config struct {
-	Type        string      `yaml:"type" json:"type" koanf:"type"`
-	FileConfig  string      `yaml:"file.name" json:"file.name" koanf:"file.name"`
-	NacosConfig NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Type        types.RegisterType `yaml:"type" json:"type" koanf:"type"`
+	FileConfig  string             `yaml:"file.name" json:"file.name" koanf:"file.name"`
+	NacosConfig NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
 }
 
 func (c *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&c.Type, prefix+".type", "file", "registry center type")
+	f.Var(&c.Type, prefix+".type", "registry center type")
 	f.StringVar(&c.FileConfig, prefix+".file.name", "", "registry center file type path")
 	c.NacosConfig.NacosFlagsWithPrefix(prefix+".nacos", f)
 }
