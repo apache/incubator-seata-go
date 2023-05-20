@@ -370,15 +370,13 @@ func (c *XAConn) CloseForce() error {
 	return nil
 }
 
-func (c *XAConn) XaCommit(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Commit(ctx, xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 	return c.XaRollback(ctx, xaXid)
 }
 
