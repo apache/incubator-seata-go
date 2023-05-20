@@ -28,7 +28,7 @@ import (
 )
 
 type MysqlXAConn struct {
-	Conn driver.Conn
+	driver.Conn
 }
 
 func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
