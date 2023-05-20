@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/seata/seata-go/pkg/util/log"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -29,7 +30,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)
@@ -219,7 +219,9 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
 	xaConn := &XAConn{
-		Conn: newDriverConn.(*Conn),
+		Conn: &Conn{
+			targetConn: newDriverConn,
+		},
 	}
 	return xaConn, nil
 }
