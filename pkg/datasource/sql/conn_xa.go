@@ -149,10 +149,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 		}
 		c.xaActive = true
-	} else {
-		if c.xaActive {
-			c.Commit(ctx)
-		}
 	}
 
 	return &XATx{tx: tx.(*Tx)}, nil
@@ -175,6 +171,7 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 
 func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
 	var err error
+	currentAutoCommit := c.autoCommit
 	if c.txCtx.TransactionMode != types.Local && c.autoCommit {
 		_, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
 		if err != nil {
@@ -204,7 +201,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		return nil, err
 	}
 
-	if c.autoCommit {
+	if currentAutoCommit {
 		if err := c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
