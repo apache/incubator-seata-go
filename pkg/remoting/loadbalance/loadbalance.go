@@ -15,33 +15,29 @@
  * limitations under the License.
  */
 
-package codec
+package loadbalance
 
 import (
-	"testing"
+	"sync"
 
-	serror "github.com/seata/seata-go/pkg/util/errors"
-
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
+	getty "github.com/apache/dubbo-getty"
 )
 
-func TestGlobalLockQueryResponseCodec(t *testing.T) {
-	msg := message.GlobalLockQueryResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-		},
-		Lockable: true,
+const (
+	randomLoadBalance         = "RandomLoadBalance"
+	xidLoadBalance            = "XID"
+	roundRobinLoadBalance     = "RoundRobinLoadBalance"
+	consistentHashLoadBalance = "ConsistentHashLoadBalance"
+	leastActiveLoadBalance    = "LeastActiveLoadBalance"
+)
+
+func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+	switch loadBalanceType {
+	case randomLoadBalance:
+		return RandomLoadBalance(sessions, xid)
+	case xidLoadBalance:
+		return XidLoadBalance(sessions, xid)
+	default:
+		return RandomLoadBalance(sessions, xid)
 	}
-
-	codec := GlobalLockQueryResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
-
-	assert.Equal(t, msg, msg2)
 }

@@ -15,33 +15,42 @@
  * limitations under the License.
  */
 
-package codec
+package loadbalance
 
 import (
-	"testing"
+	"strings"
+	"sync"
 
-	serror "github.com/seata/seata-go/pkg/util/errors"
-
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/protocol/message"
+	getty "github.com/apache/dubbo-getty"
 )
 
-func TestGlobalLockQueryResponseCodec(t *testing.T) {
-	msg := message.GlobalLockQueryResponse{
-		AbstractTransactionResponse: message.AbstractTransactionResponse{
-			TransactionErrorCode: serror.TransactionErrorCodeBeginFailed,
-			AbstractResultMessage: message.AbstractResultMessage{
-				ResultCode: message.ResultCodeFailed,
-				Msg:        "FAILED",
-			},
-		},
-		Lockable: true,
+func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
+	var session getty.Session
+
+	// ip:port:transactionId
+	tmpSplits := strings.Split(xid, ":")
+	if len(tmpSplits) == 3 {
+		ip := tmpSplits[0]
+		port := tmpSplits[1]
+		ipPort := ip + ":" + port
+		sessions.Range(func(key, value interface{}) bool {
+			tmpSession := key.(getty.Session)
+			if tmpSession.IsClosed() {
+				sessions.Delete(tmpSession)
+				return true
+			}
+			connectedIpPort := session.RemoteAddr()
+			if ipPort == connectedIpPort {
+				session = tmpSession
+				return false
+			}
+			return true
+		})
 	}
 
-	codec := GlobalLockQueryResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
+	if session == nil {
+		return RandomLoadBalance(sessions, xid)
+	}
 
-	assert.Equal(t, msg, msg2)
+	return session
 }

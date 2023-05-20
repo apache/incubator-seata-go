@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/seata/seata-go/pkg/util/log"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
@@ -123,6 +124,16 @@ func (db *DBResource) GetResourceGroupId() string {
 }
 
 func (db *DBResource) init() {
+	ctx := context.Background()
+	conn, err := db.connector.Connect(ctx)
+	if err != nil {
+		log.Errorf("connect: %w", err)
+	}
+	version, err := selectDBVersion(ctx, conn)
+	if err != nil {
+		log.Errorf("select db version: %w", err)
+	}
+	db.SetDbVersion(version)
 	db.checkDbVersion()
 }
 
@@ -208,7 +219,9 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
 	xaConn := &XAConn{
-		Conn: newDriverConn.(*Conn),
+		Conn: &Conn{
+			targetConn: newDriverConn,
+		},
 	}
 	return xaConn, nil
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"time"
 
@@ -106,6 +107,8 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	c.autoCommit = false
+
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
@@ -122,7 +125,11 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	}
 	c.tx = tx
 
-	if c.autoCommit {
+	if !c.autoCommit {
+		if c.xaActive {
+			return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
+		}
+
 		baseTx, ok := tx.(*Tx)
 		if !ok {
 			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
@@ -142,6 +149,10 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 		}
 		c.xaActive = true
+	} else {
+		if c.xaActive {
+			c.Commit(ctx)
+		}
 	}
 
 	return &XATx{tx: tx.(*Tx)}, nil
@@ -370,15 +381,13 @@ func (c *XAConn) CloseForce() error {
 	return nil
 }
 
-func (c *XAConn) XaCommit(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Commit(ctx, xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 	return c.XaRollback(ctx, xaXid)
 }
 

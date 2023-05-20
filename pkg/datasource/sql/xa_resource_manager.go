@@ -82,48 +82,36 @@ type XAResourceManager struct {
 }
 
 func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
-	var dbResource *DBResource
-	xaManager.resourceCache.Range(func(key, value any) bool {
-		if source, ok := value.(*DBResource); ok {
-			dbResource = source
-		}
-		return false
-	})
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			xaManager.resourceCache.Range(func(key, value any) bool {
+				source, ok := value.(*DBResource)
+				if !ok {
+					return true
+				}
+				if source.IsShouldBeHeld() {
+					return true
+				}
 
-	if dbResource.IsShouldBeHeld() {
-		ticker := time.NewTicker(time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				xaManager.resourceCache.Range(func(key, value any) bool {
-					source, ok := value.(*DBResource)
-					if !ok {
-						return true
-					}
-					if source.IsShouldBeHeld() {
+				source.GetKeeper().Range(func(key, value any) bool {
+					connectionXA, isConnectionXA := value.(*XAConn)
+					if !isConnectionXA {
 						return true
 					}
 
-					source.GetKeeper().Range(func(key, value any) bool {
-						connectionXA, isConnectionXA := value.(*XAConn)
-						if !isConnectionXA {
-							return true
+					if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
+						if err := connectionXA.CloseForce(); err != nil {
+							log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
 						}
-
-						if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
-							if err := connectionXA.CloseForce(); err != nil {
-								log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
-							}
-						}
-						return true
-					})
+					}
 					return true
 				})
-			}
+				return true
+			})
 		}
-
 	}
-
 }
 
 func (xaManager *XAResourceManager) GetBranchType() branch.BranchType {
@@ -179,9 +167,8 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
-	if commitErr := connectionProxyXA.XaCommit(ctx, xaID.String(), branchResource.BranchId); commitErr != nil {
-		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+	if err := connectionProxyXA.XaCommit(ctx, xaID); err != nil {
+		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
 	}
@@ -197,9 +184,8 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
-	if rollbackErr := connectionProxyXA.XaRollbackByBranchId(ctx, xaID.String(), branchResource.BranchId); rollbackErr != nil {
-		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+	if err = connectionProxyXA.XaRollbackByBranchId(ctx, xaID); err != nil {
+		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}

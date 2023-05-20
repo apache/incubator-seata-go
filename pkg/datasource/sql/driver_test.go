@@ -27,15 +27,17 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/mock"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/reflectx"
-	"github.com/stretchr/testify/assert"
 )
 
 func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controller) *mock.MockDataSourceManager {
 	mockResourceMgr := mock.NewMockDataSourceManager(ctrl)
 	mockResourceMgr.SetBranchType(branchType)
+	mockResourceMgr.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).AnyTimes().Return(int64(0), nil)
 	rm.GetRmCacheInstance().RegisterResourceManager(mockResourceMgr)
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
 	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
@@ -121,7 +123,7 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
 	_ = mockMgr
 
 	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")

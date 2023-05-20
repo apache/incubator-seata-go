@@ -38,7 +38,9 @@ func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
 func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
 	var sb strings.Builder
 	sb.WriteString("XA COMMIT ")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 	if onePhase {
 		sb.WriteString(" ONE PHASE")
 	}
@@ -51,7 +53,9 @@ func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) err
 func (c *MysqlXAConn) End(ctx context.Context, xid string, flags int) error {
 	var sb strings.Builder
 	sb.WriteString("XA END ")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 
 	switch flags {
 	case TMSuccess:
@@ -89,7 +93,9 @@ func (c *MysqlXAConn) IsSameRM(ctx context.Context, xares XAResource) bool {
 func (c *MysqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 	var sb strings.Builder
 	sb.WriteString("XA PREPARE ")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
@@ -139,7 +145,9 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
 	var sb strings.Builder
 	sb.WriteString("XA ROLLBACK ")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
@@ -152,8 +160,10 @@ func (c *MysqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
 
 func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
 	var sb strings.Builder
-	sb.WriteString("XA START")
+	sb.WriteString("XA START ")
+	sb.WriteString("'")
 	sb.WriteString(xid)
+	sb.WriteString("'")
 
 	switch flags {
 	case TMJoin:
