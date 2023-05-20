@@ -64,10 +64,11 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 
 	defer func() {
 		var err error
+		deferErr := recover()
 		// no need to do second phase if propagation is some type e.g. NotSupported.
 		if IsGlobalTx(ctx) {
 			// business maybe to throw panic, so need to recover it here.
-			if err = commitOrRollback(ctx, recover() == nil && re == nil); err != nil {
+			if err = commitOrRollback(ctx, deferErr == nil && re == nil); err != nil {
 				log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
 			}
 		}
