@@ -167,9 +167,8 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
 
-	if commitErr := connectionProxyXA.XaCommit(ctx, xaID.String(), branchResource.BranchId); commitErr != nil {
-		err := fmt.Errorf("rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+	if err = connectionProxyXA.XaCommit(ctx, xaID.String(), branchResource.BranchId); err != nil {
+		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
 	}
