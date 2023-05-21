@@ -16,7 +16,7 @@
 #
 
 # format go imports style
-go install -v golang.org/x/tools/cmd/goimports
+go install golang.org/x/tools/cmd/goimports
 goimports  -local github.com/seata/seata-go -w .
 
 # format licence style

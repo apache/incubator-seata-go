@@ -22,6 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"sync"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
@@ -29,7 +31,6 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
-	"sync"
 )
 
 type dbOption func(db *DBResource)
