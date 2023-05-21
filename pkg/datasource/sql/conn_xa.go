@@ -389,7 +389,7 @@ func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
-	err := c.xaResource.Rollback(ctx, xaXid.GetGlobalXid())
+	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
 }
