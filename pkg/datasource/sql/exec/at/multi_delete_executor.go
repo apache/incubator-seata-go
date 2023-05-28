@@ -70,7 +70,7 @@ type multiDelete struct {
 	clear bool
 }
 
-//NewMultiDeleteExecutor get multiDelete executor
+// NewMultiDeleteExecutor get multiDelete executor
 func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *multiDeleteExecutor {
 	return &multiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
