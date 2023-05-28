@@ -322,22 +322,22 @@ func (c *XAConn) Commit(ctx context.Context) error {
 
 	now := time.Now()
 	if c.end(ctx, xa.TMSuccess) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 
 	if c.checkTimeout(ctx, now) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 	return nil
 }
 
-func (c *XAConn) commitErrorHandle() error {
+func (c *XAConn) commitErrorHandle(ctx context.Context) error {
 	var err error
-	if err = c.tx.Rollback(); err != nil {
+	if err = c.XaRollback(ctx, c.xaBranchXid); err != nil {
 		err = fmt.Errorf("failed to report XA branch commit-failure xid:%s, err:%w", c.txCtx.XID, err)
 	}
 	c.cleanXABranchContext()
@@ -389,7 +389,7 @@ func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
-	err := c.xaResource.Rollback(ctx, xaXid.GetGlobalXid())
+	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
 }

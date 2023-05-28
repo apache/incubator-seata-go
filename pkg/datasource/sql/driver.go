@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"

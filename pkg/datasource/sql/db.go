@@ -22,14 +22,15 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/log"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
 	"github.com/seata/seata-go/pkg/datasource/sql/undo"
 	"github.com/seata/seata-go/pkg/datasource/sql/util"
+	"github.com/seata/seata-go/pkg/datasource/sql/xa"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)
@@ -218,10 +219,17 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	if err != nil {
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
+	xaResource, err := xa.CreateXAResource(newDriverConn, types.DBTypeMySQL)
+	if err != nil {
+		return nil, fmt.Errorf("create xa resoruce err:%w", err)
+	}
 	xaConn := &XAConn{
 		Conn: &Conn{
 			targetConn: newDriverConn,
+			res:        db,
 		},
+		xaBranchXid: XaIdBuild(xaXid.GetGlobalXid(), xaXid.GetBranchId()),
+		xaResource:  xaResource,
 	}
 	return xaConn, nil
 }
