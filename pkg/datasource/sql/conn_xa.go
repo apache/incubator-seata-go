@@ -107,17 +107,19 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if !tm.IsGlobalTx(ctx) {
+		tx, err := c.Conn.BeginTx(ctx, opts)
+		return tx, err
+	}
+
 	c.autoCommit = false
 
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
 	c.txCtx.ResourceID = c.res.resourceID
-
-	if tm.IsGlobalTx(ctx) {
-		c.txCtx.XID = tm.GetXID(ctx)
-		c.txCtx.TransactionMode = types.XAMode
-	}
+	c.txCtx.XID = tm.GetXID(ctx)
+	c.txCtx.TransactionMode = types.XAMode
 
 	tx, err := c.Conn.BeginTx(ctx, opts)
 	if err != nil {
