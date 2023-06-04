@@ -15,40 +15,45 @@
  * limitations under the License.
  */
 
-package fence
+package collection
 
 import (
-	"context"
-	"database/sql"
-	"database/sql/driver"
-
-	"github.com/seata/seata-go/pkg/tm"
+	"reflect"
+	"testing"
 )
 
-type FenceTx struct {
-	Ctx           context.Context
-	TargetTx      driver.Tx
-	TargetFenceTx *sql.Tx
-}
-
-func (tx *FenceTx) Commit() error {
-	if err := tx.TargetTx.Commit(); err != nil {
-		return err
+func TestEncodeDecodeMap(t *testing.T) {
+	testCases := []struct {
+		name     string
+		dataMap  map[string]string
+		expected map[string]string
+	}{
+		{
+			name: "test case 1",
+			dataMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expected: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name:     "test case 2",
+			dataMap:  nil,
+			expected: nil,
+		},
 	}
 
-	tx.clearFenceTx()
-	return tx.TargetFenceTx.Commit()
-}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded := EncodeMap(tc.dataMap)
+			decoded := DecodeMap(encoded)
 
-func (tx *FenceTx) Rollback() error {
-	if err := tx.TargetTx.Rollback(); err != nil {
-		return err
+			if !reflect.DeepEqual(decoded, tc.expected) {
+				t.Errorf("DecodeMap(%v) = %v, expected %v", encoded, decoded, tc.expected)
+			}
+		})
 	}
-
-	tx.clearFenceTx()
-	return tx.TargetFenceTx.Rollback()
-}
-
-func (tx *FenceTx) clearFenceTx() {
-	tm.SetFenceTxBeginedFlag(tx.Ctx, false)
 }

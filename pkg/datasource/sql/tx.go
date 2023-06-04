@@ -149,8 +149,10 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 		return nil
 	}
 
-	if ctx.TransactionMode.BranchType() == branch.BranchTypeAT && !ctx.HasUndoLog() || !ctx.HasLockKey() {
-		return nil
+	if ctx.TransactionMode.BranchType() == branch.BranchTypeAT {
+		if !ctx.HasUndoLog() || !ctx.HasLockKey() {
+			return nil
+		}
 	}
 
 	request := rm.BranchRegisterParam{

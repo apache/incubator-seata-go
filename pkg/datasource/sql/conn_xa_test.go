@@ -185,7 +185,6 @@ func TestXAConn_ExecContext(t *testing.T) {
 	t.Run("have xid", func(t *testing.T) {
 		ctx := tm.InitSeataContext(context.Background())
 		tm.SetXID(ctx, uuid.New().String())
-		t.Logf("set xid=%s", tm.GetXID(ctx))
 
 		before := func(_ context.Context, execCtx *types.ExecContext) {
 			t.Logf("on exec xid=%s", execCtx.TxCtx.XID)
