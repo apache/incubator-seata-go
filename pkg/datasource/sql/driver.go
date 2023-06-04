@@ -23,6 +23,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io"
+	"reflect"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -30,6 +32,7 @@ import (
 	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
 	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
 	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/seata/seata-go/pkg/datasource/sql/util"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -140,26 +143,23 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
 	cfg, _ := mysql.ParseDSN(dataSourceName)
 	options := []dbOption{
+		withResourceID(parseResourceID(dataSourceName)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
 		withDBName(cfg.DBName),
 		withConnector(connector),
 	}
-
 	res, err := newResource(options...)
 	if err != nil {
 		log.Errorf("create new resource: %w", err)
 		return nil, err
 	}
-
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
-
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
-
 	return &seataConnector{
 		res:    res,
 		target: connector,
@@ -191,4 +191,54 @@ func parseResourceID(dsn string) string {
 		res = dsn[:i]
 	}
 	return strings.ReplaceAll(res, ",", "|")
+}
+
+func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
+	var rowsi driver.Rows
+	var err error
+
+	queryerCtx, ok := conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = conn.(driver.Queryer)
+	}
+	if ok {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, "SELECT VERSION()", nil)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
+			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return "", err
+		}
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return "", fmt.Errorf("invalid conn")
+	}
+
+	dest := make([]driver.Value, 1)
+	var version string
+	if err = rowsi.Next(dest); err != nil {
+		if err == io.EOF {
+			return version, nil
+		}
+		return "", err
+	}
+	if len(dest) != 1 {
+		return "", errors.New("get db version is not column 1")
+	}
+
+	switch reflect.TypeOf(dest[0]).Kind() {
+	case reflect.Slice, reflect.Array:
+		val := reflect.ValueOf(dest[0]).Bytes()
+		version = string(val)
+	case reflect.String:
+		version = reflect.ValueOf(dest[0]).String()
+	default:
+		return "", errors.New("get db version is not a string")
+	}
+
+	return version, nil
 }
