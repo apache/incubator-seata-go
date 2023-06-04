@@ -41,7 +41,7 @@ func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage messag
 	branchID := request.BranchId
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
-	log.Infof("Branch committing: xid %s, branchID %s, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	branchResource := rm.BranchResource{
 		ResourceId:      resourceID,
 		BranchId:        branchID,

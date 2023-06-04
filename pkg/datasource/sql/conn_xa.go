@@ -21,6 +21,7 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"time"
 
@@ -106,15 +107,19 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if !tm.IsGlobalTx(ctx) {
+		tx, err := c.Conn.BeginTx(ctx, opts)
+		return tx, err
+	}
+
+	c.autoCommit = false
+
 	c.txCtx = types.NewTxCtx()
 	c.txCtx.DBType = c.res.dbType
 	c.txCtx.TxOpt = opts
 	c.txCtx.ResourceID = c.res.resourceID
-
-	if tm.IsGlobalTx(ctx) {
-		c.txCtx.XID = tm.GetXID(ctx)
-		c.txCtx.TransactionMode = types.XAMode
-	}
+	c.txCtx.XID = tm.GetXID(ctx)
+	c.txCtx.TransactionMode = types.XAMode
 
 	tx, err := c.Conn.BeginTx(ctx, opts)
 	if err != nil {
@@ -122,7 +127,11 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	}
 	c.tx = tx
 
-	if c.autoCommit {
+	if !c.autoCommit {
+		if c.xaActive {
+			return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
+		}
+
 		baseTx, ok := tx.(*Tx)
 		if !ok {
 			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
@@ -163,9 +172,14 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 }
 
 func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
-	var err error
-	if c.txCtx.TransactionMode != types.Local && c.autoCommit {
-		_, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+	var (
+		tx  driver.Tx
+		err error
+	)
+
+	currentAutoCommit := c.autoCommit
+	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +207,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		return nil, err
 	}
 
-	if c.autoCommit {
+	if tx != nil && currentAutoCommit {
 		if err := c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
@@ -314,22 +328,22 @@ func (c *XAConn) Commit(ctx context.Context) error {
 
 	now := time.Now()
 	if c.end(ctx, xa.TMSuccess) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 
 	if c.checkTimeout(ctx, now) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
-		return c.commitErrorHandle()
+		return c.commitErrorHandle(ctx)
 	}
 	return nil
 }
 
-func (c *XAConn) commitErrorHandle() error {
+func (c *XAConn) commitErrorHandle(ctx context.Context) error {
 	var err error
-	if err = c.tx.Rollback(); err != nil {
+	if err = c.XaRollback(ctx, c.xaBranchXid); err != nil {
 		err = fmt.Errorf("failed to report XA branch commit-failure xid:%s, err:%w", c.txCtx.XID, err)
 	}
 	c.cleanXABranchContext()
@@ -370,20 +384,18 @@ func (c *XAConn) CloseForce() error {
 	return nil
 }
 
-func (c *XAConn) XaCommit(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Commit(ctx, xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
 }
 
-func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xid string, branchId int64) error {
-	xaXid := XaIdBuild(xid, uint64(branchId))
+func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 	return c.XaRollback(ctx, xaXid)
 }
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
-	err := c.xaResource.Rollback(ctx, xaXid.GetGlobalXid())
+	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
 }

@@ -66,7 +66,11 @@ func TestMysqlXAConn_Commit(t *testing.T) {
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
 		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 			// check if the xid is nil
-			if len(strings.Split(strings.Trim(query, " "), " ")) != 3 {
+			xidSplits := strings.Split(strings.Trim(query, " "), " ")
+			if len(xidSplits) != 3 {
+				return nil, errors.New("xid is nil")
+			}
+			if xidSplits[2] == "''" {
 				return nil, errors.New("xid is nil")
 			}
 			return nil, nil

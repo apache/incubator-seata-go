@@ -212,6 +212,7 @@ func (c *Conn) Begin() (driver.Tx, error) {
 //	global transaction according to tranCtx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if c.txCtx.TransactionMode == types.XAMode {
+		c.autoCommit = false
 		return newTx(
 			withDriverConn(c),
 			withTxCtx(c.txCtx),
