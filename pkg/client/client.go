@@ -20,11 +20,10 @@ package client
 import (
 	"sync"
 
-	"github.com/seata/seata-go/pkg/discovery"
-
 	"github.com/seata/seata-go/pkg/datasource"
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec/config"
+	"github.com/seata/seata-go/pkg/discovery"
 	"github.com/seata/seata-go/pkg/integration"
 	remoteConfig "github.com/seata/seata-go/pkg/remoting/config"
 	"github.com/seata/seata-go/pkg/remoting/getty"
