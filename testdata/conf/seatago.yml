@@ -122,17 +122,20 @@ seata:
   registry:
     type: file
     file:
-      name: registry.conf
+      name: seatago.yml
     nacos:
       application: seata-server
       server-addr: 127.0.0.1:8848
       group: "SEATA_GROUP"
-      namespace: ""
-      username: ""
-      password: ""
+      namespace: "test-namespace"
+      username: "test-username"
+      password: "test-password"
       ##if use MSE Nacos with auth, mutex with username/password attribute  #
-      #access-key: ""  #
-      #secret-key: ""  #
+      access-key: "test-access-key"  #
+      secret-key: "test-secret-key"  #
+    etcd3:
+      cluster: "default"
+      server-addr: "http://localhost:2379"
   log:
     exception-rate: 100
   tcc:

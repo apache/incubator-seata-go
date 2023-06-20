@@ -20,6 +20,8 @@ package client
 import (
 	"sync"
 
+	"github.com/seata/seata-go/pkg/discovery"
+
 	"github.com/seata/seata-go/pkg/datasource"
 	at "github.com/seata/seata-go/pkg/datasource/sql"
 	"github.com/seata/seata-go/pkg/datasource/sql/exec/config"
@@ -41,7 +43,7 @@ func Init() {
 // InitPath init client with config path
 func InitPath(configFilePath string) {
 	cfg := LoadPath(configFilePath)
-
+	initRegistry(cfg)
 	initRmClient(cfg)
 	initTmClient(cfg)
 	initDatasource()
@@ -51,6 +53,7 @@ var (
 	onceInitTmClient   sync.Once
 	onceInitRmClient   sync.Once
 	onceInitDatasource sync.Once
+	onceInitRegistry   sync.Once
 )
 
 // InitTmClient init client tm client
@@ -93,5 +96,11 @@ func initRmClient(cfg *Config) {
 func initDatasource() {
 	onceInitDatasource.Do(func() {
 		datasource.Init()
+	})
+}
+
+func initRegistry(cfg *Config) {
+	onceInitRegistry.Do(func() {
+		discovery.InitRegistry(&cfg.ServiceConfig, &cfg.RegistryConfig)
 	})
 }

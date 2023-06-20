@@ -26,6 +26,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/seata/seata-go/pkg/discovery"
+
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
@@ -81,7 +83,8 @@ type Config struct {
 	ClientConfig      ClientConfig                 `yaml:"client" json:"client" koanf:"client"`
 	GettyConfig       remoteConfig.Config          `yaml:"getty" json:"getty" koanf:"getty"`
 	TransportConfig   remoteConfig.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
-	ServiceConfig     tm.ServiceConfig             `yaml:"service" json:"service" koanf:"service"`
+	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
+	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -98,6 +101,7 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
 	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
+	c.RegistryConfig.RegisterFlagsWithPrefix("registry", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
 }
 
