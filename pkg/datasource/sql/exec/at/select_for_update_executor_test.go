@@ -44,7 +44,8 @@ func TestBuildSelectPKSQL(t *testing.T) {
 	ctx, err := parser.DoParser(sql)
 
 	metaData := types.TableMeta{
-		TableName: "t_user",
+		TableName:   "t_user",
+		ColumnNames: []string{"id", "order_id", "age"},
 		Indexs: map[string]types.IndexMeta{
 			"id": {
 				IType:      types.IndexTypePrimaryKey,
