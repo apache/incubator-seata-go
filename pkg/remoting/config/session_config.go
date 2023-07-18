@@ -39,7 +39,7 @@ type SessionConfig struct {
 
 // RegisterFlagsWithPrefix for Config.
 func (cfg *SessionConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&cfg.CompressEncoding, prefix+".compress-encoding", false, "Enable eompress encoding")
+	f.BoolVar(&cfg.CompressEncoding, prefix+".compress-encoding", false, "Enable compress encoding")
 	f.BoolVar(&cfg.TCPNoDelay, prefix+".tcp-no-delay", true, "Disable the nagle algorithm.")
 	f.BoolVar(&cfg.TCPKeepAlive, prefix+".tcp-keep-alive", true, "Keep connection alive.")
 	f.DurationVar(&cfg.KeepAlivePeriod, prefix+".keep-alive-period", 3*time.Minute, "Period between keep-alives.")
