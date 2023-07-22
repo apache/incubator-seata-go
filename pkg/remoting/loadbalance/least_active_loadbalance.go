@@ -18,28 +18,38 @@
 package loadbalance
 
 import (
+	"math/rand"
 	"sync"
 
 	getty "github.com/apache/dubbo-getty"
 )
 
-const (
-	randomLoadBalance         = "RandomLoadBalance"
-	xidLoadBalance            = "XID"
-	roundRobinLoadBalance     = "RoundRobinLoadBalance"
-	consistentHashLoadBalance = "ConsistentHashLoadBalance"
-	leastActiveLoadBalance    = "LeastActiveLoadBalance"
-)
+func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
+	var session getty.Session
+	var leastActive int64 = -1
+	leastCount := 0
+	leastIndexes := []getty.Session{}
+	sessions.Range(func(key, value interface{}) bool {
+		session = key.(getty.Session)
+		if session.IsClosed() {
+			sessions.Delete(session)
+		}
 
-func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
-	switch loadBalanceType {
-	case randomLoadBalance:
-		return RandomLoadBalance(sessions, xid)
-	case xidLoadBalance:
-		return XidLoadBalance(sessions, xid)
-	case leastActiveLoadBalance:
-		return LeastActiveLoadBalance(sessions, xid)	
-	default:
-		return RandomLoadBalance(sessions, xid)
+		interval := session.GetActive().UnixNano()
+		if leastActive == -1 || interval < leastActive {
+			leastActive = interval
+			leastCount = 1
+			leastIndexes = append(leastIndexes, session)
+		} else if interval == leastActive {
+			leastIndexes = append(leastIndexes, session)
+			leastCount++
+		}
+
+		return true
+	})
+
+	if leastCount == 1 {
+		return leastIndexes[0]
 	}
+	return leastIndexes[rand.Intn(leastCount)]
 }
