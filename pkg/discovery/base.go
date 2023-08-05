@@ -15,42 +15,25 @@
  * limitations under the License.
  */
 
-package loadbalance
+package discovery
 
-import (
-	"strings"
-	"sync"
-
-	getty "github.com/apache/dubbo-getty"
+const (
+	FILE   string = "file"
+	NACOS  string = "nacos"
+	ETCD   string = "etcd"
+	EUREKA string = "eureka"
+	REDIS  string = "redis"
+	ZK     string = "zk"
+	CONSUL string = "consul"
+	SOFA   string = "sofa"
 )
 
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
+type ServiceInstance struct {
+	Addr string
+	Port int
+}
 
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
-				return true
-			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
-		})
-	}
-
-	if session == nil {
-		return RandomLoadBalance(sessions, xid)
-	}
-
-	return session
+type RegistryService interface {
+	Lookup(key string) ([]*ServiceInstance, error)
+	Close()
 }

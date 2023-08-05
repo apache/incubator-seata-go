@@ -15,42 +15,16 @@
  * limitations under the License.
  */
 
-package loadbalance
+package discovery
 
-import (
-	"strings"
-	"sync"
+type RedisRegistryService struct{}
 
-	getty "github.com/apache/dubbo-getty"
-)
+func (s *RedisRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
+	//TODO implement me
+	panic("implement me")
+}
 
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
-
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
-				return true
-			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
-		})
-	}
-
-	if session == nil {
-		return RandomLoadBalance(sessions, xid)
-	}
-
-	return session
+func (RedisRegistryService) Close() {
+	//TODO implement me
+	panic("implement me")
 }

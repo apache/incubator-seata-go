@@ -19,7 +19,6 @@ package tm
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -114,7 +113,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 			},
 			xid:             "123456",
 			wantHasError:    true,
-			wantErrorString: fmt.Sprintf("existing transaction found for transaction marked with pg 'never', xid = 123456"),
+			wantErrorString: "existing transaction found for transaction marked with pg 'never', xid = 123456",
 		},
 		// has not error
 		{

@@ -20,8 +20,6 @@ package tm
 import (
 	"flag"
 	"time"
-
-	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
 type TmConfig struct {
@@ -42,18 +40,4 @@ func (cfg *TmConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.IntVar(&cfg.DegradeCheckPeriod, prefix+".degrade-check-period", 2000, "The period for degrade checking.")
 	f.DurationVar(&cfg.DegradeCheckAllowTimes, prefix+".degrade-check-allow-times", 10*time.Second, "The duration allowed for degrade checking.")
 	f.IntVar(&cfg.InterceptorOrder, prefix+".interceptor-order", -2147482648, "The order of interceptor.")
-}
-
-type ServiceConfig struct {
-	VgroupMapping            flagext.StringMap `yaml:"vgroup-mapping" json:"vgroup-mapping" koanf:"vgroup-mapping"`
-	Grouplist                flagext.StringMap `yaml:"grouplist" json:"grouplist" koanf:"grouplist"`
-	EnableDegrade            bool              `yaml:"enable-degrade" json:"enable-degrade" koanf:"enable-degrade"`
-	DisableGlobalTransaction bool              `yaml:"disable-global-transaction" json:"disable-global-transaction" koanf:"disable-global-transaction"`
-}
-
-func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&cfg.EnableDegrade, prefix+".enable-degrade", false, "degrade current not support.")
-	f.BoolVar(&cfg.DisableGlobalTransaction, prefix+".disable-global-transaction", false, "disable globalTransaction.")
-	f.Var(&cfg.VgroupMapping, prefix+".vgroup-mapping", "The vgroup mapping.")
-	f.Var(&cfg.Grouplist, prefix+".grouplist", "The group list.")
 }

@@ -14,43 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package reflectx
 
-package loadbalance
+import "testing"
 
-import (
-	"strings"
-	"sync"
+type ReferencedServiceImpl struct{}
 
-	getty "github.com/apache/dubbo-getty"
-)
+func (r *ReferencedServiceImpl) Reference() string {
+	return "ReferencedServiceImpl"
+}
 
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
+type TestStruct struct{}
 
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
-				return true
-			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
-		})
+func TestGetReference(t *testing.T) {
+	s := &ReferencedServiceImpl{}
+	ref := GetReference(s)
+	if ref != "ReferencedServiceImpl" {
+		t.Errorf("GetReference() = %s, want ReferencedServiceImpl", ref)
 	}
 
-	if session == nil {
-		return RandomLoadBalance(sessions, xid)
+	ts := TestStruct{}
+	ref = GetReference(ts)
+	if ref != "TestStruct" {
+		t.Errorf("GetReference() = %s, want TestStruct", ref)
 	}
 
-	return session
+	tp := &TestStruct{}
+	ref = GetReference(tp)
+	if ref != "TestStruct" {
+		t.Errorf("GetReference() = %s, want TestStruct", ref)
+	}
+
+	var v interface{} = &TestStruct{}
+	ref = GetReference(v)
+	if ref != "TestStruct" {
+		t.Errorf("GetReference() = %s, want TestStruct", ref)
+	}
 }

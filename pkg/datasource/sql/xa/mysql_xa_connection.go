@@ -25,6 +25,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type MysqlXAConn struct {
@@ -36,6 +38,8 @@ func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
 }
 
 func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
+	log.Infof("xa branch commit, xid %s", xid)
+
 	var sb strings.Builder
 	sb.WriteString("XA COMMIT ")
 	sb.WriteString("'")
@@ -47,10 +51,15 @@ func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) err
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
+	if err != nil {
+		log.Errorf("xa branch commit failed, xid %s, err %v", xid, err)
+	}
 	return err
 }
 
 func (c *MysqlXAConn) End(ctx context.Context, xid string, flags int) error {
+	log.Infof("xa branch end, xid %s", xid)
+
 	var sb strings.Builder
 	sb.WriteString("XA END ")
 	sb.WriteString("'")
@@ -71,6 +80,9 @@ func (c *MysqlXAConn) End(ctx context.Context, xid string, flags int) error {
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
+	if err != nil {
+		log.Errorf("xa branch end failed, xid %s, err %v", xid, err)
+	}
 	return err
 }
 
@@ -91,6 +103,8 @@ func (c *MysqlXAConn) IsSameRM(ctx context.Context, xares XAResource) bool {
 }
 
 func (c *MysqlXAConn) XAPrepare(ctx context.Context, xid string) error {
+	log.Infof("xa branch prepare, xid %s", xid)
+
 	var sb strings.Builder
 	sb.WriteString("XA PREPARE ")
 	sb.WriteString("'")
@@ -99,6 +113,9 @@ func (c *MysqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
+	if err != nil {
+		log.Errorf("xa branch prepare failed, xid %s, err %v", xid, err)
+	}
 	return err
 }
 
@@ -143,6 +160,8 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 }
 
 func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
+	log.Infof("xa branch rollback, xid %s", xid)
+
 	var sb strings.Builder
 	sb.WriteString("XA ROLLBACK ")
 	sb.WriteString("'")
@@ -151,6 +170,9 @@ func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
+	if err != nil {
+		log.Errorf("xa branch rollback failed, xid %s, err %v", xid, err)
+	}
 	return err
 }
 
@@ -159,6 +181,8 @@ func (c *MysqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
 }
 
 func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
+	log.Infof("xa branch start, xid %s", xid)
+
 	var sb strings.Builder
 	sb.WriteString("XA START ")
 	sb.WriteString("'")
@@ -180,5 +204,8 @@ func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
 
 	conn, _ := c.Conn.(driver.ExecerContext)
 	_, err := conn.ExecContext(ctx, sb.String(), nil)
+	if err != nil {
+		log.Errorf("xa branch start failed, xid %s, err %v", xid, err)
+	}
 	return err
 }

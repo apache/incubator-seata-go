@@ -15,42 +15,10 @@
  * limitations under the License.
  */
 
-package loadbalance
+package mock
 
-import (
-	"strings"
-	"sync"
+import getty "github.com/apache/dubbo-getty"
 
-	getty "github.com/apache/dubbo-getty"
-)
-
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
-
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
-				return true
-			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
-		})
-	}
-
-	if session == nil {
-		return RandomLoadBalance(sessions, xid)
-	}
-
-	return session
+type TestSession interface {
+	getty.Session
 }

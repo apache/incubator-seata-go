@@ -15,42 +15,45 @@
  * limitations under the License.
  */
 
-package loadbalance
+package collection
 
 import (
-	"strings"
-	"sync"
-
-	getty "github.com/apache/dubbo-getty"
+	"reflect"
+	"testing"
 )
 
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
+func TestEncodeDecodeMap(t *testing.T) {
+	testCases := []struct {
+		name     string
+		dataMap  map[string]string
+		expected map[string]string
+	}{
+		{
+			name: "test case 1",
+			dataMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expected: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name:     "test case 2",
+			dataMap:  nil,
+			expected: nil,
+		},
+	}
 
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
-				return true
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded := EncodeMap(tc.dataMap)
+			decoded := DecodeMap(encoded)
+
+			if !reflect.DeepEqual(decoded, tc.expected) {
+				t.Errorf("DecodeMap(%v) = %v, expected %v", encoded, decoded, tc.expected)
 			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
 		})
 	}
-
-	if session == nil {
-		return RandomLoadBalance(sessions, xid)
-	}
-
-	return session
 }
