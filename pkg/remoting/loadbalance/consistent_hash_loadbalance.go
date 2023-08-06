@@ -57,19 +57,6 @@ func (c *Consistent) hash(key string) int64 {
 	return res
 }
 
-func (c *Consistent) position(key string) int64 {
-	hashKey := c.hash(key)
-	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
-		return c.sortedHashNodes[i] >= hashKey
-	})
-
-	if index == len(c.sortedHashNodes) {
-		return -1
-	}
-
-	return c.sortedHashNodes[index]
-}
-
 // pick get a  node
 func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 	hashKey := c.hash(key)
@@ -84,20 +71,17 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 	c.RLock()
 	defer c.RUnlock()
 
-	session := c.hashCircle[hashKey]
+	session := c.hashCircle[c.sortedHashNodes[index]]
 	if session.IsClosed() {
 		go c.refreshHashCircle(sessions)
 		return c.firstKey()
 	}
 
-	return c.hashCircle[hashKey]
+	return session
 }
 
 // refreshHashCircle refresh hashCircle
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
-	c.Lock()
-	defer c.Unlock()
-
 	c.hashCircle = make(map[int64]getty.Session)
 	c.sortedHashNodes = c.sortedHashNodes[:0]
 	var session getty.Session

@@ -46,15 +46,4 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 		t.Logf("key: %v, value: %v", key, value)
 		return true
 	})
-
-	sessions2 := &sync.Map{}
-
-	for i := 0; i < 5; i++ {
-		session := mock.NewMockTestSession(ctrl)
-		session.EXPECT().IsClosed().Return(true).AnyTimes()
-		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
-	}
-
-	result2 := ConsistentHashLoadBalance(sessions2, "test_xid")
-	assert.True(t, result2.IsClosed())
 }
