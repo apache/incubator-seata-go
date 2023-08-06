@@ -35,6 +35,9 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		session := mock.NewMockTestSession(ctrl)
 		session.EXPECT().IsClosed().Return(false).AnyTimes()
+		session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
+			return "127.0.0.1:8000"
+		})
 		sessions.Store(session, fmt.Sprintf("session-%d", i))
 	}
 
