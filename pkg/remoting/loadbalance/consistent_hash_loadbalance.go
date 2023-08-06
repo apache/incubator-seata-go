@@ -118,13 +118,12 @@ func (c *Consistent) firstKey() getty.Session {
 
 func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	once.Do(func() {
-		var session getty.Session
 		consistentInstance = &Consistent{
 			hashCircle: make(map[int64]getty.Session),
 		}
 		// construct hash circle
 		sessions.Range(func(key, value interface{}) bool {
-			session = key.(getty.Session)
+			session := key.(getty.Session)
 			for i := 0; i < defaultVirtualNodeNumber; i++ {
 				if !session.IsClosed() {
 					position := consistentInstance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))

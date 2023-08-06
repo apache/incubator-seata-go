@@ -32,14 +32,14 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		session := mock.NewMockTestSession(ctrl)
-		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
+		session.EXPECT().IsClosed().Return(false).AnyTimes()
+		sessions.Store(session, fmt.Sprintf("session-%d", i))
 	}
 
 	result := ConsistentHashLoadBalance(sessions, "test_xid")
 	assert.NotNil(t, result)
-	//assert random load balance return session not closed
 	assert.False(t, result.IsClosed())
 
 	sessions.Range(func(key, value interface{}) bool {
