@@ -37,6 +37,8 @@ func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Sessio
 		return RandomLoadBalance(sessions, xid)
 	case xidLoadBalance:
 		return XidLoadBalance(sessions, xid)
+	case consistentHashLoadBalance:
+		return ConsistentHashLoadBalance(sessions, xid)
 	default:
 		return RandomLoadBalance(sessions, xid)
 	}

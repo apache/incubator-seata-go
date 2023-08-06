@@ -28,49 +28,33 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/mock"
 )
 
-func TestRandomLoadBalance_Nomal(t *testing.T) {
+func TestConsistentHashLoadBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		session := mock.NewMockTestSession(ctrl)
-		session.EXPECT().IsClosed().Return(i == 2).AnyTimes()
 		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
 	}
-	result := RandomLoadBalance(sessions, "some_xid")
 
+	result := ConsistentHashLoadBalance(sessions, "test_xid")
 	assert.NotNil(t, result)
 	//assert random load balance return session not closed
 	assert.False(t, result.IsClosed())
-}
 
-func TestRandomLoadBalance_All_Closed(t *testing.T) {
+	sessions.Range(func(key, value interface{}) bool {
+		t.Logf("key: %v, value: %v", key, value)
+		return true
+	})
 
-	ctrl := gomock.NewController(t)
-	sessions := &sync.Map{}
+	sessions2 := &sync.Map{}
 
-	//mock  closed  sessions
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		session := mock.NewMockTestSession(ctrl)
 		session.EXPECT().IsClosed().Return(true).AnyTimes()
 		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
 	}
-	result := RandomLoadBalance(sessions, "some_xid")
 
-	assert.NotNil(t, result)
-	assert.True(t, result.IsClosed(), "found one un-closed session instance in ALL_CLOSED_SESSION_MAP")
-}
-
-func TestRandomLoadBalance_All_Opening(t *testing.T) {
-
-	ctrl := gomock.NewController(t)
-	sessions := &sync.Map{}
-	for i := 0; i < 10; i++ {
-		session := mock.NewMockTestSession(ctrl)
-		session.EXPECT().IsClosed().Return(false).AnyTimes()
-		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
-	}
-	result := RandomLoadBalance(sessions, "some_xid")
-	//assert return session is not closed
-	assert.False(t, result.IsClosed())
+	result2 := ConsistentHashLoadBalance(sessions2, "test_xid")
+	assert.True(t, result2.IsClosed())
 }
