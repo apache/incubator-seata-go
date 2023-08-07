@@ -39,7 +39,7 @@ func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
 				sessions.Delete(tmpSession)
 				return true
 			}
-			connectedIpPort := session.RemoteAddr()
+			connectedIpPort := tmpSession.RemoteAddr()
 			if ipPort == connectedIpPort {
 				session = tmpSession
 				return false
