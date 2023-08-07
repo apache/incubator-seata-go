@@ -27,11 +27,13 @@ import (
 
 func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
 	//collect sync.Map keys
-	//filted closed session instance
+	//filted out closed session instance
 	var keys []getty.Session
 	sessions.Range(func(key, value interface{}) bool {
 		session := key.(getty.Session)
-		if !session.IsClosed() {
+		if session.IsClosed() {
+			sessions.Delete(key)
+		} else {
 			keys = append(keys, session)
 		}
 		return true
@@ -41,7 +43,6 @@ func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
 		return nil
 	}
 	//random in keys
-	rand.NewSource(time.Now().UnixNano())
-	randomIndex := rand.Intn(len(keys))
+	randomIndex := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(keys))
 	return keys[randomIndex]
 }
