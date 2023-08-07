@@ -31,7 +31,7 @@ func TestRandomLoadBalance_Nomal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 10; i++ {
 		session := mock.NewMockTestSession(ctrl)
 		session.EXPECT().IsClosed().Return(i == 2).AnyTimes()
 		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
@@ -44,20 +44,24 @@ func TestRandomLoadBalance_Nomal(t *testing.T) {
 }
 
 func TestRandomLoadBalance_All_Closed(t *testing.T) {
-
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
-
 	//mock  closed  sessions
 	for i := 0; i < 10; i++ {
 		session := mock.NewMockTestSession(ctrl)
 		session.EXPECT().IsClosed().Return(true).AnyTimes()
 		sessions.Store(session, fmt.Sprintf("session-%d", (i+1)))
 	}
-	result := RandomLoadBalance(sessions, "some_xid")
+	if result := RandomLoadBalance(sessions, "some_xid"); result != nil {
+		t.Errorf("Expected nil, actual got %+v", result)
+	}
+}
 
-	assert.NotNil(t, result)
-	assert.True(t, result.IsClosed(), "found one un-closed session instance in ALL_CLOSED_SESSION_MAP")
+func TestRandomLoadBalance_Empty(t *testing.T) {
+	sessions := &sync.Map{}
+	if result := RandomLoadBalance(sessions, "some_xid"); result != nil {
+		t.Errorf("Expected nil, actual got %+v", result)
+	}
 }
 
 func TestRandomLoadBalance_All_Opening(t *testing.T) {
