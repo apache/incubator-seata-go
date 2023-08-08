@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRandomLoadBalance_Nomal(t *testing.T) {
+func TestRandomLoadBalance_Normal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
