@@ -5,11 +5,11 @@ go 1.18
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.3-rc2
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/apache/dubbo-getty v1.4.9-0.20220825024508-3da63c3257fa
+	github.com/apache/dubbo-getty v1.4.10-0.20230731065302-7c0f0039e59c
 	github.com/arana-db/parser v0.2.5
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
-	github.com/dubbogo/gost v1.12.6-0.20220824084206-300e27e9e524
+	github.com/dubbogo/gost v1.13.1
 	github.com/gin-gonic/gin v1.8.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.9.7
