@@ -37,11 +37,14 @@ func TestInitRegistry(t *testing.T) {
 			name: "normal",
 			args: args{
 				registryConfig: &RegistryConfig{
-					Type: FILE,
+					Type: ETCD,
+					Etcd3: Etcd3Config{
+						ServerAddr: "localhost:2379",
+					},
 				},
 				serviceConfig: &ServiceConfig{},
 			},
-			expectedType: "FileRegistryService",
+			expectedType: "EtcdRegistryService",
 		},
 		{
 			name: "unknown type",
