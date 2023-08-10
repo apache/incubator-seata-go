@@ -20,6 +20,7 @@ package loadbalance
 import (
 	"math/rand"
 	"sync"
+	"time"
 
 	getty "github.com/apache/dubbo-getty"
 )
@@ -28,28 +29,35 @@ func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
 	var session getty.Session
 	var leastActive int64 = -1
 	leastCount := 0
-	leastIndexes := []getty.Session{}
+	var leastIndexes []getty.Session
 	sessions.Range(func(key, value interface{}) bool {
 		session = key.(getty.Session)
 		if session.IsClosed() {
 			sessions.Delete(session)
+		} else {
+			interval := session.GetActive().UnixNano()
+			if leastActive == -1 || interval < leastActive {
+				leastActive = interval
+				leastCount = 1
+				if len(leastIndexes) > 0 {
+					leastIndexes = leastIndexes[:0]
+				}
+				leastIndexes = append(leastIndexes, session)
+			} else if interval == leastActive {
+				leastIndexes = append(leastIndexes, session)
+				leastCount++
+			}
 		}
-
-		interval := session.GetActive().UnixNano()
-		if leastActive == -1 || interval < leastActive {
-			leastActive = interval
-			leastCount = 1
-			leastIndexes = append(leastIndexes, session)
-		} else if interval == leastActive {
-			leastIndexes = append(leastIndexes, session)
-			leastCount++
-		}
-
 		return true
 	})
 
+	if leastCount == 0 {
+		return nil
+	}
+
 	if leastCount == 1 {
 		return leastIndexes[0]
+	} else {
+		return leastIndexes[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(leastCount)]
 	}
-	return leastIndexes[rand.Intn(leastCount)]
 }
