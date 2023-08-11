@@ -29,7 +29,7 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/mock"
 )
 
-func TestConsistentHashLoadBalance(t *testing.T) {
+func TestLeastActiveLoadBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
