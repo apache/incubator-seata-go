@@ -32,7 +32,7 @@ var (
 	consistentInstance       *Consistent
 )
 
-type Consistent struct { //map读写锁
+type Consistent struct {
 	sync.RWMutex
 	virtualNodeCount int
 	// consistent hashCircle
@@ -41,8 +41,8 @@ type Consistent struct { //map读写锁
 }
 
 func (c *Consistent) put(key int64, session getty.Session) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 	c.hashCircle[key] = session
 }
 
@@ -69,9 +69,13 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 	}
 
 	c.RLock()
-	defer c.RUnlock()
+	session, ok := c.hashCircle[c.sortedHashNodes[index]]
+	if !ok {
+		c.RUnlock()
+		return RandomLoadBalance(sessions, key)
+	}
+	c.RUnlock()
 
-	session := c.hashCircle[c.sortedHashNodes[index]]
 	if session.IsClosed() {
 		go c.refreshHashCircle(sessions)
 		return c.firstKey()
@@ -82,16 +86,16 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 
 // refreshHashCircle refresh hashCircle
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
-	c.hashCircle = make(map[int64]getty.Session)
-	c.sortedHashNodes = c.sortedHashNodes[:0]
+	var sortedHashNodes []int64
+	hashCircle := make(map[int64]getty.Session)
 	var session getty.Session
 	sessions.Range(func(key, value interface{}) bool {
 		session = key.(getty.Session)
 		for i := 0; i < defaultVirtualNodeNumber; i++ {
 			if !session.IsClosed() {
 				position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
-				c.put(position, session)
-				c.sortedHashNodes = append(c.sortedHashNodes, position)
+				hashCircle[position] = session
+				sortedHashNodes = append(sortedHashNodes, position)
 			} else {
 				sessions.Delete(key)
 			}
@@ -100,9 +104,12 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	})
 
 	// virtual node sort
-	sort.Slice(c.sortedHashNodes, func(i, j int) bool {
-		return c.sortedHashNodes[i] < c.sortedHashNodes[j]
+	sort.Slice(sortedHashNodes, func(i, j int) bool {
+		return sortedHashNodes[i] < sortedHashNodes[j]
 	})
+
+	c.sortedHashNodes = sortedHashNodes
+	c.hashCircle = hashCircle
 }
 
 func (c *Consistent) firstKey() getty.Session {
