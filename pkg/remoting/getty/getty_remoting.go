@@ -19,13 +19,13 @@ package getty
 
 import (
 	"fmt"
-	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"sync"
 	"time"
 
 	getty "github.com/apache/dubbo-getty"
 
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
