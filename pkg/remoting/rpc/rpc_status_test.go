@@ -18,8 +18,9 @@
 package rpc
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var service = "127.0.0.1:8000"

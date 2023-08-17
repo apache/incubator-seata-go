@@ -18,10 +18,11 @@
 package loadbalance
 
 import (
-	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/seata/seata-go/pkg/remoting/rpc"
 
 	getty "github.com/apache/dubbo-getty"
 )
