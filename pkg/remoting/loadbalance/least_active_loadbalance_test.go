@@ -19,47 +19,44 @@ package loadbalance
 
 import (
 	"fmt"
+	"github.com/golang/mock/gomock"
+	"github.com/seata/seata-go/pkg/remoting/mock"
+	"github.com/seata/seata-go/pkg/remoting/rpc"
+	"github.com/stretchr/testify/assert"
+	"strconv"
 	"sync"
 	"testing"
-	"time"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/remoting/mock"
 )
 
 func TestLeastActiveLoadBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
-	now := time.Now()
+	for i := 1; i <= 3; i++ {
+		session := mock.NewMockTestSession(ctrl)
+		session.EXPECT().IsClosed().Return(false).AnyTimes()
+		addr := "127.0.0." + strconv.Itoa(i) + ":8000"
+		session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
+			return addr
+		})
+		sessions.Store(session, fmt.Sprintf("session-%d", i))
+		rpc.BeginCount(addr)
+	}
 
 	session := mock.NewMockTestSession(ctrl)
-	session.EXPECT().GetActive().Return(now.Add(-time.Second * 7)).AnyTimes()
-	session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
-		return "127.0.0.1:8000"
-	})
-	session.EXPECT().IsClosed().Return(false).AnyTimes()
-	sessions.Store(session, fmt.Sprintf("session-%d", 1))
-
-	session = mock.NewMockTestSession(ctrl)
-	session.EXPECT().GetActive().Return(now.Add(-time.Second * 5)).AnyTimes()
-	session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
-		return "127.0.0.1:8001"
-	})
-	session.EXPECT().IsClosed().Return(false).AnyTimes()
-	sessions.Store(session, fmt.Sprintf("session-%d", 2))
-
-	session = mock.NewMockTestSession(ctrl)
-	session.EXPECT().GetActive().Return(now.Add(-time.Second * 10)).AnyTimes()
-	session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
-		return "127.0.0.1:8002"
-	})
 	session.EXPECT().IsClosed().Return(true).AnyTimes()
-	sessions.Store(session, fmt.Sprintf("session-%d", 3))
+	addr := "127.0.0.5:8000"
+	session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
+		return addr
+	})
+	sessions.Store(session, "session-5")
+	rpc.BeginCount(addr)
+
+	countTwo := "127.0.0.1:8000"
+	rpc.BeginCount(countTwo)
 
 	result := LeastActiveLoadBalance(sessions, "test_xid")
-	assert.True(t, result.RemoteAddr() == "127.0.0.1:8000")
+	assert.False(t, result.RemoteAddr() == countTwo)
+	assert.False(t, result.RemoteAddr() == addr)
 	assert.False(t, result.IsClosed())
 }

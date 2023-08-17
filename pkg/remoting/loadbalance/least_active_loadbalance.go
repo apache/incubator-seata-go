@@ -18,6 +18,7 @@
 package loadbalance
 
 import (
+	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"math/rand"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ import (
 
 func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
 	var session getty.Session
-	var leastActive int64 = -1
+	var leastActive int32 = -1
 	leastCount := 0
 	var leastIndexes []getty.Session
 	sessions.Range(func(key, value interface{}) bool {
@@ -35,15 +36,15 @@ func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
 		if session.IsClosed() {
 			sessions.Delete(session)
 		} else {
-			interval := session.GetActive().UnixNano()
-			if leastActive == -1 || interval < leastActive {
-				leastActive = interval
+			active := rpc.GetStatus(session.RemoteAddr()).GetActive()
+			if leastActive == -1 || active < leastActive {
+				leastActive = active
 				leastCount = 1
 				if len(leastIndexes) > 0 {
 					leastIndexes = leastIndexes[:0]
 				}
 				leastIndexes = append(leastIndexes, session)
-			} else if interval == leastActive {
+			} else if active == leastActive {
 				leastIndexes = append(leastIndexes, session)
 				leastCount++
 			}

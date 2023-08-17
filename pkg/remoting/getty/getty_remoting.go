@@ -19,6 +19,7 @@ package getty
 
 import (
 	"fmt"
+	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"sync"
 	"time"
 
@@ -61,14 +62,19 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 	if s == nil {
 		s = sessionManager.selectSession(msg)
 	}
-	return g.sendAsync(s, msg, callback)
+	rpc.BeginCount(s.RemoteAddr())
+	result, err := g.sendAsync(s, msg, callback)
+	rpc.EndCount(s.RemoteAddr())
+	return result, err
 }
 
 func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
 		s = sessionManager.selectSession(msg)
 	}
+	rpc.BeginCount(s.RemoteAddr())
 	_, err := g.sendAsync(s, msg, callback)
+	rpc.EndCount(s.RemoteAddr())
 	return err
 }
 
