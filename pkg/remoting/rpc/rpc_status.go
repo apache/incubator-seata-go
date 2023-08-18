@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 )
 
-var ServiceStatusMap sync.Map
+var serviceStatusMap sync.Map
 
 type Status struct {
 	Active int32
@@ -31,7 +31,7 @@ type Status struct {
 
 // RemoveStatus remove the RpcStatus of this service
 func RemoveStatus(service string) {
-	ServiceStatusMap.Delete(service)
+	serviceStatusMap.Delete(service)
 }
 
 // BeginCount begin count
@@ -49,7 +49,7 @@ func EndCount(service string) {
 
 // GetStatus get status
 func GetStatus(service string) *Status {
-	a, _ := ServiceStatusMap.LoadOrStore(service, new(Status))
+	a, _ := serviceStatusMap.LoadOrStore(service, new(Status))
 	return a.(*Status)
 }
 
