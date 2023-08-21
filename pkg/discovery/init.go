@@ -35,7 +35,7 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 	case ETCD:
 		//TODO: init etcd registry
 	case NACOS:
-		//TODO: init nacos registry
+		registryService = NewNacosRegistryService(registryConfig.Nacos)
 	case EUREKA:
 		//TODO: init eureka registry
 	case REDIS:
