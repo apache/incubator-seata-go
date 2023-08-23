@@ -36,7 +36,7 @@ type NacosRegistryService struct {
 
 func NewNacosRegistryService(nacosConfig NacosConfig) RegistryService {
 	properties := make(map[string]interface{})
-	serverConfigs, _ := ParseNacosServerConfig(nacosConfig)
+	serverConfigs, _ := parseNacosServerConfig(nacosConfig)
 	properties[constant.KEY_SERVER_CONFIGS] = serverConfigs
 	client, err := clients.CreateNamingClient(properties)
 	if err != nil {
@@ -47,7 +47,7 @@ func NewNacosRegistryService(nacosConfig NacosConfig) RegistryService {
 	return &NacosRegistryService{client, nacosConfig}
 }
 
-func ParseNacosServerConfig(config NacosConfig) ([]constant.ServerConfig, error) {
+func parseNacosServerConfig(config NacosConfig) ([]constant.ServerConfig, error) {
 	serviceConfigs := make([]constant.ServerConfig, 0)
 	serverAddr := config.ServerAddr
 	addresses := strings.Split(serverAddr, ";")

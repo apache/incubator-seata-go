@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/seata/seata-go/pkg/discovery/mock"
@@ -44,6 +43,19 @@ func TestNacosRegistryService_Lookup(t *testing.T) {
 			expect: []*ServiceInstance{
 				{Addr: "127.0.0.1", Port: 8091},
 				{Addr: "127.0.0.1", Port: 8081},
+			},
+		},
+
+		{
+
+			name:        "some instances  health status is false in nacos server",
+			nacosConfig: NacosConfig{ServerAddr: "127.0.0.1:8848", Group: "seata-server", Application: "seata"},
+			nacosAllInstance: []model.Instance{
+				{Ip: "127.0.0.1", Healthy: true, Port: 8091},
+				{Ip: "127.0.0.1", Healthy: false, Port: 8081},
+			},
+			expect: []*ServiceInstance{
+				{Addr: "127.0.0.1", Port: 8091},
 			},
 		},
 	}
@@ -105,18 +117,12 @@ func TestNewNacosRegistryService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := ParseNacosServerConfig(tt.nacosConfig)
+			actual, err := parseNacosServerConfig(tt.nacosConfig)
 			if tt.hasErr {
 				assert.Truef(t, err != nil, "expected throw erorr ,actual erorr is nil")
 				return
 			}
 			reflect.DeepEqual(actual, tt.expected)
-			nacosRegistryClient := NewNacosRegistryService(tt.nacosConfig)
-			properties := make(map[string]interface{})
-			properties[constant.KEY_SERVER_CONFIGS] = actual
-			client, _ := clients.CreateNamingClient(properties)
-			reflect.DeepEqual(nacosRegistryClient, &NacosRegistryService{nc: client, nacosServerConfig: tt.nacosConfig})
-
 		})
 	}
 
