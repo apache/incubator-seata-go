@@ -30,6 +30,7 @@ import (
 const (
 	clusterNameSplitChar = "-"
 	AddressSplitChar     = ":"
+	EtcdClusterPrefix    = "registry-seata"
 )
 
 type EtcdRegistryService struct {
@@ -68,7 +69,7 @@ func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) Reg
 		grouplist:     grouplist,
 		stopCh:        make(chan struct{}),
 	}
-	go etcdRegistryService.watch("registry-seata")
+	go etcdRegistryService.watch(EtcdClusterPrefix)
 
 	return etcdRegistryService
 }
@@ -119,7 +120,7 @@ func (s *EtcdRegistryService) watch(key string) {
 			for _, event := range watchResp.Events {
 				switch event.Type {
 				case etcd3.EventTypePut:
-					fmt.Printf("Key %s updated. New value: %s\n", event.Kv.Key, event.Kv.Value)
+					log.Infof("Key %s updated. New value: %s\n", event.Kv.Key, event.Kv.Value)
 
 					k := event.Kv.Key
 					v := event.Kv.Value
@@ -148,8 +149,8 @@ func (s *EtcdRegistryService) watch(key string) {
 					s.rwLock.Unlock()
 
 				case etcd3.EventTypeDelete:
-					fmt.Printf("Key %s deleted.\n", event.Kv.Key)
-					// 进行你想要的操作
+					log.Infof("Key %s deleted.\n", event.Kv.Key)
+
 					cluster, ip, port, err := getClusterAndAddress(event.Kv.Key)
 					if err != nil {
 						log.Errorf("etcd key err: ", err)
@@ -167,7 +168,7 @@ func (s *EtcdRegistryService) watch(key string) {
 					s.rwLock.Unlock()
 				}
 			}
-		case <-s.stopCh: // stop信号
+		case <-s.stopCh:
 			log.Warn("stop etcd watch")
 			return
 		}
@@ -246,7 +247,6 @@ func removeValueFromList(list []*ServiceInstance, ip string, port int) []*Servic
 
 func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	s.rwLock.RLock()
-	fmt.Println("lets begin")
 	cluster := s.vgroupMapping[key]
 	if cluster == "" {
 		s.rwLock.Unlock()
@@ -254,16 +254,6 @@ func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	}
 
 	list := s.grouplist[cluster]
-	//if len(list) == 0 {
-	//	return nil, fmt.Errorf("service instance doesnt exit in %s", cluster)
-	//}
-
-	if len(list) != 0 {
-		for _, v := range list {
-			fmt.Println("here is instance", v.Addr, ":", v.Port)
-		}
-	}
-	fmt.Println("over")
 	s.rwLock.RUnlock()
 	return list, nil
 }
