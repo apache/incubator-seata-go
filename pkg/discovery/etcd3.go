@@ -22,18 +22,27 @@ import (
 	"fmt"
 	"github.com/seata/seata-go/pkg/util/log"
 	etcd3 "go.etcd.io/etcd/client/v3"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+const (
+	clusterNameSplitChar = "-"
+	AddressSplitChar     = ":"
 )
 
 type EtcdRegistryService struct {
 	client        *etcd3.Client
 	cfg           etcd3.Config
 	vgroupMapping map[string]string
-	grouplist     map[string]*ServiceConfig
+	grouplist     map[string][]*ServiceInstance
+	rwLock        sync.RWMutex
 
 	stopCh chan struct{}
 }
 
-func newEtcdRegistryService(etcd3Config *Etcd3Config) RegistryService {
+func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) RegistryService {
 
 	if etcd3Config == nil {
 		log.Fatalf("etcd config is nil")
@@ -49,8 +58,8 @@ func newEtcdRegistryService(etcd3Config *Etcd3Config) RegistryService {
 		panic("failed to create etcd3 client")
 	}
 
-	vgroupMapping := make(map[string]string, 0)
-	grouplist := make(map[string]*ServiceConfig, 0)
+	vgroupMapping := config.VgroupMapping
+	grouplist := make(map[string][]*ServiceInstance, 0)
 
 	etcdRegistryService := &EtcdRegistryService{
 		client:        cli,
@@ -59,7 +68,7 @@ func newEtcdRegistryService(etcd3Config *Etcd3Config) RegistryService {
 		grouplist:     grouplist,
 		stopCh:        make(chan struct{}),
 	}
-	go etcdRegistryService.watch("seata-server")
+	go etcdRegistryService.watch("registry-seata")
 
 	return etcdRegistryService
 }
@@ -69,48 +78,196 @@ func (s *EtcdRegistryService) watch(key string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	resp, err := s.client.Get(ctx, key, etcd3.WithPrefix())
+	if err != nil {
+		log.Infof("cant get server instances from etcd")
+	}
+
+	for _, kv := range resp.Kvs {
+		k := kv.Key
+		v := kv.Value
+		clusterName, err := getClusterName(k)
+		if err != nil {
+			log.Errorf("etcd key has an incorrect format: ", err)
+			return
+		}
+		serverInstance, err := getServerInstance(v)
+		if err != nil {
+			log.Errorf("etcd value has an incorrect format: ", err)
+			return
+		}
+		s.rwLock.Lock()
+		if s.grouplist[clusterName] == nil {
+			s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
+		} else {
+			s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
+		}
+		s.rwLock.Unlock()
+	}
+
 	// 监视指定 key 的变化
 	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
 
-	fmt.Println("yep I begin to watch")
 	// 处理监视事件
 	for {
 		select {
 		case watchResp, ok := <-watchCh:
 			if !ok {
-				fmt.Println("Watch channel closed")
+				log.Warnf("Watch channel closed")
 				return
 			}
 			for _, event := range watchResp.Events {
-				// 处理事件
 				switch event.Type {
 				case etcd3.EventTypePut:
 					fmt.Printf("Key %s updated. New value: %s\n", event.Kv.Key, event.Kv.Value)
-					// 进行你想要的操作
+
+					k := event.Kv.Key
+					v := event.Kv.Value
+					clusterName, err := getClusterName(k)
+					if err != nil {
+						log.Errorf("etcd key err: ", err)
+						return
+					}
+					serverInstance, err := getServerInstance(v)
+					if err != nil {
+						log.Errorf("etcd value err: ", err)
+						return
+					}
+
+					s.rwLock.Lock()
+					if s.grouplist[clusterName] == nil {
+						s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
+						s.rwLock.Unlock()
+						continue
+					}
+					if ifHaveSameServiceInstances(s.grouplist[clusterName], serverInstance) {
+						s.rwLock.Unlock()
+						continue
+					}
+					s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
+					s.rwLock.Unlock()
+
 				case etcd3.EventTypeDelete:
 					fmt.Printf("Key %s deleted.\n", event.Kv.Key)
 					// 进行你想要的操作
+					cluster, ip, port, err := getClusterAndAddress(event.Kv.Key)
+					if err != nil {
+						log.Errorf("etcd key err: ", err)
+						return
+					}
+
+					s.rwLock.Lock()
+					serviceInstances := s.grouplist[cluster]
+					if serviceInstances == nil {
+						log.Warnf("etcd doesnt exit cluster: ", cluster)
+						s.rwLock.Unlock()
+						continue
+					}
+					s.grouplist[cluster] = removeValueFromList(serviceInstances, ip, port)
+					s.rwLock.Unlock()
 				}
 			}
 		case <-s.stopCh: // stop信号
-			fmt.Println("stop the watch")
+			log.Warn("stop etcd watch")
 			return
 		}
 	}
 }
 
-func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
-	//TODO implement me
-	get, err := s.client.Get(context.Background(), key)
-	if err != nil {
-		return nil, err
+func getClusterName(key []byte) (string, error) {
+	stringKey := string(key)
+	keySplit := strings.Split(stringKey, clusterNameSplitChar)
+	if len(keySplit) != 4 {
+		return "", fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
 	}
-	kvs := get.Kvs
-	fmt.Println(kvs)
-	return nil, err
+
+	cluster := keySplit[2]
+	return cluster, nil
+}
+
+func getServerInstance(value []byte) (*ServiceInstance, error) {
+	stringValue := string(value)
+	valueSplit := strings.Split(stringValue, AddressSplitChar)
+	if len(valueSplit) != 2 {
+		return nil, fmt.Errorf("etcd value has an incorrect format. value: %s", stringValue)
+	}
+	ip := valueSplit[0]
+	port, err := strconv.Atoi(valueSplit[1])
+	if err != nil {
+		return nil, fmt.Errorf("etcd port has an incorrect format. err: %w", err)
+	}
+	serverInstance := &ServiceInstance{
+		Addr: ip,
+		Port: port,
+	}
+
+	return serverInstance, nil
+}
+
+func getClusterAndAddress(key []byte) (string, string, int, error) {
+	stringKey := string(key)
+	keySplit := strings.Split(stringKey, clusterNameSplitChar)
+	if len(keySplit) != 4 {
+		return "", "", 0, fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
+	}
+	cluster := keySplit[2]
+	address := strings.Split(keySplit[3], AddressSplitChar)
+	ip := address[0]
+	port, err := strconv.Atoi(address[1])
+	if err != nil {
+		return "", "", 0, fmt.Errorf("etcd port has an incorrect format. err: %w", err)
+	}
+
+	return cluster, ip, port, nil
+}
+
+func ifHaveSameServiceInstances(list []*ServiceInstance, value *ServiceInstance) bool {
+	for _, v := range list {
+		if v.Addr == value.Addr && v.Port == value.Port {
+			return true
+		}
+	}
+	return false
+}
+
+func removeValueFromList(list []*ServiceInstance, ip string, port int) []*ServiceInstance {
+	for k, v := range list {
+		if v.Addr == ip && v.Port == port {
+			result := list[:k]
+			if k < len(list)-1 {
+				result = append(result, list[k+1:]...)
+			}
+			return result
+		}
+	}
+
+	return list
+}
+
+func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
+	s.rwLock.RLock()
+	fmt.Println("lets begin")
+	cluster := s.vgroupMapping[key]
+	if cluster == "" {
+		s.rwLock.Unlock()
+		return nil, fmt.Errorf("cluster doesnt exit")
+	}
+
+	list := s.grouplist[cluster]
+	//if len(list) == 0 {
+	//	return nil, fmt.Errorf("service instance doesnt exit in %s", cluster)
+	//}
+
+	if len(list) != 0 {
+		for _, v := range list {
+			fmt.Println("here is instance", v.Addr, ":", v.Port)
+		}
+	}
+	fmt.Println("over")
+	s.rwLock.RUnlock()
+	return list, nil
 }
 
 func (s *EtcdRegistryService) Close() {
 	s.stopCh <- struct{}{}
-
 }
