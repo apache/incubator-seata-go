@@ -29,8 +29,8 @@ import (
 
 const (
 	clusterNameSplitChar = "-"
-	AddressSplitChar     = ":"
-	EtcdClusterPrefix    = "registry-seata"
+	addressSplitChar     = ":"
+	etcdClusterPrefix    = "registry-seata"
 )
 
 type EtcdRegistryService struct {
@@ -69,7 +69,7 @@ func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) Reg
 		grouplist:     grouplist,
 		stopCh:        make(chan struct{}),
 	}
-	go etcdRegistryService.watch(EtcdClusterPrefix)
+	go etcdRegistryService.watch(etcdClusterPrefix)
 
 	return etcdRegistryService
 }
@@ -187,7 +187,7 @@ func getClusterName(key []byte) (string, error) {
 
 func getServerInstance(value []byte) (*ServiceInstance, error) {
 	stringValue := string(value)
-	valueSplit := strings.Split(stringValue, AddressSplitChar)
+	valueSplit := strings.Split(stringValue, addressSplitChar)
 	if len(valueSplit) != 2 {
 		return nil, fmt.Errorf("etcd value has an incorrect format. value: %s", stringValue)
 	}
@@ -211,7 +211,7 @@ func getClusterAndAddress(key []byte) (string, string, int, error) {
 		return "", "", 0, fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
 	}
 	cluster := keySplit[2]
-	address := strings.Split(keySplit[3], AddressSplitChar)
+	address := strings.Split(keySplit[3], addressSplitChar)
 	ip := address[0]
 	port, err := strconv.Atoi(address[1])
 	if err != nil {
