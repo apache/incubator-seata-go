@@ -106,10 +106,9 @@ func (s *EtcdRegistryService) watch(key string) {
 		s.rwLock.Unlock()
 	}
 
-	// 监视指定 key 的变化
+	// watch the changes of keys
 	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
 
-	// 处理监视事件
 	for {
 		select {
 		case watchResp, ok := <-watchCh:
@@ -247,14 +246,13 @@ func removeValueFromList(list []*ServiceInstance, ip string, port int) []*Servic
 
 func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
 	cluster := s.vgroupMapping[key]
 	if cluster == "" {
-		s.rwLock.Unlock()
 		return nil, fmt.Errorf("cluster doesnt exit")
 	}
 
 	list := s.grouplist[cluster]
-	s.rwLock.RUnlock()
 	return list, nil
 }
 
