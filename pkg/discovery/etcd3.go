@@ -106,7 +106,7 @@ func (s *EtcdRegistryService) watch(key string) {
 		s.rwLock.Unlock()
 	}
 
-	// watch the changes of keys
+	// watch the changes of endpoints
 	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
 
 	for {
