@@ -168,16 +168,21 @@ func TestEtcdRegistryService_Lookup(t *testing.T) {
 				t.Errorf("Got some err when create etcd-cli. error = %e", err)
 			}
 			put := tt.ops.put
+			timeout := 5 * time.Second
 			if len(put.putMap) != 0 {
 				for key, value := range put.putMap {
-					cli.Put(context.Background(), tt.args.etcdPrefix+key, value)
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
+					cli.Put(ctx, tt.args.etcdPrefix+key, value)
 				}
 			}
 
 			del := tt.ops.del
 			if len(del.delList) != 0 {
 				for _, key := range del.delList {
-					cli.Delete(context.Background(), tt.args.etcdPrefix+key)
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
+					cli.Delete(ctx, tt.args.etcdPrefix+key)
 				}
 			}
 			t.Log("After etcd operation")
