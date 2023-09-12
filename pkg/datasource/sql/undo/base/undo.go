@@ -222,7 +222,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	}
 
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "jackson"
+	parseContext[serializerKey] = "json"
 	// Todo use config
 	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
@@ -378,7 +378,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
 	// todo use config to replace
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "jackson"
+	parseContext[serializerKey] = "json"
 	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
