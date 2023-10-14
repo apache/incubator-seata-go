@@ -68,7 +68,7 @@ func TestLoadPath(t *testing.T) {
 
 	assert.NotNil(t, cfg.ClientConfig.UndoConfig)
 	assert.Equal(t, true, cfg.ClientConfig.UndoConfig.DataValidation)
-	assert.Equal(t, "jackson", cfg.ClientConfig.UndoConfig.LogSerialization)
+	assert.Equal(t, "json", cfg.ClientConfig.UndoConfig.LogSerialization)
 	assert.Equal(t, "undo_log", cfg.ClientConfig.UndoConfig.LogTable)
 	assert.Equal(t, true, cfg.ClientConfig.UndoConfig.OnlyCareUpdateColumns)
 	assert.NotNil(t, cfg.ClientConfig.UndoConfig.CompressConfig)
