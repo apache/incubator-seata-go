@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nacos-group/nacos-sdk-go/v2/clients"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+	"github.com/nacos-group/nacos-sdk-go/clients"
+	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/vo"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -40,7 +40,7 @@ func NewNacosRegistryService(nacosConfig NacosConfig) RegistryService {
 	properties[constant.KEY_SERVER_CONFIGS] = serverConfigs
 	client, err := clients.CreateNamingClient(properties)
 	if err != nil {
-		log.Fatalf("nacos client init error")
+		log.Fatal("nacos client init error")
 		panic("nacos client init error")
 
 	}

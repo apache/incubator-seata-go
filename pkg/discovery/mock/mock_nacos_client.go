@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/nacos-group/nacos-sdk-go/v2/model"
-	vo "github.com/nacos-group/nacos-sdk-go/v2/vo"
+	model "github.com/nacos-group/nacos-sdk-go/model"
+	vo "github.com/nacos-group/nacos-sdk-go/vo"
 )
 
 // MockNacosClient is a mock of NacosClient interface.
@@ -33,18 +33,6 @@ func NewMockNacosClient(ctrl *gomock.Controller) *MockNacosClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNacosClient) EXPECT() *MockNacosClientMockRecorder {
 	return m.recorder
-}
-
-// CloseClient mocks base method.
-func (m *MockNacosClient) CloseClient() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CloseClient")
-}
-
-// CloseClient indicates an expected call of CloseClient.
-func (mr *MockNacosClientMockRecorder) CloseClient() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseClient", reflect.TypeOf((*MockNacosClient)(nil).CloseClient))
 }
 
 // DeregisterInstance mocks base method.

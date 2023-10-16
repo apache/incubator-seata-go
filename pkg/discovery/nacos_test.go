@@ -1,13 +1,14 @@
 package discovery
 
 import (
-	"github.com/golang/mock/gomock"
-	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/v2/model"
-	"github.com/seata/seata-go/pkg/discovery/mock"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/seata/seata-go/pkg/discovery/mock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNacosRegistryService_Lookup(t *testing.T) {
