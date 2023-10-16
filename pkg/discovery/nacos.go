@@ -40,7 +40,7 @@ func NewNacosRegistryService(nacosConfig NacosConfig) RegistryService {
 	properties[constant.KEY_SERVER_CONFIGS] = serverConfigs
 	client, err := clients.CreateNamingClient(properties)
 	if err != nil {
-		log.Fatal("nacos client init error")
+		log.Warn("nacos client init error")
 		panic("nacos client init error")
 
 	}
@@ -75,7 +75,7 @@ func (s *NacosRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 		ServiceName: s.nacosServerConfig.Application,
 	})
 	if err != nil {
-		log.Fatalf("select all nacos service instance error")
+		log.Warn("select all nacos service instance error")
 		return nil, err
 	}
 	serviceInstances := make([]*ServiceInstance, 0)
