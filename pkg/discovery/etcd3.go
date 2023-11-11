@@ -84,28 +84,30 @@ func (s *EtcdRegistryService) watch(key string) {
 		log.Infof("cant get server instances from etcd")
 	}
 
-	for _, kv := range resp.Kvs {
-		k := kv.Key
-		v := kv.Value
-		clusterName, err := getClusterName(k)
-		if err != nil {
-			log.Errorf("etcd key has an incorrect format: ", err)
-			return
+	if resp != nil {
+		for _, kv := range resp.Kvs {
+			k := kv.Key
+			v := kv.Value
+			clusterName, err := getClusterName(k)
+			if err != nil {
+				log.Errorf("etcd key has an incorrect format: ", err)
+				return
+			}
+			serverInstance, err := getServerInstance(v)
+			if err != nil {
+				log.Errorf("etcd value has an incorrect format: ", err)
+				return
+			}
+			s.rwLock.Lock()
+			if s.grouplist[clusterName] == nil {
+				s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
+			} else {
+				s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
+			}
+			s.rwLock.Unlock()
 		}
-		serverInstance, err := getServerInstance(v)
-		if err != nil {
-			log.Errorf("etcd value has an incorrect format: ", err)
-			return
-		}
-		s.rwLock.Lock()
-		if s.grouplist[clusterName] == nil {
-			s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
-		} else {
-			s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
-		}
-		s.rwLock.Unlock()
-	}
 
+	}
 	// watch the changes of endpoints
 	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
 
