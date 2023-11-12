@@ -14,10 +14,10 @@ import (
 func TestEtcd3RegistryService_Lookup(t *testing.T) {
 
 	tests := []struct {
-		name          string
-		getResp       *clientv3.GetResponse
-		watchResponse *clientv3.WatchResponse
-		want          []*ServiceInstance
+		name      string
+		getResp   *clientv3.GetResponse
+		watchResp *clientv3.WatchResponse
+		want      []*ServiceInstance
 	}{
 		{
 			name: "normal",
@@ -29,7 +29,7 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 					},
 				},
 			},
-			watchResponse: nil,
+			watchResp: nil,
 			want: []*ServiceInstance{
 				{
 					Addr: "172.0.0.1",
@@ -40,7 +40,7 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 		{
 			name:    "use watch update ServiceInstances",
 			getResp: nil,
-			watchResponse: &clientv3.WatchResponse{
+			watchResp: &clientv3.WatchResponse{
 				Events: []*clientv3.Event{
 					{
 						Type: clientv3.EventTypePut,
@@ -55,6 +55,38 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 				{
 					Addr: "172.0.0.1",
 					Port: 8091,
+				},
+			},
+		},
+		{
+			name: "use watch del ServiceInstances",
+			getResp: &clientv3.GetResponse{
+				Kvs: []*mvccpb.KeyValue{
+					{
+						Key:   []byte("registry-seata-default-172.0.0.1:8091"),
+						Value: []byte("172.0.0.1:8091"),
+					},
+					{
+						Key:   []byte("registry-seata-default-172.0.0.1:8092"),
+						Value: []byte("172.0.0.1:8092"),
+					},
+				},
+			},
+			watchResp: &clientv3.WatchResponse{
+				Events: []*clientv3.Event{
+					{
+						Type: clientv3.EventTypeDelete,
+						Kv: &mvccpb.KeyValue{
+							Key:   []byte("registry-seata-default-172.0.0.1:8091"),
+							Value: []byte("172.0.0.1:8091"),
+						},
+					},
+				},
+			},
+			want: []*ServiceInstance{
+				{
+					Addr: "172.0.0.1",
+					Port: 8092,
 				},
 			},
 		},
@@ -85,9 +117,9 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 		// wait a second for watch
 		time.Sleep(1 * time.Second)
 
-		if tt.watchResponse != nil {
+		if tt.watchResp != nil {
 			go func() {
-				ch <- *tt.watchResponse
+				ch <- *tt.watchResp
 			}()
 		}
 
@@ -103,5 +135,7 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 			t.Log(serviceInstances[i].Port)
 		}
 		assert.True(t, reflect.DeepEqual(serviceInstances, tt.want))
+
+		etcdRegistryService.Close()
 	}
 }
