@@ -38,10 +38,11 @@ func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 }
 
 type RegistryConfig struct {
-	Type  string      `yaml:"type" json:"type" koanf:"type"`
-	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Type   string        `yaml:"type" json:"type" koanf:"type"`
+	File   FileConfig    `yaml:"file" json:"file" koanf:"file"`
+	Nacos  NacosConfig   `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3  Etcd3Config   `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Consul *ConsulConfig `yaml:"consul" json:"consul" koanf:"consul"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -89,4 +90,14 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type ConsulConfig struct {
+	Cluster    string `yaml:"cluster" json:"cluster" koanf:"cluster"`
+	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+}
+
+func (cfg *ConsulConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address name of registry.")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:8500", "The server address list of registry.")
 }

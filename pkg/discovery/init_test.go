@@ -53,6 +53,20 @@ func TestInitRegistry(t *testing.T) {
 			},
 			hasPanic: true,
 		},
+		{
+			name: "consul",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: CONSUL,
+					Consul: &ConsulConfig{
+						Cluster:    "default",
+						ServerAddr: "localhost:8500",
+					},
+				},
+			},
+			hasPanic:     true,
+			expectedType: "ConsulRegistryService",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
