@@ -64,7 +64,6 @@ func TestInitRegistry(t *testing.T) {
 					},
 				},
 			},
-			hasPanic:     true,
 			expectedType: "ConsulRegistryService",
 		},
 	}
