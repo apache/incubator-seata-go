@@ -14,7 +14,7 @@ func Test_Lookup(t *testing.T) {
 		Cluster:    "default",
 		ServerAddr: "localhost:8500",
 	}
-	cr := newConsulRegistryService(c)
+	cr := newConsulRegistryService(c, nil)
 	instances, err := cr.Lookup("mysql_service")
 	if err != nil {
 		fmt.Println(err)
