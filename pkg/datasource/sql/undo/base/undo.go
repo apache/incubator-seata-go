@@ -510,7 +510,10 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	if undoLogContext == nil {
 		return
 	}
-	serializer, _ = undoLogContext[serializerKey]
+	serializer, ok := undoLogContext[serializerKey]
+	if !ok {
+		return
+	}
 	return
 }
 
@@ -520,8 +523,8 @@ func (m *BaseUndoLogManager) deserializeBranchUndoLog(rbInfo []byte, logCtx map[
 		logParser parser.UndoLogParser
 	)
 
-	if serialzerType := m.getSerializer(logCtx); serialzerType != "" {
-		if logParser, err = parser.GetCache().Load(serialzerType); err != nil {
+	if serializerType := m.getSerializer(logCtx); serializerType != "" {
+		if logParser, err = parser.GetCache().Load(serializerType); err != nil {
 			return nil, err
 		}
 	}

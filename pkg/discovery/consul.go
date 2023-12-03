@@ -41,15 +41,16 @@ type ConsulRegistryService struct {
 	// stopCh a chan to stop discovery
 	stopCh chan struct{}
 
-	// Wp *watch.Plan // 总的Services变化对应的Plan
 	watchers map[string]*watch.Plan // store plans
-	RWMutex  *sync.RWMutex
 
+	RWMutex *sync.RWMutex
+
+	// watch plan type
 	watchType string
 }
 
 // newConsulRegistryService new a consul registry to discovery services
-func newConsulRegistryService(config *ConsulConfig, opt map[string]interface{}) RegistryService {
+func newConsulRegistryService(config *ConsulConfig, opt ...map[string]interface{}) RegistryService {
 	if config == nil {
 		log.Fatalf("consul service config is nil")
 		panic("consul service config is nil")
@@ -73,7 +74,7 @@ func newConsulRegistryService(config *ConsulConfig, opt map[string]interface{}) 
 
 	consulService.findServiceAddress()
 	go func() {
-		_, err = consulService.NewWatchPlan(opt)
+		_, err = consulService.NewWatchPlan(opt...)
 		if err != nil {
 			return
 		}
@@ -152,9 +153,8 @@ func RegisterService(serviceName string, ip string, port int) error {
 	cfg.Address = "localhost:8500"
 	c, _ := api.NewClient(cfg)
 	srv := &api.AgentServiceRegistration{
-		// ID:      fmt.Sprintf("%s-%s-%d", serviceName, ip, port), // 服务唯一ID
-		Name:    serviceName,               // 服务名称
-		Tags:    []string{"q1mi", "hello"}, // 为服务打标签
+		Name:    serviceName,                     // service name
+		Tags:    []string{"fanone", "tags_test"}, // service tags
 		Address: ip,
 		Port:    port,
 	}
@@ -162,14 +162,18 @@ func RegisterService(serviceName string, ip string, port int) error {
 }
 
 // NewWatchPlan new watch plan
-func (s *ConsulRegistryService) NewWatchPlan(opts map[string]interface{}) (*watch.Plan, error) {
+func (s *ConsulRegistryService) NewWatchPlan(opts ...map[string]interface{}) (*watch.Plan, error) {
 	var options = map[string]interface{}{
 		"type": s.watchType,
 	}
+
 	// combine params
-	for k, v := range opts {
-		options[k] = v
+	for _, opt := range opts {
+		for k, v := range opt {
+			options[k] = v
+		}
 	}
+
 	pl, err := watch.Parse(options)
 	if err != nil {
 		return nil, err

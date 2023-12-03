@@ -193,7 +193,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 			index.NonUnique = true
 		}
 
-		if "primary" == strings.ToLower(indexName) {
+		if strings.ToLower(indexName) == "primary" {
 			index.IType = types.IndexTypePrimaryKey
 		} else if !index.NonUnique {
 			index.IType = types.IndexUnique

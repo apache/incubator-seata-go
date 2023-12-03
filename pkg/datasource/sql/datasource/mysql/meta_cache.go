@@ -30,7 +30,7 @@ import (
 
 var (
 	capacity      int32 = 1024
-	EexpireTime         = 15 * time.Minute
+	ExpireTime          = 15 * time.Minute
 	tableMetaOnce sync.Once
 )
 
@@ -41,7 +41,7 @@ type TableMetaCache struct {
 
 func NewTableMetaInstance(db *sql.DB) *TableMetaCache {
 	tableMetaInstance := &TableMetaCache{
-		tableMetaCache: base.NewBaseCache(capacity, EexpireTime, NewMysqlTrigger()),
+		tableMetaCache: base.NewBaseCache(capacity, ExpireTime, NewMysqlTrigger()),
 		db:             db,
 	}
 	return tableMetaInstance

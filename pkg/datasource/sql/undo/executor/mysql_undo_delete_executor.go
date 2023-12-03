@@ -97,7 +97,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 		insertColumnSlice, insertValueSlice []string
 	)
 
-	for key, _ := range fields {
+	for key := range fields {
 		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}
