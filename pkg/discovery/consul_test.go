@@ -18,29 +18,115 @@
 package discovery
 
 import (
-	"fmt"
+	"reflect"
+	"sync"
 	"testing"
+
+	"github.com/hashicorp/consul/api"
+	"github.com/hashicorp/consul/api/watch"
 )
 
-func Test_Lookup(t *testing.T) {
-	err := RegisterService("mysql_service", "localhost", 3306)
-	if err != nil {
-		fmt.Println(err)
+func TestConsulRegistryService_Lookup(t *testing.T) {
+	type fields struct {
+		config    *ConsulConfig
+		client    *api.Client
+		serverMap *sync.Map
+		stopCh    chan struct{}
+		watchers  map[string]*watch.Plan
+		RWMutex   *sync.RWMutex
+		watchType string
 	}
-	c := &ConsulConfig{
+	type args struct {
+		key string
+	}
+	config := &ConsulConfig{
 		Cluster:    "default",
 		ServerAddr: "localhost:8500",
 	}
-	cr := newConsulRegistryService(c, nil)
-	instances, err := cr.Lookup("mysql_service")
-	if err != nil {
-		fmt.Println(err)
+	cfg := api.DefaultConfig()
+	cli, _ := api.NewClient(cfg)
+	serviceWithSyncMap := new(sync.Map)
+	serviceWithSyncMap.Store("mysql_service", []*ServiceInstance{
+		{
+			Addr: "localhost",
+			Port: 3306,
+		},
+		{
+			Addr: "localhost",
+			Port: 3306,
+		},
+	})
+	tests := []struct {
+		name           string
+		fields         fields
+		args           args
+		wantServiceIns []*ServiceInstance
+		wantErr        bool
+	}{
+		{
+			name: "mysql_service_without_sync_map",
+			fields: fields{
+				config:    config,
+				client:    cli,
+				serverMap: new(sync.Map),
+				RWMutex:   new(sync.RWMutex),
+				watchType: "service",
+			},
+			args: args{key: "mysql_service"},
+			wantServiceIns: []*ServiceInstance{
+				{
+					Addr: "localhost",
+					Port: 3306,
+				},
+				{
+					Addr: "localhost",
+					Port: 3306,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mysql_service_with_sync_map",
+			fields: fields{
+				config:    config,
+				client:    cli,
+				serverMap: serviceWithSyncMap,
+				RWMutex:   new(sync.RWMutex),
+				watchType: "service",
+			},
+			args: args{key: "mysql_service"},
+			wantServiceIns: []*ServiceInstance{
+				{
+					Addr: "localhost",
+					Port: 3306,
+				},
+				{
+					Addr: "localhost",
+					Port: 3306,
+				},
+			},
+			wantErr: false,
+		},
 	}
-	for _, ins := range instances {
-		fmt.Println(ins)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ConsulRegistryService{
+				config:    tt.fields.config,
+				client:    tt.fields.client,
+				serverMap: tt.fields.serverMap,
+				stopCh:    tt.fields.stopCh,
+				watchers:  tt.fields.watchers,
+				RWMutex:   tt.fields.RWMutex,
+				watchType: tt.fields.watchType,
+			}
+			gotServiceIns, err := s.Lookup(tt.args.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Lookup() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotServiceIns, tt.wantServiceIns) {
+				t.Errorf("Lookup() gotServiceIns = %v, want %v", gotServiceIns, tt.wantServiceIns)
+			}
+		})
 	}
-}
-
-func TestNewWatchPlan(t *testing.T) {
-
 }

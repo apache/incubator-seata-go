@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.32.1
 	github.com/sijms/go-ora/v2 v2.5.17
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.51.0
@@ -92,6 +92,7 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
