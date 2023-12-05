@@ -23,19 +23,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/consul/api"
-	"github.com/hashicorp/consul/api/watch"
 )
 
 func TestConsulRegistryService_Lookup(t *testing.T) {
-	type fields struct {
-		config    *ConsulConfig
-		client    *api.Client
-		serverMap *sync.Map
-		stopCh    chan struct{}
-		watchers  map[string]*watch.Plan
-		RWMutex   *sync.RWMutex
-		watchType string
-	}
 	type args struct {
 		key string
 	}
@@ -58,14 +48,14 @@ func TestConsulRegistryService_Lookup(t *testing.T) {
 	})
 	tests := []struct {
 		name           string
-		fields         fields
+		fields         ConsulRegistryService
 		args           args
 		wantServiceIns []*ServiceInstance
 		wantErr        bool
 	}{
 		{
 			name: "mysql_service_without_sync_map",
-			fields: fields{
+			fields: ConsulRegistryService{
 				config:    config,
 				client:    cli,
 				serverMap: new(sync.Map),
@@ -87,7 +77,7 @@ func TestConsulRegistryService_Lookup(t *testing.T) {
 		},
 		{
 			name: "mysql_service_with_sync_map",
-			fields: fields{
+			fields: ConsulRegistryService{
 				config:    config,
 				client:    cli,
 				serverMap: serviceWithSyncMap,
