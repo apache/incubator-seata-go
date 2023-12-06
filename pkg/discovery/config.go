@@ -30,11 +30,11 @@ type ServiceConfig struct {
 	DisableGlobalTransaction bool              `yaml:"disable-global-transaction" json:"disable-global-transaction" koanf:"disable-global-transaction"`
 }
 
-func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&cfg.EnableDegrade, prefix+".enable-degrade", false, "degrade current not support.")
-	f.BoolVar(&cfg.DisableGlobalTransaction, prefix+".disable-global-transaction", false, "disable globalTransaction.")
-	f.Var(&cfg.VgroupMapping, prefix+".vgroup-mapping", "The vgroup mapping.")
-	f.Var(&cfg.Grouplist, prefix+".grouplist", "The group list.")
+func (c *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.BoolVar(&c.EnableDegrade, prefix+".enable-degrade", false, "degrade current not support.")
+	f.BoolVar(&c.DisableGlobalTransaction, prefix+".disable-global-transaction", false, "disable globalTransaction.")
+	f.Var(&c.VgroupMapping, prefix+".vgroup-mapping", "The vgroup mapping.")
+	f.Var(&c.Grouplist, prefix+".grouplist", "The group list.")
 }
 
 type RegistryConfig struct {
@@ -45,19 +45,19 @@ type RegistryConfig struct {
 	Consul *ConsulConfig `yaml:"consul" json:"consul" koanf:"consul"`
 }
 
-func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Type, prefix+".type", "file", "The registry type.")
-	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
-	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
-	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+func (c *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&c.Type, prefix+".type", "file", "The registry type.")
+	c.File.RegisterFlagsWithPrefix(prefix+".file", f)
+	c.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
+	c.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
 }
 
 type FileConfig struct {
 	Name string `yaml:"name" json:"name" koanf:"name"`
 }
 
-func (cfg *FileConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Name, prefix+".name", "registry.conf", "The file name of registry.")
+func (c *FileConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&c.Name, prefix+".name", "registry.conf", "The file name of registry.")
 }
 
 type NacosConfig struct {
@@ -71,15 +71,15 @@ type NacosConfig struct {
 	SecretKey   string `yaml:"secret-key" json:"secret-key" koanf:"secret-key"`
 }
 
-func (cfg *NacosConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Application, prefix+".application", "seata", "The application name of registry.")
-	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "", "The server address of registry.")
-	f.StringVar(&cfg.Group, prefix+".group", "SEATA_GROUP", "The group of registry.")
-	f.StringVar(&cfg.Namespace, prefix+".namespace", "", "The namespace of registry.")
-	f.StringVar(&cfg.Username, prefix+".username", "", "The username of registry.")
-	f.StringVar(&cfg.Password, prefix+".password", "", "The password of registry.")
-	f.StringVar(&cfg.AccessKey, prefix+".access-key", "", "The access key of registry.")
-	f.StringVar(&cfg.SecretKey, prefix+".secret-key", "", "The secret key of registry.")
+func (c *NacosConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&c.Application, prefix+".application", "seata", "The application name of registry.")
+	f.StringVar(&c.ServerAddr, prefix+".server-addr", "", "The server address of registry.")
+	f.StringVar(&c.Group, prefix+".group", "SEATA_GROUP", "The group of registry.")
+	f.StringVar(&c.Namespace, prefix+".namespace", "", "The namespace of registry.")
+	f.StringVar(&c.Username, prefix+".username", "", "The username of registry.")
+	f.StringVar(&c.Password, prefix+".password", "", "The password of registry.")
+	f.StringVar(&c.AccessKey, prefix+".access-key", "", "The access key of registry.")
+	f.StringVar(&c.SecretKey, prefix+".secret-key", "", "The secret key of registry.")
 }
 
 type Etcd3Config struct {
@@ -87,9 +87,9 @@ type Etcd3Config struct {
 	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 }
 
-func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
-	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+func (c *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&c.Cluster, prefix+".cluster", "default", "The server address of registry.")
+	f.StringVar(&c.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
 }
 
 type ConsulConfig struct {
@@ -97,7 +97,7 @@ type ConsulConfig struct {
 	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 }
 
-func (cfg *ConsulConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address name of registry.")
-	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:8500", "The server address list of registry.")
+func (c *ConsulConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&c.Cluster, prefix+".cluster", "default", "The server address name of registry.")
+	f.StringVar(&c.ServerAddr, prefix+".server-addr", "http://localhost:8500", "The server address list of registry.")
 }
