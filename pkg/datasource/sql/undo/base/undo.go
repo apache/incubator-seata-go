@@ -510,8 +510,10 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	if undoLogContext == nil {
 		return
 	}
+
 	serializer, ok := undoLogContext[serializerKey]
 	if !ok {
+		log.Errorf("undoLogContext not %s key %v", serializerKey, ok)
 		return
 	}
 	return

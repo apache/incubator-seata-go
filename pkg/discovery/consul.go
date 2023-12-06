@@ -90,7 +90,7 @@ func (s *ConsulRegistryService) Lookup(key string) (serviceIns []*ServiceInstanc
 	if !ok {
 		// if not in server map , we try again though service filter.
 		var r []*ServiceInstance
-		var svcMap = make(map[string]*api.AgentService)
+		var svcMap map[string]*api.AgentService
 		svcMap, err = s.client.Agent().ServicesWithFilter(fmt.Sprintf("Service == \"%s\"", key))
 		if err != nil {
 			return
@@ -109,6 +109,7 @@ func (s *ConsulRegistryService) Lookup(key string) (serviceIns []*ServiceInstanc
 
 	serviceIns, ok = insList.([]*ServiceInstance)
 	if !ok {
+		log.Error("not ok in instance list", ok)
 		return
 	}
 	return
