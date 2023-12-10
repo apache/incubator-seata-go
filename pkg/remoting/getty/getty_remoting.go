@@ -65,6 +65,10 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 	rpc.BeginCount(s.RemoteAddr())
 	result, err := g.sendAsync(s, msg, callback)
 	rpc.EndCount(s.RemoteAddr())
+	if err != nil {
+		log.Errorf("send message: %#v, session: %s", msg, s.Stat())
+		return nil, err
+	}
 	return result, err
 }
 
@@ -75,6 +79,9 @@ func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callb
 	rpc.BeginCount(s.RemoteAddr())
 	_, err := g.sendAsync(s, msg, callback)
 	rpc.EndCount(s.RemoteAddr())
+	if err != nil {
+		log.Errorf("send message: %#v, session: %s", msg, s.Stat())
+	}
 	return err
 }
 
