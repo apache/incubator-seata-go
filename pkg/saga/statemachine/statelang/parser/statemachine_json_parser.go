@@ -32,11 +32,17 @@ func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelan
 	stateMachine.SetStartState(stateMachineJsonObject.StartState)
 	stateMachine.SetPersist(stateMachineJsonObject.Persist)
 
-	recoverStrategy, ok := statelang.ValueOf(stateMachineJsonObject.RecoverStrategy)
-	if !ok {
-		return nil, errors.New("Not support " + stateMachineJsonObject.RecoverStrategy)
+	if stateMachineJsonObject.Type != "" {
+		stateMachine.SetType(stateMachineJsonObject.Type)
 	}
-	stateMachine.SetRecoverStrategy(recoverStrategy)
+
+	if stateMachineJsonObject.RecoverStrategy != "" {
+		recoverStrategy, ok := statelang.ValueOf(stateMachineJsonObject.RecoverStrategy)
+		if !ok {
+			return nil, errors.New("Not support " + stateMachineJsonObject.RecoverStrategy)
+		}
+		stateMachine.SetRecoverStrategy(recoverStrategy)
+	}
 
 	stateParserFactory := NewDefaultStateParserFactory()
 	stateParserFactory.InitDefaultStateParser()
@@ -57,16 +63,17 @@ func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelan
 			return nil, errors.New("State Type [" + stateType + "] is not support")
 		}
 
+		_, stateExist := stateMachine.GetStates()[stateName]
+		if stateExist {
+			return nil, errors.New("State [name:" + stateName + "] already exists")
+		}
+
 		state, err := stateParser.Parse(stateName, stateMap)
 		if err != nil {
 			return nil, err
 		}
 
 		state.SetStateMachine(stateMachine)
-		_, stateExist := stateMachine.GetStates()[stateName]
-		if stateExist {
-			return nil, errors.New("State [name:" + stateName + "] already exists")
-		}
 		stateMachine.GetStates()[stateName] = state
 	}
 

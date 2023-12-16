@@ -118,10 +118,10 @@ type State interface {
 }
 
 type BaseState struct {
-	name         string
-	comment      string
-	typeName     string
-	next         string
+	name         string `alias:"Name"`
+	comment      string `alias:"Comment"`
+	typeName     string `alias:"Type"`
+	next         string `alias:"Next"`
 	stateMachine StateMachine
 }
 

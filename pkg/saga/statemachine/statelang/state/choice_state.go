@@ -22,8 +22,8 @@ type Choice interface {
 
 type ChoiceStateImpl struct {
 	statelang.BaseState
-	defaultChoice string
-	choices       []Choice
+	defaultChoice string   `alias:"Default"`
+	choices       []Choice `alias:"Choices"`
 }
 
 func NewChoiceStateImpl() *ChoiceStateImpl {
@@ -32,17 +32,29 @@ func NewChoiceStateImpl() *ChoiceStateImpl {
 	}
 }
 
-func (choiceState ChoiceStateImpl) GetDefault() string {
+func (choiceState *ChoiceStateImpl) GetDefault() string {
 	return choiceState.defaultChoice
 }
 
-func (choiceState ChoiceStateImpl) GetChoices() []Choice {
+func (choiceState *ChoiceStateImpl) GetChoices() []Choice {
 	return choiceState.choices
+}
+
+func (choiceState *ChoiceStateImpl) SetDefault(defaultChoice string) {
+	choiceState.defaultChoice = defaultChoice
+}
+
+func (choiceState *ChoiceStateImpl) SetChoices(choices []Choice) {
+	choiceState.choices = choices
 }
 
 type ChoiceImpl struct {
 	expression string
 	next       string
+}
+
+func NewChoiceImpl() *ChoiceImpl {
+	return &ChoiceImpl{}
 }
 
 func (c *ChoiceImpl) GetExpression() string {
