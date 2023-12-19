@@ -6,6 +6,5 @@ import (
 )
 
 type StateMachineEngine interface {
-	//TODO check
-	start(ctx context.Context, args ...interface{}) (statelang.StateMachineInstance, error)
+	start(ctx context.Context, stateMachineName string, tenantId string, startParams map[string]interface{}) (statelang.StateMachineInstance, error)
 }

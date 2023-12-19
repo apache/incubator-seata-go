@@ -7,22 +7,19 @@ import (
 type TaskState interface {
 	statelang.State
 
-	GetCompensateState() string
+	CompensateState() string
 
-	GetStatus() map[string]string
+	Status() map[string]string
 
-	GetRetry() []Retry
-
-	//golang not need catch, use error?
-	//todo support loop
+	Retry() []Retry
 }
 
 type Retry interface {
-	GetErrorTypeNames() []string
+	ErrorTypeNames() []string
 
-	GetIntervalSecond() float64
+	IntervalSecond() float64
 
-	GetMaxAttempt() int
+	MaxAttempt() int
 
-	GetBackoffRate() float64
+	BackoffRate() float64
 }

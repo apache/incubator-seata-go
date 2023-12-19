@@ -5,17 +5,17 @@ import "github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 type ChoiceState interface {
 	statelang.State
 
-	GetChoices() []Choice
+	Choices() []Choice
 
-	GetDefault() string
+	Default() string
 }
 
 type Choice interface {
-	GetExpression() string
+	Expression() string
 
 	SetExpression(expression string)
 
-	GetNext() string
+	Next() string
 
 	SetNext(next string)
 }
@@ -32,11 +32,11 @@ func NewChoiceStateImpl() *ChoiceStateImpl {
 	}
 }
 
-func (choiceState *ChoiceStateImpl) GetDefault() string {
+func (choiceState *ChoiceStateImpl) Default() string {
 	return choiceState.defaultChoice
 }
 
-func (choiceState *ChoiceStateImpl) GetChoices() []Choice {
+func (choiceState *ChoiceStateImpl) Choices() []Choice {
 	return choiceState.choices
 }
 
@@ -57,7 +57,7 @@ func NewChoiceImpl() *ChoiceImpl {
 	return &ChoiceImpl{}
 }
 
-func (c *ChoiceImpl) GetExpression() string {
+func (c *ChoiceImpl) Expression() string {
 	return c.expression
 }
 
@@ -65,7 +65,7 @@ func (c *ChoiceImpl) SetExpression(expression string) {
 	c.expression = expression
 }
 
-func (c *ChoiceImpl) GetNext() string {
+func (c *ChoiceImpl) Next() string {
 	return c.next
 }
 

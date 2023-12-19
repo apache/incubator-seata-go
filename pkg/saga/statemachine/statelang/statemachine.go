@@ -21,7 +21,7 @@ const (
 	Forward RecoverStrategy = "Forward"
 )
 
-func ValueOf(recoverStrategy string) (RecoverStrategy, bool) {
+func ValueOfRecoverStrategy(recoverStrategy string) (RecoverStrategy, bool) {
 	switch recoverStrategy {
 	case "Compensate":
 		return Compensate, true
@@ -34,133 +34,228 @@ func ValueOf(recoverStrategy string) (RecoverStrategy, bool) {
 }
 
 type StateMachine interface {
-	GetId() string
+	ID() string
 
-	SetId(id string)
+	SetID(id string)
 
-	GetName() string
+	Name() string
 
 	SetName(name string)
 
-	GetComment() string
+	Comment() string
 
 	SetComment(comment string)
 
-	GetStartState() string
+	StartState() string
 
 	SetStartState(startState string)
 
-	GetVersion() string
+	Version() string
 
 	SetVersion(version string)
 
-	GetStates() map[string]State
+	States() map[string]State
 
-	GetState(stateName string) State
+	State(stateName string) State
 
-	GetTenantId() string
+	TenantId() string
 
 	SetTenantId(tenantId string)
 
-	GetAppName() string
+	AppName() string
 
 	SetAppName(appName string)
 
-	GetType() string
+	Type() string
 
 	SetType(typeName string)
 
-	GetStatus() StateMachineStatus
+	Status() StateMachineStatus
 
 	SetStatus(status StateMachineStatus)
 
-	GetRecoverStrategy() RecoverStrategy
+	RecoverStrategy() RecoverStrategy
 
 	SetRecoverStrategy(recoverStrategy RecoverStrategy)
 
 	IsPersist() bool
 
-	IsRetryPersistModeUpdate() bool
-
-	isCompensatePersistModeUpdate() bool
-
 	SetPersist(persist bool)
 
-	GetContent() string
+	IsRetryPersistModeUpdate() bool
+
+	SetRetryPersistModeUpdate(retryPersistModeUpdate bool)
+
+	IsCompensatePersistModeUpdate() bool
+
+	SetCompensatePersistModeUpdate(compensatePersistModeUpdate bool)
+
+	Content() string
 
 	SetContent(content string)
 
-	GetCreateTime() time.Time
+	CreateTime() time.Time
 
 	SetCreateTime(createTime time.Time)
 }
 
-type State interface {
-	GetName() string
-
-	SetName(name string)
-
-	GetComment() string
-
-	SetComment(comment string)
-
-	GetType() string
-
-	SetType(typeName string)
-
-	GetNext() string
-
-	SetNext(next string)
-
-	GetStateMachine() StateMachine
-
-	SetStateMachine(machine StateMachine)
+type StateMachineImpl struct {
+	id                          string
+	tenantId                    string
+	appName                     string
+	name                        string
+	comment                     string
+	version                     string
+	startState                  string
+	status                      StateMachineStatus
+	recoverStrategy             RecoverStrategy
+	persist                     bool
+	retryPersistModeUpdate      bool
+	compensatePersistModeUpdate bool
+	typeName                    string
+	content                     string
+	createTime                  time.Time
+	states                      map[string]State
 }
 
-type BaseState struct {
-	name         string `alias:"Name"`
-	comment      string `alias:"Comment"`
-	typeName     string `alias:"Type"`
-	next         string `alias:"Next"`
-	stateMachine StateMachine
+func NewStateMachineImpl() *StateMachineImpl {
+	stateMap := make(map[string]State)
+	return &StateMachineImpl{
+		appName:  "SEATA",
+		status:   Active,
+		typeName: "STATE_LANG",
+		states:   stateMap,
+	}
 }
 
-func (b *BaseState) GetName() string {
-	return b.name
+func (s *StateMachineImpl) ID() string {
+	return s.id
 }
 
-func (b *BaseState) SetName(name string) {
-	b.name = name
+func (s *StateMachineImpl) SetID(id string) {
+	s.id = id
 }
 
-func (b *BaseState) GetComment() string {
-	return b.comment
+func (s *StateMachineImpl) Name() string {
+	return s.name
 }
 
-func (b *BaseState) SetComment(comment string) {
-	b.comment = comment
+func (s *StateMachineImpl) SetName(name string) {
+	s.name = name
 }
 
-func (b *BaseState) GetType() string {
-	return b.typeName
+func (s *StateMachineImpl) SetComment(comment string) {
+	s.comment = comment
 }
 
-func (b *BaseState) SetType(typeName string) {
-	b.typeName = typeName
+func (s *StateMachineImpl) Comment() string {
+	return s.comment
 }
 
-func (b *BaseState) GetNext() string {
-	return b.next
+func (s *StateMachineImpl) StartState() string {
+	return s.startState
 }
 
-func (b *BaseState) SetNext(next string) {
-	b.next = next
+func (s *StateMachineImpl) SetStartState(startState string) {
+	s.startState = startState
 }
 
-func (b *BaseState) GetStateMachine() StateMachine {
-	return b.stateMachine
+func (s *StateMachineImpl) Version() string {
+	return s.version
 }
 
-func (b *BaseState) SetStateMachine(machine StateMachine) {
-	b.stateMachine = machine
+func (s *StateMachineImpl) SetVersion(version string) {
+	s.version = version
+}
+
+func (s *StateMachineImpl) States() map[string]State {
+	return s.states
+}
+
+func (s *StateMachineImpl) State(stateName string) State {
+	if s.states == nil {
+		return nil
+	}
+
+	return s.states[stateName]
+}
+
+func (s *StateMachineImpl) TenantId() string {
+	return s.tenantId
+}
+
+func (s *StateMachineImpl) SetTenantId(tenantId string) {
+	s.tenantId = tenantId
+}
+
+func (s *StateMachineImpl) AppName() string {
+	return s.appName
+}
+
+func (s *StateMachineImpl) SetAppName(appName string) {
+	s.appName = appName
+}
+
+func (s *StateMachineImpl) Type() string {
+	return s.typeName
+}
+
+func (s *StateMachineImpl) SetType(typeName string) {
+	s.typeName = typeName
+}
+
+func (s *StateMachineImpl) Status() StateMachineStatus {
+	return s.status
+}
+
+func (s *StateMachineImpl) SetStatus(status StateMachineStatus) {
+	s.status = status
+}
+
+func (s *StateMachineImpl) RecoverStrategy() RecoverStrategy {
+	return s.recoverStrategy
+}
+
+func (s *StateMachineImpl) SetRecoverStrategy(recoverStrategy RecoverStrategy) {
+	s.recoverStrategy = recoverStrategy
+}
+
+func (s *StateMachineImpl) IsPersist() bool {
+	return s.persist
+}
+
+func (s *StateMachineImpl) SetPersist(persist bool) {
+	s.persist = persist
+}
+
+func (s *StateMachineImpl) IsRetryPersistModeUpdate() bool {
+	return s.retryPersistModeUpdate
+}
+
+func (s *StateMachineImpl) SetRetryPersistModeUpdate(retryPersistModeUpdate bool) {
+	s.retryPersistModeUpdate = retryPersistModeUpdate
+}
+
+func (s *StateMachineImpl) IsCompensatePersistModeUpdate() bool {
+	return s.compensatePersistModeUpdate
+}
+
+func (s *StateMachineImpl) SetCompensatePersistModeUpdate(compensatePersistModeUpdate bool) {
+	s.compensatePersistModeUpdate = compensatePersistModeUpdate
+}
+
+func (s *StateMachineImpl) Content() string {
+	return s.content
+}
+
+func (s *StateMachineImpl) SetContent(content string) {
+	s.content = content
+}
+
+func (s *StateMachineImpl) CreateTime() time.Time {
+	return s.createTime
+}
+
+func (s *StateMachineImpl) SetCreateTime(createTime time.Time) {
+	s.createTime = createTime
 }
