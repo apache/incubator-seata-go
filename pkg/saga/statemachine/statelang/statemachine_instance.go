@@ -47,7 +47,7 @@ type StateMachineInstance interface {
 
 	StateList() []StateInstance
 
-	StateMap() map[string]StateInstance
+	State(stateId string) StateInstance
 
 	PutState(stateId string, stateInstance StateInstance)
 
@@ -83,7 +83,7 @@ type StateMachineInstance interface {
 
 	SetEndParams(endParams map[string]interface{})
 
-	Context() map[string]interface{}
+	PutContext(key string, value interface{})
 
 	SetContext(context map[string]interface{})
 
@@ -126,7 +126,9 @@ type StateMachineInstanceImpl struct {
 	stateMachine          StateMachine
 	stateList             []StateInstance
 	stateMap              map[string]StateInstance
-	mutex                 sync.RWMutex // Mutex to protect concurrent access to stateList and stateMap
+
+	contextMutex sync.RWMutex // Mutex to protect concurrent access to context
+	stateMutex   sync.RWMutex // Mutex to protect concurrent access to stateList and stateMap
 }
 
 func NewStateMachineInstanceImpl() *StateMachineInstanceImpl {
@@ -189,13 +191,16 @@ func (s *StateMachineInstanceImpl) StateList() []StateInstance {
 	return s.stateList
 }
 
-func (s *StateMachineInstanceImpl) StateMap() map[string]StateInstance {
-	return s.stateMap
+func (s *StateMachineInstanceImpl) State(stateId string) StateInstance {
+	s.stateMutex.RLock()
+	defer s.stateMutex.RUnlock()
+
+	return s.stateMap[stateId]
 }
 
 func (s *StateMachineInstanceImpl) PutState(stateId string, stateInstance StateInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.stateMutex.Lock()
+	defer s.stateMutex.Unlock()
 
 	stateInstance.SetStateMachineInstance(s)
 	s.stateMap[stateId] = stateInstance
@@ -266,8 +271,11 @@ func (s *StateMachineInstanceImpl) SetEndParams(endParams map[string]interface{}
 	s.endParams = endParams
 }
 
-func (s *StateMachineInstanceImpl) Context() map[string]interface{} {
-	return s.context
+func (s *StateMachineInstanceImpl) PutContext(key string, value interface{}) {
+	s.contextMutex.Lock()
+	defer s.contextMutex.Unlock()
+
+	s.context[key] = value
 }
 
 func (s *StateMachineInstanceImpl) SetContext(context map[string]interface{}) {

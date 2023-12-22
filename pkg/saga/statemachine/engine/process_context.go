@@ -41,76 +41,18 @@ type HierarchicalProcessContext interface {
 	ClearLocally()
 }
 
-type SafeMap struct {
-	mu sync.RWMutex
-	mp map[string]interface{}
-}
-
-func NewSafeMap() *SafeMap {
-	return &SafeMap{
-		mp: make(map[string]interface{}),
-	}
-}
-
-func (sm *SafeMap) Set(key string, value interface{}) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	sm.mp[key] = value
-}
-
-func (sm *SafeMap) Get(key string) (interface{}, bool) {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-
-	value, exists := sm.mp[key]
-	return value, exists
-}
-
-func (sm *SafeMap) Delete(key string) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	delete(sm.mp, key)
-}
-
-func (sm *SafeMap) Remove(key string) interface{} {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	value, _ := sm.mp[key]
-	delete(sm.mp, key)
-	return value
-}
-
-func (sm *SafeMap) Range(f func(key string, value interface{}) bool) {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-
-	for k, v := range sm.mp {
-		if !f(k, v) {
-			break
-		}
-	}
-}
-
-func (sm *SafeMap) Clear() {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	for k, _ := range sm.mp {
-		delete(sm.mp, k)
-	}
-}
-
 type ProcessContextImpl struct {
 	parent      ProcessContext
-	safaMap     SafeMap
+	mu          sync.RWMutex
+	mp          map[string]interface{}
 	instruction Instruction
 }
 
 func (p *ProcessContextImpl) GetVariable(name string) interface{} {
-	value, ok := p.safaMap.Get(name)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	value, ok := p.mp[name]
 	if ok {
 		return value
 	}
@@ -123,19 +65,25 @@ func (p *ProcessContextImpl) GetVariable(name string) interface{} {
 }
 
 func (p *ProcessContextImpl) SetVariable(name string, value interface{}) {
-	_, ok := p.safaMap.Get(name)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	_, ok := p.mp[name]
 	if ok {
-		p.safaMap.Set(name, value)
+		p.mp[name] = value
 	} else {
 		if p.parent != nil {
 			p.parent.SetVariable(name, value)
 		} else {
-			p.safaMap.Set(name, value)
+			p.mp[name] = value
 		}
 	}
 }
 
 func (p *ProcessContextImpl) GetVariables() map[string]interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	newVariablesMap := make(map[string]interface{})
 	if p.parent != nil {
 		variables := p.parent.GetVariables()
@@ -144,10 +92,10 @@ func (p *ProcessContextImpl) GetVariables() map[string]interface{} {
 		}
 	}
 
-	p.safaMap.Range(func(key string, value interface{}) bool {
-		newVariablesMap[key] = value
-		return true
-	})
+	for k, v := range p.mp {
+		newVariablesMap[k] = v
+	}
+
 	return newVariablesMap
 }
 
@@ -158,9 +106,12 @@ func (p *ProcessContextImpl) SetVariables(variables map[string]interface{}) {
 }
 
 func (p *ProcessContextImpl) RemoveVariable(name string) interface{} {
-	value, ok := p.safaMap.Get(name)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	value, ok := p.mp[name]
 	if ok {
-		p.safaMap.Delete(name)
+		delete(p.mp, name)
 		return value
 	}
 
@@ -172,7 +123,10 @@ func (p *ProcessContextImpl) RemoveVariable(name string) interface{} {
 }
 
 func (p *ProcessContextImpl) HasVariable(name string) bool {
-	_, ok := p.safaMap.Get(name)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	_, ok := p.mp[name]
 	if ok {
 		return true
 	}
@@ -193,20 +147,28 @@ func (p *ProcessContextImpl) SetInstruction(instruction Instruction) {
 }
 
 func (p *ProcessContextImpl) GetVariableLocally(name string) interface{} {
-	value, _ := p.safaMap.Get(name)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	value, _ := p.mp[name]
 	return value
 }
 
 func (p *ProcessContextImpl) SetVariableLocally(name string, value interface{}) {
-	p.safaMap.Set(name, value)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.mp[name] = value
 }
 
 func (p *ProcessContextImpl) GetVariablesLocally() map[string]interface{} {
-	newVariablesMap := make(map[string]interface{})
-	p.safaMap.Range(func(key string, value interface{}) bool {
-		newVariablesMap[key] = value
-		return true
-	})
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	newVariablesMap := make(map[string]interface{}, len(p.mp))
+	for k, v := range p.mp {
+		newVariablesMap[k] = v
+	}
 	return newVariablesMap
 }
 
@@ -217,16 +179,27 @@ func (p *ProcessContextImpl) SetVariablesLocally(variables map[string]interface{
 }
 
 func (p *ProcessContextImpl) RemoveVariableLocally(name string) interface{} {
-	return p.safaMap.Remove(name)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	value, _ := p.mp[name]
+	delete(p.mp, name)
+	return value
 }
 
 func (p *ProcessContextImpl) HasVariableLocally(name string) bool {
-	_, ok := p.safaMap.Get(name)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	_, ok := p.mp[name]
 	return ok
 }
 
 func (p *ProcessContextImpl) ClearLocally() {
-	p.safaMap.Clear()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.mp = map[string]interface{}{}
 }
 
 //ProcessContextBuilder process builder
@@ -290,7 +263,10 @@ func (p *ProcessContextBuilder) WithStateMachineConfig(stateMachineConfig StateM
 	return p
 }
 
-func (p *ProcessContextBuilder) WithStateMachineContextVariables() *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithStateMachineContextVariables(contextMap map[string]interface{}) *ProcessContextBuilder {
+	if contextMap != nil {
+		p.processContext.SetVariable(VarNameStateMachineContext, contextMap)
+	}
 
 	return p
 }

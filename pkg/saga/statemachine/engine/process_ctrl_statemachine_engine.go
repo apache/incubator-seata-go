@@ -10,6 +10,10 @@ type ProcessCtrlStateMachineEngine struct {
 }
 
 func (p ProcessCtrlStateMachineEngine) Start(ctx context.Context, stateMachineName string, tenantId string, startParams map[string]interface{}) (statelang.StateMachineInstance, error) {
+	return p.startInternal(ctx, stateMachineName, tenantId, "", startParams, false, nil)
+}
+
+func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateMachineName string, tenantId string, businessKey string, startParams map[string]interface{}, async bool, callback CallBack) (statelang.StateMachineInstance, error) {
 	defer func() {
 		// Cleanup logic here.
 	}()
@@ -18,23 +22,57 @@ func (p ProcessCtrlStateMachineEngine) Start(ctx context.Context, stateMachineNa
 		tenantId = p.StateMachineConfig.DefaultTenantId()
 	}
 
-	stateMachineInstance := createMachineInstance(stateMachineName, tenantId, "", startParams)
+	stateMachineInstance := p.createMachineInstance(stateMachineName, tenantId, businessKey, startParams)
 
 	// Build the process context.
-	processContextBuilder := NewProcessContextBuilder().WithProcessType(StateLang).WithOperationName(OperationNameStart).WithAsyncCallback(nil).WithInstruction(NewStateInstruction(stateMachineName, tenantId)).WithStateMachineInstance(stateMachineInstance).WithStateMachineConfig(p.StateMachineConfig).WithStateMachineEngine(p)
+	processContextBuilder := NewProcessContextBuilder().
+		WithProcessType(StateLang).
+		WithOperationName(OperationNameStart).
+		WithAsyncCallback(callback).
+		WithInstruction(NewStateInstruction(stateMachineName, tenantId)).
+		WithStateMachineInstance(stateMachineInstance).
+		WithStateMachineConfig(p.StateMachineConfig).
+		WithStateMachineEngine(p).
+		WithIsAsyncExecution(async)
 
-	if startParams == nil {
+	contextMap := p.deepCopy(startParams)
 
-	} else {
+	stateMachineInstance.SetContext(contextMap)
+
+	processContext := processContextBuilder.WithStateMachineContextVariables(contextMap).Build()
+
+	if stateMachineInstance.StateMachine().IsPersist() && p.StateMachineConfig.StateLogStore() != nil {
 
 	}
 
-	processContextBuilder.Build()
+	if stateMachineInstance.ID() == "" {
+		stateMachineInstance.SetID(p.StateMachineConfig.SeqGenerator().GenerateId(SeqEntityStateMachineInst, ""))
+	}
+
+	if async {
+		_, err := p.StateMachineConfig.AsyncEventPublisher().PushEvent(ctx, processContext)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := p.StateMachineConfig.EventPublisher().PushEvent(ctx, processContext)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return stateMachineInstance, nil
 }
 
-func createMachineInstance(name string, id string, businessKey string, params map[string]interface{}) statelang.StateMachineInstance {
+func (p ProcessCtrlStateMachineEngine) deepCopy(startParams map[string]interface{}) map[string]interface{} {
+	copyMap := make(map[string]interface{}, len(startParams))
+	for k, v := range startParams {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
+func (p ProcessCtrlStateMachineEngine) createMachineInstance(name string, id string, businessKey string, params map[string]interface{}) statelang.StateMachineInstance {
 	return nil
 }
 

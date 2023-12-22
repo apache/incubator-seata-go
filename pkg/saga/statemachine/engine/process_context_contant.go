@@ -12,4 +12,5 @@ const (
 	VarNameStateMachineContext string = "context"
 	VarNameIsAsyncExecution    string = "_is_async_execution_"
 	VarNameStateInst           string = "_current_state_instance_"
+	SeqEntityStateMachineInst  string = "STATE_MACHINE_INST"
 )
