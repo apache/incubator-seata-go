@@ -59,7 +59,7 @@ seata:
       # Judge whether the before image and after image are the same，If it is the same, undo will not be recorded
       data-validation: true
       # Serialization method
-      log-serialization: jackson
+      log-serialization: json
       # undo log table name
       log-table: undo_log
       # Only store modified fields
