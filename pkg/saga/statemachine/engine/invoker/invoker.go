@@ -10,4 +10,5 @@ type ServiceInvokerManager interface {
 }
 
 type ServiceInvoker interface {
+	Invoke()
 }

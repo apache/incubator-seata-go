@@ -23,3 +23,8 @@ type Retry interface {
 
 	BackoffRate() float64
 }
+
+type ServiceTaskState interface {
+	TaskState
+	//TODO add serviceTask
+}
