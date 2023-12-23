@@ -1,29 +1,38 @@
 package engine
 
+import (
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/events"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/status_decision"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/store"
+)
+
 type StateMachineConfig interface {
-	StateLogRepository() StateLogRepository
+	StateLogRepository() store.StateLogRepository
 
-	StateMachineRepository() StateMachineRepository
+	StateMachineRepository() store.StateMachineRepository
 
-	StateLogStore() StateLogStore
+	StateLogStore() store.StateLogStore
 
-	StateLangStore() StateLangStore
+	StateLangStore() store.StateLangStore
 
-	ExpressionFactoryManager() ExpressionFactoryManager
+	ExpressionFactoryManager() expr.ExpressionFactoryManager
 
-	ExpressionResolver() ExpressionResolver
+	ExpressionResolver() expr.ExpressionResolver
 
-	SeqGenerator() SeqGenerator
+	SeqGenerator() sequence.SeqGenerator
 
-	StatusDecisionStrategy() StatusDecisionStrategy
+	StatusDecisionStrategy() status_decision.StatusDecisionStrategy
 
-	EventPublisher() EventPublisher
+	EventPublisher() events.EventPublisher
 
-	AsyncEventPublisher() EventPublisher
+	AsyncEventPublisher() events.EventPublisher
 
-	ServiceInvokerManager() ServiceInvokerManager
+	ServiceInvokerManager() invoker.ServiceInvokerManager
 
-	ScriptInvokerManager() ScriptInvokerManager
+	ScriptInvokerManager() invoker.ScriptInvokerManager
 
 	CharSet() string
 

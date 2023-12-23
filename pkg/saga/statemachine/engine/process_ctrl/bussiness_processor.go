@@ -1,8 +1,9 @@
-package engine
+package process_ctrl
 
 import (
 	"context"
 	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"sync"
 )
 
@@ -75,9 +76,9 @@ func (d *DefaultBusinessProcessor) getRouterHandler(processType ProcessType) (Ro
 }
 
 func (d *DefaultBusinessProcessor) matchProcessType(processContext ProcessContext) ProcessType {
-	ok := processContext.HasVariable(VarNameProcessType)
+	ok := processContext.HasVariable(engine.VarNameProcessType)
 	if ok {
-		return processContext.GetVariable(VarNameProcessType).(ProcessType)
+		return processContext.GetVariable(engine.VarNameProcessType).(ProcessType)
 	}
 	return StateLang
 }
@@ -88,23 +89,4 @@ type ProcessHandler interface {
 
 type RouterHandler interface {
 	Route(ctx context.Context, processContext ProcessContext) error
-}
-
-type StateMachineProcessHandler struct {
-	mp map[string]StateHandler
-	mu sync.Mutex
-}
-
-func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext ProcessContext) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *StateMachineProcessHandler) RegistryStateHandler(stateName string, stateHandler StateHandler) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	panic("implement me")
-}
-
-type StateHandler interface {
 }

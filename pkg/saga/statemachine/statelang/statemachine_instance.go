@@ -288,6 +288,7 @@ func (s *StateMachineInstanceImpl) StateMachine() StateMachine {
 
 func (s *StateMachineInstanceImpl) SetStateMachine(stateMachine StateMachine) {
 	s.stateMachine = stateMachine
+	s.machineId = stateMachine.ID()
 }
 
 func (s *StateMachineInstanceImpl) SerializedStartParams() interface{} {

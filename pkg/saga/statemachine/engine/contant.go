@@ -13,4 +13,8 @@ const (
 	VarNameIsAsyncExecution    string = "_is_async_execution_"
 	VarNameStateInst           string = "_current_state_instance_"
 	SeqEntityStateMachineInst  string = "STATE_MACHINE_INST"
+	VarNameBusinesskey         string = "_business_key_"
+	VarNameParentId            string = "_parent_id_"
+	StateTypeServiceTask       string = "ServiceTask"
+	StateTypeChoice            string = "Choice"
 )

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
@@ -10,6 +11,6 @@ type StateMachineEngine interface {
 }
 
 type CallBack interface {
-	OnFinished(context ProcessContext, stateMachineInstance statelang.StateMachineInstance)
-	OnError(context ProcessContext, stateMachineInstance statelang.StateMachineInstance, err error)
+	OnFinished(ctx context.Context, context process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance)
+	OnError(ctx context.Context, context process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance, err error)
 }

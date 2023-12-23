@@ -1,6 +1,7 @@
-package engine
+package instruction
 
 import (
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
@@ -14,7 +15,7 @@ type StateInstruction struct {
 	End              bool
 }
 
-func (s StateInstruction) GetState(context ProcessContext) (statelang.State, error) {
+func (s StateInstruction) GetState(context process_ctrl.ProcessContext) (statelang.State, error) {
 	//TODO implement me
 	panic("implement me")
 }
