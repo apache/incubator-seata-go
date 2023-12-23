@@ -98,7 +98,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		bf.Wait()
 	}
 
-	if err != nil && bf.Err() != nil {
+	if err != nil || bf.Err() != nil {
 		lastErr := errors.Wrap(err, bf.Err().Error())
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
