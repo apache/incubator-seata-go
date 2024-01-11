@@ -3,7 +3,6 @@ package process_ctrl
 import (
 	"context"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl/instruction"
 	"sync"
 )
 
@@ -40,7 +39,7 @@ func NewStateMachineProcessHandler() *StateMachineProcessHandler {
 }
 
 func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext ProcessContext) error {
-	stateInstruction, _ := processContext.GetInstruction().(instruction.StateInstruction)
+	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
 
 	state, err := stateInstruction.GetState(processContext)
 	if err != nil {
@@ -107,7 +106,7 @@ type StateMachineRouterHandler struct {
 }
 
 func (s *StateMachineRouterHandler) Route(ctx context.Context, processContext ProcessContext) error {
-	stateInstruction, _ := processContext.GetInstruction().(instruction.StateInstruction)
+	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
 
 	state, err := stateInstruction.GetState(processContext)
 	if err != nil {
