@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
@@ -17,7 +17,7 @@ func NewChoiceStateParser() *ChoiceStateParser {
 }
 
 func (c ChoiceStateParser) StateType() string {
-	return engine.StateTypeChoice
+	return constant.StateTypeChoice
 }
 
 func (c ChoiceStateParser) Parse(stateName string, stateMap map[string]interface{}) (statelang.State, error) {
