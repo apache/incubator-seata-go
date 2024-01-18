@@ -3,9 +3,9 @@ package engine
 import (
 	"context"
 	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/events"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl/instruction"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"time"
 )
@@ -29,11 +29,11 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 	}
 
 	// Build the process_ctrl context.
-	processContextBuilder := process_ctrl.NewProcessContextBuilder().
+	processContextBuilder := NewProcessContextBuilder().
 		WithProcessType(process_ctrl.StateLang).
-		WithOperationName(OperationNameStart).
+		WithOperationName(constant.OperationNameStart).
 		WithAsyncCallback(callback).
-		WithInstruction(instruction.NewStateInstruction(stateMachineName, tenantId)).
+		WithInstruction(process_ctrl.NewStateInstruction(stateMachineName, tenantId)).
 		WithStateMachineInstance(stateMachineInstance).
 		WithStateMachineConfig(p.StateMachineConfig).
 		WithStateMachineEngine(p).
@@ -53,7 +53,7 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 	}
 
 	if stateMachineInstance.ID() == "" {
-		stateMachineInstance.SetID(p.StateMachineConfig.SeqGenerator().GenerateId(SeqEntityStateMachineInst, ""))
+		stateMachineInstance.SetID(p.StateMachineConfig.SeqGenerator().GenerateId(constant.SeqEntityStateMachineInst, ""))
 	}
 
 	var eventPublisher events.EventPublisher
@@ -97,16 +97,16 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 	stateMachineInstance.SetStartParams(startParams)
 	if startParams != nil {
 		if businessKey != "" {
-			startParams[VarNameBusinesskey] = businessKey
+			startParams[constant.VarNameBusinesskey] = businessKey
 		}
 
-		if startParams[VarNameParentId] != nil {
-			parentId, ok := startParams[VarNameParentId].(string)
+		if startParams[constant.VarNameParentId] != nil {
+			parentId, ok := startParams[constant.VarNameParentId].(string)
 			if !ok {
 
 			}
 			stateMachineInstance.SetParentID(parentId)
-			delete(startParams, VarNameParentId)
+			delete(startParams, constant.VarNameParentId)
 		}
 	}
 
