@@ -1,8 +1,9 @@
-package events
+package core
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"fmt"
+	"github.com/pkg/errors"
 )
 
 type EventConsumer interface {
@@ -12,6 +13,7 @@ type EventConsumer interface {
 }
 
 type ProcessCtrlEventConsumer struct {
+	processController ProcessController
 }
 
 func (p ProcessCtrlEventConsumer) Accept(event Event) bool {
@@ -19,11 +21,14 @@ func (p ProcessCtrlEventConsumer) Accept(event Event) bool {
 		return false
 	}
 
-	_, ok := event.(process_ctrl.ProcessContext)
+	_, ok := event.(ProcessContext)
 	return ok
 }
 
 func (p ProcessCtrlEventConsumer) Process(ctx context.Context, event Event) error {
-	//TODO implement me
-	panic("implement me")
+	processContext, ok := event.(ProcessContext)
+	if !ok {
+		return errors.New(fmt.Sprint("event %T is illegal, required process_ctrl.ProcessContext", event))
+	}
+	return p.processController.Process(ctx, processContext)
 }

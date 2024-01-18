@@ -100,4 +100,15 @@ const (
 
 	// FencePhaseError have fence phase but is not illegal value
 	FencePhaseError
+
+	// ObjectNotExists object not exists
+	ObjectNotExists
+	// StateMachineInstanceNotExists State machine instance not exists
+	StateMachineInstanceNotExists
+	// ContextVariableReplayFailed Context variable replay failed
+	ContextVariableReplayFailed
+	// InvalidParameter Context variable replay failed
+	InvalidParameter
+	// OperationDenied Operation denied
+	OperationDenied
 )

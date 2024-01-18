@@ -1,8 +1,8 @@
-package process_ctrl
+package core
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"errors"
 	"sync"
 )
 
@@ -11,20 +11,20 @@ type StateHandler interface {
 	ProcessHandler
 }
 
-type StateRouter interface {
-	State() string
-	RouterHandler
-}
-
 type InterceptAbleStateHandler interface {
 	StateHandler
 	StateHandlerInterceptorList() []StateHandlerInterceptor
 	RegistryStateHandlerInterceptor(stateHandlerInterceptor StateHandlerInterceptor)
 }
 
+type ProcessHandler interface {
+	Process(ctx context.Context, processContext ProcessContext) error
+}
+
 type StateHandlerInterceptor interface {
 	PreProcess(ctx context.Context, processContext ProcessContext) error
 	PostProcess(ctx context.Context, processContext ProcessContext) error
+	Match(stateType string) bool
 }
 
 type StateMachineProcessHandler struct {
@@ -98,41 +98,4 @@ func (s *StateMachineProcessHandler) RegistryStateHandler(stateType string, stat
 		s.mp = make(map[string]StateHandler)
 	}
 	s.mp[stateType] = stateHandler
-}
-
-type StateMachineRouterHandler struct {
-	mu sync.RWMutex
-	mp map[string]StateRouter
-}
-
-func (s *StateMachineRouterHandler) Route(ctx context.Context, processContext ProcessContext) error {
-	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
-
-	state, err := stateInstruction.GetState(processContext)
-	if err != nil {
-		return err
-	}
-
-	stateType := state.Type()
-	stateRouter := s.GetStateRouter(stateType)
-	if stateRouter == nil {
-		return errors.New("Not support [" + stateType + "] state router")
-	}
-
-	return stateRouter.Route(ctx, processContext)
-}
-
-func (s *StateMachineRouterHandler) GetStateRouter(stateType string) StateRouter {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.mp[stateType]
-}
-
-func (s *StateMachineRouterHandler) RegistryStateRouter(stateType string, stateRouter StateRouter) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.mp == nil {
-		s.mp = make(map[string]StateRouter)
-	}
-	s.mp[stateType] = stateRouter
 }

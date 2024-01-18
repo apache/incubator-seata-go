@@ -1,4 +1,4 @@
-package events
+package core
 
 type Event interface {
 }

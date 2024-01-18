@@ -1,22 +1,22 @@
-package engine
+package core
 
 import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
 // ProcessContextBuilder process_ctrl builder
 type ProcessContextBuilder struct {
-	processContext process_ctrl.ProcessContext
+	processContext ProcessContext
 }
 
 func NewProcessContextBuilder() *ProcessContextBuilder {
-	processContextImpl := process_ctrl.NewProcessContextImpl()
+	processContextImpl := NewProcessContextImpl()
 	return &ProcessContextBuilder{processContextImpl}
 }
 
-func (p *ProcessContextBuilder) WithProcessType(processType process_ctrl.ProcessType) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithProcessType(processType process.ProcessType) *ProcessContextBuilder {
 	p.processContext.SetVariable(constant.VarNameProcessType, processType)
 	return p
 }
@@ -34,7 +34,7 @@ func (p *ProcessContextBuilder) WithAsyncCallback(callBack CallBack) *ProcessCon
 	return p
 }
 
-func (p *ProcessContextBuilder) WithInstruction(instruction process_ctrl.Instruction) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithInstruction(instruction Instruction) *ProcessContextBuilder {
 	if instruction != nil {
 		p.processContext.SetInstruction(instruction)
 	}
@@ -81,6 +81,6 @@ func (p *ProcessContextBuilder) WithIsAsyncExecution(async bool) *ProcessContext
 	return p
 }
 
-func (p *ProcessContextBuilder) Build() process_ctrl.ProcessContext {
+func (p *ProcessContextBuilder) Build() ProcessContext {
 	return p.processContext
 }

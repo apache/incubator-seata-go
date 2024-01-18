@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-func mockProcessContext(stateMachineName string, stateMachineInstance statelang.StateMachineInstance) process_ctrl.ProcessContext {
-	ctx := engine.NewProcessContextBuilder().
-		WithProcessType(process_ctrl.StateLang).
+func mockProcessContext(stateMachineName string, stateMachineInstance statelang.StateMachineInstance) core.ProcessContext {
+	ctx := core.NewProcessContextBuilder().
+		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameStart).
-		WithInstruction(process_ctrl.NewStateInstruction(stateMachineName, "000001")).
+		WithInstruction(core.NewStateInstruction(stateMachineName, "000001")).
 		WithStateMachineInstance(stateMachineInstance).
 		Build()
 	return ctx
@@ -55,7 +55,7 @@ func TestStateLogStore_RecordStateMachineStarted(t *testing.T) {
 	assert.Equal(t, expected.ID(), actual.ID())
 	assert.Equal(t, expected.MachineID(), actual.MachineID())
 	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Error())
+	assert.Nil(t, actual.Exception())
 	assert.Nil(t, actual.SerializedError())
 	assert.Equal(t, expected.Status(), actual.Status())
 	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
@@ -73,7 +73,7 @@ func TestStateLogStore_RecordStateMachineFinished(t *testing.T) {
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
 	expected.SetEndParams(map[string]any{"end": 100})
-	expected.SetError(errors.New("this is a test error"))
+	expected.SetException(errors.New("this is a test error"))
 	expected.SetStatus(statelang.FA)
 	expected.SetEndTime(time.Now())
 	expected.SetRunning(false)
@@ -86,7 +86,7 @@ func TestStateLogStore_RecordStateMachineFinished(t *testing.T) {
 	assert.Equal(t, expected.ID(), actual.ID())
 	assert.Equal(t, expected.MachineID(), actual.MachineID())
 	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Equal(t, "this is a test error", actual.Error().Error())
+	assert.Equal(t, "this is a test error", actual.Exception().Error())
 	assert.Equal(t, expected.Status(), actual.Status())
 	assert.Equal(t, expected.IsRunning(), actual.IsRunning())
 	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
@@ -240,7 +240,7 @@ func TestStateLogStore_GetStateMachineInstanceByBusinessKey(t *testing.T) {
 	assert.Equal(t, expected.ID(), actual.ID())
 	assert.Equal(t, expected.MachineID(), actual.MachineID())
 	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Error())
+	assert.Nil(t, actual.Exception())
 	assert.Nil(t, actual.SerializedError())
 	assert.Equal(t, expected.Status(), actual.Status())
 	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
@@ -269,9 +269,9 @@ func TestStateLogStore_GetStateMachineInstanceByParentId(t *testing.T) {
 	actual := actualList[0]
 	assert.Equal(t, expected.ID(), actual.ID())
 	assert.Equal(t, expected.MachineID(), actual.MachineID())
-	// no startParams, endParams and Error
+	// no startParams, endParams and Exception
 	assert.NotEqual(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Error())
+	assert.Nil(t, actual.Exception())
 	assert.Nil(t, actual.SerializedError())
 	assert.Equal(t, expected.Status(), actual.Status())
 	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())

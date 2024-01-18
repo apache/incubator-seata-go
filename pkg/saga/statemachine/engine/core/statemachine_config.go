@@ -1,22 +1,20 @@
-package engine
+package core
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/events"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/status_decision"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/store"
+	"sync"
 )
 
 type StateMachineConfig interface {
-	StateLogRepository() store.StateLogRepository
+	StateLogRepository() StateLogRepository
 
-	StateMachineRepository() store.StateMachineRepository
+	StateMachineRepository() StateMachineRepository
 
-	StateLogStore() store.StateLogStore
+	StateLogStore() StateLogStore
 
-	StateLangStore() store.StateLangStore
+	StateLangStore() StateLangStore
 
 	ExpressionFactoryManager() expr.ExpressionFactoryManager
 
@@ -24,11 +22,11 @@ type StateMachineConfig interface {
 
 	SeqGenerator() sequence.SeqGenerator
 
-	StatusDecisionStrategy() status_decision.StatusDecisionStrategy
+	StatusDecisionStrategy() StatusDecisionStrategy
 
-	EventPublisher() events.EventPublisher
+	EventPublisher() EventPublisher
 
-	AsyncEventPublisher() events.EventPublisher
+	AsyncEventPublisher() EventPublisher
 
 	ServiceInvokerManager() invoker.ServiceInvokerManager
 
@@ -41,4 +39,6 @@ type StateMachineConfig interface {
 	TransOperationTimeout() int
 
 	ServiceInvokeTimeout() int
+
+	ComponentLock() *sync.Mutex
 }

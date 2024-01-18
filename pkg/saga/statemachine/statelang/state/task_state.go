@@ -38,7 +38,7 @@ type Loop interface {
 
 type ExceptionMatch interface {
 	Exceptions() []string
-
+	// TODO: go dose not support get reflect.Type by string, not use it now
 	ExceptionTypes() []reflect.Type
 
 	SetExceptionTypes(ExceptionTypes []reflect.Type)
@@ -79,7 +79,9 @@ type AbstractTaskState struct {
 	loop                        Loop
 	catches                     []ExceptionMatch
 	input                       []interface{}
+	inputExpressions            []interface{}
 	output                      map[string]interface{}
+	outputExpressions           map[string]interface{}
 	compensatePersistModeUpdate bool
 	retryPersistModeUpdate      bool
 	forCompensation             bool
@@ -94,6 +96,22 @@ func NewAbstractTaskState() *AbstractTaskState {
 	return &AbstractTaskState{
 		BaseState: &statelang.BaseState{},
 	}
+}
+
+func (a *AbstractTaskState) InputExpressions() []interface{} {
+	return a.inputExpressions
+}
+
+func (a *AbstractTaskState) SetInputExpressions(inputExpressions []interface{}) {
+	a.inputExpressions = inputExpressions
+}
+
+func (a *AbstractTaskState) OutputExpressions() map[string]interface{} {
+	return a.outputExpressions
+}
+
+func (a *AbstractTaskState) SetOutputExpressions(outputExpressions map[string]interface{}) {
+	a.outputExpressions = outputExpressions
 }
 
 func (a *AbstractTaskState) Input() []interface{} {

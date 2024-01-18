@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -89,7 +89,7 @@ func NewStateLogStore(db *sql.DB, tablePrefix string) *StateLogStore {
 }
 
 func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context process_ctrl.ProcessContext) error {
+	context core.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
@@ -133,15 +133,15 @@ func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineIn
 }
 
 func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context process_ctrl.ProcessContext) error {
+	context core.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
 
 	endParams := machineInstance.EndParams()
 
-	if statelang.SU == machineInstance.Status() && machineInstance.Error() != nil {
-		machineInstance.SetError(nil)
+	if statelang.SU == machineInstance.Status() && machineInstance.Exception() != nil {
+		machineInstance.SetException(nil)
 	}
 
 	serializedEndParams, err := s.paramsSerializer.Serialize(endParams)
@@ -149,7 +149,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 		return err
 	}
 	machineInstance.SetSerializedEndParams(serializedEndParams)
-	serializedError, err := s.errorSerializer.Serialize(machineInstance.Error())
+	serializedError, err := s.errorSerializer.Serialize(machineInstance.Exception())
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 }
 
 func (s *StateLogStore) RecordStateMachineRestarted(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context process_ctrl.ProcessContext) error {
+	context core.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
@@ -190,7 +190,7 @@ func (s *StateLogStore) RecordStateMachineRestarted(ctx context.Context, machine
 }
 
 func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance statelang.StateInstance,
-	context process_ctrl.ProcessContext) error {
+	context core.ProcessContext) error {
 	if stateInstance == nil {
 		return nil
 	}
@@ -235,7 +235,7 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 	return nil
 }
 
-func (s *StateLogStore) isUpdateMode(instance statelang.StateInstance, context process_ctrl.ProcessContext) bool {
+func (s *StateLogStore) isUpdateMode(instance statelang.StateInstance, context core.ProcessContext) bool {
 	//TODO implement me, add forward logic
 	return false
 }
@@ -293,7 +293,7 @@ func (s *StateLogStore) getIdIndex(stateInstanceId string, separator string) int
 }
 
 func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance,
-	context process_ctrl.ProcessContext) error {
+	context core.ProcessContext) error {
 	if stateInstance == nil {
 		return nil
 	}
@@ -372,7 +372,7 @@ func (s *StateLogStore) deserializeStateMachineParamsAndException(stateMachineIn
 		if err != nil {
 			return err
 		}
-		stateMachineInstance.SetError(deserializedError)
+		stateMachineInstance.SetException(deserializedError)
 	}
 
 	serializedStartParams := stateMachineInstance.SerializedStartParams()
