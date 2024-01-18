@@ -1,4 +1,4 @@
-package engine
+package constant
 
 const (
 	VarNameProcessType         string = "_ProcessType_"

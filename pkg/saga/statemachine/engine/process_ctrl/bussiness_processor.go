@@ -3,7 +3,7 @@ package process_ctrl
 import (
 	"context"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"sync"
 )
 
@@ -76,9 +76,9 @@ func (d *DefaultBusinessProcessor) getRouterHandler(processType ProcessType) (Ro
 }
 
 func (d *DefaultBusinessProcessor) matchProcessType(processContext ProcessContext) ProcessType {
-	ok := processContext.HasVariable(engine.VarNameProcessType)
+	ok := processContext.HasVariable(constant.VarNameProcessType)
 	if ok {
-		return processContext.GetVariable(engine.VarNameProcessType).(ProcessType)
+		return processContext.GetVariable(constant.VarNameProcessType).(ProcessType)
 	}
 	return StateLang
 }
