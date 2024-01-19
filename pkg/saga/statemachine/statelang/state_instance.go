@@ -77,6 +77,8 @@ type StateInstance interface {
 
 	StateMachineInstance() StateMachineInstance
 
+	MachineInstanceID() string
+
 	SetStateMachineInstance(stateMachineInstance StateMachineInstance)
 
 	IsIgnoreStatus() bool
@@ -137,6 +139,14 @@ func (s *StateInstanceImpl) ID() string {
 
 func (s *StateInstanceImpl) SetID(id string) {
 	s.id = id
+}
+
+func (s *StateInstanceImpl) MachineInstanceID() string {
+	return s.machineInstanceId
+}
+
+func (s *StateInstanceImpl) SetMachineInstanceID(machineInstanceId string) {
+	s.machineInstanceId = machineInstanceId
 }
 
 func (s *StateInstanceImpl) Name() string {

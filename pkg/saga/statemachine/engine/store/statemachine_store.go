@@ -8,7 +8,7 @@ import (
 )
 
 type StateLogRepository interface {
-	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateInstance, error)
+	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
 	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateInstance, error)
 
@@ -30,9 +30,9 @@ type StateLogStore interface {
 
 	RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error
 
-	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateInstance, error)
+	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
-	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateInstance, error)
+	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateMachineInstance, error)
 
 	GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error)
 

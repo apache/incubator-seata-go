@@ -300,7 +300,7 @@ func (s *StateMachineInstanceImpl) SetSerializedStartParams(serializedStartParam
 }
 
 func (s *StateMachineInstanceImpl) SerializedEndParams() interface{} {
-	return s.endParams
+	return s.serializedEndParams
 }
 
 func (s *StateMachineInstanceImpl) SetSerializedEndParams(serializedEndParams interface{}) {
