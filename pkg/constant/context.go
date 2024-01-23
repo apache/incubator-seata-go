@@ -27,6 +27,9 @@ const (
 	RollbackMethod = "sys::rollback"
 	ActionName     = "actionName"
 
+	ActionMethod       = "sys::action"
+	CompensationMethod = "sys::compensationAction"
+
 	SeataXidKey     = "SEATA_XID"
 	XidKey          = "TX_XID"
 	XidKeyLowercase = "tx_xid"

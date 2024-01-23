@@ -32,4 +32,9 @@ const (
 
 	// FencePhaseRollback rollback fence phase
 	FencePhaseRollback = FencePhase(3)
+
+	// FencePhaseAction One stage submission
+	FencePhaseAction = FencePhase(0)
+	// FencePhaseCompensationAction Compensation status during one-stage transaction rollback
+	FencePhaseCompensationAction = FencePhase(1)
 )
