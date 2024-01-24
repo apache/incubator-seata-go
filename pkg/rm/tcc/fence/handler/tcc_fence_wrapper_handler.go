@@ -21,12 +21,9 @@ import (
 	"container/list"
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/go-sql-driver/mysql"
 
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
@@ -66,23 +63,6 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 		})
 	}
 	return fenceHandler
-}
-
-func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
-	xid := tm.GetBusinessActionContext(ctx).Xid
-	branchId := tm.GetBusinessActionContext(ctx).BranchId
-	actionName := tm.GetBusinessActionContext(ctx).ActionName
-
-	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusTried)
-	if err != nil {
-		if mysqlError, ok := errors.Unwrap(err).(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
-			// todo add clean command to channel.
-			handler.pushCleanChannel(xid, branchId)
-		}
-		return fmt.Errorf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
-	}
-
-	return nil
 }
 
 func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.Tx) error {
