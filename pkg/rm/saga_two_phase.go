@@ -30,8 +30,6 @@ type SagaAction struct {
 }
 
 func ParseSagaTwoPhaseAction(v interface{}) (*SagaAction, error) {
-
-	//todo 重写为saga的回滚方式
 	if m, ok := v.(TwoPhaseInterface); ok {
 		return parseSagaTwoPhaseActionByTwoPhaseInterface(m), nil
 	}

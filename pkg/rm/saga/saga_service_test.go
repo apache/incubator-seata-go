@@ -24,10 +24,8 @@ var (
 )
 
 type UserProvider struct {
-	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
-	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
-	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
-	GetActionName func() string
+	Action       func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"action"`
+	Compensation func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"compensation"`
 }
 
 func InitMock() {
@@ -54,12 +52,12 @@ func TestMain(m *testing.M) {
 
 func TestInitActionContext(t *testing.T) {
 	param := struct {
-		name  string `tccParam:"name"`
-		Age   int64  `tccParam:""`
-		Addr  string `tccParam:"addr"`
-		Job   string `tccParam:"-"`
+		name  string `sagaParam:"name"`
+		Age   int64  `sagaParam:""`
+		Addr  string `sagaParam:"addr"`
+		Job   string `sagaParam:"-"`
 		Class string
-		Other []int8 `tccParam:"Other"`
+		Other []int8 `sagaParam:"Other"`
 	}{
 		name:  "Jack",
 		Age:   20,
@@ -77,14 +75,13 @@ func TestInitActionContext(t *testing.T) {
 	result := testSagaServiceProxy.initActionContext(param)
 	localIp, _ := gostnet.GetLocalIP()
 	assert.Equal(t, map[string]interface{}{
-		"addr":                   "Earth",
-		"Other":                  []int8{1, 2, 3},
-		constant.ActionStartTime: now.UnixNano() / 1e6,
-		constant.PrepareMethod:   "Prepare",
-		constant.CommitMethod:    "Commit",
-		constant.RollbackMethod:  "Rollback",
-		constant.ActionName:      testdata2.ActionName,
-		constant.HostName:        localIp,
+		"addr":                      "Earth",
+		"Other":                     []int8{1, 2, 3},
+		constant.ActionStartTime:    now.UnixNano() / 1e6,
+		constant.ActionMethod:       "Action",
+		constant.CompensationMethod: "Compensation",
+		constant.ActionName:         testdata2.ActionName,
+		constant.HostName:           localIp,
 	}, result)
 }
 
