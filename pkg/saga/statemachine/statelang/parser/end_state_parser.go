@@ -51,7 +51,16 @@ func (f FailEndStateParser) Parse(stateName string, stateMap map[string]interfac
 		return nil, err
 	}
 
-	failEndStateImpl.SetErrorCode(f.GetStringOrDefault(stateMap, "ErrorCode", ""))
-	failEndStateImpl.SetMessage(f.GetStringOrDefault(stateMap, "Message", ""))
+	errorCode, err := f.GetStringOrDefault(stateName, stateMap, "ErrorCode", "")
+	if err != nil {
+		return nil, err
+	}
+	failEndStateImpl.SetErrorCode(errorCode)
+
+	message, err := f.GetStringOrDefault(stateName, stateMap, "Message", "")
+	if err != nil {
+		return nil, err
+	}
+	failEndStateImpl.SetMessage(message)
 	return failEndStateImpl, nil
 }

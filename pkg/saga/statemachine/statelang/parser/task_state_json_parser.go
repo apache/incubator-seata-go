@@ -24,14 +24,46 @@ func (a *AbstractTaskStateParser) ParseTaskAttributes(stateName string, state *s
 		return err
 	}
 
-	state.SetCompensateState(a.GetStringOrDefault(stateMap, "CompensateState", ""))
-	state.SetForCompensation(a.GetBoolOrFalse(stateMap, "IsForCompensation"))
-	state.SetForUpdate(a.GetBoolOrFalse(stateMap, "IsForUpdate"))
-	state.SetPersist(a.GetBoolOrFalse(stateMap, "IsPersist"))
-	state.SetRetryPersistModeUpdate(a.GetBoolOrFalse(stateMap, "IsRetryPersistModeUpdate"))
-	state.SetCompensatePersistModeUpdate(a.GetBoolOrFalse(stateMap, "IsCompensatePersistModeUpdate"))
+	compensateState, err := a.GetStringOrDefault(stateName, stateMap, "CompensateState", "")
+	if err != nil {
+		return err
+	}
+	state.SetCompensateState(compensateState)
 
-	retryInterfaces := a.GetSliceOrDefault(stateMap, "Retry", nil)
+	isForCompensation, err := a.GetBoolOrDefault(stateName, stateMap, "IsForCompensation", false)
+	if err != nil {
+		return err
+	}
+	state.SetForCompensation(isForCompensation)
+
+	isForUpdate, err := a.GetBoolOrDefault(stateName, stateMap, "IsForUpdate", false)
+	if err != nil {
+		return err
+	}
+	state.SetForUpdate(isForUpdate)
+
+	isPersist, err := a.GetBoolOrDefault(stateName, stateMap, "IsPersist", false)
+	if err != nil {
+		return err
+	}
+	state.SetPersist(isPersist)
+
+	isRetryPersistModeUpdate, err := a.GetBoolOrDefault(stateName, stateMap, "IsRetryPersistModeUpdate", false)
+	if err != nil {
+		return err
+	}
+	state.SetRetryPersistModeUpdate(isRetryPersistModeUpdate)
+
+	isCompensatePersistModeUpdate, err := a.GetBoolOrDefault(stateName, stateMap, "IsCompensatePersistModeUpdate", false)
+	if err != nil {
+		return err
+	}
+	state.SetCompensatePersistModeUpdate(isCompensatePersistModeUpdate)
+
+	retryInterfaces, err := a.GetSliceOrDefault(stateName, stateMap, "Retry", nil)
+	if err != nil {
+		return err
+	}
 	if retryInterfaces != nil {
 		retries, err := a.parseRetries(state.Name(), retryInterfaces)
 		if err != nil {
@@ -40,7 +72,10 @@ func (a *AbstractTaskStateParser) ParseTaskAttributes(stateName string, state *s
 		state.SetRetry(retries)
 	}
 
-	catchInterfaces := a.GetSliceOrDefault(stateMap, "Catch", nil)
+	catchInterfaces, err := a.GetSliceOrDefault(stateName, stateMap, "Catch", nil)
+	if err != nil {
+		return err
+	}
 	if catchInterfaces != nil {
 		catches, err := a.parseCatches(state.Name(), catchInterfaces)
 		if err != nil {
@@ -49,12 +84,18 @@ func (a *AbstractTaskStateParser) ParseTaskAttributes(stateName string, state *s
 		state.SetCatches(catches)
 	}
 
-	inputInterfaces := a.GetSliceOrDefault(stateMap, "Input", nil)
+	inputInterfaces, err := a.GetSliceOrDefault(stateName, stateMap, "Input", nil)
+	if err != nil {
+		return err
+	}
 	if inputInterfaces != nil {
 		state.SetInput(inputInterfaces)
 	}
 
-	output := a.GetMapOrDefault(stateMap, "Output", nil)
+	output, err := a.GetMapOrDefault(stateMap, "Output", nil)
+	if err != nil {
+		return err
+	}
 	if output != nil {
 		state.SetOutput(output)
 	}
@@ -66,20 +107,44 @@ func (a *AbstractTaskStateParser) ParseTaskAttributes(stateName string, state *s
 
 	loopMap, ok := stateMap["Loop"].(map[string]interface{})
 	if ok {
-		loop := a.parseLoop(loopMap)
+		loop := a.parseLoop(stateName, loopMap)
 		state.SetLoop(loop)
 	}
 
 	return nil
 }
 
-func (a *AbstractTaskStateParser) parseLoop(loopMap map[string]interface{}) state.Loop {
+func (a *AbstractTaskStateParser) parseLoop(stateName string, loopMap map[string]interface{}) state.Loop {
 	loopImpl := &state.LoopImpl{}
-	loopImpl.SetParallel(a.GetIntOrDefault(loopMap, "Parallel", 1))
-	loopImpl.SetCollection(a.GetStringOrDefault(loopMap, "Collection", ""))
-	loopImpl.SetElementVariableName(a.GetStringOrDefault(loopMap, "ElementVariableName", "loopElement"))
-	loopImpl.SetElementIndexName(a.GetStringOrDefault(loopMap, "ElementIndexName", "loopCounter"))
-	loopImpl.SetElementIndexName(a.GetStringOrDefault(loopMap, "CompletionCondition", "[nrOfInstances] == [nrOfCompletedInstances]"))
+	parallel, err := a.GetIntOrDefault(stateName, loopMap, "Parallel", 1)
+	if err != nil {
+		return nil
+	}
+	loopImpl.SetParallel(parallel)
+
+	collection, err := a.GetStringOrDefault(stateName, loopMap, "Collection", "")
+	if err != nil {
+		return nil
+	}
+	loopImpl.SetCollection(collection)
+
+	elementVariableName, err := a.GetStringOrDefault(stateName, loopMap, "ElementVariableName", "loopElement")
+	if err != nil {
+		return nil
+	}
+	loopImpl.SetElementVariableName(elementVariableName)
+
+	elementIndexName, err := a.GetStringOrDefault(stateName, loopMap, "ElementIndexName", "loopCounter")
+	if err != nil {
+		return nil
+	}
+	loopImpl.SetElementIndexName(elementIndexName)
+
+	completionCondition, err := a.GetStringOrDefault(stateName, loopMap, "CompletionCondition", "[nrOfInstances] == [nrOfCompletedInstances]")
+	if err != nil {
+		return nil
+	}
+	loopImpl.SetElementIndexName(completionCondition)
 	return loopImpl
 }
 
@@ -92,7 +157,10 @@ func (a *AbstractTaskStateParser) parseRetries(stateName string, retryInterfaces
 			return nil, errors.New("State [" + stateName + "] " + "Retry illegal， require map[string]interface{}")
 		}
 		retry := &state.RetryImpl{}
-		errorTypes := a.GetSliceOrDefault(retryMap, "Exceptions", nil)
+		errorTypes, err := a.GetSliceOrDefault(stateName, retryMap, "Exceptions", nil)
+		if err != nil {
+			return nil, err
+		}
 		if errorTypes != nil {
 			errorTypeNames := make([]string, 0)
 			for _, errorType := range errorTypes {
@@ -100,23 +168,41 @@ func (a *AbstractTaskStateParser) parseRetries(stateName string, retryInterfaces
 			}
 			retry.SetErrorTypeNames(errorTypeNames)
 		}
-		retry.SetMaxAttempt(a.GetIntOrDefault(retryMap, "MaxAttempts", 0))
-		retry.SetBackoffRate(a.GetFloat64OrDefault(retryMap, "BackoffInterval", 0))
-		retry.SetIntervalSecond(a.GetFloat64OrDefault(retryMap, "IntervalSeconds", 0))
+
+		maxAttempts, err := a.GetIntOrDefault(stateName, retryMap, "MaxAttempts", 0)
+		if err != nil {
+			return nil, err
+		}
+		retry.SetMaxAttempt(maxAttempts)
+
+		backoffInterval, err := a.GetFloat64OrDefault(stateName, retryMap, "BackoffInterval", 0)
+		if err != nil {
+			return nil, err
+		}
+		retry.SetBackoffRate(backoffInterval)
+
+		intervalSeconds, err := a.GetFloat64OrDefault(stateName, retryMap, "IntervalSeconds", 0)
+		if err != nil {
+			return nil, err
+		}
+		retry.SetIntervalSecond(intervalSeconds)
 		retries = append(retries, retry)
 	}
 	return retries, nil
 }
 
 func (a *AbstractTaskStateParser) parseCatches(stateName string, catchInterfaces []interface{}) ([]state.ErrorMatch, error) {
-	errorMatches := make([]state.ErrorMatch, len(catchInterfaces))
+	errorMatches := make([]state.ErrorMatch, 0, len(catchInterfaces))
 	for _, catchInterface := range catchInterfaces {
 		catchMap, ok := catchInterface.(map[string]interface{})
 		if !ok {
 			return nil, errors.New("State [" + stateName + "] " + "Catch illegal, require map[string]interface{}")
 		}
 		errorMatch := &state.ErrorMatchImpl{}
-		errorInterfaces := a.GetSliceOrDefault(catchMap, "Exceptions", nil)
+		errorInterfaces, err := a.GetSliceOrDefault(stateName, catchMap, "Exceptions", nil)
+		if err != nil {
+			return nil, err
+		}
 		if errorInterfaces != nil {
 			errorNames := make([]string, 0)
 			for _, errorType := range errorInterfaces {
@@ -124,7 +210,10 @@ func (a *AbstractTaskStateParser) parseCatches(stateName string, catchInterfaces
 			}
 			errorMatch.SetErrors(errorNames)
 		}
-		next := a.GetStringOrDefault(catchMap, "Next", "")
+		next, err := a.GetStringOrDefault(stateName, catchMap, "Next", "")
+		if err != nil {
+			return nil, err
+		}
 		errorMatch.SetNext(next)
 		errorMatches = append(errorMatches, errorMatch)
 	}
@@ -165,9 +254,16 @@ func (s ServiceTaskStateParser) Parse(stateName string, stateMap map[string]inte
 	}
 	serviceTaskStateImpl.SetServiceMethod(serviceMethod)
 
-	serviceTaskStateImpl.SetServiceType(s.GetStringOrDefault(stateMap, "ServiceType", ""))
+	serviceType, err := s.GetStringOrDefault(stateName, stateMap, "ServiceType", "")
+	if err != nil {
+		return nil, err
+	}
+	serviceTaskStateImpl.SetServiceType(serviceType)
 
-	parameterTypeInterfaces := s.GetSliceOrDefault(stateMap, "ParameterTypes", nil)
+	parameterTypeInterfaces, err := s.GetSliceOrDefault(stateName, stateMap, "ParameterTypes", nil)
+	if err != nil {
+		return nil, err
+	}
 	if parameterTypeInterfaces != nil {
 		var parameterTypes []string
 		for i := range parameterTypeInterfaces {
@@ -181,7 +277,54 @@ func (s ServiceTaskStateParser) Parse(stateName string, stateMap map[string]inte
 		serviceTaskStateImpl.SetParameterTypes(parameterTypes)
 	}
 
-	serviceTaskStateImpl.SetIsAsync(s.GetBoolOrFalse(stateMap, "IsAsync"))
+	isAsync, err := s.GetBoolOrDefault(stateName, stateMap, "IsAsync", false)
+	if err != nil {
+		return nil, err
+	}
+	serviceTaskStateImpl.SetIsAsync(isAsync)
 
 	return serviceTaskStateImpl, nil
+}
+
+type ScriptTaskStateParser struct {
+	*AbstractTaskStateParser
+}
+
+func NewScriptTaskStateParser() *ScriptTaskStateParser {
+	return &ScriptTaskStateParser{
+		NewAbstractTaskStateParser(),
+	}
+}
+
+func (s ScriptTaskStateParser) StateType() string {
+	return constant.StateTypeScriptTask
+}
+
+func (s ScriptTaskStateParser) Parse(stateName string, stateMap map[string]interface{}) (statelang.State, error) {
+	scriptTaskStateImpl := state.NewScriptTaskStateImpl()
+
+	err := s.ParseTaskAttributes(stateName, scriptTaskStateImpl.AbstractTaskState, stateMap)
+	if err != nil {
+		return nil, err
+	}
+
+	scriptType, err := s.GetStringOrDefault(stateName, stateMap, "ScriptType", "")
+	if err != nil {
+		return nil, err
+	}
+	if scriptType != "" {
+		scriptTaskStateImpl.SetScriptType(scriptType)
+	}
+
+	scriptContent, err := s.GetStringOrDefault(stateName, stateMap, "ScriptContent", "")
+	if err != nil {
+		return nil, err
+	}
+	scriptTaskStateImpl.SetScriptContent(scriptContent)
+
+	scriptTaskStateImpl.SetForCompensation(false)
+	scriptTaskStateImpl.SetForUpdate(false)
+	scriptTaskStateImpl.SetPersist(false)
+
+	return scriptTaskStateImpl, nil
 }

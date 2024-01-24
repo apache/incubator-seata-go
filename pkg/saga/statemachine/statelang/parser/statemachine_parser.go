@@ -3,6 +3,8 @@ package parser
 import (
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -19,10 +21,24 @@ type StateParser interface {
 type BaseStateParser struct {
 }
 
+func NewBaseStateParser() *BaseStateParser {
+	return &BaseStateParser{}
+}
+
 func (b BaseStateParser) ParseBaseAttributes(stateName string, state statelang.State, stateMap map[string]interface{}) error {
 	state.SetName(stateName)
-	state.SetComment(b.GetStringOrDefault(stateMap, "Comment", ""))
-	state.SetNext(b.GetStringOrDefault(stateMap, "Next", ""))
+
+	comment, err := b.GetStringOrDefault(stateName, stateMap, "Comment", "")
+	if err != nil {
+		return err
+	}
+	state.SetComment(comment)
+
+	next, err := b.GetStringOrDefault(stateName, stateMap, "Next", "")
+	if err != nil {
+		return err
+	}
+	state.SetNext(next)
 	return nil
 }
 
@@ -41,17 +57,17 @@ func (b BaseStateParser) GetString(stateName string, stateMap map[string]interfa
 	return valueAsString, nil
 }
 
-func (b BaseStateParser) GetStringOrDefault(stateMap map[string]interface{}, key string, defaultValue string) string {
+func (b BaseStateParser) GetStringOrDefault(stateName string, stateMap map[string]interface{}, key string, defaultValue string) (string, error) {
 	value := stateMap[key]
 	if value == nil {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	valueAsString, ok := value.(string)
 	if !ok {
-		return defaultValue
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required string")
 	}
-	return valueAsString
+	return valueAsString, nil
 }
 
 func (b BaseStateParser) GetSlice(stateName string, stateMap map[string]interface{}, key string) ([]interface{}, error) {
@@ -69,32 +85,32 @@ func (b BaseStateParser) GetSlice(stateName string, stateMap map[string]interfac
 	return valueAsSlice, nil
 }
 
-func (b BaseStateParser) GetSliceOrDefault(stateMap map[string]interface{}, key string, defaultValue []interface{}) []interface{} {
+func (b BaseStateParser) GetSliceOrDefault(stateName string, stateMap map[string]interface{}, key string, defaultValue []interface{}) ([]interface{}, error) {
 	value := stateMap[key]
 
 	if value == nil {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	valueAsSlice, ok := value.([]interface{})
 	if !ok {
-		return defaultValue
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required []interface{}")
 	}
-	return valueAsSlice
+	return valueAsSlice, nil
 }
 
-func (b BaseStateParser) GetMapOrDefault(stateMap map[string]interface{}, key string, defaultValue map[string]interface{}) map[string]interface{} {
+func (b BaseStateParser) GetMapOrDefault(stateMap map[string]interface{}, key string, defaultValue map[string]interface{}) (map[string]interface{}, error) {
 	value := stateMap[key]
 
 	if value == nil {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	valueAsMap, ok := value.(map[string]interface{})
 	if !ok {
-		return defaultValue
+		return defaultValue, nil
 	}
-	return valueAsMap
+	return valueAsMap, nil
 }
 
 func (b BaseStateParser) GetBool(stateName string, stateMap map[string]interface{}, key string) (bool, error) {
@@ -111,46 +127,53 @@ func (b BaseStateParser) GetBool(stateName string, stateMap map[string]interface
 	return valueAsBool, nil
 }
 
-func (b BaseStateParser) GetBoolOrFalse(stateMap map[string]interface{}, key string) bool {
+func (b BaseStateParser) GetBoolOrDefault(stateName string, stateMap map[string]interface{}, key string, defaultValue bool) (bool, error) {
 	value := stateMap[key]
 
 	if value == nil {
-		return false
+		return defaultValue, nil
 	}
 
 	valueAsBool, ok := value.(bool)
 	if !ok {
-		return false
+		return false, errors.New("State [" + stateName + "] " + key + " illegal, required bool")
 	}
-	return valueAsBool
+	return valueAsBool, nil
 }
 
-func (b BaseStateParser) GetIntOrDefault(stateMap map[string]interface{}, key string, defaultValue int) int {
+func (b BaseStateParser) GetIntOrDefault(stateName string, stateMap map[string]interface{}, key string, defaultValue int) (int, error) {
 	value := stateMap[key]
 
 	if value == nil {
-		return defaultValue
+		return defaultValue, nil
 	}
 
-	valueAsInt, ok := value.(int)
+	// just use float64 to convert, json reader will read all number as float64
+	valueAsFloat64, ok := value.(float64)
 	if !ok {
-		return defaultValue
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required int")
 	}
-	return valueAsInt
+
+	floatStr := strconv.FormatFloat(valueAsFloat64, 'f', -1, 64)
+	if strings.Contains(floatStr, ".") {
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required int")
+	}
+
+	return int(valueAsFloat64), nil
 }
 
-func (b BaseStateParser) GetFloat64OrDefault(stateMap map[string]interface{}, key string, defaultValue float64) float64 {
+func (b BaseStateParser) GetFloat64OrDefault(stateName string, stateMap map[string]interface{}, key string, defaultValue float64) (float64, error) {
 	value := stateMap[key]
 
 	if value == nil {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	valueAsFloat64, ok := value.(float64)
 	if !ok {
-		return defaultValue
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required float64")
 	}
-	return valueAsFloat64
+	return valueAsFloat64, nil
 }
 
 type StateParserFactory interface {
@@ -179,6 +202,7 @@ func (d *DefaultStateParserFactory) InitDefaultStateParser() {
 	succeedEndStateParser := NewSucceedEndStateParser()
 	compensationTriggerStateParser := NewCompensationTriggerStateParser()
 	failEndStateParser := NewFailEndStateParser()
+	scriptTaskStateParser := NewScriptTaskStateParser()
 
 	d.RegistryStateParser(choiceStateParser.StateType(), choiceStateParser)
 	d.RegistryStateParser(serviceTaskStateParser.StateType(), serviceTaskStateParser)
@@ -187,6 +211,7 @@ func (d *DefaultStateParserFactory) InitDefaultStateParser() {
 	d.RegistryStateParser(compensationTriggerStateParser.StateType(), compensationTriggerStateParser)
 	d.RegistryStateParser(compensationTriggerStateParser.StateType(), compensationTriggerStateParser)
 	d.RegistryStateParser(failEndStateParser.StateType(), failEndStateParser)
+	d.RegistryStateParser(scriptTaskStateParser.StateType(), scriptTaskStateParser)
 }
 
 func (d *DefaultStateParserFactory) RegistryStateParser(stateType string, stateParser StateParser) {

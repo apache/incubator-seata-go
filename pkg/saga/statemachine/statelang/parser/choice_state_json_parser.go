@@ -9,11 +9,13 @@ import (
 )
 
 type ChoiceStateParser struct {
-	BaseStateParser
+	*BaseStateParser
 }
 
 func NewChoiceStateParser() *ChoiceStateParser {
-	return &ChoiceStateParser{}
+	return &ChoiceStateParser{
+		&BaseStateParser{},
+	}
 }
 
 func (c ChoiceStateParser) StateType() string {

@@ -22,5 +22,7 @@ const (
 	StateTypeSucceed                    string = "Succeed"
 	StateTypeFail                       string = "Fail"
 	StateTypeCompensationTrigger        string = "CompensationTrigger"
+	StateTypeScriptTask                 string = "ScriptTask"
 	CompensateSubMachineStateNamePrefix string = "_compensate_sub_machine_state_"
+	DefaultScriptType                   string = "groovy"
 )

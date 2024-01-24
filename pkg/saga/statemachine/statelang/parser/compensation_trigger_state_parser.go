@@ -7,12 +7,12 @@ import (
 )
 
 type CompensationTriggerStateParser struct {
-	BaseStateParser
+	*BaseStateParser
 }
 
 func NewCompensationTriggerStateParser() *CompensationTriggerStateParser {
 	return &CompensationTriggerStateParser{
-		BaseStateParser{},
+		&BaseStateParser{},
 	}
 }
 

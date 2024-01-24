@@ -9,12 +9,12 @@ import (
 )
 
 type JSONStateMachineParser struct {
-	BaseStateParser
+	*BaseStateParser
 }
 
 func NewJSONStateMachineParser() *JSONStateMachineParser {
 	return &JSONStateMachineParser{
-		BaseStateParser{},
+		&BaseStateParser{},
 	}
 }
 

@@ -3,7 +3,6 @@ package state
 import (
 	"github.com/google/uuid"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"strconv"
 )
 
 type SubStateMachine interface {
@@ -55,7 +54,7 @@ func NewCompensateSubStateMachineStateImpl() *CompensateSubStateMachineStateImpl
 	uuid := uuid.New()
 	c := &CompensateSubStateMachineStateImpl{
 		ServiceTaskStateImpl: NewServiceTaskStateImpl(),
-		hashcode:             strconv.Itoa(int(uuid.ID())),
+		hashcode:             uuid.String(),
 	}
 	c.SetType(constant.CompensateSubMachine)
 	return c

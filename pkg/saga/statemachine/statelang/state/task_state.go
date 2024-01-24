@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"reflect"
 )
@@ -392,4 +393,41 @@ func (e *ErrorMatchImpl) SetErrorTypes(errorTypes []reflect.Type) {
 
 func (e *ErrorMatchImpl) Next() string {
 	return e.next
+}
+
+type ScriptTaskState interface {
+	TaskState
+
+	ScriptType() string
+
+	ScriptContent() string
+}
+
+type ScriptTaskStateImpl struct {
+	*AbstractTaskState
+	scriptType    string
+	scriptContent string
+}
+
+func NewScriptTaskStateImpl() *ScriptTaskStateImpl {
+	return &ScriptTaskStateImpl{
+		AbstractTaskState: NewAbstractTaskState(),
+		scriptType:        constant.DefaultScriptType,
+	}
+}
+
+func (s *ScriptTaskStateImpl) SetScriptType(scriptType string) {
+	s.scriptType = scriptType
+}
+
+func (s *ScriptTaskStateImpl) SetScriptContent(scriptContent string) {
+	s.scriptContent = scriptContent
+}
+
+func (s *ScriptTaskStateImpl) ScriptType() string {
+	return s.scriptType
+}
+
+func (s *ScriptTaskStateImpl) ScriptContent() string {
+	return s.scriptContent
 }
