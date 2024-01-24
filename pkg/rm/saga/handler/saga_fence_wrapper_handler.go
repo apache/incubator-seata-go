@@ -83,7 +83,7 @@ func (handler *sagaFenceWrapperHandler) CompensationFence(ctx context.Context, t
 
 	// record is null, mean the need suspend
 	if fenceDo == nil {
-		err = handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusSuspended)
+		err = handler.insertSagaFenceLog(tx, xid, branchId, actionName, enum.StatusSuspended)
 		if err != nil {
 			return fmt.Errorf("insert tcc fence record errors, rollback fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
 		}
@@ -105,7 +105,7 @@ func (handler *sagaFenceWrapperHandler) CompensationFence(ctx context.Context, t
 	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusRollbacked)
 }
 
-func (handler *sagaFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
+func (handler *sagaFenceWrapperHandler) insertSagaFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
