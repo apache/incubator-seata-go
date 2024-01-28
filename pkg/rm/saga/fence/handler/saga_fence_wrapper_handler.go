@@ -36,7 +36,7 @@ type FenceLogIdentity struct {
 	branchId int64
 }
 
-func GetFenceHandler() *sagaFenceWrapperHandler {
+func GetSagaFenceHandler() *sagaFenceWrapperHandler {
 	if fenceHandler == nil {
 		fenceOnce.Do(func() {
 			fenceHandler = &sagaFenceWrapperHandler{

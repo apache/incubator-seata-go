@@ -10,7 +10,6 @@ import (
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
-	"go/types"
 	"reflect"
 	"sync"
 )
@@ -42,8 +41,6 @@ type SagaResource struct {
 	ResourceGroupId string `default:"DEFAULT"`
 	AppName         string
 	actionName      string
-	//反射相关用户自定义的事务操作
-	targetBean types.Object
 	//一阶段提交的方法
 	prepareMethod reflect.Method
 	//与tcc事务不同saga事务只有回滚才需要二阶段
@@ -88,14 +85,6 @@ func (saga *SagaResource) ActionName() string {
 
 func (saga *SagaResource) SetActionName(actionName string) {
 	saga.actionName = actionName
-}
-
-func (saga *SagaResource) TargetBean() types.Object {
-	return saga.targetBean
-}
-
-func (saga *SagaResource) SetTargetBean(targetBean types.Object) {
-	saga.targetBean = targetBean
 }
 
 func (saga *SagaResource) PrepareMethod() reflect.Method {
@@ -164,7 +153,6 @@ func (saga *SagaResourceManager) BranchCommit(ctx context.Context, branchResourc
 	tm.SetXID(ctx, branchResource.Xid)
 	//设置回滚事务时，防悬挂
 	tm.SetFencePhase(ctx, enum.FencePhaseAction)
-	//todo saga.TwoAction.action(committed)
 	tm.SetBusinessActionContext(ctx, businessContext)
 	//getBusinessActionContext
 	//一阶段直接提交
@@ -185,6 +173,11 @@ func (saga *SagaResourceManager) BranchRollback(ctx context.Context, resource rm
 
 	businessActionContext := saga.getBusinessAction(resource.Xid, resource.BranchId, resource.ResourceId, resource.ApplicationData)
 
+	ctx = tm.InitSeataContext(ctx)
+	tm.SetXID(ctx, resource.Xid)
+	//设置回滚事务时，防悬挂
+	tm.SetFencePhase(ctx, enum.FencePhaseCompensationAction)
+	tm.SetBusinessActionContext(ctx, businessActionContext)
 	_, err := sagaResource.SagaAction.Compensation(ctx, businessActionContext)
 	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 }

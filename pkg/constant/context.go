@@ -41,5 +41,6 @@ const (
 
 	SeataVersion = "1.1.0"
 
-	TccBusinessActionContextParameter = "tccParam"
+	TccBusinessActionContextParameter  = "tccParam"
+	SagaBusinessActionContextParameter = "sagaParam"
 )

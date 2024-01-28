@@ -2,6 +2,7 @@ package saga
 
 import (
 	"context"
+	"fmt"
 	"github.com/agiledragon/gomonkey"
 	gostnet "github.com/dubbogo/gost/net"
 	"github.com/seata/seata-go/pkg/constant"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -83,6 +85,195 @@ func TestInitActionContext(t *testing.T) {
 		constant.ActionName:         testdata2.ActionName,
 		constant.HostName:           localIp,
 	}, result)
+}
+
+func TestGetOrCreateBusinessActionContext(t *testing.T) {
+	tests := []struct {
+		param interface{}
+		want  tm.BusinessActionContext
+	}{
+		{
+			param: nil,
+			want:  tm.BusinessActionContext{},
+		},
+		{
+			param: tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  12,
+				},
+			},
+			want: tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  12,
+				},
+			},
+		},
+		{
+			param: &tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  13,
+				},
+			},
+			want: tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  13,
+				},
+			},
+		},
+		{
+			param: struct {
+				Context *tm.BusinessActionContext
+			}{
+				Context: &tm.BusinessActionContext{
+					ActionContext: map[string]interface{}{
+						"name": "Jack",
+						"age":  14,
+					},
+				},
+			},
+			want: tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  14,
+				},
+			},
+		},
+		{
+			param: struct {
+				Context tm.BusinessActionContext
+			}{
+				Context: tm.BusinessActionContext{
+					ActionContext: map[string]interface{}{
+						"name": "Jack",
+						"age":  12,
+					},
+				},
+			},
+			want: tm.BusinessActionContext{
+				ActionContext: map[string]interface{}{
+					"name": "Jack",
+					"age":  12,
+				},
+			},
+		},
+		{
+			param: struct {
+				context tm.BusinessActionContext
+			}{
+				context: tm.BusinessActionContext{
+					ActionContext: map[string]interface{}{
+						"name": "Jack",
+						"age":  12,
+					},
+				},
+			},
+			want: tm.BusinessActionContext{},
+		},
+	}
+
+	for _, tt := range tests {
+		result := testSagaServiceProxy.getOrCreateBusinessActionContext(tt.param)
+		assert.Equal(t, tt.want, *result)
+	}
+}
+
+func TestRegisteBranch(t *testing.T) {
+	ctx := testdata2.GetTestContext()
+	err := testSagaServiceProxy.registerBranch(ctx, nil)
+	assert.Nil(t, err)
+	bizContext := tm.GetBusinessActionContext(ctx)
+	assert.Equal(t, testBranchID, bizContext.BranchId)
+}
+
+func TestNewTCCServiceProxy(t *testing.T) {
+	type args struct {
+		service interface{}
+	}
+
+	userProvider := &UserProvider{}
+	args1 := args{service: userProvider}
+	args2 := args{service: userProvider}
+
+	twoPhaseAction1, _ := rm.ParseSagaTwoPhaseAction(userProvider)
+	twoPhaseAction2, _ := rm.ParseSagaTwoPhaseAction(userProvider)
+
+	tests := []struct {
+		name    string
+		args    args
+		want    *SagaServiceProxy
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			"test1", args1, &SagaServiceProxy{
+				SagaResource: &SagaResource{
+					ResourceGroupId: `default:"DEFAULT"`,
+					AppName:         "seata-go-mock-app-name",
+					SagaAction:      twoPhaseAction1,
+				},
+			}, assert.NoError,
+		},
+		{
+			"test2", args2, &SagaServiceProxy{
+				SagaResource: &SagaResource{
+					ResourceGroupId: `default:"DEFAULT"`,
+					AppName:         "seata-go-mock-app-name",
+					SagaAction:      twoPhaseAction2,
+				},
+			}, assert.NoError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewSagaServiceProxy(tt.args.service)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewTCCServiceProxy(%v)", tt.args.service)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewTCCServiceProxy(%v)", tt.args.service)
+		})
+	}
+}
+
+func TestTCCGetTransactionInfo(t1 *testing.T) {
+	type fields struct {
+		referenceName        string
+		registerResourceOnce sync.Once
+		SagaResource         *SagaResource
+	}
+
+	userProvider := &UserProvider{}
+	twoPhaseAction1, _ := rm.ParseSagaTwoPhaseAction(userProvider)
+
+	tests := struct {
+		name   string
+		fields fields
+		want   tm.GtxConfig
+	}{
+		"test1",
+		fields{
+			referenceName:        "test1",
+			registerResourceOnce: sync.Once{},
+			SagaResource: &SagaResource{
+				ResourceGroupId: "default1",
+				AppName:         "app1",
+				SagaAction:      twoPhaseAction1,
+			},
+		},
+		tm.GtxConfig{Name: "TwoPhaseDemoService", Timeout: time.Second * 10, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
+	}
+
+	t1.Run(tests.name, func(t1 *testing.T) {
+		t := &SagaServiceProxy{
+			referenceName:        tests.fields.referenceName,
+			registerResourceOnce: sync.Once{},
+			SagaResource:         tests.fields.SagaResource,
+		}
+		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
+	})
 }
 
 func GetTestTwoPhaseService() rm.SagaActionInterface {

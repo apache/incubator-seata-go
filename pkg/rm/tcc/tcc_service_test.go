@@ -237,7 +237,7 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 
 func TestRegisteBranch(t *testing.T) {
 	ctx := testdata2.GetTestContext()
-	err := testTccServiceProxy.registeBranch(ctx, nil)
+	err := testTccServiceProxy.registerBranch(ctx, nil)
 	assert.Nil(t, err)
 	bizContext := tm.GetBusinessActionContext(ctx)
 	assert.Equal(t, testBranchID, bizContext.BranchId)
