@@ -38,8 +38,8 @@ const (
 type StateLogStore struct {
 	Store
 	seqGenerator     sequence.SeqGenerator
-	paramsSerializer serializer.Serializer[any, string]
-	errorSerializer  serializer.Serializer[error, []byte]
+	paramsSerializer serializer.ParamsSerializer
+	errorSerializer  serializer.ErrorSerializer
 
 	tablePrefix     string
 	defaultTenantId string

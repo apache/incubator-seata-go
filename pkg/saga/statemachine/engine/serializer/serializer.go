@@ -7,11 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Serializer[S any, T any] interface {
-	Serialize(object S) (T, error)
-	Deserialize(object T) (S, error)
-}
-
 type ParamsSerializer struct{}
 
 func (ParamsSerializer) Serialize(object any) (string, error) {
