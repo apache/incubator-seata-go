@@ -52,7 +52,6 @@ func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 func (c *CompressConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&c.Enable, prefix+".enable", true, "Whether compression is required.")
-	f.StringVar(&c.Type, prefix+".type", "zip", "Compression type")
+	f.StringVar(&c.Type, prefix+".type", "None", "Compression type")
 	f.StringVar(&c.Threshold, prefix+".threshold", "64k", "Compression threshold")
 }
