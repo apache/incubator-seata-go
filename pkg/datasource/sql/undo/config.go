@@ -19,6 +19,8 @@ package undo
 
 import (
 	"flag"
+
+	"github.com/seata/seata-go/pkg/compressor"
 )
 
 var (
@@ -52,6 +54,6 @@ func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 }
 
 func (c *CompressConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&c.Type, prefix+".type", "None", "Compression type")
+	f.StringVar(&c.Type, prefix+".type", string(compressor.CompressorNone), "Compression type")
 	f.StringVar(&c.Threshold, prefix+".threshold", "64k", "Compression threshold")
 }
