@@ -17,61 +17,37 @@
 
 package compressor
 
-type CompressorType int8
+type CompressorType string
 
 const (
-	CompressorNone CompressorType = iota
-	CompressorGzip
-	CompressorZip
-	CompressorSevenz
-	CompressorBzip2
-	CompressorLz4
-	CompressorDeflate
-	CompressorZstd
+	// "None" means no compressor is used
+	CompressorNone    CompressorType = "None"
+	CompressorGzip    CompressorType = "Gzip"
+	CompressorZip     CompressorType = "Zip"
+	CompressorSevenz  CompressorType = "Sevenz"
+	CompressorBzip2   CompressorType = "Bzip2"
+	CompressorLz4     CompressorType = "Lz4"
+	CompressorDeflate CompressorType = "Deflate"
+	CompressorZstd    CompressorType = "Zstd"
 )
 
-func (c CompressorType) String() string {
+func (c CompressorType) GetCompressor() Compressor {
 	switch c {
 	case CompressorNone:
-		return "CompressorNone"
+		return &NoneCompressor{}
 	case CompressorGzip:
-		return "CompressorGzip"
+		return &Gzip{}
 	case CompressorZip:
-		return "CompressorZip"
-	case CompressorSevenz:
-		return "CompressorSevenz"
+		return &Zip{}
 	case CompressorBzip2:
-		return "CompressorBzip2"
+		return &Bzip2{}
 	case CompressorLz4:
-		return "CompressorLz4"
+		return &Lz4{}
 	case CompressorZstd:
-		return "CompressorZstd"
+		return &Zstd{}
 	case CompressorDeflate:
-		return "CompressorDeflate"
+		return &DeflateCompress{}
 	default:
-		return ""
-	}
-}
-
-var compressor map[string]CompressorType
-
-func GetByName(name string) CompressorType {
-	if compressor == nil {
-		compressor = map[string]CompressorType{
-			CompressorNone.String():    CompressorNone,
-			CompressorGzip.String():    CompressorGzip,
-			CompressorZip.String():     CompressorZip,
-			CompressorSevenz.String():  CompressorSevenz,
-			CompressorBzip2.String():   CompressorBzip2,
-			CompressorLz4.String():     CompressorLz4,
-			CompressorZstd.String():    CompressorZstd,
-			CompressorDeflate.String(): CompressorDeflate,
-		}
-	}
-
-	if v, ok := compressor[name]; ok {
-		return v
-	} else {
-		return CompressorNone
+		return &NoneCompressor{}
 	}
 }
