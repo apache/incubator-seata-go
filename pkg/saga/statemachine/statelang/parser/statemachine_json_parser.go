@@ -3,14 +3,19 @@ package parser
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type JSONStateMachineParser struct {
+	*BaseStateParser
 }
 
 func NewJSONStateMachineParser() *JSONStateMachineParser {
-	return &JSONStateMachineParser{}
+	return &JSONStateMachineParser{
+		&BaseStateParser{},
+	}
 }
 
 func (stateMachineParser JSONStateMachineParser) GetType() string {
@@ -77,13 +82,38 @@ func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelan
 		stateMachine.States()[stateName] = state
 	}
 
-	//TODO setCompensateState
-	//for stateName, state := range stateMachine.GetStates() {
-	//
-	//}
-	//
+	for _, stateValue := range stateMachine.States() {
+		if stateMachineParser.isTaskState(stateValue.Type()) {
+			stateMachineParser.setForCompensation(stateValue, stateMachine)
+		}
+	}
 
 	return stateMachine, nil
+}
+
+func (stateMachineParser JSONStateMachineParser) setForCompensation(stateValue statelang.State, stateMachine *statelang.StateMachineImpl) {
+	switch stateValue.Type() {
+	case stateValue.Type():
+		serviceTaskStateImpl, ok := stateValue.(*state.ServiceTaskStateImpl)
+		if ok {
+			if serviceTaskStateImpl.CompensateState() != "" {
+				compState := stateMachine.States()[serviceTaskStateImpl.CompensateState()]
+				if stateMachineParser.isTaskState(compState.Type()) {
+					compStateImpl, ok := compState.(state.ServiceTaskStateImpl)
+					if ok {
+						compStateImpl.SetForCompensation(true)
+					}
+				}
+			}
+		}
+	}
+}
+
+func (stateMachineParser JSONStateMachineParser) isTaskState(stateType string) bool {
+	if stateType == constant.StateTypeServiceTask {
+		return true
+	}
+	return false
 }
 
 type StateMachineJsonObject struct {
