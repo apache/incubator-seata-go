@@ -39,6 +39,8 @@ func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Sessio
 		return XidLoadBalance(sessions, xid)
 	case consistentHashLoadBalance:
 		return ConsistentHashLoadBalance(sessions, xid)
+	case leastActiveLoadBalance:
+		return LeastActiveLoadBalance(sessions, xid)	
 	case roundRobinLoadBalance:
 		return RoundRobinLoadBalance(sessions, xid)
 	default:
