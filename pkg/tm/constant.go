@@ -17,7 +17,7 @@
 
 package tm
 
-import "github.com/seata/seata-go/pkg/protocol/message"
+import "seata.apache.org/seata-go/pkg/protocol/message"
 
 type TransactionManager interface {
 	// Begin a new global transaction.

@@ -21,12 +21,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/rm/tcc"
+	"seata.apache.org/seata-go/pkg/rm/tcc"
 
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm"
+	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/rm"
 )
 
 func TestRmBranchCommitProcessor(t *testing.T) {
