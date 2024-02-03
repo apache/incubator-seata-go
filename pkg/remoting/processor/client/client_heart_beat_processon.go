@@ -40,8 +40,6 @@ func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage messa
 	}
 	msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
 	if msgFuture != nil {
-		// 心跳消息目前没有处理逻辑，所以这里不能notify，否则会导致msgFuture.Done阻塞
-		// getty.GetGettyRemotingInstance().NotifyRpcMessageResponse(rpcMessage)
 		getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
 	}
 	return nil
