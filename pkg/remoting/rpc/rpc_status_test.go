@@ -15,33 +15,36 @@
  * limitations under the License.
  */
 
-package loadbalance
+package rpc
 
 import (
-	"sync"
+	"testing"
 
-	getty "github.com/apache/dubbo-getty"
+	"github.com/stretchr/testify/assert"
 )
 
-const (
-	randomLoadBalance         = "RandomLoadBalance"
-	xidLoadBalance            = "XID"
-	roundRobinLoadBalance     = "RoundRobinLoadBalance"
-	consistentHashLoadBalance = "ConsistentHashLoadBalance"
-	leastActiveLoadBalance    = "LeastActiveLoadBalance"
-)
+var service = "127.0.0.1:8000"
 
-func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
-	switch loadBalanceType {
-	case randomLoadBalance:
-		return RandomLoadBalance(sessions, xid)
-	case xidLoadBalance:
-		return XidLoadBalance(sessions, xid)
-	case leastActiveLoadBalance:
-		return LeastActiveLoadBalance(sessions, xid)	
-	case roundRobinLoadBalance:
-		return RoundRobinLoadBalance(sessions, xid)
-	default:
-		return RandomLoadBalance(sessions, xid)
-	}
+func TestStatus(t *testing.T) {
+	rpcStatus1 := GetStatus(service)
+	assert.NotNil(t, rpcStatus1)
+	rpcStatus2 := GetStatus(service)
+	assert.Equal(t, rpcStatus1, rpcStatus2)
+}
+
+func TestRemoveStatus(t *testing.T) {
+	old := GetStatus(service)
+	RemoveStatus(service)
+	assert.Equal(t, GetStatus(service), old)
+}
+
+func TestBeginCount(t *testing.T) {
+	BeginCount(service)
+	assert.Equal(t, GetStatus(service).GetActive(), int32(1))
+}
+
+func TestEndCount(t *testing.T) {
+	EndCount(service)
+	assert.Equal(t, GetStatus(service).GetActive(), int32(0))
+	assert.Equal(t, GetStatus(service).GetTotal(), int32(1))
 }
