@@ -29,7 +29,7 @@ import (
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
 )
 
 // todo the executor should be stateful

@@ -18,7 +18,7 @@
 package executor
 
 import (
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
 )
 
 type MySQLUndoExecutorHolder struct {

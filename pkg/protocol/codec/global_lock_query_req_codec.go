@@ -18,9 +18,9 @@
 package codec
 
 import (
-	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/bytes"
+	model2 "github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/bytes"
 )
 
 type GlobalLockQueryRequestCodec struct {

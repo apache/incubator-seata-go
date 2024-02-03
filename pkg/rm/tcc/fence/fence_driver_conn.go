@@ -24,8 +24,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 type FenceConn struct {

@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/branch"
 )
 
 type DBType int16

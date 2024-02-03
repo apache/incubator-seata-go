@@ -21,7 +21,7 @@ import (
 	"flag"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/util/flagext"
+	"github.com/apache/seata-go/pkg/util/flagext"
 )
 
 var seataConfig *SeataConfig

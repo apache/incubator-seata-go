@@ -20,18 +20,18 @@ package client
 import (
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/datasource"
-	at "seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/config"
-	"seata.apache.org/seata-go/pkg/discovery"
-	"seata.apache.org/seata-go/pkg/integration"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/remoting/processor/client"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource"
+	at "github.com/apache/seata-go/pkg/datasource/sql"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec/config"
+	"github.com/apache/seata-go/pkg/discovery"
+	"github.com/apache/seata-go/pkg/integration"
+	remoteConfig "github.com/apache/seata-go/pkg/remoting/config"
+	"github.com/apache/seata-go/pkg/remoting/getty"
+	"github.com/apache/seata-go/pkg/remoting/processor/client"
+	"github.com/apache/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/rm/tcc"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 // Init seata client client

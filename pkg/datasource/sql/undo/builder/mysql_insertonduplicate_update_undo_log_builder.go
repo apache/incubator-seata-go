@@ -25,10 +25,10 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/executor"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 type MySQLInsertOnDuplicateUndoLogBuilder struct {

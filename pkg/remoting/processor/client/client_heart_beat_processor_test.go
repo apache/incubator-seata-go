@@ -21,9 +21,9 @@ import (
 	"context"
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/protocol/codec"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 func TestClientHeartBeatProcessor(t *testing.T) {

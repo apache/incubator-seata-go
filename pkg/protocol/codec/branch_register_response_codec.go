@@ -20,9 +20,9 @@ package codec
 import (
 	"math"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/bytes"
-	serror "seata.apache.org/seata-go/pkg/util/errors"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/bytes"
+	serror "github.com/apache/seata-go/pkg/util/errors"
 )
 
 type BranchRegisterResponseCodec struct{}

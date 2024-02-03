@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"seata.apache.org/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/tm"
 )
 
 const (

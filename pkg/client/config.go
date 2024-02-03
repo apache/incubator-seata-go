@@ -26,20 +26,20 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/apache/seata-go/pkg/discovery"
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
-	"seata.apache.org/seata-go/pkg/discovery"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/flagext"
+	"github.com/apache/seata-go/pkg/datasource/sql"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
+	remoteConfig "github.com/apache/seata-go/pkg/remoting/config"
+	"github.com/apache/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/rm/tcc"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/flagext"
 )
 
 const (

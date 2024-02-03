@@ -21,12 +21,12 @@ import (
 	"context"
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc"
+	"github.com/apache/seata-go/pkg/rm/tcc"
 
-	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/rm"
+	model2 "github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/codec"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/rm"
 )
 
 func TestRmBranchRollbackProcessor(t *testing.T) {

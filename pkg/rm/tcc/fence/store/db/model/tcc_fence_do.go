@@ -20,7 +20,7 @@ package model
 import (
 	"time"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 type TCCFenceDO struct {

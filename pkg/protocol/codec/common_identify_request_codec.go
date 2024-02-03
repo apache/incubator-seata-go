@@ -18,8 +18,8 @@
 package codec
 
 import (
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/bytes"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/bytes"
 )
 
 type AbstractIdentifyRequestCodec struct{}

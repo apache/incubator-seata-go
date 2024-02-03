@@ -20,8 +20,8 @@ package builder
 import (
 	"context"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
 )
 
 type MySQLMultiUndoLogBuilder struct {

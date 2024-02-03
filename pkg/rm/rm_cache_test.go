@@ -23,7 +23,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/branch"
 )
 
 func TestGetRmCacheInstance(t *testing.T) {

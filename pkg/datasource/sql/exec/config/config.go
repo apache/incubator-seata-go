@@ -18,8 +18,8 @@
 package config
 
 import (
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec/at"
+	"github.com/apache/seata-go/pkg/rm"
 )
 
 func Init(config rm.LockConfig) {

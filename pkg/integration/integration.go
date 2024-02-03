@@ -18,7 +18,7 @@
 package integration
 
 import (
-	"seata.apache.org/seata-go/pkg/integration/dubbo"
+	"github.com/apache/seata-go/pkg/integration/dubbo"
 )
 
 func Init() {

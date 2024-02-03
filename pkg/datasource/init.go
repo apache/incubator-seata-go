@@ -18,7 +18,7 @@
 package datasource
 
 import (
-	"seata.apache.org/seata-go/pkg/datasource/sql"
+	"github.com/apache/seata-go/pkg/datasource/sql"
 )
 
 func Init() {

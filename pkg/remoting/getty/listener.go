@@ -24,12 +24,12 @@ import (
 	getty "github.com/apache/dubbo-getty"
 	"go.uber.org/atomic"
 
-	"seata.apache.org/seata-go/pkg/constant"
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/processor"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/constant"
+	"github.com/apache/seata-go/pkg/protocol/codec"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/remoting/config"
+	"github.com/apache/seata-go/pkg/remoting/processor"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 var (

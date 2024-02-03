@@ -24,8 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/base"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/base"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/mysql"
 )
 
 // TestBatchDeleteUndoLogs

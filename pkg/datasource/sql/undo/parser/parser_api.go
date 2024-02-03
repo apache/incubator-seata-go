@@ -17,7 +17,7 @@
 
 package parser
 
-import "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+import "github.com/apache/seata-go/pkg/datasource/sql/undo"
 
 // The interface Undo log parser.
 type UndoLogParser interface {

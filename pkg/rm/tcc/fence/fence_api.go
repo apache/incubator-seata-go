@@ -22,9 +22,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
-	"seata.apache.org/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/handler"
+	"github.com/apache/seata-go/pkg/tm"
 )
 
 // WithFence Execute the fence database operation first and then call back the business method

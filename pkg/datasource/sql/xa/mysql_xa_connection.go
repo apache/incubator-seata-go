@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 type MysqlXAConn struct {
