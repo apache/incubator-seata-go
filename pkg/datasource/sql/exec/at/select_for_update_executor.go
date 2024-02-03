@@ -174,12 +174,6 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		return nil, fmt.Errorf("not support savepoint. please check your db version")
 	}
 
-	// execute business SQL, try to get local lock
-	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
 	// query primary key values
 	var lockKey string
 	_, err = s.exec(ctx, s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
@@ -192,6 +186,12 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 
 	if lockKey == "" {
 		return nil, nil
+	}
+
+	// execute business SQL, try to get local lock
+	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
+	if err != nil {
+		return nil, err
 	}
 
 	// check global lock
