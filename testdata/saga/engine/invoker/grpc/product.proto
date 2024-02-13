@@ -1,0 +1,22 @@
+syntax = "proto3";
+package product;
+
+option go_package = "testdata/saga/engine/invoker/product";
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.helloworld";
+option java_outer_classname = "HelloWorldProto";
+
+service ProductInfo {
+  //添加商品
+  rpc addProduct(Product) returns (ProductId);
+  //获取商品
+  rpc getProduct(ProductId) returns (Product);
+}
+
+message Product {
+  string id = 1;
+}
+
+message ProductId {
+  string value = 1;
+}
