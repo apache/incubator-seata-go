@@ -69,7 +69,6 @@ func (c *RpcClient) init() {
 
 func (c *RpcClient) getAvailServerList() []*discovery.ServiceInstance {
 	registryService := discovery.GetRegistry()
-	fmt.Printf("rulin tx service group: %+v\n", c.seataConf.TxServiceGroup)
 	instances, err := registryService.Lookup(c.seataConf.TxServiceGroup)
 	if err != nil {
 		return nil
