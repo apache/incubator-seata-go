@@ -50,7 +50,7 @@ func (cfg *FileRegistry) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet)
 type NacosRegistry struct {
 	// This application refers to seata server's application name registered at nacos.
 	Application string `yaml:"application" json:"application" koanf:"application"`
-	// This is the nacos server address, incluing port. For example, "127.0.0.1:8848" at local host.
+	// This is the nacos server address, including port. For example, "127.0.0.1:8848" at local host.
 	ServerAddr  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 	Group       string `yaml:"group" json:"group" koanf:"group"`
 	Namespace   string `yaml:"namespace" json:"namespace" koanf:"namespace"`
