@@ -37,11 +37,9 @@ var (
 )
 
 type NacosRegistryService struct {
-	registry       *NacosRegistry
-	vgroupMapping  flagext.StringMap
-	txServiceGroup string
-	cluster        string
-	client         naming_client.INamingClient
+	registry *NacosRegistry
+	cluster  string
+	client   naming_client.INamingClient
 }
 
 func newNacosRegistryService(registry *NacosRegistry, vgroupMapping flagext.StringMap, txServiceGroup string) RegistryService {
@@ -57,10 +55,8 @@ func newNacosRegistryService(registry *NacosRegistry, vgroupMapping flagext.Stri
 	}
 
 	return &NacosRegistryService{
-		registry:       registry,
-		vgroupMapping:  vgroupMapping,
-		txServiceGroup: txServiceGroup,
-		cluster:        cluster,
+		registry: registry,
+		cluster:  cluster,
 	}
 }
 
