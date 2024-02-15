@@ -223,8 +223,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
-	// Todo use config
-	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
+	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
 	if err != nil {
@@ -376,10 +375,9 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 }
 
 func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
-	// todo use config to replace
 	parseContext := make(map[string]string, 0)
+	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
-	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
 	logParse, err := parser.GetCache().Load(parseContext[serializerKey])
@@ -495,7 +493,7 @@ func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext ma
 	res := rollbackInfo
 	// get compress type
 	if v, ok := undoContext[compressorTypeKey]; ok {
-		res, err = compressor.GetByName(v).GetCompressor().Decompress(rollbackInfo)
+		res, err = compressor.CompressorType(v).GetCompressor().Decompress(rollbackInfo)
 		if err != nil {
 			log.Errorf("[getRollbackInfo] decompress fail, err: %+v", err)
 			return nil, err

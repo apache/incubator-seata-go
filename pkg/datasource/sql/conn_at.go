@@ -62,6 +62,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 			Query:                query,
 			NamedValues:          args,
 			Conn:                 c.targetConn,
+			DBName:               c.dbName,
 			IsSupportsSavepoints: true,
 			IsAutoCommit:         c.GetAutoCommit(),
 		}
