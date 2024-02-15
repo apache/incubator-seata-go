@@ -19,29 +19,17 @@ package discovery
 
 import (
 	"flag"
-
-	"github.com/seata/seata-go/pkg/util/flagext"
 )
 
-type ServiceConfig struct {
-	VgroupMapping            flagext.StringMap `yaml:"vgroup-mapping" json:"vgroup-mapping" koanf:"vgroup-mapping"`
-	Grouplist                flagext.StringMap `yaml:"grouplist" json:"grouplist" koanf:"grouplist"`
-	EnableDegrade            bool              `yaml:"enable-degrade" json:"enable-degrade" koanf:"enable-degrade"`
-	DisableGlobalTransaction bool              `yaml:"disable-global-transaction" json:"disable-global-transaction" koanf:"disable-global-transaction"`
-}
-
-func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.BoolVar(&cfg.EnableDegrade, prefix+".enable-degrade", false, "degrade current not support.")
-	f.BoolVar(&cfg.DisableGlobalTransaction, prefix+".disable-global-transaction", false, "disable globalTransaction.")
-	f.Var(&cfg.VgroupMapping, prefix+".vgroup-mapping", "The vgroup mapping.")
-	f.Var(&cfg.Grouplist, prefix+".grouplist", "The group list.")
-}
-
+// Registry center config
+// 注册中心本身的配置，客户端通过该配置连接注册中心（比如nacos, zookeeper, etcd等）。在注册中心找到seata server(seata server需要提前注册到该注册中心).
+// 使用seata的客户端微服务(seata client micro service), 也可以将自身注册到该注册中心，构建一个微服务系统(micro service system).
 type RegistryConfig struct {
-	Type  string      `yaml:"type" json:"type" koanf:"type"`
-	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	// 注册中心的类型，比如file，nacos
+	Type  string        `yaml:"type" json:"type" koanf:"type"`
+	File  FileRegistry  `yaml:"file" json:"file" koanf:"file"`
+	Nacos NacosRegistry `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3 Etcd3Registry `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -51,16 +39,18 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
 }
 
-type FileConfig struct {
+type FileRegistry struct {
 	Name string `yaml:"name" json:"name" koanf:"name"`
 }
 
-func (cfg *FileConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (cfg *FileRegistry) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Name, prefix+".name", "registry.conf", "The file name of registry.")
 }
 
-type NacosConfig struct {
+type NacosRegistry struct {
+	// This application refers to seata server's application name registered at nacos.
 	Application string `yaml:"application" json:"application" koanf:"application"`
+	// This is the nacos server address, incluing port. For example, "127.0.0.1:8848" at local host.
 	ServerAddr  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 	Group       string `yaml:"group" json:"group" koanf:"group"`
 	Namespace   string `yaml:"namespace" json:"namespace" koanf:"namespace"`
@@ -68,10 +58,11 @@ type NacosConfig struct {
 	Password    string `yaml:"password" json:"password" koanf:"password"`
 	AccessKey   string `yaml:"access-key" json:"access-key" koanf:"access-key"`
 	SecretKey   string `yaml:"secret-key" json:"secret-key" koanf:"secret-key"`
+	ContextPath string `yaml:"context-path" json:"context-path" koanf:"context-path"`
 }
 
-func (cfg *NacosConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Application, prefix+".application", "seata", "The application name of registry.")
+func (cfg *NacosRegistry) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Application, prefix+".application", "seata-server", "The application name of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "", "The server address of registry.")
 	f.StringVar(&cfg.Group, prefix+".group", "SEATA_GROUP", "The group of registry.")
 	f.StringVar(&cfg.Namespace, prefix+".namespace", "", "The namespace of registry.")
@@ -79,14 +70,15 @@ func (cfg *NacosConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 	f.StringVar(&cfg.Password, prefix+".password", "", "The password of registry.")
 	f.StringVar(&cfg.AccessKey, prefix+".access-key", "", "The access key of registry.")
 	f.StringVar(&cfg.SecretKey, prefix+".secret-key", "", "The secret key of registry.")
+	f.StringVar(&cfg.ContextPath, prefix+".context-path", "", "The context path of registry.")
 }
 
-type Etcd3Config struct {
+type Etcd3Registry struct {
 	Cluster    string `yaml:"cluster" json:"cluster" koanf:"cluster"`
 	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 }
 
-func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (cfg *Etcd3Registry) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
 }

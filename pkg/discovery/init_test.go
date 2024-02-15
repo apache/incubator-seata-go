@@ -65,7 +65,7 @@ func TestInitRegistry(t *testing.T) {
 					t.Errorf("Expected a panic but did not receive one")
 				}
 			}()
-			InitRegistry(tt.args.serviceConfig, tt.args.registryConfig)
+			InitRegistry(tt.args.serviceConfig, tt.args.registryConfig, "")
 			instance := GetRegistry()
 			if !tt.hasPanic {
 				actualType := reflect.TypeOf(instance).Elem().Name()

@@ -100,6 +100,6 @@ func initDatasource() {
 
 func initRegistry(cfg *Config) {
 	onceInitRegistry.Do(func() {
-		discovery.InitRegistry(&cfg.ServiceConfig, &cfg.RegistryConfig)
+		discovery.InitRegistry(&cfg.ServiceConfig, &cfg.RegistryConfig, cfg.TxServiceGroup)
 	})
 }
