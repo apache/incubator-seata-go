@@ -22,6 +22,8 @@ seata:
   tx-service-group: default_tx_group
   access-key: aliyunAccessKey
   secret-key: aliyunSecretKey
+  enable-auto-data-source-proxy: true
+  data-source-proxy-mode: AT
   client:
     rm:
       # Maximum cache length of asynchronous queue
@@ -129,8 +131,8 @@ seata:
       username: "test-username"
       password: "test-password"
       ##if use MSE Nacos with auth, mutex with username/password attribute  #
-      access-key: "test-access-key" #
-      secret-key: "test-secret-key" #
+      access-key: "test-access-key"  #
+      secret-key: "test-secret-key"  #
     etcd3:
       cluster: "default"
       server-addr: "http://localhost:2379"
