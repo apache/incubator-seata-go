@@ -53,7 +53,7 @@ func TestInitRegistry(t *testing.T) {
 				},
 				registryConfig: &RegistryConfig{
 					Type: ETCD,
-					Etcd3: Etcd3Config{
+					Etcd3: Etcd3Registry{
 						ServerAddr: "127.0.0.1:2379",
 						Cluster:    "default",
 					},
