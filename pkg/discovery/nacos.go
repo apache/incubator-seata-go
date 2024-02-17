@@ -107,12 +107,12 @@ func (s *NacosRegistryService) getClient() naming_client.INamingClient {
 			}
 			s.client = client
 		})
-
 	}
 	return s.client
 }
 
 func (s *NacosRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
+	// key is txServiceGroup, and it has been processed at init newNacosRegistryService().
 	param := vo.SelectInstancesParam{
 		ServiceName: s.registry.Application,
 		GroupName:   s.registry.Group,
