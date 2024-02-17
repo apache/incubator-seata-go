@@ -34,7 +34,7 @@ func TestInitRegistry(t *testing.T) {
 		expectedType string
 	}{
 		{
-			name: "normal",
+			name: "file",
 			args: args{
 				registryConfig: &RegistryConfig{
 					Type: FILE,
@@ -42,6 +42,25 @@ func TestInitRegistry(t *testing.T) {
 				serviceConfig: &ServiceConfig{},
 			},
 			expectedType: "FileRegistryService",
+		},
+		{
+			name: "etcd",
+			args: args{
+				serviceConfig: &ServiceConfig{
+					VgroupMapping: map[string]string{
+						"default_tx_group": "default",
+					},
+				},
+				registryConfig: &RegistryConfig{
+					Type: ETCD,
+					Etcd3: Etcd3Config{
+						ServerAddr: "127.0.0.1:2379",
+						Cluster:    "default",
+					},
+				},
+			},
+			hasPanic:     false,
+			expectedType: "EtcdRegistryService",
 		},
 		{
 			name: "unknown type",
