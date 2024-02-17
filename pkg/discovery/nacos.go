@@ -18,7 +18,6 @@
 package discovery
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +25,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/seata/seata-go/pkg/util/flagext"
@@ -33,13 +33,16 @@ import (
 )
 
 var (
-	onceGetNacosClient = &sync.Once{}
+	onceGetNacosClient       = &sync.Once{}
+	onceGetSeataServerClient = &sync.Once{}
 )
 
 type NacosRegistryService struct {
 	registry *NacosRegistry
 	cluster  string
 	client   naming_client.INamingClient
+	// seata server's instances
+	serverInstances []*ServiceInstance
 }
 
 func newNacosRegistryService(registry *NacosRegistry, vgroupMapping flagext.StringMap, txServiceGroup string) RegistryService {
@@ -54,10 +57,14 @@ func newNacosRegistryService(registry *NacosRegistry, vgroupMapping flagext.Stri
 		panic("tx service group lacks vgroup mapping value")
 	}
 
-	return &NacosRegistryService{
+	s := &NacosRegistryService{
 		registry: registry,
 		cluster:  cluster,
 	}
+
+	// Listen for changes of seata server instances
+	s.subscribe()
+	return s
 }
 
 func (s *NacosRegistryService) getClient() naming_client.INamingClient {
@@ -71,12 +78,12 @@ func (s *NacosRegistryService) getClient() naming_client.INamingClient {
 			if err != nil {
 				panic("nacos server address port is not valid!")
 			}
-			//create ServerConfig
+			// create ServerConfig
 			sc := []constant.ServerConfig{
 				*constant.NewServerConfig(addr[0], uint64(port), constant.WithContextPath(s.registry.ContextPath)),
 			}
 
-			//create ClientConfig
+			// create ClientConfig
 			opts := []constant.ClientOption{
 				constant.WithNamespaceId(s.registry.Namespace),
 				constant.WithTimeoutMs(5000),
@@ -113,31 +120,74 @@ func (s *NacosRegistryService) getClient() naming_client.INamingClient {
 
 func (s *NacosRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	// key is txServiceGroup, and it has been processed at init newNacosRegistryService().
-	param := vo.SelectInstancesParam{
-		ServiceName: s.registry.Application,
-		GroupName:   s.registry.Group,
-		Clusters:    []string{s.cluster},
-		HealthyOnly: true,
+	if s.serverInstances == nil {
+		// In most cases, this will not be called since `subscribe()` should get server
+		// instances already.
+		onceGetSeataServerClient.Do(func() {
+			param := vo.SelectInstancesParam{
+				ServiceName: s.registry.Application,
+				GroupName:   s.registry.Group,
+				Clusters:    []string{s.cluster},
+				HealthyOnly: true,
+			}
+
+			instances, err := s.getClient().SelectInstances(param)
+			if err != nil {
+				log.Error("error selecting seata server instances at nacos: %w", err)
+				panic("error selecting seata server instances at nacos: " + err.Error())
+			}
+			res := make([]*ServiceInstance, 0)
+			for _, instance := range instances {
+				if instance.Enable {
+					res = append(res, &ServiceInstance{
+						Addr: instance.Ip,
+						Port: int(instance.Port),
+					})
+				}
+			}
+
+			if len(res) > 0 {
+				s.serverInstances = res
+			}
+		})
 	}
 
-	// @todo add cache for instance, and subscribe to instance change.
-	instances, err := s.getClient().SelectInstances(param)
-	if err != nil {
-		return nil, fmt.Errorf("error selecting nacos instance for key: %s, %w", key, err)
-	}
-	res := make([]*ServiceInstance, len(instances))
-	for i, instance := range instances {
-		res[i] = &ServiceInstance{
-			Addr: instance.Ip,
-			Port: int(instance.Port),
-		}
-	}
-
-	return res, nil
+	return s.serverInstances, nil
 }
 
 func (s *NacosRegistryService) Close() {
 	if s.client != nil {
 		s.client.CloseClient()
+	}
+}
+
+// Listen for changes of seata server instances
+func (s *NacosRegistryService) subscribe() {
+	subscribeParam := &vo.SubscribeParam{
+		ServiceName: s.registry.Application,
+		GroupName:   s.registry.Group,
+		Clusters:    []string{s.cluster},
+		SubscribeCallback: func(instances []model.Instance, err error) {
+			if err != nil {
+				log.Error("error received at subscribing seata server instance change at nacos: %w", err)
+				return
+			}
+			res := make([]*ServiceInstance, 0)
+			for _, instance := range instances {
+				if instance.Healthy && instance.Enable {
+					res = append(res, &ServiceInstance{
+						Addr: instance.Ip,
+						Port: int(instance.Port),
+					})
+				}
+			}
+
+			if len(res) > 0 {
+				s.serverInstances = res
+			}
+		},
+	}
+	if err := s.getClient().Subscribe(subscribeParam); err != nil {
+		log.Error("error subscribing to seata server instance change at nacos: %w", err)
 	}
 }
