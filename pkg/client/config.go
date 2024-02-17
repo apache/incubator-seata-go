@@ -85,6 +85,7 @@ type Config struct {
 	TransportConfig   remoteConfig.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
+	ConfigConfig      discovery.ConfigConfig       `yaml:"config" json:"config" koanf:"config"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -103,6 +104,7 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.RegistryConfig.RegisterFlagsWithPrefix("registry", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
+	c.ConfigConfig.RegisterFlagsWithPrefix("config", f)
 }
 
 type loaderConf struct {
