@@ -21,11 +21,12 @@ import (
 	"flag"
 )
 
-// Registry center config
-// 注册中心本身的配置，客户端通过该配置连接注册中心（比如nacos, zookeeper, etcd等）。在注册中心找到seata server(seata server需要提前注册到该注册中心).
-// 使用seata的客户端微服务(seata client micro service), 也可以将自身注册到该注册中心，构建一个微服务系统(micro service system).
+// Registry center config.
+// Client can connect to registry centers (such as nacos, zookeep, etcd) using these configs, and find seater
+// server instances there (seata server should register into the registry center before client starts connecting to registry center).
+// Client may also register itself into the registry center to build a micro service system, something like Java Spring Cloud.
 type RegistryConfig struct {
-	// 注册中心的类型，比如file，nacos
+	// registry center type, such as file，nacos
 	Type  string        `yaml:"type" json:"type" koanf:"type"`
 	File  FileRegistry  `yaml:"file" json:"file" koanf:"file"`
 	Nacos NacosRegistry `yaml:"nacos" json:"nacos" koanf:"nacos"`

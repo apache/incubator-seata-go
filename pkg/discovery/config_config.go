@@ -21,10 +21,12 @@ import (
 	"flag"
 )
 
-// Configuration center for (micro) service
-// 配置中心的自身配置，使用该配置，可以连接到配置中心(配置中心一般直接使用的是注册中心的配置服务，比如nacos的Configuration, k8s的configmap).
-// 例如：注册中心是nacos，一般seata server的配置保存在nacos的一个`data-id=seataServer.Properties`的配置中.
-// 客服端可以使用配置中心（一般也就是注册中心）提供的Go SDK，自己推送特定的配置到配置中心.
+// Configuration center for (micro) services.
+// Config for configuration center self. Using this config, we can connect to configuration center. In most cases, configuration
+// center is using the registry type's configuration, such as nacos configuration center, kubernetes configmap, etc.
+// For example, with registry type being `nacos`, seata server's configuration is usaually saved in nacos configuration `data-id=seataServer.Properties`.
+// Client could push custom configs using go-SDK provided by configuration center (as mentioned above, in most cases, it's the registry center),
+// so services registered within registry center can make use of these custom configs.
 type ConfigConfig struct {
 	Type  string      `yaml:"type" json:"type" koanf:"type"`
 	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
