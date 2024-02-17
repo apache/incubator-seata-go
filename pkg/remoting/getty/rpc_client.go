@@ -25,6 +25,7 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
+
 	"github.com/seata/seata-go/pkg/discovery"
 	"github.com/seata/seata-go/pkg/protocol/codec"
 	"github.com/seata/seata-go/pkg/remoting/config"
