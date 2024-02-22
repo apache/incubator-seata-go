@@ -3,7 +3,7 @@ package process_ctrl
 import (
 	"context"
 	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 	"sync"
 )
 

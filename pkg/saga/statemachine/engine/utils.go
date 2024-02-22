@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )
 
 // ProcessContextBuilder process_ctrl builder
@@ -12,7 +12,7 @@ type ProcessContextBuilder struct {
 }
 
 func NewProcessContextBuilder() *ProcessContextBuilder {
-	processContextImpl := &process_ctrl.ProcessContextImpl{}
+	processContextImpl := process_ctrl.NewProcessContextImpl()
 	return &ProcessContextBuilder{processContextImpl}
 }
 

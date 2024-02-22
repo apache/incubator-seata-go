@@ -2,7 +2,7 @@ package events
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/process_ctrl"
 )
 
 type EventConsumer interface {

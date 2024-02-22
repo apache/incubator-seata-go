@@ -47,6 +47,12 @@ type ProcessContextImpl struct {
 	instruction Instruction
 }
 
+func NewProcessContextImpl() *ProcessContextImpl {
+	return &ProcessContextImpl{
+		mp: make(map[string]interface{}),
+	}
+}
+
 func (p *ProcessContextImpl) GetVariable(name string) interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

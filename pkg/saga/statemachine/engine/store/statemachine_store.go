@@ -2,13 +2,13 @@ package store
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"io"
 )
 
 type StateLogRepository interface {
-	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateInstance, error)
+	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
 	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateInstance, error)
 
@@ -30,9 +30,9 @@ type StateLogStore interface {
 
 	RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error
 
-	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateInstance, error)
+	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
-	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateInstance, error)
+	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateMachineInstance, error)
 
 	GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error)
 

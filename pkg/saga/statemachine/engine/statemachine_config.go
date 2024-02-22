@@ -1,12 +1,12 @@
 package engine
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/events"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/status_decision"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/store"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/events"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/status_decision"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/store"
 )
 
 type StateMachineConfig interface {

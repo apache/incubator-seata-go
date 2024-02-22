@@ -15,6 +15,7 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
+	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4/v4 v4.1.17
 	github.com/pkg/errors v0.9.1
@@ -26,6 +27,7 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.56.3
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
 
@@ -34,7 +36,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 )
 
 require github.com/knadh/koanf v1.5.0
@@ -93,7 +95,6 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
