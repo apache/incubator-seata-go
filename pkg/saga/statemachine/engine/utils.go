@@ -12,7 +12,7 @@ type ProcessContextBuilder struct {
 }
 
 func NewProcessContextBuilder() *ProcessContextBuilder {
-	processContextImpl := &process_ctrl.ProcessContextImpl{}
+	processContextImpl := process_ctrl.NewProcessContextImpl()
 	return &ProcessContextBuilder{processContextImpl}
 }
 
