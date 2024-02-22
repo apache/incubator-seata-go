@@ -37,6 +37,6 @@ github:
         required_approving_review_count: 1
 notifications:
   commits: notifications@seata.apache.org
-  issues: dev@seata.apache.org
-  pullrequests: dev@seata.apache.org
+  issues: notifications@seata.apache.org
+  pullrequests: notifications@seata.apache.org
   discussions: dev@seata.apache.org
