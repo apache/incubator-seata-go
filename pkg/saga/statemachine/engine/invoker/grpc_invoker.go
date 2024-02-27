@@ -217,28 +217,28 @@ func (g *GPRCClientImpl) matchRetry(impl *state.ServiceTaskStateImpl, str string
 }
 
 func (g *GPRCClientImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap map[state.Retry]int, retry state.Retry, err error) bool {
-	maxAttempt, exist := countMap[retry]
+	attempt, exist := countMap[retry]
 	if !exist {
 		countMap[retry] = 0
 	}
 
-	if maxAttempt >= retry.MaxAttempt() {
+	if attempt >= retry.MaxAttempt() {
 		return false
 	}
 
 	intervalSecond := retry.IntervalSecond()
 	backoffRate := retry.BackoffRate()
 	var currentInterval int64
-	if maxAttempt == 0 {
+	if attempt == 0 {
 		currentInterval = int64(intervalSecond * 1000)
 	} else {
-		currentInterval = int64(intervalSecond * backoffRate * float64(maxAttempt) * 1000)
+		currentInterval = int64(intervalSecond * backoffRate * float64(attempt) * 1000)
 	}
 
 	log.Warnf("invoke service[%s.%s] failed, will retry after %s millis, current retry count: %s, current err: %s",
-		impl.ServiceName(), impl.ServiceMethod(), currentInterval, maxAttempt, err)
+		impl.ServiceName(), impl.ServiceMethod(), currentInterval, attempt, err)
 
 	time.Sleep(time.Duration(currentInterval) * time.Millisecond)
-	countMap[retry] = maxAttempt + 1
+	countMap[retry] = attempt + 1
 	return true
 }

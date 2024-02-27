@@ -91,7 +91,7 @@ func TestGRPCInvokerInvokeE2E(t *testing.T) {
 	go func() {
 		pb.StartProductServer()
 	}()
-	time.Sleep(3000)
+	time.Sleep(3000 * time.Millisecond)
 	conn, err := grpc.Dial("localhost:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
