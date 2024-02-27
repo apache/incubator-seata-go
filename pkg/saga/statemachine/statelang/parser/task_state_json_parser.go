@@ -157,16 +157,16 @@ func (a *AbstractTaskStateParser) parseRetries(stateName string, retryInterfaces
 			return nil, errors.New("State [" + stateName + "] " + "Retry illegal， require map[string]interface{}")
 		}
 		retry := &state.RetryImpl{}
-		errorTypes, err := a.GetSliceOrDefault(stateName, retryMap, "Exceptions", nil)
+		exceptions, err := a.GetSliceOrDefault(stateName, retryMap, "Exceptions", nil)
 		if err != nil {
 			return nil, err
 		}
-		if errorTypes != nil {
-			errorTypeNames := make([]string, 0)
-			for _, errorType := range errorTypes {
-				errorTypeNames = append(errorTypeNames, errorType.(string))
+		if exceptions != nil {
+			errors := make([]string, 0)
+			for _, errorType := range exceptions {
+				errors = append(errors, errorType.(string))
 			}
-			retry.SetErrorTypeNames(errorTypeNames)
+			retry.SetExceptions(errors)
 		}
 
 		maxAttempts, err := a.GetIntOrDefault(stateName, retryMap, "MaxAttempts", 0)
@@ -191,14 +191,14 @@ func (a *AbstractTaskStateParser) parseRetries(stateName string, retryInterfaces
 	return retries, nil
 }
 
-func (a *AbstractTaskStateParser) parseCatches(stateName string, catchInterfaces []interface{}) ([]state.ErrorMatch, error) {
-	errorMatches := make([]state.ErrorMatch, 0, len(catchInterfaces))
+func (a *AbstractTaskStateParser) parseCatches(stateName string, catchInterfaces []interface{}) ([]state.ExceptionMatch, error) {
+	errorMatches := make([]state.ExceptionMatch, 0, len(catchInterfaces))
 	for _, catchInterface := range catchInterfaces {
 		catchMap, ok := catchInterface.(map[string]interface{})
 		if !ok {
 			return nil, errors.New("State [" + stateName + "] " + "Catch illegal, require map[string]interface{}")
 		}
-		errorMatch := &state.ErrorMatchImpl{}
+		errorMatch := &state.ExceptionMatchImpl{}
 		errorInterfaces, err := a.GetSliceOrDefault(stateName, catchMap, "Exceptions", nil)
 		if err != nil {
 			return nil, err
@@ -208,7 +208,7 @@ func (a *AbstractTaskStateParser) parseCatches(stateName string, catchInterfaces
 			for _, errorType := range errorInterfaces {
 				errorNames = append(errorNames, errorType.(string))
 			}
-			errorMatch.SetErrors(errorNames)
+			errorMatch.SetExceptions(errorNames)
 		}
 		next, err := a.GetStringOrDefault(stateName, catchMap, "Next", "")
 		if err != nil {
@@ -242,7 +242,7 @@ func (s ServiceTaskStateParser) Parse(stateName string, stateMap map[string]inte
 		return nil, err
 	}
 
-	serviceName, err := s.GetString(stateName, stateMap, "ServiceName")
+	serviceName, err := s.GetString(stateName, stateMap, "serviceName")
 	if err != nil {
 		return nil, err
 	}

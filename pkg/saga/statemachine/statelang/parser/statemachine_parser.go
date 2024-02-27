@@ -136,7 +136,7 @@ func (b BaseStateParser) GetBoolOrDefault(stateName string, stateMap map[string]
 
 	valueAsBool, ok := value.(bool)
 	if !ok {
-		return false, errors.New("State [" + stateName + "] " + key + " illegal, required bool")
+		return defaultValue, errors.New("State [" + stateName + "] " + key + " illegal, required bool")
 	}
 	return valueAsBool, nil
 }

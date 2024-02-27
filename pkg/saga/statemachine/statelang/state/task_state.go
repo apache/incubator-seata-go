@@ -17,7 +17,7 @@ type TaskState interface {
 
 	Retry() []Retry
 
-	Catches() []ErrorMatch
+	Catches() []ExceptionMatch
 
 	Status() map[string]string
 
@@ -36,18 +36,18 @@ type Loop interface {
 	CompletionCondition() string
 }
 
-type ErrorMatch interface {
-	Errors() []string
+type ExceptionMatch interface {
+	Exceptions() []string
 
-	ErrorTypes() []reflect.Type
+	ExceptionTypes() []reflect.Type
 
-	SetErrorTypes(errorTypes []reflect.Type)
+	SetExceptionTypes(ExceptionTypes []reflect.Type)
 
 	Next() string
 }
 
 type Retry interface {
-	ErrorTypeNames() []string
+	Exceptions() []string
 
 	IntervalSecond() float64
 
@@ -77,7 +77,7 @@ type ServiceTaskState interface {
 type AbstractTaskState struct {
 	*statelang.BaseState
 	loop                        Loop
-	catches                     []ErrorMatch
+	catches                     []ExceptionMatch
 	input                       []interface{}
 	output                      map[string]interface{}
 	compensatePersistModeUpdate bool
@@ -140,7 +140,7 @@ func (a *AbstractTaskState) SetLoop(loop Loop) {
 	a.loop = loop
 }
 
-func (a *AbstractTaskState) SetCatches(catches []ErrorMatch) {
+func (a *AbstractTaskState) SetCatches(catches []ExceptionMatch) {
 	a.catches = catches
 }
 
@@ -172,7 +172,7 @@ func (a *AbstractTaskState) ForUpdate() bool {
 	return a.forUpdate
 }
 
-func (a *AbstractTaskState) Catches() []ErrorMatch {
+func (a *AbstractTaskState) Catches() []ExceptionMatch {
 	return a.catches
 }
 
@@ -198,6 +198,7 @@ type ServiceTaskStateImpl struct {
 	serviceName                 string
 	serviceMethod               string
 	parameterTypes              []string
+	method                      *reflect.Value
 	persist                     bool
 	retryPersistModeUpdate      bool
 	compensatePersistModeUpdate bool
@@ -208,6 +209,14 @@ func NewServiceTaskStateImpl() *ServiceTaskStateImpl {
 	return &ServiceTaskStateImpl{
 		AbstractTaskState: NewAbstractTaskState(),
 	}
+}
+
+func (s *ServiceTaskStateImpl) Method() *reflect.Value {
+	return s.method
+}
+
+func (s *ServiceTaskStateImpl) SetMethod(method *reflect.Value) {
+	s.method = method
 }
 
 func (s *ServiceTaskStateImpl) IsAsync() bool {
@@ -327,14 +336,14 @@ func (l *LoopImpl) CompletionCondition() string {
 }
 
 type RetryImpl struct {
-	errorTypeNames []string
+	exceptions     []string
 	intervalSecond float64
 	maxAttempt     int
 	backoffRate    float64
 }
 
-func (r *RetryImpl) SetErrorTypeNames(errorTypeNames []string) {
-	r.errorTypeNames = errorTypeNames
+func (r *RetryImpl) SetExceptions(exceptions []string) {
+	r.exceptions = exceptions
 }
 
 func (r *RetryImpl) SetIntervalSecond(intervalSecond float64) {
@@ -349,8 +358,8 @@ func (r *RetryImpl) SetBackoffRate(backoffRate float64) {
 	r.backoffRate = backoffRate
 }
 
-func (r *RetryImpl) ErrorTypeNames() []string {
-	return r.errorTypeNames
+func (r *RetryImpl) Exceptions() []string {
+	return r.exceptions
 }
 
 func (r *RetryImpl) IntervalSecond() float64 {
@@ -365,33 +374,33 @@ func (r *RetryImpl) BackoffRate() float64 {
 	return r.backoffRate
 }
 
-type ErrorMatchImpl struct {
-	errors     []string
-	errorTypes []reflect.Type
-	next       string
+type ExceptionMatchImpl struct {
+	exceptions     []string
+	exceptionTypes []reflect.Type
+	next           string
 }
 
-func (e *ErrorMatchImpl) SetErrors(errors []string) {
-	e.errors = errors
+func (e *ExceptionMatchImpl) SetExceptions(errors []string) {
+	e.exceptions = errors
 }
 
-func (e *ErrorMatchImpl) SetNext(next string) {
+func (e *ExceptionMatchImpl) SetNext(next string) {
 	e.next = next
 }
 
-func (e *ErrorMatchImpl) Errors() []string {
-	return e.errors
+func (e *ExceptionMatchImpl) Exceptions() []string {
+	return e.exceptions
 }
 
-func (e *ErrorMatchImpl) ErrorTypes() []reflect.Type {
-	return e.errorTypes
+func (e *ExceptionMatchImpl) ExceptionTypes() []reflect.Type {
+	return e.exceptionTypes
 }
 
-func (e *ErrorMatchImpl) SetErrorTypes(errorTypes []reflect.Type) {
-	e.errorTypes = errorTypes
+func (e *ExceptionMatchImpl) SetExceptionTypes(exceptionTypes []reflect.Type) {
+	e.exceptionTypes = exceptionTypes
 }
 
-func (e *ErrorMatchImpl) Next() string {
+func (e *ExceptionMatchImpl) Next() string {
 	return e.next
 }
 
