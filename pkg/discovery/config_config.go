@@ -27,14 +27,14 @@ import (
 // For example, with registry type being `nacos`, seata server's configuration is usaually saved in nacos configuration `data-id=seataServer.Properties`.
 // Client could push custom configs using go-SDK provided by configuration center (as mentioned above, in most cases, it's the registry center),
 // so services registered within registry center can make use of these custom configs.
-type ConfigConfig struct {
+type ConfigCenterConfig struct {
 	Type  string      `yaml:"type" json:"type" koanf:"type"`
 	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
 	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	// @todo add other configs, such as etcd.
 }
 
-func (cfg *ConfigConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+func (cfg *ConfigCenterConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+".type", "file", "The config type.")
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 }
