@@ -19,7 +19,76 @@ package discovery
 
 import (
 	"flag"
+
+	"github.com/seata/seata-go/pkg/util/flagext"
 )
+
+// Configuration center for (micro) services.
+// Config for configuration center self. Using this config, we can connect to configuration center. In most cases, configuration
+// center is using the registry type's configuration, such as nacos configuration center, kubernetes configmap, etc.
+// For example, with registry type being `nacos`, seata server's configuration is usaually saved in nacos configuration `data-id=seataServer.Properties`.
+// Client could push custom configs using go-SDK provided by configuration center (as mentioned above, in most cases, it's the registry center),
+// so services registered within registry center can make use of these custom configs.
+type ConfigCenterConfig struct {
+	Type  string      `yaml:"type" json:"type" koanf:"type"`
+	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
+	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	// @todo add other configs, such as etcd.
+}
+
+func (cfg *ConfigCenterConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Type, prefix+".type", "file", "The config type.")
+	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
+}
+
+type FileConfig struct {
+	Name string `yaml:"name" json:"name" koanf:"name"`
+}
+
+func (cfg *FileConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Name, prefix+".name", "config.conf", "The file name of config.")
+}
+
+type NacosConfig struct {
+	// nacos server address
+	ServerAddr  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	Group       string `yaml:"group" json:"group" koanf:"group"`
+	Namespace   string `yaml:"namespace" json:"namespace" koanf:"namespace"`
+	Username    string `yaml:"username" json:"username" koanf:"username"`
+	Password    string `yaml:"password" json:"password" koanf:"password"`
+	AccessKey   string `yaml:"access-key" json:"access-key" koanf:"access-key"`
+	SecretKey   string `yaml:"secret-key" json:"secret-key" koanf:"secret-key"`
+	ContextPath string `yaml:"context-path" json:"context-path" koanf:"context-path"`
+}
+
+func (cfg *NacosConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "", "The server address of registry.")
+	f.StringVar(&cfg.Group, prefix+".group", "SEATA_GROUP", "The group of registry.")
+	f.StringVar(&cfg.Namespace, prefix+".namespace", "", "The namespace of registry.")
+	f.StringVar(&cfg.Username, prefix+".username", "", "The username of registry.")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password of registry.")
+	f.StringVar(&cfg.AccessKey, prefix+".access-key", "", "The access key of registry.")
+	f.StringVar(&cfg.SecretKey, prefix+".secret-key", "", "The secret key of registry.")
+	f.StringVar(&cfg.ContextPath, prefix+".context-path", "", "The context path of registry.")
+}
+
+// Service config, kind of like cluster config.
+type ServiceConfig struct {
+	// Primarily used for multiple data centers (service/tx groups). It holds each data center's cluster name.
+	// map key is data center name (service/tx group name), while value is the cluster name used inside that data center.
+	VgroupMapping flagext.StringMap `yaml:"vgroup-mapping" json:"vgroup-mapping" koanf:"vgroup-mapping"`
+	// This is only useful for registry file. Otherwise this is useless.
+	Grouplist                flagext.StringMap `yaml:"grouplist" json:"grouplist" koanf:"grouplist"`
+	EnableDegrade            bool              `yaml:"enable-degrade" json:"enable-degrade" koanf:"enable-degrade"`
+	DisableGlobalTransaction bool              `yaml:"disable-global-transaction" json:"disable-global-transaction" koanf:"disable-global-transaction"`
+}
+
+func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.BoolVar(&cfg.EnableDegrade, prefix+".enable-degrade", false, "degrade current not support.")
+	f.BoolVar(&cfg.DisableGlobalTransaction, prefix+".disable-global-transaction", false, "disable globalTransaction.")
+	f.Var(&cfg.VgroupMapping, prefix+".vgroup-mapping", "The vgroup mapping.")
+	f.Var(&cfg.Grouplist, prefix+".grouplist", "The group list.")
+}
 
 // Registry center config.
 // Client can connect to registry centers (such as nacos, zookeep, etcd) using these configs, and find seater
