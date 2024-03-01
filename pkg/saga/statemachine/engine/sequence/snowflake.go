@@ -8,12 +8,12 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
-// SnowflakeSeqGenerator Snowflake gen ids
+// SnowflakeSeqGenerator snowflake gen ids
 // ref: https://en.wikipedia.org/wiki/Snowflake_ID
 
 var (
 	// set the beginning time
-	epoch = time.Date(2024, time.January, 01, 00, 00, 00, 00, time.UTC)
+	epoch = time.Date(2024, time.January, 01, 00, 00, 00, 00, time.UTC).UnixMilli()
 )
 
 const (
@@ -79,7 +79,7 @@ func (S *SnowflakeSeqGenerator) GenerateId(entity string, ruleName string) strin
 	S.mu.Lock()
 	defer S.mu.Unlock()
 
-	now := time.Since(epoch).Milliseconds()
+	now := time.Now().UnixMilli()
 
 	if S.timestamp > now { // Clock callback
 		log.Errorf("Clock moved backwards. Refusing to generate ID, last timestamp is %d, now is %d", S.timestamp, now)
@@ -92,14 +92,14 @@ func (S *SnowflakeSeqGenerator) GenerateId(entity string, ruleName string) strin
 		if S.sequence == 0 {
 			// sequence overflow, waiting for next millisecond
 			for now <= S.timestamp {
-				now = time.Since(epoch).Milliseconds()
+				now = time.Now().UnixMilli()
 			}
 		}
 	} else {
 		// initialized sequences are used directly at different millisecond timestamps
 		S.sequence = defaultInitValue
 	}
-	tmp := now - epoch.UnixMilli()
+	tmp := now - epoch
 	if tmp > timestampMaxValue {
 		log.Errorf("epoch should between 0 and %d", timestampMaxValue-1)
 		return ""
@@ -107,7 +107,7 @@ func (S *SnowflakeSeqGenerator) GenerateId(entity string, ruleName string) strin
 	S.timestamp = now
 
 	// combine the parts to generate the final ID and convert the 64-bit binary to decimal digits.
-	r := (now)<<timestampShift |
+	r := (tmp)<<timestampShift |
 		(S.dataCenterId << dataCenterIdShift) |
 		(S.workerId << workIdShift) |
 		(S.sequence)

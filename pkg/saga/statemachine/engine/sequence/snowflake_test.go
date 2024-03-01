@@ -1,6 +1,7 @@
 package sequence
 
 import (
+	"strconv"
 	"testing"
 )
 
@@ -22,5 +23,6 @@ func TestSnowflakeSeqGenerator_GenerateId(t *testing.T) {
 }
 
 func TestEpoch(t *testing.T) {
-	t.Log(epoch.UnixMilli())
+	t.Log(epoch)
+	t.Log(len(strconv.FormatInt(epoch, 10)))
 }
