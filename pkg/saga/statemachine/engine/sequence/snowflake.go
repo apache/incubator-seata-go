@@ -4,29 +4,43 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // SnowflakeSeqGenerator Snowflake gen ids
 // ref: https://en.wikipedia.org/wiki/Snowflake_ID
 
 var (
-	epoch = time.Date(2010, time.November, 01, 42, 54, 00, 00, time.UTC).UnixMilli()
+	// set the beginning time
+	epoch = time.Date(2024, time.January, 01, 00, 00, 00, 00, time.UTC)
 )
 
 const (
-	timestampBits    = 41
+	// timestamp occupancy bits
+	timestampBits = 41
+	// dataCenterId occupancy bits
 	dataCenterIdBits = 5
-	workerIdBits     = 5
-	SeqBits          = 12
+	// workerId occupancy bits
+	workerIdBits = 5
+	// sequence occupancy bits
+	seqBits = 12
 
-	timestampMaxValue    = -1 ^ (-1 << timestampBits)
+	// timestamp max value, just like 2^41-1 = 2199023255551
+	timestampMaxValue = -1 ^ (-1 << timestampBits)
+	// dataCenterId max value, just like 2^5-1 = 31
 	dataCenterIdMaxValue = -1 ^ (-1 << dataCenterIdBits)
-	workerIdMaxValue     = -1 ^ (-1 << workerIdBits)
-	seqBitsMaxValue      = -1 ^ (-1 << SeqBits)
+	// workId max value, just like 2^5-1 = 31
+	workerIdMaxValue = -1 ^ (-1 << workerIdBits)
+	// sequence max value, just like 2^12-1 = 4095
+	seqMaxValue = -1 ^ (-1 << seqBits)
 
-	workIdShift       = 12
+	// number of workId offsets (seqBits)
+	workIdShift = 12
+	// number of dataCenterId offsets (seqBits + workerIdBits)
 	dataCenterIdShift = 17
-	timestampShift    = 22
+	// number of timestamp offsets (seqBits + workerIdBits + dataCenterIdBits)
+	timestampShift = 22
 
 	defaultInitValue = 0
 )
@@ -39,45 +53,64 @@ type SnowflakeSeqGenerator struct {
 	sequence     int64
 }
 
-func NewSnowflakeSeqSeqGenerator(dataCenterId, workId int64) (r *SnowflakeSeqGenerator, err error) {
+// NewSnowflakeSeqGenerator initiates the snowflake generator
+func NewSnowflakeSeqGenerator(dataCenterId, workId int64) (r *SnowflakeSeqGenerator, err error) {
 	if dataCenterId < 0 || dataCenterId > dataCenterIdMaxValue {
-		err = fmt.Errorf("dataCenterId must be between 0 and %d", dataCenterIdMaxValue-1)
+		err = fmt.Errorf("dataCenterId should between 0 and %d", dataCenterIdMaxValue-1)
 		return
 	}
+
 	if workId < 0 || workId > workerIdMaxValue {
-		err = fmt.Errorf("workId must be between 0 and %d", dataCenterIdMaxValue-1)
+		err = fmt.Errorf("workId should between 0 and %d", dataCenterIdMaxValue-1)
 		return
 	}
+
 	return &SnowflakeSeqGenerator{
-		timestamp:    defaultInitValue,
+		mu:           new(sync.Mutex),
+		timestamp:    defaultInitValue - 1,
 		dataCenterId: dataCenterId,
 		workerId:     workId,
 		sequence:     defaultInitValue,
 	}, nil
 }
 
-func (S SnowflakeSeqGenerator) GenerateId() string {
+// GenerateId timestamp + dataCenterId + workId + sequence
+func (S *SnowflakeSeqGenerator) GenerateId(entity string, ruleName string) string {
 	S.mu.Lock()
 	defer S.mu.Unlock()
 
-	now := time.Now().UnixMilli()
+	now := time.Since(epoch).Milliseconds()
+
+	if S.timestamp > now { // Clock callback
+		log.Errorf("Clock moved backwards. Refusing to generate ID, last timestamp is %d, now is %d", S.timestamp, now)
+		return ""
+	}
+
 	if S.timestamp == now {
-		S.sequence = (S.sequence + 1) & seqBitsMaxValue
+		// generate multiple IDs in the same millisecond, incrementing the sequence number to prevent conflicts
+		S.sequence = (S.sequence + 1) & seqMaxValue
 		if S.sequence == 0 {
+			// sequence overflow, waiting for next millisecond
 			for now <= S.timestamp {
-				now = time.Now().UnixMilli()
+				now = time.Since(epoch).Milliseconds()
 			}
 		}
 	} else {
+		// initialized sequences are used directly at different millisecond timestamps
 		S.sequence = defaultInitValue
 	}
-	tmp := now - epoch
+	tmp := now - epoch.UnixMilli()
 	if tmp > timestampMaxValue {
-		// logger
+		log.Errorf("epoch should between 0 and %d", timestampMaxValue-1)
 		return ""
 	}
 	S.timestamp = now
-	r := (tmp)<<timestampShift | (S.dataCenterId << dataCenterIdShift) | (S.workerId << workIdShift) | (S.sequence)
+
+	// combine the parts to generate the final ID and convert the 64-bit binary to decimal digits.
+	r := (now)<<timestampShift |
+		(S.dataCenterId << dataCenterIdShift) |
+		(S.workerId << workIdShift) |
+		(S.sequence)
 
 	return fmt.Sprintf("%d", r)
 }
