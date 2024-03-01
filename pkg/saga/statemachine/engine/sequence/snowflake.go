@@ -10,7 +10,7 @@ import (
 // ref: https://en.wikipedia.org/wiki/Snowflake_ID
 
 var (
-	epoch = time.Date(2010, time.November, 01, 42, 54, 00, 00, time.UTC).UnixMicro()
+	epoch = time.Date(2010, time.November, 01, 42, 54, 00, 00, time.UTC).UnixMilli()
 )
 
 const (
@@ -19,15 +19,16 @@ const (
 	workerIdBits     = 5
 	SeqBits          = 12
 
-	defaultInitValue     = 0
 	timestampMaxValue    = -1 ^ (-1 << timestampBits)
 	dataCenterIdMaxValue = -1 ^ (-1 << dataCenterIdBits)
-	workerIdBitsMaxValue = -1 ^ (-1 << workerIdBits)
+	workerIdMaxValue     = -1 ^ (-1 << workerIdBits)
 	seqBitsMaxValue      = -1 ^ (-1 << SeqBits)
 
 	workIdShift       = 12
 	dataCenterIdShift = 17
 	timestampShift    = 22
+
+	defaultInitValue = 0
 )
 
 type SnowflakeSeqGenerator struct {
@@ -43,7 +44,7 @@ func NewSnowflakeSeqSeqGenerator(dataCenterId, workId int64) (r *SnowflakeSeqGen
 		err = fmt.Errorf("dataCenterId must be between 0 and %d", dataCenterIdMaxValue-1)
 		return
 	}
-	if workId < 0 || workId > workerIdBitsMaxValue {
+	if workId < 0 || workId > workerIdMaxValue {
 		err = fmt.Errorf("workId must be between 0 and %d", dataCenterIdMaxValue-1)
 		return
 	}
@@ -55,28 +56,28 @@ func NewSnowflakeSeqSeqGenerator(dataCenterId, workId int64) (r *SnowflakeSeqGen
 	}, nil
 }
 
-func (U SnowflakeSeqGenerator) GenerateId() string {
-	U.mu.Lock()
-	defer U.mu.Unlock()
+func (S SnowflakeSeqGenerator) GenerateId() string {
+	S.mu.Lock()
+	defer S.mu.Unlock()
 
 	now := time.Now().UnixMilli()
-	if U.timestamp == now {
-		U.sequence = (U.sequence + 1) & seqBitsMaxValue
-		if U.sequence == 0 {
-			for now <= U.timestamp {
+	if S.timestamp == now {
+		S.sequence = (S.sequence + 1) & seqBitsMaxValue
+		if S.sequence == 0 {
+			for now <= S.timestamp {
 				now = time.Now().UnixMilli()
 			}
 		}
 	} else {
-		U.sequence = defaultInitValue
+		S.sequence = defaultInitValue
 	}
 	tmp := now - epoch
 	if tmp > timestampMaxValue {
 		// logger
 		return ""
 	}
-	U.timestamp = now
-	r := (tmp)<<timestampShift | (U.dataCenterId << dataCenterIdShift) | (U.workerId << workIdShift) | (U.sequence)
+	S.timestamp = now
+	r := (tmp)<<timestampShift | (S.dataCenterId << dataCenterIdShift) | (S.workerId << workIdShift) | (S.sequence)
 
 	return fmt.Sprintf("%d", r)
 }
