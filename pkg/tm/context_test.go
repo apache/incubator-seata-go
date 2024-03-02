@@ -23,8 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 func TestInitSeataContext(t *testing.T) {

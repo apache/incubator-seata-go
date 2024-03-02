@@ -20,11 +20,11 @@ package at
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec"
+	"github.com/apache/seata-go/pkg/datasource/sql/parser"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/util"
+	"github.com/apache/seata-go/pkg/tm"
 )
 
 func Init() {

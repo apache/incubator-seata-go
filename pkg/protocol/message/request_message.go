@@ -20,7 +20,7 @@ package message
 import (
 	"time"
 
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+	model2 "github.com/apache/seata-go/pkg/protocol/branch"
 )
 
 type AbstractBranchEndRequest struct {

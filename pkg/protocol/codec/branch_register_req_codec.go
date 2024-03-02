@@ -18,10 +18,10 @@
 package codec
 
 import (
-	"github.com/seata/seata-go/pkg/util/bytes"
+	"github.com/apache/seata-go/pkg/util/bytes"
 
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	model2 "github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/message"
 )
 
 type BranchRegisterRequestCodec struct{}

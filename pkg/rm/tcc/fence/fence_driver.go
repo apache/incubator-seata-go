@@ -25,7 +25,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 const (

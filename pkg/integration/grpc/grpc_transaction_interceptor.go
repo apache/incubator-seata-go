@@ -24,9 +24,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/constant"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 // ClientTransactionInterceptor is client interceptor of grpc,

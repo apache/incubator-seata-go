@@ -20,7 +20,7 @@ package exec
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
 )
 
 var (

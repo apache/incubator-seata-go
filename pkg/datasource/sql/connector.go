@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
 )
 
 type seataATConnector struct {

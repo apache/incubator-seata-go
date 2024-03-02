@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/branch"
 )
 
 var (

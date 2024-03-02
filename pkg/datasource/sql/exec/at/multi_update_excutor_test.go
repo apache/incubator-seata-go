@@ -23,13 +23,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource/mysql"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec"
+	"github.com/apache/seata-go/pkg/datasource/sql/parser"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/util"
 )
 
 func TestBuildSelectSQLByMultiUpdate(t *testing.T) {

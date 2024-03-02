@@ -22,9 +22,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/base"
 )
 
 var _ undo.UndoLogManager = (*undoLogManager)(nil)

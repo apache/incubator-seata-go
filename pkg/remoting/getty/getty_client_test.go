@@ -26,9 +26,9 @@ import (
 	getty "github.com/apache/dubbo-getty"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/protocol/codec"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 // TestGettyRemotingClient_SendSyncRequest unit test for SendSyncRequest function

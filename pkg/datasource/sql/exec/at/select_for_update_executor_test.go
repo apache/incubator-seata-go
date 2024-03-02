@@ -24,8 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/parser"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
 )
 
 var (

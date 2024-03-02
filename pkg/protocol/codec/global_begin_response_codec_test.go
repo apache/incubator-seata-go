@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	serror "github.com/seata/seata-go/pkg/util/errors"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	serror "github.com/apache/seata-go/pkg/util/errors"
 )
 
 func TestGlobalBeginResponseCodec(t *testing.T) {

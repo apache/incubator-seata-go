@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/remoting/rpc"
+	"github.com/apache/seata-go/pkg/remoting/rpc"
 
 	getty "github.com/apache/dubbo-getty"
 )

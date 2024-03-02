@@ -17,6 +17,6 @@
 
 package at
 
-import "github.com/seata/seata-go/pkg/rm"
+import "github.com/apache/seata-go/pkg/rm"
 
 var LockConfig rm.LockConfig

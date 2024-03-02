@@ -26,9 +26,9 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/filter"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
 
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/constant"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 var (

@@ -24,14 +24,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/rm"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/mock"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/reflectx"
+	"github.com/apache/seata-go/pkg/datasource/sql/mock"
+	"github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/util/reflectx"
 )
 
 func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controller) *mock.MockDataSourceManager {

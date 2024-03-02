@@ -18,8 +18,8 @@
 package message
 
 import (
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/errors"
+	model2 "github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/util/errors"
 )
 
 type AbstractTransactionResponse struct {

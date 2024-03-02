@@ -25,19 +25,19 @@ import (
 	"io"
 	"time"
 
-	"github.com/seata/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/builder"
+	"github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/rm"
+	seatabytes "github.com/apache/seata-go/pkg/util/bytes"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 const (

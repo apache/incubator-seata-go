@@ -20,12 +20,12 @@ package hook
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec"
 
 	"go.uber.org/zap"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 func NewLoggerSQLHook() exec.SQLHook {

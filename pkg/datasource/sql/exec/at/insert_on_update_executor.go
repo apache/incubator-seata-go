@@ -25,11 +25,11 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/util"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 // insertOnUpdateExecutor execute insert on update SQL

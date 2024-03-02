@@ -1,8 +1,8 @@
 package discovery
 
 import (
+	"github.com/apache/seata-go/pkg/discovery/mock"
 	"github.com/golang/mock/gomock"
-	"github.com/seata/seata-go/pkg/discovery/mock"
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3"

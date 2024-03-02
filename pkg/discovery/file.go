@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 const (

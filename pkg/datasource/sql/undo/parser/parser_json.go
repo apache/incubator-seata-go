@@ -20,7 +20,7 @@ package parser
 import (
 	"encoding/json"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
 )
 
 type JsonParser struct {

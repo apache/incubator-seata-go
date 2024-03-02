@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 // IsRecordsEquals check before record and after record if equal

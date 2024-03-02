@@ -23,9 +23,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/remoting/getty"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 var (

@@ -23,7 +23,7 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
-	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
+	seatabytes "github.com/apache/seata-go/pkg/util/bytes"
 )
 
 type ExecutorType int32

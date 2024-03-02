@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
 )
 
 type mySQLUndoUpdateExecutor struct {

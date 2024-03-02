@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 var (

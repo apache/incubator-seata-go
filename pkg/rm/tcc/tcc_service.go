@@ -27,13 +27,13 @@ import (
 
 	gostnet "github.com/dubbogo/gost/net"
 
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
-	"github.com/seata/seata-go/pkg/util/reflectx"
+	"github.com/apache/seata-go/pkg/constant"
+	"github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/rm/tcc/fence/enum"
+	"github.com/apache/seata-go/pkg/tm"
+	"github.com/apache/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/util/reflectx"
 )
 
 type TCCServiceProxy struct {

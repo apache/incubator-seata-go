@@ -20,11 +20,11 @@ package client
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/util/log"
 
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/remoting/getty"
+	"github.com/apache/seata-go/pkg/rm"
 )
 
 func initBranchCommit() {

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
 )
 
 type (

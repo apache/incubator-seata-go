@@ -28,11 +28,11 @@ import (
 
 	"github.com/bluele/gcache"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/datasource"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 var branchStatusCache gcache.Cache

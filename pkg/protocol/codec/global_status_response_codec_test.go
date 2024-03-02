@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/protocol/message"
 )
 
 func TestGlobalStatusResponseCodec(t *testing.T) {

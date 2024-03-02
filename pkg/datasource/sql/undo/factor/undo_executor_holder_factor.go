@@ -20,9 +20,9 @@ package factor
 import (
 	"errors"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo"
+	"github.com/apache/seata-go/pkg/datasource/sql/undo/executor"
 )
 
 var undoExecutorHolderMap map[types.DBType]undo.UndoExecutorHolder

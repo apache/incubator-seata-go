@@ -23,11 +23,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/datasource/sql/exec"
+	"github.com/apache/seata-go/pkg/datasource/sql/parser"
+	"github.com/apache/seata-go/pkg/datasource/sql/types"
+	"github.com/apache/seata-go/pkg/datasource/sql/util"
+	"github.com/apache/seata-go/pkg/util/log"
 )
 
 func Test_multiDeleteExecutor_buildBeforeImageSQL(t *testing.T) {

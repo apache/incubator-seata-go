@@ -21,7 +21,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/apache/seata-go/pkg/util/log"
 
 	"github.com/stretchr/testify/assert"
 )

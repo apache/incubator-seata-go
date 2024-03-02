@@ -25,10 +25,10 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/rm"
+	"github.com/apache/seata-go/pkg/protocol/branch"
+	"github.com/apache/seata-go/pkg/protocol/message"
+	"github.com/apache/seata-go/pkg/remoting/getty"
+	"github.com/apache/seata-go/pkg/rm"
 
 	"github.com/stretchr/testify/assert"
 )
