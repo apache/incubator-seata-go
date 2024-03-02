@@ -23,9 +23,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/apache/seata-go/pkg/remoting/mock"
+	"github.com/apache/seata-go/pkg/remoting/rpc"
 	"github.com/golang/mock/gomock"
-	"github.com/seata/seata-go/pkg/remoting/mock"
-	"github.com/seata/seata-go/pkg/remoting/rpc"
 	"github.com/stretchr/testify/assert"
 )
 
