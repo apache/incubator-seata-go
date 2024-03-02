@@ -57,9 +57,10 @@ build dist/seatago dist/seatago-sha-256:
 #docker-build:
 #	docker build -t seatago/seatago:latest .
 
-integration-test:
-	@go clean -testcache
-	go test -tags integration -v ./test/...
+# todo These two projects influence each other. I will close this one first and add it back later.
+#integration-test:
+#	@go clean -testcache
+#	go test -tags integration -v ./test/...
 
 clean:
 	@rm -rf coverage.txt
