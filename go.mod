@@ -25,6 +25,7 @@ require (
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
@@ -35,7 +36,6 @@ require (
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
-	google.golang.org/grpc v1.54.0
 )
 
 require (
@@ -115,7 +115,5 @@ require (
 )
 
 replace github.com/dubbogo/gost => github.com/dubbogo/gost v1.13.2
-
-replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 exclude github.com/polarismesh/polaris-go v1.3.0-alpha
