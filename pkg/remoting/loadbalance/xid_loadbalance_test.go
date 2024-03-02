@@ -24,6 +24,8 @@ import (
 	"github.com/apache/seata-go/pkg/remoting/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/remoting/mock"
 )
 
 func TestXidLoadBalance(t *testing.T) {

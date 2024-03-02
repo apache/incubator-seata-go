@@ -15,25 +15,38 @@
  * limitations under the License.
  */
 
-package compressor
+package loadbalance
 
-func (c CompressorType) GetCompressor() Compressor {
-	switch c.String() {
-	case CompressorNone.String():
-		return &NoneCompressor{}
-	case CompressorGzip.String():
-		return &Gzip{}
-	case CompressorZip.String():
-		return &Zip{}
-	case CompressorBzip2.String():
-		return &Bzip2{}
-	case CompressorLz4.String():
-		return &Lz4{}
-	case CompressorZstd.String():
-		return &Zstd{}
-	case CompressorDeflate.String():
-		return &DeflateCompress{}
-	default:
-		panic("compressor type not implement")
+import (
+	"fmt"
+	"sync"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/remoting/mock"
+)
+
+func TestConsistentHashLoadBalance(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	for i := 0; i < 3; i++ {
+		session := mock.NewMockTestSession(ctrl)
+		session.EXPECT().IsClosed().Return(false).AnyTimes()
+		session.EXPECT().RemoteAddr().AnyTimes().DoAndReturn(func() string {
+			return "127.0.0.1:8000"
+		})
+		sessions.Store(session, fmt.Sprintf("session-%d", i))
 	}
+
+	result := ConsistentHashLoadBalance(sessions, "test_xid")
+	assert.NotNil(t, result)
+	assert.False(t, result.IsClosed())
+
+	sessions.Range(func(key, value interface{}) bool {
+		t.Logf("key: %v, value: %v", key, value)
+		return true
+	})
 }

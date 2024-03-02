@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package compressor
+package rpc
 
 import (
 	"testing"
@@ -23,13 +23,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCompressorType(t *testing.T) {
-	assert.Equal(t, CompressorNone, CompressorType(0))
-	assert.Equal(t, CompressorGzip, CompressorType(1))
-	assert.Equal(t, CompressorZip, CompressorType(2))
-	assert.Equal(t, CompressorSevenz, CompressorType(3))
-	assert.Equal(t, CompressorBzip2, CompressorType(4))
-	assert.Equal(t, CompressorLz4, CompressorType(5))
-	assert.Equal(t, CompressorDeflate, CompressorType(6))
-	assert.Equal(t, CompressorZstd, CompressorType(7))
+var service = "127.0.0.1:8000"
+
+func TestStatus(t *testing.T) {
+	rpcStatus1 := GetStatus(service)
+	assert.NotNil(t, rpcStatus1)
+	rpcStatus2 := GetStatus(service)
+	assert.Equal(t, rpcStatus1, rpcStatus2)
+}
+
+func TestRemoveStatus(t *testing.T) {
+	old := GetStatus(service)
+	RemoveStatus(service)
+	assert.Equal(t, GetStatus(service), old)
+}
+
+func TestBeginCount(t *testing.T) {
+	BeginCount(service)
+	assert.Equal(t, GetStatus(service).GetActive(), int32(1))
+}
+
+func TestEndCount(t *testing.T) {
+	EndCount(service)
+	assert.Equal(t, GetStatus(service).GetActive(), int32(0))
+	assert.Equal(t, GetStatus(service).GetTotal(), int32(1))
 }
