@@ -1,6 +1,6 @@
 package mock
 
-import "go.etcd.io/etcd/client/v3"
+import "go.etcd.io/etcd/clientv3"
 
 type EtcdClient interface {
 	clientv3.KV
