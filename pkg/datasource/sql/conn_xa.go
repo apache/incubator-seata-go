@@ -102,7 +102,11 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		return types.NewResult(types.WithResult(ret)), nil
 	})
 
-	return ret.GetResult(), err
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetResult(), nil
 }
 
 // BeginTx like common transaction. but it just exec XA START
