@@ -90,3 +90,19 @@ func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
 }
+
+type RedisConfig struct {
+	Cluster    string `yaml:"cluster" json:"cluster" koanf:"cluster"`
+	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	Username   string `yaml:"username" json:"username" koanf:"username"`
+	Password   string `yaml:"password" json:"password" koanf:"password"`
+	DB         int    `yaml:"db" json:"db" koanf:"db"`
+}
+
+func (cfg *RedisConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of redis.")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of redis.")
+	f.StringVar(&cfg.Username, prefix+".username", "redis", "The name of redis")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password of redis.")
+	f.IntVar(&cfg.DB, prefix+".db", 0, "The db of redis to discovery.")
+}

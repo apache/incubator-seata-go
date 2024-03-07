@@ -20,11 +20,12 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/log"
-	etcd3 "go.etcd.io/etcd/client/v3"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/util/log"
+	etcd3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
