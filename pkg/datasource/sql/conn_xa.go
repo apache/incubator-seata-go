@@ -202,9 +202,9 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 
 	// When c.xaActive is false, i.e, when cleanXABranchContext() has been called, it means
 	// this xa transaction has been terminated(db conn closed)/rollbacked/commited). No need to proceed anymore.
-	// This could be introduced by a timeout check located at
+	// This could be introduced by a concurrent timeout check located at
 	// pkg/database/sql/xa_resource_manager.go, xaTwoPhaseTimeoutChecker() and
-	// probably other similar scenarios.
+	// probably other similar async scenarios.
 	if !c.xaActive {
 		return nil, fmt.Errorf("xa tx has been terminated due to xaActive being false")
 	}
