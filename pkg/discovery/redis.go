@@ -28,10 +28,18 @@ import (
 )
 
 const (
-	RedisFilekeyPrefix = "registry.redis."
+	RedisFileKeyPrefix = "registry.redis."
+
+	// redis registry key live 5 seconds, auto refresh key every 2 seconds
+	KeyTTL           = 5
+	KeyRefreshPeriod = 2
 )
 
 type RedisRegistryService struct {
+	// the config about redis
+	config *RedisConfig
+
+	// client for redis
 	cli *redis.Client
 
 	// serverMap the map of discovery server
@@ -56,8 +64,9 @@ func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) Re
 	cli := redis.NewClient(cfg)
 
 	redisRegistryService := &RedisRegistryService{
-		cli: cli,
-		ctx: context.Background(),
+		config: redisConfig,
+		cli:    cli,
+		ctx:    context.Background(),
 	}
 
 	go redisRegistryService.watch()
@@ -66,19 +75,47 @@ func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) Re
 }
 
 func (s *RedisRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
-	insList, ok := s.serverMap.Load(key)
+	ins, ok := s.serverMap.Load(key)
 	if !ok {
-		s.cli.SRandMember(s.ctx, key).Result()
+		insTmp, err := s.cli.Get(s.ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
 	}
 	return nil, nil
 }
 
-func (s *RedisRegistryService) watch() error {
+func (s *RedisRegistryService) subscribe() error {
+	s.cli.Subscribe()
+	// 定时更新Map
+	go func() {
+		for range time.Tick(KeyRefreshPeriod * time.Millisecond) {
+			func() {
+				defer s.cli.Close()
+				updateClusterAddressMap(redisRegistryKey, cluster)
+			}()
+		}
+	}()
+
+	// 定时订阅
+	go func() {
+		for range time.Tick(1 * time.Millisecond) {
+			func() {
+				defer s.cli.Close()
+				s.cli.Subscribe(s.ctx, func() {
+					notifySub := NotifySub{listeners: listenerServiceMap[cluster]}
+					return notifySub
+				}(), redisRegistryKey)
+			}()
+		}
+	}()
+
 	return nil
 }
 
 func (s *RedisRegistryService) getRedisRegistryKey() string {
-	return fmt.Sprintf("%s%s", RedisFilekeyPrefix)
+	return fmt.Sprintf("%s%s", RedisFileKeyPrefix, s.config.Cluster)
 }
 
 func (s *RedisRegistryService) SetHeartBeat(key, addr string) error {
@@ -95,7 +132,8 @@ func (s *RedisRegistryService) SetHeartBeat(key, addr string) error {
 	return nil
 }
 
-func (RedisRegistryService) Close() {
-	//TODO implement me
-	panic("implement me")
+func (s *RedisRegistryService) Close() {
+	if s.cli != nil {
+		s.cli.Close()
+	}
 }
