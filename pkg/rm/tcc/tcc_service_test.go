@@ -37,7 +37,7 @@ import (
 	"seata.apache.org/seata-go/pkg/tm"
 	"seata.apache.org/seata-go/pkg/util/log"
 
-	//"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
+	//"github.com/apache/seata-go/sample/tcc/dubbo/client/service"
 	testdata2 "seata.apache.org/seata-go/testdata"
 )
 

@@ -36,7 +36,7 @@ echo "github pull request base branch -> $3"
 echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 
 echo "use seata-go-samples $3 branch for integration testing"
-git clone https://github.com/seata/seata-go-samples samples && cd samples
+git clone https://github.com/apache/seata-go-samples samples && cd samples
 
 # update seata-go to current commit id
 
