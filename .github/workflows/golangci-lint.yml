@@ -23,7 +23,7 @@ name: "golang ci lint"
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
     branches: "*"
 
@@ -44,7 +44,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: "set up go"
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: 1.18
 
@@ -55,6 +55,6 @@ jobs:
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
-          version: v1.49.0
+          version: v1.55.2
           args: --timeout=10m
-          skip-go-installation: true
+          skip-cache: true
