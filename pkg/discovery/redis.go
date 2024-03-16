@@ -21,6 +21,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,52 +72,76 @@ func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) Re
 	cli := redis.NewClient(cfg)
 
 	redisRegistryService := &RedisRegistryService{
-		config: redisConfig,
-		cli:    cli,
-		ctx:    context.Background(),
+		config:    redisConfig,
+		cli:       cli,
+		ctx:       context.Background(),
+		serverMap: new(sync.Map),
 	}
 
+	go redisRegistryService.load()
 	go redisRegistryService.subscribe()
+	go redisRegistryService.flush()
 
 	return redisRegistryService
 }
 
 func (s *RedisRegistryService) Lookup(key string) (r []*ServiceInstance, err error) {
-
 	r = make([]*ServiceInstance, 0)
-	ins, ok := s.serverMap.Load(key)
+	value, ok := s.serverMap.Load(key)
 	if !ok {
 		return
 	}
+	val, ok := value.(string)
+	if !ok || val == "" {
+		return
+	}
+	addrList := strings.Split(val, ":")
+	if len(addrList) < 2 {
+		return
+	}
+	addr := addrList[0]
+	port, _err := strconv.Atoi(addrList[1])
+	if _err != nil {
+		return
+	}
+	r = append(r, &ServiceInstance{
+		Addr: addr,
+		Port: port,
+	})
 
-	r = append(r, ins.([]*ServiceInstance)...)
 	return
 }
 
-func (s *RedisRegistryService) subscribe() {
+func (s *RedisRegistryService) flush() {
 	// regular update all keys each 2 second
-	go func() {
-		for range time.Tick(keyRefreshPeriod * time.Second) {
-			func() {
-				defer s.Close()
-				// find all key and update value
-				keys, _, err := s.cli.Scan(s.ctx, 0, fmt.Sprintf("%s*", redisFileKeyPrefix), 0).Result()
-				if err != nil {
-					log.Errorf("RedisRegistryService-Scan-Key-Error:%+v", err)
-					return
-				}
-				for _, key := range keys {
-					val, err := s.cli.Get(s.ctx, key).Result()
-					if err != nil {
-						log.Errorf("RedisRegistryService-Get-Key:%+v, Err:", key, err)
-						continue
-					}
-					s.serverMap.Store(key, val)
-				}
-			}()
+	ticker := time.NewTicker(keyRefreshPeriod * time.Second)
+	defer ticker.Stop()
+	func(t *time.Ticker) {
+		// find all key and update value
+		for {
+			<-t.C
+			s.load()
 		}
-	}()
+	}(ticker)
+}
 
+func (s *RedisRegistryService) load() {
+	keys, _, err := s.cli.Scan(s.ctx, 0, fmt.Sprintf("%s*", redisFileKeyPrefix), 0).Result()
+	if err != nil {
+		log.Errorf("RedisRegistryService-Scan-Key-Error:%s", err)
+		return
+	}
+	for _, key := range keys {
+		val, err := s.cli.Get(s.ctx, key).Result()
+		if err != nil {
+			log.Errorf("RedisRegistryService-Get-Key:%s, Err:%s", key, err)
+			continue
+		}
+		s.serverMap.Store(key, val)
+	}
+}
+
+func (s *RedisRegistryService) subscribe() {
 	// real time subscripting
 	go func() {
 		msgs := s.cli.Subscribe(s.ctx, redisRegisterChannel).Channel()

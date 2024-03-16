@@ -103,7 +103,7 @@ type RedisConfig struct {
 
 func (cfg *RedisConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of redis.")
-	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of redis.")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:6379", "The server address of redis.")
 	f.StringVar(&cfg.Username, prefix+".username", "redis", "The name of redis")
 	f.StringVar(&cfg.Password, prefix+".password", "", "The password of redis.")
 	f.IntVar(&cfg.DB, prefix+".db", 0, "The db of redis to discovery.")
