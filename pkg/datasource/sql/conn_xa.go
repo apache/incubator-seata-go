@@ -102,7 +102,11 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		return types.NewResult(types.WithResult(ret)), nil
 	})
 
-	return ret.GetResult(), err
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetResult(), nil
 }
 
 // BeginTx like common transaction. but it just exec XA START
@@ -257,11 +261,11 @@ func (c *XAConn) start(ctx context.Context) error {
 }
 
 func (c *XAConn) end(ctx context.Context, flags int) error {
-	err := c.termination(c.xaBranchXid.String())
+	err := c.xaResource.End(ctx, c.xaBranchXid.String(), flags)
 	if err != nil {
 		return err
 	}
-	err = c.xaResource.End(ctx, c.xaBranchXid.String(), flags)
+	err = c.termination(c.xaBranchXid.String())
 	if err != nil {
 		return err
 	}
