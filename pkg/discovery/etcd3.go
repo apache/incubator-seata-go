@@ -20,11 +20,12 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/log"
-	etcd3 "go.etcd.io/etcd/client/v3"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/util/log"
+	etcd3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -43,7 +44,7 @@ type EtcdRegistryService struct {
 	stopCh chan struct{}
 }
 
-func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) RegistryService {
+func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Registry) RegistryService {
 
 	if etcd3Config == nil {
 		log.Fatalf("etcd config is nil")

@@ -25,7 +25,7 @@ var (
 	registryServiceInstance RegistryService
 )
 
-func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) {
+func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig, txServiceGroup string) {
 	var registryService RegistryService
 	var err error
 	switch registryConfig.Type {
@@ -36,7 +36,8 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 		//init etcd registry
 		registryService = newEtcdRegistryService(serviceConfig, &registryConfig.Etcd3)
 	case NACOS:
-		//TODO: init nacos registry
+		//init nacos registry
+		registryService = newNacosRegistryService(&registryConfig.Nacos, serviceConfig.VgroupMapping, txServiceGroup)
 	case EUREKA:
 		//TODO: init eureka registry
 	case REDIS:

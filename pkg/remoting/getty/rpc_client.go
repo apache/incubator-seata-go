@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"sync"
 
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
@@ -36,7 +35,6 @@ type RpcClient struct {
 	gettyConf    *config.Config
 	seataConf    *config.SeataConfig
 	gettyClients []getty.Client
-	futures      *sync.Map
 }
 
 func InitRpcClient(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
@@ -51,7 +49,10 @@ func InitRpcClient(gettyConfig *config.Config, seataConfig *config.SeataConfig) 
 }
 
 func (c *RpcClient) init() {
-	addressList := c.getAvailServerList()
+	addressList, err := c.getAvailServerList()
+	if err != nil {
+		panic("error getting available server list: " + err.Error())
+	}
 	if len(addressList) == 0 {
 		log.Warn("no have valid seata server list")
 	}
@@ -68,13 +69,13 @@ func (c *RpcClient) init() {
 	}
 }
 
-func (c *RpcClient) getAvailServerList() []*discovery.ServiceInstance {
+func (c *RpcClient) getAvailServerList() ([]*discovery.ServiceInstance, error) {
 	registryService := discovery.GetRegistry()
 	instances, err := registryService.Lookup(c.seataConf.TxServiceGroup)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("error registry looking up: %s, %w", c.seataConf.TxServiceGroup, err)
 	}
-	return instances
+	return instances, nil
 }
 
 func (c *RpcClient) newSession(session getty.Session) error {

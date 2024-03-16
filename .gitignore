@@ -1,6 +1,9 @@
 # Idea configuration file
 .idea/
 
+# OS
+*.DS_Store
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
