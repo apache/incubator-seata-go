@@ -21,8 +21,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/protocol/message"
 )
 
 func TestClientOnResponseProcessor(t *testing.T) {

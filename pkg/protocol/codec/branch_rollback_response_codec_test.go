@@ -20,13 +20,13 @@ package codec
 import (
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/util/errors"
+	serror "seata.apache.org/seata-go/pkg/util/errors"
 
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
+	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/protocol/message"
 )
 
 func TestBranchRollbackResponseCodec(t *testing.T) {

@@ -31,14 +31,14 @@ import (
 	gostnet "github.com/dubbogo/gost/net"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/constant"
+	"seata.apache.org/seata-go/pkg/constant"
 
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 
-	//"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
-	testdata2 "github.com/seata/seata-go/testdata"
+	//"github.com/apache/seata-go/sample/tcc/dubbo/client/service"
+	testdata2 "seata.apache.org/seata-go/testdata"
 )
 
 var (

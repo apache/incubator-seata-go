@@ -29,10 +29,10 @@ import (
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
 type baseExecutor struct {

@@ -20,8 +20,8 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/pkg/util/log"
 	etcd3 "go.etcd.io/etcd/client/v3"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"strconv"
 	"strings"
 	"sync"

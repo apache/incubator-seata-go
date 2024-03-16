@@ -18,13 +18,13 @@
 package sql
 
 import (
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec/at"
-	"github.com/seata/seata-go/pkg/datasource/sql/hook"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/builder"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
+	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/builder"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
 )
 
 func Init() {

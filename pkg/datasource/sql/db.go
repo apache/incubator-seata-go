@@ -24,13 +24,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type dbOption func(db *DBResource)

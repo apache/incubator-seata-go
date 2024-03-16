@@ -23,8 +23,8 @@ import (
 
 	"vimagination.zapto.org/byteio"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type CodecType byte

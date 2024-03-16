@@ -20,7 +20,7 @@ package sql
 import (
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
 // ATTx

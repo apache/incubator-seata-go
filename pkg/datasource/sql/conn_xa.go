@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var xaConnTimeout time.Duration

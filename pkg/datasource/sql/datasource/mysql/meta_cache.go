@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource/base"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/base"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
 var (

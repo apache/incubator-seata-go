@@ -29,12 +29,12 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	mysql2 "seata.apache.org/seata-go/pkg/datasource/sql/datasource/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 const (

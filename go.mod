@@ -1,4 +1,4 @@
-module github.com/seata/seata-go
+module seata.apache.org/seata-go
 
 go 1.18
 

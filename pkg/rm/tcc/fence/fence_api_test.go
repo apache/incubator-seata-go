@@ -22,9 +22,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"

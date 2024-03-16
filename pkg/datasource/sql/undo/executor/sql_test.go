@@ -21,7 +21,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -27,10 +27,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/mock"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
 type initConnectorFunc func(t *testing.T, ctrl *gomock.Controller) driver.Connector

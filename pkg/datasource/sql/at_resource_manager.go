@@ -25,12 +25,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	serr "github.com/seata/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/rm"
+	serr "seata.apache.org/seata-go/pkg/util/errors"
 )
 
 func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {

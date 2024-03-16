@@ -22,16 +22,16 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/parser"
+	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/bytes"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/util/bytes"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type MySQLDeleteUndoLogBuilder struct {

@@ -20,9 +20,9 @@ package factor
 import (
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (res undo.UndoExecutor, err error) {

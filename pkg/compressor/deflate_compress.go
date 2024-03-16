@@ -22,7 +22,7 @@ import (
 	"compress/flate"
 	"io"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type DeflateCompress struct{}

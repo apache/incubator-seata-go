@@ -22,7 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/tm"
 )
 
 type FenceTx struct {

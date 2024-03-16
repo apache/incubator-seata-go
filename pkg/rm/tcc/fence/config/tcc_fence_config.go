@@ -20,7 +20,7 @@ package config
 import (
 	"go.uber.org/atomic"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/handler"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
 )
 
 type TccFenceConfig struct {
