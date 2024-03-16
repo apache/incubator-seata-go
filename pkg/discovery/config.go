@@ -42,6 +42,7 @@ type RegistryConfig struct {
 	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
 	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Redis RedisConfig `yaml:"redis" json:"redis" koanf:"redis"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -49,6 +50,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.Redis.RegisterFlagsWithPrefix(prefix+".redis", f)
 }
 
 type FileConfig struct {

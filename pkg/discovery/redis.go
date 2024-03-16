@@ -21,8 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -32,12 +30,10 @@ import (
 )
 
 const (
-	RedisFileKeyPrefix   = "registry.redis."
-	RedisRegisterChannel = "redis_registry_channel"
+	redisFileKeyPrefix   = "registry.redis."
+	redisRegisterChannel = "redis_registry_channel"
 
-	// redis registry key live 5 seconds, auto refresh key every 2 seconds
-	KeyTTL           = 5
-	KeyRefreshPeriod = 2
+	keyRefreshPeriod = 2
 )
 
 type RedisRegistryService struct {
@@ -52,6 +48,11 @@ type RedisRegistryService struct {
 	serverMap *sync.Map
 
 	ctx context.Context
+}
+
+type NotifyMessage struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) RegistryService {
@@ -80,28 +81,10 @@ func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) Re
 }
 
 func (s *RedisRegistryService) Lookup(key string) (r []*ServiceInstance, err error) {
+
 	r = make([]*ServiceInstance, 0)
 	ins, ok := s.serverMap.Load(key)
 	if !ok {
-		list, err := s.cli.HGetAll(s.ctx, key).Result()
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range list {
-			addrList := strings.Split(v, ":")
-			if len(addrList) < 2 {
-				continue
-			}
-			addr := addrList[0]
-			port, _err := strconv.Atoi(addrList[1])
-			if _err != nil {
-				continue
-			}
-			r = append(r, &ServiceInstance{
-				Addr: addr,
-				Port: port,
-			})
-		}
 		return
 	}
 
@@ -109,35 +92,41 @@ func (s *RedisRegistryService) Lookup(key string) (r []*ServiceInstance, err err
 	return
 }
 
-func (s *RedisRegistryService) subscribe() (err error) {
-	// 实时更新
+func (s *RedisRegistryService) subscribe() {
+	// regular update all keys each 2 second
 	go func() {
-		for range time.Tick(KeyRefreshPeriod * time.Millisecond) {
+		for range time.Tick(keyRefreshPeriod * time.Second) {
 			func() {
 				defer s.Close()
-				// updateClusterAddressMap(jedis, redisRegistryKey, cluster)
-				// 获取所有的key，然后进行更新
-				// 更新所有的map
+				// find all key and update value
+				keys, _, err := s.cli.Scan(s.ctx, 0, fmt.Sprintf("%s*", redisFileKeyPrefix), 0).Result()
+				if err != nil {
+					log.Errorf("RedisRegistryService-Scan-Key-Error:%+v", err)
+					return
+				}
+				for _, key := range keys {
+					val, err := s.cli.Get(s.ctx, key).Result()
+					if err != nil {
+						log.Errorf("RedisRegistryService-Get-Key:%+v, Err:", key, err)
+						continue
+					}
+					s.serverMap.Store(key, val)
+				}
 			}()
 		}
 	}()
 
-	// 定时订阅
+	// real time subscripting
 	go func() {
-		for range time.Tick(1 * time.Millisecond) {
-			func() {
-				// 订阅更新Map
-				msgs := s.cli.Subscribe(s.ctx, RedisRegisterChannel).Channel()
-				for msg := range msgs {
-					var data *NotifyMessage
-					err = json.Unmarshal([]byte(msg.Payload), &data)
-					if err != nil {
-						log.Errorf("RedisRegistryService-subscribe:%+v", err)
-						continue
-					}
-					s.serverMap.Store(data.Key, data.Value)
-				}
-			}()
+		msgs := s.cli.Subscribe(s.ctx, redisRegisterChannel).Channel()
+		for msg := range msgs {
+			var data *NotifyMessage
+			err := json.Unmarshal([]byte(msg.Payload), &data)
+			if err != nil {
+				log.Errorf("RedisRegistryService-subscribe-Subscribe:%+v", err)
+				continue
+			}
+			s.serverMap.Store(data.Key, data.Value)
 		}
 	}()
 
@@ -145,12 +134,7 @@ func (s *RedisRegistryService) subscribe() (err error) {
 }
 
 func (s *RedisRegistryService) getRedisRegistryKey() string {
-	return fmt.Sprintf("%s%s", RedisFileKeyPrefix, s.config.Cluster)
-}
-
-type NotifyMessage struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	return fmt.Sprintf("%s%s", redisFileKeyPrefix, s.config.Cluster)
 }
 
 func (s *RedisRegistryService) register(key, value string) (err error) {
@@ -164,7 +148,7 @@ func (s *RedisRegistryService) register(key, value string) (err error) {
 		Value: value,
 	}
 
-	s.cli.Publish(s.ctx, RedisRegisterChannel, msg)
+	s.cli.Publish(s.ctx, redisRegisterChannel, msg)
 
 	go func() {
 		s.keepAlive(s.ctx, key)
@@ -175,7 +159,7 @@ func (s *RedisRegistryService) register(key, value string) (err error) {
 
 func (s *RedisRegistryService) Close() {
 	if s.cli != nil {
-		s.cli.Close()
+		_ = s.cli.Close()
 	}
 }
 
