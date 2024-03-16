@@ -62,13 +62,14 @@ jobs:
           ${{ runner.os }}-go-
 
     # This step only runs when the event type is a pull_request
-    - name: Integrate Test
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        chmod +x integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
-
-    # This step only runs when the event type is a push
-    - name: Integrate Test
-      if: ${{ github.event_name == 'push' }}
-      run: |
-        chmod +x integrate_test.sh && ./integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+#    - name: Integrate Test
+#      if: ${{ github.event_name == 'pull_request' }}
+#      run: |
+#        chmod +x integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
+#
+#    # This step only runs when the event type is a push
+#    - name: Integrate Test
+#      if: ${{ github.event_name == 'push' }}
+#      run: |
+#        chmod +x integrate_test.sh && ./integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+#

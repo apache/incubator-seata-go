@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 // DeprecatedFlagsUsed is the metric that counts deprecated flags set.

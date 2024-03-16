@@ -20,7 +20,7 @@ package undo
 import (
 	"flag"
 
-	"github.com/seata/seata-go/pkg/compressor"
+	"seata.apache.org/seata-go/pkg/compressor"
 )
 
 var (

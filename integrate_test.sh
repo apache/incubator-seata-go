@@ -40,7 +40,7 @@ git clone https://github.com/seata/seata-go-samples samples && cd samples
 
 # update seata-go to current commit id
 
-go mod edit -replace=github.com/seata/seata-go=github.com/"$1"@"$2"
+go mod edit -replace=seata.apache.org/seata-go=github.com/"$1"@"$2"
 
 go mod tidy
 

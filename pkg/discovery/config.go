@@ -20,7 +20,7 @@ package discovery
 import (
 	"flag"
 
-	"github.com/seata/seata-go/pkg/util/flagext"
+	"seata.apache.org/seata-go/pkg/util/flagext"
 )
 
 type ServiceConfig struct {
