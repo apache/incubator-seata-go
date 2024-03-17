@@ -222,7 +222,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	}
 
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "json"
+	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
 	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
@@ -375,10 +375,9 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 }
 
 func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
-	// todo use config to replace
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "json"
 	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
+	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
 	logParse, err := parser.GetCache().Load(parseContext[serializerKey])
