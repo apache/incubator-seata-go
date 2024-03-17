@@ -201,7 +201,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	ret, err := f()
 
 	// When c.xaActive is false, i.e, when cleanXABranchContext() has been called, it means
-	// this xa transaction has been terminated(db conn closed)/rollbacked/commited). No need to proceed anymore.
+	// this xa transaction has been terminated(db conn closed)/rollbacked/committed). No need to proceed anymore.
 	// This could be introduced by a concurrent timeout check located at
 	// pkg/database/sql/xa_resource_manager.go, xaTwoPhaseTimeoutChecker() and
 	// probably other similar async scenarios.
@@ -395,7 +395,7 @@ func (c *XAConn) CloseForce() error {
 }
 
 func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
-	// xa tx has been either terminated(db conn closed)/rollbacked/commited already
+	// xa tx has been either terminated(db conn closed)/rollbacked/committed already
 	if !c.xaActive {
 		return nil
 	}
@@ -405,7 +405,7 @@ func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
-	// xa tx has been either terminated(db conn closed)/rollbacked/commited already
+	// xa tx has been either terminated(db conn closed)/rollbacked/committed already
 	if !c.xaActive {
 		return nil
 	}
@@ -413,7 +413,7 @@ func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
-	// xa tx has been either terminated(db conn closed)/rollbacked/commited already
+	// xa tx has been either terminated(db conn closed)/rollbacked/committed already
 	if !c.xaActive {
 		return nil
 	}
