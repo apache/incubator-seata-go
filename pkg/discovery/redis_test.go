@@ -1,70 +1,70 @@
 package discovery
 
 import (
-	"context"
 	"fmt"
+	"reflect"
 	"regexp"
-	"sync"
 	"testing"
+	"time"
 
-	"github.com/go-redis/redismock/v9"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRedisRegistryService_Lookup(t *testing.T) {
-	db, _ := redismock.NewClientMock()
-	type fields struct {
-		config        *RedisConfig
-		cli           *redis.Client
-		rwLock        *sync.RWMutex
-		vgroupMapping map[string]string
-		groupList     map[string][]*ServiceInstance
-		ctx           context.Context
+	// db, mockClient := redismock.NewClientMock()
+	serviceConfig := &ServiceConfig{
+		VgroupMapping: map[string]string{
+			"default_tx_group": "default",
+		},
 	}
 	type args struct {
 		key string
 	}
 	redisConfig := &RedisConfig{
-		Cluster: "default",
+		Cluster:    "default",
+		ServerAddr: "localhost:6379",
+		Username:   "",
+		Password:   "123456",
+		DB:         0,
 	}
-	ctx := context.Background()
+	// ctrl := gomock.NewController(t)
+	// mockRedisClient := mock.NewMockRedisClient(ctrl)
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantR   []*ServiceInstance
-		wantErr assert.ErrorAssertionFunc
+		name  string
+		args  args
+		wantR []*ServiceInstance
 	}{
 		{
-			name: "default1",
-			fields: fields{
-				config:        redisConfig,
-				cli:           db,
-				rwLock:        &sync.RWMutex{},
-				vgroupMapping: map[string]string{},
-				groupList:     map[string][]*ServiceInstance{},
-				ctx:           ctx,
+			name: "default",
+			args: args{key: "registry.redis.default_localhost:8888"},
+			wantR: []*ServiceInstance{
+				{
+					Addr: "localhost",
+					Port: 8888,
+				},
 			},
-			args:  args{key: ""},
-			wantR: make([]*ServiceInstance, 0),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &RedisRegistryService{
-				config:        tt.fields.config,
-				cli:           tt.fields.cli,
-				rwLock:        tt.fields.rwLock,
-				vgroupMapping: tt.fields.vgroupMapping,
-				groupList:     tt.fields.groupList,
-				ctx:           tt.fields.ctx,
-			}
-			gotR, err := s.Lookup(tt.args.key)
-			if !tt.wantErr(t, err, fmt.Sprintf("Lookup(%v)", tt.args.key)) {
+			s := newRedisRegisterService(serviceConfig, redisConfig)
+			// mockClient.ExpectSet("registry.redis.default_localhost:8888", "localhost:8888", -1)
+			// wait 2 second for update all service
+			time.Sleep(5 * time.Second)
+			// result := mockClient.ExpectGet("registry.redis.default_localhost:8888")
+			// fmt.Println("result", result)
+			serviceInstances, err := s.Lookup("default_tx_group")
+			if err != nil {
+				t.Errorf("error happen when look up . err = %s", err)
 				return
 			}
-			assert.Equalf(t, tt.wantR, gotR, "Lookup(%v)", tt.args.key)
+			t.Logf("name:%s,key:%s,server length:%d", tt.name, tt.args.key, len(serviceInstances))
+			for i := range serviceInstances {
+				t.Log(serviceInstances[i].Addr)
+				t.Log(serviceInstances[i].Port)
+			}
+			assert.True(t, reflect.DeepEqual(serviceInstances, tt.wantR))
+
 		})
 	}
 }

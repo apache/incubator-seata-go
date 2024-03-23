@@ -39,7 +39,7 @@ const (
 	redisFileKeyPrefix = "registry.redis."
 
 	// redisAddressSplitChar A notation for split ip addresses and ports
-	redisAddressSplitChar = "_"
+	redisAddressSplitChar = ":"
 
 	// redisRegisterChannel the channel for redis to publish/subscript key&value
 	redisRegisterChannel = "redis_registry_channel"
@@ -68,7 +68,7 @@ type RedisRegistryService struct {
 	// eg: map[cluster_name_key]cluster_name
 	vgroupMapping map[string]string
 
-	// grouplist store all addresses under this cluster
+	// groupList store all addresses under this cluster
 	// eg: map[cluster_name][]{service_instance1,service_instance2...}
 	groupList map[string][]*ServiceInstance
 
@@ -114,7 +114,7 @@ func newRedisRegisterService(config *ServiceConfig, redisConfig *RedisConfig) Re
 	// subscribe at real time
 	go redisRegistryService.subscribe()
 	// flushing all server at regular time
-	go redisRegistryService.flush()
+	// go redisRegistryService.flush()
 
 	return redisRegistryService
 }
@@ -124,7 +124,8 @@ func (s *RedisRegistryService) Lookup(key string) (r []*ServiceInstance, err err
 	defer s.rwLock.RUnlock()
 	cluster := s.vgroupMapping[key]
 	if cluster == "" {
-		return nil, fmt.Errorf("cluster doesnt exit")
+		err = fmt.Errorf("cluster doesnt exit")
+		return
 	}
 
 	r = s.groupList[cluster]
