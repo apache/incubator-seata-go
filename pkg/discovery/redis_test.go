@@ -3,9 +3,9 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/redis/go-redis/v9"
@@ -13,29 +13,22 @@ import (
 )
 
 func TestRedisRegistryService_Lookup(t *testing.T) {
-	cli, _ := redismock.NewClientMock()
-
+	db, _ := redismock.NewClientMock()
 	type fields struct {
-		config    *RedisConfig
-		cli       *redis.Client
-		serverMap *sync.Map
-		ctx       context.Context
-	}
-	config := &RedisConfig{
-		Cluster:    "default",
-		ServerAddr: "localhost:6379",
-		Username:   "",
-		Password:   "123456",
-		DB:         0,
+		config        *RedisConfig
+		cli           *redis.Client
+		rwLock        *sync.RWMutex
+		vgroupMapping map[string]string
+		groupList     map[string][]*ServiceInstance
+		ctx           context.Context
 	}
 	type args struct {
 		key string
 	}
-	ctx := context.Background()
-	_, err := cli.Ping(ctx).Result()
-	if err != nil {
-		fmt.Println("ping error", err)
+	redisConfig := &RedisConfig{
+		Cluster: "default",
 	}
+	ctx := context.Background()
 	tests := []struct {
 		name    string
 		fields  fields
@@ -44,35 +37,49 @@ func TestRedisRegistryService_Lookup(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "default",
+			name: "default1",
 			fields: fields{
-				config:    config,
-				cli:       cli,
-				serverMap: &sync.Map{},
-				ctx:       ctx,
+				config:        redisConfig,
+				cli:           db,
+				rwLock:        &sync.RWMutex{},
+				vgroupMapping: map[string]string{},
+				groupList:     map[string][]*ServiceInstance{},
+				ctx:           ctx,
 			},
-			args:    args{key: "registry.redis.apple"},
-			wantR:   nil,
-			wantErr: nil,
+			args:  args{key: ""},
+			wantR: make([]*ServiceInstance, 0),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfgRedis := &RedisRegistryService{
-				config:    tt.fields.config,
-				cli:       tt.fields.cli,
-				serverMap: tt.fields.serverMap,
-				ctx:       tt.fields.ctx,
+			s := &RedisRegistryService{
+				config:        tt.fields.config,
+				cli:           tt.fields.cli,
+				rwLock:        tt.fields.rwLock,
+				vgroupMapping: tt.fields.vgroupMapping,
+				groupList:     tt.fields.groupList,
+				ctx:           tt.fields.ctx,
 			}
-			s := newRedisRegisterService(nil, cfgRedis.config)
-			time.Sleep(1 * time.Second)
 			gotR, err := s.Lookup(tt.args.key)
-			if err != nil {
+			if !tt.wantErr(t, err, fmt.Sprintf("Lookup(%v)", tt.args.key)) {
 				return
 			}
-			for _, v := range gotR {
-				fmt.Println(v)
-			}
+			assert.Equalf(t, tt.wantR, gotR, "Lookup(%v)", tt.args.key)
 		})
+	}
+}
+
+func TestRedisCluster(t *testing.T) {
+	input := "registry.redis.my_cluster_localhost:3306"
+	regex := `registry\.redis\.(\w+)_`
+
+	re := regexp.MustCompile(regex)
+	match := re.FindStringSubmatch(input)
+
+	if len(match) > 1 {
+		cluster := match[1]
+		fmt.Println("Cluster:", cluster)
+	} else {
+		fmt.Println("No match found.")
 	}
 }
