@@ -68,8 +68,8 @@ github.com/alibaba/sentinel-golang v1.0.4/go.mod h1:Lag5rIYyJiPOylK8Kku2P+a23gdK
 github.com/aliyun/alibaba-cloud-sdk-go v1.61.18/go.mod h1:v8ESoHo4SyHmuB4b1tJqDHxfTGEciD+yhvOU/5s1Rfk=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/dubbo-getty v1.4.9-0.20221022181821-4dc6252ce98c/go.mod h1:6qmrqBSPGs3B35zwEuGhEYNVsx1nfGT/xzV2yOt2amM=
-github.com/apache/dubbo-getty v1.4.10-0.20230731065302-7c0f0039e59c h1:e1pJKY0lFvO6rik7m3qmpMRA98cc9Zkg6AJeB1/7QFQ=
-github.com/apache/dubbo-getty v1.4.10-0.20230731065302-7c0f0039e59c/go.mod h1:TqHfi87Ufv7wpwI7nER5Kx8FCb/jjwlyazxiYwEmTs8=
+github.com/apache/dubbo-getty v1.4.10 h1:ZmkpHJa/qgS0evX2tTNqNCz6rClI/9Wwp7ctyMml82w=
+github.com/apache/dubbo-getty v1.4.10/go.mod h1:V64WqLIxksEgNu5aBJBOxNIvpOZyfUJ7J/DXBlKSUoA=
 github.com/apache/dubbo-go-hessian2 v1.9.1/go.mod h1:xQUjE7F8PX49nm80kChFvepA/AvqAZ0oh/UaB6+6pBE=
 github.com/apache/dubbo-go-hessian2 v1.9.3/go.mod h1:xQUjE7F8PX49nm80kChFvepA/AvqAZ0oh/UaB6+6pBE=
 github.com/apache/dubbo-go-hessian2 v1.11.4 h1:u8spEogpaZ82/k3bmv1PLYnha/wiwsIme15FuZZgkiI=
