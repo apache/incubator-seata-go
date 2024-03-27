@@ -1,11 +1,11 @@
 module github.com/seata/seata-go
 
-go 1.18
+go 1.20
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/apache/dubbo-getty v1.4.10-0.20230731065302-7c0f0039e59c
+	github.com/apache/dubbo-getty v1.4.10
 	github.com/arana-db/parser v0.2.5
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
