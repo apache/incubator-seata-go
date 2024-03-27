@@ -42,6 +42,7 @@ type RegistryConfig struct {
 	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
 	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Redis RedisConfig `yaml:"redis" json:"redis" koanf:"redis"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -49,6 +50,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.Redis.RegisterFlagsWithPrefix(prefix+".redis", f)
 }
 
 type FileConfig struct {
@@ -89,4 +91,20 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type RedisConfig struct {
+	Cluster    string `yaml:"cluster" json:"cluster" koanf:"cluster"`
+	ServerAddr string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	Username   string `yaml:"username" json:"username" koanf:"username"`
+	Password   string `yaml:"password" json:"password" koanf:"password"`
+	DB         int    `yaml:"db" json:"db" koanf:"db"`
+}
+
+func (cfg *RedisConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of redis.")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:6379", "The server address of redis.")
+	f.StringVar(&cfg.Username, prefix+".username", "redis", "The name of redis")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password of redis.")
+	f.IntVar(&cfg.DB, prefix+".db", 0, "The db of redis to discovery.")
 }
