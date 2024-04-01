@@ -26,6 +26,7 @@ func TestInitRegistry(t *testing.T) {
 	type args struct {
 		serviceConfig  *ServiceConfig
 		registryConfig *RegistryConfig
+		txServiceGroup string
 	}
 	tests := []struct {
 		name         string
@@ -44,6 +45,25 @@ func TestInitRegistry(t *testing.T) {
 			expectedType: "FileRegistryService",
 		},
 		{
+			name: "nacos",
+			args: args{
+				serviceConfig: &ServiceConfig{
+					VgroupMapping: map[string]string{
+						"default_tx_group": "default",
+					},
+				},
+				registryConfig: &RegistryConfig{
+					Type: NACOS,
+					Nacos: NacosRegistry{
+						ServerAddr: "127.0.0.1:8848",
+					},
+				},
+				txServiceGroup: "default_tx_group",
+			},
+			hasPanic:     false,
+			expectedType: "NacosRegistryService",
+		},
+		{
 			name: "etcd",
 			args: args{
 				serviceConfig: &ServiceConfig{
@@ -53,7 +73,7 @@ func TestInitRegistry(t *testing.T) {
 				},
 				registryConfig: &RegistryConfig{
 					Type: ETCD,
-					Etcd3: Etcd3Config{
+					Etcd3: Etcd3Registry{
 						ServerAddr: "127.0.0.1:2379",
 						Cluster:    "default",
 					},
@@ -78,13 +98,13 @@ func TestInitRegistry(t *testing.T) {
 			defer func() {
 				if r := recover(); r != nil {
 					if !tt.hasPanic {
-						t.Errorf("panic is not expected!")
+						t.Errorf("panic is not expected! %+v", r)
 					}
 				} else if tt.hasPanic {
 					t.Errorf("Expected a panic but did not receive one")
 				}
 			}()
-			InitRegistry(tt.args.serviceConfig, tt.args.registryConfig)
+			InitRegistry(tt.args.serviceConfig, tt.args.registryConfig, tt.args.txServiceGroup)
 			instance := GetRegistry()
 			if !tt.hasPanic {
 				actualType := reflect.TypeOf(instance).Elem().Name()
