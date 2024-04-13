@@ -90,7 +90,7 @@ Adding this, we can easily synchronize local branches with upstream branches.
 
 ### Branch Definition
 
-Right now we assume every contribution via pull request is for [branch develop](https://github.com/apache/seata-go/tree/develop) in seata-go. Before contributing, be aware of branch definition would help a lot.
+Right now we assume every contribution via pull request is for [branch develop](https://github.com/apache/seata-go/tree/master) in seata-go. Before contributing, be aware of branch definition would help a lot.
 
 As a contributor, keep in mind again that every contribution via pull request is for branch develop. While in project seata-go, there are several other branches, we generally call them release branches(such as 0.6.0,0.6.1), feature branches, hotfix branches and master branch.
 
