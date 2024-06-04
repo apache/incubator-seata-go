@@ -20,8 +20,8 @@ package mysql
 import (
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/base"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/base"
 )
 
 func InitUndoLogManager() {

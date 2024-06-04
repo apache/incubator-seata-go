@@ -20,10 +20,10 @@ package codec
 import (
 	"math"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/bytes"
-	serror "github.com/seata/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/bytes"
+	serror "seata.apache.org/seata-go/pkg/util/errors"
 )
 
 type BranchRollbackResponseCodec struct{}

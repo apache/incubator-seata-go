@@ -22,9 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	model2 "github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	serror "github.com/seata/seata-go/pkg/util/errors"
+	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	serror "seata.apache.org/seata-go/pkg/util/errors"
 )
 
 func TestBranchCommitResponseCodec(t *testing.T) {

@@ -45,7 +45,7 @@ Seata-go 的原理和 Seata-java 保持一致，都是由 TM、RM 和 TC 组成�
 
 ## 如何运行项目？
 
-关于如何使用和集成 seata-go 的示例，可以参考 [seata/seata-go-samples](https://github.com/seata/seata-go-samples)
+关于如何使用和集成 seata-go 的示例，可以参考 [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
 
 
 ## 如何给Seata-go贡献代码？

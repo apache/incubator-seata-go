@@ -20,7 +20,7 @@ package processor
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/protocol/message"
 )
 
 // RemotingProcessor remoting message processor
