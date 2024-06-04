@@ -1,4 +1,0 @@
-mode: atomic
-github.com/seata/seata-go/pkg/rm/tcc/tcc_resource.go:20.51,22.2 1 0
-github.com/seata/seata-go/pkg/rm/tcc/tcc_resource.go:24.46,26.2 1 0
-github.com/seata/seata-go/pkg/rm/tcc/tcc_resource.go:28.56,30.2 1 0

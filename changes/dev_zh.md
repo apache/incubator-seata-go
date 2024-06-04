@@ -26,19 +26,19 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### feature：
 
-- [[#123](https://github.com/seata/seata-go/pull/123)] 添加二阶段事务接口，以及dubbo集成
+- [[#123](https://github.com/apache/incubator-seata-go/pull/123)] 添加二阶段事务接口，以及dubbo集成
 
 ### bugfix：
 
-- [[#130](https://github.com/seata/seata-go/pull/130)] 修复getty session自动关闭的bug
+- [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
 
 ### optimize：
 
-- [[#125](https://github.com/seata/seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
+- [[#125](https://github.com/apache/incubator-seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
 
 ### test:
 
-- [[#xxx](https://github.com/seata/seata-go/pull/xxx)] 添加xxx的单元测试
+- [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] 添加xxx的单元测试
 
 
 ### contributors:

@@ -20,8 +20,8 @@ package testdata
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/tm"
 )
 
 const (

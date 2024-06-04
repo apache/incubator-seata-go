@@ -43,7 +43,7 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 
 ## How to run？
 
-if you want to know how to use and integrate seata-go, please refer to [seata/seata-go-samples](https://github.com/seata/seata-go-samples)
+if you want to know how to use and integrate seata-go, please refer to [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
 
 ## How to join us？
 

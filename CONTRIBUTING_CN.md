@@ -14,7 +14,7 @@
 
 ## 报告一般问题
 
-老实说我们把每一个 seata-go 用户都视为非常善良的贡献者。在体验了 seata-go 之后，您可能会对项目有一些反馈。然后随时通过 [NEW ISSUE](https://github.com/seata/seata-go/issues/new/choose)打开一个问题。
+老实说我们把每一个 seata-go 用户都视为非常善良的贡献者。在体验了 seata-go 之后，您可能会对项目有一些反馈。然后随时通过 [NEW ISSUE](https://github.com/apache/incubator-seata-go/issues/new/choose)打开一个问题。
 
 因为我们在一个分布式的方式合作项目 seata-go，我们欣赏写得很好的，详细的，准确的问题报告。为了让沟通更高效，我们希望每个人都可以搜索您的问题是否在搜索列表中。如果您发现它存在，请在现有问题下的评论中添加您的详细信息，而不是打开一个全新的问题。
 
@@ -65,14 +65,14 @@
 
 为了提出 PR，我们假设你已经注册了一个 GitHub ID。然后您可以通过以下步骤完成准备工作：
 
-1. **FORK** seata-go 到您的存储库。要完成这项工作，您只需单击 [seata/seata-go](https://github.com/seata/seata-go) 主页右侧的 Fork 按钮。然后你将在 中得到你的存储库`https://github.com/<your-username>/seata-go`，其中 your-username 是你的 GitHub 用户名。
+1. **FORK** seata-go 到您的存储库。要完成这项工作，您只需单击 [apache/seata-go](https://github.com/apache/incubator-seata-go) 主页右侧的 Fork 按钮。然后你将在 中得到你的存储库`https://github.com/<your-username>/seata-go`，其中 your-username 是你的 GitHub 用户名。
 
 2. **克隆** 您自己的存储库以在本地开发. 用于 `git clone git@github.com:<your-username>/seata-go.git` 将存储库克隆到本地计算机。 然后您可以创建新分支来完成您希望进行的更改。
 
-3. **设置远程** 将上游设置为 `git@github.com:seata/seata-go.git` 使用以下两个命令：
+3. **设置远程** 将上游设置为 `git@github.com:apache/seata-go.git` 使用以下两个命令：
 
 ```bash
-git remote add upstream git@github.com:seata/seata-go.git
+git remote add upstream git@github.com:apache/seata-go.git
 git remote set-url --push upstream no-pushing
 ```
 
@@ -82,7 +82,7 @@ git remote set-url --push upstream no-pushing
 $ git remote -v
 origin     git@github.com:<your-username>/seata-go.git (fetch)
 origin     git@github.com:<your-username>/seata-go.git (push)
-upstream   git@github.com:seata/seata-go.git (fetch)
+upstream   git@github.com:apache/seata-go.git (fetch)
 upstream   no-pushing (push)
 ```
 
@@ -90,7 +90,7 @@ upstream   no-pushing (push)
 
 ### 分支定义
 
-现在我们假设通过拉取请求的每个贡献都是针对 seata-go 中的 [开发分支](https://github.com/seata/seata-go/tree/master) 。在贡献之前，请注意分支定义会很有帮助。
+现在我们假设通过拉取请求的每个贡献都是针对 seata-go 中的 [开发分支](https://github.com/apache/incubator-seata-go/tree/master) 。在贡献之前，请注意分支定义会很有帮助。
 
 作为贡献者，请再次记住，通过拉取请求的每个贡献都是针对分支开发的。而在 seata-go 项目中，还有其他几个分支，我们一般称它们为 release 分支（如0.6.0、0.6.1）、feature 分支、hotfix 分支和 master 分支。
 

@@ -24,9 +24,9 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/rpc"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/rpc"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 const (
