@@ -2,8 +2,8 @@ package invoker
 
 import (
 	"context"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"reflect"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"sync"
 )
 

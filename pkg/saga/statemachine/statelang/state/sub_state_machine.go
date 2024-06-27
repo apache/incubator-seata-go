@@ -56,7 +56,7 @@ func NewCompensateSubStateMachineStateImpl() *CompensateSubStateMachineStateImpl
 		ServiceTaskStateImpl: NewServiceTaskStateImpl(),
 		hashcode:             uuid.String(),
 	}
-	c.SetType(constant.CompensateSubMachine)
+	c.SetType(constant.StateTypeCompensateSubMachine)
 	return c
 }
 

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"testing"
 	"time"
 
