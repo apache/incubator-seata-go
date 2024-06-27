@@ -71,9 +71,9 @@ type StateMachineInstance interface {
 
 	SetBusinessKey(businessKey string)
 
-	Error() error
+	Exception() error
 
-	SetError(err error)
+	SetException(err error)
 
 	StartParams() map[string]interface{}
 
@@ -82,6 +82,8 @@ type StateMachineInstance interface {
 	EndParams() map[string]interface{}
 
 	SetEndParams(endParams map[string]interface{})
+
+	Context() map[string]interface{}
 
 	PutContext(key string, value interface{})
 
@@ -115,7 +117,7 @@ type StateMachineInstanceImpl struct {
 	startedTime           time.Time
 	endTime               time.Time
 	updatedTime           time.Time
-	err                   error
+	exception             error
 	serializedError       interface{}
 	endParams             map[string]interface{}
 	serializedEndParams   interface{}
@@ -247,12 +249,12 @@ func (s *StateMachineInstanceImpl) SetBusinessKey(businessKey string) {
 	s.businessKey = businessKey
 }
 
-func (s *StateMachineInstanceImpl) Error() error {
-	return s.err
+func (s *StateMachineInstanceImpl) Exception() error {
+	return s.exception
 }
 
-func (s *StateMachineInstanceImpl) SetError(err error) {
-	s.err = err
+func (s *StateMachineInstanceImpl) SetException(err error) {
+	s.exception = err
 }
 
 func (s *StateMachineInstanceImpl) StartParams() map[string]interface{} {
@@ -269,6 +271,10 @@ func (s *StateMachineInstanceImpl) EndParams() map[string]interface{} {
 
 func (s *StateMachineInstanceImpl) SetEndParams(endParams map[string]interface{}) {
 	s.endParams = endParams
+}
+
+func (s *StateMachineInstanceImpl) Context() map[string]interface{} {
+	return s.context
 }
 
 func (s *StateMachineInstanceImpl) PutContext(key string, value interface{}) {

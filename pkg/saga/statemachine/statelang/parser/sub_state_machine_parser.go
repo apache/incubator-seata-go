@@ -64,7 +64,7 @@ func NewCompensateSubStateMachineStateParser() *CompensateSubStateMachineStatePa
 }
 
 func (c CompensateSubStateMachineStateParser) StateType() string {
-	return constant.CompensateSubMachine
+	return constant.StateTypeCompensateSubMachine
 }
 
 func (c CompensateSubStateMachineStateParser) Parse(stateName string, stateMap map[string]interface{}) (statelang.State, error) {

@@ -1,4 +1,4 @@
-package process_ctrl
+package process
 
 type ProcessType string
 

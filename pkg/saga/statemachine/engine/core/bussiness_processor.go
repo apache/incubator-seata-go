@@ -1,9 +1,10 @@
-package process_ctrl
+package core
 
 import (
 	"context"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"sync"
 )
 
@@ -19,14 +20,14 @@ type DefaultBusinessProcessor struct {
 	mu              sync.RWMutex
 }
 
-func (d *DefaultBusinessProcessor) RegistryProcessHandler(processType ProcessType, processHandler ProcessHandler) {
+func (d *DefaultBusinessProcessor) RegistryProcessHandler(processType process.ProcessType, processHandler ProcessHandler) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	d.processHandlers[string(processType)] = processHandler
 }
 
-func (d *DefaultBusinessProcessor) RegistryRouterHandler(processType ProcessType, routerHandler RouterHandler) {
+func (d *DefaultBusinessProcessor) RegistryRouterHandler(processType process.ProcessType, routerHandler RouterHandler) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -55,17 +56,17 @@ func (d *DefaultBusinessProcessor) Route(ctx context.Context, processContext Pro
 	return routerHandler.Route(ctx, processContext)
 }
 
-func (d *DefaultBusinessProcessor) getProcessHandler(processType ProcessType) (ProcessHandler, error) {
+func (d *DefaultBusinessProcessor) getProcessHandler(processType process.ProcessType) (ProcessHandler, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	processHandler, ok := d.processHandlers[string(processType)]
 	if !ok {
-		return nil, errors.New("Cannot find process handler by type " + string(processType))
+		return nil, errors.New("Cannot find Process handler by type " + string(processType))
 	}
 	return processHandler, nil
 }
 
-func (d *DefaultBusinessProcessor) getRouterHandler(processType ProcessType) (RouterHandler, error) {
+func (d *DefaultBusinessProcessor) getRouterHandler(processType process.ProcessType) (RouterHandler, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	routerHandler, ok := d.routerHandlers[string(processType)]
@@ -75,18 +76,10 @@ func (d *DefaultBusinessProcessor) getRouterHandler(processType ProcessType) (Ro
 	return routerHandler, nil
 }
 
-func (d *DefaultBusinessProcessor) matchProcessType(processContext ProcessContext) ProcessType {
+func (d *DefaultBusinessProcessor) matchProcessType(processContext ProcessContext) process.ProcessType {
 	ok := processContext.HasVariable(constant.VarNameProcessType)
 	if ok {
-		return processContext.GetVariable(constant.VarNameProcessType).(ProcessType)
+		return processContext.GetVariable(constant.VarNameProcessType).(process.ProcessType)
 	}
-	return StateLang
-}
-
-type ProcessHandler interface {
-	Process(ctx context.Context, processContext ProcessContext) error
-}
-
-type RouterHandler interface {
-	Route(ctx context.Context, processContext ProcessContext) error
+	return process.StateLang
 }

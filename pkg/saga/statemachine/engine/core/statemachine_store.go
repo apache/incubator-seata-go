@@ -1,8 +1,7 @@
-package store
+package core
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"io"
 )
@@ -20,15 +19,15 @@ type StateLogRepository interface {
 }
 
 type StateLogStore interface {
-	RecordStateMachineStarted(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error
+	RecordStateMachineStarted(ctx context.Context, machineInstance statelang.StateMachineInstance, context ProcessContext) error
 
-	RecordStateMachineFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error
+	RecordStateMachineFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context ProcessContext) error
 
-	RecordStateMachineRestarted(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error
+	RecordStateMachineRestarted(ctx context.Context, machineInstance statelang.StateMachineInstance, context ProcessContext) error
 
-	RecordStateStarted(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error
+	RecordStateStarted(ctx context.Context, stateInstance statelang.StateInstance, context ProcessContext) error
 
-	RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error
+	RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance, context ProcessContext) error
 
 	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
@@ -43,6 +42,8 @@ type StateLogStore interface {
 
 type StateMachineRepository interface {
 	GetStateMachineById(stateMachineId string) (statelang.StateMachine, error)
+
+	GetStateMachineByNameAndTenantId(stateMachineName string, tenantId string) (statelang.StateMachine, error)
 
 	GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error)
 
