@@ -1,0 +1,68 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# This is a workflow to help you test the unit case and show codecov
+
+name: "build and codecov"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        golang:
+          - 1.18
+    steps:
+      - name: "set up go"
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      # close default MySQL-Server
+      - name: Shutdown default mysql
+        run: sudo service mysql stop
+
+      # run mysql server
+      - name: Create mysql database auth
+        uses: mirromutth/mysql-action@v1.1
+        with:
+          host port: 3306 # Optional, default value is 3306. The port of host
+          container port: 3306 # Optional, default value is 3306. The port of container
+          mysql version: '8.0' # Optional, default value is "latest". The version of the MySQL
+          mysql database: 'seata_go_test' # Optional, default value is "test". The specified database which will be create
+          mysql root password: 'seata_go' # Required if "mysql user" is empty, default is empty. The root superuser password
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: "run go build"
+        run: go build -v ./...
+
+      - name: "run go test and out codecov"
+        run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: "upload coverage"
+        uses: codecov/codecov-action@v3
