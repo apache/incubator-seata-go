@@ -126,14 +126,14 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 			return false, fmt.Errorf("insert tcc fence record errors, rollback fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
 		}
 		log.Infof("Insert tcc fence suspend record xid: %s, branchId: %d", xid, branchId)
-		return true, nil
+		return true, tx.Commit()
 	}
 
 	// have rollbacked or suspended
 	if fenceDo.Status == enum.StatusRollbacked || fenceDo.Status == enum.StatusSuspended {
 		// enable warn level
 		log.Infof("Branch transaction had already rollbacked before, idempotency rejected. xid: %s, branchId: %d, status: %s", xid, branchId, fenceDo.Status)
-		return true, nil
+		return true, tx.Commit()
 	}
 	if fenceDo.Status == enum.StatusCommitted {
 		log.Warnf("Branch transaction status is unexpected. xid: %s, branchId: %d, status: %d", xid, branchId, fenceDo.Status)
