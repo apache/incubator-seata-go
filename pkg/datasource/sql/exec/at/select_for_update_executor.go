@@ -27,21 +27,21 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/seata/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/util/backoff"
-	seatabytes "github.com/seata/seata-go/pkg/util/bytes"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/util/backoff"
+	seatabytes "seata.apache.org/seata-go/pkg/util/bytes"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var (
@@ -174,12 +174,6 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		return nil, fmt.Errorf("not support savepoint. please check your db version")
 	}
 
-	// execute business SQL, try to get local lock
-	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
 	// query primary key values
 	var lockKey string
 	_, err = s.exec(ctx, s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
@@ -192,6 +186,12 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 
 	if lockKey == "" {
 		return nil, nil
+	}
+
+	// execute business SQL, try to get local lock
+	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
+	if err != nil {
+		return nil, err
 	}
 
 	// check global lock

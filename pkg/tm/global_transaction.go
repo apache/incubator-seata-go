@@ -25,10 +25,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/util/backoff"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/util/backoff"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var (
@@ -98,7 +98,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		bf.Wait()
 	}
 
-	if bf.Err() != nil {
+	if err != nil || bf.Err() != nil {
 		lastErr := errors.Wrap(err, bf.Err().Error())
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
@@ -140,7 +140,7 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		bf.Wait()
 	}
 
-	if bf.Err() != nil {
+	if err != nil && bf.Err() != nil {
 		lastErr := errors.Wrap(err, bf.Err().Error())
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr

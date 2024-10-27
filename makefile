@@ -33,7 +33,7 @@ LICENSE_DIR = /tmp/tools/license
 # format import code
 format-import:
 	go get -d github.com/dubbogo/tools/cmd/imports-formatter
-	imports-formatter -path . -module github.com/seata/seata-go -bl false
+	imports-formatter -path . -module seata.apache.org/seata-go -bl false
 
 unit-test:
 	go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic

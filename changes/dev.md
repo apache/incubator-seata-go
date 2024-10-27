@@ -25,19 +25,19 @@
 
 ### feature：
 
-  - [[#123](https://github.com/seata/seata-go/pull/123)] add two phase and dubbo
+  - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
 
 ### bugfix：
 
-  - [[#130](https://github.com/seata/seata-go/pull/130)] getty session auto close bug
+  - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
 
 ### optimize：
 
-  - [[#125](https://github.com/seata/seata-go/pull/125)] optimize named for the resource manager api and tcc resource
+  - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
 
 ### test:
 
-  - [[#xxx](https://github.com/seata/seata-go/pull/xxx)] test case for xxx	
+  - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] test case for xxx	
 
 ### contributors:
 

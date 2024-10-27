@@ -29,14 +29,14 @@ import (
 
 	"github.com/arana-db/parser/mysql"
 
-	"github.com/seata/seata-go/pkg/compressor"
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/factor"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/parser"
-	"github.com/seata/seata-go/pkg/util/collection"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/compressor"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/factor"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/parser"
+	"seata.apache.org/seata-go/pkg/util/collection"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 const (
@@ -223,8 +223,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "json"
-	// Todo use config
-	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
+	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
 	if err != nil {
@@ -379,7 +378,7 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 	// todo use config to replace
 	parseContext := make(map[string]string, 0)
 	parseContext[serializerKey] = "json"
-	parseContext[compressorTypeKey] = compressor.CompressorNone.String()
+	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
 	logParse, err := parser.GetCache().Load(parseContext[serializerKey])
@@ -495,7 +494,7 @@ func (m *BaseUndoLogManager) getRollbackInfo(rollbackInfo []byte, undoContext ma
 	res := rollbackInfo
 	// get compress type
 	if v, ok := undoContext[compressorTypeKey]; ok {
-		res, err = compressor.GetByName(v).GetCompressor().Decompress(rollbackInfo)
+		res, err = compressor.CompressorType(v).GetCompressor().Decompress(rollbackInfo)
 		if err != nil {
 			log.Errorf("[getRollbackInfo] decompress fail, err: %+v", err)
 			return nil, err

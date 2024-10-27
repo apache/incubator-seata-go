@@ -1,11 +1,11 @@
-module github.com/seata/seata-go
+module seata.apache.org/seata-go
 
-go 1.18
+go 1.20
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/apache/dubbo-getty v1.4.10-0.20230731065302-7c0f0039e59c
+	github.com/apache/dubbo-getty v1.4.10
 	github.com/arana-db/parser v0.2.5
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
@@ -25,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	google.golang.org/grpc v1.51.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
@@ -33,6 +33,8 @@ require (
 require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
+	go.etcd.io/etcd/api/v3 v3.5.6
+	go.etcd.io/etcd/client/v3 v3.5.6
 )
 
 require (
@@ -43,8 +45,10 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
+	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
@@ -52,7 +56,8 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
@@ -82,6 +87,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.6 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
@@ -99,9 +105,9 @@ require (
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pingcap/log v0.0.0-20210906054005-afc726e70354 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 

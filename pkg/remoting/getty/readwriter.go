@@ -23,9 +23,9 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/bytes"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/bytes"
 )
 
 // 0     1     2     3     4     5     6     7     8     9    10     11    12    13    14    15    16

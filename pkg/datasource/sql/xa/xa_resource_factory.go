@@ -21,8 +21,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 // CreateXAResource create a connection for xa with the different db type.

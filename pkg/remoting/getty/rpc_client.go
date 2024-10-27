@@ -25,10 +25,11 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
-	"github.com/seata/seata-go/pkg/discovery"
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/remoting/config"
-	"github.com/seata/seata-go/pkg/util/log"
+
+	"seata.apache.org/seata-go/pkg/discovery"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type RpcClient struct {
