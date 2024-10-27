@@ -21,14 +21,15 @@ type Choice interface {
 }
 
 type ChoiceStateImpl struct {
-	statelang.BaseState
+	*statelang.BaseState
 	defaultChoice string   `alias:"Default"`
 	choices       []Choice `alias:"Choices"`
 }
 
 func NewChoiceStateImpl() *ChoiceStateImpl {
 	return &ChoiceStateImpl{
-		choices: make([]Choice, 0),
+		BaseState: statelang.NewBaseState(),
+		choices:   make([]Choice, 0),
 	}
 }
 

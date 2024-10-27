@@ -361,7 +361,7 @@ func TestBeginNewGtx(t *testing.T) {
 	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
 
 	// case return error
-	err := errors.New("Mock Error")
+	err := errors.New("Mock Exception")
 	gomonkey.ApplyMethod(reflect.TypeOf(GetGlobalTransactionManager()), "Begin",
 		func(_ *GlobalTransactionManager, ctx context.Context, timeout time.Duration) error {
 			return err

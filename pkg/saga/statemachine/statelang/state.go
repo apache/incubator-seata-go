@@ -30,6 +30,10 @@ type BaseState struct {
 	stateMachine StateMachine
 }
 
+func NewBaseState() *BaseState {
+	return &BaseState{}
+}
+
 func (b *BaseState) Name() string {
 	return b.name
 }
