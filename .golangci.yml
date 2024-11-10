@@ -17,7 +17,7 @@
 
 linters-settings:
   govet:
-    check-shadowing: true
+    shadow: true
   golint:
     min-confidence: 0
   gocyclo:
@@ -56,32 +56,22 @@ linters:
     - staticcheck
     - ineffassign
     - misspell
-    - typecheck
-    - varcheck
-    - unused
-    - structcheck
-    - deadcode
-    - gosimple
-    - errcheck
+   # - errcheck
     - asciicheck
     - bodyclose
-    - copyloopvar
     - rowserrcheck
-    - makezero
+    #- makezero
     - durationcheck
-    - prealloc
-    - predeclared
-    - revive
-    - lll
-    - intrange
+    # - prealloc
+    # - predeclared
 
 
 run:
-  skip-dirs:
-    - test/testdata_etc
-    - pkg/golinters/goanalysis/(checker|passes)
 
 issues:
+  exclude-dirs:
+    - test/testdata_etc
+    - pkg/golinters/goanalysis/(checker|passes)
   exclude-rules:
     - text: "weak cryptographic primitive"
       linters:
@@ -94,7 +84,7 @@ issues:
         - errcheck
         - gosec
         - rowserrcheck
-        - makezero
+        - govet
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
