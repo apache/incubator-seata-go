@@ -17,7 +17,7 @@
 
 linters-settings:
   govet:
-    check-shadowing: false
+    check-shadowing: true
   golint:
     min-confidence: 0
   gocyclo:
@@ -56,6 +56,25 @@ linters:
     - staticcheck
     - ineffassign
     - misspell
+    - typecheck
+    - varcheck
+    - unused
+    - structcheck
+    - deadcode
+    - gosimple
+    - errcheck
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - rowserrcheck
+    - makezero
+    - durationcheck
+    - prealloc
+    - predeclared
+    - revive
+    - lll
+    - intrange
+
 
 run:
   skip-dirs:
@@ -70,6 +89,12 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019:"
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - rowserrcheck
+        - makezero
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
