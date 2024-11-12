@@ -3,9 +3,7 @@
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
+ * (the "License"); you may not use this file except in compliance with the License.  You may obtain a copy of the License at
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -25,15 +23,15 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
-func TestGetName(t *testing.T) {
+func TestJsonGetName(t *testing.T) {
 	assert.Equal(t, "json", (&JsonParser{}).GetName())
 }
 
-func TestGetDefaultContext(t *testing.T) {
+func TestJsonGetDefaultContext(t *testing.T) {
 	assert.Equal(t, []byte("{}"), (&JsonParser{}).GetDefaultContent())
 }
 
-func TestEncode(t *testing.T) {
+func TestJsonEncode(t *testing.T) {
 	TestCases := []struct {
 		CaseName    string
 		UndoLog     *undo.BranchUndoLog
@@ -67,7 +65,7 @@ func TestEncode(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestJsonDecode(t *testing.T) {
 	TestCases := []struct {
 		CaseName      string
 		ExpectUndoLog undo.BranchUndoLog
