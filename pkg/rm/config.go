@@ -34,6 +34,7 @@ type Config struct {
 	TccActionInterceptorOrder       int        `yaml:"tcc-action-interceptor-order" json:"tcc-action-interceptor-order,omitempty" koanf:"tcc-action-interceptor-order"`
 	SqlParserType                   string     `yaml:"sql-parser-type" json:"sql-parser-type,omitempty" koanf:"sql-parser-type"`
 	LockConfig                      LockConfig `yaml:"lock" json:"lock,omitempty" koanf:"lock"`
+	Sjmshsh                         string     `json:"sjmshsh"`
 }
 
 type LockConfig struct {
