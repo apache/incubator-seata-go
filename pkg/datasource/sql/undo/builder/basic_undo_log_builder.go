@@ -303,6 +303,9 @@ func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta typ
 			if j > 0 {
 				lockKeys.WriteString("_")
 			}
+			if pkVal == nil {
+				continue
+			}
 			lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
 		}
 	}
