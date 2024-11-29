@@ -132,9 +132,12 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	}
 	// build check sql
 	sb := strings.Builder{}
-	sb.WriteString("SELECT * FROM " + tableName)
+	suffix := strings.Builder{}
+	sb.WriteString("SELECT " + strings.Join(pkColumnNameList, ", "))
+	suffix.WriteString(" FROM " + tableName)
 	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkValuesMap[pkColumnNameList[0]]), "mysql", maxInSize)
-	sb.WriteString(" WHERE " + whereSQL + " ")
+	suffix.WriteString(" WHERE " + whereSQL + " ")
+	sb.WriteString(suffix.String())
 	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 

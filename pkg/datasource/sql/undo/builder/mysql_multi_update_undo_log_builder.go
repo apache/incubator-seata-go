@@ -138,8 +138,26 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 
 func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
 	sb := strings.Builder{}
-	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.TableName + " ")
+	var selectFieldsStr string
+	selectFields := make([]string, 0, len(meta.ColumnNames))
+	var fieldsExits = make(map[string]struct{})
+	if undo.UndoConfig.OnlyCareUpdateColumns {
+		for _, row := range beforeImage.Rows {
+			for _, column := range row.Columns {
+				if _, exist := fieldsExits[column.ColumnName]; exist {
+					continue
+				}
+
+				fieldsExits[column.ColumnName] = struct{}{}
+				selectFields = append(selectFields, column.ColumnName)
+			}
+		}
+		selectFieldsStr = strings.Join(selectFields, ",")
+	} else {
+		selectFieldsStr = strings.Join(meta.ColumnNames, ",")
+	}
+
+	sb.WriteString("SELECT " + selectFieldsStr + " FROM " + meta.TableName + " ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
