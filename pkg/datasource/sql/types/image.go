@@ -18,6 +18,7 @@
 package types
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
@@ -117,14 +118,16 @@ type RecordImage struct {
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
-	TableMeta *TableMeta `json:"-"`
+	TableMeta     *TableMeta                `json:"-"`
+	PrimaryKeyMap map[string][]driver.Value `json:"primaryKeyMap,omitempty"`
 }
 
 func NewEmptyRecordImage(tableMeta *TableMeta, sqlType SQLType) *RecordImage {
 	return &RecordImage{
-		TableName: tableMeta.TableName,
-		TableMeta: tableMeta,
-		SQLType:   sqlType,
+		TableName:     tableMeta.TableName,
+		TableMeta:     tableMeta,
+		SQLType:       sqlType,
+		PrimaryKeyMap: make(map[string][]driver.Value),
 	}
 }
 
