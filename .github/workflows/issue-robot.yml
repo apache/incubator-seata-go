@@ -26,7 +26,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: tomsun28/issues-translate-action@v2.6
+      - uses: usthe/issues-translate-action@v2.7
         with:
           # it is not necessary to decide whether you need to modify the issue header content
           IS_MODIFY_TITLE: false
