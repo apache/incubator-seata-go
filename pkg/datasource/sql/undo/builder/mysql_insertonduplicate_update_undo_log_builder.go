@@ -99,7 +99,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	}
 
 	// Reset primary keys map
-	u.BeforeImageSqlPrimaryKeys = make(map[string]bool)
+	u.BeforeImageSqlPrimaryKeys = make(map[string]bool, len(metaData.Indexs))
 
 	pkIndexMap := u.getPkIndex(insertStmt, metaData)
 	var pkIndexArray []int
@@ -134,9 +134,9 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	isContainWhere := false
 	hasConditions := false
 	for i := 0; i < len(insertRows); i++ {
-		var rowConditions []string
-		var rowArgs []driver.Value
-		usedParams := make(map[string]bool)
+		var rowConditions = make([]string, 0, cap(insertRows[i]))
+		var rowArgs = make([]driver.Value, 0, cap(insertRows[i]))
+		usedParams := make(map[string]bool, len(paramMap))
 		// First try unique indexes
 		for _, index := range metaData.Indexs {
 			if index.NonUnique || strings.EqualFold("PRIMARY", index.Name) {
@@ -210,6 +210,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 	sqlStr := sql.String()
 	log.Infof("build select sql by insert on duplicate sourceQuery, sql: %s", sqlStr)
 	return sqlStr, selectArgs, nil
+
 }
 
 func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
