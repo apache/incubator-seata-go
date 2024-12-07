@@ -180,7 +180,6 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 			assert.Nil(t, err)
 			tt.execCtx.ParseContext = c
 			query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
-			t.Logf("Query: %s, Args: %v", query, args) // 添加调试日志
 			assert.Nil(t, err)
 			if query == tt.expectQuery1 {
 				assert.Equal(t, tt.expectQuery1, query)
