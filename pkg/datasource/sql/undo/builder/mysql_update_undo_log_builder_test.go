@@ -39,12 +39,14 @@ import (
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
-	t.SkipNow()
+	//t.SkipNow()
 	var (
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
 
-	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string, conn driver.Conn) (*types.TableMeta, error) {
+	datasource.RegisterTableCache(types.DBTypeMySQL, &mysql.TableMetaCache{})
+
+	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 		return &types.TableMeta{
 			Indexs: map[string]types.IndexMeta{
 				"id": {
@@ -75,6 +77,12 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 			sourceQuery:     "update t_user set name = ?, age = ? where id = ? and name = 'Jack' and age between ? and ?",
 			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
 			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE id=? AND name=_UTF8MB4Jack AND age BETWEEN ? AND ? FOR UPDATE",
+			expectQueryArgs: []driver.Value{100, 18, 28},
+		},
+		{
+			sourceQuery:     "update t_user set name = ?, age = ? where (id = ? or name = 'Jack') and age between ? and ?",
+			sourceQueryArgs: []driver.Value{"Jack", 1, 100, 18, 28},
+			expectQuery:     "SELECT SQL_NO_CACHE name,age,id FROM t_user WHERE (id=? OR name=_UTF8MB4Jack) AND age BETWEEN ? AND ? FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
