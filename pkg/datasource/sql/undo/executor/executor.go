@@ -159,7 +159,9 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	image.Rows = rowImages
 	return &image, nil
 }

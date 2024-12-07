@@ -297,7 +297,10 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		}
 		undoLogRecords = append(undoLogRecords, record)
 	}
-
+	if err := rows.Err(); err != nil {
+		log.Errorf("read rows next fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+		return err
+	}
 	var exists bool
 	for _, record := range undoLogRecords {
 		exists = true
@@ -410,7 +413,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil {
+	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil { //nolint:rowserrcheck
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil

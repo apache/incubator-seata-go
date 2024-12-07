@@ -156,7 +156,7 @@ func isRegisterSuccess(response interface{}) bool {
 func isReportSuccess(response interface{}) error {
 	if res, ok := response.(message.BranchReportResponse); ok {
 		if res.ResultCode == message.ResultCodeFailed {
-			return fmt.Errorf(res.Msg)
+			return errors.New(res.Msg)
 		}
 	} else {
 		return ErrBranchReportResponseFault
