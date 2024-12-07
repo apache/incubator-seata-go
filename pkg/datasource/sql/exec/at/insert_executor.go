@@ -184,9 +184,12 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	}
 	// build check sql
 	sb := strings.Builder{}
-	sb.WriteString("SELECT * FROM " + tableName)
+	suffix := strings.Builder{}
+	sb.WriteString("SELECT " + strings.Join(pkColumnNameList, ", "))
+	suffix.WriteString(" FROM " + tableName)
 	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, len(pkValuesMap[pkColumnNameList[0]]), "mysql", maxInSize)
-	sb.WriteString(" WHERE " + whereSQL + " ")
+	suffix.WriteString(" WHERE " + whereSQL + " ")
+	sb.WriteString(suffix.String())
 	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList), nil
 }
 
