@@ -30,23 +30,24 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 	var err error
 	switch registryConfig.Type {
 	case FILE:
-		//init file registry
+		// init file registry
 		registryService = newFileRegistryService(serviceConfig)
 	case ETCD:
-		//init etcd registry
+		// init etcd registry
 		registryService = newEtcdRegistryService(serviceConfig, &registryConfig.Etcd3)
 	case NACOS:
-		//TODO: init nacos registry
+		// init nacos registry
+		registryService, err = NewNacosRegistryService(&registryConfig.Nacos)
 	case EUREKA:
-		//TODO: init eureka registry
+		// TODO: init eureka registry
 	case REDIS:
-		//TODO: init redis registry
+		// TODO: init redis registry
 	case ZK:
-		//TODO: init zk registry
+		// TODO: init zk registry
 	case CONSUL:
-		//TODO: init consul registry
+		// TODO: init consul registry
 	case SOFA:
-		//TODO: init sofa registry
+		// TODO: init sofa registry
 	default:
 		err = fmt.Errorf("service registry not support registry type:%s", registryConfig.Type)
 	}
