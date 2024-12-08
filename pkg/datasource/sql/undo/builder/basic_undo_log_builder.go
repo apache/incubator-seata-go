@@ -276,35 +276,41 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
+	var lockKeys bytes.Buffer
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
 	keys := meta.GetPrimaryKeyOnlyName()
+	keyIndexMap := make(map[string]int, len(keys))
 
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
+	for idx, columnName := range keys {
+		keyIndexMap[columnName] = idx
+	}
+
+	primaryKeyRows := make([][]interface{}, len(records.Rows))
+
+	for i, row := range records.Rows {
+		primaryKeyValues := make([]interface{}, len(keys))
+		for _, column := range row.Columns {
+			if idx, exist := keyIndexMap[column.ColumnName]; exist {
+				primaryKeyValues[idx] = column.Value
+			}
+		}
+		primaryKeyRows[i] = primaryKeyValues
+	}
+
+	for i, primaryKeyValues := range primaryKeyRows {
+		if i > 0 {
 			lockKeys.WriteString(",")
 		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
-				}
+		for j, pkVal := range primaryKeyValues {
+			if j > 0 {
+				lockKeys.WriteString("_")
 			}
-			if hasKeyColumn {
-				filedSequence++
+			if pkVal == nil {
+				continue
 			}
+			lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
 		}
 	}
 
