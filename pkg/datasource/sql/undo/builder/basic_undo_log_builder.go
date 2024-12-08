@@ -121,6 +121,10 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 			b.traversalArgs(exprs[i], argsIndex)
 		}
 		break
+	case *ast.ParenthesesExpr:
+		expr := node.(*ast.ParenthesesExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
+		break
 	case *test_driver.ParamMarkerExpr:
 		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
 		break
