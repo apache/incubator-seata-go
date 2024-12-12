@@ -17,7 +17,7 @@
 
 linters-settings:
   govet:
-    check-shadowing: false
+    shadow: true
   golint:
     min-confidence: 0
   gocyclo:
@@ -56,13 +56,22 @@ linters:
     - staticcheck
     - ineffassign
     - misspell
+   # - errcheck
+    - asciicheck
+    - bodyclose
+    - rowserrcheck
+    #- makezero
+    - durationcheck
+    # - prealloc
+    # - predeclared
+
 
 run:
-  skip-dirs:
-    - test/testdata_etc
-    - pkg/golinters/goanalysis/(checker|passes)
 
 issues:
+  exclude-dirs:
+    - test/testdata_etc
+    - pkg/golinters/goanalysis/(checker|passes)
   exclude-rules:
     - text: "weak cryptographic primitive"
       linters:
@@ -70,11 +79,17 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019:"
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - rowserrcheck
+        - govet
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
-  golangci-lint-version: 1.49.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.57.x # use the fixed version to not introduce new linters unexpectedly
   prepare:
     - echo "here I can run custom commands, but no preparation needed for this repo"
 
