@@ -17,7 +17,7 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 ## TODO list
 
 - [x] TCC
-- [ ] XA
+- [x] XA
 - [x] AT
   - [x] Insert SQL
   - [x] Delete SQL
@@ -33,10 +33,10 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
   - [x] Manually way
   - [x] Proxy datasource way 
 - [x] Null compensation
-- [ ] Configuration center
+- [x] Configuration center
   - [x] Configuration file
-- [ ] Registration Center
-- [ ] Metric monitoring
+- [x] Registration Center
+- [x] Metric monitoring
 - [x] Compressor algorithm
 - [x] Examples
 
