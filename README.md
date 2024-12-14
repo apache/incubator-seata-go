@@ -36,7 +36,7 @@ The principle of seata-go is consistent with that of Seata-java, which is compos
 - [x] Configuration center
   - [x] Configuration file
 - [x] Registration Center
-- [x] Metric monitoring
+- [ ] Metric monitoring
 - [x] Compressor algorithm
 - [x] Examples
 
