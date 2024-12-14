@@ -50,7 +50,7 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	if err != nil {
 		return err
 	}
-
+	defer stmt.Close()
 	afterImage := m.sqlUndoLog.AfterImage
 	for _, row := range afterImage.Rows {
 		pkValueList := make([]interface{}, 0)
@@ -96,7 +96,7 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	}
 
 	var pkList []string
-	for key, _ := range colImages {
+	for key := range colImages {
 		pkList = append(pkList, colImages[key].ColumnName)
 	}
 
