@@ -115,10 +115,14 @@ func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 
 func (g *gettyClientHandler) OnCron(session getty.Session) {
 	log.Debug("session{%s} Oncron executing", session.Stat())
-	g.transferBeatHeart(session, message.HeartBeatMessagePing)
+	err := g.transferHeartBeat(session, message.HeartBeatMessagePing)
+	if err != nil {
+		log.Errorf("failed to send heart beat: {%#v}", err.Error())
+		g.sessionManager.releaseSession(session)
+	}
 }
 
-func (g *gettyClientHandler) transferBeatHeart(session getty.Session, msg message.HeartBeatMessage) {
+func (g *gettyClientHandler) transferHeartBeat(session getty.Session, msg message.HeartBeatMessage) error {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(g.idGenerator.Inc()),
 		Type:       message.GettyRequestTypeHeartbeatRequest,
@@ -126,7 +130,7 @@ func (g *gettyClientHandler) transferBeatHeart(session getty.Session, msg messag
 		Compressor: 0,
 		Body:       msg,
 	}
-	GetGettyRemotingInstance().SendASync(rpcMessage, session, nil)
+	return GetGettyRemotingInstance().SendASync(rpcMessage, session, nil)
 }
 
 func (g *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {
