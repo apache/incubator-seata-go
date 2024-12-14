@@ -143,6 +143,36 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (name = ?  and age = ? ) ",
 			expectQueryArgs1: []driver.Value{"Jack1", 81, "Michal", int64(35)},
 		},
+		// Test case for null unique index
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(id, name, age) values(?, ?, ?) on duplicate key update age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+			},
+			sourceQueryArgs:  []driver.Value{1, nil, 2, 5},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? ) ",
+			expectQueryArgs1: []driver.Value{1},
+		},
+		// Test case for null primary key
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(id, age) values(?, ?) on duplicate key update age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+			},
+			sourceQueryArgs:  []driver.Value{nil, 2, 5},
+			expectQuery1:     "SELECT * FROM t_user WHERE (age = ? )",
+			expectQueryArgs1: []driver.Value{2},
+		},
+		// Test case for null unique index with no primary key
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(name, age) values(?, ?) on duplicate key update age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
+			},
+			sourceQueryArgs:  []driver.Value{nil, 2, 5},
+			expectQuery1:     "",
+			expectQueryArgs1: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
