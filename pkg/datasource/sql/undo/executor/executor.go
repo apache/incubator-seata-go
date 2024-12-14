@@ -124,7 +124,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	image := types.RecordImage{
 		TableName: b.undoImage.TableName,
 		TableMeta: tableMeta,

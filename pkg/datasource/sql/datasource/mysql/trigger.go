@@ -93,6 +93,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	if err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
 
 	rows, err := stmt.Query(dbName, table)
 	if err != nil {
@@ -164,7 +165,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 	if err != nil {
 		return nil, err
 	}
-
+	defer stmt.Close()
 	rows, err := stmt.Query(dbName, tableName)
 	if err != nil {
 		return nil, err

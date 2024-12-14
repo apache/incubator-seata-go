@@ -54,6 +54,7 @@ func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	if err != nil {
 		return err
 	}
+	defer stmt.Close()
 
 	beforeImage := m.sqlUndoLog.BeforeImage
 	for _, row := range beforeImage.Rows {
@@ -93,7 +94,7 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 	)
 
 	nonPkFields := row.NonPrimaryKeys(row.Columns)
-	for key, _ := range nonPkFields {
+	for key := range nonPkFields {
 		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].ColumnName, dbType)+" = ? ")
 	}
 
@@ -103,7 +104,7 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 		return "", err
 	}
 
-	for key, _ := range pkList {
+	for key := range pkList {
 		pkNameList = append(pkNameList, pkList[key].ColumnName)
 	}
 

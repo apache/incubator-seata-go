@@ -106,6 +106,8 @@ func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, recor
 	if err != nil {
 		return err
 	}
+	defer stmt.Close()
+
 	_, err = stmt.Exec(record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus))
 	if err != nil {
 		return err
@@ -120,7 +122,7 @@ func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, bran
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
 	}
-
+	defer stmt.Close()
 	if _, err = stmt.Exec(branchID, xid); err != nil {
 		log.Errorf("[DeleteUndoLog] exec delete undo log fail, err: %v", err)
 		return err
@@ -146,6 +148,7 @@ func (m *BaseUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, 
 		log.Errorf("prepare sql fail, err: %v", err)
 		return err
 	}
+	defer stmt.Close()
 
 	branchIDStr, err := Int64Slice2Str(branchID, ",")
 	if err != nil {
@@ -413,7 +416,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil { //nolint:rowserrcheck
+	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil { //nolint:rowserrcheck,sqlclosecheck
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
