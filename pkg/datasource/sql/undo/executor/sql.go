@@ -142,7 +142,7 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 	buf := make([]byte, len(colName)+2)
 	buf[0], buf[len(buf)-1] = escape[0], escape[0]
 
-	for key, _ := range colName {
+	for key := range colName {
 		buf[key+1] = colName[key]
 	}
 
