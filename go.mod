@@ -5,7 +5,7 @@ go 1.20
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/apache/dubbo-getty v1.4.10
+	github.com/apache/dubbo-getty v1.5.0
 	github.com/arana-db/parser v0.2.5
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
@@ -31,7 +31,6 @@ require (
 )
 
 require (
-	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6

@@ -222,7 +222,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	}
 
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "json"
+	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
 	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 	rollbackInfo, err := m.serializeBranchUndoLog(&branchUndoLog, parseContext[serializerKey])
@@ -297,7 +297,10 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		}
 		undoLogRecords = append(undoLogRecords, record)
 	}
-
+	if err := rows.Err(); err != nil {
+		log.Errorf("read rows next fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+		return err
+	}
 	var exists bool
 	for _, record := range undoLogRecords {
 		exists = true
@@ -377,7 +380,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context, xid string, branchID uint64, conn *sql.Conn) error {
 	// todo use config to replace
 	parseContext := make(map[string]string, 0)
-	parseContext[serializerKey] = "json"
+	parseContext[serializerKey] = undo.UndoConfig.LogSerialization
 	parseContext[compressorTypeKey] = undo.UndoConfig.CompressConfig.Type
 	undoLogContent := m.encodeUndoLogCtx(parseContext)
 
@@ -410,7 +413,7 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil {
+	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil { //nolint:rowserrcheck
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
