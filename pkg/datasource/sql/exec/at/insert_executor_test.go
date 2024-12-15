@@ -78,7 +78,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT id, name FROM user WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
@@ -107,7 +107,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT user_id, name FROM user WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{int64(20)},
 		},
 	}
