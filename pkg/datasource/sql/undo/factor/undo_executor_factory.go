@@ -37,7 +37,7 @@ func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (res undo.
 		res = undoExecutorHolder.GetInsertExecutor(sqlUndoLog)
 	case types.SQLTypeDelete:
 		res = undoExecutorHolder.GetDeleteExecutor(sqlUndoLog)
-	case types.SQLTypeUpdate:
+	case types.SQLTypeUpdate, types.SQLTypeUpdateJoin:
 		res = undoExecutorHolder.GetUpdateExecutor(sqlUndoLog)
 	default:
 		return nil, fmt.Errorf("sql type: %d not support", sqlUndoLog.SQLType)
