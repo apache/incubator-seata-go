@@ -34,7 +34,7 @@ const (
 	FencePhaseRollback = FencePhase(3)
 
 	// FencePhaseAction One stage submission
-	FencePhaseAction = FencePhase(0)
+	FencePhaseAction = FencePhase(4)
 	// FencePhaseCompensationAction Compensation status during one-stage transaction rollback
-	FencePhaseCompensationAction = FencePhase(1)
+	FencePhaseCompensationAction = FencePhase(5)
 )
