@@ -32,7 +32,7 @@ import (
 	"seata.apache.org/seata-go/pkg/rm"
 )
 
-func initMockIndexMeta() []types.IndexMeta{
+func initMockIndexMeta() []types.IndexMeta {
 	return []types.IndexMeta{
 		{
 			IType:      types.IndexTypePrimaryKey,
@@ -47,7 +47,7 @@ func initMockIndexMeta() []types.IndexMeta{
 	}
 }
 
-func initMockColumnMeta() []types.ColumnMeta{
+func initMockColumnMeta() []types.ColumnMeta {
 	return []types.ColumnMeta{
 		{
 			ColumnName: "id",
@@ -58,7 +58,7 @@ func initMockColumnMeta() []types.ColumnMeta{
 	}
 }
 
-func initGetIndexesStub(m *mysqlTrigger,indexMeta []types.IndexMeta) *gomonkey.Patches {
+func initGetIndexesStub(m *mysqlTrigger, indexMeta []types.IndexMeta) *gomonkey.Patches {
 	getIndexesStub := gomonkey.ApplyPrivateMethod(m, "getIndexes",
 		func(_ *mysqlTrigger, ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
 			return indexMeta, nil
@@ -90,9 +90,9 @@ func Test_mysqlTrigger_LoadOne(t *testing.T) {
 		wantTableMeta *types.TableMeta
 	}{
 		{
-			name: "1",
-			args: args{ctx: context.Background(), dbName: "dbName", tableName: "test", conn: nil},
-			indexMeta: initMockIndexMeta(),
+			name:       "1",
+			args:       args{ctx: context.Background(), dbName: "dbName", tableName: "test", conn: nil},
+			indexMeta:  initMockIndexMeta(),
 			columnMeta: initMockColumnMeta(),
 			wantTableMeta: &types.TableMeta{
 				TableName: "test",
@@ -147,8 +147,6 @@ func Test_mysqlTrigger_LoadOne(t *testing.T) {
 	}
 }
 
-
-
 func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controller) *mock.MockDataSourceManager {
 	mockResourceMgr := mock.NewMockDataSourceManager(ctrl)
 	mockResourceMgr.SetBranchType(branchType)
@@ -157,6 +155,39 @@ func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controll
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
 	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 	return mockResourceMgr
+}
+
+func initLoadAllWant(tableName string) types.TableMeta {
+	return types.TableMeta{
+		TableName: tableName,
+		Columns: map[string]types.ColumnMeta{
+			"id": {
+				ColumnName: "id",
+			},
+			"name": {
+				ColumnName: "name",
+			},
+		},
+		Indexs: map[string]types.IndexMeta{
+			"": {
+				ColumnName: "id",
+				IType:      types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{
+						ColumnName:   "id",
+						DatabaseType: types.GetSqlDataType("BIGINT"),
+					},
+					{
+						ColumnName: "id",
+					},
+				},
+			},
+		},
+		ColumnNames: []string{
+			"id",
+			"name",
+		},
+	}
 }
 
 func Test_mysqlTrigger_LoadAll(t *testing.T) {
@@ -193,70 +224,9 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 					"test_02",
 				},
 			},
-			indexMeta: initMockIndexMeta(),
+			indexMeta:  initMockIndexMeta(),
 			columnMeta: initMockColumnMeta(),
-			want: []types.TableMeta{
-				{
-					TableName: "test_01",
-					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-						"name": {
-							ColumnName: "name",
-						},
-					},
-					Indexs: map[string]types.IndexMeta{
-						"": {
-							ColumnName: "id",
-							IType:      types.IndexTypePrimaryKey,
-							Columns: []types.ColumnMeta{
-								{
-									ColumnName:   "id",
-									DatabaseType: types.GetSqlDataType("BIGINT"),
-								},
-								{
-									ColumnName: "id",
-								},
-							},
-						},
-					},
-					ColumnNames: []string{
-						"id",
-						"name",
-					},
-				},
-				{
-					TableName: "test_02",
-					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-						"name": {
-							ColumnName: "name",
-						},
-					},
-					Indexs: map[string]types.IndexMeta{
-						"": {
-							ColumnName: "id",
-							IType:      types.IndexTypePrimaryKey,
-							Columns: []types.ColumnMeta{
-								{
-									ColumnName:   "id",
-									DatabaseType: types.GetSqlDataType("BIGINT"),
-								},
-								{
-									ColumnName: "id",
-								},
-							},
-						},
-					},
-					ColumnNames: []string{
-						"id",
-						"name",
-					},
-				},
-			},
+			want:       []types.TableMeta{initLoadAllWant("test_01"), initLoadAllWant("test_02")},
 		},
 	}
 	for _, tt := range tests {
