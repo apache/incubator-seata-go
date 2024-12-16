@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
@@ -32,7 +34,7 @@ type (
 	trigger interface {
 		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
 
-		LoadAll() ([]types.TableMeta, error)
+		LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error)
 	}
 
 	entry struct {
@@ -50,10 +52,12 @@ type BaseTableMetaCache struct {
 	cache          map[string]*entry
 	cancel         context.CancelFunc
 	trigger        trigger
+	db             *sql.DB
+	cfg            *mysql.Config
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) *BaseTableMetaCache {
+func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
@@ -64,6 +68,8 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger) *
 		cache:          map[string]*entry{},
 		cancel:         cancel,
 		trigger:        trigger,
+		cfg:            cfg,
+		db:             db,
 	}
 
 	c.Init(ctx)
@@ -82,7 +88,19 @@ func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 // refresh
 func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 	f := func() {
-		v, err := c.trigger.LoadAll()
+		if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+			return
+		}
+
+		tables := make([]string, 0, len(c.cache))
+		for table := range c.cache {
+			tables = append(tables, table)
+		}
+		conn, err := c.db.Conn(ctx)
+		if err != nil {
+			return
+		}
+		v, err := c.trigger.LoadAll(ctx, c.cfg.DBName, conn, tables...)
 		if err != nil {
 			return
 		}
@@ -92,7 +110,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		for i := range v {
 			tm := v[i]
-			if _, ok := c.cache[tm.TableName]; !ok {
+			if _, ok := c.cache[tm.TableName]; ok {
 				c.cache[tm.TableName] = &entry{
 					value: tm,
 				}

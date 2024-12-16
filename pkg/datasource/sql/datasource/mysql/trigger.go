@@ -79,8 +79,16 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 }
 
 // LoadAll
-func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
-	return []types.TableMeta{}, nil
+func (m *mysqlTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error) {
+	var tableMetas []types.TableMeta
+	for _, tableName := range tables {
+		tableMeta, err := m.LoadOne(ctx, dbName, tableName, conn)
+		if err != nil {
+			continue
+		}
+		tableMetas = append(tableMetas, *tableMeta)
+	}
+	return tableMetas, nil
 }
 
 // getColumnMetas get tableMeta column

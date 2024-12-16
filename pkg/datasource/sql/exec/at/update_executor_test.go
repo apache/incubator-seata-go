@@ -38,7 +38,7 @@ import (
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 		func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 			return &types.TableMeta{
