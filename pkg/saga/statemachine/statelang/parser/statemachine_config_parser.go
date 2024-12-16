@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package parser
 
 import (
@@ -10,6 +27,7 @@ import (
 	"path/filepath"
 )
 
+// ConfigParser is a general configuration parser interface, used to agree on the implementation of different types of parsers
 type ConfigParser interface {
 	Parse(configContent []byte) (*StateMachineObject, error)
 }
@@ -21,10 +39,11 @@ func NewStateMachineConfigParser() *StateMachineConfigParser {
 }
 
 func (p *StateMachineConfigParser) checkConfigFile(configFilePath string) error {
-	if _, err := os.Stat(configFilePath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("config file %s does not exist: %w", configFilePath, err)
-		}
+	_, err := os.Stat(configFilePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("config file %s does not exist: %w", configFilePath, err)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to access config file %s: %w", configFilePath, err)
 	}
 	return nil
@@ -47,10 +66,11 @@ func (p *StateMachineConfigParser) readFile(configFilePath string) ([]byte, erro
 
 func (p *StateMachineConfigParser) getParser(configFilePath string) (ConfigParser, error) {
 	fileExt := filepath.Ext(configFilePath)
+	// check the file extension, compatible with some illegal but possible situations
 	switch fileExt {
-	case ".json":
+	case ".json", ".JSON":
 		return NewJSONConfigParser(), nil
-	case ".yaml", ".yml":
+	case ".yaml", ".yml", ".YAML", ".YML":
 		return NewYAMLConfigParser(), nil
 	default:
 		return nil, fmt.Errorf("unsupported config file format: %s", fileExt)
