@@ -42,6 +42,8 @@ States:
                 y: 218
               x: 455
               y: 218
+          source: ServiceTask-a9h2o51
+          target: Choice-4ajl8nt
         Type: Transition
     CompensateState: CompensateFirstState
   Choice-4ajl8nt:
@@ -75,6 +77,8 @@ States:
                 y: 218
               x: 550
               y: 218
+          source: Choice-4ajl8nt
+          target: SubStateMachine-cauj9uy
         Type: ChoiceEntry
       ServiceTask-vdij28l:
         style:
@@ -91,6 +95,8 @@ States:
                 y: 310
               x: 600
               y: 310
+          source: Choice-4ajl8nt
+          target: ServiceTask-vdij28l
         Type: ChoiceEntry
   CompensateFirstState:
     style:
@@ -142,6 +148,8 @@ States:
                 y: 218
               x: 722
               y: 218
+          source: SubStateMachine-cauj9uy
+          target: Succeed-5x3z98u
         Type: Transition
   ServiceTask-vdij28l:
     style:
@@ -206,8 +214,8 @@ States:
                 y: 236
               x: 740
               y: 236
-        source: ServiceTask-vdij28l
-        target: Succeed-5x3z98u
+          source: ServiceTask-vdij28l
+          target: Succeed-5x3z98u
         Type: Transition
   Succeed-5x3z98u:
     style:
@@ -244,8 +252,8 @@ States:
                 y: 390
               x: 812
               y: 390
-        source: CompensationTrigger-uldp2ou
-        target: Fail-9roxcv5
+          source: CompensationTrigger-uldp2ou
+          target: Fail-9roxcv5
         Type: Transition
   Fail-9roxcv5:
     style:
