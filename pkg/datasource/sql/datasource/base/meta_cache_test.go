@@ -28,6 +28,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/testdata"
 )
 
 var (
@@ -76,7 +77,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				size:           0,
 				expireDuration: EexpireTime,
 				cache: map[string]*entry{
-					"test": &entry{
+					"test": {
 						value:      types.TableMeta{},
 						lastAccess: time.Now(),
 					},
@@ -86,36 +87,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cfg:     &mysql.Config{},
 				db:      &sql.DB{},
 			}, args: args{ctx: ctx},
-			want: types.TableMeta{
-				TableName: "test",
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
-					},
-					"name": {
-						ColumnName: "name",
-					},
-				},
-				Indexs: map[string]types.IndexMeta{
-					"": {
-						ColumnName: "id",
-						IType:      types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{
-							{
-								ColumnName:   "id",
-								DatabaseType: types.GetSqlDataType("BIGINT"),
-							},
-							{
-								ColumnName: "id",
-							},
-						},
-					},
-				},
-				ColumnNames: []string{
-					"id",
-					"name",
-				},
-			}},
+			want: testdata.MockWantTypesMeta()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

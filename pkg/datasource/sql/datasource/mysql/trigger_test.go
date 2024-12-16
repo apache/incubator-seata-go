@@ -25,6 +25,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"seata.apache.org/seata-go/testdata"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -75,7 +76,7 @@ func initGetColumnMetasStub(m *mysqlTrigger, columnMeta []types.ColumnMeta) *gom
 }
 
 func Test_mysqlTrigger_LoadOne(t *testing.T) {
-
+	wantTableMeta := testdata.MockWantTypesMeta()
 	type args struct {
 		ctx       context.Context
 		dbName    string
@@ -90,40 +91,11 @@ func Test_mysqlTrigger_LoadOne(t *testing.T) {
 		wantTableMeta *types.TableMeta
 	}{
 		{
-			name:       "1",
-			args:       args{ctx: context.Background(), dbName: "dbName", tableName: "test", conn: nil},
-			indexMeta:  initMockIndexMeta(),
-			columnMeta: initMockColumnMeta(),
-			wantTableMeta: &types.TableMeta{
-				TableName: "test",
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
-					},
-					"name": {
-						ColumnName: "name",
-					},
-				},
-				Indexs: map[string]types.IndexMeta{
-					"": {
-						ColumnName: "id",
-						IType:      types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{
-							{
-								ColumnName:   "id",
-								DatabaseType: int32(types.JDBCTypeBigInt),
-							},
-							{
-								ColumnName: "id",
-							},
-						},
-					},
-				},
-				ColumnNames: []string{
-					"id",
-					"name",
-				},
-			},
+			name:          "1",
+			args:          args{ctx: context.Background(), dbName: "dbName", tableName: "test", conn: nil},
+			indexMeta:     initMockIndexMeta(),
+			columnMeta:    initMockColumnMeta(),
+			wantTableMeta: &wantTableMeta,
 		},
 	}
 	for _, tt := range tests {
