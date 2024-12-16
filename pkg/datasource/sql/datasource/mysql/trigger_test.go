@@ -76,7 +76,7 @@ func initGetColumnMetasStub(m *mysqlTrigger, columnMeta []types.ColumnMeta) *gom
 }
 
 func Test_mysqlTrigger_LoadOne(t *testing.T) {
-	wantTableMeta := testdata.MockWantTypesMeta()
+	wantTableMeta := testdata.MockWantTypesMeta("test")
 	type args struct {
 		ctx       context.Context
 		dbName    string
@@ -129,39 +129,6 @@ func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controll
 	return mockResourceMgr
 }
 
-func initLoadAllWant(tableName string) types.TableMeta {
-	return types.TableMeta{
-		TableName: tableName,
-		Columns: map[string]types.ColumnMeta{
-			"id": {
-				ColumnName: "id",
-			},
-			"name": {
-				ColumnName: "name",
-			},
-		},
-		Indexs: map[string]types.IndexMeta{
-			"": {
-				ColumnName: "id",
-				IType:      types.IndexTypePrimaryKey,
-				Columns: []types.ColumnMeta{
-					{
-						ColumnName:   "id",
-						DatabaseType: types.GetSqlDataType("BIGINT"),
-					},
-					{
-						ColumnName: "id",
-					},
-				},
-			},
-		},
-		ColumnNames: []string{
-			"id",
-			"name",
-		},
-	}
-}
-
 func Test_mysqlTrigger_LoadAll(t *testing.T) {
 	sql.Register("seata-at-mysql", &mock.MockTestDriver{})
 
@@ -198,7 +165,7 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 			},
 			indexMeta:  initMockIndexMeta(),
 			columnMeta: initMockColumnMeta(),
-			want:       []types.TableMeta{initLoadAllWant("test_01"), initLoadAllWant("test_02")},
+			want:       []types.TableMeta{testdata.MockWantTypesMeta("test_01"), testdata.MockWantTypesMeta("test_02")},
 		},
 	}
 	for _, tt := range tests {

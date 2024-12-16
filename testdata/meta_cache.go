@@ -19,9 +19,9 @@ package testdata
 
 import "seata.apache.org/seata-go/pkg/datasource/sql/types"
 
-func MockWantTypesMeta() types.TableMeta {
+func MockWantTypesMeta(tableName string) types.TableMeta {
 	return types.TableMeta{
-		TableName: "test",
+		TableName: tableName,
 		Columns: map[string]types.ColumnMeta{
 			"id": {
 				ColumnName: "id",
