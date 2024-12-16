@@ -242,7 +242,7 @@ func (s ServiceTaskStateParser) Parse(stateName string, stateMap map[string]inte
 		return nil, err
 	}
 
-	serviceName, err := s.GetString(stateName, stateMap, "serviceName")
+	serviceName, err := s.GetString(stateName, stateMap, "ServiceName")
 	if err != nil {
 		return nil, err
 	}
