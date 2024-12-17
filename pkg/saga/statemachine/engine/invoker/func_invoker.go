@@ -67,7 +67,7 @@ type FuncServiceImpl struct {
 	methodLock  sync.Mutex
 }
 
-func NewFuncClient(serviceName string, method any) *FuncServiceImpl {
+func NewFuncService(serviceName string, method any) *FuncServiceImpl {
 	return &FuncServiceImpl{
 		serviceName: serviceName,
 		method:      method,

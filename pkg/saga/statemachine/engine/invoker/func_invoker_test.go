@@ -41,7 +41,7 @@ func TestFuncInvokerInvokeStructSucceed(t *testing.T) {
 func newFuncServiceStructInvoker() ServiceInvoker {
 	mockFuncInvoker := NewFuncInvoker()
 	mockFuncService := &mockFuncImpl{}
-	mockService := NewFuncClient("hello", mockFuncService)
+	mockService := NewFuncService("hello", mockFuncService)
 	mockFuncInvoker.RegisterService("hello", mockService)
 	return mockFuncInvoker
 }
@@ -71,7 +71,7 @@ func TestFuncInvokerInvokeMethodSucceed(t *testing.T) {
 func newFuncServiceMethodInvoker() ServiceInvoker {
 	mockFuncInvoker := NewFuncInvoker()
 	mockFuncMethod := SayHelloRight
-	mockService := NewFuncClient("hello", mockFuncMethod)
+	mockService := NewFuncService("hello", mockFuncMethod)
 	mockFuncInvoker.RegisterService("hello", mockService)
 	return mockFuncInvoker
 }
