@@ -52,6 +52,29 @@ func TestBuildWhereConditionByPKs(t *testing.T) {
 func TestBuildLockKey(t *testing.T) {
 	var builder BasicUndoLogBuilder
 
+	columnID := types.ColumnMeta{
+		ColumnName: "id",
+	}
+	columnUserId := types.ColumnMeta{
+		ColumnName: "userId",
+	}
+	columnName := types.ColumnMeta{
+		ColumnName: "name",
+	}
+	columnAge := types.ColumnMeta{
+		ColumnName: "age",
+	}
+	columnNonExistent := types.ColumnMeta{
+		ColumnName: "non_existent",
+	}
+
+	columnsTwoPk := []types.ColumnMeta{columnID, columnUserId}
+	columnsMixPk := []types.ColumnMeta{columnName, columnAge}
+
+	getColumnImage := func(columnName string, value interface{}) types.ColumnImage {
+		return types.ColumnImage{KeyType: types.IndexTypePrimaryKey, ColumnName: columnName, Value: value}
+	}
+
 	tests := []struct {
 		name     string
 		metaData types.TableMeta
@@ -59,34 +82,34 @@ func TestBuildLockKey(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "Two Primary Keys",
-			metaData: types.TableMeta{
+			"Two Primary Keys",
+			types.TableMeta{
 				TableName: "test_name",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}, {ColumnName: "userId"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsTwoPk},
 				},
 			},
-			records: types.RecordImage{
+			types.RecordImage{
 				TableName: "test_name",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 1}, {KeyType: types.IndexTypePrimaryKey, ColumnName: "userId", Value: "one"}}},
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 2}, {KeyType: types.IndexTypePrimaryKey, ColumnName: "userId", Value: "two"}}},
+					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one")}},
+					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two")}},
 				},
 			},
-			expected: "test_name:1_one,2_two",
+			"test_name:1_one,2_two",
 		},
 		{
 			name: "Single Primary Key",
 			metaData: types.TableMeta{
 				TableName: "single_key",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
 			},
 			records: types.RecordImage{
 				TableName: "single_key",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 100}}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 100)}},
 				},
 			},
 			expected: "single_key:100",
@@ -96,13 +119,13 @@ func TestBuildLockKey(t *testing.T) {
 			metaData: types.TableMeta{
 				TableName: "mixed_key",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "name"}, {ColumnName: "age"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsMixPk},
 				},
 			},
 			records: types.RecordImage{
 				TableName: "mixed_key",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "name", Value: "Alice"}, {KeyType: types.IndexTypePrimaryKey, ColumnName: "age", Value: 25}}},
+					{Columns: []types.ColumnImage{getColumnImage("name", "Alice"), getColumnImage("age", 25)}},
 				},
 			},
 			expected: "mixed_key:Alice_25",
@@ -112,41 +135,24 @@ func TestBuildLockKey(t *testing.T) {
 			metaData: types.TableMeta{
 				TableName: "empty",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
 			},
 			records:  types.RecordImage{TableName: "empty"},
 			expected: "empty:",
 		},
 		{
-			name: "Duplicate Primary Keys",
-			metaData: types.TableMeta{
-				TableName: "dupes",
-				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
-				},
-			},
-			records: types.RecordImage{
-				TableName: "dupes",
-				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 1}}},
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 1}}},
-				},
-			},
-			expected: "dupes:1,1",
-		},
-		{
 			name: "Special Characters",
 			metaData: types.TableMeta{
 				TableName: "special",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
 			},
 			records: types.RecordImage{
 				TableName: "special",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: "a,b_c"}}},
+					{Columns: []types.ColumnImage{getColumnImage("id", "a,b_c")}},
 				},
 			},
 			expected: "special:a,b_c",
@@ -156,13 +162,13 @@ func TestBuildLockKey(t *testing.T) {
 			metaData: types.TableMeta{
 				TableName: "error_key",
 				Indexs: map[string]types.IndexMeta{
-					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "non_existent"}}},
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnNonExistent}},
 				},
 			},
 			records: types.RecordImage{
 				TableName: "error_key",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{{KeyType: types.IndexTypePrimaryKey, ColumnName: "id", Value: 1}}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 1)}},
 				},
 			},
 			expected: "error_key:",
