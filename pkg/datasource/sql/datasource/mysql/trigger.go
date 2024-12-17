@@ -93,6 +93,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	if err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
 
 	rows, err := stmt.Query(dbName, table)
 	if err != nil {
@@ -144,7 +145,9 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 		columnMetas = append(columnMetas, columnMeta)
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	if len(columnMetas) == 0 {
 		return nil, fmt.Errorf("can't find column")
 	}
@@ -162,7 +165,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 	if err != nil {
 		return nil, err
 	}
-
+	defer stmt.Close()
 	rows, err := stmt.Query(dbName, tableName)
 	if err != nil {
 		return nil, err
@@ -204,6 +207,8 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		result = append(result, index)
 
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }

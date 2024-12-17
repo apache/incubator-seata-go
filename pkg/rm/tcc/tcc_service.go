@@ -20,7 +20,7 @@ package tcc
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"reflect"
 	"sync"
 	"time"
@@ -94,7 +94,7 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 	if !tm.IsGlobalTx(ctx) {
 		errStr := "BranchRegister error, transaction should be opened"
 		log.Errorf(errStr)
-		return fmt.Errorf(errStr)
+		return errors.New(errStr)
 	}
 
 	tccContext := t.initBusinessActionContext(ctx, params)
