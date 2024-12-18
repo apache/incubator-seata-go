@@ -59,9 +59,9 @@ type TCCFenceStore interface {
 
 	// DeleteTCCFenceDOByMdfDate tcc fence by datetime.
 	// param tx the tx will bind with user business method
-	// param datetime modify time
-	// return the error msg
-	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error
+	// param datetime modify time, int32 limit delete
+	// return the delete number and error msg
+	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time, limit int32) (int64, error)
 
 	// SetLogTableName LogTable ColumnName
 	// param logTableName logTableName

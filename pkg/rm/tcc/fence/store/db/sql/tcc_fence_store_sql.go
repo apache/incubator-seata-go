@@ -41,7 +41,10 @@ var (
 	deleteByBranchIdAndXid = "delete from " + localTccLogPlaced + " where xid = ? and  branch_id = ? "
 
 	// deleteByDateAndStatus The enum DeleteByDateAndStatus
-	deleteByDateAndStatus = "delete from " + localTccLogPlaced + " where gmt_modified < ?  and status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")"
+	deleteByDateAndStatus = "delete from " + localTccLogPlaced +
+		" where gmt_modified < ?  and" +
+		" status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")" +
+		" limit ?"
 )
 
 func GetInsertLocalTCCLogSQL(localTccTable string) string {
