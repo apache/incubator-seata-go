@@ -3,8 +3,11 @@ package invoker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -88,7 +91,53 @@ func (f *FuncServiceImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskStat
 		args = append(args, reflect.ValueOf(arg))
 	}
 
-	return method.Call(args), nil
+	retryCountMap := make(map[state.Retry]int)
+	for {
+		res, err, shouldRetry := func() (res []reflect.Value, resErr error, shouldRetry bool) {
+			defer func() {
+				if r := recover(); r != nil {
+					errStr := fmt.Sprintf("%v", r)
+					retry := f.matchRetry(serviceTaskStateImpl, errStr)
+					res = nil
+					resErr = errors.New(errStr)
+
+					if retry == nil {
+						return
+					}
+					shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
+					return
+				}
+			}()
+
+			outs := method.Call(args)
+
+			if err, ok := outs[len(outs)-1].Interface().(error); ok {
+				errStr := err.Error()
+				retry := f.matchRetry(serviceTaskStateImpl, errStr)
+				res = nil
+				resErr = err
+
+				if retry == nil {
+					return
+				}
+
+				shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
+				return
+			}
+
+			res = outs
+			resErr = nil
+			shouldRetry = false
+			return
+		}()
+
+		if !shouldRetry {
+			if err != nil {
+				return nil, errors.New("invoke service[" + serviceTaskStateImpl.ServiceName() + "]." + serviceTaskStateImpl.ServiceMethod() + " failed, err is " + err.Error())
+			}
+			return res, nil
+		}
+	}
 }
 
 func (f *FuncServiceImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl) error {
@@ -111,4 +160,46 @@ func (f *FuncServiceImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskStat
 	}
 	serviceTaskStateImpl.SetMethod(&method)
 	return nil
+}
+
+func (f *FuncServiceImpl) matchRetry(impl *state.ServiceTaskStateImpl, str string) state.Retry {
+	if impl.Retry() != nil {
+		for _, retry := range impl.Retry() {
+			if retry.Exceptions() != nil {
+				for _, exception := range retry.Exceptions() {
+					if strings.Contains(str, exception) {
+						return retry
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (f *FuncServiceImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap map[state.Retry]int, retry state.Retry, err error) bool {
+	attempt, exist := countMap[retry]
+	if !exist {
+		countMap[retry] = 0
+	}
+
+	if attempt >= retry.MaxAttempt() {
+		return false
+	}
+
+	intervalSecond := retry.IntervalSecond()
+	backoffRate := retry.BackoffRate()
+	var currentInterval int64
+	if attempt == 0 {
+		currentInterval = int64(intervalSecond * 1000)
+	} else {
+		currentInterval = int64(intervalSecond * backoffRate * float64(attempt) * 1000)
+	}
+
+	log.Warnf("invoke service[%s.%s] failed, will retry after %s millis, current retry count: %s, current err: %s",
+		impl.ServiceName(), impl.ServiceMethod(), currentInterval, attempt, err)
+
+	time.Sleep(time.Duration(currentInterval) * time.Millisecond)
+	countMap[retry] = attempt + 1
+	return true
 }
