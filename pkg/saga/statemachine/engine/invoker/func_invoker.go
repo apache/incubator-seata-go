@@ -11,8 +11,8 @@ import (
 )
 
 type FuncInvoker struct {
-	servicesMap     map[string]FuncService
 	ServicesMapLock sync.Mutex
+	servicesMap     map[string]FuncService
 }
 
 func NewFuncInvoker() *FuncInvoker {
@@ -63,8 +63,8 @@ type FuncService interface {
 
 type FuncServiceImpl struct {
 	serviceName string
-	method      any
 	methodLock  sync.Mutex
+	method      any
 }
 
 func NewFuncService(serviceName string, method any) *FuncServiceImpl {
