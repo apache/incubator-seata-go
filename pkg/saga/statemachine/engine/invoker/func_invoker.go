@@ -11,26 +11,26 @@ import (
 )
 
 type FuncInvoker struct {
-	services        map[string]FuncService
+	servicesMap     map[string]FuncService
 	ServicesMapLock sync.Mutex
 }
 
 func NewFuncInvoker() *FuncInvoker {
 	return &FuncInvoker{
-		services: make(map[string]FuncService),
+		servicesMap: make(map[string]FuncService),
 	}
 }
 
 func (f *FuncInvoker) RegisterService(serviceName string, service FuncService) {
 	f.ServicesMapLock.Lock()
 	defer f.ServicesMapLock.Unlock()
-	f.services[serviceName] = service
+	f.servicesMap[serviceName] = service
 }
 
 func (f *FuncInvoker) GetService(serviceName string) FuncService {
 	f.ServicesMapLock.Lock()
 	defer f.ServicesMapLock.Unlock()
-	return f.services[serviceName]
+	return f.servicesMap[serviceName]
 }
 
 func (f *FuncInvoker) Invoke(ctx context.Context, input []any, service state.ServiceTaskState) (output []reflect.Value, err error) {
