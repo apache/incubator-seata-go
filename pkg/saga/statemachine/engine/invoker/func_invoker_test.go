@@ -30,57 +30,92 @@ func (m *mockFuncImpl) SayHelloRightLater(word string, delay int) (string, error
 	return "", errors.New("invoke failed")
 }
 
-func TestFuncInvokerInvokeStructSucceed(t *testing.T) {
+func TestFuncInvokerInvokeSucceed(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     []any
+		taskState state.ServiceTaskState
+		expected  string
+		expectErr bool
+	}{
+		{
+			name:      "Invoke Struct Succeed",
+			input:     []any{"hello"},
+			taskState: newFuncHelloServiceTaskState(),
+			expected:  "hello",
+			expectErr: false,
+		},
+		{
+			name:      "Invoke Struct In Retry",
+			input:     []any{"hello", 2},
+			taskState: newFuncHelloServiceTaskStateWithRetry(),
+			expected:  "hello",
+			expectErr: false,
+		},
+	}
+
 	ctx := context.Background()
-	invoker := newFuncServiceStructInvoker()
-	values, err := invoker.Invoke(ctx, []any{"hello"}, newFuncHelloServiceTaskState())
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if values == nil || len(values) == 0 {
-		t.Error("no value in values")
-		return
-	}
-	if values[0].Interface().(string) != "hello" {
-		t.Errorf("expect hello, but got %s", values[0].Interface())
-	}
-	if _, ok := values[1].Interface().(error); ok {
-		t.Errorf("expect nil, but got %s", values[1].Interface())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			invoker := newFuncServiceInvoker()
+			values, err := invoker.Invoke(ctx, tt.input, tt.taskState)
+
+			if (err != nil) != tt.expectErr {
+				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
+			}
+
+			if values == nil || len(values) == 0 {
+				t.Fatal("no value in values")
+			}
+
+			if resultString, ok := values[0].Interface().(string); ok {
+				if resultString != tt.expected {
+					t.Errorf("expect %s, but got %s", tt.expected, resultString)
+				}
+			} else {
+				t.Errorf("expected string, but got %v", values[0].Interface())
+			}
+
+			if resultError, ok := values[1].Interface().(error); ok {
+				if resultError != nil {
+					t.Errorf("expect nil, but got %s", resultError)
+				}
+			}
+		})
 	}
 }
 
-func TestFuncInvokerInvokeStructInRetry(t *testing.T) {
+func TestFuncInvokerInvokeFailed(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     []any
+		taskState state.ServiceTaskState
+		expected  string
+		expectErr bool
+	}{
+		{
+			name:      "Invoke Struct Failed In Retry",
+			input:     []any{"hello", 5},
+			taskState: newFuncHelloServiceTaskStateWithRetry(),
+			expected:  "",
+			expectErr: true,
+		},
+	}
+
 	ctx := context.Background()
-	invoker := newFuncServiceStructInvoker()
-	values, err := invoker.Invoke(ctx, []any{"hello", 2}, newFuncHelloServiceTaskStateWithRetry())
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if values == nil || len(values) == 0 {
-		t.Error("no value in values")
-		return
-	}
-	if values[0].Interface().(string) != "hello" {
-		t.Errorf("expect hello, but got %s", values[0].Interface())
-	}
-	if _, ok := values[1].Interface().(error); ok {
-		t.Errorf("expect nil, but got %s", values[1].Interface())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			invoker := newFuncServiceInvoker()
+			_, err := invoker.Invoke(ctx, tt.input, tt.taskState)
+
+			if (err != nil) != tt.expectErr {
+				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
+			}
+		})
 	}
 }
 
-func TestFuncInvokerInvokeStructFailedInRetry(t *testing.T) {
-	ctx := context.Background()
-	invoker := newFuncServiceStructInvoker()
-	_, err := invoker.Invoke(ctx, []any{"hello", 5}, newFuncHelloServiceTaskStateWithRetry())
-	if err == nil {
-		t.Error("expect error, but got nil")
-		return
-	}
-}
-
-func newFuncServiceStructInvoker() ServiceInvoker {
+func newFuncServiceInvoker() ServiceInvoker {
 	mockFuncInvoker := NewFuncInvoker()
 	mockFuncService := &mockFuncImpl{}
 	mockService := NewFuncService("hello", mockFuncService)
