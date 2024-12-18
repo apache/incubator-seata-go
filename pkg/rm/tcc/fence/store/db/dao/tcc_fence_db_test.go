@@ -190,7 +190,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectPrepare(sql2.GetDeleteSQLByMdfDateAndStatus("tcc_fence_log")).
 		ExpectExec().
-		WithArgs(driver.Value(tccFenceDo.GmtModified.Add(math.MaxInt32))).
+		WithArgs(driver.Value(tccFenceDo.GmtModified.Add(math.MaxInt32)), 1000).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -198,7 +198,12 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
+	affect, err := GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32), 1000)
 	tx.Commit()
 	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(1), affect)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %v", err)
+	}
 }
