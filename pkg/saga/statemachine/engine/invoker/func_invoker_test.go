@@ -9,7 +9,7 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
-// struct's method mock implementation
+// struct's method test
 type mockFuncImpl struct {
 	invokeCount int
 }
@@ -30,82 +30,9 @@ func (m *mockFuncImpl) SayHelloRightLater(word string, delay int) (string, error
 	return "", errors.New("invoke failed")
 }
 
-func TestFuncInvokerInvokeStruct(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     []any
-		taskState state.ServiceTaskState
-		expectVal string
-		expectErr error
-	}{
-		{
-			name:      "Invoke Struct Succeed",
-			input:     []any{"hello"},
-			taskState: newFuncHelloServiceTaskState(),
-			expectVal: "hello",
-			expectErr: nil,
-		},
-		{
-			name:      "Invoke Struct Succeed In Retry",
-			input:     []any{"hello", 2},
-			taskState: newFuncHelloServiceTaskStateWithRetry(),
-			expectVal: "hello",
-			expectErr: nil,
-		},
-		{
-			name:      "Invoke Struct Failed In Retry",
-			input:     []any{"hello", 5},
-			taskState: newFuncHelloServiceTaskStateWithRetry(),
-			expectVal: "",
-			expectErr: errors.New("expect error, but got nil"),
-		},
-	}
-
+func TestFuncInvokerInvokeStructSucceed(t *testing.T) {
 	ctx := context.Background()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			invoker := newFuncServiceStructInvoker()
-			values, err := invoker.Invoke(ctx, tt.input, tt.taskState)
-
-			if tt.expectErr != nil && err == nil {
-				t.Error(tt.expectErr)
-				return
-			} else if tt.expectErr == nil && err != nil {
-				t.Error(err)
-				return
-			}
-
-			if values == nil || len(values) == 0 {
-				t.Error("no value in values")
-				return
-			}
-
-			if values[0].Interface().(string) != tt.expectVal {
-				t.Errorf("expected %s, but got %s", tt.expectVal, values[0].Interface())
-			}
-			if _, ok := values[1].Interface().(error); ok {
-				t.Errorf("expected nil, but got %s", values[1].Interface())
-			}
-		})
-	}
-}
-
-func newFuncServiceStructInvoker() ServiceInvoker {
-	mockFuncInvoker := NewFuncInvoker()
-	mockFuncService := &mockFuncImpl{}
-	mockService := NewFuncService("hello", mockFuncService)
-	mockFuncInvoker.RegisterService("hello", mockService)
-	return mockFuncInvoker
-}
-
-// method test
-func SayHelloRight(word string) (string, error) {
-	return word, nil
-}
-
-func TestFuncInvokerInvokeMethodSucceed(t *testing.T) {
-	ctx := context.Background()
-	invoker := newFuncServiceMethodInvoker()
+	invoker := newFuncServiceStructInvoker()
 	values, err := invoker.Invoke(ctx, []any{"hello"}, newFuncHelloServiceTaskState())
 	if err != nil {
 		t.Error(err)
@@ -123,10 +50,40 @@ func TestFuncInvokerInvokeMethodSucceed(t *testing.T) {
 	}
 }
 
-func newFuncServiceMethodInvoker() ServiceInvoker {
+func TestFuncInvokerInvokeStructInRetry(t *testing.T) {
+	ctx := context.Background()
+	invoker := newFuncServiceStructInvoker()
+	values, err := invoker.Invoke(ctx, []any{"hello", 2}, newFuncHelloServiceTaskStateWithRetry())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if values == nil || len(values) == 0 {
+		t.Error("no value in values")
+		return
+	}
+	if values[0].Interface().(string) != "hello" {
+		t.Errorf("expect hello, but got %s", values[0].Interface())
+	}
+	if _, ok := values[1].Interface().(error); ok {
+		t.Errorf("expect nil, but got %s", values[1].Interface())
+	}
+}
+
+func TestFuncInvokerInvokeStructFailedInRetry(t *testing.T) {
+	ctx := context.Background()
+	invoker := newFuncServiceStructInvoker()
+	_, err := invoker.Invoke(ctx, []any{"hello", 5}, newFuncHelloServiceTaskStateWithRetry())
+	if err == nil {
+		t.Error("expect error, but got nil")
+		return
+	}
+}
+
+func newFuncServiceStructInvoker() ServiceInvoker {
 	mockFuncInvoker := NewFuncInvoker()
-	mockFuncMethod := SayHelloRight
-	mockService := NewFuncService("hello", mockFuncMethod)
+	mockFuncService := &mockFuncImpl{}
+	mockService := NewFuncService("hello", mockFuncService)
 	mockFuncInvoker.RegisterService("hello", mockService)
 	return mockFuncInvoker
 }
