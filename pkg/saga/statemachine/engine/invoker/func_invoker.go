@@ -77,59 +77,32 @@ func NewFuncService(serviceName string, method any) *FuncServiceImpl {
 	}
 }
 
-func (f *FuncServiceImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl, input []any) ([]reflect.Value, error) {
+func (f *FuncServiceImpl) ensureMethodInitialized(serviceTaskStateImpl *state.ServiceTaskStateImpl) error {
 	if serviceTaskStateImpl.Method() == nil {
-		err := f.initMethod(serviceTaskStateImpl)
-		if err != nil {
-			return nil, err
-		}
+		return f.initMethod(serviceTaskStateImpl)
+	}
+	return nil
+}
+
+func (f *FuncServiceImpl) prepareArguments(input []any) []reflect.Value {
+	args := make([]reflect.Value, len(input))
+	for i, arg := range input {
+		args[i] = reflect.ValueOf(arg)
+	}
+	return args
+}
+
+func (f *FuncServiceImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl, input []any) ([]reflect.Value, error) {
+	if err := f.ensureMethodInitialized(serviceTaskStateImpl); err != nil {
+		return nil, err
 	}
 	method := serviceTaskStateImpl.Method()
 
-	args := make([]reflect.Value, 0, len(input))
-	for _, arg := range input {
-		args = append(args, reflect.ValueOf(arg))
-	}
+	args := f.prepareArguments(input)
 
 	retryCountMap := make(map[state.Retry]int)
 	for {
-		res, err, shouldRetry := func() (res []reflect.Value, resErr error, shouldRetry bool) {
-			defer func() {
-				if r := recover(); r != nil {
-					errStr := fmt.Sprintf("%v", r)
-					retry := f.matchRetry(serviceTaskStateImpl, errStr)
-					res = nil
-					resErr = errors.New(errStr)
-
-					if retry == nil {
-						return
-					}
-					shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
-					return
-				}
-			}()
-
-			outs := method.Call(args)
-
-			if err, ok := outs[len(outs)-1].Interface().(error); ok {
-				errStr := err.Error()
-				retry := f.matchRetry(serviceTaskStateImpl, errStr)
-				res = nil
-				resErr = err
-
-				if retry == nil {
-					return
-				}
-
-				shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
-				return
-			}
-
-			res = outs
-			resErr = nil
-			shouldRetry = false
-			return
-		}()
+		res, err, shouldRetry := f.invokeMethod(method, args, serviceTaskStateImpl, retryCountMap)
 
 		if !shouldRetry {
 			if err != nil {
@@ -162,6 +135,37 @@ func (f *FuncServiceImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskStat
 	return nil
 }
 
+func (f *FuncServiceImpl) invokeMethod(method *reflect.Value, args []reflect.Value, serviceTaskStateImpl *state.ServiceTaskStateImpl, retryCountMap map[state.Retry]int) ([]reflect.Value, error, bool) {
+	var res []reflect.Value
+	var resErr error
+	var shouldRetry bool
+
+	defer func() {
+		if r := recover(); r != nil {
+			errStr := fmt.Sprintf("%v", r)
+			retry := f.matchRetry(serviceTaskStateImpl, errStr)
+			resErr = errors.New(errStr)
+			if retry != nil {
+				shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
+			}
+		}
+	}()
+
+	outs := method.Call(args)
+	if err, ok := outs[len(outs)-1].Interface().(error); ok {
+		resErr = err
+		errStr := err.Error()
+		retry := f.matchRetry(serviceTaskStateImpl, errStr)
+		if retry != nil {
+			shouldRetry = f.needRetry(serviceTaskStateImpl, retryCountMap, retry, resErr)
+		}
+		return nil, resErr, shouldRetry
+	}
+
+	res = outs
+	return res, nil, false
+}
+
 func (f *FuncServiceImpl) matchRetry(impl *state.ServiceTaskStateImpl, str string) state.Retry {
 	if impl.Retry() != nil {
 		for _, retry := range impl.Retry() {
@@ -187,14 +191,7 @@ func (f *FuncServiceImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap m
 		return false
 	}
 
-	intervalSecond := retry.IntervalSecond()
-	backoffRate := retry.BackoffRate()
-	var currentInterval int64
-	if attempt == 0 {
-		currentInterval = int64(intervalSecond * 1000)
-	} else {
-		currentInterval = int64(intervalSecond * backoffRate * float64(attempt) * 1000)
-	}
+	currentInterval := f.calculateRetryInterval(retry, attempt)
 
 	log.Warnf("invoke service[%s.%s] failed, will retry after %s millis, current retry count: %s, current err: %s",
 		impl.ServiceName(), impl.ServiceMethod(), currentInterval, attempt, err)
@@ -202,4 +199,14 @@ func (f *FuncServiceImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap m
 	time.Sleep(time.Duration(currentInterval) * time.Millisecond)
 	countMap[retry] = attempt + 1
 	return true
+}
+
+func (f *FuncServiceImpl) calculateRetryInterval(retry state.Retry, attempt int) int64 {
+	intervalSecond := retry.IntervalSecond()
+	backoffRate := retry.BackoffRate()
+
+	if attempt == 0 {
+		return int64(intervalSecond * 1000)
+	}
+	return int64(intervalSecond * backoffRate * float64(attempt) * 1000)
 }
