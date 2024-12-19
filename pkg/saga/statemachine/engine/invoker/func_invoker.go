@@ -191,22 +191,19 @@ func (f *FuncServiceImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap m
 		return false
 	}
 
-	currentInterval := f.calculateRetryInterval(retry, attempt)
+	interval := retry.IntervalSecond()
+	backoffRate := retry.BackoffRate()
+	var curInterval int64
+	if attempt == 0 {
+		curInterval = int64(interval * 1000)
+	} else {
+		curInterval = int64(interval * backoffRate * float64(attempt) * 1000)
+	}
 
 	log.Warnf("invoke service[%s.%s] failed, will retry after %s millis, current retry count: %s, current err: %s",
-		impl.ServiceName(), impl.ServiceMethod(), currentInterval, attempt, err)
+		impl.ServiceName(), impl.ServiceMethod(), curInterval, attempt, err)
 
-	time.Sleep(time.Duration(currentInterval) * time.Millisecond)
+	time.Sleep(time.Duration(curInterval) * time.Millisecond)
 	countMap[retry] = attempt + 1
 	return true
-}
-
-func (f *FuncServiceImpl) calculateRetryInterval(retry state.Retry, attempt int) int64 {
-	intervalSecond := retry.IntervalSecond()
-	backoffRate := retry.BackoffRate()
-
-	if attempt == 0 {
-		return int64(intervalSecond * 1000)
-	}
-	return int64(intervalSecond * backoffRate * float64(attempt) * 1000)
 }
