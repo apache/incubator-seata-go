@@ -51,9 +51,9 @@ func (f *FuncInvoker) Invoke(ctx context.Context, input []any, service state.Ser
 			}
 		}()
 		return nil, nil
-	} else {
-		return FuncService.CallMethod(serviceTaskStateImpl, input)
 	}
+
+	return FuncService.CallMethod(serviceTaskStateImpl, input)
 }
 
 func (f *FuncInvoker) Close(ctx context.Context) error {
@@ -77,11 +77,12 @@ func NewFuncService(serviceName string, method any) *FuncServiceImpl {
 	}
 }
 
-func (f *FuncServiceImpl) ensureMethodInitialized(serviceTaskStateImpl *state.ServiceTaskStateImpl) error {
-	if serviceTaskStateImpl.Method() == nil {
+func (f *FuncServiceImpl) getMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl) (*reflect.Value, error) {
+	method := serviceTaskStateImpl.Method()
+	if method == nil {
 		return f.initMethod(serviceTaskStateImpl)
 	}
-	return nil
+	return method, nil
 }
 
 func (f *FuncServiceImpl) prepareArguments(input []any) []reflect.Value {
@@ -93,10 +94,10 @@ func (f *FuncServiceImpl) prepareArguments(input []any) []reflect.Value {
 }
 
 func (f *FuncServiceImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl, input []any) ([]reflect.Value, error) {
-	if err := f.ensureMethodInitialized(serviceTaskStateImpl); err != nil {
+	method, err := f.getMethod(serviceTaskStateImpl)
+	if err != nil {
 		return nil, err
 	}
-	method := serviceTaskStateImpl.Method()
 
 	args := f.prepareArguments(input)
 
@@ -113,26 +114,26 @@ func (f *FuncServiceImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskStat
 	}
 }
 
-func (f *FuncServiceImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl) error {
+func (f *FuncServiceImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskStateImpl) (*reflect.Value, error) {
 	methodName := serviceTaskStateImpl.ServiceMethod()
 	f.methodLock.Lock()
 	defer f.methodLock.Unlock()
 	methodValue := reflect.ValueOf(f.method)
 	if methodValue.IsZero() {
-		return errors.New("invalid method when func call, serviceName: " + f.serviceName)
+		return nil, errors.New("invalid method when func call, serviceName: " + f.serviceName)
 	}
 
 	if methodValue.Kind() == reflect.Func {
 		serviceTaskStateImpl.SetMethod(&methodValue)
-		return nil
+		return &methodValue, nil
 	}
 
 	method := methodValue.MethodByName(methodName)
 	if method.IsZero() {
-		return errors.New("invalid method name when func call, serviceName: " + f.serviceName + ", methodName: " + methodName)
+		return nil, errors.New("invalid method name when func call, serviceName: " + f.serviceName + ", methodName: " + methodName)
 	}
 	serviceTaskStateImpl.SetMethod(&method)
-	return nil
+	return &method, nil
 }
 
 func (f *FuncServiceImpl) invokeMethod(method *reflect.Value, args []reflect.Value, serviceTaskStateImpl *state.ServiceTaskStateImpl, retryCountMap map[state.Retry]int) ([]reflect.Value, error, bool) {
