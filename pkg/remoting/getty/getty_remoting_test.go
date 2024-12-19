@@ -26,7 +26,6 @@ import (
 )
 
 func TestGettyRemoting_GetMessageFuture(t *testing.T) {
-	client := GetGettyRemotingClient()
 	tests := []struct {
 		name          string
 		msgID         int32
@@ -48,6 +47,7 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 			},
 		},
 	}
+	client := GetGettyRemotingClient()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.messageFuture != nil {
@@ -63,7 +63,6 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
-	client := GetGettyRemotingClient()
 	tests := []struct {
 		name          string
 		msgID         int32
@@ -80,6 +79,7 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 			},
 		},
 	}
+	client := GetGettyRemotingClient()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client.gettyRemoting.futures.Store(test.msgID, test.messageFuture)
@@ -93,7 +93,6 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 }
 
 func TestGettyRemoting_GetMergedMessage(t *testing.T) {
-	client := GetGettyRemotingClient()
 	tests := []struct {
 		name              string
 		msgID             int32
@@ -113,6 +112,7 @@ func TestGettyRemoting_GetMergedMessage(t *testing.T) {
 			},
 		},
 	}
+	client := GetGettyRemotingClient()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.mergedWarpMessage != nil {
@@ -128,7 +128,6 @@ func TestGettyRemoting_GetMergedMessage(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
-	client := GetGettyRemotingClient()
 	tests := []struct {
 		name              string
 		msgID             int32
@@ -148,6 +147,7 @@ func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
 			},
 		},
 	}
+	client := GetGettyRemotingClient()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.mergedWarpMessage != nil {

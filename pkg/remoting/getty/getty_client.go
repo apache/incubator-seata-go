@@ -105,3 +105,23 @@ func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *m
 		return respMsg.Response, respMsg.Err
 	}
 }
+
+func (client *GettyRemotingClient) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
+	return client.gettyRemoting.GetMergedMessage(msgID)
+}
+
+func (client *GettyRemotingClient) GetMessageFuture(msgID int32) *message.MessageFuture {
+	return client.gettyRemoting.GetMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) RemoveMessageFuture(msgID int32) {
+	client.gettyRemoting.RemoveMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) RemoveMergedMessageFuture(msgID int32) {
+	client.gettyRemoting.RemoveMergedMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) NotifyRpcMessageResponse(msg message.RpcMessage) {
+	client.gettyRemoting.NotifyRpcMessageResponse(msg)
+}

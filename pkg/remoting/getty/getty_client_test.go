@@ -40,7 +40,7 @@ func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 			},
 		},
 	}
-	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendSync",
+	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingClient().gettyRemoting), "SendSync",
 		func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{},
 			error) {
 			return respMsg, nil
@@ -52,7 +52,7 @@ func TestGettyRemotingClient_SendSyncRequest(t *testing.T) {
 
 // TestGettyRemotingClient_SendAsyncResponse unit test for SendAsyncResponse function
 func TestGettyRemotingClient_SendAsyncResponse(t *testing.T) {
-	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendAsync",
+	gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingClient().gettyRemoting), "SendAsync",
 		func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 			return nil
 		})
@@ -77,7 +77,7 @@ func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingInstance()), "SendAsync",
+			gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingClient().gettyRemoting), "SendAsync",
 				func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 					return nil
 				})

@@ -46,27 +46,28 @@ type clientOnResponseProcessor struct{}
 
 func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	log.Infof("the rm client received  clientOnResponse msg %#v from tc server.", rpcMessage)
+	client := getty.GetGettyRemotingClient()
 	if mergedResult, ok := rpcMessage.Body.(message.MergeResultMessage); ok {
-		mergedMessage := getty.GetGettyRemotingInstance().GetMergedMessage(rpcMessage.ID)
+		mergedMessage := client.GetMergedMessage(rpcMessage.ID)
 		if mergedMessage != nil {
 			for i := 0; i < len(mergedMessage.Msgs); i++ {
 				msgID := mergedMessage.MsgIds[i]
-				response := getty.GetGettyRemotingInstance().GetMessageFuture(msgID)
+				response := client.GetMessageFuture(msgID)
 				if response != nil {
 					response.Response = mergedResult.Msgs[i]
 					response.Done <- struct{}{}
-					getty.GetGettyRemotingInstance().RemoveMessageFuture(msgID)
+					client.RemoveMessageFuture(msgID)
 				}
 			}
-			getty.GetGettyRemotingInstance().RemoveMergedMessageFuture(rpcMessage.ID)
+			client.RemoveMergedMessageFuture(rpcMessage.ID)
 		}
 		return nil
 	} else {
 		// 如果是请求消息，做处理逻辑
-		msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
+		msgFuture := client.GetMessageFuture(rpcMessage.ID)
 		if msgFuture != nil {
-			getty.GetGettyRemotingInstance().NotifyRpcMessageResponse(rpcMessage)
-			getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
+			client.NotifyRpcMessageResponse(rpcMessage)
+			client.RemoveMessageFuture(rpcMessage.ID)
 		} else {
 			if _, ok := rpcMessage.Body.(message.AbstractResultMessage); ok {
 				log.Infof("the rm client received response msg [{}] from tc server.", msgFuture)
