@@ -29,10 +29,11 @@ import (
 
 // WithFence Execute the fence database operation first and then call back the business method
 func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err error) {
-	if err = DoFence(ctx, tx); err != nil {
+	if skip, err := DoFence(ctx, tx); err != nil {
 		return err
+	} else if skip {
+		return nil
 	}
-
 	if err := callback(); err != nil {
 		return fmt.Errorf("the business method error msg of: %p, [%w]", callback, err)
 	}
@@ -47,20 +48,20 @@ func WithFence(ctx context.Context, tx *sql.Tx, callback func() error) (err erro
 // case 3: if fencePhase is FencePhaseCommit, will do commit fence operation.
 // case 4: if fencePhase is FencePhaseRollback, will do rollback fence operation.
 // case 5: if fencePhase not in above case, will return a fence phase illegal error.
-func DoFence(ctx context.Context, tx *sql.Tx) error {
+func DoFence(ctx context.Context, tx *sql.Tx) (bool, error) {
 	hd := handler.GetFenceHandler()
 	phase := tm.GetFencePhase(ctx)
 
 	switch phase {
 	case enum.FencePhaseNotExist:
-		return fmt.Errorf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx))
+		return false, fmt.Errorf("xid %s, tx name %s, fence phase not exist", tm.GetXID(ctx), tm.GetTxName(ctx))
 	case enum.FencePhasePrepare:
-		return hd.PrepareFence(ctx, tx)
+		return false, hd.PrepareFence(ctx, tx)
 	case enum.FencePhaseCommit:
-		return hd.CommitFence(ctx, tx)
+		return false, hd.CommitFence(ctx, tx)
 	case enum.FencePhaseRollback:
 		return hd.RollbackFence(ctx, tx)
 	}
 
-	return fmt.Errorf("fence phase: %v illegal", phase)
+	return false, fmt.Errorf("fence phase: %v illegal", phase)
 }
