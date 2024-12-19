@@ -193,10 +193,8 @@ func (f *FuncServiceImpl) needRetry(impl *state.ServiceTaskStateImpl, countMap m
 
 	interval := retry.IntervalSecond()
 	backoffRate := retry.BackoffRate()
-	var curInterval int64
-	if attempt == 0 {
-		curInterval = int64(interval * 1000)
-	} else {
+	curInterval := int64(interval * 1000)
+	if attempt != 0 {
 		curInterval = int64(interval * backoffRate * float64(attempt) * 1000)
 	}
 
