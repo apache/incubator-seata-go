@@ -26,6 +26,7 @@ import (
 )
 
 func TestGettyRemoting_GetMessageFuture(t *testing.T) {
+	client := GetGettyRemotingClient()
 	tests := []struct {
 		name          string
 		msgID         int32
@@ -50,11 +51,11 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.messageFuture != nil {
-				GetGettyRemotingInstance().futures.Store(test.msgID, test.messageFuture)
-				messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+				client.gettyRemoting.futures.Store(test.msgID, test.messageFuture)
+				messageFuture := client.gettyRemoting.GetMessageFuture(test.msgID)
 				assert.Equal(t, *test.messageFuture, *messageFuture)
 			} else {
-				messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+				messageFuture := client.gettyRemoting.GetMessageFuture(test.msgID)
 				assert.Empty(t, messageFuture)
 			}
 		})
@@ -62,6 +63,7 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
+	client := GetGettyRemotingClient()
 	tests := []struct {
 		name          string
 		msgID         int32
@@ -80,17 +82,18 @@ func TestGettyRemoting_RemoveMessageFuture(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			GetGettyRemotingInstance().futures.Store(test.msgID, test.messageFuture)
-			messageFuture := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+			client.gettyRemoting.futures.Store(test.msgID, test.messageFuture)
+			messageFuture := client.gettyRemoting.GetMessageFuture(test.msgID)
 			assert.Equal(t, messageFuture, test.messageFuture)
-			GetGettyRemotingInstance().RemoveMessageFuture(test.msgID)
-			messageFuture = GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+			client.gettyRemoting.RemoveMessageFuture(test.msgID)
+			messageFuture = client.gettyRemoting.GetMessageFuture(test.msgID)
 			assert.Empty(t, messageFuture)
 		})
 	}
 }
 
 func TestGettyRemoting_GetMergedMessage(t *testing.T) {
+	client := GetGettyRemotingClient()
 	tests := []struct {
 		name              string
 		msgID             int32
@@ -113,11 +116,11 @@ func TestGettyRemoting_GetMergedMessage(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.mergedWarpMessage != nil {
-				GetGettyRemotingInstance().mergeMsgMap.Store(test.msgID, test.mergedWarpMessage)
-				mergedWarpMessage := GetGettyRemotingInstance().GetMergedMessage(test.msgID)
+				client.gettyRemoting.mergeMsgMap.Store(test.msgID, test.mergedWarpMessage)
+				mergedWarpMessage := client.gettyRemoting.GetMergedMessage(test.msgID)
 				assert.Equal(t, *test.mergedWarpMessage, *mergedWarpMessage)
 			} else {
-				mergedWarpMessage := GetGettyRemotingInstance().GetMessageFuture(test.msgID)
+				mergedWarpMessage := client.gettyRemoting.GetMessageFuture(test.msgID)
 				assert.Empty(t, mergedWarpMessage)
 			}
 		})
@@ -125,6 +128,7 @@ func TestGettyRemoting_GetMergedMessage(t *testing.T) {
 }
 
 func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
+	client := GetGettyRemotingClient()
 	tests := []struct {
 		name              string
 		msgID             int32
@@ -147,15 +151,15 @@ func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.mergedWarpMessage != nil {
-				GetGettyRemotingInstance().mergeMsgMap.Store(test.msgID, test.mergedWarpMessage)
-				mergedWarpMessage := GetGettyRemotingInstance().GetMergedMessage(test.msgID)
+				client.gettyRemoting.mergeMsgMap.Store(test.msgID, test.mergedWarpMessage)
+				mergedWarpMessage := client.gettyRemoting.GetMergedMessage(test.msgID)
 				assert.NotEmpty(t, mergedWarpMessage)
-				GetGettyRemotingInstance().RemoveMergedMessageFuture(test.msgID)
-				mergedWarpMessage = GetGettyRemotingInstance().GetMergedMessage(test.msgID)
+				client.gettyRemoting.RemoveMergedMessageFuture(test.msgID)
+				mergedWarpMessage = client.gettyRemoting.GetMergedMessage(test.msgID)
 				assert.Empty(t, mergedWarpMessage)
 			} else {
-				GetGettyRemotingInstance().RemoveMergedMessageFuture(test.msgID)
-				mergedWarpMessage := GetGettyRemotingInstance().GetMergedMessage(test.msgID)
+				client.gettyRemoting.RemoveMergedMessageFuture(test.msgID)
+				mergedWarpMessage := client.gettyRemoting.GetMergedMessage(test.msgID)
 				assert.Empty(t, mergedWarpMessage)
 			}
 		})

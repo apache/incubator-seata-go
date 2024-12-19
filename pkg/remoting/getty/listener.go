@@ -130,7 +130,7 @@ func (g *gettyClientHandler) transferHeartBeat(session getty.Session, msg messag
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, session, nil)
+	return GetGettyRemotingClient().gettyRemoting.SendAsync(rpcMessage, session, nil)
 }
 
 func (g *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {

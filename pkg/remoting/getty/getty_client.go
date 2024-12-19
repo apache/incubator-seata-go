@@ -35,14 +35,16 @@ var (
 )
 
 type GettyRemotingClient struct {
-	idGenerator *atomic.Uint32
+	idGenerator   *atomic.Uint32
+	gettyRemoting *GettyRemoting
 }
 
 func GetGettyRemotingClient() *GettyRemotingClient {
 	if gettyRemotingClient == nil {
 		onceGettyRemotingClient.Do(func() {
 			gettyRemotingClient = &GettyRemotingClient{
-				idGenerator: &atomic.Uint32{},
+				idGenerator:   &atomic.Uint32{},
+				gettyRemoting: NewGettyRemoting(),
 			}
 		})
 	}
@@ -63,7 +65,7 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, client.asyncCallback)
+	return client.gettyRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
 }
 
 func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {
@@ -74,7 +76,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, nil)
+	return client.gettyRemoting.SendAsync(rpcMessage, nil, nil)
 }
 
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
@@ -85,7 +87,7 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendSync(rpcMessage, nil, client.syncCallback)
+	return client.gettyRemoting.SendSync(rpcMessage, nil, client.syncCallback)
 }
 
 func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
@@ -96,7 +98,7 @@ func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *
 func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
 	select {
 	case <-gxtime.GetDefaultTimerWheel().After(RpcRequestTimeout):
-		GetGettyRemotingInstance().RemoveMergedMessageFuture(reqMsg.ID)
+		g.gettyRemoting.RemoveMergedMessageFuture(reqMsg.ID)
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:
