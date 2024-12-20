@@ -115,7 +115,7 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 		if session.GetAttribute(heartBeatRetryTimes) != nil {
 			retryTimes := session.GetAttribute(heartBeatRetryTimes).(int)
 			if retryTimes >= maxHeartBeatRetryTimes {
-				log.Warnf("heartbeat retry times exceed max times{%d}, close the session{%s}",
+				log.Warnf("heartbeat retry times exceed default max times{%d}, close the session{%s}",
 					maxHeartBeatRetryTimes, session.Stat())
 				sessionManager.releaseSession(session)
 				return
