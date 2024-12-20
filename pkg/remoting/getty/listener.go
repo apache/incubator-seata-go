@@ -112,17 +112,17 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 	err := g.transferHeartBeat(session, message.HeartBeatMessagePing)
 	if err != nil {
 		log.Warnf("failed to send heart beat: {%#v}", err.Error())
-		if session.GetAttribute(heartBeatRetryTimes) != nil {
-			retryTimes := session.GetAttribute(heartBeatRetryTimes).(int)
+		if session.GetAttribute(heartBeatRetryTimesKey) != nil {
+			retryTimes := session.GetAttribute(heartBeatRetryTimesKey).(int)
 			if retryTimes >= maxHeartBeatRetryTimes {
-				log.Warnf("heartbeat retry times exceed default max times{%d}, close the session{%s}",
+				log.Warnf("heartbeat retry times exceed default max retry times{%d}, close the session{%s}",
 					maxHeartBeatRetryTimes, session.Stat())
 				sessionManager.releaseSession(session)
 				return
 			}
-			session.SetAttribute(heartBeatRetryTimes, retryTimes+1)
+			session.SetAttribute(heartBeatRetryTimesKey, retryTimes+1)
 		} else {
-			session.SetAttribute(heartBeatRetryTimes, 1)
+			session.SetAttribute(heartBeatRetryTimesKey, 1)
 		}
 	}
 }
