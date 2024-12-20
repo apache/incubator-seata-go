@@ -41,7 +41,7 @@ type (
 	}
 )
 
-func NewGettyRemoting() *GettyRemoting {
+func newGettyRemoting() *GettyRemoting {
 	return &GettyRemoting{
 		futures:     &sync.Map{},
 		mergeMsgMap: &sync.Map{},

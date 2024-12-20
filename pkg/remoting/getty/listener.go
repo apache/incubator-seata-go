@@ -39,8 +39,6 @@ var (
 
 type gettyClientHandler struct {
 	idGenerator  *atomic.Uint32
-	msgFutures   *sync.Map
-	mergeMsgMap  *sync.Map
 	processorMap map[message.MessageType]processor.RemotingProcessor
 }
 
@@ -49,8 +47,6 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
 				idGenerator:  &atomic.Uint32{},
-				msgFutures:   &sync.Map{},
-				mergeMsgMap:  &sync.Map{},
 				processorMap: make(map[message.MessageType]processor.RemotingProcessor, 0),
 			}
 		})

@@ -44,7 +44,7 @@ func GetGettyRemotingClient() *GettyRemotingClient {
 		onceGettyRemotingClient.Do(func() {
 			gettyRemotingClient = &GettyRemotingClient{
 				idGenerator:   &atomic.Uint32{},
-				gettyRemoting: NewGettyRemoting(),
+				gettyRemoting: newGettyRemoting(),
 			}
 		})
 	}
