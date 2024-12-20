@@ -37,8 +37,10 @@ import (
 )
 
 const (
-	maxCheckAliveRetry = 600
-	checkAliveInternal = 100
+	maxCheckAliveRetry     = 600
+	checkAliveInternal     = 100
+	heartBeatRetryTimes    = "heartbeat-retry-times"
+	maxHeartBeatRetryTimes = 3
 )
 
 var (
@@ -102,6 +104,7 @@ func (g *SessionManager) setSessionConfig(session getty.Session) {
 	session.SetWriteTimeout(g.gettyConf.SessionConfig.TCPWriteTimeout)
 	session.SetCronPeriod((int)(g.gettyConf.SessionConfig.CronPeriod.Milliseconds()))
 	session.SetWaitTime(g.gettyConf.SessionConfig.WaitTimeout)
+	session.SetAttribute(heartBeatRetryTimes, 0)
 }
 
 func (g *SessionManager) newSession(session getty.Session) error {
