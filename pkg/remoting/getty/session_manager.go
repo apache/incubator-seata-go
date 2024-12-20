@@ -41,25 +41,30 @@ const (
 	checkAliveInternal = 100
 )
 
-var sessionManager *SessionManager
+var (
+	sessionManager     *SessionManager
+	onceSessionManager = &sync.Once{}
+)
 
 type SessionManager struct {
+	// serverAddress -> rpc_client.Session -> bool
 	serverSessions sync.Map
 	allSessions    sync.Map
 	sessionSize    int32
-
-	gettyConf *config.Config
-	seataConf *config.SeataConfig
+	gettyConf      *config.Config
 }
 
-func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
-	sessionManager = &SessionManager{
-		allSessions:    sync.Map{},
-		serverSessions: sync.Map{},
-		gettyConf:      gettyConfig,
-		seataConf:      seataConfig,
+func initSessionManager(gettyConfig *config.Config) {
+	if sessionManager == nil {
+		onceSessionManager.Do(func() {
+			sessionManager = &SessionManager{
+				allSessions:    sync.Map{},
+				serverSessions: sync.Map{},
+				gettyConf:      gettyConfig,
+			}
+			sessionManager.init()
+		})
 	}
-	sessionManager.init()
 }
 
 func (g *SessionManager) init() {
@@ -81,7 +86,7 @@ func (g *SessionManager) init() {
 
 func (g *SessionManager) getAvailServerList() []*discovery.ServiceInstance {
 	registryService := discovery.GetRegistry()
-	instances, err := registryService.Lookup(g.seataConf.TxServiceGroup)
+	instances, err := registryService.Lookup(config.GetSeataConfig().TxServiceGroup)
 	if err != nil {
 		return nil
 	}

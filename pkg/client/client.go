@@ -64,7 +64,7 @@ func initTmClient(cfg *Config) {
 
 // initRemoting init remoting
 func initRemoting(cfg *Config) {
-	SeataConfig := remoteConfig.SeataConfig{
+	seataConfig := remoteConfig.SeataConfig{
 		ApplicationID:        cfg.ApplicationID,
 		TxServiceGroup:       cfg.TxServiceGroup,
 		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
@@ -72,7 +72,7 @@ func initRemoting(cfg *Config) {
 		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
 	}
 
-	getty.InitGetty(&cfg.GettyConfig, &SeataConfig)
+	getty.InitGetty(&cfg.GettyConfig, &seataConfig)
 }
 
 // InitRmClient init client rm client
