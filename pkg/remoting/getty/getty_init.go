@@ -15,32 +15,15 @@
  * limitations under the License.
  */
 
-package client
+package getty
 
 import (
-	"context"
-
-	"seata.apache.org/seata-go/pkg/util/log"
-
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/remoting/config"
 )
 
-func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
-}
-
-type clientHeartBeatProcessor struct{}
-
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
-			log.Debug("received PONG from {}", ctx)
-		}
-	}
-	msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
-	if msgFuture != nil {
-		getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
-	}
-	return nil
+func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
+	config.InitConfig(seataConfig)
+	codec.Init()
+	initSessionManager(gettyConfig)
 }

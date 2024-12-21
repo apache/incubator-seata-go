@@ -48,7 +48,7 @@ func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	if err != nil {
 		return err
 	}
-
+	defer stmt.Close()
 	beforeImage := m.sqlUndoLog.BeforeImage
 
 	for _, row := range beforeImage.Rows {
@@ -97,7 +97,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 		insertColumnSlice, insertValueSlice []string
 	)
 
-	for key, _ := range fields {
+	for key := range fields {
 		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}

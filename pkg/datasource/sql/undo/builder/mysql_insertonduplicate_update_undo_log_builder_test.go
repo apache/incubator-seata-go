@@ -46,7 +46,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	)
 	columnId := types.ColumnMeta{
 		ColumnDef:  nil,
-		ColumnName: "id",
+		ColumnName: "ID",
 	}
 	columnName := types.ColumnMeta{
 		ColumnDef:  nil,
@@ -56,12 +56,12 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		ColumnDef:  nil,
 		ColumnName: "age",
 	}
-	columns["id"] = columnId
+	columns["ID"] = columnId
 	columns["name"] = columnName
 	columns["age"] = columnAge
 	columnMeta1 = append(columnMeta1, columnId)
 	columnMeta2 = append(columnMeta2, columnName, columnAge)
-	index["id"] = types.IndexMeta{
+	index["ID"] = types.IndexMeta{
 		Name:    "PRIMARY",
 		IType:   types.IndexTypePrimaryKey,
 		Columns: columnMeta1,
@@ -72,7 +72,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		Columns: columnMeta2,
 	}
 
-	ColumnNames = []string{"id", "name", "age"}
+	ColumnNames = []string{"ID", "name", "age"}
 	tableMeta1 = types.TableMeta{
 		TableName:   "t_user",
 		Columns:     columns,
