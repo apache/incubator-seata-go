@@ -157,24 +157,24 @@ func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, b
 	return nil
 }
 
-func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error {
+func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time, limit int32) (int64, error) {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetDeleteSQLByMdfDateAndStatus(t.logTableName))
 	if err != nil {
-		return fmt.Errorf("delete tcc fence prepare sql failed, [%w]", err)
+		return -1, fmt.Errorf("delete tcc fence prepare sql failed, [%w]", err)
 	}
 	defer prepareStmt.Close()
 
-	result, err := prepareStmt.Exec(datetime)
+	result, err := prepareStmt.Exec(datetime, limit)
 	if err != nil {
-		return fmt.Errorf("delete tcc fence exec sql failed, [%w]", err)
+		return -1, fmt.Errorf("delete tcc fence exec sql failed, [%w]", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return fmt.Errorf("delete tcc fence get affected rows failed, [%w]", err)
+		return 0, fmt.Errorf("delete tcc fence get affected rows failed, [%w]", err)
 	}
 
-	return nil
+	return affected, nil
 }
 
 func (t *TccFenceStoreDatabaseMapper) SetLogTableName(logTable string) {

@@ -41,6 +41,7 @@ type tccFenceWrapperHandler struct {
 	logCache          list.List
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
+	logTaskOnce       sync.Once
 }
 
 type FenceLogIdentity struct {
@@ -50,6 +51,7 @@ type FenceLogIdentity struct {
 
 const (
 	maxQueueSize = 500
+	limitDelete  = 1000
 )
 
 var (
@@ -163,6 +165,40 @@ func (handler *tccFenceWrapperHandler) InitLogCleanChannel() {
 	})
 }
 
+func (handler *tccFenceWrapperHandler) InitLogCleanTask(tx *sql.Tx) {
+	handler.logTaskOnce.Do(func() {
+		// Create a ticker that will fire initially based on the time remaining until the next midnight (00:00:00).
+		go func() {
+			ticker := time.NewTicker(getDurationUntilNextZero())
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					now := time.Now()
+					// Get the start time of the day before the current day (00:00:00) and assign it to timeBefore with the same location as now.
+					timeBefore := time.Date(now.Year(), now.Month(), now.Day()-1, 0, 0, 0, 0, now.Location())
+
+					for {
+						deletedRowCount, err := handler.tccFenceDao.DeleteTCCFenceDOByMdfDate(tx, timeBefore, limitDelete)
+						if err != nil {
+							fmt.Printf("Error occurred during TCC fence clean task: %v\n", err)
+						} else {
+							fmt.Printf("TCC fence clean task executed success, timeBefore: %v, deleted row count: %d\n", timeBefore, deletedRowCount)
+						}
+						if deletedRowCount <= 0 {
+							break
+						}
+					}
+
+					// Reset the ticker's interval to the duration until the next midnight to ensure it fires again close to midnight in the future.
+					ticker.Reset(getDurationUntilNextZero())
+				}
+			}
+		}()
+	})
+}
+
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
 		close(handler.logQueue)
@@ -172,11 +208,6 @@ func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 func (handler *tccFenceWrapperHandler) deleteFence(xid string, id int64) error {
 	// todo implement
 	return nil
-}
-
-func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
-	// todo implement
-	return 0
 }
 
 func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
@@ -201,4 +232,16 @@ func (handler *tccFenceWrapperHandler) traversalCleanChannel() {
 			log.Errorf("delete fence log failed, xid: %s, branchId: &s", li.xid, li.branchId)
 		}
 	}
+}
+
+func getDurationUntilNextZero() time.Duration {
+	now := time.Now()
+	// Calculate the time for the next midnight (00:00:00) by getting the current date and setting the time to midnight.
+	nextZero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(24 * time.Hour)
+	if now.Hour() == 0 && now.Minute() == 0 && now.Second() == 0 {
+		// If it's currently midnight, directly add 24 hours to get the time for the next midnight.
+		nextZero = now.Add(24 * time.Hour)
+	}
+	// Return the duration between the current time and the next midnight.
+	return nextZero.Sub(now)
 }
