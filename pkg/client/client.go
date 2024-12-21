@@ -62,15 +62,17 @@ func initTmClient(cfg *Config) {
 	})
 }
 
-// initRemoting init rpc client
+// initRemoting init remoting
 func initRemoting(cfg *Config) {
-	getty.InitRpcClient(&cfg.GettyConfig, &remoteConfig.SeataConfig{
+	seataConfig := remoteConfig.SeataConfig{
 		ApplicationID:        cfg.ApplicationID,
 		TxServiceGroup:       cfg.TxServiceGroup,
 		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
 		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
 		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
-	})
+	}
+
+	getty.InitGetty(&cfg.GettyConfig, &seataConfig)
 }
 
 // InitRmClient init client rm client
