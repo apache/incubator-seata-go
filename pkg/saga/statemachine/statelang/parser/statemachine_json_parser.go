@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -22,10 +21,8 @@ func (stateMachineParser JSONStateMachineParser) GetType() string {
 	return "JSON"
 }
 
-func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelang.StateMachine, error) {
-	var stateMachineJsonObject StateMachineJsonObject
-
-	err := json.Unmarshal([]byte(content), &stateMachineJsonObject)
+func (stateMachineParser JSONStateMachineParser) Parse(configFilePath string) (statelang.StateMachine, error) {
+	stateMachineJsonObject, err := NewStateMachineConfigParser().Parse(configFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -114,17 +111,4 @@ func (stateMachineParser JSONStateMachineParser) isTaskState(stateType string) b
 		return true
 	}
 	return false
-}
-
-type StateMachineJsonObject struct {
-	Name                        string                 `json:"Name"`
-	Comment                     string                 `json:"Comment"`
-	Version                     string                 `json:"Version"`
-	StartState                  string                 `json:"StartState"`
-	RecoverStrategy             string                 `json:"RecoverStrategy"`
-	Persist                     bool                   `json:"IsPersist"`
-	RetryPersistModeUpdate      bool                   `json:"IsRetryPersistModeUpdate"`
-	CompensatePersistModeUpdate bool                   `json:"IsCompensatePersistModeUpdate"`
-	Type                        string                 `json:"Type"`
-	States                      map[string]interface{} `json:"States"`
 }
