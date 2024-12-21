@@ -33,11 +33,6 @@ const (
 	RpcRequestTimeout = 20 * time.Second
 )
 
-var (
-	gettyRemoting     *GettyRemoting
-	onceGettyRemoting = &sync.Once{}
-)
-
 type (
 	callbackMethod func(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error)
 	GettyRemoting  struct {
@@ -46,16 +41,11 @@ type (
 	}
 )
 
-func GetGettyRemotingInstance() *GettyRemoting {
-	if gettyRemoting == nil {
-		onceGettyRemoting.Do(func() {
-			gettyRemoting = &GettyRemoting{
-				futures:     &sync.Map{},
-				mergeMsgMap: &sync.Map{},
-			}
-		})
+func newGettyRemoting() *GettyRemoting {
+	return &GettyRemoting{
+		futures:     &sync.Map{},
+		mergeMsgMap: &sync.Map{},
 	}
-	return gettyRemoting
 }
 
 func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
@@ -72,7 +62,7 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 	return result, err
 }
 
-func (g *GettyRemoting) SendASync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
+func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
 		s = sessionManager.selectSession(msg)
 	}
