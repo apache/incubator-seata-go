@@ -38,9 +38,9 @@ func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage messa
 			log.Debug("received PONG from {}", ctx)
 		}
 	}
-	msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
+	msgFuture := getty.GetGettyRemotingClient().GetMessageFuture(rpcMessage.ID)
 	if msgFuture != nil {
-		getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
+		getty.GetGettyRemotingClient().RemoveMessageFuture(rpcMessage.ID)
 	}
 	return nil
 }
