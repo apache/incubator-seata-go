@@ -181,13 +181,6 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		err error
 	)
 
-	currentAutoCommit := c.autoCommit
-	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-		if err != nil {
-			return nil, err
-		}
-	}
 	defer func() {
 		recoverErr := recover()
 		if err != nil || recoverErr != nil {
@@ -201,6 +194,14 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		}
 	}()
 
+	currentAutoCommit := c.autoCommit
+	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// execute SQL
 	ret, err := f()
 	if err != nil {
@@ -212,7 +213,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}
 
 	if tx != nil && currentAutoCommit {
-		if err := c.Commit(ctx); err != nil {
+		if err = c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
 			if err := c.Rollback(ctx); err != nil {
