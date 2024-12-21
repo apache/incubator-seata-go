@@ -38,22 +38,16 @@ var (
 )
 
 type gettyClientHandler struct {
-	idGenerator    *atomic.Uint32
-	msgFutures     *sync.Map
-	mergeMsgMap    *sync.Map
-	sessionManager *SessionManager
-	processorMap   map[message.MessageType]processor.RemotingProcessor
+	idGenerator  *atomic.Uint32
+	processorMap map[message.MessageType]processor.RemotingProcessor
 }
 
 func GetGettyClientHandlerInstance() *gettyClientHandler {
 	if clientHandler == nil {
 		onceClientHandler.Do(func() {
 			clientHandler = &gettyClientHandler{
-				idGenerator:    &atomic.Uint32{},
-				msgFutures:     &sync.Map{},
-				mergeMsgMap:    &sync.Map{},
-				sessionManager: sessionManager,
-				processorMap:   make(map[message.MessageType]processor.RemotingProcessor, 0),
+				idGenerator:  &atomic.Uint32{},
+				processorMap: make(map[message.MessageType]processor.RemotingProcessor, 0),
 			}
 		})
 	}
@@ -62,7 +56,7 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 
 func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	log.Infof("Open new getty session ")
-	g.sessionManager.registerSession(session)
+	sessionManager.registerSession(session)
 	conf := config.GetSeataConfig()
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
@@ -73,7 +67,7 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {
 			log.Errorf("OnOpen error: {%#v}", err.Error())
-			g.sessionManager.releaseSession(session)
+			sessionManager.releaseSession(session)
 			return
 		}
 	}()
@@ -83,12 +77,12 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 
 func (g *gettyClientHandler) OnError(session getty.Session, err error) {
 	log.Infof("session{%s} got error{%v}, will be closed.", session.Stat(), err)
-	g.sessionManager.releaseSession(session)
+	sessionManager.releaseSession(session)
 }
 
 func (g *gettyClientHandler) OnClose(session getty.Session) {
 	log.Infof("session{%s} is closing......", session.Stat())
-	g.sessionManager.releaseSession(session)
+	sessionManager.releaseSession(session)
 }
 
 func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
@@ -117,8 +111,19 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 	log.Debug("session{%s} Oncron executing", session.Stat())
 	err := g.transferHeartBeat(session, message.HeartBeatMessagePing)
 	if err != nil {
-		log.Errorf("failed to send heart beat: {%#v}", err.Error())
-		g.sessionManager.releaseSession(session)
+		log.Warnf("failed to send heart beat: {%#v}", err.Error())
+		if session.GetAttribute(heartBeatRetryTimesKey) != nil {
+			retryTimes := session.GetAttribute(heartBeatRetryTimesKey).(int)
+			if retryTimes >= maxHeartBeatRetryTimes {
+				log.Warnf("heartbeat retry times exceed default max retry times{%d}, close the session{%s}",
+					maxHeartBeatRetryTimes, session.Stat())
+				sessionManager.releaseSession(session)
+				return
+			}
+			session.SetAttribute(heartBeatRetryTimesKey, retryTimes+1)
+		} else {
+			session.SetAttribute(heartBeatRetryTimesKey, 1)
+		}
 	}
 }
 
@@ -130,7 +135,7 @@ func (g *gettyClientHandler) transferHeartBeat(session getty.Session, msg messag
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, session, nil)
+	return GetGettyRemotingClient().gettyRemoting.SendAsync(rpcMessage, session, nil)
 }
 
 func (g *gettyClientHandler) RegisterProcessor(msgType message.MessageType, processor processor.RemotingProcessor) {
