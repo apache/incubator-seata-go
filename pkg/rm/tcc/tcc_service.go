@@ -78,7 +78,7 @@ func (t *TCCServiceProxy) Reference() string {
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (interface{}, error) {
 	if tm.IsGlobalTx(ctx) {
-		err := t.registeBranch(ctx, params)
+		err := t.registerBranch(ctx, params)
 		if err != nil {
 			return nil, err
 		}
@@ -89,8 +89,8 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 	return t.TCCResource.Prepare(ctx, params)
 }
 
-// registeBranch send register branch transaction request
-func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{}) error {
+// registerBranch send register branch transaction request
+func (t *TCCServiceProxy) registerBranch(ctx context.Context, params interface{}) error {
 	if !tm.IsGlobalTx(ctx) {
 		errStr := "BranchRegister error, transaction should be opened"
 		log.Errorf(errStr)

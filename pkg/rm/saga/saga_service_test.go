@@ -15,64 +15,52 @@
  * limitations under the License.
  */
 
-package tcc
+package saga
 
 import (
 	"context"
 	"fmt"
+	"github.com/agiledragon/gomonkey"
+	gostnet "github.com/dubbogo/gost/net"
+	"github.com/seata/seata-go/pkg/constant"
+	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
+	testdata2 "github.com/seata/seata-go/testdata"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/agiledragon/gomonkey/v2"
-
-	gostnet "github.com/dubbogo/gost/net"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/seata/seata-go/pkg/constant"
-
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
-
-	//"github.com/seata/seata-go/sample/tcc/dubbo/client/service"
-	testdata2 "github.com/seata/seata-go/testdata"
 )
 
 var (
-	testTccServiceProxy *TCCServiceProxy
-	testBranchID        = int64(121324345353)
-	names               []interface{}
-	values              = make([]reflect.Value, 0, 2)
+	testSagaServiceProxy *SagaServiceProxy
+	testBranchID         = int64(121324345353)
+	names                []interface{}
+	values               = make([]reflect.Value, 0, 2)
 )
 
 type UserProvider struct {
-	Prepare       func(ctx context.Context, params ...interface{}) (bool, error)                           `seataTwoPhaseAction:"prepare" seataTwoPhaseServiceName:"TwoPhaseDemoService"`
-	Commit        func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"commit"`
-	Rollback      func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"rollback"`
-	GetActionName func() string
+	Action       func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"action"`
+	Compensation func(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) `seataTwoPhaseAction:"compensation"`
 }
 
 func InitMock() {
 	log.Init()
 	var (
-		registerResource = func(_ *TCCServiceProxy) error {
+		registerResource = func(_ *SagaServiceProxy) error {
 			return nil
-		}
-		prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
-			return nil, nil
 		}
 		branchRegister = func(_ *rm.RMRemoting, param rm.BranchRegisterParam) (int64, error) {
 			return testBranchID, nil
 		}
 	)
 	log.Infof("run init mock")
-	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "RegisterResource", registerResource)
-	gomonkey.ApplyMethod(reflect.TypeOf(testTccServiceProxy), "Prepare", prepare)
+	gomonkey.ApplyMethod(reflect.TypeOf(testSagaServiceProxy), "RegisterResource", registerResource)
 	gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchRegister", branchRegister)
-	testTccServiceProxy, _ = NewTCCServiceProxy(GetTestTwoPhaseService())
+	testSagaServiceProxy, _ = NewSagaServiceProxy(GetTestTwoPhaseService())
 }
 
 func TestMain(m *testing.M) {
@@ -83,12 +71,12 @@ func TestMain(m *testing.M) {
 
 func TestInitActionContext(t *testing.T) {
 	param := struct {
-		name  string `tccParam:"name"`
-		Age   int64  `tccParam:""`
-		Addr  string `tccParam:"addr"`
-		Job   string `tccParam:"-"`
+		name  string `sagaParam:"name"`
+		Age   int64  `sagaParam:""`
+		Addr  string `sagaParam:"addr"`
+		Job   string `sagaParam:"-"`
 		Class string
-		Other []int8 `tccParam:"Other"`
+		Other []int8 `sagaParam:"Other"`
 	}{
 		name:  "Jack",
 		Age:   20,
@@ -103,41 +91,16 @@ func TestInitActionContext(t *testing.T) {
 		return now
 	})
 	defer p.Reset()
-	result := testTccServiceProxy.initActionContext(param)
+	result := testSagaServiceProxy.initActionContext(param)
 	localIp, _ := gostnet.GetLocalIP()
 	assert.Equal(t, map[string]interface{}{
-		"addr":                   "Earth",
-		"Other":                  []int8{1, 2, 3},
-		constant.ActionStartTime: now.UnixNano() / 1e6,
-		constant.PrepareMethod:   "Prepare",
-		constant.CommitMethod:    "Commit",
-		constant.RollbackMethod:  "Rollback",
-		constant.ActionName:      testdata2.ActionName,
-		constant.HostName:        localIp,
-	}, result)
-}
-
-func TestGetActionContextParameters(t *testing.T) {
-	param := struct {
-		name  string `tccParam:"name"`
-		Age   int64  `tccParam:""`
-		Addr  string `tccParam:"addr"`
-		Job   string `tccParam:"-"`
-		Class string
-		Other []int8 `tccParam:"Other"`
-	}{
-		name:  "Jack",
-		Age:   20,
-		Addr:  "Earth",
-		Job:   "Dor",
-		Class: "1-2",
-		Other: []int8{1, 2, 3},
-	}
-
-	result := testTccServiceProxy.getActionContextParameters(param)
-	assert.Equal(t, map[string]interface{}{
-		"addr":  "Earth",
-		"Other": []int8{1, 2, 3},
+		"addr":                      "Earth",
+		"Other":                     []int8{1, 2, 3},
+		constant.ActionStartTime:    now.UnixNano() / 1e6,
+		constant.ActionMethod:       "Action",
+		constant.CompensationMethod: "Compensation",
+		constant.ActionName:         testdata2.ActionName,
+		constant.HostName:           localIp,
 	}, result)
 }
 
@@ -230,14 +193,14 @@ func TestGetOrCreateBusinessActionContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := testTccServiceProxy.getOrCreateBusinessActionContext(tt.param)
+		result := testSagaServiceProxy.getOrCreateBusinessActionContext(tt.param)
 		assert.Equal(t, tt.want, *result)
 	}
 }
 
 func TestRegisteBranch(t *testing.T) {
 	ctx := testdata2.GetTestContext()
-	err := testTccServiceProxy.registerBranch(ctx, nil)
+	err := testSagaServiceProxy.registerBranch(ctx, nil)
 	assert.Nil(t, err)
 	bizContext := tm.GetBusinessActionContext(ctx)
 	assert.Equal(t, testBranchID, bizContext.BranchId)
@@ -252,30 +215,30 @@ func TestNewTCCServiceProxy(t *testing.T) {
 	args1 := args{service: userProvider}
 	args2 := args{service: userProvider}
 
-	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
-	twoPhaseAction2, _ := rm.ParseTwoPhaseAction(userProvider)
+	twoPhaseAction1, _ := rm.ParseSagaTwoPhaseAction(userProvider)
+	twoPhaseAction2, _ := rm.ParseSagaTwoPhaseAction(userProvider)
 
 	tests := []struct {
 		name    string
 		args    args
-		want    *TCCServiceProxy
+		want    *SagaServiceProxy
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			"test1", args1, &TCCServiceProxy{
-				TCCResource: &TCCResource{
+			"test1", args1, &SagaServiceProxy{
+				SagaResource: &SagaResource{
 					ResourceGroupId: `default:"DEFAULT"`,
 					AppName:         "seata-go-mock-app-name",
-					TwoPhaseAction:  twoPhaseAction1,
+					SagaAction:      twoPhaseAction1,
 				},
 			}, assert.NoError,
 		},
 		{
-			"test2", args2, &TCCServiceProxy{
-				TCCResource: &TCCResource{
+			"test2", args2, &SagaServiceProxy{
+				SagaResource: &SagaResource{
 					ResourceGroupId: `default:"DEFAULT"`,
 					AppName:         "seata-go-mock-app-name",
-					TwoPhaseAction:  twoPhaseAction2,
+					SagaAction:      twoPhaseAction2,
 				},
 			}, assert.NoError,
 		},
@@ -283,7 +246,7 @@ func TestNewTCCServiceProxy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewTCCServiceProxy(tt.args.service)
+			got, err := NewSagaServiceProxy(tt.args.service)
 			if !tt.wantErr(t, err, fmt.Sprintf("NewTCCServiceProxy(%v)", tt.args.service)) {
 				return
 			}
@@ -296,11 +259,11 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 	type fields struct {
 		referenceName        string
 		registerResourceOnce sync.Once
-		TCCResource          *TCCResource
+		SagaResource         *SagaResource
 	}
 
 	userProvider := &UserProvider{}
-	twoPhaseAction1, _ := rm.ParseTwoPhaseAction(userProvider)
+	twoPhaseAction1, _ := rm.ParseSagaTwoPhaseAction(userProvider)
 
 	tests := struct {
 		name   string
@@ -311,25 +274,25 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 		fields{
 			referenceName:        "test1",
 			registerResourceOnce: sync.Once{},
-			TCCResource: &TCCResource{
+			SagaResource: &SagaResource{
 				ResourceGroupId: "default1",
 				AppName:         "app1",
-				TwoPhaseAction:  twoPhaseAction1,
+				SagaAction:      twoPhaseAction1,
 			},
 		},
 		tm.GtxConfig{Name: "TwoPhaseDemoService", Timeout: time.Second * 10, Propagation: 0, LockRetryInternal: 0, LockRetryTimes: 0},
 	}
 
 	t1.Run(tests.name, func(t1 *testing.T) {
-		t := &TCCServiceProxy{
+		t := &SagaServiceProxy{
 			referenceName:        tests.fields.referenceName,
 			registerResourceOnce: sync.Once{},
-			TCCResource:          tests.fields.TCCResource,
+			SagaResource:         tests.fields.SagaResource,
 		}
 		assert.Equalf(t1, tests.want, t.GetTransactionInfo(), "GetTransactionInfo()")
 	})
 }
 
-func GetTestTwoPhaseService() rm.TwoPhaseInterface {
-	return &testdata2.TestTwoPhaseService{}
+func GetTestTwoPhaseService() rm.SagaActionInterface {
+	return &testdata2.TestSagaTwoPhaseService{}
 }
