@@ -109,8 +109,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 
 func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	var (
-		tableMeta1 types.TableMeta
-		// one index table
+		tableMeta1  types.TableMeta
 		tableMeta2  types.TableMeta
 		columns     = make(map[string]types.ColumnMeta)
 		index       = make(map[string]types.IndexMeta)
@@ -149,7 +148,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName:   "t_user1",
+		TableName:   "T_USER1",
 		Columns:     columns,
 		Indexs:      index,
 		ColumnNames: ColumnNames,
@@ -162,7 +161,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName:   "t_user",
+		TableName:   "T_USER2",
 		Columns:     columns,
 		Indexs:      index2,
 		ColumnNames: ColumnNames,
