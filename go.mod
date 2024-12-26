@@ -31,7 +31,7 @@ require (
 )
 
 require (
-	github.com/agiledragon/gomonkey/v2 v2.11.0
+	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/golang/protobuf v1.5.3
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
