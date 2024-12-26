@@ -44,3 +44,8 @@ type TCCFenceDO struct {
 	// GmtModified update time
 	GmtModified time.Time
 }
+
+type FenceLogIdentity struct {
+	Xid      string
+	BranchId int64
+}

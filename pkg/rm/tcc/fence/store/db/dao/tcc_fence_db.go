@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -92,6 +93,35 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	return tccFenceDo, nil
 }
 
+func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceLogIdentityByMdDate(tx *sql.Tx, datetime time.Time) ([]model.FenceLogIdentity, error) {
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetQuerySQLByMdDate(t.logTableName))
+	if err != nil {
+		return nil, fmt.Errorf("query tcc fence prepare sql failed, [%w]", err)
+	}
+	defer prepareStmt.Close()
+
+	rows, err := prepareStmt.Query(datetime)
+	if err != nil {
+		return nil, fmt.Errorf("query tcc fence exec sql failed, [%w]", err)
+	}
+	defer rows.Close()
+
+	var fenceLogIdentities []model.FenceLogIdentity
+	for rows.Next() {
+		var xid string
+		var branchId int64
+		err := rows.Scan(&xid, &branchId)
+		if err != nil {
+			return nil, fmt.Errorf("query tcc fence get scan row failed, [%w]", err)
+		}
+		fenceLogIdentities = append(fenceLogIdentities, model.FenceLogIdentity{
+			Xid:      xid,
+			BranchId: branchId,
+		})
+	}
+	return fenceLogIdentities, nil
+}
+
 func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error {
 	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetInsertLocalTCCLogSQL(t.logTableName))
 	if err != nil {
@@ -152,6 +182,35 @@ func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, b
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
 		return fmt.Errorf("delete tcc fence get affected rows failed, [%w]", err)
+	}
+
+	return nil
+}
+
+func (t *TccFenceStoreDatabaseMapper) DeleteMultipleTCCFenceLogIdentity(tx *sql.Tx, identities []model.FenceLogIdentity) error {
+
+	placeholders := strings.Repeat("(?,?),", len(identities)-1) + "(?,?)"
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GertDeleteSQLByBranchIdsAndXids(t.logTableName, placeholders))
+	if err != nil {
+		return fmt.Errorf("delete tcc fence prepare sql failed, [%w]", err)
+	}
+	defer prepareStmt.Close()
+
+	// prepare args
+	args := make([]interface{}, 0, len(identities)*2)
+	for _, identity := range identities {
+		args = append(args, identity.Xid, identity.BranchId)
+	}
+
+	result, err := prepareStmt.Exec(args...)
+
+	if err != nil {
+		return fmt.Errorf("delete tcc fences exec sql failed, [%w]", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil || affected == 0 {
+		return fmt.Errorf("delete tcc fences get affected rows failed, [%w]", err)
 	}
 
 	return nil
