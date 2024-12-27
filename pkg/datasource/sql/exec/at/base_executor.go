@@ -98,7 +98,13 @@ func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Named
 		selectArgs       = make([]driver.NamedValue, 0)
 	)
 
+	b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs)
 	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if stmt.GroupBy != nil {
+		for _, item := range stmt.GroupBy.Items {
+			b.traversalArgs(item, &selectArgsIndexs)
+		}
+	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
 			b.traversalArgs(item, &selectArgsIndexs)
@@ -142,6 +148,12 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		for i := 0; i < len(exprs); i++ {
 			b.traversalArgs(exprs[i], argsIndex)
 		}
+		break
+	case *ast.Join:
+		exprs := node.(*ast.Join)
+		b.traversalArgs(exprs.Left, argsIndex)
+		b.traversalArgs(exprs.Right, argsIndex)
+		b.traversalArgs(exprs.On.Expr, argsIndex)
 		break
 	case *test_driver.ParamMarkerExpr:
 		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))

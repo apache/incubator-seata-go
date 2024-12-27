@@ -49,13 +49,13 @@ func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
 			expectQueryArgs: []driver.Value{1, 10},
 		},
 		{
-			sourceQuery:     "update t1 left join t2 on t1.id = t2.id set t1.name = 'WILL',t2.name = 'WILL'",
-			sourceQueryArgs: []driver.Value{},
+			sourceQuery:     "update t1 left join t2 on t1.id = t2.id and t1.age=? set t1.name = 'WILL',t2.name = ?",
+			sourceQueryArgs: []driver.Value{18, "Jack"},
 			expectQuery: map[string]string{
-				"t1": "SELECT SQL_NO_CACHE t1.name,t1.id FROM t1 LEFT JOIN t2 ON t1.id=t2.id GROUP BY t1.name,t1.id FOR UPDATE",
-				"t2": "SELECT SQL_NO_CACHE t2.name,t2.id FROM t1 LEFT JOIN t2 ON t1.id=t2.id GROUP BY t2.name,t2.id FOR UPDATE",
+				"t1": "SELECT SQL_NO_CACHE t1.name,t1.id FROM t1 LEFT JOIN t2 ON t1.id=t2.id AND t1.age=? GROUP BY t1.name,t1.id FOR UPDATE",
+				"t2": "SELECT SQL_NO_CACHE t2.name,t2.id FROM t1 LEFT JOIN t2 ON t1.id=t2.id AND t1.age=? GROUP BY t2.name,t2.id FOR UPDATE",
 			},
-			expectQueryArgs: []driver.Value{},
+			expectQueryArgs: []driver.Value{18},
 		},
 		{
 			sourceQuery:     "update t1 inner join t2 on t1.id = t2.id set t1.name = 'WILL',t2.name = 'WILL' where t1.id=?",
