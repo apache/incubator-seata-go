@@ -20,9 +20,10 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"io"
+	"reflect"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
@@ -32,19 +33,9 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/bytes"
 	"seata.apache.org/seata-go/pkg/util/log"
-)
-
-const (
-	multi_table_name_seperaror = "#"
-)
-
-var (
-	beforeImagesMap map[string]*types.RecordImage
-	afterImagesMap  map[string]*types.RecordImage
 )
 
 // updateJoinExecutor execute update SQL
@@ -53,15 +44,13 @@ type updateJoinExecutor struct {
 	parserCtx                       *types.ParseContext
 	execContext                     *types.ExecContext
 	isLowerSupportGroupByPksVersion bool
+	sqlMode                         string
 }
 
 // NewUpdateJoinExecutor get executor
 func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	// todo 不确定，需要test一下
-	val, _ := datasource.GetDataSourceManager(branch.BranchTypeAT).GetCachedResources().Load(execContent.TxCtx.ResourceID)
-	res := val.(*sql.DBResource)
 	minimumVersion, _ := util.ConvertDbVersion("5.7.5")
-	currentVersion, _ := util.ConvertDbVersion(res.GetDbVersion())
+	currentVersion, _ := util.ConvertDbVersion(execContent.DbVersion)
 	return &updateJoinExecutor{
 		parserCtx:                       parserCtx,
 		execContext:                     execContent,
@@ -70,189 +59,154 @@ func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.Exe
 	}
 }
 
-// beforeImage build before image
-func (u *updateJoinExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+// ExecContext exec SQL, and generate before image and after image
+func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	u.beforeHooks(ctx, u.execContext)
+	defer func() {
+		u.afterHooks(ctx, u.execContext)
+	}()
+
+	beforeImages, err := u.beforeImage(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := f(ctx, u.execContext.Query, u.execContext.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	afterImages, err := u.afterImage(ctx, beforeImages)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(afterImages) != len(beforeImages) {
+		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+	}
+
+	for i, afterImage := range afterImages {
+		beforeImage := afterImages[i]
+		if len(beforeImage.Rows) != len(afterImage.Rows) {
+			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		}
+
+		u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+		u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	}
+
+	return res, nil
+}
+
+func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
 
-	// update join sql,like update t1 inner join t2 on t1.id = t2.id set t1.name = ?; tableItems = {"update t1 inner join t2","t1","t2"}
-	tableName, _ := u.parserCtx.GetTableName()
+	var recordImages []*types.RecordImage
 
-	tableItems := strings.Split(tableName, multi_table_name_seperaror)
+	// Parsing multiple table name
+	updateStmt := u.parserCtx.UpdateStmt
+	tableNames := u.parseTableName(updateStmt.TableRefs.TableRefs)
 
-	u.buildWhereConditionByPKs(u.execContext.MetaDataMap, u.execContext.DBType)
-	suffixCommonCondition, paramAppenderList := u.buildBeforeImageSQLCommonConditionSuffix()
-	for i := range tableItems {
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableNames[i])
+	for _, tbName := range tableNames {
+		metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tbName)
 		if err != nil {
 			return nil, err
 		}
-
-		image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+		selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, metaData, u.execContext.NamedValues)
 		if err != nil {
 			return nil, err
 		}
-	}
+		if selectSQL == "" {
+			log.Debugf("Skip unused table [{%s}] when build select sql by update sourceQuery", tbName)
+			continue
+		}
 
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContext.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
-	var rowsi driver.Rows
-	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
-	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
+		var image *types.RecordImage
+		rowsi, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+		if err == nil {
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdateJoin)
+		}
+		if rowsi != nil {
+			if rowerr := rows.Close(); rowerr != nil {
+				log.Errorf("rows close fail, err:%v", rowerr)
+				return nil, rowerr
 			}
-		}()
+		}
 		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
+			// If one fail, all fails
 			return nil, err
 		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
+
+		lockKey := u.buildLockKey(image, *metaData)
+		u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+		image.SQLType = u.parserCtx.SQLType
+
+		recordImages = append(recordImages, image)
 	}
 
-	lockKey := u.buildLockKey(image, *metaData)
-	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
-	image.SQLType = u.parserCtx.SQLType
-
-	return image, nil
+	return recordImages, nil
 }
 
-// afterImage build after image
-func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImage types.RecordImage) (*types.RecordImage, error) {
+func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
-	if len(beforeImage.Rows) == 0 {
-		return &types.RecordImage{}, nil
+
+	if len(beforeImages) == 0 {
+		return nil, errors.New("empty beforeImages")
 	}
 
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
-	if err != nil {
-		return nil, err
-	}
-	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
-
-	var rowsi driver.Rows
-	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
-	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
+	var recordImages []*types.RecordImage
+	for _, beforeImage := range beforeImages {
+		metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, beforeImage.TableName)
 		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
 			return nil, err
 		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
-	}
 
-	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
-	if err != nil {
-		return nil, err
-	}
-	afterImage.SQLType = u.parserCtx.SQLType
+		selectSQL, selectArgs, err := u.buildAfterImageSQL(ctx, *beforeImage, metaData)
+		if err != nil {
+			return nil, err
+		}
 
-	return afterImage, nil
-}
-
-func (u *updateJoinExecutor) isAstStmtValid() bool {
-	return u.parserCtx != nil && u.parserCtx.UpdateStmt != nil
-}
-
-// buildAfterImageSQL build the SQL to query after image data
-func (u *updateJoinExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta *types.TableMeta) (string, []driver.NamedValue) {
-	if len(beforeImage.Rows) == 0 {
-		return "", nil
-	}
-	sb := strings.Builder{}
-	// todo: OnlyCareUpdateColumns should load from config first
-	var selectFields string
-	var separator = ","
-	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, row := range beforeImage.Rows {
-			for _, column := range row.Columns {
-				selectFields += column.ColumnName + separator
+		var image *types.RecordImage
+		rowsi, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+		if err == nil {
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdateJoin)
+		}
+		if rowsi != nil {
+			if rowerr := rowsi.Close(); rowerr != nil {
+				log.Errorf("rows close fail, err:%v", rowerr)
+				return nil, rowerr
 			}
 		}
-		selectFields = strings.TrimSuffix(selectFields, separator)
-	} else {
-		selectFields = "*"
+		if err != nil {
+			// If one fail, all fails
+			return nil, err
+		}
+
+		image.SQLType = u.parserCtx.SQLType
+		recordImages = append(recordImages, image)
 	}
-	sb.WriteString("SELECT " + selectFields + " FROM " + meta.TableName + " WHERE ")
-	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
-	sb.WriteString(" " + whereSQL + " ")
-	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
+
+	return recordImages, nil
 }
 
 // buildAfterImageSQL build the SQL to query before image data
-func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta *types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
-		log.Errorf("invalid update stmt")
-		return "", nil, fmt.Errorf("invalid update stmt")
+		log.Errorf("invalid update join stmt")
+		return "", nil, fmt.Errorf("invalid update join stmt")
 	}
 
 	updateStmt := u.parserCtx.UpdateStmt
-	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
-
-	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, column := range updateStmt.List {
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: column.Column,
-				},
-			})
-		}
-
-		// select indexes columns
-		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
-		if err != nil {
-			return "", nil, err
-		}
-		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: &ast.ColumnName{
-						Name: model.CIStr{
-							O: columnName,
-							L: columnName,
-						},
-					},
-				},
-			})
-		}
-	} else {
-		fields = append(fields, &ast.SelectField{
-			Expr: &ast.ColumnNameExpr{
-				Name: &ast.ColumnName{
-					Name: model.CIStr{
-						O: "*",
-						L: "*",
-					},
-				},
-			},
-		})
+	fields, err := u.buildSelectFields(ctx, tableMeta)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(fields) == 0 {
+		return "", nil, err
 	}
 
 	selStmt := ast.SelectStmt{
@@ -263,6 +217,10 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, args []dri
 		OrderBy:        updateStmt.Order,
 		Limit:          updateStmt.Limit,
 		TableHints:     updateStmt.TableHints,
+		// maybe duplicate row for select join sql.remove duplicate row by 'group by' condition
+		GroupBy: &ast.GroupByClause{
+			Items: u.buildGroupByClause(ctx, tableMeta.TableName, tableMeta.GetPrimaryKeyOnlyName(), fields),
+		},
 		LockInfo: &ast.SelectLockInfo{
 			LockType: ast.SelectLockForUpdate,
 		},
@@ -276,5 +234,102 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, args []dri
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }
 
-func (u *updateJoinExecutor) getDbVersion() string {
+func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage types.RecordImage, meta *types.TableMeta) (string, []driver.NamedValue, error) {
+	selectSQL, selectArgs := u.updateExecutor.buildAfterImageSQL(beforeImage, meta)
+
+	needUpdateColumns, err := u.buildSelectFields(ctx, meta)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// maybe duplicate row for select join sql.remove duplicate row by 'group by' condition
+	groupByStr := strings.Builder{}
+	groupByItem := u.buildGroupByClause(ctx, meta.TableName, meta.GetPrimaryKeyOnlyName(), needUpdateColumns)
+
+	groupByStr.WriteString(selectSQL)
+	groupByStr.WriteString(" GROUP BY ")
+	for index, item := range groupByItem {
+		if index != 0 {
+			groupByStr.WriteString(",")
+		}
+		groupByStr.WriteString(item.Expr.(*ast.ColumnNameExpr).Name.String())
+	}
+
+	groupByStr.WriteString(" ")
+	return groupByStr.String(), selectArgs, nil
+}
+
+func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) []string {
+	var tableNames []string
+	if item, ok := joinMate.Left.(*ast.Join); ok {
+		tableNames = u.parseTableName(item)
+	} else {
+		leftName := joinMate.Left.(*ast.TableSource).Source.(*ast.TableName)
+		tableNames = append(tableNames, leftName.Name.O)
+	}
+
+	rightName := joinMate.Right.(*ast.TableSource).Source.(*ast.TableName)
+	tableNames = append(tableNames, rightName.Name.O)
+	return tableNames
+}
+
+// build group by condition which used for removing duplicate row in select join sql
+func (u *updateJoinExecutor) buildGroupByClause(ctx context.Context, tableName string, pkColumns []string, allSelectColumns []*ast.SelectField) []*ast.ByItem {
+	var groupByPks = true
+	//only pks group by is valid when db version >= 5.7.5
+	if u.isLowerSupportGroupByPksVersion {
+		if u.sqlMode == "" {
+			rowsi, err := u.rowsPrepare(ctx, "SELECT @@SQL_MODE", nil)
+			defer func() {
+				if rowsi != nil {
+					if rowerr := rowsi.Close(); rowerr != nil {
+						log.Errorf("rows close fail, err:%v", rowerr)
+					}
+				}
+			}()
+			if err != nil {
+				groupByPks = false
+				log.Warnf("determine group by pks or all columns error:%s", err)
+			} else {
+				// getString("@@SQL_MODE")
+				mode := make([]driver.Value, 1)
+				if err = rowsi.Next(mode); err != nil {
+					if err != io.EOF && len(mode) == 1 {
+						u.sqlMode = reflect.ValueOf(mode[0]).String()
+					}
+				}
+			}
+		}
+
+		if strings.Contains(u.sqlMode, "ONLY_FULL_GROUP_BY") {
+			groupByPks = false
+		}
+	}
+
+	groupByColumns := make([]*ast.ByItem, 0)
+	if groupByPks {
+		for _, column := range pkColumns {
+			groupByColumns = append(groupByColumns, &ast.ByItem{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Table: model.CIStr{
+							O: tableName,
+							L: strings.ToLower(tableName),
+						},
+						Name: model.CIStr{
+							O: column,
+							L: strings.ToLower(column),
+						},
+					},
+				},
+			})
+		}
+	} else {
+		for _, column := range allSelectColumns {
+			groupByColumns = append(groupByColumns, &ast.ByItem{
+				Expr: column.Expr,
+			})
+		}
+	}
+	return groupByColumns
 }

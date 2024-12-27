@@ -22,6 +22,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -349,4 +350,24 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	}
 
 	return lockKeys.String()
+}
+
+func (u *updateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+	var queryer driver.Queryer
+
+	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
+	if !ok {
+		queryer, ok = u.execContext.Conn.(driver.Queryer)
+	}
+	if ok {
+		var err error
+		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("target conn should been driver.QueryerContext or driver.Queryer")
+	}
+	return rows, nil
 }
