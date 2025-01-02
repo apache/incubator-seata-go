@@ -41,17 +41,19 @@ func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 	if tccFenceStoreDatabaseMapper == nil {
 		once.Do(func() {
 			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{}
-			tccFenceStoreDatabaseMapper.InitLogTableName()
 		})
 	}
 	return tccFenceStoreDatabaseMapper
 }
 
-func (t *TccFenceStoreDatabaseMapper) InitLogTableName() {
-	// todo get log table name from config
+func (t *TccFenceStoreDatabaseMapper) InitLogTableName(logTableName string) {
 	// set log table name
 	// default name is tcc_fence_log
-	t.logTableName = "tcc_fence_log"
+	if logTableName != "" {
+		t.logTableName = logTableName
+	} else {
+		t.logTableName = "tcc_fence_log"
+	}
 }
 
 type TccFenceStoreDatabaseMapper struct {
