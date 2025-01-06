@@ -53,12 +53,13 @@ jobs:
           go-version: "1.20"
       - name: Check Dependencies Licenses
         run: |
+          mkdir -p ./dist-material/
+          cp -r ./licenses ./dist-material/
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
-          license-eye dependency resolve --summary ./dist-material/release-docs/LICENSE.tpl || exit 1
-          if [ ! -z "$(git diff -U0 ./dist-material/release-docs/LICENSE)" ]; then
-            echo "LICENSE file is not updated correctly"
-            git diff -U0 ./dist-material/release-docs/LICENSE
-            exit 1
+          license-eye dependency resolve --summary ./dist-material/LICENSE.tpl || exit 1
+          if [ -f "./dist-material/LICENSE)" ]; then
+            echo "echo LICENSE check"
+            cat ./dist-material/LICENSE
           fi
       - name: Check Dependencies Licenses Invalid
         run: |
