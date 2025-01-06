@@ -15,10 +15,11 @@
 # limitations under the License.
 #
 
-name: CI
+name: License checker
 
 on:
   pull_request:
+    branches: [ master ]
   schedule:
     - cron: "0 18 * * *" # TimeZone: UTC 0
 
@@ -33,10 +34,13 @@ jobs:
           submodules: true
       - name: Check license header
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
+        with:
+          log: info
+          config: .licenserc.yaml
+          mode: check
 
   dependency-license:
     name: Dependency licenses
-    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -46,7 +50,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20"
       - name: Check Dependencies Licenses
         run: |
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
