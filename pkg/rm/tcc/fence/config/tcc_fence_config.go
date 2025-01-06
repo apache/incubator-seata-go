@@ -18,22 +18,27 @@
 package config
 
 import (
-	"go.uber.org/atomic"
-
+	"database/sql"
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
 )
 
-type TccFenceConfig struct {
-	Initialized  atomic.Bool `default:"false"`
-	LogTableName string      `default:"tcc_fence_log"`
-}
-
 func InitFence() {
-	// todo implement
+
 }
 
-func InitCleanTask() {
-	handler.GetFenceHandler().InitLogCleanChannel()
+func InitCleanTask(dsn string) {
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		panic(err)
+	}
+
+	defer db.Close()
+
+	handler.GetFenceHandler().InitLogCleanChannel(db)
+
+	handler.GetFenceHandler().InitLogCleanTask(db)
+
 }
 
 func Destroy() {
