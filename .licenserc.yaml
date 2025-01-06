@@ -82,6 +82,9 @@ header: # `header` section is configurations for source codes license header.
     - ".golangci.yml"
     - '.pre-commit-config.yaml'
     - '.github'
+    - 'DISCLAIMER'
+    - 'pkg/discovery/mock/mock_etcd_client.go'
+    - 'pkg/datasource/sql/undo/parser/branch_undo_log.pb.go'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   language:
