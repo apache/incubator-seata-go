@@ -54,7 +54,7 @@ jobs:
       - name: Check Dependencies Licenses
         run: |
           mkdir -p ./dist-material/
-          cp -r ./licenses ./dist-material/
+          cp  ./licenses/LICENSE.tpl ./dist-material/LICENSE.tpl
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
           license-eye dependency resolve --summary ./dist-material/LICENSE.tpl || exit 1
           if [ -f "./dist-material/LICENSE)" ]; then
