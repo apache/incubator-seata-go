@@ -21,8 +21,8 @@ func (stateMachineParser JSONStateMachineParser) GetType() string {
 	return "JSON"
 }
 
-func (stateMachineParser JSONStateMachineParser) Parse(configFilePath string) (statelang.StateMachine, error) {
-	stateMachineJsonObject, err := NewStateMachineConfigParser().Parse(configFilePath)
+func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelang.StateMachine, error) {
+	stateMachineJsonObject, err := NewStateMachineConfigParser().Parse([]byte(content))
 	if err != nil {
 		return nil, err
 	}

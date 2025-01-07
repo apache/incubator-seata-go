@@ -24,75 +24,11 @@ import (
 	"gopkg.in/yaml.v3"
 	"io"
 	"os"
-	"path/filepath"
 )
 
 // ConfigParser is a general configuration parser interface, used to agree on the implementation of different types of parsers
 type ConfigParser interface {
 	Parse(configContent []byte) (*StateMachineObject, error)
-}
-
-type StateMachineConfigParser struct{}
-
-func NewStateMachineConfigParser() *StateMachineConfigParser {
-	return &StateMachineConfigParser{}
-}
-
-func (p *StateMachineConfigParser) checkConfigFile(configFilePath string) error {
-	_, err := os.Stat(configFilePath)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("config file %s does not exist: %w", configFilePath, err)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to access config file %s: %w", configFilePath, err)
-	}
-	return nil
-}
-
-func (p *StateMachineConfigParser) readFile(configFilePath string) ([]byte, error) {
-	file, _ := os.Open(configFilePath)
-	defer func(file *os.File) {
-		_ = file.Close()
-	}(file)
-
-	var buf bytes.Buffer
-	_, err := io.Copy(&buf, file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", configFilePath, err)
-	}
-
-	return buf.Bytes(), nil
-}
-
-func (p *StateMachineConfigParser) getParser(configFilePath string) (ConfigParser, error) {
-	fileExt := filepath.Ext(configFilePath)
-	// check the file extension, compatible with some illegal but possible situations
-	switch fileExt {
-	case ".json", ".JSON":
-		return NewJSONConfigParser(), nil
-	case ".yaml", ".yml", ".YAML", ".YML":
-		return NewYAMLConfigParser(), nil
-	default:
-		return nil, fmt.Errorf("unsupported config file format: %s", fileExt)
-	}
-}
-
-func (p *StateMachineConfigParser) Parse(configFilePath string) (*StateMachineObject, error) {
-	if err := p.checkConfigFile(configFilePath); err != nil {
-		return nil, err
-	}
-
-	configContent, err := p.readFile(configFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	parser, err := p.getParser(configFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return parser.Parse(configContent)
 }
 
 type JSONConfigParser struct{}
@@ -131,6 +67,59 @@ func (p *YAMLConfigParser) Parse(configContent []byte) (*StateMachineObject, err
 	}
 
 	return &stateMachineObject, nil
+}
+
+type StateMachineConfigParser struct{}
+
+func NewStateMachineConfigParser() *StateMachineConfigParser {
+	return &StateMachineConfigParser{}
+}
+
+func (p *StateMachineConfigParser) CheckConfigFile(filePath string) error {
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("config file %s does not exist: %w", filePath, err)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to access config file %s: %w", filePath, err)
+	}
+	return nil
+}
+
+func (p *StateMachineConfigParser) ReadConfigFile(configFilePath string) ([]byte, error) {
+	file, _ := os.Open(configFilePath)
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	var buf bytes.Buffer
+	_, err := io.Copy(&buf, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %w", configFilePath, err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (p *StateMachineConfigParser) getParser(content []byte) (ConfigParser, error) {
+	var obj interface{}
+	if err := json.Unmarshal(content, &obj); err == nil {
+		return NewJSONConfigParser(), nil
+	}
+	if err := yaml.Unmarshal(content, &obj); err == nil {
+		return NewYAMLConfigParser(), nil
+	}
+
+	return nil, fmt.Errorf("unsupported config file format")
+}
+
+func (p *StateMachineConfigParser) Parse(content []byte) (*StateMachineObject, error) {
+	parser, err := p.getParser(content)
+	if err != nil {
+		return nil, err
+	}
+
+	return parser.Parse(content)
 }
 
 type StateMachineObject struct {
