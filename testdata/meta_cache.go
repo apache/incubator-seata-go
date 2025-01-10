@@ -15,32 +15,39 @@
  * limitations under the License.
  */
 
-package client
+package testdata
 
-import (
-	"context"
+import "seata.apache.org/seata-go/pkg/datasource/sql/types"
 
-	"seata.apache.org/seata-go/pkg/util/log"
-
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-)
-
-func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
-}
-
-type clientHeartBeatProcessor struct{}
-
-func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
-			log.Debug("received PONG from {}", ctx)
-		}
+func MockWantTypesMeta(tableName string) types.TableMeta {
+	return types.TableMeta{
+		TableName: tableName,
+		Columns: map[string]types.ColumnMeta{
+			"id": {
+				ColumnName: "id",
+			},
+			"name": {
+				ColumnName: "name",
+			},
+		},
+		Indexs: map[string]types.IndexMeta{
+			"": {
+				ColumnName: "id",
+				IType:      types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{
+						ColumnName:   "id",
+						DatabaseType: types.GetSqlDataType("BIGINT"),
+					},
+					{
+						ColumnName: "id",
+					},
+				},
+			},
+		},
+		ColumnNames: []string{
+			"id",
+			"name",
+		},
 	}
-	msgFuture := getty.GetGettyRemotingClient().GetMessageFuture(rpcMessage.ID)
-	if msgFuture != nil {
-		getty.GetGettyRemotingClient().RemoveMessageFuture(rpcMessage.ID)
-	}
-	return nil
 }

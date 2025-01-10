@@ -58,9 +58,9 @@ var (
 
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
-	ErrTooLargePackage = errors.New("package length is exceed the getty package's legal maximum length.")
+	ErrTooLargePackage = errors.New("package length is exceed the getty package's legal maximum length")
 	ErrInvalidPackage  = errors.New("invalid rpc package")
-	ErrIllegalMagic    = errors.New("package magic is not right.")
+	ErrIllegalMagic    = errors.New("package magic is not right")
 )
 
 type RpcPackageHandler struct{}
@@ -141,7 +141,7 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	headLength := message.V1HeadLength
 
 	var headMapBytes []byte
-	if msg.HeadMap != nil && len(msg.HeadMap) > 0 {
+	if len(msg.HeadMap) > 0 {
 		hb, headMapLength := encodeHeapMap(msg.HeadMap)
 		headMapBytes = hb
 		headLength += headMapLength

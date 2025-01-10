@@ -206,6 +206,48 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
 }
 
+func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
+	var needUpdateColumns []string
+	if undo.UndoConfig.OnlyCareUpdateColumns && columns != nil && len(columns) > 0 {
+		needUpdateColumns = columns
+		if !b.containsPKByName(meta, columns) {
+			pkNames := meta.GetPrimaryKeyOnlyName()
+			if pkNames != nil && len(pkNames) > 0 {
+				for _, name := range pkNames {
+					needUpdateColumns = append(needUpdateColumns, name)
+				}
+			}
+		}
+		// todo If it contains onUpdate columns, add onUpdate columns
+	} else {
+		needUpdateColumns = meta.ColumnNames
+	}
+
+	for i := range needUpdateColumns {
+		needUpdateColumns[i] = AddEscape(needUpdateColumns[i], dbType)
+	}
+	return needUpdateColumns
+}
+
+func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
+	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+	if len(pkColumnNameList) == 0 {
+		return false
+	}
+
+	matchCounter := 0
+	for _, column := range columns {
+		for _, pkName := range pkColumnNameList {
+			if strings.EqualFold(pkName, column) ||
+				strings.EqualFold(pkName, strings.ToLower(column)) {
+				matchCounter++
+			}
+		}
+	}
+
+	return matchCounter == len(pkColumnNameList)
+}
+
 func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
 	fields := make([]*ast.SelectField, 0, len(inUseFields))
 

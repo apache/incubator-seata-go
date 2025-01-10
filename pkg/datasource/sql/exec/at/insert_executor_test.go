@@ -78,7 +78,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT id, name FROM user WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
@@ -107,14 +107,14 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT user_id, name FROM user WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{int64(20)},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &test.metaData, nil
@@ -629,7 +629,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
@@ -731,7 +731,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
@@ -824,7 +824,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
