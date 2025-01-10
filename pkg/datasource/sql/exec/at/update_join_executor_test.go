@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,6 +33,115 @@ import (
 )
 
 func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
+	MetaDataMap := map[string]*types.TableMeta{
+		"table1": {
+			TableName: "table1",
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+			Columns: map[string]types.ColumnMeta{
+				"id": {
+					ColumnDef:  nil,
+					ColumnName: "id",
+				},
+				"name": {
+					ColumnDef:  nil,
+					ColumnName: "name",
+				},
+				"age": {
+					ColumnDef:  nil,
+					ColumnName: "age",
+				},
+			},
+			ColumnNames: []string{"id", "name", "age"},
+		},
+		"table2": {
+			TableName: "table2",
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+			Columns: map[string]types.ColumnMeta{
+				"id": {
+					ColumnDef:  nil,
+					ColumnName: "id",
+				},
+				"name": {
+					ColumnDef:  nil,
+					ColumnName: "name",
+				},
+				"age": {
+					ColumnDef:  nil,
+					ColumnName: "age",
+				},
+				"kk": {
+					ColumnDef:  nil,
+					ColumnName: "kk",
+				},
+				"addr": {
+					ColumnDef:  nil,
+					ColumnName: "addr",
+				},
+			},
+			ColumnNames: []string{"id", "name", "age", "kk", "addr"},
+		},
+		"table3": {
+			TableName: "table3",
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+			Columns: map[string]types.ColumnMeta{
+				"id": {
+					ColumnDef:  nil,
+					ColumnName: "id",
+				},
+				"age": {
+					ColumnDef:  nil,
+					ColumnName: "age",
+				},
+			},
+			ColumnNames: []string{"id", "age"},
+		},
+		"table4": {
+			TableName: "table4",
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+			Columns: map[string]types.ColumnMeta{
+				"id": {
+					ColumnDef:  nil,
+					ColumnName: "id",
+				},
+				"age": {
+					ColumnDef:  nil,
+					ColumnName: "age",
+				},
+			},
+			ColumnNames: []string{"id", "age"},
+		},
+	}
+
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
+
 	tests := []struct {
 		name            string
 		sourceQuery     string

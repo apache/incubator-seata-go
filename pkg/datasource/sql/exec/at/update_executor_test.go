@@ -20,7 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"os"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,17 +28,12 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	_ "seata.apache.org/seata-go/pkg/util/log"
 )
 
-var (
-	MetaDataMap map[string]*types.TableMeta
-)
-
-func initTest() {
-	MetaDataMap = map[string]*types.TableMeta{
+func TestBuildSelectSQLByUpdate(t *testing.T) {
+	MetaDataMap := map[string]*types.TableMeta{
 		"t_user": {
 			TableName: "t_user",
 			Indexs: map[string]types.IndexMeta{
@@ -65,124 +60,9 @@ func initTest() {
 			},
 			ColumnNames: []string{"id", "name", "age"},
 		},
-		"table1": {
-			TableName: "table1",
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
-					},
-				},
-			},
-			Columns: map[string]types.ColumnMeta{
-				"id": {
-					ColumnDef:  nil,
-					ColumnName: "id",
-				},
-				"name": {
-					ColumnDef:  nil,
-					ColumnName: "name",
-				},
-				"age": {
-					ColumnDef:  nil,
-					ColumnName: "age",
-				},
-			},
-			ColumnNames: []string{"id", "name", "age"},
-		},
-		"table2": {
-			TableName: "table2",
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
-					},
-				},
-			},
-			Columns: map[string]types.ColumnMeta{
-				"id": {
-					ColumnDef:  nil,
-					ColumnName: "id",
-				},
-				"name": {
-					ColumnDef:  nil,
-					ColumnName: "name",
-				},
-				"age": {
-					ColumnDef:  nil,
-					ColumnName: "age",
-				},
-				"kk": {
-					ColumnDef:  nil,
-					ColumnName: "kk",
-				},
-				"addr": {
-					ColumnDef:  nil,
-					ColumnName: "addr",
-				},
-			},
-			ColumnNames: []string{"id", "name", "age", "kk", "addr"},
-		},
-		"table3": {
-			TableName: "table3",
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
-					},
-				},
-			},
-			Columns: map[string]types.ColumnMeta{
-				"id": {
-					ColumnDef:  nil,
-					ColumnName: "id",
-				},
-				"age": {
-					ColumnDef:  nil,
-					ColumnName: "age",
-				},
-			},
-			ColumnNames: []string{"id", "age"},
-		},
-		"table4": {
-			TableName: "table4",
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
-					},
-				},
-			},
-			Columns: map[string]types.ColumnMeta{
-				"id": {
-					ColumnDef:  nil,
-					ColumnName: "id",
-				},
-				"age": {
-					ColumnDef:  nil,
-					ColumnName: "age",
-				},
-			},
-			ColumnNames: []string{"id", "age"},
-		},
 	}
 
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-}
-
-func TestMain(m *testing.M) {
-	// 调用初始化函数
-	initTest()
-
-	// 启动测试
-	os.Exit(m.Run())
-}
-
-func TestBuildSelectSQLByUpdate(t *testing.T) {
 
 	tests := []struct {
 		name            string

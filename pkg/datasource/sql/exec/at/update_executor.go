@@ -20,8 +20,9 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"fmt"
+	"github.com/arana-db/parser/model"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
@@ -93,32 +94,37 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, nil
 	}
 
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContext.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
 	tableName, _ := u.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
 
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, metaData, "", u.execContext.NamedValues)
-
-	if err != nil {
-		return nil, err
+	var rowsi driver.Rows
+	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = u.execContext.Conn.(driver.Queryer)
 	}
-	if selectSQL == "" {
-		return nil, errors.New("build select sql by update sourceQuery fail")
-	}
-
-	rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
-	defer func() {
-		if rowsi != nil {
-			if err := rowsi.Close(); err != nil {
-				log.Errorf("rows close fail, err:%v", err)
-				return
+	if ok {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
 			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
 		}
-	}()
-	if err != nil {
-		return nil, err
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
 	}
 
 	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
@@ -149,17 +155,26 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
-	rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
-	defer func() {
-		if rowsi != nil {
-			if err := rowsi.Close(); err != nil {
-				log.Errorf("rows close fail, err:%v", err)
-				return
+	var rowsi driver.Rows
+	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = u.execContext.Conn.(driver.Queryer)
+	}
+	if ok {
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		defer func() {
+			if rowsi != nil {
+				rowsi.Close()
 			}
+		}()
+		if err != nil {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
 		}
-	}()
-	if err != nil {
-		return nil, err
+	} else {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
 	}
 
 	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
@@ -201,19 +216,53 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 }
 
 // buildAfterImageSQL build the SQL to query before image data
-func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
 	updateStmt := u.parserCtx.UpdateStmt
-	fields, err := u.buildSelectFields(ctx, tableMeta, tableAliases, updateStmt.List)
-	if err != nil {
-		return "", nil, err
-	}
-	if len(fields) == 0 {
-		return "", nil, err
+	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
+
+	if undo.UndoConfig.OnlyCareUpdateColumns {
+		for _, column := range updateStmt.List {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
+
+		// select indexes columns
+		tableName, _ := u.parserCtx.GetTableName()
+		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+		if err != nil {
+			return "", nil, err
+		}
+		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: &ast.ColumnName{
+					Name: model.CIStr{
+						O: "*",
+						L: "*",
+					},
+				},
+			},
+		})
 	}
 
 	selStmt := ast.SelectStmt{
