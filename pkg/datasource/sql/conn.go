@@ -244,6 +244,10 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	)
 }
 
+func (c *Conn) GetDbVersion() string {
+	return c.res.GetDbVersion()
+}
+
 func (c *Conn) GetAutoCommit() bool {
 	return c.autoCommit
 }
