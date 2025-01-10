@@ -68,7 +68,6 @@ const (
 	SQLTypeSelectFoundRows
 	SQLTypeInsertIgnore = iota + 57
 	SQLTypeInsertOnDuplicateUpdate
-	SQLTypeUpdateJoin
 	// SQLTypeMulti and SQLTypeUnknown is different from seata-java
 	SQLTypeMulti = iota + 999
 	SQLTypeUnknown

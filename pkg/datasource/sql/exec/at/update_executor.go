@@ -26,7 +26,6 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
@@ -49,6 +48,10 @@ type updateExecutor struct {
 
 // NewUpdateExecutor get update executor
 func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
+	// Because update join cannot be clearly identified when SQL cannot be parsed
+	if parserCtx.UpdateStmt.TableRefs.TableRefs.Right != nil {
+		return NewUpdateJoinExecutor(parserCtx, execContent, hooks)
+	}
 	return &updateExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
@@ -96,7 +99,8 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, metaData, u.execContext.NamedValues)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, metaData, "", u.execContext.NamedValues)
+
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, errors.New("build select sql by update sourceQuery fail")
 	}
 
-	rowsi, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+	rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 	defer func() {
 		if rowsi != nil {
 			if err := rowsi.Close(); err != nil {
@@ -145,7 +149,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
-	rowsi, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
+	rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 	defer func() {
 		if rowsi != nil {
 			if err := rowsi.Close(); err != nil {
@@ -197,14 +201,14 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 }
 
 // buildAfterImageSQL build the SQL to query before image data
-func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta *types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
 	updateStmt := u.parserCtx.UpdateStmt
-	fields, err := u.buildSelectFields(ctx, tableMeta)
+	fields, err := u.buildSelectFields(ctx, tableMeta, tableAliases, updateStmt.List)
 	if err != nil {
 		return "", nil, err
 	}
@@ -231,60 +235,4 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta *typ
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
-}
-
-func (u *updateExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta) ([]*ast.SelectField, error) {
-	updateStmt := u.parserCtx.UpdateStmt
-	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
-
-	lowerTableName := strings.ToLower(tableMeta.TableName)
-	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, column := range updateStmt.List {
-			tableName := column.Column.Table.L
-			if tableName != "" && lowerTableName != tableName {
-				continue
-			}
-
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: column.Column,
-				},
-			})
-		}
-
-		if len(fields) == 0 {
-			return fields, nil
-		}
-
-		// select indexes columns
-		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: &ast.ColumnName{
-						Table: model.CIStr{
-							O: tableMeta.TableName,
-							L: lowerTableName,
-						},
-						Name: model.CIStr{
-							O: columnName,
-							L: columnName,
-						},
-					},
-				},
-			})
-		}
-	} else {
-		fields = append(fields, &ast.SelectField{
-			Expr: &ast.ColumnNameExpr{
-				Name: &ast.ColumnName{
-					Name: model.CIStr{
-						O: "*",
-						L: "*",
-					},
-				},
-			},
-		})
-	}
-
-	return fields, nil
 }

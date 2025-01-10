@@ -22,16 +22,18 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
@@ -152,8 +154,12 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	case *ast.Join:
 		exprs := node.(*ast.Join)
 		b.traversalArgs(exprs.Left, argsIndex)
-		b.traversalArgs(exprs.Right, argsIndex)
-		b.traversalArgs(exprs.On.Expr, argsIndex)
+		if exprs.Right != nil {
+			b.traversalArgs(exprs.Right, argsIndex)
+		}
+		if exprs.On != nil {
+			b.traversalArgs(exprs.On.Expr, argsIndex)
+		}
 		break
 	case *test_driver.ParamMarkerExpr:
 		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
@@ -198,6 +204,64 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	}
 
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
+}
+
+func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
+	fields := make([]*ast.SelectField, 0, len(inUseFields))
+
+	tableName := tableAliases
+	if tableAliases == "" {
+		tableName = tableMeta.TableName
+	}
+	if undo.UndoConfig.OnlyCareUpdateColumns {
+		for _, column := range inUseFields {
+			tn := column.Column.Table.O
+			if tn != "" && tn != tableName {
+				continue
+			}
+
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
+
+		if len(fields) == 0 {
+			return fields, nil
+		}
+
+		// select indexes columns
+		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Table: model.CIStr{
+							O: tableName,
+							L: tableName,
+						},
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: &ast.ColumnName{
+					Name: model.CIStr{
+						O: "*",
+						L: "*",
+					},
+				},
+			},
+		})
+	}
+
+	return fields, nil
 }
 
 func getSqlNullValue(value interface{}) interface{} {
@@ -364,12 +428,12 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	return lockKeys.String()
 }
 
-func (u *updateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
 	var queryer driver.Queryer
 
-	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
+	queryerContext, ok := conn.(driver.QueryerContext)
 	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
+		queryer, ok = conn.(driver.Queryer)
 	}
 	if ok {
 		var err error

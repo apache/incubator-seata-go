@@ -65,8 +65,8 @@ func initTest() {
 			},
 			ColumnNames: []string{"id", "name", "age"},
 		},
-		"t1": {
-			TableName: "t1",
+		"table1": {
+			TableName: "table1",
 			Indexs: map[string]types.IndexMeta{
 				"id": {
 					IType: types.IndexTypePrimaryKey,
@@ -91,8 +91,8 @@ func initTest() {
 			},
 			ColumnNames: []string{"id", "name", "age"},
 		},
-		"t2": {
-			TableName: "t2",
+		"table2": {
+			TableName: "table2",
 			Indexs: map[string]types.IndexMeta{
 				"id": {
 					IType: types.IndexTypePrimaryKey,
@@ -125,8 +125,8 @@ func initTest() {
 			},
 			ColumnNames: []string{"id", "name", "age", "kk", "addr"},
 		},
-		"t3": {
-			TableName: "t3",
+		"table3": {
+			TableName: "table3",
 			Indexs: map[string]types.IndexMeta{
 				"id": {
 					IType: types.IndexTypePrimaryKey,
@@ -147,8 +147,8 @@ func initTest() {
 			},
 			ColumnNames: []string{"id", "age"},
 		},
-		"t4": {
-			TableName: "t4",
+		"table4": {
+			TableName: "table4",
 			Indexs: map[string]types.IndexMeta{
 				"id": {
 					IType: types.IndexTypePrimaryKey,
@@ -221,7 +221,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
 			executor := NewUpdateExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
-			query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), MetaDataMap["t_user"], util.ValueToNamedValue(tt.sourceQueryArgs))
+			query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), MetaDataMap["t_user"], "", util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))
