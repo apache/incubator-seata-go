@@ -20,10 +20,10 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/agiledragon/gomonkey/v2"
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
