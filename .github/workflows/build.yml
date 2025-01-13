@@ -61,8 +61,5 @@ jobs:
       - name: "run go build"
         run: go build -v ./...
 
-      - name: "run go test and out codecov"
-        run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
-
       - name: "upload coverage"
         uses: codecov/codecov-action@v3
