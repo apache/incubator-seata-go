@@ -39,6 +39,7 @@ func initCache() {
 	}
 
 	cache.store(&JsonParser{})
+	cache.store(&ProtobufParser{})
 }
 
 func GetCache() *UndoLogParserCache {

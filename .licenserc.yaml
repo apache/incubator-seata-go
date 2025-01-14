@@ -54,34 +54,20 @@ header: # `header` section is configurations for source codes license header.
     - '**'
 
   paths-ignore: # `paths-ignore` are the path list that will be ignored by license-eye.
-    - 'dist'
+    - 'dist-material/**'
     - 'licenses'
     - '**/*.md'
-    - '**/testdata/**'
     - '**/go.mod'
     - '**/go.sum'
     - 'LICENSE'
     - 'NOTICE'
-    - '**/assets/header-templates/**'
-    - '**/assets/lcs-templates/**'
-    - '**/assets/languages.yaml'
-    - '**/assets/assets.gen.go'
-    - 'docs/**.svg'
-    - '.travis.yml'
     - '.gitignore'
-    - '.gitmodules'
     - 'makefile'
-    - 'justfile'
-    - 'docker'
-    - 'pkg/resolver/mysql/constants.go' # with two license: apache and Vitess
-    - 'pkg/resolver/mysql/encoding.go'
-    - 'pkg/resolver/mysql/sql_error.go'
-    - 'pkg/resolver/mysql/type.go'
     - 'VERSION'
-    - ".errcheck-exclude"
-    - ".golangci.yml"
-    - '.pre-commit-config.yaml'
     - '.github'
+    - 'DISCLAIMER'
+    - 'pkg/discovery/mock/mock_etcd_client.go'
+    - 'pkg/datasource/sql/undo/parser/branch_undo_log.pb.go'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   language:

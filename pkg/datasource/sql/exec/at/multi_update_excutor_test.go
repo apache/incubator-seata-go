@@ -34,7 +34,7 @@ import (
 
 func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 
 	tests := []struct {
 		name            string
@@ -101,7 +101,7 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 
 func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: false})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil))
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 
 	tests := []struct {
 		name            string

@@ -166,7 +166,7 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 		if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 			return nil
 		}
-		for k, _ := range ctx.LockKeys {
+		for k := range ctx.LockKeys {
 			lockKey += k + ";"
 		}
 		request.LockKeys = lockKey

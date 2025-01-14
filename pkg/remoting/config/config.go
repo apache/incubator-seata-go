@@ -84,7 +84,7 @@ type SeataConfig struct {
 	LoadBalanceType      string
 }
 
-func IniConfig(seataConf *SeataConfig) {
+func InitConfig(seataConf *SeataConfig) {
 	seataConfig = seataConf
 }
 

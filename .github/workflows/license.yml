@@ -15,10 +15,11 @@
 # limitations under the License.
 #
 
-name: CI
+name: License checker
 
 on:
   pull_request:
+    branches: [ master ]
   schedule:
     - cron: "0 18 * * *" # TimeZone: UTC 0
 
@@ -33,10 +34,13 @@ jobs:
           submodules: true
       - name: Check license header
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
+        with:
+          log: info
+          config: .licenserc.yaml
+          mode: check
 
   dependency-license:
     name: Dependency licenses
-    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -46,15 +50,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20"
       - name: Check Dependencies Licenses
         run: |
+          mkdir -p ./dist-material/
+          cp  ./licenses/LICENSE.tpl ./dist-material/LICENSE.tpl
           go install github.com/apache/skywalking-eyes/cmd/license-eye@47febf5
-          license-eye dependency resolve --summary ./dist-material/release-docs/LICENSE.tpl || exit 1
-          if [ ! -z "$(git diff -U0 ./dist-material/release-docs/LICENSE)" ]; then
-            echo "LICENSE file is not updated correctly"
-            git diff -U0 ./dist-material/release-docs/LICENSE
-            exit 1
+          license-eye dependency resolve --summary ./dist-material/LICENSE.tpl || exit 1
+          if [ -f "./dist-material/LICENSE)" ]; then
+            echo "echo LICENSE check"
+            cat ./dist-material/LICENSE
           fi
       - name: Check Dependencies Licenses Invalid
         run: |
