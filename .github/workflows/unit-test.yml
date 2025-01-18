@@ -59,12 +59,31 @@ jobs:
         restore-keys: |
           "${{ runner.os }}-go-"
 
+    - name: Shutdown default mysql
+      run: sudo service mysql stop
+
+    - name: Create mysql database auth
+      uses: mirromutth/mysql-action@v1.1
+      with:
+        host port: 3306
+        container port: 3306
+        mysql version: '8.0'
+        mysql database: 'seata_go_test'
+        mysql root password: 'seata_go'
+
     - name: "Run Unit Tests"
       run: |
         echo "=== Starting Unit Tests ==="
-        go test -v ./... -coverprofile=coverage.txt -covermode=atomic -timeout 10m
+        go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
         if [ $? -ne 0 ]; then
           echo "❌ Unit tests failed"
           exit 1
         fi
         echo "✅ Unit tests completed successfully"
+
+    - name: "Archive test results"
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: coverage.txt
+        retention-days: 7
