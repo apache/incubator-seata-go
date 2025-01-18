@@ -19,7 +19,10 @@ name: "Unit Test"
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - 'feature/**'
+      - 'dev/**'
   pull_request:
     branches: "*"
     types: [opened, synchronize, reopened]
