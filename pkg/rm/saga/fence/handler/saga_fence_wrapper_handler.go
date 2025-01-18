@@ -1,40 +1,29 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package handler
 
 import (
 	"container/list"
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"sync"
-	"time"
-
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/dao"
 	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
+	"sync"
+	"time"
 )
 
-type tccFenceWrapperHandler struct {
+var (
+	fenceHandler *sagaFenceWrapperHandler
+	fenceOnce    sync.Once
+)
+
+const (
+	maxQueueSize = 500
+)
+
+type sagaFenceWrapperHandler struct {
 	tccFenceDao       dao.TCCFenceStore
 	logQueue          chan *FenceLogIdentity
 	logCache          list.List
@@ -47,19 +36,10 @@ type FenceLogIdentity struct {
 	branchId int64
 }
 
-const (
-	maxQueueSize = 500
-)
-
-var (
-	fenceHandler *tccFenceWrapperHandler
-	fenceOnce    sync.Once
-)
-
-func GetFenceHandler() *tccFenceWrapperHandler {
+func GetSagaFenceHandler() *sagaFenceWrapperHandler {
 	if fenceHandler == nil {
 		fenceOnce.Do(func() {
-			fenceHandler = &tccFenceWrapperHandler{
+			fenceHandler = &sagaFenceWrapperHandler{
 				tccFenceDao: dao.GetTccFenceStoreDatabaseMapper(),
 			}
 		})
@@ -67,24 +47,7 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 	return fenceHandler
 }
 
-func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
-	xid := tm.GetBusinessActionContext(ctx).Xid
-	branchId := tm.GetBusinessActionContext(ctx).BranchId
-	actionName := tm.GetBusinessActionContext(ctx).ActionName
-
-	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusTried)
-	if err != nil {
-		if mysqlError, ok := errors.Unwrap(err).(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
-			// todo add clean command to channel.
-			handler.pushCleanChannel(xid, branchId)
-		}
-		return fmt.Errorf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
-	}
-
-	return nil
-}
-
-func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.Tx) error {
+func (handler *sagaFenceWrapperHandler) ActionFence(ctx context.Context, tx *sql.Tx) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 
@@ -109,7 +72,7 @@ func (handler *tccFenceWrapperHandler) CommitFence(ctx context.Context, tx *sql.
 	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusCommitted)
 }
 
-func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sql.Tx) error {
+func (handler *sagaFenceWrapperHandler) CompensationFence(ctx context.Context, tx *sql.Tx) error {
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
@@ -120,7 +83,7 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 
 	// record is null, mean the need suspend
 	if fenceDo == nil {
-		err = handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusSuspended)
+		err = handler.insertSagaFenceLog(tx, xid, branchId, actionName, enum.StatusSuspended)
 		if err != nil {
 			return fmt.Errorf("insert tcc fence record errors, rollback fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
 		}
@@ -142,7 +105,7 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 	return handler.updateFenceStatus(tx, xid, branchId, enum.StatusRollbacked)
 }
 
-func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
+func (handler *sagaFenceWrapperHandler) insertSagaFenceLog(tx *sql.Tx, xid string, branchId int64, actionName string, status enum.FenceStatus) error {
 	tccFenceDo := model.TCCFenceDO{
 		Xid:        xid,
 		BranchId:   branchId,
@@ -152,33 +115,33 @@ func (handler *tccFenceWrapperHandler) insertTCCFenceLog(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.InsertTCCFenceDO(tx, &tccFenceDo)
 }
 
-func (handler *tccFenceWrapperHandler) updateFenceStatus(tx *sql.Tx, xid string, branchId int64, status enum.FenceStatus) error {
+func (handler *sagaFenceWrapperHandler) updateFenceStatus(tx *sql.Tx, xid string, branchId int64, status enum.FenceStatus) error {
 	return handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status)
 }
 
-func (handler *tccFenceWrapperHandler) InitLogCleanChannel() {
+func (handler *sagaFenceWrapperHandler) InitLogCleanChannel() {
 	handler.logQueueOnce.Do(func() {
 		go handler.traversalCleanChannel()
 	})
 }
 
-func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
+func (handler *sagaFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
 		close(handler.logQueue)
 	})
 }
 
-func (handler *tccFenceWrapperHandler) deleteFence(xid string, id int64) error {
+func (handler *sagaFenceWrapperHandler) deleteFence(xid string, id int64) error {
 	// todo implement
 	return nil
 }
 
-func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
+func (handler *sagaFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
 	// todo implement
 	return 0
 }
 
-func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
+func (handler *sagaFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
 	// todo implement
 	fli := &FenceLogIdentity{
 		xid:      xid,
@@ -193,7 +156,7 @@ func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int
 	log.Infof("add one log to clean queue: %v ", fli)
 }
 
-func (handler *tccFenceWrapperHandler) traversalCleanChannel() {
+func (handler *sagaFenceWrapperHandler) traversalCleanChannel() {
 	handler.logQueue = make(chan *FenceLogIdentity, maxQueueSize)
 	for li := range handler.logQueue {
 		if err := handler.deleteFence(li.xid, li.branchId); err != nil {
