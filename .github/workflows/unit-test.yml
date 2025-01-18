@@ -59,14 +59,11 @@ jobs:
     - name: Shutdown default mysql
       run: sudo service mysql stop
 
-    - name: Create mysql database auth
-      uses: mirromutth/mysql-action@v1.1
-      with:
-        host port: 3306
-        container port: 3306
-        mysql version: '8.0'
-        mysql database: 'seata_go_test'
-        mysql root password: 'seata_go'
+    - name: Set up MySQL
+      run: |
+        sudo systemctl start mysql
+        mysql -e 'CREATE DATABASE seata_go_test;' -uroot -proot
+        mysql -e 'ALTER USER "root"@"localhost" IDENTIFIED BY "seata_go";' -uroot -proot
 
     - name: "Run Unit Tests"
       run: |
