@@ -21,7 +21,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: "*"
+    branches: [ "*" ]
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -59,11 +59,6 @@ jobs:
     - name: Shutdown default mysql
       run: sudo service mysql stop
 
-    - name: Set up MySQL
-      run: |
-        sudo systemctl start mysql
-        mysql -e 'CREATE DATABASE seata_go_test;' -uroot -proot
-        mysql -e 'ALTER USER "root"@"localhost" IDENTIFIED BY "seata_go";' -uroot -proot
 
     - name: "Run Unit Tests"
       run: |
