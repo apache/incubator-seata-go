@@ -65,12 +65,3 @@ jobs:
           exit 1
         fi
         echo "✅ Unit tests completed successfully"
-
-    - name: "Upload Coverage"
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.txt
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: true
-        verbose: true 
