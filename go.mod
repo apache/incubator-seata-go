@@ -6,7 +6,7 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/apache/dubbo-getty v1.5.0
-	github.com/arana-db/parser v0.2.5
+	github.com/arana-db/parser v0.2.17
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
 	github.com/dubbogo/gost v1.13.2
