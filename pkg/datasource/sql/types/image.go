@@ -149,7 +149,7 @@ func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 // PrimaryKeys Primary keys list.
 func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
 	var pkFields []ColumnImage
-	for key, _ := range cols {
+	for key := range cols {
 		if cols[key].KeyType == PrimaryKey.Number() {
 			pkFields = append(pkFields, cols[key])
 		}
@@ -161,7 +161,7 @@ func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
 // NonPrimaryKeys get non-primary keys
 func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	var nonPkFields []ColumnImage
-	for key, _ := range cols {
+	for key := range cols {
 		if cols[key].KeyType != PrimaryKey.Number() {
 			nonPkFields = append(nonPkFields, cols[key])
 		}

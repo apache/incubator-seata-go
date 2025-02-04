@@ -5,8 +5,8 @@ go 1.20
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/apache/dubbo-getty v1.4.10
-	github.com/arana-db/parser v0.2.5
+	github.com/apache/dubbo-getty v1.5.0
+	github.com/arana-db/parser v0.2.17
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
 	github.com/dubbogo/gost v1.13.2
@@ -31,10 +31,11 @@ require (
 )
 
 require (
-	github.com/agiledragon/gomonkey v2.0.2+incompatible
-	github.com/agiledragon/gomonkey/v2 v2.9.0
+	github.com/agiledragon/gomonkey/v2 v2.12.0
+	github.com/golang/protobuf v1.5.3
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
@@ -57,7 +58,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
@@ -91,7 +91,6 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

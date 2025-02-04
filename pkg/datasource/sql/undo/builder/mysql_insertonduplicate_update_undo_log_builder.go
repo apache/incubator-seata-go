@@ -285,7 +285,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildPrimaryKeyConditions(primary
 func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) error {
 	duplicateColsMap := make(map[string]bool)
 	for _, v := range insert.OnDuplicate {
-		duplicateColsMap[v.Column.Name.L] = true
+		duplicateColsMap[strings.ToLower(v.Column.Name.L)] = true
 	}
 	if len(duplicateColsMap) == 0 {
 		return nil
@@ -316,7 +316,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.
 			return nil, fmt.Errorf("insert row's column size not equal to insert column size")
 		}
 		for i, col := range insertColumns {
-			columnName := executor.DelEscape(col, types.DBTypeMySQL)
+			columnName := strings.ToLower(executor.DelEscape(col, types.DBTypeMySQL))
 			val := row[i]
 			if str, ok := val.(string); ok && strings.EqualFold(str, SqlPlaceholder) {
 				if placeHolderIndex >= len(args) {
@@ -342,14 +342,14 @@ func getInsertColumns(insertStmt *ast.InsertStmt) []string {
 	}
 	var list []string
 	for _, col := range colList {
-		list = append(list, col.Name.L)
+		list = append(list, strings.ToLower(col.Name.L))
 	}
 	return list
 }
 
 func isIndexValueNotNull(indexMeta types.IndexMeta, imageParameterMap map[string][]driver.Value, rowIndex int) bool {
 	for _, colMeta := range indexMeta.Columns {
-		columnName := colMeta.ColumnName
+		columnName := strings.ToLower(colMeta.ColumnName)
 		imageParameters := imageParameterMap[columnName]
 		if imageParameters == nil && colMeta.ColumnDef == nil {
 			return false
