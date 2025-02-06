@@ -23,33 +23,30 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/dao"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
 	"sync"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
-
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/dao"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
 	"seata.apache.org/seata-go/pkg/tm"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type tccFenceWrapperHandler struct {
 	tccFenceDao       dao.TCCFenceStore
-	logQueue          chan *FenceLogIdentity
+	logQueue          chan *model.FenceLogIdentity
 	logCache          list.List
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
-}
-
-type FenceLogIdentity struct {
-	xid      string
-	branchId int64
+	logTaskOnce       sync.Once
 }
 
 const (
-	maxQueueSize = 500
+	maxQueueSize  = 500
+	channelDelete = 5
+	cleanInterval = 5 * time.Minute
 )
 
 var (
@@ -76,7 +73,7 @@ func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql
 	err := handler.insertTCCFenceLog(tx, xid, branchId, actionName, enum.StatusTried)
 	if err != nil {
 		if mysqlError, ok := errors.Unwrap(err).(*mysql.MySQLError); ok && mysqlError.Number == 1062 {
-			// todo add clean command to channel.
+			log.Warnf("tcc fence record already exists, idempotency rejected. xid: %s, branchId: %d", xid, branchId)
 			handler.pushCleanChannel(xid, branchId)
 		}
 		return fmt.Errorf("insert tcc fence record errors, prepare fence failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
@@ -157,10 +154,49 @@ func (handler *tccFenceWrapperHandler) updateFenceStatus(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status)
 }
 
-func (handler *tccFenceWrapperHandler) InitLogCleanChannel() {
+func (handler *tccFenceWrapperHandler) InitLogCleanChannel(db *sql.DB) {
+
 	handler.logQueueOnce.Do(func() {
-		go handler.traversalCleanChannel()
+		go handler.traversalCleanChannel(db)
 	})
+
+	handler.logTaskOnce.Do(func() {
+		go handler.InitLogCleanTask(db)
+	})
+}
+
+func (handler *tccFenceWrapperHandler) InitLogCleanTask(db *sql.DB) {
+
+	ticker := time.NewTicker(cleanInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		tx, err := db.Begin()
+		if err != nil {
+			log.Errorf("failed to begin transaction: %v", err)
+			continue
+		}
+
+		expiredTime := time.Now().Add(-cleanInterval)
+		identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
+
+		if err != nil {
+			log.Errorf("failed to delete expired logs: %v", err)
+			tx.Rollback()
+			continue
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Errorf("failed to commit transaction: %v", err)
+		}
+
+		// push to clean channel
+		for _, identity := range identityList {
+			handler.logQueue <- &identity
+		}
+	}
+
 }
 
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
@@ -169,21 +205,19 @@ func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	})
 }
 
-func (handler *tccFenceWrapperHandler) deleteFence(xid string, id int64) error {
-	// todo implement
+func (handler *tccFenceWrapperHandler) deleteBatchFence(tx *sql.Tx, batch []model.FenceLogIdentity) error {
+	err := handler.tccFenceDao.DeleteMultipleTCCFenceLogIdentity(tx, batch)
+	if err != nil {
+		return fmt.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+	}
 	return nil
-}
-
-func (handler *tccFenceWrapperHandler) deleteFenceByDate(datetime time.Time) int32 {
-	// todo implement
-	return 0
 }
 
 func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
 	// todo implement
-	fli := &FenceLogIdentity{
-		xid:      xid,
-		branchId: branchId,
+	fli := &model.FenceLogIdentity{
+		Xid:      xid,
+		BranchId: branchId,
 	}
 	select {
 	case handler.logQueue <- fli:
@@ -194,11 +228,36 @@ func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int
 	log.Infof("add one log to clean queue: %v ", fli)
 }
 
-func (handler *tccFenceWrapperHandler) traversalCleanChannel() {
-	handler.logQueue = make(chan *FenceLogIdentity, maxQueueSize)
+func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
+	handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
+
+	counter := 0
+	batch := []model.FenceLogIdentity{}
+
 	for li := range handler.logQueue {
-		if err := handler.deleteFence(li.xid, li.branchId); err != nil {
-			log.Errorf("delete fence log failed, xid: %s, branchId: &s", li.xid, li.branchId)
+		counter++
+		batch = append(batch, *li)
+
+		if counter%channelDelete == 0 {
+			tx, _ := db.Begin()
+			err := handler.deleteBatchFence(tx, batch)
+			if err != nil {
+				log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+			} else {
+				tx.Commit()
+			}
+
+			batch = []model.FenceLogIdentity{}
+		}
+	}
+
+	if len(batch) > 0 {
+		tx, _ := db.Begin()
+		err := handler.deleteBatchFence(tx, batch)
+		if err != nil {
+			log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+		} else {
+			tx.Commit()
 		}
 	}
 }
