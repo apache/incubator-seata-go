@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"testing"
 
-	gomonkey "github.com/agiledragon/gomonkey/v2"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 )
