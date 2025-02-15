@@ -1,7 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package parser
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -23,9 +39,7 @@ func (stateMachineParser JSONStateMachineParser) GetType() string {
 }
 
 func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelang.StateMachine, error) {
-	var stateMachineJsonObject StateMachineJsonObject
-
-	err := json.Unmarshal([]byte(content), &stateMachineJsonObject)
+	stateMachineJsonObject, err := NewStateMachineConfigParser().Parse([]byte(content))
 	if err != nil {
 		return nil, err
 	}
@@ -114,17 +128,4 @@ func (stateMachineParser JSONStateMachineParser) isTaskState(stateType string) b
 		return true
 	}
 	return false
-}
-
-type StateMachineJsonObject struct {
-	Name                        string                 `json:"Name"`
-	Comment                     string                 `json:"Comment"`
-	Version                     string                 `json:"Version"`
-	StartState                  string                 `json:"StartState"`
-	RecoverStrategy             string                 `json:"RecoverStrategy"`
-	Persist                     bool                   `json:"IsPersist"`
-	RetryPersistModeUpdate      bool                   `json:"IsRetryPersistModeUpdate"`
-	CompensatePersistModeUpdate bool                   `json:"IsCompensatePersistModeUpdate"`
-	Type                        string                 `json:"Type"`
-	States                      map[string]interface{} `json:"States"`
 }

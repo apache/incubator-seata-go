@@ -1,0 +1,286 @@
+Name: StateMachineNewDesigner
+Comment: This state machine is modeled by designer tools.
+Version: 0.0.1
+style:
+  bounds:
+    x: 200
+    y: 200
+    width: 36
+    height: 36
+States:
+  ServiceTask-a9h2o51:
+    style:
+      bounds:
+        x: 300
+        y: 178
+        width: 100
+        height: 80
+    Name: ServiceTask-a9h2o51
+    IsForCompensation: false
+    Input:
+      - {}
+    Output: {}
+    Status: {}
+    Retry: []
+    ServiceName: ""
+    ServiceMethod: ""
+    Type: ServiceTask
+    Next: Choice-4ajl8nt
+    edge:
+      Choice-4ajl8nt:
+        style:
+          waypoints:
+            - original:
+                x: 400
+                y: 218
+              x: 400
+              y: 218
+            - x: 435
+              y: 218
+            - original:
+                x: 455
+                y: 218
+              x: 455
+              y: 218
+          source: ServiceTask-a9h2o51
+          target: Choice-4ajl8nt
+        Type: Transition
+    CompensateState: CompensateFirstState
+  Choice-4ajl8nt:
+    style:
+      bounds:
+        x: 455
+        y: 193
+        width: 50
+        height: 50
+    Name: Choice-4ajl8nt
+    Type: Choice
+    Choices:
+      - Expression: ""
+        Next: SubStateMachine-cauj9uy
+      - Expression: ""
+        Next: ServiceTask-vdij28l
+    Default: SubStateMachine-cauj9uy
+    edge:
+      SubStateMachine-cauj9uy:
+        style:
+          waypoints:
+            - original:
+                x: 505
+                y: 218
+              x: 505
+              y: 218
+            - x: 530
+              y: 218
+            - original:
+                x: 550
+                y: 218
+              x: 550
+              y: 218
+          source: Choice-4ajl8nt
+          target: SubStateMachine-cauj9uy
+        Type: ChoiceEntry
+      ServiceTask-vdij28l:
+        style:
+          waypoints:
+            - original:
+                x: 480
+                y: 243
+              x: 480
+              y: 243
+            - x: 600
+              y: 290
+            - original:
+                x: 600
+                y: 310
+              x: 600
+              y: 310
+          source: Choice-4ajl8nt
+          target: ServiceTask-vdij28l
+        Type: ChoiceEntry
+  CompensateFirstState:
+    style:
+      bounds:
+        x: 300
+        y: 310
+        width: 100
+        height: 80
+    Name: CompensateFirstState
+    IsForCompensation: true
+    Input:
+      - {}
+    Output: {}
+    Status: {}
+    Retry: []
+    ServiceName: ""
+    ServiceMethod: ""
+    Type: ServiceTask
+  SubStateMachine-cauj9uy:
+    style:
+      bounds:
+        x: 550
+        y: 178
+        width: 100
+        height: 80
+    Name: SubStateMachine-cauj9uy
+    IsForCompensation: false
+    Input:
+      - {}
+    Output: {}
+    Status: {}
+    Retry: []
+    StateMachineName: ""
+    Type: SubStateMachine
+    Next: Succeed-5x3z98u
+    edge:
+      Succeed-5x3z98u:
+        style:
+          waypoints:
+            - original:
+                x: 650
+                y: 218
+              x: 650
+              y: 218
+            - x: 702
+              y: 218
+            - original:
+                x: 722
+                y: 218
+              x: 722
+              y: 218
+          source: SubStateMachine-cauj9uy
+          target: Succeed-5x3z98u
+        Type: Transition
+  ServiceTask-vdij28l:
+    style:
+      bounds:
+        x: 550
+        y: 310
+        width: 100
+        height: 80
+    Name: ServiceTask-vdij28l
+    IsForCompensation: false
+    Input:
+      - {}
+    Output: {}
+    Status: {}
+    Retry: []
+    ServiceName: ""
+    ServiceMethod: ""
+    Catch:
+      - Exceptions: []
+        Next: CompensationTrigger-uldp2ou
+    Type: ServiceTask
+    catch:
+      style:
+        bounds:
+          x: 632
+          y: 372
+          width: 36
+          height: 36
+      edge:
+        CompensationTrigger-uldp2ou:
+          style:
+            waypoints:
+              - original:
+                  x: 668
+                  y: 390
+                x: 668
+                y: 390
+              - x: 702
+                y: 390
+              - original:
+                  x: 722
+                  y: 390
+                x: 722
+                y: 390
+            source: ServiceTask-vdij28l
+            target: CompensationTrigger-uldp2ou
+          Type: ExceptionMatch
+    Next: Succeed-5x3z98u
+    edge:
+      Succeed-5x3z98u:
+        style:
+          waypoints:
+            - original:
+                x: 600
+                y: 310
+              x: 600
+              y: 310
+            - x: 740
+              y: 256
+            - original:
+                x: 740
+                y: 236
+              x: 740
+              y: 236
+          source: ServiceTask-vdij28l
+          target: Succeed-5x3z98u
+        Type: Transition
+  Succeed-5x3z98u:
+    style:
+      bounds:
+        x: 722
+        y: 200
+        width: 36
+        height: 36
+    Name: Succeed-5x3z98u
+    Type: Succeed
+  CompensationTrigger-uldp2ou:
+    style:
+      bounds:
+        x: 722
+        y: 372
+        width: 36
+        height: 36
+    Name: CompensationTrigger-uldp2ou
+    Type: CompensationTrigger
+    Next: Fail-9roxcv5
+    edge:
+      Fail-9roxcv5:
+        style:
+          waypoints:
+            - original:
+                x: 758
+                y: 390
+              x: 758
+              y: 390
+            - x: 792
+              y: 390
+            - original:
+                x: 812
+                y: 390
+              x: 812
+              y: 390
+          source: CompensationTrigger-uldp2ou
+          target: Fail-9roxcv5
+        Type: Transition
+  Fail-9roxcv5:
+    style:
+      bounds:
+        x: 812
+        y: 372
+        width: 36
+        height: 36
+    Name: Fail-9roxcv5
+    ErrorCode: ""
+    Message: ""
+    Type: Fail
+StartState: ServiceTask-a9h2o51
+edge:
+  style:
+    waypoints:
+      - original:
+          x: 236
+          y: 218
+        x: 236
+        y: 218
+      - x: 280
+        y: 218
+      - original:
+          x: 300
+          y: 218
+        x: 300
+        y: 218
+    target: ServiceTask-a9h2o51
+  Type: Transition
