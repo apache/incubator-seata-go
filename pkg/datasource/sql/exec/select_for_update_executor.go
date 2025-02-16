@@ -324,7 +324,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
-	ss := s.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
+	ss := s.BasicUndoLogBuilder.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
 	for {
 		err := rows.Next(ss)
 		if err == io.EOF {

@@ -48,6 +48,11 @@ var (
 	onceSessionManager = &sync.Once{}
 )
 
+// The purpose is to solve "only using a package in
+// a type assertion is considered by ci lint as not
+// using the package"
+var _ = tls.VersionTLS12
+
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool
 	serverSessions sync.Map

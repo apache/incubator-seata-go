@@ -86,7 +86,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 
 	// to set up the fence phase
 	tm.SetFencePhase(ctx, enum.FencePhasePrepare)
-	return t.TCCResource.Prepare(ctx, params)
+	return t.TCCResource.TwoPhaseAction.Prepare(ctx, params)
 }
 
 // registeBranch send register branch transaction request
@@ -108,7 +108,7 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 	})
 	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
 		BranchType:      branch.BranchTypeTCC,
-		ResourceId:      t.GetActionName(),
+		ResourceId:      t.TwoPhaseAction.GetActionName(),
 		ClientId:        "",
 		Xid:             tm.GetXID(ctx),
 		ApplicationData: string(applicationData),
@@ -168,7 +168,7 @@ func (t *TCCServiceProxy) getActionContextParameters(params interface{}) map[str
 func (t *TCCServiceProxy) initBusinessActionContext(ctx context.Context, params interface{}) *tm.BusinessActionContext {
 	tccContext := t.getOrCreateBusinessActionContext(params)
 	tccContext.Xid = tm.GetXID(ctx)
-	tccContext.ActionName = t.GetActionName()
+	tccContext.ActionName = t.TwoPhaseAction.GetActionName()
 	// todo read from config file
 	tccContext.IsDelayReport = true
 	if tccContext.ActionContext == nil {
@@ -245,7 +245,7 @@ func (t *TCCServiceProxy) GetTransactionInfo() tm.GtxConfig {
 	// todo replace with config
 	return tm.GtxConfig{
 		Timeout: time.Second * 10,
-		Name:    t.GetActionName(),
+		Name:    t.TwoPhaseAction.GetActionName(),
 		// Propagation, Propagation
 		// LockRetryInternal, int64
 		// LockRetryTimes    int64

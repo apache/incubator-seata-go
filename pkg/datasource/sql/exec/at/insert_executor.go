@@ -67,7 +67,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	if i.businesSQLResult == nil {
+	if i.businesSQLResult == interface{}(nil) {
 		i.businesSQLResult = res
 	}
 
