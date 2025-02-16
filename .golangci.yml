@@ -48,9 +48,6 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
-  goanalysis_metalinter:
-    exclude:
-      - "github.com/apache/dubbo-getty"
 
 linters:
   disable-all: true
@@ -85,6 +82,9 @@ issues:
         - gosec
         - rowserrcheck
         - govet
+    - path: github.com/apache/dubbo-getty
+      linters:
+        - goanalysis_metalinter
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
