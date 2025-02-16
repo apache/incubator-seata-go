@@ -48,6 +48,10 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+  goanalysis-metalinter:
+    exclude-rules:
+      - pkg: "github.com/apache/dubbo-getty"
+        disable-all: true
 
 linters:
   disable-all: true
