@@ -52,19 +52,6 @@ jobs:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v3
 
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Get dependencies
-        run: |
-          go mod download
-          go mod verify
-
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
