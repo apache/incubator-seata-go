@@ -168,7 +168,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 			var uniqueList []string
 			for _, columnMeta := range index.Columns {
 				columnName := columnMeta.ColumnName
-				imageParameters, ok := paramMap[columnName]
+				imageParameters, ok := paramMap[strings.ToLower(columnName)]
 				if !ok && columnMeta.ColumnDef != nil {
 					if strings.EqualFold("PRIMARY", index.Name) {
 						i.beforeImageSqlPrimaryKeys[columnName] = true
@@ -372,7 +372,7 @@ func (i *insertOnUpdateExecutor) isAstStmtValid() bool {
 func isIndexValueNull(indexMeta types.IndexMeta, imageParameterMap map[string][]driver.NamedValue, rowIndex int) bool {
 	for _, colMeta := range indexMeta.Columns {
 		columnName := colMeta.ColumnName
-		imageParameters := imageParameterMap[columnName]
+		imageParameters := imageParameterMap[strings.ToLower(columnName)]
 		if imageParameters == nil && colMeta.ColumnDef == nil {
 			return true
 		} else if imageParameters != nil && (rowIndex >= len(imageParameters) || imageParameters[rowIndex].Value == nil) {
