@@ -245,7 +245,7 @@ func (t *TCCServiceProxy) GetTransactionInfo() tm.GtxConfig {
 	// todo replace with config
 	return tm.GtxConfig{
 		Timeout: time.Second * 10,
-		Name:    t.GetActionName(),
+		Name:    t.TwoPhaseAction.GetActionName(),
 		// Propagation, Propagation
 		// LockRetryInternal, int64
 		// LockRetryTimes    int64

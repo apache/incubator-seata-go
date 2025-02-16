@@ -18,7 +18,7 @@
 package getty
 
 import (
-	"crypto/tls"
+	ctls "crypto/tls"
 	"fmt"
 	"net"
 	"reflect"
@@ -117,7 +117,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 	if g.gettyConf.SessionConfig.CompressEncoding {
 		session.SetCompressType(getty.CompressZip)
 	}
-	if _, ok = session.Conn().(*tls.Conn); ok {
+	if _, ok = session.Conn().(*ctls.Conn); ok {
 		g.setSessionConfig(session)
 		log.Debugf("server accepts new tls session:%s\n", session.Stat())
 		return nil
@@ -126,7 +126,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 		panic(fmt.Sprintf("%s, session.conn{%#v} is not a tcp connection\n", session.Stat(), session.Conn()))
 	}
 
-	if _, ok = session.Conn().(*tls.Conn); !ok {
+	if _, ok = session.Conn().(*ctls.Conn); !ok {
 		if tcpConn, ok = session.Conn().(*net.TCPConn); !ok {
 			return fmt.Errorf("%s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn())
 		}
