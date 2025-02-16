@@ -48,6 +48,9 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+  goanalysis_metalinter:
+    exclude:
+      - "github.com/apache/dubbo-getty"
 
 linters:
   disable-all: true
