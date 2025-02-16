@@ -52,6 +52,10 @@ jobs:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v3
 
+      - name: "go mod tidy"
+        run: |
+          go mod tidy
+
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
