@@ -52,6 +52,11 @@ jobs:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v3
 
+      - name: "Clean and download dependencies"
+        run: |
+          go clean -modcache
+          go mod download
+
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
