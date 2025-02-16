@@ -20,7 +20,8 @@ package executor
 import (
 	"context"
 	"database/sql"
-	dri "database/sql/driver"
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -33,6 +34,11 @@ import (
 )
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
+
+// The purpose is to solve "only using a package in
+// a type assertion is considered by ci lint as not
+// using the package"
+var _ = driver.ErrSkip
 
 const (
 	checkSQLTemplate = "SELECT * FROM %s WHERE %s FOR UPDATE"
@@ -149,7 +155,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		columns := make([]types.ColumnImage, 0)
 		for i, val := range slice {
 			actualVal := val
-			if v, ok := val.(dri.Valuer); ok {
+			if v, ok := val.(driver.Valuer); ok {
 				actualVal, _ = v.Value()
 			}
 			columns = append(columns, types.ColumnImage{

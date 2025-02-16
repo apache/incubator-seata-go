@@ -18,7 +18,7 @@
 package getty
 
 import (
-	ctls "crypto/tls"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"reflect"
@@ -47,6 +47,11 @@ var (
 	sessionManager     *SessionManager
 	onceSessionManager = &sync.Once{}
 )
+
+// The purpose is to solve "only using a package in
+// a type assertion is considered by ci lint as not
+// using the package"
+var _ = tls.VersionTLS12
 
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool
@@ -117,7 +122,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 	if g.gettyConf.SessionConfig.CompressEncoding {
 		session.SetCompressType(getty.CompressZip)
 	}
-	if _, ok = session.Conn().(*ctls.Conn); ok {
+	if _, ok = session.Conn().(*tls.Conn); ok {
 		g.setSessionConfig(session)
 		log.Debugf("server accepts new tls session:%s\n", session.Stat())
 		return nil
@@ -126,7 +131,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 		panic(fmt.Sprintf("%s, session.conn{%#v} is not a tcp connection\n", session.Stat(), session.Conn()))
 	}
 
-	if _, ok = session.Conn().(*ctls.Conn); !ok {
+	if _, ok = session.Conn().(*tls.Conn); !ok {
 		if tcpConn, ok = session.Conn().(*net.TCPConn); !ok {
 			return fmt.Errorf("%s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn())
 		}
