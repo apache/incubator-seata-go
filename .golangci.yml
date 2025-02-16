@@ -64,8 +64,6 @@ linters:
     - sqlclosecheck
 
 run:
-  skip-dirs:
-    - github.com/apache/dubbo-getty
 
 issues:
   exclude-dirs:
