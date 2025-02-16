@@ -48,10 +48,6 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
-  goanalysis-metalinter:
-    exclude-rules:
-      - pkg: "github.com/apache/dubbo-getty"
-        disable-all: true
 
 linters:
   disable-all: true
@@ -68,6 +64,8 @@ linters:
     - sqlclosecheck
 
 run:
+  skip-dirs:
+    - github.com/apache/dubbo-getty
 
 issues:
   exclude-dirs:
