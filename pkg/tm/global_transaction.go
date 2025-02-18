@@ -162,14 +162,8 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 
 func isTimeout(ctx context.Context) bool {
 	ti := GetTimeInfo(ctx)
-	if ti == nil {
+	if ti == nil || ti.createTime == 0 || ti.timeout == 0 {
 		return false
 	}
-	if ti.createTime == 0 || ti.timeout == 0 {
-		return false
-	}
-	if time.Since(time.Unix(int64(ti.createTime), 0)) > ti.timeout {
-		return true
-	}
-	return false
+	return time.Since(time.Unix(int64(ti.createTime), 0)) > ti.timeout
 }
