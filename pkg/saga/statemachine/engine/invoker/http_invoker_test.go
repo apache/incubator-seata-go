@@ -30,7 +30,7 @@ import (
 )
 
 func TestHTTPInvokerInvokeSucceedWithOutRetry(t *testing.T) {
-	// 创建测试服务器
+	// create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var input []interface{}
 		err := json.NewDecoder(r.Body).Decode(&input)
@@ -43,16 +43,16 @@ func TestHTTPInvokerInvokeSucceedWithOutRetry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 创建HTTP Invoker
+	// create HTTP Invoker
 	invoker := NewHTTPInvoker()
 	client := NewHTTPClient("test", server.URL+"/", &http.Client{})
 	invoker.RegisterClient("test", client)
 
-	// 执行调用
+	// invoke
 	ctx := context.Background()
 	values, err := invoker.Invoke(ctx, []any{"hello"}, newHTTPServiceTaskState())
 
-	// 验证结果
+	// verify
 	assert.NoError(t, err)
 	assert.NotNil(t, values)
 	assert.Equal(t, "hello", values[0].Interface())
@@ -60,7 +60,7 @@ func TestHTTPInvokerInvokeSucceedWithOutRetry(t *testing.T) {
 
 func TestHTTPInvokerInvokeWithRetry(t *testing.T) {
 	attemptCount := 0
-	// 创建测试服务器
+	// create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
 		if attemptCount < 2 {
@@ -75,16 +75,16 @@ func TestHTTPInvokerInvokeWithRetry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 创建HTTP Invoker
+	// create HTTP Invoker
 	invoker := NewHTTPInvoker()
 	client := NewHTTPClient("test", server.URL+"/", &http.Client{})
 	invoker.RegisterClient("test", client)
 
-	// 执行调用
+	// invoker
 	ctx := context.Background()
 	values, err := invoker.Invoke(ctx, []any{"hello"}, newHTTPServiceTaskStateWithRetry())
 
-	// 验证结果
+	// verify
 	assert.NoError(t, err)
 	assert.NotNil(t, values)
 	assert.Equal(t, "hello", values[0].Interface())
@@ -92,29 +92,29 @@ func TestHTTPInvokerInvokeWithRetry(t *testing.T) {
 }
 
 func TestHTTPInvokerInvokeFailedInRetry(t *testing.T) {
-	// 创建测试服务器
+	// create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("fail"))
 	}))
 	defer server.Close()
 
-	// 创建HTTP Invoker
+	// create HTTP Invoker
 	invoker := NewHTTPInvoker()
 	client := NewHTTPClient("test", server.URL+"/", &http.Client{})
 	invoker.RegisterClient("test", client)
 
-	// 执行调用
+	// invoker
 	ctx := context.Background()
 	_, err := invoker.Invoke(ctx, []any{"hello"}, newHTTPServiceTaskStateWithRetry())
 
-	// 验证结果
+	// verify
 	assert.Error(t, err)
 }
 
 func TestHTTPInvokerAsyncInvoke(t *testing.T) {
 	called := false
-	// 创建测试服务器
+	// create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
@@ -122,19 +122,19 @@ func TestHTTPInvokerAsyncInvoke(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 创建HTTP Invoker
+	// create HTTP Invoker
 	invoker := NewHTTPInvoker()
 	client := NewHTTPClient("test", server.URL+"/", &http.Client{})
 	invoker.RegisterClient("test", client)
 
-	// 执行异步调用
+	// async invoke
 	ctx := context.Background()
 	taskState := newHTTPServiceTaskStateWithAsync()
 	_, err := invoker.Invoke(ctx, []any{"hello"}, taskState)
 
-	// 验证结果
+	// verify
 	assert.NoError(t, err)
-	time.Sleep(100 * time.Millisecond) // 等待异步调用完成
+	time.Sleep(100 * time.Millisecond)
 	assert.True(t, called)
 }
 

@@ -34,6 +34,8 @@ import (
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
+const errHttpCode = 400
+
 type HTTPInvoker struct {
 	clientsMapLock sync.Mutex
 	clients        map[string]HTTPClient
@@ -120,7 +122,6 @@ func (h *HTTPClientImpl) Call(ctx context.Context, serviceTaskStateImpl *state.S
 				}
 			}()
 
-			// 构造HTTP请求
 			reqBody, err := json.Marshal(input)
 			if err != nil {
 				return nil, err, false
@@ -151,7 +152,7 @@ func (h *HTTPClientImpl) Call(ctx context.Context, serviceTaskStateImpl *state.S
 				return nil, err, false
 			}
 
-			if resp.StatusCode >= 400 {
+			if resp.StatusCode >= errHttpCode {
 				errStr := fmt.Sprintf("HTTP error: %d - %s", resp.StatusCode, string(body))
 				retry := h.matchRetry(serviceTaskStateImpl, errStr)
 				if retry != nil {
@@ -160,7 +161,6 @@ func (h *HTTPClientImpl) Call(ctx context.Context, serviceTaskStateImpl *state.S
 				return nil, errors.New(errStr), false
 			}
 
-			// 返回响应结果
 			return []reflect.Value{
 				reflect.ValueOf(string(body)),
 				reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()),
