@@ -46,6 +46,10 @@ type TCCFenceDO struct {
 }
 
 type FenceLogIdentity struct {
-	Xid      string
+
+	// Xid the global transaction id
+	Xid string
+
+	// BranchId the branch transaction id
 	BranchId int64
 }

@@ -41,17 +41,20 @@ type tccFenceWrapperHandler struct {
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
 	logTaskOnce       sync.Once
+	db                *sql.DB
+	dbMutex           sync.RWMutex
 }
 
 const (
 	maxQueueSize  = 500
 	channelDelete = 5
-	cleanInterval = 5 * time.Minute
+	cleanExpired  = 24 * time.Hour
 )
 
 var (
-	fenceHandler *tccFenceWrapperHandler
-	fenceOnce    sync.Once
+	fenceHandler  *tccFenceWrapperHandler
+	fenceOnce     sync.Once
+	cleanInterval = 5 * time.Minute
 )
 
 func GetFenceHandler() *tccFenceWrapperHandler {
@@ -63,6 +66,10 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 		})
 	}
 	return fenceHandler
+}
+
+func (handler *tccFenceWrapperHandler) InitCleanPeriod(time time.Duration) {
+	cleanInterval = time
 }
 
 func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
@@ -111,6 +118,7 @@ func (handler *tccFenceWrapperHandler) RollbackFence(ctx context.Context, tx *sq
 	xid := tm.GetBusinessActionContext(ctx).Xid
 	branchId := tm.GetBusinessActionContext(ctx).BranchId
 	actionName := tm.GetBusinessActionContext(ctx).ActionName
+
 	fenceDo, err := handler.tccFenceDao.QueryTCCFenceDO(tx, xid, branchId)
 	if err != nil {
 		return fmt.Errorf("rollback fence method failed. xid= %s, branchId= %d, [%w]", xid, branchId, err)
@@ -154,18 +162,29 @@ func (handler *tccFenceWrapperHandler) updateFenceStatus(tx *sql.Tx, xid string,
 	return handler.tccFenceDao.UpdateTCCFenceDO(tx, xid, branchId, enum.StatusTried, status)
 }
 
-func (handler *tccFenceWrapperHandler) InitLogCleanChannel(db *sql.DB) {
+func (handler *tccFenceWrapperHandler) InitLogCleanChannel(dsn string) {
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Warnf("failed to open database: %v", err)
+		return
+	}
+
+	handler.dbMutex.Lock()
+	handler.db = db
+	handler.dbMutex.Unlock()
 
 	handler.logQueueOnce.Do(func() {
 		go handler.traversalCleanChannel(db)
 	})
 
 	handler.logTaskOnce.Do(func() {
-		go handler.InitLogCleanTask(db)
+		go handler.initLogCleanTask(db)
 	})
+
 }
 
-func (handler *tccFenceWrapperHandler) InitLogCleanTask(db *sql.DB) {
+func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 
 	ticker := time.NewTicker(cleanInterval)
 	defer ticker.Stop()
@@ -173,15 +192,15 @@ func (handler *tccFenceWrapperHandler) InitLogCleanTask(db *sql.DB) {
 	for range ticker.C {
 		tx, err := db.Begin()
 		if err != nil {
-			log.Errorf("failed to begin transaction: %v", err)
+			log.Warnf("failed to begin transaction: %v", err)
 			continue
 		}
 
-		expiredTime := time.Now().Add(-cleanInterval)
+		expiredTime := time.Now().Add(-cleanExpired)
 		identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
 
 		if err != nil {
-			log.Errorf("failed to delete expired logs: %v", err)
+			log.Warnf("failed to delete expired logs: %v", err)
 			tx.Rollback()
 			continue
 		}
@@ -196,12 +215,17 @@ func (handler *tccFenceWrapperHandler) InitLogCleanTask(db *sql.DB) {
 			handler.logQueue <- &identity
 		}
 	}
-
 }
 
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
 		close(handler.logQueue)
+		handler.dbMutex.Lock()
+		if handler.db != nil {
+			handler.db.Close()
+			handler.db = nil
+		}
+		handler.dbMutex.Unlock()
 	})
 }
 
@@ -229,7 +253,10 @@ func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int
 }
 
 func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
-	handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
+
+	if handler.logQueue == nil {
+		handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
+	}
 
 	counter := 0
 	batch := []model.FenceLogIdentity{}
@@ -246,7 +273,7 @@ func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
 			} else {
 				tx.Commit()
 			}
-
+			counter = 0
 			batch = []model.FenceLogIdentity{}
 		}
 	}

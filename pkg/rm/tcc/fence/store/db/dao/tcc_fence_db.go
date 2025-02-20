@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"sync"
 	"time"
@@ -40,7 +41,9 @@ var (
 func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 	if tccFenceStoreDatabaseMapper == nil {
 		once.Do(func() {
-			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{}
+			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{
+				logTableName: "tcc_fence_log",
+			}
 		})
 	}
 	return tccFenceStoreDatabaseMapper
@@ -78,7 +81,7 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	if err = result.Scan(&xid, &branchId, &actionName, &status, &gmtCreate, &gmtModify); err != nil {
 		// will return error, if rows is empty
 		if err.Error() == "sql: no rows in result set" {
-			return nil, fmt.Errorf("query tcc fence get scan row，no rows in result set, [%w]", err)
+			return nil, nil
 		} else {
 			return nil, fmt.Errorf("query tcc fence get scan row failed, [%w]", err)
 		}
@@ -210,8 +213,10 @@ func (t *TccFenceStoreDatabaseMapper) DeleteMultipleTCCFenceLogIdentity(tx *sql.
 		return fmt.Errorf("delete tcc fences exec sql failed, [%w]", err)
 	}
 
-	affected, err := result.RowsAffected()
-	if err != nil || affected == 0 {
+	log.Debugf("Delete SQL: %s, args: %v", sql2.GertDeleteSQLByBranchIdsAndXids(t.logTableName, placeholders), args)
+
+	_, err = result.RowsAffected()
+	if err != nil {
 		return fmt.Errorf("delete tcc fences get affected rows failed, [%w]", err)
 	}
 

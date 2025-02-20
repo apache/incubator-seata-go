@@ -47,7 +47,7 @@ var (
 	deleteByBranchIdAndXid = "delete from " + localTccLogPlaced + " where xid = ? and  branch_id = ? "
 
 	// deleteByBranchIdsAndXids The enum DeleteByBranchIdsAndXids
-	deleteByBranchIdsAndXids = "delete from " + localTccLogPlaced + " where (xid,branch_id) in " + pramPlaceHolder
+	deleteByBranchIdsAndXids = "delete from " + localTccLogPlaced + " where (xid,branch_id) in (" + pramPlaceHolder + ")"
 
 	// deleteByDateAndStatus The enum DeleteByDateAndStatus
 	deleteByDateAndStatus = "delete from " + localTccLogPlaced +

@@ -18,7 +18,6 @@
 package config
 
 import (
-	"database/sql"
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
 )
 
@@ -28,16 +27,7 @@ func InitFence() {
 
 func InitCleanTask(dsn string) {
 
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		panic(err)
-	}
-
-	defer db.Close()
-
-	handler.GetFenceHandler().InitLogCleanChannel(db)
-
-	handler.GetFenceHandler().InitLogCleanTask(db)
+	go handler.GetFenceHandler().InitLogCleanChannel(dsn)
 
 }
 

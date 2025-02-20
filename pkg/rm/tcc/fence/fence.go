@@ -20,6 +20,7 @@ package fence
 import (
 	"flag"
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/config"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/dao"
 	"time"
 )
@@ -33,6 +34,7 @@ func InitFenceConfig(cfg Config) {
 
 	if FenceConfig.Enable {
 		dao.GetTccFenceStoreDatabaseMapper().InitLogTableName(FenceConfig.LogTableName)
+		handler.GetFenceHandler().InitCleanPeriod(FenceConfig.CleanPeriod)
 		config.InitCleanTask(FenceConfig.Url)
 	}
 }
@@ -49,5 +51,5 @@ func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.BoolVar(&cfg.Enable, prefix+".enable", false, "Whether the fence is initialized.")
 	f.StringVar(&cfg.Url, prefix+".url", "", "Data source name.")
 	f.StringVar(&cfg.LogTableName, prefix+".log-table-name", "tcc_fence_log", "Undo log table name.")
-	f.DurationVar(&cfg.CleanPeriod, prefix+".clean-period", 24*time.Hour, "Undo log retention time.")
+	f.DurationVar(&cfg.CleanPeriod, prefix+".clean-period", 5*time.Minute, "Undo log retention time.")
 }
