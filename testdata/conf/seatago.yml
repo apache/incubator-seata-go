@@ -141,6 +141,8 @@ seata:
   tcc:
     fence:
       # Anti suspension table name
+      enable: false
+      url: root:12345678@tcp(127.0.0.1:3306)/seata_client1?charset=utf8&parseTime=True
       log-table-name: tcc_fence_log_test
       clean-period: 60s
   # getty configuration

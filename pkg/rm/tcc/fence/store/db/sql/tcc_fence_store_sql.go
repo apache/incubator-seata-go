@@ -28,11 +28,17 @@ var (
 	// localTccLogPlaced The enum LocalTccLogPlaced
 	localTccLogPlaced = " %s "
 
+	pramPlaceHolder = "%s "
+
 	// insertLocalTccLog The enum InsertLocalTccLog
 	insertLocalTccLog = "insert into " + localTccLogPlaced + " (xid, branch_id, action_name, status, gmt_create, gmt_modified) values ( ?,?,?,?,?,?)"
 
 	// queryByBranchIdAndXid The enum QueryByBranchIdAndXid
 	queryByBranchIdAndXid = "select xid, branch_id, action_name, status, gmt_create, gmt_modified from " + localTccLogPlaced + " where xid = ? and branch_id = ? for update"
+
+	// queryByMdDate The enum QueryByMdDate
+	queryByMdDate = "select xid, branch_id from " + localTccLogPlaced + " where gmt_modified < ? " +
+		" and status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")"
 
 	// updateStatusByBranchIdAndXid The enum UpdateStatusByBranchIdAndXid
 	updateStatusByBranchIdAndXid = "update " + localTccLogPlaced + " set status = ?, gmt_modified = ? where xid = ? and  branch_id = ? and status = ? "
@@ -40,8 +46,14 @@ var (
 	// deleteByBranchIdAndXid The enum DeleteByBranchIdAndXid
 	deleteByBranchIdAndXid = "delete from " + localTccLogPlaced + " where xid = ? and  branch_id = ? "
 
+	// deleteByBranchIdsAndXids The enum DeleteByBranchIdsAndXids
+	deleteByBranchIdsAndXids = "delete from " + localTccLogPlaced + " where (xid,branch_id) in (" + pramPlaceHolder + ")"
+
 	// deleteByDateAndStatus The enum DeleteByDateAndStatus
-	deleteByDateAndStatus = "delete from " + localTccLogPlaced + " where gmt_modified < ?  and status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")"
+	deleteByDateAndStatus = "delete from " + localTccLogPlaced +
+		" where gmt_modified < ?  and" +
+		" status in (" + strconv.Itoa(int(enum.StatusCommitted)) + " , " + strconv.Itoa(int(enum.StatusRollbacked)) + " , " + strconv.Itoa(int(enum.StatusSuspended)) + ")" +
+		" limit ?"
 )
 
 func GetInsertLocalTCCLogSQL(localTccTable string) string {
@@ -60,6 +72,14 @@ func GetDeleteSQLByBranchIdAndXid(localTccTable string) string {
 	return fmt.Sprintf(deleteByBranchIdAndXid, localTccTable)
 }
 
+func GertDeleteSQLByBranchIdsAndXids(localTccTable string, paramsPlaceHolder string) string {
+	return fmt.Sprintf(deleteByBranchIdsAndXids, localTccTable, paramsPlaceHolder)
+}
+
 func GetDeleteSQLByMdfDateAndStatus(localTccTable string) string {
 	return fmt.Sprintf(deleteByDateAndStatus, localTccTable)
+}
+
+func GetQuerySQLByMdDate(localTccTable string) string {
+	return fmt.Sprintf(queryByMdDate, localTccTable)
 }
