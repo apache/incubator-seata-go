@@ -101,7 +101,6 @@ func TestZookeeperRegistryService_Lookup(t *testing.T) {
 		}
 
 		mockZkClient.EXPECT().Get(gomock.Any()).Return(tt.getData, nil, nil).AnyTimes()
-
 		eventCh := make(chan zk.Event)
 		mockZkClient.EXPECT().GetW(gomock.Any()).Return(tt.getData, nil, eventCh, nil).AnyTimes()
 		mockZkClient.EXPECT().Close().Return(nil).AnyTimes()

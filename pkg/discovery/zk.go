@@ -76,7 +76,7 @@ func newZookeeperRegistryService(config *ServiceConfig, zkConfig *ZookeeperConfi
 	vgroupMapping := config.VgroupMapping
 	grouplist := make(map[string][]*ServiceInstance, 0)
 
-	// 调用初始化方法
+	// init groplist
 	grouplist, err = initFromServiceConfig(config)
 	if err != nil {
 		log.Errorf("Error initializing service config: %v", err)
