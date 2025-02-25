@@ -39,14 +39,14 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.18
+          - 1.20.0
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: "set up go"
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.20.0
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
@@ -55,6 +55,6 @@ jobs:
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
-          version: v1.49.0
+          version: v1.51.0
           args: --timeout=10m
           skip-go-installation: true
