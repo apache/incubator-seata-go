@@ -84,6 +84,25 @@ type Config struct {
 	TransportConfig   remoteConfig.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
+
+	SagaConfig SagaConfig `yaml:"saga" json:"saga" koanf:"saga"`
+}
+
+type SagaConfig struct {
+	StateMachine *StateMachineObject `yaml:"state-machine" json:"state-machine" koanf:"state-machine"`
+}
+
+type StateMachineObject struct {
+	Name                        string                 `json:"Name" yaml:"Name"`
+	Comment                     string                 `json:"Comment" yaml:"Comment"`
+	Version                     string                 `json:"Version" yaml:"Version"`
+	StartState                  string                 `json:"StartState" yaml:"StartState"`
+	RecoverStrategy             string                 `json:"RecoverStrategy" yaml:"RecoverStrategy"`
+	Persist                     bool                   `json:"IsPersist" yaml:"IsPersist"`
+	RetryPersistModeUpdate      bool                   `json:"IsRetryPersistModeUpdate" yaml:"IsRetryPersistModeUpdate"`
+	CompensatePersistModeUpdate bool                   `json:"IsCompensatePersistModeUpdate" yaml:"IsCompensatePersistModeUpdate"`
+	Type                        string                 `json:"Type" yaml:"Type"`
+	States                      map[string]interface{} `json:"States" yaml:"States"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
