@@ -18,34 +18,46 @@
 package loadbalance
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
 	getty "github.com/apache/dubbo-getty"
+
+	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/net"
 )
 
 func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
 	var session getty.Session
+	const delimiter = ":"
 
-	// ip:port:transactionId
-	tmpSplits := strings.Split(xid, ":")
-	if len(tmpSplits) == 3 {
-		ip := tmpSplits[0]
-		port := tmpSplits[1]
-		ipPort := ip + ":" + port
-		sessions.Range(func(key, value interface{}) bool {
-			tmpSession := key.(getty.Session)
-			if tmpSession.IsClosed() {
-				sessions.Delete(tmpSession)
+	if len(xid) > 0 && strings.Contains(xid, delimiter) {
+		// ip:port:transactionId -> ip:port
+		index := strings.LastIndex(xid, delimiter)
+		serverAddress := xid[:index]
+
+		// ip:port -> port
+		// ipv4/v6
+		ip, port, err := net.SplitIPPortStr(serverAddress)
+		if err != nil {
+			log.Errorf("xid load balance err, xid:%s, %v , change use random load balance", xid, err)
+		} else {
+			sessions.Range(func(key, value interface{}) bool {
+				tmpSession := key.(getty.Session)
+				if tmpSession.IsClosed() {
+					sessions.Delete(tmpSession)
+					return true
+				}
+				ipPort := fmt.Sprintf("%s:%d", ip, port)
+				connectedIpPort := tmpSession.RemoteAddr()
+				if ipPort == connectedIpPort {
+					session = tmpSession
+					return false
+				}
 				return true
-			}
-			connectedIpPort := tmpSession.RemoteAddr()
-			if ipPort == connectedIpPort {
-				session = tmpSession
-				return false
-			}
-			return true
-		})
+			})
+		}
 	}
 
 	if session == nil {
