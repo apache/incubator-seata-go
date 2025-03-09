@@ -17,8 +17,17 @@
 
 package expr
 
-type Expression interface {
-	Value(elContext any) any
-	SetValue(value any, elContext any)
-	ExpressionString() string
+type CELExpressionFactory struct {
+	expr *CELExpression
+}
+
+var _ ExpressionFactory = (*CELExpressionFactory)(nil)
+
+func NewCELExpressionFactory() *CELExpressionFactory {
+	return &CELExpressionFactory{}
+}
+
+func (f *CELExpressionFactory) CreateExpression(expression string) Expression {
+	f.expr, _ = NewCELExpression(expression)
+	return f.expr
 }

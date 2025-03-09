@@ -17,8 +17,15 @@
 
 package expr
 
-type Expression interface {
-	Value(elContext any) any
-	SetValue(value any, elContext any)
-	ExpressionString() string
+import (
+	"testing"
+)
+
+func TestCelExpressionFactory(t *testing.T) {
+	factory := NewCELExpressionFactory()
+	expression := factory.CreateExpression("'Hello' + ' World!'")
+	value := expression.Value(nil)
+	if value != "Hello World!" {
+		t.Errorf("expect 'Hello World!', but '%v'", value)
+	}
 }

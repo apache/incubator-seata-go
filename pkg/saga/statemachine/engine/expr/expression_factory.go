@@ -17,8 +17,6 @@
 
 package expr
 
-type Expression interface {
-	Value(elContext any) any
-	SetValue(value any, elContext any)
-	ExpressionString() string
+type ExpressionFactory interface {
+	CreateExpression(expression string) Expression
 }
