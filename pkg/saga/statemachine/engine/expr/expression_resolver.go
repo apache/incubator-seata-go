@@ -17,8 +17,8 @@
 
 package expr
 
-type Expression interface {
-	Value(elContext any) any
-	SetValue(value any, elContext any)
-	ExpressionString() string
+type ExpressionResolver interface {
+	Expression(expressionStr string) Expression
+	ExpressionFactoryManager() ExpressionFactoryManager
+	SetExpressionFactoryManager(expressionFactoryManager ExpressionFactoryManager)
 }
