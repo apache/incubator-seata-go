@@ -21,28 +21,10 @@ import (
 	"testing"
 )
 
-func TestValueWithNil(t *testing.T) {
-	expr, err := NewCELExpression("'Hello' + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
-	value := expr.Value(nil)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
-}
-
-func TestValue(t *testing.T) {
-	expr, err := NewCELExpression("elContext['name'] + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
-	elContext := map[string]any{
-		"name": "Hello",
-	}
-	value := expr.Value(elContext)
+func TestCelExpressionFactory(t *testing.T) {
+	factory := NewCELExpressionFactory()
+	expression := factory.CreateExpression("'Hello' + ' World!'")
+	value := expression.Value(nil)
 	if value != "Hello World!" {
 		t.Errorf("expect 'Hello World!', but '%v'", value)
 	}

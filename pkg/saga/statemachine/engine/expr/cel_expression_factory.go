@@ -17,33 +17,17 @@
 
 package expr
 
-import (
-	"testing"
-)
-
-func TestValueWithNil(t *testing.T) {
-	expr, err := NewCELExpression("'Hello' + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
-	value := expr.Value(nil)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
+type CELExpressionFactory struct {
+	expr *CELExpression
 }
 
-func TestValue(t *testing.T) {
-	expr, err := NewCELExpression("elContext['name'] + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
-	elContext := map[string]any{
-		"name": "Hello",
-	}
-	value := expr.Value(elContext)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
+var _ ExpressionFactory = (*CELExpressionFactory)(nil)
+
+func NewCELExpressionFactory() *CELExpressionFactory {
+	return &CELExpressionFactory{}
+}
+
+func (f *CELExpressionFactory) CreateExpression(expression string) Expression {
+	f.expr, _ = NewCELExpression(expression)
+	return f.expr
 }

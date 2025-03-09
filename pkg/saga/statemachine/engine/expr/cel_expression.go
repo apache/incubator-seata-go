@@ -28,6 +28,8 @@ type CELExpression struct {
 	expression string
 }
 
+var _ Expression = (*CELExpression)(nil)
+
 func NewCELExpression(expression string) (*CELExpression, error) {
 	// Create the standard environment.
 	env, err := cel.NewEnv(
@@ -67,14 +69,14 @@ func NewCELExpression(expression string) (*CELExpression, error) {
 	return CELExpression, nil
 }
 
-func (c *CELExpression) Value(elContext any) (any, error) {
+func (c *CELExpression) Value(elContext any) any {
 	result, _, err := c.program.Eval(map[string]any{
 		"elContext": elContext,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return result.Value(), nil
+	return result.Value()
 }
 
 func (c *CELExpression) SetValue(val any, elContext any) {
