@@ -18,8 +18,9 @@
 package expr
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"strings"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 )
 
 const DefaultExpressionType string = "Default"
@@ -97,7 +98,7 @@ func (s *SequenceExpression) SetRule(rule string) {
 	s.rule = rule
 }
 
-func (s SequenceExpression) Value(elContext any) any {
+func (s SequenceExpression) Value(vars map[string]any) any {
 	return s.seqGenerator.GenerateId(s.entity, s.rule)
 }
 
