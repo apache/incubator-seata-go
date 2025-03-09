@@ -17,47 +17,14 @@
 
 package expr
 
-import (
-	"strings"
-)
-
-const DefaultExpressionType string = "Default"
-
-type ExpressionResolver interface {
-	Expression(expressionStr string) Expression
-	ExpressionFactoryManager() ExpressionFactoryManager
-	SetExpressionFactoryManager(expressionFactoryManager ExpressionFactoryManager)
-}
-
 type Expression interface {
 	Value(elContext any) any
 	SetValue(value any, elContext any)
 	ExpressionString() string
 }
 
-type ExpressionFactoryManager struct {
-	expressionFactoryMap map[string]ExpressionFactory
-}
-
-func NewExpressionFactoryManager() *ExpressionFactoryManager {
-	return &ExpressionFactoryManager{
-		expressionFactoryMap: make(map[string]ExpressionFactory),
-	}
-}
-
-func (e *ExpressionFactoryManager) GetExpressionFactory(expressionType string) ExpressionFactory {
-	if strings.TrimSpace(expressionType) == "" {
-		expressionType = DefaultExpressionType
-	}
-	return e.expressionFactoryMap[expressionType]
-}
-
-func (e *ExpressionFactoryManager) SetExpressionFactoryMap(expressionFactoryMap map[string]ExpressionFactory) {
-	for k, v := range expressionFactoryMap {
-		e.expressionFactoryMap[k] = v
-	}
-}
-
-func (e *ExpressionFactoryManager) PutExpressionFactory(expressionType string, factory ExpressionFactory) {
-	e.expressionFactoryMap[expressionType] = factory
+type ExpressionResolver interface {
+	Expression(expressionStr string) Expression
+	ExpressionFactoryManager() ExpressionFactoryManager
+	SetExpressionFactoryManager(expressionFactoryManager ExpressionFactoryManager)
 }
