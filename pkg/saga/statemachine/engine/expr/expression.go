@@ -19,8 +19,6 @@ package expr
 
 import (
 	"strings"
-
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 )
 
 const DefaultExpressionType string = "Default"
@@ -66,46 +64,4 @@ func (e *ExpressionFactoryManager) SetExpressionFactoryMap(expressionFactoryMap 
 
 func (e *ExpressionFactoryManager) PutExpressionFactory(expressionType string, factory ExpressionFactory) {
 	e.expressionFactoryMap[expressionType] = factory
-}
-
-type SequenceExpression struct {
-	seqGenerator sequence.SeqGenerator
-	entity       string
-	rule         string
-}
-
-func (s *SequenceExpression) SeqGenerator() sequence.SeqGenerator {
-	return s.seqGenerator
-}
-
-func (s *SequenceExpression) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
-	s.seqGenerator = seqGenerator
-}
-
-func (s *SequenceExpression) Entity() string {
-	return s.entity
-}
-
-func (s *SequenceExpression) SetEntity(entity string) {
-	s.entity = entity
-}
-
-func (s *SequenceExpression) Rule() string {
-	return s.rule
-}
-
-func (s *SequenceExpression) SetRule(rule string) {
-	s.rule = rule
-}
-
-func (s SequenceExpression) Value(vars map[string]any) any {
-	return s.seqGenerator.GenerateId(s.entity, s.rule)
-}
-
-func (s SequenceExpression) SetValue(value any, elContext any) {
-
-}
-
-func (s SequenceExpression) ExpressionString() string {
-	return s.entity + "|" + s.rule
 }
