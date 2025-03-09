@@ -35,10 +35,6 @@ type Expression interface {
 	ExpressionString() string
 }
 
-type ExpressionFactory interface {
-	CreateExpression(expression string) Expression
-}
-
 type ExpressionFactoryManager struct {
 	expressionFactoryMap map[string]ExpressionFactory
 }
