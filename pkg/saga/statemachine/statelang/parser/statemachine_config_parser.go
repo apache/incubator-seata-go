@@ -19,16 +19,20 @@ package parser
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"io"
 	"os"
+
+	"github.com/knadh/koanf"
+	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/rawbytes"
 )
 
 // ConfigParser is a general configuration parser interface, used to agree on the implementation of different types of parsers
 type ConfigParser interface {
-	Parse(configContent []byte) (*StateMachineObject, error)
+	Parse(configContent []byte) (*statemachine.StateMachineObject, error)
 }
 
 type JSONConfigParser struct{}
@@ -37,14 +41,19 @@ func NewJSONConfigParser() *JSONConfigParser {
 	return &JSONConfigParser{}
 }
 
-func (p *JSONConfigParser) Parse(configContent []byte) (*StateMachineObject, error) {
+func (p *JSONConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
 	if configContent == nil || len(configContent) == 0 {
 		return nil, fmt.Errorf("empty JSON config content")
 	}
 
-	var stateMachineObject StateMachineObject
-	if err := json.Unmarshal(configContent, &stateMachineObject); err != nil {
+	k := koanf.New(".")
+	if err := k.Load(rawbytes.Provider(configContent), json.Parser()); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON config content: %w", err)
+	}
+
+	var stateMachineObject statemachine.StateMachineObject
+	if err := k.Unmarshal("", &stateMachineObject); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON config to struct: %w", err)
 	}
 
 	return &stateMachineObject, nil
@@ -56,14 +65,19 @@ func NewYAMLConfigParser() *YAMLConfigParser {
 	return &YAMLConfigParser{}
 }
 
-func (p *YAMLConfigParser) Parse(configContent []byte) (*StateMachineObject, error) {
+func (p *YAMLConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
 	if configContent == nil || len(configContent) == 0 {
 		return nil, fmt.Errorf("empty YAML config content")
 	}
 
-	var stateMachineObject StateMachineObject
-	if err := yaml.Unmarshal(configContent, &stateMachineObject); err != nil {
+	k := koanf.New(".")
+	if err := k.Load(rawbytes.Provider(configContent), yaml.Parser()); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML config content: %w", err)
+	}
+
+	var stateMachineObject statemachine.StateMachineObject
+	if err := k.Unmarshal("", &stateMachineObject); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal YAML config to struct: %w", err)
 	}
 
 	return &stateMachineObject, nil
@@ -102,35 +116,24 @@ func (p *StateMachineConfigParser) ReadConfigFile(configFilePath string) ([]byte
 }
 
 func (p *StateMachineConfigParser) getParser(content []byte) (ConfigParser, error) {
-	var obj interface{}
-	if err := json.Unmarshal(content, &obj); err == nil {
+	k := koanf.New(".")
+	if err := k.Load(rawbytes.Provider(content), json.Parser()); err == nil {
 		return NewJSONConfigParser(), nil
 	}
-	if err := yaml.Unmarshal(content, &obj); err == nil {
+
+	k = koanf.New(".")
+	if err := k.Load(rawbytes.Provider(content), yaml.Parser()); err == nil {
 		return NewYAMLConfigParser(), nil
 	}
 
 	return nil, fmt.Errorf("unsupported config file format")
 }
 
-func (p *StateMachineConfigParser) Parse(content []byte) (*StateMachineObject, error) {
+func (p *StateMachineConfigParser) Parse(content []byte) (*statemachine.StateMachineObject, error) {
 	parser, err := p.getParser(content)
 	if err != nil {
 		return nil, err
 	}
 
 	return parser.Parse(content)
-}
-
-type StateMachineObject struct {
-	Name                        string                 `json:"Name" yaml:"Name"`
-	Comment                     string                 `json:"Comment" yaml:"Comment"`
-	Version                     string                 `json:"Version" yaml:"Version"`
-	StartState                  string                 `json:"StartState" yaml:"StartState"`
-	RecoverStrategy             string                 `json:"RecoverStrategy" yaml:"RecoverStrategy"`
-	Persist                     bool                   `json:"IsPersist" yaml:"IsPersist"`
-	RetryPersistModeUpdate      bool                   `json:"IsRetryPersistModeUpdate" yaml:"IsRetryPersistModeUpdate"`
-	CompensatePersistModeUpdate bool                   `json:"IsCompensatePersistModeUpdate" yaml:"IsCompensatePersistModeUpdate"`
-	Type                        string                 `json:"Type" yaml:"Type"`
-	States                      map[string]interface{} `json:"States" yaml:"States"`
 }

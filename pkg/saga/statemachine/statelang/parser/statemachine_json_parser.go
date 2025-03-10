@@ -106,14 +106,13 @@ func (stateMachineParser JSONStateMachineParser) Parse(content string) (statelan
 }
 
 func (stateMachineParser JSONStateMachineParser) setForCompensation(stateValue statelang.State, stateMachine *statelang.StateMachineImpl) {
-	switch stateValue.Type() {
-	case stateValue.Type():
+	if stateValue.Type() == constant.StateTypeServiceTask {
 		serviceTaskStateImpl, ok := stateValue.(*state.ServiceTaskStateImpl)
 		if ok {
 			if serviceTaskStateImpl.CompensateState() != "" {
 				compState := stateMachine.States()[serviceTaskStateImpl.CompensateState()]
 				if stateMachineParser.isTaskState(compState.Type()) {
-					compStateImpl, ok := compState.(state.ServiceTaskStateImpl)
+					compStateImpl, ok := compState.(*state.ServiceTaskStateImpl)
 					if ok {
 						compStateImpl.SetForCompensation(true)
 					}
