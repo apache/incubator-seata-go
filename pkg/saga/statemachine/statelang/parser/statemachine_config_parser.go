@@ -20,6 +20,7 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"io"
 	"os"
 
@@ -27,13 +28,11 @@ import (
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
-
-	"github.com/seata/seata-go/pkg/client"
 )
 
 // ConfigParser is a general configuration parser interface, used to agree on the implementation of different types of parsers
 type ConfigParser interface {
-	Parse(configContent []byte) (*client.StateMachineObject, error)
+	Parse(configContent []byte) (*statemachine.StateMachineObject, error)
 }
 
 type JSONConfigParser struct{}
@@ -42,7 +41,7 @@ func NewJSONConfigParser() *JSONConfigParser {
 	return &JSONConfigParser{}
 }
 
-func (p *JSONConfigParser) Parse(configContent []byte) (*client.StateMachineObject, error) {
+func (p *JSONConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
 	if configContent == nil || len(configContent) == 0 {
 		return nil, fmt.Errorf("empty JSON config content")
 	}
@@ -52,7 +51,7 @@ func (p *JSONConfigParser) Parse(configContent []byte) (*client.StateMachineObje
 		return nil, fmt.Errorf("failed to parse JSON config content: %w", err)
 	}
 
-	var stateMachineObject client.StateMachineObject
+	var stateMachineObject statemachine.StateMachineObject
 	if err := k.Unmarshal("", &stateMachineObject); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON config to struct: %w", err)
 	}
@@ -66,7 +65,7 @@ func NewYAMLConfigParser() *YAMLConfigParser {
 	return &YAMLConfigParser{}
 }
 
-func (p *YAMLConfigParser) Parse(configContent []byte) (*client.StateMachineObject, error) {
+func (p *YAMLConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
 	if configContent == nil || len(configContent) == 0 {
 		return nil, fmt.Errorf("empty YAML config content")
 	}
@@ -76,7 +75,7 @@ func (p *YAMLConfigParser) Parse(configContent []byte) (*client.StateMachineObje
 		return nil, fmt.Errorf("failed to parse YAML config content: %w", err)
 	}
 
-	var stateMachineObject client.StateMachineObject
+	var stateMachineObject statemachine.StateMachineObject
 	if err := k.Unmarshal("", &stateMachineObject); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal YAML config to struct: %w", err)
 	}
@@ -130,7 +129,7 @@ func (p *StateMachineConfigParser) getParser(content []byte) (ConfigParser, erro
 	return nil, fmt.Errorf("unsupported config file format")
 }
 
-func (p *StateMachineConfigParser) Parse(content []byte) (*client.StateMachineObject, error) {
+func (p *StateMachineConfigParser) Parse(content []byte) (*statemachine.StateMachineObject, error) {
 	parser, err := p.getParser(content)
 	if err != nil {
 		return nil, err

@@ -20,6 +20,7 @@ package client
 import (
 	"flag"
 	"fmt"
+	"github.com/seata/seata-go/pkg/saga"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -85,24 +86,7 @@ type Config struct {
 	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
 
-	SagaConfig SagaConfig `yaml:"saga" json:"saga" koanf:"saga"`
-}
-
-type SagaConfig struct {
-	StateMachine *StateMachineObject `yaml:"state-machine" json:"state-machine" koanf:"state-machine"`
-}
-
-type StateMachineObject struct {
-	Name                        string                 `json:"Name" yaml:"Name"`
-	Comment                     string                 `json:"Comment" yaml:"Comment"`
-	Version                     string                 `json:"Version" yaml:"Version"`
-	StartState                  string                 `json:"StartState" yaml:"StartState"`
-	RecoverStrategy             string                 `json:"RecoverStrategy" yaml:"RecoverStrategy"`
-	Persist                     bool                   `json:"IsPersist" yaml:"IsPersist"`
-	RetryPersistModeUpdate      bool                   `json:"IsRetryPersistModeUpdate" yaml:"IsRetryPersistModeUpdate"`
-	CompensatePersistModeUpdate bool                   `json:"IsCompensatePersistModeUpdate" yaml:"IsCompensatePersistModeUpdate"`
-	Type                        string                 `json:"Type" yaml:"Type"`
-	States                      map[string]interface{} `json:"States" yaml:"States"`
+	SagaConfig saga.Config `yaml:"saga" json:"saga" koanf:"saga"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -121,6 +105,7 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.RegistryConfig.RegisterFlagsWithPrefix("registry", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
+	c.SagaConfig.RegisterFlagsWithPrefix("saga", f)
 }
 
 type loaderConf struct {

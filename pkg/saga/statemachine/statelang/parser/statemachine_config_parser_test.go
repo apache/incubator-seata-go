@@ -18,7 +18,7 @@
 package parser
 
 import (
-	"github.com/seata/seata-go/pkg/client"
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -29,7 +29,7 @@ func TestStateMachineConfigParser_Parse(t *testing.T) {
 	tests := []struct {
 		name           string
 		configFilePath string
-		expectedObject *client.StateMachineObject
+		expectedObject *statemachine.StateMachineObject
 	}{
 		{
 			name:           "JSON Simple 1",
@@ -78,13 +78,13 @@ func TestStateMachineConfigParser_Parse(t *testing.T) {
 	}
 }
 
-func GetStateMachineObject1(format string) *client.StateMachineObject {
+func GetStateMachineObject1(format string) *statemachine.StateMachineObject {
 	switch format {
 	case "json":
 	case "yaml":
 	}
 
-	return &client.StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:       "simpleChoiceTestStateMachine",
 		Comment:    "带条件分支的测试状态机定义",
 		StartState: "FirstState",
@@ -124,7 +124,7 @@ func GetStateMachineObject1(format string) *client.StateMachineObject {
 	}
 }
 
-func GetStateMachineObject2(format string) *client.StateMachineObject {
+func GetStateMachineObject2(format string) *statemachine.StateMachineObject {
 	var retryMap map[string]interface{}
 
 	switch format {
@@ -148,7 +148,7 @@ func GetStateMachineObject2(format string) *client.StateMachineObject {
 		}
 	}
 
-	return &client.StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:       "simpleTestStateMachine",
 		Comment:    "测试状态机定义",
 		StartState: "FirstState",
@@ -283,7 +283,7 @@ func GetStateMachineObject2(format string) *client.StateMachineObject {
 	}
 }
 
-func GetStateMachineObject3(format string) *client.StateMachineObject {
+func GetStateMachineObject3(format string) *statemachine.StateMachineObject {
 	var (
 		boundsMap1 map[string]interface{}
 		boundsMap2 map[string]interface{}
@@ -686,7 +686,7 @@ func GetStateMachineObject3(format string) *client.StateMachineObject {
 		}
 	}
 
-	return &client.StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:                        "StateMachineNewDesigner",
 		Comment:                     "This state machine is modeled by designer tools.",
 		Version:                     "0.0.1",
