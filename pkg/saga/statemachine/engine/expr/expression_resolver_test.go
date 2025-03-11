@@ -1,8 +1,9 @@
 package expr
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseExpressionStruct(t *testing.T) {
@@ -39,21 +40,14 @@ func TestParseExpressionStruct(t *testing.T) {
 			expectError:   true,
 		},
 	}
-
 	for _, test := range tests {
 		result, err := parseExpressionStruct(test.expressionStr)
-
-		if (err != nil) != test.expectError {
-			fmt.Printf("result: %#v", result)
-			fmt.Println("err:", err)
-			fmt.Println("err != nil:", err != nil)
-			t.Errorf("For input '%s', expected error: %v, got: %v", test.expressionStr, test.expectError, err)
-		}
-
-		if !test.expectError && result != nil {
-			if *result != *test.expected {
-				t.Errorf("For input '%s', expected: %+v, got: %+v", test.expressionStr, test.expected, result)
-			}
+		if test.expectError {
+			assert.Error(t, err, "Expected an error for input '%s'", test.expressionStr)
+		} else {
+			assert.NoError(t, err, "Did not expect an error for input '%s'", test.expressionStr)
+			assert.NotNil(t, result, "Expected a non-nil result for input '%s'", test.expressionStr)
+			assert.Equal(t, *test.expected, *result, "Expected result %+v, got %+v for input '%s'", test.expected, result, test.expressionStr)
 		}
 	}
 }

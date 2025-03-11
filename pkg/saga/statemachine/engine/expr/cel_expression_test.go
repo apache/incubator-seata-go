@@ -19,31 +19,24 @@ package expr
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValueWithNil(t *testing.T) {
 	expr, err := NewCELExpression("'Hello' + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
+	assert.NoError(t, err, "Error creating expression")
 	value := expr.Value(nil)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
+	assert.Equal(t, "Hello World!", value, "Expected 'Hello World!'")
 }
 
 func TestValue(t *testing.T) {
 	expr, err := NewCELExpression("elContext['name'] + ' World!'")
-	if err != nil {
-		t.Error("Error creating expression:", err)
-		return
-	}
+	assert.NoError(t, err, "Error creating expression")
 	elContext := map[string]any{
 		"name": "Hello",
 	}
+
 	value := expr.Value(elContext)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
+	assert.Equal(t, "Hello World!", value, "Expected 'Hello World!'")
 }

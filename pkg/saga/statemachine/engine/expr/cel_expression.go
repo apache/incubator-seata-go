@@ -28,8 +28,12 @@ type CELExpression struct {
 	expression string
 }
 
+// This is used to make sure that the CELExpression implements the Expression interface.
 var _ Expression = (*CELExpression)(nil)
 
+// NewCELExpression creates a new CELExpression instance
+// by compiling the provided expression.
+// how to use cel: https://codelabs.developers.google.com/codelabs/cel-go
 func NewCELExpression(expression string) (*CELExpression, error) {
 	// Create the standard environment.
 	env, err := cel.NewEnv(
@@ -69,6 +73,7 @@ func NewCELExpression(expression string) (*CELExpression, error) {
 	return CELExpression, nil
 }
 
+// Value evaluates the expression with the provided context and returns the result.
 func (c *CELExpression) Value(elContext any) any {
 	result, _, err := c.program.Eval(map[string]any{
 		"elContext": elContext,
@@ -79,10 +84,14 @@ func (c *CELExpression) Value(elContext any) any {
 	return result.Value()
 }
 
+// TODO: I think this is not needed.
+// I see seata-java doesn't use this method.
+// Do we need to implement this?
 func (c *CELExpression) SetValue(val any, elContext any) {
 	panic("implement me")
 }
 
+// ExpressionString returns the expression string.
 func (c *CELExpression) ExpressionString() string {
 	return c.expression
 }

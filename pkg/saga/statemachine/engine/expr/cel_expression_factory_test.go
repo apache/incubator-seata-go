@@ -19,13 +19,13 @@ package expr
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCelExpressionFactory(t *testing.T) {
 	factory := NewCELExpressionFactory()
 	expression := factory.CreateExpression("'Hello' + ' World!'")
 	value := expression.Value(nil)
-	if value != "Hello World!" {
-		t.Errorf("expect 'Hello World!', but '%v'", value)
-	}
+	assert.Equal(t, "Hello World!", value, "Expected 'Hello World!'")
 }

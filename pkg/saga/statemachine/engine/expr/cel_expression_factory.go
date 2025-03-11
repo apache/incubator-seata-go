@@ -21,12 +21,15 @@ type CELExpressionFactory struct {
 	expr *CELExpression
 }
 
+// This is used to make sure that CELExpressionFactory implements ExpressionFactory
 var _ ExpressionFactory = (*CELExpressionFactory)(nil)
 
+// NewCELExpressionFactory creates a new instance of CELExpressionFactory
 func NewCELExpressionFactory() *CELExpressionFactory {
 	return &CELExpressionFactory{}
 }
 
+// CreateExpression creates a new instance of CELExpression
 func (f *CELExpressionFactory) CreateExpression(expression string) Expression {
 	f.expr, _ = NewCELExpression(expression)
 	return f.expr

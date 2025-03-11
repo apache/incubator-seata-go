@@ -17,9 +17,12 @@
 
 package expr
 
-import "strings"
+import (
+	"maps"
+	"strings"
+)
 
-const DefaultExpressionType string = "Default"
+const DefaultExpressionType = "Default"
 
 type ExpressionFactoryManager struct {
 	expressionFactoryMap map[string]ExpressionFactory
@@ -39,9 +42,7 @@ func (e *ExpressionFactoryManager) GetExpressionFactory(expressionType string) E
 }
 
 func (e *ExpressionFactoryManager) SetExpressionFactoryMap(expressionFactoryMap map[string]ExpressionFactory) {
-	for k, v := range expressionFactoryMap {
-		e.expressionFactoryMap[k] = v
-	}
+	maps.Copy(e.expressionFactoryMap, expressionFactoryMap)
 }
 
 func (e *ExpressionFactoryManager) PutExpressionFactory(expressionType string, factory ExpressionFactory) {
