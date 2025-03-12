@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -32,28 +32,24 @@ import (
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-// insertOnUpdateExecutor execute insert on update SQL
-type insertOnUpdateExecutor struct {
-	baseExecutor
-	parserCtx                 *types.ParseContext
-	execContext               *types.ExecContext
+// InsertOnUpdateExecutor execute insert on update SQL
+type InsertOnUpdateExecutor struct {
+	BaseExecutor
 	beforeImageSqlPrimaryKeys map[string]bool
 	beforeSelectSql           string
 	beforeSelectArgs          []driver.NamedValue
 	isUpdateFlag              bool
 }
 
-// NewInsertOnUpdateExecutor get insert on update executor
-func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &insertOnUpdateExecutor{
-		baseExecutor:              baseExecutor{hooks: hooks},
-		parserCtx:                 parserCtx,
-		execContext:               execContent,
+// NewInsertOnUpdateExecutor get insert on update Executor
+func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) Executor {
+	return &InsertOnUpdateExecutor{
+		BaseExecutor:              BaseExecutor{hooks: hooks, parserCtx: parserCtx, execContext: execContent},
 		beforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
 
-func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (i *InsertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	i.beforeHooks(ctx, i.execContext)
 	defer func() {
 		i.afterHooks(ctx, i.execContext)
@@ -88,7 +84,7 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 }
 
 // beforeImage build before image
-func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+func (i *InsertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !i.isAstStmtValid() {
 		log.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
 		return nil, fmt.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
@@ -143,7 +139,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 }
 
 // buildBeforeImageSQL build the SQL to query before image data
-func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (i *InsertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}
@@ -201,7 +197,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 }
 
 // buildBeforeImageSQLParameters build the SQL parameters to query before image data
-func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.InsertStmt, args []driver.NamedValue, metaData types.TableMeta) (map[string][]driver.NamedValue, int, error) {
+func (i *InsertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.InsertStmt, args []driver.NamedValue, metaData types.TableMeta) (map[string][]driver.NamedValue, int, error) {
 	pkIndexArray := i.getPkIndexArray(insertStmt, metaData)
 	insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 	if err != nil {
@@ -237,7 +233,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 }
 
 // afterImage build after image
-func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *types.RecordImage) (*types.RecordImage, error) {
+func (i *InsertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *types.RecordImage) (*types.RecordImage, error) {
 	afterSelectSql, selectArgs := i.buildAfterImageSQL(beforeImages)
 	var rowsi driver.Rows
 	queryerCtx, queryerCtxExists := i.execContext.Conn.(driver.QueryerContext)
@@ -278,7 +274,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 }
 
 // buildAfterImageSQL build the SQL to query after image data
-func (i *insertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage) (string, []driver.NamedValue) {
+func (i *InsertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage) (string, []driver.NamedValue) {
 	selectSQL, selectArgs := i.beforeSelectSql, i.beforeSelectArgs
 	primaryValueMap := make(map[string][]interface{})
 
@@ -314,7 +310,7 @@ func (i *insertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordIma
 }
 
 // isPKColumn check the column name to see if it is a primary key column
-func (i *insertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableMeta) bool {
+func (i *InsertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableMeta) bool {
 	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
@@ -329,7 +325,7 @@ func (i *insertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableM
 }
 
 // getPkIndexArray get index of primary key from insert statement
-func (i *insertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, meta types.TableMeta) []int {
+func (i *InsertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, meta types.TableMeta) []int {
 	var pkIndexArray []int
 	if insertStmt == nil {
 		return pkIndexArray
@@ -364,7 +360,7 @@ func (i *insertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, met
 	return pkIndexArray
 }
 
-func (i *insertOnUpdateExecutor) isAstStmtValid() bool {
+func (i *InsertOnUpdateExecutor) isAstStmtValid() bool {
 	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
 }
 

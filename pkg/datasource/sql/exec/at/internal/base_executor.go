@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"bytes"
@@ -23,8 +23,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"strings"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
@@ -36,17 +37,23 @@ import (
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
-type baseExecutor struct {
-	hooks []exec.SQLHook
+type Executor interface {
+	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
 }
 
-func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
+type BaseExecutor struct {
+	hooks       []exec.SQLHook
+	parserCtx   *types.ParseContext
+	execContext *types.ExecContext
+}
+
+func (b *BaseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
 	for _, hook := range b.hooks {
 		hook.Before(ctx, execCtx)
 	}
 }
 
-func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
+func (b *BaseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
 	for _, hook := range b.hooks {
 		hook.After(ctx, execCtx)
 	}
@@ -54,7 +61,7 @@ func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContex
 
 // GetScanSlice get the column type for scan
 // todo to use ColumnInfo get slice
-func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
+func (*BaseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
 	scanSlice := make([]interface{}, 0, len(columnNames))
 	for _, columnName := range columnNames {
 		var (
@@ -92,7 +99,11 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 	return scanSlice
 }
 
-func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
+func (b BaseExecutor) DBType() types.DBType {
+	return b.execContext.DBType
+}
+
+func (b *BaseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
 	var (
 		selectArgsIndexs = make([]int32, 0)
 		selectArgs       = make([]driver.NamedValue, 0)
@@ -122,7 +133,7 @@ func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Named
 }
 
 // todo perfect all sql operation
-func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
+func (b *BaseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	if node == nil {
 		return
 	}
@@ -149,7 +160,7 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
+func (b *BaseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -188,7 +199,7 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
 }
 
-func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
+func (b *BaseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
 	var needUpdateColumns []string
 	if undo.UndoConfig.OnlyCareUpdateColumns && columns != nil && len(columns) > 0 {
 		needUpdateColumns = columns
@@ -211,7 +222,7 @@ func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, d
 	return needUpdateColumns
 }
 
-func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
+func (b *BaseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -287,7 +298,7 @@ func getSqlNullValue(value interface{}) interface{} {
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *BaseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -342,7 +353,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 	return whereStr.String()
 }
 
-func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string) []driver.NamedValue {
+func (b *BaseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string) []driver.NamedValue {
 	params := make([]driver.NamedValue, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
@@ -358,7 +369,7 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
+func (b *BaseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 	var (
 		lockKeys      bytes.Buffer
 		filedSequence int

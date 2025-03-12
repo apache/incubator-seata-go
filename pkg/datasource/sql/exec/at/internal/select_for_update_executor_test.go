@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"database/sql/driver"
@@ -38,7 +38,7 @@ var (
 )
 
 func TestBuildSelectPKSQL(t *testing.T) {
-	e := selectForUpdateExecutor{}
+	e := SelectForUpdateExecutor{}
 	sql := "select name, order_id from t_user where age > ? for update"
 
 	ctx, err := parser.DoParser(sql)
@@ -81,7 +81,7 @@ func TestBuildSelectPKSQL(t *testing.T) {
 }
 
 func TestBuildLockKey(t *testing.T) {
-	e := selectForUpdateExecutor{}
+	e := SelectForUpdateExecutor{}
 
 	metaData := types.TableMeta{
 		TableName: "t_user",

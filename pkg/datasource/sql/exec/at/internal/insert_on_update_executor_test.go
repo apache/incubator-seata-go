@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"database/sql/driver"
@@ -30,7 +30,7 @@ import (
 
 func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 	var (
-		ioe = insertOnUpdateExecutor{
+		ioe = InsertOnUpdateExecutor{
 			beforeImageSqlPrimaryKeys: make(map[string]bool),
 		}
 		tableMeta1 types.TableMeta
@@ -196,7 +196,7 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 }
 
 func TestInsertOnUpdateAfterImageSQL(t *testing.T) {
-	ioe := insertOnUpdateExecutor{}
+	ioe := InsertOnUpdateExecutor{}
 	tests := []struct {
 		name                      string
 		beforeSelectSql           string

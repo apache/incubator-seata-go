@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -128,10 +128,10 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				NamedValues: test.NamedValues,
 			}, []exec.SQLHook{})
 
-			executor.(*insertExecutor).businesSQLResult = &test.mockInsertResult
-			executor.(*insertExecutor).incrementStep = test.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = &test.mockInsertResult
+			executor.(*InsertExecutor).incrementStep = test.IncrementStep
 
-			sql, values, err := executor.(*insertExecutor).buildAfterImageSQL(context.Background())
+			sql, values, err := executor.(*InsertExecutor).buildAfterImageSQL(context.Background())
 			assert.Nil(t, err)
 			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
 				if test.orExpectQuery == sql {
@@ -221,10 +221,10 @@ func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
 
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).containsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).containsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
 		})
 	}
 }
@@ -295,10 +295,10 @@ func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
 
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).containPK(tt.args.columnName, tt.args.meta), "isPKColumn(%v, %v)", tt.args.columnName, tt.args.meta)
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).containPK(tt.args.columnName, tt.args.meta), "isPKColumn(%v, %v)", tt.args.columnName, tt.args.meta)
 		})
 	}
 }
@@ -414,9 +414,9 @@ func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).getPkIndex(tt.args.InsertStmt, tt.args.meta), "getPkIndexArray(%v, %v)", tt.args.InsertStmt, tt.args.meta)
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).getPkIndex(tt.args.InsertStmt, tt.args.meta), "getPkIndexArray(%v, %v)", tt.args.InsertStmt, tt.args.meta)
 		})
 	}
 }
@@ -547,10 +547,10 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).parsePkValuesFromStatement(tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
+			got, err := executor.(*InsertExecutor).parsePkValuesFromStatement(tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "parsePkValuesFromStatement(%v, %v, %v)", tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
 		})
@@ -636,10 +636,10 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 				})
 
 			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
+			got, err := executor.(*InsertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
 			stub.Reset()
@@ -737,11 +737,11 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 					return &tt.args.meta, nil
 				})
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
-			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).parserCtx = tt.args.execCtx.ParseContext
 
-			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
+			got, err := executor.(*InsertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
 			stub.Reset()
@@ -831,10 +831,10 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 				})
 
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
+			got, err := executor.(*InsertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "autoGeneratePks(%v, %v, %v, %v)", tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 			stub.Reset()

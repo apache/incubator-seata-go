@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"database/sql/driver"
@@ -31,8 +31,8 @@ import (
 
 func TestNewDeleteExecutor(t *testing.T) {
 	executor := NewDeleteExecutor(nil, nil, nil)
-	_, ok := executor.(*deleteExecutor)
-	assert.Equalf(t, true, ok, "should be *deleteExecutor")
+	_, ok := executor.(*DeleteExecutor)
+	assert.Equalf(t, true, ok, "should be *DeleteExecutor")
 }
 
 func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
@@ -73,7 +73,7 @@ func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
 			executor := NewDeleteExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
-			query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL(tt.sourceQuery, util.ValueToNamedValue(tt.sourceQueryArgs))
+			query, args, err := executor.(*DeleteExecutor).buildBeforeImageSQL(tt.sourceQuery, util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))

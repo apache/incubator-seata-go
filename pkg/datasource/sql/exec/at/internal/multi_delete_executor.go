@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"bytes"
@@ -33,13 +33,13 @@ import (
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-type multiDeleteExecutor struct {
-	baseExecutor
+type MultiDeleteExecutor struct {
+	BaseExecutor
 	parserCtx   *types.ParseContext
 	execContext *types.ExecContext
 }
 
-func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (m *MultiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	m.beforeHooks(ctx, m.execContext)
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
@@ -70,12 +70,12 @@ type multiDelete struct {
 	clear bool
 }
 
-// NewMultiDeleteExecutor get multiDelete executor
-func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *multiDeleteExecutor {
-	return &multiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+// NewMultiDeleteExecutor get multiDelete Executor
+func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *MultiDeleteExecutor {
+	return &MultiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, BaseExecutor: BaseExecutor{hooks: hooks}}
 }
 
-func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
+func (m *MultiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
 	selectSQL, args, err := m.buildBeforeImageSQL()
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	return records, err
 }
 
-func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordImage, error) {
+func (m *MultiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordImage, error) {
 	tableName, _ := m.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
 	if err != nil {
@@ -137,7 +137,7 @@ func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordIm
 	return []*types.RecordImage{image}, nil
 }
 
-func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue, error) {
+func (m *MultiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue, error) {
 	tableName, err := m.getFromTableInSQL()
 	if err != nil {
 		return "", nil, err
@@ -192,7 +192,7 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue
 	return selectSQL, params, nil
 }
 
-func (m *multiDeleteExecutor) getFromTableInSQL() (string, error) {
+func (m *MultiDeleteExecutor) getFromTableInSQL() (string, error) {
 	for _, parser := range m.parserCtx.MultiStmt {
 		if parser != nil {
 			return parser.GetTableName()

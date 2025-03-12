@@ -15,24 +15,8 @@
  * limitations under the License.
  */
 
-package at
+package config
 
-import (
-	"context"
+import "seata.apache.org/seata-go/pkg/rm"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-)
-
-type plainExecutor struct {
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
-}
-
-func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
-	return &plainExecutor{parserCtx: parserCtx, execContext: execCtx}
-}
-
-func (u *plainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	return f(ctx, u.execContext.Query, u.execContext.NamedValues)
-}
+var LockConfig rm.LockConfig

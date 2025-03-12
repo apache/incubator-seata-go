@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"bytes"
@@ -25,9 +25,11 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/backoff"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/config"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -39,7 +41,6 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/util/backoff"
 	seatabytes "seata.apache.org/seata-go/pkg/util/bytes"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
@@ -48,8 +49,8 @@ var (
 	lockConflictError = errors.New("lock conflict error")
 )
 
-type selectForUpdateExecutor struct {
-	baseExecutor
+type SelectForUpdateExecutor struct {
+	BaseExecutor
 
 	parserCtx     *types.ParseContext
 	execContext   *types.ExecContext
@@ -61,18 +62,18 @@ type selectForUpdateExecutor struct {
 	savepointName string
 }
 
-func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &selectForUpdateExecutor{
-		baseExecutor: baseExecutor{
+func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *SelectForUpdateExecutor {
+	return &SelectForUpdateExecutor{
+		BaseExecutor: BaseExecutor{
 			hooks: hooks,
 		},
 		parserCtx:   parserCtx,
 		execContext: execContext,
-		cfg:         &LockConfig,
+		cfg:         &config.LockConfig,
 	}
 }
 
-func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (s *SelectForUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	s.beforeHooks(ctx, s.execContext)
 	defer func() {
 		s.afterHooks(ctx, s.execContext)
@@ -145,7 +146,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 	return result, nil
 }
 
-func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (s *SelectForUpdateExecutor) doExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	var (
 		now                = time.Now().Unix()
 		result             types.ExecResult
@@ -213,7 +214,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *types.TableMeta) (string, error) {
+func (s *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
 		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
@@ -255,7 +256,7 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) string {
+func (s *SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) string {
 	var (
 		lockKeys    bytes.Buffer
 		idx         int
@@ -302,7 +303,7 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 	return lockKeys.String()
 }
 
-func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
+func (s *SelectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
 	var (
 		querierContext                  driver.QueryerContext
 		querier                         driver.Queryer

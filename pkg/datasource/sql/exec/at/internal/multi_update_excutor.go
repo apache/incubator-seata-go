@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -38,9 +38,9 @@ import (
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-// multiUpdateExecutor execute multiple update SQL
-type multiUpdateExecutor struct {
-	baseExecutor
+// MultiUpdateExecutor execute multiple update SQL
+type MultiUpdateExecutor struct {
+	BaseExecutor
 	parserCtx   *types.ParseContext
 	execContext *types.ExecContext
 }
@@ -48,13 +48,13 @@ type multiUpdateExecutor struct {
 var rows driver.Rows
 var comma = ","
 
-// NewMultiUpdateExecutor get new multi update executor
-func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *multiUpdateExecutor {
-	return &multiUpdateExecutor{parserCtx: parserCtx, execContext: execContext, baseExecutor: baseExecutor{hooks: hooks}}
+// NewMultiUpdateExecutor get new multi update Executor
+func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *MultiUpdateExecutor {
+	return &MultiUpdateExecutor{parserCtx: parserCtx, execContext: execContext, BaseExecutor: BaseExecutor{hooks: hooks}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
-func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (u *MultiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	u.beforeHooks(ctx, u.execContext)
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
@@ -97,7 +97,7 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	return res, nil
 }
 
-func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
+func (u *MultiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
@@ -137,7 +137,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (u *MultiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
@@ -176,7 +176,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *multiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+func (u *MultiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
 	var queryer driver.Queryer
 
 	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
@@ -199,7 +199,7 @@ func (u *multiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string,
 }
 
 // buildAfterImageSQL build the SQL to query after image data
-func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.NamedValue) {
+func (u *MultiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.NamedValue) {
 	if !u.isAstStmtValid() {
 		return "", nil
 	}
@@ -230,7 +230,7 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
-func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta *types.TableMeta) (string, []driver.NamedValue, error) {
+func (u *MultiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta *types.TableMeta) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid multi update stmt")
 		return "", nil, errors.New("invalid muliti update stmt")
@@ -342,7 +342,7 @@ func (u *multiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 	return string(b.Bytes()), newArgs, nil
 }
 
-func (u *multiUpdateExecutor) isAstStmtValid() bool {
+func (u *MultiUpdateExecutor) isAstStmtValid() bool {
 	return u.parserCtx != nil && u.parserCtx.MultiStmt != nil && len(u.parserCtx.MultiStmt) > 0
 }
 
