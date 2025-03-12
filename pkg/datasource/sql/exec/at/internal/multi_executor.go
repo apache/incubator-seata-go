@@ -15,30 +15,29 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
 	"fmt"
-
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-type multiExecutor struct {
-	baseExecutor
+type MultiExecutor struct {
+	BaseExecutor
 	parserCtx   *types.ParseContext
 	execContext *types.ExecContext
 }
 
-// NewMultiExecutor get new multi executor
-func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &multiExecutor{parserCtx: parserCtx, execContext: execContext, baseExecutor: baseExecutor{hooks: hooks}}
+// NewMultiExecutor get new multi Executor
+func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *MultiExecutor {
+	return &MultiExecutor{parserCtx: parserCtx, execContext: execContext, BaseExecutor: BaseExecutor{hooks: hooks}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
-func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (m *MultiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	m.beforeHooks(ctx, m.execContext)
 
 	defer func() {
@@ -69,7 +68,7 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 
 	return res, nil
 }
-func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.ParseContext) ([]*types.RecordImage, error) {
+func (m *MultiExecutor) beforeImage(ctx context.Context, parseContext *types.ParseContext) ([]*types.RecordImage, error) {
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
@@ -103,7 +102,7 @@ func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 	return beforeImages, err
 }
 
-func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.ParseContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+func (m *MultiExecutor) afterImage(ctx context.Context, parseContext *types.ParseContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
 	}
@@ -137,7 +136,7 @@ func (m *multiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 	return afterImages, err
 }
 
-func (m *multiExecutor) groupParsersByTableName(parseContext *types.ParseContext) (map[string]*types.ParseContext, error) {
+func (m *MultiExecutor) groupParsersByTableName(parseContext *types.ParseContext) (map[string]*types.ParseContext, error) {
 	var (
 		err          error
 		tableName    string

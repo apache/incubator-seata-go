@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -40,20 +40,18 @@ var (
 	maxInSize = 1000
 )
 
-// updateExecutor execute update SQL
-type updateExecutor struct {
-	baseExecutor
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
+// UpdateExecutor execute update SQL
+type UpdateExecutor struct {
+	BaseExecutor
 }
 
-// NewUpdateExecutor get update executor
-func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &updateExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+// NewUpdateExecutor get update Executor
+func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *UpdateExecutor {
+	return &UpdateExecutor{BaseExecutor: BaseExecutor{hooks, parserCtx, execContent}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
-func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (u *UpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	u.beforeHooks(ctx, u.execContext)
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
@@ -85,7 +83,7 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 }
 
 // beforeImage build before image
-func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+func (u *UpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
@@ -136,7 +134,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 }
 
 // afterImage build after image
-func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.RecordImage) (*types.RecordImage, error) {
+func (u *UpdateExecutor) afterImage(ctx context.Context, beforeImage types.RecordImage) (*types.RecordImage, error) {
 	if !u.isAstStmtValid() {
 		return nil, nil
 	}
@@ -182,12 +180,12 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	return afterImage, nil
 }
 
-func (u *updateExecutor) isAstStmtValid() bool {
+func (u *UpdateExecutor) isAstStmtValid() bool {
 	return u.parserCtx != nil && u.parserCtx.UpdateStmt != nil
 }
 
 // buildAfterImageSQL build the SQL to query after image data
-func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta *types.TableMeta) (string, []driver.NamedValue) {
+func (u *UpdateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta *types.TableMeta) (string, []driver.NamedValue) {
 	if len(beforeImage.Rows) == 0 {
 		return "", nil
 	}
@@ -212,7 +210,7 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 }
 
 // buildAfterImageSQL build the SQL to query before image data
-func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (u *UpdateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	if !u.isAstStmtValid() {
 		log.Errorf("invalid update stmt")
 		return "", nil, fmt.Errorf("invalid update stmt")

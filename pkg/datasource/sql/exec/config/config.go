@@ -18,10 +18,10 @@
 package config
 
 import (
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/config"
 	"seata.apache.org/seata-go/pkg/rm"
 )
 
-func Init(config rm.LockConfig) {
-	at.LockConfig = config
+func Init(lockConfig rm.LockConfig) {
+	config.LockConfig = lockConfig
 }

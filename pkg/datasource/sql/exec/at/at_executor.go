@@ -20,6 +20,8 @@ package at
 import (
 	"context"
 
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -29,10 +31,6 @@ import (
 
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
-}
-
-type executor interface {
-	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
 }
 
 type ATExecutor struct {
@@ -50,26 +48,26 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 		return nil, err
 	}
 
-	var executor executor
+	var executor internal.Executor
 
 	if !tm.IsGlobalTx(ctx) {
-		executor = NewPlainExecutor(queryParser, execCtx)
+		executor = internal.NewPlainExecutor(queryParser, execCtx)
 	} else {
 		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
-			executor = NewInsertExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewInsertExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
-			executor = NewUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
-			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewDeleteExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeSelectForUpdate:
-			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeInsertOnDuplicateUpdate:
-			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeMulti:
-			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
+			executor = internal.NewMultiExecutor(queryParser, execCtx, e.hooks)
 		default:
-			executor = NewPlainExecutor(queryParser, execCtx)
+			executor = internal.NewPlainExecutor(queryParser, execCtx)
 		}
 	}
 

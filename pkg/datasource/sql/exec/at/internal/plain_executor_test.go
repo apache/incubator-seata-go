@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -33,8 +33,8 @@ import (
 
 func TestNewPlainExecutor(t *testing.T) {
 	executor := NewPlainExecutor(nil, nil)
-	_, ok := executor.(*plainExecutor)
-	assert.Equalf(t, true, ok, "should be *plainExecutor")
+	_, ok := executor.(*PlainExecutor)
+	assert.Equalf(t, true, ok, "should be *PlainExecutor")
 }
 
 func TestPlainExecutor_ExecContext(t *testing.T) {
@@ -63,7 +63,7 @@ func TestPlainExecutor_ExecContext(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &plainExecutor{execContext: &types.ExecContext{}}
+			u := &PlainExecutor{execContext: &types.ExecContext{}}
 			val, err := u.ExecContext(context.Background(), tt.f)
 			assert.Equalf(t, tt.wantVal, val, "")
 			assert.Equalf(t, tt.wantErr, err, "")

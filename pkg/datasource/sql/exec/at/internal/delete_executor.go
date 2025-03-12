@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package at
+package internal
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
@@ -34,20 +33,18 @@ import (
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-// deleteExecutor execute delete SQL
-type deleteExecutor struct {
-	baseExecutor
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
+// DeleteExecutor execute delete SQL
+type DeleteExecutor struct {
+	BaseExecutor
 }
 
-// NewDeleteExecutor get delete executor
-func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &deleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+// NewDeleteExecutor get delete Executor
+func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) Executor {
+	return &DeleteExecutor{BaseExecutor: BaseExecutor{hooks, parserCtx, execContent}}
 }
 
 // ExecContext exec SQL, and generate before image and after image
-func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (d *DeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	d.beforeHooks(ctx, d.execContext)
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
@@ -74,7 +71,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 }
 
 // beforeImage build before image
-func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+func (d *DeleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContext.Query, d.execContext.NamedValues)
 	if err != nil {
 		return nil, err
@@ -103,7 +100,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(d.BaseExecutor.DBType()).GetTableMeta(ctx, d.execContext.DBName, tableName)
 
 	if err != nil {
 		return nil, err
@@ -123,7 +120,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 }
 
 // buildBeforeImageSQL build delete sql from delete sql
-func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+func (d *DeleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
 		return "", nil, err
@@ -156,9 +153,9 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 }
 
 // afterImage build after image
-func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
+func (d *DeleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(d.BaseExecutor.DBType()).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
