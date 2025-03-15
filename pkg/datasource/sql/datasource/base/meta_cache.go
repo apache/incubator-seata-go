@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,8 +111,9 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		for i := range v {
 			tm := v[i]
-			if _, ok := c.cache[tm.TableName]; ok {
-				c.cache[tm.TableName] = &entry{
+			upperTableName := strings.ToUpper(tm.TableName)
+			if _, ok := c.cache[upperTableName]; ok {
+				c.cache[upperTableName] = &entry{
 					value: tm,
 				}
 			}
@@ -157,16 +159,16 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 	defer c.lock.Unlock()
 
 	defer conn.Close()
-
-	v, ok := c.cache[tableName]
+	upperTableName := strings.ToUpper(tableName)
+	v, ok := c.cache[upperTableName]
 	if !ok {
-		meta, err := c.trigger.LoadOne(ctx, dbName, tableName, conn)
+		meta, err := c.trigger.LoadOne(ctx, dbName, upperTableName, conn)
 		if err != nil {
 			return types.TableMeta{}, err
 		}
 
 		if meta != nil && !meta.IsEmpty() {
-			c.cache[tableName] = &entry{
+			c.cache[upperTableName] = &entry{
 				value:      *meta,
 				lastAccess: time.Now(),
 			}
@@ -178,7 +180,7 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 	}
 
 	v.lastAccess = time.Now()
-	c.cache[tableName] = v
+	c.cache[upperTableName] = v
 
 	return v.value, nil
 }
