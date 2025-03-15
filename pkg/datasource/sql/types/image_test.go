@@ -43,6 +43,16 @@ func TestColumnImage_UnmarshalJSON(t *testing.T) {
 			expectValue: "Seata-go",
 		},
 		{
+			name: "test-text",
+			image: &ColumnImage{
+				KeyType:    IndexTypePrimaryKey,
+				ColumnName: "Text",
+				ColumnType: JDBCTypeLongVarchar,
+				Value:      []byte("Seata-go"),
+			},
+			expectValue: "Seata-go",
+		},
+		{
 			name: "test-int",
 			image: &ColumnImage{
 				KeyType:    IndexTypeNull,
