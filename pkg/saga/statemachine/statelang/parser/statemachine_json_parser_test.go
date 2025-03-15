@@ -18,8 +18,17 @@
 package parser
 
 import (
+	"os"
 	"testing"
 )
+
+func readFileContent(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
 
 func TestParseChoice(t *testing.T) {
 	parser := NewJSONStateMachineParser()
@@ -40,7 +49,12 @@ func TestParseChoice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parser.Parse(tt.configFilePath)
+			content, err := readFileContent(tt.configFilePath)
+			if err != nil {
+				t.Error("read file fail: " + err.Error())
+				return
+			}
+			_, err = parser.Parse(content)
 			if err != nil {
 				t.Error("parse fail: " + err.Error())
 			}
@@ -67,7 +81,12 @@ func TestParseServiceTaskForSimpleStateMachine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parser.Parse(tt.configFilePath)
+			content, err := readFileContent(tt.configFilePath)
+			if err != nil {
+				t.Error("read file fail: " + err.Error())
+				return
+			}
+			_, err = parser.Parse(content)
 			if err != nil {
 				t.Error("parse fail: " + err.Error())
 			}
@@ -94,7 +113,12 @@ func TestParseServiceTaskForNewDesigner(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parser.Parse(tt.configFilePath)
+			content, err := readFileContent(tt.configFilePath)
+			if err != nil {
+				t.Error("read file fail: " + err.Error())
+				return
+			}
+			_, err = parser.Parse(content)
 			if err != nil {
 				t.Error("parse fail: " + err.Error())
 			}
