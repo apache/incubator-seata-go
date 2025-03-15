@@ -34,6 +34,11 @@ import (
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
 
+// The purpose is to solve "only using a package in
+// a type assertion is considered by ci lint as not
+// using the package"
+var _ = driver.ErrSkip
+
 const (
 	checkSQLTemplate = "SELECT * FROM %s WHERE %s FOR UPDATE"
 	maxInSize        = 1000
