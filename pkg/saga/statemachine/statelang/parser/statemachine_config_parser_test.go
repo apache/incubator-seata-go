@@ -18,6 +18,7 @@
 package parser
 
 import (
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -26,39 +27,39 @@ func TestStateMachineConfigParser_Parse(t *testing.T) {
 	parser := NewStateMachineConfigParser()
 
 	tests := []struct {
-		name                       string
-		configFilePath             string
-		expectedStateMachineObject *StateMachineObject
+		name           string
+		configFilePath string
+		expectedObject *statemachine.StateMachineObject
 	}{
 		{
-			name:                       "JSON Simple 1",
-			configFilePath:             "../../../../../testdata/saga/statelang/simple_statelang_with_choice.json",
-			expectedStateMachineObject: GetStateMachineObject1("json"),
+			name:           "JSON Simple 1",
+			configFilePath: "../../../../../testdata/saga/statelang/simple_statelang_with_choice.json",
+			expectedObject: GetStateMachineObject1("json"),
 		},
 		{
-			name:                       "JSON Simple 2",
-			configFilePath:             "../../../../../testdata/saga/statelang/simple_statemachine.json",
-			expectedStateMachineObject: GetStateMachineObject2("json"),
+			name:           "JSON Simple 2",
+			configFilePath: "../../../../../testdata/saga/statelang/simple_statemachine.json",
+			expectedObject: GetStateMachineObject2("json"),
 		},
 		{
-			name:                       "JSON Simple 3",
-			configFilePath:             "../../../../../testdata/saga/statelang/state_machine_new_designer.json",
-			expectedStateMachineObject: GetStateMachineObject3("json"),
+			name:           "JSON Simple 3",
+			configFilePath: "../../../../../testdata/saga/statelang/state_machine_new_designer.json",
+			expectedObject: GetStateMachineObject3("json"),
 		},
 		{
-			name:                       "YAML Simple 1",
-			configFilePath:             "../../../../../testdata/saga/statelang/simple_statelang_with_choice.yaml",
-			expectedStateMachineObject: GetStateMachineObject1("yaml"),
+			name:           "YAML Simple 1",
+			configFilePath: "../../../../../testdata/saga/statelang/simple_statelang_with_choice.yaml",
+			expectedObject: GetStateMachineObject1("yaml"),
 		},
 		{
-			name:                       "YAML Simple 2",
-			configFilePath:             "../../../../../testdata/saga/statelang/simple_statemachine.yaml",
-			expectedStateMachineObject: GetStateMachineObject2("yaml"),
+			name:           "YAML Simple 2",
+			configFilePath: "../../../../../testdata/saga/statelang/simple_statemachine.yaml",
+			expectedObject: GetStateMachineObject2("yaml"),
 		},
 		{
-			name:                       "YAML Simple 3",
-			configFilePath:             "../../../../../testdata/saga/statelang/state_machine_new_designer.yaml",
-			expectedStateMachineObject: GetStateMachineObject3("yaml"),
+			name:           "YAML Simple 3",
+			configFilePath: "../../../../../testdata/saga/statelang/state_machine_new_designer.yaml",
+			expectedObject: GetStateMachineObject3("yaml"),
 		},
 	}
 
@@ -72,18 +73,18 @@ func TestStateMachineConfigParser_Parse(t *testing.T) {
 			if err != nil {
 				t.Error("parse fail: " + err.Error())
 			}
-			assert.Equal(t, tt.expectedStateMachineObject, object)
+			assert.Equal(t, tt.expectedObject, object)
 		})
 	}
 }
 
-func GetStateMachineObject1(format string) *StateMachineObject {
+func GetStateMachineObject1(format string) *statemachine.StateMachineObject {
 	switch format {
 	case "json":
 	case "yaml":
 	}
 
-	return &StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:       "simpleChoiceTestStateMachine",
 		Comment:    "带条件分支的测试状态机定义",
 		StartState: "FirstState",
@@ -123,7 +124,7 @@ func GetStateMachineObject1(format string) *StateMachineObject {
 	}
 }
 
-func GetStateMachineObject2(format string) *StateMachineObject {
+func GetStateMachineObject2(format string) *statemachine.StateMachineObject {
 	var retryMap map[string]interface{}
 
 	switch format {
@@ -147,7 +148,7 @@ func GetStateMachineObject2(format string) *StateMachineObject {
 		}
 	}
 
-	return &StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:       "simpleTestStateMachine",
 		Comment:    "测试状态机定义",
 		StartState: "FirstState",
@@ -282,7 +283,7 @@ func GetStateMachineObject2(format string) *StateMachineObject {
 	}
 }
 
-func GetStateMachineObject3(format string) *StateMachineObject {
+func GetStateMachineObject3(format string) *statemachine.StateMachineObject {
 	var (
 		boundsMap1 map[string]interface{}
 		boundsMap2 map[string]interface{}
@@ -685,7 +686,7 @@ func GetStateMachineObject3(format string) *StateMachineObject {
 		}
 	}
 
-	return &StateMachineObject{
+	return &statemachine.StateMachineObject{
 		Name:                        "StateMachineNewDesigner",
 		Comment:                     "This state machine is modeled by designer tools.",
 		Version:                     "0.0.1",
