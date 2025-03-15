@@ -20,11 +20,13 @@ package discovery
 import (
 	"context"
 	"fmt"
-	etcd3 "go.etcd.io/etcd/client/v3"
-	"seata.apache.org/seata-go/pkg/util/log"
-	"strconv"
 	"strings"
 	"sync"
+
+	etcd3 "go.etcd.io/etcd/client/v3"
+
+	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/net"
 )
 
 const (
@@ -189,12 +191,7 @@ func getClusterName(key []byte) (string, error) {
 
 func getServerInstance(value []byte) (*ServiceInstance, error) {
 	stringValue := string(value)
-	valueSplit := strings.Split(stringValue, addressSplitChar)
-	if len(valueSplit) != 2 {
-		return nil, fmt.Errorf("etcd value has an incorrect format. value: %s", stringValue)
-	}
-	ip := valueSplit[0]
-	port, err := strconv.Atoi(valueSplit[1])
+	ip, port, err := net.SplitIPPortStr(stringValue)
 	if err != nil {
 		return nil, fmt.Errorf("etcd port has an incorrect format. err: %w", err)
 	}
@@ -213,9 +210,7 @@ func getClusterAndAddress(key []byte) (string, string, int, error) {
 		return "", "", 0, fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
 	}
 	cluster := keySplit[2]
-	address := strings.Split(keySplit[3], addressSplitChar)
-	ip := address[0]
-	port, err := strconv.Atoi(address[1])
+	ip, port, err := net.SplitIPPortStr(keySplit[3])
 	if err != nil {
 		return "", "", 0, fmt.Errorf("etcd port has an incorrect format. err: %w", err)
 	}

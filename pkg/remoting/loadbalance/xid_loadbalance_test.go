@@ -84,6 +84,12 @@ func TestXidLoadBalance(t *testing.T) {
 			xid:         "127.0.0.1:9000:111",
 			returnAddrs: []string{"127.0.0.1:8000", "127.0.0.1:8002"},
 		},
+		{
+			name:        "ip is ipv6",
+			sessions:    sessions,
+			xid:         "2000:0000:0000:0000:0001:2345:6789:abcd:8002:111",
+			returnAddrs: []string{"127.0.0.1:8000", "127.0.0.1:8002"},
+		},
 	}
 	for _, test := range testCases {
 		session := XidLoadBalance(test.sessions, test.xid)

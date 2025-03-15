@@ -136,7 +136,7 @@ func TestFileRegistryService_Lookup(t *testing.T) {
 			},
 			want:       nil,
 			wantErr:    true,
-			wantErrMsg: "endpoint format should like ip:port. endpoint: 127.0.0.18091",
+			wantErrMsg: "address 127.0.0.18091: missing port in address",
 		},
 		{
 			name: "port is not number",
@@ -156,6 +156,75 @@ func TestFileRegistryService_Lookup(t *testing.T) {
 			want:       nil,
 			wantErr:    true,
 			wantErrMsg: "strconv.Atoi: parsing \"abc\": invalid syntax",
+		},
+		{
+			name: "endpoint is ipv6",
+			args: args{
+				key: "default_tx_group",
+			},
+			fields: fields{
+				serviceConfig: &ServiceConfig{
+					VgroupMapping: map[string]string{
+						"default_tx_group": "default",
+					},
+					Grouplist: map[string]string{
+						"default": "[2000:0000:0000:0000:0001:2345:6789:abcd]:8080",
+					},
+				},
+			},
+			want: []*ServiceInstance{
+				{
+					Addr: "2000:0000:0000:0000:0001:2345:6789:abcd",
+					Port: 8080,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "endpoint is ipv6",
+			args: args{
+				key: "default_tx_group",
+			},
+			fields: fields{
+				serviceConfig: &ServiceConfig{
+					VgroupMapping: map[string]string{
+						"default_tx_group": "default",
+					},
+					Grouplist: map[string]string{
+						"default": "[2000:0000:0000:0000:0001:2345:6789:abcd%10]:8080",
+					},
+				},
+			},
+			want: []*ServiceInstance{
+				{
+					Addr: "2000:0000:0000:0000:0001:2345:6789:abcd",
+					Port: 8080,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "endpoint is ipv6",
+			args: args{
+				key: "default_tx_group",
+			},
+			fields: fields{
+				serviceConfig: &ServiceConfig{
+					VgroupMapping: map[string]string{
+						"default_tx_group": "default",
+					},
+					Grouplist: map[string]string{
+						"default": "[::]:8080",
+					},
+				},
+			},
+			want: []*ServiceInstance{
+				{
+					Addr: "::",
+					Port: 8080,
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
