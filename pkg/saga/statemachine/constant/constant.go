@@ -64,6 +64,8 @@ const (
 	VarNameCurrentCompensationHolder     string = "_current_compensation_holder_"
 	VarNameFirstCompensationStateStarted string = "_first_compensation_state_started"
 	VarNameCurrentLoopContextHolder      string = "_current_loop_context_holder_"
+	VarNameRetriedStateInstId            string = "_retried_state_instance_id"
+	VarNameIsForSubStatMachineForward    string = "_is_for_sub_statemachine_forward_"
 	// TODO: this lock in process context only has one, try to add more to add concurrent
 	VarNameProcessContextMutexLock string = "_current_context_mutex_lock"
 	VarNameFailEndStateFlag        string = "_fail_end_state_flag_"
