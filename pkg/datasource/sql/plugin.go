@@ -21,9 +21,6 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/builder"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
 )
 
@@ -49,10 +46,4 @@ func undoInit() {
 
 func mysqlUndoLogInit() {
 	mysql.InitUndoLogManager()
-
-	undo.RegisterUndoLogBuilder(types.DeleteExecutor, builder.GetMySQLDeleteUndoLogBuilder)
-	undo.RegisterUndoLogBuilder(types.InsertExecutor, builder.GetMySQLInsertUndoLogBuilder)
-	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, builder.GetMySQLInsertOnDuplicateUndoLogBuilder)
-	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
-	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
 }
