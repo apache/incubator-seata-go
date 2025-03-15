@@ -19,9 +19,9 @@ package tm
 
 import (
 	"context"
-
 	"seata.apache.org/seata-go/pkg/protocol/message"
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
+	"time"
 )
 
 type ContextParam string
@@ -56,6 +56,13 @@ type ContextVariable struct {
 	BusinessActionContext *BusinessActionContext
 	// GlobalTransaction Represent seata ctx is a global transaction
 	GlobalTransaction
+	// use to calculate the timeout
+	timeInfo TimeInfo
+}
+
+type TimeInfo struct {
+	createTime time.Duration
+	timeout    time.Duration
 }
 
 func InitSeataContext(ctx context.Context) context.Context {
@@ -210,4 +217,19 @@ func IsFenceTxBegin(ctx context.Context) bool {
 	}
 
 	return false
+}
+
+func GetTimeInfo(ctx context.Context) (ti *TimeInfo) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		ti = &variable.(*ContextVariable).timeInfo
+	}
+	return
+}
+
+func SetTimeInfo(ctx context.Context, ti TimeInfo) {
+	variable := ctx.Value(seataContextVariable)
+	if variable != nil {
+		variable.(*ContextVariable).timeInfo = ti
+	}
 }
