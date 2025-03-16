@@ -1,8 +1,6 @@
 module github.com/seata/seata-go
 
-go 1.23.0
-
-toolchain go1.24.1
+go 1.18
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
@@ -16,7 +14,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.10.2
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.6.0
+	github.com/google/uuid v1.3.0
 	github.com/knadh/koanf v1.4.4
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4/v4 v4.1.17
@@ -27,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.57.0
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
@@ -35,18 +33,17 @@ require (
 require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
-	github.com/google/cel-go v0.24.1
+	github.com/google/cel-go v0.18.0
 	github.com/mattn/go-sqlite3 v1.14.19
-	golang.org/x/sync v0.11.0
-	google.golang.org/protobuf v1.36.5
+	golang.org/x/sync v0.6.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	cel.dev/expr v0.19.1 // indirect
 	github.com/RoaringBitmap/roaring v1.2.0 // indirect
 	github.com/Workiva/go-datastructures v1.0.52 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/apache/dubbo-go-hessian2 v1.11.4 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -82,7 +79,7 @@ require (
 	github.com/pingcap/errors v0.11.5-0.20210425183316-da1aaba5fb63 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
@@ -94,10 +91,10 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc // indirect
-	golang.org/x/text v0.22.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250227231956-55c901821b1e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250227231956-55c901821b1e // indirect
+	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 
@@ -109,9 +106,9 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pingcap/log v0.0.0-20210906054005-afc726e70354 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 

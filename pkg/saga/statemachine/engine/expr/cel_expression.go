@@ -19,7 +19,6 @@ package expr
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/decls"
 )
 
 type CELExpression struct {
@@ -37,8 +36,8 @@ var _ Expression = (*CELExpression)(nil)
 func NewCELExpression(expression string) (*CELExpression, error) {
 	// Create the standard environment.
 	env, err := cel.NewEnv(
-		cel.VariableDecls(
-			decls.NewVariable("elContext", cel.DynType),
+		cel.Variable(
+			"elContext", cel.DynType,
 		),
 	)
 
