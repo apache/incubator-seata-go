@@ -18,34 +18,207 @@
 package repository
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"io"
+	"sync"
+	"time"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
+	"github.com/seata/seata-go/pkg/saga/statemachine/store/db"
+	"github.com/seata/seata-go/pkg/util/log"
+)
+
+const (
+	DefaultJsonParser = "fastjson"
+)
+
+var (
+	stateMachineRepositoryImpl     *StateMachineRepositoryImpl
+	onceStateMachineRepositoryImpl sync.Once
 )
 
 type StateMachineRepositoryImpl struct {
+	stateMachineMapById            map[string]statelang.StateMachine
+	stateMachineMapByNameAndTenant map[string]statelang.StateMachine
+
+	stateLangStore  *db.StateLangStore
+	seqGenerator    sequence.SeqGenerator
+	defaultTenantId string
+	jsonParserName  string
+	charset         string
+	mutex           sync.Mutex
+}
+
+func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
+	if stateMachineRepositoryImpl == nil {
+		onceStateMachineRepositoryImpl.Do(func() {
+			//TODO get charset by config
+			stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
+				stateMachineMapById: make(map[string]statelang.StateMachine),
+				seqGenerator:        sequence.NewUUIDSeqGenerator(),
+				jsonParserName:      DefaultJsonParser,
+				charset:             "UTF-8",
+			}
+		})
+	}
+
+	return stateMachineRepositoryImpl
 }
 
 func (s StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (statelang.StateMachine, error) {
-	//TODO implement me
-	panic("implement me")
+	stateMachine := s.stateMachineMapById[stateMachineId]
+	if stateMachine == nil && s.stateLangStore != nil {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		stateMachine = s.stateMachineMapById[stateMachineId]
+		if stateMachine == nil {
+			oldStateMachine, err := s.stateLangStore.GetStateMachineById(stateMachineId)
+			if err != nil {
+				return oldStateMachine, err
+			}
+
+			parseStatMachine, err := parser.NewJSONStateMachineParser().Parse(oldStateMachine.Content())
+			if err != nil {
+				return oldStateMachine, err
+			}
+
+			s.stateMachineMapById[stateMachineId] = parseStatMachine
+			s.stateMachineMapByNameAndTenant[parseStatMachine.Name()+"_"+parseStatMachine.TenantId()] = parseStatMachine
+			return parseStatMachine, nil
+		}
+	}
+	return stateMachine, nil
 }
 
 func (s StateMachineRepositoryImpl) GetStateMachineByNameAndTenantId(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
-	//TODO implement me
-	panic("implement me")
+	return s.GetLastVersionStateMachine(stateMachineName, tenantId)
 }
 
 func (s StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
-	//TODO implement me
-	panic("implement me")
+	key := stateMachineName + "_" + tenantId
+	stateMachine := s.stateMachineMapById[key]
+	if stateMachine == nil && s.stateLangStore != nil {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		stateMachine = s.stateMachineMapById[key]
+		if stateMachine == nil {
+			oldStateMachine, err := s.stateLangStore.GetLastVersionStateMachine(stateMachineName, tenantId)
+			if err != nil {
+				return oldStateMachine, err
+			}
+
+			parseStatMachine, err := parser.NewJSONStateMachineParser().Parse(oldStateMachine.Content())
+			if err != nil {
+				return oldStateMachine, err
+			}
+
+			s.stateMachineMapById[parseStatMachine.ID()] = parseStatMachine
+			s.stateMachineMapByNameAndTenant[key] = parseStatMachine
+			return parseStatMachine, nil
+		}
+	}
+	return stateMachine, nil
 }
 
 func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.StateMachine) error {
-	//TODO implement me
-	panic("implement me")
+	stateMachineName := machine.Name()
+	tenantId := machine.TenantId()
+
+	if s.stateLangStore != nil {
+		oldStateMachine, err := s.stateLangStore.GetLastVersionStateMachine(stateMachineName, tenantId)
+		if err != nil {
+			return err
+		}
+
+		if oldStateMachine != nil {
+			if oldStateMachine.Content() == machine.Content() && len(machine.Version()) > 0 && machine.Version() == oldStateMachine.Version() {
+				log.Debugf("StateMachine[%s] is already exist a same version", stateMachineName)
+				machine.SetID(oldStateMachine.ID())
+				machine.SetCreateTime(oldStateMachine.CreateTime())
+
+				s.stateMachineMapById[machine.ID()] = machine
+				s.stateMachineMapByNameAndTenant[machine.Name()+"_"+machine.TenantId()] = machine
+				return nil
+			}
+		}
+
+		if len(machine.ID()) <= 0 {
+			machine.SetID(s.seqGenerator.GenerateId(constant.SeqEntityStateMachine, ""))
+		}
+
+		machine.SetCreateTime(time.Now())
+
+		err = s.stateLangStore.StoreStateMachine(machine)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(machine.ID()) <= 0 {
+		machine.SetID(s.seqGenerator.GenerateId(constant.SeqEntityStateMachine, ""))
+	}
+
+	s.stateMachineMapById[machine.ID()] = machine
+	s.stateMachineMapByNameAndTenant[machine.Name()+"_"+machine.TenantId()] = machine
+	return nil
 }
 
 func (s StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Reader) error {
-	//TODO implement me
-	panic("implement me")
+	jsonByte, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+
+	json := string(jsonByte)
+	parseStatMachine, err := parser.NewJSONStateMachineParser().Parse(json)
+	if err != nil {
+		return err
+	}
+
+	if parseStatMachine == nil {
+		return nil
+	}
+
+	parseStatMachine.SetContent(json)
+	s.RegistryStateMachine(parseStatMachine)
+
+	log.Debugf("===== StateMachine Loaded: %s", json)
+
+	return nil
+}
+
+func (s StateMachineRepositoryImpl) SetStateLangStore(stateLangStore *db.StateLangStore) {
+	s.stateLangStore = stateLangStore
+}
+
+func (s StateMachineRepositoryImpl) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
+	s.seqGenerator = seqGenerator
+}
+
+func (s StateMachineRepositoryImpl) SetCharset(charset string) {
+	s.charset = charset
+}
+
+func (s StateMachineRepositoryImpl) GetCharset() string {
+	return s.charset
+}
+
+func (s StateMachineRepositoryImpl) SetDefaultTenantId(defaultTenantId string) {
+	s.defaultTenantId = defaultTenantId
+}
+
+func (s StateMachineRepositoryImpl) GetDefaultTenantId() string {
+	return s.defaultTenantId
+}
+
+func (s StateMachineRepositoryImpl) SetJsonParserName(jsonParserName string) {
+	s.jsonParserName = jsonParserName
+}
+
+func (s StateMachineRepositoryImpl) GetJsonParserName() string {
+	return s.jsonParserName
 }
