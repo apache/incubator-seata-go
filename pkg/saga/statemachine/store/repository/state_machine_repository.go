@@ -48,18 +48,20 @@ type StateMachineRepositoryImpl struct {
 	defaultTenantId string
 	jsonParserName  string
 	charset         string
-	mutex           sync.Mutex
+	mutex           *sync.Mutex
 }
 
 func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
 	if stateMachineRepositoryImpl == nil {
 		onceStateMachineRepositoryImpl.Do(func() {
 			//TODO get charset by config
+			//TODO charset is not use
 			stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
 				stateMachineMapById: make(map[string]statelang.StateMachine),
 				seqGenerator:        sequence.NewUUIDSeqGenerator(),
 				jsonParserName:      DefaultJsonParser,
 				charset:             "UTF-8",
+				mutex:               &sync.Mutex{},
 			}
 		})
 	}
@@ -135,7 +137,7 @@ func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.State
 		}
 
 		if oldStateMachine != nil {
-			if oldStateMachine.Content() == machine.Content() && len(machine.Version()) > 0 && machine.Version() == oldStateMachine.Version() {
+			if oldStateMachine.Content() == machine.Content() && machine.Version() != "" && machine.Version() == oldStateMachine.Version() {
 				log.Debugf("StateMachine[%s] is already exist a same version", stateMachineName)
 				machine.SetID(oldStateMachine.ID())
 				machine.SetCreateTime(oldStateMachine.CreateTime())
@@ -146,7 +148,7 @@ func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.State
 			}
 		}
 
-		if len(machine.ID()) <= 0 {
+		if machine.ID() == "" {
 			machine.SetID(s.seqGenerator.GenerateId(constant.SeqEntityStateMachine, ""))
 		}
 
@@ -158,7 +160,7 @@ func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.State
 		}
 	}
 
-	if len(machine.ID()) <= 0 {
+	if machine.ID() == "" {
 		machine.SetID(s.seqGenerator.GenerateId(constant.SeqEntityStateMachine, ""))
 	}
 

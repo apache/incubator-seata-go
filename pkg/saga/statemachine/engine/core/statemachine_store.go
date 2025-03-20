@@ -55,6 +55,8 @@ type StateLogStore interface {
 	GetStateInstance(stateInstanceId string, stateMachineInstanceId string) (statelang.StateInstance, error)
 
 	GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error)
+
+	ClearUp(context ProcessContext)
 }
 
 type StateMachineRepository interface {
