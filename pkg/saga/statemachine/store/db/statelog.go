@@ -753,7 +753,7 @@ func (s *StateLogStore) GetStateInstanceListByMachineInstanceId(stateMachineInst
 	if lastStateInstance.EndTime().IsZero() {
 		lastStateInstance.SetStatus(statelang.RU)
 	}
-	//TODO add forward and compensate logic
+
 	originStateMap := make(map[string]statelang.StateInstance)
 	compensatedStateMap := make(map[string]statelang.StateInstance)
 	retriedStateMap := make(map[string]statelang.StateInstance)
