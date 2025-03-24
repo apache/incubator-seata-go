@@ -57,6 +57,12 @@ func mockMachineInstance(stateMachineName string) statelang.StateMachineInstance
 	return inst
 }
 
+func mockStateMachineConfig(context core.ProcessContext) core.StateMachineConfig {
+	cfg := core.NewDefaultStateMachineConfig()
+	context.SetVariable(constant.VarNameStateMachineConfig, cfg)
+	return cfg
+}
+
 func TestStateLogStore_RecordStateMachineStarted(t *testing.T) {
 	prepareDB()
 
@@ -65,6 +71,7 @@ func TestStateLogStore_RecordStateMachineStarted(t *testing.T) {
 	expected := mockMachineInstance(stateMachineName)
 	expected.SetBusinessKey("test_started")
 	ctx := mockProcessContext(stateMachineName, expected)
+	mockStateMachineConfig(ctx)
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
 	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())

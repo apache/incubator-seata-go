@@ -239,12 +239,15 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 		log.Warnf("StateMachineInstance[%s] is execution timeout, skip report transaction finished to server.", machineInstance.ID())
 	} else if machineInstance.ParentID() == "" {
 		//if parentId is not null, machineInstance is a SubStateMachine, do not report global transaction.
-		s.reportTransactionFinished(ctx, machineInstance, context)
+		err = s.reportTransactionFinished(ctx, machineInstance, context)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context core.ProcessContext) {
+func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context core.ProcessContext) error {
 	var err error
 	defer func() {
 		s.ClearUp(context)
@@ -256,7 +259,8 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 
 	globalTransaction, err := s.getGlobalTransaction(machineInstance, context)
 	if err != nil {
-		return
+		log.Errorf("Failed to get global transaction: %v", err)
+		return err
 	}
 
 	var globalStatus message.GlobalStatus
@@ -277,8 +281,9 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	globalTransaction.TxStatus = globalStatus
 	_, err = tm.GetGlobalTransactionManager().GlobalReport(ctx, globalTransaction)
 	if err != nil {
-		return
+		return err
 	}
+	return nil
 }
 
 func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMachineInstance, context core.ProcessContext) (*tm.GlobalTransaction, error) {
@@ -492,7 +497,7 @@ func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, co
 		return err
 	}
 
-	stateInstance.SetID(string(branchId))
+	stateInstance.SetID(strconv.FormatInt(branchId, 10))
 	return nil
 }
 
