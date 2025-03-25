@@ -42,7 +42,7 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 	for _, columnNmae := range columnNames {
 		var (
 			scanVal interface{}
-			// 从metData获取该列的元信息
+			// Gets Meta information about the column from metData
 			columnMeta = tableMeta.Columns[columnNmae]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
