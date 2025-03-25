@@ -79,7 +79,6 @@ const (
 	// end region
 
 	// region others
-	SeqEntityStateMachine     string = "STATE_MACHINE"
 	SeqEntityStateMachineInst string = "STATE_MACHINE_INST"
 	SeqEntityStateInst        string = "STATE_INST"
 	OperationNameForward      string = "forward"
