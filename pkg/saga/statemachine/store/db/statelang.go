@@ -104,7 +104,7 @@ func scanRowsToStateMachine(rows *sql.Rows) (statelang.StateMachine, error) {
 	if recoverStrategy != "" {
 		stateMachine.SetRecoverStrategy(statelang.RecoverStrategy(recoverStrategy))
 	}
-	stateMachine.SetTenantId(t)
+	stateMachine.SetTenantId(tenantId)
 	stateMachine.SetStatus(statelang.StateMachineStatus(status))
 	return stateMachine, nil
 }

@@ -72,6 +72,10 @@ type StateMachineInstance interface {
 
 	SetStatus(status ExecutionStatus)
 
+	StateMap() map[string]StateInstance
+
+	SetStateMap(stateMap map[string]StateInstance)
+
 	CompensationStatus() ExecutionStatus
 
 	SetCompensationStatus(compensationStatus ExecutionStatus)
@@ -232,6 +236,14 @@ func (s *StateMachineInstanceImpl) Status() ExecutionStatus {
 
 func (s *StateMachineInstanceImpl) SetStatus(status ExecutionStatus) {
 	s.status = status
+}
+
+func (s *StateMachineInstanceImpl) StateMap() map[string]StateInstance {
+	return s.stateMap
+}
+
+func (s *StateMachineInstanceImpl) SetStateMap(stateMap map[string]StateInstance) {
+	s.stateMap = stateMap
 }
 
 func (s *StateMachineInstanceImpl) CompensationStatus() ExecutionStatus {
