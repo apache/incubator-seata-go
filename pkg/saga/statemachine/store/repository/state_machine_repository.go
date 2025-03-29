@@ -56,12 +56,14 @@ func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
 		onceStateMachineRepositoryImpl.Do(func() {
 			//TODO get charset by config
 			//TODO charset is not use
+			//TODO using json parser
 			stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
-				stateMachineMapById: make(map[string]statelang.StateMachine),
-				seqGenerator:        sequence.NewUUIDSeqGenerator(),
-				jsonParserName:      DefaultJsonParser,
-				charset:             "UTF-8",
-				mutex:               &sync.Mutex{},
+				stateMachineMapById:            make(map[string]statelang.StateMachine),
+				stateMachineMapByNameAndTenant: make(map[string]statelang.StateMachine),
+				seqGenerator:                   sequence.NewUUIDSeqGenerator(),
+				jsonParserName:                 DefaultJsonParser,
+				charset:                        "UTF-8",
+				mutex:                          &sync.Mutex{},
 			}
 		})
 	}
@@ -69,7 +71,7 @@ func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
 	return stateMachineRepositoryImpl
 }
 
-func (s StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (statelang.StateMachine, error) {
+func (s *StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (statelang.StateMachine, error) {
 	stateMachine := s.stateMachineMapById[stateMachineId]
 	if stateMachine == nil && s.stateLangStore != nil {
 		s.mutex.Lock()
@@ -87,21 +89,26 @@ func (s StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (
 				return oldStateMachine, err
 			}
 
-			s.stateMachineMapById[stateMachineId] = parseStatMachine
-			s.stateMachineMapByNameAndTenant[parseStatMachine.Name()+"_"+parseStatMachine.TenantId()] = parseStatMachine
-			return parseStatMachine, nil
+			oldStateMachine.SetStartState(parseStatMachine.StartState())
+			for key, val := range parseStatMachine.States() {
+				oldStateMachine.States()[key] = val
+			}
+
+			s.stateMachineMapById[stateMachineId] = oldStateMachine
+			s.stateMachineMapByNameAndTenant[oldStateMachine.Name()+"_"+oldStateMachine.TenantId()] = oldStateMachine
+			return oldStateMachine, nil
 		}
 	}
 	return stateMachine, nil
 }
 
-func (s StateMachineRepositoryImpl) GetStateMachineByNameAndTenantId(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
+func (s *StateMachineRepositoryImpl) GetStateMachineByNameAndTenantId(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
 	return s.GetLastVersionStateMachine(stateMachineName, tenantId)
 }
 
-func (s StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
+func (s *StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
 	key := stateMachineName + "_" + tenantId
-	stateMachine := s.stateMachineMapById[key]
+	stateMachine := s.stateMachineMapByNameAndTenant[key]
 	if stateMachine == nil && s.stateLangStore != nil {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -118,15 +125,20 @@ func (s StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName 
 				return oldStateMachine, err
 			}
 
-			s.stateMachineMapById[parseStatMachine.ID()] = parseStatMachine
-			s.stateMachineMapByNameAndTenant[key] = parseStatMachine
-			return parseStatMachine, nil
+			oldStateMachine.SetStartState(parseStatMachine.StartState())
+			for key, val := range parseStatMachine.States() {
+				oldStateMachine.States()[key] = val
+			}
+
+			s.stateMachineMapById[oldStateMachine.ID()] = oldStateMachine
+			s.stateMachineMapByNameAndTenant[key] = oldStateMachine
+			return oldStateMachine, nil
 		}
 	}
 	return stateMachine, nil
 }
 
-func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.StateMachine) error {
+func (s *StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.StateMachine) error {
 	stateMachineName := machine.Name()
 	tenantId := machine.TenantId()
 
@@ -169,7 +181,7 @@ func (s StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.State
 	return nil
 }
 
-func (s StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Reader) error {
+func (s *StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Reader) error {
 	jsonByte, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -193,34 +205,34 @@ func (s StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Reade
 	return nil
 }
 
-func (s StateMachineRepositoryImpl) SetStateLangStore(stateLangStore *db.StateLangStore) {
+func (s *StateMachineRepositoryImpl) SetStateLangStore(stateLangStore *db.StateLangStore) {
 	s.stateLangStore = stateLangStore
 }
 
-func (s StateMachineRepositoryImpl) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
+func (s *StateMachineRepositoryImpl) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
 	s.seqGenerator = seqGenerator
 }
 
-func (s StateMachineRepositoryImpl) SetCharset(charset string) {
+func (s *StateMachineRepositoryImpl) SetCharset(charset string) {
 	s.charset = charset
 }
 
-func (s StateMachineRepositoryImpl) GetCharset() string {
+func (s *StateMachineRepositoryImpl) GetCharset() string {
 	return s.charset
 }
 
-func (s StateMachineRepositoryImpl) SetDefaultTenantId(defaultTenantId string) {
+func (s *StateMachineRepositoryImpl) SetDefaultTenantId(defaultTenantId string) {
 	s.defaultTenantId = defaultTenantId
 }
 
-func (s StateMachineRepositoryImpl) GetDefaultTenantId() string {
+func (s *StateMachineRepositoryImpl) GetDefaultTenantId() string {
 	return s.defaultTenantId
 }
 
-func (s StateMachineRepositoryImpl) SetJsonParserName(jsonParserName string) {
+func (s *StateMachineRepositoryImpl) SetJsonParserName(jsonParserName string) {
 	s.jsonParserName = jsonParserName
 }
 
-func (s StateMachineRepositoryImpl) GetJsonParserName() string {
+func (s *StateMachineRepositoryImpl) GetJsonParserName() string {
 	return s.jsonParserName
 }
