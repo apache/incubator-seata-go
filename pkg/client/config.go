@@ -20,11 +20,11 @@ package client
 import (
 	"flag"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"seata.apache.org/seata-go/pkg/saga"
 	"strings"
 
 	"github.com/knadh/koanf"

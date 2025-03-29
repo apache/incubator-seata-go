@@ -67,6 +67,7 @@ const (
 	// TODO: this lock in process context only has one, try to add more to add concurrent
 	VarNameProcessContextMutexLock string = "_current_context_mutex_lock"
 	VarNameFailEndStateFlag        string = "_fail_end_state_flag_"
+	VarNameGlobalTx                string = "_global_transaction_"
 	// end region
 
 	// region of loop
@@ -79,10 +80,12 @@ const (
 	// end region
 
 	// region others
+	SeqEntityStateMachine     string = "STATE_MACHINE"
 	SeqEntityStateMachineInst string = "STATE_MACHINE_INST"
 	SeqEntityStateInst        string = "STATE_INST"
 	OperationNameForward      string = "forward"
 	LoopStateNamePattern      string = "-loop-"
+	SagaTransNamePrefix       string = "$Saga_"
 	// end region
 
 	SeperatorParentId string = ":"

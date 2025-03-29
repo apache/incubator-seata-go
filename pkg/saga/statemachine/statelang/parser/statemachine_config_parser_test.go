@@ -18,8 +18,8 @@
 package parser
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/stretchr/testify/assert"
+	"seata.apache.org/seata-go/pkg/saga/statemachine"
 	"testing"
 )
 
