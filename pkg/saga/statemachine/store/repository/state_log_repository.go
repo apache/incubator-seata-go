@@ -20,8 +20,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
@@ -30,8 +28,7 @@ import (
 )
 
 var (
-	onceStateLogRepositoryImpl sync.Once
-	stateLogRepositoryImpl     *StateLogRepositoryImpl
+	stateLogRepositoryImpl *StateLogRepositoryImpl
 )
 
 type StateLogRepositoryImpl struct {
@@ -40,11 +37,9 @@ type StateLogRepositoryImpl struct {
 
 func NewStateLogRepositoryImpl(hsqldb *sql.DB, tablePrefix string) *StateLogRepositoryImpl {
 	if stateLogRepositoryImpl == nil {
-		onceStateLogRepositoryImpl.Do(func() {
-			stateLogRepositoryImpl = &StateLogRepositoryImpl{
-				stateLogStore: db.NewStateLogStore(hsqldb, tablePrefix),
-			}
-		})
+		stateLogRepositoryImpl = &StateLogRepositoryImpl{
+			stateLogStore: db.NewStateLogStore(hsqldb, tablePrefix),
+		}
 	}
 
 	return stateLogRepositoryImpl
