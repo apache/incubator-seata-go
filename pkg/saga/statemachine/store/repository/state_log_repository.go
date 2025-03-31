@@ -16,3 +16,131 @@
  */
 
 package repository
+
+import (
+	"context"
+	"database/sql"
+	"sync"
+
+	"github.com/pkg/errors"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"github.com/seata/seata-go/pkg/saga/statemachine/store/db"
+)
+
+var (
+	onceStateLogRepositoryImpl sync.Once
+	stateLogRepositoryImpl     *StateLogRepositoryImpl
+)
+
+type StateLogRepositoryImpl struct {
+	stateLogStore *db.StateLogStore
+}
+
+func NewStateLogRepositoryImpl(hsqldb *sql.DB, tablePrefix string) *StateLogRepositoryImpl {
+	if stateLogRepositoryImpl == nil {
+		onceStateLogRepositoryImpl.Do(func() {
+			stateLogRepositoryImpl = &StateLogRepositoryImpl{
+				stateLogStore: db.NewStateLogStore(hsqldb, tablePrefix),
+			}
+		})
+	}
+
+	return stateLogRepositoryImpl
+}
+
+func (s *StateLogRepositoryImpl) RecordStateMachineStarted(
+	ctx context.Context,
+	machineInstance statelang.StateMachineInstance,
+	processContext core.ProcessContext,
+) error {
+	if s.stateLogStore == nil {
+		return errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.RecordStateMachineStarted(ctx, machineInstance, processContext)
+}
+
+func (s *StateLogRepositoryImpl) RecordStateMachineFinished(
+	ctx context.Context,
+	machineInstance statelang.StateMachineInstance,
+	processContext core.ProcessContext,
+) error {
+	if s.stateLogStore == nil {
+		return errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.RecordStateMachineFinished(ctx, machineInstance, processContext)
+}
+
+func (s *StateLogRepositoryImpl) RecordStateMachineRestarted(
+	ctx context.Context,
+	machineInstance statelang.StateMachineInstance,
+	processContext core.ProcessContext,
+) error {
+	if s.stateLogStore == nil {
+		return errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.RecordStateMachineRestarted(ctx, machineInstance, processContext)
+}
+
+func (s *StateLogRepositoryImpl) RecordStateStarted(
+	ctx context.Context,
+	stateInstance statelang.StateInstance,
+	processContext core.ProcessContext,
+) error {
+	if s.stateLogStore == nil {
+		return errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.RecordStateStarted(ctx, stateInstance, processContext)
+}
+
+func (s *StateLogRepositoryImpl) RecordStateFinished(
+	ctx context.Context,
+	stateInstance statelang.StateInstance,
+	processContext core.ProcessContext,
+) error {
+	if s.stateLogStore == nil {
+		return errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.RecordStateFinished(ctx, stateInstance, processContext)
+}
+
+func (s *StateLogRepositoryImpl) GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error) {
+	if s.stateLogStore == nil {
+		return nil, errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.GetStateMachineInstance(stateMachineInstanceId)
+}
+
+func (s *StateLogRepositoryImpl) GetStateMachineInstanceByBusinessKey(businessKey, tenantId string) (statelang.StateMachineInstance, error) {
+	if s.stateLogStore == nil {
+		return nil, errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.GetStateMachineInstanceByBusinessKey(businessKey, tenantId)
+}
+
+func (s *StateLogRepositoryImpl) QueryStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error) {
+	if s.stateLogStore == nil {
+		return nil, errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.GetStateMachineInstanceByParentId(parentId)
+}
+
+func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId string) (statelang.StateInstance, error) {
+	if s.stateLogStore == nil {
+		return nil, errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.GetStateInstance(stateInstanceId, machineInstId)
+}
+
+func (s *StateLogRepositoryImpl) QueryStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
+	if s.stateLogStore == nil {
+		return nil, errors.New("stateLogStore is not initialized")
+	}
+	return s.stateLogStore.GetStateInstanceListByMachineInstanceId(stateMachineInstanceId)
+
+}
+
+func (s *StateLogRepositoryImpl) SetStateLogStore(stateLogStore *db.StateLogStore) {
+	s.stateLogStore = stateLogStore
+}
