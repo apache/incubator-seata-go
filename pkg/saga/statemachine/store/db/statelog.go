@@ -498,7 +498,6 @@ func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, co
 	}
 
 	stateInstance.SetID(strconv.FormatInt(branchId, 10))
-	//stateInstance.SetID(string(branchId))
 	return nil
 }
 
