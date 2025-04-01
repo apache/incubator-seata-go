@@ -75,17 +75,15 @@ func TestAddressValidator(t *testing.T) {
 			name:    "endpoint is ipv6",
 			address: "[2000:0000:0000:0000:0001:2345:6789:abcd%10]:8080",
 			want: &IPAddr{
-				"2000:0000:0000:0000:0001:2345:6789:abcd", 8080,
+				"2000:0000:0000:0000:0001:2345:6789:abcd%10", 8080,
 			},
 			wantErr: false,
 		},
 		{
-			name:    "endpoint is ipv6",
-			address: "2000:0000:0000:0000:0001:2345:6789:abcd:8080",
-			want: &IPAddr{
-				"2000:0000:0000:0000:0001:2345:6789:abcd", 8080,
-			},
-			wantErr: false,
+			name:       "endpoint is ipv6",
+			address:    "2000:0000:0000:0000:0001:2345:6789:abcd:8080",
+			wantErr:    true,
+			wantErrMsg: "address 2000:0000:0000:0000:0001:2345:6789:abcd:8080: too many colons in address",
 		},
 		{
 			name:    "endpoint is ipv6",
@@ -97,7 +95,7 @@ func TestAddressValidator(t *testing.T) {
 		},
 		{
 			name:    "endpoint is ipv6",
-			address: "::FFFF:192.168.1.2:8080",
+			address: "[::FFFF:192.168.1.2]:8080",
 			want: &IPAddr{
 				"::FFFF:192.168.1.2", 8080,
 			},
@@ -114,7 +112,9 @@ func TestAddressValidator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			//host, port, err := SplitIPPortStr(tt.address)
 			host, port, err := SplitIPPortStr(tt.address)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SplitIPPortStr() error = %v, wantErr = %v", err, tt.wantErr)
 			}
