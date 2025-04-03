@@ -55,6 +55,24 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 			},
 		},
 		{
+			name: "host is ipv6",
+			getResp: &clientv3.GetResponse{
+				Kvs: []*mvccpb.KeyValue{
+					{
+						Key:   []byte("registry-seata-default-2000:0000:0000:0000:0001:2345:6789:abcd:8091"),
+						Value: []byte("2000:0000:0000:0000:0001:2345:6789:abcd:8091"),
+					},
+				},
+			},
+			watchResp: nil,
+			want: []*ServiceInstance{
+				{
+					Addr: "2000:0000:0000:0000:0001:2345:6789:abcd",
+					Port: 8091,
+				},
+			},
+		},
+		{
 			name:    "use watch update ServiceInstances",
 			getResp: nil,
 			watchResp: &clientv3.WatchResponse{
