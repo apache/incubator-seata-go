@@ -1,11 +1,3 @@
-# Contributing to seata-go
-
-It is warmly welcomed if you have interest to hack on seata-go. First, we encourage this kind of willing very much. And here is a list of contributing guide for you.
-## License
-
-This project is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-All contributions to this project must comply with the Apache License 2.0. When submitting new source code files, please include the following license header at the top of each file:
 ```text
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -24,8 +16,9 @@ All contributions to this project must comply with the Apache License 2.0. When 
  * limitations under the License.
  */
 ```
+# Contributing to seata-go
 
-
+It is warmly welcomed if you have interest to hack on seata-go. First, we encourage this kind of willing very much. And here is a list of contributing guide for you.
 
 [[中文贡献文档](./CONTRIBUTING_CN.md)]
 
