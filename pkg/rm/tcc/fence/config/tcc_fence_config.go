@@ -18,22 +18,17 @@
 package config
 
 import (
-	"go.uber.org/atomic"
-
 	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
 )
 
-type TccFenceConfig struct {
-	Initialized  atomic.Bool `default:"false"`
-	LogTableName string      `default:"tcc_fence_log"`
-}
-
 func InitFence() {
-	// todo implement
+
 }
 
-func InitCleanTask() {
-	handler.GetFenceHandler().InitLogCleanChannel()
+func InitCleanTask(dsn string) {
+
+	go handler.GetFenceHandler().InitLogCleanChannel(dsn)
+
 }
 
 func Destroy() {
