@@ -18,9 +18,14 @@
 package core
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"gopkg.in/yaml.v3"
+	"os"
 	"sync"
 )
 
@@ -35,14 +40,18 @@ const (
 
 type DefaultStateMachineConfig struct {
 	// Configuration
-	transOperationTimeout           int
-	serviceInvokeTimeout            int
-	charset                         string
-	defaultTenantId                 string
-	sagaRetryPersistModeUpdate      bool
-	sagaCompensatePersistModeUpdate bool
-	sagaBranchRegisterEnable        bool
-	rmReportSuccessEnable           bool
+	TransOperationTimeout           int      `json:"trans_operation_timeout" yaml:"trans_operation_timeout"`
+	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
+	Charset                         string   `json:"charset" yaml:"charset"`
+	DefaultTenantId                 string   `json:"default_tenant_id" yaml:"default_tenant_id"`
+	SagaRetryPersistModeUpdate      bool     `json:"saga_retry_persist_mode_update" yaml:"saga_retry_persist_mode_update"`
+	SagaCompensatePersistModeUpdate bool     `json:"saga_compensate_persist_mode_update" yaml:"saga_compensate_persist_mode_update"`
+	SagaBranchRegisterEnable        bool     `json:"saga_branch_register_enable" yaml:"saga_branch_register_enable"`
+	RmReportSuccessEnable           bool     `json:"rm_report_success_enable" yaml:"rm_report_success_enable"`
+	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
+
+	// State machine definitions
+	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
 
@@ -57,7 +66,7 @@ type DefaultStateMachineConfig struct {
 	stateMachineRepository StateMachineRepository
 
 	// Expression related components
-	expressionFactoryManager expr.ExpressionFactoryManager
+	expressionFactoryManager expr.ExpressionFactoryManagerInterface
 	expressionResolver       expr.ExpressionResolver
 
 	// Invoker related components
@@ -79,19 +88,19 @@ func (c *DefaultStateMachineConfig) SetComponentLock(componentLock *sync.Mutex) 
 }
 
 func (c *DefaultStateMachineConfig) SetTransOperationTimeout(transOperationTimeout int) {
-	c.transOperationTimeout = transOperationTimeout
+	c.TransOperationTimeout = transOperationTimeout
 }
 
 func (c *DefaultStateMachineConfig) SetServiceInvokeTimeout(serviceInvokeTimeout int) {
-	c.serviceInvokeTimeout = serviceInvokeTimeout
+	c.ServiceInvokeTimeout = serviceInvokeTimeout
 }
 
 func (c *DefaultStateMachineConfig) SetCharset(charset string) {
-	c.charset = charset
+	c.Charset = charset
 }
 
 func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
-	c.defaultTenantId = defaultTenantId
+	c.DefaultTenantId = defaultTenantId
 }
 
 func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
@@ -118,7 +127,7 @@ func (c *DefaultStateMachineConfig) SetStateMachineRepository(stateMachineReposi
 	c.stateMachineRepository = stateMachineRepository
 }
 
-func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager expr.ExpressionFactoryManager) {
+func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager expr.ExpressionFactoryManagerInterface) {
 	c.expressionFactoryManager = expressionFactoryManager
 }
 
@@ -158,7 +167,7 @@ func (c *DefaultStateMachineConfig) StateLangStore() StateLangStore {
 	return c.stateLangStore
 }
 
-func (c *DefaultStateMachineConfig) ExpressionFactoryManager() expr.ExpressionFactoryManager {
+func (c *DefaultStateMachineConfig) ExpressionFactoryManager() expr.ExpressionFactoryManagerInterface {
 	return c.expressionFactoryManager
 }
 
@@ -191,70 +200,210 @@ func (c *DefaultStateMachineConfig) ScriptInvokerManager() invoker.ScriptInvoker
 }
 
 func (c *DefaultStateMachineConfig) CharSet() string {
-	return c.charset
+	return c.Charset
 }
 
 func (c *DefaultStateMachineConfig) SetCharSet(charset string) {
-	c.charset = charset
+	c.Charset = charset
 }
 
-func (c *DefaultStateMachineConfig) DefaultTenantId() string {
-	return c.defaultTenantId
+func (c *DefaultStateMachineConfig) GetDefaultTenantId() string {
+	return c.DefaultTenantId
 }
 
-func (c *DefaultStateMachineConfig) TransOperationTimeout() int {
-	return c.transOperationTimeout
+func (c *DefaultStateMachineConfig) GetTransOperationTimeout() int {
+	return c.TransOperationTimeout
 }
 
-func (c *DefaultStateMachineConfig) ServiceInvokeTimeout() int {
-	return c.serviceInvokeTimeout
+func (c *DefaultStateMachineConfig) GetServiceInvokeTimeout() int {
+	return c.ServiceInvokeTimeout
 }
 
 func (c *DefaultStateMachineConfig) IsSagaRetryPersistModeUpdate() bool {
-	return c.sagaRetryPersistModeUpdate
+	return c.SagaRetryPersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) SetSagaRetryPersistModeUpdate(sagaRetryPersistModeUpdate bool) {
-	c.sagaRetryPersistModeUpdate = sagaRetryPersistModeUpdate
+	c.SagaRetryPersistModeUpdate = sagaRetryPersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) IsSagaCompensatePersistModeUpdate() bool {
-	return c.sagaCompensatePersistModeUpdate
+	return c.SagaCompensatePersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) SetSagaCompensatePersistModeUpdate(sagaCompensatePersistModeUpdate bool) {
-	c.sagaCompensatePersistModeUpdate = sagaCompensatePersistModeUpdate
+	c.SagaCompensatePersistModeUpdate = sagaCompensatePersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) IsSagaBranchRegisterEnable() bool {
-	return c.sagaBranchRegisterEnable
+	return c.SagaBranchRegisterEnable
 }
 
 func (c *DefaultStateMachineConfig) SetSagaBranchRegisterEnable(sagaBranchRegisterEnable bool) {
-	c.sagaBranchRegisterEnable = sagaBranchRegisterEnable
+	c.SagaBranchRegisterEnable = sagaBranchRegisterEnable
 }
 
 func (c *DefaultStateMachineConfig) IsRmReportSuccessEnable() bool {
-	return c.rmReportSuccessEnable
+	return c.RmReportSuccessEnable
 }
 
 func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnable bool) {
-	c.rmReportSuccessEnable = rmReportSuccessEnable
+	c.RmReportSuccessEnable = rmReportSuccessEnable
+}
+
+func (c *DefaultStateMachineConfig) GetStateMachineDefinition(name string) *statemachine.StateMachineObject {
+	return c.stateMachineDefs[name]
+}
+
+func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) expr.ExpressionFactory {
+	return c.expressionFactoryManager.GetExpressionFactory(expressionType)
+}
+
+func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) invoker.ServiceInvoker {
+	return c.serviceInvokerManager.ServiceInvoker(serviceType)
+}
+
+func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) error {
+	for _, resourcePath := range resources {
+		file, err := os.Open(resourcePath)
+		if err != nil {
+			return fmt.Errorf("open resource file failed: path=%s, err=%w", resourcePath, err)
+		}
+		defer file.Close()
+
+		if err := c.stateMachineRepository.RegistryStateMachineByReader(file); err != nil {
+			return fmt.Errorf("register state machine from file failed: path=%s, err=%w", resourcePath, err)
+		}
+	}
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) RegisterExpressionFactory(expressionType string, factory expr.ExpressionFactory) {
+	c.expressionFactoryManager.PutExpressionFactory(expressionType, factory)
+}
+
+func (c *DefaultStateMachineConfig) RegisterServiceInvoker(serviceType string, invoker invoker.ServiceInvoker) {
+	c.serviceInvokerManager.PutServiceInvoker(serviceType, invoker)
+}
+
+type RuntimeConfig struct {
+	TransOperationTimeout           int      `json:"trans_operation_timeout" yaml:"trans_operation_timeout"`
+	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
+	Charset                         string   `json:"charset" yaml:"charset"`
+	DefaultTenantId                 string   `json:"default_tenant_id" yaml:"default_tenant_id"`
+	SagaRetryPersistModeUpdate      bool     `json:"saga_retry_persist_mode_update" yaml:"saga_retry_persist_mode_update"`
+	SagaCompensatePersistModeUpdate bool     `json:"saga_compensate_persist_mode_update" yaml:"saga_compensate_persist_mode_update"`
+	SagaBranchRegisterEnable        bool     `json:"saga_branch_register_enable" yaml:"saga_branch_register_enable"`
+	RmReportSuccessEnable           bool     `json:"rm_report_success_enable" yaml:"rm_report_success_enable"`
+	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
+}
+
+func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
+	}
+
+	var smo statemachine.StateMachineObject
+	if err := json.Unmarshal(content, &smo); err != nil {
+		if err := yaml.Unmarshal(content, &smo); err != nil {
+			return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
+		}
+	}
+
+	var runtimeConfig RuntimeConfig
+	if err := json.Unmarshal(content, &runtimeConfig); err != nil {
+		if err := yaml.Unmarshal(content, &runtimeConfig); err != nil {
+		} else {
+			c.applyRuntimeConfig(&runtimeConfig)
+		}
+	} else {
+		c.applyRuntimeConfig(&runtimeConfig)
+	}
+
+	if _, exists := c.stateMachineDefs[smo.Name]; exists {
+		return fmt.Errorf("state machine definition with name %s already exists", smo.Name)
+	}
+	c.stateMachineDefs[smo.Name] = &smo
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) applyRuntimeConfig(rc *RuntimeConfig) {
+	if rc.TransOperationTimeout > 0 {
+		c.TransOperationTimeout = rc.TransOperationTimeout
+	}
+	if rc.ServiceInvokeTimeout > 0 {
+		c.ServiceInvokeTimeout = rc.ServiceInvokeTimeout
+	}
+	if rc.Charset != "" {
+		c.Charset = rc.Charset
+	}
+	if rc.DefaultTenantId != "" {
+		c.DefaultTenantId = rc.DefaultTenantId
+	}
+	c.SagaRetryPersistModeUpdate = rc.SagaRetryPersistModeUpdate
+	c.SagaCompensatePersistModeUpdate = rc.SagaCompensatePersistModeUpdate
+	c.SagaBranchRegisterEnable = rc.SagaBranchRegisterEnable
+	c.RmReportSuccessEnable = rc.RmReportSuccessEnable
+	if len(rc.StateMachineResources) > 0 {
+		c.StateMachineResources = rc.StateMachineResources
+	}
+}
+
+func (c *DefaultStateMachineConfig) Init() error {
+	if c.expressionFactoryManager != nil {
+		defaultExprType := "el"
+		factory := c.expressionFactoryManager.GetExpressionFactory(defaultExprType)
+		if factory == nil {
+			c.RegisterExpressionFactory(defaultExprType, expr.NewELExpressionFactory())
+		}
+	}
+
+	if c.serviceInvokerManager != nil {
+		defaultServiceType := "local"
+		existingInvoker := c.serviceInvokerManager.ServiceInvoker(defaultServiceType)
+		if existingInvoker == nil {
+			newInvoker := invoker.NewLocalServiceInvoker()
+			c.RegisterServiceInvoker(defaultServiceType, newInvoker)
+		}
+	}
+
+	if c.stateMachineRepository != nil && len(c.StateMachineResources) > 0 {
+		if err := c.RegisterStateMachineDef(c.StateMachineResources); err != nil {
+			return fmt.Errorf("register state machine def failed: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
-	c := &DefaultStateMachineConfig{
-		transOperationTimeout:           DefaultTransOperTimeout,
-		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
-		charset:                         "UTF-8",
-		defaultTenantId:                 "000001",
-		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
-		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
-		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
-		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
-		componentLock:                   &sync.Mutex{},
-	}
 
-	// TODO: init config
+	// TODO: Initialize the statemachine_repository, following the implementation of the Java version.
+
+	expressionFactoryManager := expr.NewExpressionFactoryManager()
+	expressionFactoryManager.Register("el", expr.NewELExpressionFactory())
+
+	serviceInvokerManager := invoker.NewServiceInvokerManagerImpl()
+	serviceInvokerManager.PutServiceInvoker("local", invoker.NewLocalServiceInvoker())
+
+	c := &DefaultStateMachineConfig{
+		TransOperationTimeout:           DefaultTransOperTimeout,
+		ServiceInvokeTimeout:            DefaultServiceInvokeTimeout,
+		Charset:                         "UTF-8",
+		DefaultTenantId:                 "000001",
+		StateMachineResources:           []string{"classpath*:seata/saga/statelang/**/*.json"},
+		SagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
+		SagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
+		SagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
+		RmReportSuccessEnable:           DefaultClientReportSuccessEnable,
+		expressionFactoryManager:        expressionFactoryManager,
+		serviceInvokerManager:           serviceInvokerManager,
+
+		stateMachineDefs: make(map[string]*statemachine.StateMachineObject),
+
+		componentLock: &sync.Mutex{},
+	}
 	return c
 }

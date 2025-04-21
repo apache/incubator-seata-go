@@ -18,7 +18,12 @@
 package expr
 
 import (
+	"context"
+	"fmt"
+	"github.com/PaesslerAG/gval"
+	"github.com/expr-lang/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"log"
 	"strings"
 )
 
@@ -40,14 +45,76 @@ type ExpressionFactory interface {
 	CreateExpression(expression string) Expression
 }
 
+type ExpressionFactoryManagerInterface interface {
+	GetExpressionFactory(expressionType string) ExpressionFactory
+	SetExpressionFactoryMap(expressionFactoryMap map[string]ExpressionFactory)
+	PutExpressionFactory(expressionType string, factory ExpressionFactory)
+	Register(typeName string, factory ExpressionFactory)
+}
 type ExpressionFactoryManager struct {
 	expressionFactoryMap map[string]ExpressionFactory
 }
 
-func NewExpressionFactoryManager() *ExpressionFactoryManager {
+func (m *ExpressionFactoryManager) Register(typeName string, factory ExpressionFactory) {
+	m.expressionFactoryMap[typeName] = factory
+}
+
+type ELExpression struct {
+	expression string
+}
+
+func (e *ELExpression) Value(elContext any) any {
+	program, err := expr.Compile(e.expression)
+	if err != nil {
+		log.Printf("Failed to compile expression %s: %v", e.expression, err)
+		return nil
+	}
+
+	output, err := expr.Run(program, elContext.(map[string]any))
+	if err != nil {
+		log.Printf("Failed to run expression %s: %v", e.expression, err)
+		return nil
+	}
+	return output
+}
+
+func (e *ELExpression) SetValue(value any, elContext any) {
+	ctxMap, ok := elContext.(map[string]any)
+	if !ok {
+		log.Printf("Invalid context type. Expected map[string]any, got %T", elContext)
+		return
+	}
+	assignmentExpr := fmt.Sprintf("%s = %v", e.expression, value)
+	evaluable, err := gval.Full().NewEvaluable(assignmentExpr)
+	if err != nil {
+		log.Printf("Failed to compile assignment expression %s: %v", assignmentExpr, err)
+		return
+	}
+	ctx := context.Background()
+	_, err = evaluable(ctx, ctxMap)
+	if err != nil {
+		log.Printf("Failed to evaluate assignment expression %s: %v", assignmentExpr, err)
+	}
+}
+
+func (e *ELExpression) ExpressionString() string {
+	return e.expression
+}
+
+type ELExpressionFactory struct{}
+
+func (f *ELExpressionFactory) CreateExpression(expression string) Expression {
+	return &ELExpression{expression: expression}
+}
+
+func NewExpressionFactoryManager() ExpressionFactoryManagerInterface {
 	return &ExpressionFactoryManager{
 		expressionFactoryMap: make(map[string]ExpressionFactory),
 	}
+}
+
+func NewELExpressionFactory() *ELExpressionFactory {
+	return &ELExpressionFactory{}
 }
 
 func (e *ExpressionFactoryManager) GetExpressionFactory(expressionType string) ExpressionFactory {
@@ -56,6 +123,8 @@ func (e *ExpressionFactoryManager) GetExpressionFactory(expressionType string) E
 	}
 	return e.expressionFactoryMap[expressionType]
 }
+
+var _ ExpressionFactoryManagerInterface = (*ExpressionFactoryManager)(nil)
 
 func (e *ExpressionFactoryManager) SetExpressionFactoryMap(expressionFactoryMap map[string]ExpressionFactory) {
 	for k, v := range expressionFactoryMap {
