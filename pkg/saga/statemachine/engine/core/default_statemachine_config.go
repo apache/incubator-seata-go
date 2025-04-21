@@ -24,6 +24,7 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
 	"gopkg.in/yaml.v3"
 	"os"
 	"sync"
@@ -304,11 +305,10 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
 	}
 
-	var smo statemachine.StateMachineObject
-	if err := json.Unmarshal(content, &smo); err != nil {
-		if err := yaml.Unmarshal(content, &smo); err != nil {
-			return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
-		}
+	parser := parser.NewStateMachineConfigParser()
+	smo, err := parser.Parse(content)
+	if err != nil {
+		return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
 	}
 
 	var runtimeConfig RuntimeConfig
@@ -324,7 +324,7 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	if _, exists := c.stateMachineDefs[smo.Name]; exists {
 		return fmt.Errorf("state machine definition with name %s already exists", smo.Name)
 	}
-	c.stateMachineDefs[smo.Name] = &smo
+	c.stateMachineDefs[smo.Name] = smo
 
 	return nil
 }
