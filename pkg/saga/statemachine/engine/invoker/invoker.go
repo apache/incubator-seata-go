@@ -106,14 +106,21 @@ func (l *LocalServiceInvoker) Invoke(ctx context.Context, input []any, service s
 
 func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTypes []string) (*reflect.Method, error) {
 	key := fmt.Sprintf("%s.%s", serviceName, methodName)
+
 	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
 	if method, ok := l.methodCache[key]; ok {
-		l.mutex.RUnlock()
 		return method, nil
 	}
+
 	l.mutex.RUnlock()
 
-	instance := l.serviceRegistry[serviceName]
+	instance, exists := l.serviceRegistry[serviceName]
+	if !exists {
+		return nil, fmt.Errorf("service %s not found", serviceName)
+	}
+
 	objType := reflect.TypeOf(instance)
 	method, ok := objType.MethodByName(methodName)
 	if !ok {
@@ -121,8 +128,13 @@ func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTyp
 	}
 
 	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	if cachedMethod, ok := l.methodCache[key]; ok {
+		return cachedMethod, nil
+	}
+
 	l.methodCache[key] = &method
-	l.mutex.Unlock()
 	return &method, nil
 }
 

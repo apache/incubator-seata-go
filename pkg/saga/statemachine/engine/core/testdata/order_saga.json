@@ -246,12 +246,12 @@
     "ErrorHandler": {
       "Type": "Fail",
       "ErrorCode": "ORDER_PROCESSING_ERROR",
-      "Message": "订单处理过程中出现错误"
+      "Message": "Errors occurred during order processing."
     },
     "FailState": {
       "Type": "Fail",
       "ErrorCode": "ORDER_CANCELLED",
-      "Message": "订单已取消"
+      "Message": "Order has been canceled."
     }
   }
 }
