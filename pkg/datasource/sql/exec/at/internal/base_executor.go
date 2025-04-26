@@ -23,6 +23,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -42,19 +44,19 @@ type Executor interface {
 }
 
 type BaseExecutor struct {
-	hooks       []exec.SQLHook
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
+	Hooks     []exec.SQLHook
+	ParserCtx *types.ParseContext
+	ExecCtx   *types.ExecContext
 }
 
 func (b *BaseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
-	for _, hook := range b.hooks {
+	for _, hook := range b.Hooks {
 		hook.Before(ctx, execCtx)
 	}
 }
 
 func (b *BaseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
-	for _, hook := range b.hooks {
+	for _, hook := range b.Hooks {
 		hook.After(ctx, execCtx)
 	}
 }
@@ -100,7 +102,7 @@ func (*BaseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 }
 
 func (b BaseExecutor) DBType() types.DBType {
-	return b.execContext.DBType
+	return b.ExecCtx.DBType
 }
 
 func (b *BaseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
@@ -298,7 +300,7 @@ func getSqlNullValue(value interface{}) interface{} {
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *BaseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *BaseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -403,4 +405,30 @@ func (b *BaseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	}
 
 	return lockKeys.String()
+}
+
+func (b *BaseExecutor) GetMetaData(ctx context.Context) (*types.TableMeta, error) {
+	tableName, _ := b.ParserCtx.GetTableName()
+	return datasource.GetTableCache(b.DBType()).GetTableMeta(ctx, b.ExecCtx.DBName, tableName)
+}
+
+func (b *BaseExecutor) ExecSelectSQL(ctx context.Context, selectSQL string, args []driver.NamedValue) (driver.Rows, error) {
+	var rowsi driver.Rows
+
+	queryerCtx, ok := b.ExecCtx.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = b.ExecCtx.Conn.(driver.Queryer)
+	}
+	if !ok {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
+	}
+
+	rowsi, err := util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, args)
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
+	}
+	return rowsi, nil
 }

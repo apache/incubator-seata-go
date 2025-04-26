@@ -72,7 +72,7 @@ type multiDelete struct {
 
 // NewMultiDeleteExecutor get multiDelete Executor
 func NewMultiDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *MultiDeleteExecutor {
-	return &MultiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, BaseExecutor: BaseExecutor{hooks: hooks}}
+	return &MultiDeleteExecutor{parserCtx: parserCtx, execContext: execContent, BaseExecutor: BaseExecutor{Hooks: hooks}}
 }
 
 func (m *MultiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordImage, error) {
@@ -111,7 +111,7 @@ func (m *MultiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(m.DBType()).GetTableMeta(ctx, m.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

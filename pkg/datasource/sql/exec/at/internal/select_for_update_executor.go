@@ -25,9 +25,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
+
 	"seata.apache.org/seata-go/pkg/tm"
 	"seata.apache.org/seata-go/pkg/util/backoff"
-	"time"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/config"
 
@@ -52,8 +53,6 @@ var (
 type SelectForUpdateExecutor struct {
 	BaseExecutor
 
-	parserCtx     *types.ParseContext
-	execContext   *types.ExecContext
 	cfg           *rm.LockConfig
 	tx            driver.Tx
 	tableName     string
@@ -65,41 +64,41 @@ type SelectForUpdateExecutor struct {
 func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *SelectForUpdateExecutor {
 	return &SelectForUpdateExecutor{
 		BaseExecutor: BaseExecutor{
-			hooks: hooks,
+			Hooks:     hooks,
+			ParserCtx: parserCtx,
+			ExecCtx:   execContext,
 		},
-		parserCtx:   parserCtx,
-		execContext: execContext,
-		cfg:         &config.LockConfig,
+		cfg: &config.LockConfig,
 	}
 }
 
 func (s *SelectForUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	s.beforeHooks(ctx, s.execContext)
+	s.beforeHooks(ctx, s.ExecCtx)
 	defer func() {
-		s.afterHooks(ctx, s.execContext)
+		s.afterHooks(ctx, s.ExecCtx)
 	}()
 
 	// todo fix IsRequireGlobalLock
-	if !tm.IsGlobalTx(ctx) && !s.execContext.IsRequireGlobalLock {
-		return f(ctx, s.execContext.Query, s.execContext.NamedValues)
+	if !tm.IsGlobalTx(ctx) && !s.ExecCtx.IsRequireGlobalLock {
+		return f(ctx, s.ExecCtx.Query, s.ExecCtx.NamedValues)
 	}
 
 	var (
 		result             types.ExecResult
-		originalAutoCommit = s.execContext.IsAutoCommit
+		originalAutoCommit = s.ExecCtx.IsAutoCommit
 		err                error
 	)
 
-	if s.tableName, err = s.parserCtx.GetTableName(); err != nil {
+	if s.tableName, err = s.ParserCtx.GetTableName(); err != nil {
 		return nil, err
 	}
 
-	if s.metaData, err = datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	if s.metaData, err = datasource.GetTableCache(s.DBType()).GetTableMeta(ctx, s.ExecCtx.DBName, s.tableName); err != nil {
 		return nil, err
 	}
 
 	// build query primary key sql
-	if s.selectPKSQL, err = s.buildSelectPKSQL(s.parserCtx.SelectStmt, s.metaData); err != nil {
+	if s.selectPKSQL, err = s.buildSelectPKSQL(s.ParserCtx.SelectStmt, s.metaData); err != nil {
 		return nil, err
 	}
 
@@ -140,7 +139,7 @@ func (s *SelectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		if err = s.tx.Commit(); err != nil {
 			return nil, err
 		}
-		s.execContext.IsAutoCommit = true
+		s.ExecCtx.IsAutoCommit = true
 	}
 
 	return result, nil
@@ -150,19 +149,19 @@ func (s *SelectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	var (
 		now                = time.Now().Unix()
 		result             types.ExecResult
-		originalAutoCommit = s.execContext.IsAutoCommit
+		originalAutoCommit = s.ExecCtx.IsAutoCommit
 		err                error
 	)
 
 	if originalAutoCommit {
 		// In order to hold the local db lock during global lock checking
 		// set auto commit value to false first if original auto commit was true
-		s.execContext.IsAutoCommit = false
-		s.tx, err = s.execContext.Conn.Begin()
+		s.ExecCtx.IsAutoCommit = false
+		s.tx, err = s.ExecCtx.Conn.Begin()
 		if err != nil {
 			return nil, err
 		}
-	} else if s.execContext.IsSupportsSavepoints {
+	} else if s.ExecCtx.IsSupportsSavepoints {
 		// In order to release the local db lock when global lock conflict
 		// create a save point if original auto commit was false, then use the save point here to release db
 		// lock during global lock checking if necessary
@@ -177,7 +176,7 @@ func (s *SelectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 
 	// query primary key values
 	var lockKey string
-	_, err = s.exec(ctx, s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
+	_, err = s.exec(ctx, s.selectPKSQL, s.ExecCtx.NamedValues, func(rows driver.Rows) {
 		lockKey = s.buildLockKey(rows, s.metaData)
 	})
 
@@ -190,16 +189,16 @@ func (s *SelectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	}
 
 	// execute business SQL, try to get local lock
-	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
+	result, err = f(ctx, s.ExecCtx.Query, s.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
 	// check global lock
 	lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
-		Xid:        s.execContext.TxCtx.XID,
+		Xid:        s.ExecCtx.TxCtx.XID,
 		BranchType: branch.BranchTypeAT,
-		ResourceId: s.execContext.TxCtx.ResourceID,
+		ResourceId: s.ExecCtx.TxCtx.ResourceID,
 		LockKeys:   lockKey,
 	})
 	if err != nil {
@@ -310,8 +309,8 @@ func (s *SelectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs 
 		queryerCtxExists, queryerExists bool
 	)
 
-	if querierContext, queryerCtxExists = s.execContext.Conn.(driver.QueryerContext); !queryerCtxExists {
-		if querier, queryerExists = s.execContext.Conn.(driver.Queryer); !queryerExists {
+	if querierContext, queryerCtxExists = s.ExecCtx.Conn.(driver.QueryerContext); !queryerCtxExists {
+		if querier, queryerExists = s.ExecCtx.Conn.(driver.Queryer); !queryerExists {
 			log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 			return nil, fmt.Errorf("invalid conn")
 		}

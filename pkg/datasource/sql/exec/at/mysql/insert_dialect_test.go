@@ -1,41 +1,37 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package internal
+package mysql
 
 import (
 	"context"
 	"database/sql/driver"
-	"reflect"
-	"testing"
-
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	"github.com/stretchr/testify/assert"
-
+	"reflect"
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"testing"
 )
+
+type mockInsertResult struct {
+	lastInsertID int64
+	rowsAffected int64
+}
+
+func (m mockInsertResult) GetRows() driver.Rows {
+	return &mock.MockTestDriverRows{}
+}
+
+func (m mockInsertResult) GetResult() driver.Result {
+	return sqlmock.NewResult(m.lastInsertID, m.rowsAffected)
+}
 
 func TestBuildSelectSQLByInsert(t *testing.T) {
 	tests := []struct {
@@ -128,10 +124,10 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				NamedValues: test.NamedValues,
 			}, []exec.SQLHook{})
 
-			executor.(*InsertExecutor).businesSQLResult = &test.mockInsertResult
-			executor.(*InsertExecutor).incrementStep = test.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = &test.mockInsertResult
+			executor.(*InsertExecutor).IncrementStep = test.IncrementStep
 
-			sql, values, err := executor.(*InsertExecutor).buildAfterImageSQL(context.Background())
+			sql, values, err := executor.(*InsertExecutor).InsertExecutor.BuildAfterImageSQL(context.Background())
 			assert.Nil(t, err)
 			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
 				if test.orExpectQuery == sql {
@@ -221,10 +217,10 @@ func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
 
-			assert.Equalf(t, tt.want, executor.(*InsertExecutor).containsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).ContainsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
 		})
 	}
 }
@@ -295,10 +291,10 @@ func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
 
-			assert.Equalf(t, tt.want, executor.(*InsertExecutor).containPK(tt.args.columnName, tt.args.meta), "isPKColumn(%v, %v)", tt.args.columnName, tt.args.meta)
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).ContainPK(tt.args.columnName, tt.args.meta), "isPKColumn(%v, %v)", tt.args.columnName, tt.args.meta)
 		})
 	}
 }
@@ -414,9 +410,9 @@ func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
-			assert.Equalf(t, tt.want, executor.(*InsertExecutor).getPkIndex(tt.args.InsertStmt, tt.args.meta), "getPkIndexArray(%v, %v)", tt.args.InsertStmt, tt.args.meta)
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
+			assert.Equalf(t, tt.want, executor.(*InsertExecutor).GetPkIndex(tt.args.InsertStmt, tt.args.meta), "getPkIndexArray(%v, %v)", tt.args.InsertStmt, tt.args.meta)
 		})
 	}
 }
@@ -547,10 +543,10 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*InsertExecutor).parsePkValuesFromStatement(tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
+			got, err := executor.(*InsertExecutor).ParsePkValuesFromStatement(tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "parsePkValuesFromStatement(%v, %v, %v)", tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
 		})
@@ -636,10 +632,10 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 				})
 
 			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*InsertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
+			got, err := executor.(*InsertExecutor).GetPkValuesByColumn(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
 			stub.Reset()
@@ -737,11 +733,11 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 					return &tt.args.meta, nil
 				})
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
-			executor.(*InsertExecutor).parserCtx = tt.args.execCtx.ParseContext
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).ParserCtx = tt.args.execCtx.ParseContext
 
-			got, err := executor.(*InsertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
+			got, err := executor.(*InsertExecutor).GetPkValuesByAuto(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
 			stub.Reset()
@@ -831,8 +827,8 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 				})
 
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*InsertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*InsertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*InsertExecutor).BusinesSQLResult = tt.fields.InsertResult
+			executor.(*InsertExecutor).IncrementStep = tt.fields.IncrementStep
 
 			got, err := executor.(*InsertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 			assert.Nil(t, err)

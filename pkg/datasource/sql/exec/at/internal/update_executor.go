@@ -27,7 +27,6 @@ import (
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -47,14 +46,16 @@ type UpdateExecutor struct {
 
 // NewUpdateExecutor get update Executor
 func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *UpdateExecutor {
-	return &UpdateExecutor{BaseExecutor: BaseExecutor{hooks, parserCtx, execContent}}
+	return &UpdateExecutor{
+		BaseExecutor: BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContent},
+	}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (u *UpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	u.beforeHooks(ctx, u.execContext)
+	u.beforeHooks(ctx, u.ExecCtx)
 	defer func() {
-		u.afterHooks(ctx, u.execContext)
+		u.afterHooks(ctx, u.ExecCtx)
 	}()
 
 	beforeImage, err := u.beforeImage(ctx)
@@ -62,7 +63,7 @@ func (u *UpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	res, err := f(ctx, u.execContext.Query, u.execContext.NamedValues)
+	res, err := f(ctx, u.ExecCtx.Query, u.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,8 @@ func (u *UpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 	}
 
-	u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	u.ExecCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	u.ExecCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 
 	return res, nil
 }
@@ -88,22 +89,22 @@ func (u *UpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, nil
 	}
 
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContext.NamedValues)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.GetMetaData(ctx)
+
 	if err != nil {
 		return nil, err
 	}
 
 	var rowsi driver.Rows
-	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
+	queryerCtx, ok := u.ExecCtx.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
+		queryer, ok = u.ExecCtx.Conn.(driver.Queryer)
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
@@ -127,8 +128,8 @@ func (u *UpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	lockKey := u.buildLockKey(image, *metaData)
-	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
-	image.SQLType = u.parserCtx.SQLType
+	u.ExecCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	image.SQLType = u.ParserCtx.SQLType
 
 	return image, nil
 }
@@ -142,46 +143,34 @@ func (u *UpdateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return &types.RecordImage{}, nil
 	}
 
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.GetMetaData(ctx)
 	if err != nil {
 		return nil, err
 	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
-	var rowsi driver.Rows
-	queryerCtx, ok := u.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
-	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
+	rowsi, err := u.ExecSelectSQL(ctx, selectSQL, selectArgs)
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
 		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
-	}
+	}()
 
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
+	}
 	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
 	if err != nil {
 		return nil, err
 	}
-	afterImage.SQLType = u.parserCtx.SQLType
+	afterImage.SQLType = u.ParserCtx.SQLType
 
 	return afterImage, nil
 }
 
 func (u *UpdateExecutor) isAstStmtValid() bool {
-	return u.parserCtx != nil && u.parserCtx.UpdateStmt != nil
+	return u.ParserCtx != nil && u.ParserCtx.UpdateStmt != nil
 }
 
 // buildAfterImageSQL build the SQL to query after image data
@@ -204,7 +193,7 @@ func (u *UpdateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 		selectFields = "*"
 	}
 	sb.WriteString("SELECT " + selectFields + " FROM " + meta.TableName + " WHERE ")
-	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
+	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
 }
@@ -216,7 +205,7 @@ func (u *UpdateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
-	updateStmt := u.parserCtx.UpdateStmt
+	updateStmt := u.ParserCtx.UpdateStmt
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
 	if undo.UndoConfig.OnlyCareUpdateColumns {
@@ -229,8 +218,7 @@ func (u *UpdateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		}
 
 		// select indexes columns
-		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+		metaData, err := u.GetMetaData(ctx)
 		if err != nil {
 			return "", nil, err
 		}

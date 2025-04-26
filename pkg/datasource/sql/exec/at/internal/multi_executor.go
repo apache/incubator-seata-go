@@ -27,43 +27,43 @@ import (
 
 type MultiExecutor struct {
 	BaseExecutor
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
 }
 
 // NewMultiExecutor get new multi Executor
 func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *MultiExecutor {
-	return &MultiExecutor{parserCtx: parserCtx, execContext: execContext, BaseExecutor: BaseExecutor{hooks: hooks}}
+	return &MultiExecutor{
+		BaseExecutor: BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContext},
+	}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (m *MultiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	m.beforeHooks(ctx, m.execContext)
+	m.beforeHooks(ctx, m.ExecCtx)
 
 	defer func() {
-		m.afterHooks(ctx, m.execContext)
+		m.afterHooks(ctx, m.ExecCtx)
 	}()
 
-	beforeImages, err := m.beforeImage(ctx, m.parserCtx)
+	beforeImages, err := m.beforeImage(ctx, m.ParserCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := f(ctx, m.execContext.Query, m.execContext.NamedValues)
+	res, err := f(ctx, m.ExecCtx.Query, m.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	afterImages, err := m.afterImage(ctx, m.parserCtx, beforeImages)
+	afterImages, err := m.afterImage(ctx, m.ParserCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, beforeImage := range beforeImages {
-		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+		m.ExecCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	}
 	for _, afterImage := range afterImages {
-		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+		m.ExecCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	}
 
 	return res, nil
@@ -84,13 +84,13 @@ func (m *MultiExecutor) beforeImage(ctx context.Context, parseContext *types.Par
 		var images []*types.RecordImage
 		switch multiParser.ExecutorType {
 		case types.UpdateExecutor:
-			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.execContext, m.hooks)
+			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.ExecCtx, m.Hooks)
 			images, err = multiUpdateExec.beforeImage(ctx)
 		case types.DeleteExecutor:
-			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.execContext, m.hooks)
+			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.ExecCtx, m.Hooks)
 			images, err = multiDeleteExec.beforeImage(ctx)
 		default:
-			return nil, fmt.Errorf("not support multi sql %s", m.execContext.Query)
+			return nil, fmt.Errorf("not support multi sql %s", m.ExecCtx.Query)
 		}
 
 		if err != nil {
@@ -118,13 +118,13 @@ func (m *MultiExecutor) afterImage(ctx context.Context, parseContext *types.Pars
 		var images []*types.RecordImage
 		switch multiParser.ExecutorType {
 		case types.UpdateExecutor:
-			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.execContext, m.hooks)
+			multiUpdateExec := NewMultiUpdateExecutor(multiParser, m.ExecCtx, m.Hooks)
 			images, err = multiUpdateExec.afterImage(ctx, beforeImages)
 		case types.DeleteExecutor:
-			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.execContext, m.hooks)
+			multiDeleteExec := NewMultiDeleteExecutor(multiParser, m.ExecCtx, m.Hooks)
 			images, err = multiDeleteExec.afterImage(ctx)
 		default:
-			return nil, fmt.Errorf("not support multi sql %s", m.execContext.Query)
+			return nil, fmt.Errorf("not support multi sql %s", m.ExecCtx.Query)
 		}
 
 		if err != nil {

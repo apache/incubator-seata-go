@@ -44,15 +44,15 @@ type InsertOnUpdateExecutor struct {
 // NewInsertOnUpdateExecutor get insert on update Executor
 func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) Executor {
 	return &InsertOnUpdateExecutor{
-		BaseExecutor:              BaseExecutor{hooks: hooks, parserCtx: parserCtx, execContext: execContent},
+		BaseExecutor:              BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContent},
 		beforeImageSqlPrimaryKeys: make(map[string]bool),
 	}
 }
 
 func (i *InsertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	i.beforeHooks(ctx, i.execContext)
+	i.beforeHooks(ctx, i.ExecCtx)
 	defer func() {
-		i.afterHooks(ctx, i.execContext)
+		i.afterHooks(ctx, i.ExecCtx)
 	}()
 
 	beforeImage, err := i.beforeImage(ctx)
@@ -60,7 +60,7 @@ func (i *InsertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 		return nil, err
 	}
 
-	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
+	res, err := f(ctx, i.ExecCtx.Query, i.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -78,44 +78,44 @@ func (i *InsertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 		afterImage.SQLType = types.SQLTypeInsert
 	}
 
-	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	i.ExecCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	i.ExecCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
 }
 
 // beforeImage build before image
 func (i *InsertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	if !i.isAstStmtValid() {
-		log.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
-		return nil, fmt.Errorf("invalid insert statement! parser ctx:%+v", i.parserCtx)
+		log.Errorf("invalid insert statement! parser ctx:%+v", i.ParserCtx)
+		return nil, fmt.Errorf("invalid insert statement! parser ctx:%+v", i.ParserCtx)
 	}
-	tableName, err := i.parserCtx.GetTableName()
+	tableName, err := i.ParserCtx.GetTableName()
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.ExecCtx.DBType).GetTableMeta(ctx, i.ExecCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
-	selectSQL, selectArgs, err := i.buildBeforeImageSQL(i.parserCtx.InsertStmt, *metaData, i.execContext.NamedValues)
+	selectSQL, selectArgs, err := i.buildBeforeImageSQL(i.ParserCtx.InsertStmt, *metaData, i.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 	if len(selectArgs) == 0 {
 		log.Errorf("the SQL statement has no primary key or unique index value, it will not hit any row data."+
-			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.execContext.DBName, tableName, i.execContext.Query)
+			"recommend to convert to a normal insert statement. db name:%s table name:%s sql:%s", i.ExecCtx.DBName, tableName, i.ExecCtx.Query)
 		return nil, fmt.Errorf("invalid insert or update sql")
 	}
 	i.beforeSelectSql = selectSQL
 	i.beforeSelectArgs = selectArgs
 
 	var rowsi driver.Rows
-	queryerCtx, queryerCtxExists := i.execContext.Conn.(driver.QueryerContext)
+	queryerCtx, queryerCtxExists := i.ExecCtx.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	var queryerExists bool
 
 	if !queryerCtxExists {
-		queryer, queryerExists = i.execContext.Conn.(driver.Queryer)
+		queryer, queryerExists = i.ExecCtx.Conn.(driver.Queryer)
 	}
 	if !queryerExists && !queryerCtxExists {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
@@ -236,11 +236,11 @@ func (i *InsertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 func (i *InsertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *types.RecordImage) (*types.RecordImage, error) {
 	afterSelectSql, selectArgs := i.buildAfterImageSQL(beforeImages)
 	var rowsi driver.Rows
-	queryerCtx, queryerCtxExists := i.execContext.Conn.(driver.QueryerContext)
+	queryerCtx, queryerCtxExists := i.ExecCtx.Conn.(driver.QueryerContext)
 	var queryer driver.Queryer
 	var queryerExists bool
 	if !queryerCtxExists {
-		queryer, queryerExists = i.execContext.Conn.(driver.Queryer)
+		queryer, queryerExists = i.ExecCtx.Conn.(driver.Queryer)
 	}
 	if !queryerCtxExists && !queryerExists {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
@@ -256,11 +256,11 @@ func (i *InsertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 		log.Errorf("ctx driver query: %+v", err)
 		return nil, err
 	}
-	tableName, err := i.parserCtx.GetTableName()
+	tableName, err := i.ParserCtx.GetTableName()
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.ExecCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (i *InsertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 		return nil, err
 	}
 	lockKey := i.buildLockKey(afterImage, *metaData)
-	i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+	i.ExecCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	return afterImage, nil
 }
 
@@ -361,7 +361,7 @@ func (i *InsertOnUpdateExecutor) getPkIndexArray(insertStmt *ast.InsertStmt, met
 }
 
 func (i *InsertOnUpdateExecutor) isAstStmtValid() bool {
-	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
+	return i.ParserCtx != nil && i.ParserCtx.InsertStmt != nil
 }
 
 // isIndexValueNull check if the index value is null

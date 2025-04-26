@@ -21,15 +21,13 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/bytes"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
@@ -39,15 +37,17 @@ type DeleteExecutor struct {
 }
 
 // NewDeleteExecutor get delete Executor
-func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) Executor {
-	return &DeleteExecutor{BaseExecutor: BaseExecutor{hooks, parserCtx, execContent}}
+func NewDeleteExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) Executor {
+	return &DeleteExecutor{
+		BaseExecutor: BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContext},
+	}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (d *DeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	d.beforeHooks(ctx, d.execContext)
+	d.beforeHooks(ctx, d.ExecCtx)
 	defer func() {
-		d.afterHooks(ctx, d.execContext)
+		d.afterHooks(ctx, d.ExecCtx)
 	}()
 
 	beforeImage, err := d.beforeImage(ctx)
@@ -55,7 +55,7 @@ func (d *DeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	res, err := f(ctx, d.execContext.Query, d.execContext.NamedValues)
+	res, err := f(ctx, d.ExecCtx.Query, d.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -65,42 +65,24 @@ func (d *DeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	d.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	d.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	d.ExecCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	d.ExecCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
 }
 
 // beforeImage build before image
 func (d *DeleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContext.Query, d.execContext.NamedValues)
+	selectSQL, selectArgs, err := d.BuildBeforeImageSQL(d.ExecCtx.Query, d.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	var rowsi driver.Rows
-	queryerCtx, ok := d.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = d.execContext.Conn.(driver.Queryer)
-	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
-		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
+	rowsi, err := d.ExecSelectSQL(ctx, selectSQL, selectArgs)
+	if err != nil {
+		return nil, err
 	}
 
-	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(d.BaseExecutor.DBType()).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := d.GetMetaData(ctx)
 
 	if err != nil {
 		return nil, err
@@ -114,13 +96,13 @@ func (d *DeleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	image.TableMeta = metaData
 
 	lockKey := d.buildLockKey(image, *metaData)
-	d.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+	d.ExecCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return image, nil
 }
 
-// buildBeforeImageSQL build delete sql from delete sql
-func (d *DeleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+// BuildBeforeImageSQL build delete sql from delete sql
+func (d *DeleteExecutor) BuildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
 		return "", nil, err
@@ -154,8 +136,7 @@ func (d *DeleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 // afterImage build after image
 func (d *DeleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
-	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(d.BaseExecutor.DBType()).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := d.GetMetaData(ctx)
 	if err != nil {
 		return nil, err
 	}

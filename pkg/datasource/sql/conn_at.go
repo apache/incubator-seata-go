@@ -106,6 +106,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 			DbVersion:            c.GetDbVersion(),
 			IsSupportsSavepoints: true,
 			IsAutoCommit:         c.GetAutoCommit(),
+			DBType:               c.dbType,
 		}
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,

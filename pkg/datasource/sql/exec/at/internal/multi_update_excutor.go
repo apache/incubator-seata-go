@@ -41,8 +41,6 @@ import (
 // MultiUpdateExecutor execute multiple update SQL
 type MultiUpdateExecutor struct {
 	BaseExecutor
-	parserCtx   *types.ParseContext
-	execContext *types.ExecContext
 }
 
 var rows driver.Rows
@@ -50,27 +48,29 @@ var comma = ","
 
 // NewMultiUpdateExecutor get new multi update Executor
 func NewMultiUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *MultiUpdateExecutor {
-	return &MultiUpdateExecutor{parserCtx: parserCtx, execContext: execContext, BaseExecutor: BaseExecutor{hooks: hooks}}
+	return &MultiUpdateExecutor{
+		BaseExecutor: BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContext},
+	}
 }
 
 // ExecContext exec SQL, and generate before image and after image
 func (u *MultiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	u.beforeHooks(ctx, u.execContext)
+	u.beforeHooks(ctx, u.ExecCtx)
 	defer func() {
-		u.afterHooks(ctx, u.execContext)
+		u.afterHooks(ctx, u.ExecCtx)
 	}()
 
 	//single update sql handler
-	if len(u.parserCtx.MultiStmt) == 1 {
-		u.parserCtx.UpdateStmt = u.parserCtx.MultiStmt[0].UpdateStmt
-		return NewUpdateExecutor(u.parserCtx, u.execContext, u.hooks).ExecContext(ctx, f)
+	if len(u.ParserCtx.MultiStmt) == 1 {
+		u.ParserCtx.UpdateStmt = u.ParserCtx.MultiStmt[0].UpdateStmt
+		return NewUpdateExecutor(u.ParserCtx, u.ExecCtx, u.Hooks).ExecContext(ctx, f)
 	}
 	beforeImages, err := u.beforeImage(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := f(ctx, u.execContext.Query, u.execContext.NamedValues)
+	res, err := f(ctx, u.ExecCtx.Query, u.ExecCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +90,8 @@ func (u *MultiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
 
-		u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-		u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+		u.ExecCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+		u.ExecCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	}
 
 	return res, nil
@@ -102,14 +102,14 @@ func (u *MultiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, nil
 	}
 
-	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	tableName := u.ParserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.ExecCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
 
 	// use
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(u.execContext.NamedValues, metaData)
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(u.ExecCtx.NamedValues, metaData)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +131,8 @@ func (u *MultiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	}
 
 	lockKey := u.buildLockKey(image, *metaData)
-	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
-	image.SQLType = u.parserCtx.SQLType
+	u.ExecCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	image.SQLType = u.ParserCtx.SQLType
 
 	return []*types.RecordImage{image}, nil
 }
@@ -147,8 +147,8 @@ func (u *MultiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 	}
 	beforeImage := beforeImages[0]
 
-	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	tableName := u.ParserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.ExecCtx.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -172,16 +172,16 @@ func (u *MultiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, err
 	}
 
-	image.SQLType = u.parserCtx.SQLType
+	image.SQLType = u.ParserCtx.SQLType
 	return []*types.RecordImage{image}, nil
 }
 
 func (u *MultiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
 	var queryer driver.Queryer
 
-	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
+	queryerContext, ok := u.ExecCtx.Conn.(driver.QueryerContext)
 	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
+		queryer, ok = u.ExecCtx.Conn.(driver.Queryer)
 	}
 	if ok {
 		var err error
@@ -224,7 +224,7 @@ func (u *MultiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 		selectFieldsStr = strings.Join(meta.ColumnNames, comma)
 	}
 	selectSql.WriteString("SELECT " + selectFieldsStr + " FROM " + meta.TableName + " WHERE ")
-	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
+	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), maxInSize)
 	selectSql.WriteString(" " + whereSQL + " ")
 	return selectSql.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
 }
@@ -238,13 +238,13 @@ func (u *MultiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 
 	var (
 		whereCondition strings.Builder
-		multiStmts     = u.parserCtx.MultiStmt
-		newArgs        = make([]driver.NamedValue, 0, len(u.parserCtx.MultiStmt))
+		multiStmts     = u.ParserCtx.MultiStmt
+		newArgs        = make([]driver.NamedValue, 0, len(u.ParserCtx.MultiStmt))
 		fields         = make([]*ast.SelectField, 0, len(meta.ColumnNames))
 		fieldsExits    = make(map[string]struct{}, len(meta.ColumnNames))
 	)
 
-	for _, multiStmt := range u.parserCtx.MultiStmt {
+	for _, multiStmt := range u.ParserCtx.MultiStmt {
 		updateStmt := multiStmt.UpdateStmt
 		if updateStmt.Limit != nil {
 			return "", nil, fmt.Errorf("multi update SQL with limit condition is not support yet")
@@ -343,7 +343,7 @@ func (u *MultiUpdateExecutor) buildBeforeImageSQL(args []driver.NamedValue, meta
 }
 
 func (u *MultiUpdateExecutor) isAstStmtValid() bool {
-	return u.parserCtx != nil && u.parserCtx.MultiStmt != nil && len(u.parserCtx.MultiStmt) > 0
+	return u.ParserCtx != nil && u.ParserCtx.MultiStmt != nil && len(u.ParserCtx.MultiStmt) > 0
 }
 
 type updateVisitor struct {
