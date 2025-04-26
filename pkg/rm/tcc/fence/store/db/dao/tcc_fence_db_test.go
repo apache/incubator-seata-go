@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,6 +112,40 @@ func TestTccFenceStoreDatabaseMapper_QueryTCCFenceDO(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestTccFenceStoreDatabaseMapper_QueryTCCFenceLogIdentityByMdDate(t *testing.T) {
+	now := time.Now()
+	tccFenceDo := &model.TCCFenceDO{
+		Xid:         "123123124124",
+		BranchId:    12312312312,
+		ActionName:  "fence_test",
+		Status:      enum.StatusTried,
+		GmtCreate:   now,
+		GmtModified: now,
+	}
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("open db failed msg: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GetQuerySQLByMdDate("tcc_fence_log")).
+		ExpectQuery().
+		WithArgs(driver.Value(tccFenceDo.GmtModified)).
+		WillReturnRows(sqlmock.NewRows([]string{"xid", "branch_id"}).
+			AddRow(driver.Value(tccFenceDo.Xid), driver.Value(tccFenceDo.BranchId)))
+	mock.ExpectCommit()
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatalf("open conn failed msg :%v", err)
+	}
+
+	actualFenceDo, err := GetTccFenceStoreDatabaseMapper().QueryTCCFenceLogIdentityByMdDate(tx, tccFenceDo.GmtModified)
+	tx.Commit()
+	assert.Equal(t, tccFenceDo.Xid, actualFenceDo[0].Xid)
+	assert.Equal(t, tccFenceDo.BranchId, actualFenceDo[0].BranchId)
+	assert.Nil(t, err)
+}
+
 func TestTccFenceStoreDatabaseMapper_UpdateTCCFenceDO(t *testing.T) {
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
@@ -177,6 +212,35 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDO(t *testing.T) {
 	assert.Equal(t, nil, err)
 }
 
+func TestTccFenceStoreDatabaseMapper_DeleteMultipleTCCFenceDO(t *testing.T) {
+	identities := []model.FenceLogIdentity{
+		{Xid: "123123124124", BranchId: 12312312312},
+		{Xid: "123123124125", BranchId: 12312312313},
+	}
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("open db failed msg: %v", err)
+	}
+	defer db.Close()
+
+	placeholders := strings.Repeat("(?,?),", len(identities)-1) + "(?,?)"
+	mock.ExpectBegin()
+	mock.ExpectPrepare(sql2.GertDeleteSQLByBranchIdsAndXids("tcc_fence_log", placeholders)).
+		ExpectExec().
+		WithArgs(driver.Value(identities[0].Xid), driver.Value(identities[0].BranchId), driver.Value(identities[1].Xid), driver.Value(identities[1].BranchId)).
+		WillReturnResult(sqlmock.NewResult(1, 2))
+	mock.ExpectCommit()
+
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatalf("open conn failed msg :%v", err)
+	}
+
+	err = GetTccFenceStoreDatabaseMapper().DeleteMultipleTCCFenceLogIdentity(tx, identities)
+	tx.Commit()
+	assert.Equal(t, nil, err)
+}
+
 func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	now := time.Now()
 	tccFenceDo := &model.TCCFenceDO{
@@ -190,7 +254,7 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectPrepare(sql2.GetDeleteSQLByMdfDateAndStatus("tcc_fence_log")).
 		ExpectExec().
-		WithArgs(driver.Value(tccFenceDo.GmtModified.Add(math.MaxInt32))).
+		WithArgs(driver.Value(tccFenceDo.GmtModified.Add(math.MaxInt32)), 1000).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -198,7 +262,12 @@ func TestTccFenceStoreDatabaseMapper_DeleteTCCFenceDOByMdfDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open conn failed msg :%v", err)
 	}
-	err = GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32))
+	affect, err := GetTccFenceStoreDatabaseMapper().DeleteTCCFenceDOByMdfDate(tx, tccFenceDo.GmtModified.Add(math.MaxInt32), 1000)
 	tx.Commit()
 	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(1), affect)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %v", err)
+	}
 }
