@@ -251,7 +251,7 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 			if err != nil {
 				return err
 			}
-		case JDBCTypeChar, JDBCTypeVarchar:
+		case JDBCTypeChar, JDBCTypeVarchar, JDBCTypeLongVarchar:
 			var val []byte
 			if val, err = base64.StdEncoding.DecodeString(value.(string)); err != nil {
 				val = []byte(value.(string))
