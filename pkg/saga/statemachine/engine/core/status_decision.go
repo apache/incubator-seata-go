@@ -19,7 +19,9 @@ package core
 
 import (
 	"context"
+	"errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -126,6 +128,7 @@ func decideMachineForwardExecutionStatus(ctx context.Context, stateMachineInstan
 	if stateMachineInstance.Status() == "" || statelang.RU == stateMachineInstance.Status() {
 		result = true
 		stateList := stateMachineInstance.StateList()
+		//Determine the final state of the entire state machine based on the state of each StateInstance
 		setMachineStatusBasedOnStateListAndException(stateMachineInstance, stateList, exp)
 
 		if specialPolicy && statelang.SU == stateMachineInstance.Status() {
@@ -188,18 +191,53 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 }
 
 func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachineInstance, exp error, hasSuccessUpdateService bool) {
-	//TODO implement me
-	panic("implement me")
+
+	if exp == nil {
+		stateMachineInstance.SetStatus(statelang.SU)
+		return
+	}
+
+	var engineExp *exception.EngineExecutionException
+	if errors.As(exp, &engineExp) && engineExp.ErrCode == constant.FrameworkErrorCodeStateMachineExecutionTimeout {
+		stateMachineInstance.SetStatus(statelang.UN)
+		return
+	}
+
+	if hasSuccessUpdateService {
+		stateMachineInstance.SetStatus(statelang.UN)
+		return
+	}
+
+	netType := GetNetExceptionType(exp)
+	switch netType {
+	case constant.ConnectException, constant.ConnectTimeoutException, constant.NotNetException:
+		stateMachineInstance.SetStatus(statelang.FA)
+	case constant.ReadTimeoutException:
+		stateMachineInstance.SetStatus(statelang.UN)
+	default:
+		//Default failure
+		stateMachineInstance.SetStatus(statelang.FA)
+
+	}
 }
 
 func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext ProcessContext,
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
-	//TODO implement me
-	panic("implement me")
+
+	result, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, true)
+	if err != nil {
+		return err
+	}
+
+	if !result {
+		stateMachineInstance.SetCompensationStatus(statelang.UN)
+	}
+	return nil
 }
 
 func (d DefaultStatusDecisionStrategy) DecideMachineForwardExecutionStatus(ctx context.Context,
 	stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error {
-	//TODO implement me
-	panic("implement me")
+
+	_, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, specialPolicy)
+	return err
 }
