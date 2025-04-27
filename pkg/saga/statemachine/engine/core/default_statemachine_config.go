@@ -25,16 +25,24 @@ import (
 )
 
 const (
-	DefaultTransOperTimeout     = 60000 * 30
-	DefaultServiceInvokeTimeout = 60000 * 5
+	DefaultTransOperTimeout                      = 60000 * 30
+	DefaultServiceInvokeTimeout                  = 60000 * 5
+	DefaultClientSagaRetryPersistModeUpdate      = false
+	DefaultClientSagaCompensatePersistModeUpdate = false
+	DefaultClientReportSuccessEnable             = false
+	DefaultClientSagaBranchRegisterEnable        = true
 )
 
 type DefaultStateMachineConfig struct {
 	// Configuration
-	transOperationTimeout int
-	serviceInvokeTimeout  int
-	charset               string
-	defaultTenantId       string
+	transOperationTimeout           int
+	serviceInvokeTimeout            int
+	charset                         string
+	defaultTenantId                 string
+	sagaRetryPersistModeUpdate      bool
+	sagaCompensatePersistModeUpdate bool
+	sagaBranchRegisterEnable        bool
+	rmReportSuccessEnable           bool
 
 	// Components
 
@@ -202,13 +210,49 @@ func (c *DefaultStateMachineConfig) ServiceInvokeTimeout() int {
 	return c.serviceInvokeTimeout
 }
 
+func (c *DefaultStateMachineConfig) IsSagaRetryPersistModeUpdate() bool {
+	return c.sagaRetryPersistModeUpdate
+}
+
+func (c *DefaultStateMachineConfig) SetSagaRetryPersistModeUpdate(sagaRetryPersistModeUpdate bool) {
+	c.sagaRetryPersistModeUpdate = sagaRetryPersistModeUpdate
+}
+
+func (c *DefaultStateMachineConfig) IsSagaCompensatePersistModeUpdate() bool {
+	return c.sagaCompensatePersistModeUpdate
+}
+
+func (c *DefaultStateMachineConfig) SetSagaCompensatePersistModeUpdate(sagaCompensatePersistModeUpdate bool) {
+	c.sagaCompensatePersistModeUpdate = sagaCompensatePersistModeUpdate
+}
+
+func (c *DefaultStateMachineConfig) IsSagaBranchRegisterEnable() bool {
+	return c.sagaBranchRegisterEnable
+}
+
+func (c *DefaultStateMachineConfig) SetSagaBranchRegisterEnable(sagaBranchRegisterEnable bool) {
+	c.sagaBranchRegisterEnable = sagaBranchRegisterEnable
+}
+
+func (c *DefaultStateMachineConfig) IsRmReportSuccessEnable() bool {
+	return c.rmReportSuccessEnable
+}
+
+func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnable bool) {
+	c.rmReportSuccessEnable = rmReportSuccessEnable
+}
+
 func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
 	c := &DefaultStateMachineConfig{
-		transOperationTimeout: DefaultTransOperTimeout,
-		serviceInvokeTimeout:  DefaultServiceInvokeTimeout,
-		charset:               "UTF-8",
-		defaultTenantId:       "000001",
-		componentLock:         &sync.Mutex{},
+		transOperationTimeout:           DefaultTransOperTimeout,
+		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
+		charset:                         "UTF-8",
+		defaultTenantId:                 "000001",
+		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
+		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
+		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
+		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
+		componentLock:                   &sync.Mutex{},
 	}
 
 	// TODO: init config
