@@ -193,17 +193,20 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachineInstance, exp error, hasSuccessUpdateService bool) {
 
 	if exp == nil {
+		log.Debugf("No error found, setting StateMachineInstance[id:%s] status to SU", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.SU)
 		return
 	}
 
 	var engineExp *exception.EngineExecutionException
 	if errors.As(exp, &engineExp) && engineExp.ErrCode == constant.FrameworkErrorCodeStateMachineExecutionTimeout {
+		log.Warnf("Execution timeout detected, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.UN)
 		return
 	}
 
 	if hasSuccessUpdateService {
+		log.Infof("Has successful update service, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.UN)
 		return
 	}
@@ -211,11 +214,14 @@ func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachin
 	netType := GetNetExceptionType(exp)
 	switch netType {
 	case constant.ConnectException, constant.ConnectTimeoutException, constant.NotNetException:
+		log.Warnf("Detected network connect issue, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.FA)
 	case constant.ReadTimeoutException:
+		log.Warnf("Detected read timeout, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.UN)
 	default:
 		//Default failure
+		log.Errorf("Unknown exception type, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
 		stateMachineInstance.SetStatus(statelang.FA)
 
 	}
@@ -224,12 +230,15 @@ func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachin
 func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext ProcessContext,
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
 
+	log.Debugf("Starting DecideOnTaskStateFail for StateMachineInstance[id:%s]", stateMachineInstance.ID())
 	result, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, true)
 	if err != nil {
+		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)
 		return err
 	}
 
 	if !result {
+		log.Warnf("Forward execution result is false, setting compensation status UN for StateMachineInstance[id:%s]", stateMachineInstance.ID())
 		stateMachineInstance.SetCompensationStatus(statelang.UN)
 	}
 	return nil
@@ -238,6 +247,10 @@ func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context
 func (d DefaultStatusDecisionStrategy) DecideMachineForwardExecutionStatus(ctx context.Context,
 	stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error {
 
+	log.Debugf("Starting DecideMachineForwardExecutionStatus for StateMachineInstance[id:%s], specialPolicy: %v", stateMachineInstance.ID(), specialPolicy)
 	_, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, specialPolicy)
+	if err != nil {
+		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)
+	}
 	return err
 }
