@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/util/log"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,18 +41,22 @@ var (
 func GetTccFenceStoreDatabaseMapper() *TccFenceStoreDatabaseMapper {
 	if tccFenceStoreDatabaseMapper == nil {
 		once.Do(func() {
-			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{}
-			tccFenceStoreDatabaseMapper.InitLogTableName()
+			tccFenceStoreDatabaseMapper = &TccFenceStoreDatabaseMapper{
+				logTableName: "tcc_fence_log",
+			}
 		})
 	}
 	return tccFenceStoreDatabaseMapper
 }
 
-func (t *TccFenceStoreDatabaseMapper) InitLogTableName() {
-	// todo get log table name from config
+func (t *TccFenceStoreDatabaseMapper) InitLogTableName(logTableName string) {
 	// set log table name
 	// default name is tcc_fence_log
-	t.logTableName = "tcc_fence_log"
+	if logTableName != "" {
+		t.logTableName = logTableName
+	} else {
+		t.logTableName = "tcc_fence_log"
+	}
 }
 
 type TccFenceStoreDatabaseMapper struct {
@@ -75,7 +81,7 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 	if err = result.Scan(&xid, &branchId, &actionName, &status, &gmtCreate, &gmtModify); err != nil {
 		// will return error, if rows is empty
 		if err.Error() == "sql: no rows in result set" {
-			return nil, fmt.Errorf("query tcc fence get scan row，no rows in result set, [%w]", err)
+			return nil, nil
 		} else {
 			return nil, fmt.Errorf("query tcc fence get scan row failed, [%w]", err)
 		}
@@ -90,6 +96,35 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceDO(tx *sql.Tx, xid string, br
 		GmtCreate:   gmtCreate,
 	}
 	return tccFenceDo, nil
+}
+
+func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceLogIdentityByMdDate(tx *sql.Tx, datetime time.Time) ([]model.FenceLogIdentity, error) {
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetQuerySQLByMdDate(t.logTableName))
+	if err != nil {
+		return nil, fmt.Errorf("query tcc fence prepare sql failed, [%w]", err)
+	}
+	defer prepareStmt.Close()
+
+	rows, err := prepareStmt.Query(datetime)
+	if err != nil {
+		return nil, fmt.Errorf("query tcc fence exec sql failed, [%w]", err)
+	}
+	defer rows.Close()
+
+	var fenceLogIdentities []model.FenceLogIdentity
+	for rows.Next() {
+		var xid string
+		var branchId int64
+		err := rows.Scan(&xid, &branchId)
+		if err != nil {
+			return nil, fmt.Errorf("query tcc fence get scan row failed, [%w]", err)
+		}
+		fenceLogIdentities = append(fenceLogIdentities, model.FenceLogIdentity{
+			Xid:      xid,
+			BranchId: branchId,
+		})
+	}
+	return fenceLogIdentities, nil
 }
 
 func (t *TccFenceStoreDatabaseMapper) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error {
@@ -157,24 +192,55 @@ func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDO(tx *sql.Tx, xid string, b
 	return nil
 }
 
-func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error {
-	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetDeleteSQLByMdfDateAndStatus(t.logTableName))
+func (t *TccFenceStoreDatabaseMapper) DeleteMultipleTCCFenceLogIdentity(tx *sql.Tx, identities []model.FenceLogIdentity) error {
+
+	placeholders := strings.Repeat("(?,?),", len(identities)-1) + "(?,?)"
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GertDeleteSQLByBranchIdsAndXids(t.logTableName, placeholders))
 	if err != nil {
 		return fmt.Errorf("delete tcc fence prepare sql failed, [%w]", err)
 	}
 	defer prepareStmt.Close()
 
-	result, err := prepareStmt.Exec(datetime)
+	// prepare args
+	args := make([]interface{}, 0, len(identities)*2)
+	for _, identity := range identities {
+		args = append(args, identity.Xid, identity.BranchId)
+	}
+
+	result, err := prepareStmt.Exec(args...)
+
 	if err != nil {
-		return fmt.Errorf("delete tcc fence exec sql failed, [%w]", err)
+		return fmt.Errorf("delete tcc fences exec sql failed, [%w]", err)
+	}
+
+	log.Debugf("Delete SQL: %s, args: %v", sql2.GertDeleteSQLByBranchIdsAndXids(t.logTableName, placeholders), args)
+
+	_, err = result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete tcc fences get affected rows failed, [%w]", err)
+	}
+
+	return nil
+}
+
+func (t *TccFenceStoreDatabaseMapper) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time, limit int32) (int64, error) {
+	prepareStmt, err := tx.PrepareContext(context.Background(), sql2.GetDeleteSQLByMdfDateAndStatus(t.logTableName))
+	if err != nil {
+		return -1, fmt.Errorf("delete tcc fence prepare sql failed, [%w]", err)
+	}
+	defer prepareStmt.Close()
+
+	result, err := prepareStmt.Exec(datetime, limit)
+	if err != nil {
+		return -1, fmt.Errorf("delete tcc fence exec sql failed, [%w]", err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil || affected == 0 {
-		return fmt.Errorf("delete tcc fence get affected rows failed, [%w]", err)
+		return 0, fmt.Errorf("delete tcc fence get affected rows failed, [%w]", err)
 	}
 
-	return nil
+	return affected, nil
 }
 
 func (t *TccFenceStoreDatabaseMapper) SetLogTableName(logTable string) {

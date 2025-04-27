@@ -88,7 +88,7 @@ func initRmClient(cfg *Config) {
 		config.Init(cfg.ClientConfig.RmConfig.LockConfig)
 		client.RegisterProcessor()
 		integration.Init()
-		tcc.InitTCC()
+		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})
