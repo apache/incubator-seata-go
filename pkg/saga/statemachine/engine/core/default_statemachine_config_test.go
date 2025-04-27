@@ -19,11 +19,13 @@ package core
 
 import (
 	"errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
 func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
@@ -38,7 +40,7 @@ func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
 	assert.Equal(t, "CreateOrder", smo.StartState, "The start state should be correct")
 	assert.Contains(t, smo.States, "CreateOrder", "The state node should exist")
 
-	assert.Equal(t, 30000, config.TransOperationTimeout, "The timeout should be read correctly")
+	assert.Equal(t, 30000, config.transOperationTimeout, "The timeout should be read correctly")
 }
 
 func TestDefaultStateMachineConfig_LoadValidYAML(t *testing.T) {
@@ -88,16 +90,16 @@ func TestLoadDuplicateStateMachine(t *testing.T) {
 
 func TestRuntimeConfig_OverrideDefaults(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
-	assert.Equal(t, "UTF-8", config.Charset, "The default character set should be UTF-8")
+	assert.Equal(t, "UTF-8", config.charset, "The default character set should be UTF-8")
 
 	_ = config.LoadConfig(filepath.Join("testdata", "order_saga.json"))
-	assert.Equal(t, "UTF-8", config.Charset, "If the configuration does not specify, the default value should be used")
+	assert.Equal(t, "UTF-8", config.charset, "If the configuration does not specify, the default value should be used")
 
-	customConfig := &RuntimeConfig{
+	customConfig := &ConfigFileParams{
 		Charset: "GBK",
 	}
-	config.applyRuntimeConfig(customConfig)
-	assert.Equal(t, "GBK", config.Charset, "Runtime parameters should be correctly overridden")
+	config.applyConfigFileParams(customConfig)
+	assert.Equal(t, "GBK", config.charset, "Runtime parameters should be correctly overridden")
 }
 
 func TestGetDefaultExpressionFactory(t *testing.T) {
@@ -168,22 +170,22 @@ func TestInit_StateMachineRepositoryNil(t *testing.T) {
 
 func TestApplyRuntimeConfig_BoundaryValues(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
-	customConfig := &RuntimeConfig{
+	customConfig := &ConfigFileParams{
 		TransOperationTimeout: 1,
 		ServiceInvokeTimeout:  1,
 	}
-	config.applyRuntimeConfig(customConfig)
-	assert.Equal(t, 1, config.TransOperationTimeout, "The minimum transaction operation timeout should be correctly applied")
-	assert.Equal(t, 1, config.ServiceInvokeTimeout, "The minimum service invocation timeout should be correctly applied")
+	config.applyConfigFileParams(customConfig)
+	assert.Equal(t, 1, config.transOperationTimeout, "The minimum transaction operation timeout should be correctly applied")
+	assert.Equal(t, 1, config.serviceInvokeTimeout, "The minimum service invocation timeout should be correctly applied")
 
 	maxTimeout := int(^uint(0) >> 1)
-	customConfig = &RuntimeConfig{
+	customConfig = &ConfigFileParams{
 		TransOperationTimeout: maxTimeout,
 		ServiceInvokeTimeout:  maxTimeout,
 	}
-	config.applyRuntimeConfig(customConfig)
-	assert.Equal(t, maxTimeout, config.TransOperationTimeout, "The maximum transaction operation timeout should be correctly applied")
-	assert.Equal(t, maxTimeout, config.ServiceInvokeTimeout, "The maximum service invocation timeout should be correctly applied")
+	config.applyConfigFileParams(customConfig)
+	assert.Equal(t, maxTimeout, config.transOperationTimeout, "The maximum transaction operation timeout should be correctly applied")
+	assert.Equal(t, maxTimeout, config.serviceInvokeTimeout, "The maximum service invocation timeout should be correctly applied")
 }
 
 type TestStateMachineRepositoryMock struct{}

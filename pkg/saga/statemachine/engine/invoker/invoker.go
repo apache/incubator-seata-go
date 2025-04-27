@@ -21,9 +21,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"reflect"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type JsonParser interface {

@@ -20,14 +20,16 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
-	"gopkg.in/yaml.v3"
-	"os"
-	"sync"
 )
 
 const (
@@ -41,15 +43,15 @@ const (
 
 type DefaultStateMachineConfig struct {
 	// Configuration
-	TransOperationTimeout           int      `json:"trans_operation_timeout" yaml:"trans_operation_timeout"`
-	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
-	Charset                         string   `json:"charset" yaml:"charset"`
-	DefaultTenantId                 string   `json:"default_tenant_id" yaml:"default_tenant_id"`
-	SagaRetryPersistModeUpdate      bool     `json:"saga_retry_persist_mode_update" yaml:"saga_retry_persist_mode_update"`
-	SagaCompensatePersistModeUpdate bool     `json:"saga_compensate_persist_mode_update" yaml:"saga_compensate_persist_mode_update"`
-	SagaBranchRegisterEnable        bool     `json:"saga_branch_register_enable" yaml:"saga_branch_register_enable"`
-	RmReportSuccessEnable           bool     `json:"rm_report_success_enable" yaml:"rm_report_success_enable"`
-	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
+	transOperationTimeout           int
+	serviceInvokeTimeout            int
+	charset                         string
+	defaultTenantId                 string
+	sagaRetryPersistModeUpdate      bool
+	sagaCompensatePersistModeUpdate bool
+	sagaBranchRegisterEnable        bool
+	rmReportSuccessEnable           bool
+	stateMachineResources           []string
 
 	// State machine definitions
 	stateMachineDefs map[string]*statemachine.StateMachineObject
@@ -89,19 +91,19 @@ func (c *DefaultStateMachineConfig) SetComponentLock(componentLock *sync.Mutex) 
 }
 
 func (c *DefaultStateMachineConfig) SetTransOperationTimeout(transOperationTimeout int) {
-	c.TransOperationTimeout = transOperationTimeout
+	c.transOperationTimeout = transOperationTimeout
 }
 
 func (c *DefaultStateMachineConfig) SetServiceInvokeTimeout(serviceInvokeTimeout int) {
-	c.ServiceInvokeTimeout = serviceInvokeTimeout
+	c.serviceInvokeTimeout = serviceInvokeTimeout
 }
 
 func (c *DefaultStateMachineConfig) SetCharset(charset string) {
-	c.Charset = charset
+	c.charset = charset
 }
 
 func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
-	c.DefaultTenantId = defaultTenantId
+	c.defaultTenantId = defaultTenantId
 }
 
 func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
@@ -201,55 +203,55 @@ func (c *DefaultStateMachineConfig) ScriptInvokerManager() invoker.ScriptInvoker
 }
 
 func (c *DefaultStateMachineConfig) CharSet() string {
-	return c.Charset
+	return c.charset
 }
 
 func (c *DefaultStateMachineConfig) SetCharSet(charset string) {
-	c.Charset = charset
+	c.charset = charset
 }
 
 func (c *DefaultStateMachineConfig) GetDefaultTenantId() string {
-	return c.DefaultTenantId
+	return c.defaultTenantId
 }
 
 func (c *DefaultStateMachineConfig) GetTransOperationTimeout() int {
-	return c.TransOperationTimeout
+	return c.transOperationTimeout
 }
 
 func (c *DefaultStateMachineConfig) GetServiceInvokeTimeout() int {
-	return c.ServiceInvokeTimeout
+	return c.serviceInvokeTimeout
 }
 
 func (c *DefaultStateMachineConfig) IsSagaRetryPersistModeUpdate() bool {
-	return c.SagaRetryPersistModeUpdate
+	return c.sagaRetryPersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) SetSagaRetryPersistModeUpdate(sagaRetryPersistModeUpdate bool) {
-	c.SagaRetryPersistModeUpdate = sagaRetryPersistModeUpdate
+	c.sagaRetryPersistModeUpdate = sagaRetryPersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) IsSagaCompensatePersistModeUpdate() bool {
-	return c.SagaCompensatePersistModeUpdate
+	return c.sagaCompensatePersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) SetSagaCompensatePersistModeUpdate(sagaCompensatePersistModeUpdate bool) {
-	c.SagaCompensatePersistModeUpdate = sagaCompensatePersistModeUpdate
+	c.sagaCompensatePersistModeUpdate = sagaCompensatePersistModeUpdate
 }
 
 func (c *DefaultStateMachineConfig) IsSagaBranchRegisterEnable() bool {
-	return c.SagaBranchRegisterEnable
+	return c.sagaBranchRegisterEnable
 }
 
 func (c *DefaultStateMachineConfig) SetSagaBranchRegisterEnable(sagaBranchRegisterEnable bool) {
-	c.SagaBranchRegisterEnable = sagaBranchRegisterEnable
+	c.sagaBranchRegisterEnable = sagaBranchRegisterEnable
 }
 
 func (c *DefaultStateMachineConfig) IsRmReportSuccessEnable() bool {
-	return c.RmReportSuccessEnable
+	return c.rmReportSuccessEnable
 }
 
 func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnable bool) {
-	c.RmReportSuccessEnable = rmReportSuccessEnable
+	c.rmReportSuccessEnable = rmReportSuccessEnable
 }
 
 func (c *DefaultStateMachineConfig) GetStateMachineDefinition(name string) *statemachine.StateMachineObject {
@@ -287,7 +289,7 @@ func (c *DefaultStateMachineConfig) RegisterServiceInvoker(serviceType string, i
 	c.serviceInvokerManager.PutServiceInvoker(serviceType, invoker)
 }
 
-type RuntimeConfig struct {
+type ConfigFileParams struct {
 	TransOperationTimeout           int      `json:"trans_operation_timeout" yaml:"trans_operation_timeout"`
 	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
 	Charset                         string   `json:"charset" yaml:"charset"`
@@ -311,14 +313,14 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 		return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
 	}
 
-	var runtimeConfig RuntimeConfig
-	if err := json.Unmarshal(content, &runtimeConfig); err != nil {
-		if err := yaml.Unmarshal(content, &runtimeConfig); err != nil {
+	var configFileParams ConfigFileParams
+	if err := json.Unmarshal(content, &configFileParams); err != nil {
+		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
 		} else {
-			c.applyRuntimeConfig(&runtimeConfig)
+			c.applyConfigFileParams(&configFileParams)
 		}
 	} else {
-		c.applyRuntimeConfig(&runtimeConfig)
+		c.applyConfigFileParams(&configFileParams)
 	}
 
 	if _, exists := c.stateMachineDefs[smo.Name]; exists {
@@ -329,25 +331,25 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	return nil
 }
 
-func (c *DefaultStateMachineConfig) applyRuntimeConfig(rc *RuntimeConfig) {
+func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) {
 	if rc.TransOperationTimeout > 0 {
-		c.TransOperationTimeout = rc.TransOperationTimeout
+		c.transOperationTimeout = rc.TransOperationTimeout
 	}
 	if rc.ServiceInvokeTimeout > 0 {
-		c.ServiceInvokeTimeout = rc.ServiceInvokeTimeout
+		c.serviceInvokeTimeout = rc.ServiceInvokeTimeout
 	}
 	if rc.Charset != "" {
-		c.Charset = rc.Charset
+		c.charset = rc.Charset
 	}
 	if rc.DefaultTenantId != "" {
-		c.DefaultTenantId = rc.DefaultTenantId
+		c.defaultTenantId = rc.DefaultTenantId
 	}
-	c.SagaRetryPersistModeUpdate = rc.SagaRetryPersistModeUpdate
-	c.SagaCompensatePersistModeUpdate = rc.SagaCompensatePersistModeUpdate
-	c.SagaBranchRegisterEnable = rc.SagaBranchRegisterEnable
-	c.RmReportSuccessEnable = rc.RmReportSuccessEnable
+	c.sagaRetryPersistModeUpdate = rc.SagaRetryPersistModeUpdate
+	c.sagaCompensatePersistModeUpdate = rc.SagaCompensatePersistModeUpdate
+	c.sagaBranchRegisterEnable = rc.SagaBranchRegisterEnable
+	c.rmReportSuccessEnable = rc.RmReportSuccessEnable
 	if len(rc.StateMachineResources) > 0 {
-		c.StateMachineResources = rc.StateMachineResources
+		c.stateMachineResources = rc.StateMachineResources
 	}
 }
 
@@ -369,8 +371,8 @@ func (c *DefaultStateMachineConfig) Init() error {
 		}
 	}
 
-	if c.stateMachineRepository != nil && len(c.StateMachineResources) > 0 {
-		if err := c.RegisterStateMachineDef(c.StateMachineResources); err != nil {
+	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
+		if err := c.RegisterStateMachineDef(c.stateMachineResources); err != nil {
 			return fmt.Errorf("register state machine def failed: %w", err)
 		}
 	}
@@ -389,15 +391,15 @@ func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
 	serviceInvokerManager.PutServiceInvoker("local", invoker.NewLocalServiceInvoker())
 
 	c := &DefaultStateMachineConfig{
-		TransOperationTimeout:           DefaultTransOperTimeout,
-		ServiceInvokeTimeout:            DefaultServiceInvokeTimeout,
-		Charset:                         "UTF-8",
-		DefaultTenantId:                 "000001",
-		StateMachineResources:           []string{"classpath*:seata/saga/statelang/**/*.json"},
-		SagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
-		SagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
-		SagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
-		RmReportSuccessEnable:           DefaultClientReportSuccessEnable,
+		transOperationTimeout:           DefaultTransOperTimeout,
+		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
+		charset:                         "UTF-8",
+		defaultTenantId:                 "000001",
+		stateMachineResources:           []string{"classpath*:seata/saga/statelang/**/*.json"},
+		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
+		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
+		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
+		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
 		expressionFactoryManager:        expressionFactoryManager,
 		serviceInvokerManager:           serviceInvokerManager,
 

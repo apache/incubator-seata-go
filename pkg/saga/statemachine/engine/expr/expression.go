@@ -20,11 +20,13 @@ package expr
 import (
 	"context"
 	"fmt"
-	"github.com/PaesslerAG/gval"
-	"github.com/expr-lang/expr"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"log"
 	"strings"
+
+	"github.com/PaesslerAG/gval"
+	"github.com/expr-lang/expr"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 )
 
 const DefaultExpressionType string = "Default"
