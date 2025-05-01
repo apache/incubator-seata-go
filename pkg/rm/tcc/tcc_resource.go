@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence"
 	"sync"
 
 	"seata.apache.org/seata-go/pkg/constant"
@@ -68,7 +69,8 @@ func (t *TCCResource) GetBranchType() branch.BranchType {
 	return branch.BranchTypeTCC
 }
 
-func InitTCC() {
+func InitTCC(cfg fence.Config) {
+	fence.InitFenceConfig(cfg)
 	rm.GetRmCacheInstance().RegisterResourceManager(GetTCCResourceManagerInstance())
 }
 

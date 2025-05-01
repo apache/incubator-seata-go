@@ -41,11 +41,16 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		index2      = make(map[string]types.IndexMeta)
 		columnMeta1 []types.ColumnMeta
 		columnMeta2 []types.ColumnMeta
+		columnMeta3 []types.ColumnMeta
 		ColumnNames []string
 	)
 	columnId := types.ColumnMeta{
 		ColumnDef:  nil,
 		ColumnName: "id",
+	}
+	columnCapitalId := types.ColumnMeta{
+		ColumnDef:  nil,
+		ColumnName: "CAPITALIZED_ID",
 	}
 	columnName := types.ColumnMeta{
 		ColumnDef:  nil,
@@ -56,10 +61,12 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		ColumnName: "age",
 	}
 	columns["id"] = columnId
+	columns["CAPITALIZED_ID"] = columnCapitalId
 	columns["name"] = columnName
 	columns["age"] = columnAge
 	columnMeta1 = append(columnMeta1, columnId)
 	columnMeta2 = append(columnMeta2, columnName, columnAge)
+	columnMeta3 = append(columnMeta3, columnCapitalId)
 	index["id"] = types.IndexMeta{
 		Name:    "PRIMARY",
 		IType:   types.IndexTypePrimaryKey,
@@ -69,6 +76,11 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		Name:    "name_age_idx",
 		IType:   types.IndexUnique,
 		Columns: columnMeta2,
+	}
+	index["capitalized_id_index"] = types.IndexMeta{
+		Name:    "CAPITALIZED_ID_INDEX",
+		IType:   types.IndexUnique,
+		Columns: columnMeta3,
 	}
 
 	ColumnNames = []string{"id", "name", "age"}
@@ -117,11 +129,33 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 				Query:       "insert into t_user(id, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
-			sourceQueryArgs:  []driver.Value{81, "Link", 18},
+			sourceQueryArgs:  []driver.Value{81, "Link"},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
 			expectQueryArgs1: []driver.Value{int64(1), "Jack1", 81},
 			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
 			expectQueryArgs2: []driver.Value{"Jack1", 81, int64(1)},
+		},
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(ID, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+			},
+			sourceQueryArgs:  []driver.Value{81, "Link"},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
+			expectQueryArgs1: []driver.Value{int64(1), "Jack1", 81},
+			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
+			expectQueryArgs2: []driver.Value{"Jack1", 81, int64(1)},
+		},
+		{
+			execCtx: &types.ExecContext{
+				Query:       "insert into t_user(ID, capitalized_id) values(1, 11) on duplicate key update name = 'Michael',age = ?",
+				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+			},
+			sourceQueryArgs:  []driver.Value{"Jack1"},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (CAPITALIZED_ID = ? ) ",
+			expectQueryArgs1: []driver.Value{int64(1), int64(11)},
+			expectQuery2:     "SELECT * FROM t_user  WHERE (CAPITALIZED_ID = ? )  OR (id = ? ) ",
+			expectQueryArgs2: []driver.Value{int64(11), int64(1)},
 		},
 		// multi insert one index
 		{
