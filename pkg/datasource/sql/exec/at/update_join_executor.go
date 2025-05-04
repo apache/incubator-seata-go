@@ -37,6 +37,10 @@ import (
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
+const (
+	LowerSupportGroupByPksVersion = "5.7.5"
+)
+
 // updateJoinExecutor execute update SQL
 type updateJoinExecutor struct {
 	baseExecutor
@@ -49,7 +53,7 @@ type updateJoinExecutor struct {
 
 // NewUpdateJoinExecutor get executor
 func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	minimumVersion, _ := util.ConvertDbVersion("5.7.5")
+	minimumVersion, _ := util.ConvertDbVersion(LowerSupportGroupByPksVersion)
 	currentVersion, _ := util.ConvertDbVersion(execContent.DbVersion)
 	return &updateJoinExecutor{
 		parserCtx:                       parserCtx,
