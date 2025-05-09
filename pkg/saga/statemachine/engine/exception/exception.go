@@ -17,7 +17,11 @@
 
 package exception
 
-import "seata.apache.org/seata-go/pkg/util/errors"
+import (
+	"fmt"
+
+	"seata.apache.org/seata-go/pkg/util/errors"
+)
 
 type EngineExecutionException struct {
 	errors.SeataError
@@ -25,6 +29,11 @@ type EngineExecutionException struct {
 	stateMachineName       string
 	stateMachineInstanceId string
 	stateInstanceId        string
+	ErrCode                string
+}
+
+func (e *EngineExecutionException) Error() string {
+	return fmt.Sprintf("EngineExecutionException: %s", e.ErrCode)
 }
 
 func NewEngineExecutionException(code errors.TransactionErrorCode, msg string, parent error) *EngineExecutionException {

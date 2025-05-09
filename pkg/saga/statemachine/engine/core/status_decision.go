@@ -19,7 +19,10 @@ package core
 
 import (
 	"context"
+	"errors"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
@@ -126,6 +129,7 @@ func decideMachineForwardExecutionStatus(ctx context.Context, stateMachineInstan
 	if stateMachineInstance.Status() == "" || statelang.RU == stateMachineInstance.Status() {
 		result = true
 		stateList := stateMachineInstance.StateList()
+		//Determine the final state of the entire state machine based on the state of each StateInstance
 		setMachineStatusBasedOnStateListAndException(stateMachineInstance, stateList, exp)
 
 		if specialPolicy && statelang.SU == stateMachineInstance.Status() {
@@ -188,18 +192,66 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 }
 
 func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachineInstance, exp error, hasSuccessUpdateService bool) {
-	//TODO implement me
-	panic("implement me")
+
+	if exp == nil {
+		log.Debugf("No error found, setting StateMachineInstance[id:%s] status to SU", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.SU)
+		return
+	}
+
+	var engineExp *exception.EngineExecutionException
+	if errors.As(exp, &engineExp) && engineExp.ErrCode == constant.FrameworkErrorCodeStateMachineExecutionTimeout {
+		log.Warnf("Execution timeout detected, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.UN)
+		return
+	}
+
+	if hasSuccessUpdateService {
+		log.Infof("Has successful update service, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.UN)
+		return
+	}
+
+	netType := GetNetExceptionType(exp)
+	switch netType {
+	case constant.ConnectException, constant.ConnectTimeoutException, constant.NotNetException:
+		log.Warnf("Detected network connect issue, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.FA)
+	case constant.ReadTimeoutException:
+		log.Warnf("Detected read timeout, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.UN)
+	default:
+		//Default failure
+		log.Errorf("Unknown exception type, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
+		stateMachineInstance.SetStatus(statelang.FA)
+
+	}
 }
 
 func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext ProcessContext,
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
-	//TODO implement me
-	panic("implement me")
+
+	log.Debugf("Starting DecideOnTaskStateFail for StateMachineInstance[id:%s]", stateMachineInstance.ID())
+	result, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, true)
+	if err != nil {
+		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)
+		return err
+	}
+
+	if !result {
+		log.Warnf("Forward execution result is false, setting compensation status UN for StateMachineInstance[id:%s]", stateMachineInstance.ID())
+		stateMachineInstance.SetCompensationStatus(statelang.UN)
+	}
+	return nil
 }
 
 func (d DefaultStatusDecisionStrategy) DecideMachineForwardExecutionStatus(ctx context.Context,
 	stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error {
-	//TODO implement me
-	panic("implement me")
+
+	log.Debugf("Starting DecideMachineForwardExecutionStatus for StateMachineInstance[id:%s], specialPolicy: %v", stateMachineInstance.ID(), specialPolicy)
+	_, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, specialPolicy)
+	if err != nil {
+		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)
+	}
+	return err
 }

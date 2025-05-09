@@ -164,3 +164,21 @@ func IsTimeout(gmtUpdated time.Time, timeoutMillis int) bool {
 func GenerateParentId(stateInstance statelang.StateInstance) string {
 	return stateInstance.MachineInstanceID() + constant.SeperatorParentId + stateInstance.ID()
 }
+
+// GetNetExceptionType Speculate what kind of network anomaly is caused by the error
+func GetNetExceptionType(err error) constant.NetExceptionType {
+	if err == nil {
+		return constant.NotNetException
+	}
+
+	// If it contains a specific error message, simply guess
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "connection refused") {
+		return constant.ConnectException
+	} else if strings.Contains(errMsg, "timeout") {
+		return constant.ConnectTimeoutException
+	} else if strings.Contains(errMsg, "i/o timeout") {
+		return constant.ReadTimeoutException
+	}
+	return constant.NotNetException
+}

@@ -17,6 +17,8 @@
 
 package constant
 
+type NetExceptionType string
+
 const (
 	// region State Types
 	StateTypeServiceTask          string = "ServiceTask"
@@ -91,4 +93,11 @@ const (
 	// end region
 
 	SeperatorParentId string = ":"
+
+	// Machine execution timeout error code
+	FrameworkErrorCodeStateMachineExecutionTimeout                  = "StateMachineExecutionTimeout"
+	ConnectException                               NetExceptionType = "CONNECT_EXCEPTION"
+	ConnectTimeoutException                        NetExceptionType = "CONNECT_TIMEOUT_EXCEPTION"
+	ReadTimeoutException                           NetExceptionType = "READ_TIMEOUT_EXCEPTION"
+	NotNetException                                NetExceptionType = "NOT_NET_EXCEPTION"
 )
