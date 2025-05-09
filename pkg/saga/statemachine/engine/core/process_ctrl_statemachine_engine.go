@@ -137,7 +137,7 @@ func (p ProcessCtrlStateMachineEngine) ReloadStateMachineInstance(ctx context.Co
 func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateMachineName string, tenantId string,
 	businessKey string, startParams map[string]interface{}, async bool, callback CallBack) (statelang.StateMachineInstance, error) {
 	if tenantId == "" {
-		tenantId = p.StateMachineConfig.DefaultTenantId()
+		tenantId = p.StateMachineConfig.GetDefaultTenantId()
 	}
 
 	stateMachineInstance, err := p.createMachineInstance(stateMachineName, tenantId, businessKey, startParams)
@@ -398,7 +398,6 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 		if startParams[constant.VarNameParentId] != nil {
 			parentId, ok := startParams[constant.VarNameParentId].(string)
 			if !ok {
-
 			}
 			stateMachineInstance.SetParentID(parentId)
 			delete(startParams, constant.VarNameParentId)
@@ -605,7 +604,7 @@ func (p ProcessCtrlStateMachineEngine) checkStatus(ctx context.Context, stateMac
 	}
 
 	if stateMachineInstance.IsRunning() &&
-		!IsTimeout(stateMachineInstance.UpdatedTime(), p.StateMachineConfig.TransOperationTimeout()) {
+		!IsTimeout(stateMachineInstance.UpdatedTime(), p.StateMachineConfig.GetTransOperationTimeout()) {
 		return false, exception.NewEngineExecutionException(seataErrors.OperationDenied,
 			"StateMachineInstance [id:"+stateMachineInstance.ID()+"] is running, operation["+operation+
 				"] denied", nil)

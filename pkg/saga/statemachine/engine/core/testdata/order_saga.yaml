@@ -1,0 +1,188 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+Name: OrderSaga
+Version: "1.0"
+StartState: CreateOrder
+trans_operation_timeout: 30000
+States:
+  CreateOrder:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: orderService
+    serviceMethod: create
+    CompensateState: CancelOrder
+    ForCompensation: false
+    ForUpdate: false
+    Retry:
+      - Exceptions:
+          - java.lang.Exception
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 1.5
+    Catches:
+      - Exceptions:
+          - java.lang.Exception
+        Next: ErrorHandler
+    Status:
+      "return.code == 'S'": "SU"
+      "return.code == 'F'": "FA"
+      "$exception{java.lang.Throwable}": "UN"
+    Input:
+      - orderInfo: "$.orderInfo"
+    Output:
+      orderId: "$.#root"
+    Next: CheckStock
+    Loop:
+      Parallel: 1
+      Collection: "$.orderItems"
+      ElementVariableName: "item"
+      ElementIndexName: "index"
+      CompletionCondition: "[nrOfInstances] == [nrOfCompletedInstances]"
+  CheckStock:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: inventoryService
+    serviceMethod: checkStock
+    CompensateState: RollbackStock
+    ForCompensation: false
+    ForUpdate: false
+    Retry:
+      - Exceptions:
+          - java.lang.Exception
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 1.5
+    Catches:
+      - Exceptions:
+          - java.lang.Exception
+        Next: ErrorHandler
+    Status:
+      "return.code == 'S'": "SU"
+      "return.code == 'F'": "FA"
+      "$exception{java.lang.Throwable}": "UN"
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      stockAvailable: "$.#root"
+    Next: choice
+  choice:
+    Type: Choice
+    Choices:
+      - Expression: "stockAvailable == true"
+        Next: ReserveStock
+      - Expression: "stockAvailable == false"
+        Next: CancelOrder
+    Default: ErrorHandler
+  ReserveStock:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: inventoryService
+    serviceMethod: reserveStock
+    CompensateState: RollbackStock
+    ForCompensation: false
+    ForUpdate: false
+    Retry:
+      - Exceptions:
+          - java.lang.Exception
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 1.5
+    Catches:
+      - Exceptions:
+          - java.lang.Exception
+        Next: ErrorHandler
+    Status:
+      "return.code == 'S'": "SU"
+      "return.code == 'F'": "FA"
+      "$exception{java.lang.Throwable}": "UN"
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      stockReserved: "$.#root"
+    Next: ProcessPayment
+  ProcessPayment:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: paymentService
+    serviceMethod: processPayment
+    CompensateState: RefundPayment
+    ForCompensation: false
+    ForUpdate: false
+    Retry:
+      - Exceptions:
+          - java.lang.Exception
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 1.5
+    Catches:
+      - Exceptions:
+          - java.lang.Exception
+        Next: ErrorHandler
+    Status:
+      "return.code == 'S'": "SU"
+      "return.code == 'F'": "FA"
+      "$exception{java.lang.Throwable}": "UN"
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      paymentSuccess: "$.#root"
+    Next: CompleteOrder
+  CompleteOrder:
+    Type: Succeed
+  CancelOrder:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: orderService
+    serviceMethod: cancel
+    ForCompensation: true
+    ForUpdate: true
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      orderCancelled: "$.#root"
+    Next: RollbackStock
+  RollbackStock:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: inventoryService
+    serviceMethod: rollbackStock
+    ForCompensation: true
+    ForUpdate: true
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      stockRolledBack: "$.#root"
+    Next: RefundPayment
+  RefundPayment:
+    Type: ServiceTask
+    serviceType: local
+    serviceName: paymentService
+    serviceMethod: refund
+    ForCompensation: true
+    ForUpdate: true
+    Input:
+      - orderId: "$.orderId"
+    Output:
+      paymentRefunded: "$.#root"
+    Next: FailState
+  ErrorHandler:
+    Type: Fail
+    ErrorCode: "ORDER_PROCESSING_ERROR"
+    Message: "Errors occurred during order processing."
+  FailState:
+    Type: Fail
+    ErrorCode: "ORDER_CANCELLED"
+    Message: "Order has been canceled."
