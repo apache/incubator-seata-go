@@ -23,8 +23,33 @@ import (
 )
 
 type StateMachineEngine interface {
+	// Start starts a state machine instance
 	Start(ctx context.Context, stateMachineName string, tenantId string, startParams map[string]interface{}) (statelang.StateMachineInstance, error)
-	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]any) (statelang.StateMachineInstance, error)
+	// StartAsync start a state machine instance asynchronously
+	StartAsync(ctx context.Context, stateMachineName string, tenantId string, startParams map[string]interface{},
+		callback CallBack) (statelang.StateMachineInstance, error)
+	// StartWithBusinessKey starts a state machine instance with a business key
+	StartWithBusinessKey(ctx context.Context, stateMachineName string, tenantId string, businessKey string,
+		startParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	// StartWithBusinessKeyAsync starts a state machine instance with a business key asynchronously
+	StartWithBusinessKeyAsync(ctx context.Context, stateMachineName string, tenantId string, businessKey string,
+		startParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error)
+	// Forward  restart a failed state machine instance
+	Forward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	// ForwardAsync restart a failed state machine instance asynchronously
+	ForwardAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error)
+	// Compensate compensate a state machine instance
+	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	// CompensateAsync compensate a state machine instance asynchronously
+	CompensateAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error)
+	// SkipAndForward skips the current failed state instance and restarts the state machine instance
+	SkipAndForward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	// SkipAndForwardAsync skips the current failed state instance and restarts the state machine instance asynchronously
+	SkipAndForwardAsync(ctx context.Context, stateMachineInstId string, callback CallBack) (statelang.StateMachineInstance, error)
+	// GetStateMachineConfig gets the state machine configurations
+	GetStateMachineConfig() StateMachineConfig
+	// ReloadStateMachineInstance reloads a state machine instance
+	ReloadStateMachineInstance(ctx context.Context, instId string) (statelang.StateMachineInstance, error)
 }
 
 type CallBack interface {

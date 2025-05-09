@@ -98,6 +98,14 @@ func (p *ProcessContextBuilder) WithIsAsyncExecution(async bool) *ProcessContext
 	return p
 }
 
+func (p *ProcessContextBuilder) WithStateInstance(state statelang.StateInstance) *ProcessContextBuilder {
+	if state != nil {
+		p.processContext.SetVariable(constant.VarNameStateInst, state)
+	}
+
+	return p
+}
+
 func (p *ProcessContextBuilder) Build() ProcessContext {
 	return p.processContext
 }
