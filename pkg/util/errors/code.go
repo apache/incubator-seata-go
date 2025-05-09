@@ -111,4 +111,6 @@ const (
 	InvalidParameter
 	// OperationDenied Operation denied
 	OperationDenied
+	// ForwardInvalid Forward invalid
+	ForwardInvalid
 )
