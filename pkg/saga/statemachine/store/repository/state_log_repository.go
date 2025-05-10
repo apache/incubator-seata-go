@@ -22,9 +22,9 @@ import (
 	"database/sql"
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	"github.com/seata/seata-go/pkg/saga/statemachine/store/db"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store/db"
 )
 
 var (
