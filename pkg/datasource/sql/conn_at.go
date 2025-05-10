@@ -43,46 +43,6 @@ func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 	return c.Conn.PrepareContext(ctx, query)
 }
 
-// QueryContext
-func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if c.createOnceTxContext(ctx) {
-		defer func() {
-			c.txCtx = types.NewTxCtx()
-		}()
-	}
-
-	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := &types.ExecContext{
-			TxCtx:                c.txCtx,
-			Query:                query,
-			NamedValues:          args,
-			Conn:                 c.targetConn,
-			DBName:               c.dbName,
-			DbVersion:            c.GetDbVersion(),
-			IsSupportsSavepoints: true,
-			IsAutoCommit:         c.GetAutoCommit(),
-		}
-
-		return executor.ExecWithNamedValue(ctx, execCtx,
-			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				ret, err := c.Conn.QueryContext(ctx, query, args)
-				if err != nil {
-					return nil, err
-				}
-				return types.NewResult(types.WithRows(ret)), nil
-			})
-	})
-	if err != nil {
-		return nil, err
-	}
-	return ret.GetRows(), nil
-}
-
 // ExecContext
 func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if c.createOnceTxContext(ctx) {
