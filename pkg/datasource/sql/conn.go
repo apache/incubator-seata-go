@@ -248,6 +248,13 @@ func (c *Conn) GetAutoCommit() bool {
 	return c.autoCommit
 }
 
+func (c *Conn) GetDbVersion() string {
+	if c.res == nil {
+		return ""
+	}
+	return c.res.GetDbVersion()
+}
+
 // Close invalidates and potentially stops any current
 // prepared statements and transactions, marking this
 // connection as no longer in use.
