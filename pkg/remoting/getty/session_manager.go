@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -76,7 +77,7 @@ func (g *SessionManager) init() {
 	}
 	for _, address := range addressList {
 		gettyClient := getty.NewTCPClient(
-			getty.WithServerAddress(fmt.Sprintf("%s:%d", address.Addr, address.Port)),
+			getty.WithServerAddress(net.JoinHostPort(address.Addr, strconv.Itoa(address.Port))),
 			// todo if read c.gettyConf.ConnectionNum, will cause the connect to fail
 			getty.WithConnectionNumber(1),
 			getty.WithReconnectInterval(g.gettyConf.ReconnectInterval),
