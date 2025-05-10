@@ -1,4 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package constant
+
+type NetExceptionType string
 
 const (
 	// region State Types
@@ -47,9 +66,12 @@ const (
 	VarNameCurrentCompensationHolder     string = "_current_compensation_holder_"
 	VarNameFirstCompensationStateStarted string = "_first_compensation_state_started"
 	VarNameCurrentLoopContextHolder      string = "_current_loop_context_holder_"
+	VarNameRetriedStateInstId            string = "_retried_state_instance_id"
+	VarNameIsForSubStatMachineForward    string = "_is_for_sub_statemachine_forward_"
 	// TODO: this lock in process context only has one, try to add more to add concurrent
 	VarNameProcessContextMutexLock string = "_current_context_mutex_lock"
 	VarNameFailEndStateFlag        string = "_fail_end_state_flag_"
+	VarNameGlobalTx                string = "_global_transaction_"
 	// end region
 
 	// region of loop
@@ -62,11 +84,20 @@ const (
 	// end region
 
 	// region others
+	SeqEntityStateMachine     string = "STATE_MACHINE"
 	SeqEntityStateMachineInst string = "STATE_MACHINE_INST"
 	SeqEntityStateInst        string = "STATE_INST"
 	OperationNameForward      string = "forward"
 	LoopStateNamePattern      string = "-loop-"
+	SagaTransNamePrefix       string = "$Saga_"
 	// end region
 
 	SeperatorParentId string = ":"
+
+	// Machine execution timeout error code
+	FrameworkErrorCodeStateMachineExecutionTimeout                  = "StateMachineExecutionTimeout"
+	ConnectException                               NetExceptionType = "CONNECT_EXCEPTION"
+	ConnectTimeoutException                        NetExceptionType = "CONNECT_TIMEOUT_EXCEPTION"
+	ReadTimeoutException                           NetExceptionType = "READ_TIMEOUT_EXCEPTION"
+	NotNetException                                NetExceptionType = "NOT_NET_EXCEPTION"
 )

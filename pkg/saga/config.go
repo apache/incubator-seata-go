@@ -15,37 +15,20 @@
  * limitations under the License.
  */
 
-package core
+package saga
 
 import (
-	"context"
-	"fmt"
-	"github.com/pkg/errors"
+	"flag"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 )
 
-type EventConsumer interface {
-	Accept(event Event) bool
-
-	Process(ctx context.Context, event Event) error
+type Config struct {
+	StateMachine *statemachine.StateMachineObject `yaml:"state-machine" json:"state-machine" koanf:"state-machine"`
 }
 
-type ProcessCtrlEventConsumer struct {
-	processController ProcessController
-}
-
-func (p ProcessCtrlEventConsumer) Accept(event Event) bool {
-	if event == nil {
-		return false
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	if cfg.StateMachine != nil {
+		cfg.StateMachine.RegisterFlagsWithPrefix(prefix+".state-machine", f)
 	}
-
-	_, ok := event.(ProcessContext)
-	return ok
-}
-
-func (p ProcessCtrlEventConsumer) Process(ctx context.Context, event Event) error {
-	processContext, ok := event.(ProcessContext)
-	if !ok {
-		return errors.New(fmt.Sprint("event %T is illegal, required process_ctrl.ProcessContext", event))
-	}
-	return p.processController.Process(ctx, processContext)
 }
