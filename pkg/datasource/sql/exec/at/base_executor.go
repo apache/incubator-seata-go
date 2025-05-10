@@ -23,15 +23,17 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
@@ -98,7 +100,13 @@ func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Named
 		selectArgs       = make([]driver.NamedValue, 0)
 	)
 
+	b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs)
 	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if stmt.GroupBy != nil {
+		for _, item := range stmt.GroupBy.Items {
+			b.traversalArgs(item, &selectArgsIndexs)
+		}
+	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
 			b.traversalArgs(item, &selectArgsIndexs)
@@ -141,6 +149,16 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		exprs := node.(*ast.PatternInExpr).List
 		for i := 0; i < len(exprs); i++ {
 			b.traversalArgs(exprs[i], argsIndex)
+		}
+		break
+	case *ast.Join:
+		exprs := node.(*ast.Join)
+		b.traversalArgs(exprs.Left, argsIndex)
+		if exprs.Right != nil {
+			b.traversalArgs(exprs.Right, argsIndex)
+		}
+		if exprs.On != nil {
+			b.traversalArgs(exprs.On.Expr, argsIndex)
 		}
 		break
 	case *test_driver.ParamMarkerExpr:
@@ -228,6 +246,64 @@ func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string)
 	}
 
 	return matchCounter == len(pkColumnNameList)
+}
+
+func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
+	fields := make([]*ast.SelectField, 0, len(inUseFields))
+
+	tableName := tableAliases
+	if tableAliases == "" {
+		tableName = tableMeta.TableName
+	}
+	if undo.UndoConfig.OnlyCareUpdateColumns {
+		for _, column := range inUseFields {
+			tn := column.Column.Table.O
+			if tn != "" && tn != tableName {
+				continue
+			}
+
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
+
+		if len(fields) == 0 {
+			return fields, nil
+		}
+
+		// select indexes columns
+		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Table: model.CIStr{
+							O: tableName,
+							L: tableName,
+						},
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: &ast.ColumnName{
+					Name: model.CIStr{
+						O: "*",
+						L: "*",
+					},
+				},
+			},
+		})
+	}
+
+	return fields, nil
 }
 
 func getSqlNullValue(value interface{}) interface{} {
@@ -392,4 +468,24 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	}
 
 	return lockKeys.String()
+}
+
+func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+	var queryer driver.Queryer
+
+	queryerContext, ok := conn.(driver.QueryerContext)
+	if !ok {
+		queryer, ok = conn.(driver.Queryer)
+	}
+	if ok {
+		var err error
+		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("target conn should been driver.QueryerContext or driver.Queryer")
+	}
+	return rows, nil
 }
