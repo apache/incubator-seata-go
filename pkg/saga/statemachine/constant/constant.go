@@ -17,6 +17,8 @@
 
 package constant
 
+type NetExceptionType string
+
 const (
 	// region State Types
 	StateTypeServiceTask          string = "ServiceTask"
@@ -64,6 +66,8 @@ const (
 	VarNameCurrentCompensationHolder     string = "_current_compensation_holder_"
 	VarNameFirstCompensationStateStarted string = "_first_compensation_state_started"
 	VarNameCurrentLoopContextHolder      string = "_current_loop_context_holder_"
+	VarNameRetriedStateInstId            string = "_retried_state_instance_id"
+	VarNameIsForSubStatMachineForward    string = "_is_for_sub_statemachine_forward_"
 	// TODO: this lock in process context only has one, try to add more to add concurrent
 	VarNameProcessContextMutexLock string = "_current_context_mutex_lock"
 	VarNameFailEndStateFlag        string = "_fail_end_state_flag_"
@@ -89,4 +93,11 @@ const (
 	// end region
 
 	SeperatorParentId string = ":"
+
+	// Machine execution timeout error code
+	FrameworkErrorCodeStateMachineExecutionTimeout                  = "StateMachineExecutionTimeout"
+	ConnectException                               NetExceptionType = "CONNECT_EXCEPTION"
+	ConnectTimeoutException                        NetExceptionType = "CONNECT_TIMEOUT_EXCEPTION"
+	ReadTimeoutException                           NetExceptionType = "READ_TIMEOUT_EXCEPTION"
+	NotNetException                                NetExceptionType = "NOT_NET_EXCEPTION"
 )
