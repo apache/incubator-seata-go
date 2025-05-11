@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // zkConnAdapter wraps a real *zk.Conn to implement ZkConnInterface.
@@ -64,7 +63,7 @@ func newZookeeperRegistryService(config *ServiceConfig, zkConfig *ZookeeperConfi
 	}
 
 	// Connect to the actual *zk.Conn
-	conn, _, err := zk.Connect([]string{zkConfig.ServerAddr}, zkConfig.SessionTimeout*time.Second)
+	conn, _, err := zk.Connect([]string{zkConfig.ServerAddr}, zkConfig.SessionTimeout)
 	if err != nil {
 		log.Fatalf("failed to create zookeeper client")
 		panic("failed to create zookeeper client")
