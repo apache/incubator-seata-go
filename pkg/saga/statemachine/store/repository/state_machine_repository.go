@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
-	"github.com/seata/seata-go/pkg/saga/statemachine/store/db"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -43,7 +43,7 @@ type StateMachineRepositoryImpl struct {
 	stateMachineMapById            map[string]statelang.StateMachine
 	stateMachineMapByNameAndTenant map[string]statelang.StateMachine
 
-	stateLangStore  *db.StateLangStore
+	stateLangStore  core.StateLangStore
 	seqGenerator    sequence.SeqGenerator
 	defaultTenantId string
 	jsonParserName  string
@@ -54,7 +54,6 @@ type StateMachineRepositoryImpl struct {
 func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
 	if stateMachineRepositoryImpl == nil {
 		onceStateMachineRepositoryImpl.Do(func() {
-			//TODO get charset by config
 			//TODO charset is not use
 			//TODO using json parser
 			stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
@@ -205,7 +204,7 @@ func (s *StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Read
 	return nil
 }
 
-func (s *StateMachineRepositoryImpl) SetStateLangStore(stateLangStore *db.StateLangStore) {
+func (s *StateMachineRepositoryImpl) SetStateLangStore(stateLangStore core.StateLangStore) {
 	s.stateLangStore = stateLangStore
 }
 
