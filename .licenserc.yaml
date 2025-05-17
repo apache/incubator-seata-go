@@ -58,6 +58,7 @@ header: # `header` section is configurations for source codes license header.
     - '**/go.mod'
     - '**/go.sum'
     - 'LICENSE'
+    - 'DISCLAIMER'
     - 'NOTICE'
     - '.github'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
