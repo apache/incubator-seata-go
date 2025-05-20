@@ -14,19 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-DROP TABLE IF EXISTS `undo_log`;
-CREATE TABLE `undo_log`
-(
-    `id`            bigint(20) NOT NULL AUTO_INCREMENT,
-    `branch_id`     bigint(20) NOT NULL,
-    `xid`           varchar(100) NOT NULL,
-    `context`       varchar(128) NOT NULL,
-    `rollback_info` longblob     NOT NULL,
-    `log_status`    int(11) NOT NULL,
-    `log_created`   datetime     NOT NULL,
-    `log_modified`  datetime     NOT NULL,
-    `ext`           varchar(100) DEFAULT NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `ux_undo_log` (`xid`,`branch_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+package net
+
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+const (
+	addressSplitChar = ":"
+)
+
+func SplitIPPortStr(addr string) (string, int, error) {
+	if addr == "" {
+		return "", 0, fmt.Errorf("split ip err: param addr must not empty")
+	}
+
+	if addr[0] == '[' {
+		reg := regexp.MustCompile("[\\[\\]]")
+		addr = reg.ReplaceAllString(addr, "")
+	}
+
+	i := strings.LastIndex(addr, addressSplitChar)
+	if i < 0 {
+		return "", 0, fmt.Errorf("address %s: missing port in address", addr)
+	}
+
+	host := addr[:i]
+	port := addr[i+1:]
+
+	if strings.Contains(host, "%") {
+		reg := regexp.MustCompile("\\%[0-9]+")
+		host = reg.ReplaceAllString(host, "")
+	}
+
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return "", 0, err
+	}
+	return host, portInt, nil
+}
