@@ -281,7 +281,7 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 		}
 		inst.SetStateName(next)
 	} else {
-		if lastForwardState.Status() == statelang.RU && !IsTimeout(lastForwardState.StartedTime(), p.StateMachineConfig.ServiceInvokeTimeout()) {
+		if lastForwardState.Status() == statelang.RU && !IsTimeout(lastForwardState.StartedTime(), p.StateMachineConfig.GetTransOperationTimeout()) {
 			return nil, exception.NewEngineExecutionException(seataErrors.OperationDenied,
 				fmt.Sprintf("State [%s] is running, operation[forward] denied", lastForwardState.Name()), nil)
 		}

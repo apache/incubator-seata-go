@@ -31,10 +31,8 @@ require (
 )
 
 require (
-	github.com/PaesslerAG/gval v1.2.4
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
-	github.com/expr-lang/expr v1.17.2
 	github.com/google/cel-go v0.18.0
 	github.com/mattn/go-sqlite3 v1.14.19
 	golang.org/x/sync v0.6.0
@@ -109,10 +107,8 @@ require (
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	google.golang.org/genproto v0.0.0-20230726155614-23370e0ffb3e // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 

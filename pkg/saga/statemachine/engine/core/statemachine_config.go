@@ -34,7 +34,7 @@ type StateMachineConfig interface {
 
 	StateLangStore() StateLangStore
 
-	ExpressionFactoryManager() expr.ExpressionFactoryManagerInterface
+	ExpressionFactoryManager() *expr.ExpressionFactoryManager
 
 	ExpressionResolver() expr.ExpressionResolver
 

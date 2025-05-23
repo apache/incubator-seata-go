@@ -104,6 +104,10 @@ func TestRuntimeConfig_OverrideDefaults(t *testing.T) {
 
 func TestGetDefaultExpressionFactory(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
+	
+	err := config.Init()
+	assert.NoError(t, err, "Init should not return error")
+
 	factory := config.GetExpressionFactory("el")
 	assert.NotNil(t, factory, "The default EL factory should exist")
 

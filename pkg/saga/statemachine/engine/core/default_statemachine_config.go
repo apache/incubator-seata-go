@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -69,7 +70,7 @@ type DefaultStateMachineConfig struct {
 	stateMachineRepository StateMachineRepository
 
 	// Expression related components
-	expressionFactoryManager expr.ExpressionFactoryManagerInterface
+	expressionFactoryManager *expr.ExpressionFactoryManager
 	expressionResolver       expr.ExpressionResolver
 
 	// Invoker related components
@@ -130,7 +131,7 @@ func (c *DefaultStateMachineConfig) SetStateMachineRepository(stateMachineReposi
 	c.stateMachineRepository = stateMachineRepository
 }
 
-func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager expr.ExpressionFactoryManagerInterface) {
+func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager *expr.ExpressionFactoryManager) {
 	c.expressionFactoryManager = expressionFactoryManager
 }
 
@@ -170,7 +171,7 @@ func (c *DefaultStateMachineConfig) StateLangStore() StateLangStore {
 	return c.stateLangStore
 }
 
-func (c *DefaultStateMachineConfig) ExpressionFactoryManager() expr.ExpressionFactoryManagerInterface {
+func (c *DefaultStateMachineConfig) ExpressionFactoryManager() *expr.ExpressionFactoryManager {
 	return c.expressionFactoryManager
 }
 
@@ -301,6 +302,52 @@ type ConfigFileParams struct {
 	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
 }
 
+type SequenceExpressionFactory struct {
+	seqGenerator sequence.SeqGenerator
+}
+
+var _ expr.ExpressionFactory = (*SequenceExpressionFactory)(nil)
+
+func NewSequenceExpressionFactory(seqGenerator sequence.SeqGenerator) *SequenceExpressionFactory {
+	return &SequenceExpressionFactory{
+		seqGenerator: seqGenerator,
+	}
+}
+
+func (f *SequenceExpressionFactory) CreateExpression(expression string) expr.Expression {
+	parts := strings.Split(expression, "|")
+	if len(parts) != 2 {
+		return &ErrorExpression{
+			err:           fmt.Errorf("invalid sequence expression format: %s, expected 'entity|rule'", expression),
+			expressionStr: expression,
+		}
+	}
+
+	seqExpr := &expr.SequenceExpression{}
+	seqExpr.SetSeqGenerator(f.seqGenerator)
+	seqExpr.SetEntity(strings.TrimSpace(parts[0]))
+	seqExpr.SetRule(strings.TrimSpace(parts[1]))
+
+	return seqExpr
+}
+
+type ErrorExpression struct {
+	err           error
+	expressionStr string
+}
+
+func (e *ErrorExpression) Value(elContext any) any {
+	return e.err
+}
+
+func (e *ErrorExpression) SetValue(value any, elContext any) {
+	//错误表达式不设置值
+}
+
+func (e *ErrorExpression) ExpressionString() string {
+	return e.expressionStr
+}
+
 func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
@@ -354,21 +401,12 @@ func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) 
 }
 
 func (c *DefaultStateMachineConfig) Init() error {
-	if c.expressionFactoryManager != nil {
-		defaultExprType := "el"
-		factory := c.expressionFactoryManager.GetExpressionFactory(defaultExprType)
-		if factory == nil {
-			c.RegisterExpressionFactory(defaultExprType, expr.NewELExpressionFactory())
-		}
+	if err := c.initExpressionComponents(); err != nil {
+		return fmt.Errorf("initialize expression components failed: %w", err)
 	}
 
-	if c.serviceInvokerManager != nil {
-		defaultServiceType := "local"
-		existingInvoker := c.serviceInvokerManager.ServiceInvoker(defaultServiceType)
-		if existingInvoker == nil {
-			newInvoker := invoker.NewLocalServiceInvoker()
-			c.RegisterServiceInvoker(defaultServiceType, newInvoker)
-		}
+	if err := c.initServiceInvokers(); err != nil {
+		return fmt.Errorf("initialize service invokers failed: %w", err)
 	}
 
 	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
@@ -377,19 +415,133 @@ func (c *DefaultStateMachineConfig) Init() error {
 		}
 	}
 
+	if err := c.Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
 	return nil
 }
 
+func (c *DefaultStateMachineConfig) initExpressionComponents() error {
+
+	if c.expressionFactoryManager == nil {
+		c.expressionFactoryManager = expr.NewExpressionFactoryManager()
+	}
+
+	defaultType := expr.DefaultExpressionType
+	if defaultType == "" {
+		defaultType = "Default"
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory(defaultType); factory == nil {
+		c.RegisterExpressionFactory(defaultType, expr.NewCELExpressionFactory())
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory("CEL"); factory == nil {
+		c.RegisterExpressionFactory("CEL", expr.NewCELExpressionFactory())
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory("el"); factory == nil {
+		c.RegisterExpressionFactory("el", expr.NewCELExpressionFactory())
+	}
+
+	if c.seqGenerator != nil {
+		sequenceFactory := NewSequenceExpressionFactory(c.seqGenerator)
+		c.RegisterExpressionFactory("SEQUENCE", sequenceFactory)
+		c.RegisterExpressionFactory("SEQ", sequenceFactory)
+	}
+
+	if c.expressionResolver == nil {
+		resolver := &expr.DefaultExpressionResolver{}
+		resolver.SetExpressionFactoryManager(*c.expressionFactoryManager)
+		c.expressionResolver = resolver
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) initServiceInvokers() error {
+	if c.serviceInvokerManager == nil {
+		c.serviceInvokerManager = invoker.NewServiceInvokerManagerImpl()
+	}
+
+	defaultServiceType := "local"
+	if existingInvoker := c.serviceInvokerManager.ServiceInvoker(defaultServiceType); existingInvoker == nil {
+		c.RegisterServiceInvoker(defaultServiceType, invoker.NewLocalServiceInvoker())
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) Validate() error {
+	var errs []error
+
+	if c.expressionFactoryManager == nil {
+		errs = append(errs, fmt.Errorf("expression factory manager is nil"))
+	}
+
+	if c.expressionResolver == nil {
+		errs = append(errs, fmt.Errorf("expression resolver is nil"))
+	}
+
+	if c.serviceInvokerManager == nil {
+		errs = append(errs, fmt.Errorf("service invoker manager is nil"))
+	}
+
+	if c.transOperationTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("invalid trans operation timeout: %d", c.transOperationTimeout))
+	}
+
+	if c.serviceInvokeTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("invalid service invoke timeout: %d", c.serviceInvokeTimeout))
+	}
+
+	if c.charset == "" {
+		errs = append(errs, fmt.Errorf("charset is empty"))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("configuration validation failed with %d errors: %v", len(errs), errs)
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, context any) (any, error) {
+	if c.expressionResolver == nil {
+		return nil, fmt.Errorf("expression resolver not initialized")
+	}
+
+	expression := c.expressionResolver.Expression(expressionStr)
+	if expression == nil {
+		return nil, fmt.Errorf("failed to parse expression: %s", expressionStr)
+	}
+
+	var result any
+	var evalErr error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				evalErr = fmt.Errorf("expression evaluation panicked: %v", r)
+			}
+		}()
+
+		result = expression.Value(context)
+	}()
+
+	if evalErr != nil {
+		return nil, evalErr
+	}
+
+	if err, ok := result.(error); ok {
+		return nil, fmt.Errorf("expression evaluation returned error: %w", err)
+	}
+
+	return result, nil
+}
+
 func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
-
-	// TODO: Initialize the statemachine_repository, following the implementation of the Java version.
-
-	expressionFactoryManager := expr.NewExpressionFactoryManager()
-	expressionFactoryManager.Register("el", expr.NewELExpressionFactory())
-
-	serviceInvokerManager := invoker.NewServiceInvokerManagerImpl()
-	serviceInvokerManager.PutServiceInvoker("local", invoker.NewLocalServiceInvoker())
-
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout:           DefaultTransOperTimeout,
 		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
@@ -400,12 +552,9 @@ func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
 		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
-		expressionFactoryManager:        expressionFactoryManager,
-		serviceInvokerManager:           serviceInvokerManager,
-
-		stateMachineDefs: make(map[string]*statemachine.StateMachineObject),
-
-		componentLock: &sync.Mutex{},
+		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
+		componentLock:                   &sync.Mutex{},
 	}
+
 	return c
 }
