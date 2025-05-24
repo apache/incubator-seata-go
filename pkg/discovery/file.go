@@ -27,6 +27,7 @@ import (
 
 const (
 	endPointSplitChar = ";"
+	ipPortSplitChar   = ":"
 )
 
 type FileRegistryService struct {
