@@ -17,14 +17,15 @@
 
 package expr
 
-// expression interface
-type Expression interface {
-	// get the value of the expression
-	// elContext is the el context
-	Value(elContext any) any
+import (
+	"testing"
 
-	SetValue(value any, elContext any)
+	"github.com/stretchr/testify/assert"
+)
 
-	// return the expression string
-	ExpressionString() string
+func TestCelExpressionFactory(t *testing.T) {
+	factory := NewCELExpressionFactory()
+	expression := factory.CreateExpression("'Hello' + ' World!'")
+	value := expression.Value(nil)
+	assert.Equal(t, "Hello World!", value, "Expected 'Hello World!'")
 }
