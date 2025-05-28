@@ -97,6 +97,10 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 // construct a new context object and set the xid.
 // the advantage of this is that the suspend and resume operations of xid need not to be considered.
 func begin(ctx context.Context, gc *GtxConfig) error {
+	// record time
+	ti := TimeInfo{createTime: time.Duration(time.Now().Unix()), timeout: gc.Timeout}
+	SetTimeInfo(ctx, ti)
+
 	switch pg := gc.Propagation; pg {
 	case NotSupported:
 		// If transaction is existing, suspend it

@@ -159,6 +159,7 @@ type ExecContext struct {
 	Conn        driver.Conn
 	DBName      string
 	DBType      DBType
+	DbVersion   string
 	// todo set values for these 4 param
 	IsAutoCommit         bool
 	IsSupportsSavepoints bool

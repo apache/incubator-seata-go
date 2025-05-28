@@ -71,6 +71,14 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Durat
 
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
+	if isTimeout(ctx) {
+		log.Infof("Rollback: tm detected timeout in global gtr %s", gtr.Xid)
+		if err := GetGlobalTransactionManager().Rollback(ctx, gtr); err != nil {
+			log.Errorf("Rollback transaction failed, error: %v in global gtr % s", err, gtr.Xid)
+			return err
+		}
+		return nil
+	}
 	if gtr.TxRole != Launcher {
 		log.Infof("Ignore Commit(): just involved in global gtr %s", gtr.Xid)
 		return nil
@@ -150,4 +158,12 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	gtr.TxStatus = res.(message.GlobalRollbackResponse).GlobalStatus
 
 	return nil
+}
+
+func isTimeout(ctx context.Context) bool {
+	ti := GetTimeInfo(ctx)
+	if ti == nil || ti.createTime == 0 || ti.timeout == 0 {
+		return false
+	}
+	return time.Since(time.Unix(int64(ti.createTime), 0)) > ti.timeout
 }

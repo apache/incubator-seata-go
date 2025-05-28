@@ -15,41 +15,45 @@
  * limitations under the License.
  */
 
-package model
+package net
 
 import (
-	"time"
-
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
-type TCCFenceDO struct {
+const (
+	addressSplitChar = ":"
+)
 
-	// Xid the global transaction id
-	Xid string
+func SplitIPPortStr(addr string) (string, int, error) {
+	if addr == "" {
+		return "", 0, fmt.Errorf("split ip err: param addr must not empty")
+	}
 
-	// BranchId the branch transaction id
-	BranchId int64
+	if addr[0] == '[' {
+		reg := regexp.MustCompile("[\\[\\]]")
+		addr = reg.ReplaceAllString(addr, "")
+	}
 
-	// ActionName the action name
-	ActionName string
+	i := strings.LastIndex(addr, addressSplitChar)
+	if i < 0 {
+		return "", 0, fmt.Errorf("address %s: missing port in address", addr)
+	}
 
-	// Status the tcc fence status
-	// tried: 1; committed: 2; rollbacked: 3; suspended: 4
-	Status enum.FenceStatus
+	host := addr[:i]
+	port := addr[i+1:]
 
-	// GmtCreate create time
-	GmtCreate time.Time
+	if strings.Contains(host, "%") {
+		reg := regexp.MustCompile("\\%[0-9]+")
+		host = reg.ReplaceAllString(host, "")
+	}
 
-	// GmtModified update time
-	GmtModified time.Time
-}
-
-type FenceLogIdentity struct {
-
-	// Xid the global transaction id
-	Xid string
-
-	// BranchId the branch transaction id
-	BranchId int64
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return "", 0, err
+	}
+	return host, portInt, nil
 }
