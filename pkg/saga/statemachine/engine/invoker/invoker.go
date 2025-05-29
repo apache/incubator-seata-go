@@ -105,7 +105,7 @@ func (l *LocalServiceInvoker) Invoke(ctx context.Context, input []any, service s
 	return l.invokeMethod(instance, method, params), nil
 }
 
-func (l *LocalServiceInvoker) findAndCacheMethod(key, serviceName, methodName string) (*reflect.Method, error) {
+func (l *LocalServiceInvoker) resolveMethod(key, serviceName, methodName string) (*reflect.Method, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -138,7 +138,7 @@ func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTyp
 	}
 	l.mutex.RUnlock()
 
-	return l.findAndCacheMethod(key, serviceName, methodName)
+	return l.resolveMethod(key, serviceName, methodName)
 }
 
 func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.Type) ([]reflect.Value, error) {
