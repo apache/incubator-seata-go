@@ -105,17 +105,13 @@ func (l *LocalServiceInvoker) Invoke(ctx context.Context, input []any, service s
 	return l.invokeMethod(instance, method, params), nil
 }
 
-func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTypes []string) (*reflect.Method, error) {
-	key := fmt.Sprintf("%s.%s", serviceName, methodName)
+func (l *LocalServiceInvoker) findAndCacheMethod(key, serviceName, methodName string) (*reflect.Method, error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-
-	if method, ok := l.methodCache[key]; ok {
-		return method, nil
+	if cachedMethod, ok := l.methodCache[key]; ok {
+		return cachedMethod, nil
 	}
-
-	l.mutex.RUnlock()
 
 	instance, exists := l.serviceRegistry[serviceName]
 	if !exists {
@@ -128,15 +124,21 @@ func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTyp
 		return nil, fmt.Errorf("method %s not found in service %s", methodName, serviceName)
 	}
 
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	if cachedMethod, ok := l.methodCache[key]; ok {
-		return cachedMethod, nil
-	}
-
 	l.methodCache[key] = &method
 	return &method, nil
+}
+
+func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTypes []string) (*reflect.Method, error) {
+	key := fmt.Sprintf("%s.%s", serviceName, methodName)
+
+	l.mutex.RLock()
+	if method, ok := l.methodCache[key]; ok {
+		l.mutex.RUnlock()
+		return method, nil
+	}
+	l.mutex.RUnlock()
+
+	return l.findAndCacheMethod(key, serviceName, methodName)
 }
 
 func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.Type) ([]reflect.Value, error) {

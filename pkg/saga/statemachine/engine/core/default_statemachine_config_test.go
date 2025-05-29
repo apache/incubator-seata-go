@@ -104,7 +104,7 @@ func TestRuntimeConfig_OverrideDefaults(t *testing.T) {
 
 func TestGetDefaultExpressionFactory(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
-	
+
 	err := config.Init()
 	assert.NoError(t, err, "Init should not return error")
 
@@ -117,8 +117,14 @@ func TestGetDefaultExpressionFactory(t *testing.T) {
 
 func TestGetServiceInvoker(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
+	if err := config.Init(); err != nil {
+		t.Fatalf("init config failed: %v", err)
+	}
+
 	invoker := config.GetServiceInvoker("local")
-	assert.NotNil(t, invoker, "The default local invoker should exist")
+	if invoker == nil {
+		t.Errorf("expected non-nil invoker, got nil")
+	}
 }
 
 func TestLoadConfig_InvalidJSON(t *testing.T) {
