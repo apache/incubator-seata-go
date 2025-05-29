@@ -21,8 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/util/bytes"
 

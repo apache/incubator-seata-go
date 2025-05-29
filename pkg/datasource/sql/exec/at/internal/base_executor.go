@@ -23,19 +23,18 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
-
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 

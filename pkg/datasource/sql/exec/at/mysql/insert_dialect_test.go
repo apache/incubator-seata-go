@@ -20,13 +20,16 @@ package mysql
 import (
 	"context"
 	"database/sql/driver"
+	"reflect"
+	"testing"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	"github.com/stretchr/testify/assert"
-	"reflect"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
@@ -34,7 +37,6 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"testing"
 )
 
 type mockInsertResult struct {
