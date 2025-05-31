@@ -15,35 +15,28 @@
  * limitations under the License.
  */
 
-package sql
+package mysql
 
 import (
+	"context"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
+type DeleteExecutor struct {
+	internal.DeleteExecutor
 }
 
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
+func NewDeleteExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	return &DeleteExecutor{
+		DeleteExecutor: internal.DeleteExecutor{
+			BaseExecutor: internal.BaseExecutor{Hooks: hooks, ParserCtx: parserCtx, ExecCtx: execContext},
+		},
+	}
 }
 
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
+func (d *DeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return d.DeleteExecutor.ExecContext(ctx, f)
 }

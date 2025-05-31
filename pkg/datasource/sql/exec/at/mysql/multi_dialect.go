@@ -15,35 +15,27 @@
  * limitations under the License.
  */
 
-package sql
+package mysql
 
 import (
+	"context"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
+type MultiExecutor struct {
+	internal.MultiExecutor
 }
 
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
+// NewMultiExecutor get new multi Executor
+func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) *MultiExecutor {
+	return &MultiExecutor{
+		MultiExecutor: *internal.NewMultiExecutor(parserCtx, execContext, hooks),
+	}
 }
 
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
+func (m *MultiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return m.MultiExecutor.ExecContext(ctx, f)
 }

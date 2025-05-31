@@ -21,18 +21,17 @@ import (
 	"context"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/mysql"
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
-}
-
-type executor interface {
-	ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error)
 }
 
 type ATExecutor struct {
@@ -50,26 +49,26 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 		return nil, err
 	}
 
-	var executor executor
+	var executor internal.Executor
 
 	if !tm.IsGlobalTx(ctx) {
-		executor = NewPlainExecutor(queryParser, execCtx)
+		executor = internal.NewPlainExecutor(queryParser, execCtx)
 	} else {
 		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
-			executor = NewInsertExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewInsertExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
-			executor = NewUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
-			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewDeleteExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeSelectForUpdate:
-			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeInsertOnDuplicateUpdate:
-			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeMulti:
-			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
+			executor = e.NewMultiExecutor(queryParser, execCtx, e.hooks)
 		default:
-			executor = NewPlainExecutor(queryParser, execCtx)
+			executor = internal.NewPlainExecutor(queryParser, execCtx)
 		}
 	}
 
@@ -80,4 +79,58 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 func (e *ATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
+}
+
+func (e *ATExecutor) NewInsertExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewInsertExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for insert executor", execContext.DBType)
+	return nil
+}
+
+func (e *ATExecutor) NewUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewUpdateExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for update executor", execContext.DBType)
+	return nil
+}
+
+func (e *ATExecutor) NewDeleteExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewDeleteExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for delete executor", execContext.DBType)
+	return nil
+}
+
+func (e *ATExecutor) NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewSelectForUpdateExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for select_for_update executor", execContext.DBType)
+	return nil
+}
+
+func (e *ATExecutor) NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewInsertOnUpdateExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for insert_on_update executor", execContext.DBType)
+	return nil
+}
+
+func (e *ATExecutor) NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) internal.Executor {
+	switch execContext.DBType {
+	case types.DBTypeMySQL:
+		return mysql.NewMultiExecutor(parserCtx, execContext, e.hooks)
+	}
+	log.Errorf("unsupported db type: %s for multi executor", execContext.DBType)
+	return nil
 }
