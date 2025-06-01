@@ -430,7 +430,7 @@ func (c *DefaultStateMachineConfig) registerEventConsumers() error {
 	if c.processController == nil {
 		return fmt.Errorf("ProcessController is not initialized")
 	}
-	
+
 	pcImpl, ok := c.processController.(*ProcessControllerImpl)
 	if !ok {
 		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
@@ -554,6 +554,29 @@ func (c *DefaultStateMachineConfig) Validate() error {
 		errs = append(errs, fmt.Errorf("charset is empty"))
 	}
 
+	if c.stateLogStore == nil {
+		errs = append(errs, fmt.Errorf("state log store is nil"))
+	}
+
+	if c.stateLangStore == nil {
+		errs = append(errs, fmt.Errorf("state lang store is nil"))
+	}
+
+	if c.statusDecisionStrategy == nil {
+		errs = append(errs, fmt.Errorf("status decision strategy is nil"))
+	}
+
+	if c.syncEventBus == nil {
+		errs = append(errs, fmt.Errorf("sync event bus is nil"))
+	}
+	if c.asyncEventBus == nil {
+		errs = append(errs, fmt.Errorf("async event bus is nil"))
+	}
+
+	if c.stateLogRepository == nil {
+		errs = append(errs, fmt.Errorf("state log repository is nil"))
+	}
+
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration validation failed with %d errors: %v", len(errs), errs)
 	}
@@ -620,6 +643,8 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 
+		statusDecisionStrategy: NewDefaultStatusDecisionStrategy(),
+
 		processController: &ProcessControllerImpl{
 			businessProcessor: defaultBP,
 		},
@@ -642,6 +667,12 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 }
 
 type Option func(*DefaultStateMachineConfig)
+
+func WithStatusDecisionStrategy(strategy StatusDecisionStrategy) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.statusDecisionStrategy = strategy
+	}
+}
 
 func WithSeqGenerator(gen sequence.SeqGenerator) Option {
 	return func(c *DefaultStateMachineConfig) {
