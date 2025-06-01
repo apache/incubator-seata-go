@@ -18,6 +18,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -58,6 +59,11 @@ type DefaultStateMachineConfig struct {
 	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
+	processController ProcessController
+
+	// Event Bus
+	syncEventBus  EventBus
+	asyncEventBus EventBus
 
 	// Event publisher
 	syncProcessCtrlEventPublisher  EventPublisher
@@ -105,6 +111,14 @@ func (c *DefaultStateMachineConfig) SetCharset(charset string) {
 
 func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
 	c.defaultTenantId = defaultTenantId
+}
+
+func (c *DefaultStateMachineConfig) SetSyncEventBus(syncEventBus EventBus) {
+	c.syncEventBus = syncEventBus
+}
+
+func (c *DefaultStateMachineConfig) SetAsyncEventBus(asyncEventBus EventBus) {
+	c.asyncEventBus = asyncEventBus
 }
 
 func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
@@ -185,6 +199,14 @@ func (c *DefaultStateMachineConfig) SeqGenerator() sequence.SeqGenerator {
 
 func (c *DefaultStateMachineConfig) StatusDecisionStrategy() StatusDecisionStrategy {
 	return c.statusDecisionStrategy
+}
+
+func (c *DefaultStateMachineConfig) SyncEventBus() EventBus {
+	return c.syncEventBus
+}
+
+func (c *DefaultStateMachineConfig) AsyncEventBus() EventBus {
+	return c.asyncEventBus
 }
 
 func (c *DefaultStateMachineConfig) EventPublisher() EventPublisher {
@@ -404,6 +426,30 @@ func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) 
 	}
 }
 
+func (c *DefaultStateMachineConfig) registerEventConsumers() error {
+	if c.processController == nil {
+		return fmt.Errorf("ProcessController is not initialized")
+	}
+	
+	pcImpl, ok := c.processController.(*ProcessControllerImpl)
+	if !ok {
+		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
+	}
+
+	if pcImpl.businessProcessor == nil {
+		return fmt.Errorf("BusinessProcessor in ProcessController is not initialized")
+	}
+
+	processCtrlConsumer := &ProcessCtrlEventConsumer{
+		processController: c.processController,
+	}
+
+	c.syncEventBus.RegisterEventConsumer(processCtrlConsumer)
+	c.asyncEventBus.RegisterEventConsumer(processCtrlConsumer)
+
+	return nil
+}
+
 func (c *DefaultStateMachineConfig) Init() error {
 	if err := c.initExpressionComponents(); err != nil {
 		return fmt.Errorf("initialize expression components failed: %w", err)
@@ -411,6 +457,10 @@ func (c *DefaultStateMachineConfig) Init() error {
 
 	if err := c.initServiceInvokers(); err != nil {
 		return fmt.Errorf("initialize service invokers failed: %w", err)
+	}
+
+	if err := c.registerEventConsumers(); err != nil {
+		return fmt.Errorf("register event consumers failed: %w", err)
 	}
 
 	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
@@ -545,7 +595,17 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 	return result, nil
 }
 
+func NewDefaultBusinessProcessor() *DefaultBusinessProcessor {
+	return &DefaultBusinessProcessor{
+		processHandlers: make(map[string]ProcessHandler),
+		routerHandlers:  make(map[string]RouterHandler),
+	}
+}
+
 func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
+	ctx := context.Background()
+	defaultBP := NewDefaultBusinessProcessor()
+
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout:           DefaultTransOperTimeout,
 		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
@@ -559,7 +619,20 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
+
+		processController: &ProcessControllerImpl{
+			businessProcessor: defaultBP,
+		},
+
+		syncEventBus:  NewDirectEventBus(),
+		asyncEventBus: NewAsyncEventBus(ctx, 1000, 5),
+
+		syncProcessCtrlEventPublisher:  nil,
+		asyncProcessCtrlEventPublisher: nil,
 	}
+
+	c.syncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.syncEventBus)
+	c.asyncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.asyncEventBus)
 
 	for _, opt := range opts {
 		opt(c)
@@ -573,5 +646,17 @@ type Option func(*DefaultStateMachineConfig)
 func WithSeqGenerator(gen sequence.SeqGenerator) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.seqGenerator = gen
+	}
+}
+
+func WithProcessController(ctrl ProcessController) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.processController = ctrl
+	}
+}
+
+func WithBusinessProcessor(bp BusinessProcessor) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.processController.(*ProcessControllerImpl).businessProcessor = bp
 	}
 }
