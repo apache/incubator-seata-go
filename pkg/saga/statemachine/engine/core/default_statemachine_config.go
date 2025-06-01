@@ -349,6 +349,10 @@ func (e *ErrorExpression) ExpressionString() string {
 }
 
 func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
+	if c.seqGenerator == nil {
+		c.seqGenerator = sequence.NewUUIDSeqGenerator()
+	}
+
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
@@ -541,7 +545,7 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 	return result, nil
 }
 
-func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
+func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout:           DefaultTransOperTimeout,
 		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
@@ -554,7 +558,20 @@ func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
 		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
 		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
 		componentLock:                   &sync.Mutex{},
+		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
+	}
+
+	for _, opt := range opts {
+		opt(c)
 	}
 
 	return c
+}
+
+type Option func(*DefaultStateMachineConfig)
+
+func WithSeqGenerator(gen sequence.SeqGenerator) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.seqGenerator = gen
+	}
 }
