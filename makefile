@@ -24,6 +24,11 @@ GO_OS = $(shell $(GO) env GOOS)
 ifeq ($(GO_OS), darwin)
     GO_OS = mac
 endif
+ifeq ($(shell uname -s), Darwin)
+    SHA256_CMD = shasum -a 256
+else
+    SHA256_CMD = sha256sum
+endif
 
 # License environment
 GO_LICENSE_CHECKER_DIR = license-header-checker-$(GO_OS)
@@ -44,15 +49,15 @@ dist dist/seatago-linux-amd64 dist/seatago-darwin-amd64 dist/seatago-linux-amd64
 	mkdir -p ./dist
 	GOOS="linux"  GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/seatago-linux-amd64 ./cmd
 	GOOS="darwin" GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/seatago-darwin-amd64 ./cmd
-	sha256sum ./dist/seatago-darwin-amd64 | cut -d ' ' -f 1 > ./dist/seatago-darwin-amd64-sha-256
-	sha256sum ./dist/seatago-linux-amd64  | cut -d ' ' -f 1 > ./dist/seatago-linux-amd64-sha-256
+	$(SHA256_CMD) ./dist/seatago-darwin-amd64 | cut -d ' ' -f 1 > ./dist/seatago-darwin-amd64-sha-256
+	$(SHA256_CMD) ./dist/seatago-linux-amd64  | cut -d ' ' -f 1 > ./dist/seatago-linux-amd64-sha-256
 
 # Generate binaries for a Cortex release
 build dist/seatago dist/seatago-sha-256:
 	rm -fr ./dist
 	mkdir -p ./dist
 	CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/seatago ./cmd
-	sha256sum ./dist/seatago  | cut -d ' ' -f 1 > ./dist/seatago-sha-256
+	$(SHA256_CMD) ./dist/seatago  | cut -d ' ' -f 1 > ./dist/seatago-sha-256
 
 #docker-build:
 #	docker build -t seatago/seatago:latest .
