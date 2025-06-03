@@ -42,7 +42,8 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 	case REDIS:
 		//TODO: init redis registry
 	case ZK:
-		//TODO: init zk registry
+		//init zk registry
+		registryService = newZookeeperRegistryService(serviceConfig, &registryConfig.Zookeeper)
 	case CONSUL:
 		//TODO: init consul registry
 	case SOFA:
