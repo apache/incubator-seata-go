@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -324,52 +323,6 @@ type ConfigFileParams struct {
 	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
 }
 
-type SequenceExpressionFactory struct {
-	seqGenerator sequence.SeqGenerator
-}
-
-var _ expr.ExpressionFactory = (*SequenceExpressionFactory)(nil)
-
-func NewSequenceExpressionFactory(seqGenerator sequence.SeqGenerator) *SequenceExpressionFactory {
-	return &SequenceExpressionFactory{
-		seqGenerator: seqGenerator,
-	}
-}
-
-func (f *SequenceExpressionFactory) CreateExpression(expression string) expr.Expression {
-	parts := strings.Split(expression, "|")
-	if len(parts) != 2 {
-		return &ErrorExpression{
-			err:           fmt.Errorf("invalid sequence expression format: %s, expected 'entity|rule'", expression),
-			expressionStr: expression,
-		}
-	}
-
-	seqExpr := &expr.SequenceExpression{}
-	seqExpr.SetSeqGenerator(f.seqGenerator)
-	seqExpr.SetEntity(strings.TrimSpace(parts[0]))
-	seqExpr.SetRule(strings.TrimSpace(parts[1]))
-
-	return seqExpr
-}
-
-type ErrorExpression struct {
-	err           error
-	expressionStr string
-}
-
-func (e *ErrorExpression) Value(elContext any) any {
-	return e.err
-}
-
-func (e *ErrorExpression) SetValue(value any, elContext any) {
-	//错误表达式不设置值
-}
-
-func (e *ErrorExpression) ExpressionString() string {
-	return e.expressionStr
-}
-
 func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	if c.seqGenerator == nil {
 		c.seqGenerator = sequence.NewUUIDSeqGenerator()
@@ -500,7 +453,7 @@ func (c *DefaultStateMachineConfig) initExpressionComponents() error {
 	}
 
 	if c.seqGenerator != nil {
-		sequenceFactory := NewSequenceExpressionFactory(c.seqGenerator)
+		sequenceFactory := expr.NewSequenceExpressionFactory(c.seqGenerator)
 		c.RegisterExpressionFactory("SEQUENCE", sequenceFactory)
 		c.RegisterExpressionFactory("SEQ", sequenceFactory)
 	}
