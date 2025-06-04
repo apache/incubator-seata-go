@@ -21,7 +21,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -289,17 +291,36 @@ func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) invoke
 }
 
 func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) error {
-	for _, resourcePath := range resources {
-		file, err := os.Open(resourcePath)
+	var allFiles []string
+
+	for _, pattern := range resources {
+		matches, err := filepath.Glob(pattern)
 		if err != nil {
-			return fmt.Errorf("open resource file failed: path=%s, err=%w", resourcePath, err)
+			return fmt.Errorf("failed to expand glob pattern: pattern=%s, err=%w", pattern, err)
+		}
+		if len(matches) == 0 {
+			log.Printf("Warning: No files matched pattern %s", pattern)
+			continue
+		}
+		allFiles = append(allFiles, matches...)
+	}
+
+	if len(allFiles) == 0 {
+		return fmt.Errorf("unable to find any state machine definition files, patterns=%v", resources)
+	}
+
+	for _, realPath := range allFiles {
+		file, err := os.Open(realPath)
+		if err != nil {
+			return fmt.Errorf("failed to open state machine definition file: path=%s, err=%w", realPath, err)
 		}
 		defer file.Close()
 
 		if err := c.stateMachineRepository.RegistryStateMachineByReader(file); err != nil {
-			return fmt.Errorf("register state machine from file failed: path=%s, err=%w", resourcePath, err)
+			return fmt.Errorf("failed to register state machine from file: path=%s, err=%w", realPath, err)
 		}
 	}
+
 	return nil
 }
 
@@ -583,11 +604,14 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 	defaultBP := NewDefaultBusinessProcessor()
 
 	c := &DefaultStateMachineConfig{
-		transOperationTimeout:           DefaultTransOperTimeout,
-		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
-		charset:                         "UTF-8",
-		defaultTenantId:                 "000001",
-		stateMachineResources:           []string{"classpath*:seata/saga/statelang/**/*.json"},
+		transOperationTimeout: DefaultTransOperTimeout,
+		serviceInvokeTimeout:  DefaultServiceInvokeTimeout,
+		charset:               "UTF-8",
+		defaultTenantId:       "000001",
+		stateMachineResources: []string{
+			"testdata/saga/statelang/**/*.json",
+			"testdata/saga/statelang/**/*.yaml",
+		},
 		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
