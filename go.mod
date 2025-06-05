@@ -1,8 +1,6 @@
 module seata.apache.org/seata-go
 
-go 1.23.0
-
-toolchain go1.24.3
+go 1.20
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
