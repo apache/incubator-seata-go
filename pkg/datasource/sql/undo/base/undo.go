@@ -23,7 +23,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
 	"strconv"
 	"strings"
 
@@ -36,6 +35,7 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/factor"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/parser"
 	"seata.apache.org/seata-go/pkg/util/collection"
+	serr "seata.apache.org/seata-go/pkg/util/errors"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
