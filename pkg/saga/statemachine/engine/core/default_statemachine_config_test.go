@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
@@ -39,7 +38,7 @@ func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
 	assert.NotNil(t, smo, "State machine definition should not be nil")
 	assert.Equal(t, "CreateOrder", smo.StartState, "The start state should be correct")
 	assert.Contains(t, smo.States, "CreateOrder", "The state node should exist")
-
+	
 	assert.Equal(t, 30000, config.transOperationTimeout, "The timeout should be read correctly")
 }
 
@@ -223,7 +222,7 @@ func (m *TestStateMachineRepositoryMock) RegistryStateMachineByReader(reader io.
 func TestRegisterStateMachineDef_RepositoryError(t *testing.T) {
 	config := NewDefaultStateMachineConfig()
 	config.stateMachineRepository = &TestStateMachineRepositoryMock{}
-	resource := []string{"testdata/test.json"}
+	resource := []string{filepath.Join("testdata", "order_saga.json")}
 
 	err := config.RegisterStateMachineDef(resource)
 	assert.Error(t, err, "Registration should fail when the state machine repository reports an error")

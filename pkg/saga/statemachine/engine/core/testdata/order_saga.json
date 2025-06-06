@@ -8,14 +8,15 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "orderService",
-      "serviceMethod": "create",
+      "serviceMethod": "createOrder",
       "CompensateState": "CancelOrder",
       "ForCompensation": false,
       "ForUpdate": false,
       "Retry": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "OrderCreationException",
+            "InventoryUnavailableException"
           ],
           "IntervalSeconds": 2,
           "MaxAttempts": 3,
@@ -25,15 +26,16 @@
       "Catches": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "OrderCreationException",
+            "InventoryUnavailableException"
           ],
           "Next": "ErrorHandler"
         }
       ],
       "Status": {
-        "return.code == 'S'": "SU",
-        "return.code == 'F'": "FA",
-        "$exception{java.lang.Throwable}": "UN"
+        "return.code == 'SUCCESS'": "SUCCEEDED",
+        "return.code == 'FAIL'": "FAILED",
+        "$exception{*}": "UNKNOWN"
       },
       "Input": [
         {
@@ -56,44 +58,47 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "inventoryService",
-      "serviceMethod": "checkStock",
+      "serviceMethod": "checkAvailability",
       "CompensateState": "RollbackStock",
       "ForCompensation": false,
       "ForUpdate": false,
       "Retry": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "StockCheckException"
           ],
           "IntervalSeconds": 2,
-          "MaxAttempts": 3,
-          "BackoffRate": 1.5
+          "MaxAttempts": 2,
+          "BackoffRate": 1.2
         }
       ],
       "Catches": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "StockCheckException"
           ],
           "Next": "ErrorHandler"
         }
       ],
       "Status": {
-        "return.code == 'S'": "SU",
-        "return.code == 'F'": "FA",
-        "$exception{java.lang.Throwable}": "UN"
+        "return.available == true": "IN_STOCK",
+        "return.available == false": "OUT_OF_STOCK",
+        "$exception{*}": "UNKNOWN"
       },
       "Input": [
         {
           "orderId": "$.orderId"
+        },
+        {
+          "itemsList": "$.orderItems"
         }
       ],
       "Output": {
         "stockAvailable": "$.#root"
       },
-      "Next": "choice"
+      "Next": "DecideStock"
     },
-    "choice": {
+    "DecideStock": {
       "Type": "Choice",
       "Choices": [
         {
@@ -111,40 +116,43 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "inventoryService",
-      "serviceMethod": "reserveStock",
+      "serviceMethod": "reserveItems",
       "CompensateState": "RollbackStock",
       "ForCompensation": false,
       "ForUpdate": false,
       "Retry": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "StockReservationException"
           ],
           "IntervalSeconds": 2,
-          "MaxAttempts": 3,
-          "BackoffRate": 1.5
+          "MaxAttempts": 2,
+          "BackoffRate": 1.2
         }
       ],
       "Catches": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "StockReservationException"
           ],
           "Next": "ErrorHandler"
         }
       ],
       "Status": {
-        "return.code == 'S'": "SU",
-        "return.code == 'F'": "FA",
-        "$exception{java.lang.Throwable}": "UN"
+        "return.code == 'RESERVED'": "STOCK_RESERVED",
+        "return.code == 'FAILED'": "FAILED",
+        "$exception{*}": "UNKNOWN"
       },
       "Input": [
         {
           "orderId": "$.orderId"
+        },
+        {
+          "itemList": "$.orderItems"
         }
       ],
       "Output": {
-        "stockReserved": "$.#root"
+        "stockReservationId": "$.#root"
       },
       "Next": "ProcessPayment"
     },
@@ -159,9 +167,9 @@
       "Retry": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "PaymentProcessingException"
           ],
-          "IntervalSeconds": 2,
+          "IntervalSeconds": 3,
           "MaxAttempts": 3,
           "BackoffRate": 1.5
         }
@@ -169,23 +177,26 @@
       "Catches": [
         {
           "Exceptions": [
-            "java.lang.Exception"
+            "PaymentProcessingException"
           ],
           "Next": "ErrorHandler"
         }
       ],
       "Status": {
-        "return.code == 'S'": "SU",
-        "return.code == 'F'": "FA",
-        "$exception{java.lang.Throwable}": "UN"
+        "return.code == 'PAID'": "PAYMENT_SUCCESS",
+        "return.code == 'DECLINED'": "PAYMENT_FAILED",
+        "$exception{*}": "UNKNOWN"
       },
       "Input": [
         {
           "orderId": "$.orderId"
+        },
+        {
+          "amount": "$.orderTotal"
         }
       ],
       "Output": {
-        "paymentSuccess": "$.#root"
+        "paymentTransactionId": "$.#root"
       },
       "Next": "CompleteOrder"
     },
@@ -196,7 +207,7 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "orderService",
-      "serviceMethod": "cancel",
+      "serviceMethod": "cancelOrder",
       "ForCompensation": true,
       "ForUpdate": true,
       "Input": [
@@ -205,7 +216,7 @@
         }
       ],
       "Output": {
-        "orderCancelled": "$.#root"
+        "cancelResult": "$.#root"
       },
       "Next": "RollbackStock"
     },
@@ -213,16 +224,19 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "inventoryService",
-      "serviceMethod": "rollbackStock",
+      "serviceMethod": "releaseItems",
       "ForCompensation": true,
       "ForUpdate": true,
       "Input": [
         {
           "orderId": "$.orderId"
+        },
+        {
+          "stockReservationId": "$.stockReservationId"
         }
       ],
       "Output": {
-        "stockRolledBack": "$.#root"
+        "rollbackResult": "$.#root"
       },
       "Next": "RefundPayment"
     },
@@ -230,28 +244,31 @@
       "Type": "ServiceTask",
       "serviceType": "local",
       "serviceName": "paymentService",
-      "serviceMethod": "refund",
+      "serviceMethod": "refundPayment",
       "ForCompensation": true,
       "ForUpdate": true,
       "Input": [
         {
           "orderId": "$.orderId"
+        },
+        {
+          "paymentTransactionId": "$.paymentTransactionId"
         }
       ],
       "Output": {
-        "paymentRefunded": "$.#root"
+        "refundResult": "$.#root"
       },
       "Next": "FailState"
     },
     "ErrorHandler": {
       "Type": "Fail",
       "ErrorCode": "ORDER_PROCESSING_ERROR",
-      "Message": "Errors occurred during order processing."
+      "Message": "An unrecoverable error occurred during order processing."
     },
     "FailState": {
       "Type": "Fail",
       "ErrorCode": "ORDER_CANCELLED",
-      "Message": "Order has been canceled."
+      "Message": "The order has been cancelled and compensation actions have been completed."
     }
   }
 }

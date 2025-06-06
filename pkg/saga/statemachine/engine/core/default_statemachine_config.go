@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -299,25 +298,20 @@ func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) 
 			return fmt.Errorf("failed to expand glob pattern: pattern=%s, err=%w", pattern, err)
 		}
 		if len(matches) == 0 {
-			log.Printf("Warning: No files matched pattern %s", pattern)
-			continue
+			return fmt.Errorf("open resource file failed: pattern=%s", pattern)
 		}
 		allFiles = append(allFiles, matches...)
-	}
-
-	if len(allFiles) == 0 {
-		return fmt.Errorf("unable to find any state machine definition files, patterns=%v", resources)
 	}
 
 	for _, realPath := range allFiles {
 		file, err := os.Open(realPath)
 		if err != nil {
-			return fmt.Errorf("failed to open state machine definition file: path=%s, err=%w", realPath, err)
+			return fmt.Errorf("open resource file failed: path=%s, err=%w", realPath, err)
 		}
 		defer file.Close()
 
 		if err := c.stateMachineRepository.RegistryStateMachineByReader(file); err != nil {
-			return fmt.Errorf("failed to register state machine from file: path=%s, err=%w", realPath, err)
+			return fmt.Errorf("register state machine from file failed: path=%s, err=%w", realPath, err)
 		}
 	}
 
@@ -363,6 +357,7 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	var configFileParams ConfigFileParams
 	if err := json.Unmarshal(content, &configFileParams); err != nil {
 		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
+			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
 		} else {
 			c.applyConfigFileParams(&configFileParams)
 		}
@@ -451,7 +446,6 @@ func (c *DefaultStateMachineConfig) Init() error {
 }
 
 func (c *DefaultStateMachineConfig) initExpressionComponents() error {
-
 	if c.expressionFactoryManager == nil {
 		c.expressionFactoryManager = expr.NewExpressionFactoryManager()
 	}
@@ -502,6 +496,10 @@ func (c *DefaultStateMachineConfig) initServiceInvokers() error {
 }
 
 func (c *DefaultStateMachineConfig) Validate() error {
+	if c.stateMachineRepository == nil {
+		return nil
+	}
+
 	var errs []error
 
 	if c.expressionFactoryManager == nil {
@@ -554,7 +552,6 @@ func (c *DefaultStateMachineConfig) Validate() error {
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration validation failed with %d errors: %v", len(errs), errs)
 	}
-
 	return nil
 }
 
