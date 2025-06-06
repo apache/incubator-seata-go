@@ -38,7 +38,7 @@ func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
 	assert.NotNil(t, smo, "State machine definition should not be nil")
 	assert.Equal(t, "CreateOrder", smo.StartState, "The start state should be correct")
 	assert.Contains(t, smo.States, "CreateOrder", "The state node should exist")
-	
+
 	assert.Equal(t, 30000, config.transOperationTimeout, "The timeout should be read correctly")
 }
 

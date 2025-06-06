@@ -496,20 +496,14 @@ func (c *DefaultStateMachineConfig) initServiceInvokers() error {
 }
 
 func (c *DefaultStateMachineConfig) Validate() error {
-	if c.stateMachineRepository == nil {
-		return nil
-	}
-
 	var errs []error
 
 	if c.expressionFactoryManager == nil {
 		errs = append(errs, fmt.Errorf("expression factory manager is nil"))
 	}
-
 	if c.expressionResolver == nil {
 		errs = append(errs, fmt.Errorf("expression resolver is nil"))
 	}
-
 	if c.serviceInvokerManager == nil {
 		errs = append(errs, fmt.Errorf("service invoker manager is nil"))
 	}
@@ -517,36 +511,33 @@ func (c *DefaultStateMachineConfig) Validate() error {
 	if c.transOperationTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("invalid trans operation timeout: %d", c.transOperationTimeout))
 	}
-
 	if c.serviceInvokeTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("invalid service invoke timeout: %d", c.serviceInvokeTimeout))
 	}
-
 	if c.charset == "" {
 		errs = append(errs, fmt.Errorf("charset is empty"))
 	}
 
-	if c.stateLogStore == nil {
-		errs = append(errs, fmt.Errorf("state log store is nil"))
-	}
-
-	if c.stateLangStore == nil {
-		errs = append(errs, fmt.Errorf("state lang store is nil"))
+	if c.stateMachineRepository != nil {
+		if c.stateLogStore == nil {
+			errs = append(errs, fmt.Errorf("state log store is nil"))
+		}
+		if c.stateLangStore == nil {
+			errs = append(errs, fmt.Errorf("state lang store is nil"))
+		}
+		if c.stateLogRepository == nil {
+			errs = append(errs, fmt.Errorf("state log repository is nil"))
+		}
 	}
 
 	if c.statusDecisionStrategy == nil {
 		errs = append(errs, fmt.Errorf("status decision strategy is nil"))
 	}
-
 	if c.syncEventBus == nil {
 		errs = append(errs, fmt.Errorf("sync event bus is nil"))
 	}
 	if c.asyncEventBus == nil {
 		errs = append(errs, fmt.Errorf("async event bus is nil"))
-	}
-
-	if c.stateLogRepository == nil {
-		errs = append(errs, fmt.Errorf("state log repository is nil"))
 	}
 
 	if len(errs) > 0 {
