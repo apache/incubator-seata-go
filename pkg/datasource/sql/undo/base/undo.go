@@ -379,7 +379,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 		if undoErr, ok := err.(*serr.SeataError); ok && undoErr.Code == serr.SQLUndoDirtyError {
 			return serr.New(serr.TransactionErrorCodeBranchRollbackFailedUnretriable, fmt.Sprintf(
-				"Branch session rollback failed because of dirty undo log, please delete the relevant undolog after manually calibrating the data. xid = %s branchId = %s: %v", xid, branchID, undoErr), nil)
+				"Branch session rollback failed because of dirty undo log, please delete the relevant undolog after manually calibrating the data. xid = %s branchId = %d: %v", xid, branchID, undoErr), nil)
 		}
 
 		return err
