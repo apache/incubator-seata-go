@@ -15,35 +15,27 @@
  * limitations under the License.
  */
 
-package sql
+package mysql
 
 import (
+	"context"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
+type UpdateExecutor struct {
+	internal.UpdateExecutor
 }
 
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
+// NewUpdateExecutor get update Executor
+func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *UpdateExecutor {
+	return &UpdateExecutor{
+		UpdateExecutor: *internal.NewUpdateExecutor(parserCtx, execContent, hooks),
+	}
 }
 
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
+func (u *UpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return u.UpdateExecutor.ExecContext(ctx, f)
 }

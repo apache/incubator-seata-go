@@ -15,35 +15,8 @@
  * limitations under the License.
  */
 
-package sql
+package config
 
-import (
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
-)
+import "seata.apache.org/seata-go/pkg/rm"
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
-}
-
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
-}
-
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
-}
+var LockConfig rm.LockConfig

@@ -15,35 +15,32 @@
  * limitations under the License.
  */
 
-package sql
+package mysql
 
 import (
+	"context"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at/internal"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
+type InsertOnUpdateExecutor struct {
+	internal.InsertOnUpdateExecutor
 }
 
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
+func NewInsertOnUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) *InsertOnUpdateExecutor {
+	return &InsertOnUpdateExecutor{
+		InsertOnUpdateExecutor: internal.InsertOnUpdateExecutor{
+			BaseExecutor: internal.BaseExecutor{
+				Hooks:     hooks,
+				ParserCtx: parserCtx,
+				ExecCtx:   execContent,
+			},
+		},
+	}
 }
 
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
+func (i *InsertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return i.InsertOnUpdateExecutor.ExecContext(ctx, f)
 }

@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package sql
+package internal
 
 import (
+	"context"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/datasource/sql/hook"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func Init() {
-	hookRegister()
-	executorRegister()
-	undoInit()
-	initDriver()
+type PlainExecutor struct {
+	parserCtx   *types.ParseContext
+	execContext *types.ExecContext
 }
 
-func hookRegister() {
-	exec.RegisterHook(hook.NewLoggerSQLHook())
-	exec.RegisterHook(hook.NewUndoLogSQLHook())
+func NewPlainExecutor(parserCtx *types.ParseContext, execCtx *types.ExecContext) Executor {
+	return &PlainExecutor{parserCtx: parserCtx, execContext: execCtx}
 }
 
-func executorRegister() {
-	at.Init()
-}
-
-func undoInit() {
-	mysqlUndoLogInit()
-}
-
-func mysqlUndoLogInit() {
-	mysql.InitUndoLogManager()
+func (u *PlainExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return f(ctx, u.execContext.Query, u.execContext.NamedValues)
 }
