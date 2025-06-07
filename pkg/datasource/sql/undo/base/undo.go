@@ -380,7 +380,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	if err = tx.Commit(); err != nil {
 		log.Errorf("[Undo] execute on fail, err: %v", err)
 
-		return nil
+		return err
 	}
 	return nil
 }
