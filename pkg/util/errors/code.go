@@ -100,4 +100,6 @@ const (
 
 	// FencePhaseError have fence phase but is not illegal value
 	FencePhaseError
+
+	SQLUndoDirtyError
 )
