@@ -21,8 +21,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -591,15 +593,34 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 	ctx := context.Background()
 	defaultBP := NewDefaultBusinessProcessor()
 
+	// stateMachineResources for development only; production uses env vars/config files.
+	stateMachineResources := []string{
+		"testdata/saga/statelang/**/*.json",
+		"testdata/saga/statelang/**/*.yaml",
+	}
+
+	if envPaths := os.Getenv("SEATA_STATE_MACHINE_RESOURCES"); envPaths != "" {
+		paths := strings.Split(envPaths, ",")
+		filteredPaths := make([]string, 0, len(paths))
+		for _, p := range paths {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				filteredPaths = append(filteredPaths, p)
+			}
+		}
+		if len(filteredPaths) > 0 {
+			stateMachineResources = filteredPaths
+		}
+	}
+
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout: DefaultTransOperTimeout,
 		serviceInvokeTimeout:  DefaultServiceInvokeTimeout,
 		charset:               "UTF-8",
 		defaultTenantId:       "000001",
-		stateMachineResources: []string{
-			"testdata/saga/statelang/**/*.json",
-			"testdata/saga/statelang/**/*.yaml",
-		},
+
+		stateMachineResources: stateMachineResources,
+
 		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
@@ -609,7 +630,6 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 
 		statusDecisionStrategy: NewDefaultStatusDecisionStrategy(),
-
 		processController: &ProcessControllerImpl{
 			businessProcessor: defaultBP,
 		},
@@ -623,6 +643,12 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 
 	c.syncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.syncEventBus)
 	c.asyncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.asyncEventBus)
+
+	if err := c.LoadConfig("config.yaml"); err == nil {
+		log.Printf("Successfully loaded config from config.yaml")
+	} else {
+		log.Printf("Failed to load config file (using default/env values): %v", err)
+	}
 
 	for _, opt := range opts {
 		opt(c)
@@ -654,5 +680,13 @@ func WithProcessController(ctrl ProcessController) Option {
 func WithBusinessProcessor(bp BusinessProcessor) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.processController.(*ProcessControllerImpl).businessProcessor = bp
+	}
+}
+
+func WithStateMachineResources(paths []string) Option {
+	return func(c *DefaultStateMachineConfig) {
+		if len(paths) > 0 {
+			c.stateMachineResources = paths
+		}
 	}
 }
