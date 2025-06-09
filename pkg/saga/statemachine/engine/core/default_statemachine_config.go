@@ -690,3 +690,27 @@ func WithStateMachineResources(paths []string) Option {
 		}
 	}
 }
+
+func WithStateLogRepository(logRepo StateLogRepository) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLogRepository = logRepo
+	}
+}
+
+func WithStateLogStore(logStore StateLogStore) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLogStore = logStore
+	}
+}
+
+func WithStateLangStore(langStore StateLangStore) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLangStore = langStore
+	}
+}
+
+func WithStateMachineRepository(machineRepo StateMachineRepository) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateMachineRepository = machineRepo
+	}
+}
