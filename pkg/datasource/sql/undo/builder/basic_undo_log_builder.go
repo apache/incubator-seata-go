@@ -276,7 +276,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
-	var lockKeys bytes.Buffer
+	var lockKeys strings.Builder
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 

@@ -18,7 +18,6 @@
 package at
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -359,35 +358,39 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
+	var lockKeys strings.Builder
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
-	keys := meta.GetPrimaryKeyOnlyName()
+	primaryKeyNames := meta.GetPrimaryKeyOnlyName()
+	pkNameToIndex := make(map[string]int, len(primaryKeyNames))
+	for idx, pkName := range primaryKeyNames {
+		pkNameToIndex[pkName] = idx
+	}
 
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
+	primaryKeyValuesPerRow := make([][]interface{}, len(records.Rows))
+	for rowIdx, row := range records.Rows {
+		pkValues := make([]interface{}, len(primaryKeyNames))
+		for _, column := range row.Columns {
+			if pkIdx, exist := pkNameToIndex[column.ColumnName]; exist {
+				pkValues[pkIdx] = column.Value
+			}
+		}
+		primaryKeyValuesPerRow[rowIdx] = pkValues
+	}
+
+	for rowIdx, pkValues := range primaryKeyValuesPerRow {
+		if rowIdx > 0 {
 			lockKeys.WriteString(",")
 		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
-				}
+		for pkIdx, pkVal := range pkValues {
+			if pkIdx > 0 {
+				lockKeys.WriteString("_")
 			}
-			if hasKeyColumn {
-				filedSequence++
+			if pkVal == nil {
+				continue
 			}
+			lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
 		}
 	}
 
