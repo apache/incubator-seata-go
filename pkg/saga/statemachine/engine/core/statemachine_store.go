@@ -26,7 +26,7 @@ import (
 type StateLogRepository interface {
 	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
 
-	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateInstance, error)
+	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateMachineInstance, error)
 
 	GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error)
 
