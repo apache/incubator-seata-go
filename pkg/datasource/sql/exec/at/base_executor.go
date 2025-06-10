@@ -22,8 +22,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"strings"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
@@ -359,40 +360,47 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 	var lockKeys strings.Builder
+	type ColMapItem struct {
+		pkIndex  int
+		colIndex int
+	}
+
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
-	primaryKeyNames := meta.GetPrimaryKeyOnlyName()
-	pkNameToIndex := make(map[string]int, len(primaryKeyNames))
-	for idx, pkName := range primaryKeyNames {
-		pkNameToIndex[pkName] = idx
+	keys := meta.GetPrimaryKeyOnlyName()
+	keyIndexMap := make(map[string]int, len(keys))
+	for idx, columnName := range keys {
+		keyIndexMap[columnName] = idx
 	}
 
-	primaryKeyValuesPerRow := make([][]interface{}, len(records.Rows))
-	for rowIdx, row := range records.Rows {
-		pkValues := make([]interface{}, len(primaryKeyNames))
-		for _, column := range row.Columns {
-			if pkIdx, exist := pkNameToIndex[column.ColumnName]; exist {
-				pkValues[pkIdx] = column.Value
+	columns := make([]ColMapItem, 0, len(keys))
+	if len(records.Rows) > 0 {
+		for colIdx, column := range records.Rows[0].Columns {
+			if pkIdx, ok := keyIndexMap[column.ColumnName]; ok {
+				columns = append(columns, ColMapItem{pkIndex: pkIdx, colIndex: colIdx})
 			}
 		}
-		primaryKeyValuesPerRow[rowIdx] = pkValues
+		for i, row := range records.Rows {
+			if i > 0 {
+				lockKeys.WriteString(",")
+			}
+			primaryKeyValues := make([]interface{}, len(keys))
+			for _, mp := range columns {
+				if mp.colIndex < len(row.Columns) {
+					primaryKeyValues[mp.pkIndex] = row.Columns[mp.colIndex].Value
+				}
+			}
+			for j, pkVal := range primaryKeyValues {
+				if j > 0 {
+					lockKeys.WriteString("_")
+				}
+				if pkVal == nil {
+					continue
+				}
+				lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
+			}
+		}
 	}
-
-	for rowIdx, pkValues := range primaryKeyValuesPerRow {
-		if rowIdx > 0 {
-			lockKeys.WriteString(",")
-		}
-		for pkIdx, pkVal := range pkValues {
-			if pkIdx > 0 {
-				lockKeys.WriteString("_")
-			}
-			if pkVal == nil {
-				continue
-			}
-			lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
-		}
-	}
-
 	return lockKeys.String()
 }
