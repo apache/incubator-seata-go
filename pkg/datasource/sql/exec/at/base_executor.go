@@ -22,9 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"strings"
-
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
