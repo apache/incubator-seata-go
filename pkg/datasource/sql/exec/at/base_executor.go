@@ -18,7 +18,6 @@
 package at
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -359,37 +358,48 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
+	var lockKeys strings.Builder
+	type ColMapItem struct {
+		pkIndex  int
+		colIndex int
+	}
+
 	lockKeys.WriteString(meta.TableName)
 	lockKeys.WriteString(":")
 
 	keys := meta.GetPrimaryKeyOnlyName()
+	keyIndexMap := make(map[string]int, len(keys))
+	for idx, columnName := range keys {
+		keyIndexMap[columnName] = idx
+	}
 
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
-			lockKeys.WriteString(",")
+	columns := make([]ColMapItem, 0, len(keys))
+	if len(records.Rows) > 0 {
+		for colIdx, column := range records.Rows[0].Columns {
+			if pkIdx, ok := keyIndexMap[column.ColumnName]; ok {
+				columns = append(columns, ColMapItem{pkIndex: pkIdx, colIndex: colIdx})
+			}
 		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
+		for i, row := range records.Rows {
+			if i > 0 {
+				lockKeys.WriteString(",")
+			}
+			primaryKeyValues := make([]interface{}, len(keys))
+			for _, mp := range columns {
+				if mp.colIndex < len(row.Columns) {
+					primaryKeyValues[mp.pkIndex] = row.Columns[mp.colIndex].Value
 				}
 			}
-			if hasKeyColumn {
-				filedSequence++
+			for j, pkVal := range primaryKeyValues {
+				if j > 0 {
+					lockKeys.WriteString("_")
+				}
+				if pkVal == nil {
+					continue
+				}
+				lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
 			}
 		}
 	}
-
 	return lockKeys.String()
 }
