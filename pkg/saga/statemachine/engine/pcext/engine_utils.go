@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"github.com/seata/seata-go/pkg/util/log"
@@ -31,7 +33,7 @@ import (
 	"time"
 )
 
-func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
+func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
 	if processContext.HasVariable(constant.VarNameIsLoopState) {
 		if processContext.HasVariable(constant.LoopSemaphore) {
 			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(semaphore.Weighted)
@@ -59,7 +61,7 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 		log.Debugf("Exception Occurred: %s", exp)
 	}
 
-	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(StateMachineConfig)
+	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 
 	if err := stateMachineConfig.StatusDecisionStrategy().DecideOnEndState(ctx, processContext, stateMachineInstance, exp); err != nil {
 		return err
@@ -91,7 +93,7 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 		}
 	}
 
-	callBack, ok := processContext.GetVariable(constant.VarNameAsyncCallback).(CallBack)
+	callBack, ok := processContext.GetVariable(constant.VarNameAsyncCallback).(engine.CallBack)
 	if ok {
 		if exp != nil {
 			callBack.OnError(ctx, processContext, stateMachineInstance, exp)
@@ -103,7 +105,7 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 	return nil
 }
 
-func HandleException(processContext ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
+func HandleException(processContext process_ctrl.ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
 	catches := abstractTaskState.Catches()
 	if catches != nil && len(catches) != 0 {
 		for _, exceptionMatch := range catches {
@@ -127,7 +129,7 @@ func HandleException(processContext ProcessContext, abstractTaskState *state.Abs
 				if reflect.TypeOf(err) == exceptionTypes[i] {
 					// HACK: we can not get error type in config file during runtime, so we use exception str
 					if strings.Contains(err.Error(), exceptions[i]) {
-						hierarchicalProcessContext := processContext.(HierarchicalProcessContext)
+						hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
 						hierarchicalProcessContext.SetVariable(constant.VarNameCurrentExceptionRoute, exceptionMatch.Next())
 						return
 					}
@@ -137,7 +139,7 @@ func HandleException(processContext ProcessContext, abstractTaskState *state.Abs
 	}
 
 	log.Error("Task execution failed and no catches configured")
-	hierarchicalProcessContext := processContext.(HierarchicalProcessContext)
+	hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
 	hierarchicalProcessContext.SetVariable(constant.VarNameIsExceptionNotCatch, true)
 }
 

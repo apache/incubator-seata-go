@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	sagaState "github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	seataErrors "github.com/seata/seata-go/pkg/util/errors"
@@ -30,14 +31,14 @@ import (
 type EndStateRouter struct {
 }
 
-func (e EndStateRouter) Route(ctx context.Context, processContext ProcessContext, state statelang.State) (Instruction, error) {
+func (e EndStateRouter) Route(ctx context.Context, processContext process_ctrl.ProcessContext, state statelang.State) (process_ctrl.Instruction, error) {
 	return nil, nil
 }
 
 type TaskStateRouter struct {
 }
 
-func (t TaskStateRouter) Route(ctx context.Context, processContext ProcessContext, state statelang.State) (Instruction, error) {
+func (t TaskStateRouter) Route(ctx context.Context, processContext process_ctrl.ProcessContext, state statelang.State) (process_ctrl.Instruction, error) {
 	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
 	if stateInstruction.End() {
 		log.Infof("StateInstruction is ended, Stop the StateMachine executing. StateMachine[%s] Current State[%s]",
@@ -94,8 +95,8 @@ func (t TaskStateRouter) Route(ctx context.Context, processContext ProcessContex
 	return stateInstruction, nil
 }
 
-func (t *TaskStateRouter) compensateRoute(ctx context.Context, processContext ProcessContext,
-	compensationTriggerState statelang.State) (Instruction, error) {
+func (t *TaskStateRouter) compensateRoute(ctx context.Context, processContext process_ctrl.ProcessContext,
+	compensationTriggerState statelang.State) (process_ctrl.Instruction, error) {
 	//If there is already a compensation state that has been executed,
 	// it is judged whether it is wrong or unsuccessful,
 	// and the compensation process is interrupted.
@@ -141,11 +142,11 @@ func (t *TaskStateRouter) compensateRoute(ctx context.Context, processContext Pr
 			GetCurrentCompensationHolder(ctx, processContext, true).AddToBeCompensatedState(compensateState.Name(),
 				stateToBeCompensated)
 
-			hierarchicalProcessContext := processContext.(HierarchicalProcessContext)
+			hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
 			hierarchicalProcessContext.SetVariableLocally(constant.VarNameFirstCompensationStateStarted, true)
 
 			if _, ok := compensateState.(sagaState.CompensateSubStateMachineState); ok {
-				hierarchicalProcessContext = processContext.(HierarchicalProcessContext)
+				hierarchicalProcessContext = processContext.(process_ctrl.HierarchicalProcessContext)
 				hierarchicalProcessContext.SetVariableLocally(
 					compensateState.Name()+constant.VarNameSubMachineParentId,
 					GenerateParentId(stateToBeCompensated))

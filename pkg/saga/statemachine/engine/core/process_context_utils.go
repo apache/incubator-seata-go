@@ -19,17 +19,19 @@ package core
 
 import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
 // ProcessContextBuilder process_ctrl builder
 type ProcessContextBuilder struct {
-	processContext ProcessContext
+	processContext process_ctrl.ProcessContext
 }
 
 func NewProcessContextBuilder() *ProcessContextBuilder {
-	processContextImpl := NewProcessContextImpl()
+	processContextImpl := process_ctrl.NewProcessContextImpl()
 	return &ProcessContextBuilder{processContextImpl}
 }
 
@@ -43,7 +45,7 @@ func (p *ProcessContextBuilder) WithOperationName(operationName string) *Process
 	return p
 }
 
-func (p *ProcessContextBuilder) WithAsyncCallback(callBack CallBack) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithAsyncCallback(callBack engine.CallBack) *ProcessContextBuilder {
 	if callBack != nil {
 		p.processContext.SetVariable(constant.VarNameAsyncCallback, callBack)
 	}
@@ -51,7 +53,7 @@ func (p *ProcessContextBuilder) WithAsyncCallback(callBack CallBack) *ProcessCon
 	return p
 }
 
-func (p *ProcessContextBuilder) WithInstruction(instruction Instruction) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithInstruction(instruction process_ctrl.Instruction) *ProcessContextBuilder {
 	if instruction != nil {
 		p.processContext.SetInstruction(instruction)
 	}
@@ -68,7 +70,7 @@ func (p *ProcessContextBuilder) WithStateMachineInstance(stateMachineInstance st
 	return p
 }
 
-func (p *ProcessContextBuilder) WithStateMachineEngine(stateMachineEngine StateMachineEngine) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithStateMachineEngine(stateMachineEngine engine.StateMachineEngine) *ProcessContextBuilder {
 	if stateMachineEngine != nil {
 		p.processContext.SetVariable(constant.VarNameStateMachineEngine, stateMachineEngine)
 	}
@@ -76,7 +78,7 @@ func (p *ProcessContextBuilder) WithStateMachineEngine(stateMachineEngine StateM
 	return p
 }
 
-func (p *ProcessContextBuilder) WithStateMachineConfig(stateMachineConfig StateMachineConfig) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithStateMachineConfig(stateMachineConfig engine.StateMachineConfig) *ProcessContextBuilder {
 	if stateMachineConfig != nil {
 		p.processContext.SetVariable(constant.VarNameStateMachineConfig, stateMachineConfig)
 	}
@@ -106,6 +108,6 @@ func (p *ProcessContextBuilder) WithStateInstance(state statelang.StateInstance)
 	return p
 }
 
-func (p *ProcessContextBuilder) Build() ProcessContext {
+func (p *ProcessContextBuilder) Build() process_ctrl.ProcessContext {
 	return p.processContext
 }

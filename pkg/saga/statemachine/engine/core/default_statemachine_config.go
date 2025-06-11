@@ -18,9 +18,13 @@
 package core
 
 import (
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
+	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 	"sync"
 )
 
@@ -47,14 +51,14 @@ type DefaultStateMachineConfig struct {
 	// Components
 
 	// Event publisher
-	syncProcessCtrlEventPublisher  EventPublisher
-	asyncProcessCtrlEventPublisher EventPublisher
+	syncProcessCtrlEventPublisher  process_ctrl.EventPublisher
+	asyncProcessCtrlEventPublisher process_ctrl.EventPublisher
 
 	// Store related components
-	stateLogRepository     StateLogRepository
-	stateLogStore          StateLogStore
-	stateLangStore         StateLangStore
-	stateMachineRepository StateMachineRepository
+	stateLogRepository     repo.StateLogRepository
+	stateLogStore          store.StateLogStore
+	stateLangStore         store.StateLangStore
+	stateMachineRepository repo.StateMachineRepository
 
 	// Expression related components
 	expressionFactoryManager expr.ExpressionFactoryManager
@@ -65,7 +69,7 @@ type DefaultStateMachineConfig struct {
 	scriptInvokerManager  invoker.ScriptInvokerManager
 
 	// Other components
-	statusDecisionStrategy StatusDecisionStrategy
+	statusDecisionStrategy engine.StatusDecisionStrategy
 	seqGenerator           sequence.SeqGenerator
 	componentLock          *sync.Mutex
 }
@@ -94,27 +98,27 @@ func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
 	c.defaultTenantId = defaultTenantId
 }
 
-func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
+func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
 	c.syncProcessCtrlEventPublisher = syncProcessCtrlEventPublisher
 }
 
-func (c *DefaultStateMachineConfig) SetAsyncProcessCtrlEventPublisher(asyncProcessCtrlEventPublisher EventPublisher) {
+func (c *DefaultStateMachineConfig) SetAsyncProcessCtrlEventPublisher(asyncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
 	c.asyncProcessCtrlEventPublisher = asyncProcessCtrlEventPublisher
 }
 
-func (c *DefaultStateMachineConfig) SetStateLogRepository(stateLogRepository StateLogRepository) {
+func (c *DefaultStateMachineConfig) SetStateLogRepository(stateLogRepository repo.StateLogRepository) {
 	c.stateLogRepository = stateLogRepository
 }
 
-func (c *DefaultStateMachineConfig) SetStateLogStore(stateLogStore StateLogStore) {
+func (c *DefaultStateMachineConfig) SetStateLogStore(stateLogStore store.StateLogStore) {
 	c.stateLogStore = stateLogStore
 }
 
-func (c *DefaultStateMachineConfig) SetStateLangStore(stateLangStore StateLangStore) {
+func (c *DefaultStateMachineConfig) SetStateLangStore(stateLangStore store.StateLangStore) {
 	c.stateLangStore = stateLangStore
 }
 
-func (c *DefaultStateMachineConfig) SetStateMachineRepository(stateMachineRepository StateMachineRepository) {
+func (c *DefaultStateMachineConfig) SetStateMachineRepository(stateMachineRepository repo.StateMachineRepository) {
 	c.stateMachineRepository = stateMachineRepository
 }
 
@@ -134,7 +138,7 @@ func (c *DefaultStateMachineConfig) SetScriptInvokerManager(scriptInvokerManager
 	c.scriptInvokerManager = scriptInvokerManager
 }
 
-func (c *DefaultStateMachineConfig) SetStatusDecisionStrategy(statusDecisionStrategy StatusDecisionStrategy) {
+func (c *DefaultStateMachineConfig) SetStatusDecisionStrategy(statusDecisionStrategy engine.StatusDecisionStrategy) {
 	c.statusDecisionStrategy = statusDecisionStrategy
 }
 
@@ -142,19 +146,19 @@ func (c *DefaultStateMachineConfig) SetSeqGenerator(seqGenerator sequence.SeqGen
 	c.seqGenerator = seqGenerator
 }
 
-func (c *DefaultStateMachineConfig) StateLogRepository() StateLogRepository {
+func (c *DefaultStateMachineConfig) StateLogRepository() repo.StateLogRepository {
 	return c.stateLogRepository
 }
 
-func (c *DefaultStateMachineConfig) StateMachineRepository() StateMachineRepository {
+func (c *DefaultStateMachineConfig) StateMachineRepository() repo.StateMachineRepository {
 	return c.stateMachineRepository
 }
 
-func (c *DefaultStateMachineConfig) StateLogStore() StateLogStore {
+func (c *DefaultStateMachineConfig) StateLogStore() store.StateLogStore {
 	return c.stateLogStore
 }
 
-func (c *DefaultStateMachineConfig) StateLangStore() StateLangStore {
+func (c *DefaultStateMachineConfig) StateLangStore() store.StateLangStore {
 	return c.stateLangStore
 }
 
@@ -170,15 +174,15 @@ func (c *DefaultStateMachineConfig) SeqGenerator() sequence.SeqGenerator {
 	return c.seqGenerator
 }
 
-func (c *DefaultStateMachineConfig) StatusDecisionStrategy() StatusDecisionStrategy {
+func (c *DefaultStateMachineConfig) StatusDecisionStrategy() engine.StatusDecisionStrategy {
 	return c.statusDecisionStrategy
 }
 
-func (c *DefaultStateMachineConfig) EventPublisher() EventPublisher {
+func (c *DefaultStateMachineConfig) EventPublisher() process_ctrl.EventPublisher {
 	return c.syncProcessCtrlEventPublisher
 }
 
-func (c *DefaultStateMachineConfig) AsyncEventPublisher() EventPublisher {
+func (c *DefaultStateMachineConfig) AsyncEventPublisher() process_ctrl.EventPublisher {
 	return c.asyncProcessCtrlEventPublisher
 }
 
