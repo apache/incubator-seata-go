@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package core
+package engine
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
 	"testing"
 )
 
@@ -27,6 +28,6 @@ func TestEngine(t *testing.T) {
 }
 
 func TestSimpleStateMachine(t *testing.T) {
-	engine := NewProcessCtrlStateMachineEngine()
+	engine := core.NewProcessCtrlStateMachineEngine()
 	engine.Start(context.Background(), "simpleStateMachine", "tenantId", nil)
 }

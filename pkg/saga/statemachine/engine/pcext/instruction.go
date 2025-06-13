@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"errors"
 	"fmt"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
-
-type Instruction interface {
-}
 
 type StateInstruction struct {
 	stateName        string
@@ -79,7 +78,7 @@ func (s *StateInstruction) SetTemporaryState(temporaryState statelang.State) {
 	s.temporaryState = temporaryState
 }
 
-func (s *StateInstruction) GetState(context ProcessContext) (statelang.State, error) {
+func (s *StateInstruction) GetState(context process_ctrl.ProcessContext) (statelang.State, error) {
 	if s.temporaryState != nil {
 		return s.temporaryState, nil
 	}
@@ -88,7 +87,7 @@ func (s *StateInstruction) GetState(context ProcessContext) (statelang.State, er
 		return nil, errors.New("stateMachineName is required")
 	}
 
-	stateMachineConfig, ok := context.GetVariable(constant.VarNameStateMachineConfig).(StateMachineConfig)
+	stateMachineConfig, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	if !ok {
 		return nil, errors.New("stateMachineConfig is required in context")
 	}

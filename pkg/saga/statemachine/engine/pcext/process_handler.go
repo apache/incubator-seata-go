@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"errors"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"sync"
 )
 
 type StateHandler interface {
 	State() string
-	ProcessHandler
+	process_ctrl.ProcessHandler
 }
 
 type InterceptAbleStateHandler interface {
@@ -34,13 +35,9 @@ type InterceptAbleStateHandler interface {
 	RegistryStateHandlerInterceptor(stateHandlerInterceptor StateHandlerInterceptor)
 }
 
-type ProcessHandler interface {
-	Process(ctx context.Context, processContext ProcessContext) error
-}
-
 type StateHandlerInterceptor interface {
-	PreProcess(ctx context.Context, processContext ProcessContext) error
-	PostProcess(ctx context.Context, processContext ProcessContext) error
+	PreProcess(ctx context.Context, processContext process_ctrl.ProcessContext) error
+	PostProcess(ctx context.Context, processContext process_ctrl.ProcessContext) error
 	Match(stateType string) bool
 }
 
@@ -55,7 +52,7 @@ func NewStateMachineProcessHandler() *StateMachineProcessHandler {
 	}
 }
 
-func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext ProcessContext) error {
+func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
 	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
 
 	state, err := stateInstruction.GetState(processContext)

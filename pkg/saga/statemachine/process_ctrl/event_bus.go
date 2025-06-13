@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package core
+package process_ctrl
 
 import (
 	"context"

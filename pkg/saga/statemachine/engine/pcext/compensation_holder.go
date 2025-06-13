@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/util/collection"
 	"sync"
@@ -67,7 +68,7 @@ func NewCompensationHolder() *CompensationHolder {
 	}
 }
 
-func GetCurrentCompensationHolder(ctx context.Context, processContext ProcessContext, forceCreate bool) *CompensationHolder {
+func GetCurrentCompensationHolder(ctx context.Context, processContext process_ctrl.ProcessContext, forceCreate bool) *CompensationHolder {
 	compensationholder := processContext.GetVariable(constant.VarNameCurrentCompensationHolder).(*CompensationHolder)
 	lock := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
 	lock.Lock()

@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package core
+package engine
 
 import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
+	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 	"sync"
 )
 
 type StateMachineConfig interface {
-	StateLogRepository() StateLogRepository
+	StateLogRepository() repo.StateLogRepository
 
-	StateMachineRepository() StateMachineRepository
+	StateMachineRepository() repo.StateMachineRepository
 
-	StateLogStore() StateLogStore
+	StateLogStore() store.StateLogStore
 
-	StateLangStore() StateLangStore
+	StateLangStore() store.StateLangStore
 
 	ExpressionFactoryManager() expr.ExpressionFactoryManager
 
@@ -41,9 +44,9 @@ type StateMachineConfig interface {
 
 	StatusDecisionStrategy() StatusDecisionStrategy
 
-	EventPublisher() EventPublisher
+	EventPublisher() process_ctrl.EventPublisher
 
-	AsyncEventPublisher() EventPublisher
+	AsyncEventPublisher() process_ctrl.EventPublisher
 
 	ServiceInvokerManager() invoker.ServiceInvokerManager
 
