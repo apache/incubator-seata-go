@@ -23,8 +23,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/utils"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -34,7 +35,7 @@ import (
 )
 
 func mockProcessContext(stateMachineName string, stateMachineInstance statelang.StateMachineInstance) process_ctrl.ProcessContext {
-	ctx := core.NewProcessContextBuilder().
+	ctx := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameStart).
 		WithInstruction(pcext.NewStateInstruction(stateMachineName, "000001")).
@@ -61,7 +62,7 @@ func mockMachineInstance(stateMachineName string) statelang.StateMachineInstance
 }
 
 func mockStateMachineConfig(context process_ctrl.ProcessContext) engine.StateMachineConfig {
-	cfg := core.NewDefaultStateMachineConfig()
+	cfg := config.NewDefaultStateMachineConfig()
 	context.SetVariable(constant.VarNameStateMachineConfig, cfg)
 	return cfg
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package core
+package config
 
 import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"

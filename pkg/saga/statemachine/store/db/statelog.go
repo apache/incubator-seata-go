@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"regexp"
@@ -35,7 +36,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -385,7 +385,7 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 }
 
 func (s *StateLogStore) isUpdateMode(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) (bool, error) {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !ok {
 		return false, errors.New("stateMachineConfig is required in context")
 	}
@@ -462,7 +462,7 @@ func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance statelan
 }
 
 func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !ok {
 		return errors.New("stateMachineConfig is required in context")
 	}
@@ -544,7 +544,7 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 	}
 
 	// A switch to skip branch report on branch success, in order to optimize performance
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !(ok && !cfg.IsRmReportSuccessEnable() && statelang.SU == stateInstance.Status()) {
 		err = s.branchReport(stateInstance, context)
 		return err
@@ -555,7 +555,7 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 }
 
 func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if ok && !cfg.IsSagaBranchRegisterEnable() {
 		log.Debugf("sagaBranchRegisterEnable = false, skip branch report. state[%s]", stateInstance.Name())
 		return nil

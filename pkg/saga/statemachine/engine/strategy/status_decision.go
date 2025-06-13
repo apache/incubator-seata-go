@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package core
+package strategy
 
 import (
 	"context"

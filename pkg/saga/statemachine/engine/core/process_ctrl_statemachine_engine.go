@@ -23,8 +23,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/utils"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -40,7 +42,7 @@ type ProcessCtrlStateMachineEngine struct {
 
 func NewProcessCtrlStateMachineEngine() *ProcessCtrlStateMachineEngine {
 	return &ProcessCtrlStateMachineEngine{
-		StateMachineConfig: NewDefaultStateMachineConfig(),
+		StateMachineConfig: config.NewDefaultStateMachineConfig(),
 	}
 }
 
@@ -149,7 +151,7 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 	}
 
 	// Build the process_ctrl context.
-	processContextBuilder := NewProcessContextBuilder().
+	processContextBuilder := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameStart).
 		WithAsyncCallback(callback).
@@ -226,7 +228,7 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 			fmt.Sprintf("StateMachineInstance[id:%s] Cannot find last forward execution stateInstance", stateMachineInstId), nil)
 	}
 
-	contextBuilder := NewProcessContextBuilder().
+	contextBuilder := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameForward).
 		WithAsyncCallback(callback).
@@ -446,7 +448,7 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 		}
 	}
 
-	contextBuilder := NewProcessContextBuilder().WithProcessType(process.StateLang).
+	contextBuilder := utils.NewProcessContextBuilder().WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameCompensate).WithAsyncCallback(callback).
 		WithStateMachineInstance(stateMachineInstance).
 		WithStateMachineConfig(p.StateMachineConfig).WithStateMachineEngine(p).WithIsAsyncExecution(async)
