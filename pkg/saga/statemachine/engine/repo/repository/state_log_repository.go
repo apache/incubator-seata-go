@@ -125,6 +125,7 @@ func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId
 	return s.stateLogStore.GetStateInstance(stateInstanceId, machineInstId)
 }
 
+
 func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")

@@ -43,7 +43,7 @@ func (p ProcessCtrlEventConsumer) Accept(event Event) bool {
 
 func (p ProcessCtrlEventConsumer) Process(ctx context.Context, event Event) error {
 	processContext, ok := event.(ProcessContext)
-	if !ok {
+  if !ok {
 		return fmt.Errorf("event %T is illegal, required process_ctrl.ProcessContext", event)
 	}
 	return p.processController.Process(ctx, processContext)
