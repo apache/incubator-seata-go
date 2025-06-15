@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"sync"
 )
 
@@ -47,7 +48,7 @@ func NewLoopContextHolder() *LoopContextHolder {
 	}
 }
 
-func GetCurrentLoopContextHolder(ctx context.Context, processContext ProcessContext, forceCreate bool) *LoopContextHolder {
+func GetCurrentLoopContextHolder(ctx context.Context, processContext process_ctrl.ProcessContext, forceCreate bool) *LoopContextHolder {
 	mutex := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -60,7 +61,7 @@ func GetCurrentLoopContextHolder(ctx context.Context, processContext ProcessCont
 	return loopContextHolder
 }
 
-func ClearCurrent(ctx context.Context, processContext ProcessContext) {
+func ClearCurrent(ctx context.Context, processContext process_ctrl.ProcessContext) {
 	processContext.RemoveVariable(constant.VarNameCurrentLoopContextHolder)
 }
 

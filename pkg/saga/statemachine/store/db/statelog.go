@@ -21,6 +21,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,7 +36,6 @@ import (
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -113,7 +116,7 @@ func NewStateLogStore(db *sql.DB, tablePrefix string) *StateLogStore {
 }
 
 func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context core.ProcessContext) error {
+	context process_ctrl.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
@@ -161,8 +164,8 @@ func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineIn
 	return nil
 }
 
-func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance statelang.StateMachineInstance, context core.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.StateMachineConfig)
+func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error {
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	if !ok {
 		return errors.New("begin transaction fail, stateMachineConfig is required in context")
 	}
@@ -188,7 +191,7 @@ func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance st
 }
 
 func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context core.ProcessContext) error {
+	context process_ctrl.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
@@ -230,12 +233,12 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 	}
 
 	// check if timeout or else report transaction finished
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.StateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	if !ok {
 		return errors.New("stateMachineConfig is required in context")
 	}
 
-	if core.IsTimeout(machineInstance.UpdatedTime(), cfg.TransOperationTimeout()) {
+	if pcext.IsTimeout(machineInstance.UpdatedTime(), cfg.TransOperationTimeout()) {
 		log.Warnf("StateMachineInstance[%s] is execution timeout, skip report transaction finished to server.", machineInstance.ID())
 	} else if machineInstance.ParentID() == "" {
 		//if parentId is not null, machineInstance is a SubStateMachine, do not report global transaction.
@@ -247,7 +250,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 	return nil
 }
 
-func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context core.ProcessContext) error {
+func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error {
 	var err error
 	defer func() {
 		s.ClearUp(context)
@@ -286,7 +289,7 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	return nil
 }
 
-func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMachineInstance, context core.ProcessContext) (*tm.GlobalTransaction, error) {
+func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) (*tm.GlobalTransaction, error) {
 	globalTransaction, ok := context.GetVariable(constant.VarNameGlobalTx).(*tm.GlobalTransaction)
 	if ok {
 		return globalTransaction, nil
@@ -310,7 +313,7 @@ func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMach
 }
 
 func (s *StateLogStore) RecordStateMachineRestarted(ctx context.Context, machineInstance statelang.StateMachineInstance,
-	context core.ProcessContext) error {
+	context process_ctrl.ProcessContext) error {
 	if machineInstance == nil {
 		return nil
 	}
@@ -329,7 +332,7 @@ func (s *StateLogStore) RecordStateMachineRestarted(ctx context.Context, machine
 }
 
 func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance statelang.StateInstance,
-	context core.ProcessContext) error {
+	context process_ctrl.ProcessContext) error {
 	if stateInstance == nil {
 		return nil
 	}
@@ -381,13 +384,13 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 	return nil
 }
 
-func (s *StateLogStore) isUpdateMode(stateInstance statelang.StateInstance, context core.ProcessContext) (bool, error) {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+func (s *StateLogStore) isUpdateMode(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) (bool, error) {
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !ok {
 		return false, errors.New("stateMachineConfig is required in context")
 	}
 
-	instruction, ok := context.GetInstruction().(*core.StateInstruction)
+	instruction, ok := context.GetInstruction().(*pcext.StateInstruction)
 	if !ok {
 		return false, errors.New("stateInstruction is required in processContext")
 	}
@@ -458,8 +461,8 @@ func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance statelan
 	return fmt.Sprintf("%s-%d", originalCompensateStateInstId, maxIndex)
 }
 
-func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, context core.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !ok {
 		return errors.New("stateMachineConfig is required in context")
 	}
@@ -518,7 +521,7 @@ func (s *StateLogStore) getIdIndex(stateInstanceId string, separator string) int
 }
 
 func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance,
-	context core.ProcessContext) error {
+	context process_ctrl.ProcessContext) error {
 	if stateInstance == nil {
 		return nil
 	}
@@ -541,7 +544,7 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 	}
 
 	// A switch to skip branch report on branch success, in order to optimize performance
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !(ok && !cfg.IsRmReportSuccessEnable() && statelang.SU == stateInstance.Status()) {
 		err = s.branchReport(stateInstance, context)
 		return err
@@ -551,8 +554,8 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 
 }
 
-func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, context core.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(core.DefaultStateMachineConfig)
+func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
+	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if ok && !cfg.IsSagaBranchRegisterEnable() {
 		log.Debugf("sagaBranchRegisterEnable = false, skip branch report. state[%s]", stateInstance.Name())
 		return nil
@@ -843,7 +846,7 @@ func (s *StateLogStore) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
 	s.seqGenerator = seqGenerator
 }
 
-func (s *StateLogStore) ClearUp(context core.ProcessContext) {
+func (s *StateLogStore) ClearUp(context process_ctrl.ProcessContext) {
 	context.RemoveVariable(constant2.XidKey)
 	context.RemoveVariable(constant2.BranchTypeKey)
 }

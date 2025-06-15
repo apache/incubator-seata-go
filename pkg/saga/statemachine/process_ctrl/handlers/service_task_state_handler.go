@@ -21,8 +21,10 @@ import (
 	"context"
 	"errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	seataErrors "github.com/seata/seata-go/pkg/util/errors"
@@ -30,7 +32,7 @@ import (
 )
 
 type ServiceTaskStateHandler struct {
-	interceptors []core.StateHandlerInterceptor
+	interceptors []pcext.StateHandlerInterceptor
 }
 
 func NewServiceTaskStateHandler() *ServiceTaskStateHandler {
@@ -41,8 +43,8 @@ func (s *ServiceTaskStateHandler) State() string {
 	return constant.StateTypeServiceTask
 }
 
-func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext core.ProcessContext) error {
-	stateInstruction, ok := processContext.GetInstruction().(core.StateInstruction)
+func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
+	stateInstruction, ok := processContext.GetInstruction().(pcext.StateInstruction)
 	if !ok {
 		return errors.New("invalid state instruction from processContext")
 	}
@@ -66,12 +68,12 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext co
 		log.Error("<<<<<<<<<<<<<<<<<<<<<< State[%s], ServiceName[%s], Method[%s] Execute failed.",
 			serviceTaskStateImpl.Name(), serviceName, methodName, err)
 
-		hierarchicalProcessContext, ok := processContext.(core.HierarchicalProcessContext)
+		hierarchicalProcessContext, ok := processContext.(process_ctrl.HierarchicalProcessContext)
 		if !ok {
 			return
 		}
 		hierarchicalProcessContext.SetVariable(constant.VarNameCurrentException, err)
-		core.HandleException(processContext, serviceTaskStateImpl.AbstractTaskState, err)
+		pcext.HandleException(processContext, serviceTaskStateImpl.AbstractTaskState, err)
 	}
 
 	input, ok := processContext.GetVariable(constant.VarNameInputParams).([]any)
@@ -87,7 +89,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext co
 	if _, ok := stateInterface.(state.CompensateSubStateMachineState); ok {
 		// If it is the compensation of the subState machine,
 		// directly call the state machine's compensate method
-		stateMachineEngine, ok := processContext.GetVariable(constant.VarNameStateMachineEngine).(core.StateMachineEngine)
+		stateMachineEngine, ok := processContext.GetVariable(constant.VarNameStateMachineEngine).(engine.StateMachineEngine)
 		if !ok {
 			handleResultErr(errors.New("invalid stateMachineEngine type from processContext"))
 			return nil
@@ -100,7 +102,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext co
 			return nil
 		}
 	} else {
-		stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(core.StateMachineConfig)
+		stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 		if !ok {
 			handleResultErr(errors.New("invalid stateMachineConfig type from processContext"))
 			return nil
@@ -126,7 +128,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext co
 
 	if result != nil {
 		stateInstance.SetOutputParams(result)
-		hierarchicalProcessContext, ok := processContext.(core.HierarchicalProcessContext)
+		hierarchicalProcessContext, ok := processContext.(process_ctrl.HierarchicalProcessContext)
 		if !ok {
 			handleResultErr(errors.New("invalid hierarchical process context type from processContext"))
 			return nil
@@ -138,17 +140,17 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext co
 	return nil
 }
 
-func (s *ServiceTaskStateHandler) StateHandlerInterceptorList() []core.StateHandlerInterceptor {
+func (s *ServiceTaskStateHandler) StateHandlerInterceptorList() []pcext.StateHandlerInterceptor {
 	return s.interceptors
 }
 
-func (s *ServiceTaskStateHandler) RegistryStateHandlerInterceptor(stateHandlerInterceptor core.StateHandlerInterceptor) {
+func (s *ServiceTaskStateHandler) RegistryStateHandlerInterceptor(stateHandlerInterceptor pcext.StateHandlerInterceptor) {
 	s.interceptors = append(s.interceptors, stateHandlerInterceptor)
 }
 
-func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context, processContext core.ProcessContext,
+func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext,
 	serviceTaskState state.ServiceTaskState, input any, instance statelang.StateInstance,
-	machineEngine core.StateMachineEngine) (any, error) {
+	machineEngine engine.StateMachineEngine) (any, error) {
 	subStateMachineParentId, ok := processContext.GetVariable(serviceTaskState.Name() + constant.VarNameSubMachineParentId).(string)
 	if !ok {
 		return nil, errors.New("invalid subStateMachineParentId type from processContext")
@@ -159,7 +161,7 @@ func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context,
 			"sub statemachine parentId is required", nil)
 	}
 
-	stateMachineConfig := processContext.GetVariable(constant.VarNameStateMachineConfig).(core.StateMachineConfig)
+	stateMachineConfig := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	subInst, err := stateMachineConfig.StateLogStore().GetStateMachineInstanceByParentId(subStateMachineParentId)
 	if err != nil {
 		return nil, err

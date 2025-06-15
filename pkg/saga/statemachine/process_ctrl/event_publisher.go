@@ -15,36 +15,22 @@
  * limitations under the License.
  */
 
-package core
+package process_ctrl
 
-import (
-	"context"
-	"fmt"
-)
+import "context"
 
-type EventConsumer interface {
-	Accept(event Event) bool
-
-	Process(ctx context.Context, event Event) error
+type EventPublisher interface {
+	PushEvent(ctx context.Context, event Event) (bool, error)
 }
 
-type ProcessCtrlEventConsumer struct {
-	processController ProcessController
+type ProcessCtrlEventPublisher struct {
+	eventBus EventBus
 }
 
-func (p ProcessCtrlEventConsumer) Accept(event Event) bool {
-	if event == nil {
-		return false
-	}
-
-	_, ok := event.(ProcessContext)
-	return ok
+func NewProcessCtrlEventPublisher(eventBus EventBus) *ProcessCtrlEventPublisher {
+	return &ProcessCtrlEventPublisher{eventBus: eventBus}
 }
 
-func (p ProcessCtrlEventConsumer) Process(ctx context.Context, event Event) error {
-	processContext, ok := event.(ProcessContext)
-	if !ok {
-		return fmt.Errorf("event %T is illegal, required process_ctrl.ProcessContext", event)
-	}
-	return p.processController.Process(ctx, processContext)
+func (p ProcessCtrlEventPublisher) PushEvent(ctx context.Context, event Event) (bool, error) {
+	return p.eventBus.Offer(ctx, event)
 }
