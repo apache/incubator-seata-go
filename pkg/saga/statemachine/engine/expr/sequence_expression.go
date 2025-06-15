@@ -51,7 +51,7 @@ func (s *SequenceExpression) SetRule(rule string) {
 	s.rule = rule
 }
 
-func (s SequenceExpression) Value(vars map[string]any) any {
+func (s SequenceExpression) Value(elContext any) any {
 	return s.seqGenerator.GenerateId(s.entity, s.rule)
 }
 
