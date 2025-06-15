@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"fmt"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"strings"
 	"sync"
 )
 
-func CreateInputParams(processContext ProcessContext, expressionResolver expr.ExpressionResolver,
+func CreateInputParams(processContext process_ctrl.ProcessContext, expressionResolver expr.ExpressionResolver,
 	stateInstance *statelang.StateInstanceImpl, serviceTaskState *state.AbstractTaskState, variablesFrom any) []any {
 	inputAssignments := serviceTaskState.Input()
 	if inputAssignments == nil || len(inputAssignments) == 0 {
@@ -58,7 +60,7 @@ func CreateInputParams(processContext ProcessContext, expressionResolver expr.Ex
 	return inputValues
 }
 
-func CreateOutputParams(config StateMachineConfig, expressionResolver expr.ExpressionResolver,
+func CreateOutputParams(config engine.StateMachineConfig, expressionResolver expr.ExpressionResolver,
 	serviceTaskState *state.AbstractTaskState, variablesFrom any) (map[string]any, error) {
 	outputAssignments := serviceTaskState.Output()
 	if outputAssignments == nil || len(outputAssignments) == 0 {

@@ -22,7 +22,12 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/utils"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
@@ -32,12 +37,12 @@ import (
 )
 
 type ProcessCtrlStateMachineEngine struct {
-	StateMachineConfig StateMachineConfig
+	StateMachineConfig engine.StateMachineConfig
 }
 
 func NewProcessCtrlStateMachineEngine() *ProcessCtrlStateMachineEngine {
 	return &ProcessCtrlStateMachineEngine{
-		StateMachineConfig: NewDefaultStateMachineConfig(),
+		StateMachineConfig: config.NewDefaultStateMachineConfig(),
 	}
 }
 
@@ -47,7 +52,7 @@ func (p ProcessCtrlStateMachineEngine) Start(ctx context.Context, stateMachineNa
 }
 
 func (p ProcessCtrlStateMachineEngine) StartAsync(ctx context.Context, stateMachineName string, tenantId string,
-	startParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error) {
+	startParams map[string]interface{}, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	return p.startInternal(ctx, stateMachineName, tenantId, "", startParams, true, callback)
 }
 
@@ -57,7 +62,7 @@ func (p ProcessCtrlStateMachineEngine) StartWithBusinessKey(ctx context.Context,
 }
 
 func (p ProcessCtrlStateMachineEngine) StartWithBusinessKeyAsync(ctx context.Context, stateMachineName string,
-	tenantId string, businessKey string, startParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error) {
+	tenantId string, businessKey string, startParams map[string]interface{}, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	return p.startInternal(ctx, stateMachineName, tenantId, businessKey, startParams, true, callback)
 }
 
@@ -66,7 +71,7 @@ func (p ProcessCtrlStateMachineEngine) Forward(ctx context.Context, stateMachine
 	return p.forwardInternal(ctx, stateMachineInstId, replaceParams, false, false, nil)
 }
 
-func (p ProcessCtrlStateMachineEngine) ForwardAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error) {
+func (p ProcessCtrlStateMachineEngine) ForwardAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	return p.forwardInternal(ctx, stateMachineInstId, replaceParams, false, true, callback)
 }
 
@@ -75,7 +80,7 @@ func (p ProcessCtrlStateMachineEngine) Compensate(ctx context.Context, stateMach
 	return p.compensateInternal(ctx, stateMachineInstId, replaceParams, false, nil)
 }
 
-func (p ProcessCtrlStateMachineEngine) CompensateAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback CallBack) (statelang.StateMachineInstance, error) {
+func (p ProcessCtrlStateMachineEngine) CompensateAsync(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	return p.compensateInternal(ctx, stateMachineInstId, replaceParams, true, callback)
 }
 
@@ -83,11 +88,11 @@ func (p ProcessCtrlStateMachineEngine) SkipAndForward(ctx context.Context, state
 	return p.forwardInternal(ctx, stateMachineInstId, replaceParams, true, false, nil)
 }
 
-func (p ProcessCtrlStateMachineEngine) SkipAndForwardAsync(ctx context.Context, stateMachineInstId string, callback CallBack) (statelang.StateMachineInstance, error) {
+func (p ProcessCtrlStateMachineEngine) SkipAndForwardAsync(ctx context.Context, stateMachineInstId string, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	return p.forwardInternal(ctx, stateMachineInstId, nil, true, true, callback)
 }
 
-func (p ProcessCtrlStateMachineEngine) GetStateMachineConfig() StateMachineConfig {
+func (p ProcessCtrlStateMachineEngine) GetStateMachineConfig() engine.StateMachineConfig {
 	return p.StateMachineConfig
 }
 
@@ -135,7 +140,7 @@ func (p ProcessCtrlStateMachineEngine) ReloadStateMachineInstance(ctx context.Co
 }
 
 func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateMachineName string, tenantId string,
-	businessKey string, startParams map[string]interface{}, async bool, callback CallBack) (statelang.StateMachineInstance, error) {
+	businessKey string, startParams map[string]interface{}, async bool, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	if tenantId == "" {
 		tenantId = p.StateMachineConfig.DefaultTenantId()
 	}
@@ -146,11 +151,11 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 	}
 
 	// Build the process_ctrl context.
-	processContextBuilder := NewProcessContextBuilder().
+	processContextBuilder := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameStart).
 		WithAsyncCallback(callback).
-		WithInstruction(NewStateInstruction(stateMachineName, tenantId)).
+		WithInstruction(pcext.NewStateInstruction(stateMachineName, tenantId)).
 		WithStateMachineInstance(stateMachineInstance).
 		WithStateMachineConfig(p.StateMachineConfig).
 		WithStateMachineEngine(p).
@@ -173,7 +178,7 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 		stateMachineInstance.SetID(p.StateMachineConfig.SeqGenerator().GenerateId(constant.SeqEntityStateMachineInst, ""))
 	}
 
-	var eventPublisher EventPublisher
+	var eventPublisher process_ctrl.EventPublisher
 	if async {
 		eventPublisher = p.StateMachineConfig.AsyncEventPublisher()
 	} else {
@@ -189,7 +194,7 @@ func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateM
 }
 
 func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stateMachineInstId string,
-	replaceParams map[string]interface{}, skip bool, async bool, callback CallBack) (statelang.StateMachineInstance, error) {
+	replaceParams map[string]interface{}, skip bool, async bool, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	stateMachineInstance, err := p.reloadStateMachineInstance(ctx, stateMachineInstId)
 	if err != nil {
 		return nil, err
@@ -223,7 +228,7 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 			fmt.Sprintf("StateMachineInstance[id:%s] Cannot find last forward execution stateInstance", stateMachineInstId), nil)
 	}
 
-	contextBuilder := NewProcessContextBuilder().
+	contextBuilder := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameForward).
 		WithAsyncCallback(callback).
@@ -252,9 +257,9 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 	context.SetVariable(constant.VarNameStateMachineContext, concurrentContextVariables)
 	stateMachineInstance.SetContext(concurrentContextVariables)
 
-	originStateName := GetOriginStateName(lastForwardState)
+	originStateName := pcext.GetOriginStateName(lastForwardState)
 	lastState := stateMachineInstance.StateMachine().State(originStateName)
-	loop := GetLoopConfig(ctx, context, lastState)
+	loop := pcext.GetLoopConfig(ctx, context, lastState)
 	if loop != nil && lastForwardState.Status() == statelang.SU {
 		lastForwardState = p.findOutLastNeedForwardStateInstance(ctx, context)
 	}
@@ -268,10 +273,10 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 		lastForwardState.SetIgnoreStatus(true)
 	}
 
-	inst := NewStateInstruction(stateMachineInstance.StateMachine().Name(), stateMachineInstance.TenantID())
+	inst := pcext.NewStateInstruction(stateMachineInstance.StateMachine().Name(), stateMachineInstance.TenantID())
 	if skip || lastForwardState.Status() == statelang.SU {
 		next := ""
-		curState := stateMachineInstance.StateMachine().State(GetOriginStateName(lastForwardState))
+		curState := stateMachineInstance.StateMachine().State(pcext.GetOriginStateName(lastForwardState))
 		if taskState, ok := curState.(*state.AbstractTaskState); ok {
 			next = taskState.Next()
 		}
@@ -281,11 +286,11 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 		}
 		inst.SetStateName(next)
 	} else {
-		if lastForwardState.Status() == statelang.RU && !IsTimeout(lastForwardState.StartedTime(), p.StateMachineConfig.ServiceInvokeTimeout()) {
+		if lastForwardState.Status() == statelang.RU && !pcext.IsTimeout(lastForwardState.StartedTime(), p.StateMachineConfig.ServiceInvokeTimeout()) {
 			return nil, exception.NewEngineExecutionException(seataErrors.OperationDenied,
 				fmt.Sprintf("State [%s] is running, operation[forward] denied", lastForwardState.Name()), nil)
 		}
-		inst.SetStateName(GetOriginStateName(lastForwardState))
+		inst.SetStateName(pcext.GetOriginStateName(lastForwardState))
 	}
 	context.SetInstruction(inst)
 
@@ -304,7 +309,7 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 	if err != nil {
 		return nil, err
 	}
-	loop = GetLoopConfig(ctx, context, curState)
+	loop = pcext.GetLoopConfig(ctx, context, curState)
 	if loop != nil {
 		inst.SetTemporaryState(state.NewLoopStartStateImpl())
 	}
@@ -341,7 +346,7 @@ func (p ProcessCtrlStateMachineEngine) findOutLastForwardStateInstance(stateInst
 					}
 				}
 
-				subInst, _ := p.StateMachineConfig.StateLogStore().GetStateMachineInstanceByParentId(GenerateParentId(finalState))
+				subInst, _ := p.StateMachineConfig.StateLogStore().GetStateMachineInstanceByParentId(pcext.GenerateParentId(finalState))
 				if len(subInst) > 0 {
 					if subInst[0].CompensationStatus() == statelang.SU {
 						continue
@@ -415,7 +420,7 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 }
 
 func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, stateMachineInstId string, replaceParams map[string]any,
-	async bool, callback CallBack) (statelang.StateMachineInstance, error) {
+	async bool, callback engine.CallBack) (statelang.StateMachineInstance, error) {
 	stateMachineInstance, err := p.reloadStateMachineInstance(ctx, stateMachineInstId)
 	if err != nil {
 		return nil, err
@@ -443,7 +448,7 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 		}
 	}
 
-	contextBuilder := NewProcessContextBuilder().WithProcessType(process.StateLang).
+	contextBuilder := utils.NewProcessContextBuilder().WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameCompensate).WithAsyncCallback(callback).
 		WithStateMachineInstance(stateMachineInstance).
 		WithStateMachineConfig(p.StateMachineConfig).WithStateMachineEngine(p).WithIsAsyncExecution(async)
@@ -481,7 +486,7 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 		}
 	}
 
-	inst := NewStateInstruction(stateMachineInstance.TenantID(), stateMachineInstance.StateMachine().Name())
+	inst := pcext.NewStateInstruction(stateMachineInstance.TenantID(), stateMachineInstance.StateMachine().Name())
 	inst.SetTemporaryState(tempCompensationTriggerState)
 	context.SetInstruction(inst)
 
@@ -559,14 +564,14 @@ func (p ProcessCtrlStateMachineEngine) replayContextVariables(ctx context.Contex
 	for _, stateInstance := range stateInstanceList {
 		serviceOutputParams := stateInstance.OutputParams()
 		if serviceOutputParams != nil {
-			serviceTaskStateImpl, ok := stateMachineInstance.StateMachine().State(GetOriginStateName(stateInstance)).(*state.ServiceTaskStateImpl)
+			serviceTaskStateImpl, ok := stateMachineInstance.StateMachine().State(pcext.GetOriginStateName(stateInstance)).(*state.ServiceTaskStateImpl)
 			if !ok {
 				return nil, exception.NewEngineExecutionException(seataErrors.ObjectNotExists,
 					"Cannot find State by state name ["+stateInstance.Name()+"], may be this is a bug", nil)
 			}
 
 			if serviceTaskStateImpl.Output() != nil && len(serviceTaskStateImpl.Output()) != 0 {
-				outputVariablesToContext, err := CreateOutputParams(p.StateMachineConfig,
+				outputVariablesToContext, err := pcext.CreateOutputParams(p.StateMachineConfig,
 					p.StateMachineConfig.ExpressionResolver(), serviceTaskStateImpl.AbstractTaskState, serviceOutputParams)
 				if err != nil {
 					return nil, exception.NewEngineExecutionException(seataErrors.ObjectNotExists,
@@ -605,7 +610,7 @@ func (p ProcessCtrlStateMachineEngine) checkStatus(ctx context.Context, stateMac
 	}
 
 	if stateMachineInstance.IsRunning() &&
-		!IsTimeout(stateMachineInstance.UpdatedTime(), p.StateMachineConfig.TransOperationTimeout()) {
+		!pcext.IsTimeout(stateMachineInstance.UpdatedTime(), p.StateMachineConfig.TransOperationTimeout()) {
 		return false, exception.NewEngineExecutionException(seataErrors.OperationDenied,
 			"StateMachineInstance [id:"+stateMachineInstance.ID()+"] is running, operation["+operation+
 				"] denied", nil)
@@ -702,14 +707,14 @@ func (p ProcessCtrlStateMachineEngine) nullSafeCopy(srcMap map[string]any, destM
 	}
 }
 
-func (p ProcessCtrlStateMachineEngine) findOutLastNeedForwardStateInstance(ctx context.Context, processContext ProcessContext) statelang.StateInstance {
+func (p ProcessCtrlStateMachineEngine) findOutLastNeedForwardStateInstance(ctx context.Context, processContext process_ctrl.ProcessContext) statelang.StateInstance {
 	stateMachineInstance := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
 	lastForwardState := processContext.GetVariable(constant.VarNameStateInst).(statelang.StateInstance)
 
 	actList := stateMachineInstance.StateList()
 	for i := len(actList) - 1; i >= 0; i-- {
 		stateInstance := actList[i]
-		if GetOriginStateName(stateInstance) == GetOriginStateName(lastForwardState) && stateInstance.Status() != statelang.SU {
+		if pcext.GetOriginStateName(stateInstance) == pcext.GetOriginStateName(lastForwardState) && stateInstance.Status() != statelang.SU {
 			return stateInstance
 		}
 	}
