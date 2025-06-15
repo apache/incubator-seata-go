@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package core
+package process_ctrl
 
-import (
-	"context"
-	"testing"
-)
+import "context"
 
-func TestEngine(t *testing.T) {
-
+type EventPublisher interface {
+	PushEvent(ctx context.Context, event Event) (bool, error)
 }
 
-func TestSimpleStateMachine(t *testing.T) {
-	engine := NewProcessCtrlStateMachineEngine()
-	engine.Start(context.Background(), "simpleStateMachine", "tenantId", nil)
+type ProcessCtrlEventPublisher struct {
+	eventBus EventBus
+}
+
+func NewProcessCtrlEventPublisher(eventBus EventBus) *ProcessCtrlEventPublisher {
+	return &ProcessCtrlEventPublisher{eventBus: eventBus}
+}
+
+func (p ProcessCtrlEventPublisher) PushEvent(ctx context.Context, event Event) (bool, error) {
+	return p.eventBus.Offer(ctx, event)
 }
