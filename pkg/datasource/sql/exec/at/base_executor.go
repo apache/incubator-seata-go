@@ -358,48 +358,5 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	var lockKeys strings.Builder
-	type ColMapItem struct {
-		pkIndex  int
-		colIndex int
-	}
-
-	lockKeys.WriteString(meta.TableName)
-	lockKeys.WriteString(":")
-
-	keys := meta.GetPrimaryKeyOnlyName()
-	keyIndexMap := make(map[string]int, len(keys))
-	for idx, columnName := range keys {
-		keyIndexMap[columnName] = idx
-	}
-
-	columns := make([]ColMapItem, 0, len(keys))
-	if len(records.Rows) > 0 {
-		for colIdx, column := range records.Rows[0].Columns {
-			if pkIdx, ok := keyIndexMap[column.ColumnName]; ok {
-				columns = append(columns, ColMapItem{pkIndex: pkIdx, colIndex: colIdx})
-			}
-		}
-		for i, row := range records.Rows {
-			if i > 0 {
-				lockKeys.WriteString(",")
-			}
-			primaryKeyValues := make([]interface{}, len(keys))
-			for _, mp := range columns {
-				if mp.colIndex < len(row.Columns) {
-					primaryKeyValues[mp.pkIndex] = row.Columns[mp.colIndex].Value
-				}
-			}
-			for j, pkVal := range primaryKeyValues {
-				if j > 0 {
-					lockKeys.WriteString("_")
-				}
-				if pkVal == nil {
-					continue
-				}
-				lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
-			}
-		}
-	}
-	return lockKeys.String()
+	return util.BuildLockKey(records, meta)
 }
