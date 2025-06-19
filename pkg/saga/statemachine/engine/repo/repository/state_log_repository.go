@@ -111,7 +111,7 @@ func (s *StateLogRepositoryImpl) GetStateMachineInstanceByBusinessKey(businessKe
 	return s.stateLogStore.GetStateMachineInstanceByBusinessKey(businessKey, tenantId)
 }
 
-func (s *StateLogRepositoryImpl) QueryStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
@@ -125,12 +125,12 @@ func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId
 	return s.stateLogStore.GetStateInstance(stateInstanceId, machineInstId)
 }
 
-func (s *StateLogRepositoryImpl) QueryStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
+
+func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
 	return s.stateLogStore.GetStateInstanceListByMachineInstanceId(stateMachineInstanceId)
-
 }
 
 func (s *StateLogRepositoryImpl) SetStateLogStore(stateLogStore store.StateLogStore) {

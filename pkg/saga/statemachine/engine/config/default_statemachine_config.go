@@ -18,6 +18,18 @@
 package config
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
@@ -26,6 +38,7 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 	"sync"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
 )
 
 const (
@@ -47,8 +60,17 @@ type DefaultStateMachineConfig struct {
 	sagaCompensatePersistModeUpdate bool
 	sagaBranchRegisterEnable        bool
 	rmReportSuccessEnable           bool
+	stateMachineResources           []string
+
+	// State machine definitions
+	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
+	processController ProcessController
+
+	// Event Bus
+	syncEventBus  EventBus
+	asyncEventBus EventBus
 
 	// Event publisher
 	syncProcessCtrlEventPublisher  process_ctrl.EventPublisher
@@ -61,7 +83,7 @@ type DefaultStateMachineConfig struct {
 	stateMachineRepository repo.StateMachineRepository
 
 	// Expression related components
-	expressionFactoryManager expr.ExpressionFactoryManager
+	expressionFactoryManager *expr.ExpressionFactoryManager
 	expressionResolver       expr.ExpressionResolver
 
 	// Invoker related components
@@ -98,7 +120,15 @@ func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
 	c.defaultTenantId = defaultTenantId
 }
 
-func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
+func (c *DefaultStateMachineConfig) SetSyncEventBus(syncEventBus EventBus) {
+	c.syncEventBus = syncEventBus
+}
+
+func (c *DefaultStateMachineConfig) SetAsyncEventBus(asyncEventBus EventBus) {
+	c.asyncEventBus = asyncEventBus
+}
+
+func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
 	c.syncProcessCtrlEventPublisher = syncProcessCtrlEventPublisher
 }
 
@@ -122,7 +152,7 @@ func (c *DefaultStateMachineConfig) SetStateMachineRepository(stateMachineReposi
 	c.stateMachineRepository = stateMachineRepository
 }
 
-func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager expr.ExpressionFactoryManager) {
+func (c *DefaultStateMachineConfig) SetExpressionFactoryManager(expressionFactoryManager *expr.ExpressionFactoryManager) {
 	c.expressionFactoryManager = expressionFactoryManager
 }
 
@@ -162,7 +192,7 @@ func (c *DefaultStateMachineConfig) StateLangStore() store.StateLangStore {
 	return c.stateLangStore
 }
 
-func (c *DefaultStateMachineConfig) ExpressionFactoryManager() expr.ExpressionFactoryManager {
+func (c *DefaultStateMachineConfig) ExpressionFactoryManager() *expr.ExpressionFactoryManager {
 	return c.expressionFactoryManager
 }
 
@@ -178,7 +208,15 @@ func (c *DefaultStateMachineConfig) StatusDecisionStrategy() engine.StatusDecisi
 	return c.statusDecisionStrategy
 }
 
-func (c *DefaultStateMachineConfig) EventPublisher() process_ctrl.EventPublisher {
+func (c *DefaultStateMachineConfig) SyncEventBus() EventBus {
+	return c.syncEventBus
+}
+
+func (c *DefaultStateMachineConfig) AsyncEventBus() EventBus {
+	return c.asyncEventBus
+}
+
+func (c *DefaultStateMachineConfig) EventPublisher() EventPublisher {
 	return c.syncProcessCtrlEventPublisher
 }
 
@@ -202,15 +240,15 @@ func (c *DefaultStateMachineConfig) SetCharSet(charset string) {
 	c.charset = charset
 }
 
-func (c *DefaultStateMachineConfig) DefaultTenantId() string {
+func (c *DefaultStateMachineConfig) GetDefaultTenantId() string {
 	return c.defaultTenantId
 }
 
-func (c *DefaultStateMachineConfig) TransOperationTimeout() int {
+func (c *DefaultStateMachineConfig) GetTransOperationTimeout() int {
 	return c.transOperationTimeout
 }
 
-func (c *DefaultStateMachineConfig) ServiceInvokeTimeout() int {
+func (c *DefaultStateMachineConfig) GetServiceInvokeTimeout() int {
 	return c.serviceInvokeTimeout
 }
 
@@ -246,19 +284,438 @@ func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnab
 	c.rmReportSuccessEnable = rmReportSuccessEnable
 }
 
-func NewDefaultStateMachineConfig() *DefaultStateMachineConfig {
+func (c *DefaultStateMachineConfig) GetStateMachineDefinition(name string) *statemachine.StateMachineObject {
+	return c.stateMachineDefs[name]
+}
+
+func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) expr.ExpressionFactory {
+	return c.expressionFactoryManager.GetExpressionFactory(expressionType)
+}
+
+func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) invoker.ServiceInvoker {
+	return c.serviceInvokerManager.ServiceInvoker(serviceType)
+}
+
+func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) error {
+	var allFiles []string
+
+	for _, pattern := range resources {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return fmt.Errorf("failed to expand glob pattern: pattern=%s, err=%w", pattern, err)
+		}
+		if len(matches) == 0 {
+			return fmt.Errorf("open resource file failed: pattern=%s", pattern)
+		}
+		allFiles = append(allFiles, matches...)
+	}
+
+	for _, realPath := range allFiles {
+		file, err := os.Open(realPath)
+		if err != nil {
+			return fmt.Errorf("open resource file failed: path=%s, err=%w", realPath, err)
+		}
+		defer file.Close()
+
+		if err := c.stateMachineRepository.RegistryStateMachineByReader(file); err != nil {
+			return fmt.Errorf("register state machine from file failed: path=%s, err=%w", realPath, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) RegisterExpressionFactory(expressionType string, factory expr.ExpressionFactory) {
+	c.expressionFactoryManager.PutExpressionFactory(expressionType, factory)
+}
+
+func (c *DefaultStateMachineConfig) RegisterServiceInvoker(serviceType string, invoker invoker.ServiceInvoker) {
+	c.serviceInvokerManager.PutServiceInvoker(serviceType, invoker)
+}
+
+type ConfigFileParams struct {
+	TransOperationTimeout           int      `json:"trans_operation_timeout" yaml:"trans_operation_timeout"`
+	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
+	Charset                         string   `json:"charset" yaml:"charset"`
+	DefaultTenantId                 string   `json:"default_tenant_id" yaml:"default_tenant_id"`
+	SagaRetryPersistModeUpdate      bool     `json:"saga_retry_persist_mode_update" yaml:"saga_retry_persist_mode_update"`
+	SagaCompensatePersistModeUpdate bool     `json:"saga_compensate_persist_mode_update" yaml:"saga_compensate_persist_mode_update"`
+	SagaBranchRegisterEnable        bool     `json:"saga_branch_register_enable" yaml:"saga_branch_register_enable"`
+	RmReportSuccessEnable           bool     `json:"rm_report_success_enable" yaml:"rm_report_success_enable"`
+	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
+}
+
+func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
+	if c.seqGenerator == nil {
+		c.seqGenerator = sequence.NewUUIDSeqGenerator()
+	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
+	}
+
+	parser := parser.NewStateMachineConfigParser()
+	smo, err := parser.Parse(content)
+	if err != nil {
+		return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
+	}
+
+	var configFileParams ConfigFileParams
+	if err := json.Unmarshal(content, &configFileParams); err != nil {
+		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
+			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
+		} else {
+			c.applyConfigFileParams(&configFileParams)
+		}
+	} else {
+		c.applyConfigFileParams(&configFileParams)
+	}
+
+	if _, exists := c.stateMachineDefs[smo.Name]; exists {
+		return fmt.Errorf("state machine definition with name %s already exists", smo.Name)
+	}
+	c.stateMachineDefs[smo.Name] = smo
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) {
+	if rc.TransOperationTimeout > 0 {
+		c.transOperationTimeout = rc.TransOperationTimeout
+	}
+	if rc.ServiceInvokeTimeout > 0 {
+		c.serviceInvokeTimeout = rc.ServiceInvokeTimeout
+	}
+	if rc.Charset != "" {
+		c.charset = rc.Charset
+	}
+	if rc.DefaultTenantId != "" {
+		c.defaultTenantId = rc.DefaultTenantId
+	}
+	c.sagaRetryPersistModeUpdate = rc.SagaRetryPersistModeUpdate
+	c.sagaCompensatePersistModeUpdate = rc.SagaCompensatePersistModeUpdate
+	c.sagaBranchRegisterEnable = rc.SagaBranchRegisterEnable
+	c.rmReportSuccessEnable = rc.RmReportSuccessEnable
+	if len(rc.StateMachineResources) > 0 {
+		c.stateMachineResources = rc.StateMachineResources
+	}
+}
+
+func (c *DefaultStateMachineConfig) registerEventConsumers() error {
+	if c.processController == nil {
+		return fmt.Errorf("ProcessController is not initialized")
+	}
+
+	pcImpl, ok := c.processController.(*ProcessControllerImpl)
+	if !ok {
+		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
+	}
+
+	if pcImpl.businessProcessor == nil {
+		return fmt.Errorf("BusinessProcessor in ProcessController is not initialized")
+	}
+
+	processCtrlConsumer := &ProcessCtrlEventConsumer{
+		processController: c.processController,
+	}
+
+	c.syncEventBus.RegisterEventConsumer(processCtrlConsumer)
+	c.asyncEventBus.RegisterEventConsumer(processCtrlConsumer)
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) Init() error {
+	if err := c.initExpressionComponents(); err != nil {
+		return fmt.Errorf("initialize expression components failed: %w", err)
+	}
+
+	if err := c.initServiceInvokers(); err != nil {
+		return fmt.Errorf("initialize service invokers failed: %w", err)
+	}
+
+	if err := c.registerEventConsumers(); err != nil {
+		return fmt.Errorf("register event consumers failed: %w", err)
+	}
+
+	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
+		if err := c.RegisterStateMachineDef(c.stateMachineResources); err != nil {
+			return fmt.Errorf("register state machine def failed: %w", err)
+		}
+	}
+
+	if err := c.Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) initExpressionComponents() error {
+	if c.expressionFactoryManager == nil {
+		c.expressionFactoryManager = expr.NewExpressionFactoryManager()
+	}
+
+	defaultType := expr.DefaultExpressionType
+	if defaultType == "" {
+		defaultType = "Default"
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory(defaultType); factory == nil {
+		c.RegisterExpressionFactory(defaultType, expr.NewCELExpressionFactory())
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory("CEL"); factory == nil {
+		c.RegisterExpressionFactory("CEL", expr.NewCELExpressionFactory())
+	}
+
+	if factory := c.expressionFactoryManager.GetExpressionFactory("el"); factory == nil {
+		c.RegisterExpressionFactory("el", expr.NewCELExpressionFactory())
+	}
+
+	if c.seqGenerator != nil {
+		sequenceFactory := expr.NewSequenceExpressionFactory(c.seqGenerator)
+		c.RegisterExpressionFactory("SEQUENCE", sequenceFactory)
+		c.RegisterExpressionFactory("SEQ", sequenceFactory)
+	}
+
+	if c.expressionResolver == nil {
+		resolver := &expr.DefaultExpressionResolver{}
+		resolver.SetExpressionFactoryManager(*c.expressionFactoryManager)
+		c.expressionResolver = resolver
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) initServiceInvokers() error {
+	if c.serviceInvokerManager == nil {
+		c.serviceInvokerManager = invoker.NewServiceInvokerManagerImpl()
+	}
+
+	defaultServiceType := "local"
+	if existingInvoker := c.serviceInvokerManager.ServiceInvoker(defaultServiceType); existingInvoker == nil {
+		c.RegisterServiceInvoker(defaultServiceType, invoker.NewLocalServiceInvoker())
+	}
+
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) Validate() error {
+	var errs []error
+
+	if c.expressionFactoryManager == nil {
+		errs = append(errs, fmt.Errorf("expression factory manager is nil"))
+	}
+	if c.expressionResolver == nil {
+		errs = append(errs, fmt.Errorf("expression resolver is nil"))
+	}
+	if c.serviceInvokerManager == nil {
+		errs = append(errs, fmt.Errorf("service invoker manager is nil"))
+	}
+
+	if c.transOperationTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("invalid trans operation timeout: %d", c.transOperationTimeout))
+	}
+	if c.serviceInvokeTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("invalid service invoke timeout: %d", c.serviceInvokeTimeout))
+	}
+	if c.charset == "" {
+		errs = append(errs, fmt.Errorf("charset is empty"))
+	}
+
+	if c.stateMachineRepository != nil {
+		if c.stateLogStore == nil {
+			errs = append(errs, fmt.Errorf("state log store is nil"))
+		}
+		if c.stateLangStore == nil {
+			errs = append(errs, fmt.Errorf("state lang store is nil"))
+		}
+		if c.stateLogRepository == nil {
+			errs = append(errs, fmt.Errorf("state log repository is nil"))
+		}
+	}
+
+	if c.statusDecisionStrategy == nil {
+		errs = append(errs, fmt.Errorf("status decision strategy is nil"))
+	}
+	if c.syncEventBus == nil {
+		errs = append(errs, fmt.Errorf("sync event bus is nil"))
+	}
+	if c.asyncEventBus == nil {
+		errs = append(errs, fmt.Errorf("async event bus is nil"))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("configuration validation failed with %d errors: %v", len(errs), errs)
+	}
+	return nil
+}
+
+func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, context any) (any, error) {
+	if c.expressionResolver == nil {
+		return nil, fmt.Errorf("expression resolver not initialized")
+	}
+
+	expression := c.expressionResolver.Expression(expressionStr)
+	if expression == nil {
+		return nil, fmt.Errorf("failed to parse expression: %s", expressionStr)
+	}
+
+	var result any
+	var evalErr error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				evalErr = fmt.Errorf("expression evaluation panicked: %v", r)
+			}
+		}()
+
+		result = expression.Value(context)
+	}()
+
+	if evalErr != nil {
+		return nil, evalErr
+	}
+
+	if err, ok := result.(error); ok {
+		return nil, fmt.Errorf("expression evaluation returned error: %w", err)
+	}
+
+	return result, nil
+}
+
+func NewDefaultBusinessProcessor() *DefaultBusinessProcessor {
+	return &DefaultBusinessProcessor{
+		processHandlers: make(map[string]ProcessHandler),
+		routerHandlers:  make(map[string]RouterHandler),
+	}
+}
+
+func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
+	ctx := context.Background()
+	defaultBP := NewDefaultBusinessProcessor()
+
+	// stateMachineResources for development only; production uses env vars/config files.
+	stateMachineResources := []string{
+		"testdata/saga/statelang/**/*.json",
+		"testdata/saga/statelang/**/*.yaml",
+	}
+
+	if envPaths := os.Getenv("SEATA_STATE_MACHINE_RESOURCES"); envPaths != "" {
+		paths := strings.Split(envPaths, ",")
+		filteredPaths := make([]string, 0, len(paths))
+		for _, p := range paths {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				filteredPaths = append(filteredPaths, p)
+			}
+		}
+		if len(filteredPaths) > 0 {
+			stateMachineResources = filteredPaths
+		}
+	}
+
 	c := &DefaultStateMachineConfig{
-		transOperationTimeout:           DefaultTransOperTimeout,
-		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
-		charset:                         "UTF-8",
-		defaultTenantId:                 "000001",
+		transOperationTimeout: DefaultTransOperTimeout,
+		serviceInvokeTimeout:  DefaultServiceInvokeTimeout,
+		charset:               "UTF-8",
+		defaultTenantId:       "000001",
+
+		stateMachineResources: stateMachineResources,
+
 		sagaRetryPersistModeUpdate:      DefaultClientSagaRetryPersistModeUpdate,
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
 		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
+		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
 		componentLock:                   &sync.Mutex{},
+		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
+
+		statusDecisionStrategy: NewDefaultStatusDecisionStrategy(),
+		processController: &ProcessControllerImpl{
+			businessProcessor: defaultBP,
+		},
+
+		syncEventBus:  NewDirectEventBus(),
+		asyncEventBus: NewAsyncEventBus(ctx, 1000, 5),
+
+		syncProcessCtrlEventPublisher:  nil,
+		asyncProcessCtrlEventPublisher: nil,
 	}
 
-	// TODO: init config
+	c.syncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.syncEventBus)
+	c.asyncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.asyncEventBus)
+
+	if err := c.LoadConfig("config.yaml"); err == nil {
+		log.Printf("Successfully loaded config from config.yaml")
+	} else {
+		log.Printf("Failed to load config file (using default/env values): %v", err)
+	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	return c
+}
+
+type Option func(*DefaultStateMachineConfig)
+
+func WithStatusDecisionStrategy(strategy StatusDecisionStrategy) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.statusDecisionStrategy = strategy
+	}
+}
+
+func WithSeqGenerator(gen sequence.SeqGenerator) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.seqGenerator = gen
+	}
+}
+
+func WithProcessController(ctrl ProcessController) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.processController = ctrl
+	}
+}
+
+func WithBusinessProcessor(bp BusinessProcessor) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.processController.(*ProcessControllerImpl).businessProcessor = bp
+	}
+}
+
+func WithStateMachineResources(paths []string) Option {
+	return func(c *DefaultStateMachineConfig) {
+		if len(paths) > 0 {
+			c.stateMachineResources = paths
+		}
+	}
+}
+
+func WithStateLogRepository(logRepo StateLogRepository) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLogRepository = logRepo
+	}
+}
+
+func WithStateLogStore(logStore StateLogStore) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLogStore = logStore
+	}
+}
+
+func WithStateLangStore(langStore StateLangStore) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateLangStore = langStore
+	}
+}
+
+func WithStateMachineRepository(machineRepo StateMachineRepository) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.stateMachineRepository = machineRepo
+	}
 }
