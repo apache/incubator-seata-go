@@ -1,0 +1,274 @@
+{
+  "Name": "OrderSaga",
+  "Version": "1.0",
+  "StartState": "CreateOrder",
+  "trans_operation_timeout": 30000,
+  "States": {
+    "CreateOrder": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "orderService",
+      "serviceMethod": "createOrder",
+      "CompensateState": "CancelOrder",
+      "ForCompensation": false,
+      "ForUpdate": false,
+      "Retry": [
+        {
+          "Exceptions": [
+            "OrderCreationException",
+            "InventoryUnavailableException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catches": [
+        {
+          "Exceptions": [
+            "OrderCreationException",
+            "InventoryUnavailableException"
+          ],
+          "Next": "ErrorHandler"
+        }
+      ],
+      "Status": {
+        "return.code == 'SUCCESS'": "SUCCEEDED",
+        "return.code == 'FAIL'": "FAILED",
+        "$exception{*}": "UNKNOWN"
+      },
+      "Input": [
+        {
+          "orderInfo": "$.orderInfo"
+        }
+      ],
+      "Output": {
+        "orderId": "$.#root"
+      },
+      "Next": "CheckStock",
+      "Loop": {
+        "Parallel": 1,
+        "Collection": "$.orderItems",
+        "ElementVariableName": "item",
+        "ElementIndexName": "index",
+        "CompletionCondition": "[nrOfInstances] == [nrOfCompletedInstances]"
+      }
+    },
+    "CheckStock": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "inventoryService",
+      "serviceMethod": "checkAvailability",
+      "CompensateState": "RollbackStock",
+      "ForCompensation": false,
+      "ForUpdate": false,
+      "Retry": [
+        {
+          "Exceptions": [
+            "StockCheckException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.2
+        }
+      ],
+      "Catches": [
+        {
+          "Exceptions": [
+            "StockCheckException"
+          ],
+          "Next": "ErrorHandler"
+        }
+      ],
+      "Status": {
+        "return.available == true": "IN_STOCK",
+        "return.available == false": "OUT_OF_STOCK",
+        "$exception{*}": "UNKNOWN"
+      },
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        },
+        {
+          "itemsList": "$.orderItems"
+        }
+      ],
+      "Output": {
+        "stockAvailable": "$.#root"
+      },
+      "Next": "DecideStock"
+    },
+    "DecideStock": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Expression": "stockAvailable == true",
+          "Next": "ReserveStock"
+        },
+        {
+          "Expression": "stockAvailable == false",
+          "Next": "CancelOrder"
+        }
+      ],
+      "Default": "ErrorHandler"
+    },
+    "ReserveStock": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "inventoryService",
+      "serviceMethod": "reserveItems",
+      "CompensateState": "RollbackStock",
+      "ForCompensation": false,
+      "ForUpdate": false,
+      "Retry": [
+        {
+          "Exceptions": [
+            "StockReservationException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.2
+        }
+      ],
+      "Catches": [
+        {
+          "Exceptions": [
+            "StockReservationException"
+          ],
+          "Next": "ErrorHandler"
+        }
+      ],
+      "Status": {
+        "return.code == 'RESERVED'": "STOCK_RESERVED",
+        "return.code == 'FAILED'": "FAILED",
+        "$exception{*}": "UNKNOWN"
+      },
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        },
+        {
+          "itemList": "$.orderItems"
+        }
+      ],
+      "Output": {
+        "stockReservationId": "$.#root"
+      },
+      "Next": "ProcessPayment"
+    },
+    "ProcessPayment": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "paymentService",
+      "serviceMethod": "processPayment",
+      "CompensateState": "RefundPayment",
+      "ForCompensation": false,
+      "ForUpdate": false,
+      "Retry": [
+        {
+          "Exceptions": [
+            "PaymentProcessingException"
+          ],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 3,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catches": [
+        {
+          "Exceptions": [
+            "PaymentProcessingException"
+          ],
+          "Next": "ErrorHandler"
+        }
+      ],
+      "Status": {
+        "return.code == 'PAID'": "PAYMENT_SUCCESS",
+        "return.code == 'DECLINED'": "PAYMENT_FAILED",
+        "$exception{*}": "UNKNOWN"
+      },
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        },
+        {
+          "amount": "$.orderTotal"
+        }
+      ],
+      "Output": {
+        "paymentTransactionId": "$.#root"
+      },
+      "Next": "CompleteOrder"
+    },
+    "CompleteOrder": {
+      "Type": "Succeed"
+    },
+    "CancelOrder": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "orderService",
+      "serviceMethod": "cancelOrder",
+      "ForCompensation": true,
+      "ForUpdate": true,
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        }
+      ],
+      "Output": {
+        "cancelResult": "$.#root"
+      },
+      "Next": "RollbackStock"
+    },
+    "RollbackStock": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "inventoryService",
+      "serviceMethod": "releaseItems",
+      "ForCompensation": true,
+      "ForUpdate": true,
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        },
+        {
+          "stockReservationId": "$.stockReservationId"
+        }
+      ],
+      "Output": {
+        "rollbackResult": "$.#root"
+      },
+      "Next": "RefundPayment"
+    },
+    "RefundPayment": {
+      "Type": "ServiceTask",
+      "serviceType": "local",
+      "serviceName": "paymentService",
+      "serviceMethod": "refundPayment",
+      "ForCompensation": true,
+      "ForUpdate": true,
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        },
+        {
+          "paymentTransactionId": "$.paymentTransactionId"
+        }
+      ],
+      "Output": {
+        "refundResult": "$.#root"
+      },
+      "Next": "FailState"
+    },
+    "ErrorHandler": {
+      "Type": "Fail",
+      "ErrorCode": "ORDER_PROCESSING_ERROR",
+      "Message": "An unrecoverable error occurred during order processing."
+    },
+    "FailState": {
+      "Type": "Fail",
+      "ErrorCode": "ORDER_CANCELLED",
+      "Message": "The order has been cancelled and compensation actions have been completed."
+    }
+  }
+}

@@ -14,20 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package engine
-
-import (
-	"context"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
-	"testing"
-)
-
-func TestEngine(t *testing.T) {
-
-}
-
-func TestSimpleStateMachine(t *testing.T) {
-	engine := core.NewProcessCtrlStateMachineEngine()
-	engine.Start(context.Background(), "simpleStateMachine", "tenantId", nil)
-}

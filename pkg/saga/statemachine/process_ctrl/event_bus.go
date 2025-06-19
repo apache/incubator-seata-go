@@ -128,3 +128,19 @@ func (a AsyncEventBus) Offer(ctx context.Context, event Event) (bool, error) {
 
 	return true, nil
 }
+
+func NewDirectEventBus() *DirectEventBus {
+	return &DirectEventBus{
+		BaseEventBus: BaseEventBus{
+			eventConsumerList: make([]EventConsumer, 0),
+		},
+	}
+}
+
+func NewAsyncEventBus(ctx context.Context, queueSize int, workerCount int) *AsyncEventBus {
+	return &AsyncEventBus{
+		BaseEventBus: BaseEventBus{
+			eventConsumerList: make([]EventConsumer, 0),
+		},
+	}
+}

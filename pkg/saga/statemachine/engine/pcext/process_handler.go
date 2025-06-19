@@ -20,7 +20,7 @@ package pcext
 import (
 	"context"
 	"errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"sync"
 )
 
