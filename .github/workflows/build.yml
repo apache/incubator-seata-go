@@ -51,7 +51,7 @@ jobs:
       - name: "set up go"
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.20
 
       # close default MySQL-Server
       - name: Shutdown default mysql
@@ -70,4 +70,9 @@ jobs:
         run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
 
       - name: "upload coverage"
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          version: v0.6.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
