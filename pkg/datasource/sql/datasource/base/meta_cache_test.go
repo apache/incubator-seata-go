@@ -110,7 +110,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cfg:     &mysql.Config{},
 				db:      &sql.DB{},
 			}, args: args{ctx: ctx},
-			want: testdata.MockWantTypesMeta("test")},
+			want:    testdata.MockWantTypesMeta("test")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,7 +142,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			}
 			go c.refresh(tt.args.ctx)
 			time.Sleep(time.Second * 3)
-
+			c.lock.RLock()
+			defer c.lock.RUnlock()
 			assert.Equal(t, c.cache["TEST"].value, tt.want)
 		})
 	}
