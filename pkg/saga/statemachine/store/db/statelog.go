@@ -21,10 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,12 +30,16 @@ import (
 	constant2 "github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
+	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	sagaTm "github.com/seata/seata-go/pkg/saga/tm"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -83,6 +83,8 @@ type StateLogStore struct {
 	updateStateExecutionStatusSql               string
 	queryStateInstancesByMachineInstanceIdSql   string
 	getStateInstanceByIdAndMachineInstanceIdSql string
+
+	sagaTransactionalTemplate sagaTm.SagaTransactionalTemplate
 }
 
 func NewStateLogStore(db *sql.DB, tablePrefix string) *StateLogStore {
@@ -165,6 +167,10 @@ func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineIn
 }
 
 func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error {
+	if s.sagaTransactionalTemplate == nil {
+		log.Debugf("begin transaction fail, sagaTransactionalTemplate is not existence")
+		return nil
+	}
 	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	if !ok {
 		return errors.New("begin transaction fail, stateMachineConfig is required in context")
@@ -177,16 +183,20 @@ func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance st
 		}
 	}()
 
-	tm.SetTxRole(ctx, tm.Launcher)
-	tm.SetTxStatus(ctx, message.GlobalStatusUnKnown)
-	tm.SetTxName(ctx, constant.SagaTransNamePrefix+machineInstance.StateMachine().Name())
-
-	err := tm.GetGlobalTransactionManager().Begin(ctx, time.Duration(cfg.TransOperationTimeout()))
+	txName := constant.SagaTransNamePrefix + machineInstance.StateMachine().Name()
+	gtx, err := s.sagaTransactionalTemplate.BeginTransaction(ctx, time.Duration(cfg.GetTransOperationTimeout()), txName)
 	if err != nil {
 		return err
 	}
+	xid := gtx.Xid
+	machineInstance.SetID(xid)
 
-	machineInstance.SetID(tm.GetXID(ctx))
+	context.SetVariable(constant.VarNameGlobalTx, gtx)
+
+	machineContext := machineInstance.Context()
+	if machineContext != nil {
+		machineContext[constant.VarNameGlobalTx] = gtx
+	}
 	return nil
 }
 
@@ -238,7 +248,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 		return errors.New("stateMachineConfig is required in context")
 	}
 
-	if pcext.IsTimeout(machineInstance.UpdatedTime(), cfg.TransOperationTimeout()) {
+	if pcext.IsTimeout(machineInstance.UpdatedTime(), cfg.GetTransOperationTimeout()) {
 		log.Warnf("StateMachineInstance[%s] is execution timeout, skip report transaction finished to server.", machineInstance.ID())
 	} else if machineInstance.ParentID() == "" {
 		//if parentId is not null, machineInstance is a SubStateMachine, do not report global transaction.
@@ -260,7 +270,11 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 		}
 	}()
 
-	globalTransaction, err := s.getGlobalTransaction(machineInstance, context)
+	if s.sagaTransactionalTemplate == nil {
+		log.Debugf("report transaction finished fail, sagaTransactionalTemplate is not existence")
+		return nil
+	}
+	globalTransaction, err := s.getGlobalTransaction(ctx, machineInstance, context)
 	if err != nil {
 		log.Errorf("Failed to get global transaction: %v", err)
 		return err
@@ -282,14 +296,14 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	}
 
 	globalTransaction.TxStatus = globalStatus
-	_, err = tm.GetGlobalTransactionManager().GlobalReport(ctx, globalTransaction)
+	err = s.sagaTransactionalTemplate.ReportTransaction(ctx, globalTransaction)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) (*tm.GlobalTransaction, error) {
+func (s *StateLogStore) getGlobalTransaction(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) (*tm.GlobalTransaction, error) {
 	globalTransaction, ok := context.GetVariable(constant.VarNameGlobalTx).(*tm.GlobalTransaction)
 	if ok {
 		return globalTransaction, nil
@@ -302,12 +316,10 @@ func (s *StateLogStore) getGlobalTransaction(machineInstance statelang.StateMach
 	} else {
 		xid = parentId[:strings.LastIndex(parentId, constant.SeperatorParentId)]
 	}
-	globalTransaction = &tm.GlobalTransaction{
-		Xid:      xid,
-		TxStatus: message.GlobalStatusUnKnown,
-		TxRole:   tm.Launcher,
+	globalTransaction, err := s.sagaTransactionalTemplate.ReloadTransaction(ctx, xid)
+	if err != nil {
+		return nil, err
 	}
-
 	context.SetVariable(constant.VarNameGlobalTx, globalTransaction)
 	return globalTransaction, nil
 }
@@ -354,7 +366,7 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 		stateInstance.SetID(s.generateCompensateStateInstanceId(stateInstance, isUpdateMode))
 	} else {
 		// register branch
-		s.branchRegister(stateInstance, context)
+		s.branchRegister(ctx, stateInstance, context)
 	}
 
 	if stateInstance.ID() == "" && s.seqGenerator != nil {
@@ -461,7 +473,7 @@ func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance statelan
 	return fmt.Sprintf("%s-%d", originalCompensateStateInstId, maxIndex)
 }
 
-func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
+func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
 	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !ok {
 		return errors.New("stateMachineConfig is required in context")
@@ -482,7 +494,7 @@ func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, co
 		}
 	}()
 
-	globalTransaction, err := s.getGlobalTransaction(machineInstance, context)
+	globalTransaction, err := s.getGlobalTransaction(ctx, machineInstance, context)
 	if err != nil {
 		return err
 	}
@@ -491,11 +503,8 @@ func (s *StateLogStore) branchRegister(stateInstance statelang.StateInstance, co
 		return err
 	}
 
-	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
-		BranchType: branch.BranchTypeSAGA,
-		ResourceId: machineInstance.StateMachine().Name() + "#" + stateInstance.Name(),
-		Xid:        globalTransaction.Xid,
-	})
+	resourceId := machineInstance.StateMachine().Name() + "#" + stateInstance.Name()
+	branchId, err := s.sagaTransactionalTemplate.BranchRegister(ctx, resourceId, "", globalTransaction.Xid, "", "")
 	if err != nil {
 		return err
 	}
@@ -546,7 +555,7 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 	// A switch to skip branch report on branch success, in order to optimize performance
 	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if !(ok && !cfg.IsRmReportSuccessEnable() && statelang.SU == stateInstance.Status()) {
-		err = s.branchReport(stateInstance, context)
+		err = s.branchReport(ctx, stateInstance, context)
 		return err
 	}
 
@@ -554,7 +563,7 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 
 }
 
-func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
+func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
 	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
 	if ok && !cfg.IsSagaBranchRegisterEnable() {
 		log.Debugf("sagaBranchRegisterEnable = false, skip branch report. state[%s]", stateInstance.Name())
@@ -624,7 +633,7 @@ func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, cont
 		}
 	}()
 
-	globalTransaction, err := s.getGlobalTransaction(stateInstance.StateMachineInstance(), context)
+	globalTransaction, err := s.getGlobalTransaction(ctx, stateInstance.StateMachineInstance(), context)
 	if err != nil {
 		return err
 	}
@@ -634,13 +643,10 @@ func (s *StateLogStore) branchReport(stateInstance statelang.StateInstance, cont
 	}
 
 	branchId, err := strconv.ParseInt(originalStateInst.ID(), 10, 0)
-	err = rm.GetRMRemotingInstance().BranchReport(rm.BranchReportParam{
-		BranchType: branch.BranchTypeSAGA,
-		Xid:        globalTransaction.Xid,
-		BranchId:   branchId,
-		Status:     branchStatus,
-	})
-	return err
+	if err != nil {
+		return err
+	}
+	return s.sagaTransactionalTemplate.BranchReport(ctx, globalTransaction.Xid, branchId, branchStatus, "")
 }
 
 func (s *StateLogStore) findOutOriginalStateInstanceOfRetryState(stateInstance statelang.StateInstance) statelang.StateInstance {
@@ -849,6 +855,13 @@ func (s *StateLogStore) SetSeqGenerator(seqGenerator sequence.SeqGenerator) {
 func (s *StateLogStore) ClearUp(context process_ctrl.ProcessContext) {
 	context.RemoveVariable(constant2.XidKey)
 	context.RemoveVariable(constant2.BranchTypeKey)
+}
+
+func (s *StateLogStore) SetSagaTransactionalTemplate(sagaTransactionalTemplate sagaTm.SagaTransactionalTemplate) {
+	s.sagaTransactionalTemplate = sagaTransactionalTemplate
+}
+func (s *StateLogStore) GetSagaTransactionalTemplate() sagaTm.SagaTransactionalTemplate {
+	return s.sagaTransactionalTemplate
 }
 
 func execStateMachineInstanceStatementForInsert(obj statelang.StateMachineInstance, stmt *sql.Stmt) (int64, error) {
