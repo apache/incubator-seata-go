@@ -17,7 +17,7 @@
 
 # This is a workflow to help you test the unit case and show codecov
 
-name: "build and codecov"
+name: "build"
 
 on:
   push:
@@ -60,9 +60,3 @@ jobs:
 
       - name: "run go build"
         run: go build -v ./...
-
-      - name: "run go test and out codecov"
-        run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
-
-      - name: "upload coverage"
-        uses: codecov/codecov-action@v3

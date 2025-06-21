@@ -21,17 +21,17 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/arana-db/parser/model"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/bytes"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
@@ -49,6 +49,10 @@ type updateExecutor struct {
 
 // NewUpdateExecutor get update executor
 func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
+	// Because update join cannot be clearly identified when SQL cannot be parsed
+	if parserCtx.UpdateStmt.TableRefs.TableRefs.Right != nil {
+		return NewUpdateJoinExecutor(parserCtx, execContent, hooks)
+	}
 	return &updateExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 

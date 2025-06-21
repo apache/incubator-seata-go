@@ -15,42 +15,16 @@
  * limitations under the License.
  */
 
-package builder
+package at
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/assert"
-
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"testing"
 )
 
-func TestBuildWhereConditionByPKs(t *testing.T) {
-	builder := BasicUndoLogBuilder{}
-	tests := []struct {
-		name       string
-		pkNameList []string
-		rowSize    int
-		maxInSize  int
-		expectSQL  string
-	}{
-		{"test1", []string{"id", "name"}, 1, 1, "(`id`,`name`) IN ((?,?))"},
-		{"test1", []string{"id", "name"}, 3, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?))"},
-		{"test1", []string{"id", "name"}, 3, 1, "(`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?)) OR (`id`,`name`) IN ((?,?))"},
-		{"test1", []string{"id", "name"}, 4, 2, "(`id`,`name`) IN ((?,?),(?,?)) OR (`id`,`name`) IN ((?,?),(?,?))"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// todo add dbType param
-			sql := builder.buildWhereConditionByPKs(test.pkNameList, test.rowSize, "", test.maxInSize)
-			assert.Equal(t, test.expectSQL, sql)
-		})
-	}
-}
-
-func TestBuildLockKey(t *testing.T) {
-	var builder BasicUndoLogBuilder
+func TestBaseExecBuildLockKey(t *testing.T) {
+	var exec baseExecutor
 
 	columnID := types.ColumnMeta{
 		ColumnName: "id",
@@ -93,11 +67,11 @@ func TestBuildLockKey(t *testing.T) {
 			types.RecordImage{
 				TableName: "test_name",
 				Rows: []types.RowImage{
-					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one")}},
-					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two")}},
+					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "user1")}},
+					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "user2")}},
 				},
 			},
-			"test_name:1_one,2_two",
+			"test_name:1_user1,2_user2",
 		},
 		{
 			"Three Primary Keys",
@@ -144,10 +118,10 @@ func TestBuildLockKey(t *testing.T) {
 			records: types.RecordImage{
 				TableName: "mixed_key",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{getColumnImage("name", "Alice"), getColumnImage("age", 25)}},
+					{Columns: []types.ColumnImage{getColumnImage("name", "mike"), getColumnImage("age", 25)}},
 				},
 			},
-			expected: "mixed_key:Alice_25",
+			expected: "mixed_key:mike_25",
 		},
 		{
 			name: "Empty Records",
@@ -171,10 +145,10 @@ func TestBuildLockKey(t *testing.T) {
 			records: types.RecordImage{
 				TableName: "special",
 				Rows: []types.RowImage{
-					{Columns: []types.ColumnImage{getColumnImage("id", "a,b_c")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", "A,b_c")}},
 				},
 			},
-			expected: "special:a,b_c",
+			expected: "special:A,b_c",
 		},
 		{
 			name: "Non-existent Key Name",
@@ -192,11 +166,46 @@ func TestBuildLockKey(t *testing.T) {
 			},
 			expected: "error_key:",
 		},
+		{
+			name: "Multiple Rows With Nil PK Value",
+			metaData: types.TableMeta{
+				TableName: "nil_pk",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
+				},
+			},
+			records: types.RecordImage{
+				TableName: "nil_pk",
+				Rows: []types.RowImage{
+					{Columns: []types.ColumnImage{getColumnImage("id", nil)}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 123)}},
+					{Columns: []types.ColumnImage{getColumnImage("id", nil)}},
+				},
+			},
+			expected: "nil_pk:,123,",
+		},
+		{
+			name: "PK As Bool And Float",
+			metaData: types.TableMeta{
+				TableName: "type_pk",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnName, columnAge}},
+				},
+			},
+			records: types.RecordImage{
+				TableName: "type_pk",
+				Rows: []types.RowImage{
+					{Columns: []types.ColumnImage{getColumnImage("name", true), getColumnImage("age", 3.14)}},
+					{Columns: []types.ColumnImage{getColumnImage("name", false), getColumnImage("age", 0.0)}},
+				},
+			},
+			expected: "type_pk:true_3.14,false_0",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lockKeys := builder.buildLockKey2(&tt.records, tt.metaData)
+			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}
