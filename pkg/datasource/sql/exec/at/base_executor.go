@@ -18,7 +18,6 @@
 package at
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -435,39 +434,7 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
-	lockKeys.WriteString(meta.TableName)
-	lockKeys.WriteString(":")
-
-	keys := meta.GetPrimaryKeyOnlyName()
-
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
-			lockKeys.WriteString(",")
-		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
-				}
-			}
-			if hasKeyColumn {
-				filedSequence++
-			}
-		}
-	}
-
-	return lockKeys.String()
+	return util.BuildLockKey(records, meta)
 }
 
 func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
