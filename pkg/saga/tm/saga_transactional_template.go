@@ -36,7 +36,7 @@ type SagaTransactionalTemplate interface {
 
 	ReportTransaction(ctx context.Context, gtr *tm.GlobalTransaction) error
 
-	BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) error
+	BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) (int64, error)
 
 	BranchReport(ctx context.Context, xid string, branchId int64, status branch.BranchStatus, applicationData string) error
 

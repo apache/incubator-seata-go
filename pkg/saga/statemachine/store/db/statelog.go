@@ -30,7 +30,6 @@ import (
 	constant2 "github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
@@ -192,11 +191,11 @@ func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance st
 	xid := gtx.Xid
 	machineInstance.SetID(xid)
 
-	context.SetVariable(constant.VarNameGlobalTx, xid)
+	context.SetVariable(constant.VarNameGlobalTx, gtx)
 
 	machineContext := machineInstance.Context()
 	if machineContext != nil {
-		machineContext[constant.VarNameGlobalTx] = xid
+		machineContext[constant.VarNameGlobalTx] = gtx
 	}
 	return nil
 }
@@ -504,11 +503,8 @@ func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statel
 		return err
 	}
 
-	branchId, err := rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
-		BranchType: branch.BranchTypeSAGA,
-		ResourceId: machineInstance.StateMachine().Name() + "#" + stateInstance.Name(),
-		Xid:        globalTransaction.Xid,
-	})
+	resourceId := machineInstance.StateMachine().Name() + "#" + stateInstance.Name()
+	branchId, err := s.sagaTransactionalTemplate.BranchRegister(ctx, resourceId, "", globalTransaction.Xid, "", "")
 	if err != nil {
 		return err
 	}
@@ -647,13 +643,10 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelan
 	}
 
 	branchId, err := strconv.ParseInt(originalStateInst.ID(), 10, 0)
-	err = rm.GetRMRemotingInstance().BranchReport(rm.BranchReportParam{
-		BranchType: branch.BranchTypeSAGA,
-		Xid:        globalTransaction.Xid,
-		BranchId:   branchId,
-		Status:     branchStatus,
-	})
-	return err
+	if err != nil {
+		return err
+	}
+	return s.sagaTransactionalTemplate.BranchReport(ctx, globalTransaction.Xid, branchId, branchStatus, "")
 }
 
 func (s *StateLogStore) findOutOriginalStateInstanceOfRetryState(stateInstance statelang.StateInstance) statelang.StateInstance {

@@ -80,9 +80,9 @@ func (t *DefaultSagaTransactionalTemplate) ReportTransaction(ctx context.Context
 	return nil
 }
 
-func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) error {
+func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) (int64, error) {
 	//todo Wait implement sagaResource
-	return nil
+	return 0, nil
 }
 
 func (t *DefaultSagaTransactionalTemplate) BranchReport(ctx context.Context, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
