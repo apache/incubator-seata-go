@@ -19,6 +19,7 @@ package tm
 
 import (
 	"context"
+	"github.com/seata/seata-go/pkg/rm"
 	"time"
 
 	"github.com/seata/seata-go/pkg/protocol/branch"
@@ -82,12 +83,25 @@ func (t *DefaultSagaTransactionalTemplate) ReportTransaction(ctx context.Context
 
 func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) (int64, error) {
 	//todo Wait implement sagaResource
-	return 0, nil
+	return rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
+		BranchType:      branch.BranchTypeSAGA,
+		ResourceId:      resourceId,
+		Xid:             xid,
+		ClientId:        clientId,
+		ApplicationData: applicationData,
+		LockKeys:        lockKeys,
+	})
 }
 
 func (t *DefaultSagaTransactionalTemplate) BranchReport(ctx context.Context, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
 	//todo Wait implement sagaResource
-	return nil
+	return rm.GetRMRemotingInstance().BranchReport(rm.BranchReportParam{
+		BranchType:      branch.BranchTypeSAGA,
+		Xid:             xid,
+		BranchId:        branchId,
+		Status:          status,
+		ApplicationData: applicationData,
+	})
 }
 
 func (t *DefaultSagaTransactionalTemplate) CleanUp(ctx context.Context) {
