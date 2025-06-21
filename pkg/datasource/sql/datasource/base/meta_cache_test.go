@@ -142,7 +142,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			}
 			go c.refresh(tt.args.ctx)
 			time.Sleep(time.Second * 3)
-
+			c.lock.RLock()
+			defer c.lock.RUnlock()
 			assert.Equal(t, c.cache["TEST"].value, tt.want)
 		})
 	}
