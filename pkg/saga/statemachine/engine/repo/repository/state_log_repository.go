@@ -23,10 +23,12 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
+	"sync"
 )
 
 var (
-	stateLogRepositoryImpl *StateLogRepositoryImpl
+	stateLogRepositoryImpl     *StateLogRepositoryImpl
+	onceStateLogRepositoryImpl sync.Once
 )
 
 type StateLogRepositoryImpl struct {
@@ -35,9 +37,9 @@ type StateLogRepositoryImpl struct {
 
 func NewStateLogRepositoryImpl(stateLogStore store.StateLogStore) *StateLogRepositoryImpl {
 	if stateLogRepositoryImpl == nil {
-		stateLogRepositoryImpl = &StateLogRepositoryImpl{
-			stateLogStore: stateLogStore,
-		}
+		onceStateLogRepositoryImpl.Do(func() {
+			stateLogRepositoryImpl = &StateLogRepositoryImpl{}
+		})
 	}
 	return stateLogRepositoryImpl
 }
@@ -124,7 +126,6 @@ func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId
 	}
 	return s.stateLogStore.GetStateInstance(stateInstanceId, machineInstId)
 }
-
 
 func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
 	if s.stateLogStore == nil {

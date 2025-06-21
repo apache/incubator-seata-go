@@ -37,6 +37,13 @@ type DefaultBusinessProcessor struct {
 	mu              sync.RWMutex
 }
 
+func NewBusinessProcessor() BusinessProcessor {
+	return &DefaultBusinessProcessor{
+		processHandlers: make(map[string]ProcessHandler),
+		routerHandlers:  make(map[string]RouterHandler),
+	}
+}
+
 func (d *DefaultBusinessProcessor) RegistryProcessHandler(processType process.ProcessType, processHandler ProcessHandler) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

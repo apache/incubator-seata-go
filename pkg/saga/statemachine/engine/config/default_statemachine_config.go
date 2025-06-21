@@ -21,13 +21,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo/repository"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/strategy"
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
@@ -36,9 +37,8 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/store"
-	"sync"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
+	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 )
 
 const (
@@ -66,11 +66,11 @@ type DefaultStateMachineConfig struct {
 	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
-	processController ProcessController
+	processController process_ctrl.ProcessController
 
 	// Event Bus
-	syncEventBus  EventBus
-	asyncEventBus EventBus
+	syncEventBus  process_ctrl.EventBus
+	asyncEventBus process_ctrl.EventBus
 
 	// Event publisher
 	syncProcessCtrlEventPublisher  process_ctrl.EventPublisher
@@ -120,15 +120,15 @@ func (c *DefaultStateMachineConfig) SetDefaultTenantId(defaultTenantId string) {
 	c.defaultTenantId = defaultTenantId
 }
 
-func (c *DefaultStateMachineConfig) SetSyncEventBus(syncEventBus EventBus) {
+func (c *DefaultStateMachineConfig) SetSyncEventBus(syncEventBus process_ctrl.EventBus) {
 	c.syncEventBus = syncEventBus
 }
 
-func (c *DefaultStateMachineConfig) SetAsyncEventBus(asyncEventBus EventBus) {
+func (c *DefaultStateMachineConfig) SetAsyncEventBus(asyncEventBus process_ctrl.EventBus) {
 	c.asyncEventBus = asyncEventBus
 }
 
-func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher EventPublisher) {
+func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
 	c.syncProcessCtrlEventPublisher = syncProcessCtrlEventPublisher
 }
 
@@ -208,15 +208,15 @@ func (c *DefaultStateMachineConfig) StatusDecisionStrategy() engine.StatusDecisi
 	return c.statusDecisionStrategy
 }
 
-func (c *DefaultStateMachineConfig) SyncEventBus() EventBus {
+func (c *DefaultStateMachineConfig) SyncEventBus() process_ctrl.EventBus {
 	return c.syncEventBus
 }
 
-func (c *DefaultStateMachineConfig) AsyncEventBus() EventBus {
+func (c *DefaultStateMachineConfig) AsyncEventBus() process_ctrl.EventBus {
 	return c.asyncEventBus
 }
 
-func (c *DefaultStateMachineConfig) EventPublisher() EventPublisher {
+func (c *DefaultStateMachineConfig) EventPublisher() process_ctrl.EventPublisher {
 	return c.syncProcessCtrlEventPublisher
 }
 
@@ -407,21 +407,19 @@ func (c *DefaultStateMachineConfig) registerEventConsumers() error {
 		return fmt.Errorf("ProcessController is not initialized")
 	}
 
-	pcImpl, ok := c.processController.(*ProcessControllerImpl)
+	pcImpl, ok := c.processController.(*process_ctrl.ProcessControllerImpl)
 	if !ok {
 		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
 	}
 
-	if pcImpl.businessProcessor == nil {
+	if pcImpl.BusinessProcessor() == nil {
 		return fmt.Errorf("BusinessProcessor in ProcessController is not initialized")
 	}
 
-	processCtrlConsumer := &ProcessCtrlEventConsumer{
-		processController: c.processController,
-	}
+	consumer := process_ctrl.NewProcessCtrlEventConsumer(c.processController)
 
-	c.syncEventBus.RegisterEventConsumer(processCtrlConsumer)
-	c.asyncEventBus.RegisterEventConsumer(processCtrlConsumer)
+	c.syncEventBus.RegisterEventConsumer(consumer)
+	c.asyncEventBus.RegisterEventConsumer(consumer)
 
 	return nil
 }
@@ -587,16 +585,9 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 	return result, nil
 }
 
-func NewDefaultBusinessProcessor() *DefaultBusinessProcessor {
-	return &DefaultBusinessProcessor{
-		processHandlers: make(map[string]ProcessHandler),
-		routerHandlers:  make(map[string]RouterHandler),
-	}
-}
-
 func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 	ctx := context.Background()
-	defaultBP := NewDefaultBusinessProcessor()
+	defaultBP := process_ctrl.NewBusinessProcessor()
 
 	// stateMachineResources for development only; production uses env vars/config files.
 	stateMachineResources := []string{
@@ -618,6 +609,9 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		}
 	}
 
+	stateMachineRepository := repository.GetStateMachineRepositoryImpl()
+	stateLogRepository := repository.NewStateLogRepositoryImpl()
+
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout: DefaultTransOperTimeout,
 		serviceInvokeTimeout:  DefaultServiceInvokeTimeout,
@@ -634,20 +628,26 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 
-		statusDecisionStrategy: NewDefaultStatusDecisionStrategy(),
-		processController: &ProcessControllerImpl{
-			businessProcessor: defaultBP,
-		},
+		statusDecisionStrategy: strategy.NewDefaultStatusDecisionStrategy(),
 
-		syncEventBus:  NewDirectEventBus(),
-		asyncEventBus: NewAsyncEventBus(ctx, 1000, 5),
+		processController: func() process_ctrl.ProcessController {
+			pc := &process_ctrl.ProcessControllerImpl{}
+			pc.SetBusinessProcessor(defaultBP)
+			return pc
+		}(),
+
+		syncEventBus:  process_ctrl.NewDirectEventBus(),
+		asyncEventBus: process_ctrl.NewAsyncEventBus(ctx, 1000, 5),
 
 		syncProcessCtrlEventPublisher:  nil,
 		asyncProcessCtrlEventPublisher: nil,
 	}
 
-	c.syncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.syncEventBus)
-	c.asyncProcessCtrlEventPublisher = NewProcessCtrlEventPublisher(c.asyncEventBus)
+	c.stateMachineRepository = stateMachineRepository
+	c.stateLogRepository = stateLogRepository
+
+	c.syncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.syncEventBus)
+	c.asyncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.asyncEventBus)
 
 	if err := c.LoadConfig("config.yaml"); err == nil {
 		log.Printf("Successfully loaded config from config.yaml")
@@ -664,7 +664,7 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 
 type Option func(*DefaultStateMachineConfig)
 
-func WithStatusDecisionStrategy(strategy StatusDecisionStrategy) Option {
+func WithStatusDecisionStrategy(strategy engine.StatusDecisionStrategy) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.statusDecisionStrategy = strategy
 	}
@@ -676,15 +676,19 @@ func WithSeqGenerator(gen sequence.SeqGenerator) Option {
 	}
 }
 
-func WithProcessController(ctrl ProcessController) Option {
+func WithProcessController(ctrl process_ctrl.ProcessController) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.processController = ctrl
 	}
 }
 
-func WithBusinessProcessor(bp BusinessProcessor) Option {
+func WithBusinessProcessor(bp process_ctrl.BusinessProcessor) Option {
 	return func(c *DefaultStateMachineConfig) {
-		c.processController.(*ProcessControllerImpl).businessProcessor = bp
+		if pc, ok := c.processController.(*process_ctrl.ProcessControllerImpl); ok {
+			pc.SetBusinessProcessor(bp)
+		} else {
+			log.Printf("ProcessController is not of type *ProcessControllerImpl, unable to set BusinessProcessor")
+		}
 	}
 }
 
@@ -696,25 +700,25 @@ func WithStateMachineResources(paths []string) Option {
 	}
 }
 
-func WithStateLogRepository(logRepo StateLogRepository) Option {
+func WithStateLogRepository(logRepo repo.StateLogRepository) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateLogRepository = logRepo
 	}
 }
 
-func WithStateLogStore(logStore StateLogStore) Option {
+func WithStateLogStore(logStore store.StateLogStore) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateLogStore = logStore
 	}
 }
 
-func WithStateLangStore(langStore StateLangStore) Option {
+func WithStateLangStore(langStore store.StateLangStore) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateLangStore = langStore
 	}
 }
 
-func WithStateMachineRepository(machineRepo StateMachineRepository) Option {
+func WithStateMachineRepository(machineRepo repo.StateMachineRepository) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateMachineRepository = machineRepo
 	}
