@@ -32,7 +32,7 @@
 
 
 
-Apache Seata（孵化中）是一个非常成熟的分布式事务框架，是 Java 领域事实上的标准分布式事务平台。Seata-go 是其在多语言生态中 Go 语言的实现版本，实现了 Java 与 Go 之间的互操作，使得 Go 开发者也可以使用 seata-go 实现分布式事务。请访问 [Seata 官网](https://seata.apache.org/) 获取快速入门和文档。
+Apache Seata（incubating）是一个非常成熟的分布式事务框架，是 Java 领域事实上的标准分布式事务平台。Seata-go 是其在多语言生态中 Go 语言的实现版本，实现了 Java 与 Go 之间的互操作，使得 Go 开发者也可以使用 seata-go 实现分布式事务。请访问 [Seata 官网](https://seata.apache.org/) 获取快速入门和文档。
 
 Seata-go 的原理与 Seata-java 一致，由 TM、RM 和 TC 三部分组成。其中 TC 功能复用 Java 的实现，而 TM 和 RM 则已与 Seata-java 对接。
 
