@@ -22,7 +22,7 @@
 </div>
 # Seata-go：简单可扩展的自主事务架构（Go 语言版本）
 
-[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml)  
+[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml) 
 
 [![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -117,7 +117,7 @@ go get seata.apache.org/seata-go
 你可以访问 Seata 官方网站获取完整文档：[Seata 官网](https://seata.apache.org/zh-cn/docs/overview/what-is-seata)
 ## 问题报告
 
-请遵循 [模板](./.github/ISSUE_TEMPLATE/BUG_REPORT_TEMPLATE.md) 报告问题。
+若有问题，请遵循 [模板](./.github/ISSUE_TEMPLATE/BUG_REPORT_TEMPLATE.md) 报告问题。
 
 ## 安全
 
@@ -157,7 +157,7 @@ Seata-go 当前处于建设阶段，欢迎业界同仁加入我们，共同推�
 
 ## 贡献者
 
-本项目感谢所有贡献者的付出。[[贡献者列表](https://github.com/apache/incubator-seata-go/graphs/contributors)]
+Seata-go感谢所有贡献者的付出。[[贡献者列表](https://github.com/apache/incubator-seata-go/graphs/contributors)]
 ## 许可证
 
 Seata-go 使用 Apache 2.0 协议，详情请查看 [LICENSE 文件](https://github.com/apache/incubator-seata-go/blob/master/LICENSE)
