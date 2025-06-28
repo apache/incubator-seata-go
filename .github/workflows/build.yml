@@ -32,26 +32,28 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.18
+          - 1.20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # The MySQL docker container requires these environment variables to be set
+          # so we can create and migrate the test database.
+          # See: https://hub.docker.com/_/mysql
+          MYSQL_DATABASE: seata_go_test
+          MYSQL_ROOT_PASSWORD: seata_go
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - name: "set up go"
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.20.14
 
-      # close default MySQL-Server
-      - name: Shutdown default mysql
-        run: sudo service mysql stop
 
-      # run mysql server
-      - name: Create mysql database auth
-        uses: mirromutth/mysql-action@v1.1
-        with:
-          host port: 3306 # Optional, default value is 3306. The port of host
-          container port: 3306 # Optional, default value is 3306. The port of container
-          mysql version: '8.0' # Optional, default value is "latest". The version of the MySQL
-          mysql database: 'seata_go_test' # Optional, default value is "test". The specified database which will be create
-          mysql root password: 'seata_go' # Required if "mysql user" is empty, default is empty. The root superuser password
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v3
@@ -65,4 +67,9 @@ jobs:
         run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
 
       - name: "upload coverage"
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          version: v0.6.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
