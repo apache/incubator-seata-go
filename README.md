@@ -99,11 +99,20 @@ For more details about principle and design, please go to [Seata wiki page](http
 ## How to run？
 
 ```go
-go get seata.apache.org/seata-go
+go get seata.apache.org/seata-go@v2.0.0
+
 ```
 
-
 if you want to know how to use and integrate seata-go, please refer to [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
+
+## How to find the latest version
+Visit Seata-Go's GitHub Releases page
+
+Open:
+https://github.com/seata/seata-go/releases
+
+The latest tag / release is the latest stable version.
+
 
 ## Documentation
 
