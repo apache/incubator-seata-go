@@ -178,7 +178,13 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue
 		}
 		whereCondition += fmt.Sprintf("(%s)", string(whereBuffer.Bytes()))
 
-		newParams := m.buildSelectArgs(&ast.SelectStmt{Where: parser.DeleteStmt.Where}, m.execContext.NamedValues)
+		newParams := m.buildSelectArgs(&ast.SelectStmt{
+			Where:      deleteParser.Where,
+			From:       deleteParser.TableRefs,
+			Limit:      deleteParser.Limit,
+			OrderBy:    deleteParser.Order,
+			TableHints: deleteParser.TableHints,
+		}, m.execContext.NamedValues)
 		params = append(params, newParams...)
 	}
 
