@@ -34,6 +34,7 @@ import (
 	"seata.apache.org/seata-go/pkg/constant"
 
 	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/rm/remoting/getty"
 	"seata.apache.org/seata-go/pkg/tm"
 	"seata.apache.org/seata-go/pkg/util/log"
 
@@ -64,7 +65,7 @@ func InitMock() {
 		prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
 			return nil, nil
 		}
-		branchRegister = func(_ *rm.RMRemoting, param rm.BranchRegisterParam) (int64, error) {
+		branchRegister = func(_ *getty.GettyRMRemoting, param rm.BranchRegisterParam) (int64, error) {
 			return testBranchID, nil
 		}
 	)
@@ -76,6 +77,7 @@ func InitMock() {
 }
 
 func TestMain(m *testing.M) {
+	rm.SetRMRemotingInstance(&getty.GettyRMRemoting{})
 	InitMock()
 	code := m.Run()
 	os.Exit(code)

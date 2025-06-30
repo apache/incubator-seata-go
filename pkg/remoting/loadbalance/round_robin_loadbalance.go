@@ -23,19 +23,19 @@ import (
 	"sync"
 	"sync/atomic"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
 var sequence int32
 
-func RoundRobinLoadBalance(sessions *sync.Map, s string) getty.Session {
+func RoundRobinLoadBalance(sessions *sync.Map, s string) connection.Connection {
 	// collect sync.Map adderToSession
 	// filter out closed session instance
-	adderToSession := make(map[string]getty.Session, 0)
+	adderToSession := make(map[string]connection.Connection, 0)
 	// map has no sequence, we should sort it to make sure the sequence is always the same
 	adders := make([]string, 0)
 	sessions.Range(func(key, value interface{}) bool {
-		session := key.(getty.Session)
+		session := key.(connection.Connection)
 		if session.IsClosed() {
 			sessions.Delete(key)
 		} else {

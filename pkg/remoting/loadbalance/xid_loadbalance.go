@@ -22,14 +22,13 @@ import (
 	"strings"
 	"sync"
 
-	getty "github.com/apache/dubbo-getty"
-
 	"seata.apache.org/seata-go/pkg/util/log"
 	"seata.apache.org/seata-go/pkg/util/net"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
-func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
+func XidLoadBalance(sessions *sync.Map, xid string) connection.Connection {
+	var session connection.Connection
 	const delimiter = ":"
 
 	if len(xid) > 0 && strings.Contains(xid, delimiter) {
@@ -44,7 +43,7 @@ func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {
 			log.Errorf("xid load balance err, xid:%s, %v , change use random load balance", xid, err)
 		} else {
 			sessions.Range(func(key, value interface{}) bool {
-				tmpSession := key.(getty.Session)
+				tmpSession := key.(connection.Connection)
 				if tmpSession.IsClosed() {
 					sessions.Delete(tmpSession)
 					return true

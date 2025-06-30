@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package tm
+package getty_test
 
 import (
 	"context"
 	"reflect"
+	"seata.apache.org/seata-go/pkg/tm"
 	"testing"
 	"time"
 
@@ -32,11 +33,13 @@ import (
 
 	"seata.apache.org/seata-go/pkg/protocol/message"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
+	getty2 "seata.apache.org/seata-go/pkg/tm/transaction/getty"
 )
 
-func TestBegin(t *testing.T) {
+func TestGettyGlobalTransactionBegin(t *testing.T) {
 	log.Init()
-	InitTm(TmConfig{
+	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
+	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
@@ -46,7 +49,7 @@ func TestBegin(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		gtx                GlobalTransaction
+		gtx                tm.GlobalTransaction
 		wantHasError       bool
 		wantErrString      string
 		wantHasMock        bool
@@ -54,7 +57,7 @@ func TestBegin(t *testing.T) {
 		wantMockFunction   interface{}
 	}{
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
 			wantHasError:       true,
@@ -66,7 +69,7 @@ func TestBegin(t *testing.T) {
 			},
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
 			wantHasError:       true,
@@ -78,7 +81,7 @@ func TestBegin(t *testing.T) {
 			},
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
 			wantHasError:       true,
@@ -96,7 +99,7 @@ func TestBegin(t *testing.T) {
 			},
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
 			wantHasError:       false,
@@ -119,9 +122,9 @@ func TestBegin(t *testing.T) {
 		if v.wantHasMock {
 			stub = gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
 		}
-		ctx := InitSeataContext(context.Background())
-		SetTx(ctx, &v.gtx)
-		err := GetGlobalTransactionManager().Begin(ctx, time.Second*30)
+		ctx := tm.InitSeataContext(context.Background())
+		tm.SetTx(ctx, &v.gtx)
+		err := tm.GetGlobalTransactionManager().Begin(ctx, time.Second*30)
 		if v.wantHasError {
 			assert.NotNil(t, err)
 			assert.Regexp(t, v.wantErrString, err.Error())
@@ -136,8 +139,9 @@ func TestBegin(t *testing.T) {
 	}
 }
 
-func TestCommit(t *testing.T) {
-	InitTm(TmConfig{
+func TestGettyGlobalTransactionCommit(t *testing.T) {
+	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
+	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
@@ -147,7 +151,7 @@ func TestCommit(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		gtx                GlobalTransaction
+		gtx                tm.GlobalTransaction
 		wantHasError       bool
 		wantErrString      string
 		wantHasMock        bool
@@ -155,25 +159,25 @@ func TestCommit(t *testing.T) {
 		wantMockFunction   interface{}
 	}{
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Participant,
+				TxRole: tm.Participant,
 				Xid:    "123456",
 			},
 			wantHasError: false,
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 			},
 			wantHasError:  true,
 			wantErrString: "Commit xid should not be empty",
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
 			wantHasError:       true,
@@ -185,9 +189,9 @@ func TestCommit(t *testing.T) {
 			},
 		},
 		{
-			gtx: GlobalTransaction{
+			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
 			wantHasError:       false,
@@ -210,8 +214,8 @@ func TestCommit(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		SetTx(ctx, &v.gtx)
-		err := GetGlobalTransactionManager().Commit(ctx, &v.gtx)
+		tm.SetTx(ctx, &v.gtx)
+		err := tm.GetGlobalTransactionManager().Commit(ctx, &v.gtx)
 		if v.wantHasError {
 			assert.NotNil(t, err)
 			assert.Regexp(t, v.wantErrString, err.Error())
@@ -226,8 +230,9 @@ func TestCommit(t *testing.T) {
 	}
 }
 
-func TestRollback(t *testing.T) {
-	InitTm(TmConfig{
+func TestGettyGlobalTransactionRollback(t *testing.T) {
+	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
+	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
@@ -237,7 +242,7 @@ func TestRollback(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		globalTransaction  GlobalTransaction
+		globalTransaction  tm.GlobalTransaction
 		wantHasError       bool
 		wantErrString      string
 		wantHasMock        bool
@@ -245,25 +250,25 @@ func TestRollback(t *testing.T) {
 		wantMockFunction   interface{}
 	}{
 		{
-			globalTransaction: GlobalTransaction{
-				TxRole: Participant,
+			globalTransaction: tm.GlobalTransaction{
+				TxRole: tm.Participant,
 				TxName: "DefaultTx",
 				Xid:    "123456",
 			},
 			wantHasError: false,
 		},
 		{
-			globalTransaction: GlobalTransaction{
+			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 			},
 			wantHasError:  true,
 			wantErrString: "Rollback xid should not be empty",
 		},
 		{
-			globalTransaction: GlobalTransaction{
+			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
 			wantHasError:       true,
@@ -275,9 +280,9 @@ func TestRollback(t *testing.T) {
 			},
 		},
 		{
-			globalTransaction: GlobalTransaction{
+			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
-				TxRole: Launcher,
+				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
 			wantHasError:       false,
@@ -299,7 +304,7 @@ func TestRollback(t *testing.T) {
 			stub = gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
 		}
 
-		err := GetGlobalTransactionManager().Rollback(context.Background(), &v.globalTransaction)
+		err := tm.GetGlobalTransactionManager().Rollback(context.Background(), &v.globalTransaction)
 		if v.wantHasError {
 			assert.NotNil(t, err)
 			assert.Regexp(t, v.wantErrString, err.Error())

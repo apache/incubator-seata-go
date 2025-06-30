@@ -24,16 +24,16 @@ import (
 
 	"seata.apache.org/seata-go/pkg/remoting/rpc"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
-func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	var session getty.Session
+func LeastActiveLoadBalance(sessions *sync.Map, xid string) connection.Connection {
+	var session connection.Connection
 	var leastActive int32 = -1
 	leastCount := 0
-	var leastIndexes []getty.Session
+	var leastIndexes []connection.Connection
 	sessions.Range(func(key, value interface{}) bool {
-		session = key.(getty.Session)
+		session = key.(connection.Connection)
 		if session.IsClosed() {
 			sessions.Delete(session)
 		} else {

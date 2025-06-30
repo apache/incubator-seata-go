@@ -30,7 +30,7 @@ import (
 func TestRpcPackageHandler(t *testing.T) {
 	msg := message.RpcMessage{
 		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: byte(1),
 		HeadMap: map[string]string{

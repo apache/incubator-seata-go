@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package rm
+package loadbalance
 
-import (
-	"testing"
+import "flag"
 
-	"github.com/stretchr/testify/assert"
+var (
+	loadBalanceConfig Config
 )
 
-func TestGetRMRemotingInstance(t *testing.T) {
-	tests := struct {
-		name string
-		want *RMRemoting
-	}{"test1", &RMRemoting{}}
+func InitLoadBalanceConfig(cfg Config) {
+	loadBalanceConfig = cfg
+	virtualNodeNumber = cfg.VirtualNodes
+}
 
-	t.Run(tests.name, func(t *testing.T) {
-		assert.Equalf(t, tests.want, GetRMRemotingInstance(), "GetRMRemotingInstance()")
-	})
+type Config struct {
+	Type         string `yaml:"type" json:"type" koanf:"type"`
+	VirtualNodes int    `yaml:"virtual-nodes" json:"virtual-nodes" koanf:"virtual-nodes"`
+}
+
+func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Type, prefix+".type", "RandomLoadBalance", "The default load balance type")
+	f.IntVar(&cfg.VirtualNodes, prefix+".virtual-nodes", 10, "Used to Consistent Hashing load balance")
+}
+
+func GetLoadBalanceConfig() Config {
+	return loadBalanceConfig
 }

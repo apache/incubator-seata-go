@@ -23,24 +23,24 @@ import (
 	"sort"
 	"sync"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
 var (
-	once                     sync.Once
-	defaultVirtualNodeNumber = 10
-	consistentInstance       *Consistent
+	once               sync.Once
+	virtualNodeNumber  int
+	consistentInstance *Consistent
 )
 
 type Consistent struct {
 	sync.RWMutex
 	virtualNodeCount int
 	// consistent hashCircle
-	hashCircle      map[int64]getty.Session
+	hashCircle      map[int64]connection.Connection
 	sortedHashNodes []int64
 }
 
-func (c *Consistent) put(key int64, session getty.Session) {
+func (c *Consistent) put(key int64, session connection.Connection) {
 	c.Lock()
 	defer c.Unlock()
 	c.hashCircle[key] = session
@@ -58,7 +58,7 @@ func (c *Consistent) hash(key string) int64 {
 }
 
 // pick get a  node
-func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
+func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection {
 	hashKey := c.hash(key)
 	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
 		return c.sortedHashNodes[i] >= hashKey
@@ -87,11 +87,11 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 // refreshHashCircle refresh hashCircle
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	var sortedHashNodes []int64
-	hashCircle := make(map[int64]getty.Session)
-	var session getty.Session
+	hashCircle := make(map[int64]connection.Connection)
+	var session connection.Connection
 	sessions.Range(func(key, value interface{}) bool {
-		session = key.(getty.Session)
-		for i := 0; i < defaultVirtualNodeNumber; i++ {
+		session = key.(connection.Connection)
+		for i := 0; i < virtualNodeNumber; i++ {
 			if !session.IsClosed() {
 				position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
 				hashCircle[position] = session
@@ -112,7 +112,7 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	c.hashCircle = hashCircle
 }
 
-func (c *Consistent) firstKey() getty.Session {
+func (c *Consistent) firstKey() connection.Connection {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -126,12 +126,12 @@ func (c *Consistent) firstKey() getty.Session {
 func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	once.Do(func() {
 		consistentInstance = &Consistent{
-			hashCircle: make(map[int64]getty.Session),
+			hashCircle: make(map[int64]connection.Connection),
 		}
 		// construct hash circle
 		sessions.Range(func(key, value interface{}) bool {
-			session := key.(getty.Session)
-			for i := 0; i < defaultVirtualNodeNumber; i++ {
+			session := key.(connection.Connection)
+			for i := 0; i < virtualNodeNumber; i++ {
 				if !session.IsClosed() {
 					position := consistentInstance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
 					consistentInstance.put(position, session)
@@ -152,7 +152,7 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	return consistentInstance
 }
 
-func ConsistentHashLoadBalance(sessions *sync.Map, xid string) getty.Session {
+func ConsistentHashLoadBalance(sessions *sync.Map, xid string) connection.Connection {
 	if consistentInstance == nil {
 		newConsistenceInstance(sessions)
 	}
