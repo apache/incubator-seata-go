@@ -107,7 +107,7 @@ Seata-go 分布式事务的典型生命周期如下：
 ## 如何运行？
 ```go
 
-go get seata.apache.org/seata-go@2.0.0
+go get seata.apache.org/seata-go@2.0.0 
 
 ```
 如果你想了解如何使用和集成 seata-go，请参考 [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
