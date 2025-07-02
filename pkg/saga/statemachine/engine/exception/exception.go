@@ -73,7 +73,3 @@ func (e *EngineExecutionException) StateInstanceId() string {
 func (e *EngineExecutionException) SetStateInstanceId(stateInstanceId string) {
 	e.stateInstanceId = stateInstanceId
 }
-
-type ForwardInvalidException struct {
-	EngineExecutionException
-}

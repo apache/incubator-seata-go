@@ -1,0 +1,105 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package rm
+
+import (
+	"context"
+	"fmt"
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	seataErrors "github.com/seata/seata-go/pkg/util/errors"
+	"log"
+	"sync"
+)
+
+// SagaResourceManager 负责 Saga 资源的注册和分支事务管理
+// 仿照 Java org.apache.seata.saga.rm.SagaResourceManager
+
+type SagaResourceManager struct {
+	rmRemoting    *rm.RMRemoting
+	resourceCache sync.Map
+}
+
+func (s *SagaResourceManager) RegisterResource(resource rm.Resource) error {
+	if _, ok := resource.(*SagaResource); !ok {
+		panic(fmt.Sprintf("register saga resource error, SagaResource is needed, param %v", resource))
+	}
+	s.resourceCache.Store(resource.GetResourceId(), resource)
+	return s.rmRemoting.RegisterResource(resource)
+
+}
+
+func (s *SagaResourceManager) GetCachedResources() *sync.Map {
+	return &s.resourceCache
+}
+
+func (s *SagaResourceManager) GetBranchType() branch.BranchType {
+	return branch.BranchTypeSAGA
+}
+
+func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
+	engine := GetStateMachineEngine()
+	machineInstance, err := engine.Forward(ctx, resource.Xid, nil)
+	if err != nil {
+		if fie, ok := exception.IsForwardInvalidException(err); ok {
+			log.Printf("StateMachine forward failed, xid: %s, err: %v", resource.Xid, err)
+			if fie.ErrCode == fmt.Sprintf("%v", seataErrors.StateMachineInstanceNotExists) {
+				return branch.BranchStatusPhasetwoCommitted, nil
+			}
+		}
+		log.Printf("StateMachine forward failed, xid: %s, err: %v", resource.Xid, err)
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
+	}
+	if machineInstance.Status() == statelang.SU && machineInstance.CompensationStatus() == "" {
+		return branch.BranchStatusPhasetwoCommitted, nil
+	} else if machineInstance.CompensationStatus() == statelang.SU {
+		return branch.BranchStatusPhasetwoRollbacked, nil
+	} else if machineInstance.CompensationStatus() == statelang.FA || machineInstance.CompensationStatus() == statelang.UN {
+		return branch.BranchStatusPhasetwoRollbackFailedRetryable, nil
+	} else if machineInstance.Status() == statelang.FA && machineInstance.CompensationStatus() == "" {
+		return branch.BranchStatusPhaseoneFailed, nil
+	}
+	return branch.BranchStatusPhasetwoCommitFailedRetryable, nil
+}
+
+func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *SagaResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *SagaResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *SagaResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *SagaResourceManager) UnregisterResource(resource rm.Resource) error {
+	//TODO implement me
+	panic("implement me")
+}

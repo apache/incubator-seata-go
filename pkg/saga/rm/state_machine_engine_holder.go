@@ -18,13 +18,21 @@
 package rm
 
 import (
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"sync"
 )
 
-// SagaResourceManager 负责 Saga 资源的注册和分支事务管理
-// 仿照 Java org.apache.seata.saga.rm.SagaResourceManager
+var (
+	stateMachineEngine     engine.StateMachineEngine
+	stateMachineEngineOnce sync.Once
+)
 
-type SagaResourceManager struct {
-	sagaResourceCache map[string]*SagaResource
-	mu                sync.RWMutex
+func GetStateMachineEngine() engine.StateMachineEngine {
+	return stateMachineEngine
+}
+
+func SetStateMachineEngine(smEngine engine.StateMachineEngine) {
+	stateMachineEngineOnce.Do(func() {
+		stateMachineEngine = smEngine
+	})
 }
