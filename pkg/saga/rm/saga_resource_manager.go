@@ -18,9 +18,11 @@
 package rm
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -80,8 +82,31 @@ func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.Bran
 }
 
 func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
-	//TODO implement me
-	panic("implement me")
+	engine := GetStateMachineEngine()
+	stateMachineInstance, err := engine.ReloadStateMachineInstance(ctx, resource.Xid)
+	if err != nil || stateMachineInstance == nil {
+		return branch.BranchStatusPhasetwoRollbacked, nil
+	}
+
+	if stateMachineInstance.StateMachine().RecoverStrategy() == statelang.Forward &&
+		(bytes.Equal(resource.ApplicationData, []byte{byte(message.GlobalStatusTimeoutRollbacking)}) || bytes.Equal(resource.ApplicationData, []byte{byte(message.GlobalStatusTimeoutRollbackRetrying)})) {
+		log.Printf("Retry by custom recover strategy [Forward] on timeout, SAGA global[%s]", resource.Xid)
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, nil
+	}
+
+	stateMachineInstance, err = engine.Compensate(ctx, resource.Xid, nil)
+	if err == nil && stateMachineInstance.CompensationStatus() == statelang.SU {
+		return branch.BranchStatusPhasetwoRollbacked, nil
+	}
+
+	if fie, ok := exception.IsEngineExecutionException(err); ok {
+		log.Printf("StateMachine compensate failed, xid: %s, err: %v", resource.Xid, err)
+		if fie.ErrCode == fmt.Sprintf("%v", seataErrors.StateMachineInstanceNotExists) {
+			return branch.BranchStatusPhasetwoRollbacked, nil
+		}
+	}
+	log.Printf("StateMachine compensate failed, xid: %s, err: %v", resource.Xid, err)
+	return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 }
 
 func (s *SagaResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
