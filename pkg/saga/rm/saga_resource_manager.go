@@ -31,9 +31,6 @@ import (
 	"sync"
 )
 
-// SagaResourceManager 负责 Saga 资源的注册和分支事务管理
-// 仿照 Java org.apache.seata.saga.rm.SagaResourceManager
-
 type SagaResourceManager struct {
 	rmRemoting    *rm.RMRemoting
 	resourceCache sync.Map
