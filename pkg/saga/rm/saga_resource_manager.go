@@ -55,7 +55,7 @@ func (s *SagaResourceManager) GetBranchType() branch.BranchType {
 
 func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
 	engine := GetStateMachineEngine()
-	machineInstance, err := engine.Forward(ctx, resource.Xid, nil)
+	stMaInst, err := engine.Forward(ctx, resource.Xid, nil)
 	if err != nil {
 		if fie, ok := exception.IsForwardInvalidException(err); ok {
 			log.Printf("StateMachine forward failed, xid: %s, err: %v", resource.Xid, err)
@@ -66,33 +66,42 @@ func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.Bran
 		log.Printf("StateMachine forward failed, xid: %s, err: %v", resource.Xid, err)
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
-	if machineInstance.Status() == statelang.SU && machineInstance.CompensationStatus() == "" {
+
+	status := stMaInst.Status()
+	compStatus := stMaInst.CompensationStatus()
+
+	switch {
+	case status == statelang.SU && compStatus == "":
 		return branch.BranchStatusPhasetwoCommitted, nil
-	} else if machineInstance.CompensationStatus() == statelang.SU {
+	case compStatus == statelang.SU:
 		return branch.BranchStatusPhasetwoRollbacked, nil
-	} else if machineInstance.CompensationStatus() == statelang.FA || machineInstance.CompensationStatus() == statelang.UN {
+	case compStatus == statelang.FA || compStatus == statelang.UN:
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, nil
-	} else if machineInstance.Status() == statelang.FA && machineInstance.CompensationStatus() == "" {
+	case status == statelang.FA && compStatus == "":
 		return branch.BranchStatusPhaseoneFailed, nil
+	default:
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, nil
 	}
-	return branch.BranchStatusPhasetwoCommitFailedRetryable, nil
 }
 
 func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.BranchResource) (branch.BranchStatus, error) {
 	engine := GetStateMachineEngine()
-	stateMachineInstance, err := engine.ReloadStateMachineInstance(ctx, resource.Xid)
-	if err != nil || stateMachineInstance == nil {
+	stMaInst, err := engine.ReloadStateMachineInstance(ctx, resource.Xid)
+	if err != nil || stMaInst == nil {
 		return branch.BranchStatusPhasetwoRollbacked, nil
 	}
 
-	if stateMachineInstance.StateMachine().RecoverStrategy() == statelang.Forward &&
-		(bytes.Equal(resource.ApplicationData, []byte{byte(message.GlobalStatusTimeoutRollbacking)}) || bytes.Equal(resource.ApplicationData, []byte{byte(message.GlobalStatusTimeoutRollbackRetrying)})) {
+	strategy := stMaInst.StateMachine().RecoverStrategy()
+	appData := resource.ApplicationData
+	isTimeoutRollback := bytes.Equal(appData, []byte{byte(message.GlobalStatusTimeoutRollbacking)}) || bytes.Equal(appData, []byte{byte(message.GlobalStatusTimeoutRollbackRetrying)})
+
+	if strategy == statelang.Forward && isTimeoutRollback {
 		log.Printf("Retry by custom recover strategy [Forward] on timeout, SAGA global[%s]", resource.Xid)
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, nil
 	}
 
-	stateMachineInstance, err = engine.Compensate(ctx, resource.Xid, nil)
-	if err == nil && stateMachineInstance.CompensationStatus() == statelang.SU {
+	stMaInst, err = engine.Compensate(ctx, resource.Xid, nil)
+	if err == nil && stMaInst.CompensationStatus() == statelang.SU {
 		return branch.BranchStatusPhasetwoRollbacked, nil
 	}
 
