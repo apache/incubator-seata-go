@@ -106,7 +106,6 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 }
 
 func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) (*types.RecordImage, error) {
-	fmt.Printf("wwwwwwww\n\n\n\n")
 	if b.undoImage == nil {
 		return nil, fmt.Errorf("undo image is nil")
 	}

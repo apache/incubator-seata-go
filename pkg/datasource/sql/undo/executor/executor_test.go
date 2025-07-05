@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -40,7 +41,7 @@ func (t *testableBaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *
 		return false, nil
 	}
 
-	currentImage, err := t.queryCurrentRecords(ctx, conn) // 👈 会走子类方法
+	currentImage, err := t.queryCurrentRecords(ctx, conn)
 	if err != nil {
 		return false, err
 	}
@@ -214,7 +215,6 @@ func TestDataValidationAndGoOn(t *testing.T) {
 			executor := &testableBaseExecutor{
 				BaseExecutor: BaseExecutor{
 					sqlUndoLog: undo.SQLUndoLog{
-						SQLType:     types.SQLTypeUpdate, // 添加这行
 						BeforeImage: tt.beforeImage,
 						AfterImage:  tt.afterImage,
 					},
@@ -227,7 +227,12 @@ func TestDataValidationAndGoOn(t *testing.T) {
 
 			assert.Equal(t, tt.want, got)
 			if tt.wantErr {
-				assert.Error(t, err)
+				var be *serr.SeataError
+				if errors.As(err, &be) {
+					assert.Equal(t, serr.SQLUndoDirtyError, be.Code)
+				} else {
+					t.Errorf("expected BusinessError, got: %v", err)
+				}
 			} else {
 				assert.NoError(t, err)
 			}
