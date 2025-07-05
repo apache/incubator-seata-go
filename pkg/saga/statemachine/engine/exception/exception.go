@@ -18,6 +18,7 @@
 package exception
 
 import (
+	perror "errors"
 	"fmt"
 	"github.com/seata/seata-go/pkg/util/errors"
 )
@@ -40,6 +41,13 @@ func NewEngineExecutionException(code errors.TransactionErrorCode, msg string, p
 	return &EngineExecutionException{
 		SeataError: *seataError,
 	}
+}
+func IsEngineExecutionException(err error) (*EngineExecutionException, bool) {
+	var fie *EngineExecutionException
+	if perror.As(err, &fie) {
+		return fie, true
+	}
+	return nil, false
 }
 
 func (e *EngineExecutionException) StateName() string {
@@ -72,8 +80,4 @@ func (e *EngineExecutionException) StateInstanceId() string {
 
 func (e *EngineExecutionException) SetStateInstanceId(stateInstanceId string) {
 	e.stateInstanceId = stateInstanceId
-}
-
-type ForwardInvalidException struct {
-	EngineExecutionException
 }
