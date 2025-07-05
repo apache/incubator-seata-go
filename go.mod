@@ -1,8 +1,6 @@
 module seata.apache.org/seata-go
 
-go 1.23.0
-
-toolchain go1.24.3
+go 1.20
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
@@ -16,7 +14,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.10.2
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.6.0
+	github.com/google/uuid v1.3.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4/v4 v4.1.17
 	github.com/pkg/errors v0.9.1
@@ -102,12 +100,12 @@ require (
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
 	github.com/klauspost/compress v1.15.11
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pingcap/log v0.0.0-20210906054005-afc726e70354 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
