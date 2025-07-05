@@ -32,6 +32,13 @@ type BusinessProcessor interface {
 	Route(ctx context.Context, processContext ProcessContext) error
 }
 
+func NewBusinessProcessor() BusinessProcessor {
+	return &DefaultBusinessProcessor{
+		processHandlers: make(map[string]ProcessHandler),
+		routerHandlers:  make(map[string]RouterHandler),
+	}
+}
+
 type DefaultBusinessProcessor struct {
 	processHandlers map[string]ProcessHandler
 	routerHandlers  map[string]RouterHandler

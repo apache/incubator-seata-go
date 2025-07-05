@@ -20,6 +20,7 @@ package config
 import (
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -28,6 +29,8 @@ import (
 )
 
 func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	testFile := filepath.Join("testdata", "order_saga.json")
 
@@ -43,6 +46,8 @@ func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
 }
 
 func TestDefaultStateMachineConfig_LoadValidYAML(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	testFile := filepath.Join("testdata", "order_saga.yaml")
 
@@ -54,6 +59,8 @@ func TestDefaultStateMachineConfig_LoadValidYAML(t *testing.T) {
 }
 
 func TestLoadNonExistentFile(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	err := config.LoadConfig("non_existent.json")
 	assert.Error(t, err, "Loading a non-existent file should report an error")
@@ -61,6 +68,8 @@ func TestLoadNonExistentFile(t *testing.T) {
 }
 
 func TestGetStateMachineDefinition_Exists(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	_ = config.LoadConfig(filepath.Join("testdata", "order_saga.json"))
 
@@ -70,12 +79,16 @@ func TestGetStateMachineDefinition_Exists(t *testing.T) {
 }
 
 func TestGetNonExistentStateMachine(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	smo := config.GetStateMachineDefinition("NonExistent")
 	assert.Nil(t, smo, "An unloaded state machine should return nil")
 }
 
 func TestLoadDuplicateStateMachine(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	testFile := filepath.Join("testdata", "order_saga.json")
 
@@ -88,6 +101,8 @@ func TestLoadDuplicateStateMachine(t *testing.T) {
 }
 
 func TestRuntimeConfig_OverrideDefaults(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	assert.Equal(t, "UTF-8", config.charset, "The default character set should be UTF-8")
 
@@ -102,6 +117,8 @@ func TestRuntimeConfig_OverrideDefaults(t *testing.T) {
 }
 
 func TestGetDefaultExpressionFactory(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 
 	err := config.Init()
@@ -115,6 +132,8 @@ func TestGetDefaultExpressionFactory(t *testing.T) {
 }
 
 func TestGetServiceInvoker(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	if err := config.Init(); err != nil {
 		t.Fatalf("init config failed: %v", err)
@@ -127,6 +146,8 @@ func TestGetServiceInvoker(t *testing.T) {
 }
 
 func TestLoadConfig_InvalidJSON(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	testFile := filepath.Join("testdata", "invalid.json")
 
@@ -136,6 +157,8 @@ func TestLoadConfig_InvalidJSON(t *testing.T) {
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	testFile := filepath.Join("testdata", "invalid.yaml")
 
@@ -145,6 +168,8 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 }
 
 func TestRegisterStateMachineDef_Fail(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	invalidResource := []string{"invalid_path.json"}
 
@@ -154,6 +179,8 @@ func TestRegisterStateMachineDef_Fail(t *testing.T) {
 }
 
 func TestInit_ExpressionFactoryManagerNil(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	config.expressionFactoryManager = nil
 
@@ -162,6 +189,8 @@ func TestInit_ExpressionFactoryManagerNil(t *testing.T) {
 }
 
 func TestInit_ServiceInvokerManagerNil(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	config.serviceInvokerManager = nil
 
@@ -170,6 +199,8 @@ func TestInit_ServiceInvokerManagerNil(t *testing.T) {
 }
 
 func TestInit_StateMachineRepositoryNil(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	config.stateMachineRepository = nil
 
@@ -178,6 +209,8 @@ func TestInit_StateMachineRepositoryNil(t *testing.T) {
 }
 
 func TestApplyRuntimeConfig_BoundaryValues(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	customConfig := &ConfigFileParams{
 		TransOperationTimeout: 1,
@@ -220,6 +253,8 @@ func (m *TestStateMachineRepositoryMock) RegistryStateMachineByReader(reader io.
 }
 
 func TestRegisterStateMachineDef_RepositoryError(t *testing.T) {
+	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
+
 	config := NewDefaultStateMachineConfig()
 	config.stateMachineRepository = &TestStateMachineRepositoryMock{}
 	resource := []string{filepath.Join("testdata", "order_saga.json")}
