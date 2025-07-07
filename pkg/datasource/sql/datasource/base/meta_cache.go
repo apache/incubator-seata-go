@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -51,7 +50,6 @@ type BaseTableMetaCache struct {
 	capity         int32
 	size           int32
 	cache          map[string]*entry
-	upperTableName string
 	cancel         context.CancelFunc
 	trigger        trigger
 	db             *sql.DB
@@ -68,7 +66,6 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
-		upperTableName: "",
 		cancel:         cancel,
 		trigger:        trigger,
 		cfg:            cfg,
@@ -113,7 +110,6 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		for i := range v {
 			tm := v[i]
-			c.upperTableName = strings.ToUpper(tm.TableName)
 			if _, ok := c.cache[tm.TableName]; ok {
 				c.cache[tm.TableName] = &entry{
 					value: tm,
@@ -161,7 +157,6 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 	defer c.lock.Unlock()
 
 	defer conn.Close()
-	c.upperTableName = strings.ToUpper(tableName)
 	v, ok := c.cache[tableName]
 	if !ok {
 		meta, err := c.trigger.LoadOne(ctx, dbName, tableName, conn)

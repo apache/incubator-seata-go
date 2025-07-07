@@ -39,9 +39,10 @@ func NewMysqlTrigger() *mysqlTrigger {
 // LoadOne get table meta column and index
 func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
 	tableMeta := types.TableMeta{
-		TableName: tableName,
-		Columns:   make(map[string]types.ColumnMeta),
-		Indexs:    make(map[string]types.IndexMeta),
+		TableName:      tableName,
+		UpperTableName: strings.ToUpper(tableName),
+		Columns:        make(map[string]types.ColumnMeta),
+		Indexs:         make(map[string]types.IndexMeta),
 	}
 
 	columnMetas, err := m.getColumnMetas(ctx, dbName, tableName, conn)

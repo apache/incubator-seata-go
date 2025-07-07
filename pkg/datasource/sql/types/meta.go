@@ -88,6 +88,8 @@ type IndexMeta struct {
 type TableMeta struct {
 	// TableName
 	TableName string
+	// UpperTableName
+	UpperTableName string
 	// Columns
 	Columns map[string]ColumnMeta
 	// Indexs
