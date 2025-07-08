@@ -20,6 +20,7 @@ package base
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -45,7 +46,8 @@ type mockTrigger struct {
 func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error) {
 
 	return &types.TableMeta{
-		TableName: table,
+		TableName:      table,
+		UpperTableName: strings.ToUpper(table),
 		Columns: map[string]types.ColumnMeta{
 			"id":   {ColumnName: "id"},
 			"name": {ColumnName: "name"},
@@ -100,7 +102,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				size:           0,
 				expireDuration: EexpireTime,
 				cache: map[string]*entry{
-					"TEST": {
+					"test": {
 						value:      types.TableMeta{},
 						lastAccess: time.Now(),
 					},
@@ -144,7 +146,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			time.Sleep(time.Second * 3)
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			assert.Equal(t, c.cache["TEST"].value, tt.want)
+			assert.Equal(t, c.cache["test"].value, tt.want)
 		})
 	}
 }
@@ -190,10 +192,11 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName:   "T_USER1",
-		Columns:     columns,
-		Indexs:      index,
-		ColumnNames: ColumnNames,
+		TableName:      "t_user1",
+		UpperTableName: strings.ToUpper("t_user1"),
+		Columns:        columns,
+		Indexs:         index,
+		ColumnNames:    ColumnNames,
 	}
 
 	index2["id_name_age"] = types.IndexMeta{
@@ -203,10 +206,11 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName:   "T_USER2",
-		Columns:     columns,
-		Indexs:      index2,
-		ColumnNames: ColumnNames,
+		TableName:      "t_user2",
+		UpperTableName: strings.ToUpper("t_user2"),
+		Columns:        columns,
+		Indexs:         index2,
+		ColumnNames:    ColumnNames,
 	}
 	tests := []types.TableMeta{tableMeta1, tableMeta2}
 	// Use sqlmock to simulate a database connection
@@ -229,11 +233,11 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			cache := &BaseTableMetaCache{
 				trigger: mockTrigger,
 				cache: map[string]*entry{
-					"T_USER": {
+					"t_user2": {
 						value:      tableMeta2,
 						lastAccess: time.Now(),
 					},
-					"T_USER1": {
+					"t_user1": {
 						value:      tableMeta1,
 						lastAccess: time.Now(),
 					},
