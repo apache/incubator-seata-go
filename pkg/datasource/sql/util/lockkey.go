@@ -34,7 +34,7 @@ func BuildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 		colIndex int
 	}
 
-	lockKeys.WriteString(meta.TableName)
+	lockKeys.WriteString(meta.UpperTableName)
 	lockKeys.WriteString(":")
 
 	keys := meta.GetPrimaryKeyOnlyName()

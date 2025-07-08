@@ -17,11 +17,15 @@
 
 package testdata
 
-import "seata.apache.org/seata-go/pkg/datasource/sql/types"
+import (
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"strings"
+)
 
 func MockWantTypesMeta(tableName string) types.TableMeta {
 	return types.TableMeta{
-		TableName: tableName,
+		TableName:      tableName,
+		UpperTableName: strings.ToUpper(tableName),
 		Columns: map[string]types.ColumnMeta{
 			"id": {
 				ColumnName: "id",
