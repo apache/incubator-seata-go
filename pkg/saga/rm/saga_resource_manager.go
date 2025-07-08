@@ -31,9 +31,24 @@ import (
 	"sync"
 )
 
+var (
+	sagaResourceManagerInstance *SagaResourceManager
+	once                        sync.Once
+)
+
 type SagaResourceManager struct {
 	rmRemoting    *rm.RMRemoting
 	resourceCache sync.Map
+}
+
+func GetSagaResourceManager() *SagaResourceManager {
+	once.Do(func() {
+		sagaResourceManagerInstance = &SagaResourceManager{
+			rmRemoting:    rm.GetRMRemotingInstance(),
+			resourceCache: sync.Map{},
+		}
+	})
+	return sagaResourceManagerInstance
 }
 
 func (s *SagaResourceManager) RegisterResource(resource rm.Resource) error {
@@ -116,13 +131,11 @@ func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.Br
 }
 
 func (s *SagaResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return s.rmRemoting.BranchRegister(param)
 }
 
 func (s *SagaResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
-	//TODO implement me
-	panic("implement me")
+	return s.rmRemoting.BranchReport(param)
 }
 
 func (s *SagaResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
