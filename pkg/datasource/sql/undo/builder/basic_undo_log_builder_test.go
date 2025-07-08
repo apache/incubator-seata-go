@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -85,7 +86,8 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			"Two Primary Keys",
 			types.TableMeta{
-				TableName: "test_name",
+				TableName:      "test_name",
+				UpperTableName: strings.ToUpper("test_name"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsTwoPk},
 				},
@@ -97,12 +99,13 @@ func TestBuildLockKey(t *testing.T) {
 					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two")}},
 				},
 			},
-			"test_name:1_one,2_two",
+			"TEST_NAME:1_one,2_two",
 		},
 		{
 			"Three Primary Keys",
 			types.TableMeta{
-				TableName: "test2_name",
+				TableName:      "test2_name",
+				UpperTableName: strings.ToUpper("test2_name"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsThreePk},
 				},
@@ -115,12 +118,13 @@ func TestBuildLockKey(t *testing.T) {
 					{[]types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
 				},
 			},
-			"test2_name:1_one_11,2_two_22,3_three_33",
+			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
 		},
 		{
 			name: "Single Primary Key",
 			metaData: types.TableMeta{
-				TableName: "single_key",
+				TableName:      "single_key",
+				UpperTableName: strings.ToUpper("single_key"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -131,12 +135,13 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", 100)}},
 				},
 			},
-			expected: "single_key:100",
+			expected: "SINGLE_KEY:100",
 		},
 		{
 			name: "Mixed Type Keys",
 			metaData: types.TableMeta{
-				TableName: "mixed_key",
+				TableName:      "mixed_key",
+				UpperTableName: strings.ToUpper("mixed_key"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsMixPk},
 				},
@@ -147,23 +152,25 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("name", "Alice"), getColumnImage("age", 25)}},
 				},
 			},
-			expected: "mixed_key:Alice_25",
+			expected: "MIXED_KEY:Alice_25",
 		},
 		{
 			name: "Empty Records",
 			metaData: types.TableMeta{
-				TableName: "empty",
+				TableName:      "empty",
+				UpperTableName: strings.ToUpper("empty"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
 			},
 			records:  types.RecordImage{TableName: "empty"},
-			expected: "empty:",
+			expected: "EMPTY:",
 		},
 		{
 			name: "Special Characters",
 			metaData: types.TableMeta{
-				TableName: "special",
+				TableName:      "special",
+				UpperTableName: strings.ToUpper("special"),
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -174,12 +181,13 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", "a,b_c")}},
 				},
 			},
-			expected: "special:a,b_c",
+			expected: "SPECIAL:a,b_c",
 		},
 		{
 			name: "Non-existent Key Name",
 			metaData: types.TableMeta{
-				TableName: "error_key",
+				TableName:      "error_key",
+				UpperTableName: strings.ToUpper("error_key"), // 新增UpperTableName
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnNonExistent}},
 				},
@@ -190,7 +198,7 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", 1)}},
 				},
 			},
-			expected: "error_key:",
+			expected: "ERROR_KEY:",
 		},
 	}
 
