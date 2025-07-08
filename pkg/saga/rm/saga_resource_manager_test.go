@@ -8,8 +8,6 @@ import (
 func TestGetSagaResourceManager_Singleton(t *testing.T) {
 	var wg sync.WaitGroup
 	instances := make([]*SagaResourceManager, 10)
-
-	// 并发获取实例，确保单例
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
