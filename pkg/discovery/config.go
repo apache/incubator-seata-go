@@ -19,8 +19,8 @@ package discovery
 
 import (
 	"flag"
-
 	"seata.apache.org/seata-go/pkg/util/flagext"
+	"time"
 )
 
 type ServiceConfig struct {
@@ -38,10 +38,11 @@ func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 }
 
 type RegistryConfig struct {
-	Type  string      `yaml:"type" json:"type" koanf:"type"`
-	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Type      string          `yaml:"type" json:"type" koanf:"type"`
+	File      FileConfig      `yaml:"file" json:"file" koanf:"file"`
+	Nacos     NacosConfig     `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3     Etcd3Config     `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Zookeeper ZookeeperConfig `yaml:"zk" json:"zk" koanf:"zk"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -49,6 +50,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.Zookeeper.RegisterFlagsWithPrefix(prefix+".zk", f)
 }
 
 type FileConfig struct {
@@ -89,4 +91,22 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type ZookeeperConfig struct {
+	ServerAddr        string        `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	SessionTimeout    time.Duration `yaml:"session-timeout" json:"session-timeout" koanf:"session-timeout"`
+	ConnectionTimeout time.Duration `yaml:"connection-timeout" json:"connection-timeout" koanf:"connection-timeout"`
+	NodePath          string        `yaml:"node-path" json:"node-path" koanf:"node-path"`
+	Username          string        `yaml:"username" json:"username" koanf:"username"`
+	Password          string        `yaml:"password" json:"password" koanf:"password"`
+}
+
+func (cfg *ZookeeperConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "localhost:2181", "The server address of the Zookeeper registry.")
+	f.DurationVar(&cfg.SessionTimeout, prefix+".session-timeout", 10*time.Second, "The session timeout for the Zookeeper connection.")
+	f.DurationVar(&cfg.ConnectionTimeout, prefix+".connection-timeout", 10*time.Second, "The session timeout for the Zookeeper connection.")
+	f.StringVar(&cfg.NodePath, prefix+".node-path", "default", "The cluster name of the Zookeeper registry.")
+	f.StringVar(&cfg.Username, prefix+".username", "", "The username of registry.")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password of registry.")
 }
