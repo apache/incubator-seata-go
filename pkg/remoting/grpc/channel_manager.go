@@ -30,8 +30,8 @@ import (
 	"seata.apache.org/seata-go/pkg/constant"
 	"seata.apache.org/seata-go/pkg/discovery"
 	grpc2 "seata.apache.org/seata-go/pkg/integration/grpc"
-	pb "seata.apache.org/seata-go/pkg/protocol/grpc/github.com/seata/seata-go/pkg/protocol/grpc/transaction"
 	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/remoting/loadbalance"
 	"seata.apache.org/seata-go/pkg/util/log"
 

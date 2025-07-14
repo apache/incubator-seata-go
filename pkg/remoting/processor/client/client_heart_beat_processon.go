@@ -24,11 +24,11 @@ import (
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 
 	"seata.apache.org/seata-go/pkg/protocol"
-	pb "seata.apache.org/seata-go/pkg/protocol/grpc/github.com/seata/seata-go/pkg/protocol/grpc/transaction"
 	"seata.apache.org/seata-go/pkg/protocol/message"
 	"seata.apache.org/seata-go/pkg/remoting/config"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
 	"seata.apache.org/seata-go/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 )
 
 func initHeartBeat() {

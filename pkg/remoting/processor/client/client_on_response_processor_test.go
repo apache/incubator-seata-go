@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"seata.apache.org/seata-go/pkg/protocol/codec"
-	pb "seata.apache.org/seata-go/pkg/protocol/grpc/github.com/seata/seata-go/pkg/protocol/grpc/transaction"
 	"seata.apache.org/seata-go/pkg/protocol/message"
 	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 
 	"google.golang.org/protobuf/types/known/anypb"
 )

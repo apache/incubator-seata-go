@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	pb "seata.apache.org/seata-go/pkg/protocol/grpc/github.com/seata/seata-go/pkg/protocol/grpc/transaction"
 	"seata.apache.org/seata-go/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/tm"
 	grpc2 "seata.apache.org/seata-go/pkg/tm/transaction/grpc"
 	"seata.apache.org/seata-go/pkg/util/log"

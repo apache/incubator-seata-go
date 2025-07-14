@@ -20,7 +20,7 @@ package reflectx_test
 import (
 	"testing"
 
-	pb "seata.apache.org/seata-go/pkg/protocol/grpc/github.com/seata/seata-go/pkg/protocol/grpc/transaction"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 
 	"github.com/stretchr/testify/assert"
