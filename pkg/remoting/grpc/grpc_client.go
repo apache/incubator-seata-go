@@ -93,15 +93,15 @@ func (client *GrpcRemotingClient) SendSyncRequest(msg interface{}) (interface{},
 	return client.grpcRemoting.SendSync(rpcMessage, nil, client.syncCallback)
 }
 
-func (g *GrpcRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
-	go g.syncCallback(reqMsg, respMsg)
+func (client *GrpcRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
+	go client.syncCallback(reqMsg, respMsg)
 	return nil, nil
 }
 
-func (g *GrpcRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
+func (client GrpcRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
 	select {
 	case <-gxtime.GetDefaultTimerWheel().After(RpcRequestTimeout):
-		g.grpcRemoting.RemoveMergedMessageFuture(reqMsg.ID)
+		client.grpcRemoting.RemoveMergedMessageFuture(reqMsg.ID)
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:
