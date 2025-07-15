@@ -82,8 +82,8 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 			}
 			re = deferErr.(error)
 		}
-		if re != nil || err != nil {
-			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+		if re == nil && err != nil {
+			re = err
 		}
 	}()
 
