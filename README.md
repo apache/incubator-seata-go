@@ -20,8 +20,10 @@
 
 # Seata-go: Simple Extensible Autonomous Transaction Architecture(Go version)
 
-[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml)  
+[![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml)  
+
 [![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+
 [简体中文 ZH](./README_ZH.md)
 ## What is Seata-go?
 
