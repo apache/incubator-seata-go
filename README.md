@@ -5,7 +5,7 @@
     The ASF licenses this file to You under the Apache License, Version 2.0  
     (the "License"); you may not use this file except in compliance with  
     the License.  You may obtain a copy of the License at  
-  
+
     http://www.apache.org/licenses/LICENSE-2.0  
       
     Unless required by applicable law or agreed to in writing, software  
@@ -20,9 +20,8 @@
 
 # Seata-go: Simple Extensible Autonomous Transaction Architecture(Go version)
 
-[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml)  
-[![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[简体中文 ZH](./README_ZH.md)
+[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/build.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/build.yml)  [![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)[![codecov](https://codecov.io/gh/apache/incubator-seata-go/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/incubator-seata-go)[简体中文 ZH](./README_ZH.md)
+
 ## What is Seata-go?
 
 Apache Seata(incubating) is a very mature distributed transaction framework, and is the de facto standard platform for distributed transaction technology in the Java field. Seata-go is the implementation version of go language in Seata multilingual ecosystem, which realizes the interoperability between Java and Go, so that Go developers can also use seata-go to realize distributed transactions. Please visit the [official website of Seata](https://seata.apache.org/) to view the quick start and documentation.
