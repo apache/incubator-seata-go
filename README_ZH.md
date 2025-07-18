@@ -6,7 +6,7 @@
     The ASF licenses this file to You under the Apache License, Version 2.0  
     (the "License"); you may not use this file except in compliance with  
     the License.  You may obtain a copy of the License at  
-  
+
     http://www.apache.org/licenses/LICENSE-2.0  
       
     Unless required by applicable law or agreed to in writing, software  
@@ -22,14 +22,10 @@
 </div>
 # Seata-go：简单可扩展的自主事务架构（Go 语言版本）
 
-[![![CI](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/license.yml) 
+[![CI](https://github.com/apache/incubator-seata-go/actions/workflows/build.yml/badge.svg)](https://github.com/apache/incubator-seata-go/actions/workflows/build.yml)  [![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html) [![codecov](https://codecov.io/gh/apache/incubator-seata-go/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/incubator-seata-go) [English](./README.md)
 
-[![license](https://img.shields.io/github/license/apache/incubator-seata-go.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-
-[简体中文 ZH](./README_ZH.md)
 
 ## 什么是 Seata-go？
-
 
 
 Apache Seata（incubating）是一个非常成熟的分布式事务框架，是 Java 领域事实上的标准分布式事务平台。Seata-go 是其在多语言生态中 Go 语言的实现版本，实现了 Java 与 Go 之间的互操作，使得 Go 开发者也可以使用 seata-go 实现分布式事务。请访问 [Seata 官网](https://seata.apache.org/) 获取快速入门和文档。
