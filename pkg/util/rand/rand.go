@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package discovery
+package rand
 
-const (
-	FILE         string = "file"
-	NACOS        string = "nacos"
-	ETCD         string = "etcd"
-	EUREKA       string = "eureka"
-	REDIS        string = "redis"
-	ZK           string = "zk"
-	CONSUL       string = "consul"
-	SOFA         string = "sofa"
-	NAMINGSERVER string = "namingserver"
+import (
+	"math/rand"
+	"sync"
+	"time"
 )
 
-type ServiceInstance struct {
-	Addr string
-	Port int
-}
+var (
+	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu      sync.Mutex
+)
 
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
+func RandIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	return randGen.Intn(n)
 }

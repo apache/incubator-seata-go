@@ -136,6 +136,15 @@ seata:
     etcd3:
       cluster: "default"
       server-addr: "http://localhost:2379"
+    naming-server:
+      cluster: "default"
+      server-addr: "127.0.0.1:8081"
+      namespace: "public"
+      heartbeat-period: 5000
+      metadata-max-age-ms: 30000
+      username: ""
+      password: ""
+      token-validity-in-milliseconds: 1740000  
   log:
     exception-rate: 100
   tcc:

@@ -47,6 +47,8 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 		//TODO: init consul registry
 	case SOFA:
 		//TODO: init sofa registry
+	case NAMINGSERVER:
+		registryService = newNamingServerRegistryService(serviceConfig, &registryConfig.NamingServer)
 	default:
 		err = fmt.Errorf("service registry not support registry type:%s", registryConfig.Type)
 	}
