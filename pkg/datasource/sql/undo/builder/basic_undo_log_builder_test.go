@@ -18,7 +18,6 @@
 package builder
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,8 +85,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			"Two Primary Keys",
 			types.TableMeta{
-				TableName:      "test_name",
-				UpperTableName: strings.ToUpper("test_name"),
+				TableName: "test_name",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsTwoPk},
 				},
@@ -104,8 +102,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			"Three Primary Keys",
 			types.TableMeta{
-				TableName:      "test2_name",
-				UpperTableName: strings.ToUpper("test2_name"),
+				TableName: "test2_name",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsThreePk},
 				},
@@ -123,8 +120,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			name: "Single Primary Key",
 			metaData: types.TableMeta{
-				TableName:      "single_key",
-				UpperTableName: strings.ToUpper("single_key"),
+				TableName: "single_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -140,8 +136,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			name: "Mixed Type Keys",
 			metaData: types.TableMeta{
-				TableName:      "mixed_key",
-				UpperTableName: strings.ToUpper("mixed_key"),
+				TableName: "mixed_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsMixPk},
 				},
@@ -157,8 +152,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			name: "Empty Records",
 			metaData: types.TableMeta{
-				TableName:      "empty",
-				UpperTableName: strings.ToUpper("empty"),
+				TableName: "empty",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -169,8 +163,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			name: "Special Characters",
 			metaData: types.TableMeta{
-				TableName:      "special",
-				UpperTableName: strings.ToUpper("special"),
+				TableName: "special",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -186,8 +179,7 @@ func TestBuildLockKey(t *testing.T) {
 		{
 			name: "Non-existent Key Name",
 			metaData: types.TableMeta{
-				TableName:      "error_key",
-				UpperTableName: strings.ToUpper("error_key"), // 新增UpperTableName
+				TableName: "error_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnNonExistent}},
 				},
