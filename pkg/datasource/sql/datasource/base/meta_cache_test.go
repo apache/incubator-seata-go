@@ -93,7 +93,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		args   args
 		want   types.TableMeta
 	}{
-		{name: "test-1",
+		{
+			name: "test1",
 			fields: fields{
 				lock:           sync.RWMutex{},
 				capity:         capacity,
@@ -109,8 +110,31 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				trigger: &mockTrigger{},
 				cfg:     &mysql.Config{},
 				db:      &sql.DB{},
-			}, args: args{ctx: ctx},
-			want: testdata.MockWantTypesMeta("test")},
+			},
+			args: args{ctx: ctx},
+			want: testdata.MockWantTypesMeta("test"),
+		},
+		{
+			name: "test2",
+			fields: fields{
+				lock:           sync.RWMutex{},
+				capity:         capacity,
+				size:           0,
+				expireDuration: EexpireTime,
+				cache: map[string]*entry{
+					"TEST": {
+						value:      types.TableMeta{},
+						lastAccess: time.Now(),
+					},
+				},
+				cancel:  cancel,
+				trigger: &mockTrigger{},
+				cfg:     &mysql.Config{},
+				db:      &sql.DB{},
+			},
+			args: args{ctx: ctx},
+			want: testdata.MockWantTypesMeta("TEST"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,7 +168,12 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			time.Sleep(time.Second * 3)
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			assert.Equal(t, c.cache["test"].value, tt.want)
+			assert.Equal(t, c.cache[func() string {
+				if tt.name == "test2" {
+					return "TEST"
+				}
+				return "test"
+			}()].value, tt.want)
 		})
 	}
 }
@@ -203,7 +232,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName:   "t_user2",
+		TableName:   "T_USER2",
 		Columns:     columns,
 		Indexs:      index2,
 		ColumnNames: ColumnNames,
@@ -229,12 +258,12 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			cache := &BaseTableMetaCache{
 				trigger: mockTrigger,
 				cache: map[string]*entry{
-					"t_user2": {
-						value:      tableMeta2,
-						lastAccess: time.Now(),
-					},
 					"t_user1": {
 						value:      tableMeta1,
+						lastAccess: time.Now(),
+					},
+					"T_USER2": {
+						value:      tableMeta2,
 						lastAccess: time.Now(),
 					},
 				},
