@@ -100,7 +100,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				size:           0,
 				expireDuration: EexpireTime,
 				cache: map[string]*entry{
-					"TEST": {
+					"test": {
 						value:      types.TableMeta{},
 						lastAccess: time.Now(),
 					},
@@ -144,7 +144,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			time.Sleep(time.Second * 3)
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			assert.Equal(t, c.cache["TEST"].value, tt.want)
+			assert.Equal(t, c.cache["test"].value, tt.want)
 		})
 	}
 }
@@ -190,7 +190,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName:   "T_USER1",
+		TableName:   "t_user1",
 		Columns:     columns,
 		Indexs:      index,
 		ColumnNames: ColumnNames,
@@ -203,7 +203,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName:   "T_USER2",
+		TableName:   "t_user2",
 		Columns:     columns,
 		Indexs:      index2,
 		ColumnNames: ColumnNames,
@@ -229,11 +229,11 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			cache := &BaseTableMetaCache{
 				trigger: mockTrigger,
 				cache: map[string]*entry{
-					"T_USER": {
+					"t_user2": {
 						value:      tableMeta2,
 						lastAccess: time.Now(),
 					},
-					"T_USER1": {
+					"t_user1": {
 						value:      tableMeta1,
 						lastAccess: time.Now(),
 					},

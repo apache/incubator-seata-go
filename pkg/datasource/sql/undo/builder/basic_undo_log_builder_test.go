@@ -97,7 +97,7 @@ func TestBuildLockKey(t *testing.T) {
 					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two")}},
 				},
 			},
-			"test_name:1_one,2_two",
+			"TEST_NAME:1_one,2_two",
 		},
 		{
 			"Three Primary Keys",
@@ -115,7 +115,7 @@ func TestBuildLockKey(t *testing.T) {
 					{[]types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
 				},
 			},
-			"test2_name:1_one_11,2_two_22,3_three_33",
+			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
 		},
 		{
 			name: "Single Primary Key",
@@ -131,7 +131,7 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", 100)}},
 				},
 			},
-			expected: "single_key:100",
+			expected: "SINGLE_KEY:100",
 		},
 		{
 			name: "Mixed Type Keys",
@@ -147,7 +147,7 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("name", "Alice"), getColumnImage("age", 25)}},
 				},
 			},
-			expected: "mixed_key:Alice_25",
+			expected: "MIXED_KEY:Alice_25",
 		},
 		{
 			name: "Empty Records",
@@ -158,7 +158,7 @@ func TestBuildLockKey(t *testing.T) {
 				},
 			},
 			records:  types.RecordImage{TableName: "empty"},
-			expected: "empty:",
+			expected: "EMPTY:",
 		},
 		{
 			name: "Special Characters",
@@ -174,7 +174,7 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", "a,b_c")}},
 				},
 			},
-			expected: "special:a,b_c",
+			expected: "SPECIAL:a,b_c",
 		},
 		{
 			name: "Non-existent Key Name",
@@ -190,7 +190,7 @@ func TestBuildLockKey(t *testing.T) {
 					{Columns: []types.ColumnImage{getColumnImage("id", 1)}},
 				},
 			},
-			expected: "error_key:",
+			expected: "ERROR_KEY:",
 		},
 	}
 
