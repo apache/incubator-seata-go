@@ -247,7 +247,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 		lockKeys      bytes.Buffer
 		filedSequence int
 	)
-	lockKeys.WriteString(meta.UpperTableName)
+	lockKeys.WriteString(strings.ToUpper(meta.TableName))
 	lockKeys.WriteString(":")
 
 	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)

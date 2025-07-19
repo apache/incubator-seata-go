@@ -20,7 +20,6 @@ package at
 import (
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"strings"
 	"testing"
 )
 
@@ -60,8 +59,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			"Two Primary Keys",
 			types.TableMeta{
-				TableName:      "test_name",
-				UpperTableName: strings.ToUpper("test_name"),
+				TableName: "test_name",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsTwoPk},
 				},
@@ -78,8 +76,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			"Three Primary Keys",
 			types.TableMeta{
-				TableName:      "test2_name",
-				UpperTableName: strings.ToUpper("test2_name"),
+				TableName: "test2_name",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsThreePk},
 				},
@@ -97,8 +94,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Single Primary Key",
 			metaData: types.TableMeta{
-				TableName:      "single_key",
-				UpperTableName: strings.ToUpper("single_key"),
+				TableName: "single_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -114,8 +110,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Mixed Type Keys",
 			metaData: types.TableMeta{
-				TableName:      "mixed_key",
-				UpperTableName: strings.ToUpper("mixed_key"),
+				TableName: "mixed_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsMixPk},
 				},
@@ -131,8 +126,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Empty Records",
 			metaData: types.TableMeta{
-				TableName:      "empty",
-				UpperTableName: strings.ToUpper("empty"),
+				TableName: "empty",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -143,8 +137,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Special Characters",
 			metaData: types.TableMeta{
-				TableName:      "special",
-				UpperTableName: strings.ToUpper("special"),
+				TableName: "special",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -160,8 +153,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Non-existent Key Name",
 			metaData: types.TableMeta{
-				TableName:      "error_key",
-				UpperTableName: strings.ToUpper("error_key"),
+				TableName: "error_key",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnNonExistent}},
 				},
@@ -177,8 +169,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "Multiple Rows With Nil PK Value",
 			metaData: types.TableMeta{
-				TableName:      "nil_pk",
-				UpperTableName: strings.ToUpper("nil_pk"),
+				TableName: "nil_pk",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnID}},
 				},
@@ -196,8 +187,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		{
 			name: "PK As Bool And Float",
 			metaData: types.TableMeta{
-				TableName:      "type_pk",
-				UpperTableName: strings.ToUpper("type_pk"),
+				TableName: "type_pk",
 				Indexs: map[string]types.IndexMeta{
 					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{columnName, columnAge}},
 				},

@@ -20,7 +20,6 @@ package base
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -46,8 +45,7 @@ type mockTrigger struct {
 func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error) {
 
 	return &types.TableMeta{
-		TableName:      table,
-		UpperTableName: strings.ToUpper(table),
+		TableName: table,
 		Columns: map[string]types.ColumnMeta{
 			"id":   {ColumnName: "id"},
 			"name": {ColumnName: "name"},
@@ -192,11 +190,10 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName:      "t_user1",
-		UpperTableName: strings.ToUpper("t_user1"),
-		Columns:        columns,
-		Indexs:         index,
-		ColumnNames:    ColumnNames,
+		TableName:   "t_user1",
+		Columns:     columns,
+		Indexs:      index,
+		ColumnNames: ColumnNames,
 	}
 
 	index2["id_name_age"] = types.IndexMeta{
@@ -206,11 +203,10 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	}
 
 	tableMeta2 = types.TableMeta{
-		TableName:      "t_user2",
-		UpperTableName: strings.ToUpper("t_user2"),
-		Columns:        columns,
-		Indexs:         index2,
-		ColumnNames:    ColumnNames,
+		TableName:   "t_user2",
+		Columns:     columns,
+		Indexs:      index2,
+		ColumnNames: ColumnNames,
 	}
 	tests := []types.TableMeta{tableMeta1, tableMeta2}
 	// Use sqlmock to simulate a database connection
