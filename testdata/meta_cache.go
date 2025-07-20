@@ -17,7 +17,9 @@
 
 package testdata
 
-import "seata.apache.org/seata-go/pkg/datasource/sql/types"
+import (
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+)
 
 func MockWantTypesMeta(tableName string) types.TableMeta {
 	return types.TableMeta{
