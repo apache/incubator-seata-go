@@ -223,8 +223,15 @@ func (c *NamingServerClient) Lookup(vGroup string) ([]*ServiceInstance, error) {
 
 	val, ok := c.vgroupAddressMap.Load(vGroup)
 	if !ok {
-		return nil, errors.New("no nodes found for vgroup")
+		if err := c.RefreshGroup(vGroup); err != nil {
+			return nil, fmt.Errorf("refresh group failed: %w", err)
+		}
+		val, ok = c.vgroupAddressMap.Load(vGroup)
+		if !ok {
+			return nil, errors.New("no nodes found for vgroup")
+		}
 	}
+
 	nodes := val.([]NamingServerNode)
 
 	var instances []*ServiceInstance
@@ -417,7 +424,11 @@ func (c *NamingServerClient) Subscribe(vGroup string, listener NamingListener) e
 
 func (c *NamingServerClient) watchLoop(vGroup string) {
 	defer c.wg.Done()
-	ticker := time.NewTicker(time.Duration(c.config.MetadataMaxAgeMs) * time.Millisecond)
+	interval := time.Duration(c.config.MetadataMaxAgeMs) * time.Millisecond
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
