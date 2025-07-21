@@ -2,9 +2,12 @@ package discovery
 
 import (
 	"encoding/json"
+	"flag"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -344,5 +347,189 @@ func TestWatch_ErrorResponse(t *testing.T) {
 	_, err := client.Watch("testGroup")
 	if err == nil {
 		t.Error("Expected error from Watch, got nil")
+	}
+}
+
+func TestNamingServerConfig_LoadFromYAML(t *testing.T) {
+	// Prepare test YAML content with custom configurations
+	yamlContent := `
+naming-server:
+  cluster: "test-cluster"
+  server-addr: "192.168.1.100:8888"
+  namespace: "test-ns"
+  heartbeat-period: 3000
+  metadata-max-age-ms: 60000
+  username: "test-user"
+  password: "test-pass"
+  token-validity-in-milliseconds: 3600000
+`
+
+	// Create temporary YAML file
+	tmpFile, err := os.CreateTemp("", "naming-server-test-*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString(yamlContent); err != nil {
+		t.Fatalf("Failed to write YAML: %v", err)
+	}
+	tmpFile.Close()
+
+	// Parse YAML into config structure
+	var registryConfig struct {
+		NamingServer NamingServerConfig `yaml:"naming-server"`
+	}
+	data, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read temp file: %v", err)
+	}
+	if err := yaml.Unmarshal(data, &registryConfig); err != nil {
+		t.Fatalf("Failed to unmarshal YAML: %v", err)
+	}
+
+	// Verify parsed values match YAML content
+	nsConfig := registryConfig.NamingServer
+	if nsConfig.Cluster != "test-cluster" {
+		t.Errorf("Cluster: expected 'test-cluster', got %s", nsConfig.Cluster)
+	}
+	if nsConfig.ServerAddr != "192.168.1.100:8888" {
+		t.Errorf("ServerAddr: expected '192.168.1.100:8888', got %s", nsConfig.ServerAddr)
+	}
+	if nsConfig.Namespace != "test-ns" {
+		t.Errorf("Namespace: expected 'test-ns', got %s", nsConfig.Namespace)
+	}
+	if nsConfig.HeartbeatPeriod != 3000 {
+		t.Errorf("HeartbeatPeriod: expected 3000, got %d", nsConfig.HeartbeatPeriod)
+	}
+	if nsConfig.Username != "test-user" {
+		t.Errorf("Username: expected 'test-user', got %s", nsConfig.Username)
+	}
+	if nsConfig.Password != "test-pass" {
+		t.Errorf("Password: expected 'test-pass', got %s", nsConfig.Password)
+	}
+	if nsConfig.TokenValidityInMilliseconds != 3600000 {
+		t.Errorf("TokenValidity: expected 3600000, got %d", nsConfig.TokenValidityInMilliseconds)
+	}
+}
+
+func TestNamingServerConfig_DefaultValues(t *testing.T) {
+	// Initialize default values using flag registration
+	var nsConfig NamingServerConfig
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	nsConfig.RegisterFlagsWithPrefix("naming-server", fs)
+	if err := fs.Parse([]string{}); err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	// Parse empty YAML configuration
+	yamlContent := `naming-server: {}`
+	tmpFile, err := os.CreateTemp("", "naming-server-default-*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err := tmpFile.WriteString(yamlContent); err != nil {
+		t.Fatalf("Failed to write YAML: %v", err)
+	}
+	tmpFile.Close()
+
+	// Load empty config from YAML
+	var tmpConfig struct {
+		NamingServer NamingServerConfig `yaml:"naming-server"`
+	}
+	data, _ := os.ReadFile(tmpFile.Name())
+	if err := yaml.Unmarshal(data, &tmpConfig); err != nil {
+		t.Fatalf("Failed to unmarshal YAML: %v", err)
+	}
+
+	// Merge YAML values with defaults (YAML takes precedence)
+	if tmpConfig.NamingServer.ServerAddr != "" {
+		nsConfig.ServerAddr = tmpConfig.NamingServer.ServerAddr
+	}
+	if tmpConfig.NamingServer.Namespace != "" {
+		nsConfig.Namespace = tmpConfig.NamingServer.Namespace
+	}
+	if tmpConfig.NamingServer.HeartbeatPeriod != 0 {
+		nsConfig.HeartbeatPeriod = tmpConfig.NamingServer.HeartbeatPeriod
+	}
+	if tmpConfig.NamingServer.MetadataMaxAgeMs != 0 {
+		nsConfig.MetadataMaxAgeMs = tmpConfig.NamingServer.MetadataMaxAgeMs
+	}
+	if tmpConfig.NamingServer.Username != "" {
+		nsConfig.Username = tmpConfig.NamingServer.Username
+	}
+	if tmpConfig.NamingServer.TokenValidityInMilliseconds != 0 {
+		nsConfig.TokenValidityInMilliseconds = tmpConfig.NamingServer.TokenValidityInMilliseconds
+	}
+
+	// Verify default values match expected
+	if nsConfig.ServerAddr != "127.0.0.1:8081" {
+		t.Errorf("ServerAddr default: expected '127.0.0.1:8081', got %s", nsConfig.ServerAddr)
+	}
+	if nsConfig.Namespace != "public" {
+		t.Errorf("Namespace default: expected 'public', got %s", nsConfig.Namespace)
+	}
+	if nsConfig.HeartbeatPeriod != 5000 {
+		t.Errorf("HeartbeatPeriod default: expected 5000, got %d", nsConfig.HeartbeatPeriod)
+	}
+	if nsConfig.MetadataMaxAgeMs != 30000 {
+		t.Errorf("MetadataMaxAgeMs default: expected 30000, got %d", nsConfig.MetadataMaxAgeMs)
+	}
+	if nsConfig.Username != "" {
+		t.Errorf("Username default: expected empty, got %s", nsConfig.Username)
+	}
+	if nsConfig.TokenValidityInMilliseconds != 29*60*1000 {
+		t.Errorf("TokenValidity default: expected 1740000, got %d", nsConfig.TokenValidityInMilliseconds)
+	}
+}
+
+func TestInitRegistry_WithNamingServerConfig(t *testing.T) {
+	// Reset global registry instance
+	registryServiceInstance = nil
+
+	// Create custom configuration
+	customConfig := &RegistryConfig{
+		Type: NAMINGSERVER,
+		NamingServer: NamingServerConfig{
+			ServerAddr:                  "custom-server:8080",
+			Username:                    "init-test-user",
+			Password:                    "init-test-pass",
+			HeartbeatPeriod:             2000,
+			TokenValidityInMilliseconds: 600000,
+		},
+	}
+
+	// Initialize registry with custom config
+	InitRegistry(nil, customConfig)
+
+	// Verify registry initialization
+	registry := GetRegistry()
+	if registry == nil {
+		t.Fatal("InitRegistry failed: registry is nil")
+	}
+
+	// Check registry type
+	namingRegistry, ok := registry.(*NamingServerRegistryService)
+	if !ok {
+		t.Fatalf("Expected NamingServerRegistryService, got %T", registry)
+	}
+
+	// Verify client uses custom config
+	client := namingRegistry.client
+	if client.config.ServerAddr != "custom-server:8080" {
+		t.Errorf("Client ServerAddr: expected 'custom-server:8080', got %s", client.config.ServerAddr)
+	}
+	if client.config.Username != "init-test-user" {
+		t.Errorf("Client Username: expected 'init-test-user', got %s", client.config.Username)
+	}
+	if client.config.Password != "init-test-pass" {
+		t.Errorf("Client Password: expected 'init-test-pass', got %s", client.config.Password)
+	}
+	if client.config.HeartbeatPeriod != 2000 {
+		t.Errorf("Client HeartbeatPeriod: expected 2000, got %d", client.config.HeartbeatPeriod)
+	}
+	if client.config.TokenValidityInMilliseconds != 600000 {
+		t.Errorf("Client TokenValidity: expected 600000, got %d", client.config.TokenValidityInMilliseconds)
 	}
 }
