@@ -23,18 +23,17 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	pq "github.com/lib/pq"
 	"io"
 	"reflect"
-	"strings"
-
-	"github.com/go-sql-driver/mysql"
-
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	mysql2 "seata.apache.org/seata-go/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/util/log"
+	"strings"
 )
 
 const (
@@ -42,6 +41,8 @@ const (
 	SeataATMySQLDriver = "seata-at-mysql"
 	// SeataXAMySQLDriver MySQL driver for XA mode
 	SeataXAMySQLDriver = "seata-xa-mysql"
+	// SeataXAPostgreSQLDriver PostgreSQL driver for XA mode
+	SeataXAPostgreSQLDriver = "seata-xa-postgres"
 )
 
 func initDriver() {
@@ -58,6 +59,14 @@ func initDriver() {
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
 			target:     mysql.MySQLDriver{},
+		},
+	})
+
+	sql.Register(SeataXAPostgreSQLDriver, &seataXADriver{
+		seataDriver: &seataDriver{
+			branchType: branch.BranchTypeXA,
+			transType:  types.XAMode,
+			target:     pq.Driver{},
 		},
 	})
 }
@@ -94,8 +103,24 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.XAMode
-	cfg, _ := mysql.ParseDSN(name)
-	_connector.cfg = cfg
+
+	var _ interface{}
+	dbType := types.ParseDBType(d.getTargetDriverName())
+	switch dbType {
+	case types.DBTypeMySQL:
+		mysqlCfg, err := mysql.ParseDSN(name)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn error: %w", err)
+		}
+		_connector.cfg = mysqlCfg
+	case types.DBTypePostgreSQL:
+		pqCfg, err := pq.ParseURL(name)
+		if err != nil {
+			return nil, fmt.Errorf("parse postgresql dsn error: %w", err)
+		}
+		_connector.cfg = pqCfg
+	}
+	_connector.dbType = dbType
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -141,13 +166,46 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType types.DBType,
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
-	cfg, _ := mysql.ParseDSN(dataSourceName)
+
+	var cfg interface{}
+	var dbName string
+
+	switch dbType {
+	case types.DBTypeMySQL:
+		mysqlCfg, err := mysql.ParseDSN(dataSourceName)
+		if err != nil {
+			log.Errorf("parse mysql dsn error: %w", err)
+			return nil, err
+		}
+		cfg = mysqlCfg
+		dbName = mysqlCfg.DBName
+	case types.DBTypePostgreSQL:
+		connParams, err := pq.ParseURL(dataSourceName)
+		if err != nil {
+			log.Errorf("parse postgresql dsn error: %w", err)
+			return nil, err
+		}
+
+		paramsMap := make(map[string]string)
+		for _, param := range strings.Split(connParams, " ") {
+			kv := strings.SplitN(param, "=", 2)
+			if len(kv) == 2 {
+				paramsMap[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+			}
+		}
+
+		dbName = paramsMap["dbname"]
+		cfg = paramsMap
+	default:
+		return nil, fmt.Errorf("unsupported database type: %s", dbType)
+	}
+
 	options := []dbOption{
-		withResourceID(parseResourceID(dataSourceName)),
+		withResourceID(parseResourceID(dataSourceName, dbType)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
-		withDBName(cfg.DBName),
+		withDBName(dbName),
 		withConnector(connector),
 	}
 	res, err := newResource(options...)
@@ -155,11 +213,12 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("create new resource: %w", err)
 		return nil, err
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
+
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("regisiter resource: %w", err)
 		return nil, err
 	}
+
 	return &seataConnector{
 		res:    res,
 		target: connector,
@@ -168,7 +227,14 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 }
 
 func (d *seataDriver) getTargetDriverName() string {
-	return "mysql"
+	switch d.target.(type) {
+	case mysql.MySQLDriver:
+		return "mysql"
+	case pq.Driver:
+		return "postgres"
+	default:
+		return ""
+	}
 }
 
 type dsnConnector struct {
@@ -184,12 +250,31 @@ func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-func parseResourceID(dsn string) string {
+func parseResourceID(dsn string, dbType types.DBType) string {
 	i := strings.Index(dsn, "?")
 	res := dsn
+
 	if i > 0 {
 		res = dsn[:i]
 	}
+
+	var schema string
+
+	if dbType == types.DBTypePostgreSQL && i > 0 {
+		queryParams := strings.Split(dsn[i+1:], "&")
+		for _, param := range queryParams {
+			kv := strings.SplitN(param, "=", 2)
+			if len(kv) == 2 && strings.TrimSpace(kv[0]) == "search_path" {
+				schema = kv[1]
+				break
+			}
+		}
+	}
+
+	if schema != "" {
+		res = res + "|schema=" + schema
+	}
+
 	return strings.ReplaceAll(res, ",", "|")
 }
 

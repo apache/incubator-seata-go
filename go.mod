@@ -37,7 +37,10 @@ require (
 	google.golang.org/protobuf v1.30.0
 )
 
-require github.com/knadh/koanf v1.5.0
+require (
+	github.com/knadh/koanf v1.5.0
+	github.com/lib/pq v1.10.2
+)
 
 require (
 	github.com/RoaringBitmap/roaring v1.2.0 // indirect

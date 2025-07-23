@@ -20,9 +20,8 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"sync"
-
 	"github.com/go-sql-driver/mysql"
+	"sync"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
@@ -93,7 +92,8 @@ type seataConnector struct {
 	once      sync.Once
 	driver    driver.Driver
 	target    driver.Connector
-	cfg       *mysql.Config
+	cfg       interface{}
+	dbType    types.DBType
 }
 
 // Connect returns a connection to the database.
@@ -114,14 +114,31 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	dbName := c.getDBName()
+
 	return &Conn{
 		targetConn: conn,
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
-		dbName:     c.cfg.DBName,
-		dbType:     types.DBTypeMySQL,
+		dbName:     dbName,
+		dbType:     c.dbType,
 	}, nil
+}
+
+func (c *seataConnector) getDBName() string {
+	switch c.dbType {
+	case types.DBTypeMySQL:
+		if mysqlCfg, ok := c.cfg.(*mysql.Config); ok {
+			return mysqlCfg.DBName
+		}
+	case types.DBTypePostgreSQL:
+		if pqCfg, ok := c.cfg.(map[string]string); ok {
+			return pqCfg["dbname"]
+		}
+	}
+	return ""
 }
 
 // Driver returns the underlying Driver of the Connector,
