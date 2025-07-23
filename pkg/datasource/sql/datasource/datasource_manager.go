@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
+	"reflect"
 	"sync"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -30,16 +32,19 @@ import (
 
 var (
 	atOnce            sync.Once
-	tableMetaCacheMap = map[types.DBType]TableMetaCache{}
+	tableMetaCacheMap = map[types.DBType]func(*sql.DB, interface{}) TableMetaCache{}
 )
 
 // RegisterTableCache register the table meta cache for at and xa
-func RegisterTableCache(dbType types.DBType, tableMetaCache TableMetaCache) {
-	tableMetaCacheMap[dbType] = tableMetaCache
+func RegisterTableCache(dbType types.DBType, factory func(*sql.DB, interface{}) TableMetaCache) {
+	tableMetaCacheMap[dbType] = factory
 }
 
 func GetTableCache(dbType types.DBType) TableMetaCache {
-	return tableMetaCacheMap[dbType]
+	if factory, ok := tableMetaCacheMap[dbType]; ok {
+		return factory(nil, nil)
+	}
+	return nil
 }
 
 func GetDataSourceManager(branchType branch.BranchType) DataSourceManager {
@@ -79,11 +84,7 @@ func NewBasicSourceManager() *BasicSourceManager {
 
 // RegisterResource register a model.Resource to be managed by model.Resource Manager
 func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
-	err := rm.GetRMRemotingInstance().RegisterResource(resource)
-	if err != nil {
-		return err
-	}
-	return nil
+	return rm.GetRMRemotingInstance().RegisterResource(resource)
 }
 
 func (dm *BasicSourceManager) UnregisterResource(resource rm.Resource) error {
@@ -95,13 +96,17 @@ func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID st
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 
+	if existing, ok := dm.tableMetaCache[resID]; ok {
+		return existing.metaCache, nil
+	}
+
 	res, err := buildResource(ctx, dbType, db)
 	if err != nil {
 		return nil, err
 	}
 
 	dm.tableMetaCache[resID] = res
-	return res.metaCache, err
+	return res.metaCache, nil
 }
 
 // TableMetaCache tables metadata cache, default is open
@@ -113,13 +118,87 @@ type TableMetaCache interface {
 
 // buildResource
 func buildResource(ctx context.Context, dbType types.DBType, db *sql.DB) (*entry, error) {
-	cache := tableMetaCacheMap[dbType]
+	factory, ok := tableMetaCacheMap[dbType]
+	if !ok {
+		return nil, fmt.Errorf("unsupported db type: %v", dbType)
+	}
+
+	cfg, err := parseDBConfig(dbType, db)
+	if err != nil {
+		return nil, fmt.Errorf("parse db config failed: %w", err)
+	}
+
+	cache := factory(db, cfg)
 	if err := cache.Init(ctx, db); err != nil {
+		return nil, fmt.Errorf("init cache failed: %w", err)
+	}
+
+	return &entry{db: db, metaCache: cache}, nil
+}
+
+func parseDBConfig(dbType types.DBType, db *sql.DB) (interface{}, error) {
+	dsn, err := extractDSN(db)
+	if err != nil {
 		return nil, err
 	}
 
-	return &entry{
-		db:        db,
-		metaCache: cache,
-	}, nil
+	switch dbType {
+	case types.DBTypeMySQL, types.DBTypePostgreSQL:
+		return dsn, nil
+	default:
+		return nil, fmt.Errorf("unsupported db type: %v", dbType)
+	}
+}
+
+func extractDSN(db *sql.DB) (string, error) {
+	if db == nil {
+		return "", errors.New("db is nil")
+	}
+
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("failed to obtain connection: %w", err)
+	}
+	defer conn.Close()
+
+	connVal := reflect.ValueOf(conn).Elem()
+	rawConnField := connVal.FieldByName("conn")
+	if !rawConnField.IsValid() || rawConnField.IsNil() {
+		return "", errors.New("unable to obtain the underlying driver connection")
+	}
+	rawConn := rawConnField.Interface()
+
+	connType := reflect.TypeOf(rawConn)
+	if connType.Kind() == reflect.Ptr {
+		connType = connType.Elem()
+	}
+	fullTypeName := connType.PkgPath() + "." + connType.Name()
+
+	if fullTypeName == "github.com/lib/pq.Conn" {
+		return extractPQDSN(rawConn)
+	}
+
+	if fullTypeName == "github.com/go-sql-driver/mysql.MySQLConn" {
+		return extractMySQLDSN(rawConn)
+	}
+
+	return "", fmt.Errorf("unsupported drive type: %s", fullTypeName)
+}
+
+func extractPQDSN(rawConn interface{}) (string, error) {
+	val := reflect.ValueOf(rawConn).Elem()
+	dsnField := val.FieldByName("dsn")
+	if !dsnField.IsValid() || dsnField.Kind() != reflect.String {
+		return "", errors.New("pq driver: dsn field not found")
+	}
+	return dsnField.String(), nil
+}
+
+func extractMySQLDSN(rawConn interface{}) (string, error) {
+	val := reflect.ValueOf(rawConn).Elem()
+	dsnField := val.FieldByName("dsn")
+	if !dsnField.IsValid() || dsnField.Kind() != reflect.String {
+		return "", errors.New("MySQL driver: dsn field not found")
+	}
+	return dsnField.String(), nil
 }

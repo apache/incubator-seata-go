@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -30,19 +32,15 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-type (
-	// trigger
-	trigger interface {
-		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
+type trigger interface {
+	LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
+	LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error)
+}
 
-		LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error)
-	}
-
-	entry struct {
-		value      types.TableMeta
-		lastAccess time.Time
-	}
-)
+type entry struct {
+	value      types.TableMeta
+	lastAccess time.Time
+}
 
 // BaseTableMetaCache
 type BaseTableMetaCache struct {
@@ -54,11 +52,11 @@ type BaseTableMetaCache struct {
 	cancel         context.CancelFunc
 	trigger        trigger
 	db             *sql.DB
-	cfg            *mysql.Config
+	cfg            interface{}
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
+func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg interface{}) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
@@ -82,50 +80,73 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
-
 	return nil
 }
 
 // refresh
 func (c *BaseTableMetaCache) refresh(ctx context.Context) {
-	f := func() {
-		if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
-			return
+	f := func(ctx context.Context) bool {
+		if c.db == nil || c.cfg == nil || c.cache == nil {
+			return true
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Printf("refresh: Received a cancel signal, preparing to exit")
+			return false
+		default:
 		}
 
 		tables := make([]string, 0, len(c.cache))
 		for table := range c.cache {
 			tables = append(tables, table)
 		}
+
+		dbName, err := c.getDBName()
+		if err != nil {
+			return true
+		}
+
 		conn, err := c.db.Conn(ctx)
 		if err != nil {
-			return
+			return true
 		}
-		v, err := c.trigger.LoadAll(ctx, c.cfg.DBName, conn, tables...)
+		defer conn.Close()
+
+		tableMetas, err := c.trigger.LoadAll(ctx, dbName, conn, tables...)
 		if err != nil {
-			return
+			return true
 		}
 
 		c.lock.Lock()
 		defer c.lock.Unlock()
-
-		for i := range v {
-			tm := v[i]
+		for _, tm := range tableMetas {
 			upperTableName := strings.ToUpper(tm.TableName)
-			if _, ok := c.cache[upperTableName]; ok {
-				c.cache[upperTableName] = &entry{
-					value: tm,
-				}
+			c.cache[upperTableName] = &entry{
+				value:      tm,
+				lastAccess: time.Now(),
 			}
 		}
+		return true
 	}
 
-	f()
+	if !f(ctx) {
+		return
+	}
 
-	ticker := time.NewTicker(time.Duration(1 * time.Minute))
+	ticker := time.NewTicker(c.expireDuration)
 	defer ticker.Stop()
-	for range ticker.C {
-		f()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("refresh: Context cancellation detected, exiting loop")
+			return
+		case <-ticker.C:
+			if !f(ctx) {
+				return
+			}
+		}
 	}
 }
 
@@ -133,23 +154,23 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 	ticker := time.NewTicker(c.expireDuration)
 	defer ticker.Stop()
-	for range ticker.C {
 
-		f := func() {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 			c.lock.Lock()
-			defer c.lock.Unlock()
 
 			cur := time.Now()
-			for k := range c.cache {
-				entry := c.cache[k]
-
+			for k, entry := range c.cache {
 				if cur.Sub(entry.lastAccess) > c.expireDuration {
 					delete(c.cache, k)
 				}
 			}
-		}
 
-		f()
+			c.lock.Unlock()
+		}
 	}
 }
 
@@ -157,35 +178,77 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
 	defer conn.Close()
+
 	upperTableName := strings.ToUpper(tableName)
-	v, ok := c.cache[upperTableName]
-	if !ok {
-		meta, err := c.trigger.LoadOne(ctx, dbName, upperTableName, conn)
-		if err != nil {
-			return types.TableMeta{}, err
-		}
-
-		if meta != nil && !meta.IsEmpty() {
-			c.cache[upperTableName] = &entry{
-				value:      *meta,
-				lastAccess: time.Now(),
-			}
-
-			return *meta, nil
-		}
-
-		return types.TableMeta{}, fmt.Errorf("not found table metadata")
+	e, ok := c.cache[upperTableName]
+	if ok {
+		e.lastAccess = time.Now()
+		c.cache[upperTableName] = e
+		return e.value, nil
 	}
 
-	v.lastAccess = time.Now()
-	c.cache[upperTableName] = v
+	meta, err := c.trigger.LoadOne(ctx, dbName, upperTableName, conn)
+	if err != nil {
+		return types.TableMeta{}, err
+	}
+	if meta == nil || meta.IsEmpty() {
+		return types.TableMeta{}, fmt.Errorf("not found table metadata for %s", tableName)
+	}
 
-	return v.value, nil
+	c.cache[upperTableName] = &entry{
+		value:      *meta,
+		lastAccess: time.Now(),
+	}
+	return *meta, nil
 }
 
 func (c *BaseTableMetaCache) Destroy() error {
 	c.cancel()
 	return nil
+}
+
+func (c *BaseTableMetaCache) getDBName() (string, error) {
+	switch cfg := c.cfg.(type) {
+	case *mysql.Config:
+		return cfg.DBName, nil
+	case string:
+		dsn := cfg
+		dbName, err := parseDBNameFromPostgreSQLDSN(dsn)
+		if err != nil {
+			return "", err
+		}
+		return dbName, nil
+	default:
+		return "", fmt.Errorf("unsupported config type: %T", cfg)
+	}
+}
+
+func parseDBNameFromPostgreSQLDSN(dsn string) (string, error) {
+	params, err := pq.ParseURL(dsn)
+	if err != nil {
+		return parseDBNameFromDSNFallback(dsn), nil
+	}
+
+	parts := strings.Fields(params)
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 && strings.ToLower(kv[0]) == "dbname" {
+			return kv[1], nil
+		}
+	}
+
+	return "", fmt.Errorf("dbname not found in PostgreSQL DSN")
+}
+
+// manually parse key=value format
+func parseDBNameFromDSNFallback(dsn string) string {
+	parts := strings.Fields(dsn)
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 && strings.ToLower(kv[0]) == "dbname" {
+			return kv[1]
+		}
+	}
+	return ""
 }
