@@ -30,14 +30,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 )
 
@@ -61,9 +59,6 @@ type DefaultStateMachineConfig struct {
 	sagaBranchRegisterEnable        bool
 	rmReportSuccessEnable           bool
 	stateMachineResources           []string
-
-	// State machine definitions
-	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
 	processController process_ctrl.ProcessController
@@ -284,8 +279,8 @@ func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnab
 	c.rmReportSuccessEnable = rmReportSuccessEnable
 }
 
-func (c *DefaultStateMachineConfig) GetStateMachineDefinition(name string) *statemachine.StateMachineObject {
-	return c.stateMachineDefs[name]
+func (c *DefaultStateMachineConfig) GetStateMachineConfig() engine.StateMachineConfig {
+	return c
 }
 
 func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) expr.ExpressionFactory {
@@ -364,12 +359,6 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
 	}
 
-	parser := parser.NewStateMachineConfigParser()
-	smo, err := parser.Parse(content)
-	if err != nil {
-		return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
-	}
-
 	var configFileParams ConfigFileParams
 	if err := json.Unmarshal(content, &configFileParams); err != nil {
 		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
@@ -380,11 +369,6 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	} else {
 		c.applyConfigFileParams(&configFileParams)
 	}
-
-	if _, exists := c.stateMachineDefs[smo.Name]; exists {
-		return fmt.Errorf("state machine definition with name %s already exists", smo.Name)
-	}
-	c.stateMachineDefs[smo.Name] = smo
 
 	return nil
 }
@@ -619,7 +603,6 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
 		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
-		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 		statusDecisionStrategy:          strategy.NewDefaultStatusDecisionStrategy(),
