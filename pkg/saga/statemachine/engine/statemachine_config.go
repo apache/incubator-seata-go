@@ -18,7 +18,6 @@
 package engine
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
@@ -68,8 +67,6 @@ type StateMachineConfig interface {
 	RegisterExpressionFactory(expressionType string, factory expr.ExpressionFactory)
 
 	RegisterServiceInvoker(serviceType string, invoker invoker.ServiceInvoker)
-
-	GetStateMachineDefinition(name string) *statemachine.StateMachineObject
 
 	GetExpressionFactory(expressionType string) expr.ExpressionFactory
 
