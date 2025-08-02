@@ -51,4 +51,5 @@ func TestTransactionErrorCode(t *testing.T) {
 	assert.Equal(t, int(PrepareFenceError), 24)
 	assert.Equal(t, int(FenceBusinessError), 25)
 	assert.Equal(t, int(FencePhaseError), 26)
+	assert.Equal(t, int(SQLUndoDirtyError), 27)
 }
