@@ -119,6 +119,8 @@ type NamingServerRegistryService struct {
 	client *NamingServerClient
 }
 
+var _ NamingserverRegistry = (*NamingServerRegistryService)(nil)
+
 func (n *NamingServerRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	return n.client.Lookup(key)
 }
@@ -508,4 +510,30 @@ func (c *NamingServerClient) Close() {
 	c.healthCheckTicker.Stop()
 	c.wg.Wait()
 	c.logger.Info("naming server client closed")
+}
+
+func (n *NamingServerRegistryService) Register(instance *ServiceInstance) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *NamingServerRegistryService) Deregister(instance *ServiceInstance) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (n *NamingServerRegistryService) doHealthCheck(addr string) bool {
+	return n.client.doHealthCheck(addr)
+}
+
+func (n *NamingServerRegistryService) RefreshToken(addr string) error {
+	return n.client.RefreshToken(addr)
+}
+
+func (n *NamingServerRegistryService) RefreshGroup(vGroup string) error {
+	return n.client.RefreshGroup(vGroup)
+}
+
+func (n *NamingServerRegistryService) Watch(vGroup string) (bool, error) {
+	return n.client.Watch(vGroup)
 }

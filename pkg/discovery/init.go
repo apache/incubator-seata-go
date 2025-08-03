@@ -63,3 +63,14 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 func GetRegistry() RegistryService {
 	return registryServiceInstance
 }
+
+func GetNamingserverRegistry() (NamingserverRegistry, error) {
+	if registryServiceInstance == nil {
+		return nil, fmt.Errorf("registry service not initialized")
+	}
+	namingReg, ok := registryServiceInstance.(NamingserverRegistry)
+	if !ok {
+		return nil, fmt.Errorf("current registry is not namingserver")
+	}
+	return namingReg, nil
+}
