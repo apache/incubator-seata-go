@@ -40,10 +40,16 @@ type ProcessCtrlStateMachineEngine struct {
 	StateMachineConfig engine.StateMachineConfig
 }
 
-func NewProcessCtrlStateMachineEngine() *ProcessCtrlStateMachineEngine {
-	return &ProcessCtrlStateMachineEngine{
-		StateMachineConfig: config.NewDefaultStateMachineConfig(),
+func NewProcessCtrlStateMachineEngine() (*ProcessCtrlStateMachineEngine, error) {
+	cfg, err := config.NewDefaultStateMachineConfig()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create state machine configuration: %w", err)
 	}
+
+	return &ProcessCtrlStateMachineEngine{
+		StateMachineConfig: cfg,
+	}, nil
 }
 
 func (p ProcessCtrlStateMachineEngine) Start(ctx context.Context, stateMachineName string, tenantId string,

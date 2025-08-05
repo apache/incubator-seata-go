@@ -589,7 +589,7 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 	return result, nil
 }
 
-func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
+func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, error) {
 	ctx := context.Background()
 	defaultBP := process_ctrl.NewBusinessProcessor()
 
@@ -631,13 +631,11 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		opt(c)
 	}
 
-	if err := c.LoadConfig("config.yaml"); err == nil {
-		log.Printf("Successfully loaded config from config.yaml")
-	} else {
-		log.Printf("Failed to load config file (using default/env values): %v", err)
+	if err := c.Init(); err != nil {
+		return nil, fmt.Errorf("failed to initialize state machine config: %w", err)
 	}
 
-	return c
+	return c, nil
 }
 
 func parseEnvResources() []string {
@@ -713,5 +711,18 @@ func WithStateLangStore(langStore store.StateLangStore) Option {
 func WithStateMachineRepository(machineRepo repo.StateMachineRepository) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateMachineRepository = machineRepo
+	}
+}
+
+func WithConfigPath(path string) Option {
+	return func(c *DefaultStateMachineConfig) {
+		if path == "" {
+			return
+		}
+		if err := c.LoadConfig(path); err != nil {
+			log.Printf("Failed to load config from %s: %v", path, err)
+		} else {
+			log.Printf("Successfully loaded config from %s", path)
+		}
 	}
 }
