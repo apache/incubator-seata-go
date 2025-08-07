@@ -1,8 +1,6 @@
 module github.com/seata/seata-go
 
-go 1.23.0
-
-toolchain go1.23.5
+go 1.20
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
@@ -35,9 +33,9 @@ require (
 require (
 	github.com/agiledragon/gomonkey v2.0.2+incompatible
 	github.com/agiledragon/gomonkey/v2 v2.9.0
-	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/google/cel-go v0.18.0
 	github.com/mattn/go-sqlite3 v1.14.19
+	github.com/robertkrimen/otto v0.4.0
 	golang.org/x/sync v0.16.0
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -56,16 +54,13 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -98,6 +93,7 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
 
 require (

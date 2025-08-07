@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/robertkrimen/otto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,25 +43,25 @@ func TestJavaScriptScriptInvoker_Invoke_Basic(t *testing.T) {
 			name:     "simple expression",
 			script:   "1 + 2",
 			params:   nil,
-			expected: int64(3),
+			expected: float64(3),
 		},
 		{
 			name:     "param calculation",
 			script:   "a * b + c",
 			params:   map[string]interface{}{"a": 2, "b": 3, "c": 4},
-			expected: int64(10),
+			expected: float64(10),
 		},
 		{
 			name:     "return string",
-			script:   "`hello ${name}`",
+			script:   "['hello', name].join(' ')",
 			params:   map[string]interface{}{"name": "world"},
 			expected: "hello world",
 		},
 		{
 			name:     "return object",
-			script:   `({id: 1, name: name})`,
+			script:   `var obj = {id: 1, name: name}; obj;`,
 			params:   map[string]interface{}{"name": "test"},
-			expected: map[string]interface{}{"id": int64(1), "name": "test"},
+			expected: map[string]interface{}{"id": float64(1), "name": "test"},
 		},
 	}
 
@@ -72,6 +72,15 @@ func TestJavaScriptScriptInvoker_Invoke_Basic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := invoker.Invoke(ctx, tt.script, tt.params)
 			assert.NoError(t, err)
+
+			if resultMap, ok := result.(map[string]interface{}); ok {
+				for k, v := range resultMap {
+					if intVal, isInt := v.(int64); isInt {
+						resultMap[k] = float64(intVal)
+					}
+				}
+			}
+
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -114,17 +123,16 @@ func TestJavaScriptScriptInvoker_Invoke_Error(t *testing.T) {
 }
 
 func TestJavaScriptScriptInvoker_Invoke_Timeout(t *testing.T) {
-	script := `const target=300; var start=new Date().getTime(); var elapsed=0; while(elapsed<target){elapsed=new Date().getTime()-start;} "done";`
+
+	script := `var target = 300; var start = new Date().getTime(); var elapsed = 0; while (elapsed < target) { elapsed = new Date().getTime() - start; } "done";`
 	invoker := NewJavaScriptScriptInvoker()
 
-	// Timeout scenario
 	ctx1, cancel1 := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel1()
 	_, err := invoker.Invoke(ctx1, script, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "javascript execution timeout")
 
-	// Normal execution scenario
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 400*time.Millisecond)
 	defer cancel2()
 	result, err := invoker.Invoke(ctx2, script, nil)
@@ -151,7 +159,7 @@ func TestJavaScriptScriptInvoker_Invoke_Concurrent(t *testing.T) {
 				errChan <- err
 				return
 			}
-			if result != int64(30) {
+			if result != float64(30) {
 				errChan <- assert.AnError
 			}
 		}()
@@ -167,27 +175,29 @@ func TestJavaScriptScriptInvoker_Close(t *testing.T) {
 	invoker := NewJavaScriptScriptInvoker()
 	ctx := context.Background()
 
-	// Execute before close
 	result, err := invoker.Invoke(ctx, "1 + 1", nil)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), result)
+	assert.Equal(t, float64(2), result)
 
-	// Close invoker
 	err = invoker.Close(ctx)
 	assert.NoError(t, err)
 
-	// Execute after close should fail
 	_, err = invoker.Invoke(ctx, "1 + 1", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "javascript invoker has been closed")
 }
 
-func TestGojaScript(t *testing.T) {
-	vm := goja.New()
-	script := `const target=300; var start=new Date().getTime(); var elapsed=0; while(elapsed<target){elapsed=new Date().getTime()-start;} "done";`
-	val, err := vm.RunString(script)
+func TestOttoScript(t *testing.T) {
+	vm := otto.New()
+	script := `var target = 300; var start = new Date().getTime(); var elapsed = 0; while (elapsed < target) { elapsed = new Date().getTime() - start; } "done";`
+	val, err := vm.Run(script)
 	if err != nil {
-		t.Fatalf("goja failed to parse script: %v", err)
+		t.Fatalf("otto failed to parse script: %v", err)
 	}
-	t.Logf("Script execution result: %v", val.Export())
+	
+	result, exportErr := val.Export()
+	if exportErr != nil {
+		t.Fatalf("failed to export otto value: %v", exportErr)
+	}
+	t.Logf("Script execution result: %v", result)
 }

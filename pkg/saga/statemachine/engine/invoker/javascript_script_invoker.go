@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/dop251/goja"
+	"github.com/robertkrimen/otto"
 )
 
 type JavaScriptScriptInvoker struct {
@@ -50,7 +50,7 @@ func (j *JavaScriptScriptInvoker) Invoke(ctx context.Context, script string, par
 		return nil, fmt.Errorf("javascript invoker has been closed")
 	}
 
-	vm := goja.New()
+	vm := otto.New()
 
 	for key, value := range params {
 		if err := vm.Set(key, value); err != nil {
@@ -59,7 +59,7 @@ func (j *JavaScriptScriptInvoker) Invoke(ctx context.Context, script string, par
 	}
 
 	resultChan := make(chan struct {
-		val goja.Value
+		val otto.Value
 		err error
 	}, 1)
 
@@ -67,15 +67,15 @@ func (j *JavaScriptScriptInvoker) Invoke(ctx context.Context, script string, par
 		defer func() {
 			if r := recover(); r != nil {
 				resultChan <- struct {
-					val goja.Value
+					val otto.Value
 					err error
-				}{nil, fmt.Errorf("javascript engine panic: %v", r)}
+				}{otto.UndefinedValue(), fmt.Errorf("javascript engine panic: %v", r)}
 			}
 		}()
 
-		val, err := vm.RunString(script)
+		val, err := vm.Run(script)
 		resultChan <- struct {
-			val goja.Value
+			val otto.Value
 			err error
 		}{val, err}
 	}()
@@ -87,7 +87,11 @@ func (j *JavaScriptScriptInvoker) Invoke(ctx context.Context, script string, par
 		if res.err != nil {
 			return nil, fmt.Errorf("javascript execute error: %w", res.err)
 		}
-		return res.val.Export(), nil
+		val, err := res.val.Export()
+		if err != nil {
+			return nil, fmt.Errorf("failed to export javascript result: %w", err)
+		}
+		return val, nil
 	}
 }
 
