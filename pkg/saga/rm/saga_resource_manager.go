@@ -53,7 +53,7 @@ func GetSagaResourceManager() *SagaResourceManager {
 
 func (s *SagaResourceManager) RegisterResource(resource rm.Resource) error {
 	if _, ok := resource.(*SagaResource); !ok {
-		panic(fmt.Sprintf("register saga resource error, SagaResource is needed, param %v", resource))
+		return fmt.Errorf("register saga resource error, SagaResource is needed, param %v", resource)
 	}
 	s.resourceCache.Store(resource.GetResourceId(), resource)
 	return s.rmRemoting.RegisterResource(resource)
