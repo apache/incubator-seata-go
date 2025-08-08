@@ -194,10 +194,69 @@ func TestOttoScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("otto failed to parse script: %v", err)
 	}
-	
+
 	result, exportErr := val.Export()
 	if exportErr != nil {
 		t.Fatalf("failed to export otto value: %v", exportErr)
 	}
 	t.Logf("Script execution result: %v", result)
+}
+
+func TestJavaScriptScriptInvoker_VMPoolReuse(t *testing.T) {
+	poolSize := 2
+	invoker := NewJavaScriptScriptInvokerWithPoolSize(poolSize)
+	ctx := context.Background()
+
+	vmIDs := make([]string, 0, 5)
+
+	script := `
+		if (!this.vmId) {
+			this.vmId = Math.random().toString(36).substr(2, 8); 
+		}
+		this.vmId;
+	`
+
+	for i := 0; i < 5; i++ {
+		result, err := invoker.Invoke(ctx, script, nil)
+		assert.NoError(t, err, "Error occurred while executing script")
+
+		id, ok := result.(string)
+		assert.True(t, ok, "VM ID should be a string type")
+		vmIDs = append(vmIDs, id)
+	}
+
+	uniqueIDs := make(map[string]bool)
+	for _, id := range vmIDs {
+		uniqueIDs[id] = true
+	}
+
+	assert.True(t, len(uniqueIDs) <= 5, "Abnormal number of VM instances created")
+	assert.True(t, len(uniqueIDs) >= 1, "No VM instances reused from the pool")
+}
+
+func TestJavaScriptScriptInvoker_VMStateClean(t *testing.T) {
+	invoker := NewJavaScriptScriptInvokerWithPoolSize(1)
+	ctx := context.Background()
+
+	_, err := invoker.Invoke(ctx, `this.foo = "polluted data"`, nil)
+	assert.NoError(t, err)
+
+	result, err := invoker.Invoke(ctx, `typeof this.foo`, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "undefined", result, "VM state not cleaned, residual global variable exists")
+
+	_, err = invoker.Invoke(ctx, `this.bar = function() { return "residual function"; }`, nil)
+	assert.NoError(t, err)
+
+	result, err = invoker.Invoke(ctx, `typeof this.bar`, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "undefined", result, "VM state not cleaned, residual function exists")
+}
+
+func TestJavaScriptScriptInvoker_PoolSizeDefault(t *testing.T) {
+	invoker := NewJavaScriptScriptInvokerWithPoolSize(0)
+	assert.Equal(t, defaultPoolSize, invoker.poolSize, "Default pool size not used when pool size is 0")
+
+	invoker = NewJavaScriptScriptInvokerWithPoolSize(-5)
+	assert.Equal(t, defaultPoolSize, invoker.poolSize, "Default pool size not used when pool size is negative")
 }
