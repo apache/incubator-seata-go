@@ -21,14 +21,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"sync"
+
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	seataErrors "github.com/seata/seata-go/pkg/util/errors"
-	"log"
-	"sync"
 )
 
 var (
@@ -74,7 +75,7 @@ func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.Bran
 	if err != nil {
 		if fie, ok := exception.IsForwardInvalidException(err); ok {
 			log.Printf("StateMachine forward failed, xid: %s, err: %v", resource.Xid, err)
-			if fie.ErrCode == fmt.Sprintf("%v", seataErrors.StateMachineInstanceNotExists) {
+			if isInstanceNotExists(fie.ErrCode) {
 				return branch.BranchStatusPhasetwoCommitted, nil
 			}
 		}
@@ -122,7 +123,7 @@ func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.Br
 
 	if fie, ok := exception.IsEngineExecutionException(err); ok {
 		log.Printf("StateMachine compensate failed, xid: %s, err: %v", resource.Xid, err)
-		if fie.ErrCode == fmt.Sprintf("%v", seataErrors.StateMachineInstanceNotExists) {
+		if isInstanceNotExists(fie.ErrCode) {
 			return branch.BranchStatusPhasetwoRollbacked, nil
 		}
 	}
@@ -139,11 +140,16 @@ func (s *SagaResourceManager) BranchReport(ctx context.Context, param rm.BranchR
 }
 
 func (s *SagaResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	// LockQuery is not supported for Saga resources
+	return false, fmt.Errorf("LockQuery is not supported for Saga resources")
 }
 
 func (s *SagaResourceManager) UnregisterResource(resource rm.Resource) error {
-	//TODO implement me
-	panic("implement me")
+	// UnregisterResource is not supported for SagaResourceManager
+	return fmt.Errorf("UnregisterResource is not supported for SagaResourceManager")
+}
+
+// isInstanceNotExists checks if the error code indicates StateMachineInstanceNotExists
+func isInstanceNotExists(errCode string) bool {
+	return errCode == fmt.Sprintf("%v", seataErrors.StateMachineInstanceNotExists)
 }
