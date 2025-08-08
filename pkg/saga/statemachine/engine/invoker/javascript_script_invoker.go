@@ -25,16 +25,34 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+const defaultPoolSize = 10
+
 type JavaScriptScriptInvoker struct {
 	mutex      sync.Mutex
 	jsonParser JsonParser
 	closed     bool
+	vmPool     chan *otto.Otto
+	poolSize   int
 }
 
 func NewJavaScriptScriptInvoker() *JavaScriptScriptInvoker {
 	return &JavaScriptScriptInvoker{
 		jsonParser: &DefaultJsonParser{},
 		closed:     false,
+		poolSize:   defaultPoolSize,
+		vmPool:     make(chan *otto.Otto, defaultPoolSize),
+	}
+}
+
+func NewJavaScriptScriptInvokerWithPoolSize(poolSize int) *JavaScriptScriptInvoker {
+	if poolSize <= 0 {
+		poolSize = defaultPoolSize
+	}
+	return &JavaScriptScriptInvoker{
+		jsonParser: &DefaultJsonParser{},
+		closed:     false,
+		poolSize:   poolSize,
+		vmPool:     make(chan *otto.Otto, poolSize),
 	}
 }
 
@@ -44,13 +62,34 @@ func (j *JavaScriptScriptInvoker) Type() string {
 
 func (j *JavaScriptScriptInvoker) Invoke(ctx context.Context, script string, params map[string]interface{}) (interface{}, error) {
 	j.mutex.Lock()
-	defer j.mutex.Unlock()
+	closed := j.closed
+	j.mutex.Unlock()
 
-	if j.closed {
+	if closed {
 		return nil, fmt.Errorf("javascript invoker has been closed")
 	}
 
-	vm := otto.New()
+	var vm *otto.Otto
+	select {
+	case vm = <-j.vmPool:
+		if err := cleanVMState(vm); err != nil {
+			vm = otto.New()
+		}
+	default:
+		vm = otto.New()
+	}
+
+	defer func() {
+		j.mutex.Lock()
+		defer j.mutex.Unlock()
+		if !j.closed {
+			select {
+			case j.vmPool <- vm:
+			default:
+				// Pool full, discard current instance
+			}
+		}
+	}()
 
 	for key, value := range params {
 		if err := vm.Set(key, value); err != nil {
@@ -104,5 +143,20 @@ func (j *JavaScriptScriptInvoker) Close(ctx context.Context) error {
 	}
 
 	j.closed = true
+	close(j.vmPool)
+	for range j.vmPool {
+		// Let GC recycle VM resources
+	}
 	return nil
+}
+
+func cleanVMState(vm *otto.Otto) error {
+	_, err := vm.Run(`
+		for (const prop in global) {
+			if (!['Object', 'Array', 'Function', 'String', 'Number', 'Boolean', 'JSON', 'Date', 'RegExp'].includes(prop)) {
+				delete global[prop];
+			}
+		}
+	`)
+	return err
 }

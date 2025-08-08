@@ -104,24 +104,41 @@ func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTyp
 }
 
 func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.Type) ([]reflect.Value, error) {
-	paramCount := methodType.NumIn() - 1
-	params := make([]reflect.Value, paramCount)
+	numIn := methodType.NumIn()
+	paramStart, paramCount := 1, 0
 
-	for i := 0; i < paramCount; i++ {
-		methodParamIndex := i + 1
-		paramType := methodType.In(methodParamIndex)
+	if numIn > 0 {
+		paramCount = numIn - paramStart
+	}
 
-		if i >= len(input) {
-			params[i] = reflect.Zero(paramType)
-			continue
+	if paramCount == 0 {
+		if len(input) > 0 {
+			return nil, fmt.Errorf("unexpected parameters: expected 0, got %d", len(input))
 		}
+		return []reflect.Value{}, nil
+	}
+
+	if len(input) < paramCount {
+		return nil, fmt.Errorf("insufficient parameters: expected %d, got %d", paramCount, len(input))
+	}
+
+	if len(input) > paramCount {
+		return nil, fmt.Errorf("too many parameters: expected %d, got %d", paramCount, len(input))
+	}
+
+	params := make([]reflect.Value, paramCount)
+	for i := 0; i < paramCount; i++ {
+		methodParamIndex := i + paramStart
+		paramType := methodType.In(methodParamIndex)
 
 		converted, err := l.convertParam(input[i], paramType)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parameter %d conversion error: %w", i, err)
 		}
+
 		params[i] = reflect.ValueOf(converted)
 	}
+
 	return params, nil
 }
 
