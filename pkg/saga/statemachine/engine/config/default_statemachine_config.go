@@ -292,8 +292,17 @@ func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) 
 	return c.expressionFactoryManager.GetExpressionFactory(expressionType)
 }
 
-func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) invoker.ServiceInvoker {
-	return c.serviceInvokerManager.ServiceInvoker(serviceType)
+func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) (invoker.ServiceInvoker, error) {
+	if serviceType == "" {
+		serviceType = "local"
+	}
+
+	invoker := c.serviceInvokerManager.ServiceInvoker(serviceType)
+	if invoker == nil {
+		return nil, fmt.Errorf("service invoker not found for type: %s", serviceType)
+	}
+
+	return invoker, nil
 }
 
 func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) error {
