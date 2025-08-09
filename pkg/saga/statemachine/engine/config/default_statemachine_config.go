@@ -292,8 +292,17 @@ func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) 
 	return c.expressionFactoryManager.GetExpressionFactory(expressionType)
 }
 
-func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) invoker.ServiceInvoker {
-	return c.serviceInvokerManager.ServiceInvoker(serviceType)
+func (c *DefaultStateMachineConfig) GetServiceInvoker(serviceType string) (invoker.ServiceInvoker, error) {
+	if serviceType == "" {
+		serviceType = "local"
+	}
+
+	invoker := c.serviceInvokerManager.ServiceInvoker(serviceType)
+	if invoker == nil {
+		return nil, fmt.Errorf("service invoker not found for type: %s", serviceType)
+	}
+
+	return invoker, nil
 }
 
 func (c *DefaultStateMachineConfig) RegisterStateMachineDef(resources []string) error {
@@ -492,9 +501,20 @@ func (c *DefaultStateMachineConfig) initServiceInvokers() error {
 		c.serviceInvokerManager = invoker.NewServiceInvokerManagerImpl()
 	}
 
-	defaultServiceType := "local"
-	if existingInvoker := c.serviceInvokerManager.ServiceInvoker(defaultServiceType); existingInvoker == nil {
-		c.RegisterServiceInvoker(defaultServiceType, invoker.NewLocalServiceInvoker())
+	if existing := c.serviceInvokerManager.ServiceInvoker("local"); existing == nil {
+		c.RegisterServiceInvoker("local", invoker.NewLocalServiceInvoker())
+	}
+
+	if existing := c.serviceInvokerManager.ServiceInvoker("http"); existing == nil {
+		c.RegisterServiceInvoker("http", invoker.NewHTTPInvoker())
+	}
+
+	if existing := c.serviceInvokerManager.ServiceInvoker("grpc"); existing == nil {
+		c.RegisterServiceInvoker("grpc", invoker.NewGRPCInvoker())
+	}
+
+	if existing := c.serviceInvokerManager.ServiceInvoker("func"); existing == nil {
+		c.RegisterServiceInvoker("func", invoker.NewFuncInvoker())
 	}
 
 	return nil
