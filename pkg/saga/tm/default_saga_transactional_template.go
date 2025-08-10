@@ -93,7 +93,6 @@ func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, r
 }
 
 func (t *DefaultSagaTransactionalTemplate) BranchReport(ctx context.Context, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	//todo Wait implement sagaResource
 	return sagarm.GetSagaResourceManager().BranchReport(ctx, rm.BranchReportParam{
 		BranchType:      branch.BranchTypeSAGA,
 		Xid:             xid,

@@ -19,6 +19,7 @@ package rm
 
 import (
 	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/rm"
 )
 
 type RMHandlerSaga struct{}
@@ -26,7 +27,9 @@ type RMHandlerSaga struct{}
 func (h *RMHandlerSaga) HandleUndoLogDeleteRequest(request interface{}) {
 	// do nothing
 }
-
+func (h *RMHandlerSaga) GetResourceManager() rm.ResourceManager {
+	return rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA)
+}
 func (h *RMHandlerSaga) GetBranchType() branch.BranchType {
 	return branch.BranchTypeSAGA
 }

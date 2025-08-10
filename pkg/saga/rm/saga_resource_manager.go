@@ -42,6 +42,10 @@ type SagaResourceManager struct {
 	resourceCache sync.Map
 }
 
+func InitSaga() {
+	rm.GetRmCacheInstance().RegisterResourceManager(GetSagaResourceManager())
+}
+
 func GetSagaResourceManager() *SagaResourceManager {
 	once.Do(func() {
 		sagaResourceManagerInstance = &SagaResourceManager{
