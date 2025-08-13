@@ -70,5 +70,5 @@ type StateMachineConfig interface {
 
 	GetExpressionFactory(expressionType string) expr.ExpressionFactory
 
-	GetServiceInvoker(serviceType string) invoker.ServiceInvoker
+	GetServiceInvoker(serviceType string) (invoker.ServiceInvoker, error)
 }

@@ -360,16 +360,26 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	}
 
 	var configFileParams ConfigFileParams
-	if err := json.Unmarshal(content, &configFileParams); err != nil {
+	ext := strings.ToLower(filepath.Ext(configPath))
+
+	switch ext {
+	case ".json":
+		if err := json.Unmarshal(content, &configFileParams); err != nil {
+			return fmt.Errorf("failed to unmarshal config file as JSON: %w", err)
+		}
+	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
 			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
-		} else {
-			c.applyConfigFileParams(&configFileParams)
 		}
-	} else {
-		c.applyConfigFileParams(&configFileParams)
+	default:
+		if err := json.Unmarshal(content, &configFileParams); err != nil {
+			if err := yaml.Unmarshal(content, &configFileParams); err != nil {
+				return fmt.Errorf("failed to unmarshal config file (unknown type): %w", err)
+			}
+		}
 	}
 
+	c.applyConfigFileParams(&configFileParams)
 	return nil
 }
 
@@ -501,6 +511,14 @@ func (c *DefaultStateMachineConfig) initServiceInvokers() error {
 		c.RegisterServiceInvoker("func", invoker.NewFuncInvoker())
 	}
 
+	if c.scriptInvokerManager == nil {
+		c.scriptInvokerManager = invoker.NewScriptInvokerManager()
+	}
+
+	if jsInvoker, err := c.scriptInvokerManager.GetInvoker("javascript"); err != nil || jsInvoker == nil {
+		c.scriptInvokerManager.RegisterInvoker(invoker.NewJavaScriptScriptInvoker())
+	}
+
 	return nil
 }
 
@@ -515,6 +533,10 @@ func (c *DefaultStateMachineConfig) Validate() error {
 	}
 	if c.serviceInvokerManager == nil {
 		errs = append(errs, fmt.Errorf("service invoker manager is nil"))
+	}
+
+	if c.scriptInvokerManager == nil {
+		errs = append(errs, fmt.Errorf("script invoker manager is nil"))
 	}
 
 	if c.transOperationTimeout <= 0 {
@@ -724,5 +746,11 @@ func WithConfigPath(path string) Option {
 		} else {
 			log.Printf("Successfully loaded config from %s", path)
 		}
+	}
+}
+
+func WithScriptInvokerManager(scriptManager invoker.ScriptInvokerManager) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.scriptInvokerManager = scriptManager
 	}
 }
