@@ -19,13 +19,13 @@ package tm
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/rm"
-	"time"
-
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm"
+	sagarm "github.com/seata/seata-go/pkg/saga/rm"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
+	"time"
 )
 
 type DefaultSagaTransactionalTemplate struct {
@@ -82,8 +82,7 @@ func (t *DefaultSagaTransactionalTemplate) ReportTransaction(ctx context.Context
 }
 
 func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, resourceId string, clientId string, xid string, applicationData string, lockKeys string) (int64, error) {
-	//todo Wait implement sagaResource
-	return rm.GetRMRemotingInstance().BranchRegister(rm.BranchRegisterParam{
+	return sagarm.GetSagaResourceManager().BranchRegister(ctx, rm.BranchRegisterParam{
 		BranchType:      branch.BranchTypeSAGA,
 		ResourceId:      resourceId,
 		Xid:             xid,
@@ -94,8 +93,7 @@ func (t *DefaultSagaTransactionalTemplate) BranchRegister(ctx context.Context, r
 }
 
 func (t *DefaultSagaTransactionalTemplate) BranchReport(ctx context.Context, xid string, branchId int64, status branch.BranchStatus, applicationData string) error {
-	//todo Wait implement sagaResource
-	return rm.GetRMRemotingInstance().BranchReport(rm.BranchReportParam{
+	return sagarm.GetSagaResourceManager().BranchReport(ctx, rm.BranchReportParam{
 		BranchType:      branch.BranchTypeSAGA,
 		Xid:             xid,
 		BranchId:        branchId,

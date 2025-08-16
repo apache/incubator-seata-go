@@ -30,6 +30,7 @@ import (
 	"github.com/seata/seata-go/pkg/remoting/processor/client"
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/rm/tcc"
+	saga "github.com/seata/seata-go/pkg/saga/rm"
 	"github.com/seata/seata-go/pkg/tm"
 	"github.com/seata/seata-go/pkg/util/log"
 )
@@ -87,6 +88,7 @@ func initRmClient(cfg *Config) {
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC()
+		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})
