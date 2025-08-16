@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"io"
 	"sync/atomic"
 	"testing"
@@ -328,4 +329,30 @@ func TestXAConn_BeginTx(t *testing.T) {
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
 
+}
+
+func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
+	t.Run("test isXAER_RMFAILAlreadyEnded function", func(t *testing.T) {
+		// Test the function directly
+		err1 := errors.New("XAER_RMFAIL: XA branch already ended")
+		err2 := errors.New("XAER_RMFAIL: Resource manager failed")
+		err3 := errors.New("Some other error")
+
+		assert.True(t, isXAER_RMFAILAlreadyEnded(err1))
+		assert.False(t, isXAER_RMFAILAlreadyEnded(err2))
+		assert.False(t, isXAER_RMFAILAlreadyEnded(err3))
+		assert.False(t, isXAER_RMFAILAlreadyEnded(nil))
+	})
+
+	t.Run("should handle XAER_RMFAIL already ended", func(t *testing.T) {
+		// Test the core logic directly
+		err := errors.New("XAER_RMFAIL: XA branch already ended")
+		assert.True(t, isXAER_RMFAILAlreadyEnded(err))
+	})
+
+	t.Run("should return error for other XAER_RMFAIL", func(t *testing.T) {
+		// Test the core logic directly
+		err := errors.New("XAER_RMFAIL: Resource manager failed")
+		assert.False(t, isXAER_RMFAILAlreadyEnded(err))
+	})
 }

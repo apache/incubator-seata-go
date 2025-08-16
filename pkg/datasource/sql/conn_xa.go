@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -287,6 +288,7 @@ func (c *XAConn) cleanXABranchContext() {
 	c.branchRegisterTime = time.Now().Add(h)
 	c.prepareTime = time.Now().Add(h)
 	c.xaActive = false
+	c.rollBacked = false
 	if !c.isConnKept {
 		c.xaBranchXid = nil
 	}
@@ -302,9 +304,18 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	}
 
 	if !c.rollBacked {
-		if c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail) != nil {
-			return c.rollbackErrorHandle()
+		// First end the XA branch with TMFail
+		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
+			// Handle XAER_RMFAIL exception - check if it's already ended
+			if isXAER_RMFAILAlreadyEnded(err) {
+				// If already ended, continue with rollback
+				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
+			} else {
+				return c.rollbackErrorHandle()
+			}
 		}
+
+		// Then perform XA rollback
 		if c.XaRollback(ctx, c.xaBranchXid) != nil {
 			c.cleanXABranchContext()
 			return c.rollbackErrorHandle()
@@ -313,8 +324,9 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 			c.cleanXABranchContext()
 			return fmt.Errorf("failed to report XA branch commit-failure on xid:%s err:%w", c.txCtx.XID, err)
 		}
+		c.rollBacked = true
+		c.cleanXABranchContext()
 	}
-	c.cleanXABranchContext()
 	return nil
 }
 
@@ -351,7 +363,6 @@ func (c *XAConn) commitErrorHandle(ctx context.Context) error {
 	if err = c.XaRollback(ctx, c.xaBranchXid); err != nil {
 		err = fmt.Errorf("failed to report XA branch commit-failure xid:%s, err:%w", c.txCtx.XID, err)
 	}
-	c.cleanXABranchContext()
 	return err
 }
 
@@ -403,4 +414,18 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
+}
+
+// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
+func isXAER_RMFAILAlreadyEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := err.Error()
+	// Check for XAER_RMFAIL error with "already ended" message
+	if strings.Contains(errMsg, "XAER_RMFAIL") && strings.Contains(errMsg, "already ended") {
+		return true
+	}
+	return false
 }
