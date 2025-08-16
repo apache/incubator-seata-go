@@ -73,8 +73,18 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 			}
 		}
 
-		if re != nil || err != nil {
-			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+		if re == nil {
+			if deferErr != nil {
+				// if deferErr is not an error, then convert it to error
+				// this is because panic may be caused by non-error type e.g. panic("some string")
+				// so we need to convert it to error type
+				if _, ok := deferErr.(error); !ok {
+					deferErr = fmt.Errorf("%v", deferErr)
+				}
+				re = deferErr.(error)
+			} else if err != nil {
+				re = err
+			}
 		}
 	}()
 
