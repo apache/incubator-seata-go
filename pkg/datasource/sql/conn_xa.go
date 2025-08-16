@@ -288,7 +288,6 @@ func (c *XAConn) cleanXABranchContext() {
 	c.branchRegisterTime = time.Now().Add(h)
 	c.prepareTime = time.Now().Add(h)
 	c.xaActive = false
-	c.rollBacked = false
 	if !c.isConnKept {
 		c.xaBranchXid = nil
 	}
@@ -325,8 +324,8 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 			return fmt.Errorf("failed to report XA branch commit-failure on xid:%s err:%w", c.txCtx.XID, err)
 		}
 		c.rollBacked = true
-		c.cleanXABranchContext()
 	}
+	c.cleanXABranchContext()
 	return nil
 }
 
@@ -363,6 +362,7 @@ func (c *XAConn) commitErrorHandle(ctx context.Context) error {
 	if err = c.XaRollback(ctx, c.xaBranchXid); err != nil {
 		err = fmt.Errorf("failed to report XA branch commit-failure xid:%s, err:%w", c.txCtx.XID, err)
 	}
+	c.cleanXABranchContext()
 	return err
 }
 
