@@ -29,6 +29,7 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	serr "seata.apache.org/seata-go/pkg/util/errors"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
@@ -98,7 +99,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 			newRowJson, _ := json.Marshal(currentImage.Rows)
 			log.Infof("check dirty data failed, old and new data are not equal, "+
 				"tableName:[%s], oldRows:[%s],newRows:[%s].", afterImage.TableName, oldRowJson, newRowJson)
-			return false, fmt.Errorf("Has dirty records when undo.")
+			return false, serr.New(serr.SQLUndoDirtyError, "has dirty records when undo", nil)
 		}
 	}
 	return true, nil
