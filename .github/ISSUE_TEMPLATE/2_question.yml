@@ -1,0 +1,80 @@
+name: "❓ Question"
+description: "Ask a question about the project"
+title: "[QUESTION] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤔 Question
+        
+        We're happy to help answer your questions about Seata-go!
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: "✅ Verification Checklist"
+      description: "Please verify that you've completed the following:"
+      options:
+        - label: "🔍 I have searched the [existing issues](https://github.com/apache/incubator-seata-go/issues) and confirmed this is not a duplicate"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🔧 Configuration (Optional)"
+
+  - type: input
+    id: seata-go-version
+    attributes:
+      label: "📦 Seata-go Version"
+      description: "The version of seata-go you're using"
+      placeholder: "e.g: v1.2.0"
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## ❓ Question Details
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "💬 Your Question"
+      description: "Please describe your question in detail"
+      placeholder: |
+        Please describe your question in detail, including:
+        • What specifically would you like to know?
+        • What confusion have you encountered?
+        • What kind of help are you expecting?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "📚 Background Information"
+      description: "Add any context that might help us answer your question"
+      placeholder: |
+        Provide relevant background information:
+        • What project are you working on?
+        • Why do you need to understand this?
+        • What have you already tried?
+    validations:
+      required: false
+
+  - type: textarea
+    id: related-resources
+    attributes:
+      label: "🔗 Related Resources"
+      description: "Link to any related documents, code, or resources"
+      placeholder: |
+        Share related links or resources:
+        • Relevant documentation links
+        • Code repositories or snippets
+        • Reference materials
+    validations:
+      required: false
