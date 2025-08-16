@@ -37,7 +37,7 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.20.0
+          - 1.20
 
     steps:
 
