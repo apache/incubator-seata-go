@@ -89,6 +89,8 @@ func GetScanSlice(types []*sql.ColumnType) []interface{} {
 			scanVal := ""
 			scanSlice = append(scanSlice, &scanVal)
 		case ScanTypeUnknown:
+			fallthrough
+		default:
 			scanVal := new(interface{})
 			scanSlice = append(scanSlice, &scanVal)
 		}
