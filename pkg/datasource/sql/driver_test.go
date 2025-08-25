@@ -21,16 +21,17 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"reflect"
 	"testing"
-
-	"seata.apache.org/seata-go/pkg/rm"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/rm"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
@@ -45,102 +46,142 @@ func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controll
 	return mockResourceMgr
 }
 
-func Test_seataATDriver_Open(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func assertConnectorType(t *testing.T, db *sql.DB, expectedType reflect.Type, format string, args ...interface{}) {
+	t.Helper()
 
-	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
-	_ = mockMgr
-
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
-	if err != nil {
-		t.Fatal(err)
+	v := reflect.ValueOf(db)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
 
-	defer db.Close()
+	field := v.FieldByName("connector")
+	assert.True(t, field.IsValid(), "sql.DB should have 'connector' field")
 
-	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
+	fieldVal := reflectx.GetUnexportedField(field)
+	assert.NotNil(t, fieldVal, "connector field value should not be nil")
 
-		v := reflect.ValueOf(db)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
+	errMsg := fmt.Sprintf(format, args...)
+	assert.True(t, reflect.TypeOf(fieldVal) == expectedType, errMsg)
+}
 
-		field := v.FieldByName("connector")
-		fieldVal := reflectx.GetUnexportedField(field)
+func Test_seataATDriver_Open(t *testing.T) {
+	for _, config := range getAllDBTestConfigs() {
+		t.Run(config.name, func(t *testing.T) {
+			if config.dbType == types.DBTypePostgreSQL {
+				t.Skipf("AT mode for PostgreSQL is not implemented yet, skip test: %s", config.name)
+			}
 
-		driverVal, ok := fieldVal.(driver.Connector).Driver().(*seataATDriver)
-		assert.True(t, ok, "need seata at driver")
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-		vv := reflect.ValueOf(driverVal)
-		if vv.Kind() == reflect.Ptr {
-			vv = vv.Elem()
-		}
-		field = vv.FieldByName("target")
+			mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+			_ = mockMgr
 
-		mockDriver := mock.NewMockTestDriver(ctrl)
+			db, err := sql.Open(config.atDriverName, config.dsn)
+			if err != nil {
+				t.Fatalf("failed to open %s AT driver: %v", config.name, err)
+			}
+			defer func() {
+				if db != nil {
+					db.Close()
+				}
+			}()
 
-		reflectx.SetUnexportedField(field, mockDriver)
+			_ = initMockAtConnector(
+				t,
+				ctrl,
+				db,
+				config,
+				func(t *testing.T, ctrl *gomock.Controller, config dbTestConfig) driver.Connector {
+					v := reflect.ValueOf(db)
+					if v.Kind() == reflect.Ptr {
+						v = v.Elem()
+					}
 
-		connector := &dsnConnector{
-			driver: driverVal,
-		}
-		return connector
-	})
+					field := v.FieldByName("connector")
+					fieldVal := reflectx.GetUnexportedField(field)
 
-	conn, err := db.Conn(context.Background())
-	assert.NotNil(t, err)
-	assert.Nil(t, conn)
+					driverVal, ok := fieldVal.(driver.Connector).Driver().(*seataATDriver)
+					assert.True(t, ok, "%s need seata AT driver", config.name)
+
+					vv := reflect.ValueOf(driverVal)
+					if vv.Kind() == reflect.Ptr {
+						vv = vv.Elem()
+					}
+					field = vv.FieldByName("target")
+
+					mockDriver := mock.NewMockTestDriver(ctrl)
+					reflectx.SetUnexportedField(field, mockDriver)
+
+					return &dsnConnector{driver: driverVal}
+				},
+			)
+
+			conn, err := db.Conn(context.Background())
+			assert.NotNil(t, err, "%s should return error when getting conn", config.name)
+			assert.Nil(t, conn, "%s conn should be nil when error occurs", config.name)
+		})
+	}
 }
 
 func Test_seataATDriver_OpenConnector(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	for _, config := range getAllDBTestConfigs() {
+		t.Run(config.name, func(t *testing.T) {
+			if config.dbType == types.DBTypePostgreSQL {
+				t.Skipf("AT mode for PostgreSQL is not implemented yet, skip connector test: %s", config.name)
+			}
 
-	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
-	_ = mockMgr
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	db, err := sql.Open("seata-at-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
-	if err != nil {
-		t.Fatal(err)
+			mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+			_ = mockMgr
+
+			db, err := sql.Open(config.atDriverName, config.dsn)
+			if err != nil {
+				t.Fatalf("failed to open %s AT driver for connector test: %v", config.name, err)
+			}
+			defer func() {
+				if db != nil {
+					db.Close()
+				}
+			}()
+
+			assertConnectorType(
+				t,
+				db,
+				reflect.TypeOf(&seataATConnector{}),
+				"%s should return seata AT connector", config.name,
+			)
+		})
 	}
-
-	defer db.Close()
-
-	v := reflect.ValueOf(db)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	field := v.FieldByName("connector")
-	fieldVal := reflectx.GetUnexportedField(field)
-
-	_, ok := fieldVal.(*seataATConnector)
-	assert.True(t, ok, "need return seata at connector")
 }
 
 func Test_seataXADriver_OpenConnector(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	for _, config := range getAllDBTestConfigs() {
+		t.Run(config.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
-	_ = mockMgr
+			mockMgr := initMockResourceManager(branch.BranchTypeXA, ctrl)
+			_ = mockMgr
 
-	db, err := sql.Open("seata-xa-mysql", "root:seata_go@tcp(127.0.0.1:3306)/seata_go_test?multiStatements=true")
-	if err != nil {
-		t.Fatal(err)
+			db, err := sql.Open(config.xaDriverName, config.dsn)
+			if err != nil {
+				t.Fatalf("failed to open %s XA driver for connector test: %v", config.name, err)
+			}
+			defer func() {
+				if db != nil {
+					db.Close()
+				}
+			}()
+
+			assertConnectorType(
+				t,
+				db,
+				reflect.TypeOf(&seataXAConnector{}),
+				"%s should return seata XA connector", config.name,
+			)
+		})
 	}
-
-	defer db.Close()
-
-	v := reflect.ValueOf(db)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	field := v.FieldByName("connector")
-	fieldVal := reflectx.GetUnexportedField(field)
-
-	_, ok := fieldVal.(*seataXAConnector)
-	assert.True(t, ok, "need return seata xa connector")
 }
