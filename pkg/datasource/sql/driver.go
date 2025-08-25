@@ -24,8 +24,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
-	pq "github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 	"io"
 	"reflect"
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
@@ -41,6 +41,8 @@ const (
 	SeataATMySQLDriver = "seata-at-mysql"
 	// SeataXAMySQLDriver MySQL driver for XA mode
 	SeataXAMySQLDriver = "seata-xa-mysql"
+	// SeataATPostgreSQLDriver PostgreSQL driver for AT mode
+	SeataATPostgreSQLDriver = "seata-at-postgres"
 	// SeataXAPostgreSQLDriver PostgreSQL driver for XA mode
 	SeataXAPostgreSQLDriver = "seata-xa-postgres"
 )
@@ -62,11 +64,19 @@ func initDriver() {
 		},
 	})
 
+	sql.Register(SeataATPostgreSQLDriver, &seataATDriver{
+		seataDriver: &seataDriver{
+			branchType: branch.BranchTypeAT,
+			transType:  types.ATMode,
+			target:     &stdlib.Driver{},
+		},
+	})
+
 	sql.Register(SeataXAPostgreSQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
-			target:     pq.Driver{},
+			target:     &stdlib.Driver{},
 		},
 	})
 }
@@ -104,7 +114,6 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.XAMode
 
-	var _ interface{}
 	dbType := types.ParseDBType(d.getTargetDriverName())
 	switch dbType {
 	case types.DBTypeMySQL:
@@ -114,11 +123,11 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 		}
 		_connector.cfg = mysqlCfg
 	case types.DBTypePostgreSQL:
-		pqCfg, err := pq.ParseURL(name)
+		pgxCfg, err := pgx.ParseConfig(name)
 		if err != nil {
 			return nil, fmt.Errorf("parse postgresql dsn error: %w", err)
 		}
-		_connector.cfg = pqCfg
+		_connector.cfg = pgxCfg
 	}
 	_connector.dbType = dbType
 
@@ -133,21 +142,23 @@ type seataDriver struct {
 	target     driver.Driver
 }
 
-// Open never be called, because seataDriver implemented dri.DriverContext interface.
-// reference package: datasource/sql [https://cs.opensource.google/go/go/+/master:src/database/sql/sql.go;l=813]
-// and maybe the sql.BD will be call Driver() method, but it obtain the Driver is fron Connector that is proxed by seataConnector.
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
 	return nil, errors.New(("operation unsupport."))
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
 	c = &dsnConnector{dsn: name, driver: d.target}
-	if driverCtx, ok := d.target.(driver.DriverContext); ok {
+	driverCtx, ok := d.target.(driver.DriverContext)
+	log.Infof("driver %T supports DriverContext? %v", d.target, ok)
+
+	if ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {
-			log.Errorf("open connector: %w", err)
+			log.Errorf("open connector via DriverContext: %w", err)
 			return nil, err
 		}
+	} else {
+		log.Infof("driver %T does not support DriverContext, use dsnConnector (lazy connect)", d.target)
 	}
 
 	dbType := types.ParseDBType(d.getTargetDriverName())
@@ -180,22 +191,15 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		cfg = mysqlCfg
 		dbName = mysqlCfg.DBName
 	case types.DBTypePostgreSQL:
-		connParams, err := pq.ParseURL(dataSourceName)
+		pgxCfg, err := pgx.ParseConfig(dataSourceName)
 		if err != nil {
 			log.Errorf("parse postgresql dsn error: %w", err)
 			return nil, err
 		}
+		log.Infof("PostgreSQL parsed config: %+v", pgxCfg)
 
-		paramsMap := make(map[string]string)
-		for _, param := range strings.Split(connParams, " ") {
-			kv := strings.SplitN(param, "=", 2)
-			if len(kv) == 2 {
-				paramsMap[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
-			}
-		}
-
-		dbName = paramsMap["dbname"]
-		cfg = paramsMap
+		dbName = pgxCfg.Database
+		cfg = pgxCfg
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
@@ -230,7 +234,7 @@ func (d *seataDriver) getTargetDriverName() string {
 	switch d.target.(type) {
 	case mysql.MySQLDriver:
 		return "mysql"
-	case pq.Driver:
+	case *stdlib.Driver: // pgx v4的驱动类型
 		return "postgres"
 	default:
 		return ""
@@ -279,8 +283,16 @@ func parseResourceID(dsn string, dbType types.DBType) string {
 }
 
 func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
+	if conn == nil {
+		log.Errorf("selectDBVersion: conn is nil, cannot query version")
+		return "", errors.New("database connection is nil")
+	}
+
 	var rowsi driver.Rows
 	var err error
+
+	log.Infof("conn type: %T, supports QueryerContext? %v", conn, conn.(driver.QueryerContext) != nil)
+	log.Infof("conn type: %T, supports Queryer? %v", conn, conn.(driver.Queryer) != nil)
 
 	queryerCtx, ok := conn.(driver.QueryerContext)
 	var queryer driver.Queryer
@@ -288,7 +300,11 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 		queryer, ok = conn.(driver.Queryer)
 	}
 	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, "SELECT VERSION()", nil)
+		query := "SELECT VERSION()"
+		if _, ok := conn.(*stdlib.Conn); ok { // pgx v4的连接类型
+			query = "SELECT version()"
+		}
+		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, query, nil)
 		defer func() {
 			if rowsi != nil {
 				rowsi.Close()

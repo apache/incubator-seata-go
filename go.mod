@@ -39,7 +39,7 @@ require (
 
 require (
 	github.com/knadh/koanf v1.5.0
-	github.com/lib/pq v1.10.2
+	github.com/lib/pq v1.10.9
 )
 
 require (
