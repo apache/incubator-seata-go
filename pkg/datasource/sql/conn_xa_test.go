@@ -21,13 +21,13 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"io"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -332,27 +332,55 @@ func TestXAConn_BeginTx(t *testing.T) {
 }
 
 func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
-	t.Run("test isXAER_RMFAILAlreadyEnded function", func(t *testing.T) {
-		// Test the function directly
-		err1 := errors.New("XAER_RMFAIL: XA branch already ended")
-		err2 := errors.New("XAER_RMFAIL: Resource manager failed")
-		err3 := errors.New("Some other error")
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "no error case",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "matching XAER_RMFAIL error with IDLE state",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: true,
+		},
+		{
+			name: "matching XAER_RMFAIL error with already ended",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction has already ended",
+			},
+			want: true,
+		},
+		{
+			name: "matching error code but mismatched message",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: Other error message",
+			},
+			want: false,
+		},
+		{
+			name: "mismatched error code but matching message",
+			err: &mysql.MySQLError{
+				Number:  1234,
+				Message: "The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: false,
+		},
+	}
 
-		assert.True(t, isXAER_RMFAILAlreadyEnded(err1))
-		assert.False(t, isXAER_RMFAILAlreadyEnded(err2))
-		assert.False(t, isXAER_RMFAILAlreadyEnded(err3))
-		assert.False(t, isXAER_RMFAILAlreadyEnded(nil))
-	})
-
-	t.Run("should handle XAER_RMFAIL already ended", func(t *testing.T) {
-		// Test the core logic directly
-		err := errors.New("XAER_RMFAIL: XA branch already ended")
-		assert.True(t, isXAER_RMFAILAlreadyEnded(err))
-	})
-
-	t.Run("should return error for other XAER_RMFAIL", func(t *testing.T) {
-		// Test the core logic directly
-		err := errors.New("XAER_RMFAIL: Resource manager failed")
-		assert.False(t, isXAER_RMFAILAlreadyEnded(err))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isXAER_RMFAILAlreadyEnded(tt.err); got != tt.want {
+				t.Errorf("isXAER_RMFAILAlreadyEnded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

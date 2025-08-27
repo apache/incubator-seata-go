@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/pkg/tm"
@@ -306,6 +307,7 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		// First end the XA branch with TMFail
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
+			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
 			if isXAER_RMFAILAlreadyEnded(err) {
 				// If already ended, continue with rollback
 				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
@@ -417,15 +419,17 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 }
 
 // isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
+// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
 func isXAER_RMFAILAlreadyEnded(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	errMsg := err.Error()
-	// Check for XAER_RMFAIL error with "already ended" message
-	if strings.Contains(errMsg, "XAER_RMFAIL") && strings.Contains(errMsg, "already ended") {
-		return true
+	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
+			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
+		}
 	}
+	//todo other DB error
+
 	return false
 }
