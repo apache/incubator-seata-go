@@ -354,3 +354,14 @@ func MySQLStrToJavaType(mysqlType string) JDBCType {
 		return JDBCTypeOther
 	}
 }
+
+// XA transaction related error code constants (based on MySQL/MariaDB specifications)
+const (
+	// ErrCodeXAER_RMFAIL_IDLE 1399: XAER_RMFAIL - The command cannot be executed when global transaction is in the IDLE state
+	// Typically occurs when trying to perform operations on an XA transaction that's in idle state
+	ErrCodeXAER_RMFAIL_IDLE = 1399
+
+	// ErrCodeXAER_INVAL 1400: XAER_INVAL - Invalid XA transaction ID format
+	// Triggered by malformed XID (e.g., invalid gtrid/branchid format or excessive length)
+	ErrCodeXAER_INVAL = 1400
+)

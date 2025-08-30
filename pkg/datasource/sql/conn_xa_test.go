@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -328,4 +329,58 @@ func TestXAConn_BeginTx(t *testing.T) {
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
 
+}
+
+func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "no error case",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "matching XAER_RMFAIL error with IDLE state",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: true,
+		},
+		{
+			name: "matching XAER_RMFAIL error with already ended",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction has already ended",
+			},
+			want: true,
+		},
+		{
+			name: "matching error code but mismatched message",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: Other error message",
+			},
+			want: false,
+		},
+		{
+			name: "mismatched error code but matching message",
+			err: &mysql.MySQLError{
+				Number:  1234,
+				Message: "The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isXAER_RMFAILAlreadyEnded(tt.err); got != tt.want {
+				t.Errorf("isXAER_RMFAILAlreadyEnded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
