@@ -382,6 +382,12 @@ func TestWithGlobalTx(t *testing.T) {
 	callbackNil := func(ctx context.Context) error {
 		return nil
 	}
+	callbackPanicError := func(ctx context.Context) error {
+		panic(errors.New("mock callback panic error"))
+	}
+	callbackPanicString := func(ctx context.Context) error {
+		panic("mock callback panic string")
+	}
 
 	type testCase struct {
 		GtxConfig              *GtxConfig
@@ -454,6 +460,34 @@ func TestWithGlobalTx(t *testing.T) {
 			callback:              callbackNil,
 			mockSecondPhaseTarget: commitOrRollback,
 			mockSecondPhaseFunc: func(ctx context.Context, s bool) error {
+				return nil
+			},
+		},
+
+		// case callback panic string
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicString,
+			occurError:      true,
+			errMessage:      "mock callback panic string",
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				return nil
+			},
+		},
+
+		// case callback panic error
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicError,
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
 				return nil
 			},
 		},
