@@ -99,8 +99,6 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		sourceQueryArgs  []driver.Value
 		expectQuery1     string
 		expectQueryArgs1 []driver.Value
-		//expectQuery2     string
-		//expectQueryArgs2 []driver.Value
 	}{
 		{
 			name: "",
