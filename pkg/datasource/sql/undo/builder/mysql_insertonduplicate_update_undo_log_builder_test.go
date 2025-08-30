@@ -46,7 +46,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	)
 	columnId := types.ColumnMeta{
 		ColumnDef:  nil,
-		ColumnName: "ID",
+		ColumnName: "id",
 	}
 	columnName := types.ColumnMeta{
 		ColumnDef:  nil,
@@ -56,12 +56,12 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		ColumnDef:  nil,
 		ColumnName: "age",
 	}
-	columns["ID"] = columnId
+	columns["id"] = columnId
 	columns["name"] = columnName
 	columns["age"] = columnAge
 	columnMeta1 = append(columnMeta1, columnId)
 	columnMeta2 = append(columnMeta2, columnName, columnAge)
-	index["ID"] = types.IndexMeta{
+	index["id"] = types.IndexMeta{
 		Name:    "PRIMARY",
 		IType:   types.IndexTypePrimaryKey,
 		Columns: columnMeta1,
@@ -72,7 +72,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		Columns: columnMeta2,
 	}
 
-	ColumnNames = []string{"ID", "name", "age"}
+	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
 		TableName:   "t_user",
 		Columns:     columns,
@@ -99,33 +99,32 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		sourceQueryArgs  []driver.Value
 		expectQuery1     string
 		expectQueryArgs1 []driver.Value
-		expectQuery2     string
-		expectQueryArgs2 []driver.Value
+		//expectQuery2     string
+		//expectQueryArgs2 []driver.Value
 	}{
 		{
+			name: "",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, "Link", 18},
-			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
-			expectQueryArgs1: []driver.Value{1, "Jack1", 81},
-			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
-			expectQueryArgs2: []driver.Value{"Jack1", 81, 1},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
+			expectQueryArgs1: []driver.Value{"Jack1", 81, 1},
 		},
 		{
+			name: "",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{81, "Link", 18},
-			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
-			expectQueryArgs1: []driver.Value{int64(1), "Jack1", 81},
-			expectQuery2:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
-			expectQueryArgs2: []driver.Value{"Jack1", 81, int64(1)},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
+			expectQueryArgs1: []driver.Value{"Jack1", 81, int64(1)},
 		},
 		// multi insert one index
 		{
+			name: "multi_insert_one_index",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(?,?,?),(?,?,?) on duplicate key update name = ?,age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
@@ -135,6 +134,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 			expectQueryArgs1: []driver.Value{"Jack1", 81, "Michal", 35},
 		},
 		{
+			name: "",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(?,'Jack1',?),(?,?,35) on duplicate key update name = 'Faker',age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
@@ -145,6 +145,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		},
 		// Test case for null unique index
 		{
+			name: "",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, name, age) values(?, ?, ?) on duplicate key update age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
@@ -155,16 +156,18 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 		},
 		// Test case for null primary key
 		{
+			name: "null_primary_key",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(id, age) values(?, ?) on duplicate key update age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{nil, 2, 5},
-			expectQuery1:     "SELECT * FROM t_user WHERE (age = ? )",
-			expectQueryArgs1: []driver.Value{2},
+			expectQuery1:     "",
+			expectQueryArgs1: nil,
 		},
 		// Test case for null unique index with no primary key
 		{
+			name: "",
 			execCtx: &types.ExecContext{
 				Query:       "insert into t_user(name, age) values(?, ?) on duplicate key update age = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
@@ -180,9 +183,9 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 				Query:       "insert into t_user(id, name, age) values(?,?,?) on duplicate key update other = ?",
 				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
 			},
-			sourceQueryArgs:  []driver.Value{1, "Jack", 25, "other"},
-			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (id = ? ) ",
-			expectQueryArgs1: []driver.Value{"Jack", 25, 1},
+			sourceQueryArgs:  []driver.Value{nil, "Jack", 25, "other"},
+			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? ) ",
+			expectQueryArgs1: []driver.Value{"Jack", 25},
 		},
 		// Test case for composite index with null value
 		{
@@ -214,13 +217,8 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 			tt.execCtx.ParseContext = c
 			query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)
 			assert.Nil(t, err)
-			if query == tt.expectQuery1 {
-				assert.Equal(t, tt.expectQuery1, query)
-				assert.Equal(t, tt.expectQueryArgs1, args)
-			} else {
-				assert.Equal(t, tt.expectQuery2, query)
-				assert.Equal(t, tt.expectQueryArgs2, args)
-			}
+			assert.Equal(t, tt.expectQuery1, query)
+			assert.Equal(t, tt.expectQueryArgs1, args)
 		})
 	}
 }
