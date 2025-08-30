@@ -18,7 +18,6 @@
 package expr
 
 import (
-	"maps"
 	"strings"
 )
 
@@ -42,7 +41,9 @@ func (e *ExpressionFactoryManager) GetExpressionFactory(expressionType string) E
 }
 
 func (e *ExpressionFactoryManager) SetExpressionFactoryMap(expressionFactoryMap map[string]ExpressionFactory) {
-	maps.Copy(e.expressionFactoryMap, expressionFactoryMap)
+	for k, v := range expressionFactoryMap {
+		e.expressionFactoryMap[k] = v
+	}
 }
 
 func (e *ExpressionFactoryManager) PutExpressionFactory(expressionType string, factory ExpressionFactory) {

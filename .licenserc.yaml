@@ -80,7 +80,7 @@ header: # `header` section is configurations for source codes license header.
     - 'VERSION'
     - ".errcheck-exclude"
     - ".golangci.yml"
-    - '.pre-commit-config.yaml'
+    - '.pre-commit-saga_config.yaml'
     - '.github'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
