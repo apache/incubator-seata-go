@@ -55,7 +55,7 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	}
 
 	if IsGlobalTx(ctx) {
-		clearTxConf(ctx)
+		ctx = transferTx(ctx)
 	}
 
 	if re = begin(ctx, gc); re != nil {
@@ -216,7 +216,10 @@ func useExistGtx(ctx context.Context, gc *GtxConfig) {
 	}
 }
 
-// clearTxConf When using global transactions in local mode, you need to clear tx config to use the propagation of global transactions.
-func clearTxConf(ctx context.Context) {
-	SetTx(ctx, &GlobalTransaction{Xid: GetXID(ctx)})
+// transferTx transfer the gtx into a new ctx from old ctx.
+// use it to implement suspend and resume instead
+func transferTx(ctx context.Context) context.Context {
+	newCtx := InitSeataContext(ctx)
+	SetXID(newCtx, GetXID(ctx))
+	return newCtx
 }

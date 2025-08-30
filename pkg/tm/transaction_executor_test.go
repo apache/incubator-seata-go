@@ -318,7 +318,7 @@ func TestCommitOrRollback(t *testing.T) {
 	}
 }
 
-func TestClearTxConf(t *testing.T) {
+func TestTransferTx(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
 
 	SetTx(ctx, &GlobalTransaction{
@@ -328,12 +328,17 @@ func TestClearTxConf(t *testing.T) {
 		TxRole:   Launcher,
 	})
 
-	clearTxConf(ctx)
+	newCtx := transferTx(ctx)
 
 	assert.Equal(t, "123456", GetXID(ctx))
-	assert.Equal(t, UnKnow, *GetTxRole(ctx))
-	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(ctx))
-	assert.Equal(t, "", GetTxName(ctx))
+	assert.Equal(t, Launcher, *GetTxRole(ctx))
+	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
+	assert.Equal(t, "MockTxName", GetTxName(ctx))
+
+	assert.Equal(t, "123456", GetXID(newCtx))
+	assert.Equal(t, UnKnow, *GetTxRole(newCtx))
+	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(newCtx))
+	assert.Equal(t, "", GetTxName(newCtx))
 }
 
 func TestUseExistGtx(t *testing.T) {
