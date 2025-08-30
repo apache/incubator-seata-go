@@ -20,18 +20,19 @@ package client
 import (
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/datasource"
-	at "seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/config"
-	"seata.apache.org/seata-go/pkg/discovery"
-	"seata.apache.org/seata-go/pkg/integration"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/remoting/processor/client"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"github.com/seata/seata-go/pkg/datasource"
+	at "github.com/seata/seata-go/pkg/datasource/sql"
+	"github.com/seata/seata-go/pkg/datasource/sql/exec/config"
+	"github.com/seata/seata-go/pkg/discovery"
+	"github.com/seata/seata-go/pkg/integration"
+	remoteConfig "github.com/seata/seata-go/pkg/remoting/config"
+	"github.com/seata/seata-go/pkg/remoting/getty"
+	"github.com/seata/seata-go/pkg/remoting/processor/client"
+	"github.com/seata/seata-go/pkg/rm"
+	"github.com/seata/seata-go/pkg/rm/tcc"
+	saga "github.com/seata/seata-go/pkg/saga/rm"
+	"github.com/seata/seata-go/pkg/tm"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 // Init seata client client
@@ -62,17 +63,15 @@ func initTmClient(cfg *Config) {
 	})
 }
 
-// initRemoting init remoting
+// initRemoting init rpc client
 func initRemoting(cfg *Config) {
-	seataConfig := remoteConfig.SeataConfig{
+	getty.InitRpcClient(&cfg.GettyConfig, &remoteConfig.SeataConfig{
 		ApplicationID:        cfg.ApplicationID,
 		TxServiceGroup:       cfg.TxServiceGroup,
 		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
 		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
 		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
-	}
-
-	getty.InitGetty(&cfg.GettyConfig, &seataConfig)
+	})
 }
 
 // InitRmClient init client rm client
@@ -88,7 +87,8 @@ func initRmClient(cfg *Config) {
 		config.Init(cfg.ClientConfig.RmConfig.LockConfig)
 		client.RegisterProcessor()
 		integration.Init()
-		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
+		tcc.InitTCC()
+		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})
