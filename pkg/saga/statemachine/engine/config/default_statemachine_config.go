@@ -372,11 +372,7 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
 		}
 	default:
-		if err := json.Unmarshal(content, &configFileParams); err != nil {
-			if err := yaml.Unmarshal(content, &configFileParams); err != nil {
-				return fmt.Errorf("failed to unmarshal config file (unknown type): %w", err)
-			}
-		}
+		return fmt.Errorf("unsupported config file type: path=%s, ext=%s (only .json/.yaml/.yml are supported)", configPath, ext)
 	}
 
 	c.applyConfigFileParams(&configFileParams)
