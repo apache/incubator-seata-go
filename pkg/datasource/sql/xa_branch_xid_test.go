@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package sql
 
 import (
@@ -23,47 +6,55 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
 func TestXABranchXidBuild(t *testing.T) {
 	xid := "111"
 	branchId := uint64(222)
-	x := XaIdBuild(xid, branchId)
+
+	x := NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 
 	assert.Equal(t, x.GetGlobalXid(), xid)
 	assert.Equal(t, x.GetBranchId(), branchId)
 	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
 	assert.Equal(t, x.GetBranchQualifier(), []byte("-222"))
-	assert.Equal(t, x.GetDatabaseType(), DatabaseTypeMySQL)
+	assert.Equal(t, x.GetDatabaseType(), types.DBTypeMySQL)
 	assert.Equal(t, x.String(), "111-222")
 }
 
 func TestXABranchXidBuildWithByte(t *testing.T) {
-	xid := []byte("111")
-	branchId := []byte(branchIdPrefix + "222")
-	x := XaIdBuildWithByte(xid, branchId)
+	xidByte := []byte("111")
+	branchIdByte := []byte(branchIdPrefix + "222")
+	x := NewXABranchXid(
+		WithGlobalTransactionId(xidByte),
+		WithBranchQualifier(branchIdByte),
+	)
 
-	assert.Equal(t, x.GetGlobalTransactionId(), xid)
-	assert.Equal(t, x.GetBranchQualifier(), branchId)
+	assert.Equal(t, x.GetGlobalTransactionId(), xidByte)
+	assert.Equal(t, x.GetBranchQualifier(), branchIdByte)
 	assert.Equal(t, x.GetGlobalXid(), "111")
 	assert.Equal(t, x.GetBranchId(), uint64(222))
-	assert.Equal(t, x.GetDatabaseType(), DatabaseTypeMySQL)
+	assert.Equal(t, x.GetDatabaseType(), types.DBTypeMySQL)
 }
 
 func TestXABranchXidBuildForPostgreSQL(t *testing.T) {
 	xid := "global-tx-123"
 	branchId := uint64(456)
-	x := XaIdBuildForPostgreSQL(xid, branchId)
+	x := NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 
 	assert.Equal(t, x.GetGlobalXid(), xid)
 	assert.Equal(t, x.GetBranchId(), branchId)
-	assert.Equal(t, x.GetDatabaseType(), DatabaseTypePostgreSQL)
+	assert.Equal(t, x.GetDatabaseType(), types.DBTypePostgreSQL)
 	assert.Equal(t, x.GetFormatId(), int32(DefaultFormatId))
 
 	pgFormat := x.ToPostgreSQLFormat()
 	assert.NotEmpty(t, pgFormat)
 	assert.True(t, strings.HasPrefix(pgFormat, "1_"))
-
 	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
 	assert.NotEmpty(t, x.GetBranchQualifier())
 }
@@ -72,12 +63,20 @@ func TestXABranchXidWithDatabase(t *testing.T) {
 	xid := "test-xid"
 	branchId := uint64(123)
 
-	mysqlXid := XaIdBuildWithDatabase(xid, branchId, DatabaseTypeMySQL)
-	assert.Equal(t, mysqlXid.GetDatabaseType(), DatabaseTypeMySQL)
+	mysqlXid := NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypeMySQL),
+	)
+	assert.Equal(t, mysqlXid.GetDatabaseType(), types.DBTypeMySQL)
 	assert.Equal(t, mysqlXid.String(), "test-xid-123")
 
-	pgXid := XaIdBuildWithDatabase(xid, branchId, DatabaseTypePostgreSQL)
-	assert.Equal(t, pgXid.GetDatabaseType(), DatabaseTypePostgreSQL)
+	pgXid := NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
+	assert.Equal(t, pgXid.GetDatabaseType(), types.DBTypePostgreSQL)
 	pgFormat := pgXid.ToPostgreSQLFormat()
 	assert.NotEmpty(t, pgFormat)
 	assert.Contains(t, pgFormat, hex.EncodeToString([]byte(xid)))
@@ -88,18 +87,26 @@ func TestXABranchXidStandardBuild(t *testing.T) {
 	bqual := []byte("branch-qualifier-456")
 	formatId := int32(2)
 
-	x := XaIdBuildStandard(gtrid, bqual, formatId, DatabaseTypePostgreSQL)
+	x := NewXABranchXid(
+		WithGlobalTransactionId(gtrid),
+		WithBranchQualifier(bqual),
+		WithFormatId(formatId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 
 	assert.Equal(t, x.GetGlobalTransactionId(), gtrid)
 	assert.Equal(t, x.GetBranchQualifier(), bqual)
 	assert.Equal(t, x.GetFormatId(), formatId)
-	assert.Equal(t, x.GetDatabaseType(), DatabaseTypePostgreSQL)
+	assert.Equal(t, x.GetDatabaseType(), types.DBTypePostgreSQL)
 	assert.Equal(t, x.GetGlobalXid(), string(gtrid))
 }
 
 func TestPostgreSQLXidParsing(t *testing.T) {
-
-	originalXid := XaIdBuildForPostgreSQL("test-global-tx", 789)
+	originalXid := NewXABranchXid(
+		WithXid("test-global-tx"),
+		WithBranchId(789),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 	pgFormat := originalXid.ToPostgreSQLFormat()
 
 	parsedXid, err := ParsePostgreSQLXid(pgFormat)
@@ -109,7 +116,7 @@ func TestPostgreSQLXidParsing(t *testing.T) {
 	assert.Equal(t, parsedXid.GetGlobalTransactionId(), originalXid.GetGlobalTransactionId())
 	assert.Equal(t, parsedXid.GetBranchQualifier(), originalXid.GetBranchQualifier())
 	assert.Equal(t, parsedXid.GetFormatId(), originalXid.GetFormatId())
-	assert.Equal(t, parsedXid.GetDatabaseType(), DatabaseTypePostgreSQL)
+	assert.Equal(t, parsedXid.GetDatabaseType(), types.DBTypePostgreSQL)
 }
 
 func TestPostgreSQLXidParsingInvalidFormat(t *testing.T) {
@@ -133,7 +140,11 @@ func TestPostgreSQLXidParsingInvalidFormat(t *testing.T) {
 
 func TestLongXidHandling(t *testing.T) {
 	longXid := strings.Repeat("a", MaxGTRIDLength+10)
-	x := XaIdBuildForPostgreSQL(longXid, 123)
+	x := NewXABranchXid(
+		WithXid(longXid),
+		WithBranchId(123),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 
 	assert.NotEmpty(t, x.GetGlobalTransactionId())
 	assert.LessOrEqual(t, len(x.GetGlobalTransactionId()), MaxGTRIDLength)
@@ -146,37 +157,42 @@ func TestXidStringFormats(t *testing.T) {
 	xid := "test-xid"
 	branchId := uint64(456)
 
-	mysqlXid := XaIdBuild(xid, branchId)
+	mysqlXid := NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 	assert.Equal(t, mysqlXid.String(), "test-xid-456")
 
-	pgXid := XaIdBuildForPostgreSQL(xid, branchId)
+	pgXid := NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 	pgString := pgXid.String()
 	assert.NotEqual(t, pgString, "test-xid-456")
 	assert.Contains(t, pgString, "1_")
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
-
-	mysqlXid := XaIdBuild("mysql-test", 789)
-	mysqlBytes := XaIdBuildWithByte(mysqlXid.GetGlobalTransactionId(), mysqlXid.GetBranchQualifier())
+	mysqlXid := NewXABranchXid(WithXid("mysql-test"), WithBranchId(789))
+	mysqlBytes := NewXABranchXid(
+		WithGlobalTransactionId(mysqlXid.GetGlobalTransactionId()),
+		WithBranchQualifier(mysqlXid.GetBranchQualifier()),
+	)
 	assert.Equal(t, mysqlXid.GetGlobalXid(), mysqlBytes.GetGlobalXid())
 	assert.Equal(t, mysqlXid.GetBranchId(), mysqlBytes.GetBranchId())
 
-	pgXid := XaIdBuildForPostgreSQL("pg-test", 789)
+	pgXid := NewXABranchXid(
+		WithXid("pg-test"),
+		WithBranchId(789),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	)
 	pgFormat := pgXid.ToPostgreSQLFormat()
 	parsedPgXid, err := ParsePostgreSQLXid(pgFormat)
 	assert.NoError(t, err)
 	assert.Equal(t, pgXid.GetGlobalXid(), parsedPgXid.GetGlobalXid())
 }
 
-func TestDatabaseTypeConstants(t *testing.T) {
-	assert.Equal(t, DatabaseTypeMySQL, DatabaseType(0))
-	assert.Equal(t, DatabaseTypePostgreSQL, DatabaseType(1))
-}
-
 func TestDefaultValues(t *testing.T) {
 	x := NewXABranchXid()
-	assert.Equal(t, x.GetDatabaseType(), DatabaseTypeMySQL)
+	assert.Equal(t, x.GetDatabaseType(), types.DBTypeMySQL)
 	assert.Equal(t, x.GetFormatId(), int32(DefaultFormatId))
 	assert.Equal(t, DefaultFormatId, int32(1))
 }
