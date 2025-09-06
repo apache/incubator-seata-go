@@ -18,12 +18,26 @@
 package sql
 
 import (
+	"crypto/md5"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 const (
-	branchIdPrefix = "-"
+	branchIdPrefix        = "-"
+	MaxGTRIDLength        = 64
+	MaxBQUALLength        = 64
+	DefaultFormatId int32 = 1
+)
+
+type DatabaseType int
+
+const (
+	DatabaseTypeMySQL DatabaseType = iota
+	DatabaseTypePostgreSQL
 )
 
 type XABranchXid struct {
@@ -31,28 +45,44 @@ type XABranchXid struct {
 	branchId            uint64
 	globalTransactionId []byte
 	branchQualifier     []byte
+
+	formatId int32
+	dbType   DatabaseType
 }
 
 type Option func(*XABranchXid)
 
 func NewXABranchXid(opt ...Option) *XABranchXid {
-	xABranchXid := &XABranchXid{}
+	xABranchXid := &XABranchXid{
+		formatId: DefaultFormatId,
+		dbType:   DatabaseTypeMySQL,
+	}
 
 	for _, fn := range opt {
 		fn(xABranchXid)
 	}
 
-	// encode
-	if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
-		len(xABranchXid.globalTransactionId) == 0 &&
-		len(xABranchXid.branchQualifier) == 0 {
-		encode(xABranchXid)
-	}
-
-	// decode
-	if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
-		(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
-		decode(xABranchXid)
+	switch xABranchXid.dbType {
+	case DatabaseTypePostgreSQL:
+		if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
+			len(xABranchXid.globalTransactionId) == 0 &&
+			len(xABranchXid.branchQualifier) == 0 {
+			encodePostgreSQL(xABranchXid)
+		}
+		if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
+			(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
+			decodePostgreSQL(xABranchXid)
+		}
+	default:
+		if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
+			len(xABranchXid.globalTransactionId) == 0 &&
+			len(xABranchXid.branchQualifier) == 0 {
+			encode(xABranchXid)
+		}
+		if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
+			(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
+			decode(xABranchXid)
+		}
 	}
 
 	return xABranchXid
@@ -74,8 +104,33 @@ func (x *XABranchXid) GetBranchQualifier() []byte {
 	return x.branchQualifier
 }
 
+func (x *XABranchXid) GetFormatId() int32 {
+	return x.formatId
+}
+
+func (x *XABranchXid) GetDatabaseType() DatabaseType {
+	return x.dbType
+}
+
 func (x *XABranchXid) String() string {
-	return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	switch x.dbType {
+	case DatabaseTypePostgreSQL:
+		return x.ToPostgreSQLFormat()
+	default:
+		return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	}
+}
+
+func (x *XABranchXid) ToPostgreSQLFormat() string {
+	if len(x.globalTransactionId) == 0 || len(x.branchQualifier) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d_%d_%d_%s_%s",
+		x.formatId,
+		len(x.globalTransactionId),
+		len(x.branchQualifier),
+		hex.EncodeToString(x.globalTransactionId),
+		hex.EncodeToString(x.branchQualifier))
 }
 
 func WithXid(xid string) Option {
@@ -102,6 +157,18 @@ func WithBranchQualifier(branchQualifier []byte) Option {
 	}
 }
 
+func WithFormatId(formatId int32) Option {
+	return func(x *XABranchXid) {
+		x.formatId = formatId
+	}
+}
+
+func WithDatabaseType(dbType DatabaseType) Option {
+	return func(x *XABranchXid) {
+		x.dbType = dbType
+	}
+}
+
 func encode(x *XABranchXid) {
 	if x.xid != "" {
 		x.globalTransactionId = []byte(x.xid)
@@ -121,4 +188,78 @@ func decode(x *XABranchXid) {
 		branchId := strings.TrimLeft(string(x.branchQualifier), branchIdPrefix)
 		x.branchId, _ = strconv.ParseUint(branchId, 10, 64)
 	}
+}
+
+func encodePostgreSQL(x *XABranchXid) {
+	if x.xid != "" {
+		gtrid := x.xid
+		if len(gtrid) > MaxGTRIDLength {
+			hash := md5.Sum([]byte(gtrid))
+			gtrid = hex.EncodeToString(hash[:])
+		}
+		x.globalTransactionId = []byte(gtrid)
+	}
+
+	if x.branchId != 0 {
+		branchBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(branchBytes, x.branchId)
+
+		bqual := hex.EncodeToString(branchBytes)
+		if len(bqual) > MaxBQUALLength {
+			bqual = bqual[:MaxBQUALLength]
+		}
+		x.branchQualifier = []byte(bqual)
+	}
+}
+
+func decodePostgreSQL(x *XABranchXid) {
+	if len(x.globalTransactionId) > 0 {
+		x.xid = string(x.globalTransactionId)
+	}
+
+	if len(x.branchQualifier) > 0 {
+		bqualStr := string(x.branchQualifier)
+		if branchBytes, err := hex.DecodeString(bqualStr); err == nil && len(branchBytes) >= 8 {
+			x.branchId = binary.BigEndian.Uint64(branchBytes[:8])
+		}
+	}
+}
+
+func ParsePostgreSQLXid(xidStr string) (*XABranchXid, error) {
+	parts := strings.Split(xidStr, "_")
+	if len(parts) != 5 {
+		return nil, fmt.Errorf("invalid PostgreSQL XID format")
+	}
+
+	formatId, err := strconv.ParseInt(parts[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid format ID: %v", err)
+	}
+
+	gtridLen, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid gtrid length: %v", err)
+	}
+
+	bqualLen, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return nil, fmt.Errorf("invalid bqual length: %v", err)
+	}
+
+	gtrid, err := hex.DecodeString(parts[3])
+	if err != nil || len(gtrid) != gtridLen {
+		return nil, fmt.Errorf("invalid gtrid: %v", err)
+	}
+
+	bqual, err := hex.DecodeString(parts[4])
+	if err != nil || len(bqual) != bqualLen {
+		return nil, fmt.Errorf("invalid bqual: %v", err)
+	}
+
+	return NewXABranchXid(
+		WithGlobalTransactionId(gtrid),
+		WithBranchQualifier(bqual),
+		WithFormatId(int32(formatId)),
+		WithDatabaseType(DatabaseTypePostgreSQL),
+	), nil
 }
