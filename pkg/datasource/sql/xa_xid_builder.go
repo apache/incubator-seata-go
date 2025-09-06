@@ -24,3 +24,30 @@ func XaIdBuild(xid string, branchId uint64) *XABranchXid {
 func XaIdBuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
 	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
 }
+
+func XaIdBuildForPostgreSQL(xid string, branchId uint64) *XABranchXid {
+	return NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(DatabaseTypePostgreSQL),
+		WithFormatId(DefaultFormatId),
+	)
+}
+
+func XaIdBuildWithDatabase(xid string, branchId uint64, dbType DatabaseType) *XABranchXid {
+	return NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(dbType),
+		WithFormatId(DefaultFormatId),
+	)
+}
+
+func XaIdBuildStandard(gtrid []byte, bqual []byte, formatId int32, dbType DatabaseType) *XABranchXid {
+	return NewXABranchXid(
+		WithGlobalTransactionId(gtrid),
+		WithBranchQualifier(bqual),
+		WithFormatId(formatId),
+		WithDatabaseType(dbType),
+	)
+}
