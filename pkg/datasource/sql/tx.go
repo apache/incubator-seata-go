@@ -103,10 +103,28 @@ type Tx struct {
 	target  driver.Tx
 }
 
+func (tx *Tx) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if tx.target == nil {
+		err := fmt.Errorf("tx.target is nil, cannot execute SQL: %s", query)
+		log.Errorf("Tx.ExecContext failed: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
+	}
+
+	execer, ok := tx.target.(driver.ExecerContext)
+	if !ok {
+		err := fmt.Errorf("tx.target does not support ExecerContext (required for XA), target type=%T, query=%s", tx.target, query)
+		log.Errorf("Tx.ExecContext incompatible driver: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
+	}
+
+	return execer.ExecContext(ctx, query, args)
+}
+
 // Commit do commit action
 func (tx *Tx) Commit() error {
 	tx.beforeCommit()
-	return tx.commitOnLocal()
+	err := tx.commitOnLocal()
+	return err
 }
 
 func (tx *Tx) beforeCommit() {

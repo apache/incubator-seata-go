@@ -21,13 +21,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
@@ -213,42 +213,12 @@ func (c *BaseTableMetaCache) getDBName() (string, error) {
 	case *mysql.Config:
 		return cfg.DBName, nil
 	case string:
-		dsn := cfg
-		dbName, err := parseDBNameFromPostgreSQLDSN(dsn)
+		pgxCfg, err := pgx.ParseConfig(cfg)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to parse postgresql dsn: %w", err)
 		}
-		return dbName, nil
+		return pgxCfg.Database, nil
 	default:
 		return "", fmt.Errorf("unsupported config type: %T", cfg)
 	}
-}
-
-func parseDBNameFromPostgreSQLDSN(dsn string) (string, error) {
-	params, err := pq.ParseURL(dsn)
-	if err != nil {
-		return parseDBNameFromDSNFallback(dsn), nil
-	}
-
-	parts := strings.Fields(params)
-	for _, part := range parts {
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) == 2 && strings.ToLower(kv[0]) == "dbname" {
-			return kv[1], nil
-		}
-	}
-
-	return "", fmt.Errorf("dbname not found in PostgreSQL DSN")
-}
-
-// manually parse key=value format
-func parseDBNameFromDSNFallback(dsn string) string {
-	parts := strings.Fields(dsn)
-	for _, part := range parts {
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) == 2 && strings.ToLower(kv[0]) == "dbname" {
-			return kv[1]
-		}
-	}
-	return ""
 }
