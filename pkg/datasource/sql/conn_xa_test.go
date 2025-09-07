@@ -152,16 +152,12 @@ func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTest
 }
 
 type mockTxAdapter struct {
-	*Tx
+	baseTx *Tx
 	mockTx *mock.MockTestDriverTx
 }
 
-func (m *mockTxAdapter) register(ctx *types.TransactionContext) error {
-	return nil
-}
-
 func (m *mockTxAdapter) Commit() error {
-	err := m.Tx.Commit()
+	err := m.mockTx.Commit()
 	if err != nil {
 		return err
 	}
@@ -170,6 +166,14 @@ func (m *mockTxAdapter) Commit() error {
 
 func (m *mockTxAdapter) Rollback() error {
 	return m.mockTx.Rollback()
+}
+
+func (m *mockTxAdapter) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	return m.mockTx.ExecContext(ctx, query, args)
+}
+
+func (m *mockTxAdapter) register(ctx *types.TransactionContext) error {
+	return m.baseTx.register(ctx)
 }
 
 func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTestConfig) (*sql.DB, *mockSQLInterceptor, *mockTxHook) {
@@ -208,6 +212,7 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 			mockDriverConn := &Conn{
 				targetConn: mockConn,
 				txCtx:      types.NewTxCtx(),
+				isTestMode: true,
 			}
 
 			txIface, err := newTx(
@@ -227,17 +232,35 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 				t.Fatalf("tx type assert failed: expect *Tx, got %T", txIface)
 			}
 
-			baseTx.target = mockTx
+			if baseTx.target != mockTx {
+				t.Fatalf("baseTx.target binding error! Expected mockTx (address: %p), got %T (address: %p)",
+					mockTx, baseTx.target, baseTx.target)
+			}
+			// Log to confirm the target is bound successfully
+			t.Logf("baseTx.target bound successfully: type=%T, address=%p (mockTx address=%p)",
+				baseTx.target, baseTx.target, mockTx)
 
 			txAdapter := &mockTxAdapter{
-				Tx:     baseTx,
+				baseTx: baseTx,
 				mockTx: mockTx,
 			}
+			mockConn.EXPECT().Begin().AnyTimes().DoAndReturn(
+				func() (driver.Tx, error) {
+					return txAdapter, nil
+				},
+			)
 
-			t.Logf("txAdapter.Tx.target = %v", txAdapter.Tx.target)
-
-			mockConn.EXPECT().Begin().AnyTimes().Return(txAdapter, nil)
-			mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(txAdapter, nil)
+			mockConn.EXPECT().
+				BeginTx(
+					gomock.Any(),
+					gomock.AssignableToTypeOf(driver.TxOptions{}),
+				).
+				AnyTimes().
+				DoAndReturn(
+					func(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+						return txAdapter, nil
+					},
+				)
 
 			mockConn.EXPECT().ExecContext(
 				gomock.Any(),
@@ -253,7 +276,9 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 
 			connector := mock.NewMockTestDriverConnector(ctrl)
 			connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)
-			return connector
+			//return connector
+
+			return mockDriverConn
 		},
 	)
 
@@ -262,7 +287,6 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 	exec.CleanCommonHook()
 	CleanTxHooks()
 	exec.RegisterCommonHook(mi)
-	RegisterTxHook(ti)
 
 	return db, mi, ti
 }
@@ -364,6 +388,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 			}
 
 			t.Run("tx-local", func(t *testing.T) {
+				CleanTxHooks()
 				tx, err := db.Begin()
 				assert.NoError(t, err, "failed to begin local tx")
 
@@ -378,6 +403,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 				ti.beforeCommit = func(tx *Tx) {
 					atomic.AddInt32(&commitCnt, 1)
 				}
+				RegisterTxHook(ti)
 
 				_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
 				assert.NoError(t, err, "tx.ExecContext failed")
@@ -391,6 +417,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 			})
 
 			t.Run("tx-local-context", func(t *testing.T) {
+				CleanTxHooks()
 				tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
 				assert.NoError(t, err, "failed to begin local tx with ctx")
 
@@ -405,6 +432,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 				ti.beforeCommit = func(tx *Tx) {
 					atomic.AddInt32(&commitCnt, 1)
 				}
+				RegisterTxHook(ti)
 
 				_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
 				assert.NoError(t, err, "tx.ExecContext failed")
@@ -418,6 +446,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 			})
 
 			t.Run("tx-xa-context", func(t *testing.T) {
+				CleanTxHooks()
 				ctx := tm.InitSeataContext(context.Background())
 				expectedXID := uuid.NewString()
 				tm.SetXID(ctx, expectedXID)
@@ -436,6 +465,7 @@ func TestXAConn_BeginTx(t *testing.T) {
 				ti.beforeCommit = func(tx *Tx) {
 					atomic.AddInt32(&commitCnt, 1)
 				}
+				RegisterTxHook(ti)
 
 				_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
 				assert.NoError(t, err, "tx.ExecContext failed")

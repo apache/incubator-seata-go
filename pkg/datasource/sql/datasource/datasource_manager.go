@@ -174,6 +174,10 @@ func extractDSN(db *sql.DB) (string, error) {
 	}
 	fullTypeName := connType.PkgPath() + "." + connType.Name()
 
+	if fullTypeName == "github.com/jackc/pgx/v4/stdlib.Conn" {
+		return extractPgxDSN(rawConn)
+	}
+
 	if fullTypeName == "github.com/lib/pq.Conn" {
 		return extractPQDSN(rawConn)
 	}
@@ -183,6 +187,28 @@ func extractDSN(db *sql.DB) (string, error) {
 	}
 
 	return "", fmt.Errorf("unsupported drive type: %s", fullTypeName)
+}
+
+func extractPgxDSN(rawConn interface{}) (string, error) {
+	val := reflect.ValueOf(rawConn).Elem()
+	pgxConnField := val.FieldByName("conn")
+	if !pgxConnField.IsValid() || pgxConnField.IsNil() {
+		return "", errors.New("pgx driver: conn field not found")
+	}
+
+	pgxConnVal := pgxConnField.Elem()
+	configField := pgxConnVal.FieldByName("config")
+	if !configField.IsValid() || configField.IsNil() {
+		return "", errors.New("pgx driver: config field not found")
+	}
+	
+	configVal := configField.Elem()
+	connStringField := configVal.FieldByName("ConnString")
+	if !connStringField.IsValid() || connStringField.Kind() != reflect.String {
+		return "", errors.New("pgx driver: ConnString field not found")
+	}
+
+	return connStringField.String(), nil
 }
 
 func extractPQDSN(rawConn interface{}) (string, error) {

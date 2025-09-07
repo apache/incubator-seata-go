@@ -234,7 +234,7 @@ func (d *seataDriver) getTargetDriverName() string {
 	switch d.target.(type) {
 	case mysql.MySQLDriver:
 		return "mysql"
-	case *stdlib.Driver: // pgx v4的驱动类型
+	case *stdlib.Driver:
 		return "postgres"
 	default:
 		return ""
@@ -301,7 +301,7 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 	}
 	if ok {
 		query := "SELECT VERSION()"
-		if _, ok := conn.(*stdlib.Conn); ok { // pgx v4的连接类型
+		if _, ok := conn.(*stdlib.Conn); ok {
 			query = "SELECT version()"
 		}
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, query, nil)

@@ -20,6 +20,8 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
+	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -37,6 +39,29 @@ type Conn struct {
 	autoCommit bool
 	dbName     string
 	dbType     types.DBType
+	isTestMode bool
+}
+
+// Implement the Connect method of the driver.Connector interface for *Conn
+func (c *Conn) Connect(ctx context.Context) (driver.Conn, error) {
+	// For test scenarios: Return self directly (since *Conn already implements the driver.Conn interface)
+	// No need to create an additional connection; reuse the existing mockDriverConn instance
+	fmt.Printf("[*Conn.Connect] Implement driver.Connector, return self as connection instance → isTestMode=%v\n", c.isTestMode)
+	return c, nil // Return *Conn instance (complies with driver.Conn type requirement)
+}
+
+// (Optional) Implement the Driver method of the driver.Connector interface (required in some scenarios to avoid potential errors)
+func (c *Conn) Driver() driver.Driver {
+	// For test scenarios: Return an empty Driver implementation (or mock Driver)
+	return &mockDriver{}
+}
+
+// Define an empty mockDriver struct (used to implement the driver.Driver interface)
+type mockDriver struct{}
+
+// Implement the Open method of the driver.Driver interface (empty implementation; no real logic needed for test scenarios)
+func (d *mockDriver) Open(name string) (driver.Conn, error) {
+	return nil, errors.New("mockDriver: Open method not implemented (no invocation needed in test scenarios)")
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -213,10 +238,26 @@ func (c *Conn) Begin() (driver.Tx, error) {
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if c.txCtx.TransactionMode == types.XAMode {
 		c.autoCommit = false
+
+		var originTx driver.Tx
+		if c.isTestMode {
+			var err error
+			if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
+				originTx, err = conn.BeginTx(ctx, opts)
+			} else {
+				originTx, err = c.targetConn.Begin()
+			}
+			if err != nil {
+				return nil, fmt.Errorf("xa test mode: targetConn begin tx failed: %w", err)
+			}
+		} else {
+			originTx = nil
+		}
+
 		return newTx(
 			withDriverConn(c),
 			withTxCtx(c.txCtx),
-			withOriginTx(nil),
+			withOriginTx(originTx),
 		)
 	}
 

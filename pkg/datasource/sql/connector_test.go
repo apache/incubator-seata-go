@@ -37,7 +37,6 @@ type initConnectorFunc func(t *testing.T, ctrl *gomock.Controller, config dbTest
 
 func initMockConnector(t *testing.T, ctrl *gomock.Controller, config dbTestConfig) driver.Connector {
 	mockConn := mock.NewMockTestDriverConn(ctrl)
-	// 复用baseMockConn的版本查询逻辑，避免重复编码
 	baseMockConn(t, mockConn, config)
 
 	connector := mock.NewMockTestDriverConnector(ctrl)
@@ -146,7 +145,7 @@ func Test_seataXAConnector_Connect(t *testing.T) {
 			proxyConnector := initMockXaConnector(t, ctrl, db, config, initMockConnector)
 			conn, err := proxyConnector.Connect(context.Background())
 			assert.NoError(t, err, "failed to connect %s XA connector", config.name)
-			
+
 			xaConn, ok := conn.(*XAConn)
 			assert.True(t, ok, "%s should return seata XA connection", config.name)
 			assert.Equal(t, types.Local, xaConn.txCtx.TransactionMode, "%s init transaction mode should be Local", config.name)

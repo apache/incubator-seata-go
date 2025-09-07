@@ -28,7 +28,6 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var xaConnTimeout time.Duration
@@ -112,8 +111,7 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if !tm.IsGlobalTx(ctx) {
-		tx, err := c.Conn.BeginTx(ctx, opts)
-		return tx, err
+		return c.Conn.BeginTx(ctx, opts)
 	}
 
 	c.autoCommit = false
@@ -138,21 +136,25 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		baseTx, ok := tx.(*Tx)
 		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+			return nil, fmt.Errorf("start xa %s transaction failure: tx type invalid", c.txCtx.XID)
 		}
 
-		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+			return nil, fmt.Errorf("failed to register xa branch %s: %w", c.txCtx.XID, err)
 		}
 
-		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+		c.xaBranchXid = NewXABranchXid(
+			WithXid(c.txCtx.XID),
+			WithBranchId(uint64(c.txCtx.BranchID)),
+			WithDatabaseType(c.txCtx.DBType),
+		)
+
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
+			return nil, err
 		}
 		c.xaActive = true
 	}
@@ -184,47 +186,40 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	defer func() {
 		recoverErr := recover()
 		if err != nil || recoverErr != nil {
-			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+			fmt.Printf("rollback triggered: err=%v, recover=%v\n", err, recoverErr)
 			if c.tx != nil {
-				rollbackErr := c.tx.Rollback()
-				if rollbackErr != nil {
-					log.Errorf("conn at rollback error:%v", rollbackErr)
-				}
+				_ = c.tx.Rollback()
 			}
 		}
 	}()
 
 	currentAutoCommit := c.autoCommit
+
 	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		tx, err = c.BeginTx(ctx, driver.TxOptions{
+			Isolation: driver.IsolationLevel(gosql.LevelDefault),
+		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// execute SQL
 	ret, err := f()
 	if err != nil {
-		// XA End & Rollback
-		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-			log.Errorf("failed to rollback xa branch of :%s, err:%w", c.txCtx.XID, rollbackErr)
+		if c.tx != nil {
+			_ = c.Rollback(ctx)
 		}
 		return nil, err
 	}
 
 	if tx != nil && currentAutoCommit {
 		if err = c.Commit(ctx); err != nil {
-			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
-			// XA End & Rollback
-			if err := c.Rollback(ctx); err != nil {
-				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, err)
-			}
+			_ = c.Rollback(ctx)
 		}
 	}
 
 	return ret, nil
 }
-
 func (c *XAConn) keepIfNecessary() {
 	if c.ShouldBeHeld() {
 		if err := c.res.Hold(c.xaBranchXid.String(), c); err == nil {
@@ -243,7 +238,7 @@ func (c *XAConn) releaseIfNecessary() {
 }
 
 func (c *XAConn) start(ctx context.Context) error {
-	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType)
+	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType, c.tx)
 	if err != nil {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}

@@ -17,7 +17,9 @@
 
 package mock
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+)
 
 type TestDriverConnector interface {
 	driver.Connector
@@ -43,6 +45,7 @@ type TestDriverStmt interface {
 
 type TestDriverTx interface {
 	driver.Tx
+	driver.ExecerContext
 }
 
 type TestDriverRows interface {

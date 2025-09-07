@@ -63,7 +63,6 @@ func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage mess
 		}
 		return nil
 	} else {
-		// 如果是请求消息，做处理逻辑
 		msgFuture := gettyRemotingClient.GetMessageFuture(rpcMessage.ID)
 		if msgFuture != nil {
 			gettyRemotingClient.NotifyRpcMessageResponse(rpcMessage)
