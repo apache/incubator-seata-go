@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"io"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -119,10 +120,23 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 	}
 }
 
+// simulateExecContextError allows tests to inject driver errors for certain SQL strings.
+// When set, baseMockConn will call this hook for each ExecContext.
+var simulateExecContextError func(query string) error
+
 func baseMockConn(mockConn *mock.MockTestDriverConn) {
 	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
 
-	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
+	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+			if simulateExecContextError != nil {
+				if err := simulateExecContextError(query); err != nil {
+					return &driver.ResultNoRows, err
+				}
+			}
+			return &driver.ResultNoRows, nil
+		},
+	)
 	mockConn.EXPECT().Exec(gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().ResetSession(gomock.Any()).AnyTimes().Return(nil)
 	mockConn.EXPECT().Close().AnyTimes().Return(nil)
@@ -382,5 +396,44 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 				t.Errorf("isXAER_RMFAILAlreadyEnded() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// Covers the XA rollback flow when End() returns XAER_RMFAIL (IDLE/already ended)
+func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
+	ctrl, db, _, ti := initXAConnTestResource(t)
+	defer func() {
+		simulateExecContextError = nil
+		db.Close()
+		ctrl.Finish()
+		CleanTxHooks()
+	}()
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, uuid.New().String())
+
+	// Ensure Tx.Rollback has a non-nil underlying target to avoid nil-deref when test triggers rollback
+	ti.beforeRollback = func(tx *Tx) {
+		mtx := mock.NewMockTestDriverTx(ctrl)
+		mtx.EXPECT().Rollback().AnyTimes().Return(nil)
+		tx.target = mtx
+	}
+
+	// Inject: XA END returns XAER_RMFAIL(IDLE), normal SQL returns an error to trigger rollback
+	simulateExecContextError = func(query string) error {
+		upper := strings.ToUpper(query)
+		if strings.HasPrefix(upper, "XA END") {
+			return &mysql.MySQLError{Number: types.ErrCodeXAER_RMFAIL_IDLE, Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state"}
+		}
+		if !strings.HasPrefix(upper, "XA ") {
+			return io.EOF
+		}
+		return nil
+	}
+
+	// Execute to enter XA flow; the user SQL fails, but rollback should proceed without panicking
+	_, err := db.ExecContext(ctx, "SELECT 1")
+	if err == nil {
+		t.Fatalf("expected error to trigger rollback path")
 	}
 }
