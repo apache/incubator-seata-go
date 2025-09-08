@@ -419,7 +419,7 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 }
 
 // isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
-// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
+// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
 func isXAER_RMFAILAlreadyEnded(err error) bool {
 	if err == nil {
 		return false
