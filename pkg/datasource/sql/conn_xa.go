@@ -429,7 +429,7 @@ func isXAER_RMFAILAlreadyEnded(err error) bool {
 			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
 		}
 	}
-	//todo other DB error
+	// TODO: handle other DB errors
 
 	return false
 }
