@@ -30,14 +30,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 )
 
@@ -61,9 +59,6 @@ type DefaultStateMachineConfig struct {
 	sagaBranchRegisterEnable        bool
 	rmReportSuccessEnable           bool
 	stateMachineResources           []string
-
-	// State machine definitions
-	stateMachineDefs map[string]*statemachine.StateMachineObject
 
 	// Components
 	processController process_ctrl.ProcessController
@@ -284,8 +279,8 @@ func (c *DefaultStateMachineConfig) SetRmReportSuccessEnable(rmReportSuccessEnab
 	c.rmReportSuccessEnable = rmReportSuccessEnable
 }
 
-func (c *DefaultStateMachineConfig) GetStateMachineDefinition(name string) *statemachine.StateMachineObject {
-	return c.stateMachineDefs[name]
+func (c *DefaultStateMachineConfig) GetStateMachineConfig() engine.StateMachineConfig {
+	return c
 }
 
 func (c *DefaultStateMachineConfig) GetExpressionFactory(expressionType string) expr.ExpressionFactory {
@@ -364,28 +359,23 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 		return fmt.Errorf("failed to read config file: path=%s, error=%w", configPath, err)
 	}
 
-	parser := parser.NewStateMachineConfigParser()
-	smo, err := parser.Parse(content)
-	if err != nil {
-		return fmt.Errorf("failed to parse state machine definition: path=%s, error=%w", configPath, err)
-	}
-
 	var configFileParams ConfigFileParams
-	if err := json.Unmarshal(content, &configFileParams); err != nil {
+	ext := strings.ToLower(filepath.Ext(configPath))
+
+	switch ext {
+	case ".json":
+		if err := json.Unmarshal(content, &configFileParams); err != nil {
+			return fmt.Errorf("failed to unmarshal config file as JSON: %w", err)
+		}
+	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
 			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
-		} else {
-			c.applyConfigFileParams(&configFileParams)
 		}
-	} else {
-		c.applyConfigFileParams(&configFileParams)
+	default:
+		return fmt.Errorf("unsupported config file type: path=%s, ext=%s (only .json/.yaml/.yml are supported)", configPath, ext)
 	}
 
-	if _, exists := c.stateMachineDefs[smo.Name]; exists {
-		return fmt.Errorf("state machine definition with name %s already exists", smo.Name)
-	}
-	c.stateMachineDefs[smo.Name] = smo
-
+	c.applyConfigFileParams(&configFileParams)
 	return nil
 }
 
@@ -517,6 +507,14 @@ func (c *DefaultStateMachineConfig) initServiceInvokers() error {
 		c.RegisterServiceInvoker("func", invoker.NewFuncInvoker())
 	}
 
+	if c.scriptInvokerManager == nil {
+		c.scriptInvokerManager = invoker.NewScriptInvokerManager()
+	}
+
+	if jsInvoker, err := c.scriptInvokerManager.GetInvoker("javascript"); err != nil || jsInvoker == nil {
+		c.scriptInvokerManager.RegisterInvoker(invoker.NewJavaScriptScriptInvoker())
+	}
+
 	return nil
 }
 
@@ -531,6 +529,10 @@ func (c *DefaultStateMachineConfig) Validate() error {
 	}
 	if c.serviceInvokerManager == nil {
 		errs = append(errs, fmt.Errorf("service invoker manager is nil"))
+	}
+
+	if c.scriptInvokerManager == nil {
+		errs = append(errs, fmt.Errorf("script invoker manager is nil"))
 	}
 
 	if c.transOperationTimeout <= 0 {
@@ -605,7 +607,7 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 	return result, nil
 }
 
-func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
+func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, error) {
 	ctx := context.Background()
 	defaultBP := process_ctrl.NewBusinessProcessor()
 
@@ -619,7 +621,6 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		sagaCompensatePersistModeUpdate: DefaultClientSagaCompensatePersistModeUpdate,
 		sagaBranchRegisterEnable:        DefaultClientSagaBranchRegisterEnable,
 		rmReportSuccessEnable:           DefaultClientReportSuccessEnable,
-		stateMachineDefs:                make(map[string]*statemachine.StateMachineObject),
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 		statusDecisionStrategy:          strategy.NewDefaultStatusDecisionStrategy(),
@@ -648,13 +649,11 @@ func NewDefaultStateMachineConfig(opts ...Option) *DefaultStateMachineConfig {
 		opt(c)
 	}
 
-	if err := c.LoadConfig("config.yaml"); err == nil {
-		log.Printf("Successfully loaded config from config.yaml")
-	} else {
-		log.Printf("Failed to load config file (using default/env values): %v", err)
+	if err := c.Init(); err != nil {
+		return nil, fmt.Errorf("failed to initialize state machine config: %w", err)
 	}
 
-	return c
+	return c, nil
 }
 
 func parseEnvResources() []string {
@@ -730,5 +729,24 @@ func WithStateLangStore(langStore store.StateLangStore) Option {
 func WithStateMachineRepository(machineRepo repo.StateMachineRepository) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.stateMachineRepository = machineRepo
+	}
+}
+
+func WithConfigPath(path string) Option {
+	return func(c *DefaultStateMachineConfig) {
+		if path == "" {
+			return
+		}
+		if err := c.LoadConfig(path); err != nil {
+			log.Printf("Failed to load config from %s: %v", path, err)
+		} else {
+			log.Printf("Successfully loaded config from %s", path)
+		}
+	}
+}
+
+func WithScriptInvokerManager(scriptManager invoker.ScriptInvokerManager) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.scriptInvokerManager = scriptManager
 	}
 }

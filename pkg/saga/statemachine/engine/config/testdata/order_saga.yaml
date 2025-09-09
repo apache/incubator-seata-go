@@ -19,9 +19,9 @@ trans_operation_timeout: 30000
 States:
   CreateOrder:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "orderService"
-    serviceMethod: "createOrder"
+    ServiceType: "local"
+    ServiceName: "orderService"
+    ServiceMethod: "createOrder"
     CompensateState: "CancelOrder"
     ForCompensation: false
     ForUpdate: false
@@ -55,9 +55,9 @@ States:
 
   CheckStock:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "inventoryService"
-    serviceMethod: "checkAvailability"
+    ServiceType: "local"
+    ServiceName: "inventoryService"
+    ServiceMethod: "checkAvailability"
     CompensateState: "RollbackStock"
     ForCompensation: false
     ForUpdate: false
@@ -93,9 +93,9 @@ States:
 
   ReserveStock:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "inventoryService"
-    serviceMethod: "reserveItems"
+    ServiceType: "local"
+    ServiceName: "inventoryService"
+    ServiceMethod: "reserveItems"
     CompensateState: "RollbackStock"
     ForCompensation: false
     ForUpdate: false
@@ -122,9 +122,9 @@ States:
 
   ProcessPayment:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "paymentService"
-    serviceMethod: "processPayment"
+    ServiceType: "local"
+    ServiceName: "paymentService"
+    ServiceMethod: "processPayment"
     CompensateState: "RefundPayment"
     ForCompensation: false
     ForUpdate: false
@@ -154,9 +154,9 @@ States:
 
   CancelOrder:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "orderService"
-    serviceMethod: "cancelOrder"
+    ServiceType: "local"
+    ServiceName: "orderService"
+    ServiceMethod: "cancelOrder"
     ForCompensation: true
     ForUpdate: true
     Input:
@@ -167,9 +167,9 @@ States:
 
   RollbackStock:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "inventoryService"
-    serviceMethod: "releaseItems"
+    ServiceType: "local"
+    ServiceName: "inventoryService"
+    ServiceMethod: "releaseItems"
     ForCompensation: true
     ForUpdate: true
     Input:
@@ -181,9 +181,9 @@ States:
 
   RefundPayment:
     Type: "ServiceTask"
-    serviceType: "local"
-    serviceName: "paymentService"
-    serviceMethod: "refundPayment"
+    ServiceType: "local"
+    ServiceName: "paymentService"
+    ServiceMethod: "refundPayment"  
     ForCompensation: true
     ForUpdate: true
     Input:
@@ -196,9 +196,9 @@ States:
   ErrorHandler:
     Type: "Fail"
     ErrorCode: "ORDER_PROCESSING_ERROR"
-    Message: "订单处理过程中发生不可恢复的错误。"
+    Message: "An unrecoverable error occurred during order processing."
 
   FailState:
     Type: "Fail"
     ErrorCode: "ORDER_CANCELLED"
-    Message: "订单已取消，触发补偿完成。"
+    Message: "The order has been cancelled and compensation actions have been completed."
