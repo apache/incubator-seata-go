@@ -18,6 +18,7 @@
 package repository
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -102,7 +103,14 @@ func (s *StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) 
 }
 
 func (s *StateMachineRepositoryImpl) GetStateMachineByNameAndTenantId(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
-	return s.GetLastVersionStateMachine(stateMachineName, tenantId)
+	sm, err := s.GetLastVersionStateMachine(stateMachineName, tenantId)
+	if err != nil {
+		return nil, err
+	}
+	if sm == nil {
+		return nil, fmt.Errorf("state machine %s (tenant %s) not found", stateMachineName, tenantId)
+	}
+	return sm, nil
 }
 
 func (s *StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error) {

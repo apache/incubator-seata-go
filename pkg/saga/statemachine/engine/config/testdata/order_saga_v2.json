@@ -1,9 +1,40 @@
 {
   "Name": "OrderSaga",
-  "Version": "1.0",
-  "StartState": "CreateOrder",
-  "trans_operation_timeout": 30000,
+  "Version": "2.0",
+  "StartState": "ValidateOrder",
+  "trans_operation_timeout": 45000,
   "States": {
+    "ValidateOrder": {
+      "Type": "ServiceTask",
+      "ServiceType": "local",
+      "ServiceName": "validationService",
+      "ServiceMethod": "validateOrderParams",
+      "CompensateState": "SkipValidation",
+      "ForCompensation": false,
+      "ForUpdate": false,
+      "Catches": [
+        {
+          "Exceptions": [
+            "InvalidOrderParamsException"
+          ],
+          "Next": "ErrorHandler"
+        }
+      ],
+      "Status": {
+        "return.valid == true": "VALID",
+        "return.valid == false": "INVALID",
+        "$exception{*}": "UNKNOWN"
+      },
+      "Input": [
+        {
+          "orderInfo": "$.orderInfo"
+        }
+      ],
+      "Output": {
+        "validationResult": "$.#root"
+      },
+      "Next": "CreateOrder"
+    },
     "CreateOrder": {
       "Type": "ServiceTask",
       "ServiceType": "local",
@@ -18,8 +49,8 @@
             "OrderCreationException",
             "InventoryUnavailableException"
           ],
-          "IntervalSeconds": 2,
-          "MaxAttempts": 3,
+          "IntervalSeconds": 3,
+          "MaxAttempts": 4,
           "BackoffRate": 1.5
         }
       ],
@@ -262,13 +293,30 @@
     },
     "ErrorHandler": {
       "Type": "Fail",
-      "ErrorCode": "ORDER_PROCESSING_ERROR",
-      "Message": "An unrecoverable error occurred during order processing."
+      "ErrorCode": "ORDER_PROCESSING_ERROR_V2",
+      "Message": "v2版本：订单处理发生不可恢复错误"
     },
     "FailState": {
       "Type": "Fail",
       "ErrorCode": "ORDER_CANCELLED",
       "Message": "The order has been cancelled and compensation actions have been completed."
+    },
+    "SkipValidation": {
+      "Type": "ServiceTask",
+      "ServiceType": "local",
+      "ServiceName": "validationService",
+      "ServiceMethod": "skipValidation",
+      "ForCompensation": true,
+      "ForUpdate": true,
+      "Input": [
+        {
+          "orderId": "$.orderId"
+        }
+      ],
+      "Output": {
+        "skipResult": "Validation compensation skipped"
+      },
+      "Next": "CancelOrder"
     }
   }
 }
