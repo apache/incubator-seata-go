@@ -91,10 +91,30 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 		return nil, err
 	}
 
-	_connector, _ := connector.(*seataConnector)
+	_connector, ok := connector.(*seataConnector)
+	if !ok {
+		return nil, fmt.Errorf("invalid connector type for AT mode")
+	}
 	_connector.transType = types.ATMode
-	cfg, _ := mysql.ParseDSN(name)
-	_connector.cfg = cfg
+
+	dbType := types.ParseDBType(d.getTargetDriverName())
+	switch dbType {
+	case types.DBTypeMySQL:
+		mysqlCfg, err := mysql.ParseDSN(name)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn error: %w", err)
+		}
+		_connector.cfg = mysqlCfg
+	case types.DBTypePostgreSQL:
+		pgxCfg, err := pgx.ParseConfig(name)
+		if err != nil {
+			return nil, fmt.Errorf("parse postgresql dsn error: %w", err)
+		}
+		_connector.cfg = pgxCfg
+	default:
+		return nil, fmt.Errorf("unsupported database type for AT mode: %s", dbType)
+	}
+	_connector.dbType = dbType
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -111,7 +131,10 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 		return nil, err
 	}
 
-	_connector, _ := connector.(*seataConnector)
+	_connector, ok := connector.(*seataConnector)
+	if !ok {
+		return nil, fmt.Errorf("invalid connector type for XA mode")
+	}
 	_connector.transType = types.XAMode
 
 	dbType := types.ParseDBType(d.getTargetDriverName())
@@ -128,6 +151,8 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 			return nil, fmt.Errorf("parse postgresql dsn error: %w", err)
 		}
 		_connector.cfg = pgxCfg
+	default:
+		return nil, fmt.Errorf("unsupported database type for AT mode: %s", dbType)
 	}
 	_connector.dbType = dbType
 

@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v4"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"sync"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -142,23 +143,35 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 func (c *seataConnector) getDBName() string {
+	var dbName string
 	switch c.dbType {
 	case types.DBTypeMySQL:
 		if mysqlCfg, ok := c.cfg.(*mysql.Config); ok {
-			return mysqlCfg.DBName
+			dbName = mysqlCfg.DBName
+		} else {
+			log.Warnf("seataConnector: invalid MySQL config type (expected *mysql.Config, got %T)", c.cfg)
 		}
 	case types.DBTypePostgreSQL:
 		switch cfg := c.cfg.(type) {
 		case *pgx.ConnConfig:
-			return cfg.Database
+			dbName = cfg.Database
 		case string:
 			parsedCfg, err := pgx.ParseConfig(cfg)
-			if err == nil {
-				return parsedCfg.Database
+			if err != nil {
+				log.Errorf("seataConnector: parse PostgreSQL DSN failed: %v", err)
+			} else {
+				dbName = parsedCfg.Database
 			}
+		default:
+			log.Warnf("seataConnector: invalid PostgreSQL config type (expected *pgx.ConnConfig or string, got %T)", c.cfg)
 		}
+	default:
+		log.Warnf("seataConnector: unsupported DB type %s", c.dbType)
 	}
-	return ""
+	if dbName == "" {
+		log.Warnf("seataConnector: dbName is empty for DB type %s", c.dbType)
+	}
+	return dbName
 }
 
 // Driver returns the underlying Driver of the Connector,

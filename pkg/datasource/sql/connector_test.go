@@ -70,10 +70,6 @@ func Test_seataATConnector_Connect(t *testing.T) {
 	for _, config := range getAllDBTestConfigs() {
 		t.Run(config.name, func(t *testing.T) {
 
-			if config.name == "PostgreSQL" {
-				t.Skip("PostgreSQL AT mode is not supported yet, skip test")
-			}
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 

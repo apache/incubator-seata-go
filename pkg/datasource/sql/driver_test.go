@@ -29,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/rm"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
@@ -67,10 +66,6 @@ func assertConnectorType(t *testing.T, db *sql.DB, expectedType reflect.Type, fo
 func Test_seataATDriver_Open(t *testing.T) {
 	for _, config := range getAllDBTestConfigs() {
 		t.Run(config.name, func(t *testing.T) {
-			if config.dbType == types.DBTypePostgreSQL {
-				t.Skipf("AT mode for PostgreSQL is not implemented yet, skip test: %s", config.name)
-			}
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -127,10 +122,6 @@ func Test_seataATDriver_Open(t *testing.T) {
 func Test_seataATDriver_OpenConnector(t *testing.T) {
 	for _, config := range getAllDBTestConfigs() {
 		t.Run(config.name, func(t *testing.T) {
-			if config.dbType == types.DBTypePostgreSQL {
-				t.Skipf("AT mode for PostgreSQL is not implemented yet, skip connector test: %s", config.name)
-			}
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
