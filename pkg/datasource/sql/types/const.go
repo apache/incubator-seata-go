@@ -354,3 +354,75 @@ func MySQLStrToJavaType(mysqlType string) JDBCType {
 		return JDBCTypeOther
 	}
 }
+
+func PostgresStrToJavaType(postgresType string) JDBCType {
+	switch strings.ToUpper(postgresType) {
+	case "SMALLINT", "INT2":
+		return JDBCTypeSmallInt
+	case "INTEGER", "INT", "INT4", "SERIAL", "SERIAL4":
+		return JDBCTypeInteger
+	case "BIGINT", "INT8", "BIGSERIAL", "SERIAL8":
+		return JDBCTypeBigInt
+	case "TINYINT":
+		return JDBCTypeTinyInt
+
+	case "REAL", "FLOAT4":
+		return JDBCTypeReal
+	case "DOUBLE PRECISION", "FLOAT8":
+		return JDBCTypeDouble
+	case "NUMERIC", "DECIMAL":
+		return JDBCTypeDecimal
+
+	case "CHAR", "CHARACTER":
+		return JDBCTypeChar
+	case "VARCHAR", "CHARACTER VARYING":
+		return JDBCTypeVarchar
+	case "TEXT":
+		return JDBCTypeLongVarchar
+
+	case "BYTEA":
+		return JDBCTypeVarBinary
+
+	case "DATE":
+		return JDBCTypeDate
+	case "TIME":
+		return JDBCTypeTime
+	case "TIME WITH TIME ZONE", "TIMETZ":
+		return JDBCTypeTimeWithTimeZone
+	case "TIMESTAMP", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE":
+		return JDBCTypeTimestampWithTimezone
+
+	case "BOOLEAN":
+		return JDBCTypeBoolean
+
+	case "JSON", "JSONB":
+		return JDBCTypeOther
+	case "ARRAY":
+		return JDBCTypeArray
+	case "BIT":
+		return JDBCTypeBit
+	case "UUID":
+		return JDBCTypeVarchar
+	case "XML":
+		return JDBCTypeSqlXML
+
+	case "BLOB", "OID":
+		return JDBCTypeBlob
+	case "CLOB":
+		return JDBCTypeClob
+
+	default:
+		return JDBCTypeOther
+	}
+}
+
+func ParseDBTypeToJavaType(dbType DBType, dbTypeStr string) JDBCType {
+	switch dbType {
+	case DBTypeMySQL:
+		return MySQLStrToJavaType(dbTypeStr)
+	case DBTypePostgreSQL:
+		return PostgresStrToJavaType(dbTypeStr)
+	default:
+		return JDBCTypeOther
+	}
+}
