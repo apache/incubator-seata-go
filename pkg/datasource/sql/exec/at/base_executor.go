@@ -63,10 +63,14 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 			columnMeta = tableMeta.Columns[columnName]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
-		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
+		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "TINYTEXT":
 			var scanVal sql.NullString
 			scanSlice = append(scanSlice, &scanVal)
-		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
+		case "JSON", "JSONB":
+			var scanVal sql.NullString
+			scanSlice = append(scanSlice, &scanVal)
+		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT",
+			"SERIAL", "BIGSERIAL":
 			if columnMeta.IsNullable == 0 {
 				scanVal := int64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -74,10 +78,11 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 				scanVal := sql.NullInt64{}
 				scanSlice = append(scanSlice, &scanVal)
 			}
-		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
+		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR",
+			"TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE":
 			var scanVal sql.NullTime
 			scanSlice = append(scanSlice, &scanVal)
-		case "DECIMAL", "DOUBLE", "FLOAT":
+		case "DECIMAL", "DOUBLE", "FLOAT", "NUMERIC":
 			if columnMeta.IsNullable == 0 {
 				scanVal := float64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -85,6 +90,9 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 				scanVal := sql.NullFloat64{}
 				scanSlice = append(scanSlice, &scanVal)
 			}
+		case "INT4[]", "INT8[]", "TEXT[]", "VARCHAR[]":
+			var scanVal sql.RawBytes
+			scanSlice = append(scanSlice, &scanVal)
 		default:
 			scanVal := sql.RawBytes{}
 			scanSlice = append(scanSlice, &scanVal)
@@ -166,7 +174,7 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
+func (b *baseExecutor) buildRecordImages(ctx context.Context, execCtx *types.ExecContext, rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -190,7 +198,16 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 			if _, ok := tableMetaData.GetPrimaryKeyMap()[name]; ok {
 				keyType = types.IndexTypePrimaryKey
 			}
-			jdbcType := types.MySQLStrToJavaType(columnMeta.DatabaseTypeString)
+			
+			var jdbcType types.JDBCType
+			switch execCtx.TxCtx.DBType {
+			case types.DBTypeMySQL:
+				jdbcType = types.MySQLStrToJavaType(columnMeta.DatabaseTypeString)
+			case types.DBTypePostgreSQL:
+				jdbcType = types.PostgresStrToJavaType(columnMeta.DatabaseTypeString)
+			default:
+				return nil, fmt.Errorf("unsupported database type: %s", execCtx.TxCtx.DBType)
+			}
 
 			columns = append(columns, types.ColumnImage{
 				KeyType:    keyType,
@@ -362,11 +379,21 @@ func getSqlNullValue(value interface{}) interface{} {
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType types.DBType, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
+		wrapper   string
 	)
+
+	switch dbType {
+	case types.DBTypeMySQL:
+		wrapper = "`%s`"
+	case types.DBTypePostgreSQL:
+		wrapper = "\"%s\""
+	default:
+		wrapper = "%s"
+	}
 
 	if rowSize%maxInSize == 0 {
 		batchSize = rowSize / maxInSize
@@ -382,8 +409,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			whereStr.WriteString(fmt.Sprintf(wrapper, pkNameList[i]))
 		}
 		whereStr.WriteString(") IN (")
 
@@ -438,6 +464,11 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 }
 
 func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+	var (
+		rows driver.Rows
+		err  error
+	)
+
 	var queryer driver.Queryer
 
 	queryerContext, ok := conn.(driver.QueryerContext)
@@ -445,9 +476,7 @@ func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, select
 		queryer, ok = conn.(driver.Queryer)
 	}
 	if ok {
-		var err error
 		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
-
 		if err != nil {
 			return nil, err
 		}

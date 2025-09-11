@@ -21,36 +21,155 @@ import (
 	"log"
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-
 	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-// TestDelEscape
+// TestDelEscape tests removing escape characters for different databases
 func TestDelEscape(t *testing.T) {
-	strSlice := []string{`"scheme"."id"`, "`scheme`.`id`", `"scheme".id`, `scheme."id"`, `scheme."id"`, "scheme.`id`"}
+	tests := []struct {
+		name     string
+		input    string
+		dbType   types.DBType
+		expected string
+	}{
+		{
+			name:     "MySQL: remove backtick escape from table and column",
+			input:    "`scheme`.`id`",
+			dbType:   types.DBTypeMySQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "MySQL: remove backtick escape from table only",
+			input:    "`scheme`.id",
+			dbType:   types.DBTypeMySQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "MySQL: remove backtick escape from column only",
+			input:    "scheme.`id`",
+			dbType:   types.DBTypeMySQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "MySQL: mixed quotes (prioritize backtick handling)",
+			input:    "`scheme`.'id'",
+			dbType:   types.DBTypeMySQL,
+			expected: "scheme.'id'",
+		},
 
-	for k, v := range strSlice {
-		res := DelEscape(v, types.DBTypeMySQL)
-		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
-		assert.Equal(t, "scheme.id", res)
+		{
+			name:     "PostgreSQL: remove double quote escape from table and column",
+			input:    `"scheme"."id"`,
+			dbType:   types.DBTypePostgreSQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "PostgreSQL: remove double quote escape from table only",
+			input:    `"scheme".id`,
+			dbType:   types.DBTypePostgreSQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "PostgreSQL: remove double quote escape from column only",
+			input:    "scheme.\"id\"",
+			dbType:   types.DBTypePostgreSQL,
+			expected: "scheme.id",
+		},
+		{
+			name:     "PostgreSQL: no escape characters remain unchanged",
+			input:    "scheme.id",
+			dbType:   types.DBTypePostgreSQL,
+			expected: "scheme.id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DelEscape(tt.input, tt.dbType)
+			log.Printf("Input: %s, DBType: %s, Result: %s", tt.input, tt.dbType, result)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
-// TestAddEscape
+// TestAddEscape tests adding escape characters for different databases
 func TestAddEscape(t *testing.T) {
-	strSlice := []string{`"scheme".id`, "`scheme`.id", `scheme."id"`, "scheme.`id`"}
-
-	for k, v := range strSlice {
-		res := AddEscape(v, types.DBTypeMySQL)
-		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
-		assert.Equal(t, v, res)
+	tests := []struct {
+		name     string
+		input    string
+		dbType   types.DBType
+		expected string
+	}{
+		{
+			name:     "MySQL: already escaped table and column remain unchanged",
+			input:    "`scheme`.`id`",
+			dbType:   types.DBTypeMySQL,
+			expected: "`scheme`.`id`",
+		},
+		{
+			name:     "MySQL: keyword column gets backtick escape",
+			input:    "ALTER",
+			dbType:   types.DBTypeMySQL,
+			expected: "`ALTER`",
+		},
+		{
+			name:     "MySQL: non-keyword remains unescaped",
+			input:    "normal_column",
+			dbType:   types.DBTypeMySQL,
+			expected: "normal_column",
+		},
+		{
+			name:     "MySQL: dotted identifier with keyword table",
+			input:    "ALTER.normal_column",
+			dbType:   types.DBTypeMySQL,
+			expected: "`ALTER`.normal_column",
+		},
+		{
+			name:     "MySQL: both table and column are keywords",
+			input:    "ALTER.ANALYZE",
+			dbType:   types.DBTypeMySQL,
+			expected: "`ALTER`.`ANALYZE`",
+		},
+		
+		{
+			name:     "PostgreSQL: already escaped table and column remain unchanged",
+			input:    `"scheme"."id"`,
+			dbType:   types.DBTypePostgreSQL,
+			expected: `"scheme"."id"`,
+		},
+		{
+			name:     "PostgreSQL: keyword column gets double quote escape",
+			input:    "USER",
+			dbType:   types.DBTypePostgreSQL,
+			expected: `"USER"`,
+		},
+		{
+			name:     "PostgreSQL: non-keyword remains unescaped",
+			input:    "normal_column",
+			dbType:   types.DBTypePostgreSQL,
+			expected: "normal_column",
+		},
+		{
+			name:     "PostgreSQL: dotted identifier with keyword table",
+			input:    "ORDER.normal_column",
+			dbType:   types.DBTypePostgreSQL,
+			expected: `"ORDER".normal_column`,
+		},
+		{
+			name:     "PostgreSQL: both table and column are keywords",
+			input:    "ORDER.USER",
+			dbType:   types.DBTypePostgreSQL,
+			expected: `"ORDER"."USER"`,
+		},
 	}
 
-	strSlice1 := []string{"ALTER", "ANALYZE"}
-	for k, v := range strSlice1 {
-		res := AddEscape(v, types.DBTypeMySQL)
-		log.Printf("val_%d: %s, res_%d: %s\n", k, v, k, res)
-		assert.Equal(t, "`"+v+"`", res)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := AddEscape(tt.input, tt.dbType)
+			log.Printf("Input: %s, DBType: %s, Result: %s", tt.input, tt.dbType, result)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }

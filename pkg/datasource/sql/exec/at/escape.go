@@ -46,29 +46,28 @@ func delEscape(colName string, escape string) string {
 		return ""
 	}
 
-	if string(colName[0]) == escape && string(colName[len(colName)-1]) == escape {
-		// like "scheme"."id" `scheme`.`id`
-		str := escape + dot + escape
-		index := strings.Index(colName, str)
+	if len(colName) >= 2 &&
+		string(colName[0]) == escape &&
+		string(colName[len(colName)-1]) == escape {
+
+		escapedDot := escape + dot + escape
+		index := strings.Index(colName, escapedDot)
 		if index > -1 {
-			return colName[1:index] + dot + colName[index+len(str):len(colName)-1]
+			return colName[1:index] + dot + colName[index+len(escapedDot):len(colName)-1]
 		}
-
 		return colName[1 : len(colName)-1]
-	} else {
-		// like "scheme".id `scheme`.id
-		str := escape + dot
-		index := strings.Index(colName, str)
-		if index > -1 && string(colName[0]) == escape {
-			return colName[1:index] + dot + colName[index+len(str):]
-		}
+	}
 
-		// like scheme."id" scheme.`id`
-		str = dot + escape
-		index = strings.Index(colName, str)
-		if index > -1 && string(colName[len(colName)-1]) == escape {
-			return colName[0:index] + dot + colName[index+len(str):len(colName)-1]
-		}
+	escapePrefixDot := escape + dot
+	index := strings.Index(colName, escapePrefixDot)
+	if index > -1 && string(colName[0]) == escape {
+		return colName[1:index] + dot + colName[index+len(escapePrefixDot):]
+	}
+
+	dotEscapeSuffix := dot + escape
+	index = strings.Index(colName, dotEscapeSuffix)
+	if index > -1 && string(colName[len(colName)-1]) == escape {
+		return colName[0:index] + dot + colName[index+len(dotEscapeSuffix):len(colName)-1]
 	}
 
 	return colName
@@ -79,7 +78,6 @@ func AddEscape(colName string, dbType types.DBType) string {
 	if dbType == types.DBTypeMySQL {
 		return addEscape(colName, dbType, escapeMysql)
 	}
-
 	return addEscape(colName, dbType, escapeStandard)
 }
 
@@ -88,95 +86,71 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 		return colName
 	}
 
-	if string(colName[0]) == escape && string(colName[len(colName)-1]) == escape {
-		return colName
-	}
-
-	if !checkEscape(colName, dbType) {
+	if !strings.Contains(colName, dot) &&
+		len(colName) >= 2 &&
+		string(colName[0]) == escape &&
+		string(colName[len(colName)-1]) == escape {
 		return colName
 	}
 
 	if strings.Contains(colName, dot) {
-		// like "scheme".id `scheme`.id
-		str := escape + dot
-		dotIndex := strings.Index(colName, str)
-		if dotIndex > -1 {
-			tempStr := strings.Builder{}
-			tempStr.WriteString(colName[0 : dotIndex+len(str)])
-			tempStr.WriteString(escape)
-			tempStr.WriteString(colName[dotIndex+len(str):])
-			tempStr.WriteString(escape)
-
-			return tempStr.String()
+		parts := strings.SplitN(colName, dot, 2)
+		if len(parts) != 2 {
+			return colName
 		}
 
-		// like scheme."id" scheme.`id`
-		str = dot + escape
-		dotIndex = strings.Index(colName, str)
-		if dotIndex > -1 {
-			tempStr := strings.Builder{}
-			tempStr.WriteString(escape)
-			tempStr.WriteString(colName[0:dotIndex])
-			tempStr.WriteString(escape)
-			tempStr.WriteString(colName[dotIndex:])
+		part1 := parts[0]
+		part2 := parts[1]
 
-			return tempStr.String()
+		escapedPart1 := part1
+		if checkEscape(strings.ToUpper(part1), dbType) && !isEscaped(part1, escape) {
+			escapedPart1 = escape + part1 + escape
 		}
 
-		str = dot
-		dotIndex = strings.Index(colName, str)
-		if dotIndex > -1 {
-			tempStr := strings.Builder{}
-			tempStr.WriteString(escape)
-			tempStr.WriteString(colName[0:dotIndex])
-			tempStr.WriteString(escape)
-			tempStr.WriteString(dot)
-			tempStr.WriteString(escape)
-			tempStr.WriteString(colName[dotIndex+len(str):])
-			tempStr.WriteString(escape)
-
-			return tempStr.String()
+		escapedPart2 := part2
+		if checkEscape(strings.ToUpper(part2), dbType) && !isEscaped(part2, escape) {
+			escapedPart2 = escape + part2 + escape
 		}
+
+		return escapedPart1 + dot + escapedPart2
 	}
 
-	buf := make([]byte, len(colName)+2)
-	buf[0], buf[len(buf)-1] = escape[0], escape[0]
-
-	for key := range colName {
-		buf[key+1] = colName[key]
+	if checkEscape(strings.ToUpper(colName), dbType) {
+		return escape + colName + escape
 	}
 
-	return string(buf)
+	return colName
+}
+
+// isEscaped checks if a string is already escaped with the given escape character
+func isEscaped(str, escape string) bool {
+	return len(str) >= 2 && string(str[0]) == escape && string(str[len(str)-1]) == escape
 }
 
 // checkEscape check whether given field or table name use keywords. the method has database special logic.
-func checkEscape(colName string, dbType types.DBType) bool {
+func checkEscape(upperColName string, dbType types.DBType) bool {
 	switch dbType {
 	case types.DBTypeMySQL:
-		if _, ok := types.GetMysqlKeyWord()[strings.ToUpper(colName)]; ok {
-			return true
-		}
-
-		return false
-	// TODO impl Oracle PG SQLServer ...
+		_, isKeyword := types.GetMysqlKeyWord()[upperColName]
+		return isKeyword
+	case types.DBTypePostgreSQL:
+		_, isKeyword := types.GetPostgresKeyWord()[upperColName]
+		return isKeyword
 	default:
-		return true
+		return false
 	}
 }
 
 // BuildWhereConditionByPKs each pk is a condition.the result will like :" id =? and userCode =?"
 func BuildWhereConditionByPKs(pkNameList []string, dbType types.DBType) string {
 	whereStr := strings.Builder{}
-	for i := 0; i < len(pkNameList); i++ {
+	for i, pkName := range pkNameList {
 		if i > 0 {
-			whereStr.WriteString(" and ")
+			whereStr.WriteString(" AND ")
 		}
-
-		pkName := pkNameList[i]
 		whereStr.WriteString(AddEscape(pkName, dbType))
-		whereStr.WriteString(" = ? ")
+		whereStr.WriteString(" = ?")
 	}
-
 	return whereStr.String()
 }
 
@@ -186,10 +160,9 @@ func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
 	return true
 }
 
+// GetOrderedPkList gets ordered primary key list
 func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-
 	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
-
 	pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
 	pkFields := make([]types.ColumnImage, 0)
 
@@ -200,8 +173,9 @@ func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types
 
 	for _, pkName := range pkColumnNameListByOrder {
 		for _, col := range pkColumnNameListNoOrder {
-			if strings.Index(col.ColumnName, pkName) > -1 {
+			if strings.EqualFold(col.ColumnName, pkName) {
 				pkFields = append(pkFields, col)
+				break
 			}
 		}
 	}

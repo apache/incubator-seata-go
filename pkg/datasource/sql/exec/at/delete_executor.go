@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -43,11 +45,17 @@ type deleteExecutor struct {
 
 // NewDeleteExecutor get delete executor
 func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
-	return &deleteExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
+	return &deleteExecutor{
+		parserCtx:   parserCtx,
+		execContext: execContent,
+		baseExecutor: baseExecutor{
+			hooks: hooks,
+		},
+	}
 }
 
 // ExecContext exec SQL, and generate before image and after image
-func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (d *deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	d.beforeHooks(ctx, d.execContext)
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
@@ -94,23 +102,25 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 			}
 		}()
 		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
+			log.Errorf("execute before-image select sql failed: %+v, sql: %s", err, selectSQL)
 			return nil, err
 		}
 	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
+		log.Errorf("database connection does not support QueryerContext/Queryer")
+		return nil, fmt.Errorf("invalid database connection")
 	}
 
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
-
+	dbType := d.execContext.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
+		log.Errorf("get table meta failed: %+v, dbType: %s, table: %s", err, dbType, tableName)
 		return nil, err
 	}
 
-	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	image, err := d.buildRecordImages(ctx, d.execContext, rowsi, metaData, types.SQLTypeDelete)
 	if err != nil {
+		log.Errorf("build before-image failed: %+v", err)
 		return nil, err
 	}
 	image.SQLType = types.SQLTypeDelete
@@ -122,44 +132,76 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	return image, nil
 }
 
-// buildBeforeImageSQL build delete sql from delete sql
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	p, err := parser.DoParser(query)
 	if err != nil {
+		log.Errorf("parse delete sql failed: %+v, sql: %s", err, query)
 		return "", nil, err
 	}
 
-	if p.DeleteStmt == nil {
-		log.Errorf("invalid delete stmt")
-		return "", nil, fmt.Errorf("invalid delete stmt")
+	deleteStmt := p.DeleteStmt
+	if deleteStmt == nil {
+		log.Errorf("invalid delete statement: %s", query)
+		return "", nil, fmt.Errorf("invalid delete sql")
 	}
 
-	selStmt := ast.SelectStmt{
-		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           p.DeleteStmt.TableRefs,
-		Where:          p.DeleteStmt.Where,
-		Fields:         &ast.FieldList{Fields: []*ast.SelectField{{WildCard: &ast.WildCardField{}}}},
-		OrderBy:        p.DeleteStmt.Order,
-		Limit:          p.DeleteStmt.Limit,
-		TableHints:     p.DeleteStmt.TableHints,
+	selStmt := &ast.SelectStmt{
+		SelectStmtOpts: &ast.SelectStmtOpts{
+			SQLCache: d.execContext.TxCtx.DBType != types.DBTypeMySQL,
+		},
+		From:  deleteStmt.TableRefs,
+		Where: deleteStmt.Where,
+		Fields: &ast.FieldList{
+			Fields: []*ast.SelectField{{
+				WildCard: &ast.WildCardField{},
+			}},
+		},
+		OrderBy:    deleteStmt.Order,
+		Limit:      deleteStmt.Limit,
+		TableHints: deleteStmt.TableHints,
 		LockInfo: &ast.SelectLockInfo{
 			LockType: ast.SelectLockForUpdate,
 		},
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
-	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
+	restoreCtx := format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)
+	if err := selStmt.Restore(restoreCtx); err != nil {
+		log.Errorf("restore select sql failed: %+v", err)
+		return "", nil, err
+	}
 
-	return sql, d.buildSelectArgs(&selStmt, args), nil
+	selectSQL := string(b.Bytes())
+	dbType := d.execContext.TxCtx.DBType
+
+	switch dbType {
+	case types.DBTypeMySQL:
+		re := regexp.MustCompile(`(_UTF8MB4)(\w+)`)
+		selectSQL = re.ReplaceAllString(selectSQL, `${1}'${2}'`)
+	case types.DBTypePostgreSQL:
+		re := regexp.MustCompile(`_UTF8MB4(\w+)`)
+		selectSQL = re.ReplaceAllString(selectSQL, `'$1'`)
+		re = regexp.MustCompile(`= (\w+)(\s|$|\)|\,)`)
+		selectSQL = re.ReplaceAllString(selectSQL, `= '$1'$2`)
+	}
+
+	if dbType == types.DBTypePostgreSQL {
+		selectSQL = strings.Replace(selectSQL, "SQL_NO_CACHE ", "", 1)
+	}
+
+	log.Infof("built before-image select sql: %s", selectSQL)
+
+	selectArgs := d.buildSelectArgs(selStmt, args)
+	return selectSQL, selectArgs, nil
 }
 
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	dbType := d.execContext.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
+		log.Errorf("get table meta for after-image failed: %+v", err)
 		return nil, err
 	}
 

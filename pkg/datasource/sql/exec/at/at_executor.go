@@ -29,6 +29,7 @@ import (
 
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
+	exec.RegisterATExecutor(types.DBTypePostgreSQL, func() exec.SQLExecutor { return &ATExecutor{} })
 }
 
 type executor interface {
