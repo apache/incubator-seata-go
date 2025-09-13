@@ -24,6 +24,20 @@ on:
     - cron: "0 18 * * *" # TimeZone: UTC 0
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      any-changes: ${{ steps.changes.outputs.any-changes }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            any-changes:
+              - '**/*'
+
   license-header:
     name: License header
     runs-on: ubuntu-latest
