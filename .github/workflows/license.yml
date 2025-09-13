@@ -55,8 +55,10 @@ jobs:
 
   dependency-license:
     name: Dependency licenses
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: needs.changes.outputs.any-changes == 'true'
     steps:
       - uses: actions/checkout@v3
         with:
