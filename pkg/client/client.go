@@ -18,6 +18,7 @@
 package client
 
 import (
+	"github.com/seata/seata-go/pkg/rm/saga"
 	"sync"
 
 	"github.com/seata/seata-go/pkg/datasource"
@@ -91,6 +92,7 @@ func initRmClient(cfg *Config) {
 		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
+		saga.InitSaga()
 	})
 }
 
