@@ -34,6 +34,7 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
@@ -41,16 +42,22 @@ type baseExecutor struct {
 	hooks []exec.SQLHook
 }
 
-func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
+func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) error {
 	for _, hook := range b.hooks {
-		hook.Before(ctx, execCtx)
+		if err := hook.Before(ctx, execCtx); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
+func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) error {
 	for _, hook := range b.hooks {
-		hook.After(ctx, execCtx)
+		if err := hook.After(ctx, execCtx); err != nil {
+			log.Errorf("after hook failed: %v", err)
+		}
 	}
+	return nil
 }
 
 // GetScanSlice get the column type for scan
@@ -158,6 +165,57 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		}
 		if exprs.On != nil {
 			b.traversalArgs(exprs.On.Expr, argsIndex)
+		}
+		break
+	case *ast.UnaryOperationExpr:
+		expr := node.(*ast.UnaryOperationExpr)
+		b.traversalArgs(expr.V, argsIndex)
+		break
+	case *ast.FuncCallExpr:
+		expr := node.(*ast.FuncCallExpr)
+		for _, arg := range expr.Args {
+			b.traversalArgs(arg, argsIndex)
+		}
+		break
+	case *ast.SubqueryExpr:
+		expr := node.(*ast.SubqueryExpr)
+		if expr.Query != nil {
+			b.traversalArgs(expr.Query, argsIndex)
+		}
+		break
+	case *ast.ExistsSubqueryExpr:
+		expr := node.(*ast.ExistsSubqueryExpr)
+		if expr.Sel != nil {
+			b.traversalArgs(expr.Sel, argsIndex)
+		}
+		break
+	case *ast.CompareSubqueryExpr:
+		expr := node.(*ast.CompareSubqueryExpr)
+		b.traversalArgs(expr.L, argsIndex)
+		if expr.R != nil {
+			b.traversalArgs(expr.R, argsIndex)
+		}
+		break
+	case *ast.PatternLikeExpr:
+		expr := node.(*ast.PatternLikeExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
+		b.traversalArgs(expr.Pattern, argsIndex)
+		break
+	case *ast.IsNullExpr:
+		expr := node.(*ast.IsNullExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
+		break
+	case *ast.CaseExpr:
+		expr := node.(*ast.CaseExpr)
+		if expr.Value != nil {
+			b.traversalArgs(expr.Value, argsIndex)
+		}
+		for _, whenClause := range expr.WhenClauses {
+			b.traversalArgs(whenClause.Expr, argsIndex)
+			b.traversalArgs(whenClause.Result, argsIndex)
+		}
+		if expr.ElseClause != nil {
+			b.traversalArgs(expr.ElseClause, argsIndex)
 		}
 		break
 	case *test_driver.ParamMarkerExpr:
