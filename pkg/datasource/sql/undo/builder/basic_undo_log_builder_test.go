@@ -133,7 +133,7 @@ func TestBuildLockKey(t *testing.T) {
 					{[]types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
 				},
 			},
-			"test2_name:1_one_11,2_two_22,3_three_33",
+			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
 		},
 		{
 			name: "Single Primary Key",
