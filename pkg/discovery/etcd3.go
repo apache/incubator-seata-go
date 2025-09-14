@@ -92,12 +92,12 @@ func (s *EtcdRegistryService) watch(key string) {
 			v := kv.Value
 			clusterName, err := getClusterName(k)
 			if err != nil {
-				log.Errorf("etcd key has an incorrect format: ", err)
+				log.Errorf("etcd key has an incorrect format: %v", err)
 				return
 			}
 			serverInstance, err := getServerInstance(v)
 			if err != nil {
-				log.Errorf("etcd value has an incorrect format: ", err)
+				log.Errorf("etcd value has an incorrect format: %v", err)
 				return
 			}
 			s.rwLock.Lock()
@@ -129,12 +129,12 @@ func (s *EtcdRegistryService) watch(key string) {
 					v := event.Kv.Value
 					clusterName, err := getClusterName(k)
 					if err != nil {
-						log.Errorf("etcd key err: ", err)
+						log.Errorf("etcd key err: %v", err)
 						return
 					}
 					serverInstance, err := getServerInstance(v)
 					if err != nil {
-						log.Errorf("etcd value err: ", err)
+						log.Errorf("etcd value err: %v", err)
 						return
 					}
 
@@ -156,7 +156,7 @@ func (s *EtcdRegistryService) watch(key string) {
 
 					cluster, ip, port, err := getClusterAndAddress(event.Kv.Key)
 					if err != nil {
-						log.Errorf("etcd key err: ", err)
+						log.Errorf("etcd key err: %v", err)
 						return
 					}
 
