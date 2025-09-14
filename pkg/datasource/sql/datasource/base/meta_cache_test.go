@@ -93,7 +93,29 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		args   args
 		want   types.TableMeta
 	}{
-		{name: "test-1",
+		{
+			name: "test1",
+			fields: fields{
+				lock:           sync.RWMutex{},
+				capity:         capacity,
+				size:           0,
+				expireDuration: EexpireTime,
+				cache: map[string]*entry{
+					"test": {
+						value:      types.TableMeta{},
+						lastAccess: time.Now(),
+					},
+				},
+				cancel:  cancel,
+				trigger: &mockTrigger{},
+				cfg:     &mysql.Config{},
+				db:      &sql.DB{},
+			},
+			args: args{ctx: ctx},
+			want: testdata.MockWantTypesMeta("test"),
+		},
+		{
+			name: "test2",
 			fields: fields{
 				lock:           sync.RWMutex{},
 				capity:         capacity,
@@ -109,8 +131,10 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				trigger: &mockTrigger{},
 				cfg:     &mysql.Config{},
 				db:      &sql.DB{},
-			}, args: args{ctx: ctx},
-			want: testdata.MockWantTypesMeta("test")},
+			},
+			args: args{ctx: ctx},
+			want: testdata.MockWantTypesMeta("TEST"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,8 +166,14 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			}
 			go c.refresh(tt.args.ctx)
 			time.Sleep(time.Second * 3)
-
-			assert.Equal(t, c.cache["TEST"].value, tt.want)
+			c.lock.RLock()
+			defer c.lock.RUnlock()
+			assert.Equal(t, c.cache[func() string {
+				if tt.name == "test2" {
+					return "TEST"
+				}
+				return "test"
+			}()].value, tt.want)
 		})
 	}
 }
@@ -189,7 +219,7 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 	ColumnNames = []string{"id", "name", "age"}
 	tableMeta1 = types.TableMeta{
-		TableName:   "T_USER1",
+		TableName:   "t_user1",
 		Columns:     columns,
 		Indexs:      index,
 		ColumnNames: ColumnNames,
@@ -228,12 +258,12 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			cache := &BaseTableMetaCache{
 				trigger: mockTrigger,
 				cache: map[string]*entry{
-					"T_USER": {
-						value:      tableMeta2,
+					"t_user1": {
+						value:      tableMeta1,
 						lastAccess: time.Now(),
 					},
-					"T_USER1": {
-						value:      tableMeta1,
+					"T_USER2": {
+						value:      tableMeta2,
 						lastAccess: time.Now(),
 					},
 				},
