@@ -101,25 +101,6 @@ func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *types.ExecCont
 	return nil
 }
 
-type mockTxHook struct {
-	beforeCommit   func(tx *Tx)
-	beforeRollback func(tx *Tx)
-}
-
-// BeforeCommit
-func (mi *mockTxHook) BeforeCommit(tx *Tx) {
-	if mi.beforeCommit != nil {
-		mi.beforeCommit(tx)
-	}
-}
-
-// BeforeRollback
-func (mi *mockTxHook) BeforeRollback(tx *Tx) {
-	if mi.beforeRollback != nil {
-		mi.beforeRollback(tx)
-	}
-}
-
 // simulateExecContextError allows tests to inject driver errors for certain SQL strings.
 // When set, baseMockConn will call this hook for each ExecContext.
 var simulateExecContextError func(query string) error
@@ -209,9 +190,10 @@ func TestXAConn_ExecContext(t *testing.T) {
 		mi.before = before
 
 		var comitCnt int32
-		beforeCommit := func(tx *Tx) {
+		beforeCommit := func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
 			assert.Equal(t, tx.tranCtx.TransactionMode, types.XAMode)
+			return nil
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -235,8 +217,9 @@ func TestXAConn_ExecContext(t *testing.T) {
 		mi.before = before
 
 		var comitCnt int32
-		beforeCommit := func(tx *Tx) {
+		beforeCommit := func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -273,8 +256,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -299,8 +283,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -327,8 +312,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
