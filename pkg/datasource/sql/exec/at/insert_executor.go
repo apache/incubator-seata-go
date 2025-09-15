@@ -19,8 +19,11 @@ package at
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/pkg/errors"
+	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
@@ -62,7 +65,12 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
+	adaptedQuery, adaptedArgs, err := i.adaptInsertSQLForPostgreSQL(ctx, i.execContext.Query, i.execContext.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := f(ctx, adaptedQuery, adaptedArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +89,47 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	return res, nil
 }
 
+func (i *insertExecutor) adaptInsertSQLForPostgreSQL(ctx context.Context, query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+	dbType := i.execContext.TxCtx.DBType
+	if dbType != types.DBTypePostgreSQL {
+		return query, args, nil // 非 PostgreSQL 直接返回原 SQL
+	}
+
+	tableName, _ := i.parserCtx.GetTableName()
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	if err != nil {
+		return "", nil, fmt.Errorf("get table meta for PostgreSQL adapt failed: %+v", err)
+	}
+
+	autoPkCol := ""
+	pkMetaMap := metaData.GetPrimaryKeyMap()
+	for colName, colMeta := range pkMetaMap {
+		if colMeta.Autoincrement {
+			autoPkCol = colName
+			break
+		}
+	}
+	if autoPkCol == "" {
+		return query, args, nil // 无自增列，无需适配
+	}
+
+	if strings.Contains(strings.ToUpper(query), "RETURNING") {
+		return query, args, nil
+	}
+
+	escapedCol := i.escapeName(autoPkCol, dbType)
+	adaptedQuery := fmt.Sprintf("%s RETURNING %s", strings.TrimSuffix(query, ";"), escapedCol)
+	return adaptedQuery, args, nil
+}
+
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	dbType := i.execContext.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
+		log.Errorf("get table meta for before-image failed: %+v, dbType: %s, table: %s, dbName: %s",
+			err, dbType, tableName, i.execContext.DBName)
 		return nil, err
 	}
 	return types.NewEmptyRecordImage(metaData, types.SQLTypeInsert), nil
@@ -98,10 +142,12 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	dbType := i.execContext.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
+
 	selectSQL, selectArgs, err := i.buildAfterImageSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -121,16 +167,23 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 			}
 		}()
 		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
+			log.Errorf("ctx driver query: %+v, sql: %s", err, selectSQL) // 【优化点】：补充SQL日志，便于调试
 			return nil, err
 		}
 	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
+		log.Errorf("target conn should be driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid database connection (not support QueryerContext/Queryer)")
 	}
 
-	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert)
+	image, err := i.buildRecordImages(
+		ctx,
+		i.execContext,
+		rowsi,
+		metaData,
+		types.SQLTypeInsert,
+	)
 	if err != nil {
+		log.Errorf("build insert after-image failed: %+v", err)
 		return nil, err
 	}
 
@@ -141,61 +194,105 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 
 // buildAfterImageSQL build select sql from insert sql
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
-	// get all pk value
 	tableName, _ := i.parserCtx.GetTableName()
-
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	dbType := i.execContext.TxCtx.DBType
+	meta, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("get table meta failed: %+v", err)
 	}
+
 	pkValuesMap, err := i.getPkValues(ctx, i.execContext, i.parserCtx, *meta)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("get pk values failed: %+v", err)
 	}
+	pkColumns := meta.GetPrimaryKeyOnlyName()
+	if len(pkColumns) == 0 {
+		return "", nil, fmt.Errorf("table %s has no primary key", tableName)
+	}
+	rowSize := len(pkValuesMap[pkColumns[0]])
 
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	if len(pkColumnNameList) == 0 {
-		return "", nil, fmt.Errorf("Pk columnName size is zero")
-	}
+	whereCondition := i.buildWhereConditionByPKs(pkColumns, rowSize, dbType, maxInSize)
+	escapedTable := i.escapeName(tableName, dbType)
 
-	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
-	if err != nil {
-		return "", nil, err
+	var insertColumns []string
+	for _, col := range i.parserCtx.InsertStmt.Columns {
+		insertColumns = append(insertColumns, col.Name.O)
 	}
-	if len(dataTypeMap) != len(pkColumnNameList) {
-		return "", nil, fmt.Errorf("PK columnName size don't equal PK DataType size")
-	}
-	var pkRowImages []types.RowImage
-
-	rowSize := len(pkValuesMap[pkColumnNameList[0]])
-	for i := 0; i < rowSize; i++ {
-		for _, name := range pkColumnNameList {
-			tmpKey := name
-			tmpArray := pkValuesMap[tmpKey]
-			pkRowImages = append(pkRowImages, types.RowImage{
-				Columns: []types.ColumnImage{{
-					KeyType:    types.IndexTypePrimaryKey,
-					ColumnName: tmpKey,
-					ColumnType: types.MySQLStrToJavaType(dataTypeMap[tmpKey]),
-					Value:      tmpArray[i],
-				}},
-			})
+	needColumns := i.getNeedColumns(meta, insertColumns, dbType)
+	escapedNeedColumns := make([]string, len(needColumns))
+	for idx, col := range needColumns {
+		if dbType == types.DBTypeMySQL {
+			escapedNeedColumns[idx] = col
+		} else {
+			escapedNeedColumns[idx] = i.escapeName(col, dbType)
 		}
 	}
-	// build check sql
-	sb := strings.Builder{}
-	suffix := strings.Builder{}
-	var insertColumns []string
+	needColumns = escapedNeedColumns
 
-	for _, column := range i.parserCtx.InsertStmt.Columns {
-		insertColumns = append(insertColumns, column.Name.O)
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("SELECT %s FROM %s WHERE %s",
+		strings.Join(needColumns, ", "),
+		escapedTable,
+		whereCondition,
+	))
+
+	var selectSQL string
+	if dbType == types.DBTypePostgreSQL {
+		sb.WriteString(" FOR UPDATE")
+		selectSQL = i.replacePlaceholdersForPostgreSQL(sb.String())
+	} else {
+		selectSQL = sb.String()
 	}
-	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, types.DBTypeMySQL), ", "))
-	suffix.WriteString(" FROM " + tableName)
-	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, "mysql", maxInSize)
-	suffix.WriteString(" WHERE " + whereSQL + " ")
-	sb.WriteString(suffix.String())
-	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList), nil
+
+	pkRowImages, err := i.buildPKRowImages(pkValuesMap, pkColumns, meta)
+	if err != nil {
+		return "", nil, fmt.Errorf("build pk row images failed: %+v", err)
+	}
+	selectArgs := i.buildPKParams(pkRowImages, pkColumns)
+
+	log.Infof("built after-image select sql: %s", selectSQL)
+	return selectSQL, selectArgs, nil
+}
+
+func (i *insertExecutor) buildPKRowImages(pkValuesMap map[string][]interface{}, pkColumns []string, meta *types.TableMeta) ([]types.RowImage, error) {
+	var rowImages []types.RowImage
+	rowSize := len(pkValuesMap[pkColumns[0]])
+
+	for rowIdx := 0; rowIdx < rowSize; rowIdx++ {
+		var columnImages []types.ColumnImage
+		for _, pkCol := range pkColumns {
+			pkColMeta, ok := meta.Columns[pkCol]
+			if !ok {
+				return nil, fmt.Errorf("pk column %s not found in table meta", pkCol)
+			}
+
+			columnImages = append(columnImages, types.ColumnImage{
+				KeyType:    types.IndexTypePrimaryKey,
+				ColumnName: pkCol,
+				ColumnType: types.ParseDBTypeToJavaType(i.execContext.TxCtx.DBType, pkColMeta.DatabaseTypeString),
+				Value:      pkValuesMap[pkCol][rowIdx],
+			})
+		}
+		rowImages = append(rowImages, types.RowImage{Columns: columnImages})
+	}
+	return rowImages, nil
+}
+
+func (i *insertExecutor) replacePlaceholdersForPostgreSQL(sql string) string {
+	if sql == "" {
+		return ""
+	}
+	placeholderIdx := 1
+	var result strings.Builder
+	for _, c := range sql {
+		if c == '?' {
+			result.WriteString(fmt.Sprintf("$%d", placeholderIdx))
+			placeholderIdx++
+		} else {
+			result.WriteString(string(c))
+		}
+	}
+	return result.String()
 }
 
 func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
@@ -271,7 +368,8 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 // containPK compare column name and primary key name
 func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
+	dbType := i.execContext.TxCtx.DBType
+	newColumnName := i.unEscapeName(columnName, dbType)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -286,23 +384,24 @@ func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool
 
 // getPkIndex get pk index
 // return the key is pk column name and the value is index of the pk column
-func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.TableMeta) map[string]int {
+func (i *insertExecutor) getPkIndex(insertStmt *ast.InsertStmt, meta types.TableMeta, dbType types.DBType) map[string]int {
 	pkIndexMap := make(map[string]int)
-	if InsertStmt == nil {
+	if insertStmt == nil {
 		return pkIndexMap
 	}
-	insertColumnsSize := len(InsertStmt.Columns)
+	insertColumnsSize := len(insertStmt.Columns)
 	if insertColumnsSize == 0 {
 		return pkIndexMap
 	}
 	if meta.ColumnNames == nil {
 		return pkIndexMap
 	}
+
 	if len(meta.Columns) > 0 {
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
-			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
+			sqlColumnName := insertStmt.Columns[paramIdx].Name.O
 			if i.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+				pkIndexMap[i.unEscapeName(sqlColumnName, dbType)] = paramIdx
 			}
 		}
 		return pkIndexMap
@@ -314,7 +413,7 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[i.unEscapeName(tmpColumnMeta.ColumnName, dbType)] = pkIndex
 		}
 	}
 
@@ -323,11 +422,11 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 
 // parsePkValuesFromStatement parse primary key value from statement.
 // return the primary key and values<key:primary key,value:primary key values></key:primary>
-func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
+func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue, dbType types.DBType) (map[string][]interface{}, error) {
 	if insertStmt == nil {
 		return nil, nil
 	}
-	pkIndexMap := i.getPkIndex(insertStmt, meta)
+	pkIndexMap := i.getPkIndex(insertStmt, meta, dbType)
 	if pkIndexMap == nil || len(pkIndexMap) == 0 {
 		return nil, fmt.Errorf("pkIndex is not found")
 	}
@@ -338,67 +437,63 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 	}
 
 	if insertStmt == nil || len(insertStmt.Lists) == 0 {
-		return nil, fmt.Errorf("parCtx is nil, perhaps InsertStmt is empty")
+		return nil, fmt.Errorf("InsertStmt is empty")
 	}
 
 	pkValuesMap := make(map[string][]interface{})
 
 	if nameValues != nil && len(nameValues) > 0 {
-		// use prepared statements
-		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
+		insertRows, err := getInsertRows(insertStmt, pkIndexArray, dbType)
 		if err != nil {
 			return nil, err
 		}
 		if insertRows == nil || len(insertRows) == 0 {
 			return nil, err
 		}
-		totalPlaceholderNum := -1
+
+		totalPlaceholderNum := 0
 		for _, row := range insertRows {
 			if len(row) == 0 {
 				continue
 			}
-			currentRowPlaceholderNum := -1
+			currentRowPlaceholderNum := 0
 			for _, r := range row {
 				rStr, ok := r.(string)
-				if ok && strings.EqualFold(rStr, sqlPlaceholder) {
-					totalPlaceholderNum += 1
-					currentRowPlaceholderNum += 1
+				if ok && (rStr == sqlPlaceholder ||
+					(dbType == types.DBTypePostgreSQL && strings.HasPrefix(rStr, "$"))) {
+					currentRowPlaceholderNum++
 				}
 			}
-			var pkKey string
-			var pkIndex int
-			var pkValues []interface{}
+
 			for key, index := range pkIndexMap {
 				curKey := key
 				curIndex := index
 
-				pkKey = curKey
-				pkValues = pkValuesMap[pkKey]
-
-				pkIndex = curIndex
-				if pkIndex > len(row)-1 {
+				if curIndex > len(row)-1 {
 					continue
 				}
-				pkValue := row[pkIndex]
+				pkValue := row[curIndex]
 				pkValueStr, ok := pkValue.(string)
-				if ok && strings.EqualFold(pkValueStr, sqlPlaceholder) {
-					currentRowNotPlaceholderNumBeforePkIndex := 0
-					for i := range row {
-						r := row[i]
-						rStr, ok := r.(string)
-						if i < pkIndex && ok && !strings.EqualFold(rStr, sqlPlaceholder) {
-							currentRowNotPlaceholderNumBeforePkIndex++
-						}
+				isPlaceholder := ok && (pkValueStr == sqlPlaceholder ||
+					(dbType == types.DBTypePostgreSQL && strings.HasPrefix(pkValueStr, "$")))
+
+				if isPlaceholder {
+					paramIdx := totalPlaceholderNum
+					if dbType == types.DBTypePostgreSQL {
+						paramIdx = totalPlaceholderNum
 					}
-					idx := totalPlaceholderNum - currentRowPlaceholderNum + pkIndex - currentRowNotPlaceholderNumBeforePkIndex
-					pkValues = append(pkValues, nameValues[idx].Value)
+					if paramIdx >= len(nameValues) {
+						return nil, fmt.Errorf("placeholder index out of range (paramIdx: %d, nameValues len: %d)",
+							paramIdx, len(nameValues))
+					}
+					pkValuesMap[curKey] = append(pkValuesMap[curKey], nameValues[paramIdx].Value)
+					totalPlaceholderNum++
 				} else {
-					pkValues = append(pkValues, pkValue)
-				}
-				if _, ok := pkValuesMap[pkKey]; !ok {
-					pkValuesMap[pkKey] = pkValues
+					pkValuesMap[curKey] = append(pkValuesMap[curKey], pkValue)
 				}
 			}
+
+			totalPlaceholderNum += (currentRowPlaceholderNum - len(pkIndexMap))
 		}
 	} else {
 		for _, list := range insertStmt.Lists {
@@ -425,16 +520,23 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	dbType := execCtx.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
+		log.Errorf("get table meta for getPkValuesByColumn failed: %+v, dbType: %s, table: %s",
+			err, dbType, tableName)
 		return nil, err
 	}
-	pkValuesMap, err := i.parsePkValuesFromStatement(i.parserCtx.InsertStmt, *meta, execCtx.NamedValues)
+	pkValuesMap, err := i.parsePkValuesFromStatement(
+		i.parserCtx.InsertStmt,
+		*metaData,
+		execCtx.NamedValues,
+		dbType,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// generate pkValue by auto increment
 	for _, v := range pkValuesMap {
 		tmpV := v
 		if len(tmpV) == 1 {
@@ -458,21 +560,25 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	return pkValuesMap, nil
 }
 
+// getPkValuesByAuto get pk value by auto increment.
 func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.ExecContext) (map[string][]interface{}, error) {
 	if !i.isAstStmtValid() {
 		return nil, nil
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	dbType := execCtx.TxCtx.DBType
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
+		log.Errorf("get table meta for getPkValuesByAuto failed: %+v, dbType: %s, table: %s",
+			err, dbType, tableName)
 		return nil, err
 	}
 
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {
-		return nil, fmt.Errorf("pk map is empty")
+		return nil, fmt.Errorf("table %s has no primary key (dbType: %s)", tableName, dbType)
 	}
 	var autoColumnName string
 	for _, columnMeta := range pkMetaMap {
@@ -483,33 +589,60 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 		}
 	}
 	if len(autoColumnName) == 0 {
-		return nil, fmt.Errorf("auto increment column not exist")
+		return nil, fmt.Errorf("table %s has no auto-increment primary key (dbType: %s)", tableName, dbType)
 	}
 
 	updateCount, err := i.businesSQLResult.GetResult().RowsAffected()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get affected rows failed: %+v (table: %s)", err, tableName)
 	}
 
-	lastInsertId, err := i.businesSQLResult.GetResult().LastInsertId()
-	if err != nil {
-		return nil, err
-	}
+	switch dbType {
+	case types.DBTypeMySQL:
+		lastInsertId, err := i.businesSQLResult.GetResult().LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("MySQL get last insert id failed: %+v", err)
+		}
+		if lastInsertId > 0 && updateCount > 1 && canAutoIncrement(pkMetaMap) {
+			return i.autoGeneratePks(execCtx, autoColumnName, lastInsertId, updateCount)
+		}
+		if lastInsertId > 0 {
+			pkValuesMap[autoColumnName] = []interface{}{lastInsertId}
+			return pkValuesMap, nil
+		}
 
-	// If there is batch insert
-	// do auto increment base LAST_INSERT_ID and variable `auto_increment_increment`
-	if lastInsertId > 0 && updateCount > 1 && canAutoIncrement(pkMetaMap) {
-		return i.autoGeneratePks(execCtx, autoColumnName, lastInsertId, updateCount)
-	}
+	case types.DBTypePostgreSQL:
+		rows := i.businesSQLResult.GetRows()
+		if rows == nil {
+			return nil, fmt.Errorf("PostgreSQL insert result Rows is nil (missing RETURNING clause?)")
+		}
+		defer rows.Close()
 
-	if lastInsertId > 0 {
-		var pkValues []interface{}
-		pkValues = append(pkValues, lastInsertId)
-		pkValuesMap[autoColumnName] = pkValues
+		var autoIDs []interface{}
+		cols := rows.Columns()
+		if len(cols) == 0 {
+			return nil, fmt.Errorf("PostgreSQL RETURNING result has no columns")
+		}
+
+		for {
+			values := make([]driver.Value, len(cols))
+			if err := rows.Next(values); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					break
+				}
+				return nil, fmt.Errorf("PostgreSQL read auto id failed: %+v", err)
+			}
+			autoIDs = append(autoIDs, values[0])
+		}
+
+		if len(autoIDs) != int(updateCount) {
+			return nil, fmt.Errorf("PostgreSQL auto id count (%d) != affected rows (%d)", len(autoIDs), updateCount)
+		}
+		pkValuesMap[autoColumnName] = autoIDs
 		return pkValuesMap, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("unsupported dbType for auto-increment: %s", dbType)
 }
 
 func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
@@ -526,45 +659,70 @@ func (i *insertExecutor) isAstStmtValid() bool {
 	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
 }
 
-func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsetId, updateCount int64) (map[string][]interface{}, error) {
+func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsertId, updateCount int64) (map[string][]interface{}, error) {
 	var step int64
+	dbType := execCtx.TxCtx.DBType
+
 	if i.incrementStep > 0 {
 		step = int64(i.incrementStep)
 	} else {
-		// get step by query sql
-		stmt, err := execCtx.Conn.Prepare("SHOW VARIABLES LIKE 'auto_increment_increment'")
-		if err != nil {
-			log.Errorf("build prepare stmt: %+v", err)
-			return nil, err
-		}
+		switch dbType {
+		case types.DBTypeMySQL:
+			stmt, err := execCtx.Conn.Prepare("SHOW VARIABLES LIKE 'auto_increment_increment'")
+			if err != nil {
+				return nil, fmt.Errorf("MySQL prepare auto-increment step stmt failed: %+v", err)
+			}
+			defer stmt.Close()
 
-		rows, err := stmt.Query(nil)
-		if err != nil {
-			log.Errorf("stmt query: %+v", err)
-			return nil, err
-		}
+			rows, err := stmt.Query(nil)
+			if err != nil {
+				return nil, fmt.Errorf("MySQL query auto-increment step failed: %+v", err)
+			}
+			defer rows.Close()
 
-		if len(rows.Columns()) > 0 {
-			var curStep []driver.Value
-			if err := rows.Next(curStep); err != nil {
-				return nil, err
+			var varName, varValue string
+			values := []driver.Value{&varName, &varValue}
+			if err := rows.Next(values); err != nil {
+				return nil, fmt.Errorf("MySQL scan auto-increment step failed: %+v", err)
+			}
+			step, err = strconv.ParseInt(varValue, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("parse auto-increment step failed: %+v, value: %s", err, varValue)
 			}
 
-			if curStepInt, ok := curStep[0].(int64); ok {
-				step = curStepInt
+		case types.DBTypePostgreSQL:
+			tableName, _ := i.parserCtx.GetTableName()
+			seqName := fmt.Sprintf("%s_%s_seq", strings.ToLower(tableName), strings.ToLower(autoColumnName))
+			stmt, err := execCtx.Conn.Prepare(
+				fmt.Sprintf("SELECT increment_by FROM pg_catalog.pg_sequences WHERE sequencename = '%s'", seqName),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("PostgreSQL prepare sequence step stmt failed: %+v", err)
 			}
-		} else {
-			return nil, fmt.Errorf("query is empty")
+			defer stmt.Close()
+
+			rows, err := stmt.Query(nil)
+			if err != nil {
+				return nil, fmt.Errorf("PostgreSQL query sequence step failed: %+v", err)
+			}
+			defer rows.Close()
+
+			var incrementBy int64
+			values := []driver.Value{&incrementBy}
+			if err := rows.Next(values); err != nil {
+				return nil, fmt.Errorf("PostgreSQL scan sequence step failed: %+v", err)
+			}
+			step = incrementBy
 		}
 	}
 
-	if step == 0 {
-		return nil, fmt.Errorf("get increment step error")
+	if step <= 0 {
+		step = 1
 	}
 
 	var pkValues []interface{}
 	for j := int64(0); j < updateCount; j++ {
-		pkValues = append(pkValues, lastInsetId+j*step)
+		pkValues = append(pkValues, lastInsertId+j*step)
 	}
 	pkValuesMap := make(map[string][]interface{})
 	pkValuesMap[autoColumnName] = pkValues
@@ -587,7 +745,7 @@ func containsColumns(parseCtx *types.ParseContext) bool {
 	return len(parseCtx.InsertStmt.Columns) > 0
 }
 
-func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interface{}, error) {
+func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int, dbType types.DBType) ([][]interface{}, error) {
 	if insertStmt == nil {
 		return nil, nil
 	}
@@ -598,20 +756,26 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 
 	for _, nodes := range insertStmt.Lists {
 		var row []interface{}
-		for i, node := range nodes {
-			if _, ok := node.(ast.ParamMarkerExpr); ok {
-				row = append(row, sqlPlaceholder)
-			} else if newNode, ok := node.(ast.ValueExpr); ok {
-				row = append(row, newNode.GetValue())
-			} else if newNode, ok := node.(*ast.VariableExpr); ok {
-				row = append(row, newNode.Name)
-			} else if _, ok := node.(*ast.FuncCallExpr); ok {
+		for colIdx, node := range nodes {
+			switch node.(type) {
+			case ast.ParamMarkerExpr:
+				row = append(row, getPlaceholderByDBType(len(row)+1, dbType))
+			case ast.ValueExpr:
+				row = append(row, node.(ast.ValueExpr).GetValue())
+			case *ast.VariableExpr:
+				row = append(row, node.(*ast.VariableExpr).Name)
+			case *ast.FuncCallExpr:
 				row = append(row, ast.FuncCallExpr{})
-			} else {
-				for _, index := range pkIndexArray {
-					if index == i {
-						return nil, fmt.Errorf("Unknown SQLExpr:%v", node)
+			default:
+				isPkCol := false
+				for _, pkIdx := range pkIndexArray {
+					if pkIdx == colIdx {
+						isPkCol = true
+						break
 					}
+				}
+				if isPkCol {
+					return nil, fmt.Errorf("unknown expression type for PK column: %T", node)
 				}
 				row = append(row, ast.DefaultExpr{})
 			}
@@ -619,4 +783,53 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 		rows = append(rows, row)
 	}
 	return rows, nil
+}
+
+func getPlaceholderByDBType(index int, dbType types.DBType) string {
+	switch dbType {
+	case types.DBTypePostgreSQL:
+		return fmt.Sprintf("$%d", index)
+	default:
+		return sqlPlaceholder
+	}
+}
+
+func (i *insertExecutor) getPlaceholder(index int, dbType types.DBType) string {
+	switch dbType {
+	case types.DBTypePostgreSQL:
+		return fmt.Sprintf("$%d", index) // PostgreSQL 带索引占位符（$1, $2...）
+	default: // MySQL 及其他数据库
+		return sqlPlaceholder
+	}
+}
+
+func (i *insertExecutor) escapeName(name string, dbType types.DBType) string {
+	if name == "" {
+		return ""
+	}
+	switch dbType {
+	case types.DBTypeMySQL:
+		if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
+			return name
+		}
+		return fmt.Sprintf("`%s`", name)
+	case types.DBTypePostgreSQL:
+		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
+			return name
+		}
+		return fmt.Sprintf("\"%s\"", name)
+	default:
+		return name
+	}
+}
+
+func (i *insertExecutor) unEscapeName(name string, dbType types.DBType) string {
+	switch dbType {
+	case types.DBTypeMySQL:
+		return strings.Trim(name, "`") // 移除MySQL的反引号
+	case types.DBTypePostgreSQL:
+		return strings.Trim(name, "\"") // 移除PostgreSQL的双引号
+	default:
+		return name
+	}
 }
