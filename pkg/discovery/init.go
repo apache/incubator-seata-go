@@ -35,6 +35,9 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 	case ETCD:
 		//init etcd registry
 		registryService = newEtcdRegistryService(serviceConfig, &registryConfig.Etcd3)
+	case RAFT:
+		registryService = NewRaftRegistryService(serviceConfig, registryConfig)
+
 	case NACOS:
 		//TODO: init nacos registry
 	case EUREKA:

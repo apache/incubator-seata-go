@@ -120,7 +120,10 @@ seata:
       data-id: seata.properties
   # Registration Center
   registry:
-    type: file
+    type: raft
+    namingserver-addr: 127.0.0.1:8081
+    username: seata
+    password: seata
     file:
       name: seatago.yml
     nacos:
@@ -136,6 +139,10 @@ seata:
     etcd3:
       cluster: "default"
       server-addr: "http://localhost:2379"
+    raft:
+      metadata-max-age-ms: 30000
+      serverAddr: 
+      tokenValidityInMilliseconds: 1740000
   log:
     exception-rate: 100
   tcc:
