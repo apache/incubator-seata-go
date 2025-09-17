@@ -107,12 +107,17 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 			return true
 		}
 
+		dbType, err := c.getDBType()
+		if err != nil {
+			log.Printf("refresh: failed to get db type, err: %v", err)
+			return true
+		}
+
 		conn, err := c.db.Conn(ctx)
 		if err != nil {
 			return true
 		}
 		defer conn.Close()
-
 		tableMetas, err := c.trigger.LoadAll(ctx, dbName, conn, tables...)
 		if err != nil {
 			return true
@@ -121,6 +126,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 		c.lock.Lock()
 		defer c.lock.Unlock()
 		for _, tm := range tableMetas {
+			tm.DBType = dbType
 			upperTableName := strings.ToUpper(tm.TableName)
 			c.cache[upperTableName] = &entry{
 				value:      tm,
@@ -188,6 +194,11 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 		return e.value, nil
 	}
 
+	dbType, err := c.getDBType()
+	if err != nil {
+		return types.TableMeta{}, fmt.Errorf("get db type failed: %w", err)
+	}
+
 	meta, err := c.trigger.LoadOne(ctx, dbName, upperTableName, conn)
 	if err != nil {
 		return types.TableMeta{}, err
@@ -196,11 +207,24 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 		return types.TableMeta{}, fmt.Errorf("not found table metadata for %s", tableName)
 	}
 
+	meta.DBType = dbType
+
 	c.cache[upperTableName] = &entry{
 		value:      *meta,
 		lastAccess: time.Now(),
 	}
 	return *meta, nil
+}
+
+func (c *BaseTableMetaCache) getDBType() (types.DBType, error) {
+	switch cfg := c.cfg.(type) {
+	case *mysql.Config:
+		return types.DBTypeMySQL, nil
+	case string:
+		return types.DBTypePostgreSQL, nil
+	default:
+		return types.DBTypeUnknown, fmt.Errorf("unsupported config type: %T", cfg)
+	}
 }
 
 func (c *BaseTableMetaCache) Destroy() error {
