@@ -30,7 +30,6 @@ import (
 	"seata.apache.org/seata-go/pkg/util/bytes"
 )
 
-// TestCase 测试用例结构体（新增skipMultiStmtCheck字段，用于跳过特殊场景的MultiStmt验证）
 type TestCase struct {
 	name                 string
 	sql                  string
@@ -39,10 +38,9 @@ type TestCase struct {
 	expectedExecutorType types.ExecutorType
 	expectErr            bool
 	errMsg               string
-	skipMultiStmtCheck   bool // 新增：是否跳过MultiStmt非空验证
+	skipMultiStmtCheck   bool
 }
 
-// TestDoParser_MySQL MySQL场景测试
 func TestDoParser_MySQL(t *testing.T) {
 	testCases := []TestCase{
 		{
@@ -116,26 +114,23 @@ func TestDoParser_MySQL(t *testing.T) {
 			expectedSQLType:      types.SQLTypeMulti,
 			expectedExecutorType: types.MultiExecutor,
 			expectErr:            false,
-			skipMultiStmtCheck:   false, // 多语句场景需验证MultiStmt非空
+			skipMultiStmtCheck:   false,
 		},
 	}
 
 	runTestCases(t, testCases)
 }
 
-// TestDoParser_PostgreSQL 补充后的PostgreSQL场景测试（共9个，与MySQL对应）
 func TestDoParser_PostgreSQL(t *testing.T) {
 	testCases := []TestCase{
-		// 1. 模拟REPLACE（PostgreSQL无原生REPLACE，用INSERT ON CONFLICT替代）
 		{
 			name:                 "PostgreSQL_Replace_Simulate",
 			sql:                  "INSERT INTO foo (id, name) VALUES (1, 'test') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name",
 			dbType:               types.DBTypePostgreSQL,
-			expectedSQLType:      types.SQLTypeInsertOnDuplicateUpdate, // 对应MySQL的REPLACE
+			expectedSQLType:      types.SQLTypeInsertOnDuplicateUpdate,
 			expectedExecutorType: types.InsertOnDuplicateExecutor,
 			expectErr:            false,
 		},
-		// 2. 带NULL的INSERT
 		{
 			name:                 "PostgreSQL_INSERT_With_Null",
 			sql:                  "INSERT INTO foo (a, b) VALUES (1, NULL)",
@@ -144,16 +139,14 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 			expectedExecutorType: types.InsertExecutor,
 			expectErr:            false,
 		},
-		// 3. 带特殊字符串的INSERT
 		{
 			name:                 "PostgreSQL_INSERT_With_Special_String",
-			sql:                  "INSERT INTO foo (name) VALUES ('O''Neil')", // 单引号转义
+			sql:                  "INSERT INTO foo (name) VALUES ('O''Neil')",
 			dbType:               types.DBTypePostgreSQL,
 			expectedSQLType:      types.SQLTypeInsert,
 			expectedExecutorType: types.InsertExecutor,
 			expectErr:            false,
 		},
-		// 4. INSERT ON CONFLICT（PostgreSQL特有，对应MySQL的ON DUPLICATE KEY）
 		{
 			name:                 "PostgreSQL_INSERT_On_Conflict",
 			sql:                  "INSERT INTO foo (a, b) VALUES (1, 2) ON CONFLICT (a) DO UPDATE SET b = foo.b + 1",
@@ -162,7 +155,6 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 			expectedExecutorType: types.InsertOnDuplicateExecutor,
 			expectErr:            false,
 		},
-		// 5. 带WITH子句的UPDATE（CTE语法）
 		{
 			name:                 "PostgreSQL_UPDATE_With_CTE",
 			sql:                  "WITH tmp AS (SELECT id FROM bar WHERE count>5) UPDATE foo SET status=1 WHERE id IN (SELECT id FROM tmp)",
@@ -171,7 +163,6 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 			expectedExecutorType: types.UpdateExecutor,
 			expectErr:            false,
 		},
-		// 6. 带条件的DELETE
 		{
 			name:                 "PostgreSQL_DELETE_With_Condition",
 			sql:                  "DELETE FROM foo WHERE create_time < '2024-01-01' AND status=0",
@@ -180,7 +171,6 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 			expectedExecutorType: types.DeleteExecutor,
 			expectErr:            false,
 		},
-		// 7. 基础SELECT
 		{
 			name:                 "PostgreSQL_SELECT_Basic",
 			sql:                  "SELECT id, name FROM foo WHERE status=0 LIMIT 10 OFFSET 5",
@@ -189,16 +179,14 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 			expectedExecutorType: types.SelectExecutor,
 			expectErr:            false,
 		},
-		// 8. SELECT FOR UPDATE（行锁）
 		{
 			name:                 "PostgreSQL_SELECT_For_Update",
-			sql:                  "SELECT * FROM foo WHERE id=100 FOR UPDATE", // 简化：移除OF子句，避免解析器报错
+			sql:                  "SELECT * FROM foo WHERE id=100 FOR UPDATE",
 			dbType:               types.DBTypePostgreSQL,
 			expectedSQLType:      types.SQLTypeSelectForUpdate,
 			expectedExecutorType: types.SelectForUpdateExecutor,
 			expectErr:            false,
 		},
-		// 9. 多语句（分号分隔）
 		{
 			name:                 "PostgreSQL_Multi_Stmt",
 			sql:                  "SELECT 1; UPDATE foo SET a=2; DELETE FROM bar WHERE id=3",
@@ -213,7 +201,6 @@ func TestDoParser_PostgreSQL(t *testing.T) {
 	runTestCases(t, testCases)
 }
 
-// TestDoParser_ErrorCases 异常场景测试（修复空SQL的MultiStmt验证）
 func TestDoParser_ErrorCases(t *testing.T) {
 	testCases := []TestCase{
 		{
@@ -230,7 +217,6 @@ func TestDoParser_ErrorCases(t *testing.T) {
 			expectErr: true,
 			errMsg:    "line 1 column",
 		},
-		// 修复：新增skipMultiStmtCheck=true，跳过MultiStmt非空验证
 		{
 			name:                 "Empty_SQL",
 			sql:                  "",
@@ -238,7 +224,7 @@ func TestDoParser_ErrorCases(t *testing.T) {
 			expectedSQLType:      1045,
 			expectedExecutorType: 8,
 			expectErr:            false,
-			skipMultiStmtCheck:   true, // 空SQL无需验证MultiStmt非空
+			skipMultiStmtCheck:   true,
 		},
 		{
 			name:                 "Whitespace_Only_SQL",
@@ -247,14 +233,13 @@ func TestDoParser_ErrorCases(t *testing.T) {
 			expectedSQLType:      1045,
 			expectedExecutorType: 8,
 			expectErr:            false,
-			skipMultiStmtCheck:   true, // 空白SQL无需验证MultiStmt非空
+			skipMultiStmtCheck:   true,
 		},
 	}
 
 	runTestCases(t, testCases)
 }
 
-// TestSQLRestore SQL还原功能测试
 func TestSQLRestore(t *testing.T) {
 	mysqlSQL := "UPDATE foo SET name = 'test' WHERE id = 123"
 	p := aparser.New()
@@ -276,7 +261,6 @@ func TestSQLRestore(t *testing.T) {
 	assert.Equal(t, "insert into foo(a) values (1)", restoredPgSQL)
 }
 
-// runTestCases 通用测试执行函数（修复MultiStmt验证逻辑）
 func runTestCases(t *testing.T, testCases []TestCase) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -284,23 +268,22 @@ func runTestCases(t *testing.T, testCases []TestCase) {
 
 			if err != nil {
 				if tc.expectErr {
-					assert.Contains(t, err.Error(), tc.errMsg, "错误信息不匹配：%s", err.Error())
+					assert.Contains(t, err.Error(), tc.errMsg, "Error message mismatch：%s", err.Error())
 				} else {
-					assert.NoError(t, err, "出现非预期错误：%s", err.Error())
+					assert.NoError(t, err, "Unexpected error occurred：%s", err.Error())
 				}
 				return
 			}
 
-			assert.NotNil(t, parseCtx, "parseCtx为空")
+			assert.NotNil(t, parseCtx, "ParseCtx is null")
 			assert.Equal(t, tc.expectedSQLType, parseCtx.SQLType,
-				"SQLType不匹配：预期=%d，实际=%d", tc.expectedSQLType, parseCtx.SQLType)
+				"SQLType mismatch：expect=%d，actual=%d", tc.expectedSQLType, parseCtx.SQLType)
 			assert.Equal(t, tc.expectedExecutorType, parseCtx.ExecutorType,
-				"ExecutorType不匹配：预期=%d，实际=%d", tc.expectedExecutorType, parseCtx.ExecutorType)
+				"ExecutorType mismatch：expect=%d，actual=%d", tc.expectedExecutorType, parseCtx.ExecutorType)
 
-			// 修复：仅当预期为多语句且不跳过验证时，才检查MultiStmt非空
 			if tc.expectedSQLType == types.SQLTypeMulti && !tc.skipMultiStmtCheck {
-				assert.NotNil(t, parseCtx.MultiStmt, "MultiStmt为空")
-				assert.Greater(t, len(parseCtx.MultiStmt), 0, "MultiStmt无数据")
+				assert.NotNil(t, parseCtx.MultiStmt, "MultiStmt is empty")
+				assert.Greater(t, len(parseCtx.MultiStmt), 0, "MultiStmt has no data")
 			}
 		})
 	}

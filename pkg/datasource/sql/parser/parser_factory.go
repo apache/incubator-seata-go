@@ -63,7 +63,6 @@ func parseMySQL(query string) (*types.ParseContext, error) {
 	return &parserCtx, nil
 }
 
-// 使用auxten/postgresql-parser解析PostgreSQL
 func parsePostgreSQL(query string) (*types.ParseContext, error) {
 	stmts, err := pgparser.Parse(query)
 	if err != nil {
@@ -133,7 +132,6 @@ func parseMySQLParseContext(stmtNode ast.StmtNode) *types.ParseContext {
 	return parserCtx
 }
 
-// parseAuxtenParseContext 解析auxten/postgresql-parser返回的AST
 func parseAuxtenParseContext(stmt tree.Statement) *types.ParseContext {
 	parserCtx := new(types.ParseContext)
 
@@ -143,7 +141,6 @@ func parseAuxtenParseContext(stmt tree.Statement) *types.ParseContext {
 		parserCtx.ExecutorType = types.InsertExecutor
 		parserCtx.AuxtenInsertStmt = s
 
-		// 检查是否有ON CONFLICT子句（PostgreSQL的upsert语法）
 		if s.OnConflict != nil {
 			parserCtx.SQLType = types.SQLTypeInsertOnDuplicateUpdate
 			parserCtx.ExecutorType = types.InsertOnDuplicateExecutor
@@ -170,17 +167,14 @@ func parseAuxtenParseContext(stmt tree.Statement) *types.ParseContext {
 	return parserCtx
 }
 
-// hasForUpdate 检查SELECT语句是否包含FOR UPDATE子句
 func hasForUpdate(stmt *tree.Select) bool {
 	if stmt.Select == nil {
 		return false
 	}
 
-	// 检查顶层SELECT的Locking子句
 	if stmt.Locking != nil && len(stmt.Locking) > 0 {
 		return true
 	}
 
-	// 对于更复杂的嵌套查询，暂时返回false
 	return false
 }
