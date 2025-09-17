@@ -22,17 +22,19 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+
 	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"seata.apache.org/seata-go/pkg/util/log"
+	seatalog "seata.apache.org/seata-go/pkg/util/log"
 )
 
 const (
@@ -92,9 +94,12 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 func (i *insertExecutor) adaptInsertSQLForPostgreSQL(ctx context.Context, query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	dbType := i.execContext.TxCtx.DBType
 	if dbType != types.DBTypePostgreSQL {
-		return query, args, nil // 非 PostgreSQL 直接返回原 SQL
+		return query, args, nil
 	}
 
+	if i.parserCtx == nil {
+		return "", nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
@@ -110,7 +115,7 @@ func (i *insertExecutor) adaptInsertSQLForPostgreSQL(ctx context.Context, query 
 		}
 	}
 	if autoPkCol == "" {
-		return query, args, nil // 无自增列，无需适配
+		return query, args, nil
 	}
 
 	if strings.Contains(strings.ToUpper(query), "RETURNING") {
@@ -124,11 +129,14 @@ func (i *insertExecutor) adaptInsertSQLForPostgreSQL(ctx context.Context, query 
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	if i.parserCtx == nil {
+		return nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
 	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
-		log.Errorf("get table meta for before-image failed: %+v, dbType: %s, table: %s, dbName: %s",
+		seatalog.Errorf("get table meta for before-image failed: %+v, dbType: %s, table: %s, dbName: %s",
 			err, dbType, tableName, i.execContext.DBName)
 		return nil, err
 	}
@@ -141,6 +149,9 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, nil
 	}
 
+	if i.parserCtx == nil {
+		return nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
 	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
@@ -167,11 +178,11 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 			}
 		}()
 		if err != nil {
-			log.Errorf("ctx driver query: %+v, sql: %s", err, selectSQL) // 【优化点】：补充SQL日志，便于调试
+			seatalog.Errorf("ctx driver query: %+v, sql: %s", err, selectSQL) // 【优化点】：补充SQL日志，便于调试
 			return nil, err
 		}
 	} else {
-		log.Errorf("target conn should be driver.QueryerContext or driver.Queryer")
+		seatalog.Errorf("target conn should be driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid database connection (not support QueryerContext/Queryer)")
 	}
 
@@ -183,7 +194,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		types.SQLTypeInsert,
 	)
 	if err != nil {
-		log.Errorf("build insert after-image failed: %+v", err)
+		seatalog.Errorf("build insert after-image failed: %+v", err)
 		return nil, err
 	}
 
@@ -194,6 +205,9 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 
 // buildAfterImageSQL build select sql from insert sql
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
+	if i.parserCtx == nil {
+		return "", nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
 	meta, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
@@ -215,8 +229,10 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	escapedTable := i.escapeName(tableName, dbType)
 
 	var insertColumns []string
-	for _, col := range i.parserCtx.InsertStmt.Columns {
-		insertColumns = append(insertColumns, col.Name.O)
+	if i.parserCtx.InsertStmt != nil && i.parserCtx.InsertStmt.Columns != nil {
+		for _, col := range i.parserCtx.InsertStmt.Columns {
+			insertColumns = append(insertColumns, col.Name.O)
+		}
 	}
 	needColumns := i.getNeedColumns(meta, insertColumns, dbType)
 	escapedNeedColumns := make([]string, len(needColumns))
@@ -250,7 +266,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	}
 	selectArgs := i.buildPKParams(pkRowImages, pkColumns)
 
-	log.Infof("built after-image select sql: %s", selectSQL)
+	seatalog.Infof("built after-image select sql: %s", selectSQL)
 	return selectSQL, selectArgs, nil
 }
 
@@ -301,13 +317,16 @@ func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecCon
 	var err error
 	// when there is only one pk in the table
 	if len(pkColumnNameList) == 1 {
-		if i.containsPK(meta, parseCtx) {
+		containsPKResult := i.containsPK(meta, parseCtx)
+		containsColumnsResult := containsColumns(parseCtx)
+
+		if containsPKResult {
 			// the insert sql contain pk value
 			pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
 			if err != nil {
 				return nil, err
 			}
-		} else if containsColumns(parseCtx) {
+		} else if containsColumnsResult {
 			// the insert table pk auto generated
 			pkValuesMap, err = i.getPkValuesByAuto(ctx, execCtx)
 			if err != nil {
@@ -346,18 +365,36 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 	if len(pkColumnNameList) == 0 {
 		return false
 	}
-	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Columns == nil {
+	if parseCtx == nil {
 		return false
 	}
-	if len(parseCtx.InsertStmt.Columns) == 0 {
+
+	var columns []string
+	dbType := i.execContext.TxCtx.DBType
+
+	if dbType == types.DBTypePostgreSQL && parseCtx.AuxtenInsertStmt != nil {
+		if parseCtx.AuxtenInsertStmt.Columns == nil || len(parseCtx.AuxtenInsertStmt.Columns) == 0 {
+			return false
+		}
+		for _, col := range parseCtx.AuxtenInsertStmt.Columns {
+			columns = append(columns, string(col))
+		}
+	} else if parseCtx.InsertStmt != nil && parseCtx.InsertStmt.Columns != nil {
+		if len(parseCtx.InsertStmt.Columns) == 0 {
+			return false
+		}
+		for _, column := range parseCtx.InsertStmt.Columns {
+			columns = append(columns, column.Name.O)
+		}
+	} else {
 		return false
 	}
 
 	matchCounter := 0
-	for _, column := range parseCtx.InsertStmt.Columns {
+	for _, columnName := range columns {
 		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column.Name.O) ||
-				strings.EqualFold(pkName, column.Name.L) {
+			cleanColumnName := i.unEscapeName(columnName, dbType)
+			if strings.EqualFold(pkName, cleanColumnName) {
 				matchCounter++
 			}
 		}
@@ -519,20 +556,33 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 		return nil, nil
 	}
 
+	if i.parserCtx == nil {
+		return nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := execCtx.TxCtx.DBType
 	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
-		log.Errorf("get table meta for getPkValuesByColumn failed: %+v, dbType: %s, table: %s",
+		seatalog.Errorf("get table meta for getPkValuesByColumn failed: %+v, dbType: %s, table: %s",
 			err, dbType, tableName)
 		return nil, err
 	}
-	pkValuesMap, err := i.parsePkValuesFromStatement(
-		i.parserCtx.InsertStmt,
-		*metaData,
-		execCtx.NamedValues,
-		dbType,
-	)
+	var pkValuesMap map[string][]interface{}
+	if dbType == types.DBTypePostgreSQL && i.parserCtx.AuxtenInsertStmt != nil {
+		pkValuesMap, err = i.parsePkValuesFromPostgreSQLStatement(
+			i.parserCtx.AuxtenInsertStmt,
+			*metaData,
+			execCtx.NamedValues,
+			dbType,
+		)
+	} else {
+		pkValuesMap, err = i.parsePkValuesFromStatement(
+			i.parserCtx.InsertStmt,
+			*metaData,
+			execCtx.NamedValues,
+			dbType,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -566,11 +616,14 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 		return nil, nil
 	}
 
+	if i.parserCtx == nil {
+		return nil, fmt.Errorf("parser context is nil")
+	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := execCtx.TxCtx.DBType
 	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
 	if err != nil {
-		log.Errorf("get table meta for getPkValuesByAuto failed: %+v, dbType: %s, table: %s",
+		seatalog.Errorf("get table meta for getPkValuesByAuto failed: %+v, dbType: %s, table: %s",
 			err, dbType, tableName)
 		return nil, err
 	}
@@ -656,7 +709,10 @@ func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
 }
 
 func (i *insertExecutor) isAstStmtValid() bool {
-	return i.parserCtx != nil && i.parserCtx.InsertStmt != nil
+	if i.parserCtx == nil {
+		return false
+	}
+	return i.parserCtx.InsertStmt != nil || i.parserCtx.AuxtenInsertStmt != nil
 }
 
 func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnName string, lastInsertId, updateCount int64) (map[string][]interface{}, error) {
@@ -691,6 +747,9 @@ func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnN
 			}
 
 		case types.DBTypePostgreSQL:
+			if i.parserCtx == nil {
+				return nil, fmt.Errorf("parser context is nil")
+			}
 			tableName, _ := i.parserCtx.GetTableName()
 			seqName := fmt.Sprintf("%s_%s_seq", strings.ToLower(tableName), strings.ToLower(autoColumnName))
 			stmt, err := execCtx.Conn.Prepare(
@@ -729,6 +788,52 @@ func (i *insertExecutor) autoGeneratePks(execCtx *types.ExecContext, autoColumnN
 	return pkValuesMap, nil
 }
 
+// parsePkValuesFromPostgreSQLStatement parse primary key value from PostgreSQL statement.
+func (i *insertExecutor) parsePkValuesFromPostgreSQLStatement(insertStmt *tree.Insert, meta types.TableMeta, nameValues []driver.NamedValue, dbType types.DBType) (map[string][]interface{}, error) {
+	if insertStmt == nil {
+		return nil, nil
+	}
+
+	pkValuesMap := make(map[string][]interface{})
+
+	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+	if len(pkColumnNameList) == 0 {
+		return nil, fmt.Errorf("table has no primary key")
+	}
+
+	pkIndexMap := make(map[string]int)
+	if insertStmt.Columns != nil {
+		for idx, col := range insertStmt.Columns {
+			colName := i.unEscapeName(string(col), dbType)
+			for _, pkName := range pkColumnNameList {
+				if strings.EqualFold(pkName, colName) {
+					pkIndexMap[pkName] = idx
+					break
+				}
+			}
+		}
+	}
+
+	if len(pkIndexMap) == 0 {
+		return pkValuesMap, nil
+	}
+
+	insertRows, err := i.getInsertRowsForPostgreSQL(insertStmt, pkIndexMap, nameValues, dbType)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range insertRows {
+		for pkName, pkIndex := range pkIndexMap {
+			if pkIndex < len(row) {
+				pkValuesMap[pkName] = append(pkValuesMap[pkName], row[pkIndex])
+			}
+		}
+	}
+
+	return pkValuesMap, nil
+}
+
 func pkValuesMapMerge(dest *map[string][]interface{}, src map[string][]interface{}) {
 	for k, v := range src {
 		tmpK := k
@@ -739,10 +844,19 @@ func pkValuesMapMerge(dest *map[string][]interface{}, src map[string][]interface
 
 // containsColumns judge sql specify column
 func containsColumns(parseCtx *types.ParseContext) bool {
-	if parseCtx == nil || parseCtx.InsertStmt == nil || parseCtx.InsertStmt.Columns == nil {
+	if parseCtx == nil {
 		return false
 	}
-	return len(parseCtx.InsertStmt.Columns) > 0
+
+	if parseCtx.AuxtenInsertStmt != nil && parseCtx.AuxtenInsertStmt.Columns != nil {
+		return len(parseCtx.AuxtenInsertStmt.Columns) > 0
+	}
+
+	if parseCtx.InsertStmt != nil && parseCtx.InsertStmt.Columns != nil {
+		return len(parseCtx.InsertStmt.Columns) > 0
+	}
+
+	return false
 }
 
 func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int, dbType types.DBType) ([][]interface{}, error) {
@@ -753,13 +867,15 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int, dbType types.
 		return nil, nil
 	}
 	var rows [][]interface{}
+	globalParamIndex := 1
 
 	for _, nodes := range insertStmt.Lists {
 		var row []interface{}
-		for colIdx, node := range nodes {
+		for _, node := range nodes {
 			switch node.(type) {
 			case ast.ParamMarkerExpr:
-				row = append(row, getPlaceholderByDBType(len(row)+1, dbType))
+				row = append(row, "?")
+				globalParamIndex++
 			case ast.ValueExpr:
 				row = append(row, node.(ast.ValueExpr).GetValue())
 			case *ast.VariableExpr:
@@ -769,7 +885,7 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int, dbType types.
 			default:
 				isPkCol := false
 				for _, pkIdx := range pkIndexArray {
-					if pkIdx == colIdx {
+					if pkIdx == len(row) {
 						isPkCol = true
 						break
 					}
@@ -826,10 +942,68 @@ func (i *insertExecutor) escapeName(name string, dbType types.DBType) string {
 func (i *insertExecutor) unEscapeName(name string, dbType types.DBType) string {
 	switch dbType {
 	case types.DBTypeMySQL:
-		return strings.Trim(name, "`") // 移除MySQL的反引号
+		return strings.Trim(name, "`")
 	case types.DBTypePostgreSQL:
-		return strings.Trim(name, "\"") // 移除PostgreSQL的双引号
+		return strings.Trim(name, "\"")
 	default:
 		return name
 	}
+}
+
+// getInsertRowsForPostgreSQL extracts rows data from PostgreSQL INSERT statement
+func (i *insertExecutor) getInsertRowsForPostgreSQL(insertStmt *tree.Insert, pkIndexMap map[string]int, nameValues []driver.NamedValue, dbType types.DBType) ([][]interface{}, error) {
+	if insertStmt == nil {
+		return nil, fmt.Errorf("PostgreSQL insert statement is nil")
+	}
+
+	var rows [][]interface{}
+
+	if insertStmt.Rows != nil {
+		if selectClause := insertStmt.Rows.Select; selectClause != nil {
+			if valuesClause, ok := selectClause.(*tree.ValuesClause); ok {
+				placeholderIndex := 0
+
+				for _, rowTuple := range valuesClause.Rows {
+					var row []interface{}
+
+					for _, expr := range rowTuple {
+						switch e := expr.(type) {
+						case *tree.Placeholder:
+							paramIndex := int(e.Idx) - 1
+							if nameValues != nil && paramIndex >= 0 && paramIndex < len(nameValues) {
+								row = append(row, nameValues[paramIndex].Value)
+							} else {
+								row = append(row, fmt.Sprintf("$%d", e.Idx))
+							}
+							if int(e.Idx) > placeholderIndex {
+								placeholderIndex = int(e.Idx)
+							}
+						case *tree.NumVal:
+							if val, err := strconv.ParseInt(e.String(), 10, 64); err == nil {
+								row = append(row, val)
+							} else if val, err := strconv.ParseFloat(e.String(), 64); err == nil {
+								row = append(row, val)
+							} else {
+								row = append(row, e.String())
+							}
+						case *tree.StrVal:
+							row = append(row, e.RawString())
+						default:
+							row = append(row, fmt.Sprintf("%v", e))
+						}
+					}
+					rows = append(rows, row)
+				}
+			} else {
+				// INSERT INTO ... SELECT ...
+				return nil, fmt.Errorf("INSERT SELECT statements are not supported for primary key extraction")
+			}
+		}
+	}
+
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("no rows found in PostgreSQL INSERT statement")
+	}
+
+	return rows, nil
 }

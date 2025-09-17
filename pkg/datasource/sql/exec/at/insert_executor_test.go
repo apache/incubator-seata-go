@@ -111,7 +111,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 		{
 			name:   "test-1-postgres",
 			dbType: types.DBTypePostgreSQL,
-			query:  "insert into user(id,name) values (19,'Tony'),(21,'tony')",
+			query:  "insert into \"user\"(id,name) values (19,'Tony'),(21,'tony')",
 			metaData: types.TableMeta{
 				ColumnNames: []string{"id", "name"},
 				Indexs: map[string]types.IndexMeta{
@@ -166,7 +166,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				})
 			defer stub.Reset()
 
-			c, err := parser.DoParser(test.query)
+			c, err := parser.DoParser(test.query, test.dbType)
 			assert.Nil(t, err)
 
 			execCtx := &types.ExecContext{
@@ -1177,7 +1177,7 @@ func TestInsertExecutor_autoGeneratePks(t *testing.T) {
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
-			
+
 			got, err := executor.(*insertExecutor).autoGeneratePks(
 				execCtx,
 				tt.args.autoColumnName,
