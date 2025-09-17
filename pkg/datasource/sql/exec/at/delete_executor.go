@@ -26,10 +26,10 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/pkg/util/bytes"
@@ -133,65 +133,110 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 }
 
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
-	p, err := parser.DoParser(query)
-	if err != nil {
-		log.Errorf("parse delete sql failed: %+v, sql: %s", err, query)
-		return "", nil, err
+	if d.parserCtx == nil {
+		log.Errorf("parser context is nil")
+		return "", nil, fmt.Errorf("parser context is nil")
 	}
 
-	deleteStmt := p.DeleteStmt
-	if deleteStmt == nil {
+	if d.parserCtx.DeleteStmt == nil && d.parserCtx.AuxtenDeleteStmt == nil {
 		log.Errorf("invalid delete statement: %s", query)
 		return "", nil, fmt.Errorf("invalid delete sql")
 	}
 
-	selStmt := &ast.SelectStmt{
-		SelectStmtOpts: &ast.SelectStmtOpts{
-			SQLCache: d.execContext.TxCtx.DBType != types.DBTypeMySQL,
-		},
-		From:  deleteStmt.TableRefs,
-		Where: deleteStmt.Where,
-		Fields: &ast.FieldList{
-			Fields: []*ast.SelectField{{
-				WildCard: &ast.WildCardField{},
-			}},
-		},
-		OrderBy:    deleteStmt.Order,
-		Limit:      deleteStmt.Limit,
-		TableHints: deleteStmt.TableHints,
-		LockInfo: &ast.SelectLockInfo{
-			LockType: ast.SelectLockForUpdate,
-		},
-	}
-
-	b := bytes.NewByteBuffer([]byte{})
-	restoreCtx := format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)
-	if err := selStmt.Restore(restoreCtx); err != nil {
-		log.Errorf("restore select sql failed: %+v", err)
-		return "", nil, err
-	}
-
-	selectSQL := string(b.Bytes())
+	var selectSQL string
+	var selectArgs []driver.NamedValue
 	dbType := d.execContext.TxCtx.DBType
 
-	switch dbType {
-	case types.DBTypeMySQL:
+	if dbType == types.DBTypeMySQL && d.parserCtx.DeleteStmt != nil {
+		// MySQL
+		selStmt := &ast.SelectStmt{
+			SelectStmtOpts: &ast.SelectStmtOpts{
+				SQLCache: true,
+			},
+			From:  d.parserCtx.DeleteStmt.TableRefs,
+			Where: d.parserCtx.DeleteStmt.Where,
+			Fields: &ast.FieldList{
+				Fields: []*ast.SelectField{{
+					WildCard: &ast.WildCardField{},
+				}},
+			},
+			OrderBy: d.parserCtx.DeleteStmt.Order,
+			Limit:   d.parserCtx.DeleteStmt.Limit,
+			LockInfo: &ast.SelectLockInfo{
+				LockType: ast.SelectLockForUpdate,
+			},
+		}
+
+		b := bytes.NewByteBuffer([]byte{})
+		restoreCtx := format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)
+		if err := selStmt.Restore(restoreCtx); err != nil {
+			log.Errorf("restore select sql failed: %+v", err)
+			return "", nil, err
+		}
+
+		selectSQL = string(b.Bytes())
+
 		re := regexp.MustCompile(`(_UTF8MB4)(\w+)`)
 		selectSQL = re.ReplaceAllString(selectSQL, `${1}'${2}'`)
-	case types.DBTypePostgreSQL:
-		re := regexp.MustCompile(`_UTF8MB4(\w+)`)
-		selectSQL = re.ReplaceAllString(selectSQL, `'$1'`)
-		re = regexp.MustCompile(`= (\w+)(\s|$|\)|\,)`)
-		selectSQL = re.ReplaceAllString(selectSQL, `= '$1'$2`)
-	}
 
-	if dbType == types.DBTypePostgreSQL {
-		selectSQL = strings.Replace(selectSQL, "SQL_NO_CACHE ", "", 1)
+		if !strings.Contains(selectSQL, "SQL_NO_CACHE") {
+			selectSQL = strings.Replace(selectSQL, "SELECT", "SELECT SQL_NO_CACHE", 1)
+		}
+
+		selectArgs = d.buildSelectArgs(selStmt, args)
+	} else if dbType == types.DBTypePostgreSQL && d.parserCtx.AuxtenDeleteStmt != nil {
+		deleteStmt := d.parserCtx.AuxtenDeleteStmt
+
+		selectSQL = "SELECT * FROM "
+
+		if deleteStmt.Table != nil {
+			ctx := tree.NewFmtCtx(tree.FmtSimple)
+			deleteStmt.Table.Format(ctx)
+			selectSQL += ctx.CloseAndGetString()
+		}
+
+		if deleteStmt.Where != nil {
+			ctx := tree.NewFmtCtx(tree.FmtSimple)
+			deleteStmt.Where.Format(ctx)
+			whereClause := ctx.CloseAndGetString()
+			if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(whereClause)), "WHERE") {
+				selectSQL += " WHERE " + whereClause
+			} else {
+				selectSQL += " " + whereClause
+			}
+		}
+
+		if len(deleteStmt.OrderBy) > 0 {
+			ctx := tree.NewFmtCtx(tree.FmtSimple)
+			deleteStmt.OrderBy.Format(ctx)
+			orderClause := ctx.CloseAndGetString()
+			if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(orderClause)), "ORDER BY") {
+				selectSQL += " ORDER BY " + orderClause
+			} else {
+				selectSQL += " " + orderClause
+			}
+		}
+
+		if deleteStmt.Limit != nil {
+			ctx := tree.NewFmtCtx(tree.FmtSimple)
+			deleteStmt.Limit.Format(ctx)
+			limitClause := ctx.CloseAndGetString()
+			if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(limitClause)), "LIMIT") {
+				selectSQL += " LIMIT " + limitClause
+			} else {
+				selectSQL += " " + limitClause
+			}
+		}
+
+		selectSQL += " FOR UPDATE"
+
+		selectArgs = args
+	} else {
+		log.Errorf("unsupported database type or missing delete statement, dbType: %v", dbType)
+		return "", nil, fmt.Errorf("invalid delete sql")
 	}
 
 	log.Infof("built before-image select sql: %s", selectSQL)
-
-	selectArgs := d.buildSelectArgs(selStmt, args)
 	return selectSQL, selectArgs, nil
 }
 

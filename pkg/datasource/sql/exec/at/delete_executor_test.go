@@ -65,32 +65,32 @@ func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
 		{
 			name:            "PostgreSQL: basic delete",
 			dbType:          types.DBTypePostgreSQL,
-			sourceQuery:     "delete from t_user where id = ?",
+			sourceQuery:     "delete from t_user where id = $1",
 			sourceQueryArgs: []driver.Value{100},
-			expectQuery:     "SELECT * FROM t_user WHERE id=? FOR UPDATE",
+			expectQuery:     "SELECT * FROM t_user WHERE id = $1 FOR UPDATE",
 			expectQueryArgs: []driver.Value{100},
 		},
 		{
 			name:            "PostgreSQL: delete with multiple conditions",
 			dbType:          types.DBTypePostgreSQL,
-			sourceQuery:     "delete from t_user where id = ? and name = 'Jack' and age between ? and ?",
+			sourceQuery:     "delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3",
 			sourceQueryArgs: []driver.Value{100, 18, 28},
-			expectQuery:     "SELECT * FROM t_user WHERE id=? AND name='Jack' AND age BETWEEN ? AND ? FOR UPDATE",
+			expectQuery:     "SELECT * FROM t_user WHERE ((id = $1) AND (name = 'Jack')) AND (age BETWEEN $2 AND $3) FOR UPDATE",
 			expectQueryArgs: []driver.Value{100, 18, 28},
 		},
 		{
 			name:            "PostgreSQL: delete with order and limit",
 			dbType:          types.DBTypePostgreSQL,
-			sourceQuery:     "delete from t_user where kk between ? and ? order by name desc limit ?",
+			sourceQuery:     "delete from t_user where kk between $1 and $2 order by name desc limit $3",
 			sourceQueryArgs: []driver.Value{10, 20, 2},
-			expectQuery:     "SELECT * FROM t_user WHERE kk BETWEEN ? AND ? ORDER BY name DESC LIMIT ? FOR UPDATE",
+			expectQuery:     "SELECT * FROM t_user WHERE kk BETWEEN $1 AND $2 ORDER BY name DESC LIMIT $3 FOR UPDATE",
 			expectQueryArgs: []driver.Value{10, 20, 2},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := parser.DoParser(tt.sourceQuery)
+			c, err := parser.DoParser(tt.sourceQuery, tt.dbType)
 			assert.Nil(t, err)
 
 			execCtx := &types.ExecContext{
