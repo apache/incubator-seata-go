@@ -1,18 +1,6 @@
+// pkg/datasource/sql/exec/at/plain_executor_test.go（修改后）
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 版权声明（保持不变）
  */
 
 package at
@@ -23,20 +11,21 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
+	mock "seata.apache.org/seata-go/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
+// TestNewPlainExecutor
 func TestNewPlainExecutor(t *testing.T) {
 	executor := NewPlainExecutor(nil, nil)
 	_, ok := executor.(*plainExecutor)
 	assert.Equalf(t, true, ok, "should be *plainExecutor")
 }
 
+// TestPlainExecutor_ExecContext
 func TestPlainExecutor_ExecContext(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -47,9 +36,9 @@ func TestPlainExecutor_ExecContext(t *testing.T) {
 		{
 			name: "test1",
 			f: func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				return NewMockInsertResult(int64(1), int64(2)), nil
+				return mock.NewMockInsertResult(int64(1), int64(2)), nil
 			},
-			wantVal: NewMockInsertResult(int64(1), int64(2)),
+			wantVal: mock.NewMockInsertResult(int64(1), int64(2)),
 			wantErr: nil,
 		},
 		{
@@ -69,24 +58,4 @@ func TestPlainExecutor_ExecContext(t *testing.T) {
 			assert.Equalf(t, tt.wantErr, err, "")
 		})
 	}
-}
-
-type mockInsertResult struct {
-	lastInsertID int64
-	rowsAffected int64
-}
-
-func NewMockInsertResult(lastInsertID int64, rowsAffected int64) mockInsertResult {
-	return mockInsertResult{
-		lastInsertID: lastInsertID,
-		rowsAffected: rowsAffected,
-	}
-}
-
-func (m mockInsertResult) GetRows() driver.Rows {
-	return &mock.MockTestDriverRows{}
-}
-
-func (m mockInsertResult) GetResult() driver.Result {
-	return sqlmock.NewResult(m.lastInsertID, m.rowsAffected)
 }

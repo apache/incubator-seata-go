@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
+	"strings"
 	"time"
 
 	"seata.apache.org/seata-go/pkg/tm"
@@ -59,6 +61,7 @@ type selectForUpdateExecutor struct {
 	selectPKSQL   string
 	metaData      *types.TableMeta
 	savepointName string
+	dbType        types.DBType
 }
 
 func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *types.ExecContext, hooks []exec.SQLHook) executor {
@@ -69,6 +72,7 @@ func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *type
 		parserCtx:   parserCtx,
 		execContext: execContext,
 		cfg:         &LockConfig,
+		dbType:      execContext.TxCtx.DBType,
 	}
 }
 
@@ -93,7 +97,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
-	if s.metaData, err = datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	if s.metaData, err = datasource.GetTableCache(s.dbType).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +126,8 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		}
 		// if there is an err in doExecContext, we should rollback first
 		if s.savepointName != "" {
-			if _, rollerr := s.exec(ctx, fmt.Sprintf("rollback to %s;", s.savepointName), nil, nil); rollerr != nil {
+			rollbackSQL := s.buildRollbackSQL(s.savepointName)
+			if _, rollerr := s.exec(ctx, rollbackSQL, nil, nil); rollerr != nil {
 				log.Error("rollback to %s failed, err %s", s.savepointName, rollerr.Error())
 				return nil, err
 			}
@@ -165,8 +170,9 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		// In order to release the local db lock when global lock conflict
 		// create a save point if original auto commit was false, then use the save point here to release db
 		// lock during global lock checking if necessary
-		savepointName := fmt.Sprintf("seatago%dpoint;", now)
-		if _, err = s.exec(ctx, fmt.Sprintf("savepoint %s;", savepointName), nil, nil); err != nil {
+		savepointName := s.generateSavepointName(now)
+		savepointSQL := s.buildSavepointSQL(savepointName)
+		if _, err = s.exec(ctx, savepointSQL, nil, nil); err != nil {
 			return nil, err
 		}
 		s.savepointName = savepointName
@@ -221,12 +227,13 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 
 	var fields []*ast.SelectField
 	for _, column := range pks {
+		escapedColumn := s.escapeIdentifier(column)
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
-						O: column,
-						L: column,
+						O: escapedColumn,
+						L: strings.ToLower(escapedColumn),
 					},
 				},
 			},
@@ -249,6 +256,11 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 	b := seatabytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
+
+	sql = s.adaptSQLSyntax(sql)
+	
+	sql = s.escapeAllIdentifiers(sql)
+
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil
@@ -332,4 +344,127 @@ func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs 
 	}
 
 	return nil, nil
+}
+
+// generateSavepointName generates savepoint name for different database types
+func (s *selectForUpdateExecutor) generateSavepointName(timestamp int64) string {
+	switch s.dbType {
+	case types.DBTypePostgreSQL:
+		// PostgreSQL savepoint names are case-sensitive and should be quoted if they contain special characters
+		return fmt.Sprintf("seatago_%d_point", timestamp)
+	case types.DBTypeMySQL:
+		return fmt.Sprintf("seatago%dpoint", timestamp)
+	default:
+		return fmt.Sprintf("seatago%dpoint", timestamp)
+	}
+}
+
+// buildSavepointSQL builds savepoint SQL for different database types
+func (s *selectForUpdateExecutor) buildSavepointSQL(savepointName string) string {
+	switch s.dbType {
+	case types.DBTypePostgreSQL:
+		return fmt.Sprintf("SAVEPOINT %s;", s.escapeIdentifier(savepointName))
+	case types.DBTypeMySQL:
+		return fmt.Sprintf("SAVEPOINT %s;", savepointName)
+	default:
+		return fmt.Sprintf("SAVEPOINT %s;", savepointName)
+	}
+}
+
+// buildRollbackSQL builds rollback to savepoint SQL for different database types
+func (s *selectForUpdateExecutor) buildRollbackSQL(savepointName string) string {
+	switch s.dbType {
+	case types.DBTypePostgreSQL:
+		return fmt.Sprintf("ROLLBACK TO SAVEPOINT %s;", s.escapeIdentifier(savepointName))
+	case types.DBTypeMySQL:
+		return fmt.Sprintf("ROLLBACK TO %s;", savepointName)
+	default:
+		return fmt.Sprintf("ROLLBACK TO %s;", savepointName)
+	}
+}
+
+// escapeIdentifier escapes identifiers for different database types
+func (s *selectForUpdateExecutor) escapeIdentifier(name string) string {
+	if name == "" {
+		return name
+	}
+	switch s.dbType {
+	case types.DBTypeMySQL:
+		if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
+			return name
+		}
+		return "`" + name + "`"
+	case types.DBTypePostgreSQL:
+		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
+			return name
+		}
+		return "\"" + name + "\""
+	default:
+		return name
+	}
+}
+
+// adaptSQLSyntax adapts SQL syntax for different database types
+func (s *selectForUpdateExecutor) adaptSQLSyntax(sql string) string {
+	switch s.dbType {
+	case types.DBTypePostgreSQL:
+		return s.adaptPostgreSQLSyntax(sql)
+	case types.DBTypeMySQL:
+		return s.adaptMySQLSyntax(sql)
+	}
+	return sql
+}
+
+// adaptPostgreSQLSyntax adapts SQL syntax specifically for PostgreSQL
+func (s *selectForUpdateExecutor) adaptPostgreSQLSyntax(sql string) string {
+	sql = strings.ReplaceAll(sql, "SQL_NO_CACHE ", "")
+	sql = strings.ReplaceAll(sql, "SQL_CACHE ", "")
+
+	sql = s.convertMySQLIdentifiersToPostgreSQL(sql)
+
+	if !strings.Contains(sql, "$") {
+		counter := 1
+		sql = regexp.MustCompile(`\?`).ReplaceAllStringFunc(sql, func(match string) string {
+			result := fmt.Sprintf("$%d", counter)
+			counter++
+			return result
+		})
+	}
+
+	return sql
+}
+
+// adaptMySQLSyntax adapts SQL syntax specifically for MySQL
+func (s *selectForUpdateExecutor) adaptMySQLSyntax(sql string) string {
+	sql = s.convertPostgreSQLIdentifiersToMySQL(sql)
+	return sql
+}
+
+// convertMySQLIdentifiersToPostgreSQL converts MySQL backtick identifiers to PostgreSQL double quotes
+func (s *selectForUpdateExecutor) convertMySQLIdentifiersToPostgreSQL(sql string) string {
+	sql = regexp.MustCompile("`([^`]+)`").ReplaceAllString(sql, "\"$1\"")
+	return sql
+}
+
+// convertPostgreSQLIdentifiersToMySQL converts PostgreSQL double quote identifiers to MySQL backticks
+func (s *selectForUpdateExecutor) convertPostgreSQLIdentifiersToMySQL(sql string) string {
+	sql = regexp.MustCompile("\"([^\"]+)\"").ReplaceAllString(sql, "`$1`")
+	return sql
+}
+
+func (s *selectForUpdateExecutor) escapeAllIdentifiers(sql string) string {
+	sql = regexp.MustCompile(`(?i)\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)\b`).ReplaceAllStringFunc(sql, func(match string) string {
+		parts := strings.Fields(match)
+		if len(parts) == 2 {
+			return parts[0] + " " + s.escapeIdentifier(parts[1])
+		}
+		return match
+	})
+
+	sql = regexp.MustCompile(`(?i)\bWHERE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*([><=!]+)`).ReplaceAllStringFunc(sql, func(match string) string {
+		re := regexp.MustCompile(`(?i)(\bWHERE\s+)([a-zA-Z_][a-zA-Z0-9_]*)(\s*[><=!]+)`)
+		return re.ReplaceAllString(match, "${1}"+s.escapeIdentifier("${2}")+"${3}")
+	})
+
+	return sql
 }
