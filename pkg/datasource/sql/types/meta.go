@@ -86,11 +86,9 @@ type IndexMeta struct {
 
 // TableMeta
 type TableMeta struct {
-	// TableName
-	TableName string
-	// Columns
-	Columns map[string]ColumnMeta
-	// Indexs
+	TableName   string
+	DBType      DBType
+	Columns     map[string]ColumnMeta
 	Indexs      map[string]IndexMeta
 	ColumnNames []string
 }
@@ -121,7 +119,14 @@ func (m TableMeta) GetPrimaryKeyOnlyName() []string {
 		}
 	}
 
-	// need sort again according the m.ColumnNames
+	if len(keys) == 0 {
+		for _, column := range m.Columns {
+			if column.ColumnKey == "PRI" {
+				keys = append(keys, column.ColumnName)
+			}
+		}
+	}
+
 	order := make(map[string]int, len(m.ColumnNames))
 	for i, name := range m.ColumnNames {
 		order[name] = i

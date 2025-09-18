@@ -116,7 +116,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) buildBeforeImageSQL(multiQuery []string
 	)
 
 	for _, query := range multiQuery {
-		p, err = parser.DoParser(query)
+		p, err = parser.DoParser(query, types.DBTypeMySQL)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -171,7 +171,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) buildBeforeImageSQL(multiQuery []string
 	)
 
 	for _, table := range tables {
-		p, _ = parser.DoParser(table.sql)
+		p, _ = parser.DoParser(table.sql, types.DBTypeMySQL)
 
 		selStmt.From = p.DeleteStmt.TableRefs
 		selStmt.Where = p.DeleteStmt.Where
