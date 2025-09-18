@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -49,6 +50,7 @@ type updateJoinExecutor struct {
 	isLowerSupportGroupByPksVersion bool
 	sqlMode                         string
 	tableAliasesMap                 map[string]string
+	dbType                          types.DBType
 }
 
 // NewUpdateJoinExecutor get executor
@@ -61,6 +63,7 @@ func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.Exe
 		baseExecutor:                    baseExecutor{hooks: hooks},
 		isLowerSupportGroupByPksVersion: currentVersion < minimumVersion,
 		tableAliasesMap:                 make(map[string]string, 0),
+		dbType:                          execContent.TxCtx.DBType,
 	}
 }
 
@@ -112,7 +115,7 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 	var recordImages []*types.RecordImage
 
 	for tbName, tableAliases := range u.tableAliasesMap {
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tbName)
+		metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, tbName)
 		if err != nil {
 			return nil, err
 		}
@@ -128,10 +131,10 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(ctx, u.execContext, rowsi, metaData, types.SQLTypeUpdate)
 		}
 		if rowsi != nil {
-			if rowerr := rows.Close(); rowerr != nil {
+			if rowerr := rowsi.Close(); rowerr != nil {
 				log.Errorf("rows close fail, err:%v", rowerr)
 				return nil, rowerr
 			}
@@ -162,7 +165,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 
 	var recordImages []*types.RecordImage
 	for _, beforeImage := range beforeImages {
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, beforeImage.TableName)
+		metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, beforeImage.TableName)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +178,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(ctx, u.execContext, rowsi, metaData, types.SQLTypeUpdate)
 		}
 		if rowsi != nil {
 			if rowerr := rowsi.Close(); rowerr != nil {
@@ -226,6 +229,7 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta 
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
+	sql = u.adaptSQLSyntax(sql)
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
@@ -262,6 +266,7 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
+	sql = u.adaptSQLSyntax(sql)
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName()), nil
@@ -269,17 +274,31 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 
 func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) map[string]string {
 	tableNames := make(map[string]string, 0)
-	if item, ok := joinMate.Left.(*ast.Join); ok {
-		tableNames = u.parseTableName(item)
-	} else {
-		leftTableSource := joinMate.Left.(*ast.TableSource)
-		leftName := leftTableSource.Source.(*ast.TableName)
-		tableNames[leftName.Name.O] = leftTableSource.AsName.O
+	if joinMate == nil {
+		return tableNames
+	}
+	
+	if joinMate.Left != nil {
+		if item, ok := joinMate.Left.(*ast.Join); ok {
+			tableNames = u.parseTableName(item)
+		} else if leftTableSource, ok := joinMate.Left.(*ast.TableSource); ok && leftTableSource != nil {
+			if leftTableSource.Source != nil {
+				if leftName, ok := leftTableSource.Source.(*ast.TableName); ok && leftName != nil {
+					tableNames[leftName.Name.O] = leftTableSource.AsName.O
+				}
+			}
+		}
 	}
 
-	rightTableSource := joinMate.Right.(*ast.TableSource)
-	rightName := rightTableSource.Source.(*ast.TableName)
-	tableNames[rightName.Name.O] = rightTableSource.AsName.O
+	if joinMate.Right != nil {
+		if rightTableSource, ok := joinMate.Right.(*ast.TableSource); ok && rightTableSource != nil {
+			if rightTableSource.Source != nil {
+				if rightName, ok := rightTableSource.Source.(*ast.TableName); ok && rightName != nil {
+					tableNames[rightName.Name.O] = rightTableSource.AsName.O
+				}
+			}
+		}
+	}
 	return tableNames
 }
 
@@ -290,7 +309,7 @@ func (u *updateJoinExecutor) buildGroupByClause(ctx context.Context, tableName s
 		tableName = tableAliases
 	}
 	//only pks group by is valid when db version >= 5.7.5
-	if u.isLowerSupportGroupByPksVersion {
+	if u.isLowerSupportGroupByPksVersion && u.dbType == types.DBTypeMySQL {
 		if u.sqlMode == "" {
 			rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, "SELECT @@SQL_MODE", nil)
 			defer func() {
@@ -304,7 +323,6 @@ func (u *updateJoinExecutor) buildGroupByClause(ctx context.Context, tableName s
 				groupByPks = false
 				log.Warnf("determine group by pks or all columns error:%s", err)
 			} else {
-				// getString("@@SQL_MODE")
 				mode := make([]driver.Value, 1)
 				if err = rowsi.Next(mode); err != nil {
 					if err != io.EOF && len(mode) == 1 {
@@ -317,6 +335,8 @@ func (u *updateJoinExecutor) buildGroupByClause(ctx context.Context, tableName s
 		if strings.Contains(u.sqlMode, "ONLY_FULL_GROUP_BY") {
 			groupByPks = false
 		}
+	} else if u.dbType == types.DBTypePostgreSQL {
+		groupByPks = true
 	}
 
 	groupByColumns := make([]*ast.ByItem, 0)
@@ -345,4 +365,59 @@ func (u *updateJoinExecutor) buildGroupByClause(ctx context.Context, tableName s
 		}
 	}
 	return groupByColumns
+}
+
+func (u *updateJoinExecutor) escapeIdentifier(name string, isTableName bool) string {
+	if name == "" {
+		return name
+	}
+	switch u.dbType {
+	case types.DBTypeMySQL:
+		if isTableName {
+			if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
+				return name
+			}
+			return "`" + name + "`"
+		} else {
+			if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
+				return name
+			}
+			return "`" + name + "`"
+		}
+	case types.DBTypePostgreSQL:
+		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
+			return name
+		}
+		return "\"" + name + "\""
+	default:
+		return name
+	}
+}
+
+func (u *updateJoinExecutor) adaptSQLSyntax(sql string) string {
+	switch u.dbType {
+	case types.DBTypePostgreSQL:
+		return u.adaptPostgreSQLSyntax(sql)
+	case types.DBTypeMySQL:
+		return u.adaptMySQLSyntax(sql)
+	}
+	return sql
+}
+
+func (u *updateJoinExecutor) adaptPostgreSQLSyntax(sql string) string {
+	sql = strings.ReplaceAll(sql, "SQL_NO_CACHE ", "")
+	sql = strings.ReplaceAll(sql, "SQL_CACHE ", "")
+	sql = strings.ReplaceAll(sql, "`", "\"")
+	
+	paramCounter := 1
+	for strings.Contains(sql, "?") {
+		sql = strings.Replace(sql, "?", fmt.Sprintf("$%d", paramCounter), 1)
+		paramCounter++
+	}
+	
+	return sql
+}
+
+func (u *updateJoinExecutor) adaptMySQLSyntax(sql string) string {
+	return sql
 }
