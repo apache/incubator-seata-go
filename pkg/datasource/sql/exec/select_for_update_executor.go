@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"seata.apache.org/seata-go/pkg/tm"
@@ -30,6 +31,7 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
+	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -48,12 +50,14 @@ const (
 
 type SelectForUpdateExecutor struct {
 	builder.BasicUndoLogBuilder
+	dbType types.DBType
 }
 
 func (s SelectForUpdateExecutor) interceptors(interceptors []SQLHook) {
 }
 
-func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+func (s *SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+	s.dbType = execCtx.DBType
 	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.NamedValues)
 	}
@@ -167,7 +171,8 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 	return result, nil
 }
 
-func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+func (s *SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f CallbackWithValue) (types.ExecResult, error) {
+	s.dbType = execCtx.DBType
 	if !tm.IsGlobalTx(ctx) && !execCtx.IsRequireGlobalLock {
 		return f(ctx, execCtx.Query, execCtx.Values)
 	}
@@ -290,7 +295,7 @@ func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
 						O: column,
-						L: column,
+						L: strings.ToLower(column),
 					},
 				},
 			},
@@ -305,18 +310,20 @@ func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta ty
 		OrderBy:        stmt.OrderBy,
 		Limit:          stmt.Limit,
 		TableHints:     stmt.TableHints,
+		LockInfo:       stmt.LockInfo,
 	}
 
 	b := seatabytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	sql := string(b.Bytes())
+	sql = u.adaptSQLSyntax(sql)
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
+func (s *SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
 	var (
 		lockKeys      bytes.Buffer
 		filedSequence int
@@ -346,4 +353,89 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 		filedSequence++
 	}
 	return lockKeys.String()
+}
+
+func (s *SelectForUpdateExecutor) escapeIdentifier(name string) string {
+	if name == "" {
+		return name
+	}
+	switch s.dbType {
+	case types.DBTypeMySQL:
+		if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
+			return name
+		}
+		return "`" + name + "`"
+	case types.DBTypePostgreSQL:
+		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
+			return name
+		}
+		return "\"" + name + "\""
+	default:
+		return name
+	}
+}
+
+func (s *SelectForUpdateExecutor) adaptSQLSyntax(sql string) string {
+	switch s.dbType {
+	case types.DBTypePostgreSQL:
+		return s.adaptPostgreSQLSyntax(sql)
+	case types.DBTypeMySQL:
+		return s.adaptMySQLSyntax(sql)
+	}
+	return sql
+}
+
+func (s *SelectForUpdateExecutor) adaptPostgreSQLSyntax(sql string) string {
+	sql = strings.ReplaceAll(sql, "SQL_NO_CACHE ", "")
+	sql = strings.ReplaceAll(sql, "SQL_CACHE ", "")
+	sql = strings.ReplaceAll(sql, "`", "\"")
+	
+	paramCounter := 1
+	for strings.Contains(sql, "?") {
+		sql = strings.Replace(sql, "?", fmt.Sprintf("$%d", paramCounter), 1)
+		paramCounter++
+	}
+	
+	return sql
+}
+
+func (s *SelectForUpdateExecutor) adaptMySQLSyntax(sql string) string {
+	return sql
+}
+
+func (u *SelectForUpdateExecutor) buildSelectPKSQLForPostgreSQL(stmt *tree.Select, meta types.TableMeta) (string, error) {
+	pks := meta.GetPrimaryKeyOnlyName()
+	if len(pks) == 0 {
+		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
+	}
+
+	selectList := make(tree.SelectExprs, 0, len(pks))
+	for _, column := range pks {
+		escapedColumn := u.escapeIdentifier(column)
+		selectList = append(selectList, tree.SelectExpr{
+			Expr: &tree.UnresolvedName{
+				NumParts: 1,
+				Parts:    tree.NameParts{escapedColumn},
+			},
+		})
+	}
+
+	selectClause := &tree.SelectClause{
+		Exprs: selectList,
+		From:  stmt.Select.(*tree.SelectClause).From,
+		Where: stmt.Select.(*tree.SelectClause).Where,
+	}
+
+	sql := tree.AsString(&tree.Select{
+		Select:  selectClause,
+		With:    stmt.With,
+		OrderBy: stmt.OrderBy,
+		Limit:   stmt.Limit,
+		Locking: stmt.Locking,
+	})
+
+	sql = u.adaptSQLSyntax(sql)
+	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
+
+	return sql, nil
 }
