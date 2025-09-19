@@ -399,7 +399,7 @@ func PostgresStrToJavaType(postgresType string) JDBCType {
 		return JDBCTypeOther
 	case "ARRAY":
 		return JDBCTypeArray
-	case "BIT":
+	case "BIT", "BIT VARYING", "VARBIT":
 		return JDBCTypeBit
 	case "UUID":
 		return JDBCTypeVarchar
@@ -410,6 +410,19 @@ func PostgresStrToJavaType(postgresType string) JDBCType {
 		return JDBCTypeBlob
 	case "CLOB":
 		return JDBCTypeClob
+
+	case "INET", "CIDR", "MACADDR", "MACADDR8":
+		return JDBCTypeVarchar
+	case "POINT", "LINE", "LSEG", "BOX", "PATH", "POLYGON", "CIRCLE":
+		return JDBCTypeOther
+	case "INTERVAL":
+		return JDBCTypeOther
+	case "MONEY":
+		return JDBCTypeDecimal
+	case "HSTORE":
+		return JDBCTypeOther
+	case "ENUM":
+		return JDBCTypeVarchar
 
 	default:
 		return JDBCTypeOther

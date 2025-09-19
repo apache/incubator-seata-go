@@ -25,6 +25,7 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/builder"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/postgresql"
 )
 
 func Init() {
@@ -45,6 +46,7 @@ func executorRegister() {
 
 func undoInit() {
 	mysqlUndoLogInit()
+	postgresqlUndoLogInit()
 }
 
 func mysqlUndoLogInit() {
@@ -55,4 +57,15 @@ func mysqlUndoLogInit() {
 	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, builder.GetMySQLInsertOnDuplicateUndoLogBuilder)
 	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetMySQLMultiUndoLogBuilder)
 	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetMySQLUpdateUndoLogBuilder)
+}
+
+func postgresqlUndoLogInit() {
+	postgresql.InitUndoLogManager()
+
+	undo.RegisterUndoLogBuilder(types.DeleteExecutor, builder.GetPostgreSQLDeleteUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.InsertExecutor, builder.GetPostgreSQLInsertUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.InsertOnDuplicateExecutor, builder.GetPostgreSQLInsertOnDuplicateUpdateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.MultiExecutor, builder.GetPostgreSQLMultiUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.UpdateExecutor, builder.GetPostgreSQLUpdateUndoLogBuilder)
+	undo.RegisterUndoLogBuilder(types.MultiDeleteExecutor, builder.GetPostgreSQLMultiDeleteUndoLogBuilder)
 }
