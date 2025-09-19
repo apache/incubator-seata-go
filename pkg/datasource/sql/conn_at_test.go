@@ -87,10 +87,6 @@ func initAtConnTestResource(t *testing.T, config dbTestConfig) (*gomock.Controll
 func TestATConn_ExecContext(t *testing.T) {
 	for _, config := range getAllDBTestConfigs() {
 		t.Run(config.name, func(t *testing.T) {
-			if config.name == "PostgreSQL" {
-				t.Skip("AT mode for PostgreSQL is not implemented yet")
-			}
-
 			ctrl, db, mi, ti := initAtConnTestResource(t, config)
 			defer func() {
 				ctrl.Finish()
@@ -162,10 +158,6 @@ func TestATConn_ExecContext(t *testing.T) {
 func TestATConn_BeginTx(t *testing.T) {
 	for _, config := range getAllDBTestConfigs() {
 		t.Run(config.name, func(t *testing.T) {
-			if config.name == "PostgreSQL" {
-				t.Skip("AT mode for PostgreSQL is not implemented yet")
-			}
-
 			ctrl, db, mi, ti := initAtConnTestResource(t, config)
 			defer func() {
 				ctrl.Finish()

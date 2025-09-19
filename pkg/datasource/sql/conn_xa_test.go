@@ -80,7 +80,6 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTestConfig) {
 	if branchStatusCache == nil {
 		branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
-		t.Logf("branchStatusCache initialized in test (was nil before)")
 	}
 
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
@@ -102,13 +101,13 @@ func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTest
 				if len(data) == 0 {
 					data = [][]interface{}{{"5.7.36-log"}}
 				}
-				rows = &mysqlMockRows{data: data}
+				rows = mock.NewMysqlMockRows(data)
 			case types.DBTypePostgreSQL:
 				data := config.versionResult
 				if len(data) == 0 {
 					data = [][]interface{}{{"PostgreSQL 14.5 on x86_64-pc-linux-gnu"}}
 				}
-				rows = &pgMockRows{data: data}
+				rows = mock.NewPgMockRows(data)
 			default:
 				t.Fatalf("unsupported db type: %s", config.dbType)
 			}
@@ -121,9 +120,9 @@ func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTest
 			var rows driver.Rows
 			switch config.dbType {
 			case types.DBTypeMySQL:
-				rows = &mysqlMockRows{data: config.versionResult}
+				rows = mock.NewMysqlMockRows(config.versionResult)
 			case types.DBTypePostgreSQL:
-				rows = &pgMockRows{data: config.versionResult}
+				rows = mock.NewPgMockRows(config.versionResult)
 			default:
 				t.Fatalf("unsupported db type: %s", config.dbType)
 			}
@@ -137,7 +136,7 @@ func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTest
 			gomock.Any(),
 		).AnyTimes().DoAndReturn(
 			func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-				return &pgMockRows{data: [][]interface{}{{"read committed"}}}, nil
+				return mock.NewPgMockRows([][]interface{}{{"read committed"}}), nil
 			})
 
 		mockConn.EXPECT().QueryContext(
@@ -146,7 +145,7 @@ func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTest
 			gomock.Any(),
 		).AnyTimes().DoAndReturn(
 			func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-				return &pgMockRows{data: [][]interface{}{{1}}}, nil
+				return mock.NewPgMockRows([][]interface{}{{1}}), nil
 			})
 	}
 }
@@ -236,9 +235,6 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 				t.Fatalf("baseTx.target binding error! Expected mockTx (address: %p), got %T (address: %p)",
 					mockTx, baseTx.target, baseTx.target)
 			}
-			// Log to confirm the target is bound successfully
-			t.Logf("baseTx.target bound successfully: type=%T, address=%p (mockTx address=%p)",
-				baseTx.target, baseTx.target, mockTx)
 
 			txAdapter := &mockTxAdapter{
 				baseTx: baseTx,
