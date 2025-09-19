@@ -151,8 +151,6 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
 					postgresCfg, ok := cfg.(string)
 					if !ok {
-						// 处理类型转换失败的情况，这里可以根据实际需求返回默认值或报错
-						// 测试环境下可以简单返回空字符串
 						return postgres.NewTableMetaInstance(db, "")
 					}
 					return postgres.NewTableMetaInstance(db, postgresCfg)
@@ -778,7 +776,6 @@ func TestInsertExecutor_getPkValuesByColumn(t *testing.T) {
 				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
 					dsn, ok := cfg.(string)
 					if !ok {
-						// 测试环境下若未传递有效DSN，可返回空字符串（根据实际情况调整）
 						return postgres.NewTableMetaInstance(db, "")
 					}
 					return postgres.NewTableMetaInstance(db, dsn)
@@ -903,8 +900,7 @@ func TestInsertExecutor_getPkValuesByAuto(t *testing.T) {
 									ColumnName:    "id",
 									DatabaseType:  types.GetSqlDataType("BIGINT"),
 									Autoincrement: true,
-									// 用Extra存储序列信息
-									Extra: "nextval('test_id_seq'::regclass)",
+									Extra:         "nextval('test_id_seq'::regclass)",
 								},
 							},
 						},
@@ -1084,7 +1080,7 @@ func TestInsertExecutor_autoGeneratePks(t *testing.T) {
 					ParseContext: &types.ParseContext{InsertStmt: &ast.InsertStmt{Table: &ast.TableRefsClause{}}},
 				},
 			},
-			want: map[string][]interface{}{"id": {int64(200), int64(202), int64(204)}}, // 按步长 2 生成
+			want: map[string][]interface{}{"id": {int64(200), int64(202), int64(204)}},
 		},
 
 		{

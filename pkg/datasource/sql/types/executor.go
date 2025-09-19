@@ -43,36 +43,33 @@ const (
 	InsertOnDuplicateExecutor
 )
 
-// ParseContext 解析上下文，存储SQL解析后的关键信息
-// 区分MySQL（arana-db/parser）和PostgreSQL（auxten/postgresql-parser）的AST结构
 type ParseContext struct {
 	SQLType      SQLType
 	ExecutorType ExecutorType
 
-	// MySQL语句的AST节点（基于arana-db/parser）
+	// AST nodes for MySQL statements (based on arana db/parser)
 	InsertStmt *ast.InsertStmt
 	UpdateStmt *ast.UpdateStmt
 	SelectStmt *ast.SelectStmt
 	DeleteStmt *ast.DeleteStmt
 
-	// PostgreSQL语句的AST节点（基于auxten/postgresql-parser）
+	// AST nodes for PostgreSQL statements (based on auxextent/postgresql parser)
 	AuxtenInsertStmt *tree.Insert
 	AuxtenUpdateStmt *tree.Update
 	AuxtenSelectStmt *tree.Select
 	AuxtenDeleteStmt *tree.Delete
 
-	// 多语句场景
+	// Multi statement scenario
 	MultiStmt []*ParseContext
 }
 
-// HasValidStmt 检查是否包含有效的SQL语句节点
+// HasValidStmt
 func (p *ParseContext) HasValidStmt() bool {
 	return p.InsertStmt != nil || p.UpdateStmt != nil || p.DeleteStmt != nil ||
 		p.AuxtenInsertStmt != nil || p.AuxtenUpdateStmt != nil || p.AuxtenSelectStmt != nil || p.AuxtenDeleteStmt != nil
 }
 
 func (p *ParseContext) GetTableName() (string, error) {
-	// 处理MySQL语句（保持不变）
 	switch {
 	case p.InsertStmt != nil:
 		b := seatabytes.NewByteBuffer([]byte{})
@@ -92,7 +89,6 @@ func (p *ParseContext) GetTableName() (string, error) {
 		return string(b.Bytes()), nil
 	}
 
-	// 处理PostgreSQL语句（使用auxten/postgresql-parser）
 	switch {
 	case p.AuxtenInsertStmt != nil:
 		return getAuxtenTableFromInsert(p.AuxtenInsertStmt)
@@ -104,7 +100,6 @@ func (p *ParseContext) GetTableName() (string, error) {
 		return getAuxtenTableFromSelect(p.AuxtenSelectStmt)
 	}
 
-	// 处理多语句场景
 	if len(p.MultiStmt) > 0 {
 		for _, stmt := range p.MultiStmt {
 			tableName, err := stmt.GetTableName()
@@ -117,7 +112,6 @@ func (p *ParseContext) GetTableName() (string, error) {
 	return "", fmt.Errorf("failed to get table name from stmt: %+v", p)
 }
 
-// 辅助函数：从auxten/postgresql-parser的INSERT语句中提取表名
 func getAuxtenTableFromInsert(stmt *tree.Insert) (string, error) {
 	if stmt.Table == nil {
 		return "", fmt.Errorf("insert statement has no table")
@@ -125,7 +119,6 @@ func getAuxtenTableFromInsert(stmt *tree.Insert) (string, error) {
 	return tree.AsString(stmt.Table), nil
 }
 
-// 辅助函数：从auxten/postgresql-parser的DELETE语句中提取表名
 func getAuxtenTableFromDelete(stmt *tree.Delete) (string, error) {
 	if stmt.Table == nil {
 		return "", fmt.Errorf("delete statement has no table")
@@ -133,7 +126,6 @@ func getAuxtenTableFromDelete(stmt *tree.Delete) (string, error) {
 	return tree.AsString(stmt.Table), nil
 }
 
-// 辅助函数：从auxten/postgresql-parser的UPDATE语句中提取表名
 func getAuxtenTableFromUpdate(stmt *tree.Update) (string, error) {
 	if stmt.Table == nil {
 		return "", fmt.Errorf("update statement has no table")
@@ -141,7 +133,6 @@ func getAuxtenTableFromUpdate(stmt *tree.Update) (string, error) {
 	return tree.AsString(stmt.Table), nil
 }
 
-// 辅助函数：从auxten/postgresql-parser的SELECT语句中提取表名
 func getAuxtenTableFromSelect(stmt *tree.Select) (string, error) {
 	if stmt.Select == nil {
 		return "", fmt.Errorf("select statement has no select clause")

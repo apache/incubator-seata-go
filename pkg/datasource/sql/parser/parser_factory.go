@@ -150,7 +150,6 @@ func parseAuxtenParseContext(stmt tree.Statement) *types.ParseContext {
 		parserCtx.ExecutorType = types.UpdateExecutor
 		parserCtx.AuxtenUpdateStmt = s
 	case *tree.Select:
-		// 检查是否有FOR UPDATE锁定子句
 		if hasForUpdate(s) {
 			parserCtx.SQLType = types.SQLTypeSelectForUpdate
 			parserCtx.ExecutorType = types.SelectForUpdateExecutor

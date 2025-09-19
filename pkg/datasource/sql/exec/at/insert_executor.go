@@ -178,7 +178,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 			}
 		}()
 		if err != nil {
-			seatalog.Errorf("ctx driver query: %+v, sql: %s", err, selectSQL) // 【优化点】：补充SQL日志，便于调试
+			seatalog.Errorf("ctx driver query: %+v, sql: %s", err, selectSQL)
 			return nil, err
 		}
 	} else {
@@ -913,8 +913,8 @@ func getPlaceholderByDBType(index int, dbType types.DBType) string {
 func (i *insertExecutor) getPlaceholder(index int, dbType types.DBType) string {
 	switch dbType {
 	case types.DBTypePostgreSQL:
-		return fmt.Sprintf("$%d", index) // PostgreSQL 带索引占位符（$1, $2...）
-	default: // MySQL 及其他数据库
+		return fmt.Sprintf("$%d", index)
+	default:
 		return sqlPlaceholder
 	}
 }

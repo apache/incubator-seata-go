@@ -493,7 +493,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(mysqlInsertStmt *
 			ordinalAndValues = append(ordinalAndValues, item)
 		}
 	} else {
-		slog.Printf("parameterMap 中未找到 id 参数")
+		slog.Printf("ID parameter not found in parameterMap")
 	}
 
 	return parameterMap, len(insertRows), nil
