@@ -75,20 +75,27 @@ func (m *GenericMockRows) Err() error {
 	return m.err
 }
 
-type mysqlMockRows struct {
+type MysqlMockRows struct {
 	idx  int
 	data [][]interface{}
 }
 
-func (m *mysqlMockRows) Columns() []string {
+func NewMysqlMockRows(data [][]interface{}) *MysqlMockRows {
+	return &MysqlMockRows{
+		idx:  0,
+		data: data,
+	}
+}
+
+func (m *MysqlMockRows) Columns() []string {
 	return []string{"VERSION()"}
 }
 
-func (m *mysqlMockRows) Close() error {
+func (m *MysqlMockRows) Close() error {
 	return nil
 }
 
-func (m *mysqlMockRows) Next(dest []driver.Value) error {
+func (m *MysqlMockRows) Next(dest []driver.Value) error {
 	if m.idx >= len(m.data) {
 		return sql.ErrNoRows
 	}
@@ -107,24 +114,31 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 	return nil
 }
 
-func (m *mysqlMockRows) Err() error {
+func (m *MysqlMockRows) Err() error {
 	return nil
 }
 
-type pgMockRows struct {
+type PgMockRows struct {
 	idx  int
 	data [][]interface{}
 }
 
-func (p *pgMockRows) Columns() []string {
+func NewPgMockRows(data [][]interface{}) *PgMockRows {
+	return &PgMockRows{
+		idx:  0,
+		data: data,
+	}
+}
+
+func (p *PgMockRows) Columns() []string {
 	return []string{"version"}
 }
 
-func (p *pgMockRows) Close() error {
+func (p *PgMockRows) Close() error {
 	return nil
 }
 
-func (p *pgMockRows) Next(dest []driver.Value) error {
+func (p *PgMockRows) Next(dest []driver.Value) error {
 	if p.idx >= len(p.data) {
 		return sql.ErrNoRows
 	}
@@ -143,6 +157,6 @@ func (p *pgMockRows) Next(dest []driver.Value) error {
 	return nil
 }
 
-func (p *pgMockRows) Err() error {
+func (p *PgMockRows) Err() error {
 	return nil
 }
