@@ -1,0 +1,25 @@
+{
+  "agent_card": {
+    "name": "TestAgent",
+    "description": "A test agent for demonstration",
+    "url": "http://localhost:3000",
+    "version": "1.0.0",
+    "capabilities": {
+      "streaming": true,
+      "pushNotifications": false
+    },
+    "defaultInputModes": ["text"],
+    "defaultOutputModes": ["text"],
+    "skills": [
+      {
+        "id": "skill1",
+        "name": "Text Processing",
+        "description": "Process and analyze text",
+        "tags": ["nlp", "text"],
+        "examples": ["Analyze sentiment", "Extract keywords"]
+      }
+    ]
+  },
+  "host": "localhost",
+  "port": 3000
+}

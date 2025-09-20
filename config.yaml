@@ -1,0 +1,50 @@
+hub:
+  id: "agent-hub-01"                    # Hub Agent 的唯一ID
+  name: "AgentHub"                      # Hub 名称
+  version: "1.0.0"                      # Hub 版本
+  listen_address: ":8080"               # Hub 对外暴露 HTTP 服务的地址
+
+# AI服务配置 (动态上下文分析)
+ai:
+  provider: "qwen"                      # AI提供商: mock/qwen/openai
+  api_key: "sk-b8cfc5b3964b40fa968553d5754bfe64"  # 千问API密钥
+  base_url: ""                         # API基础URL，为空时使用默认值
+  model: "qwen-plus"                   # 模型名称
+  max_tokens: 1000                     # 最大token数
+  timeout: "30s"                       # 请求超时时间
+
+# 动态上下文分析配置
+context_analysis:
+  enabled: true                         # 是否启用动态上下文分析
+  cache_ttl: "1h"                      # 分析结果缓存时间
+  max_concurrent: 10                    # 最大并发分析数
+
+seata:
+  server_addr: "127.0.0.1:8091"          # Seata NamingServer 地址，多个以逗号分隔
+  namespace: "public"                   # 命名空间，需与 NamingServer 中保持一致
+  cluster: "default"                    # 集群名称
+  heartbeat_period: 5000                # 心跳周期（ms）
+
+# 命名服务配置 (技能发现)
+naming_server:
+  enabled: true                         # 启用技能发现
+  address: "127.0.0.1:8091"            # NamingServer地址
+  username: ""                          # 用户名
+  password: ""                          # 密码
+
+# 存储配置
+storage:
+  type: "memory"                        # 存储类型
+
+logging:
+  level: "debug"                        # debug/info/warn/error
+
+metrics:
+  enabled: true                         # 启用监控
+  listen_address: ":9090"               # Prometheus 抓取地址
+
+auth:
+  enabled: false                        # 是否启用JWT认证
+  jwt_secret: ""                        # JWT密钥，为空时自动生成
+  jwt_expiry: "24h"                     # JWT过期时间
+  optional: true                        # 可选认证，无token或token无效时仍允许访问
