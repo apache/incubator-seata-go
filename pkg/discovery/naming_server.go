@@ -136,19 +136,30 @@ func newNamingServerRegistryService(_ *ServiceConfig, cfg *NamingServerConfig) R
 	}
 }
 
+var (
+	namingServerInstance *NamingServerClient
+	namingServerOnce     sync.Once
+)
+
 func GetInstance(config *NamingServerConfig) *NamingServerClient {
-	var instance *NamingServerClient
-	var once sync.Once
-	once.Do(func() {
-		instance = &NamingServerClient{
+	namingServerOnce.Do(func() {
+		namingServerInstance = &NamingServerClient{
 			config:            config,
 			logger:            zap.L().Named("naming-server-client"),
 			closeChan:         make(chan struct{}),
 			healthCheckTicker: time.NewTicker(time.Duration(config.HeartbeatPeriod) * time.Millisecond),
 		}
-		instance.initHealthCheck()
+		namingServerInstance.initHealthCheck()
 	})
-	return instance
+	return namingServerInstance
+}
+
+func resetInstance() {
+	if namingServerInstance != nil {
+		namingServerInstance.Close()
+	}
+	namingServerInstance = nil
+	namingServerOnce = sync.Once{}
 }
 
 func (c *NamingServerClient) initHealthCheck() {

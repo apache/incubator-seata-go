@@ -161,6 +161,8 @@ func TestGetNamingAddr_OneAvailable(t *testing.T) {
 }
 
 func TestLookup_FirstCall(t *testing.T) {
+	// Reset naming server singleton instance
+	resetInstance()
 	// Create mock naming server with necessary endpoints (login, discovery, health)
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("Received request: %s %s", r.Method, r.URL.Path)
@@ -255,6 +257,8 @@ func TestLookup_FirstCall(t *testing.T) {
 }
 
 func TestRefreshToken_Success(t *testing.T) {
+	// Reset naming server singleton instance
+	resetInstance()
 	// Mock login endpoint returning valid token
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/auth/login" || r.Method != http.MethodPost {
@@ -285,6 +289,8 @@ func TestRefreshToken_Success(t *testing.T) {
 }
 
 func TestWatch(t *testing.T) {
+	// Reset naming server singleton instance
+	resetInstance()
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/auth/login":
@@ -348,6 +354,8 @@ func TestWatch(t *testing.T) {
 
 // Test Watch handling non-200 responses
 func TestWatch_ErrorResponse(t *testing.T) {
+	// Reset naming server singleton instance
+	resetInstance()
 	// Mock server returning error status
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -504,6 +512,8 @@ func TestNamingServerConfig_DefaultValues(t *testing.T) {
 func TestInitRegistry_WithNamingServerConfig(t *testing.T) {
 	// Reset global registry instance
 	registryServiceInstance = nil
+	// Reset naming server singleton instance
+	resetInstance()
 
 	// Create custom configuration
 	customConfig := &RegistryConfig{
