@@ -120,7 +120,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {
-			log.Errorf("open connector: %w", err)
+			log.Errorf("open connector: %v", err)
 			return nil, err
 		}
 	}
@@ -132,7 +132,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 	proxy, err := d.getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
 	if err != nil {
-		log.Errorf("register resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 
@@ -152,12 +152,12 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	}
 	res, err := newResource(options...)
 	if err != nil {
-		log.Errorf("create new resource: %w", err)
+		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
 	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
-		log.Errorf("regisiter resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 	return &seataConnector{

@@ -20,6 +20,7 @@ package log
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"time"
 
 	getty "github.com/apache/dubbo-getty"
@@ -229,7 +230,13 @@ func Warnf(format string, v ...interface{}) {
 
 // Error ...
 func Error(v ...interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", v)
+		}
+	}()
 	if log == nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", v)
 		return
 	}
 	log.Error(v...)
@@ -237,7 +244,17 @@ func Error(v ...interface{}) {
 
 // Errorf ...
 func Errorf(format string, v ...interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: ")
+			fmt.Fprintf(os.Stderr, format, v...)
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+	}()
 	if log == nil {
+		fmt.Fprintf(os.Stderr, "ERROR: ")
+		fmt.Fprintf(os.Stderr, format, v...)
+		fmt.Fprintf(os.Stderr, "\n")
 		return
 	}
 	log.Errorf(format, v...)
@@ -246,7 +263,7 @@ func Errorf(format string, v ...interface{}) {
 // Panic ...
 func Panic(v ...interface{}) {
 	if log == nil {
-		return
+		panic(v)
 	}
 	log.Panic(v...)
 }
@@ -254,7 +271,7 @@ func Panic(v ...interface{}) {
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
 	if log == nil {
-		return
+		panic(fmt.Sprintf(format, v...))
 	}
 	log.Panicf(format, v...)
 }
@@ -262,6 +279,8 @@ func Panicf(format string, v ...interface{}) {
 // Fatal ...
 func Fatal(v ...interface{}) {
 	if log == nil {
+		fmt.Fprintf(os.Stderr, "FATAL: %v\n", v)
+		os.Exit(1)
 		return
 	}
 	log.Fatal(v...)
@@ -270,6 +289,10 @@ func Fatal(v ...interface{}) {
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
 	if log == nil {
+		fmt.Fprintf(os.Stderr, "FATAL: ")
+		fmt.Fprintf(os.Stderr, format, v...)
+		fmt.Fprintf(os.Stderr, "\n")
+		os.Exit(1)
 		return
 	}
 	log.Fatalf(format, v...)

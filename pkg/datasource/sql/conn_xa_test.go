@@ -22,11 +22,13 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"io"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -99,29 +101,23 @@ func (mi *mockSQLInterceptor) After(ctx context.Context, execCtx *types.ExecCont
 	return nil
 }
 
-type mockTxHook struct {
-	beforeCommit   func(tx *Tx)
-	beforeRollback func(tx *Tx)
-}
-
-// BeforeCommit
-func (mi *mockTxHook) BeforeCommit(tx *Tx) {
-	if mi.beforeCommit != nil {
-		mi.beforeCommit(tx)
-	}
-}
-
-// BeforeRollback
-func (mi *mockTxHook) BeforeRollback(tx *Tx) {
-	if mi.beforeRollback != nil {
-		mi.beforeRollback(tx)
-	}
-}
+// simulateExecContextError allows tests to inject driver errors for certain SQL strings.
+// When set, baseMockConn will call this hook for each ExecContext.
+var simulateExecContextError func(query string) error
 
 func baseMockConn(mockConn *mock.MockTestDriverConn) {
 	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
 
-	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
+	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+			if simulateExecContextError != nil {
+				if err := simulateExecContextError(query); err != nil {
+					return &driver.ResultNoRows, err
+				}
+			}
+			return &driver.ResultNoRows, nil
+		},
+	)
 	mockConn.EXPECT().Exec(gomock.Any(), gomock.Any()).AnyTimes().Return(&driver.ResultNoRows, nil)
 	mockConn.EXPECT().ResetSession(gomock.Any()).AnyTimes().Return(nil)
 	mockConn.EXPECT().Close().AnyTimes().Return(nil)
@@ -194,9 +190,10 @@ func TestXAConn_ExecContext(t *testing.T) {
 		mi.before = before
 
 		var comitCnt int32
-		beforeCommit := func(tx *Tx) {
+		beforeCommit := func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
 			assert.Equal(t, tx.tranCtx.TransactionMode, types.XAMode)
+			return nil
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -220,8 +217,9 @@ func TestXAConn_ExecContext(t *testing.T) {
 		mi.before = before
 
 		var comitCnt int32
-		beforeCommit := func(tx *Tx) {
+		beforeCommit := func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -258,8 +256,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -284,8 +283,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -312,8 +312,9 @@ func TestXAConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -328,4 +329,97 @@ func TestXAConn_BeginTx(t *testing.T) {
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
 
+}
+
+func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "no error case",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "matching XAER_RMFAIL error with IDLE state",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: true,
+		},
+		{
+			name: "matching XAER_RMFAIL error with already ended",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction has already ended",
+			},
+			want: true,
+		},
+		{
+			name: "matching error code but mismatched message",
+			err: &mysql.MySQLError{
+				Number:  1399,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: Other error message",
+			},
+			want: false,
+		},
+		{
+			name: "mismatched error code but matching message",
+			err: &mysql.MySQLError{
+				Number:  1234,
+				Message: "The command cannot be executed when global transaction is in the IDLE state",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isXAER_RMFAILAlreadyEnded(tt.err); got != tt.want {
+				t.Errorf("isXAER_RMFAILAlreadyEnded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Covers the XA rollback flow when End() returns XAER_RMFAIL (IDLE/already ended)
+func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
+	ctrl, db, _, ti := initXAConnTestResource(t)
+	defer func() {
+		simulateExecContextError = nil
+		db.Close()
+		ctrl.Finish()
+		CleanTxHooks()
+	}()
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, uuid.New().String())
+
+	// Ensure Tx.Rollback has a non-nil underlying target to avoid nil-deref when test triggers rollback
+	ti.beforeRollback = func(tx *Tx) {
+		mtx := mock.NewMockTestDriverTx(ctrl)
+		mtx.EXPECT().Rollback().AnyTimes().Return(nil)
+		tx.target = mtx
+	}
+
+	// Inject: XA END returns XAER_RMFAIL(IDLE), normal SQL returns an error to trigger rollback
+	simulateExecContextError = func(query string) error {
+		upper := strings.ToUpper(query)
+		if strings.HasPrefix(upper, "XA END") {
+			return &mysql.MySQLError{Number: types.ErrCodeXAER_RMFAIL_IDLE, Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state"}
+		}
+		if !strings.HasPrefix(upper, "XA ") {
+			return io.EOF
+		}
+		return nil
+	}
+
+	// Execute to enter XA flow; the user SQL fails, but rollback should proceed without panicking
+	_, err := db.ExecContext(ctx, "SELECT 1")
+	if err == nil {
+		t.Fatalf("expected error to trigger rollback path")
+	}
 }

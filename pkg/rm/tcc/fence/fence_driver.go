@@ -53,7 +53,7 @@ func (fd *FenceDriver) OpenConnector(name string) (connector driver.Connector, r
 	if driverCtx, ok := fd.TargetDriver.(driver.DriverContext); ok {
 		connector, re = driverCtx.OpenConnector(name)
 		if re != nil {
-			log.Errorf("open connector: %w", re)
+			log.Errorf("open connector: %v", re)
 			return nil, re
 		}
 	}
