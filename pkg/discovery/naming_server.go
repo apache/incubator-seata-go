@@ -114,6 +114,9 @@ type NamingServerClient struct {
 	healthCheckTicker *time.Ticker
 	closeChan         chan struct{}
 	wg                sync.WaitGroup
+
+	httpClient     *http.Client
+	longPollClient *http.Client
 }
 
 type NamingListener interface {
@@ -153,6 +156,8 @@ func GetInstance(config *NamingServerConfig) *NamingServerClient {
 			logger:            zap.L().Named("naming-server-client"),
 			closeChan:         make(chan struct{}),
 			healthCheckTicker: time.NewTicker(time.Duration(config.HeartbeatPeriod) * time.Millisecond),
+			httpClient:        &http.Client{Timeout: 3 * time.Second},
+			longPollClient:    &http.Client{Timeout: 30 * time.Second},
 		}
 		namingServerInstance.initHealthCheck()
 	})
@@ -224,8 +229,7 @@ func (c *NamingServerClient) doHealthCheck(addr string) bool {
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
 
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error("health check failed", zap.String("addr", addr), zap.Error(err))
 		return false
@@ -307,8 +311,7 @@ func (c *NamingServerClient) RefreshGroup(vGroup string) error {
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
 
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("discovery request failed: %w", err)
 	}
@@ -423,8 +426,7 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 	req.Header.Set("Content-Type", contentTypeJSON)
 	req.URL.RawQuery = params.Encode()
 
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("login request failed: %w", err)
 	}
@@ -567,8 +569,7 @@ func (c *NamingServerClient) Watch(vGroup string) (bool, error) {
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.longPollClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("watch request failed: %w", err)
 	}

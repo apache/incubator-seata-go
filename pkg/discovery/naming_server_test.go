@@ -43,7 +43,11 @@ var testConfig = &NamingServerConfig{
 
 // Test getNamingAddrs splits config.ServerAddr
 func TestGetNamingAddrs(t *testing.T) {
-	client := &NamingServerClient{config: testConfig}
+	client := &NamingServerClient{
+		config: testConfig,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	addrs := client.getNamingAddrs()
 	if len(addrs) != 2 {
 		t.Errorf("expected 2 addresses, got %d", len(addrs))
@@ -55,7 +59,11 @@ func TestIsTokenExpired_NoCredentials(t *testing.T) {
 	cfg := *testConfig
 	cfg.Username = ""
 	cfg.Password = ""
-	client := &NamingServerClient{config: &cfg}
+	client := &NamingServerClient{
+		config: &cfg,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	// without credentials, token should never be considered expired
 	atomic.StoreInt64(&client.tokenTimeStamp, 0)
 	if client.isTokenExpired() {
@@ -64,7 +72,11 @@ func TestIsTokenExpired_NoCredentials(t *testing.T) {
 }
 
 func TestIsTokenExpired_WithCredentials(t *testing.T) {
-	client := &NamingServerClient{config: testConfig}
+	client := &NamingServerClient{
+		config: testConfig,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	// timestamp zero => expired
 	atomic.StoreInt64(&client.tokenTimeStamp, 0)
 	if !client.isTokenExpired() {
@@ -85,7 +97,11 @@ func TestDoHealthCheck(t *testing.T) {
 	}))
 	defer healthy.Close()
 	addr := healthy.Listener.Addr().String()
-	client := &NamingServerClient{logger: zap.NewNop()}
+	client := &NamingServerClient{
+		logger: zap.NewNop(),
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	if !client.doHealthCheck(addr) {
 		t.Error("expected healthy server to return true")
 	}
@@ -106,6 +122,8 @@ func TestHealthCheckThreshold(t *testing.T) {
 	client := &NamingServerClient{
 		config: testConfig,
 		logger: zap.NewNop(),
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
 	}
 	
 	addr := "test-addr"
@@ -137,7 +155,10 @@ func TestHealthCheckThreshold(t *testing.T) {
 
 // Test handleMetadata filters nodes correctly
 func TestHandleMetadata(t *testing.T) {
-	client := &NamingServerClient{}
+	client := &NamingServerClient{
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	meta := &MetaResponse{
 		Term: 2,
 		ClusterList: []Cluster{
@@ -174,7 +195,11 @@ func TestHandleMetadata(t *testing.T) {
 
 // Additional tests for getNamingAddr when availableNamingMap populated
 func TestGetNamingAddr_NoAvailable(t *testing.T) {
-	client := &NamingServerClient{config: testConfig}
+	client := &NamingServerClient{
+		config: testConfig,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	// empty map
 	_, err := client.getNamingAddr()
 	if err == nil {
@@ -183,7 +208,11 @@ func TestGetNamingAddr_NoAvailable(t *testing.T) {
 }
 
 func TestGetNamingAddr_OneAvailable(t *testing.T) {
-	client := &NamingServerClient{config: testConfig}
+	client := &NamingServerClient{
+		config: testConfig,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	client.availableNamingMap.Store("host1", int32(0))
 	addr, err := client.getNamingAddr()
 	if err != nil {
@@ -196,7 +225,11 @@ func TestGetNamingAddr_OneAvailable(t *testing.T) {
 
 func TestGetNamingAddr_CacheExpiry(t *testing.T) {
 	resetInstance()
-	client := &NamingServerClient{config: testConfig}
+	client := &NamingServerClient{
+		config: testConfig,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
+		longPollClient: &http.Client{Timeout: 30 * time.Second},
+	}
 	client.availableNamingMap.Store("host1", int32(0))
 	client.availableNamingMap.Store("host2", int32(0))
 	
