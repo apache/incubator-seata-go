@@ -101,6 +101,40 @@ func TestDoHealthCheck(t *testing.T) {
 	}
 }
 
+func TestHealthCheckThreshold(t *testing.T) {
+	resetInstance()
+	client := &NamingServerClient{
+		config: testConfig,
+		logger: zap.NewNop(),
+	}
+	
+	addr := "test-addr"
+	
+	client.availableNamingMap.Store(addr, int32(0))
+	val, _ := client.availableNamingMap.Load(addr)
+	if val.(int32) != 0 {
+		t.Error("initial fail count should be 0")
+	}
+	
+	client.checkAvailableNamingAddr([]string{addr})
+	val, _ = client.availableNamingMap.Load(addr)
+	if val.(int32) != 1 {
+		t.Error("fail count should be 1 after first failure")
+	}
+	
+	client.checkAvailableNamingAddr([]string{addr})
+	val, _ = client.availableNamingMap.Load(addr)
+	if val.(int32) != 2 {
+		t.Error("fail count should be 2 after second failure")
+	}
+	
+	client.checkAvailableNamingAddr([]string{addr})
+	val, _ = client.availableNamingMap.Load(addr)
+	if val.(int32) != 3 {
+		t.Error("fail count should be 3 after third failure")
+	}
+}
+
 // Test handleMetadata filters nodes correctly
 func TestHandleMetadata(t *testing.T) {
 	client := &NamingServerClient{}
@@ -157,6 +191,29 @@ func TestGetNamingAddr_OneAvailable(t *testing.T) {
 	}
 	if addr != "host1" {
 		t.Errorf("expected host1, got %s", addr)
+	}
+}
+
+func TestGetNamingAddr_CacheExpiry(t *testing.T) {
+	resetInstance()
+	client := &NamingServerClient{config: testConfig}
+	client.availableNamingMap.Store("host1", int32(0))
+	client.availableNamingMap.Store("host2", int32(0))
+	
+	_, err := client.getNamingAddr()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	
+	client.namingAddrCacheTimestamp = time.Now().UnixMilli() - 31000
+	
+	_, err = client.getNamingAddr()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	
+	if client.namingAddrCacheTimestamp <= time.Now().UnixMilli()-30000 {
+		t.Error("cache timestamp should be updated after expiry")
 	}
 }
 
@@ -285,6 +342,37 @@ func TestRefreshToken_Success(t *testing.T) {
 	}
 	if client.jwtToken != "mock-jwt-token" {
 		t.Error("jwtToken not updated after login")
+	}
+}
+
+func TestRefreshToken_RetryMechanism(t *testing.T) {
+	resetInstance()
+	attemptCount := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"code": "200",
+			"data": "retry-success-token",
+		})
+	}))
+	defer mockServer.Close()
+
+	client := GetInstance(testConfig)
+	client.logger = zap.NewNop()
+	err := client.RefreshToken(mockServer.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("RefreshToken failed: %v", err)
+	}
+	if attemptCount != 3 {
+		t.Errorf("Expected 3 attempts, got %d", attemptCount)
+	}
+	if client.jwtToken != "retry-success-token" {
+		t.Error("jwtToken not updated after retry success")
 	}
 }
 

@@ -34,11 +34,15 @@ import (
 )
 
 const (
-	httpPrefix            = "http://"
-	healthCheckThreshold  = 1
-	longPollTimeoutPeriod = 28 * time.Second
-	authorizationHeader   = "Authorization"
-	contentTypeJSON       = "application/json"
+	httpPrefix               = "http://"
+	healthCheckThreshold     = 3
+	longPollTimeoutPeriod    = 28 * time.Second
+	authorizationHeader      = "Authorization"
+	contentTypeJSON          = "application/json"
+	namingAddrCacheTTL       = 30 * time.Second
+	failureRecoveryThreshold = 3
+	maxRetryAttempts         = 3
+	retryDelayMs             = 1000
 )
 
 type MetaResponse struct {
@@ -100,7 +104,8 @@ type NamingServerClient struct {
 	jwtToken        string
 	tokenTimeStamp  int64
 	isSubscribed    bool
-	namingAddrCache string
+	namingAddrCache          string
+	namingAddrCacheTimestamp int64
 
 	availableNamingMap sync.Map
 	vgroupAddressMap   sync.Map
@@ -157,6 +162,9 @@ func GetInstance(config *NamingServerConfig) *NamingServerClient {
 func resetInstance() {
 	if namingServerInstance != nil {
 		namingServerInstance.Close()
+		namingServerInstance.mu.Lock()
+		namingServerInstance.clearNamingAddrCache()
+		namingServerInstance.mu.Unlock()
 	}
 	namingServerInstance = nil
 	namingServerOnce = sync.Once{}
@@ -186,15 +194,22 @@ func (c *NamingServerClient) checkAvailableNamingAddr(urlList []string) {
 		failCount := val.(int32)
 
 		if !isHealthy {
-			atomic.AddInt32(&failCount, 1)
-			c.availableNamingMap.Store(addr, failCount)
-			if failCount >= healthCheckThreshold {
-				c.logger.Error("naming server offline", zap.String("addr", addr))
+			newFailCount := atomic.AddInt32(&failCount, 1)
+			c.availableNamingMap.Store(addr, newFailCount)
+			if newFailCount == 1 {
+				c.logger.Warn("naming server check failed", zap.String("addr", addr), zap.Int32("failCount", newFailCount))
+			} else if newFailCount >= healthCheckThreshold {
+				c.logger.Error("naming server offline", zap.String("addr", addr), zap.Int32("failCount", newFailCount))
+				c.mu.Lock()
+				if c.namingAddrCache == addr {
+					c.clearNamingAddrCache()
+				}
+				c.mu.Unlock()
 			}
 		} else {
 			if failCount > 0 {
 				c.availableNamingMap.Store(addr, int32(0))
-				c.logger.Info("naming server online", zap.String("addr", addr))
+				c.logger.Info("naming server recovered", zap.String("addr", addr), zap.Int32("previousFailCount", failCount))
 			}
 		}
 	}
@@ -312,8 +327,22 @@ func (c *NamingServerClient) RefreshGroup(vGroup string) error {
 }
 
 func (c *NamingServerClient) getNamingAddr() (string, error) {
-	if c.namingAddrCache != "" {
-		return c.namingAddrCache, nil
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now().UnixMilli()
+	
+	if c.namingAddrCache != "" && 
+		now-c.namingAddrCacheTimestamp < namingAddrCacheTTL.Milliseconds() {
+		
+		if val, ok := c.availableNamingMap.Load(c.namingAddrCache); ok {
+			failCount := val.(int32)
+			if failCount < healthCheckThreshold {
+				return c.namingAddrCache, nil
+			}
+		}
+		
+		c.clearNamingAddrCache()
 	}
 
 	var availableAddrs []string
@@ -332,7 +361,13 @@ func (c *NamingServerClient) getNamingAddr() (string, error) {
 
 	addr := availableAddrs[rand.RandIntn(len(availableAddrs))]
 	c.namingAddrCache = addr
+	c.namingAddrCacheTimestamp = now
 	return addr, nil
+}
+
+func (c *NamingServerClient) clearNamingAddrCache() {
+	c.namingAddrCache = ""
+	c.namingAddrCacheTimestamp = 0
 }
 
 func (c *NamingServerClient) isTokenExpired() bool {
@@ -351,6 +386,31 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 		return nil
 	}
 
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryAttempts; attempt++ {
+		err := c.doRefreshToken(addr)
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if attempt < maxRetryAttempts {
+			c.logger.Warn("token refresh failed, retrying", 
+				zap.String("addr", addr), 
+				zap.Int("attempt", attempt), 
+				zap.Error(err))
+			time.Sleep(time.Duration(retryDelayMs*attempt) * time.Millisecond)
+		}
+	}
+
+	c.logger.Error("token refresh failed after all retries", 
+		zap.String("addr", addr), 
+		zap.Int("maxAttempts", maxRetryAttempts), 
+		zap.Error(lastErr))
+	return fmt.Errorf("token refresh failed after %d attempts: %w", maxRetryAttempts, lastErr)
+}
+
+func (c *NamingServerClient) doRefreshToken(addr string) error {
 	loginURL := fmt.Sprintf("%s%s/api/v1/auth/login", httpPrefix, addr)
 	params := url.Values{}
 	params.Add("username", c.config.Username)
@@ -363,15 +423,15 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 	req.Header.Set("Content-Type", contentTypeJSON)
 	req.URL.RawQuery = params.Encode()
 
-	client := &http.Client{Timeout: 1 * time.Second}
+	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("login failed: %w", err)
+		return fmt.Errorf("login request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("authentication failed: invalid credentials")
+		return fmt.Errorf("authentication failed: status %d", resp.StatusCode)
 	}
 
 	var loginResp struct {
@@ -382,11 +442,12 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 		return fmt.Errorf("decode login response failed: %w", err)
 	}
 	if loginResp.Code != "200" {
-		return errors.New("authentication failed: " + loginResp.Code)
+		return fmt.Errorf("authentication failed: code %s", loginResp.Code)
 	}
 
 	c.jwtToken = loginResp.Data
 	atomic.StoreInt64(&c.tokenTimeStamp, time.Now().UnixMilli())
+	c.logger.Info("token refreshed successfully", zap.String("addr", addr))
 	return nil
 }
 
