@@ -24,6 +24,34 @@ on:
     - cron: "0 18 * * *" # TimeZone: UTC 0
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      has-changes: ${{ steps.changes.outputs.has-changes }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Detect file changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          
+            if echo "$changed_files" | grep -E '\.(go|java|js|ts|py|c|cpp|h|yml|yaml|json)$|go\.(mod|sum)$|package\.json$|LICENSE|NOTICE|Dockerfile' > /dev/null; then
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Changed files:"
+          echo "$changed_files"
+
   license-header:
     name: License header
     runs-on: ubuntu-latest
@@ -41,8 +69,10 @@ jobs:
 
   dependency-license:
     name: Dependency licenses
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: needs.changes.outputs.has-changes == 'true'
     steps:
       - uses: actions/checkout@v3
         with:

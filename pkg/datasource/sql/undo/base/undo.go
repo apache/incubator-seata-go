@@ -23,7 +23,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-
 	"strconv"
 	"strings"
 
@@ -36,6 +35,7 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/factor"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/parser"
 	"seata.apache.org/seata-go/pkg/util/collection"
+	serr "seata.apache.org/seata-go/pkg/util/errors"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
@@ -261,7 +261,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	defer func() {
 		if err != nil {
 			if err = tx.Rollback(); err != nil {
-				log.Errorf("rollback fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+				log.Errorf("rollback fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
 				return
 			}
 		}
@@ -274,7 +274,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	}
 	defer func() {
 		if err = stmt.Close(); err != nil {
-			log.Errorf("stmt close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			log.Errorf("stmt close fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
 			return
 		}
 	}()
@@ -286,7 +286,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 	}
 	defer func() {
 		if err = rows.Close(); err != nil {
-			log.Errorf("rows close fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+			log.Errorf("rows close fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
 			return
 		}
 	}()
@@ -301,7 +301,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		undoLogRecords = append(undoLogRecords, record)
 	}
 	if err := rows.Err(); err != nil {
-		log.Errorf("read rows next fail, xid: %s, branchID:%s err:%v", xid, branchID, err)
+		log.Errorf("read rows next fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
 		return err
 	}
 	var exists bool
@@ -354,6 +354,10 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 			if err = undoExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
 				log.Errorf("execute on fail, err: %v", err)
+				if undoErr, ok := err.(*serr.SeataError); ok && undoErr.Code == serr.SQLUndoDirtyError {
+					log.Errorf("Branch session rollback failed because of dirty undo log, please delete the relevant undolog after manually calibrating the data. xid = %s branchId = %d: %v", xid, branchID, undoErr)
+					return serr.New(serr.TransactionErrorCodeBranchRollbackFailedUnretriable, "dirty undo log, manual cleanup required", nil)
+				}
 				return err
 			}
 		}
@@ -375,7 +379,8 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 	if err = tx.Commit(); err != nil {
 		log.Errorf("[Undo] execute on fail, err: %v", err)
-		return nil
+
+		return err
 	}
 	return nil
 }
