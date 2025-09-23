@@ -213,7 +213,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	case types.DBTypeMySQL:
 		mysqlCfg, err := mysql.ParseDSN(dataSourceName)
 		if err != nil {
-			log.Errorf("parse mysql dsn error: %w", err)
+			log.Errorf("parse mysql dsn error: %v", err)
 			return nil, err
 		}
 		cfg = mysqlCfg
@@ -221,7 +221,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	case types.DBTypePostgreSQL:
 		pgxCfg, err := pgx.ParseConfig(dataSourceName)
 		if err != nil {
-			log.Errorf("parse postgresql dsn error: %w", err)
+			log.Errorf("parse postgresql dsn error: %v", err)
 			return nil, err
 		}
 		log.Infof("PostgreSQL parsed config: %+v", pgxCfg)

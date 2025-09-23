@@ -275,16 +275,6 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 					},
 				)
 
-			mockConn.EXPECT().ExecContext(
-				gomock.Any(),
-				gomock.Any(),
-				gomock.Any(),
-			).AnyTimes().DoAndReturn(
-				func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-					return &driver.ResultNoRows, nil
-				},
-			)
-
 			baseMockConn(t, mockConn, config)
 
 			connector := mock.NewMockTestDriverConnector(ctrl)
@@ -551,7 +541,9 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 
 // Covers the XA rollback flow when End() returns XAER_RMFAIL (IDLE/already ended)
 func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
-	ctrl, db, _, ti := initXAConnTestResource(t)
+	ctrl := gomock.NewController(t)
+	config := getAllDBTestConfigs()[0] // Use first config (MySQL)
+	db, _, ti := initXAConnTestResource(t, ctrl, config)
 	defer func() {
 		simulateExecContextError = nil
 		db.Close()

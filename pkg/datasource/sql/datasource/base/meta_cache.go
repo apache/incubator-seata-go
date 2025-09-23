@@ -126,11 +126,11 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 		c.lock.Lock()
 		defer c.lock.Unlock()
-		for _, tm := range tableMetas {
-			tm.DBType = dbType
-			upperTableName := strings.ToUpper(tm.TableName)
+		for i := range tableMetas {
+			tableMetas[i].DBType = dbType
+			upperTableName := strings.ToUpper(tableMetas[i].TableName)
 			c.cache[upperTableName] = &entry{
-				value:      tm,
+				value:      tableMetas[i],
 				lastAccess: time.Now(),
 			}
 		}
@@ -185,7 +185,6 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	defer conn.Close()
 
 	upperTableName := strings.ToUpper(tableName)
 	e, ok := c.cache[upperTableName]
