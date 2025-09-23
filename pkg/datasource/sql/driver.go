@@ -167,6 +167,9 @@ type seataDriver struct {
 	target     driver.Driver
 }
 
+// Open never be called, because seataDriver implemented dri.DriverContext interface.
+// reference package: datasource/sql [https://cs.opensource.google/go/go/+/master:src/database/sql/sql.go;l=813]
+// and maybe the sql.BD will be call Driver() method, but it obtain the Driver is fron Connector that is proxed by seataConnector.
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
 	return nil, errors.New(("operation unsupport."))
 }
@@ -179,7 +182,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 	if ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {
-			log.Errorf("open connector via DriverContext: %w", err)
+			log.Errorf("open connector via DriverContext: %v", err)
 			return nil, err
 		}
 	} else {
@@ -193,7 +196,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 	proxy, err := d.getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
 	if err != nil {
-		log.Errorf("register resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 
@@ -239,15 +242,14 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	}
 	res, err := newResource(options...)
 	if err != nil {
-		log.Errorf("create new resource: %w", err)
+		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
 
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
-		log.Errorf("regisiter resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
-
 	return &seataConnector{
 		res:    res,
 		target: connector,

@@ -80,6 +80,7 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
+
 	return nil
 }
 

@@ -318,7 +318,7 @@ func TestCommitOrRollback(t *testing.T) {
 	}
 }
 
-func TestClearTxConf(t *testing.T) {
+func TestTransferTx(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
 
 	SetTx(ctx, &GlobalTransaction{
@@ -328,12 +328,17 @@ func TestClearTxConf(t *testing.T) {
 		TxRole:   Launcher,
 	})
 
-	clearTxConf(ctx)
+	newCtx := transferTx(ctx)
 
 	assert.Equal(t, "123456", GetXID(ctx))
-	assert.Equal(t, UnKnow, *GetTxRole(ctx))
-	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(ctx))
-	assert.Equal(t, "", GetTxName(ctx))
+	assert.Equal(t, Launcher, *GetTxRole(ctx))
+	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
+	assert.Equal(t, "MockTxName", GetTxName(ctx))
+
+	assert.Equal(t, "123456", GetXID(newCtx))
+	assert.Equal(t, UnKnow, *GetTxRole(newCtx))
+	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(newCtx))
+	assert.Equal(t, "", GetTxName(newCtx))
 }
 
 func TestUseExistGtx(t *testing.T) {
@@ -376,6 +381,12 @@ func TestWithGlobalTx(t *testing.T) {
 	}
 	callbackNil := func(ctx context.Context) error {
 		return nil
+	}
+	callbackPanicError := func(ctx context.Context) error {
+		panic(errors.New("mock callback panic error"))
+	}
+	callbackPanicString := func(ctx context.Context) error {
+		panic("mock callback panic string")
 	}
 
 	type testCase struct {
@@ -449,6 +460,34 @@ func TestWithGlobalTx(t *testing.T) {
 			callback:              callbackNil,
 			mockSecondPhaseTarget: commitOrRollback,
 			mockSecondPhaseFunc: func(ctx context.Context, s bool) error {
+				return nil
+			},
+		},
+
+		// case callback panic string
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicString,
+			occurError:      true,
+			errMessage:      "mock callback panic string",
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				return nil
+			},
+		},
+
+		// case callback panic error
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicError,
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
 				return nil
 			},
 		},

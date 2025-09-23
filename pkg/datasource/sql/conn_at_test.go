@@ -74,6 +74,7 @@ func initAtConnTestResource(t *testing.T, config dbTestConfig) (*gomock.Controll
 	)
 
 	mi := &mockSQLInterceptor{}
+
 	ti := &mockTxHook{}
 
 	exec.CleanCommonHook()
