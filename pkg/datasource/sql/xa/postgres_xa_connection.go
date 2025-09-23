@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -32,149 +31,142 @@ import (
 
 type PostgresqlXAConn struct {
 	driver.Conn
-	tx driver.Tx
+	tx          driver.Tx
+	prepared    bool
+	preparedXid string
+	timeout     time.Duration
 }
 
 func NewPostgresqlXaConn(conn driver.Conn, tx driver.Tx) *PostgresqlXAConn {
 	return &PostgresqlXAConn{
-		Conn: conn,
-		tx:   tx,
+		Conn:        conn,
+		tx:          tx,
+		prepared:    false,
+		preparedXid: "",
 	}
 }
 
-func splitXID(xid string) (gtrid, bqual string, formatID int, err error) {
-	parts := strings.Split(xid, ",")
-	if len(parts) != 3 {
-		return "", "", 0, errors.New("invalid xid format for postgresql (expected 'gtrid,bqual,formatID')")
+func validateXid(xid string) error {
+	if xid == "" {
+		return errors.New("xid cannot be empty")
 	}
-	gtrid = parts[0]
-	bqual = parts[1]
-	formatID, err = strconv.Atoi(parts[2])
-	if err != nil {
-		return "", "", 0, fmt.Errorf("invalid formatID in xid: %v", err)
+	if len(xid) > 200 {
+		return errors.New("xid too long (max 200 characters for PostgreSQL)")
 	}
-	return
+	if strings.Contains(xid, "'") {
+		return errors.New("xid cannot contain single quotes")
+	}
+	return nil
 }
 
 func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
-	if err != nil {
-		return err
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
 	}
 
-	var sb strings.Builder
-	sb.WriteString("XA COMMIT '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
-
+	var query string
 	if onePhase {
-		sb.WriteString(" ONE PHASE")
+		if c.prepared && c.preparedXid == xid {
+			return errors.New("transaction already prepared, cannot use one-phase commit")
+		}
+		query = "COMMIT"
+	} else {
+		query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
+		c.prepared = false
+		c.preparedXid = ""
 	}
 
-	txExec, ok := c.tx.(driver.ExecerContext)
+	connExec, ok := c.Conn.(driver.ExecerContext)
 	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
+		return errors.New("postgresql conn does not support ExecerContext")
 	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
+
+	_, err := connExec.ExecContext(ctx, query, nil)
 	if err != nil {
-		log.Errorf("xa branch commit failed, xid %s, err %v", xid, err)
+		log.Errorf("postgresql xa commit failed, xid %s, err %v", xid, err)
 	}
 	return err
 }
 
 func (c *PostgresqlXAConn) End(ctx context.Context, xid string, flags int) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
-	if err != nil {
-		return err
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
 	}
-
-	var sb strings.Builder
-	sb.WriteString("XA END '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
 
 	switch flags {
 	case TMSuccess:
+		return nil
 	case TMSuspend:
-		sb.WriteString(" SUSPEND")
+		return errors.New("postgresql does not support transaction suspension")
 	case TMFail:
+		return nil
 	default:
-		return errors.New("invalid flags for End (support TMSuccess, TMSuspend, TMFail)")
+		return fmt.Errorf("invalid flags for End: %d", flags)
 	}
-
-	txExec, ok := c.tx.(driver.ExecerContext)
-	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
-	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
-	if err != nil {
-		log.Errorf("xa branch end failed, xid %s, err %v", xid, err)
-	}
-	return err
 }
 
 func (c *PostgresqlXAConn) Forget(ctx context.Context, xid string) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
-	if err != nil {
-		return err
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
 	}
 
-	var sb strings.Builder
-	sb.WriteString("XA FORGET '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
-
-	txExec, ok := c.tx.(driver.ExecerContext)
+	connQuery, ok := c.Conn.(driver.QueryerContext)
 	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
+		return errors.New("postgresql conn does not support QueryerContext")
 	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
+
+	checkQuery := fmt.Sprintf("SELECT gid FROM pg_prepared_xacts WHERE gid = '%s'", xid)
+	rows, err := connQuery.QueryContext(ctx, checkQuery, nil)
 	if err != nil {
-		log.Errorf("xa forget failed, xid %s, err %v", xid, err)
+		return fmt.Errorf("failed to check prepared transaction: %v", err)
 	}
-	return err
+	defer rows.Close()
+
+	dest := make([]driver.Value, 1)
+	err = rows.Next(dest)
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to check prepared transaction existence: %v", err)
+	}
+
+	return c.Rollback(ctx, xid)
 }
 
 func (c *PostgresqlXAConn) GetTransactionTimeout() time.Duration {
-	return 0
+	return c.timeout
 }
 
 func (c *PostgresqlXAConn) IsSameRM(ctx context.Context, resource XAResource) bool {
-	return false
+	pgResource, ok := resource.(*PostgresqlXAConn)
+	if !ok {
+		return false
+	}
+	return c.Conn == pgResource.Conn
 }
 
 func (c *PostgresqlXAConn) XAPrepare(ctx context.Context, xid string) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
-	if err != nil {
-		return err
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
 	}
 
-	var sb strings.Builder
-	sb.WriteString("XA PREPARE '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
+	query := fmt.Sprintf("PREPARE TRANSACTION '%s'", xid)
 
 	txExec, ok := c.tx.(driver.ExecerContext)
 	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
+		return errors.New("postgresql tx does not support ExecerContext")
 	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
+
+	_, err := txExec.ExecContext(ctx, query, nil)
 	if err != nil {
-		log.Errorf("xa prepare failed, xid %s, err %v", xid, err)
+		log.Errorf("postgresql xa prepare failed, xid %s, err %v", xid, err)
+		return err
 	}
-	return err
+
+	c.prepared = true
+	c.preparedXid = xid
+	return nil
 }
 
 func (c *PostgresqlXAConn) Recover(ctx context.Context, flag int) ([]string, error) {
@@ -182,113 +174,109 @@ func (c *PostgresqlXAConn) Recover(ctx context.Context, flag int) ([]string, err
 	endRscan := (flag & TMEndRScan) > 0
 
 	if !startRscan && !endRscan && flag != TMNoFlags {
-		return nil, errors.New("invalid recover flag for postgresql")
+		return nil, fmt.Errorf("invalid recover flag: %d", flag)
 	}
+
 	if !startRscan {
 		return nil, nil
 	}
 
 	connQuery, ok := c.Conn.(driver.QueryerContext)
 	if !ok {
-		return nil, errors.New("postgresql conn does not support QueryerContext (required for XA Recover)")
+		return nil, errors.New("postgresql conn does not support QueryerContext")
 	}
 
-	res, err := connQuery.QueryContext(ctx, "XA RECOVER FORMATAS TEXT", nil)
+	query := "SELECT gid FROM pg_prepared_xacts ORDER BY gid"
+	rows, err := connQuery.QueryContext(ctx, query, nil)
 	if err != nil {
-		return nil, fmt.Errorf("xa recover failed: %v", err)
+		return nil, fmt.Errorf("postgresql xa recover failed: %v", err)
 	}
-	defer res.Close()
+	defer rows.Close()
 
 	var xids []string
-	dest := make([]driver.Value, 3)
+	dest := make([]driver.Value, 1)
 	for {
-		if err = res.Next(dest); err != nil {
-			if err == io.EOF {
-				break
-			}
+		err = rows.Next(dest)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
 			return nil, fmt.Errorf("recover next failed: %v", err)
 		}
 
-		formatID, ok := dest[0].(int64)
+		gid, ok := dest[0].(string)
 		if !ok {
-			return nil, errors.New("invalid formatID type in recover result")
-		}
-		gtrid, ok := dest[1].(string)
-		if !ok {
-			return nil, errors.New("invalid gtrid type in recover result")
-		}
-		bqual, ok := dest[2].(string)
-		if !ok {
-			return nil, errors.New("invalid bqual type in recover result")
+			return nil, errors.New("invalid gid type in recover result")
 		}
 
-		xid := fmt.Sprintf("%s,%s,%d", gtrid, bqual, formatID)
-		xids = append(xids, xid)
+		xids = append(xids, gid)
 	}
 
 	return xids, nil
 }
 
 func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
+	}
+
+	query := fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
+
+	connExec, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return errors.New("postgresql conn does not support ExecerContext")
+	}
+
+	_, err := connExec.ExecContext(ctx, query, nil)
 	if err != nil {
+		log.Errorf("postgresql xa rollback failed, xid %s, err %v", xid, err)
 		return err
 	}
 
-	var sb strings.Builder
-	sb.WriteString("XA ROLLBACK '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
+	if c.preparedXid == xid {
+		c.prepared = false
+		c.preparedXid = ""
+	}
 
-	txExec, ok := c.tx.(driver.ExecerContext)
-	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
-	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
-	if err != nil {
-		log.Errorf("xa rollback failed, xid %s, err %v", xid, err)
-	}
-	return err
+	return nil
 }
 
 func (c *PostgresqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
-	return false
+	if duration <= 0 {
+		return false
+	}
+
+	connExec, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return false
+	}
+
+	timeoutMs := int(duration.Milliseconds())
+	query := fmt.Sprintf("SET LOCAL statement_timeout = %d", timeoutMs)
+
+	_, err := connExec.ExecContext(context.Background(), query, nil)
+	if err != nil {
+		log.Errorf("failed to set postgresql transaction timeout: %v", err)
+		return false
+	}
+
+	c.timeout = duration
+	return true
 }
 
 func (c *PostgresqlXAConn) Start(ctx context.Context, xid string, flags int) error {
-	gtrid, bqual, formatID, err := splitXID(xid)
-	if err != nil {
-		return err
+	if err := validateXid(xid); err != nil {
+		return fmt.Errorf("invalid xid: %v", err)
 	}
-
-	var sb strings.Builder
-	sb.WriteString("XA START '")
-	sb.WriteString(gtrid)
-	sb.WriteString("', '")
-	sb.WriteString(bqual)
-	sb.WriteString("', ")
-	sb.WriteString(strconv.Itoa(formatID))
 
 	switch flags {
 	case TMJoin:
-		sb.WriteString(" JOIN")
+		return errors.New("postgresql does not support transaction joining")
 	case TMResume:
-		sb.WriteString(" RESUME")
+		return errors.New("postgresql does not support transaction resuming")
 	case TMNoFlags:
+		return nil
 	default:
-		return errors.New("invalid flags for start (support TMJoin, TMResume, TMNoFlags)")
+		return fmt.Errorf("invalid flags for Start: %d", flags)
 	}
-	
-	txExec, ok := c.tx.(driver.ExecerContext)
-	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext (required for XA)")
-	}
-	_, err = txExec.ExecContext(ctx, sb.String(), nil)
-	if err != nil {
-		log.Errorf("xa start failed, xid %s, err %v", xid, err)
-	}
-	return err
 }
