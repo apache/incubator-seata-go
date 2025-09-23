@@ -178,6 +178,7 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string, conn *sql.Conn) (types.TableMeta, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
 	defer conn.Close()
 
 	upperTableName := strings.ToUpper(tableName)

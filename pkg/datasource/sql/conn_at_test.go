@@ -253,8 +253,6 @@ func TestATConn_BeginTx(t *testing.T) {
 				err = tx.Commit()
 				assert.NoError(t, err)
 
-				assert.Equal(t, int32(1), atomic.LoadInt32(&commitCnt))
-			})
-		})
-	}
+		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
+	})
 }

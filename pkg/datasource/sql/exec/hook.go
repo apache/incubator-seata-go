@@ -53,9 +53,14 @@ func RegisterHook(hook SQLHook) {
 }
 
 // SQLHook SQL execution front and back interceptor
-// case 1. Used to intercept SQL to achieve the generation of front and rear mirrors
-// case 2. Burning point to report
-// case 3. SQL black and white list
+//
+// Use cases:
+// 1. Used to intercept SQL to achieve the generation of front and rear mirrors
+// 2. Burning point to report
+// 3. SQL black and white list
+//
+// Before hook errors will prevent SQL execution
+// After hook errors are logged but don't affect main execution flow
 type SQLHook interface {
 	Type() types.SQLType
 	Before(ctx context.Context, execCtx *types.ExecContext) error

@@ -39,7 +39,9 @@ var (
 
 type mockTrigger struct{}
 
+// LoadOne simulates loading table metadata, including id, name, and age columns.
 func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error) {
+
 	return &types.TableMeta{
 		TableName: table,
 		Columns: map[string]types.ColumnMeta{
