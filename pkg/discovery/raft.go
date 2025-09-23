@@ -59,6 +59,7 @@ type RaftRegistryService struct {
 	stopCh                         chan struct{}
 	refreshOnce                    sync.Once
 	httpClient                     *http.Client
+	random                         *rand.Rand
 }
 
 func NewRaftRegistryService(config *ServiceConfig, raftConfig *RegistryConfig) *RaftRegistryService {
@@ -76,6 +77,7 @@ func NewRaftRegistryService(config *ServiceConfig, raftConfig *RegistryConfig) *
 		stopCh:              make(chan struct{}),
 		httpClient:          &http.Client{},
 		tokenTimestamp:      -1,
+		random:              rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	return r
 }
@@ -172,13 +174,9 @@ func (r *RaftRegistryService) RefreshAliveLookup(transactionServiceGroup string,
 	}
 
 	var result []*ServiceInstance
-	if len(aliveAddress) == 0 {
-		result = aliveAddress
-	} else {
-		for _, addr := range aliveAddress {
-			if addr.Port != leaderEndpoint.Port || addr.Addr != leaderEndpoint.Addr {
-				result = append(result, addr)
-			}
+	for _, addr := range aliveAddress {
+		if addr.Port != leaderEndpoint.Port || addr.Addr != leaderEndpoint.Addr {
+			result = append(result, addr)
 		}
 	}
 
@@ -219,7 +217,7 @@ func (r *RaftRegistryService) startQueryMetadata() {
 				metadataMaxAge = r.cfg.MetadataMaxAgeMs
 			}
 			currentTime := time.Now().UnixMilli()
-			ticker := time.NewTicker(1 * time.Second)
+			ticker := time.NewTicker(5 * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -234,6 +232,7 @@ func (r *RaftRegistryService) startQueryMetadata() {
 							ok, err := r.watch()
 							if err != nil {
 								log.Errorf("watch error: %v", err)
+								shouldFetch = true
 							} else {
 								shouldFetch = ok
 							}
@@ -310,7 +309,6 @@ func (r *RaftRegistryService) watch() (bool, error) {
 			}
 			return resp.StatusCode == http.StatusOK, nil
 		}
-		break
 	}
 	return false, nil
 }
@@ -420,7 +418,6 @@ func (r *RaftRegistryService) refreshToken() error {
 }
 
 func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (string, error) {
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	var addressList []string
 
 	nodes := r.metadata.GetNodes(clusterName, group)
@@ -439,8 +436,13 @@ func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (strin
 	}
 
 	if len(nodes) > 0 {
-		if aliveAny, ok := r.aliveNodes.Load(r.currentTransactionServiceGroup); ok {
-			aliveNodes := aliveAny.([]*ServiceInstance)
+		currentServiceGroup := r.currentTransactionServiceGroup
+		if aliveAny, ok := r.aliveNodes.Load(currentServiceGroup); ok {
+			aliveNodes, ok := aliveAny.([]*ServiceInstance)
+			if !ok {
+				log.Errorf("invalid type for alive nodes, expected []*ServiceInstance")
+				return "", fmt.Errorf("invalid alive nodes type for service group %s", currentServiceGroup)
+			}
 
 			if len(aliveNodes) == 0 {
 				for _, node := range nodes {
@@ -463,11 +465,11 @@ func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (strin
 					}
 
 					contrEndpoint, err := r.selectEndpoint(controlEndpoint, node)
-					port := alive.Port
-					if err == nil {
-						port = contrEndpoint.Port
+					if err != nil {
+						log.Errorf("failed to select control endpoint for node: %v", err)
+						continue
 					}
-					addressList = append(addressList, formatAddr(contrEndpoint.Addr, port))
+					addressList = append(addressList, formatAddr(contrEndpoint.Addr, contrEndpoint.Port))
 				}
 			}
 		} else {
@@ -488,7 +490,7 @@ func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (strin
 	if len(addressList) == 0 {
 		return "", fmt.Errorf("no available address for cluster=%s group=%s", clusterName, group)
 	}
-	return addressList[random.Intn(len(addressList))], nil
+	return addressList[r.random.Intn(len(addressList))], nil
 }
 
 func (r *RaftRegistryService) clusterNamesFromInit() []string {
