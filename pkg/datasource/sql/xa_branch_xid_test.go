@@ -1,7 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package sql
 
 import (
-	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -54,7 +70,7 @@ func TestXABranchXidBuildForPostgreSQL(t *testing.T) {
 
 	pgFormat := x.ToPostgreSQLFormat()
 	assert.NotEmpty(t, pgFormat)
-	assert.True(t, strings.HasPrefix(pgFormat, "1_"))
+	assert.True(t, strings.HasPrefix(pgFormat, xid+branchIdPrefix))
 	assert.Equal(t, x.GetGlobalTransactionId(), []byte(xid))
 	assert.NotEmpty(t, x.GetBranchQualifier())
 }
@@ -79,7 +95,7 @@ func TestXABranchXidWithDatabase(t *testing.T) {
 	assert.Equal(t, pgXid.GetDatabaseType(), types.DBTypePostgreSQL)
 	pgFormat := pgXid.ToPostgreSQLFormat()
 	assert.NotEmpty(t, pgFormat)
-	assert.Contains(t, pgFormat, hex.EncodeToString([]byte(xid)))
+	assert.Contains(t, pgFormat, xid)
 }
 
 func TestXABranchXidStandardBuild(t *testing.T) {
@@ -122,6 +138,14 @@ func TestPostgreSQLXidParsing(t *testing.T) {
 func TestPostgreSQLXidParsingInvalidFormat(t *testing.T) {
 	invalidFormats := []string{
 		"",
+	}
+
+	for _, invalid := range invalidFormats {
+		_, err := ParsePostgreSQLXid(invalid)
+		assert.Error(t, err, "Expected error for invalid format: %s", invalid)
+	}
+
+	validFormats := []string{
 		"invalid",
 		"1_2_3",
 		"1_2_3_4",
@@ -130,11 +154,13 @@ func TestPostgreSQLXidParsingInvalidFormat(t *testing.T) {
 		"1_2_abc_4_5",
 		"1_2_3_invalidhex_5",
 		"1_2_3_616263_invalidhex",
+		"test-xid-123",
+		"simple_xid",
 	}
 
-	for _, invalid := range invalidFormats {
-		_, err := ParsePostgreSQLXid(invalid)
-		assert.Error(t, err, "Expected error for invalid format: %s", invalid)
+	for _, valid := range validFormats {
+		_, err := ParsePostgreSQLXid(valid)
+		assert.NoError(t, err, "Expected no error for valid format: %s", valid)
 	}
 }
 
@@ -166,8 +192,7 @@ func TestXidStringFormats(t *testing.T) {
 		WithDatabaseType(types.DBTypePostgreSQL),
 	)
 	pgString := pgXid.String()
-	assert.NotEqual(t, pgString, "test-xid-456")
-	assert.Contains(t, pgString, "1_")
+	assert.Equal(t, pgString, "test-xid-456")
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {

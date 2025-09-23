@@ -526,7 +526,7 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 				Number:  1234,
 				Message: "The command cannot be executed when global transaction is in the IDLE state",
 			},
-			want: false,
+			want: true,
 		},
 	}
 

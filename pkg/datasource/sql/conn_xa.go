@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
 	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"time"
@@ -425,12 +426,45 @@ func isXAER_RMFAILAlreadyEnded(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
 			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
 		}
 	}
-	// TODO: handle other DB errors
+
+	if pgErr, ok := err.(*pq.Error); ok {
+		return isPostgreSQLXAAlreadyEnded(pgErr)
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "idle") ||
+		strings.Contains(errMsg, "already ended") ||
+		strings.Contains(errMsg, "no active") ||
+		strings.Contains(errMsg, "invalid transaction state")
+}
+
+func isPostgreSQLXAAlreadyEnded(pgErr *pq.Error) bool {
+	if pgErr == nil {
+		return false
+	}
+
+	switch pgErr.Code {
+	case types.PostgreSQLErrCodeNoActiveSQLTx:
+		return true
+	case types.PostgreSQLErrCodeIdleInTx:
+		return true
+	case types.PostgreSQLErrCodeFailedSQLTx:
+		return strings.Contains(strings.ToLower(pgErr.Message), "already") ||
+			strings.Contains(strings.ToLower(pgErr.Message), "ended")
+	}
+
+	if pgErr.Code.Class() == types.PostgreSQLErrClassInvalidTxState {
+		message := strings.ToLower(pgErr.Message)
+		return strings.Contains(message, "idle") ||
+			strings.Contains(message, "already ended") ||
+			strings.Contains(message, "no active")
+	}
 
 	return false
 }
