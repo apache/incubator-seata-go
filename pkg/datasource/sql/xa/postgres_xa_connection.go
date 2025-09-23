@@ -34,6 +34,7 @@ type PostgresqlXAConn struct {
 	tx            driver.Tx
 	prepared      bool
 	preparedXid   string
+	timeout       time.Duration
 }
 
 func NewPostgresqlXaConn(conn driver.Conn, tx driver.Tx) *PostgresqlXAConn {
@@ -134,7 +135,7 @@ func (c *PostgresqlXAConn) Forget(ctx context.Context, xid string) error {
 }
 
 func (c *PostgresqlXAConn) GetTransactionTimeout() time.Duration {
-	return 0
+	return c.timeout
 }
 
 func (c *PostgresqlXAConn) IsSameRM(ctx context.Context, resource XAResource) bool {
@@ -241,7 +242,26 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 }
 
 func (c *PostgresqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
-	return false
+	if duration <= 0 {
+		return false
+	}
+	
+	connExec, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return false
+	}
+	
+	timeoutMs := int(duration.Milliseconds())
+	query := fmt.Sprintf("SET LOCAL statement_timeout = %d", timeoutMs)
+	
+	_, err := connExec.ExecContext(context.Background(), query, nil)
+	if err != nil {
+		log.Errorf("failed to set postgresql transaction timeout: %v", err)
+		return false
+	}
+	
+	c.timeout = duration
+	return true
 }
 
 func (c *PostgresqlXAConn) Start(ctx context.Context, xid string, flags int) error {

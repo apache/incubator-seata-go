@@ -365,3 +365,21 @@ const (
 	// Triggered by malformed XID (e.g., invalid gtrid/branchid format or excessive length)
 	ErrCodeXAER_INVAL = 1400
 )
+
+// PostgreSQL XA transaction error codes
+const (
+	// PostgreSQL error class 25000: invalid transaction state
+	PostgreSQLErrClassInvalidTxState = "25000"
+	
+	// PostgreSQL error code 25001: active SQL transaction
+	PostgreSQLErrCodeActiveSQLTx = "25001"
+	
+	// PostgreSQL error code 25P01: no active SQL transaction
+	PostgreSQLErrCodeNoActiveSQLTx = "25P01"
+	
+	// PostgreSQL error code 25P02: in failed SQL transaction
+	PostgreSQLErrCodeFailedSQLTx = "25P02"
+	
+	// PostgreSQL error code 25P03: idle in transaction
+	PostgreSQLErrCodeIdleInTx = "25P03"
+)
