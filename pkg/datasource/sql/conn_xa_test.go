@@ -21,11 +21,14 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"io"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -86,7 +89,6 @@ var simulateExecContextError func(query string) error
 func baseMockConn(t *testing.T, mockConn *mock.MockTestDriverConn, config dbTestConfig) {
 	if branchStatusCache == nil {
 		branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
-		t.Logf("branchStatusCache initialized in test (was nil before)")
 	}
 
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
@@ -251,9 +253,6 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 				t.Fatalf("baseTx.target binding error! Expected mockTx (address: %p), got %T (address: %p)",
 					mockTx, baseTx.target, baseTx.target)
 			}
-			// Log to confirm the target is bound successfully
-			t.Logf("baseTx.target bound successfully: type=%T, address=%p (mockTx address=%p)",
-				baseTx.target, baseTx.target, mockTx)
 
 			txAdapter := &mockTxAdapter{
 				baseTx: baseTx,
@@ -277,15 +276,6 @@ func initXAConnTestResource(t *testing.T, ctrl *gomock.Controller, config dbTest
 					},
 				)
 
-			mockConn.EXPECT().ExecContext(
-				gomock.Any(),
-				gomock.Any(),
-				gomock.Any(),
-			).AnyTimes().DoAndReturn(
-				func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-					return &driver.ResultNoRows, nil
-				},
-			)
 
 			baseMockConn(t, mockConn, config)
 
@@ -552,7 +542,9 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 
 // Covers the XA rollback flow when End() returns XAER_RMFAIL (IDLE/already ended)
 func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
-	ctrl, db, _, ti := initXAConnTestResource(t)
+	ctrl := gomock.NewController(t)
+	config := getAllDBTestConfigs()[0] // Use first config for this test
+	db, _, ti := initXAConnTestResource(t, ctrl, config)
 	defer func() {
 		simulateExecContextError = nil
 		db.Close()

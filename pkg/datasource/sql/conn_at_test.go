@@ -104,10 +104,8 @@ func TestATConn_ExecContext(t *testing.T) {
 				ctx := tm.InitSeataContext(context.Background())
 				xid := uuid.New().String()
 				tm.SetXID(ctx, xid)
-				t.Logf("set xid=%s", tm.GetXID(ctx))
 
 				beforeHook := func(_ context.Context, execCtx *types.ExecContext) {
-					t.Logf("on exec xid=%s", execCtx.TxCtx.XID)
 					assert.Equal(t, xid, execCtx.TxCtx.XID)
 					assert.Equal(t, types.ATMode, execCtx.TxCtx.TransactionMode)
 				}
@@ -253,6 +251,8 @@ func TestATConn_BeginTx(t *testing.T) {
 				err = tx.Commit()
 				assert.NoError(t, err)
 
-		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
-	})
+				assert.Equal(t, int32(1), atomic.LoadInt32(&commitCnt))
+			})
+		})
+	}
 }

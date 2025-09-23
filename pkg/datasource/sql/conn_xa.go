@@ -215,7 +215,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	if err != nil {
 		// XA End & Rollback
 		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-			log.Errorf("failed to rollback xa branch of :%s, err:%w", c.txCtx.XID, rollbackErr)
+			log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 		}
 		return nil, err
 	}
