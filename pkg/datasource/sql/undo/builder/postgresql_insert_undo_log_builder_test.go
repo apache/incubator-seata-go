@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
@@ -164,10 +165,10 @@ func TestPostgreSQLInsertUndoLogBuilder_buildSelectSQLByPKValues_EmptyValues(t *
 }
 
 func TestPostgreSQLInsertUndoLogBuilder_getPkValues_LastInsertIdSuccess(t *testing.T) {
-	insertResult := NewMockInsertResult(100, 2)
+	insertResult := mock.NewMockInsertResult(100, 2)
 
 	builder := &PostgreSQLInsertUndoLogBuilder{
-		InsertResult: &insertResult,
+		InsertResult: insertResult,
 	}
 
 	parseCtx := &types.ParseContext{}
@@ -236,5 +237,78 @@ func containsInner(str, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestPostgreSQLInsertUndoLogBuilder_extractPkValuesFromReturning_Success(t *testing.T) {
+	builder := &PostgreSQLInsertUndoLogBuilder{}
+	
+	data := [][]driver.Value{
+		{int64(100), "test1"},
+		{int64(101), "test2"},
+	}
+	rows := mock.NewSimpleDriverRows([]string{"id", "name"}, data)
+	
+	pkColumns := []string{"id"}
+
+	pkValuesMap, err := builder.extractPkValuesFromReturning(rows, pkColumns)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	
+	if _, exists := pkValuesMap["id"]; !exists {
+		t.Error("Expected 'id' key in pkValuesMap")
+	}
+	
+	expectedValues := []driver.Value{int64(100), int64(101)}
+	actualValues := pkValuesMap["id"]
+	
+	if len(actualValues) != len(expectedValues) {
+		t.Errorf("Expected %d values, got %d", len(expectedValues), len(actualValues))
+	}
+	
+	for i, expected := range expectedValues {
+		if i < len(actualValues) && actualValues[i] != expected {
+			t.Errorf("Expected value[%d] = %v, got %v", i, expected, actualValues[i])
+		}
+	}
+}
+
+func TestPostgreSQLInsertUndoLogBuilder_getPkValues_WithReturningResult(t *testing.T) {
+	data := [][]driver.Value{
+		{int64(100), "test1"},
+		{int64(101), "test2"},
+	}
+	rows := mock.NewSimpleDriverRows([]string{"id", "name"}, data)
+	
+	insertResult := mock.NewMockInsertResultWithRows(2, rows)
+
+	builder := &PostgreSQLInsertUndoLogBuilder{
+		InsertResult: insertResult,
+	}
+
+	parseCtx := &types.ParseContext{}
+	meta := types.TableMeta{
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id", ColumnKey: "PRI"},
+		},
+	}
+
+	pkValuesMap, err := builder.getPkValues(nil, parseCtx, meta)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	
+	if _, exists := pkValuesMap["id"]; !exists {
+		t.Error("Expected 'id' key in pkValuesMap")
+	}
+	
+	expectedValues := []driver.Value{int64(100), int64(101)}
+	actualValues := pkValuesMap["id"]
+	
+	if len(actualValues) != len(expectedValues) {
+		t.Errorf("Expected %d values, got %d", len(expectedValues), len(actualValues))
+	}
 }
 

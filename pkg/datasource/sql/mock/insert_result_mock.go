@@ -50,9 +50,46 @@ func (m *MockInsertResult) GetRows() driver.Rows {
 	if m.Rows != nil {
 		return m.Rows
 	}
-	return &MockTestDriverRows{}
+	return nil
 }
 
 func (m *MockInsertResult) GetResult() driver.Result {
 	return sqlmock.NewResult(m.LastInsertID, m.RowsAffected)
+}
+
+type SimpleDriverRows struct {
+	data    [][]driver.Value
+	columns []string
+	index   int
+}
+
+func NewSimpleDriverRows(columns []string, data [][]driver.Value) *SimpleDriverRows {
+	return &SimpleDriverRows{
+		columns: columns,
+		data:    data,
+		index:   -1,
+	}
+}
+
+func (s *SimpleDriverRows) Columns() []string {
+	return s.columns
+}
+
+func (s *SimpleDriverRows) Close() error {
+	return nil
+}
+
+func (s *SimpleDriverRows) Next(dest []driver.Value) error {
+	s.index++
+	if s.index >= len(s.data) {
+		return driver.ErrBadConn
+	}
+	
+	row := s.data[s.index]
+	for i, val := range row {
+		if i < len(dest) {
+			dest[i] = val
+		}
+	}
+	return nil
 }

@@ -89,14 +89,11 @@ func (p *postgreSQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string
 	insertSQL.WriteString(" (")
 
 	var columns []string
-	var placeholders []string
 	paramIndex := 1
 
 	if len(beforeImage.Rows) > 0 {
 		for _, column := range beforeImage.Rows[0].Columns {
 			columns = append(columns, fmt.Sprintf(`"%s"`, column.ColumnName))
-			placeholders = append(placeholders, fmt.Sprintf("$%d", paramIndex))
-			paramIndex++
 		}
 	}
 
@@ -107,8 +104,9 @@ func (p *postgreSQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string
 	for _, row := range beforeImage.Rows {
 		var rowPlaceholders []string
 		for _, column := range row.Columns {
-			rowPlaceholders = append(rowPlaceholders, fmt.Sprintf("$%d", len(params)+1))
+			rowPlaceholders = append(rowPlaceholders, fmt.Sprintf("$%d", paramIndex))
 			params = append(params, column.Value)
+			paramIndex++
 		}
 		valuesClauses = append(valuesClauses, "("+strings.Join(rowPlaceholders, ", ")+")")
 	}

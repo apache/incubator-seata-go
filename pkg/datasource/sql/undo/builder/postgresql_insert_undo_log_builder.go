@@ -141,10 +141,25 @@ func (p *PostgreSQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext,
 	pkValuesMap := make(map[string][]driver.Value)
 	pkColumns := meta.GetPrimaryKeyOnlyName()
 
+	if p.InsertResult != nil {
+		rows := p.InsertResult.GetRows()
+		if rows != nil {
+			pkValuesFromReturning, err := p.extractPkValuesFromReturning(rows, pkColumns)
+			if err == nil && len(pkValuesFromReturning) > 0 {
+				return pkValuesFromReturning, nil
+			}
+		}
+	}
+
+	pkValuesFromInsert, err := p.extractPkValuesFromInsert(parseCtx, meta)
+	if err == nil && len(pkValuesFromInsert) > 0 {
+		return pkValuesFromInsert, nil
+	}
+
 	if len(pkColumns) == 1 && p.InsertResult != nil && p.InsertResult.GetResult() != nil {
 		result := p.InsertResult.GetResult()
 		lastInsertId, err := result.LastInsertId()
-		if err == nil && lastInsertId != 0 {
+		if err == nil && lastInsertId > 0 {
 			rowsAffected, err := result.RowsAffected()
 			if err != nil {
 				return nil, err
@@ -159,17 +174,12 @@ func (p *PostgreSQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext,
 		}
 	}
 
-	pkValuesFromInsert, err := p.extractPkValuesFromInsert(parseCtx, meta)
-	if err == nil && len(pkValuesFromInsert) > 0 {
-		return pkValuesFromInsert, nil
-	}
-
 	seqValues, err := p.getPkValuesFromSequence(execCtx, meta)
 	if err == nil && len(seqValues) > 0 {
 		return seqValues, nil
 	}
 
-	return nil, fmt.Errorf("PostgreSQL insert primary key detection failed: cannot determine primary key values. Consider using RETURNING clause in INSERT statement")
+	return nil, fmt.Errorf("PostgreSQL insert primary key detection failed: cannot determine primary key values. Recommend using INSERT ... RETURNING to capture primary key values")
 }
 
 func (p *PostgreSQLInsertUndoLogBuilder) extractPkValuesFromInsert(parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]driver.Value, error) {
@@ -345,6 +355,59 @@ func (p *PostgreSQLInsertUndoLogBuilder) querySequenceValues(execCtx *types.Exec
 	}
 
 	return result, nil
+}
+
+func (p *PostgreSQLInsertUndoLogBuilder) extractPkValuesFromReturning(rows driver.Rows, pkColumns []string) (map[string][]driver.Value, error) {
+	if rows == nil || len(pkColumns) == 0 {
+		return nil, fmt.Errorf("no rows or primary key columns provided")
+	}
+
+	pkValuesMap := make(map[string][]driver.Value)
+	for _, pkCol := range pkColumns {
+		pkValuesMap[pkCol] = make([]driver.Value, 0)
+	}
+
+	columns := rows.Columns()
+	if columns == nil || len(columns) == 0 {
+		return nil, fmt.Errorf("no columns in RETURNING result")
+	}
+
+	pkIndexMap := make(map[string]int)
+	for i, colName := range columns {
+		cleanColName := strings.Trim(colName, `" `)
+		for _, pkCol := range pkColumns {
+			if strings.EqualFold(cleanColName, pkCol) {
+				pkIndexMap[pkCol] = i
+				break
+			}
+		}
+	}
+
+	if len(pkIndexMap) == 0 {
+		return nil, fmt.Errorf("no primary key columns found in RETURNING result")
+	}
+
+	values := make([]driver.Value, len(columns))
+	for {
+		err := rows.Next(values)
+		if err != nil {
+			break
+		}
+
+		for pkCol, index := range pkIndexMap {
+			if index < len(values) && values[index] != nil {
+				pkValuesMap[pkCol] = append(pkValuesMap[pkCol], values[index])
+			}
+		}
+	}
+
+	for pkCol, vals := range pkValuesMap {
+		if len(vals) == 0 {
+			return nil, fmt.Errorf("no values found for primary key column: %s", pkCol)
+		}
+	}
+
+	return pkValuesMap, nil
 }
 
 // buildSelectSQLByPKValues build select SQL using primary key values for PostgreSQL
