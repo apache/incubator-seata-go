@@ -16,6 +16,8 @@
 #
 
 VERSION=$(shell cat "./VERSION" 2> /dev/null)
+GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+GIT_REVISION=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 GO_FLAGS := -ldflags "-X main.Branch=$(GIT_BRANCH) -X main.Revision=$(GIT_REVISION) -X main.Version=$(VERSION) -extldflags \"-static\" -s -w" -tags netgo
 GO = go
