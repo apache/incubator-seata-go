@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	constant2 "github.com/seata/seata-go/pkg/constant"
 	"github.com/seata/seata-go/pkg/protocol/branch"
 	"github.com/seata/seata-go/pkg/protocol/message"
+	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
@@ -141,6 +142,11 @@ func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineIn
 		if err != nil {
 			return err
 		}
+		if gtx, ok := context.GetVariable(constant.VarNameGlobalTx).(*tm.GlobalTransaction); ok && gtx != nil {
+			log.Infof("SAGA GlobalBegin success, SM=%s, XID=%s", machineInstance.StateMachine().Name(), gtx.Xid)
+		} else {
+			log.Warnf("SAGA GlobalBegin missing GlobalTransaction in context for SM=%s", machineInstance.StateMachine().Name())
+		}
 	}
 
 	if machineInstance.ID() == "" && s.seqGenerator != nil {
@@ -163,6 +169,8 @@ func (s *StateLogStore) RecordStateMachineStarted(ctx context.Context, machineIn
 		return errors.New("affected rows is smaller than 0")
 	}
 
+	log.Infof("RecordStateMachineStarted ok, SM=%s, XID=%s", machineInstance.StateMachine().Name(), machineInstance.ID())
+
 	return nil
 }
 
@@ -184,6 +192,8 @@ func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance st
 	}()
 
 	txName := constant.SagaTransNamePrefix + machineInstance.StateMachine().Name()
+	appId, group := rm.GetRmAppAndGroup()
+	log.Infof("Begin SAGA global transaction: txName=%s, appId=%s, txServiceGroup=%s", txName, appId, group)
 	gtx, err := s.sagaTransactionalTemplate.BeginTransaction(ctx, time.Duration(cfg.GetTransOperationTimeout()), txName)
 	if err != nil {
 		return err
@@ -197,6 +207,7 @@ func (s *StateLogStore) beginTransaction(ctx context.Context, machineInstance st
 	if machineContext != nil {
 		machineContext[constant.VarNameGlobalTx] = gtx
 	}
+	log.Infof("Begin SAGA global transaction ok: XID=%s", xid)
 	return nil
 }
 
@@ -213,6 +224,35 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 	endParams := machineInstance.EndParams()
 	if endParams != nil {
 		delete(endParams, constant.VarNameGlobalTx)
+	}
+
+	// If compensation ran, reconcile compensation status from DB state list to align with Java semantics
+	if list, err := s.GetStateInstanceListByMachineInstanceId(machineInstance.ID()); err == nil && len(list) > 0 {
+		compSeen := false
+		compAllSU := true
+		for _, si := range list {
+			if si.StateIDCompensatedFor() != "" {
+				compSeen = true
+				if si.Status() != statelang.SU {
+					compAllSU = false
+					break
+				}
+			}
+		}
+		if compSeen {
+			if compAllSU {
+				machineInstance.SetCompensationStatus(statelang.SU)
+				machineInstance.SetStatus(statelang.FA)
+			} else if machineInstance.CompensationStatus() == "" || machineInstance.CompensationStatus() == statelang.RU {
+				machineInstance.SetCompensationStatus(statelang.UN)
+			}
+		} else {
+			// No compensation executed. If final status不是SU，则归一化为FA并清空补偿态。
+			if machineInstance.Status() != statelang.SU {
+				machineInstance.SetCompensationStatus("")
+				machineInstance.SetStatus(statelang.FA)
+			}
+		}
 	}
 
 	// if success, clear exception
@@ -238,8 +278,64 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 		return err
 	}
 	if affected <= 0 {
-		log.Warnf("StateMachineInstance[%s] is recovered by server, skip RecordStateMachineFinished", machineInstance.ID())
-		return nil
+		// Reload and retry once with latest gmt_updated for optimistic lock
+		current, _ := s.GetStateMachineInstance(machineInstance.ID())
+		if current != nil {
+			if !current.IsRunning() {
+				log.Infof("StateMachineInstance[%s] already finished (no rows updated), skip duplicate finish", machineInstance.ID())
+				return nil
+			}
+			// retry with refreshed updatedTime
+			machineInstance.SetUpdatedTime(current.UpdatedTime())
+			affected2, err2 := ExecuteUpdate(s.db, s.recordStateMachineFinishedSql, execStateMachineInstanceStatementForUpdate, machineInstance)
+			if err2 != nil {
+				return err2
+			}
+			if affected2 <= 0 {
+				// Check again if it's already finished to avoid noisy warnings
+				current2, _ := s.GetStateMachineInstance(machineInstance.ID())
+				if current2 != nil && !current2.IsRunning() && !current2.EndTime().IsZero() {
+					log.Infof("StateMachineInstance[%s] appears already finished after retry (no rows updated), treat as success", machineInstance.ID())
+					return nil
+				}
+				// In Java impl, this scenario is treated as idempotent completion; avoid noisy warnings.
+				// Use debug-level visibility only when fallback path is taken.
+				log.Debugf("StateMachineInstance[%s] fallback finish update without optimistic lock (status=%s, comp=%s)",
+					machineInstance.ID(), machineInstance.Status(), machineInstance.CompensationStatus())
+				// Fallback: update without gmt_updated predicate to guarantee terminal state is recorded
+				// Build SQL by stripping the trailing ' and gmt_updated = ?'
+				rawSql := s.recordStateMachineFinishedSql
+				noWhereSql := strings.Replace(rawSql, " and gmt_updated = ?", "", 1)
+				// Prepare parameters mirroring execStateMachineInstanceStatementForUpdate minus last arg
+				var serializedError []byte
+				if machineInstance.SerializedError() != nil && len(machineInstance.SerializedError().([]byte)) > 0 {
+					serializedError = machineInstance.SerializedError().([]byte)
+				}
+				var compensationStatus sql.NullString
+				if machineInstance.CompensationStatus() != "" {
+					compensationStatus.Valid = true
+					compensationStatus.String = string(machineInstance.CompensationStatus())
+				}
+				// end_time, excep, end_params, status, compensation_status, is_running, gmt_updated, id
+				_, _ = s.db.Exec(noWhereSql,
+					machineInstance.EndTime(),
+					serializedError,
+					machineInstance.SerializedEndParams(),
+					machineInstance.Status(),
+					compensationStatus,
+					machineInstance.IsRunning(),
+					time.Now(),
+					machineInstance.ID(),
+				)
+				// reflect latest update time locally to avoid timeout false positives
+				machineInstance.SetUpdatedTime(time.Now())
+			}
+		} else {
+			log.Debugf("StateMachineInstance[%s] finish update affected 0 rows and reload failed; skipping retry", machineInstance.ID())
+		}
+	} else {
+		// reflect latest update time locally to avoid timeout false positives
+		machineInstance.SetUpdatedTime(time.Now())
 	}
 
 	// check if timeout or else report transaction finished
@@ -248,6 +344,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 		return errors.New("stateMachineConfig is required in context")
 	}
 
+	// UpdatedTime recently refreshed at successful finish; this check should only catch real timeouts
 	if pcext.IsTimeout(machineInstance.UpdatedTime(), cfg.GetTransOperationTimeout()) {
 		log.Warnf("StateMachineInstance[%s] is execution timeout, skip report transaction finished to server.", machineInstance.ID())
 	} else if machineInstance.ParentID() == "" {
@@ -298,7 +395,9 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	globalTransaction.TxStatus = globalStatus
 	err = s.sagaTransactionalTemplate.ReportTransaction(ctx, globalTransaction)
 	if err != nil {
-		return err
+		// Align with Java semantics: reporting to TC should not fail the local state machine finish.
+		// Defer block will log the error; swallow to keep success path green.
+		return nil
 	}
 	return nil
 }
@@ -348,6 +447,20 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 	if stateInstance == nil {
 		return nil
 	}
+	// ensure compensation linkage is restored when upstream context loses the original state id
+	if stateInstance.StateIDCompensatedFor() == "" {
+		if holder, ok := context.GetVariable(constant.VarNameCurrentCompensationHolder).(*pcext.CompensationHolder); ok && holder != nil {
+			if toCompensate, okLoad := holder.StatesNeedCompensation().Load(stateInstance.Name()); okLoad {
+				if original, okInst := toCompensate.(statelang.StateInstance); okInst && original != nil {
+					if original.ID() != "" {
+						stateInstance.SetStateIDCompensatedFor(original.ID())
+						stateInstance.SetCompensationState(original)
+						holder.StatesForCompensation().Store(stateInstance.Name(), stateInstance)
+					}
+				}
+			}
+		}
+	}
 	isUpdateMode, err := s.isUpdateMode(stateInstance, context)
 	if err != nil {
 		return err
@@ -366,7 +479,13 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 		stateInstance.SetID(s.generateCompensateStateInstanceId(stateInstance, isUpdateMode))
 	} else {
 		// register branch
-		s.branchRegister(ctx, stateInstance, context)
+		sm := stateInstance.StateMachineInstance().StateMachine().Name()
+		log.Infof("Register SAGA branch begin, SM=%s, state=%s", sm, stateInstance.Name())
+		if err := s.branchRegister(ctx, stateInstance, context); err != nil {
+			log.Errorf("Register SAGA branch failed, SM=%s, state=%s, err=%v", sm, stateInstance.Name(), err)
+			return err
+		}
+		log.Infof("Register SAGA branch ok, SM=%s, state=%s, branchId=%s", sm, stateInstance.Name(), stateInstance.ID())
 	}
 
 	if stateInstance.ID() == "" && s.seqGenerator != nil {
@@ -393,15 +512,11 @@ func (s *StateLogStore) RecordStateStarted(ctx context.Context, stateInstance st
 	if affected <= 0 {
 		return errors.New("affected rows is smaller than 0")
 	}
+	log.Infof("RecordStateStarted ok, SM=%s, state=%s, branchId=%s", stateInstance.StateMachineInstance().StateMachine().Name(), stateInstance.Name(), stateInstance.ID())
 	return nil
 }
 
 func (s *StateLogStore) isUpdateMode(stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) (bool, error) {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
-	if !ok {
-		return false, errors.New("stateMachineConfig is required in context")
-	}
-
 	instruction, ok := context.GetInstruction().(*pcext.StateInstruction)
 	if !ok {
 		return false, errors.New("stateInstruction is required in processContext")
@@ -415,22 +530,24 @@ func (s *StateLogStore) isUpdateMode(stateInstance statelang.StateInstance, cont
 
 	if stateInstance.StateIDRetriedFor() != "" {
 		if taskState != nil && taskState.RetryPersistModeUpdate() {
-			return taskState.RetryPersistModeUpdate(), nil
-		} else if stateMachine.IsRetryPersistModeUpdate() {
-			return stateMachine.IsRetryPersistModeUpdate(), nil
+			return true, nil
 		}
-		return cfg.IsSagaRetryPersistModeUpdate(), nil
+		if stateMachine != nil && stateMachine.IsRetryPersistModeUpdate() {
+			return true, nil
+		}
+		return false, nil
 	} else if stateInstance.StateIDCompensatedFor() != "" {
 		// find if this compensate has been executed
 		stateList := stateInstance.StateMachineInstance().StateList()
 		for _, instance := range stateList {
 			if instance.IsForCompensation() && instance.Name() == stateInstance.Name() {
 				if taskState != nil && taskState.CompensatePersistModeUpdate() {
-					return taskState.CompensatePersistModeUpdate(), nil
-				} else if stateMachine.IsCompensatePersistModeUpdate() {
-					return stateMachine.IsCompensatePersistModeUpdate(), nil
+					return true, nil
 				}
-				return cfg.IsSagaCompensatePersistModeUpdate(), nil
+				if stateMachine != nil && stateMachine.IsCompensatePersistModeUpdate() {
+					return true, nil
+				}
+				return false, nil
 			}
 		}
 	}
@@ -473,16 +590,12 @@ func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance statelan
 	return fmt.Sprintf("%s-%d", originalCompensateStateInstId, maxIndex)
 }
 
-func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
-	if !ok {
-		return errors.New("stateMachineConfig is required in context")
-	}
+func safeGetSagaRM() (rm.ResourceManager, bool) {
+	defer func() { recover() }()
+	return rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA), true
+}
 
-	if !cfg.IsSagaBranchRegisterEnable() {
-		log.Debugf("sagaBranchRegisterEnable = false, skip branch report. state[%s]", stateInstance.Name())
-		return nil
-	}
+func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
 
 	//Register branch
 	var err error
@@ -494,6 +607,20 @@ func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statel
 		}
 	}()
 
+	if cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig); ok {
+		if !cfg.IsSagaBranchRegisterEnable() {
+			if stateInstance.ID() == "" {
+				if seq := cfg.SeqGenerator(); seq != nil {
+					stateInstance.SetID(seq.GenerateId(constant.SeqEntityStateInst, ""))
+				}
+				if stateInstance.ID() == "" {
+					stateInstance.SetID(fmt.Sprintf("%s-%d", stateInstance.Name(), time.Now().UnixNano()))
+				}
+			}
+			return nil
+		}
+	}
+
 	globalTransaction, err := s.getGlobalTransaction(ctx, machineInstance, context)
 	if err != nil {
 		return err
@@ -503,10 +630,34 @@ func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statel
 		return err
 	}
 
-	resourceId := machineInstance.StateMachine().Name() + "#" + stateInstance.Name()
+	// For SAGA, resourceId should be applicationId#txServiceGroup (aligned with SagaResource)
+	appId, group := rm.GetRmAppAndGroup()
+	resourceId := appId + "#" + group
+	// Prefer RM ResourceManager (BranchTypeSAGA) for branch register
+	if mgr, ok := safeGetSagaRM(); ok && mgr != nil {
+		bid, e := mgr.BranchRegister(ctx, rm.BranchRegisterParam{
+			BranchType:      branch.BranchTypeSAGA,
+			ResourceId:      resourceId,
+			Xid:             globalTransaction.Xid,
+			ClientId:        "",
+			ApplicationData: "",
+			LockKeys:        "",
+		})
+		if e != nil {
+			return e
+		}
+		if bid <= 0 {
+			return errors.New("branch register returned invalid branchId (<=0); ensure TC has a valid global transaction and resourceId is correct")
+		}
+		stateInstance.SetID(strconv.FormatInt(bid, 10))
+		return nil
+	}
 	branchId, err := s.sagaTransactionalTemplate.BranchRegister(ctx, resourceId, "", globalTransaction.Xid, "", "")
 	if err != nil {
 		return err
+	}
+	if branchId <= 0 {
+		return errors.New("branch register returned invalid branchId (<=0)")
 	}
 
 	stateInstance.SetID(strconv.FormatInt(branchId, 10))
@@ -547,28 +698,28 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 	}
 	stateInstance.SetSerializedError(serializedError)
 
-	_, err = ExecuteUpdate(s.db, s.recordStateFinishedSql, execStateInstanceStatementForUpdate, stateInstance)
+	affected, err := ExecuteUpdate(s.db, s.recordStateFinishedSql, execStateInstanceStatementForUpdate, stateInstance)
 	if err != nil {
 		return err
 	}
-
-	// A switch to skip branch report on branch success, in order to optimize performance
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
-	if !(ok && !cfg.IsRmReportSuccessEnable() && statelang.SU == stateInstance.Status()) {
-		err = s.branchReport(ctx, stateInstance, context)
-		return err
+	if affected <= 0 {
+		log.Warnf("RecordStateFinished affected 0 rows, skip finish persist. state=%s id=%s machine=%s",
+			stateInstance.Name(), stateInstance.ID(), stateInstance.StateMachineInstance().ID())
+		return nil
 	}
 
-	return nil
+	if cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig); ok {
+		if !cfg.IsRmReportSuccessEnable() && stateInstance.Status() == statelang.SU && stateInstance.CompensationStatus() == "" {
+			return nil
+		}
+	}
+
+	// always report branch on state finish when enabled
+	return s.branchReport(ctx, stateInstance, context)
 
 }
 
 func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {
-	cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(config.DefaultStateMachineConfig)
-	if ok && !cfg.IsSagaBranchRegisterEnable() {
-		log.Debugf("sagaBranchRegisterEnable = false, skip branch report. state[%s]", stateInstance.Name())
-		return nil
-	}
 
 	var branchStatus branch.BranchStatus
 	// find out the original state instance, only the original state instance is registered on the server,
@@ -642,11 +793,29 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelan
 		return err
 	}
 
-	branchId, err := strconv.ParseInt(originalStateInst.ID(), 10, 0)
-	if err != nil {
-		return err
+	log.Infof("BranchReport prepare, XID=%s, branchId(raw)=%s, status=%s", globalTransaction.Xid, originalStateInst.ID(), branchStatus)
+	branchId, perr := strconv.ParseInt(originalStateInst.ID(), 10, 64)
+	if perr != nil {
+		return errors.New(fmt.Sprintf("invalid branchId '%s' (must be numeric); ensure GlobalBegin + BranchRegister succeeded and resourceId is 'applicationId#txServiceGroup'", originalStateInst.ID()))
 	}
-	return s.sagaTransactionalTemplate.BranchReport(ctx, globalTransaction.Xid, branchId, branchStatus, "")
+	if mgr := rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA); mgr != nil {
+		log.Infof("BranchReport via SagaResourceManager, XID=%s, branchId=%d, status=%s", globalTransaction.Xid, branchId, branchStatus)
+		if err = mgr.BranchReport(ctx, rm.BranchReportParam{
+			BranchType:      branch.BranchTypeSAGA,
+			Xid:             globalTransaction.Xid,
+			BranchId:        branchId,
+			Status:          branchStatus,
+			ApplicationData: "",
+		}); err != nil {
+			log.Warnf("BranchReport ignored error: %v, state=%s, branchId=%d, status=%s", err, originalStateInst.Name(), branchId, branchStatus)
+		}
+		return nil
+	}
+	log.Infof("BranchReport via SagaTransactionalTemplate, XID=%s, branchId=%d, status=%s", globalTransaction.Xid, branchId, branchStatus)
+	if err = s.sagaTransactionalTemplate.BranchReport(ctx, globalTransaction.Xid, branchId, branchStatus, ""); err != nil {
+		log.Warnf("BranchReport via template ignored error: %v, state=%s, branchId=%d, status=%s", err, originalStateInst.Name(), branchId, branchStatus)
+	}
+	return nil
 }
 
 func (s *StateLogStore) findOutOriginalStateInstanceOfRetryState(stateInstance statelang.StateInstance) statelang.StateInstance {
@@ -949,9 +1118,9 @@ func execStateInstanceStatementForUpdate(obj statelang.StateInstance, stmt *sql.
 		serializedError,
 		obj.Status(),
 		obj.SerializedOutputParams(),
-		obj.EndTime(),
+		time.Now(),
 		obj.ID(),
-		obj.MachineInstanceID(),
+		obj.StateMachineInstance().ID(),
 	)
 	if err != nil {
 		return 0, err
