@@ -103,8 +103,12 @@ func (p *postgreSQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string
 // convertToPostgreSQLParams converts ? placeholders to PostgreSQL $1, $2, ... format
 func convertToPostgreSQLParams(sql string, paramCount int) string {
 	result := sql
-	for i := 1; i <= paramCount; i++ {
-		result = strings.Replace(result, "?", fmt.Sprintf("$%d", i), 1)
+	paramIndex := 1
+	
+	for strings.Contains(result, "?") && paramIndex <= paramCount {
+		result = strings.Replace(result, "?", fmt.Sprintf("$%d", paramIndex), 1)
+		paramIndex++
 	}
+	
 	return result
 }

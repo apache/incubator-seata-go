@@ -34,7 +34,7 @@ func TestPostgresqlTrigger_LoadOne_Success(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		}).AddRow(tableName, dbName, "id", "integer", "integer", "NO", nil, "auto_increment").
@@ -42,12 +42,12 @@ func TestPostgresqlTrigger_LoadOne_Success(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.table_constraints").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{"column_name"}).AddRow("id"))
 
 	mock.ExpectPrepare("SELECT .* FROM .*pg_catalog.pg_index").
 		ExpectQuery().
-		WithArgs(tableName).
+		WithArgs(tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"index_name", "column_name", "non_unique",
 		}).AddRow("idx_id", "id", int64(0)))
@@ -71,19 +71,19 @@ func TestPostgresqlTrigger_LoadOne_NoIndex(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		}).AddRow(tableName, dbName, "id", "integer", "integer", "NO", nil, "auto_increment"))
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.table_constraints").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{"column_name"}).AddRow("id"))
 
 	mock.ExpectPrepare("SELECT .* FROM .*pg_catalog.pg_index").
 		ExpectQuery().
-		WithArgs(tableName).
+		WithArgs(tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"index_name", "column_name", "non_unique",
 		})) // no indexes
@@ -103,7 +103,7 @@ func TestPostgresqlTrigger_LoadOne_ScanColumnFail(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		}).AddRow("bad", nil, nil, nil, nil, nil, nil, nil)) // Scan will fail
@@ -122,7 +122,7 @@ func TestPostgresqlTrigger_LoadOne_EmptyColumns(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		})) // no rows
@@ -141,7 +141,7 @@ func TestPostgresqlTrigger_LoadOne_QueryColumnFail(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnError(errors.New("query failed"))
 
 	tr := NewPostgresqlTrigger()
@@ -159,7 +159,7 @@ func TestPostgresqlTrigger_LoadOne_QueryIndexFail(t *testing.T) {
 	// Column query OK
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		}).AddRow(tableName, dbName, "id", "int", "int", "NO", nil, ""))
@@ -167,13 +167,13 @@ func TestPostgresqlTrigger_LoadOne_QueryIndexFail(t *testing.T) {
 	// Primary key OK
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.table_constraints").
 		ExpectQuery().
-		WithArgs(dbName, tableName).
+		WithArgs(dbName, tableName, "").
 		WillReturnRows(sqlmock.NewRows([]string{"column_name"}).AddRow("id"))
 
 	// Index fails
 	mock.ExpectPrepare("SELECT .* FROM .*pg_catalog.pg_index").
 		ExpectQuery().
-		WithArgs(tableName).
+		WithArgs(tableName, "").
 		WillReturnError(errors.New("index query failed"))
 
 	tr := NewPostgresqlTrigger()
@@ -190,19 +190,19 @@ func TestPostgresqlTrigger_LoadAll_MultipleTables(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.columns").
 		ExpectQuery().
-		WithArgs(dbName, table).
+		WithArgs(dbName, table, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"table_name", "table_catalog", "column_name", "data_type", "column_type", "is_nullable", "column_default", "extra",
 		}).AddRow(table, dbName, "id", "integer", "integer", "NO", nil, "auto_increment"))
 
 	mock.ExpectPrepare("SELECT .* FROM .*information_schema.table_constraints").
 		ExpectQuery().
-		WithArgs(dbName, table).
+		WithArgs(dbName, table, "").
 		WillReturnRows(sqlmock.NewRows([]string{"column_name"}).AddRow("id"))
 
 	mock.ExpectPrepare("SELECT .* FROM .*pg_catalog.pg_index").
 		ExpectQuery().
-		WithArgs(table).
+		WithArgs(table, "").
 		WillReturnRows(sqlmock.NewRows([]string{"index_name", "column_name", "non_unique"}).AddRow("idx_id", "id", int64(0)))
 
 	tr := NewPostgresqlTrigger()
@@ -220,7 +220,7 @@ func TestPostgresqlTrigger_getIndexes_MultiColumnIndex(t *testing.T) {
 
 	mock.ExpectPrepare("SELECT .* FROM .*pg_catalog.pg_index").
 		ExpectQuery().
-		WithArgs(table).
+		WithArgs(table, "").
 		WillReturnRows(sqlmock.NewRows([]string{
 			"index_name", "column_name", "non_unique",
 		}).AddRow("idx_composite", "col1", int64(0)).

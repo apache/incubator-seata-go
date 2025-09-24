@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
@@ -256,7 +257,92 @@ func (p *PostgreSQLUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.R
 
 func (p *PostgreSQLUpdateUndoLogBuilder) convertToPostgreSQLSyntax(mysqlSQL string) string {
 	result := mysqlSQL
+	
 	result = strings.ReplaceAll(result, "`", `"`)
+	
+	result = p.convertMySQLFunctionsToPostgreSQL(result)
+	
+	result = p.convertMySQLDataTypesToPostgreSQL(result)
+	
+	result = p.convertMySQLLimitToPostgreSQL(result)
+	
+	return result
+}
+
+func (p *PostgreSQLUpdateUndoLogBuilder) convertMySQLFunctionsToPostgreSQL(sql string) string {
+	functionMappings := map[string]string{
+		"NOW()":           "CURRENT_TIMESTAMP",
+		"CURDATE()":       "CURRENT_DATE",
+		"CURTIME()":       "CURRENT_TIME",
+		"UNIX_TIMESTAMP(": "EXTRACT(EPOCH FROM ",
+		"FROM_UNIXTIME(":  "TO_TIMESTAMP(",
+		"DATE_FORMAT(":    "TO_CHAR(",
+		"STR_TO_DATE(":    "TO_DATE(",
+		"IFNULL(":         "COALESCE(",
+		"ISNULL(":         "COALESCE(",
+		"CONCAT(":         "CONCAT(",
+		"SUBSTRING(":      "SUBSTR(",
+		"LENGTH(":         "LENGTH(",
+		"LOCATE(":         "POSITION(",
+		"REPLACE(":        "REPLACE(",
+		"LOWER(":          "LOWER(",
+		"UPPER(":          "UPPER(",
+		"TRIM(":           "TRIM(",
+		"LTRIM(":          "LTRIM(",
+		"RTRIM(":          "RTRIM(",
+		"ABS(":            "ABS(",
+		"ROUND(":          "ROUND(",
+		"FLOOR(":          "FLOOR(",
+		"CEIL(":           "CEIL(",
+		"MOD(":            "MOD(",
+		"GREATEST(":       "GREATEST(",
+		"LEAST(":          "LEAST(",
+	}
+	
+	result := sql
+	for mysqlFunc, pgFunc := range functionMappings {
+		result = strings.ReplaceAll(result, mysqlFunc, pgFunc)
+	}
+	
+	return result
+}
+
+func (p *PostgreSQLUpdateUndoLogBuilder) convertMySQLDataTypesToPostgreSQL(sql string) string {
+	typeMapping := map[string]string{
+		"TINYINT":   "SMALLINT",
+		"MEDIUMINT": "INTEGER",
+		"LONGTEXT":  "TEXT",
+		"TINYTEXT":  "TEXT",
+		"MEDIUMTEXT": "TEXT",
+		"DATETIME":  "TIMESTAMP",
+		"YEAR":      "INTEGER",
+		"ENUM":      "VARCHAR",
+		"SET":       "VARCHAR",
+		"BIT":       "BOOLEAN",
+	}
+	
+	result := sql
+	for mysqlType, pgType := range typeMapping {
+		result = strings.ReplaceAll(result, mysqlType, pgType)
+	}
+	
+	return result
+}
+
+func (p *PostgreSQLUpdateUndoLogBuilder) convertMySQLLimitToPostgreSQL(sql string) string {
+	limitRegex := `LIMIT\s+(\d+)\s*,\s*(\d+)`
+	re := regexp.MustCompile(limitRegex)
+	
+	result := re.ReplaceAllStringFunc(sql, func(match string) string {
+		parts := re.FindStringSubmatch(match)
+		if len(parts) == 3 {
+			offset := parts[1]
+			limit := parts[2]
+			return fmt.Sprintf("LIMIT %s OFFSET %s", limit, offset)
+		}
+		return match
+	})
+	
 	return result
 }
 

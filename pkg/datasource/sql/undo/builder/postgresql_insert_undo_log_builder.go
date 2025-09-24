@@ -19,11 +19,13 @@ package builder
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -135,33 +137,214 @@ func (p *PostgreSQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context,
 	return p.buildSelectSQLByPKValues(tableName, meta.GetPrimaryKeyOnlyName(), pkValuesMap)
 }
 
-// getPkValues get primary key values for PostgreSQL
 func (p *PostgreSQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]driver.Value, error) {
 	pkValuesMap := make(map[string][]driver.Value)
-
 	pkColumns := meta.GetPrimaryKeyOnlyName()
 
-	if p.InsertResult != nil && p.InsertResult.GetResult() != nil {
+	if len(pkColumns) == 1 && p.InsertResult != nil && p.InsertResult.GetResult() != nil {
 		result := p.InsertResult.GetResult()
 		lastInsertId, err := result.LastInsertId()
 		if err == nil && lastInsertId != 0 {
-			if len(pkColumns) == 1 {
-				rowsAffected, err := result.RowsAffected()
-				if err != nil {
-					return nil, err
-				}
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				return nil, err
+			}
 
-				values := make([]driver.Value, 0)
-				for i := int64(0); i < rowsAffected; i++ {
-					values = append(values, lastInsertId+i)
+			values := make([]driver.Value, 0)
+			for i := int64(0); i < rowsAffected; i++ {
+				values = append(values, lastInsertId+i)
+			}
+			pkValuesMap[pkColumns[0]] = values
+			return pkValuesMap, nil
+		}
+	}
+
+	pkValuesFromInsert, err := p.extractPkValuesFromInsert(parseCtx, meta)
+	if err == nil && len(pkValuesFromInsert) > 0 {
+		return pkValuesFromInsert, nil
+	}
+
+	seqValues, err := p.getPkValuesFromSequence(execCtx, meta)
+	if err == nil && len(seqValues) > 0 {
+		return seqValues, nil
+	}
+
+	return nil, fmt.Errorf("PostgreSQL insert primary key detection failed: cannot determine primary key values. Consider using RETURNING clause in INSERT statement")
+}
+
+func (p *PostgreSQLInsertUndoLogBuilder) extractPkValuesFromInsert(parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]driver.Value, error) {
+	pkColumns := meta.GetPrimaryKeyOnlyName()
+	pkValuesMap := make(map[string][]driver.Value)
+
+	if parseCtx.AuxtenInsertStmt != nil {
+		insertStmt := parseCtx.AuxtenInsertStmt
+		if insertStmt.Columns != nil && insertStmt.Rows != nil {
+			colIndexMap := make(map[string]int)
+			for i, col := range insertStmt.Columns {
+				colName := col.String()
+				colName = strings.Trim(colName, `" `)
+				colIndexMap[strings.ToLower(colName)] = i
+			}
+
+			for _, pkCol := range pkColumns {
+				pkColLower := strings.ToLower(pkCol)
+				if colIdx, exists := colIndexMap[pkColLower]; exists {
+					values := make([]driver.Value, 0)
+					if selectStmt, ok := insertStmt.Rows.Select.(*tree.ValuesClause); ok {
+						for _, row := range selectStmt.Rows {
+							if colIdx < len(row) {
+								if datum, ok := row[colIdx].(*tree.StrVal); ok {
+									values = append(values, datum.RawString())
+								} else if datum, ok := row[colIdx].(*tree.NumVal); ok {
+									values = append(values, datum.String())
+								}
+							}
+						}
+					}
+					if len(values) > 0 {
+						pkValuesMap[pkCol] = values
+					}
 				}
-				pkValuesMap[pkColumns[0]] = values
-				return pkValuesMap, nil
+			}
+		}
+	} else if parseCtx.InsertStmt != nil {
+		insertStmt := parseCtx.InsertStmt
+		if insertStmt.Columns != nil && insertStmt.Lists != nil {
+			colIndexMap := make(map[string]int)
+			for i, col := range insertStmt.Columns {
+				colName := col.Name.O
+				colIndexMap[strings.ToLower(colName)] = i
+			}
+
+			for _, pkCol := range pkColumns {
+				pkColLower := strings.ToLower(pkCol)
+				if colIdx, exists := colIndexMap[pkColLower]; exists {
+					values := make([]driver.Value, 0)
+					for _, row := range insertStmt.Lists {
+						if colIdx < len(row) {
+						}
+					}
+					if len(values) > 0 {
+						pkValuesMap[pkCol] = values
+					}
+				}
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("PostgreSQL insert requires RETURNING clause or sequence information for primary key detection")
+	return pkValuesMap, nil
+}
+
+func (p *PostgreSQLInsertUndoLogBuilder) getPkValuesFromSequence(execCtx *types.ExecContext, meta types.TableMeta) (map[string][]driver.Value, error) {
+	pkValuesMap := make(map[string][]driver.Value)
+	pkColumns := meta.GetPrimaryKeyOnlyName()
+
+	if p.InsertResult == nil || p.InsertResult.GetResult() == nil {
+		return pkValuesMap, fmt.Errorf("no insert result available")
+	}
+
+	rowsAffected, err := p.InsertResult.GetResult().RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		return pkValuesMap, fmt.Errorf("no rows affected")
+	}
+
+	for _, pkCol := range pkColumns {
+		colMeta, exists := meta.Columns[pkCol]
+		if !exists {
+			continue
+		}
+
+		if colMeta.Autoincrement || strings.Contains(strings.ToLower(colMeta.Extra), "serial") {
+			seqValues, err := p.querySequenceValues(execCtx, meta.TableName, pkCol, int(rowsAffected))
+			if err == nil && len(seqValues) > 0 {
+				pkValuesMap[pkCol] = seqValues
+			}
+		}
+	}
+
+	return pkValuesMap, nil
+}
+
+func (p *PostgreSQLInsertUndoLogBuilder) querySequenceValues(execCtx *types.ExecContext, tableName, columnName string, rowCount int) ([]driver.Value, error) {
+	seqQuery := `SELECT pg_get_serial_sequence($1, $2) AS sequence_name`
+	
+	stmt, err := execCtx.Conn.Prepare(seqQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare sequence query: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query([]driver.Value{tableName, columnName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sequence: %w", err)
+	}
+	defer rows.Close()
+
+	columns := rows.Columns()
+	if len(columns) == 0 {
+		return nil, fmt.Errorf("no columns returned from sequence query")
+	}
+
+	values := make([]driver.Value, len(columns))
+	err = rows.Next(values)
+	if err != nil {
+		return nil, fmt.Errorf("no sequence found for column %s.%s", tableName, columnName)
+	}
+
+	var sequenceName sql.NullString
+	if values[0] != nil {
+		if str, ok := values[0].(string); ok {
+			sequenceName.String = str
+			sequenceName.Valid = true
+		}
+	}
+	
+	if !sequenceName.Valid {
+		return nil, fmt.Errorf("no sequence found for column %s.%s", tableName, columnName)
+	}
+
+	currValQuery := fmt.Sprintf("SELECT currval('%s')", sequenceName.String)
+	stmt2, err := execCtx.Conn.Prepare(currValQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare currval query: %w", err)
+	}
+	defer stmt2.Close()
+
+	rows2, err := stmt2.Query([]driver.Value{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query currval: %w", err)
+	}
+	defer rows2.Close()
+
+	columns2 := rows2.Columns()
+	if len(columns2) == 0 {
+		return nil, fmt.Errorf("no columns returned from currval query")
+	}
+
+	values2 := make([]driver.Value, len(columns2))
+	err = rows2.Next(values2)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current sequence value")
+	}
+
+	var currentVal int64
+	if values2[0] != nil {
+		if val, ok := values2[0].(int64); ok {
+			currentVal = val
+		} else if val, ok := values2[0].(string); ok {
+			if parsed, err := fmt.Sscanf(val, "%d", &currentVal); err != nil || parsed != 1 {
+				return nil, fmt.Errorf("failed to parse current sequence value: %s", val)
+			}
+		}
+	}
+
+	result := make([]driver.Value, 0, rowCount)
+	startVal := currentVal - int64(rowCount) + 1
+	for i := 0; i < rowCount; i++ {
+		result = append(result, startVal+int64(i))
+	}
+
+	return result, nil
 }
 
 // buildSelectSQLByPKValues build select SQL using primary key values for PostgreSQL

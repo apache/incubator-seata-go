@@ -115,7 +115,7 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 		WHERE 
 			table_catalog = $1  
 			AND table_name = $2 
-			AND table_schema = 'public'  
+			AND table_schema = COALESCE(NULLIF($3, ''), 'public')
 	`
 	stmt, err := conn.PrepareContext(ctx, columnSQL)
 	if err != nil {
@@ -123,7 +123,8 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, dbName, tableName)
+	schema := p.extractSchemaFromDBName(dbName)
+	rows, err := stmt.QueryContext(ctx, dbName, tableName, schema)
 	if err != nil {
 		return nil, errors.Wrapf(err, "query columns failed for table: %s", tableName)
 	}
@@ -194,7 +195,7 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 		WHERE 
 			tco.table_catalog = $1
 			AND tco.table_name = $2
-			AND tco.table_schema = 'public'
+			AND tco.table_schema = COALESCE(NULLIF($3, ''), 'public')
 			AND tco.constraint_type = 'PRIMARY KEY'
 	`
 	pkStmt, err := conn.PrepareContext(ctx, pkSQL)
@@ -203,7 +204,7 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 	}
 	defer pkStmt.Close()
 
-	pkRows, err := pkStmt.QueryContext(ctx, dbName, tableName)
+	pkRows, err := pkStmt.QueryContext(ctx, dbName, tableName, schema)
 	if err != nil {
 		return nil, errors.Wrapf(err, "query primary keys failed for table: %s", tableName)
 	}
@@ -257,7 +258,7 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
     	JOIN 
         	unnest(idx.indkey) AS u(attnum) ON a.attnum = u.attnum
     	WHERE 
-        	n.nspname = 'public'
+        	n.nspname = COALESCE(NULLIF($2, ''), 'public')
         	AND t.relname = $1
 	`
 	stmt, err := conn.PrepareContext(ctx, indexSQL)
@@ -266,7 +267,8 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, tableName)
+	schema := p.extractSchemaFromDBName(dbName)
+	rows, err := stmt.QueryContext(ctx, tableName, schema)
 	if err != nil {
 		return nil, errors.Wrapf(err, "query indexes failed for table: %s", tableName)
 	}
@@ -310,4 +312,14 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 	}
 
 	return indexes, nil
+}
+
+func (p *postgresqlTrigger) extractSchemaFromDBName(dbName string) string {
+	if strings.Contains(dbName, ".") {
+		parts := strings.Split(dbName, ".")
+		if len(parts) >= 2 {
+			return parts[len(parts)-2]
+		}
+	}
+	return ""
 }

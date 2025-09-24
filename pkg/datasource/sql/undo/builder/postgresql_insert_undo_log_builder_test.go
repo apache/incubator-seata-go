@@ -162,3 +162,79 @@ func TestPostgreSQLInsertUndoLogBuilder_buildSelectSQLByPKValues_EmptyValues(t *
 		t.Errorf("Expected error message '%s', got '%s'", expectedErrorMsg, err.Error())
 	}
 }
+
+func TestPostgreSQLInsertUndoLogBuilder_getPkValues_LastInsertIdSuccess(t *testing.T) {
+	insertResult := NewMockInsertResult(100, 2)
+
+	builder := &PostgreSQLInsertUndoLogBuilder{
+		InsertResult: &insertResult,
+	}
+
+	parseCtx := &types.ParseContext{}
+	meta := types.TableMeta{
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id", ColumnKey: "PRI"},
+		},
+	}
+
+	pkValuesMap, err := builder.getPkValues(nil, parseCtx, meta)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	
+	if _, exists := pkValuesMap["id"]; !exists {
+		t.Error("Expected 'id' key in pkValuesMap")
+	}
+	
+	expectedValues := []driver.Value{int64(100), int64(101)}
+	actualValues := pkValuesMap["id"]
+	
+	if len(actualValues) != len(expectedValues) {
+		t.Errorf("Expected %d values, got %d", len(expectedValues), len(actualValues))
+	}
+	
+	for i, expected := range expectedValues {
+		if i < len(actualValues) && actualValues[i] != expected {
+			t.Errorf("Expected value[%d] = %v, got %v", i, expected, actualValues[i])
+		}
+	}
+}
+
+func TestPostgreSQLInsertUndoLogBuilder_getPkValues_NoPrimaryKey(t *testing.T) {
+	builder := &PostgreSQLInsertUndoLogBuilder{}
+	
+	parseCtx := &types.ParseContext{}
+	meta := types.TableMeta{
+		Columns: map[string]types.ColumnMeta{
+			"name": {ColumnName: "name"},
+		},
+	}
+
+	_, err := builder.getPkValues(nil, parseCtx, meta)
+
+	if err == nil {
+		t.Error("Expected error for table without primary key, got nil")
+	}
+	
+	expectedErrorMsg := "PostgreSQL insert primary key detection failed"
+	if err != nil && !contains(err.Error(), expectedErrorMsg) {
+		t.Errorf("Expected error containing '%s', got '%s'", expectedErrorMsg, err.Error())
+	}
+}
+
+func contains(str, substr string) bool {
+	return len(str) >= len(substr) && (str == substr || (len(str) > len(substr) && 
+		(str[:len(substr)] == substr || str[len(str)-len(substr):] == substr ||
+		 (len(str) > len(substr)*2 && containsInner(str[1:len(str)-1], substr)))))
+}
+
+func containsInner(str, substr string) bool {
+	for i := 0; i <= len(str)-len(substr); i++ {
+		if str[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
