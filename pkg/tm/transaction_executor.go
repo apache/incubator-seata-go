@@ -65,16 +65,25 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	defer func() {
 		var err error
 		deferErr := recover()
-		// no need to do second phase if propagation is some type e.g. NotSupported.
 		if IsGlobalTx(ctx) {
-			// business maybe to throw panic, so need to recover it here.
 			if err = CommitOrRollback(ctx, deferErr == nil && re == nil); err != nil {
-				log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
+				log.Errorf("global transaction xid %s, name %s second phase error: %v", GetXID(ctx), GetTxName(ctx), err)
 			}
 		}
 
-		if re != nil || err != nil {
-			re = fmt.Errorf("first phase error: %v, second phase error: %v", re, err)
+		if re == nil {
+			if deferErr != nil {
+				if _, ok := deferErr.(error); !ok {
+					deferErr = fmt.Errorf("%v", deferErr)
+				}
+				re = deferErr.(error)
+			} else if err != nil {
+				re = err
+			}
+		} else {
+			if deferErr != nil || err != nil {
+				re = fmt.Errorf("first phase error: %v, panic error: %v, second phase error: %v", re, deferErr, err)
+			}
 		}
 	}()
 
@@ -209,4 +218,12 @@ func UseExistGtx(ctx context.Context, gc *GtxConfig) {
 // ClearTxConf When using global transactions in local mode, you need to clear tx config to use the propagation of global transactions.
 func ClearTxConf(ctx context.Context) {
 	SetTx(ctx, &GlobalTransaction{Xid: GetXID(ctx)})
+}
+
+// transferTx transfer the gtx into a new ctx from old ctx.
+// use it to implement suspend and resume instead
+func transferTx(ctx context.Context) context.Context {
+	newCtx := InitSeataContext(ctx)
+	SetXID(newCtx, GetXID(ctx))
+	return newCtx
 }

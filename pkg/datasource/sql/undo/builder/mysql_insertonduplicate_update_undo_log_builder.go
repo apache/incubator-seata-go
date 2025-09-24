@@ -233,7 +233,7 @@ func checkDuplicateKeyUpdate(insert *ast.InsertStmt, metaData types.TableMeta) e
 		}
 		for name, col := range index.Columns {
 			if duplicateColsMap[strings.ToLower(col.ColumnName)] {
-				log.Errorf("update pk value is not supported! index name:%s update column name: %s", name, col.ColumnName)
+				log.Errorf("update pk value is not supported! index name:%d update column name: %s", name, col.ColumnName)
 				return fmt.Errorf("update pk value is not supported! ")
 			}
 		}

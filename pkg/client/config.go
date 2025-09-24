@@ -26,11 +26,11 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
-	koanf "github.com/knadh/koanf/v2"
 
 	"seata.apache.org/seata-go/pkg/discovery"
 
