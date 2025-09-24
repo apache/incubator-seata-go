@@ -18,22 +18,44 @@
 package parser
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInitCache(t *testing.T) {
+	// Reset the cache for testing
+	cache = nil
+	once = sync.Once{}
+	
 	assert.Nil(t, cache)
 	initCache()
 	assert.NotNil(t, cache)
+	
+	// Test that cache is properly initialized with parsers
+	assert.NotNil(t, cache.serializerNameToParser["json"])
+	assert.NotNil(t, cache.serializerNameToParser["protobuf"])
 }
 
 func TestGetCache(t *testing.T) {
+	// Reset the cache for testing
+	cache = nil
+	once = sync.Once{}
+	
 	assert.NotNil(t, GetCache())
+	
+	// Test singleton behavior
+	cache1 := GetCache()
+	cache2 := GetCache()
+	assert.Equal(t, cache1, cache2)
 }
 
 func TestGetDefault(t *testing.T) {
+	// Reset the cache for testing
+	cache = nil
+	once = sync.Once{}
+	
 	logParser, err := GetCache().GetDefault()
 	assert.Nil(t, err)
 	assert.NotNil(t, logParser)
@@ -41,7 +63,42 @@ func TestGetDefault(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
+	// Reset the cache for testing
+	cache = nil
+	once = sync.Once{}
+	
 	jsonParser, err := GetCache().Load("json")
 	assert.Nil(t, err)
 	assert.NotNil(t, jsonParser)
+	assert.Equal(t, "json", jsonParser.GetName())
+	
+	// Test loading protobuf parser
+	protobufParser, err := GetCache().Load("protobuf")
+	assert.Nil(t, err)
+	assert.NotNil(t, protobufParser)
+	assert.Equal(t, "protobuf", protobufParser.GetName())
+	
+	// Test loading non-existent parser
+	nonExistentParser, err := GetCache().Load("non-existent")
+	assert.NotNil(t, err)
+	assert.Nil(t, nonExistentParser)
+	assert.Equal(t, "undo log parser type non-existent not found", err.Error())
+}
+
+func TestStore(t *testing.T) {
+	// Reset the cache for testing
+	cache = nil
+	once = sync.Once{}
+	GetCache()
+	
+	// Create a mock parser
+	mockParser := &JsonParser{}
+	
+	// Store the parser
+	cache.store(mockParser)
+	
+	// Verify it's stored
+	storedParser, err := cache.Load("json")
+	assert.Nil(t, err)
+	assert.Equal(t, mockParser, storedParser)
 }

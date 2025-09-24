@@ -20,6 +20,7 @@ package convert
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestAsString(t *testing.T) {
@@ -117,6 +118,7 @@ func TestAsString(t *testing.T) {
 		})
 	}
 }
+
 func TestAsBytes(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -217,5 +219,64 @@ func TestAsBytes(t *testing.T) {
 				t.Errorf("asBytes() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestConvertAssignRows(t *testing.T) {
+	// Test string to string conversion
+	var destString string
+	err := ConvertAssignRows(&destString, "test string")
+	if err != nil {
+		t.Errorf("ConvertAssignRows() error = %v", err)
+	}
+	if destString != "test string" {
+		t.Errorf("ConvertAssignRows() = %v, want %v", destString, "test string")
+	}
+
+	// Test string to []byte conversion
+	var destBytes []byte
+	err = ConvertAssignRows(&destBytes, "test string")
+	if err != nil {
+		t.Errorf("ConvertAssignRows() error = %v", err)
+	}
+	if string(destBytes) != "test string" {
+		t.Errorf("ConvertAssignRows() = %v, want %v", string(destBytes), "test string")
+	}
+
+	// Test []byte to string conversion
+	var destString2 string
+	err = ConvertAssignRows(&destString2, []byte("test bytes"))
+	if err != nil {
+		t.Errorf("ConvertAssignRows() error = %v", err)
+	}
+	if destString2 != "test bytes" {
+		t.Errorf("ConvertAssignRows() = %v, want %v", destString2, "test bytes")
+	}
+
+	// Test time.Time conversion
+	now := time.Now()
+	var destTime time.Time
+	err = ConvertAssignRows(&destTime, now)
+	if err != nil {
+		t.Errorf("ConvertAssignRows() error = %v", err)
+	}
+	if destTime != now {
+		t.Errorf("ConvertAssignRows() = %v, want %v", destTime, now)
+	}
+
+	// Test nil pointer error
+	err = ConvertAssignRows((*string)(nil), "test")
+	if err == nil {
+		t.Error("ConvertAssignRows() expected error for nil pointer, got nil")
+	}
+
+	// Test nil src value
+	var destInterface interface{}
+	err = ConvertAssignRows(&destInterface, nil)
+	if err != nil {
+		t.Errorf("ConvertAssignRows() error = %v", err)
+	}
+	if destInterface != nil {
+		t.Errorf("ConvertAssignRows() = %v, want %v", destInterface, nil)
 	}
 }

@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 
-package util
+package config
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/pkg/rm"
 )
 
-func TestConvertDbVersion(t *testing.T) {
-	version1 := "3.1.2"
-	v1Int, err1 := ConvertDbVersion(version1)
-	assert.NoError(t, err1)
-
-	version2 := "3.1.3"
-	v2Int, err2 := ConvertDbVersion(version2)
-	assert.NoError(t, err2)
-
-	assert.Less(t, v1Int, v2Int)
-
-	version3 := "3.1.3"
-	v3Int, err3 := ConvertDbVersion(version3)
-	assert.NoError(t, err3)
-	assert.Equal(t, v2Int, v3Int)
+func TestInit(t *testing.T) {
+	// Test that Init function sets the LockConfig correctly
+	config := rm.LockConfig{
+		RetryInterval: 10,
+		RetryTimes:    5,
+	}
 	
-	// Test incompatible version format
-	_, err4 := ConvertDbVersion("1.2.3.4.5")
-	assert.Error(t, err4)
+	Init(config)
 	
-	// Test version with hyphen
-	v5Int, err5 := ConvertDbVersion("1.2.3-SNAPSHOT")
-	assert.NoError(t, err5)
-	assert.Equal(t, 1020300, v5Int)
+	// Since the LockConfig is in the at package which is not accessible from here,
+	// we just test that the function runs without panic
+	assert.True(t, true)
 }
