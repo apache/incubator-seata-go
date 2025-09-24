@@ -27,14 +27,14 @@ import (
 func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 	// Skip this test due to flag redefinition issues in test environment
 	t.Skip("Skipping due to flag redefinition issues in test environment")
-	
+
 	cfg := &Config{}
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 	cfg.RegisterFlagsWithPrefix("tcc", fs)
-	
+
 	// Check that the flag set is not nil
 	assert.NotNil(t, fs)
-	
+
 	// Since the fence config is embedded, we can't directly test its registration
 	// But we can verify that the method doesn't panic
 	assert.NotPanics(t, func() {

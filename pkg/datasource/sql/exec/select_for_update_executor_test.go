@@ -41,26 +41,26 @@ var (
 
 func TestSelectForUpdateExecutor_interceptors(t *testing.T) {
 	executor := SelectForUpdateExecutor{}
-	
+
 	// This is just for coverage as the method is empty
 	executor.interceptors(nil)
-	
+
 	// Test passes if no panic
 	assert.True(t, true)
 }
 
 func TestSelectForUpdateExecutor_ExecWithNamedValue(t *testing.T) {
 	executor := SelectForUpdateExecutor{}
-	
+
 	ctx := context.Background()
 	execCtx := &types.ExecContext{
 		Query: "SELECT * FROM test_table",
 	}
-	
+
 	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 		return nil, nil
 	}
-	
+
 	// Test execution without global transaction context
 	result, err := executor.ExecWithNamedValue(ctx, execCtx, callback)
 	assert.NoError(t, err)
@@ -69,16 +69,16 @@ func TestSelectForUpdateExecutor_ExecWithNamedValue(t *testing.T) {
 
 func TestSelectForUpdateExecutor_ExecWithValue(t *testing.T) {
 	executor := SelectForUpdateExecutor{}
-	
+
 	ctx := context.Background()
 	execCtx := &types.ExecContext{
 		Query: "SELECT * FROM test_table",
 	}
-	
+
 	callback := func(ctx context.Context, query string, args []driver.Value) (types.ExecResult, error) {
 		return nil, nil
 	}
-	
+
 	// Test execution without global transaction context
 	result, err := executor.ExecWithValue(ctx, execCtx, callback)
 	assert.NoError(t, err)
@@ -93,13 +93,13 @@ func TestBuildSelectPKSQL(t *testing.T) {
 	stmtNodes, _, err := p.Parse(sql, "", "")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmtNodes)
-	
+
 	selectStmt, ok := stmtNodes[0].(*ast.SelectStmt)
 	assert.True(t, ok)
 	assert.NotNil(t, selectStmt)
 
 	metaData := types.TableMeta{
-		TableName: "t_user",
+		TableName:   "t_user",
 		ColumnNames: []string{"id", "order_id", "age", "name"},
 		Indexs: map[string]types.IndexMeta{
 			"id": {
@@ -140,13 +140,13 @@ func TestBuildSelectPKSQLWithLimit(t *testing.T) {
 	stmtNodes, _, err := p.Parse(sql, "", "")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmtNodes)
-	
+
 	selectStmt, ok := stmtNodes[0].(*ast.SelectStmt)
 	assert.True(t, ok)
 	assert.NotNil(t, selectStmt)
 
 	metaData := types.TableMeta{
-		TableName: "t_user",
+		TableName:   "t_user",
 		ColumnNames: []string{"order_id", "id", "age", "name"},
 		Indexs: map[string]types.IndexMeta{
 			"id": {
@@ -187,13 +187,13 @@ func TestBuildSelectPKSQLWithOrderBy(t *testing.T) {
 	stmtNodes, _, err := p.Parse(sql, "", "")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmtNodes)
-	
+
 	selectStmt, ok := stmtNodes[0].(*ast.SelectStmt)
 	assert.True(t, ok)
 	assert.NotNil(t, selectStmt)
 
 	metaData := types.TableMeta{
-		TableName: "t_user",
+		TableName:   "t_user",
 		ColumnNames: []string{"order_id", "id", "age", "name"},
 		Indexs: map[string]types.IndexMeta{
 			"id": {
@@ -234,13 +234,13 @@ func TestBuildSelectPKSQLWithGroupBy(t *testing.T) {
 	stmtNodes, _, err := p.Parse(sql, "", "")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmtNodes)
-	
+
 	selectStmt, ok := stmtNodes[0].(*ast.SelectStmt)
 	assert.True(t, ok)
 	assert.NotNil(t, selectStmt)
 
 	metaData := types.TableMeta{
-		TableName: "t_user",
+		TableName:   "t_user",
 		ColumnNames: []string{"id", "order_id", "age", "name"},
 		Indexs: map[string]types.IndexMeta{
 			"id": {
@@ -317,7 +317,7 @@ func TestBuildLockKeyWithEmptyRows(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Creating an empty mockRows
 	emptyRows := mockEmptyRows{}
 	lockkey := e.buildLockKey(emptyRows, metaData)
@@ -385,19 +385,19 @@ func (m *mockSQLHookForSelect) After(ctx context.Context, execCtx *types.ExecCon
 
 func TestBuildSelectPKSQLWithNoPrimaryKey(t *testing.T) {
 	e := SelectForUpdateExecutor{}
-	
+
 	// Create a dummy select statement
 	p := parser.New()
 	stmtNodes, _, err := p.Parse("SELECT name FROM t_user WHERE age > 18", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	selectStmt, ok := stmtNodes[0].(*ast.SelectStmt)
 	if !ok {
 		t.Fatal("Failed to cast to SelectStmt")
 	}
-	
+
 	// Table meta without primary key
 	metaData := types.TableMeta{
 		TableName: "t_user",
@@ -411,7 +411,7 @@ func TestBuildSelectPKSQLWithNoPrimaryKey(t *testing.T) {
 			},
 		},
 	}
-	
+
 	_, err = e.buildSelectPKSQL(selectStmt, metaData)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "needs to contain the primary key")
@@ -419,16 +419,16 @@ func TestBuildSelectPKSQLWithNoPrimaryKey(t *testing.T) {
 
 func TestSelectForUpdateExecutor_interceptors_with_hooks(t *testing.T) {
 	executor := SelectForUpdateExecutor{}
-	
+
 	// Create mock hooks
 	hooks := []SQLHook{
 		&mockSQLHookForSelect{sqlType: types.SQLTypeSelect},
 		&mockSQLHookForSelect{sqlType: types.SQLTypeUpdate},
 	}
-	
+
 	// Call interceptors
 	executor.interceptors(hooks)
-	
+
 	// Currently interceptors method is empty, so we just verify it doesn't panic
 	assert.True(t, true)
 }

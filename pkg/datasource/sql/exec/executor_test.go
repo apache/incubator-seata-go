@@ -63,7 +63,7 @@ func TestRegisterATExecutor(t *testing.T) {
 	RegisterATExecutor(types.DBTypeMySQL, func() SQLExecutor {
 		return &mockSQLExecutor{}
 	})
-	
+
 	// Check if the executor is registered
 	assert.NotNil(t, atExecutors[types.DBTypeMySQL])
 }
@@ -73,12 +73,12 @@ func TestBuildExecutor(t *testing.T) {
 	RegisterATExecutor(types.DBTypeMySQL, func() SQLExecutor {
 		return &mockSQLExecutor{}
 	})
-	
+
 	// Test building an executor with a valid query
 	executor, err := BuildExecutor(types.DBTypeMySQL, types.ATMode, "SELECT * FROM test_table")
 	assert.NoError(t, err)
 	assert.NotNil(t, executor)
-	
+
 	// Test building an executor with an invalid query
 	executor, err = BuildExecutor(types.DBTypeMySQL, types.ATMode, "INVALID SQL")
 	assert.Error(t, err)
@@ -88,9 +88,9 @@ func TestBuildExecutor(t *testing.T) {
 func TestBaseExecutor_Interceptors(t *testing.T) {
 	executor := &BaseExecutor{}
 	hooks := []SQLHook{&mockSQLHook{}}
-	
+
 	executor.Interceptors(hooks)
-	
+
 	assert.Equal(t, len(hooks), len(executor.hooks))
 }
 
@@ -98,16 +98,16 @@ func TestBaseExecutor_ExecWithNamedValue(t *testing.T) {
 	executor := &BaseExecutor{}
 	hook := &mockSQLHook{}
 	executor.Interceptors([]SQLHook{hook})
-	
+
 	ctx := context.Background()
 	execCtx := &types.ExecContext{
 		Query: "SELECT * FROM test_table",
 	}
-	
+
 	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 		return nil, nil
 	}
-	
+
 	_, err := executor.ExecWithNamedValue(ctx, execCtx, callback)
 	assert.NoError(t, err)
 	assert.True(t, hook.beforeCalled)
@@ -118,16 +118,16 @@ func TestBaseExecutor_ExecWithValue(t *testing.T) {
 	executor := &BaseExecutor{}
 	hook := &mockSQLHook{}
 	executor.Interceptors([]SQLHook{hook})
-	
+
 	ctx := context.Background()
 	execCtx := &types.ExecContext{
 		Query: "SELECT * FROM test_table",
 	}
-	
+
 	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 		return nil, nil
 	}
-	
+
 	_, err := executor.ExecWithValue(ctx, execCtx, callback)
 	assert.NoError(t, err)
 	assert.True(t, hook.beforeCalled)

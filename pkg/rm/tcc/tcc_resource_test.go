@@ -48,7 +48,7 @@ func TestActionContext(t *testing.T) {
 func TestBranchReport(t *testing.T) {
 	// Skip this test due to complexity of mocking the remoting client
 	t.Skip("Skipping due to complexity of mocking the remoting client")
-	
+
 	patches := gomonkey.ApplyMethodFunc(getty.GetGettyRemotingClient(), "SendSyncRequest", func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
 		return message.BranchReportResponse{
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
@@ -93,7 +93,7 @@ func TestTCCResource_Methods(t *testing.T) {
 func TestParseTCCResource(t *testing.T) {
 	// Skip this test due to complexity of mocking the two phase action
 	t.Skip("Skipping due to complexity of mocking the two phase action")
-	
+
 	// Test with invalid input (should return error)
 	resource, err := ParseTCCResource("invalid")
 	assert.NotNil(t, err)
@@ -109,7 +109,7 @@ func TestParseTCCResource(t *testing.T) {
 func TestGetTCCResourceManagerInstance(t *testing.T) {
 	instance1 := GetTCCResourceManagerInstance()
 	instance2 := GetTCCResourceManagerInstance()
-	
+
 	// Should return the same instance
 	assert.Equal(t, instance1, instance2)
 	assert.NotNil(t, instance1)
@@ -123,27 +123,27 @@ func TestTCCResourceManager_GetBranchType(t *testing.T) {
 func TestTCCResourceManager_RegisterResource(t *testing.T) {
 	// Skip this test due to complexity of mocking the two phase action
 	t.Skip("Skipping due to complexity of mocking the two phase action")
-	
+
 	manager := GetTCCResourceManagerInstance()
-	
+
 	// Test with invalid resource type (should panic)
 	assert.Panics(t, func() {
 		manager.RegisterResource(&struct{ rm.Resource }{})
 	})
-	
+
 	// Test with valid TCCResource
 	tccResource := &TCCResource{
 		ResourceGroupId: "test-group",
 		AppName:         "test-app",
 		TwoPhaseAction:  nil,
 	}
-	
+
 	// Mock the RMRemoting RegisterResource method
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(&rm.RMRemoting{}), "RegisterResource", func(_ *rm.RMRemoting, resource rm.Resource) error {
 		return nil
 	})
 	defer patches.Reset()
-	
+
 	err := manager.RegisterResource(tccResource)
 	assert.Nil(t, err)
 }

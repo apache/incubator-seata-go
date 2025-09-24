@@ -31,9 +31,9 @@ func TestInit(t *testing.T) {
 		RetryInterval: 10,
 		RetryTimes:    5,
 	}
-	
+
 	Init(config)
-	
+
 	// Since the LockConfig is in the at package which is not accessible from here,
 	// we just test that the function runs without panic
 	assert.True(t, true)

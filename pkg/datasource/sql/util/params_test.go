@@ -37,7 +37,7 @@ func TestNamedValueToValue(t *testing.T) {
 	assert.Equal(t, "test1", vs[0])
 	assert.Equal(t, 123, vs[1])
 	assert.Equal(t, true, vs[2])
-	
+
 	// Test empty slice
 	emptyNvs := []driver.NamedValue{}
 	emptyVs := NamedValueToValue(emptyNvs)
@@ -60,7 +60,7 @@ func TestValueToNamedValue(t *testing.T) {
 	assert.Equal(t, 0, nvs[0].Ordinal)
 	assert.Equal(t, 1, nvs[1].Ordinal)
 	assert.Equal(t, 2, nvs[2].Ordinal)
-	
+
 	// Test empty slice
 	emptyVs := []driver.Value{}
 	emptyNvs := ValueToNamedValue(emptyVs)

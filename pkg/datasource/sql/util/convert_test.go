@@ -38,11 +38,11 @@ func TestConvertDbVersion(t *testing.T) {
 	v3Int, err3 := ConvertDbVersion(version3)
 	assert.NoError(t, err3)
 	assert.Equal(t, v2Int, v3Int)
-	
+
 	// Test incompatible version format
 	_, err4 := ConvertDbVersion("1.2.3.4.5")
 	assert.Error(t, err4)
-	
+
 	// Test version with hyphen
 	v5Int, err5 := ConvertDbVersion("1.2.3-SNAPSHOT")
 	assert.NoError(t, err5)

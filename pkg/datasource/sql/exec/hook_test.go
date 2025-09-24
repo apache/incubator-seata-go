@@ -28,13 +28,13 @@ import (
 
 func TestRegisterCommonHook(t *testing.T) {
 	originalLen := len(commonHook)
-	
+
 	testHook := &mockSQLHook{sqlType: types.SQLTypeSelect}
 	RegisterCommonHook(testHook)
-	
+
 	assert.Equal(t, originalLen+1, len(commonHook))
 	assert.Equal(t, testHook, commonHook[originalLen])
-	
+
 	// Clean up
 	commonHook = commonHook[:originalLen]
 }
@@ -43,30 +43,30 @@ func TestCleanCommonHook(t *testing.T) {
 	// Add some hooks
 	testHook := &mockSQLHook{sqlType: types.SQLTypeSelect}
 	RegisterCommonHook(testHook)
-	
+
 	assert.True(t, len(commonHook) > 0)
-	
+
 	CleanCommonHook()
-	
+
 	assert.Equal(t, 0, len(commonHook))
 }
 
 func TestRegisterHook(t *testing.T) {
 	// Test registering a hook with a valid SQL type
 	testHook := &mockSQLHook{sqlType: types.SQLTypeSelect}
-	
+
 	// Make sure the slot is initially empty or create it
 	originalLen := len(hookSolts[types.SQLTypeSelect])
 	RegisterHook(testHook)
-	
+
 	assert.Equal(t, originalLen+1, len(hookSolts[types.SQLTypeSelect]))
 	assert.Equal(t, testHook, hookSolts[types.SQLTypeSelect][originalLen])
-	
+
 	// Test registering a hook with unknown SQL type (should not be added)
 	unknownHook := &mockSQLHook{sqlType: types.SQLTypeUnknown}
 	originalSelectLen := len(hookSolts[types.SQLTypeSelect])
 	RegisterHook(unknownHook)
-	
+
 	// Length should remain the same
 	assert.Equal(t, originalSelectLen, len(hookSolts[types.SQLTypeSelect]))
 }
@@ -75,17 +75,17 @@ func TestSQLHookInterface(t *testing.T) {
 	hook := &mockSQLHook{
 		sqlType: types.SQLTypeInsert,
 	}
-	
+
 	assert.Equal(t, types.SQLType(types.SQLTypeInsert), hook.Type())
-	
+
 	ctx := context.Background()
 	execCtx := &types.ExecContext{}
-	
+
 	// Test Before method
 	err := hook.Before(ctx, execCtx)
 	assert.NoError(t, err)
 	assert.True(t, hook.beforeCalled)
-	
+
 	// Test After method
 	err = hook.After(ctx, execCtx)
 	assert.NoError(t, err)
