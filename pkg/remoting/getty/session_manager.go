@@ -212,6 +212,7 @@ func (g *SessionManager) releaseSession(session getty.Session) {
 		m, _ := g.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 		sMap := m.(*sync.Map)
 		sMap.Delete(session)
+		g.cleanupSessionResources(session)
 		session.Close()
 	}
 	atomic.AddInt32(&g.sessionSize, -1)
@@ -223,4 +224,9 @@ func (g *SessionManager) registerSession(session getty.Session) {
 	sMap := m.(*sync.Map)
 	sMap.Store(session, true)
 	atomic.AddInt32(&g.sessionSize, 1)
+}
+
+func (g *SessionManager) cleanupSessionResources(session getty.Session) {
+	session.RemoveAttribute(heartBeatRetryTimesKey)
+	log.Debugf("Cleaned up resources for session: %s", session.Stat())
 }

@@ -18,8 +18,12 @@
 package getty
 
 import (
+	"context"
 	"fmt"
+	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/util/backoff"
 	"sync"
+	"time"
 
 	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
@@ -103,6 +107,29 @@ func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *m
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:
 		return respMsg.Response, respMsg.Err
+	}
+}
+
+func (client *GettyRemotingClient) reconnectWithBackoff(session getty.Session, maxRetries int) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cfg := backoff.Config{
+		MinBackoff: 1 * time.Second,
+		MaxBackoff: 60 * time.Second,
+		MaxRetries: maxRetries,
+	}
+	backoffInstance := backoff.New(ctx, cfg)
+
+	log.Infof("Starting reconnection attempts with backoff for session: %s", session.Stat())
+
+	for backoffInstance.Ongoing() {
+		backoffInstance.Wait()
+
+		log.Infof("Reconnection attempt %d for session: %s", backoffInstance.NumRetries(), session.Stat())
+	}
+
+	if err := backoffInstance.Err(); err != nil {
+		log.Errorf("Reconnection failed after %d attempts: %v", backoffInstance.NumRetries(), err)
 	}
 }
 

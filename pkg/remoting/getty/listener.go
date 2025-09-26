@@ -77,11 +77,13 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 
 func (g *gettyClientHandler) OnError(session getty.Session, err error) {
 	log.Infof("session{%s} got error{%v}, will be closed.", session.Stat(), err)
+	g.cleanupSession(session)
 	sessionManager.releaseSession(session)
 }
 
 func (g *gettyClientHandler) OnClose(session getty.Session) {
 	log.Infof("session{%s} is closing......", session.Stat())
+	g.cleanupSession(session)
 	sessionManager.releaseSession(session)
 }
 
@@ -142,4 +144,9 @@ func (g *gettyClientHandler) RegisterProcessor(msgType message.MessageType, proc
 	if nil != processor {
 		g.processorMap[msgType] = processor
 	}
+}
+
+func (g *gettyClientHandler) cleanupSession(session getty.Session) {
+	session.RemoveAttribute(heartBeatRetryTimesKey)
+	log.Debugf("Cleaned up resources for closing session: %s", session.Stat())
 }
