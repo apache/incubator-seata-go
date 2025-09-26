@@ -120,7 +120,7 @@ seata:
       data-id: seata.properties
   # Registration Center
   registry:
-    type: file
+    type: naming-server
     file:
       name: seatago.yml
     nacos:
