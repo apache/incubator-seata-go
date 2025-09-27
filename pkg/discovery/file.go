@@ -58,7 +58,7 @@ func (s *FileRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 		addrStr = v
 	}
 	if addrStr == "" {
-		log.Errorf("endpoint is empty. key: %s group: %s", group)
+		log.Errorf("endpoint is empty. key: %s group: %s", key, group)
 		return nil, fmt.Errorf("endpoint is empty. key: %s group: %s", key, group)
 	}
 

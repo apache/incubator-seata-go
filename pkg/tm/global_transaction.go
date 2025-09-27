@@ -74,7 +74,7 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	if isTimeout(ctx) {
 		log.Infof("Rollback: tm detected timeout in global gtr %s", gtr.Xid)
 		if err := GetGlobalTransactionManager().Rollback(ctx, gtr); err != nil {
-			log.Errorf("Rollback transaction failed, error: %v in global gtr % s", err, gtr.Xid)
+			log.Errorf("Rollback transaction failed, error: %v in global gtr %s", err, gtr.Xid)
 			return err
 		}
 		return nil
