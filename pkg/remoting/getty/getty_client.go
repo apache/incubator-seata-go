@@ -20,18 +20,27 @@ package getty
 import (
 	"context"
 	"fmt"
-	getty "github.com/apache/dubbo-getty"
-	"seata.apache.org/seata-go/pkg/util/backoff"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
+	getty "github.com/apache/dubbo-getty"
+	gxsync "github.com/dubbogo/gost/sync"
 	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
 
 	"seata.apache.org/seata-go/pkg/protocol/codec"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/util/backoff"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
+
+func init() {
+	c := config.GetGettyConfig()
+	initSessionManager(c)
+}
 
 var (
 	gettyRemotingClient     *GettyRemotingClient
@@ -126,11 +135,46 @@ func (client *GettyRemotingClient) reconnectWithBackoff(session getty.Session, m
 		backoffInstance.Wait()
 
 		log.Infof("Reconnection attempt %d for session: %s", backoffInstance.NumRetries(), session.Stat())
+		//retry
+		if err := client.reconnectToServer(session); err == nil {
+			return
+		}
 	}
 
 	if err := backoffInstance.Err(); err != nil {
 		log.Errorf("Reconnection failed after %d attempts: %v", backoffInstance.NumRetries(), err)
 	}
+}
+
+func (client *GettyRemotingClient) reconnectToServer(session getty.Session) error {
+
+	remoteAddr := session.RemoteAddr()
+
+	host, port, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		log.Errorf("Failed to parse remote address %s: %v", remoteAddr, err)
+		return err
+	}
+
+	_, err = strconv.Atoi(port)
+	if err != nil {
+		log.Errorf("Failed to parse port %s: %v", port, err)
+		return err
+	}
+
+	session.Close()
+
+	gettyClient := getty.NewTCPClient(
+		getty.WithServerAddress(net.JoinHostPort(host, port)),
+		getty.WithConnectionNumber(1),
+		getty.WithReconnectInterval(GetSessionManager().gettyConf.ReconnectInterval),
+		getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
+	)
+
+	go gettyClient.RunEventLoop(GetSessionManager().newSession)
+
+	log.Infof("Reconnection initiated for server %s", remoteAddr)
+	return nil
 }
 
 func (client *GettyRemotingClient) GetMergedMessage(msgID int32) *message.MergedWarpMessage {

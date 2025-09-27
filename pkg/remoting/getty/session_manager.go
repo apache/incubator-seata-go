@@ -49,6 +49,10 @@ var (
 	onceSessionManager = &sync.Once{}
 )
 
+func GetSessionManager() *SessionManager {
+	return sessionManager
+}
+
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool
 	serverSessions sync.Map
@@ -227,6 +231,5 @@ func (g *SessionManager) registerSession(session getty.Session) {
 }
 
 func (g *SessionManager) cleanupSessionResources(session getty.Session) {
-	session.RemoveAttribute(heartBeatRetryTimesKey)
-	log.Debugf("Cleaned up resources for session: %s", session.Stat())
+	cleanupSession(session)
 }

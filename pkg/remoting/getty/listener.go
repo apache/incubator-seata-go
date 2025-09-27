@@ -147,6 +147,9 @@ func (g *gettyClientHandler) RegisterProcessor(msgType message.MessageType, proc
 }
 
 func (g *gettyClientHandler) cleanupSession(session getty.Session) {
+	cleanupSession(session)
+}
+func cleanupSession(session getty.Session) {
 	session.RemoveAttribute(heartBeatRetryTimesKey)
-	log.Debugf("Cleaned up resources for closing session: %s", session.Stat())
+	log.Debugf("Cleaned up resources for session: %s", session.Stat())
 }
