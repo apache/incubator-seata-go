@@ -69,7 +69,7 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		if IsGlobalTx(ctx) {
 			// business maybe to throw panic, so need to recover it here.
 			if err = commitOrRollback(ctx, deferErr == nil && re == nil); err != nil {
-				log.Errorf("global transaction xid %s, name %s second phase error", GetXID(ctx), GetTxName(ctx), err)
+				log.Errorf("global transaction xid %s, name %s second phase error: %v", GetXID(ctx), GetTxName(ctx), err)
 			}
 		}
 
