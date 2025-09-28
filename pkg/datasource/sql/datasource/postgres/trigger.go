@@ -66,10 +66,10 @@ func (p *postgresqlTrigger) LoadOne(ctx context.Context, dbName string, tableNam
 		if !ok {
 			continue
 		}
-		idx, ok := tableMeta.Indexs[index.Name]
-		if ok {
-			idx.Columns = append(idx.Columns, col)
-			tableMeta.Indexs[index.Name] = idx
+		
+		if existingIndex, exists := tableMeta.Indexs[index.Name]; exists {
+			existingIndex.Columns = append(existingIndex.Columns, col)
+			tableMeta.Indexs[index.Name] = existingIndex
 		} else {
 			index.Columns = append(index.Columns, col)
 			tableMeta.Indexs[index.Name] = index
@@ -108,8 +108,13 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 			data_type,    
 			data_type AS column_type,  
 			is_nullable,    
-			column_default, 
-			CASE WHEN column_default LIKE 'nextval(%' THEN 'auto_increment' ELSE '' END AS extra   
+			column_default,
+			CASE 
+				WHEN column_default LIKE 'nextval(%' THEN 'sequence'
+				WHEN is_identity = 'YES' THEN 'identity'
+				ELSE '' 
+			END AS extra,
+			COALESCE(is_identity, 'NO') AS is_identity
 		FROM 
 			information_schema.columns  
 		WHERE 
@@ -141,6 +146,7 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 			isNullable    string
 			columnDefault sql.NullString
 			extra         string
+			isIdentity    string
 		)
 
 		if err := rows.Scan(
@@ -152,11 +158,17 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 			&isNullable,
 			&columnDefault,
 			&extra,
+			&isIdentity,
 		); err != nil {
 			return nil, errors.Wrap(err, "scan column row failed")
 		}
 
 		cleanColumnName := strings.Trim(columnName, `" `)
+
+		isAutoIncrement := strings.Contains(strings.ToLower(columnDefault.String), "nextval(") || 
+			strings.ToLower(isIdentity) == "yes" ||
+			strings.Contains(strings.ToLower(extra), "sequence") ||
+			strings.Contains(strings.ToLower(extra), "identity")
 
 		colMeta := types.ColumnMeta{
 			Schema:             tableCatalog,
@@ -168,7 +180,7 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 			IsNullable:         0,
 			ColumnDef:          []byte(columnDefault.String),
 			Extra:              extra,
-			Autoincrement:      strings.Contains(strings.ToLower(extra), "auto_increment") || strings.Contains(strings.ToLower(extra), "identity"),
+			Autoincrement:      isAutoIncrement,
 		}
 
 		if strings.ToLower(isNullable) == "yes" {
@@ -244,7 +256,9 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 		SELECT 
         	c.relname AS index_name,
         	a.attname AS column_name,
-        	CASE WHEN idx.indisunique THEN 0 ELSE 1 END AS non_unique
+        	CASE WHEN idx.indisunique THEN 0 ELSE 1 END AS non_unique,
+        	idx.indisprimary AS is_primary,
+        	u.ord AS column_position
     	FROM 
         	pg_catalog.pg_index idx
     	JOIN 
@@ -256,10 +270,11 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
     	JOIN 
         	pg_catalog.pg_attribute a ON a.attrelid = idx.indrelid
     	JOIN 
-        	unnest(idx.indkey) AS u(attnum) ON a.attnum = u.attnum
+        	unnest(idx.indkey) WITH ORDINALITY AS u(attnum, ord) ON a.attnum = u.attnum
     	WHERE 
         	n.nspname = COALESCE(NULLIF($2, ''), 'public')
         	AND t.relname = $1
+    	ORDER BY c.relname, u.ord
 	`
 	stmt, err := conn.PrepareContext(ctx, indexSQL)
 	if err != nil {
@@ -277,12 +292,14 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 	indexes := make([]types.IndexMeta, 0)
 	for rows.Next() {
 		var (
-			indexName  string
-			columnName string
-			nonUnique  int64
+			indexName      string
+			columnName     string
+			nonUnique      int64
+			isPrimary      bool
+			columnPosition int64
 		)
 
-		if err := rows.Scan(&indexName, &columnName, &nonUnique); err != nil {
+		if err := rows.Scan(&indexName, &columnName, &nonUnique, &isPrimary, &columnPosition); err != nil {
 			return nil, errors.Wrap(err, "scan index row failed")
 		}
 
@@ -296,7 +313,7 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 			NonUnique:  nonUnique == 1,
 		}
 		
-		if strings.ToLower(indexName) == "primary" {
+		if isPrimary {
 			indexMeta.IType = types.IndexTypePrimaryKey
 		} else if !indexMeta.NonUnique {
 			indexMeta.IType = types.IndexUnique
@@ -315,11 +332,24 @@ func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, table
 }
 
 func (p *postgresqlTrigger) extractSchemaFromDBName(dbName string) string {
-	if strings.Contains(dbName, ".") {
-		parts := strings.Split(dbName, ".")
-		if len(parts) >= 2 {
-			return parts[len(parts)-2]
-		}
+	if !strings.Contains(dbName, ".") {
+		return ""
 	}
+	
+	parts := strings.Split(dbName, ".")
+	if len(parts) == 2 {
+		if strings.Contains(parts[0], "localhost") || 
+		   strings.Contains(parts[0], "127.0.0.1") ||
+		   strings.Contains(parts[0], "::1") ||
+		   strings.HasPrefix(parts[0], "postgres") {
+			return ""
+		}
+		return parts[1]
+	}
+	
+	if len(parts) >= 3 {
+		return ""
+	}
+	
 	return ""
 }
