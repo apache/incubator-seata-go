@@ -36,8 +36,8 @@ func TransactionMiddleware() gin.HandlerFunc {
 			xid = ctx.GetHeader(constant.XidKeyLowercase)
 		}
 
-		if len(xid) == 0 {
-			log.Errorf("Gin: header not contain header: %s, global transaction xid", constant.XidKey)
+		if xid == "" {
+			log.Errorf("Gin: header not contain: %s or %s, global transaction xid", constant.XidKey, constant.XidKeyLowercase)
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
