@@ -81,6 +81,16 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			expectExecCall:         true,
 		},
 		{
+			name: "one-phase commit with prepared transaction",
+			input: args{
+				xid:      "test-prepared-xid",
+				onePhase: true,
+			},
+			wantErr:                false,
+			mockTxNotSupportExecer: false,
+			expectExecCall:         true,
+		},
+		{
 			name: "invalid xid (empty)",
 			input: args{
 				xid:      "",
@@ -94,6 +104,26 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			name: "invalid xid (too long)",
 			input: args{
 				xid:      strings.Repeat("a", 201),
+				onePhase: false,
+			},
+			wantErr:                true,
+			mockTxNotSupportExecer: false,
+			expectExecCall:         false,
+		},
+		{
+			name: "invalid xid (dangerous characters)",
+			input: args{
+				xid:      "test';DROP TABLE users;--",
+				onePhase: false,
+			},
+			wantErr:                true,
+			mockTxNotSupportExecer: false,
+			expectExecCall:         false,
+		},
+		{
+			name: "invalid xid (unsafe characters)",
+			input: args{
+				xid:      "test'injection",
 				onePhase: false,
 			},
 			wantErr:                true,
@@ -127,9 +157,6 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 						if err := verifySQLContains(query, "COMMIT"); err != nil {
 							return nil, err
 						}
-						if strings.Contains(query, "PREPARED") {
-							return nil, errors.New("one-phase commit should not use COMMIT PREPARED")
-						}
 					} else {
 						if err := verifySQLContains(query, "COMMIT PREPARED", tt.input.xid); err != nil {
 							return nil, err
@@ -145,6 +172,10 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			}
 
 			c := &PostgresqlXAConn{Conn: conn, tx: mockTx}
+			if tt.input.xid == "test-prepared-xid" {
+				c.prepared = true
+				c.preparedXid = tt.input.xid
+			}
 			err := c.Commit(context.Background(), tt.input.xid, tt.input.onePhase)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Commit() error = %v, wantErr %v", err, tt.wantErr)
@@ -180,6 +211,15 @@ func TestPostgresqlXAConn_XAPrepare(t *testing.T) {
 			name: "invalid xid (empty)",
 			input: args{
 				xid: "",
+			},
+			wantErr:                true,
+			mockTxNotSupportExecer: false,
+			expectExecCall:         false,
+		},
+		{
+			name: "invalid xid (dangerous characters)",
+			input: args{
+				xid: "test';DROP TABLE users;--",
 			},
 			wantErr:                true,
 			mockTxNotSupportExecer: false,
@@ -239,38 +279,47 @@ func TestPostgresqlXAConn_Rollback(t *testing.T) {
 		xid string
 	}
 	tests := []struct {
-		name                   string
-		input                  args
-		wantErr                bool
+		name                     string
+		input                    args
+		wantErr                  bool
 		mockConnNotSupportExecer bool
-		expectExecCall         bool
+		expectExecCall           bool
 	}{
 		{
 			name: "normal rollback",
 			input: args{
 				xid: "test-rollback-xid",
 			},
-			wantErr:                false,
+			wantErr:                  false,
 			mockConnNotSupportExecer: false,
-			expectExecCall:         true,
+			expectExecCall:           true,
 		},
 		{
 			name: "invalid xid (empty)",
 			input: args{
 				xid: "",
 			},
-			wantErr:                true,
+			wantErr:                  true,
 			mockConnNotSupportExecer: false,
-			expectExecCall:         false,
+			expectExecCall:           false,
+		},
+		{
+			name: "invalid xid (unsafe characters)",
+			input: args{
+				xid: "test'injection",
+			},
+			wantErr:                  true,
+			mockConnNotSupportExecer: false,
+			expectExecCall:           false,
 		},
 		{
 			name: "conn does not support ExecerContext",
 			input: args{
 				xid: "test-rollback-xid-2",
 			},
-			wantErr:                true,
+			wantErr:                  true,
 			mockConnNotSupportExecer: true,
-			expectExecCall:         false,
+			expectExecCall:           false,
 		},
 	}
 
@@ -482,6 +531,112 @@ func TestPostgresqlXAConn_End(t *testing.T) {
 			err := c.End(context.Background(), tt.args.xid, tt.args.flags)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("End() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPostgresqlXAConn_Forget(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	type args struct {
+		xid string
+	}
+	tests := []struct {
+		name                     string
+		input                    args
+		wantErr                  bool
+		mockConnNotSupportQuery  bool
+		mockConnNotSupportExecer bool
+		transactionExists        bool
+	}{
+		{
+			name: "normal forget with existing transaction",
+			input: args{
+				xid: "test-forget-xid",
+			},
+			wantErr:                  false,
+			mockConnNotSupportQuery:  false,
+			mockConnNotSupportExecer: false,
+			transactionExists:        true,
+		},
+		{
+			name: "forget with non-existing transaction",
+			input: args{
+				xid: "test-forget-xid-2",
+			},
+			wantErr:                  false,
+			mockConnNotSupportQuery:  false,
+			mockConnNotSupportExecer: false,
+			transactionExists:        false,
+		},
+		{
+			name: "invalid xid (empty)",
+			input: args{
+				xid: "",
+			},
+			wantErr:                  true,
+			mockConnNotSupportQuery:  false,
+			mockConnNotSupportExecer: false,
+			transactionExists:        false,
+		},
+		{
+			name: "conn does not support QueryerContext",
+			input: args{
+				xid: "test-forget-xid-3",
+			},
+			wantErr:                  true,
+			mockConnNotSupportQuery:  true,
+			mockConnNotSupportExecer: false,
+			transactionExists:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockTx := mock.NewMockTestDriverTx(ctrl)
+
+			var conn driver.Conn
+			if tt.mockConnNotSupportQuery {
+				conn = &mockConnWithoutExecer{}
+			} else {
+				mockConn := mock.NewMockTestDriverConn(ctrl)
+				if !tt.wantErr || tt.input.xid != "" {
+					mockConn.EXPECT().QueryContext(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+					).DoAndReturn(func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+						if !strings.Contains(query, "SELECT 1 FROM pg_prepared_xacts WHERE gid = $1") {
+							return nil, errors.New("query incorrect")
+						}
+						rows := &pgMockRows{
+							data: [][]interface{}{},
+						}
+						if tt.transactionExists {
+							rows.data = [][]interface{}{{1}}
+						}
+						return rows, nil
+					})
+				}
+
+				if tt.transactionExists && !tt.wantErr {
+					mockConn.EXPECT().ExecContext(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+					).DoAndReturn(func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+						return &driver.ResultNoRows, verifySQLContains(query, "ROLLBACK PREPARED", tt.input.xid)
+					})
+				}
+				conn = mockConn
+			}
+
+			c := &PostgresqlXAConn{Conn: conn, tx: mockTx}
+			err := c.Forget(context.Background(), tt.input.xid)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Forget() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

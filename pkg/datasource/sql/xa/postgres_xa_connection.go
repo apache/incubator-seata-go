@@ -31,10 +31,10 @@ import (
 
 type PostgresqlXAConn struct {
 	driver.Conn
-	tx            driver.Tx
-	prepared      bool
-	preparedXid   string
-	timeout       time.Duration
+	tx          driver.Tx
+	prepared    bool
+	preparedXid string
+	timeout     time.Duration
 }
 
 func NewPostgresqlXaConn(conn driver.Conn, tx driver.Tx) *PostgresqlXAConn {
@@ -53,8 +53,11 @@ func validateXid(xid string) error {
 	if len(xid) > 200 {
 		return errors.New("xid too long (max 200 characters for PostgreSQL)")
 	}
-	if strings.Contains(xid, "'") {
-		return errors.New("xid cannot contain single quotes")
+	if strings.ContainsAny(xid, "'\"\\;") {
+		return errors.New("xid contains invalid characters")
+	}
+	if strings.Contains(xid, "--") || strings.Contains(xid, "/*") || strings.Contains(xid, "*/") {
+		return errors.New("xid contains SQL comment patterns")
 	}
 	return nil
 }
@@ -67,13 +70,12 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 	var query string
 	if onePhase {
 		if c.prepared && c.preparedXid == xid {
-			return errors.New("transaction already prepared, cannot use one-phase commit")
+			query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
+		} else {
+			query = "COMMIT"
 		}
-		query = "COMMIT"
 	} else {
 		query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
-		c.prepared = false
-		c.preparedXid = ""
 	}
 
 	connExec, ok := c.Conn.(driver.ExecerContext)
@@ -84,8 +86,14 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 	_, err := connExec.ExecContext(ctx, query, nil)
 	if err != nil {
 		log.Errorf("postgresql xa commit failed, xid %s, err %v", xid, err)
+		return err
 	}
-	return err
+
+	if c.preparedXid == xid {
+		c.prepared = false
+		c.preparedXid = ""
+	}
+	return nil
 }
 
 func (c *PostgresqlXAConn) End(ctx context.Context, xid string, flags int) error {
@@ -110,28 +118,39 @@ func (c *PostgresqlXAConn) Forget(ctx context.Context, xid string) error {
 		return fmt.Errorf("invalid xid: %v", err)
 	}
 
-	connQuery, ok := c.Conn.(driver.QueryerContext)
-	if !ok {
-		return errors.New("postgresql conn does not support QueryerContext")
-	}
-
-	checkQuery := fmt.Sprintf("SELECT gid FROM pg_prepared_xacts WHERE gid = '%s'", xid)
-	rows, err := connQuery.QueryContext(ctx, checkQuery, nil)
+	exists, err := c.checkPreparedTransactionExists(ctx, xid)
 	if err != nil {
 		return fmt.Errorf("failed to check prepared transaction: %v", err)
+	}
+
+	if !exists {
+		return nil
+	}
+
+	return c.Rollback(ctx, xid)
+}
+
+func (c *PostgresqlXAConn) checkPreparedTransactionExists(ctx context.Context, xid string) (bool, error) {
+	connQuery, ok := c.Conn.(driver.QueryerContext)
+	if !ok {
+		return false, errors.New("postgresql conn does not support QueryerContext")
+	}
+
+	query := "SELECT 1 FROM pg_prepared_xacts WHERE gid = $1"
+	rows, err := connQuery.QueryContext(ctx, query, []driver.NamedValue{
+		{Value: xid, Ordinal: 1},
+	})
+	if err != nil {
+		return false, err
 	}
 	defer rows.Close()
 
 	dest := make([]driver.Value, 1)
 	err = rows.Next(dest)
 	if err == io.EOF {
-		return nil
+		return false, nil
 	}
-	if err != nil {
-		return fmt.Errorf("failed to check prepared transaction existence: %v", err)
-	}
-
-	return c.Rollback(ctx, xid)
+	return err == nil, err
 }
 
 func (c *PostgresqlXAConn) GetTransactionTimeout() time.Duration {
@@ -176,7 +195,7 @@ func (c *PostgresqlXAConn) Recover(ctx context.Context, flag int) ([]string, err
 	if !startRscan && !endRscan && flag != TMNoFlags {
 		return nil, fmt.Errorf("invalid recover flag: %d", flag)
 	}
-	
+
 	if !startRscan {
 		return nil, nil
 	}
@@ -245,21 +264,21 @@ func (c *PostgresqlXAConn) SetTransactionTimeout(duration time.Duration) bool {
 	if duration <= 0 {
 		return false
 	}
-	
+
 	connExec, ok := c.Conn.(driver.ExecerContext)
 	if !ok {
 		return false
 	}
-	
+
 	timeoutMs := int(duration.Milliseconds())
 	query := fmt.Sprintf("SET LOCAL statement_timeout = %d", timeoutMs)
-	
+
 	_, err := connExec.ExecContext(context.Background(), query, nil)
 	if err != nil {
 		log.Errorf("failed to set postgresql transaction timeout: %v", err)
 		return false
 	}
-	
+
 	c.timeout = duration
 	return true
 }
