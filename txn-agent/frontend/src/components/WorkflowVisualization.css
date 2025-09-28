@@ -1,0 +1,328 @@
+.workflow-visualization {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--panel-bg, #1a1a2e);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.workflow-header {
+  padding: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, var(--header-bg, #16213e), rgba(26, 26, 46, 0.8));
+  backdrop-filter: blur(20px);
+}
+
+.workflow-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.workflow-title h2 {
+  margin: 0;
+  color: var(--accent-color, #00d4ff);
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--accent-color), var(--success-color));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.workflow-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 0.95rem;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 8px currentColor;
+  position: relative;
+}
+
+.status-dot.completed { background: var(--success-color, #00ff88); }
+.status-dot.in-progress { background: var(--warning-color, #ffa500); }
+.status-dot.pending { background: var(--text-secondary, #666); }
+.status-dot.error { background: var(--error-color, #ff4444); }
+.status-dot.compensation { background: var(--error-color, #ff4444); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.workflow-controls-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--input-bg, #0e1a3c);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.view-toggle button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #a0a0a0);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.view-toggle button.active {
+  background: var(--accent-color, #00d4ff);
+  color: var(--bg-primary, #0f0f23);
+  font-weight: 500;
+}
+
+.view-toggle button:hover:not(.active) {
+  background: var(--hover-bg, #2a2a4a);
+  color: var(--text-primary, #ffffff);
+}
+
+.playback-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.playback-controls button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--card-bg, #16213e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  color: var(--text-primary, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.playback-controls button:hover {
+  background: var(--hover-bg, #2a2a4a);
+  border-color: var(--accent-color, #00d4ff);
+}
+
+.workflow-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.workflow-container {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary, #0f0f23);
+}
+
+.json-container {
+  padding: 20px;
+  background: var(--input-bg, #0e1a3c);
+  overflow: auto;
+  height: 100%;
+}
+
+.json-container pre {
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-primary, #ffffff);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.workflow-legend {
+  display: flex;
+  gap: 20px;
+  padding: 16px 20px;
+  background: var(--header-bg, #16213e);
+  border-top: 1px solid var(--border-color, #333);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #a0a0a0);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-dot.completed { background: var(--success-color, #00ff88); }
+.legend-dot.in-progress { background: var(--warning-color, #ffa500); }
+.legend-dot.pending { background: var(--text-secondary, #666); }
+.legend-dot.error { background: var(--error-color, #ff4444); }
+.legend-dot.compensation { 
+  background: var(--error-color, #ff4444);
+  border: 2px dashed var(--error-color, #ff4444);
+  background: transparent;
+}
+
+/* React Flow 自定义样式 */
+.react-flow__node {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__controls {
+  background: var(--card-bg, #16213e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--card-bg, #16213e);
+  border: none;
+  border-bottom: 1px solid var(--border-color, #333);
+  color: var(--text-primary, #ffffff);
+  transition: background 0.2s ease;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--hover-bg, #2a2a4a);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__minimap {
+  background: var(--card-bg, #16213e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__background {
+  background: var(--bg-primary, #0f0f23);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .workflow-header {
+    padding: 16px;
+  }
+  
+  .workflow-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .workflow-controls-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .workflow-legend {
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .legend-item {
+    font-size: 0.8rem;
+  }
+}
+
+/* 节点悬停效果 */
+.react-flow__node:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
+/* 边缘动画 */
+.react-flow__edge.animated path {
+  stroke-dasharray: 5;
+  animation: dash 0.5s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* 滚动条样式 */
+.json-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.json-container::-webkit-scrollbar-track {
+  background: var(--input-bg, #16213e);
+  border-radius: 3px;
+}
+
+.json-container::-webkit-scrollbar-thumb {
+  background: var(--accent-color, #00d4ff);
+  border-radius: 3px;
+}
+
+.json-container::-webkit-scrollbar-thumb:hover {
+  background: var(--success-color, #00ff88);
+}
+
+/* 工作流信息提示样式 */
+.workflow-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--header-bg, #16213e);
+  border-top: 1px solid var(--border-color, #333);
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 0.9rem;
+}
+
+.workflow-info svg {
+  flex-shrink: 0;
+}
