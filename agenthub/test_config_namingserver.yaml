@@ -1,0 +1,37 @@
+hub:
+  id: "test-agent-hub"
+  name: "TestAgentHub"
+  version: "1.0.0"
+  listen_address: ":8080"
+
+seata:
+  server_addr: "127.0.0.1:8091"
+  namespace: "public"
+  cluster: "default"
+  heartbeat_period: 5000
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+metrics:
+  listen_address: ":9090"
+  enabled: true
+
+auth:
+  enabled: false
+  jwt_secret: ""
+  jwt_expiry: "24h"
+  optional: false
+
+storage:
+  type: "memory"
+  options: { }
+
+# 启用NamingServer配置
+naming_server:
+  enabled: true
+  address: "127.0.0.1:8091"
+  username: ""
+  password: ""

@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html, body {
+        @apply h-full;
+    }
+
+    body {
+        @apply bg-gray-50 text-gray-900 font-sans;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .btn-secondary {
+        @apply bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-success {
+        @apply bg-success-500 hover:bg-success-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-warning {
+        @apply bg-warning-500 hover:bg-warning-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-error {
+        @apply bg-error-500 hover:bg-error-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .card {
+        @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    }
+
+    .input-field {
+        @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none;
+    }
+
+    .textarea-field {
+        @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none;
+        resize: vertical;
+    }
+}
