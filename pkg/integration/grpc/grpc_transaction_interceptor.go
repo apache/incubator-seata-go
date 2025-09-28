@@ -46,7 +46,7 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	end := time.Now()
 	log.Infof("RPC: %s, start time: %s, end time: %s, err: %v", method,
-		start.Format("Basic"), end.Format(time.RFC3339), err)
+		start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 	return err
 }
 
@@ -60,11 +60,11 @@ func ServerTransactionInterceptor(ctx context.Context, req interface{},
 		log.Errorf("missing grpc metadata")
 	}
 	var xid string
-	if slice := md.Get(constant.XidKey); slice != nil && len(slice) > 0 {
+	if slice := md.Get(constant.XidKey); len(slice) > 0 {
 		xid = slice[0]
 	}
 	if xid == "" {
-		if slice := md.Get(constant.XidKeyLowercase); slice != nil && len(slice) > 0 {
+		if slice := md.Get(constant.XidKeyLowercase); len(slice) > 0 {
 			xid = slice[0]
 		}
 	}
