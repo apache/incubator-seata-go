@@ -1,0 +1,37 @@
+{
+  "name": "test-provider",
+  "description": "A provider mode Go agent",
+  "url": "http://localhost:8080",
+  "provider": {
+    "name": "test-provider-provider",
+    "description": "External service provider integration",
+    "url": "http://localhost:8080/provider"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "supportsStreaming": true,
+    "supportedModes": [
+      "text",
+      "json"
+    ]
+  },
+  "defaultInputModes": [
+    "text"
+  ],
+  "defaultOutputModes": [
+    "text"
+  ],
+  "skills": [
+    {
+      "name": "external_service_call",
+      "description": "Call external service through adapter",
+      "parameters": {
+        "endpoint": {
+          "description": "External service endpoint",
+          "required": true,
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
