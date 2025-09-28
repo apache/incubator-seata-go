@@ -1,0 +1,32 @@
+{
+  "name": "test-agent",
+  "description": "A default mode Go agent",
+  "url": "http://localhost:8080",
+  "version": "1.0.0",
+  "capabilities": {
+    "supportsStreaming": true,
+    "supportedModes": [
+      "text",
+      "json"
+    ]
+  },
+  "defaultInputModes": [
+    "text"
+  ],
+  "defaultOutputModes": [
+    "text"
+  ],
+  "skills": [
+    {
+      "name": "example_skill",
+      "description": "An example skill implementation",
+      "parameters": {
+        "input": {
+          "description": "Input text for processing",
+          "required": true,
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
