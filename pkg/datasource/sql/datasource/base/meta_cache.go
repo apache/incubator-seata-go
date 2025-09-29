@@ -190,6 +190,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 // scanExpire
 func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 	ticker := time.NewTicker(c.expireDuration)
+	
 	defer ticker.Stop()
 
 	for {
