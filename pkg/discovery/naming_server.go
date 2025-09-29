@@ -96,14 +96,14 @@ const (
 )
 
 type NamingServerClient struct {
-	config          *NamingServerConfig
-	logger          *zap.Logger
-	mu              sync.Mutex
-	instance        *NamingServerClient
-	term            int64
-	jwtToken        string
-	tokenTimeStamp  int64
-	isSubscribed    bool
+	config                   *NamingServerConfig
+	logger                   *zap.Logger
+	mu                       sync.Mutex
+	instance                 *NamingServerClient
+	term                     int64
+	jwtToken                 string
+	tokenTimeStamp           int64
+	isSubscribed             bool
 	namingAddrCache          string
 	namingAddrCacheTimestamp int64
 
@@ -222,6 +222,7 @@ func (c *NamingServerClient) checkAvailableNamingAddr(urlList []string) {
 
 func (c *NamingServerClient) doHealthCheck(addr string) bool {
 	checkURL := fmt.Sprintf("%s%s/naming/v1/health", httpPrefix, addr)
+	
 	req, err := http.NewRequest(http.MethodGet, checkURL, nil)
 	if err != nil {
 		c.logger.Error("create health check request failed", zap.Error(err))
@@ -334,17 +335,17 @@ func (c *NamingServerClient) getNamingAddr() (string, error) {
 	defer c.mu.Unlock()
 
 	now := time.Now().UnixMilli()
-	
-	if c.namingAddrCache != "" && 
+
+	if c.namingAddrCache != "" &&
 		now-c.namingAddrCacheTimestamp < namingAddrCacheTTL.Milliseconds() {
-		
+
 		if val, ok := c.availableNamingMap.Load(c.namingAddrCache); ok {
 			failCount := val.(int32)
 			if failCount < healthCheckThreshold {
 				return c.namingAddrCache, nil
 			}
 		}
-		
+
 		c.clearNamingAddrCache()
 	}
 
@@ -398,17 +399,17 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 
 		lastErr = err
 		if attempt < maxRetryAttempts {
-			c.logger.Warn("token refresh failed, retrying", 
-				zap.String("addr", addr), 
-				zap.Int("attempt", attempt), 
+			c.logger.Warn("token refresh failed, retrying",
+				zap.String("addr", addr),
+				zap.Int("attempt", attempt),
 				zap.Error(err))
 			time.Sleep(time.Duration(retryDelayMs*attempt) * time.Millisecond)
 		}
 	}
 
-	c.logger.Error("token refresh failed after all retries", 
-		zap.String("addr", addr), 
-		zap.Int("maxAttempts", maxRetryAttempts), 
+	c.logger.Error("token refresh failed after all retries",
+		zap.String("addr", addr),
+		zap.Int("maxAttempts", maxRetryAttempts),
 		zap.Error(lastErr))
 	return fmt.Errorf("token refresh failed after %d attempts: %w", maxRetryAttempts, lastErr)
 }
