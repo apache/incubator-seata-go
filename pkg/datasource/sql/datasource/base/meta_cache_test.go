@@ -20,6 +20,8 @@ package base
 import (
 	"context"
 	"database/sql"
+	"github.com/agiledragon/gomonkey/v2"
+	"seata.apache.org/seata-go/testdata"
 	"strings"
 	"sync"
 	"testing"
@@ -41,7 +43,6 @@ type mockTrigger struct{}
 
 // LoadOne simulates loading table metadata, including id, name, and age columns.
 func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error) {
-
 	return &types.TableMeta{
 		TableName: table,
 		Columns: map[string]types.ColumnMeta{
@@ -89,7 +90,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	type fields struct {
 		lock           sync.RWMutex
 		expireDuration time.Duration
-		capity         int32
+		capacity       int32
 		size           int32
 		cache          map[string]*entry
 		cancel         context.CancelFunc
@@ -103,6 +104,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 
 	mysqlCfg := &mysql.Config{DBName: "test_mysql_db"}
 	postgresDSN := "host=localhost port=5432 user=test dbname=test_postgres_db password=test"
+	expireTime := 10 * time.Millisecond
 
 	mockDB, mock, err := sqlmock.New()
 	if err != nil {
@@ -116,17 +118,19 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name   string
-		fields func(ctx context.Context, cancel context.CancelFunc) fields
-		args   args
+		name    string
+		fields  func(ctx context.Context, cancel context.CancelFunc) fields
+		args    args
+		want    types.TableMeta
+		wantErr bool
 	}{
 		{
 			name: "mysql_config_refresh",
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
-					expireDuration: 10 * time.Millisecond,
+					capacity:       capacity,
+					expireDuration: expireTime,
 					cache: map[string]*entry{
 						"TEST_MYSQL_TABLE": {
 							value:      types.TableMeta{TableName: "TEST_MYSQL_TABLE"},
@@ -140,14 +144,19 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				}
 			},
 			args: args{},
+			want: func() types.TableMeta {
+				meta := testdata.MockWantTypesMeta("TEST_MYSQL_TABLE")
+				meta.DBType = types.DBTypeMySQL
+				return meta
+			}(),
 		},
 		{
 			name: "postgres_config_refresh",
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
-					expireDuration: 10 * time.Millisecond,
+					capacity:       capacity,
+					expireDuration: expireTime,
 					cache: map[string]*entry{
 						"TEST_POSTGRES_TABLE": {
 							value:      types.TableMeta{TableName: "TEST_POSTGRES_TABLE"},
@@ -161,6 +170,70 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				}
 			},
 			args: args{},
+			want: func() types.TableMeta {
+				meta := testdata.MockWantTypesMeta("TEST_POSTGRES_TABLE")
+				meta.DBType = types.DBTypePostgreSQL
+				return meta
+			}(),
+		},
+		{
+			name: "test1",
+			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
+				return fields{
+					lock:           sync.RWMutex{},
+					capacity:       capacity,
+					size:           0,
+					expireDuration: expireTime,
+					cache: map[string]*entry{
+						"TEST": {
+							value:      types.TableMeta{TableName: "test"},
+							lastAccess: time.Now(),
+						},
+					},
+					cancel:  cancel,
+					trigger: &mockTrigger{},
+					cfg:     &mysql.Config{},
+					db:      mockDB,
+				}
+			},
+			args: args{},
+			want: types.TableMeta{
+				TableName: "test",
+				DBType:    types.DBTypeMySQL,
+				Columns: map[string]types.ColumnMeta{
+					"id":   {ColumnName: "id"},
+					"name": {ColumnName: "name"},
+				},
+				Indexs:      nil,
+				ColumnNames: []string{"id", "name"},
+			},
+		},
+		{
+			name: "test2",
+			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
+				return fields{
+					lock:           sync.RWMutex{},
+					capacity:       capacity,
+					size:           0,
+					expireDuration: expireTime,
+					cache: map[string]*entry{
+						"TEST": {
+							value:      types.TableMeta{},
+							lastAccess: time.Now(),
+						},
+					},
+					cancel:  cancel,
+					trigger: &mockTrigger{},
+					cfg:     &mysql.Config{},
+					db:      mockDB,
+				}
+			},
+			args: args{},
+			want: func() types.TableMeta {
+				meta := testdata.MockWantTypesMeta("TEST")
+				meta.DBType = types.DBTypeMySQL
+				return meta
+			}(),
 		},
 	}
 
@@ -173,7 +246,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			c := &BaseTableMetaCache{
 				lock:           fields.lock,
 				expireDuration: fields.expireDuration,
-				capity:         fields.capity,
+				capacity:       fields.capacity,
 				size:           fields.size,
 				cache:          fields.cache,
 				cancel:         fields.cancel,
@@ -182,48 +255,87 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cfg:            fields.cfg,
 			}
 
-			refreshDone := make(chan struct{})
-
-			go func() {
-				defer close(refreshDone)
-				c.refresh(timeoutCtx)
-			}()
-
-			time.Sleep(20 * time.Millisecond)
-			timeoutCancel()
-
-			select {
-			case <-refreshDone:
-			case <-time.After(100 * time.Millisecond):
-				t.Fatal("The refresh method did not respond to the cancel signal, and timed out on exit")
+			mockConn, err := fields.db.Conn(context.Background())
+			if err != nil {
+				t.Fatalf("Failed to create mock connection: %v", err)
 			}
+			defer mockConn.Close()
+
+			connStub := gomonkey.ApplyMethodFunc(fields.db, "Conn",
+				func(_ context.Context) (*sql.Conn, error) {
+					return mockConn, nil
+				})
+			defer connStub.Reset()
+
+			loadAllStub := gomonkey.ApplyMethodFunc(fields.trigger, "LoadAll",
+				func(_ context.Context, _ string, _ *sql.Conn, _ ...string) ([]types.TableMeta, error) {
+					return []types.TableMeta{tt.want}, nil
+				})
+			defer loadAllStub.Reset()
+
+			go c.refresh(timeoutCtx)
+			time.Sleep(time.Second * 3)
 
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			for tableName := range fields.cache {
-				assert.Contains(t, c.cache, tableName, "Table %s not found in cache", tableName)
-				assert.NotEmpty(t, c.cache[tableName].value.ColumnNames, "Table %s metadata has not been refreshed", tableName)
+
+			tableName := ""
+			switch tt.name {
+			case "mysql_config_refresh":
+				tableName = "TEST_MYSQL_TABLE"
+			case "postgres_config_refresh":
+				tableName = "TEST_POSTGRES_TABLE"
+			case "test1":
+				tableName = "TEST"
+			case "test2":
+				tableName = "TEST"
 			}
+
+			assert.Contains(t, c.cache, tableName, "table %s not found in cache", tableName)
+			assert.NotEmpty(t, c.cache[tableName].value.ColumnNames, "table %s metadata not refreshed", tableName)
+			assert.Equal(t, c.cache[tableName].value, tt.want, "table %s metadata mismatch", tableName)
 		})
 	}
 }
 
 // TestBaseTableMetaCache_GetTableMeta
 func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
-
-	createTestTableMeta := func(tableName string) types.TableMeta {
-		columns := map[string]types.ColumnMeta{
-			"id":   {ColumnName: "id"},
-			"name": {ColumnName: "name"},
-			"age":  {ColumnName: "age"},
+	createTestTableMeta := func(tableName string, hasPrimaryKey bool) types.TableMeta {
+		columnId := types.ColumnMeta{
+			ColumnDef:  nil,
+			ColumnName: "id",
 		}
-		indexes := map[string]types.IndexMeta{
-			"id": {
+		columnName := types.ColumnMeta{
+			ColumnDef:  nil,
+			ColumnName: "name",
+		}
+		columnAge := types.ColumnMeta{
+			ColumnDef:  nil,
+			ColumnName: "age",
+		}
+		columns := map[string]types.ColumnMeta{
+			"id":   columnId,
+			"name": columnName,
+			"age":  columnAge,
+		}
+
+		indexes := make(map[string]types.IndexMeta)
+		columnMeta1 := []types.ColumnMeta{columnId}
+		columnMeta2 := []types.ColumnMeta{columnName, columnAge}
+
+		if hasPrimaryKey {
+			indexes["id"] = types.IndexMeta{
 				Name:    "PRIMARY",
 				IType:   types.IndexTypePrimaryKey,
-				Columns: []types.ColumnMeta{{ColumnName: "id"}},
-			},
+				Columns: columnMeta1,
+			}
 		}
+		indexes["id_name_age"] = types.IndexMeta{
+			Name:    "name_age_idx",
+			IType:   types.IndexUnique,
+			Columns: columnMeta2,
+		}
+
 		return types.TableMeta{
 			TableName:   tableName,
 			Columns:     columns,
@@ -232,9 +344,10 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 		}
 	}
 
-	tableMeta1 := createTestTableMeta("T_USER1")
-	tableMeta2 := createTestTableMeta("T_USER2")
-	tests := []types.TableMeta{tableMeta1, tableMeta2}
+	tests := []types.TableMeta{
+		createTestTableMeta("t_user1", true),
+		createTestTableMeta("T_USER2", false),
+	}
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -266,8 +379,12 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 					cache := &BaseTableMetaCache{
 						trigger: mockTrigger,
 						cache: map[string]*entry{
-							tableMeta1.TableName: {
-								value:      tableMeta1,
+							strings.ToUpper("t_user1"): {
+								value:      createTestTableMeta("t_user1", true),
+								lastAccess: time.Now(),
+							},
+							strings.ToUpper("T_USER2"): {
+								value:      createTestTableMeta("T_USER2", false),
 								lastAccess: time.Now(),
 							},
 						},
@@ -276,15 +393,17 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 					}
 
 					meta, err := cache.GetTableMeta(context.Background(), "test_db", tt.TableName, conn)
-					assert.NoError(t, err)
-					assert.Equal(t, tt.TableName, meta.TableName)
+
+					assert.NoError(t, err, "GetTableMeta returned unexpected error")
+					assert.Equal(t, tt.TableName, meta.TableName, "Table name mismatch")
+					assert.Equal(t, len(tt.Indexs), len(meta.Indexs), "Index count mismatch")
 
 					cache.lock.RLock()
 					entry, cached := cache.cache[strings.ToUpper(tt.TableName)]
 					cache.lock.RUnlock()
 
-					assert.True(t, cached)
-					assert.Equal(t, tt.TableName, entry.value.TableName)
+					assert.True(t, cached, "Table %s not cached", tt.TableName)
+					assert.Equal(t, tt.TableName, entry.value.TableName, "Cached table name mismatch")
 				})
 			}
 		})
@@ -389,4 +508,47 @@ func TestBaseTableMetaCache_scanExpire_Real(t *testing.T) {
 
 	assert.NotContains(t, c.cache, "EXPIRED_TABLE", "overdue items should be cleared")
 	assert.Contains(t, c.cache, "VALID_TABLE", "Items that have not expired should be retained")
+}
+
+func TestBaseTableMetaCache_enforceCapacity(t *testing.T) {
+	cache := &BaseTableMetaCache{
+		lock:     sync.RWMutex{},
+		capacity: 2,
+		cache:    make(map[string]*entry),
+	}
+
+	now := time.Now()
+
+	cache.cache["TABLE1"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE1"},
+		lastAccess: now.Add(-3 * time.Minute),
+	}
+	cache.cache["TABLE2"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE2"},
+		lastAccess: now.Add(-2 * time.Minute),
+	}
+	cache.cache["TABLE3"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE3"},
+		lastAccess: now.Add(-1 * time.Minute),
+	}
+
+	assert.Equal(t, 3, len(cache.cache), "Should have 3 items before capacity enforcement")
+
+	cache.enforceCapacity()
+
+	assert.Equal(t, 2, len(cache.cache), "Should have only 2 items after capacity enforcement")
+	assert.NotContains(t, cache.cache, "TABLE1", "Oldest item should be removed")
+	assert.Contains(t, cache.cache, "TABLE2", "Second newest item should be retained")
+	assert.Contains(t, cache.cache, "TABLE3", "Newest item should be retained")
+}
+
+func TestBaseTableMetaCache_getDBType_invalidPostgreSQL(t *testing.T) {
+	cache := &BaseTableMetaCache{
+		cfg: "invalid postgresql dsn",
+	}
+
+	dbType, err := cache.getDBType()
+	assert.Error(t, err)
+	assert.Equal(t, types.DBTypeUnknown, dbType)
+	assert.Contains(t, err.Error(), "invalid postgresql dsn")
 }
