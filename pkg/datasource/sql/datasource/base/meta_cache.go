@@ -115,6 +115,7 @@ func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 
 // refresh
 func (c *BaseTableMetaCache) refresh(ctx context.Context) {
+	
 	f := func(ctx context.Context) bool {
 		if c.db == nil || c.cfg == nil || c.cache == nil {
 			return true
