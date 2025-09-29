@@ -73,7 +73,6 @@ func (m *mockTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Conn
 
 func TestBaseTableMetaCache_refresh(t *testing.T) {
 	type fields struct {
-		lock           sync.RWMutex
 		expireDuration time.Duration
 		capity         int32
 		size           int32
@@ -96,7 +95,6 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		{
 			name: "test1",
 			fields: fields{
-				lock:           sync.RWMutex{},
 				capity:         capacity,
 				size:           0,
 				expireDuration: EexpireTime,
@@ -117,7 +115,6 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		{
 			name: "test2",
 			fields: fields{
-				lock:           sync.RWMutex{},
 				capity:         capacity,
 				size:           0,
 				expireDuration: EexpireTime,
@@ -154,7 +151,6 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			defer loadAllStub.Reset()
 
 			c := &BaseTableMetaCache{
-				lock:           tt.fields.lock,
 				expireDuration: tt.fields.expireDuration,
 				capity:         tt.fields.capity,
 				size:           tt.fields.size,

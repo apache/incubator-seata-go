@@ -67,8 +67,8 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 			types.RecordImage{
 				TableName: "test_name",
 				Rows: []types.RowImage{
-					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "user1")}},
-					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "user2")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "user1")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "user2")}},
 				},
 			},
 			"TEST_NAME:1_user1,2_user2",
@@ -84,9 +84,9 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 			types.RecordImage{
 				TableName: "test2_name",
 				Rows: []types.RowImage{
-					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one"), getColumnImage("age", "11")}},
-					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two"), getColumnImage("age", "22")}},
-					{[]types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one"), getColumnImage("age", "11")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two"), getColumnImage("age", "22")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
 				},
 			},
 			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
