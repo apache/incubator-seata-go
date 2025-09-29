@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -46,7 +47,7 @@ type entry struct {
 type BaseTableMetaCache struct {
 	lock           sync.RWMutex
 	expireDuration time.Duration
-	capity         int32
+	capacity       int32
 	size           int32
 	cache          map[string]*entry
 	cancel         context.CancelFunc
@@ -56,12 +57,12 @@ type BaseTableMetaCache struct {
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg interface{}) *BaseTableMetaCache {
+func NewBaseCache(capacity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg interface{}) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
 		lock:           sync.RWMutex{},
-		capity:         capity,
+		capacity:       capacity,
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
@@ -74,6 +75,34 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 	c.Init(ctx)
 
 	return c
+}
+
+func (c *BaseTableMetaCache) enforceCapacity() {
+	if c.capacity <= 0 || int32(len(c.cache)) <= c.capacity {
+		return
+	}
+
+	type lruEntry struct {
+		key        string
+		lastAccess time.Time
+	}
+
+	entries := make([]lruEntry, 0, len(c.cache))
+	for key, entry := range c.cache {
+		entries = append(entries, lruEntry{
+			key:        key,
+			lastAccess: entry.lastAccess,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].lastAccess.Before(entries[j].lastAccess)
+	})
+
+	removeCount := int32(len(c.cache)) - c.capacity
+	for i := int32(0); i < removeCount; i++ {
+		delete(c.cache, entries[i].key)
+	}
 }
 
 // init
@@ -134,6 +163,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 				lastAccess: time.Now(),
 			}
 		}
+		c.enforceCapacity()
 		return true
 	}
 
@@ -213,6 +243,7 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 		value:      *meta,
 		lastAccess: time.Now(),
 	}
+	c.enforceCapacity()
 	return *meta, nil
 }
 
@@ -221,6 +252,9 @@ func (c *BaseTableMetaCache) getDBType() (types.DBType, error) {
 	case *mysql.Config:
 		return types.DBTypeMySQL, nil
 	case string:
+		if _, err := pgx.ParseConfig(cfg); err != nil {
+			return types.DBTypeUnknown, fmt.Errorf("invalid postgresql dsn: %w", err)
+		}
 		return types.DBTypePostgreSQL, nil
 	default:
 		return types.DBTypeUnknown, fmt.Errorf("unsupported config type: %T", cfg)

@@ -90,7 +90,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	type fields struct {
 		lock           sync.RWMutex
 		expireDuration time.Duration
-		capity         int32
+		capacity       int32
 		size           int32
 		cache          map[string]*entry
 		cancel         context.CancelFunc
@@ -129,7 +129,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
+					capacity:       capacity,
 					expireDuration: expireTime,
 					cache: map[string]*entry{
 						"TEST_MYSQL_TABLE": {
@@ -155,7 +155,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
+					capacity:       capacity,
 					expireDuration: expireTime,
 					cache: map[string]*entry{
 						"TEST_POSTGRES_TABLE": {
@@ -181,12 +181,12 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
+					capacity:       capacity,
 					size:           0,
 					expireDuration: expireTime,
 					cache: map[string]*entry{
-						"test": {
-							value:      types.TableMeta{},
+						"TEST": {
+							value:      types.TableMeta{TableName: "test"},
 							lastAccess: time.Now(),
 						},
 					},
@@ -197,18 +197,23 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				}
 			},
 			args: args{},
-			want: func() types.TableMeta {
-				meta := testdata.MockWantTypesMeta("test")
-				meta.DBType = types.DBTypeMySQL
-				return meta
-			}(),
+			want: types.TableMeta{
+				TableName: "test",
+				DBType:    types.DBTypeMySQL,
+				Columns: map[string]types.ColumnMeta{
+					"id":   {ColumnName: "id"},
+					"name": {ColumnName: "name"},
+				},
+				Indexs:      nil,
+				ColumnNames: []string{"id", "name"},
+			},
 		},
 		{
 			name: "test2",
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
-					capity:         capacity,
+					capacity:       capacity,
 					size:           0,
 					expireDuration: expireTime,
 					cache: map[string]*entry{
@@ -241,7 +246,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			c := &BaseTableMetaCache{
 				lock:           fields.lock,
 				expireDuration: fields.expireDuration,
-				capity:         fields.capity,
+				capacity:       fields.capacity,
 				size:           fields.size,
 				cache:          fields.cache,
 				cancel:         fields.cancel,
@@ -281,7 +286,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			case "postgres_config_refresh":
 				tableName = "TEST_POSTGRES_TABLE"
 			case "test1":
-				tableName = "test"
+				tableName = "TEST"
 			case "test2":
 				tableName = "TEST"
 			}
@@ -504,4 +509,47 @@ func TestBaseTableMetaCache_scanExpire_Real(t *testing.T) {
 
 	assert.NotContains(t, c.cache, "EXPIRED_TABLE", "overdue items should be cleared")
 	assert.Contains(t, c.cache, "VALID_TABLE", "Items that have not expired should be retained")
+}
+
+func TestBaseTableMetaCache_enforceCapacity(t *testing.T) {
+	cache := &BaseTableMetaCache{
+		lock:     sync.RWMutex{},
+		capacity: 2,
+		cache:    make(map[string]*entry),
+	}
+
+	now := time.Now()
+
+	cache.cache["TABLE1"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE1"},
+		lastAccess: now.Add(-3 * time.Minute),
+	}
+	cache.cache["TABLE2"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE2"},
+		lastAccess: now.Add(-2 * time.Minute),
+	}
+	cache.cache["TABLE3"] = &entry{
+		value:      types.TableMeta{TableName: "TABLE3"},
+		lastAccess: now.Add(-1 * time.Minute),
+	}
+
+	assert.Equal(t, 3, len(cache.cache), "Should have 3 items before capacity enforcement")
+
+	cache.enforceCapacity()
+
+	assert.Equal(t, 2, len(cache.cache), "Should have only 2 items after capacity enforcement")
+	assert.NotContains(t, cache.cache, "TABLE1", "Oldest item should be removed")
+	assert.Contains(t, cache.cache, "TABLE2", "Second newest item should be retained")
+	assert.Contains(t, cache.cache, "TABLE3", "Newest item should be retained")
+}
+
+func TestBaseTableMetaCache_getDBType_invalidPostgreSQL(t *testing.T) {
+	cache := &BaseTableMetaCache{
+		cfg: "invalid postgresql dsn",
+	}
+
+	dbType, err := cache.getDBType()
+	assert.Error(t, err)
+	assert.Equal(t, types.DBTypeUnknown, dbType)
+	assert.Contains(t, err.Error(), "invalid postgresql dsn")
 }
