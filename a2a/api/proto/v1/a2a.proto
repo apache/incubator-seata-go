@@ -14,6 +14,8 @@
 // limitations under the License.
 
 // Older protoc compilers don't understand edition yet.
+
+
 syntax = "proto3";
 package a2a.v1;
 
