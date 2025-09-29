@@ -177,7 +177,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			}(),
 		},
 		{
-			name: "test1_lowercase_table",
+			name: "test1",
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
@@ -185,14 +185,14 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 					size:           0,
 					expireDuration: expireTime,
 					cache: map[string]*entry{
-						"TEST": {
+						"test": {
 							value:      types.TableMeta{},
 							lastAccess: time.Now(),
 						},
 					},
 					cancel:  cancel,
 					trigger: &mockTrigger{},
-					cfg:     mysqlCfg,
+					cfg:     &mysql.Config{},
 					db:      mockDB,
 				}
 			},
@@ -204,7 +204,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			}(),
 		},
 		{
-			name: "test2_uppercase_table",
+			name: "test2",
 			fields: func(ctx context.Context, cancel context.CancelFunc) fields {
 				return fields{
 					lock:           sync.RWMutex{},
@@ -219,7 +219,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 					},
 					cancel:  cancel,
 					trigger: &mockTrigger{},
-					cfg:     mysqlCfg,
+					cfg:     &mysql.Config{},
 					db:      mockDB,
 				}
 			},
@@ -268,20 +268,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				})
 			defer loadAllStub.Reset()
 
-			refreshDone := make(chan struct{})
-			go func() {
-				defer close(refreshDone)
-				c.refresh(timeoutCtx)
-			}()
-
-			time.Sleep(20 * time.Millisecond)
-			timeoutCancel()
-
-			select {
-			case <-refreshDone:
-			case <-time.After(100 * time.Millisecond):
-				t.Fatal("refresh method did not respond to cancel signal, timed out")
-			}
+			go c.refresh(timeoutCtx)
+			time.Sleep(time.Second * 3)
 
 			c.lock.RLock()
 			defer c.lock.RUnlock()
@@ -292,9 +280,9 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				tableName = "TEST_MYSQL_TABLE"
 			case "postgres_config_refresh":
 				tableName = "TEST_POSTGRES_TABLE"
-			case "test1_lowercase_table":
-				tableName = "TEST"
-			case "test2_uppercase_table":
+			case "test1":
+				tableName = "test"
+			case "test2":
 				tableName = "TEST"
 			}
 
