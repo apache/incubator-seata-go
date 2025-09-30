@@ -30,3 +30,7 @@ type RmConfig struct {
 func InitRm(cfg RmConfig) {
 	rmConfig = cfg
 }
+
+func GetRmConfig() RmConfig {
+	return rmConfig
+}

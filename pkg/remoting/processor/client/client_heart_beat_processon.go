@@ -21,20 +21,43 @@ import (
 	"context"
 
 	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/reflectx"
 
+	"seata.apache.org/seata-go/pkg/protocol"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/config"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 )
 
 func initHeartBeat() {
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, &clientHeartBeatProcessor{})
+	clientHeartBeatProcessor := &clientHeartBeatProcessor{}
+	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
+	case protocol.ProtocolGRPC:
+		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.HeartbeatMessageProto](), message.MessageTypeHeartbeatMsg)
+
+		grpc.GetGrpcClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, clientHeartBeatProcessor)
+	default:
+		getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeHeartbeatMsg, clientHeartBeatProcessor)
+	}
 }
 
 type clientHeartBeatProcessor struct{}
 
 func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	if msg, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
-		if !msg.Ping {
+	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
+	case protocol.ProtocolGRPC:
+		f.handleGrpcHeartbeat(ctx, rpcMessage)
+	default:
+		f.handleSeataHeartbeat(ctx, rpcMessage)
+	}
+	return nil
+}
+
+func (f *clientHeartBeatProcessor) handleSeataHeartbeat(ctx context.Context, rpcMessage message.RpcMessage) {
+	if body, ok := rpcMessage.Body.(message.HeartBeatMessage); ok {
+		if !body.Ping {
 			log.Debug("received PONG from {}", ctx)
 		}
 	}
@@ -42,5 +65,15 @@ func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage messa
 	if msgFuture != nil {
 		getty.GetGettyRemotingClient().RemoveMessageFuture(rpcMessage.ID)
 	}
-	return nil
+}
+
+func (f *clientHeartBeatProcessor) handleGrpcHeartbeat(ctx context.Context, rpcMessage message.RpcMessage) {
+	hbMsg := rpcMessage.Body.(*pb.HeartbeatMessageProto)
+	if !hbMsg.Ping {
+		log.Debug("received PONG from {}", ctx)
+	}
+	msgFuture := grpc.GetGrpcRemotingClient().GetMessageFuture(rpcMessage.ID)
+	if msgFuture != nil {
+		grpc.GetGrpcRemotingClient().RemoveMessageFuture(rpcMessage.ID)
+	}
 }

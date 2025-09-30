@@ -103,3 +103,10 @@ type ResourceManager interface {
 type ResourceManagerGetter interface {
 	GetResourceManager(branchType branch.BranchType) ResourceManager
 }
+
+type RMRemoting interface {
+	BranchRegister(param BranchRegisterParam) (int64, error)
+	BranchReport(param BranchReportParam) error
+	LockQuery(param LockQueryParam) (bool, error)
+	RegisterResource(resource Resource) error
+}

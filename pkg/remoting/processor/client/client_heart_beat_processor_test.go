@@ -23,6 +23,8 @@ import (
 
 	"seata.apache.org/seata-go/pkg/protocol/codec"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
@@ -30,15 +32,17 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 	log.Init()
 	// testcases
 	tests := []struct {
-		name    string             // testcase name
-		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               // want testcase err or not
+		name     string             // testcase name
+		protocol string             // protocol:seata/grpc
+		rpcMsg   message.RpcMessage // rpcMessage case
+		wantErr  bool               // want testcase err or not
 	}{
 		{
-			name: "chb-testcase1",
+			name:     "chb-testcase1",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         123,
-				Type:       message.GettyRequestTypeHeartbeatRequest,
+				Type:       message.RequestTypeHeartbeatRequest,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -53,10 +57,11 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "chb-testcase2",
+			name:     "chb-testcase2",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         124,
-				Type:       message.GettyRequestTypeHeartbeatRequest,
+				Type:       message.RequestTypeHeartbeatRequest,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -70,6 +75,40 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:     "chb-testcase3",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   125,
+				Type: message.RequestTypeHeartbeatRequest,
+				HeadMap: map[string]string{
+					"name":    " Jack",
+					"age":     "12",
+					"address": "Beijing",
+				},
+				Body: &pb.HeartbeatMessageProto{
+					Ping: true,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "chb-testcase4",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   125,
+				Type: message.RequestTypeHeartbeatRequest,
+				HeadMap: map[string]string{
+					"name":    " Mike",
+					"age":     "20",
+					"address": "Hunan",
+				},
+				Body: &pb.HeartbeatMessageProto{
+					Ping: false,
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	var ctx context.Context
@@ -77,6 +116,7 @@ func TestClientHeartBeatProcessor(t *testing.T) {
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			config.InitTransportConfig(&config.TransportConfig{Protocol: tc.protocol})
 			err := chbProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("clientHeartBeatProcessor wantErr: %v, got: %v", tc.wantErr, err)
