@@ -38,17 +38,24 @@ func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 }
 
 type RegistryConfig struct {
-	Type  string      `yaml:"type" json:"type" koanf:"type"`
-	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Type             string      `yaml:"type" json:"type" koanf:"type"`
+	NamingserverAddr string      `yaml:"namingserver-addr" json:"namingserver-addr" koanf:"namingserver-addr"`
+	Username         string      `yaml:"username" json:"username" koanf:"username"`
+	Password         string      `yaml:"password" json:"password" koanf:"password"`
+	File             FileConfig  `yaml:"file" json:"file" koanf:"file"`
+	Nacos            NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3            Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Raft             RaftConfig  `yaml:"raft" json:"raft" koanf:"raft"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+".type", "file", "The registry type.")
+	f.StringVar(&cfg.Username, prefix+".username", "seata", "Username for authentication")
+	f.StringVar(&cfg.Password, prefix+".password", "seata", "Password for authentication")
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.Raft.RegisterFlagsWithPrefix(prefix+".raft", f)
 }
 
 type FileConfig struct {
@@ -89,4 +96,16 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type RaftConfig struct {
+	MetadataMaxAgeMs            int64  `yaml:"metadata-max-age-ms" json:"metadata-max-age-ms" koanf:"metadata-max-age-ms"`
+	ServerAddr                  string `yaml:"serverAddr" json:"server-addr" koanf:"server-addr"`
+	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
+}
+
+func (cfg *RaftConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.Int64Var(&cfg.MetadataMaxAgeMs, prefix+".metadata-max-age-ms", 30000, "Maximum age of metadata in milliseconds before refresh")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "127.0.0.1:7091", "The server address of raft registry")
+	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 1740000, "Token validity duration in milliseconds")
 }
