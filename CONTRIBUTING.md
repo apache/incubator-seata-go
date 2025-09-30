@@ -22,6 +22,8 @@ It is warmly welcomed if you have interest to hack on seata-go. First, we encour
 
 ## Topics
 
+
+
 * [Reporting general issues](#reporting-general-issues)
 * [Code and doc contribution](#code-and-doc-contribution)
 * [Test case contribution](#test-case-contribution)
