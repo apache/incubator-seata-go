@@ -96,6 +96,8 @@ func ParseDBType(driverName string) DBType {
 	switch strings.ToLower(driverName) {
 	case "mysql":
 		return DBTypeMySQL
+	case "postgres", "postgresql", "pgx":
+		return DBTypePostgreSQL
 	default:
 		return DBTypeUnknown
 	}

@@ -63,6 +63,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 			NamedValues:          args,
 			Conn:                 c.targetConn,
 			DBName:               c.dbName,
+			DBType:               c.res.dbType,
 			DbVersion:            c.GetDbVersion(),
 			IsSupportsSavepoints: true,
 			IsAutoCommit:         c.GetAutoCommit(),

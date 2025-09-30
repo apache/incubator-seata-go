@@ -19,6 +19,7 @@ package builder
 
 import (
 	"database/sql/driver"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"testing"
 
 	"github.com/arana-db/parser/ast"
@@ -60,7 +61,7 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := parser.DoParser(tt.sourceQuery)
+			c, err := parser.DoParser(tt.sourceQuery, types.DBTypeMySQL)
 			assert.Nil(t, err)
 			var updateStmts []*ast.UpdateStmt
 			for _, v := range c.MultiStmt {
@@ -76,7 +77,7 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 
 	sourceQuery := "update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name desc;update t_user set name = ?, age = ? where kk between ? and ? and id = ? and addr in(?,?) and age > ? order by name"
 	sourceQueryArgs := []driver.Value{"Jack", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2, "Jack2", 1, 10, 20, 17, "Beijing", "Guangzhou", 18, 2}
-	c, err := parser.DoParser(sourceQuery)
+	c, err := parser.DoParser(sourceQuery, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	var updateStmts []*ast.UpdateStmt
 	for _, v := range c.MultiStmt {

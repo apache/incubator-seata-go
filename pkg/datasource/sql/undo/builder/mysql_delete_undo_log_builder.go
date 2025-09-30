@@ -86,7 +86,7 @@ func (u *MySQLDeleteUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 
 // buildBeforeImageSQL build delete sql from delete sql
 func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []driver.Value) (string, []driver.Value, error) {
-	p, err := parser.DoParser(query)
+	p, err := parser.DoParser(query, types.DBTypeMySQL)
 	if err != nil {
 		return "", nil, err
 	}

@@ -49,7 +49,7 @@ type (
 // BuildExecutor use db type and transaction type to build an executor. the executor can
 // add custom hook, and intercept the user's business sql to generate the undo log.
 func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, query string) (SQLExecutor, error) {
-	parseContext, err := parser.DoParser(query)
+	parseContext, err := parser.DoParser(query, dbType)
 	if err != nil {
 		return nil, err
 	}

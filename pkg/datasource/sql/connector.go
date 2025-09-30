@@ -20,9 +20,10 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"sync"
-
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4"
+	"seata.apache.org/seata-go/pkg/util/log"
+	"sync"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
@@ -93,7 +94,8 @@ type seataConnector struct {
 	once      sync.Once
 	driver    driver.Driver
 	target    driver.Connector
-	cfg       *mysql.Config
+	cfg       interface{}
+	dbType    types.DBType
 }
 
 // Connect returns a connection to the database.
@@ -110,18 +112,66 @@ type seataConnector struct {
 // The returned connection is only used by one goroutine at a
 // time.
 func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
+
+	if mockDriverConn, ok := c.target.(*Conn); ok {
+		mockDriverConn.res = c.res
+		mockDriverConn.dbName = c.getDBName()
+		mockDriverConn.dbType = c.dbType
+		if mockDriverConn.txCtx == nil {
+			mockDriverConn.txCtx = types.NewTxCtx()
+		}
+		if mockDriverConn.autoCommit == false {
+			mockDriverConn.autoCommit = true
+		}
+		return mockDriverConn, nil
+	}
+
 	conn, err := c.target.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	dbName := c.getDBName()
 	return &Conn{
 		targetConn: conn,
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
-		dbName:     c.cfg.DBName,
-		dbType:     types.DBTypeMySQL,
+		dbName:     dbName,
+		dbType:     c.dbType,
 	}, nil
+}
+
+func (c *seataConnector) getDBName() string {
+	var dbName string
+	switch c.dbType {
+	case types.DBTypeMySQL:
+		if mysqlCfg, ok := c.cfg.(*mysql.Config); ok {
+			dbName = mysqlCfg.DBName
+		} else {
+			log.Warnf("seataConnector: invalid MySQL config type (expected *mysql.Config, got %T)", c.cfg)
+		}
+	case types.DBTypePostgreSQL:
+		switch cfg := c.cfg.(type) {
+		case *pgx.ConnConfig:
+			dbName = cfg.Database
+		case string:
+			parsedCfg, err := pgx.ParseConfig(cfg)
+			if err != nil {
+				log.Errorf("seataConnector: parse PostgreSQL DSN failed: %v", err)
+			} else {
+				dbName = parsedCfg.Database
+			}
+		default:
+			log.Warnf("seataConnector: invalid PostgreSQL config type (expected *pgx.ConnConfig or string, got %T)", c.cfg)
+		}
+	default:
+		log.Warnf("seataConnector: unsupported DB type %s", c.dbType)
+	}
+	if dbName == "" {
+		log.Warnf("seataConnector: dbName is empty for DB type %s", c.dbType)
+	}
+	return dbName
 }
 
 // Driver returns the underlying Driver of the Connector,

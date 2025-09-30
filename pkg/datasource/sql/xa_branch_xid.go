@@ -18,12 +18,18 @@
 package sql
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
 const (
-	branchIdPrefix = "-"
+	branchIdPrefix        = "-"
+	MaxGTRIDLength        = 64
+	MaxBQUALLength        = 64
+	DefaultFormatId int32 = 1
 )
 
 type XABranchXid struct {
@@ -31,28 +37,43 @@ type XABranchXid struct {
 	branchId            uint64
 	globalTransactionId []byte
 	branchQualifier     []byte
+
+	formatId int32
+	dbType   types.DBType
 }
 
 type Option func(*XABranchXid)
 
 func NewXABranchXid(opt ...Option) *XABranchXid {
-	xABranchXid := &XABranchXid{}
+	xABranchXid := &XABranchXid{
+		formatId: DefaultFormatId,
+		dbType:   types.DBTypeMySQL,
+	}
 
 	for _, fn := range opt {
 		fn(xABranchXid)
 	}
 
-	// encode
-	if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
-		len(xABranchXid.globalTransactionId) == 0 &&
-		len(xABranchXid.branchQualifier) == 0 {
-		encode(xABranchXid)
-	}
-
-	// decode
-	if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
-		(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
-		decode(xABranchXid)
+	switch xABranchXid.dbType {
+	case types.DBTypePostgreSQL:
+		if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
+			len(xABranchXid.globalTransactionId) == 0 &&
+			len(xABranchXid.branchQualifier) == 0 {
+			encodePostgreSQL(xABranchXid)
+		} else if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
+			(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
+			decodePostgreSQL(xABranchXid)
+		}
+	default:
+		if (xABranchXid.xid != "" || xABranchXid.branchId != 0) &&
+			len(xABranchXid.globalTransactionId) == 0 &&
+			len(xABranchXid.branchQualifier) == 0 {
+			encode(xABranchXid)
+		}
+		if xABranchXid.xid == "" && xABranchXid.branchId == 0 &&
+			(len(xABranchXid.globalTransactionId) > 0 || len(xABranchXid.branchQualifier) > 0) {
+			decode(xABranchXid)
+		}
 	}
 
 	return xABranchXid
@@ -74,8 +95,28 @@ func (x *XABranchXid) GetBranchQualifier() []byte {
 	return x.branchQualifier
 }
 
+func (x *XABranchXid) GetFormatId() int32 {
+	return x.formatId
+}
+
+func (x *XABranchXid) GetDatabaseType() types.DBType {
+	return x.dbType
+}
+
 func (x *XABranchXid) String() string {
-	return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	switch x.dbType {
+	case types.DBTypePostgreSQL:
+		return x.ToPostgreSQLFormat()
+	default:
+		return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	}
+}
+
+func (x *XABranchXid) ToPostgreSQLFormat() string {
+	if x.xid != "" {
+		return x.xid + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
+	}
+	return string(x.globalTransactionId) + branchIdPrefix + strconv.FormatUint(x.branchId, 10)
 }
 
 func WithXid(xid string) Option {
@@ -102,6 +143,18 @@ func WithBranchQualifier(branchQualifier []byte) Option {
 	}
 }
 
+func WithFormatId(formatId int32) Option {
+	return func(x *XABranchXid) {
+		x.formatId = formatId
+	}
+}
+
+func WithDatabaseType(dbType types.DBType) Option {
+	return func(x *XABranchXid) {
+		x.dbType = dbType
+	}
+}
+
 func encode(x *XABranchXid) {
 	if x.xid != "" {
 		x.globalTransactionId = []byte(x.xid)
@@ -121,4 +174,60 @@ func decode(x *XABranchXid) {
 		branchId := strings.TrimLeft(string(x.branchQualifier), branchIdPrefix)
 		x.branchId, _ = strconv.ParseUint(branchId, 10, 64)
 	}
+}
+
+func encodePostgreSQL(x *XABranchXid) {
+	if x.xid != "" {
+		xidBytes := []byte(x.xid)
+		if len(xidBytes) > MaxGTRIDLength {
+			xidBytes = xidBytes[:MaxGTRIDLength]
+		}
+		x.globalTransactionId = xidBytes
+	} else {
+		x.globalTransactionId = []byte("postgresql-default-gtrid")
+	}
+
+	x.branchQualifier = []byte(strconv.FormatUint(x.branchId, 10))
+}
+
+func decodePostgreSQL(x *XABranchXid) {
+	if len(x.globalTransactionId) > 0 {
+		x.xid = string(x.globalTransactionId)
+	}
+
+	if len(x.branchQualifier) > 0 {
+		bqualStr := string(x.branchQualifier)
+		if branchId, err := strconv.ParseUint(bqualStr, 10, 64); err == nil {
+			x.branchId = branchId
+		}
+	}
+}
+
+func ParsePostgreSQLXid(xidStr string) (*XABranchXid, error) {
+	if xidStr == "" {
+		return nil, fmt.Errorf("empty PostgreSQL XID")
+	}
+
+	branchIdIndex := strings.LastIndex(xidStr, branchIdPrefix)
+	if branchIdIndex == -1 {
+		return NewXABranchXid(
+			WithXid(xidStr),
+			WithBranchId(0),
+			WithDatabaseType(types.DBTypePostgreSQL),
+		), nil
+	}
+
+	xid := xidStr[:branchIdIndex]
+	branchIdStr := xidStr[branchIdIndex+len(branchIdPrefix):]
+
+	branchId, err := strconv.ParseUint(branchIdStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid branch ID: %v", err)
+	}
+
+	return NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+	), nil
 }
