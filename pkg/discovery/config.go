@@ -38,10 +38,11 @@ func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 }
 
 type RegistryConfig struct {
-	Type  string      `yaml:"type" json:"type" koanf:"type"`
-	File  FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3 Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	Type         string             `yaml:"type" json:"type" koanf:"type"`
+	File         FileConfig         `yaml:"file" json:"file" koanf:"file"`
+	Nacos        NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3        Etcd3Config        `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	NamingServer NamingServerConfig `yaml:"naming-server" json:"namingServer" koanf:"naming-server"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -49,6 +50,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.NamingServer.RegisterFlagsWithPrefix(prefix+".naming-server", f)
 }
 
 type FileConfig struct {
@@ -89,4 +91,26 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type NamingServerConfig struct {
+	Cluster                     string `yaml:"cluster" json:"cluster" koanf:"cluster"`
+	ServerAddr                  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	Namespace                   string `yaml:"namespace" json:"namespace" koanf:"namespace"`
+	HeartbeatPeriod             int    `yaml:"heartbeat-period" json:"heartbeat-period" koanf:"heartbeat-period"`
+	MetadataMaxAgeMs            int64  `yaml:"metadata-max-age-ms" json:"metadata-max-age-ms" koanf:"metadata-max-age-ms"`
+	Username                    string `yaml:"username" json:"username" koanf:"username"`
+	Password                    string `yaml:"password" json:"password" koanf:"password"`
+	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
+}
+
+func (cfg *NamingServerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The cluster name of naming server")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "127.0.0.1:8081", "The server address of naming server (host:port)")
+	f.StringVar(&cfg.Namespace, prefix+".namespace", "public", "The namespace of naming server")
+	f.IntVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 5000, "The heartbeat period in milliseconds")
+	f.Int64Var(&cfg.MetadataMaxAgeMs, prefix+".metadata-max-age-ms", 30000, "The max age of metadata in milliseconds")
+	f.StringVar(&cfg.Username, prefix+".username", "", "The username for authentication")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password for authentication")
+	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 29*60*1000, "The validity period of token in milliseconds")
 }
