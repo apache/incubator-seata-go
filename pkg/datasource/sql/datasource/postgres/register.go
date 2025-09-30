@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package sql
+package postgres
 
-type XATx struct {
-	tx *Tx
-}
+import (
+	"database/sql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+)
 
-// Commit do commit action
-// case 1. no open global-transaction, just do local transaction commit
-// case 2. not need flush undolog, is XA mode, do local transaction commit
-// case 3. need run AT transaction
-func (tx *XATx) Commit() error {
-	tx.tx.beforeCommit()
-	return tx.commitOnXA()
-}
-
-func (tx *XATx) Rollback() error {
-	originTx := tx.tx
-	if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
-		return originTx.report(false)
-	}
-	return nil
-}
-
-// commitOnXA commit xa and register branch transaction
-func (tx *XATx) commitOnXA() error {
-	return nil
+func init() {
+	datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+		dsn, _ := cfg.(string)
+		return NewTableMetaInstance(db, dsn)
+	})
 }

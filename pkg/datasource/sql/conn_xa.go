@@ -23,14 +23,15 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var xaConnTimeout time.Duration
@@ -114,8 +115,7 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if !tm.IsGlobalTx(ctx) {
-		tx, err := c.Conn.BeginTx(ctx, opts)
-		return tx, err
+		return c.Conn.BeginTx(ctx, opts)
 	}
 
 	c.autoCommit = false
@@ -140,21 +140,25 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		baseTx, ok := tx.(*Tx)
 		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+			return nil, fmt.Errorf("start xa %s transaction failure: tx type invalid", c.txCtx.XID)
 		}
 
-		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+			return nil, fmt.Errorf("failed to register xa branch %s: %w", c.txCtx.XID, err)
 		}
 
-		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+		c.xaBranchXid = NewXABranchXid(
+			WithXid(c.txCtx.XID),
+			WithBranchId(uint64(c.txCtx.BranchID)),
+			WithDatabaseType(c.txCtx.DBType),
+		)
+
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
+			return nil, err
 		}
 		c.xaActive = true
 	}
@@ -197,8 +201,11 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}()
 
 	currentAutoCommit := c.autoCommit
+
 	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		tx, err = c.BeginTx(ctx, driver.TxOptions{
+			Isolation: driver.IsolationLevel(gosql.LevelDefault),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +252,7 @@ func (c *XAConn) releaseIfNecessary() {
 }
 
 func (c *XAConn) start(ctx context.Context) error {
-	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType)
+	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType, c.tx)
 	if err != nil {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}
@@ -418,18 +425,49 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	return err
 }
 
-// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
-// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
 func isXAER_RMFAILAlreadyEnded(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
 			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
 		}
 	}
-	// TODO: handle other DB errors
+
+	if pgErr, ok := err.(*pq.Error); ok {
+		return isPostgreSQLXAAlreadyEnded(pgErr)
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "idle") ||
+		strings.Contains(errMsg, "already ended") ||
+		strings.Contains(errMsg, "no active") ||
+		strings.Contains(errMsg, "invalid transaction state")
+}
+
+func isPostgreSQLXAAlreadyEnded(pgErr *pq.Error) bool {
+	if pgErr == nil {
+		return false
+	}
+
+	switch pgErr.Code {
+	case types.PostgreSQLErrCodeNoActiveSQLTx:
+		return true
+	case types.PostgreSQLErrCodeIdleInTx:
+		return true
+	case types.PostgreSQLErrCodeFailedSQLTx:
+		return strings.Contains(strings.ToLower(pgErr.Message), "already") ||
+			strings.Contains(strings.ToLower(pgErr.Message), "ended")
+	}
+
+	if pgErr.Code.Class() == types.PostgreSQLErrClassInvalidTxState {
+		message := strings.ToLower(pgErr.Message)
+		return strings.Contains(message, "idle") ||
+			strings.Contains(message, "already ended") ||
+			strings.Contains(message, "no active")
+	}
 
 	return false
 }

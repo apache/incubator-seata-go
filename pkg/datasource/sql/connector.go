@@ -20,9 +20,9 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"sync"
-
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4"
+	"sync"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
@@ -93,7 +93,8 @@ type seataConnector struct {
 	once      sync.Once
 	driver    driver.Driver
 	target    driver.Connector
-	cfg       *mysql.Config
+	cfg       interface{}
+	dbType    types.DBType
 }
 
 // Connect returns a connection to the database.
@@ -110,18 +111,54 @@ type seataConnector struct {
 // The returned connection is only used by one goroutine at a
 // time.
 func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
+
+	if mockDriverConn, ok := c.target.(*Conn); ok {
+		mockDriverConn.res = c.res
+		mockDriverConn.dbName = c.getDBName()
+		mockDriverConn.dbType = c.dbType
+		if mockDriverConn.txCtx == nil {
+			mockDriverConn.txCtx = types.NewTxCtx()
+		}
+		if mockDriverConn.autoCommit == false {
+			mockDriverConn.autoCommit = true
+		}
+		return mockDriverConn, nil
+	}
+
 	conn, err := c.target.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	dbName := c.getDBName()
 	return &Conn{
 		targetConn: conn,
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
-		dbName:     c.cfg.DBName,
-		dbType:     types.DBTypeMySQL,
+		dbName:     dbName,
+		dbType:     c.dbType,
 	}, nil
+}
+
+func (c *seataConnector) getDBName() string {
+	switch c.dbType {
+	case types.DBTypeMySQL:
+		if mysqlCfg, ok := c.cfg.(*mysql.Config); ok {
+			return mysqlCfg.DBName
+		}
+	case types.DBTypePostgreSQL:
+		switch cfg := c.cfg.(type) {
+		case *pgx.ConnConfig:
+			return cfg.Database
+		case string:
+			parsedCfg, err := pgx.ParseConfig(cfg)
+			if err == nil {
+				return parsedCfg.Database
+			}
+		}
+	}
+	return ""
 }
 
 // Driver returns the underlying Driver of the Connector,

@@ -55,7 +55,7 @@ type (
 	txOption func(tx *Tx)
 
 	txHook interface {
-		BeforeCommit(tx *Tx) error
+		BeforeCommit(tx *Tx)
 
 		BeforeRollback(tx *Tx)
 	}
@@ -103,26 +103,39 @@ type Tx struct {
 	target  driver.Tx
 }
 
-// Commit do commit action
-func (tx *Tx) Commit() error {
-	if err := tx.beforeCommit(); err != nil {
-		return err
+func (tx *Tx) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if tx.target == nil {
+		err := fmt.Errorf("tx.target is nil, cannot execute SQL: %s", query)
+		log.Errorf("Tx.ExecContext failed: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
 	}
-	return tx.commitOnLocal()
+
+	execer, ok := tx.target.(driver.ExecerContext)
+	if !ok {
+		err := fmt.Errorf("tx.target does not support ExecerContext (required for XA), target type=%T, query=%s", tx.target, query)
+		log.Errorf("Tx.ExecContext incompatible driver: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
+	}
+
+	return execer.ExecContext(ctx, query, args)
 }
 
-func (tx *Tx) beforeCommit() error {
+// Commit do commit action
+func (tx *Tx) Commit() error {
+	tx.beforeCommit()
+	err := tx.commitOnLocal()
+	return err
+}
+
+func (tx *Tx) beforeCommit() {
 	if len(txHooks) != 0 {
 		hl.RLock()
 		defer hl.RUnlock()
 
 		for i := range txHooks {
-			if err := txHooks[i].BeforeCommit(tx); err != nil {
-				return err
-			}
+			txHooks[i].BeforeCommit(tx)
 		}
 	}
-	return nil
 }
 
 func (tx *Tx) Rollback() error {
@@ -214,7 +227,7 @@ func (tx *Tx) report(success bool) error {
 		if err = dataSourceManager.BranchReport(context.Background(), request); err == nil {
 			break
 		}
-		log.Infof("Failed to report [%d / %s] commit done [%v] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
+		log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 		retry.Wait()
 	}
 	return err
