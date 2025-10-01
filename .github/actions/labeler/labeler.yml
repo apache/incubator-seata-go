@@ -23,49 +23,49 @@ coding:
 
 # directory .github
 ci/cd:
-  - any: ['.github/**/*']
+  - any: [ '.github/**/*' ]
 
 # directory sample
 sample:
-  - any: ['sample/**/*']
+  - any: [ 'sample/**/*' ]
 
 test:
-  - any: ['test/**/*','testdata/**/*']
+  - any: [ 'test/**/*','testdata/**/*' ]
 
 # directory cmd
 cmd:
-  - any: ['cmd/**/*']
+  - any: [ 'cmd/**/*' ]
 
 # directory changes
 milestone:
-  - any: ['changes/**/*']
+  - any: [ 'changes/**/*' ]
 
 
 # directory pkg
 common:
-  - any: ['pkg/common/**/*']
+  - any: [ 'pkg/common/**/*' ]
 
 config:
-  - any: ['pkg/config/**/*']
+  - any: [ 'pkg/config/**/*' ]
 
 imports:
-  - any: ['pkg/imports/**/*']
+  - any: [ 'pkg/imports/**/*' ]
 
 integration:
-  - any: ['pkg/integration/**/*']
+  - any: [ 'pkg/integration/**/*' ]
 
 protocol:
-  - any: ['pkg/protocol/**/*']
+  - any: [ 'pkg/protocol/**/*' ]
 
 remoting:
-  - any: ['pkg/remoting/**/*']
+  - any: [ 'pkg/remoting/**/*' ]
 
 rm:
-  - any: ['pkg/rm/**/*']
+  - any: [ 'pkg/rm/**/*' ]
 
 tc:
-  - any: ['pkg/tc/**/*']
+  - any: [ 'pkg/tc/**/*' ]
 
 tm:
-  - any: ['pkg/tm/**/*']
+  - any: [ 'pkg/tm/**/*' ]
 

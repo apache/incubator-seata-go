@@ -149,7 +149,7 @@ autolabeler:
   - label: 'module/at'
     title:
       - '/(at)/i'
-    
+
   - label: 'module/xa'
     title:
-    - '/(xa)/i'
+      - '/(xa)/i'

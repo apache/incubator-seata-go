@@ -1,7 +1,7 @@
 name: "📝 提案"
 description: "创建一个技术提案"
 title: "[提案] "
-labels: ["proposal"]
+labels: [ "proposal" ]
 body:
   - type: checkboxes
     id: verification

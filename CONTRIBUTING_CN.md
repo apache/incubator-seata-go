@@ -31,9 +31,12 @@
 
 ## 报告一般问题
 
-老实说我们把每一个 seata-go 用户都视为非常善良的贡献者。在体验了 seata-go 之后，您可能会对项目有一些反馈。然后随时通过 [NEW ISSUE](https://github.com/apache/incubator-seata-go/issues/new/choose)打开一个问题。
+老实说我们把每一个 seata-go 用户都视为非常善良的贡献者。在体验了 seata-go
+之后，您可能会对项目有一些反馈。然后随时通过 [NEW ISSUE](https://github.com/apache/incubator-seata-go/issues/new/choose)
+打开一个问题。
 
-因为我们在一个分布式的方式合作项目 seata-go，我们欣赏写得很好的，详细的，准确的问题报告。为了让沟通更高效，我们希望每个人都可以搜索您的问题是否在搜索列表中。如果您发现它存在，请在现有问题下的评论中添加您的详细信息，而不是打开一个全新的问题。
+因为我们在一个分布式的方式合作项目
+seata-go，我们欣赏写得很好的，详细的，准确的问题报告。为了让沟通更高效，我们希望每个人都可以搜索您的问题是否在搜索列表中。如果您发现它存在，请在现有问题下的评论中添加您的详细信息，而不是打开一个全新的问题。
 
 为了使问题细节尽可能标准，我们为问题报告者设置了一个[问题模板](./.github/ISSUE_TEMPLATE) 请务必按照说明填写模板中的字段。
 
@@ -82,9 +85,13 @@
 
 为了提出 PR，我们假设你已经注册了一个 GitHub ID。然后您可以通过以下步骤完成准备工作：
 
-1. **FORK** seata-go 到您的存储库。要完成这项工作，您只需单击 [apache/seata-go](https://github.com/apache/incubator-seata-go) 主页右侧的 Fork 按钮。然后你将在 中得到你的存储库`https://github.com/<your-username>/seata-go`，其中 your-username 是你的 GitHub 用户名。
+1. **FORK** seata-go
+   到您的存储库。要完成这项工作，您只需单击 [apache/seata-go](https://github.com/apache/incubator-seata-go) 主页右侧的
+   Fork 按钮。然后你将在 中得到你的存储库`https://github.com/<your-username>/seata-go`，其中 your-username 是你的 GitHub
+   用户名。
 
-2. **克隆** 您自己的存储库以在本地开发. 用于 `git clone git@github.com:<your-username>/seata-go.git` 将存储库克隆到本地计算机。 然后您可以创建新分支来完成您希望进行的更改。
+2. **克隆** 您自己的存储库以在本地开发. 用于 `git clone git@github.com:<your-username>/seata-go.git` 将存储库克隆到本地计算机。
+   然后您可以创建新分支来完成您希望进行的更改。
 
 3. **设置远程** 将上游设置为 `git@github.com:apache/seata-go.git` 使用以下两个命令：
 
@@ -107,18 +114,20 @@ upstream   no-pushing (push)
 
 ### 分支定义
 
-现在我们假设通过拉取请求的每个贡献都是针对 seata-go 中的 [开发分支](https://github.com/apache/incubator-seata-go/tree/master) 。在贡献之前，请注意分支定义会很有帮助。
+现在我们假设通过拉取请求的每个贡献都是针对 seata-go
+中的 [开发分支](https://github.com/apache/incubator-seata-go/tree/master) 。在贡献之前，请注意分支定义会很有帮助。
 
-作为贡献者，请再次记住，通过拉取请求的每个贡献都是针对分支开发的。而在 seata-go 项目中，还有其他几个分支，我们一般称它们为 release 分支（如0.6.0、0.6.1）、feature 分支、hotfix 分支和 master 分支。
+作为贡献者，请再次记住，通过拉取请求的每个贡献都是针对分支开发的。而在 seata-go 项目中，还有其他几个分支，我们一般称它们为
+release 分支（如0.6.0、0.6.1）、feature 分支、hotfix 分支和 master 分支。
 
 当正式发布一个版本时，会有一个发布分支并以版本号命名。
 
 在发布之后，我们会将发布分支的提交合并到主分支中。
 
-当我们发现某个版本有 bug 时，我们会决定在以后的版本中修复它，或者在特定的 hotfix 版本中修复它。当我们决定修复 hotfix 版本时，我们会根据对应的 release 分支 checkout hotfix 分支，进行代码修复和验证，合并到 develop 分支和 master 分支。
+当我们发现某个版本有 bug 时，我们会决定在以后的版本中修复它，或者在特定的 hotfix 版本中修复它。当我们决定修复 hotfix
+版本时，我们会根据对应的 release 分支 checkout hotfix 分支，进行代码修复和验证，合并到 develop 分支和 master 分支。
 
 对于较大的功能，我们将拉出功能分支进行开发和验证。
-
 
 ### 提交规则
 
@@ -148,7 +157,8 @@ upstream   no-pushing (push)
 
 #### 提交内容
 
-提交内容表示一次提交中包含的所有内容更改。我们最好在一次提交中包含可以支持审阅者完整审查的内容，而无需任何其他提交的帮助。换句话说，一次提交中的内容可以通过 CI 以避免代码混乱。简而言之，我们需要牢记三个小规则：
+提交内容表示一次提交中包含的所有内容更改。我们最好在一次提交中包含可以支持审阅者完整审查的内容，而无需任何其他提交的帮助。换句话说，一次提交中的内容可以通过
+CI 以避免代码混乱。简而言之，我们需要牢记三个小规则：
 
 * 避免在提交中进行非常大的更改；
 * 每次提交都完整且可审查。
@@ -160,7 +170,6 @@ git config --get user.email
 ```
 
 * 提交pr时，请在'changes/'文件夹下的dev.md文件中添加当前更改的简要说明
-
 
 另外，在代码变更部分，我们建议所有贡献者阅读 seata-go 的 [代码风格](#代码风格)。
 
@@ -174,10 +183,10 @@ git config --get user.email
 sh goimports.sh
 ~~~
 
-
 ### PR说明
 
-PR 是更改 seata-go 项目文件的唯一方法。为了帮助审查人更好地理解你的目的，PR 描述不能太详细。我们鼓励贡献者遵循 [PR 模板](./.github/PULL_REQUEST_TEMPLATE.md) 来完成拉取请求。
+PR 是更改 seata-go 项目文件的唯一方法。为了帮助审查人更好地理解你的目的，PR
+描述不能太详细。我们鼓励贡献者遵循 [PR 模板](./.github/PULL_REQUEST_TEMPLATE.md) 来完成拉取请求。
 
 ## 测试用例贡献
 
@@ -197,11 +206,9 @@ PR 是更改 seata-go 项目文件的唯一方法。为了帮助审查人更好�
 * 在Github之外宣传 seata-go 技术；
 * 写关于 seata-go 的博客等等。
 
-
 ## 代码风格
 
 Seata-go 代码风格参考[uber-go/guide](https://github.com/uber-go/guide) 。
-
 
 ### IDE插件安装（非必须）
 

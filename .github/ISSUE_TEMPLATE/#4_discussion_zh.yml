@@ -1,12 +1,12 @@
 name: "💬 讨论"
 description: "开始一个关于项目的讨论"
 title: "[讨论] "
-labels: ["discussion"]
+labels: [ "discussion" ]
 body:
   - type: markdown
     attributes:
       value: "## 🔄 讨论主题"
-      
+
   - type: textarea
     id: discussion-content
     attributes:

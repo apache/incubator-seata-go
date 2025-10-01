@@ -17,7 +17,6 @@
 
 ### 开发记录
 
-
 ### dev version
 
 Seata-go 是一款开源的分布式事务解决方案，提供高性能和简单易用的分布式事务服务。
@@ -39,7 +38,6 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 ### test:
 
 - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] 添加xxx的单元测试
-
 
 ### contributors:
 
