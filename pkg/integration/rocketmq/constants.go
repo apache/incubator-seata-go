@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package mock
+package rocketmq
 
-import clientv3 "go.etcd.io/etcd/client/v3"
+const (
+	PropertySeataXID      = "SEATA_XID"
+	PropertySeataBranchID = "SEATA_BRANCH_ID"
 
-type EtcdClient interface {
-	clientv3.KV
-	clientv3.Watcher
-}
+	ActionNameTCCRocketMQ = "tccRocketMQ"
+
+	RocketMsgKey        = "ROCKET_MSG"
+	RocketSendResultKey = "ROCKET_SEND_RESULT"
+)
