@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+
+	parserTypes "github.com/arana-db/parser/types"
 )
 
 // ColumnMeta
@@ -41,6 +43,8 @@ type ColumnMeta struct {
 	ColumnKey          string
 	IsNullable         int8
 	Extra              string
+	// FieldType from arana-db parser, contains complete type information
+	FieldType *parserTypes.FieldType
 }
 
 type ColumnType struct {

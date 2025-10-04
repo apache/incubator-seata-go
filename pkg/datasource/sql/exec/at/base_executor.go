@@ -26,7 +26,9 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
+	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/test_driver"
+	parserTypes "github.com/arana-db/parser/types"
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 
@@ -60,41 +62,43 @@ func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContex
 	return nil
 }
 
-// GetScanSlice get the column type for scan
-// todo to use ColumnInfo get slice
+// GetScanSlice get the column type for scan using FieldType from arana-db parser
 func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []interface{} {
 	scanSlice := make([]interface{}, 0, len(columnNames))
 	for _, columnName := range columnNames {
-		var (
-			// get from metaData from this column
-			columnMeta = tableMeta.Columns[columnName]
-		)
-		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
-		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
-			var scanVal sql.NullString
-			scanSlice = append(scanSlice, &scanVal)
-		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
-			if columnMeta.IsNullable == 0 {
-				scanVal := int64(0)
-				scanSlice = append(scanSlice, &scanVal)
+		columnMeta := tableMeta.Columns[columnName]
+
+		if columnMeta.FieldType == nil {
+			scanSlice = append(scanSlice, &sql.RawBytes{})
+			continue
+		}
+
+		evalType := columnMeta.FieldType.EvalType()
+		isNullable := !mysql.HasNotNullFlag(columnMeta.FieldType.Flag)
+
+		switch evalType {
+		case parserTypes.ETInt:
+			if isNullable {
+				scanSlice = append(scanSlice, &sql.NullInt64{})
 			} else {
-				scanVal := sql.NullInt64{}
-				scanSlice = append(scanSlice, &scanVal)
+				scanSlice = append(scanSlice, new(int64))
 			}
-		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
-			var scanVal sql.NullTime
-			scanSlice = append(scanSlice, &scanVal)
-		case "DECIMAL", "DOUBLE", "FLOAT":
-			if columnMeta.IsNullable == 0 {
-				scanVal := float64(0)
-				scanSlice = append(scanSlice, &scanVal)
+
+		case parserTypes.ETReal, parserTypes.ETDecimal:
+			if isNullable {
+				scanSlice = append(scanSlice, &sql.NullFloat64{})
 			} else {
-				scanVal := sql.NullFloat64{}
-				scanSlice = append(scanSlice, &scanVal)
+				scanSlice = append(scanSlice, new(float64))
 			}
+
+		case parserTypes.ETDatetime, parserTypes.ETTimestamp, parserTypes.ETDuration:
+			scanSlice = append(scanSlice, &sql.NullTime{})
+
+		case parserTypes.ETString, parserTypes.ETJson:
+			scanSlice = append(scanSlice, &sql.NullString{})
+
 		default:
-			scanVal := sql.RawBytes{}
-			scanSlice = append(scanSlice, &scanVal)
+			scanSlice = append(scanSlice, &sql.RawBytes{})
 		}
 	}
 	return scanSlice

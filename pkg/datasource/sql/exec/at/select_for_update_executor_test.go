@@ -22,6 +22,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/arana-db/parser/mysql"
+	parserTypes "github.com/arana-db/parser/types"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
@@ -112,14 +114,26 @@ func TestBuildLockKey(t *testing.T) {
 			"id": {
 				DatabaseTypeString: "INT",
 				ColumnName:         "id",
+				FieldType: &parserTypes.FieldType{
+					Tp:   mysql.TypeLong,
+					Flag: mysql.NotNullFlag,
+				},
 			},
 			"order_id": {
 				DatabaseTypeString: "VARCHAR",
 				ColumnName:         "order_id",
+				FieldType: &parserTypes.FieldType{
+					Tp:   mysql.TypeVarchar,
+					Flag: 0,
+				},
 			},
 			"age": {
 				DatabaseTypeString: "INT",
 				ColumnName:         "age",
+				FieldType: &parserTypes.FieldType{
+					Tp:   mysql.TypeLong,
+					Flag: 0,
+				},
 			},
 		},
 		ColumnNames: []string{"id", "order_id", "age"},
