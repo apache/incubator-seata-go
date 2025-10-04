@@ -226,7 +226,8 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 }
 
 func buildFieldType(databaseType int32, isNullable int8, columnKey string, extra string) *parserTypes.FieldType {
-	ft := parserTypes.NewFieldType(byte(databaseType))
+	mysqlType := types.ConvertJdbcTypeToMySQLType(databaseType)
+	ft := parserTypes.NewFieldType(mysqlType)
 
 	if isNullable == 0 {
 		ft.Flag |= mysql.NotNullFlag

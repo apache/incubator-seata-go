@@ -204,7 +204,7 @@ func Test_buildFieldType(t *testing.T) {
 	}{
 		{
 			name:         "nullable varchar primary key",
-			databaseType: 15,
+			databaseType: 12,
 			isNullable:   1,
 			columnKey:    "PRI",
 			extra:        "",
@@ -214,7 +214,7 @@ func Test_buildFieldType(t *testing.T) {
 		},
 		{
 			name:         "not null int auto increment",
-			databaseType: 3,
+			databaseType: 4,
 			isNullable:   0,
 			columnKey:    "PRI",
 			extra:        "auto_increment",
@@ -224,7 +224,7 @@ func Test_buildFieldType(t *testing.T) {
 		},
 		{
 			name:         "nullable text unique key",
-			databaseType: 252,
+			databaseType: 2005,
 			isNullable:   1,
 			columnKey:    "UNI",
 			extra:        "",
@@ -234,7 +234,7 @@ func Test_buildFieldType(t *testing.T) {
 		},
 		{
 			name:         "not null varchar multiple key",
-			databaseType: 15,
+			databaseType: 12,
 			isNullable:   0,
 			columnKey:    "MUL",
 			extra:        "",
@@ -244,17 +244,17 @@ func Test_buildFieldType(t *testing.T) {
 		},
 		{
 			name:         "nullable datetime no key",
-			databaseType: 12,
+			databaseType: 93,
 			isNullable:   1,
 			columnKey:    "",
 			extra:        "",
-			wantTp:       12,
+			wantTp:       7,
 			wantFlags:    []uint{},
 			notWantFlags: []uint{mysql.NotNullFlag, mysql.PriKeyFlag, mysql.AutoIncrementFlag},
 		},
 		{
 			name:         "bigint auto_increment case insensitive",
-			databaseType: 8,
+			databaseType: -5,
 			isNullable:   0,
 			columnKey:    "PRI",
 			extra:        "AUTO_INCREMENT",
