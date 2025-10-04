@@ -370,15 +370,18 @@ func TestBaseExecutor_GetScanSlice(t *testing.T) {
 			tableMeta: &types.TableMeta{
 				Columns: map[string]types.ColumnMeta{
 					"unknown": {
-						ColumnName: "unknown",
-						FieldType:  nil,
+						ColumnName:         "unknown",
+						DatabaseType:       int32(mysql.TypeVarchar),
+						DatabaseTypeString: "VARCHAR",
+						IsNullable:         1,
+						FieldType:          nil, // Will be built on demand
 					},
 				},
 			},
 			validate: func(t *testing.T, result []interface{}) {
 				assert.Len(t, result, 1)
-				_, ok := result[0].(*sql.RawBytes)
-				assert.True(t, ok, "expected *sql.RawBytes for nil FieldType")
+				_, ok := result[0].(*sql.NullString)
+				assert.True(t, ok, "expected *sql.NullString for varchar with nil FieldType")
 			},
 		},
 		{

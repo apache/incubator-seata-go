@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
+	"github.com/arana-db/parser/mysql"
 	parserTypes "github.com/arana-db/parser/types"
 )
 
@@ -162,4 +164,32 @@ func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
 		return nil, fmt.Errorf("get primary key type error")
 	}
 	return pkMap, nil
+}
+
+// GetOrBuildFieldType returns FieldType if available, otherwise builds it from DatabaseType
+func (c *ColumnMeta) GetOrBuildFieldType() *parserTypes.FieldType {
+	if c.FieldType != nil {
+		return c.FieldType
+	}
+
+	// Build FieldType from DatabaseType and other metadata
+	ft := parserTypes.NewFieldType(byte(c.DatabaseType))
+
+	if c.IsNullable == 0 {
+		ft.Flag |= mysql.NotNullFlag
+	}
+
+	if c.ColumnKey == "PRI" {
+		ft.Flag |= mysql.PriKeyFlag
+	} else if c.ColumnKey == "UNI" {
+		ft.Flag |= mysql.UniqueKeyFlag
+	} else if c.ColumnKey == "MUL" {
+		ft.Flag |= mysql.MultipleKeyFlag
+	}
+
+	if strings.Contains(strings.ToLower(c.Extra), "auto_increment") {
+		ft.Flag |= mysql.AutoIncrementFlag
+	}
+
+	return ft
 }

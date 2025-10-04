@@ -68,13 +68,10 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 	for _, columnName := range columnNames {
 		columnMeta := tableMeta.Columns[columnName]
 
-		if columnMeta.FieldType == nil {
-			scanSlice = append(scanSlice, &sql.RawBytes{})
-			continue
-		}
-
-		evalType := columnMeta.FieldType.EvalType()
-		isNullable := !mysql.HasNotNullFlag(columnMeta.FieldType.Flag)
+		// Use GetOrBuildFieldType to ensure FieldType is always available
+		ft := columnMeta.GetOrBuildFieldType()
+		evalType := ft.EvalType()
+		isNullable := !mysql.HasNotNullFlag(ft.Flag)
 
 		switch evalType {
 		case parserTypes.ETInt:

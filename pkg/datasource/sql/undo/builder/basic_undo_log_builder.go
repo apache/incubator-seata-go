@@ -47,14 +47,10 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 
 		var scanVal interface{}
 
-		if columnMeta.FieldType == nil {
-			scanVal = sql.RawBytes{}
-			scanSlice = append(scanSlice, &scanVal)
-			continue
-		}
-
-		evalType := columnMeta.FieldType.EvalType()
-		isNullable := !mysql.HasNotNullFlag(columnMeta.FieldType.Flag)
+		// Use GetOrBuildFieldType to ensure FieldType is always available
+		ft := columnMeta.GetOrBuildFieldType()
+		evalType := ft.EvalType()
+		isNullable := !mysql.HasNotNullFlag(ft.Flag)
 
 		switch evalType {
 		case parserTypes.ETInt:
