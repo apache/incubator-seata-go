@@ -172,8 +172,9 @@ func (c *ColumnMeta) GetOrBuildFieldType() *parserTypes.FieldType {
 		return c.FieldType
 	}
 
-	// Build FieldType from DatabaseType and other metadata
-	ft := parserTypes.NewFieldType(byte(c.DatabaseType))
+	// Convert JDBC type code to MySQL type byte
+	mysqlType := ConvertJdbcTypeToMySQLType(c.DatabaseType)
+	ft := parserTypes.NewFieldType(mysqlType)
 
 	if c.IsNullable == 0 {
 		ft.Flag |= mysql.NotNullFlag
