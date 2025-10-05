@@ -107,9 +107,10 @@ func TestATConn_ExecContext(t *testing.T) {
 		mi.before = beforeHook
 
 		var comitCnt int32
-		beforeCommit := func(tx *Tx) {
+		beforeCommit := func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
 			assert.Equal(t, types.ATMode, tx.tranCtx.TransactionMode)
+			return nil
 		}
 		ti.beforeCommit = beforeCommit
 
@@ -131,8 +132,9 @@ func TestATConn_ExecContext(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		conn, err := db.Conn(context.Background())
@@ -168,8 +170,9 @@ func TestATConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -194,8 +197,9 @@ func TestATConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -222,8 +226,9 @@ func TestATConn_BeginTx(t *testing.T) {
 		}
 
 		var comitCnt int32
-		ti.beforeCommit = func(tx *Tx) {
+		ti.beforeCommit = func(tx *Tx) error {
 			atomic.AddInt32(&comitCnt, 1)
+			return nil
 		}
 
 		_, err = tx.ExecContext(context.Background(), "SELECT * FROM user")
@@ -237,4 +242,24 @@ func TestATConn_BeginTx(t *testing.T) {
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
 	})
+}
+
+type mockTxHook struct {
+	beforeCommit   func(tx *Tx) error
+	beforeRollback func(tx *Tx)
+}
+
+// BeforeCommit
+func (mi *mockTxHook) BeforeCommit(tx *Tx) error {
+	if mi.beforeCommit != nil {
+		return mi.beforeCommit(tx)
+	}
+	return nil
+}
+
+// BeforeRollback
+func (mi *mockTxHook) BeforeRollback(tx *Tx) {
+	if mi.beforeRollback != nil {
+		mi.beforeRollback(tx)
+	}
 }
