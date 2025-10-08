@@ -19,9 +19,10 @@ package reflectx
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"reflect"
 	"unicode"
+
+	"github.com/pkg/errors"
 )
 
 // MapToStruct some state can use this util to parse

@@ -19,9 +19,10 @@ package pcext
 
 import (
 	"context"
+	"sync"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"sync"
 )
 
 type LoopContextHolder struct {

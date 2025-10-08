@@ -19,6 +19,7 @@ package parser
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"

@@ -19,7 +19,10 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -32,8 +35,10 @@ func prepareDB() {
 	oncePrepareDB.Do(func() {
 		var err error
 		db, err = sql.Open("sqlite3", ":memory:")
-		query_, err := os.ReadFile("testdata/sql/saga/sqlite_init.sql")
-		initScript := string(query_)
+		if err != nil {
+			panic(err)
+		}
+		initScript, err := readInitSQL()
 		if err != nil {
 			panic(err)
 		}
@@ -41,5 +46,19 @@ func prepareDB() {
 			panic(err)
 		}
 	})
+}
 
+func readInitSQL() (string, error) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	base := filepath.Dir(thisFile)
+	candidates := []string{
+		filepath.Join(base, "testdata/sql/saga/sqlite_init.sql"),
+		filepath.Join(base, "../../../../../testdata/sql/saga/sqlite_init.sql"),
+	}
+	for _, candidate := range candidates {
+		if data, err := os.ReadFile(candidate); err == nil {
+			return string(data), nil
+		}
+	}
+	return "", fmt.Errorf("sqlite init script not found; looked in %v", candidates)
 }

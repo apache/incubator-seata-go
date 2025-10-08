@@ -19,7 +19,9 @@ package db
 
 import (
 	"database/sql"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -37,17 +39,17 @@ func SelectOne[T any](db *sql.DB, sql string, fn ScanRows[T], args ...any) (T, e
 	var result T
 	log.Debugf("Preparing SQL: %s", sql)
 	stmt, err := db.Prepare(sql)
-	defer stmt.Close()
 	if err != nil {
 		return result, err
 	}
+	defer func() { _ = stmt.Close() }()
 
 	log.Debugf("setting params to Stmt: %v", args)
 	rows, err := stmt.Query(args...)
-	defer rows.Close()
 	if err != nil {
-		return result, nil
+		return result, err
 	}
+	defer func() { _ = rows.Close() }()
 
 	if rows.Next() {
 		return fn(rows)
@@ -60,17 +62,17 @@ func SelectList[T any](db *sql.DB, sql string, fn ScanRows[T], args ...any) ([]T
 
 	log.Debugf("Preparing SQL: %s", sql)
 	stmt, err := db.Prepare(sql)
-	defer stmt.Close()
 	if err != nil {
 		return result, err
 	}
+	defer func() { _ = stmt.Close() }()
 
 	log.Debugf("setting params to Stmt: %v", args)
 	rows, err := stmt.Query(args...)
-	defer rows.Close()
 	if err != nil {
 		return result, err
 	}
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		obj, err := fn(rows)
@@ -86,10 +88,10 @@ func SelectList[T any](db *sql.DB, sql string, fn ScanRows[T], args ...any) ([]T
 func ExecuteUpdate[T any](db *sql.DB, sql string, fn ExecStatement[T], obj T) (int64, error) {
 	log.Debugf("Preparing SQL: %s", sql)
 	stmt, err := db.Prepare(sql)
-	defer stmt.Close()
 	if err != nil {
 		return 0, err
 	}
+	defer func() { _ = stmt.Close() }()
 
 	log.Debugf("setting params to Stmt: %v", obj)
 
@@ -104,10 +106,10 @@ func ExecuteUpdate[T any](db *sql.DB, sql string, fn ExecStatement[T], obj T) (i
 func ExecuteUpdateArgs(db *sql.DB, sql string, args ...any) (int64, error) {
 	log.Debugf("Preparing SQL: %s", sql)
 	stmt, err := db.Prepare(sql)
-	defer stmt.Close()
 	if err != nil {
 		return 0, err
 	}
+	defer func() { _ = stmt.Close() }()
 
 	log.Debugf("setting params to Stmt: %v", args)
 

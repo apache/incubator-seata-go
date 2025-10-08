@@ -20,6 +20,7 @@ package strategy
 import (
 	"context"
 	"errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
@@ -39,8 +40,28 @@ func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, pro
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
 	if statelang.RU == stateMachineInstance.CompensationStatus() {
 		compensationHolder := pcext.GetCurrentCompensationHolder(ctx, processContext, true)
+		// special-case: entered compensation but no compensations to execute
+		if v, ok := processContext.GetVariable(constant.VarNameNoCompensation).(bool); ok && v {
+			// If end is Fail, align semantics to FA with empty compensation_status
+			if fe, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && fe {
+				stateMachineInstance.SetStatus(statelang.FA)
+				stateMachineInstance.SetCompensationStatus("")
+				return nil
+			}
+		}
 		if err := decideMachineCompensateStatus(ctx, stateMachineInstance, compensationHolder); err != nil {
 			return err
+		}
+		// If no compensation executed (no states and empty stack) and end is Fail, normalize to FA + empty compStatus
+		if compensationHolder.StateStackNeedCompensation().Empty() {
+			empty := true
+			compensationHolder.StatesForCompensation().Range(func(key, value any) bool { empty = false; return true })
+			if empty {
+				if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+					stateMachineInstance.SetStatus(statelang.FA)
+					stateMachineInstance.SetCompensationStatus("")
+				}
+			}
 		}
 	} else {
 		failEndStateFlag, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool)
@@ -60,6 +81,13 @@ func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, pro
 	log.Debugf("StateMachine Instance[id:%s,name:%s] execute finish with status[%s], compensation status [%s].",
 		stateMachineInstance.ID(), stateMachineInstance.StateMachine().Name(),
 		stateMachineInstance.Status(), stateMachineInstance.CompensationStatus())
+
+	// If ended via Fail state, normalize final machine status to FA (Java semantics)
+	if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+		if stateMachineInstance.Status() != statelang.FA {
+			stateMachineInstance.SetStatus(statelang.FA)
+		}
+	}
 
 	return nil
 }

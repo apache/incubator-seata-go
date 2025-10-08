@@ -19,7 +19,9 @@ package process_ctrl
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
@@ -31,7 +33,7 @@ type RouterHandler interface {
 }
 
 type ProcessRouter interface {
-	Route(ctx context.Context, processContext ProcessContext) error
+	Route(ctx context.Context, processContext ProcessContext) (Instruction, error)
 }
 
 type InterceptAbleStateRouter interface {
@@ -68,12 +70,15 @@ func (d *DefaultRouterHandler) Route(ctx context.Context, processContext Process
 		return errors.New("Process router not found")
 	}
 
-	instruction := processRouter.Route(ctx, processContext)
+	instruction, err := processRouter.Route(ctx, processContext)
+	if err != nil {
+		return err
+	}
 	if instruction == nil {
 		log.Info("route instruction is null, process end")
 	} else {
 		processContext.SetInstruction(instruction)
-		_, err := d.eventPublisher.PushEvent(ctx, processContext)
+		_, err = d.eventPublisher.PushEvent(ctx, processContext)
 		if err != nil {
 			return err
 		}

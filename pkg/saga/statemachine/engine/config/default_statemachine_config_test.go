@@ -18,13 +18,15 @@
 package config
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -60,7 +62,7 @@ func TestDefaultStateMachineConfig_LoadValidJSON(t *testing.T) {
 	assert.NoError(t, err, "Failed to initialize config")
 	assert.NotNil(t, config, "config is nil")
 
-	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", "")
+	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", config.GetDefaultTenantId())
 	assert.NoError(t, err)
 	assert.NotNil(t, smo, "State machine definition should not be nil")
 
@@ -77,7 +79,7 @@ func TestDefaultStateMachineConfig_LoadValidYAML(t *testing.T) {
 	assert.NoError(t, err, "Failed to initialize config")
 	assert.NotNil(t, config, "config is nil")
 
-	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", "")
+	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", config.GetDefaultTenantId())
 	assert.NoError(t, err)
 	assert.NotNil(t, smo, "State machine definition should not be nil (YAML)")
 
@@ -100,7 +102,7 @@ func TestGetStateMachineDefinition_Exists(t *testing.T) {
 
 	config, _ := NewDefaultStateMachineConfig(WithConfigPath(filepath.Join("testdata", "saga_config.json")))
 
-	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", "")
+	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("OrderSaga", config.GetDefaultTenantId())
 	assert.NoError(t, err)
 	assert.NotNil(t, smo)
 	assert.Equal(t, "1.0", smo.Version(), "The version number should be correct")
@@ -110,7 +112,7 @@ func TestGetNonExistentStateMachine(t *testing.T) {
 	os.Unsetenv("SEATA_STATE_MACHINE_RESOURCES")
 
 	config, _ := NewDefaultStateMachineConfig()
-	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("NonExistent", "")
+	smo, err := config.stateMachineRepository.GetStateMachineByNameAndTenantId("NonExistent", config.GetDefaultTenantId())
 	assert.Error(t, err)
 	assert.True(t, smo == nil || reflect.ValueOf(smo).IsZero(), "An unloaded state machine should return nil/zero")
 }

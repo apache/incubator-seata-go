@@ -18,13 +18,14 @@
 package engine
 
 import (
+	"sync"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
-	"sync"
 )
 
 type StateMachineConfig interface {
@@ -48,6 +49,8 @@ type StateMachineConfig interface {
 
 	AsyncEventPublisher() process_ctrl.EventPublisher
 
+	EnableAsync() bool
+
 	ServiceInvokerManager() invoker.ServiceInvokerManager
 
 	ScriptInvokerManager() invoker.ScriptInvokerManager
@@ -59,6 +62,10 @@ type StateMachineConfig interface {
 	GetTransOperationTimeout() int
 
 	GetServiceInvokeTimeout() int
+
+	IsSagaBranchRegisterEnable() bool
+
+	IsRmReportSuccessEnable() bool
 
 	ComponentLock() *sync.Mutex
 

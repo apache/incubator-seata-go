@@ -15,39 +15,36 @@
  * limitations under the License.
  */
 
-package rm
+package runtime
 
 import (
-	"fmt"
+	"context"
+	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
-type SagaResource struct {
-	resourceGroupId string
-	applicationId   string
+// Engine is a minimal facade for state machine operations needed by Saga RM
+type Engine interface {
+	Forward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	ReloadStateMachineInstance(ctx context.Context, instId string) (statelang.StateMachineInstance, error)
 }
 
-func (r *SagaResource) GetResourceGroupId() string {
-	return r.resourceGroupId
+var (
+	mu        sync.RWMutex
+	engineRef Engine
+)
+
+func SetEngine(e Engine) {
+	mu.Lock()
+	engineRef = e
+	mu.Unlock()
 }
 
-func (r *SagaResource) SetResourceGroupId(resourceGroupId string) {
-	r.resourceGroupId = resourceGroupId
-}
-
-func (r *SagaResource) GetResourceId() string {
-	return fmt.Sprintf("%s#%s", r.applicationId, r.resourceGroupId)
-}
-
-func (r *SagaResource) GetBranchType() branch.BranchType {
-	return branch.BranchTypeSAGA
-}
-
-func (r *SagaResource) GetApplicationId() string {
-	return r.applicationId
-}
-
-func (r *SagaResource) SetApplicationId(applicationId string) {
-	r.applicationId = applicationId
+func GetEngine() Engine {
+	mu.RLock()
+	e := engineRef
+	mu.RUnlock()
+	return e
 }

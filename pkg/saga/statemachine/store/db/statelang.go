@@ -19,10 +19,12 @@ package db
 
 import (
 	"database/sql"
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"regexp"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
 const (

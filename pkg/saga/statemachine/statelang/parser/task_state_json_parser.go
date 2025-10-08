@@ -19,7 +19,9 @@ package parser
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
@@ -36,7 +38,9 @@ func NewAbstractTaskStateParser() *AbstractTaskStateParser {
 }
 
 func (a *AbstractTaskStateParser) ParseTaskAttributes(stateName string, state *state.AbstractTaskState, stateMap map[string]interface{}) error {
-	err := a.ParseBaseAttributes(state.Name(), state.BaseState, stateMap)
+	// Use the provided stateName from the statelang definition, not the current state's Name(),
+	// because Name() may not be set yet at parse time.
+	err := a.ParseBaseAttributes(stateName, state.BaseState, stateMap)
 	if err != nil {
 		return err
 	}

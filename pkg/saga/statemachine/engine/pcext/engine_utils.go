@@ -20,17 +20,19 @@ package pcext
 import (
 	"context"
 	"errors"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
+	"golang.org/x/sync/semaphore"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"github.com/seata/seata-go/pkg/util/log"
-	"golang.org/x/sync/semaphore"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
 )
 
 func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
@@ -51,9 +53,13 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 
 	stateMachineInstance.SetEndTime(time.Now())
 
-	exp, ok := processContext.GetVariable(constant.VarNameCurrentException).(error)
-	if !ok {
-		return errors.New("exception type is not error")
+	var exp error
+	if v := processContext.GetVariable(constant.VarNameCurrentException); v != nil {
+		ev, ok := v.(error)
+		if !ok {
+			return errors.New("exception type is not error")
+		}
+		exp = ev
 	}
 
 	if exp != nil {
@@ -67,6 +73,39 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 		return err
 	}
 
+	// Reconcile compensation status using executed compensation states to align with Java semantics
+	// If there are compensation states and all succeeded, override to SU. If any failed/unknown, mark UN.
+	// This guards against edge cases where holder/stack visibility causes FA.
+	compSeen := false
+	compAllSU := true
+	for _, si := range stateMachineInstance.StateList() {
+		if si.StateIDCompensatedFor() != "" {
+			compSeen = true
+			if si.Status() != statelang.SU {
+				compAllSU = false
+				break
+			}
+		}
+	}
+	if compSeen {
+		if compAllSU {
+			log.Debugf("All compensation states SU, overriding machine compensation_status to SU for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.SU)
+			// In Java semantics, compensation success with Fail end yields final machine status FA
+			stateMachineInstance.SetStatus(statelang.FA)
+		} else if stateMachineInstance.CompensationStatus() == "" || stateMachineInstance.CompensationStatus() == statelang.RU {
+			log.Debugf("Compensation states contain non-SU, marking compensation_status UN for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.UN)
+		}
+	} else {
+		log.Debugf("No compensation states observed for machine [%s]", stateMachineInstance.ID())
+		if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+			// Fail end without compensation: normalize to status=FA, empty compensation_status
+			stateMachineInstance.SetCompensationStatus("")
+			stateMachineInstance.SetStatus(statelang.FA)
+		}
+	}
+
 	contextParams, ok := processContext.GetVariable(constant.VarNameStateMachineContext).(map[string]interface{})
 	if !ok {
 		return errors.New("state machine context type is not map[string]interface{}")
@@ -77,11 +116,16 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	}
 	stateMachineInstance.SetEndParams(endParams)
 
-	stateInstruction, ok := processContext.GetInstruction().(StateInstruction)
-	if !ok {
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		v.SetEnd(true)
+	case StateInstruction:
+		tmp := v
+		tmp.SetEnd(true)
+		processContext.SetInstruction(&tmp)
+	default:
 		return errors.New("state instruction type is not process_ctrl.StateInstruction")
 	}
-	stateInstruction.SetEnd(true)
 
 	stateMachineInstance.SetRunning(false)
 	stateMachineInstance.SetEndTime(time.Now())

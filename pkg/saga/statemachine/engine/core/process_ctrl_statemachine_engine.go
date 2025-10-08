@@ -20,7 +20,9 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
+	"time"
+
+	"github.com/seata/seata-go/pkg/saga/runtime"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
@@ -31,9 +33,9 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	tmctx "github.com/seata/seata-go/pkg/tm"
 	seataErrors "github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
-	"time"
 )
 
 type ProcessCtrlStateMachineEngine struct {
@@ -47,9 +49,13 @@ func NewProcessCtrlStateMachineEngine() (*ProcessCtrlStateMachineEngine, error) 
 		return nil, fmt.Errorf("failed to create state machine configuration: %w", err)
 	}
 
-	return &ProcessCtrlStateMachineEngine{
+	engine := &ProcessCtrlStateMachineEngine{
 		StateMachineConfig: cfg,
-	}, nil
+	}
+
+	runtime.SetEngine(engine)
+
+	return engine, nil
 }
 
 func (p ProcessCtrlStateMachineEngine) Start(ctx context.Context, stateMachineName string, tenantId string,
@@ -147,6 +153,15 @@ func (p ProcessCtrlStateMachineEngine) ReloadStateMachineInstance(ctx context.Co
 
 func (p ProcessCtrlStateMachineEngine) startInternal(ctx context.Context, stateMachineName string, tenantId string,
 	businessKey string, startParams map[string]interface{}, async bool, callback engine.CallBack) (statelang.StateMachineInstance, error) {
+	if !tmctx.IsSeataContext(ctx) {
+		ctx = tmctx.InitSeataContext(ctx)
+	}
+
+	if async && !p.StateMachineConfig.EnableAsync() {
+		return nil, exception.NewEngineExecutionException(seataErrors.AsynchronousStartDisabled,
+			"asynchronous start is disabled by configuration (enable_async=false)", nil)
+	}
+
 	if tenantId == "" {
 		tenantId = p.StateMachineConfig.GetDefaultTenantId()
 	}
@@ -393,7 +408,8 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 	}
 
 	if stateMachine == nil {
-		return nil, errors.New("StateMachine [" + stateMachineName + "] is not exists")
+		return nil, exception.NewEngineExecutionException(seataErrors.ObjectNotExists,
+			"StateMachine ["+stateMachineName+"] is not exists", nil)
 	}
 
 	stateMachineInstance := statelang.NewStateMachineInstanceImpl()

@@ -20,6 +20,8 @@ package handlers
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
@@ -44,8 +46,14 @@ func (s *ServiceTaskStateHandler) State() string {
 }
 
 func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
-	stateInstruction, ok := processContext.GetInstruction().(pcext.StateInstruction)
-	if !ok {
+	var stateInstruction *pcext.StateInstruction
+	switch v := processContext.GetInstruction().(type) {
+	case *pcext.StateInstruction:
+		stateInstruction = v
+	case pcext.StateInstruction:
+		tmp := v
+		stateInstruction = &tmp
+	default:
 		return errors.New("invalid state instruction from processContext")
 	}
 	stateInterface, err := stateInstruction.GetState(processContext)
@@ -64,6 +72,8 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 	// invoke service task and record
 	var result any
 	var resultErr error
+	// acquire config for store operations
+	stateMachineConfig, okCfg := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	handleResultErr := func(err error) {
 		log.Error("<<<<<<<<<<<<<<<<<<<<<< State[%s], ServiceName[%s], Method[%s] Execute failed.",
 			serviceTaskStateImpl.Name(), serviceName, methodName, err)
@@ -74,19 +84,54 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 		}
 		hierarchicalProcessContext.SetVariable(constant.VarNameCurrentException, err)
 		pcext.HandleException(processContext, serviceTaskStateImpl.AbstractTaskState, err)
+
+		// mark instance failed and persist finish if store enabled
+		if stateInstance != nil {
+			stateInstance.SetStatus(statelang.FA)
+			stateInstance.SetEndTime(time.Now())
+			stateInstance.SetUpdatedTime(time.Now())
+			if okCfg && stateMachineConfig.StateLogStore() != nil {
+				_ = stateMachineConfig.StateLogStore().RecordStateFinished(ctx, stateInstance, processContext)
+			}
+		}
 	}
 
-	input, ok := processContext.GetVariable(constant.VarNameInputParams).([]any)
-	if !ok {
-		handleResultErr(errors.New("invalid input params type from processContext"))
-		return nil
+	var input []any
+	if raw := processContext.GetVariable(constant.VarNameInputParams); raw != nil {
+		if v, ok := raw.([]any); ok {
+			input = v
+		} else {
+			handleResultErr(errors.New("invalid input params type from processContext"))
+			return nil
+		}
+	} else {
+		// treat as empty input when not provided
+		input = []any{}
 	}
 
+	// set timestamps and status before persisting
+	now := time.Now()
+	stateInstance.SetStartedTime(now)
+	stateInstance.SetUpdatedTime(now)
 	stateInstance.SetStatus(statelang.RU)
 	log.Debugf(">>>>>>>>>>>>>>>>>>>>>> Start to execute State[%s], ServiceName[%s], Method[%s], Input:%s",
 		serviceTaskStateImpl.Name(), serviceName, methodName, input)
 
-	if _, ok := stateInterface.(state.CompensateSubStateMachineState); ok {
+	// set input on state instance and persist started
+	stateInstance.SetInputParams(input)
+	if okCfg && stateMachineConfig.StateLogStore() != nil {
+		if err := stateMachineConfig.StateLogStore().RecordStateStarted(ctx, stateInstance, processContext); err != nil {
+			handleResultErr(err)
+			return nil
+		}
+		// now the stateInstance.ID() is assigned (branchId or generated). Put into stateMap keyed by ID
+		if smi, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance); ok && smi != nil {
+			smi.PutState(stateInstance.ID(), stateInstance)
+		}
+	}
+
+	// Identify compensate-submachine by explicit state type to avoid interface set ambiguity
+	if stateInterface.Type() == constant.StateTypeCompensateSubMachine {
 		// If it is the compensation of the subState machine,
 		// directly call the state machine's compensate method
 		stateMachineEngine, ok := processContext.GetVariable(constant.VarNameStateMachineEngine).(engine.StateMachineEngine)
@@ -102,8 +147,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 			return nil
 		}
 	} else {
-		stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
-		if !ok {
+		if !okCfg {
 			handleResultErr(errors.New("invalid stateMachineConfig type from processContext"))
 			return nil
 		}
@@ -116,10 +160,22 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 			return nil
 		}
 
-		result, resultErr = serviceInvoker.Invoke(ctx, input, serviceTaskStateImpl)
-		if resultErr != nil {
-			handleResultErr(resultErr)
+		// invoke and unwrap reflect returns
+		vals, invErr := serviceInvoker.Invoke(ctx, input, serviceTaskStateImpl)
+		if invErr != nil {
+			handleResultErr(invErr)
 			return nil
+		}
+		// Interpret last return as error if present
+		if n := len(vals); n > 0 {
+			if errVal, ok := vals[n-1].Interface().(error); ok && errVal != nil {
+				handleResultErr(errVal)
+				return nil
+			}
+			// result is the first return value when present
+			if vals[0].IsValid() && !vals[0].IsZero() {
+				result = vals[0].Interface()
+			}
 		}
 	}
 
@@ -135,6 +191,17 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 		}
 
 		hierarchicalProcessContext.SetVariable(constant.VarNameOutputParams, result)
+	}
+
+	// mark succeed and persist finished
+	stateInstance.SetStatus(statelang.SU)
+	stateInstance.SetEndTime(time.Now())
+	stateInstance.SetUpdatedTime(time.Now())
+	if okCfg && stateMachineConfig.StateLogStore() != nil {
+		if err := stateMachineConfig.StateLogStore().RecordStateFinished(ctx, stateInstance, processContext); err != nil {
+			handleResultErr(err)
+			return nil
+		}
 	}
 
 	return nil

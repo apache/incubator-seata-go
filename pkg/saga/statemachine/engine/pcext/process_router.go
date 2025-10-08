@@ -19,7 +19,9 @@ package pcext
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
@@ -31,8 +33,14 @@ type StateMachineProcessRouter struct {
 }
 
 func (s *StateMachineProcessRouter) Route(ctx context.Context, processContext process_ctrl.ProcessContext) (process_ctrl.Instruction, error) {
-	stateInstruction, ok := processContext.GetInstruction().(StateInstruction)
-	if !ok {
+	var stateInstruction *StateInstruction
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		stateInstruction = v
+	case StateInstruction:
+		tmp := v
+		stateInstruction = &tmp
+	default:
 		return nil, errors.New("instruction is not a state instruction")
 	}
 

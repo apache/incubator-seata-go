@@ -18,9 +18,10 @@
 package state
 
 import (
+	"reflect"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	"reflect"
 )
 
 type TaskState interface {

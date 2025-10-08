@@ -25,6 +25,7 @@ import (
 
 	"github.com/seata/seata-go/pkg/protocol/message"
 	"github.com/seata/seata-go/pkg/remoting/getty"
+	serrors "github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -84,7 +85,11 @@ func (r *RMRemoting) BranchReport(param BranchReportParam) error {
 	}
 
 	if err = isReportSuccess(resp); err != nil {
-		log.Errorf("BranchReport response error: %v, res %v", err.Error(), resp)
+		if seataErr, ok := err.(*serrors.SeataError); ok {
+			log.Warnf("BranchReport response error: code=%v msg=%s", seataErr.Code, seataErr.Message)
+		} else {
+			log.Errorf("BranchReport response error: %v, res %v", err.Error(), resp)
+		}
 		return err
 	}
 
@@ -156,7 +161,12 @@ func isRegisterSuccess(response interface{}) bool {
 func isReportSuccess(response interface{}) error {
 	if res, ok := response.(message.BranchReportResponse); ok {
 		if res.ResultCode == message.ResultCodeFailed {
-			return fmt.Errorf(res.Msg)
+			code := res.TransactionErrorCode
+			if code == serrors.TransactionErrorCodeBranchTransactionNotExist || int(code) == 120 {
+				log.Debugf("BranchReport received TransactionErrorCode %d (treated as BranchTransactionNotExist), ignoring", code)
+				return nil
+			}
+			return serrors.New(code, res.Msg, nil)
 		}
 	} else {
 		return ErrBranchReportResponseFault

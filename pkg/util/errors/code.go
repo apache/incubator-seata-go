@@ -113,4 +113,6 @@ const (
 	OperationDenied
 	// ForwardInvalid Forward invalid
 	ForwardInvalid
+	// AsynchronousStartDisabled Async start is disabled in configuration
+	AsynchronousStartDisabled
 )

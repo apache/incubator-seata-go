@@ -21,13 +21,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
-	"github.com/seata/seata-go/pkg/util/log"
-	"google.golang.org/grpc"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	"github.com/seata/seata-go/pkg/util/log"
 )
 
 type GRPCInvoker struct {

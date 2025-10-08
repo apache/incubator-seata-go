@@ -319,7 +319,10 @@ func (s *StateInstanceImpl) SetIgnoreStatus(ignoreStatus bool) {
 }
 
 func (s *StateInstanceImpl) IsForCompensation() bool {
-	return s.stateIdCompensatedFor == ""
+	// A state instance is considered a compensation execution if it points
+	// back to an original forward state via stateIdCompensatedFor.
+	// When this field is non-empty, this instance is a compensation.
+	return s.stateIdCompensatedFor != ""
 }
 
 func (s *StateInstanceImpl) SerializedInputParams() interface{} {

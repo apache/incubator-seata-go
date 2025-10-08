@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 )
 

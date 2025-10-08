@@ -52,5 +52,6 @@ func (g *GlobalReportRequestCodec) Encode(in interface{}) []byte {
 
 // GetMessageType get global report request's message type
 func (g *GlobalReportRequestCodec) GetMessageType() message.MessageType {
-	return message.MessageTypeGlobalReportResult
+	// must be the request type, not the result type
+	return message.MessageTypeGlobalReport
 }

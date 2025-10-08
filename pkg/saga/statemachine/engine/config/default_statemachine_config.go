@@ -21,20 +21,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo/repository"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/strategy"
-	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"gopkg.in/yaml.v3"
+
+	"github.com/seata/seata-go/pkg/protocol/branch"
+	baserm "github.com/seata/seata-go/pkg/rm"
+	sagarm "github.com/seata/seata-go/pkg/saga/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo/repository"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"github.com/seata/seata-go/pkg/saga/statemachine/engine/strategy"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
 )
@@ -89,6 +93,14 @@ type DefaultStateMachineConfig struct {
 	statusDecisionStrategy engine.StatusDecisionStrategy
 	seqGenerator           sequence.SeqGenerator
 	componentLock          *sync.Mutex
+
+	enableAsync bool
+
+	// runtime store & tc options
+	storeEnabled bool
+	storeType    string
+	storeDSN     string
+	tcEnabled    bool
 }
 
 func (c *DefaultStateMachineConfig) ComponentLock() *sync.Mutex {
@@ -247,6 +259,14 @@ func (c *DefaultStateMachineConfig) GetServiceInvokeTimeout() int {
 	return c.serviceInvokeTimeout
 }
 
+func (c *DefaultStateMachineConfig) EnableAsync() bool {
+	return c.enableAsync
+}
+
+func (c *DefaultStateMachineConfig) SetEnableAsync(enable bool) {
+	c.enableAsync = enable
+}
+
 func (c *DefaultStateMachineConfig) IsSagaRetryPersistModeUpdate() bool {
 	return c.sagaRetryPersistModeUpdate
 }
@@ -342,11 +362,16 @@ type ConfigFileParams struct {
 	ServiceInvokeTimeout            int      `json:"service_invoke_timeout" yaml:"service_invoke_timeout"`
 	Charset                         string   `json:"charset" yaml:"charset"`
 	DefaultTenantId                 string   `json:"default_tenant_id" yaml:"default_tenant_id"`
+	EnableAsync                     bool     `json:"enable_async" yaml:"enable_async"`
 	SagaRetryPersistModeUpdate      bool     `json:"saga_retry_persist_mode_update" yaml:"saga_retry_persist_mode_update"`
 	SagaCompensatePersistModeUpdate bool     `json:"saga_compensate_persist_mode_update" yaml:"saga_compensate_persist_mode_update"`
 	SagaBranchRegisterEnable        bool     `json:"saga_branch_register_enable" yaml:"saga_branch_register_enable"`
 	RmReportSuccessEnable           bool     `json:"rm_report_success_enable" yaml:"rm_report_success_enable"`
 	StateMachineResources           []string `json:"state_machine_resources" yaml:"state_machine_resources"`
+	StoreEnabled                    bool     `json:"store_enabled" yaml:"store_enabled"`
+	StoreType                       string   `json:"store_type" yaml:"store_type"`
+	StoreDSN                        string   `json:"store_dsn" yaml:"store_dsn"`
+	TCEnabled                       bool     `json:"tc_enabled" yaml:"tc_enabled"`
 }
 
 func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
@@ -392,6 +417,7 @@ func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) 
 	if rc.DefaultTenantId != "" {
 		c.defaultTenantId = rc.DefaultTenantId
 	}
+	c.enableAsync = rc.EnableAsync
 	c.sagaRetryPersistModeUpdate = rc.SagaRetryPersistModeUpdate
 	c.sagaCompensatePersistModeUpdate = rc.SagaCompensatePersistModeUpdate
 	c.sagaBranchRegisterEnable = rc.SagaBranchRegisterEnable
@@ -399,6 +425,14 @@ func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) 
 	if len(rc.StateMachineResources) > 0 {
 		c.stateMachineResources = rc.StateMachineResources
 	}
+	c.storeEnabled = rc.StoreEnabled
+	if rc.StoreType != "" {
+		c.storeType = rc.StoreType
+	}
+	if rc.StoreDSN != "" {
+		c.storeDSN = rc.StoreDSN
+	}
+	c.tcEnabled = rc.TCEnabled
 }
 
 func (c *DefaultStateMachineConfig) registerEventConsumers() error {
@@ -432,6 +466,14 @@ func (c *DefaultStateMachineConfig) Init() error {
 		return fmt.Errorf("initialize service invokers failed: %w", err)
 	}
 
+	if err := c.bootstrapProcessWiring(); err != nil {
+		return fmt.Errorf("bootstrap wiring failed: %w", err)
+	}
+
+	if err := c.SetupStoresFromConfig(); err != nil {
+		return fmt.Errorf("setup stores from config failed: %w", err)
+	}
+
 	if err := c.registerEventConsumers(); err != nil {
 		return fmt.Errorf("register event consumers failed: %w", err)
 	}
@@ -439,6 +481,19 @@ func (c *DefaultStateMachineConfig) Init() error {
 	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
 		if err := c.RegisterStateMachineDef(c.stateMachineResources); err != nil {
 			return fmt.Errorf("register state machine def failed: %w", err)
+		}
+	}
+
+	if c.tcEnabled {
+		sagarm.InitSaga()
+		app, group := baserm.GetRmAppAndGroup()
+		if app != "" && group != "" {
+			if mgr := baserm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA); mgr != nil {
+				resource := &sagarm.SagaResource{}
+				resource.SetApplicationId(app)
+				resource.SetResourceGroupId(group)
+				_ = mgr.RegisterResource(resource)
+			}
 		}
 	}
 
@@ -641,12 +696,23 @@ func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, e
 
 	c.stateMachineRepository = repository.GetStateMachineRepositoryImpl()
 	c.stateLogRepository = repository.NewStateLogRepositoryImpl()
+	repository.GetStateMachineRepositoryImpl().SetDefaultTenantId(c.defaultTenantId)
 
 	c.syncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.syncEventBus)
 	c.asyncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.asyncEventBus)
 
 	for _, opt := range opts {
 		opt(c)
+	}
+	repository.GetStateMachineRepositoryImpl().SetDefaultTenantId(c.defaultTenantId)
+
+	if _, statErr := os.Stat("config.yaml"); statErr == nil {
+		if err := c.LoadConfig("config.yaml"); err == nil {
+			repository.GetStateMachineRepositoryImpl().SetDefaultTenantId(c.defaultTenantId)
+			log.Printf("Successfully loaded config from config.yaml")
+		} else {
+			log.Printf("Failed to load config file (using default/env values): %v", err)
+		}
 	}
 
 	if err := c.Init(); err != nil {
@@ -705,6 +771,12 @@ func WithStateMachineResources(paths []string) Option {
 		if len(paths) > 0 {
 			c.stateMachineResources = paths
 		}
+	}
+}
+
+func WithEnableAsync(enable bool) Option {
+	return func(c *DefaultStateMachineConfig) {
+		c.enableAsync = enable
 	}
 }
 

@@ -16,11 +16,11 @@
 #
 
 # format go imports style
-go install golang.org/x/tools/cmd/goimports
+go install golang.org/x/tools/cmd/goimports@v0.24.1
 goimports  -local github.com/seata/seata-go -w .
 
 # format licence style
-go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+go install github.com/apache/skywalking-eyes/cmd/license-eye@v0.6.0
 license-eye header fix
 # check dependency licence is valid
 license-eye dependency check

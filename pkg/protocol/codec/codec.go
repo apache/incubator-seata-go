@@ -114,6 +114,7 @@ func (c *CodecManager) Encode(codecType CodecType, in interface{}) []byte {
 
 func Init() {
 	// Global
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportResponseCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginResponseCodec{})

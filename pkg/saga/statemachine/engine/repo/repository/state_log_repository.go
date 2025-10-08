@@ -19,11 +19,13 @@ package repository
 
 import (
 	"context"
+	"sync"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/store"
-	"sync"
 )
 
 var (

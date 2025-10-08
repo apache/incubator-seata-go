@@ -18,11 +18,13 @@
 package parser
 
 import (
-	"github.com/pkg/errors"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 )
 
 type StateMachineParser interface {
@@ -50,6 +52,13 @@ func (b BaseStateParser) ParseBaseAttributes(stateName string, state statelang.S
 		return err
 	}
 	state.SetComment(comment)
+
+	// ensure Type from config is propagated to state
+	if t, err := b.GetStringOrDefault(stateName, stateMap, "Type", ""); err == nil {
+		state.SetType(t)
+	} else {
+		return err
+	}
 
 	next, err := b.GetStringOrDefault(stateName, stateMap, "Next", "")
 	if err != nil {
