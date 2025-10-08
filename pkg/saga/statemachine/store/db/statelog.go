@@ -34,6 +34,7 @@ import (
 	"github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	engExc "github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/serializer"
@@ -42,6 +43,7 @@ import (
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	sagaTm "github.com/seata/seata-go/pkg/saga/tm"
 	"github.com/seata/seata-go/pkg/tm"
+	seataErrors "github.com/seata/seata-go/pkg/util/errors"
 	"github.com/seata/seata-go/pkg/util/log"
 )
 
@@ -298,11 +300,10 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 					log.Infof("StateMachineInstance[%s] appears already finished after retry (no rows updated), treat as success", machineInstance.ID())
 					return nil
 				}
-				// In Java impl, this scenario is treated as idempotent completion; avoid noisy warnings.
-				// Use debug-level visibility only when fallback path is taken.
-				log.Debugf("StateMachineInstance[%s] fallback finish update without optimistic lock (status=%s, comp=%s)",
-					machineInstance.ID(), machineInstance.Status(), machineInstance.CompensationStatus())
 				// Fallback: update without gmt_updated predicate to guarantee terminal state is recorded
+				// Use warn-level visibility as this is an abnormal path indicating potential concurrency issues
+				log.Warnf("StateMachineInstance[%s] executing fallback finish (no optimistic lock) after retry failed, status=%s, comp=%s",
+					machineInstance.ID(), machineInstance.Status(), machineInstance.CompensationStatus())
 				// Build SQL by stripping the trailing ' and gmt_updated = ?'
 				rawSql := s.recordStateMachineFinishedSql
 				noWhereSql := strings.Replace(rawSql, " and gmt_updated = ?", "", 1)
@@ -317,7 +318,7 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 					compensationStatus.String = string(machineInstance.CompensationStatus())
 				}
 				// end_time, excep, end_params, status, compensation_status, is_running, gmt_updated, id
-				_, _ = s.db.Exec(noWhereSql,
+				affectedFallback, errFallback := s.db.Exec(noWhereSql,
 					machineInstance.EndTime(),
 					serializedError,
 					machineInstance.SerializedEndParams(),
@@ -327,6 +328,17 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 					time.Now(),
 					machineInstance.ID(),
 				)
+				if errFallback != nil {
+					log.Errorf("StateMachineInstance[%s] fallback finish failed: %v, status=%s, comp=%s",
+						machineInstance.ID(), errFallback,
+						machineInstance.Status(), machineInstance.CompensationStatus())
+					return errFallback
+				}
+				rowsAffected, _ := affectedFallback.RowsAffected()
+				if rowsAffected <= 0 {
+					log.Warnf("StateMachineInstance[%s] fallback finish affected 0 rows, may indicate concurrent update or missing record",
+						machineInstance.ID())
+				}
 				// reflect latest update time locally to avoid timeout false positives
 				machineInstance.SetUpdatedTime(time.Now())
 			}
@@ -358,13 +370,8 @@ func (s *StateLogStore) RecordStateMachineFinished(ctx context.Context, machineI
 }
 
 func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, context process_ctrl.ProcessContext) error {
-	var err error
 	defer func() {
 		s.ClearUp(context)
-		if err != nil {
-			log.Errorf("Report transaction finish to server error: %v, StateMachine: %s, XID: %s, Reason: %s",
-				err, machineInstance.StateMachine().Name(), machineInstance.ID(), err.Error())
-		}
 	}()
 
 	if s.sagaTransactionalTemplate == nil {
@@ -373,8 +380,10 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	}
 	globalTransaction, err := s.getGlobalTransaction(ctx, machineInstance, context)
 	if err != nil {
-		log.Errorf("Failed to get global transaction: %v", err)
-		return err
+		log.Errorf("Failed to get global transaction: %v, StateMachine: %s, XID: %s",
+			err, machineInstance.StateMachine().Name(), machineInstance.ID())
+		// Align with Java semantics: getGlobalTransaction failure is non-fatal to state machine finish
+		return nil
 	}
 
 	var globalStatus message.GlobalStatus
@@ -395,8 +404,14 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	globalTransaction.TxStatus = globalStatus
 	err = s.sagaTransactionalTemplate.ReportTransaction(ctx, globalTransaction)
 	if err != nil {
+		// Enhanced error logging aligned with Java implementation (DbAndReportTcStateLogStore.java:246-261)
+		log.Errorf("Report transaction finish to server failed: StateMachine=%s, XID=%s, Status=%s, Err=%v",
+			machineInstance.StateMachine().Name(),
+			machineInstance.ID(),
+			globalStatus,
+			err)
 		// Align with Java semantics: reporting to TC should not fail the local state machine finish.
-		// Defer block will log the error; swallow to keep success path green.
+		// Swallow error to keep success path green.
 		return nil
 	}
 	return nil
@@ -623,10 +638,20 @@ func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statel
 
 	globalTransaction, err := s.getGlobalTransaction(ctx, machineInstance, context)
 	if err != nil {
+		if _, ok := engExc.IsEngineExecutionException(err); ok {
+			return err
+		}
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchRegisterFailed,
+			fmt.Sprintf("get global transaction failed, stateMachine=%s, state=%s",
+				machineInstance.StateMachine().Name(), stateInstance.Name()), err)
 		return err
 	}
 	if globalTransaction == nil {
-		err = errors.New("Global transaction is not exists")
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeGlobalTransactionNotExist,
+			fmt.Sprintf("global transaction does not exist, stateMachine=%s, state=%s",
+				machineInstance.StateMachine().Name(), stateInstance.Name()), nil)
 		return err
 	}
 
@@ -644,20 +669,42 @@ func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statel
 			LockKeys:        "",
 		})
 		if e != nil {
-			return e
+			err = engExc.NewEngineExecutionException(
+				seataErrors.TransactionErrorCodeBranchRegisterFailed,
+				fmt.Sprintf("branch register via rm failed, stateMachine=%s, state=%s, xid=%s",
+					machineInstance.StateMachine().Name(), stateInstance.Name(), globalTransaction.Xid), e)
+			return err
 		}
 		if bid <= 0 {
-			return errors.New("branch register returned invalid branchId (<=0); ensure TC has a valid global transaction and resourceId is correct")
+			err = engExc.NewEngineExecutionException(
+				seataErrors.TransactionErrorCodeBranchRegisterFailed,
+				fmt.Sprintf("branch register returned invalid branchId (<=0), stateMachine=%s, state=%s, xid=%s",
+					machineInstance.StateMachine().Name(), stateInstance.Name(), globalTransaction.Xid), nil)
+			return err
 		}
 		stateInstance.SetID(strconv.FormatInt(bid, 10))
 		return nil
 	}
+	if s.sagaTransactionalTemplate == nil {
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchRegisterFailed,
+			"saga transactional template is not initialized", nil)
+		return err
+	}
 	branchId, err := s.sagaTransactionalTemplate.BranchRegister(ctx, resourceId, "", globalTransaction.Xid, "", "")
 	if err != nil {
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchRegisterFailed,
+			fmt.Sprintf("branch register via template failed, stateMachine=%s, state=%s, xid=%s",
+				machineInstance.StateMachine().Name(), stateInstance.Name(), globalTransaction.Xid), err)
 		return err
 	}
 	if branchId <= 0 {
-		return errors.New("branch register returned invalid branchId (<=0)")
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchRegisterFailed,
+			fmt.Sprintf("branch register returned invalid branchId (<=0), stateMachine=%s, state=%s, xid=%s",
+				machineInstance.StateMachine().Name(), stateInstance.Name(), globalTransaction.Xid), nil)
+		return err
 	}
 
 	stateInstance.SetID(strconv.FormatInt(branchId, 10))
@@ -703,9 +750,11 @@ func (s *StateLogStore) RecordStateFinished(ctx context.Context, stateInstance s
 		return err
 	}
 	if affected <= 0 {
-		log.Warnf("RecordStateFinished affected 0 rows, skip finish persist. state=%s id=%s machine=%s",
-			stateInstance.Name(), stateInstance.ID(), stateInstance.StateMachineInstance().ID())
-		return nil
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeFailedWriteSession,
+			fmt.Sprintf("state finish update affected 0 rows, possible concurrent update lost. state=%s id=%s machine=%s",
+				stateInstance.Name(), stateInstance.ID(), stateInstance.StateMachineInstance().ID()), nil)
+		return err
 	}
 
 	if cfg, ok := context.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig); ok {
@@ -786,17 +835,31 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelan
 
 	globalTransaction, err := s.getGlobalTransaction(ctx, stateInstance.StateMachineInstance(), context)
 	if err != nil {
+		if _, ok := engExc.IsEngineExecutionException(err); ok {
+			return err
+		}
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchReportFailed,
+			fmt.Sprintf("get global transaction failed for branch report, stateMachine=%s, state=%s",
+				stateInstance.StateMachineInstance().StateMachine().Name(), stateInstance.Name()), err)
 		return err
 	}
 	if globalTransaction == nil {
-		err = errors.New("Global transaction is not exists")
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeGlobalTransactionNotExist,
+			fmt.Sprintf("global transaction does not exist for branch report, stateMachine=%s, state=%s",
+				stateInstance.StateMachineInstance().StateMachine().Name(), stateInstance.Name()), nil)
 		return err
 	}
 
 	log.Infof("BranchReport prepare, XID=%s, branchId(raw)=%s, status=%s", globalTransaction.Xid, originalStateInst.ID(), branchStatus)
 	branchId, perr := strconv.ParseInt(originalStateInst.ID(), 10, 64)
 	if perr != nil {
-		return errors.New(fmt.Sprintf("invalid branchId '%s' (must be numeric); ensure GlobalBegin + BranchRegister succeeded and resourceId is 'applicationId#txServiceGroup'", originalStateInst.ID()))
+		return engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchReportFailed,
+			fmt.Sprintf("invalid branchId '%s' (must be numeric); ensure GlobalBegin + BranchRegister succeeded and resourceId is 'applicationId#txServiceGroup'", originalStateInst.ID()),
+			perr,
+		)
 	}
 	if mgr := rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA); mgr != nil {
 		log.Infof("BranchReport via SagaResourceManager, XID=%s, branchId=%d, status=%s", globalTransaction.Xid, branchId, branchStatus)
@@ -807,13 +870,31 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance statelan
 			Status:          branchStatus,
 			ApplicationData: "",
 		}); err != nil {
-			log.Warnf("BranchReport ignored error: %v, state=%s, branchId=%d, status=%s", err, originalStateInst.Name(), branchId, branchStatus)
+			err = engExc.NewEngineExecutionException(
+				seataErrors.TransactionErrorCodeBranchReportFailed,
+				fmt.Sprintf("branch report via rm failed, stateMachine=%s, state=%s, xid=%s, branchId=%d",
+					originalStateInst.StateMachineInstance().StateMachine().Name(), originalStateInst.Name(), globalTransaction.Xid, branchId),
+				err,
+			)
+			return err
 		}
 		return nil
 	}
+	if s.sagaTransactionalTemplate == nil {
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchReportFailed,
+			"saga transactional template is not initialized", nil)
+		return err
+	}
 	log.Infof("BranchReport via SagaTransactionalTemplate, XID=%s, branchId=%d, status=%s", globalTransaction.Xid, branchId, branchStatus)
 	if err = s.sagaTransactionalTemplate.BranchReport(ctx, globalTransaction.Xid, branchId, branchStatus, ""); err != nil {
-		log.Warnf("BranchReport via template ignored error: %v, state=%s, branchId=%d, status=%s", err, originalStateInst.Name(), branchId, branchStatus)
+		err = engExc.NewEngineExecutionException(
+			seataErrors.TransactionErrorCodeBranchReportFailed,
+			fmt.Sprintf("branch report via template failed, stateMachine=%s, state=%s, xid=%s, branchId=%d",
+				originalStateInst.StateMachineInstance().StateMachine().Name(), originalStateInst.Name(), globalTransaction.Xid, branchId),
+			err,
+		)
+		return err
 	}
 	return nil
 }
@@ -1113,14 +1194,24 @@ func execStateInstanceStatementForUpdate(obj statelang.StateInstance, stmt *sql.
 		serializedError = obj.SerializedError().([]byte)
 	}
 
+	updatedTime := obj.UpdatedTime()
+	if updatedTime.IsZero() {
+		updatedTime = time.Now()
+	}
+	machineInstanceID := obj.MachineInstanceID()
+	if machineInstanceID == "" {
+		if sm := obj.StateMachineInstance(); sm != nil {
+			machineInstanceID = sm.ID()
+		}
+	}
 	result, err := stmt.Exec(
 		obj.EndTime(),
 		serializedError,
 		obj.Status(),
 		obj.SerializedOutputParams(),
-		time.Now(),
+		updatedTime,
 		obj.ID(),
-		obj.StateMachineInstance().ID(),
+		machineInstanceID,
 	)
 	if err != nil {
 		return 0, err

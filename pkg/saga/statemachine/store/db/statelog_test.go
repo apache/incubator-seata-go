@@ -34,6 +34,7 @@ import (
 	rmpkg "github.com/seata/seata-go/pkg/rm"
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
+	engExc "github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/pcext"
@@ -47,6 +48,7 @@ import (
 	stateimpl "github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	storepkg "github.com/seata/seata-go/pkg/saga/statemachine/store"
 	"github.com/seata/seata-go/pkg/tm"
+	seataErrors "github.com/seata/seata-go/pkg/util/errors"
 )
 
 func mockProcessContext(stateMachineName string, stateMachineInstance statelang.StateMachineInstance) process_ctrl.ProcessContext {
@@ -155,7 +157,9 @@ func (s *stubStateMachineRepository) RegistryStateMachineByReader(reader io.Read
 type fakeResourceManager struct {
 	branchRegisterCalls int
 	branchReportCalls   int
+	branchRegisterErr   error
 	branchReportErr     error
+	nextBranchID        int64
 	mu                  sync.Mutex
 }
 
@@ -163,7 +167,10 @@ func (f *fakeResourceManager) BranchRegister(ctx context.Context, param rmpkg.Br
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.branchRegisterCalls++
-	return 101, nil
+	if f.nextBranchID == 0 {
+		f.nextBranchID = 101
+	}
+	return f.nextBranchID, f.branchRegisterErr
 }
 
 func (f *fakeResourceManager) BranchReport(ctx context.Context, param rmpkg.BranchReportParam) error {
@@ -541,6 +548,37 @@ func TestRecordStateStartedTriggersBranchRegisterWhenEnabled(t *testing.T) {
 	require.NoError(t, parseErr)
 }
 
+func TestRecordStateStartedBranchRegisterError(t *testing.T) {
+	prepareCleanDB(t)
+
+	store := NewStateLogStore(db, "seata_")
+	machine := mockMachineInstance("stateMachine")
+	machine.SetID("machine-branch-error")
+	ctx := mockProcessContext("stateMachine", machine)
+	cfg := mockStateMachineConfig(ctx)
+	cfg.SetSagaBranchRegisterEnable(true)
+	fakeTemplate := &fakeSagaTemplate{nextBranchID: 888}
+	store.sagaTransactionalTemplate = fakeTemplate
+	globalFakeRM.mu.Lock()
+	globalFakeRM.branchRegisterErr = errors.New("mock branch register error")
+	globalFakeRM.nextBranchID = 0
+	globalFakeRM.mu.Unlock()
+	t.Cleanup(func() {
+		globalFakeRM.mu.Lock()
+		globalFakeRM.branchRegisterErr = nil
+		globalFakeRM.nextBranchID = 0
+		globalFakeRM.mu.Unlock()
+	})
+
+	attachServiceTaskDefinition(machine, cfg, "ServiceTask1")
+	state := newServiceTaskState(machine)
+	err := store.RecordStateStarted(context.Background(), state, ctx)
+	require.Error(t, err)
+	engErr, ok := engExc.IsEngineExecutionException(err)
+	require.True(t, ok)
+	require.Equal(t, seataErrors.TransactionErrorCodeBranchRegisterFailed, engErr.Code)
+}
+
 func TestRecordStateStartedDerivesCompensationIdFromHolder(t *testing.T) {
 	prepareCleanDB(t)
 
@@ -632,7 +670,7 @@ func TestRecordStateFinishedReportsWhenEnabled(t *testing.T) {
 	require.Equal(t, baseReport+1, globalFakeRM.branchReportCalls)
 }
 
-func TestRecordStateFinishedIgnoresBranchReportError(t *testing.T) {
+func TestRecordStateFinishedPropagatesBranchReportError(t *testing.T) {
 	prepareCleanDB(t)
 
 	store := NewStateLogStore(db, "seata_")
@@ -661,7 +699,11 @@ func TestRecordStateFinishedIgnoresBranchReportError(t *testing.T) {
 		globalFakeRM.mu.Unlock()
 	})
 
-	require.NoError(t, store.RecordStateFinished(context.Background(), state, ctx))
+	err := store.RecordStateFinished(context.Background(), state, ctx)
+	require.Error(t, err)
+	engErr, ok := engExc.IsEngineExecutionException(err)
+	require.True(t, ok)
+	require.Equal(t, seataErrors.TransactionErrorCodeBranchReportFailed, engErr.Code)
 	require.Equal(t, baseRegister+1, globalFakeRM.branchRegisterCalls)
 	require.Equal(t, baseReport+1, globalFakeRM.branchReportCalls)
 }
@@ -683,9 +725,13 @@ func TestRecordStateFinishedWithoutStartDoesNotInsertFallback(t *testing.T) {
 	state.SetEndTime(time.Now())
 	state.SetUpdatedTime(time.Now())
 
-	require.NoError(t, store.RecordStateFinished(context.Background(), state, ctx))
-	_, err := store.GetStateInstance(state.ID(), machine.ID())
+	err := store.RecordStateFinished(context.Background(), state, ctx)
 	require.Error(t, err)
+	engErr, ok := engExc.IsEngineExecutionException(err)
+	require.True(t, ok)
+	require.Equal(t, seataErrors.TransactionErrorCodeFailedWriteSession, engErr.Code)
+	_, getErr := store.GetStateInstance(state.ID(), machine.ID())
+	require.Error(t, getErr)
 }
 
 func TestStateLogStore_RecordStateFinished(t *testing.T) {
