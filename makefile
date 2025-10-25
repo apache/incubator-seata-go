@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=$(shell cat "./VERSION" 2> /dev/null)
+VERSION=$(shell tail -n 1 "./VERSION" 2> /dev/null)
 
 GO_FLAGS := -ldflags "-X main.Branch=$(GIT_BRANCH) -X main.Revision=$(GIT_REVISION) -X main.Version=$(VERSION) -extldflags \"-static\" -s -w" -tags netgo
 GO = go
