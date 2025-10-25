@@ -301,8 +301,13 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 	if len(meta.Columns) > 0 {
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
 			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if i.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+			normalizedColumnName := DelEscape(sqlColumnName, types.DBTypeMySQL)
+			pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+			for _, pkName := range pkColumnNameList {
+				if strings.EqualFold(pkName, normalizedColumnName) {
+					pkIndexMap[pkName] = paramIdx
+					break
+				}
 			}
 		}
 		return pkIndexMap

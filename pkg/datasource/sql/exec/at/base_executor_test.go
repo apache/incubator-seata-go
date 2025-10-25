@@ -18,9 +18,10 @@
 package at
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"testing"
 )
 
 func TestBaseExecBuildLockKey(t *testing.T) {

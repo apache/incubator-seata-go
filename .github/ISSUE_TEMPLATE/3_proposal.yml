@@ -1,7 +1,7 @@
 name: "📝 Proposal"
 description: "Create a technical proposal"
 title: "[PROPOSAL] "
-labels: ["proposal"]
+labels: [ "proposal" ]
 body:
   - type: checkboxes
     id: verification

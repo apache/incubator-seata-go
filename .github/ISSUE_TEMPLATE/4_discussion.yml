@@ -1,12 +1,12 @@
 name: "💬 Discussion"
 description: "Start a discussion about the project"
 title: "[DISCUSSION] "
-labels: ["discussion"]
+labels: [ "discussion" ]
 body:
   - type: markdown
     attributes:
       value: "## 🔄 Discussion Topic"
-      
+
   - type: textarea
     id: discussion-content
     attributes:

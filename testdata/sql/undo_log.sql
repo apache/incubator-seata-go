@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 DROP TABLE IF EXISTS `undo_log`;
 CREATE TABLE `undo_log`
 (
