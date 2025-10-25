@@ -179,7 +179,7 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 		for _, column := range row.Columns {
 			upperName := strings.ToUpper(column.ColumnName)
 			if _, exist := pkNameSet[upperName]; exist {
-				pkValues[upperName] = append(pkValues[upperName], column)
+				pkValues[column.ColumnName] = append(pkValues[upperName], column)
 			}
 		}
 	}
