@@ -47,7 +47,7 @@ type Option func(*XABranchXid)
 func NewXABranchXid(opt ...Option) *XABranchXid {
 	xABranchXid := &XABranchXid{
 		formatId: DefaultFormatId,
-		dbType:   types.DBTypeMySQL,
+		dbType:   types.DBTypeUnknown,
 	}
 
 	for _, fn := range opt {
