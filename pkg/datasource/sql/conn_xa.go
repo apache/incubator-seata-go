@@ -434,6 +434,8 @@ func isXAER_RMFAILAlreadyEnded(err error) bool {
 		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
 			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
 		}
+		// For MySQL errors, only trust the specific error code
+		return false
 	}
 
 	if pgErr, ok := err.(*pq.Error); ok {
