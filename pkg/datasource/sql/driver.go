@@ -294,8 +294,10 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 	var rowsi driver.Rows
 	var err error
 
-	log.Infof("conn type: %T, supports QueryerContext? %v", conn, conn.(driver.QueryerContext) != nil)
-	log.Infof("conn type: %T, supports Queryer? %v", conn, conn.(driver.Queryer) != nil)
+	_, supportsQueryerContext := conn.(driver.QueryerContext)
+	_, supportsQueryer := conn.(driver.Queryer)
+	log.Infof("conn type: %T, supports QueryerContext? %v", conn, supportsQueryerContext)
+	log.Infof("conn type: %T, supports Queryer? %v", conn, supportsQueryer)
 
 	queryerCtx, ok := conn.(driver.QueryerContext)
 	var queryer driver.Queryer
