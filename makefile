@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=$(shell cat "./VERSION" 2> /dev/null)
+VERSION=$(shell tail -n 1 "./VERSION" 2> /dev/null)
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_REVISION=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 
