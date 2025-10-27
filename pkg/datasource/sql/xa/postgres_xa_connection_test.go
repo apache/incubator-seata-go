@@ -140,12 +140,31 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			mockTxNotSupportExecer: true,
 			expectExecCall:         false,
 		},
+		{
+			name: "one-phase commit using tx.Commit() interface",
+			input: args{
+				xid:      "test-xid-4",
+				onePhase: true,
+			},
+			wantErr:                false,
+			mockTxNotSupportExecer: false,
+			expectExecCall:         false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockConn := mock.NewMockTestDriverConn(ctrl)
-			mockTx := mock.NewMockTestDriverTx(ctrl)
+			var mockTx driver.Tx
+
+			if tt.input.xid == "test-xid-4" {
+				// Test case for tx.Commit() interface
+				mockTxWithCommit := mock.NewMockTestDriverTx(ctrl)
+				mockTxWithCommit.EXPECT().Commit().Return(nil)
+				mockTx = mockTxWithCommit
+			} else {
+				mockTx = mock.NewMockTestDriverTx(ctrl)
+			}
 
 			if !tt.mockTxNotSupportExecer && tt.expectExecCall {
 				mockConn.EXPECT().ExecContext(
@@ -179,6 +198,10 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			err := c.Commit(context.Background(), tt.input.xid, tt.input.onePhase)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Commit() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// Verify tx is cleared after successful tx.Commit()
+			if !tt.wantErr && tt.input.xid == "test-xid-4" && c.tx != nil {
+				t.Errorf("Commit() should clear tx after successful tx.Commit()")
 			}
 		})
 	}
@@ -321,11 +344,28 @@ func TestPostgresqlXAConn_Rollback(t *testing.T) {
 			mockConnNotSupportExecer: true,
 			expectExecCall:           false,
 		},
+		{
+			name: "rollback using tx.Rollback() interface with active tx",
+			input: args{
+				xid: "test-rollback-xid-3",
+			},
+			wantErr:                  false,
+			mockConnNotSupportExecer: false,
+			expectExecCall:           false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockTx := mock.NewMockTestDriverTx(ctrl)
+			var mockTx driver.Tx
+			if tt.input.xid == "test-rollback-xid-3" {
+				// Test case for tx.Rollback() interface
+				mockTxWithRollback := mock.NewMockTestDriverTx(ctrl)
+				mockTxWithRollback.EXPECT().Rollback().Return(nil)
+				mockTx = mockTxWithRollback
+			} else {
+				mockTx = mock.NewMockTestDriverTx(ctrl)
+			}
 
 			var conn driver.Conn
 			if tt.mockConnNotSupportExecer {
@@ -344,7 +384,12 @@ func TestPostgresqlXAConn_Rollback(t *testing.T) {
 				conn = mockConn
 			}
 
-			c := &PostgresqlXAConn{Conn: conn, tx: mockTx, prepared: true, preparedXid: tt.input.xid}
+			c := &PostgresqlXAConn{Conn: conn, tx: mockTx}
+			if tt.input.xid != "test-rollback-xid-3" {
+				c.prepared = true
+				c.preparedXid = tt.input.xid
+			}
+
 			err := c.Rollback(context.Background(), tt.input.xid)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Rollback() error = %v, wantErr %v", err, tt.wantErr)
@@ -353,6 +398,10 @@ func TestPostgresqlXAConn_Rollback(t *testing.T) {
 				if c.prepared || c.preparedXid != "" {
 					t.Errorf("Rollback() should clear prepared state")
 				}
+			}
+			// Verify tx is cleared after successful tx.Rollback()
+			if !tt.wantErr && tt.input.xid == "test-rollback-xid-3" && c.tx != nil {
+				t.Errorf("Rollback() should clear tx after successful tx.Rollback()")
 			}
 		})
 	}
@@ -468,11 +517,29 @@ func TestPostgresqlXAConn_Start(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "start with nil tx",
+			args: args{
+				xid:   "test-start-xid-4",
+				flags: TMNoFlags,
+			},
+			wantErr: true,
+		},
 	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &PostgresqlXAConn{}
+			var c *PostgresqlXAConn
+			if tt.args.xid == "test-start-xid-4" {
+				// Test case for nil tx
+				c = &PostgresqlXAConn{tx: nil}
+			} else {
+				mockTx := mock.NewMockTestDriverTx(ctrl)
+				c = &PostgresqlXAConn{tx: mockTx}
+			}
 			err := c.Start(context.Background(), tt.args.xid, tt.args.flags)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Start() error = %v, wantErr %v", err, tt.wantErr)
