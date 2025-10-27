@@ -168,21 +168,21 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 }
 
 func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
+	pkNameSet := make(map[string]struct{}, len(pkNameList))
+	for _, pk := range pkNameList {
+		pkNameSet[strings.ToUpper(pk)] = struct{}{}
+	}
+
 	pkValues := make(map[string][]types.ColumnImage)
-	// todo optimize 3 fors
+
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			for _, pk := range pkNameList {
-				if strings.EqualFold(pk, column.ColumnName) {
-					values := pkValues[strings.ToUpper(pk)]
-					if values == nil {
-						values = make([]types.ColumnImage, 0)
-					}
-					values = append(values, column)
-					pkValues[pk] = values
-				}
+			upperName := strings.ToUpper(column.ColumnName)
+			if _, exist := pkNameSet[upperName]; exist {
+				pkValues[column.ColumnName] = append(pkValues[upperName], column)
 			}
 		}
 	}
+
 	return pkValues
 }
