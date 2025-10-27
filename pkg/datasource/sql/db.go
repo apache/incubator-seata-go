@@ -219,7 +219,7 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	if err != nil {
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
-	xaResource, err := xa.CreateXAResource(newDriverConn, types.DBTypeMySQL)
+	xaResource, err := xa.CreateXAResource(newDriverConn, db.dbType)
 	if err != nil {
 		return nil, fmt.Errorf("create xa resoruce err:%w", err)
 	}
@@ -228,7 +228,7 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 			targetConn: newDriverConn,
 			res:        db,
 		},
-		xaBranchXid: XaIdBuild(xaXid.GetGlobalXid(), xaXid.GetBranchId()),
+		xaBranchXid: XaIdBuildWithDatabase(xaXid.GetGlobalXid(), xaXid.GetBranchId(), db.dbType),
 		xaResource:  xaResource,
 	}
 	return xaConn, nil

@@ -131,8 +131,8 @@ func (xaManager *XAResourceManager) UnregisterResource(resource rm.Resource) err
 	return xaManager.basic.UnregisterResource(resource)
 }
 
-func (xaManager *XAResourceManager) xaIDBuilder(xid string, branchId uint64) XAXid {
-	return XaIdBuild(xid, branchId)
+func (xaManager *XAResourceManager) xaIDBuilder(xid string, branchId uint64, dbType types.DBType) XAXid {
+	return XaIdBuildWithDatabase(xid, branchId, dbType)
 }
 
 func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid, branchResource rm.BranchResource) (*XAConn, error) {
@@ -161,7 +161,9 @@ func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid
 }
 
 func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId))
+	resource, _ := xaManager.resourceCache.Load(branchResource.ResourceId)
+	dbResource, _ := resource.(*DBResource)
+	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId), dbResource.GetDbType())
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
@@ -178,7 +180,9 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 }
 
 func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
-	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId))
+	resource, _ := xaManager.resourceCache.Load(branchResource.ResourceId)
+	dbResource, _ := resource.(*DBResource)
+	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId), dbResource.GetDbType())
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
