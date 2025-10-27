@@ -67,20 +67,32 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 		return fmt.Errorf("invalid xid: %v", err)
 	}
 
+	connExec, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return errors.New("postgresql conn does not support ExecerContext")
+	}
+
 	var query string
 	if onePhase {
 		if c.prepared && c.preparedXid == xid {
 			query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
 		} else {
+			if c.tx != nil {
+				txCommit, ok := c.tx.(interface{ Commit() error })
+				if ok {
+					err := txCommit.Commit()
+					if err != nil {
+						log.Errorf("postgresql xa one-phase commit failed, xid %s, err %v", xid, err)
+						return err
+					}
+					c.tx = nil
+					return nil
+				}
+			}
 			query = "COMMIT"
 		}
 	} else {
 		query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
-	}
-
-	connExec, ok := c.Conn.(driver.ExecerContext)
-	if !ok {
-		return errors.New("postgresql conn does not support ExecerContext")
 	}
 
 	_, err := connExec.ExecContext(ctx, query, nil)
@@ -170,6 +182,10 @@ func (c *PostgresqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 		return fmt.Errorf("invalid xid: %v", err)
 	}
 
+	if c.tx == nil {
+		return errors.New("postgresql xa prepare requires an active transaction")
+	}
+
 	query := fmt.Sprintf("PREPARE TRANSACTION '%s'", xid)
 
 	txExec, ok := c.tx.(driver.ExecerContext)
@@ -183,6 +199,7 @@ func (c *PostgresqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 		return err
 	}
 
+	c.tx = nil
 	c.prepared = true
 	c.preparedXid = xid
 	return nil
@@ -239,14 +256,33 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 		return fmt.Errorf("invalid xid: %v", err)
 	}
 
-	query := fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
-
 	connExec, ok := c.Conn.(driver.ExecerContext)
 	if !ok {
 		return errors.New("postgresql conn does not support ExecerContext")
 	}
 
-	_, err := connExec.ExecContext(ctx, query, nil)
+	var query string
+	var err error
+
+	if c.prepared && c.preparedXid == xid {
+		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
+		_, err = connExec.ExecContext(ctx, query, nil)
+	} else if c.tx != nil {
+		txRollback, ok := c.tx.(interface{ Rollback() error })
+		if ok {
+			err = txRollback.Rollback()
+			if err == nil {
+				c.tx = nil
+			}
+		} else {
+			query = "ROLLBACK"
+			_, err = connExec.ExecContext(ctx, query, nil)
+		}
+	} else {
+		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
+		_, err = connExec.ExecContext(ctx, query, nil)
+	}
+
 	if err != nil {
 		log.Errorf("postgresql xa rollback failed, xid %s, err %v", xid, err)
 		return err
