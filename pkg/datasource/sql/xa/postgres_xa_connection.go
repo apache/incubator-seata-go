@@ -288,6 +288,10 @@ func (c *PostgresqlXAConn) Start(ctx context.Context, xid string, flags int) err
 		return fmt.Errorf("invalid xid: %v", err)
 	}
 
+	if c.tx == nil {
+		return errors.New("postgresql xa requires an active transaction")
+	}
+
 	switch flags {
 	case TMJoin:
 		return errors.New("postgresql does not support transaction joining")
