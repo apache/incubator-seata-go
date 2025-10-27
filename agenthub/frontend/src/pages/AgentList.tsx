@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Activity, ExternalLink, Heart, Pause, Play, Plus, RefreshCw, Search, Trash2, Users} from 'lucide-react';
 import AgentHubAPI from '../services/api';
@@ -30,31 +30,7 @@ const AgentList: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadAgents();
-    }, []);
-
-    useEffect(() => {
-        filterAgents();
-    }, [agents, searchQuery, statusFilter]);
-
-    const loadAgents = async () => {
-        try {
-            setLoading(true);
-            const response = await AgentHubAPI.listAgents();
-            if (response.success && response.data) {
-                setAgents(response.data);
-            } else {
-                setError(response.error?.error || 'Failed to load agents');
-            }
-        } catch (err) {
-            setError('Network error while loading agents');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const filterAgents = () => {
+    const filterAgents = useCallback(() => {
         let filtered = agents;
 
         // 搜索过滤
@@ -82,7 +58,31 @@ const AgentList: React.FC = () => {
         }
 
         setFilteredAgents(filtered);
+    }, [agents, searchQuery, statusFilter]);
+
+    const loadAgents = async () => {
+        try {
+            setLoading(true);
+            const response = await AgentHubAPI.listAgents();
+            if (response.success && response.data) {
+                setAgents(response.data);
+            } else {
+                setError(response.error?.error || 'Failed to load agents');
+            }
+        } catch (err) {
+            setError('Network error while loading agents');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    useEffect(() => {
+        loadAgents();
+    }, []);
+
+    useEffect(() => {
+        filterAgents();
+    }, [filterAgents]);
 
     const handleStatusChange = async (agentId: string, newStatus: string) => {
         try {

@@ -18,6 +18,7 @@
 package handlers
 
 import (
+	"agenthub/internal/services"
 	"context"
 	"encoding/json"
 	"net/http"

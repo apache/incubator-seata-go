@@ -22,7 +22,7 @@ hub:
 # AI服务配置 (动态上下文分析)
 ai:
   provider: "qwen"                      # AI提供商: mock/qwen/openai
-  api_key: "sk-b8cfc5b3964b40fa968553d5754bfe64"  # 千问API密钥
+  api_key: "sk-10d5ce2898bd49aa98bb2c6a7590ec76"  # 千问API密钥
   base_url: ""                         # API基础URL，为空时使用默认值
   model: "qwen-plus"                   # 模型名称
   max_tokens: 1000                     # 最大token数

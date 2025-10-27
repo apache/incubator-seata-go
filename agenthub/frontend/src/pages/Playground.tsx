@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
     AlertCircle,
     Bot,
@@ -54,7 +54,6 @@ interface PlaygroundSession {
 }
 
 const Playground: React.FC = () => {
-    const [agents, setAgents] = useState<RegisteredAgent[]>([]);
     const [selectedAgent, setSelectedAgent] = useState<RegisteredAgent | null>(null);
     const [inputMessage, setInputMessage] = useState('');
     const [messages, setMessages] = useState<Message[]>([]);
@@ -64,13 +63,44 @@ const Playground: React.FC = () => {
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const addSystemMessage = useCallback((content: string, error?: string) => {
+        const message: Message = {
+            id: Date.now().toString(),
+            type: 'system',
+            content,
+            timestamp: new Date(),
+            error
+        };
+        setMessages(prev => [...prev, message]);
+    }, []);
+
+    const createNewSession = useCallback(() => {
+        const session: PlaygroundSession = {
+            id: Date.now().toString(),
+            name: `会话 ${Date.now()}`,
+            messages: [],
+            selectedAgent: selectedAgent || undefined,
+            createdAt: new Date()
+        };
+        setSessions(prev => {
+            const newSession = {...session, name: `会话 ${prev.length + 1}`};
+            return [newSession, ...prev];
+        });
+        setCurrentSession(session);
+        setMessages([]);
+
+        // 添加欢迎消息
+        setTimeout(() => {
+            addSystemMessage('欢迎使用AgentHub Playground! 🚀\n选择一个Agent并开始对话，或使用智能分析功能自动匹配最适合的Agent。');
+        }, 100);
+    }, [selectedAgent, addSystemMessage]);
+
     // 载入Agents列表
     useEffect(() => {
         const loadAgents = async () => {
             try {
                 const response = await AgentHubAPI.listAgents();
                 const agentsData = response.data || [];
-                setAgents(agentsData);
 
                 // 如果有可用Agent，默认选择第一个
                 if (agentsData.length > 0) {
@@ -83,24 +113,17 @@ const Playground: React.FC = () => {
         };
 
         loadAgents();
+    }, [addSystemMessage]);
+
+    // 初始化会话 - 只在组件挂载时执行一次
+    useEffect(() => {
         createNewSession();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 自动滚动到最新消息
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
     }, [messages]);
-
-    const addSystemMessage = (content: string, error?: string) => {
-        const message: Message = {
-            id: Date.now().toString(),
-            type: 'system',
-            content,
-            timestamp: new Date(),
-            error
-        };
-        setMessages(prev => [...prev, message]);
-    };
 
     const addUserMessage = (content: string) => {
         const message: Message = {
@@ -124,24 +147,6 @@ const Playground: React.FC = () => {
             error
         };
         setMessages(prev => [...prev, message]);
-    };
-
-    const createNewSession = () => {
-        const session: PlaygroundSession = {
-            id: Date.now().toString(),
-            name: `会话 ${sessions.length + 1}`,
-            messages: [],
-            selectedAgent: selectedAgent || undefined,
-            createdAt: new Date()
-        };
-        setSessions(prev => [session, ...prev]);
-        setCurrentSession(session);
-        setMessages([]);
-
-        // 添加欢迎消息
-        setTimeout(() => {
-            addSystemMessage('欢迎使用AgentHub Playground! 🚀\n选择一个Agent并开始对话，或使用智能分析功能自动匹配最适合的Agent。');
-        }, 100);
     };
 
     const handleSendMessage = async () => {
