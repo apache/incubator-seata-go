@@ -158,31 +158,39 @@ func TestPostgresqlXAConn_Commit(t *testing.T) {
 			var mockTx driver.Tx
 
 			if tt.input.xid == "test-xid-4" {
-				// Test case for tx.Commit() interface
+				mockTxWithCommit := mock.NewMockTestDriverTx(ctrl)
+				mockTxWithCommit.EXPECT().Commit().Return(nil)
+				mockTx = mockTxWithCommit
+			} else if tt.input.onePhase && tt.input.xid != "test-prepared-xid" {
 				mockTxWithCommit := mock.NewMockTestDriverTx(ctrl)
 				mockTxWithCommit.EXPECT().Commit().Return(nil)
 				mockTx = mockTxWithCommit
 			} else {
 				mockTx = mock.NewMockTestDriverTx(ctrl)
+				if !tt.input.onePhase || tt.input.xid == "test-prepared-xid" {
+					mockTx.(*mock.MockTestDriverTx).EXPECT().Rollback().Return(nil).AnyTimes()
+				}
 			}
 
 			if !tt.mockTxNotSupportExecer && tt.expectExecCall {
-				mockConn.EXPECT().ExecContext(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).DoAndReturn(func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-					if tt.input.onePhase {
-						if err := verifySQLContains(query, "COMMIT"); err != nil {
-							return nil, err
+				if !(tt.input.onePhase && tt.input.xid != "test-prepared-xid") {
+					mockConn.EXPECT().ExecContext(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+					).DoAndReturn(func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+						if tt.input.onePhase {
+							if err := verifySQLContains(query, "COMMIT"); err != nil {
+								return nil, err
+							}
+						} else {
+							if err := verifySQLContains(query, "COMMIT PREPARED", tt.input.xid); err != nil {
+								return nil, err
+							}
 						}
-					} else {
-						if err := verifySQLContains(query, "COMMIT PREPARED", tt.input.xid); err != nil {
-							return nil, err
-						}
-					}
-					return &driver.ResultNoRows, nil
-				})
+						return &driver.ResultNoRows, nil
+					})
+				}
 			}
 
 			var conn driver.Conn = mockConn
@@ -359,12 +367,15 @@ func TestPostgresqlXAConn_Rollback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var mockTx driver.Tx
 			if tt.input.xid == "test-rollback-xid-3" {
-				// Test case for tx.Rollback() interface
 				mockTxWithRollback := mock.NewMockTestDriverTx(ctrl)
 				mockTxWithRollback.EXPECT().Rollback().Return(nil)
 				mockTx = mockTxWithRollback
 			} else {
 				mockTx = mock.NewMockTestDriverTx(ctrl)
+
+				if tt.input.xid != "" && !tt.wantErr && tt.expectExecCall {
+					mockTx.(*mock.MockTestDriverTx).EXPECT().Rollback().Return(nil).AnyTimes()
+				}
 			}
 
 			var conn driver.Conn
@@ -662,13 +673,17 @@ func TestPostgresqlXAConn_Forget(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockTx := mock.NewMockTestDriverTx(ctrl)
-
 			var conn driver.Conn
+			var mockTx driver.Tx
+
 			if tt.mockConnNotSupportQuery {
 				conn = &mockConnWithoutExecer{}
+				mockTx = mock.NewMockTestDriverTx(ctrl)
 			} else {
 				mockConn := mock.NewMockTestDriverConn(ctrl)
+				mockTxTyped := mock.NewMockTestDriverTx(ctrl)
+
+				// Expect QueryContext for valid xid or when we want to check existence
 				if !tt.wantErr || tt.input.xid != "" {
 					mockConn.EXPECT().QueryContext(
 						gomock.Any(),
@@ -688,16 +703,14 @@ func TestPostgresqlXAConn_Forget(t *testing.T) {
 					})
 				}
 
+				// For existing transactions, Forget will call Rollback
+				// Since c.prepared is not set, Rollback will use tx.Rollback() path
 				if tt.transactionExists && !tt.wantErr {
-					mockConn.EXPECT().ExecContext(
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-					).DoAndReturn(func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-						return &driver.ResultNoRows, verifySQLContains(query, "ROLLBACK PREPARED", tt.input.xid)
-					})
+					mockTxTyped.EXPECT().Rollback().Return(nil)
 				}
+
 				conn = mockConn
+				mockTx = mockTxTyped
 			}
 
 			c := &PostgresqlXAConn{Conn: conn, tx: mockTx}

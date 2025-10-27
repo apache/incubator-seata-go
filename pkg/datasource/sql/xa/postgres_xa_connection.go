@@ -62,6 +62,40 @@ func validateXid(xid string) error {
 	return nil
 }
 
+// ensureAutocommitMode ensures the connection is in autocommit mode by
+// rolling back any active transaction. This is required before executing
+// COMMIT PREPARED or ROLLBACK PREPARED statements in PostgreSQL.
+func (c *PostgresqlXAConn) ensureAutocommitMode(ctx context.Context) error {
+	if c.tx == nil {
+		return nil
+	}
+
+	txRollback, ok := c.tx.(interface{ Rollback() error })
+	if ok {
+		err := txRollback.Rollback()
+		if err != nil {
+			log.Errorf("failed to rollback active transaction to enter autocommit mode: %v", err)
+			return fmt.Errorf("failed to rollback active transaction: %v", err)
+		}
+		c.tx = nil
+		return nil
+	}
+
+	connExec, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return errors.New("cannot rollback active transaction: conn does not support ExecerContext")
+	}
+
+	_, err := connExec.ExecContext(ctx, "ROLLBACK", nil)
+	if err != nil {
+		log.Errorf("failed to rollback active transaction to enter autocommit mode: %v", err)
+		return fmt.Errorf("failed to rollback active transaction: %v", err)
+	}
+
+	c.tx = nil
+	return nil
+}
+
 func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
 	if err := validateXid(xid); err != nil {
 		return fmt.Errorf("invalid xid: %v", err)
@@ -73,9 +107,12 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 	}
 
 	var query string
+	var needAutocommit bool
+
 	if onePhase {
 		if c.prepared && c.preparedXid == xid {
 			query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
+			needAutocommit = true
 		} else {
 			if c.tx != nil {
 				txCommit, ok := c.tx.(interface{ Commit() error })
@@ -90,9 +127,17 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 				}
 			}
 			query = "COMMIT"
+			needAutocommit = false
 		}
 	} else {
 		query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
+		needAutocommit = true
+	}
+
+	if needAutocommit {
+		if err := c.ensureAutocommitMode(ctx); err != nil {
+			return fmt.Errorf("failed to enter autocommit mode: %v", err)
+		}
 	}
 
 	_, err := connExec.ExecContext(ctx, query, nil)
@@ -263,10 +308,11 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 
 	var query string
 	var err error
+	var needAutocommit bool
 
 	if c.prepared && c.preparedXid == xid {
 		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
-		_, err = connExec.ExecContext(ctx, query, nil)
+		needAutocommit = true
 	} else if c.tx != nil {
 		txRollback, ok := c.tx.(interface{ Rollback() error })
 		if ok {
@@ -274,15 +320,26 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 			if err == nil {
 				c.tx = nil
 			}
+			if err != nil {
+				log.Errorf("postgresql xa rollback failed, xid %s, err %v", xid, err)
+			}
+			return err
 		} else {
 			query = "ROLLBACK"
-			_, err = connExec.ExecContext(ctx, query, nil)
+			needAutocommit = false
 		}
 	} else {
 		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
-		_, err = connExec.ExecContext(ctx, query, nil)
+		needAutocommit = true
 	}
 
+	if needAutocommit {
+		if err := c.ensureAutocommitMode(ctx); err != nil {
+			return fmt.Errorf("failed to enter autocommit mode: %v", err)
+		}
+	}
+
+	_, err = connExec.ExecContext(ctx, query, nil)
 	if err != nil {
 		log.Errorf("postgresql xa rollback failed, xid %s, err %v", xid, err)
 		return err
