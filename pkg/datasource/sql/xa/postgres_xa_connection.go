@@ -130,6 +130,7 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 			needAutocommit = false
 		}
 	} else {
+		// Two-phase commit: always use COMMIT PREPARED
 		query = fmt.Sprintf("COMMIT PREPARED '%s'", xid)
 		needAutocommit = true
 	}
@@ -142,6 +143,14 @@ func (c *PostgresqlXAConn) Commit(ctx context.Context, xid string, onePhase bool
 
 	_, err := connExec.ExecContext(ctx, query, nil)
 	if err != nil {
+		// Check if the error is because the prepared transaction doesn't exist
+		if strings.Contains(strings.ToLower(err.Error()), "does not exist") ||
+			strings.Contains(strings.ToLower(err.Error()), "not found") {
+			log.Infof("prepared transaction %s does not exist, treating as already committed", xid)
+			c.prepared = false
+			c.preparedXid = ""
+			return nil
+		}
 		log.Errorf("postgresql xa commit failed, xid %s, err %v", xid, err)
 		return err
 	}
@@ -228,20 +237,37 @@ func (c *PostgresqlXAConn) XAPrepare(ctx context.Context, xid string) error {
 	}
 
 	if c.tx == nil {
+		// If tx is nil, check if this transaction was already prepared
+		if c.prepared && c.preparedXid == xid {
+			log.Infof("transaction %s already prepared", xid)
+			return nil
+		}
 		return errors.New("postgresql xa prepare requires an active transaction")
 	}
 
 	query := fmt.Sprintf("PREPARE TRANSACTION '%s'", xid)
 
-	txExec, ok := c.tx.(driver.ExecerContext)
-	if !ok {
-		return errors.New("postgresql tx does not support ExecerContext")
-	}
+	// First try to use transaction's ExecContext if available
+	if txExec, ok := c.tx.(driver.ExecerContext); ok {
+		_, err := txExec.ExecContext(ctx, query, nil)
+		if err != nil {
+			log.Errorf("postgresql xa prepare via tx.ExecContext failed, xid %s, err %v", xid, err)
+			return err
+		}
+	} else {
+		// Fallback: use connection's ExecContext
+		// PREPARE TRANSACTION implicitly commits the current transaction,
+		// so we use the connection to execute it
+		connExec, ok := c.Conn.(driver.ExecerContext)
+		if !ok {
+			return errors.New("postgresql conn does not support ExecerContext")
+		}
 
-	_, err := txExec.ExecContext(ctx, query, nil)
-	if err != nil {
-		log.Errorf("postgresql xa prepare failed, xid %s, err %v", xid, err)
-		return err
+		_, err := connExec.ExecContext(ctx, query, nil)
+		if err != nil {
+			log.Errorf("postgresql xa prepare via conn.ExecContext failed, xid %s, err %v", xid, err)
+			return err
+		}
 	}
 
 	c.tx = nil
@@ -310,10 +336,12 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 	var err error
 	var needAutocommit bool
 
+	// If transaction was already prepared, use ROLLBACK PREPARED
 	if c.prepared && c.preparedXid == xid {
 		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
 		needAutocommit = true
 	} else if c.tx != nil {
+		// If we have an active transaction, rollback it
 		txRollback, ok := c.tx.(interface{ Rollback() error })
 		if ok {
 			err = txRollback.Rollback()
@@ -325,12 +353,26 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 			}
 			return err
 		} else {
+			// Fallback to SQL ROLLBACK
 			query = "ROLLBACK"
 			needAutocommit = false
 		}
 	} else {
-		query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
-		needAutocommit = true
+		// No active transaction and not prepared - check if it exists in pg_prepared_xacts
+		exists, checkErr := c.checkPreparedTransactionExists(ctx, xid)
+		if checkErr != nil {
+			log.Warnf("failed to check prepared transaction existence for xid %s: %v", xid, checkErr)
+			// Continue with ROLLBACK PREPARED anyway
+		}
+
+		if exists || checkErr != nil {
+			query = fmt.Sprintf("ROLLBACK PREPARED '%s'", xid)
+			needAutocommit = true
+		} else {
+			// Transaction doesn't exist, nothing to rollback
+			log.Infof("no prepared transaction found for xid %s, nothing to rollback", xid)
+			return nil
+		}
 	}
 
 	if needAutocommit {
@@ -341,6 +383,14 @@ func (c *PostgresqlXAConn) Rollback(ctx context.Context, xid string) error {
 
 	_, err = connExec.ExecContext(ctx, query, nil)
 	if err != nil {
+		// Check if the error is because the prepared transaction doesn't exist
+		if strings.Contains(strings.ToLower(err.Error()), "does not exist") ||
+			strings.Contains(strings.ToLower(err.Error()), "not found") {
+			log.Infof("prepared transaction %s does not exist, treating as already rolled back", xid)
+			c.prepared = false
+			c.preparedXid = ""
+			return nil
+		}
 		log.Errorf("postgresql xa rollback failed, xid %s, err %v", xid, err)
 		return err
 	}

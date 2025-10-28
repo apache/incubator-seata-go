@@ -103,6 +103,11 @@ type Tx struct {
 	target  driver.Tx
 }
 
+// GetTarget returns the underlying driver.Tx (for internal use in XA operations)
+func (tx *Tx) GetTarget() driver.Tx {
+	return tx.target
+}
+
 func (tx *Tx) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if tx.target == nil {
 		err := fmt.Errorf("tx.target is nil, cannot execute SQL: %s", query)
@@ -148,6 +153,11 @@ func (tx *Tx) Rollback() error {
 		}
 	}
 
+	if tx.target == nil {
+		log.Warnf("tx.target is nil, cannot rollback. This may happen after XA PREPARE. xid=%s", tx.tranCtx.XID)
+		return nil
+	}
+
 	return tx.target.Rollback()
 }
 
@@ -158,6 +168,10 @@ func (tx *Tx) init() error {
 
 // commitOnLocal
 func (tx *Tx) commitOnLocal() error {
+	if tx.target == nil {
+		log.Warnf("tx.target is nil, cannot commit. This may happen after XA PREPARE. xid=%s", tx.tranCtx.XID)
+		return nil
+	}
 	return tx.target.Commit()
 }
 

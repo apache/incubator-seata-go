@@ -37,11 +37,11 @@ func CreateXAResource(conn driver.Conn, dbType types.DBType, tx ...driver.Tx) (X
 	case types.DBTypeOracle:
 	case types.DBTypePostgreSQL:
 		var targetTx driver.Tx
-		if len(tx) > 0 && tx[0] != nil {
+		if len(tx) > 0 {
 			targetTx = tx[0]
-		} else {
-			return nil, fmt.Errorf("postgresql xa resource requires a valid driver.Tx")
 		}
+		// PostgreSQL allows nil tx for phase 2 (COMMIT/ROLLBACK PREPARED)
+		// since these commands don't require an active transaction
 		xaConnection = NewPostgresqlXaConn(conn, targetTx)
 	default:
 		err = fmt.Errorf("not support db type for :%s", dbType.String())

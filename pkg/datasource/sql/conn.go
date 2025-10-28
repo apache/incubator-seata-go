@@ -240,18 +240,14 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.autoCommit = false
 
 		var originTx driver.Tx
-		if c.isTestMode {
-			var err error
-			if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
-				originTx, err = conn.BeginTx(ctx, opts)
-			} else {
-				originTx, err = c.targetConn.Begin()
-			}
-			if err != nil {
-				return nil, fmt.Errorf("xa test mode: targetConn begin tx failed: %w", err)
-			}
+		var err error
+		if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
+			originTx, err = conn.BeginTx(ctx, opts)
 		} else {
-			originTx = nil
+			originTx, err = c.targetConn.Begin()
+		}
+		if err != nil {
+			return nil, fmt.Errorf("xa mode: targetConn begin tx failed: %w", err)
 		}
 
 		return newTx(

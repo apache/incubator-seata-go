@@ -215,14 +215,24 @@ func (db *DBResource) ConnectionForXA(ctx context.Context, xaXid XAXid) (*XAConn
 	// 5. the rm2 get the second phase do the two thing.
 	// 	  1. in mysql version >= 8.0.29, mysql support the xa transaction commit by another connection. so just commit
 	//    2. when the version < 8.0.29. so just make the transaction rollback
+	//    3. for PostgreSQL, COMMIT/ROLLBACK PREPARED can be done from any connection
 	newDriverConn, err := db.connector.Connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get xa new connection failure, xid:%s, err:%v", xaXid.String(), err)
 	}
-	xaResource, err := xa.CreateXAResource(newDriverConn, db.dbType)
+
+	// For PostgreSQL, we need to create XAResource without a transaction object,
+	// since COMMIT/ROLLBACK PREPARED doesn't require an active transaction
+	var xaResource xa.XAResource
+	if db.dbType == types.DBTypePostgreSQL {
+		xaResource, err = xa.CreateXAResource(newDriverConn, db.dbType, nil)
+	} else {
+		xaResource, err = xa.CreateXAResource(newDriverConn, db.dbType)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create xa resoruce err:%w", err)
 	}
+
 	xaConn := &XAConn{
 		Conn: &Conn{
 			targetConn: newDriverConn,
