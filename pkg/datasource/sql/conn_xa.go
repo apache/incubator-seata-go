@@ -236,7 +236,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 }
 
 func (c *XAConn) keepIfNecessary() {
-	if c.ShouldBeHeld() {
+	if c.ShouldBeHeld() && c.xaBranchXid != nil {
 		if err := c.res.Hold(c.xaBranchXid.String(), c); err == nil {
 			c.isConnKept = true
 		}
@@ -244,7 +244,7 @@ func (c *XAConn) keepIfNecessary() {
 }
 
 func (c *XAConn) releaseIfNecessary() {
-	if c.ShouldBeHeld() && c.xaBranchXid.String() != "" {
+	if c.ShouldBeHeld() && c.xaBranchXid != nil && c.xaBranchXid.String() != "" {
 		if c.isConnKept {
 			c.res.Release(c.xaBranchXid.String())
 			c.isConnKept = false
