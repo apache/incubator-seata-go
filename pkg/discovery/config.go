@@ -102,6 +102,7 @@ type NamingServerConfig struct {
 	Username                    string `yaml:"username" json:"username" koanf:"username"`
 	Password                    string `yaml:"password" json:"password" koanf:"password"`
 	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
+	SecretKey                   string `yaml:"secret-key" json:"secret-key" koanf:"secret-key"`
 }
 
 func (cfg *NamingServerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -113,4 +114,5 @@ func (cfg *NamingServerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.Fl
 	f.StringVar(&cfg.Username, prefix+".username", "", "The username for authentication")
 	f.StringVar(&cfg.Password, prefix+".password", "", "The password for authentication")
 	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 29*60*1000, "The validity period of token in milliseconds")
+	f.StringVar(&cfg.SecretKey, prefix+".secret-key", "", "The secret key for JWT authentication (matches Naming Server's secretKey)")
 }

@@ -159,6 +159,8 @@ func GetInstance(config *NamingServerConfig) *NamingServerClient {
 			httpClient:        &http.Client{Timeout: 3 * time.Second},
 			longPollClient:    &http.Client{Timeout: 30 * time.Second},
 		}
+		// Initialize available naming server addresses from config
+		namingServerInstance.initNamingAddrs()
 		namingServerInstance.initHealthCheck()
 	})
 	return namingServerInstance
@@ -173,6 +175,13 @@ func resetInstance() {
 	}
 	namingServerInstance = nil
 	namingServerOnce = sync.Once{}
+}
+
+func (c *NamingServerClient) initNamingAddrs() {
+	addrs := c.getNamingAddrs()
+	for _, addr := range addrs {
+		c.availableNamingMap.Store(addr, int32(0))
+	}
 }
 
 func (c *NamingServerClient) initHealthCheck() {
@@ -319,6 +328,9 @@ func (c *NamingServerClient) RefreshGroup(vGroup string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("discovery failed: unauthorized (401), authentication required. please configure username and password in the naming server config")
+		}
 		return fmt.Errorf("discovery failed, status: %d", resp.StatusCode)
 	}
 
@@ -378,10 +390,12 @@ func (c *NamingServerClient) isTokenExpired() bool {
 	if c.config.Username == "" || c.config.Password == "" {
 		return false
 	}
+
 	ts := atomic.LoadInt64(&c.tokenTimeStamp)
 	if ts == 0 {
 		return true
 	}
+
 	return time.Now().UnixMilli() >= ts+c.config.TokenValidityInMilliseconds
 }
 
@@ -416,16 +430,25 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 
 func (c *NamingServerClient) doRefreshToken(addr string) error {
 	loginURL := fmt.Sprintf("%s%s/api/v1/auth/login", httpPrefix, addr)
-	params := url.Values{}
-	params.Add("username", c.config.Username)
-	params.Add("password", c.config.Password)
 
-	req, err := http.NewRequest(http.MethodPost, loginURL, nil)
+	loginReq := struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}{
+		Username: c.config.Username,
+		Password: c.config.Password,
+	}
+
+	body, err := json.Marshal(loginReq)
+	if err != nil {
+		return fmt.Errorf("marshal login request failed: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, loginURL, strings.NewReader(string(body)))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
-	req.URL.RawQuery = params.Encode()
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -434,18 +457,36 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		c.logger.Error("login request failed",
+			zap.String("addr", addr),
+			zap.Int("statusCode", resp.StatusCode),
+			zap.String("username", c.config.Username))
 		return fmt.Errorf("authentication failed: status %d", resp.StatusCode)
 	}
 
 	var loginResp struct {
-		Code string `json:"code"`
-		Data string `json:"data"`
+		Success bool        `json:"success"`
+		Data    string      `json:"data"`
+		Code    interface{} `json:"code"`
+		Msg     string      `json:"msg"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&loginResp); err != nil {
 		return fmt.Errorf("decode login response failed: %w", err)
 	}
-	if loginResp.Code != "200" {
-		return fmt.Errorf("authentication failed: code %s", loginResp.Code)
+
+	c.logger.Debug("login response received",
+		zap.Bool("success", loginResp.Success),
+		zap.String("code", fmt.Sprint(loginResp.Code)),
+		zap.String("msg", loginResp.Msg),
+		zap.String("data", loginResp.Data))
+
+	if !loginResp.Success {
+		errMsg := fmt.Sprintf("authentication failed: success=false, msg=%s", loginResp.Msg)
+		c.logger.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	if loginResp.Data == "" {
+		return fmt.Errorf("authentication failed: token is empty")
 	}
 
 	c.jwtToken = loginResp.Data
@@ -501,36 +542,46 @@ func (c *NamingServerClient) Subscribe(vGroup string, listener NamingListener) e
 
 func (c *NamingServerClient) watchLoop(vGroup string) {
 	defer c.wg.Done()
-	interval := time.Duration(c.config.MetadataMaxAgeMs) * time.Millisecond
-	if interval <= 0 {
-		interval = 30 * time.Second
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	var retryCount int
 
 	for {
 		select {
 		case <-c.closeChan:
 			return
-		case <-ticker.C:
-			changed, err := c.Watch(vGroup)
-			if err != nil {
-				c.logger.Error("watch failed", zap.Error(err))
+		default:
+		}
+
+		changed, err := c.Watch(vGroup)
+		if err != nil {
+			retryCount++
+			if retryCount > failureRecoveryThreshold {
+				c.logger.Error("watch failed continuously, will retry",
+					zap.Error(err), zap.Int("retryCount", retryCount))
+				select {
+				case <-time.After(time.Duration(retryDelayMs) * time.Millisecond):
+				case <-c.closeChan:
+					return
+				}
+			} else {
+				c.logger.Warn("watch error, will retry immediately", zap.Error(err))
+			}
+			continue
+		}
+
+		retryCount = 0
+
+		if changed {
+			if err := c.RefreshGroup(vGroup); err != nil {
+				c.logger.Error("refresh group failed in watch", zap.Error(err))
 				continue
 			}
-			if changed {
-				if err := c.RefreshGroup(vGroup); err != nil {
-					c.logger.Error("refresh group failed in watch", zap.Error(err))
-					continue
-				}
-				val, ok := c.listenerServiceMap.Load(vGroup)
-				if !ok {
-					continue
-				}
-				for _, listener := range val.([]NamingListener) {
-					if err := listener.OnEvent(vGroup); err != nil {
-						c.logger.Warn("listener callback failed", zap.Error(err))
-					}
+			val, ok := c.listenerServiceMap.Load(vGroup)
+			if !ok {
+				continue
+			}
+			for _, listener := range val.([]NamingListener) {
+				if err := listener.OnEvent(vGroup); err != nil {
+					c.logger.Warn("listener callback failed", zap.Error(err))
 				}
 			}
 		}
@@ -576,7 +627,16 @@ func (c *NamingServerClient) Watch(vGroup string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode == http.StatusOK, nil
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotModified:
+		return false, nil
+	case http.StatusUnauthorized:
+		return false, fmt.Errorf("watch failed: unauthorized (401), token may have expired or authentication is required")
+	default:
+		return false, fmt.Errorf("watch request failed with status code: %d", resp.StatusCode)
+	}
 }
 
 func (c *NamingServerClient) Close() {
