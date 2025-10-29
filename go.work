@@ -1,5 +1,0 @@
-go 1.24.5
-
-use ./a2a
-use a2a/examples/simple-chat/client
-use a2a/examples/simple-chat/server
