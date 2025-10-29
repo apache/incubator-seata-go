@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"seata.apache.org/seata-go/pkg/compressor"
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/postgres"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo/base"
@@ -290,24 +290,33 @@ func (m *undoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn
 }
 
 // RunUndo undo sql
-func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string) error {
+func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string, cfg interface{}) error {
 	// Use PostgreSQL-specific Undo implementation
-	return m.Undo(ctx, xid, branchID, db, dbName)
+	return m.Undo(ctx, xid, branchID, db, dbName, cfg)
 }
 
 // Undo implements PostgreSQL-specific undo logic
-func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string) (err error) {
+func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string, cfg interface{}) (err error) {
+	log.Infof("[PostgreSQL Undo] Starting undo for xid=%s, branchID=%d, dbName=%s", xid, branchID, dbName)
+
 	conn, err := db.Conn(ctx)
 	if err != nil {
+		log.Errorf("[PostgreSQL Undo] Failed to get connection: %v", err)
 		return err
 	}
 
-	tx, err := conn.BeginTx(ctx, &sql.TxOptions{})
+	// Use Read Committed isolation level to prevent phantom reads
+	// and ensure consistency during concurrent rollbacks
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelReadCommitted,
+	})
 	if err != nil {
+		log.Errorf("[PostgreSQL Undo] Failed to begin transaction: %v", err)
 		return err
 	}
 	defer func() {
 		if err != nil {
+			log.Warnf("[PostgreSQL Undo] Error occurred, rolling back transaction: %v", err)
 			if err = tx.Rollback(); err != nil {
 				log.Errorf("rollback fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
 				return
@@ -315,6 +324,7 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 		}
 	}()
 
+	log.Infof("[PostgreSQL Undo] Preparing SELECT query for undo log...")
 	stmt, err := conn.PrepareContext(ctx, getSelectUndoLogSql())
 	if err != nil {
 		log.Errorf("prepare sql fail, err: %v", err)
@@ -327,6 +337,7 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 		}
 	}()
 
+	log.Infof("[PostgreSQL Undo] Querying undo log with branchID=%d, xid=%s", branchID, xid)
 	rows, err := stmt.Query(branchID, xid)
 	if err != nil {
 		log.Errorf("query sql fail, err: %v", err)
@@ -344,8 +355,11 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 		var record undo.UndologRecord
 		err = rows.Scan(&record.BranchID, &record.XID, &record.Context, &record.RollbackInfo, &record.LogStatus)
 		if err != nil {
+			log.Errorf("[PostgreSQL Undo] Failed to scan undo log record: %v", err)
 			return err
 		}
+		log.Infof("[PostgreSQL Undo] Found undo log record: branchID=%d, xid=%s, status=%d, size=%d bytes",
+			record.BranchID, record.XID, record.LogStatus, len(record.RollbackInfo))
 		undoLogRecords = append(undoLogRecords, record)
 	}
 	if err := rows.Err(); err != nil {
@@ -353,9 +367,12 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 		return err
 	}
 
+	log.Infof("[PostgreSQL Undo] Found %d undo log records", len(undoLogRecords))
+
 	var exists bool
 	for _, record := range undoLogRecords {
 		exists = true
+		log.Infof("[PostgreSQL Undo] Processing undo log record, canUndo=%v", record.CanUndo())
 		if !record.CanUndo() {
 			log.Infof("xid %v branch %v, ignore %v undo_log", record.XID, record.BranchID, record.LogStatus)
 			return nil
@@ -366,33 +383,49 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 			var err error
 			logCtx, err = m.Base.UnmarshalContext(record.Context)
 			if err != nil {
+				log.Errorf("[PostgreSQL Undo] Failed to unmarshal context: %v", err)
 				return err
 			}
 		}
 
 		if logCtx == nil {
-			return fmt.Errorf("undo log context not exist in record %+v", record)
-		}
-
-		// Use helper methods to process rollback info
-		rollbackInfo, err := m.getRollbackInfo(record.RollbackInfo, logCtx)
-		if err != nil {
+			err := fmt.Errorf("undo log context not exist in record %+v", record)
+			log.Errorf("[PostgreSQL Undo] %v", err)
 			return err
 		}
 
+		log.Infof("[PostgreSQL Undo] Getting rollback info...")
+		// Use helper methods to process rollback info
+		rollbackInfo, err := m.getRollbackInfo(record.RollbackInfo, logCtx)
+		if err != nil {
+			log.Errorf("[PostgreSQL Undo] Failed to get rollback info: %v", err)
+			return err
+		}
+
+		log.Infof("[PostgreSQL Undo] Deserializing branch undo log...")
 		var branchUndoLog *undo.BranchUndoLog
 		if branchUndoLog, err = m.deserializeBranchUndoLog(rollbackInfo, logCtx); err != nil {
+			log.Errorf("[PostgreSQL Undo] Failed to deserialize branch undo log: %v", err)
 			return err
 		}
 
 		sqlUndoLogs := branchUndoLog.Logs
 		if len(sqlUndoLogs) == 0 {
+			log.Warnf("[PostgreSQL Undo] No SQL undo logs found")
 			return nil
 		}
 		branchUndoLog.Reverse()
 
-		for _, undoLog := range sqlUndoLogs {
-			tableMeta, err := datasource.GetTableCache(types.DBTypePostgreSQL).GetTableMeta(ctx, dbName, undoLog.TableName)
+		log.Infof("[PostgreSQL Undo] Executing %d SQL undo operations...", len(sqlUndoLogs))
+
+		// Create TableMetaCache with db instance and cfg for getting table metadata
+		tableMetaCache := postgres.NewTableMetaInstance(db, cfg)
+
+		for i, undoLog := range sqlUndoLogs {
+			log.Infof("[PostgreSQL Undo] Processing undo log %d/%d, table=%s, sqlType=%v",
+				i+1, len(sqlUndoLogs), undoLog.TableName, undoLog.SQLType)
+
+			tableMeta, err := tableMetaCache.GetTableMeta(ctx, dbName, undoLog.TableName)
 			if err != nil {
 				log.Errorf("get table meta fail, err: %v", err)
 				return err
@@ -406,6 +439,7 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 				return err
 			}
 
+			log.Infof("[PostgreSQL Undo] Calling ExecuteOn for table %s...", undoLog.TableName)
 			if err = undoExecutor.ExecuteOn(ctx, types.DBTypePostgreSQL, conn); err != nil {
 				log.Errorf("execute on fail, err: %v", err)
 				if undoErr, ok := err.(*serr.SeataError); ok && undoErr.Code == serr.SQLUndoDirtyError {
@@ -414,16 +448,19 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 				}
 				return err
 			}
+			log.Infof("[PostgreSQL Undo] ExecuteOn completed for table %s", undoLog.TableName)
 		}
 	}
 
 	if exists {
+		log.Infof("[PostgreSQL Undo] Deleting undo log...")
 		if err = m.DeleteUndoLog(ctx, xid, branchID, conn); err != nil {
 			log.Errorf("[Undo] delete undo fail, err: %v", err)
 			return err
 		}
 		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
 	} else {
+		log.Infof("[PostgreSQL Undo] No undo log found, inserting GlobalFinished marker...")
 		if err = m.insertUndoLogWithGlobalFinished(ctx, xid, uint64(branchID), conn); err != nil {
 			log.Errorf("[Undo] insert undo with global finished fail, err: %v", err)
 			return err
@@ -431,10 +468,12 @@ func (m *undoLogManager) Undo(ctx context.Context, xid string, branchID int64, d
 		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
 	}
 
+	log.Infof("[PostgreSQL Undo] Committing transaction...")
 	if err = tx.Commit(); err != nil {
 		log.Errorf("[Undo] execute on fail, err: %v", err)
 		return err
 	}
+	log.Infof("[PostgreSQL Undo] Transaction committed successfully for xid=%s, branchID=%d", xid, branchID)
 	return nil
 }
 

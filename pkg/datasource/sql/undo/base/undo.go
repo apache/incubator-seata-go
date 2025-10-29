@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -243,12 +242,12 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 }
 
 // RunUndo undo sql
-func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
+func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string, cfg interface{}) error {
 	return nil
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) (err error) {
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string, cfg interface{}) (err error) {
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
@@ -490,12 +489,11 @@ func (m *BaseUndoLogManager) canUndo(state int32) bool {
 }
 
 func (m *BaseUndoLogManager) UnmarshalContext(undoContext []byte) (map[string]string, error) {
-	res := make(map[string]string)
-
-	if err := json.Unmarshal(undoContext, &res); err != nil {
-		return nil, err
+	// Use DecodeMap instead of json.Unmarshal to match EncodeMap format (key=value&key2=value2)
+	res := collection.DecodeMap(undoContext)
+	if res == nil {
+		return make(map[string]string), nil
 	}
-
 	return res, nil
 }
 

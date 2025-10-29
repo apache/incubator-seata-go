@@ -20,7 +20,6 @@ package executor
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -81,12 +80,14 @@ func (p *postgreSQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string
 		return "", nil
 	}
 
-	tableName := afterImage.TableName
+	// Use the original table name from TableMeta and convert to lowercase
+	tableName := strings.ToLower(afterImage.TableMeta.TableName)
 	pkNameList := afterImage.TableMeta.GetPrimaryKeyOnlyName()
 
 	var deleteSQL strings.Builder
 	deleteSQL.WriteString("DELETE FROM ")
-	deleteSQL.WriteString(fmt.Sprintf(`"%s"`, tableName))
+	// Use lowercase table name without quotes
+	deleteSQL.WriteString(tableName)
 	deleteSQL.WriteString(" WHERE ")
 
 	where := buildWhereConditionByPKs(pkNameList, len(afterImage.Rows), maxInSize, dbType)
@@ -95,20 +96,7 @@ func (p *postgreSQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string
 	params := buildPKParams(afterImage.Rows, pkNameList)
 
 	sql := deleteSQL.String()
-	sql = convertToPostgreSQLParams(sql, len(params))
+	sql = ConvertToPostgreSQLParams(sql, len(params))
 
 	return sql, params
-}
-
-// convertToPostgreSQLParams converts ? placeholders to PostgreSQL $1, $2, ... format
-func convertToPostgreSQLParams(sql string, paramCount int) string {
-	result := sql
-	paramIndex := 1
-	
-	for strings.Contains(result, "?") && paramIndex <= paramCount {
-		result = strings.Replace(result, "?", fmt.Sprintf("$%d", paramIndex), 1)
-		paramIndex++
-	}
-	
-	return result
 }

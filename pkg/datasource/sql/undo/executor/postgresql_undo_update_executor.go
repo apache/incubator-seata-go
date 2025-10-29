@@ -47,12 +47,16 @@ func newPostgreSQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *postgreSQLUndo
 
 // ExecuteOn execute update undo logic
 func (p *postgreSQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	log.Infof("PostgreSQL ExecuteOn called for UPDATE undo, table: %s", p.sqlUndoLog.TableName)
+
 	// Validate data before undo
 	valid, err := p.BaseExecutor.dataValidationAndGoOn(ctx, conn, dbType)
 	if err != nil {
+		log.Errorf("PostgreSQL undo update data validation error: %v", err)
 		return err
 	}
 	if !valid {
+		log.Warnf("PostgreSQL undo update skipped - data validation returned false for table %s", p.sqlUndoLog.TableName)
 		return nil
 	}
 
@@ -62,14 +66,19 @@ func (p *postgreSQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType typ
 
 	stmt, err := conn.PrepareContext(ctx, undoSQL)
 	if err != nil {
+		log.Errorf("PostgreSQL undo update prepare error: %v", err)
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, undoValues...)
+	result, err := stmt.ExecContext(ctx, undoValues...)
 	if err != nil {
+		log.Errorf("PostgreSQL undo update exec error: %v", err)
 		return err
 	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Infof("PostgreSQL undo update completed, rows affected: %d", rowsAffected)
 
 	return nil
 }
@@ -83,14 +92,18 @@ func (p *postgreSQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string
 		return "", nil
 	}
 
-	tableName := beforeImage.TableName
+	// Use the original table name from TableMeta (preserves case from database)
+	// PostgreSQL table names are case-insensitive by default, so we should use the original name
+	tableName := beforeImage.TableMeta.TableName
 	pkNameList := beforeImage.TableMeta.GetPrimaryKeyOnlyName()
 
 	var updateSQL strings.Builder
 	var params []interface{}
 
 	updateSQL.WriteString("UPDATE ")
-	updateSQL.WriteString(fmt.Sprintf(`"%s"`, tableName))
+	// For PostgreSQL, use lowercase table name without quotes (standard convention)
+	// This allows PostgreSQL to match tables created without quotes
+	updateSQL.WriteString(strings.ToLower(tableName))
 	updateSQL.WriteString(" SET ")
 
 	setFields := make([]string, 0)
@@ -106,7 +119,8 @@ func (p *postgreSQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string
 				}
 			}
 			if !isPK {
-				setFields = append(setFields, fmt.Sprintf(`"%s" = $%d`, column.ColumnName, paramIndex))
+				// Use lowercase column names without quotes
+				setFields = append(setFields, fmt.Sprintf(`%s = $%d`, strings.ToLower(column.ColumnName), paramIndex))
 				params = append(params, column.Value)
 				paramIndex++
 			}
@@ -119,7 +133,8 @@ func (p *postgreSQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string
 
 	whereConditions := make([]string, 0)
 	for _, pk := range pkNameList {
-		whereConditions = append(whereConditions, fmt.Sprintf(`"%s" = $%d`, pk, paramIndex))
+		// Use lowercase primary key names without quotes
+		whereConditions = append(whereConditions, fmt.Sprintf(`%s = $%d`, strings.ToLower(pk), paramIndex))
 		paramIndex++
 	}
 	updateSQL.WriteString(strings.Join(whereConditions, " AND "))

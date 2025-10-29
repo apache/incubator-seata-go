@@ -114,14 +114,17 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int, d
 				whereStr.WriteString(",")
 			}
 			// Use appropriate escape character based on database type
-			var escape string
+			var pkName string
 			if dbType == types.DBTypeMySQL {
-				escape = "`"
+				pkName = fmt.Sprintf("`%s`", pkNameList[i])
+			} else if dbType == types.DBTypePostgreSQL {
+				// PostgreSQL: use lowercase without quotes for standard tables
+				pkName = strings.ToLower(pkNameList[i])
 			} else {
-				// PostgreSQL and others use double quotes
-				escape = "\""
+				// Default: use double quotes
+				pkName = fmt.Sprintf(`"%s"`, pkNameList[i])
 			}
-			whereStr.WriteString(fmt.Sprintf("%s%s%s", escape, pkNameList[i], escape))
+			whereStr.WriteString(pkName)
 		}
 		whereStr.WriteString(") IN (")
 
@@ -167,4 +170,17 @@ func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} {
 		}
 	}
 	return params
+}
+
+// ConvertToPostgreSQLParams converts ? placeholders to PostgreSQL $1, $2, ... format
+func ConvertToPostgreSQLParams(sql string, paramCount int) string {
+	result := sql
+	paramIndex := 1
+
+	for strings.Contains(result, "?") && paramIndex <= paramCount {
+		result = strings.Replace(result, "?", fmt.Sprintf("$%d", paramIndex), 1)
+		paramIndex++
+	}
+
+	return result
 }

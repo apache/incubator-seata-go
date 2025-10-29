@@ -20,7 +20,6 @@ package executor
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 	"strings"
 
@@ -57,6 +56,8 @@ func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnI
 }
 
 func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn, dbType types.DBType) (bool, error) {
+	log.Infof("[DataValidation] Starting validation, DataValidation enabled: %v", undo.UndoConfig.DataValidation)
+
 	if !undo.UndoConfig.DataValidation {
 		return true, nil
 	}
@@ -65,6 +66,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 
 	equals, err := IsRecordsEquals(beforeImage, afterImage)
 	if err != nil {
+		log.Errorf("[DataValidation] Error comparing before/after: %v", err)
 		return false, err
 	}
 	if equals {
@@ -72,21 +74,35 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 		return false, nil
 	}
 
+	log.Infof("[DataValidation] Querying current records for table: %s, dbType: %v", b.undoImage.TableName, dbType)
+
 	// Validate if data is dirty.
 	currentImage, err := b.queryCurrentRecords(ctx, conn, dbType)
 	if err != nil {
+		log.Errorf("[DataValidation] Failed to query current records: %v", err)
 		return false, err
 	}
+
+	if currentImage == nil {
+		log.Warnf("[DataValidation] currentImage is nil")
+		return false, nil
+	}
+
+	log.Infof("[DataValidation] Current records count: %d", len(currentImage.Rows))
+
 	// compare with current data and after image.
 	equals, err = IsRecordsEquals(afterImage, currentImage)
 	if err != nil {
+		log.Errorf("[DataValidation] Error comparing after/current: %v", err)
 		return false, err
 	}
 	if !equals {
+		log.Warnf("[DataValidation] After image does not match current data")
 		// If current data is not equivalent to the after data, then compare the current data with the before
 		// data, too. No need continue to undo if current data is equivalent to the before data snapshot
 		equals, err = IsRecordsEquals(beforeImage, currentImage)
 		if err != nil {
+			log.Errorf("[DataValidation] Error comparing before/current: %v", err)
 			return false, err
 		}
 
@@ -102,6 +118,8 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 			return false, serr.New(serr.SQLUndoDirtyError, "has dirty records when undo", nil)
 		}
 	}
+
+	log.Infof("[DataValidation] Validation passed, proceeding with rollback")
 	return true, nil
 }
 
@@ -114,6 +132,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn, 
 	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList)
 
 	if len(pkValues) == 0 {
+		log.Warnf("[QueryCurrent] No PK values found")
 		return nil, nil
 	}
 
@@ -121,8 +140,18 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn, 
 	checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
 	params := buildPKParams(b.undoImage.Rows, pkNameList)
 
+	// Convert placeholders for PostgreSQL
+	if dbType == types.DBTypePostgreSQL {
+		log.Infof("[QueryCurrent] Before conversion: %s", checkSQL)
+		checkSQL = ConvertToPostgreSQLParams(checkSQL, len(params))
+		log.Infof("[QueryCurrent] After conversion: %s, params count: %d", checkSQL, len(params))
+	}
+
+	log.Infof("[QueryCurrent] Executing SQL: %s with %d params", checkSQL, len(params))
+
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)
 	if err != nil {
+		log.Errorf("[QueryCurrent] Query failed: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -149,10 +178,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn, 
 
 		columns := make([]types.ColumnImage, 0)
 		for i, val := range slice {
-			actualVal := val
-			if v, ok := val.(driver.Valuer); ok {
-				actualVal, _ = v.Value()
-			}
+			actualVal := datasource.GetActualValue(val)
 			columns = append(columns, types.ColumnImage{
 				ColumnName: colNames[i],
 				Value:      actualVal,
