@@ -30,7 +30,6 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
@@ -101,7 +100,7 @@ func (i *insertExecutor) adaptInsertSQLForPostgreSQL(ctx context.Context, query 
 		return "", nil, fmt.Errorf("parser context is nil")
 	}
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, dbType, tableName)
 	if err != nil {
 		return "", nil, fmt.Errorf("get table meta for PostgreSQL adapt failed: %+v", err)
 	}
@@ -134,7 +133,7 @@ func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, dbType, tableName)
 	if err != nil {
 		seatalog.Errorf("get table meta for before-image failed: %+v, dbType: %s, table: %s, dbName: %s",
 			err, dbType, tableName, i.execContext.DBName)
@@ -154,7 +153,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, dbType, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +209,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := i.execContext.TxCtx.DBType
-	meta, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := i.getTableMeta(ctx, i.execContext, dbType, tableName)
 	if err != nil {
 		return "", nil, fmt.Errorf("get table meta failed: %+v", err)
 	}
@@ -561,7 +560,7 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := execCtx.TxCtx.DBType
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, execCtx, dbType, tableName)
 	if err != nil {
 		seatalog.Errorf("get table meta for getPkValuesByColumn failed: %+v, dbType: %s, table: %s",
 			err, dbType, tableName)
@@ -621,7 +620,7 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 	}
 	tableName, _ := i.parserCtx.GetTableName()
 	dbType := execCtx.TxCtx.DBType
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, execCtx.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, execCtx, dbType, tableName)
 	if err != nil {
 		seatalog.Errorf("get table meta for getPkValuesByAuto failed: %+v, dbType: %s, table: %s",
 			err, dbType, tableName)

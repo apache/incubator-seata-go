@@ -398,6 +398,11 @@ func (s *selectForUpdateExecutor) escapeIdentifier(name string) string {
 		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
 			return name
 		}
+		// PostgreSQL stores unquoted identifiers in lowercase
+		// If the identifier is all uppercase (likely from meta cache), convert to lowercase
+		if name == strings.ToUpper(name) {
+			name = strings.ToLower(name)
+		}
 		return "\"" + name + "\""
 	default:
 		return name

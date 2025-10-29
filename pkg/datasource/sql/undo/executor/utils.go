@@ -93,7 +93,7 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
+func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int, dbType types.DBType) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -113,8 +113,15 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			// Use appropriate escape character based on database type
+			var escape string
+			if dbType == types.DBTypeMySQL {
+				escape = "`"
+			} else {
+				// PostgreSQL and others use double quotes
+				escape = "\""
+			}
+			whereStr.WriteString(fmt.Sprintf("%s%s%s", escape, pkNameList[i], escape))
 		}
 		whereStr.WriteString(") IN (")
 

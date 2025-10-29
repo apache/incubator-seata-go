@@ -159,6 +159,7 @@ type ExecContext struct {
 	// todo delete
 	MetaDataMap map[string]TableMeta
 	Conn        driver.Conn
+	DB          interface{} // *sql.DB for accessing table metadata
 	DBName      string
 	DBType      DBType
 	DbVersion   string

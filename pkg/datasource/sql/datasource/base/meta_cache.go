@@ -252,6 +252,8 @@ func (c *BaseTableMetaCache) getDBType() (types.DBType, error) {
 	switch cfg := c.cfg.(type) {
 	case *mysql.Config:
 		return types.DBTypeMySQL, nil
+	case *pgx.ConnConfig:
+		return types.DBTypePostgreSQL, nil
 	case string:
 		if _, err := pgx.ParseConfig(cfg); err != nil {
 			return types.DBTypeUnknown, fmt.Errorf("invalid postgresql dsn: %w", err)
@@ -271,6 +273,8 @@ func (c *BaseTableMetaCache) getDBName() (string, error) {
 	switch cfg := c.cfg.(type) {
 	case *mysql.Config:
 		return cfg.DBName, nil
+	case *pgx.ConnConfig:
+		return cfg.Database, nil
 	case string:
 		pgxCfg, err := pgx.ParseConfig(cfg)
 		if err != nil {

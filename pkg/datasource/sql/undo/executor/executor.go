@@ -56,7 +56,7 @@ func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnI
 
 }
 
-func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn) (bool, error) {
+func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn, dbType types.DBType) (bool, error) {
 	if !undo.UndoConfig.DataValidation {
 		return true, nil
 	}
@@ -73,7 +73,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 	}
 
 	// Validate if data is dirty.
-	currentImage, err := b.queryCurrentRecords(ctx, conn)
+	currentImage, err := b.queryCurrentRecords(ctx, conn, dbType)
 	if err != nil {
 		return false, err
 	}
@@ -105,7 +105,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 	return true, nil
 }
 
-func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) (*types.RecordImage, error) {
+func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn, dbType types.DBType) (*types.RecordImage, error) {
 	if b.undoImage == nil {
 		return nil, fmt.Errorf("undo image is nil")
 	}
@@ -117,7 +117,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		return nil, nil
 	}
 
-	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize)
+	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize, dbType)
 	checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
 	params := buildPKParams(b.undoImage.Rows, pkNameList)
 

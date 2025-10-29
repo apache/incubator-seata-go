@@ -19,6 +19,7 @@ package at
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"regexp"
@@ -112,7 +113,24 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+
+	// Get table meta cache using CreateTableMetaCache to ensure proper initialization
+	dsManager := datasource.GetDataSourceManager(u.execContext.TxCtx.TransactionMode.BranchType())
+	if dsManager == nil {
+		return nil, fmt.Errorf("data source manager not found for transaction mode: %v", u.execContext.TxCtx.TransactionMode)
+	}
+
+	db, ok := u.execContext.DB.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("invalid DB type, expected *sql.DB")
+	}
+
+	tableMetaCache, err := dsManager.CreateTableMetaCache(ctx, u.execContext.TxCtx.ResourceID, u.dbType, db)
+	if err != nil {
+		return nil, fmt.Errorf("get table meta cache failed: %w", err)
+	}
+
+	metaData, err := tableMetaCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +179,24 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+
+	// Get table meta cache using CreateTableMetaCache to ensure proper initialization
+	dsManager := datasource.GetDataSourceManager(u.execContext.TxCtx.TransactionMode.BranchType())
+	if dsManager == nil {
+		return nil, fmt.Errorf("data source manager not found for transaction mode: %v", u.execContext.TxCtx.TransactionMode)
+	}
+
+	db, ok := u.execContext.DB.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("invalid DB type, expected *sql.DB")
+	}
+
+	tableMetaCache, err := dsManager.CreateTableMetaCache(ctx, u.execContext.TxCtx.ResourceID, u.dbType, db)
+	if err != nil {
+		return nil, fmt.Errorf("get table meta cache failed: %w", err)
+	}
+
+	metaData, err := tableMetaCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +295,25 @@ func (u *updateExecutor) buildBeforeImageSQLForMySQL(ctx context.Context, args [
 		}
 
 		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+
+		// Get DB from execContext
+		db, ok := u.execContext.DB.(*sql.DB)
+		if !ok || db == nil {
+			return "", nil, fmt.Errorf("database connection not available in execution context")
+		}
+
+		// Get TableMetaCache from DataSourceManager
+		dsManager := datasource.GetDataSourceManager(u.execContext.TxCtx.TransactionMode.BranchType())
+		if dsManager == nil {
+			return "", nil, fmt.Errorf("data source manager not found for transaction mode: %v", u.execContext.TxCtx.TransactionMode)
+		}
+
+		tableMetaCache, err := dsManager.CreateTableMetaCache(ctx, u.execContext.TxCtx.ResourceID, u.dbType, db)
+		if err != nil {
+			return "", nil, fmt.Errorf("get table meta cache failed: %w", err)
+		}
+
+		metaData, err := tableMetaCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {
 			return "", nil, err
 		}
@@ -323,7 +376,25 @@ func (u *updateExecutor) buildBeforeImageSQLForPostgreSQL(ctx context.Context, a
 	if err != nil {
 		return "", nil, err
 	}
-	metaData, err := datasource.GetTableCache(u.dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+
+	// Get DB from execContext
+	db, ok := u.execContext.DB.(*sql.DB)
+	if !ok || db == nil {
+		return "", nil, fmt.Errorf("database connection not available in execution context")
+	}
+
+	// Get TableMetaCache from DataSourceManager
+	dsManager := datasource.GetDataSourceManager(u.execContext.TxCtx.TransactionMode.BranchType())
+	if dsManager == nil {
+		return "", nil, fmt.Errorf("data source manager not found for transaction mode: %v", u.execContext.TxCtx.TransactionMode)
+	}
+
+	tableMetaCache, err := dsManager.CreateTableMetaCache(ctx, u.execContext.TxCtx.ResourceID, u.dbType, db)
+	if err != nil {
+		return "", nil, fmt.Errorf("get table meta cache failed: %w", err)
+	}
+
+	metaData, err := tableMetaCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}
@@ -543,6 +614,11 @@ func (u *updateExecutor) escapeIdentifier(name string, isTableName bool) string 
 	case types.DBTypePostgreSQL:
 		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
 			return name
+		}
+		// PostgreSQL stores unquoted identifiers in lowercase
+		// Convert table names to lowercase to match actual table names
+		if isTableName {
+			name = strings.ToLower(name)
 		}
 		return "\"" + name + "\""
 	default:

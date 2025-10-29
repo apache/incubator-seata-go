@@ -25,7 +25,6 @@ import (
 
 func init() {
 	datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
-		dsn, _ := cfg.(string)
-		return NewTableMetaInstance(db, dsn)
+		return NewTableMetaInstance(db, cfg)
 	})
 }

@@ -239,6 +239,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		withDBType(dbType),
 		withDBName(dbName),
 		withConnector(connector),
+		withCfg(cfg),
 	}
 	res, err := newResource(options...)
 	if err != nil {
@@ -250,6 +251,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
+
 	return &seataConnector{
 		res:    res,
 		target: connector,
@@ -318,8 +320,10 @@ func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
 	var rowsi driver.Rows
 	var err error
 
-	log.Infof("conn type: %T, supports QueryerContext? %v", conn, conn.(driver.QueryerContext) != nil)
-	log.Infof("conn type: %T, supports Queryer? %v", conn, conn.(driver.Queryer) != nil)
+	_, supportsQueryerContext := conn.(driver.QueryerContext)
+	log.Infof("conn type: %T, supports QueryerContext? %v", conn, supportsQueryerContext)
+	_, supportsQueryer := conn.(driver.Queryer)
+	log.Infof("conn type: %T, supports Queryer? %v", conn, supportsQueryer)
 
 	queryerCtx, ok := conn.(driver.QueryerContext)
 	var queryer driver.Queryer

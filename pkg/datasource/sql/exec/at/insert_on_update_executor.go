@@ -520,6 +520,11 @@ func (i *insertOnUpdateExecutor) escapeIdentifier(name string, isTableName bool)
 		if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
 			return name
 		}
+		// PostgreSQL stores unquoted identifiers in lowercase
+		// Convert table names to lowercase to match actual table names
+		if isTableName {
+			name = strings.ToLower(name)
+		}
 		return "\"" + name + "\""
 	default:
 		return name

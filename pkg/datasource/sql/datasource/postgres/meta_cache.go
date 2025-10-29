@@ -40,11 +40,11 @@ type TableMetaCache struct {
 }
 
 // NewTableMetaInstance
-func NewTableMetaInstance(db *sql.DB, dsn string) *TableMetaCache {
+func NewTableMetaInstance(db *sql.DB, cfg interface{}) *TableMetaCache {
 	return &TableMetaCache{
-		tableMetaCache: base.NewBaseCache(capacity, expireTime, NewPostgresqlTrigger(), db, dsn),
+		tableMetaCache: base.NewBaseCache(capacity, expireTime, NewPostgresqlTrigger(), db, cfg),
 		db:             db,
-		dsn:            dsn,
+		dsn:            "",
 	}
 }
 

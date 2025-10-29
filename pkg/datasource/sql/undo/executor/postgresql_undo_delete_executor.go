@@ -47,7 +47,7 @@ func newPostgreSQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *postgreSQLUndo
 
 // ExecuteOn execute delete undo logic
 func (p *postgreSQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
-	valid, err := p.BaseExecutor.dataValidationAndGoOn(ctx, conn)
+	valid, err := p.BaseExecutor.dataValidationAndGoOn(ctx, conn, dbType)
 	if err != nil {
 		return err
 	}

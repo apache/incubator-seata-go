@@ -30,6 +30,7 @@ import (
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -77,7 +78,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 			var scanVal sql.NullString
 			scanSlice = append(scanSlice, &scanVal)
 		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT",
-			"SERIAL", "BIGSERIAL":
+			"SERIAL", "BIGSERIAL", "INTEGER", "INT2", "INT4", "INT8", "SMALLSERIAL":
 			if columnMeta.IsNullable == 0 {
 				scanVal := int64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -89,7 +90,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 			"TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE":
 			var scanVal sql.NullTime
 			scanSlice = append(scanSlice, &scanVal)
-		case "DECIMAL", "DOUBLE", "FLOAT", "NUMERIC":
+		case "DECIMAL", "DOUBLE", "FLOAT", "NUMERIC", "REAL", "DOUBLE PRECISION":
 			if columnMeta.IsNullable == 0 {
 				scanVal := float64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -542,4 +543,30 @@ func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, select
 		return nil, errors.New("target conn should been driver.QueryerContext or driver.Queryer")
 	}
 	return rows, nil
+}
+
+// getTableMeta helper method to get table metadata with proper initialization
+// This method ensures that the TableMetaCache is created with valid db and config
+func (b *baseExecutor) getTableMeta(ctx context.Context, execCtx *types.ExecContext, dbType types.DBType, tableName string) (*types.TableMeta, error) {
+	dsManager := datasource.GetDataSourceManager(execCtx.TxCtx.TransactionMode.BranchType())
+	if dsManager == nil {
+		return nil, fmt.Errorf("data source manager not found for transaction mode: %v", execCtx.TxCtx.TransactionMode)
+	}
+
+	db, ok := execCtx.DB.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("invalid DB type, expected *sql.DB")
+	}
+
+	tableMetaCache, err := dsManager.CreateTableMetaCache(ctx, execCtx.TxCtx.ResourceID, dbType, db)
+	if err != nil {
+		return nil, fmt.Errorf("get table meta cache failed: %w", err)
+	}
+
+	metaData, err := tableMetaCache.GetTableMeta(ctx, execCtx.DBName, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	return metaData, nil
 }

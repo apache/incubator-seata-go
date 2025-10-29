@@ -99,6 +99,8 @@ func (p *postgresqlTrigger) LoadAll(ctx context.Context, dbName string, conn *sq
 // getColumnMetas get column metadata from information_schema.columns
 func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	tableName = executor.DelEscape(tableName, types.DBTypePostgreSQL)
+	// PostgreSQL stores unquoted identifiers in lowercase in information_schema
+	tableName = strings.ToLower(tableName)
 
 	columnSQL := `
 		SELECT 
@@ -251,6 +253,8 @@ func (p *postgresqlTrigger) getColumnMetas(ctx context.Context, dbName string, t
 // getIndexes
 func (p *postgresqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
 	tableName = executor.DelEscape(tableName, types.DBTypePostgreSQL)
+	// PostgreSQL stores unquoted identifiers in lowercase in pg_catalog
+	tableName = strings.ToLower(tableName)
 
 	indexSQL := `
 		SELECT 

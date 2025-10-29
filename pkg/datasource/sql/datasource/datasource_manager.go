@@ -74,16 +74,28 @@ type BasicSourceManager struct {
 	// tableMetaCache
 	// todo do not put meta cache here
 	tableMetaCache map[string]*entry
+	// configCache stores database configuration by resourceID
+	configCache map[string]interface{}
 }
 
 func NewBasicSourceManager() *BasicSourceManager {
 	return &BasicSourceManager{
 		tableMetaCache: make(map[string]*entry, 0),
+		configCache:    make(map[string]interface{}, 0),
 	}
 }
 
 // RegisterResource register a model.Resource to be managed by model.Resource Manager
 func (dm *BasicSourceManager) RegisterResource(resource rm.Resource) error {
+	// Store configuration for resources that provide it
+	if cfgProvider, ok := resource.(interface{ GetCfg() interface{} }); ok {
+		cfg := cfgProvider.GetCfg()
+		if cfg != nil {
+			dm.lock.Lock()
+			dm.configCache[resource.GetResourceId()] = cfg
+			dm.lock.Unlock()
+		}
+	}
 	return rm.GetRMRemotingInstance().RegisterResource(resource)
 }
 
@@ -100,13 +112,41 @@ func (dm *BasicSourceManager) CreateTableMetaCache(ctx context.Context, resID st
 		return existing.metaCache, nil
 	}
 
-	res, err := buildResource(ctx, dbType, db)
+	// Try to get configuration from cache first
+	var cfg interface{}
+	if cachedCfg, ok := dm.configCache[resID]; ok {
+		cfg = cachedCfg
+	} else {
+		// Fallback to extracting config from db (may fail for some db connections)
+		var err error
+		cfg, err = parseDBConfig(dbType, db)
+		if err != nil {
+			return nil, fmt.Errorf("parse db config failed: %w", err)
+		}
+	}
+
+	res, err := buildResourceWithCfg(ctx, dbType, db, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	dm.tableMetaCache[resID] = res
 	return res.metaCache, nil
+}
+
+// buildResourceWithCfg builds a resource entry with provided configuration
+func buildResourceWithCfg(ctx context.Context, dbType types.DBType, db *sql.DB, cfg interface{}) (*entry, error) {
+	factory, ok := tableMetaCacheMap[dbType]
+	if !ok {
+		return nil, fmt.Errorf("unsupported db type: %v", dbType)
+	}
+
+	cache := factory(db, cfg)
+	if err := cache.Init(ctx, db); err != nil {
+		return nil, fmt.Errorf("init cache failed: %w", err)
+	}
+
+	return &entry{db: db, metaCache: cache}, nil
 }
 
 // TableMetaCache tables metadata cache, default is open

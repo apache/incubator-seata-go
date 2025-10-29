@@ -48,7 +48,7 @@ func newPostgreSQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *postgreSQLUndo
 // ExecuteOn execute insert undo logic
 func (p *postgreSQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 	// Validate data before undo
-	valid, err := p.BaseExecutor.dataValidationAndGoOn(ctx, conn)
+	valid, err := p.BaseExecutor.dataValidationAndGoOn(ctx, conn, dbType)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (p *postgreSQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string
 	deleteSQL.WriteString(fmt.Sprintf(`"%s"`, tableName))
 	deleteSQL.WriteString(" WHERE ")
 
-	where := buildWhereConditionByPKs(pkNameList, len(afterImage.Rows), maxInSize)
+	where := buildWhereConditionByPKs(pkNameList, len(afterImage.Rows), maxInSize, dbType)
 	deleteSQL.WriteString(where)
 
 	params := buildPKParams(afterImage.Rows, pkNameList)
