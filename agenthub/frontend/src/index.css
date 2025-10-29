@@ -1,0 +1,65 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html, body {
+        @apply h-full;
+    }
+
+    body {
+        @apply bg-gray-50 text-gray-900 font-sans;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .btn-secondary {
+        @apply bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-success {
+        @apply bg-success-500 hover:bg-success-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-warning {
+        @apply bg-warning-500 hover:bg-warning-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .btn-error {
+        @apply bg-error-500 hover:bg-error-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    }
+
+    .card {
+        @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    }
+
+    .input-field {
+        @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none;
+    }
+
+    .textarea-field {
+        @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none;
+        resize: vertical;
+    }
+}
