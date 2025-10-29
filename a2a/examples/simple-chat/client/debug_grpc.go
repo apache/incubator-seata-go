@@ -20,9 +20,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"grpc-a2a/pkg/transport/grpc"
-	"grpc-a2a/pkg/types"
 	"log"
+
+	"seata-go-ai-a2a/pkg/transport/grpc"
+	"seata-go-ai-a2a/pkg/types"
 )
 
 func main() {

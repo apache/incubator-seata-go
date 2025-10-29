@@ -24,7 +24,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"grpc-a2a/pkg/a2a"
+	"seata-go-ai-a2a/pkg/a2a"
 )
 
 func main() {
@@ -60,7 +60,7 @@ func main() {
 	log.Println("  - Agent Card: http://localhost:8080/api/v1/agent-card")
 	log.Println("")
 	log.Println("Try these example requests:")
-	log.Println("  curl -X POST http://localhost:8080/api/v1/messages -H 'Content-Type: application/json' -d '{\"request\":{\"content\":\"Hello!\",\"role\":\"user\"}}'")
+	log.Println("  curl -X POST http://localhost:8080/api/v1/messages -H 'Content-Type: application/json' -d '{\"message\":{\"role\":1,\"parts\":[{\"type\":\"text\",\"data\":{\"text\":\"Hello!\"}}]}}'")
 	log.Println("  curl http://localhost:8080/api/v1/agent-card")
 	log.Println("")
 	log.Println("Press Ctrl+C to stop the server")

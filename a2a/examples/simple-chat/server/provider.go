@@ -20,8 +20,8 @@ package main
 import (
 	"context"
 
-	"grpc-a2a/pkg/handler"
-	"grpc-a2a/pkg/types"
+	"seata-go-ai-a2a/pkg/handler"
+	"seata-go-ai-a2a/pkg/types"
 )
 
 // ChatAgentCardProvider provides dynamic agent card information
@@ -39,7 +39,7 @@ func NewChatAgentCardProvider() *ChatAgentCardProvider {
 			"1.0.0",
 		).
 		WithURL("http://localhost:8080").
-		WithProvider("A2A Examples", "https://github.com/anthropics/grpc-a2a").
+		WithProvider("A2A Examples", "seata-go-ai-a2a").
 		WithCapabilities(true, false). // streaming=true, pushNotifications=false
 		WithDefaultInputModes([]string{"text"}).
 		WithDefaultOutputModes([]string{"text", "artifact"}).
@@ -71,7 +71,7 @@ func NewChatAgentCardProvider() *ChatAgentCardProvider {
 			[]string{"text"},
 			[]string{"text"},
 		).
-		WithDocumentationURL("https://github.com/anthropics/grpc-a2a/blob/main/examples/README.md").
+		WithDocumentationURL("examples/README.md").
 		WithIconURL("https://example.com/chat-icon.png").
 		Build()
 

@@ -25,9 +25,9 @@ import (
 	"os"
 	"strings"
 
-	"grpc-a2a/pkg/transport/grpc"
-	"grpc-a2a/pkg/transport/rest"
-	"grpc-a2a/pkg/types"
+	"seata-go-ai-a2a/pkg/transport/grpc"
+	"seata-go-ai-a2a/pkg/transport/rest"
+	"seata-go-ai-a2a/pkg/types"
 )
 
 func main() {

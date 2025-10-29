@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"grpc-a2a/pkg/handler"
-	"grpc-a2a/pkg/types"
+	"seata-go-ai-a2a/pkg/handler"
+	"seata-go-ai-a2a/pkg/types"
 )
 
 // EchoMessageHandler implements a simple echo chat handler that responds to messages
