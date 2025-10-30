@@ -20,22 +20,101 @@ package client
 import (
 	"context"
 
+	"seata.apache.org/seata-go/pkg/protocol"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/reflectx"
 
+	"seata.apache.org/seata-go/pkg/remoting/config"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/pkg/rm"
 )
 
 func initBranchCommit() {
 	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
-	getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
+	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
+	case protocol.ProtocolGRPC:
+		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.BranchCommitRequestProto](), message.MessageTypeBranchCommit)
+
+		grpc.GetGrpcClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
+	default:
+		getty.GetGettyClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
+	}
 }
 
 type rmBranchCommitProcessor struct{}
 
 func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	log.Infof("the rm client received  rmBranchCommit msg %#v from tc server.", rpcMessage)
+	log.Infof("the rm client received  rmBranchCommit rpcMessage %#v from tc server.", rpcMessage)
+	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
+	case protocol.ProtocolGRPC:
+		return f.handleGrpcBranchCommit(ctx, rpcMessage)
+	default:
+		return f.handleGettyBranchCommit(ctx, rpcMessage)
+	}
+}
+
+func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rpcMessage message.RpcMessage) error {
+	request := rpcMessage.Body.(*pb.BranchCommitRequestProto)
+	xid := request.AbstractBranchEndRequest.Xid
+	branchID := request.AbstractBranchEndRequest.BranchId
+	resourceID := request.AbstractBranchEndRequest.ResourceId
+	applicationData := request.AbstractBranchEndRequest.ApplicationData
+	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	branchResource := rm.BranchResource{
+		ResourceId:      resourceID,
+		BranchId:        branchID,
+		ApplicationData: []byte(applicationData),
+		Xid:             xid,
+	}
+
+	status, err := rm.GetRmCacheInstance().GetResourceManager(branch.BranchType(request.AbstractBranchEndRequest.BranchType)).BranchCommit(ctx, branchResource)
+	if err != nil {
+		log.Errorf("branch commit error: %s", err.Error())
+		return err
+	}
+	log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+
+	var (
+		resultCode pb.ResultCodeProto
+		errMsg     string
+	)
+	if err != nil {
+		resultCode = pb.ResultCodeProto_Failed
+		errMsg = err.Error()
+	} else {
+		resultCode = pb.ResultCodeProto_Success
+	}
+
+	// reply commit response to tc server
+	// todo add TransactionErrorCode
+	response := &pb.BranchCommitResponseProto{
+		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
+			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+				AbstractResultMessage: &pb.AbstractResultMessageProto{
+					ResultCode: resultCode,
+					Msg:        errMsg,
+				},
+			},
+			Xid:          xid,
+			BranchId:     branchID,
+			BranchStatus: pb.BranchStatusProto(status),
+		},
+	}
+
+	err = grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
+	if err != nil {
+		log.Errorf("send branch commit response error: {%#v}", err.Error())
+		return err
+	}
+	log.Infof("send branch commit success: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
+	return nil
+}
+
+func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, rpcMessage message.RpcMessage) error {
 	request := rpcMessage.Body.(message.BranchCommitRequest)
 	xid := request.Xid
 	branchID := request.BranchId

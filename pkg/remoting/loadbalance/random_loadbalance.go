@@ -22,15 +22,15 @@ import (
 	"sync"
 	"time"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
-func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
+func RandomLoadBalance(sessions *sync.Map, xid string) connection.Connection {
 	//collect sync.Map keys
 	//filted out closed session instance
-	var keys []getty.Session
+	var keys []connection.Connection
 	sessions.Range(func(key, value interface{}) bool {
-		session := key.(getty.Session)
+		session := key.(connection.Connection)
 		if session.IsClosed() {
 			sessions.Delete(key)
 		} else {

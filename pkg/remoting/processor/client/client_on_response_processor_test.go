@@ -23,20 +23,26 @@ import (
 
 	"seata.apache.org/seata-go/pkg/protocol/codec"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestClientOnResponseProcessor(t *testing.T) {
 	// testcases
 	tests := []struct {
-		name    string             // testcase name
-		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               // want testcase err or not
+		name     string             // testcase name
+		protocol string             // protocol:seata/grpc
+		rpcMsg   message.RpcMessage // rpcMessage case
+		wantErr  bool               // want testcase err or not
 	}{
 		{
-			name: "cor-testcase1-mergeResult",
+			name:     "cor-testcase1-mergeResult",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         123,
-				Type:       message.GettyRequestTypeResponse,
+				Type:       message.RequestTypeResponse,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -52,10 +58,11 @@ func TestClientOnResponseProcessor(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "cor-testcase2-request-abstruct-success",
+			name:     "cor-testcase2-request-abstruct-success",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         124,
-				Type:       message.GettyRequestTypeResponse,
+				Type:       message.RequestTypeResponse,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -72,10 +79,11 @@ func TestClientOnResponseProcessor(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "cor-testcase2-request-abstruct-failed",
+			name:     "cor-testcase2-request-abstruct-failed",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         125,
-				Type:       message.GettyRequestTypeResponse,
+				Type:       message.RequestTypeResponse,
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -91,6 +99,59 @@ func TestClientOnResponseProcessor(t *testing.T) {
 
 			wantErr: false,
 		},
+		{
+			name:     "cor-testcase1-mergeResult-grpc",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   126,
+				Type: message.RequestTypeResponse,
+				HeadMap: map[string]string{
+					"name":    " Jack",
+					"age":     "12",
+					"address": "Beijing",
+				},
+				Body: &pb.MergedResultMessageProto{
+					Msgs: []*anypb.Any{},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "cor-testcase2-request-abstruct-success-grpc",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   127,
+				Type: message.RequestTypeResponse,
+				HeadMap: map[string]string{
+					"name":    " Mike",
+					"age":     "20",
+					"address": "Hunan",
+				},
+				Body: &pb.AbstractResultMessageProto{
+					ResultCode: pb.ResultCodeProto_Success,
+					Msg:        "success",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "cor-testcase2-request-abstruct-failed-grpc",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   128,
+				Type: message.RequestTypeResponse,
+				HeadMap: map[string]string{
+					"name":    " Mike",
+					"age":     "20",
+					"address": "Hunan",
+				},
+				Body: &pb.AbstractResultMessageProto{
+					ResultCode: pb.ResultCodeProto_Failed,
+					Msg:        "failed",
+				},
+			},
+			wantErr: false,
+		},
 		// todo msFuture
 	}
 
@@ -99,6 +160,7 @@ func TestClientOnResponseProcessor(t *testing.T) {
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			config.InitTransportConfig(&config.TransportConfig{Protocol: tc.protocol})
 			err := corProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("clientOnResponseProcessor wantErr: %v, got: %v", tc.wantErr, err)

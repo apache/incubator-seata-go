@@ -158,7 +158,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 }
 
 func (g *SessionManager) selectSession(msg interface{}) getty.Session {
-	session := loadbalance.Select(config.GetSeataConfig().LoadBalanceType, &g.allSessions, g.getXid(msg))
+	session := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, &g.allSessions, g.getXid(msg)).(getty.Session)
 	if session != nil {
 		return session
 	}

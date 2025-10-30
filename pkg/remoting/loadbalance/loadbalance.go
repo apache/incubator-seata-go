@@ -20,7 +20,7 @@ package loadbalance
 import (
 	"sync"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/pkg/protocol/connection"
 )
 
 const (
@@ -31,7 +31,7 @@ const (
 	leastActiveLoadBalance    = "LeastActiveLoadBalance"
 )
 
-func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+func Select(loadBalanceType string, sessions *sync.Map, xid string) connection.Connection {
 	switch loadBalanceType {
 	case randomLoadBalance:
 		return RandomLoadBalance(sessions, xid)

@@ -26,21 +26,25 @@ import (
 	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/protocol/codec"
 	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/pkg/rm"
 )
 
 func TestRmBranchRollbackProcessor(t *testing.T) {
 	// testcases
 	tests := []struct {
-		name    string             // testcase name
-		rpcMsg  message.RpcMessage // rpcMessage case
-		wantErr bool               // want testcase err or not
+		name     string             // testcase name
+		protocol string             // protocol:seata/grpc
+		rpcMsg   message.RpcMessage // rpcMessage case
+		wantErr  bool               // want testcase err or not
 	}{
 		{
-			name: "rbr-testcase1-failure",
+			name:     "rbr-testcase1-failure",
+			protocol: "seata",
 			rpcMsg: message.RpcMessage{
 				ID:         223,
-				Type:       message.GettyRequestType(message.MessageTypeBranchRollback),
+				Type:       message.RequestType(message.MessageTypeBranchRollback),
 				Codec:      byte(codec.CodecTypeSeata),
 				Compressor: byte(1),
 				HeadMap: map[string]string{
@@ -61,16 +65,42 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 
 			wantErr: true, // need dail to server, so err accured
 		},
+		{
+			name:     "rbr-testcase2-failure",
+			protocol: "grpc",
+			rpcMsg: message.RpcMessage{
+				ID:   223,
+				Type: message.RequestType(message.MessageTypeBranchRollback),
+				HeadMap: map[string]string{
+					"name":    " Jack",
+					"age":     "12",
+					"address": "Beijing",
+				},
+				Body: &pb.BranchRollbackRequestProto{
+					AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+						Xid:             "123345",
+						BranchId:        56679,
+						BranchType:      pb.BranchTypeProto_TCC,
+						ResourceId:      "1232324",
+						ApplicationData: "TestExtraData",
+					},
+				},
+			},
+
+			wantErr: true, // need dail to server, so err accured
+		},
 	}
 
 	var ctx context.Context
 	var rbrProcessor rmBranchRollbackProcessor
 
-	rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
-
 	// run tests
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			config.InitTransportConfig(&config.TransportConfig{Protocol: tc.protocol})
+
+			rm.GetRmCacheInstance().RegisterResourceManager(tcc.GetTCCResourceManagerInstance())
+
 			err := rbrProcessor.Process(ctx, tc.rpcMsg)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("rmBranchRollbackProcessor wantErr: %v, got: %v", tc.wantErr, err)
