@@ -1,0 +1,204 @@
+### Workflow Agent API Tests
+### Base URL: http://localhost:8081
+
+### 1. Health Check
+GET http://localhost:8081/health
+Accept: application/json
+
+###
+
+### 2. Service Info
+GET http://localhost:8081/
+Accept: application/json
+
+###
+
+### 3. Orchestrate Workflow - Simple Research Report
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Create a multi-agent workflow to generate a comprehensive research report. The workflow should: 1) Use a web search agent to gather information from multiple sources, 2) Use a data analysis agent to process and summarize the collected data, 3) Use a document generation agent to create a well-formatted report.",
+  "context": {
+    "task_type": "research",
+    "collaboration": "multi-agent",
+    "output": "document"
+  }
+}
+
+###
+
+### 4. Orchestrate Workflow - Data Processing Pipeline
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Build a data processing pipeline that collects data from external sources, analyzes and validates it, then generates summary reports with visualizations.",
+  "context": {
+    "pipeline_type": "etl",
+    "data_source": "external_api",
+    "output_format": "dashboard"
+  }
+}
+
+###
+
+### 5. Orchestrate Workflow - Content Moderation System
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Create an automated content moderation workflow: 1) Analyze user-generated content for inappropriate material, 2) Classify content based on severity, 3) Generate moderation reports and take appropriate actions.",
+  "context": {
+    "content_type": "social_media",
+    "moderation_level": "strict"
+  }
+}
+
+###
+
+### 6. Orchestrate Workflow - Customer Feedback Analysis
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Analyze customer feedback to extract insights: First, collect feedback from multiple channels. Second, perform sentiment analysis and categorization. Finally, generate actionable insights and recommendations.",
+  "context": {
+    "analysis_type": "sentiment",
+    "data_sources": ["email", "social_media", "surveys"]
+  }
+}
+
+###
+
+### 7. Orchestrate Workflow - Simple Task (Minimal Context)
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Search for information and create a summary document"
+}
+
+###
+
+### 8. Orchestrate Workflow - Complex Multi-Step
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "Create a comprehensive workflow for market research: 1) Web search to gather market data and competitor information, 2) Data analysis to identify trends and opportunities, 3) Document generation to create executive summary and detailed reports, 4) Include error handling for all steps.",
+  "context": {
+    "industry": "technology",
+    "target_market": "enterprise_software",
+    "report_format": "pdf",
+    "include_charts": true
+  }
+}
+
+###
+
+### 9. Invalid Request - Missing Description
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "context": {
+    "test": "missing_description"
+  }
+}
+
+###
+
+### 10. Invalid Request - Empty Description
+POST http://localhost:8081/api/v1/orchestrate
+Content-Type: application/json
+
+{
+  "description": "",
+  "context": {}
+}
+
+###
+
+### ============================================
+### SESSION-BASED STREAMING API TESTS (SSE)
+### ============================================
+
+### 11. Create New Session - Research Report
+POST http://localhost:8081/api/v1/sessions
+Content-Type: application/json
+
+{
+  "description": "Create a multi-agent workflow to generate a comprehensive research report. The workflow should: 1) Use a web search agent to gather information from multiple sources, 2) Use a data analysis agent to process and summarize the collected data, 3) Use a document generation agent to create a well-formatted report.",
+  "context": {
+    "task_type": "research",
+    "collaboration": "multi-agent",
+    "output": "document"
+  }
+}
+
+###
+
+### 12. Create Session - Simple Task
+POST http://localhost:8081/api/v1/sessions
+Content-Type: application/json
+
+{
+  "description": "Search for information and create a summary document"
+}
+
+###
+
+### 13. List All Sessions
+GET http://localhost:8081/api/v1/sessions
+Accept: application/json
+
+###
+
+### 14. Get Session Status (Replace {session_id} with actual ID from step 11/12)
+GET http://localhost:8081/api/v1/sessions/{session_id}
+Accept: application/json
+
+###
+
+### 15. Stream Progress via SSE (Replace {session_id} with actual ID)
+### NOTE: This endpoint uses Server-Sent Events (SSE)
+### Use tools like curl or EventSource in JavaScript to consume the stream
+### Example: curl -N http://localhost:8081/api/v1/sessions/{session_id}/stream
+GET http://localhost:8081/api/v1/sessions/{session_id}/stream
+Accept: text/event-stream
+
+###
+
+### 16. Get Final Result (Replace {session_id} with actual ID)
+GET http://localhost:8081/api/v1/sessions/{session_id}/result
+Accept: application/json
+
+###
+
+### 17. Create Session - Data Processing Pipeline
+POST http://localhost:8081/api/v1/sessions
+Content-Type: application/json
+
+{
+  "description": "Build a data processing pipeline that collects data from external sources, analyzes and validates it, then generates summary reports with visualizations.",
+  "context": {
+    "pipeline_type": "etl",
+    "data_source": "external_api",
+    "output_format": "dashboard"
+  }
+}
+
+###
+
+### 18. Invalid Session Request - Missing Description
+POST http://localhost:8081/api/v1/sessions
+Content-Type: application/json
+
+{
+  "context": {
+    "test": "missing_description"
+  }
+}
+
+###

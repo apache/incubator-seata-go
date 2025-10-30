@@ -1,0 +1,31 @@
+agent:
+  name: workflow-agent
+  description: Seata workflow agent for managing distributed workflows
+  version: 1.0.0
+  skills:
+    - workflow-management
+    - task-execution
+
+hub:
+  base_url: http://localhost:8080
+  timeout: 30
+  heartbeat_enabled: true
+  heartbeat_period: 30
+
+logger:
+  level: info
+  format: text
+  output_path: stdout
+
+server:
+  host: localhost
+  port: 9090
+
+llm:
+  default_model: qwen-max
+  api_key: sk-1cd306a727af41c29267b17fd1ba750b
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  config: {}
+
+orchestration:
+  max_retry_count: 3

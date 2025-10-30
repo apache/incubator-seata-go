@@ -1,0 +1,155 @@
+{
+  "Name": "ResearchReportGeneration",
+  "Comment": "Generate a comprehensive research report",
+  "StartState": "WebSearch",
+  "Version": "0.0.1",
+  "States": {
+    "CompensateDataAnalysis": {
+      "Type": "ServiceTask",
+      "ServiceName": "data-analysis-agent",
+      "ServiceMethod": "cancelAnalysis",
+      "Input": [
+        "$.[businessKey]",
+        "$.[params]"
+      ],
+      "Output": {
+        "compensateResult": "$.#root"
+      },
+      "Status": {
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "FA"
+      }
+    },
+    "CompensateDocumentGeneration": {
+      "Type": "ServiceTask",
+      "ServiceName": "document-gen-agent",
+      "ServiceMethod": "cancelDocument",
+      "Input": [
+        "$.[businessKey]",
+        "$.[params]"
+      ],
+      "Output": {
+        "compensateResult": "$.#root"
+      },
+      "Status": {
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "FA"
+      }
+    },
+    "CompensateWebSearch": {
+      "Type": "ServiceTask",
+      "ServiceName": "web-search-agent",
+      "ServiceMethod": "cancelSearch",
+      "Input": [
+        "$.[businessKey]",
+        "$.[params]"
+      ],
+      "Output": {
+        "compensateResult": "$.#root"
+      },
+      "Status": {
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "FA"
+      }
+    },
+    "CompensationTrigger": {
+      "Type": "CompensationTrigger",
+      "Next": "Fail"
+    },
+    "DataAnalysis": {
+      "Type": "ServiceTask",
+      "ServiceName": "data-analysis-agent",
+      "ServiceMethod": "analyzeData",
+      "CompensateState": "CompensateDataAnalysis",
+      "IsForUpdate": true,
+      "Input": [
+        "$.[businessKey]",
+        "$.[amount]",
+        "$.[params]"
+      ],
+      "Output": {
+        "result": "$.#root"
+      },
+      "Status": {
+        "#root == false": "FA",
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "UN"
+      },
+      "Catch": [
+        {
+          "Exceptions": [
+            "java.lang.Throwable"
+          ],
+          "Next": "CompensationTrigger"
+        }
+      ],
+      "Next": "DocumentGeneration"
+    },
+    "DocumentGeneration": {
+      "Type": "ServiceTask",
+      "ServiceName": "document-gen-agent",
+      "ServiceMethod": "generateDocument",
+      "CompensateState": "CompensateDocumentGeneration",
+      "IsForUpdate": true,
+      "Input": [
+        "$.[businessKey]",
+        "$.[amount]",
+        "$.[params]"
+      ],
+      "Output": {
+        "result": "$.#root"
+      },
+      "Status": {
+        "#root == false": "FA",
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "UN"
+      },
+      "Catch": [
+        {
+          "Exceptions": [
+            "java.lang.Throwable"
+          ],
+          "Next": "CompensationTrigger"
+        }
+      ],
+      "Next": "Succeed"
+    },
+    "Fail": {
+      "Type": "Fail",
+      "ErrorCode": "WORKFLOW_FAILED",
+      "Message": "Workflow execution failed"
+    },
+    "Succeed": {
+      "Type": "Succeed"
+    },
+    "WebSearch": {
+      "Type": "ServiceTask",
+      "ServiceName": "web-search-agent",
+      "ServiceMethod": "searchWeb",
+      "CompensateState": "CompensateWebSearch",
+      "IsForUpdate": true,
+      "Input": [
+        "$.[businessKey]",
+        "$.[amount]",
+        "$.[params]"
+      ],
+      "Output": {
+        "result": "$.#root"
+      },
+      "Status": {
+        "#root == false": "FA",
+        "#root == true": "SU",
+        "$Exception{java.lang.Throwable}": "UN"
+      },
+      "Catch": [
+        {
+          "Exceptions": [
+            "java.lang.Throwable"
+          ],
+          "Next": "CompensationTrigger"
+        }
+      ],
+      "Next": "DataAnalysis"
+    }
+  }
+}
