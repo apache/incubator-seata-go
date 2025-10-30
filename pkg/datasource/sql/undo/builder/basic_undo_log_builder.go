@@ -22,12 +22,16 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/test_driver"
-	gxsort "github.com/dubbogo/gost/sort"
 	"io"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 	"strings"
+
+	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/mysql"
+	"github.com/arana-db/parser/test_driver"
+	parserTypes "github.com/arana-db/parser/types"
+	gxsort "github.com/dubbogo/gost/sort"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
@@ -35,33 +39,40 @@ import (
 // todo the executor should be stateful
 type BasicUndoLogBuilder struct{}
 
-// GetScanSlice get the column type for scann
-// todo to use ColumnInfo get slice
+// GetScanSlice get the column type for scan using FieldType from arana-db parser
 func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.TableMeta) []driver.Value {
 	scanSlice := make([]driver.Value, 0, len(columnNames))
-	for _, columnNmae := range columnNames {
-		var (
-			scanVal interface{}
-			// Gets Meta information about the column from metData
-			columnMeta = tableMeta.Columns[columnNmae]
-		)
-		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
-		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
-			scanVal = sql.RawBytes{}
-		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
-			if columnMeta.IsNullable == 0 {
-				scanVal = int64(0)
-			} else {
+	for _, columnName := range columnNames {
+		columnMeta := tableMeta.Columns[columnName]
+
+		var scanVal interface{}
+
+		// Use GetOrBuildFieldType to ensure FieldType is always available
+		ft := columnMeta.GetOrBuildFieldType()
+		evalType := ft.EvalType()
+		isNullable := !mysql.HasNotNullFlag(ft.Flag)
+
+		switch evalType {
+		case parserTypes.ETInt:
+			if isNullable {
 				scanVal = sql.NullInt64{}
-			}
-		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
-			scanVal = sql.NullTime{}
-		case "DECIMAL", "DOUBLE", "FLOAT":
-			if columnMeta.IsNullable == 0 {
-				scanVal = float64(0)
 			} else {
-				scanVal = sql.NullFloat64{}
+				scanVal = int64(0)
 			}
+
+		case parserTypes.ETReal, parserTypes.ETDecimal:
+			if isNullable {
+				scanVal = sql.NullFloat64{}
+			} else {
+				scanVal = float64(0)
+			}
+
+		case parserTypes.ETDatetime, parserTypes.ETTimestamp, parserTypes.ETDuration:
+			scanVal = sql.NullTime{}
+
+		case parserTypes.ETString, parserTypes.ETJson:
+			scanVal = sql.RawBytes{}
+
 		default:
 			scanVal = sql.RawBytes{}
 		}

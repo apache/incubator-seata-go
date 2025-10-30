@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/arana-db/parser/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"seata.apache.org/seata-go/testdata"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
@@ -185,6 +187,96 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildFieldType(t *testing.T) {
+	tests := []struct {
+		name         string
+		databaseType int32
+		isNullable   int8
+		columnKey    string
+		extra        string
+		wantTp       byte
+		wantFlags    []uint
+		notWantFlags []uint
+	}{
+		{
+			name:         "nullable varchar primary key",
+			databaseType: 12,
+			isNullable:   1,
+			columnKey:    "PRI",
+			extra:        "",
+			wantTp:       15,
+			wantFlags:    []uint{mysql.PriKeyFlag},
+			notWantFlags: []uint{mysql.NotNullFlag, mysql.AutoIncrementFlag},
+		},
+		{
+			name:         "not null int auto increment",
+			databaseType: 4,
+			isNullable:   0,
+			columnKey:    "PRI",
+			extra:        "auto_increment",
+			wantTp:       3,
+			wantFlags:    []uint{mysql.NotNullFlag, mysql.PriKeyFlag, mysql.AutoIncrementFlag},
+			notWantFlags: []uint{},
+		},
+		{
+			name:         "nullable text unique key",
+			databaseType: 2005,
+			isNullable:   1,
+			columnKey:    "UNI",
+			extra:        "",
+			wantTp:       252,
+			wantFlags:    []uint{mysql.UniqueKeyFlag},
+			notWantFlags: []uint{mysql.NotNullFlag, mysql.PriKeyFlag},
+		},
+		{
+			name:         "not null varchar multiple key",
+			databaseType: 12,
+			isNullable:   0,
+			columnKey:    "MUL",
+			extra:        "",
+			wantTp:       15,
+			wantFlags:    []uint{mysql.NotNullFlag, mysql.MultipleKeyFlag},
+			notWantFlags: []uint{mysql.PriKeyFlag},
+		},
+		{
+			name:         "nullable datetime no key",
+			databaseType: 93,
+			isNullable:   1,
+			columnKey:    "",
+			extra:        "",
+			wantTp:       7,
+			wantFlags:    []uint{},
+			notWantFlags: []uint{mysql.NotNullFlag, mysql.PriKeyFlag, mysql.AutoIncrementFlag},
+		},
+		{
+			name:         "bigint auto_increment case insensitive",
+			databaseType: -5,
+			isNullable:   0,
+			columnKey:    "PRI",
+			extra:        "AUTO_INCREMENT",
+			wantTp:       8,
+			wantFlags:    []uint{mysql.NotNullFlag, mysql.PriKeyFlag, mysql.AutoIncrementFlag},
+			notWantFlags: []uint{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildFieldType(tt.databaseType, tt.isNullable, tt.columnKey, tt.extra)
+
+			assert.Equal(t, tt.wantTp, got.Tp, "FieldType.Tp mismatch")
+
+			for _, flag := range tt.wantFlags {
+				assert.True(t, got.Flag&flag > 0, "expected flag %d to be set", flag)
+			}
+
+			for _, flag := range tt.notWantFlags {
+				assert.False(t, got.Flag&flag > 0, "expected flag %d not to be set", flag)
+			}
 		})
 	}
 }

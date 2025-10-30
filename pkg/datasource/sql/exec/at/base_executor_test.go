@@ -18,9 +18,14 @@
 package at
 
 import (
-	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"database/sql"
 	"testing"
+
+	"github.com/arana-db/parser/mysql"
+	parserTypes "github.com/arana-db/parser/types"
+	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
 func TestBaseExecBuildLockKey(t *testing.T) {
@@ -206,6 +211,232 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
+		})
+	}
+}
+
+func TestBaseExecutor_GetScanSlice(t *testing.T) {
+	exec := &baseExecutor{}
+
+	tests := []struct {
+		name        string
+		columnNames []string
+		tableMeta   *types.TableMeta
+		validate    func(t *testing.T, result []interface{})
+	}{
+		{
+			name:        "nullable int column",
+			columnNames: []string{"id"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeLong,
+							Flag: 0,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullInt64)
+				assert.True(t, ok, "expected *sql.NullInt64")
+			},
+		},
+		{
+			name:        "not null int column",
+			columnNames: []string{"id"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeLonglong,
+							Flag: mysql.NotNullFlag,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*int64)
+				assert.True(t, ok, "expected *int64")
+			},
+		},
+		{
+			name:        "nullable float column",
+			columnNames: []string{"price"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"price": {
+						ColumnName: "price",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeDouble,
+							Flag: 0,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullFloat64)
+				assert.True(t, ok, "expected *sql.NullFloat64")
+			},
+		},
+		{
+			name:        "not null decimal column",
+			columnNames: []string{"amount"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"amount": {
+						ColumnName: "amount",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeNewDecimal,
+							Flag: mysql.NotNullFlag,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*float64)
+				assert.True(t, ok, "expected *float64")
+			},
+		},
+		{
+			name:        "datetime column",
+			columnNames: []string{"created_at"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"created_at": {
+						ColumnName: "created_at",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeDatetime,
+							Flag: 0,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullTime)
+				assert.True(t, ok, "expected *sql.NullTime")
+			},
+		},
+		{
+			name:        "varchar column",
+			columnNames: []string{"name"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"name": {
+						ColumnName: "name",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeVarchar,
+							Flag: 0,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullString)
+				assert.True(t, ok, "expected *sql.NullString")
+			},
+		},
+		{
+			name:        "json column",
+			columnNames: []string{"config"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"config": {
+						ColumnName: "config",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeJSON,
+							Flag: 0,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullString)
+				assert.True(t, ok, "expected *sql.NullString")
+			},
+		},
+		{
+			name:        "nil FieldType fallback",
+			columnNames: []string{"unknown"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"unknown": {
+						ColumnName:         "unknown",
+						DatabaseType:       int32(mysql.TypeVarchar),
+						DatabaseTypeString: "VARCHAR",
+						IsNullable:         1,
+						FieldType:          nil, // Will be built on demand
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 1)
+				_, ok := result[0].(*sql.NullString)
+				assert.True(t, ok, "expected *sql.NullString for varchar with nil FieldType")
+			},
+		},
+		{
+			name:        "multiple columns mixed types",
+			columnNames: []string{"id", "name", "price", "created_at"},
+			tableMeta: &types.TableMeta{
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeLonglong,
+							Flag: mysql.NotNullFlag | mysql.PriKeyFlag,
+						},
+					},
+					"name": {
+						ColumnName: "name",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeVarchar,
+							Flag: 0,
+						},
+					},
+					"price": {
+						ColumnName: "price",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeDouble,
+							Flag: 0,
+						},
+					},
+					"created_at": {
+						ColumnName: "created_at",
+						FieldType: &parserTypes.FieldType{
+							Tp:   mysql.TypeTimestamp,
+							Flag: mysql.NotNullFlag,
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result []interface{}) {
+				assert.Len(t, result, 4)
+				_, ok := result[0].(*int64)
+				assert.True(t, ok, "id should be *int64")
+				_, ok = result[1].(*sql.NullString)
+				assert.True(t, ok, "name should be *sql.NullString")
+				_, ok = result[2].(*sql.NullFloat64)
+				assert.True(t, ok, "price should be *sql.NullFloat64")
+				_, ok = result[3].(*sql.NullTime)
+				assert.True(t, ok, "created_at should be *sql.NullTime")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exec.GetScanSlice(tt.columnNames, tt.tableMeta)
+			tt.validate(t, result)
 		})
 	}
 }

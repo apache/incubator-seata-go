@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/arana-db/parser/mysql"
+	parserTypes "github.com/arana-db/parser/types"
 	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
@@ -151,6 +153,8 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		columnMeta.ColumnDef = columnDefault
 		columnMeta.Extra = extra
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
+
+		columnMeta.FieldType = buildFieldType(columnMeta.DatabaseType, columnMeta.IsNullable, columnKey, extra)
 		columnMetas = append(columnMetas, columnMeta)
 	}
 	if err := rows.Err(); err != nil {
@@ -219,4 +223,27 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		return nil, err
 	}
 	return result, nil
+}
+
+func buildFieldType(databaseType int32, isNullable int8, columnKey string, extra string) *parserTypes.FieldType {
+	mysqlType := types.ConvertJdbcTypeToMySQLType(databaseType)
+	ft := parserTypes.NewFieldType(mysqlType)
+
+	if isNullable == 0 {
+		ft.Flag |= mysql.NotNullFlag
+	}
+
+	if columnKey == "PRI" {
+		ft.Flag |= mysql.PriKeyFlag
+	} else if columnKey == "UNI" {
+		ft.Flag |= mysql.UniqueKeyFlag
+	} else if columnKey == "MUL" {
+		ft.Flag |= mysql.MultipleKeyFlag
+	}
+
+	if strings.Contains(strings.ToLower(extra), "auto_increment") {
+		ft.Flag |= mysql.AutoIncrementFlag
+	}
+
+	return ft
 }
