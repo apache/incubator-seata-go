@@ -83,7 +83,7 @@ func (g *ChannelManager) init() {
 	for _, address := range addressList {
 		addr := net.JoinHostPort(address.Addr, strconv.Itoa(address.Port))
 		if conn, err := g.newConn(addr); err != nil {
-			log.Errorf("failed to dial gRPC addr %s: %w", addr, err)
+			log.Errorf("failed to dial gRPC addr %s: %v", addr, err)
 			continue
 		} else {
 			regLock := sync.Mutex{}
@@ -103,7 +103,7 @@ func (g *ChannelManager) init() {
 
 				channel, err = g.initChannel(channel)
 				if err != nil {
-					log.Errorf("failed to create gRPC stream error: %w", err)
+					log.Errorf("failed to create gRPC stream error: %v", err)
 					continue
 				}
 				g.registerChannel(channel)

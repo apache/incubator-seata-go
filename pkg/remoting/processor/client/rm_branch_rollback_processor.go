@@ -37,7 +37,7 @@ func initBranchRollback() {
 	rmBranchRollbackProcessor := &rmBranchRollbackProcessor{}
 	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
 	case protocol.ProtocolGRPC:
-		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.BranchRollbackResponseProto](), message.MessageTypeBranchRollback)
+		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.BranchRollbackRequestProto](), message.MessageTypeBranchRollback)
 
 		grpc.GetGrpcClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchRollback, rmBranchRollbackProcessor)
 	default:
@@ -81,30 +81,30 @@ func (f *rmBranchRollbackProcessor) handleGrpcBranchRollback(ctx context.Context
 	log.Infof("branch rollback success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 
 	var (
-		resultCode message.ResultCode
+		resultCode pb.ResultCodeProto
 		errMsg     string
 	)
 	if err != nil {
-		resultCode = message.ResultCodeFailed
+		resultCode = pb.ResultCodeProto_Failed
 		errMsg = err.Error()
 	} else {
-		resultCode = message.ResultCodeSuccess
+		resultCode = pb.ResultCodeProto_Success
 	}
 	// reply commit response to tc server
-	response := message.BranchRollbackResponse{
-		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
-			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				AbstractResultMessage: message.AbstractResultMessage{
+	response := &pb.BranchRollbackResponseProto{
+		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
+			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+				AbstractResultMessage: &pb.AbstractResultMessageProto{
 					ResultCode: resultCode,
 					Msg:        errMsg,
 				},
 			},
 			Xid:          xid,
 			BranchId:     branchID,
-			BranchStatus: status,
+			BranchStatus: pb.BranchStatusProto(status),
 		},
 	}
-	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
+	err = grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
 	if err != nil {
 		log.Errorf("send branch rollback response error: {%#v}", err.Error())
 		return err

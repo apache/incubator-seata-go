@@ -51,9 +51,9 @@ func (r *GrpcRMRemoting) BranchRegister(param rm.BranchRegisterParam) (int64, er
 		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
 		return 0, err
 	}
-	branchResp := resp.(message.BranchRegisterResponse)
-	if branchResp.ResultCode == message.ResultCodeFailed {
-		return 0, fmt.Errorf("Response %s", branchResp.Msg)
+	branchResp := resp.(*pb.BranchRegisterResponseProto)
+	if branchResp.AbstractTransactionResponse.AbstractResultMessage.ResultCode == pb.ResultCodeProto_Failed {
+		return 0, fmt.Errorf("Response %s", branchResp.AbstractTransactionResponse.AbstractResultMessage.Msg)
 	}
 	return branchResp.BranchId, nil
 }
@@ -121,7 +121,7 @@ func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
 			ApplicationId:           rm.GetRmConfig().ApplicationID,
 			TransactionServiceGroup: rm.GetRmConfig().TxServiceGroup,
 		},
-		ResourceIds: resource.GetResourceGroupId(),
+		ResourceIds: resource.GetResourceId(),
 	}
 	res, err := grpc.GetGrpcRemotingClient().SendSyncRequest(req)
 	if err != nil {
@@ -139,21 +139,21 @@ func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
 }
 
 func isQueryLockSuccess(response interface{}) bool {
-	if res, ok := response.(pb.GlobalLockQueryResponseProto); ok {
+	if res, ok := response.(*pb.GlobalLockQueryResponseProto); ok {
 		return res.Lockable
 	}
 	return false
 }
 
 func isRegisterSuccess(response interface{}) bool {
-	if res, ok := response.(pb.RegisterRMResponseProto); ok {
+	if res, ok := response.(*pb.RegisterRMResponseProto); ok {
 		return res.AbstractIdentifyResponse.Identified
 	}
 	return false
 }
 
 func isReportSuccess(response interface{}) error {
-	if res, ok := response.(pb.BranchReportResponseProto); ok {
+	if res, ok := response.(*pb.BranchReportResponseProto); ok {
 		if res.AbstractTransactionResponse.AbstractResultMessage.ResultCode == pb.ResultCodeProto(message.ResultCodeFailed) {
 			return errors.New(res.AbstractTransactionResponse.AbstractResultMessage.Msg)
 		}

@@ -37,7 +37,7 @@ func initBranchCommit() {
 	rmBranchCommitProcessor := &rmBranchCommitProcessor{}
 	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
 	case protocol.ProtocolGRPC:
-		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.BranchCommitResponseProto](), message.MessageTypeBranchCommit)
+		grpc.GetGrpcClientHandlerInstance().RegisterType(reflectx.ProtoMessageName[*pb.BranchCommitRequestProto](), message.MessageTypeBranchCommit)
 
 		grpc.GetGrpcClientHandlerInstance().RegisterProcessor(message.MessageTypeBranchCommit, rmBranchCommitProcessor)
 	default:

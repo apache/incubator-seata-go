@@ -40,7 +40,7 @@ func (g *GrpcGlobalTransactionManager) Begin(ctx context.Context, timeout time.D
 		AbstractTransactionRequest: &pb.AbstractTransactionRequestProto{
 			AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_BEGIN},
 		},
-		Timeout:         int32(timeout),
+		Timeout:         int32(timeout.Milliseconds()),
 		TransactionName: tm.GetTxName(ctx),
 	}
 	res, err := grpc.GetGrpcRemotingClient().SendSyncRequest(req)

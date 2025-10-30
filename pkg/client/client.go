@@ -106,17 +106,17 @@ func initRmClient(cfg *Config) {
 			TxServiceGroup: cfg.TxServiceGroup,
 		})
 		config.Init(cfg.ClientConfig.RmConfig.LockConfig)
-		client.RegisterProcessor()
-		integration.Init()
-		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
-		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
-		at.InitXA(cfg.ClientConfig.XaConfig)
 		switch protocol.Protocol(remoteConfig.GetTransportConfig().Protocol) {
 		case protocol.ProtocolGRPC:
 			rm.SetRMRemotingInstance(&grpcRM.GrpcRMRemoting{})
 		default:
 			rm.SetRMRemotingInstance(&gettyRM.GettyRMRemoting{})
 		}
+		client.RegisterProcessor()
+		integration.Init()
+		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
+		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
+		at.InitXA(cfg.ClientConfig.XaConfig)
 	})
 }
 
