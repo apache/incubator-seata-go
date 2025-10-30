@@ -1,0 +1,683 @@
+{
+  "success": true,
+  "message": "Workflow orchestration completed successfully",
+  "capabilities": [
+    {
+      "requirement": {
+        "name": "Web Search",
+        "description": "Gathers information from multiple web sources to collect comprehensive data for the research report.",
+        "required": true
+      },
+      "agent": {
+        "name": "web-search-agent",
+        "description": "Web search agent that can search and retrieve information from the internet",
+        "url": "http://localhost:9001",
+        "version": "1.0.0",
+        "capabilities": {},
+        "defaultInputModes": [
+          "text"
+        ],
+        "defaultOutputModes": [
+          "text",
+          "json"
+        ],
+        "skills": [
+          {
+            "id": "web-search",
+            "name": "Web Search",
+            "description": "Search the web for information on any topic",
+            "tags": [
+              "search",
+              "web",
+              "information",
+              "query",
+              "internet"
+            ],
+            "examples": [
+              "search the web",
+              "find information",
+              "look up",
+              "query online"
+            ]
+          },
+          {
+            "id": "data-collection",
+            "name": "Data Collection",
+            "description": "Collect and aggregate data from multiple web sources",
+            "tags": [
+              "collect",
+              "aggregate",
+              "gather",
+              "data",
+              "sources"
+            ],
+            "examples": [
+              "collect data",
+              "gather information",
+              "aggregate sources"
+            ]
+          }
+        ]
+      },
+      "found": true
+    },
+    {
+      "requirement": {
+        "name": "Data Analysis",
+        "description": "Processes and summarizes the collected data to extract key insights and relevant information for the report.",
+        "required": true
+      },
+      "agent": {
+        "name": "data-analysis-agent",
+        "description": "Data analysis agent that can process, analyze and summarize data",
+        "url": "http://localhost:9002",
+        "version": "1.0.0",
+        "capabilities": {},
+        "defaultInputModes": [
+          "text",
+          "json"
+        ],
+        "defaultOutputModes": [
+          "text",
+          "json"
+        ],
+        "skills": [
+          {
+            "id": "data-analysis",
+            "name": "Data Analysis",
+            "description": "Analyze and process structured or unstructured data",
+            "tags": [
+              "analysis",
+              "process",
+              "data",
+              "analytics",
+              "insights"
+            ],
+            "examples": [
+              "analyze data",
+              "process information",
+              "extract insights"
+            ]
+          },
+          {
+            "id": "summarization",
+            "name": "Data Summarization",
+            "description": "Summarize large amounts of data into key findings",
+            "tags": [
+              "summarize",
+              "summary",
+              "condense",
+              "key points"
+            ],
+            "examples": [
+              "summarize data",
+              "create summary",
+              "condense information"
+            ]
+          }
+        ]
+      },
+      "found": true
+    },
+    {
+      "requirement": {
+        "name": "Document Generation",
+        "description": "Creates a well-formatted and structured document based on the summarized data, ensuring the final report is presentable and organized.",
+        "required": true
+      },
+      "agent": {
+        "name": "document-gen-agent",
+        "description": "Document generation agent that creates well-formatted documents and reports",
+        "url": "http://localhost:9003",
+        "version": "1.0.0",
+        "capabilities": {},
+        "defaultInputModes": [
+          "text",
+          "json"
+        ],
+        "defaultOutputModes": [
+          "document",
+          "pdf",
+          "markdown"
+        ],
+        "skills": [
+          {
+            "id": "document-generation",
+            "name": "Document Generation",
+            "description": "Generate professional documents from structured data",
+            "tags": [
+              "document",
+              "generate",
+              "create",
+              "format",
+              "report"
+            ],
+            "examples": [
+              "generate document",
+              "create report",
+              "format content"
+            ]
+          },
+          {
+            "id": "report-formatting",
+            "name": "Report Formatting",
+            "description": "Format and structure reports with proper layouts",
+            "tags": [
+              "format",
+              "structure",
+              "layout",
+              "professional"
+            ],
+            "examples": [
+              "format report",
+              "structure document",
+              "professional layout"
+            ]
+          }
+        ]
+      },
+      "found": true
+    },
+    {
+      "requirement": {
+        "name": "Error Handling",
+        "description": "Manages and handles any errors that occur during the workflow, providing meaningful feedback to the user and allowing for graceful recovery or termination of the process.",
+        "required": true
+      },
+      "agent": {
+        "name": "data-analysis-agent",
+        "description": "Data analysis agent that can process, analyze and summarize data",
+        "url": "http://localhost:9002",
+        "version": "1.0.0",
+        "capabilities": {},
+        "defaultInputModes": [
+          "text",
+          "json"
+        ],
+        "defaultOutputModes": [
+          "text",
+          "json"
+        ],
+        "skills": [
+          {
+            "id": "data-analysis",
+            "name": "Data Analysis",
+            "description": "Analyze and process structured or unstructured data",
+            "tags": [
+              "analysis",
+              "process",
+              "data",
+              "analytics",
+              "insights"
+            ],
+            "examples": [
+              "analyze data",
+              "process information",
+              "extract insights"
+            ]
+          },
+          {
+            "id": "summarization",
+            "name": "Data Summarization",
+            "description": "Summarize large amounts of data into key findings",
+            "tags": [
+              "summarize",
+              "summary",
+              "condense",
+              "key points"
+            ],
+            "examples": [
+              "summarize data",
+              "create summary",
+              "condense information"
+            ]
+          }
+        ]
+      },
+      "found": true
+    }
+  ],
+  "seata_workflow": {
+    "Name": "ResearchReportGeneration",
+    "Comment": "Generate a comprehensive research report",
+    "StartState": "WebSearch",
+    "Version": "0.0.1",
+    "States": {
+      "CompensateDataAnalysis": {
+        "Type": "ServiceTask",
+        "ServiceName": "data-analysis-agent",
+        "ServiceMethod": "cancelAnalysis",
+        "Input": [
+          "$.[businessKey]",
+          "$.[params]"
+        ],
+        "Output": {
+          "compensateResult": "$.#root"
+        },
+        "Status": {
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "FA"
+        }
+      },
+      "CompensateDocumentGeneration": {
+        "Type": "ServiceTask",
+        "ServiceName": "document-gen-agent",
+        "ServiceMethod": "cancelDocument",
+        "Input": [
+          "$.[businessKey]",
+          "$.[params]"
+        ],
+        "Output": {
+          "compensateResult": "$.#root"
+        },
+        "Status": {
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "FA"
+        }
+      },
+      "CompensateWebSearch": {
+        "Type": "ServiceTask",
+        "ServiceName": "web-search-agent",
+        "ServiceMethod": "cancelSearch",
+        "Input": [
+          "$.[businessKey]",
+          "$.[params]"
+        ],
+        "Output": {
+          "compensateResult": "$.#root"
+        },
+        "Status": {
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "FA"
+        }
+      },
+      "CompensationTrigger": {
+        "Type": "CompensationTrigger",
+        "Next": "Fail"
+      },
+      "DataAnalysis": {
+        "Type": "ServiceTask",
+        "ServiceName": "data-analysis-agent",
+        "ServiceMethod": "analyzeData",
+        "CompensateState": "CompensateDataAnalysis",
+        "IsForUpdate": true,
+        "Input": [
+          "$.[businessKey]",
+          "$.[amount]",
+          "$.[params]"
+        ],
+        "Output": {
+          "result": "$.#root"
+        },
+        "Status": {
+          "#root == false": "FA",
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "UN"
+        },
+        "Catch": [
+          {
+            "Exceptions": [
+              "java.lang.Throwable"
+            ],
+            "Next": "CompensationTrigger"
+          }
+        ],
+        "Next": "DocumentGeneration"
+      },
+      "DocumentGeneration": {
+        "Type": "ServiceTask",
+        "ServiceName": "document-gen-agent",
+        "ServiceMethod": "generateDocument",
+        "CompensateState": "CompensateDocumentGeneration",
+        "IsForUpdate": true,
+        "Input": [
+          "$.[businessKey]",
+          "$.[amount]",
+          "$.[params]"
+        ],
+        "Output": {
+          "result": "$.#root"
+        },
+        "Status": {
+          "#root == false": "FA",
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "UN"
+        },
+        "Catch": [
+          {
+            "Exceptions": [
+              "java.lang.Throwable"
+            ],
+            "Next": "CompensationTrigger"
+          }
+        ],
+        "Next": "Succeed"
+      },
+      "Fail": {
+        "Type": "Fail",
+        "ErrorCode": "WORKFLOW_FAILED",
+        "Message": "Workflow execution failed"
+      },
+      "Succeed": {
+        "Type": "Succeed"
+      },
+      "WebSearch": {
+        "Type": "ServiceTask",
+        "ServiceName": "web-search-agent",
+        "ServiceMethod": "searchWeb",
+        "CompensateState": "CompensateWebSearch",
+        "IsForUpdate": true,
+        "Input": [
+          "$.[businessKey]",
+          "$.[amount]",
+          "$.[params]"
+        ],
+        "Output": {
+          "result": "$.#root"
+        },
+        "Status": {
+          "#root == false": "FA",
+          "#root == true": "SU",
+          "$Exception{java.lang.Throwable}": "UN"
+        },
+        "Catch": [
+          {
+            "Exceptions": [
+              "java.lang.Throwable"
+            ],
+            "Next": "CompensationTrigger"
+          }
+        ],
+        "Next": "DataAnalysis"
+      }
+    }
+  },
+  "react_flow": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "input",
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "data": {
+          "label": "Start"
+        },
+        "style": {
+          "background": "#52C41A",
+          "border": "1px solid #389e0d",
+          "color": "white"
+        }
+      },
+      {
+        "id": "webSearch",
+        "type": "default",
+        "position": {
+          "x": 200,
+          "y": 100
+        },
+        "data": {
+          "label": "Web Search\n(web-search-agent.searchWeb)"
+        },
+        "style": {
+          "background": "#5B8FF9",
+          "border": "1px solid #1d39c4",
+          "color": "white"
+        }
+      },
+      {
+        "id": "dataAnalysis",
+        "type": "default",
+        "position": {
+          "x": 400,
+          "y": 100
+        },
+        "data": {
+          "label": "Data Analysis\n(data-analysis-agent.analyzeData)"
+        },
+        "style": {
+          "background": "#5B8FF9",
+          "border": "1px solid #1d39c4",
+          "color": "white"
+        }
+      },
+      {
+        "id": "documentGeneration",
+        "type": "default",
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "data": {
+          "label": "Document Generation\n(document-gen-agent.generateDocument)"
+        },
+        "style": {
+          "background": "#5B8FF9",
+          "border": "1px solid #1d39c4",
+          "color": "white"
+        }
+      },
+      {
+        "id": "compensateWebSearch",
+        "type": "default",
+        "position": {
+          "x": 200,
+          "y": 250
+        },
+        "data": {
+          "label": "Compensate Web Search\n(web-search-agent.cancelSearch)"
+        },
+        "style": {
+          "background": "#FF6B3B",
+          "border": "1px solid #d4380d",
+          "color": "white"
+        }
+      },
+      {
+        "id": "compensateDataAnalysis",
+        "type": "default",
+        "position": {
+          "x": 400,
+          "y": 250
+        },
+        "data": {
+          "label": "Compensate Data Analysis\n(data-analysis-agent.cancelAnalysis)"
+        },
+        "style": {
+          "background": "#FF6B3B",
+          "border": "1px solid #d4380d",
+          "color": "white"
+        }
+      },
+      {
+        "id": "compensateDocumentGeneration",
+        "type": "default",
+        "position": {
+          "x": 600,
+          "y": 250
+        },
+        "data": {
+          "label": "Compensate Document Generation\n(document-gen-agent.cancelDocument)"
+        },
+        "style": {
+          "background": "#FF6B3B",
+          "border": "1px solid #d4380d",
+          "color": "white"
+        }
+      },
+      {
+        "id": "succeed",
+        "type": "output",
+        "position": {
+          "x": 800,
+          "y": 100
+        },
+        "data": {
+          "label": "Succeed"
+        },
+        "style": {
+          "background": "#52C41A",
+          "border": "1px solid #389e0d",
+          "color": "white"
+        }
+      },
+      {
+        "id": "compensationTrigger",
+        "type": "default",
+        "position": {
+          "x": 600,
+          "y": 350
+        },
+        "data": {
+          "label": "Compensation Trigger"
+        },
+        "style": {
+          "background": "#FFC53D",
+          "border": "1px solid #d48806",
+          "color": "black"
+        }
+      },
+      {
+        "id": "fail",
+        "type": "output",
+        "position": {
+          "x": 800,
+          "y": 350
+        },
+        "data": {
+          "label": "Fail"
+        },
+        "style": {
+          "background": "#FF4D4F",
+          "border": "1px solid #cf1322",
+          "color": "white"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-start-webSearch",
+        "source": "start",
+        "target": "webSearch",
+        "type": "default",
+        "label": "execute",
+        "style": {
+          "stroke": "#5B8FF9",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-webSearch-dataAnalysis",
+        "source": "webSearch",
+        "target": "dataAnalysis",
+        "type": "default",
+        "label": "success",
+        "style": {
+          "stroke": "#5B8FF9",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-dataAnalysis-documentGeneration",
+        "source": "dataAnalysis",
+        "target": "documentGeneration",
+        "type": "default",
+        "label": "success",
+        "style": {
+          "stroke": "#5B8FF9",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-documentGeneration-succeed",
+        "source": "documentGeneration",
+        "target": "succeed",
+        "type": "default",
+        "label": "success",
+        "style": {
+          "stroke": "#5B8FF9",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-webSearch-trigger",
+        "source": "webSearch",
+        "target": "compensationTrigger",
+        "type": "straight",
+        "label": "error",
+        "style": {
+          "stroke": "#FF4D4F",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-dataAnalysis-trigger",
+        "source": "dataAnalysis",
+        "target": "compensationTrigger",
+        "type": "straight",
+        "label": "error",
+        "style": {
+          "stroke": "#FF4D4F",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-documentGeneration-trigger",
+        "source": "documentGeneration",
+        "target": "compensationTrigger",
+        "type": "straight",
+        "label": "error",
+        "style": {
+          "stroke": "#FF4D4F",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-trigger-compensateWebSearch",
+        "source": "compensationTrigger",
+        "target": "compensateWebSearch",
+        "type": "step",
+        "label": "compensate",
+        "style": {
+          "stroke": "#FF6B3B",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-trigger-compensateDataAnalysis",
+        "source": "compensationTrigger",
+        "target": "compensateDataAnalysis",
+        "type": "step",
+        "label": "compensate",
+        "style": {
+          "stroke": "#FF6B3B",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-trigger-compensateDocumentGeneration",
+        "source": "compensationTrigger",
+        "target": "compensateDocumentGeneration",
+        "type": "step",
+        "label": "compensate",
+        "style": {
+          "stroke": "#FF6B3B",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "e-trigger-fail",
+        "source": "compensationTrigger",
+        "target": "fail",
+        "type": "default",
+        "label": "after compensation",
+        "style": {
+          "stroke": "#FF4D4F",
+          "strokeWidth": 2
+        }
+      }
+    ]
+  },
+  "retry_count": 0
+}

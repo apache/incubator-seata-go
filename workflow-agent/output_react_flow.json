@@ -1,0 +1,287 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "input",
+      "position": {
+        "x": 0,
+        "y": 100
+      },
+      "data": {
+        "label": "Start"
+      },
+      "style": {
+        "background": "#52C41A",
+        "border": "1px solid #389e0d",
+        "color": "white"
+      }
+    },
+    {
+      "id": "webSearch",
+      "type": "default",
+      "position": {
+        "x": 200,
+        "y": 100
+      },
+      "data": {
+        "label": "Web Search\n(web-search-agent.searchWeb)"
+      },
+      "style": {
+        "background": "#5B8FF9",
+        "border": "1px solid #1d39c4",
+        "color": "white"
+      }
+    },
+    {
+      "id": "dataAnalysis",
+      "type": "default",
+      "position": {
+        "x": 400,
+        "y": 100
+      },
+      "data": {
+        "label": "Data Analysis\n(data-analysis-agent.analyzeData)"
+      },
+      "style": {
+        "background": "#5B8FF9",
+        "border": "1px solid #1d39c4",
+        "color": "white"
+      }
+    },
+    {
+      "id": "documentGeneration",
+      "type": "default",
+      "position": {
+        "x": 600,
+        "y": 100
+      },
+      "data": {
+        "label": "Document Generation\n(document-gen-agent.generateDocument)"
+      },
+      "style": {
+        "background": "#5B8FF9",
+        "border": "1px solid #1d39c4",
+        "color": "white"
+      }
+    },
+    {
+      "id": "compensateWebSearch",
+      "type": "default",
+      "position": {
+        "x": 200,
+        "y": 250
+      },
+      "data": {
+        "label": "Compensate Web Search\n(web-search-agent.cancelSearch)"
+      },
+      "style": {
+        "background": "#FF6B3B",
+        "border": "1px solid #d4380d",
+        "color": "white"
+      }
+    },
+    {
+      "id": "compensateDataAnalysis",
+      "type": "default",
+      "position": {
+        "x": 400,
+        "y": 250
+      },
+      "data": {
+        "label": "Compensate Data Analysis\n(data-analysis-agent.cancelAnalysis)"
+      },
+      "style": {
+        "background": "#FF6B3B",
+        "border": "1px solid #d4380d",
+        "color": "white"
+      }
+    },
+    {
+      "id": "compensateDocumentGeneration",
+      "type": "default",
+      "position": {
+        "x": 600,
+        "y": 250
+      },
+      "data": {
+        "label": "Compensate Document Generation\n(document-gen-agent.cancelDocument)"
+      },
+      "style": {
+        "background": "#FF6B3B",
+        "border": "1px solid #d4380d",
+        "color": "white"
+      }
+    },
+    {
+      "id": "succeed",
+      "type": "output",
+      "position": {
+        "x": 800,
+        "y": 100
+      },
+      "data": {
+        "label": "Succeed"
+      },
+      "style": {
+        "background": "#52C41A",
+        "border": "1px solid #389e0d",
+        "color": "white"
+      }
+    },
+    {
+      "id": "compensationTrigger",
+      "type": "default",
+      "position": {
+        "x": 600,
+        "y": 350
+      },
+      "data": {
+        "label": "Compensation Trigger"
+      },
+      "style": {
+        "background": "#FFC53D",
+        "border": "1px solid #d48806",
+        "color": "black"
+      }
+    },
+    {
+      "id": "fail",
+      "type": "output",
+      "position": {
+        "x": 800,
+        "y": 350
+      },
+      "data": {
+        "label": "Fail"
+      },
+      "style": {
+        "background": "#FF4D4F",
+        "border": "1px solid #cf1322",
+        "color": "white"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-webSearch",
+      "source": "start",
+      "target": "webSearch",
+      "type": "default",
+      "label": "execute",
+      "style": {
+        "stroke": "#5B8FF9",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-webSearch-dataAnalysis",
+      "source": "webSearch",
+      "target": "dataAnalysis",
+      "type": "default",
+      "label": "success",
+      "style": {
+        "stroke": "#5B8FF9",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-dataAnalysis-documentGeneration",
+      "source": "dataAnalysis",
+      "target": "documentGeneration",
+      "type": "default",
+      "label": "success",
+      "style": {
+        "stroke": "#5B8FF9",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-documentGeneration-succeed",
+      "source": "documentGeneration",
+      "target": "succeed",
+      "type": "default",
+      "label": "success",
+      "style": {
+        "stroke": "#5B8FF9",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-webSearch-trigger",
+      "source": "webSearch",
+      "target": "compensationTrigger",
+      "type": "straight",
+      "label": "error",
+      "style": {
+        "stroke": "#FF4D4F",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-dataAnalysis-trigger",
+      "source": "dataAnalysis",
+      "target": "compensationTrigger",
+      "type": "straight",
+      "label": "error",
+      "style": {
+        "stroke": "#FF4D4F",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-documentGeneration-trigger",
+      "source": "documentGeneration",
+      "target": "compensationTrigger",
+      "type": "straight",
+      "label": "error",
+      "style": {
+        "stroke": "#FF4D4F",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-trigger-compensateWebSearch",
+      "source": "compensationTrigger",
+      "target": "compensateWebSearch",
+      "type": "step",
+      "label": "compensate",
+      "style": {
+        "stroke": "#FF6B3B",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-trigger-compensateDataAnalysis",
+      "source": "compensationTrigger",
+      "target": "compensateDataAnalysis",
+      "type": "step",
+      "label": "compensate",
+      "style": {
+        "stroke": "#FF6B3B",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-trigger-compensateDocumentGeneration",
+      "source": "compensationTrigger",
+      "target": "compensateDocumentGeneration",
+      "type": "step",
+      "label": "compensate",
+      "style": {
+        "stroke": "#FF6B3B",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "e-trigger-fail",
+      "source": "compensationTrigger",
+      "target": "fail",
+      "type": "default",
+      "label": "after compensation",
+      "style": {
+        "stroke": "#FF4D4F",
+        "strokeWidth": 2
+      }
+    }
+  ]
+}

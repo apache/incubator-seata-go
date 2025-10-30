@@ -1,7 +1,11 @@
-go 1.24.5
-
+go 1.24.7
 use (
-  ./transport
-  ./txn-agent
-  ./agenthub
+	  ./workflow-agent
+	  ./a2a
+    ./txn-agent
+    ./agenthub
+    ./a2a
+    ./agent-cli./transport
+    a2a/examples/simple-chat/client
+    a2a/examples/simple-chat/server
 )

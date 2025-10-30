@@ -1,0 +1,46 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+agent:
+  name: workflow-agent
+  description: Seata workflow agent for managing distributed workflows
+  version: 1.0.0
+  skills:
+    - workflow-management
+    - task-execution
+
+hub:
+  base_url: http://localhost:8080
+  timeout: 30
+  heartbeat_enabled: true
+  heartbeat_period: 30
+
+logger:
+  level: info
+  format: text
+  output_path: stdout
+
+server:
+  host: localhost
+  port: 9090
+
+llm:
+  default_model: qwen-max
+  api_key: sk-1cd306a727af41c29267b17fd1ba750b
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  config: {}
+
+orchestration:
+  max_retry_count: 3
