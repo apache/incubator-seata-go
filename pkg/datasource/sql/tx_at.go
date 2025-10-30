@@ -33,9 +33,7 @@ type ATTx struct {
 // case 2. not need flush undolog, is XA mode, do local transaction commit
 // case 3. need run AT transaction
 func (tx *ATTx) Commit() error {
-	if err := tx.tx.beforeCommit(); err != nil {
-		return err
-	}
+	tx.tx.beforeCommit()
 	return tx.commitOnAT()
 }
 

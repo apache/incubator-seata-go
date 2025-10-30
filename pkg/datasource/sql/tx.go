@@ -55,7 +55,7 @@ type (
 	txOption func(tx *Tx)
 
 	txHook interface {
-		BeforeCommit(tx *Tx) error
+		BeforeCommit(tx *Tx)
 
 		BeforeRollback(tx *Tx)
 	}
@@ -103,26 +103,44 @@ type Tx struct {
 	target  driver.Tx
 }
 
-// Commit do commit action
-func (tx *Tx) Commit() error {
-	if err := tx.beforeCommit(); err != nil {
-		return err
-	}
-	return tx.commitOnLocal()
+// GetTarget returns the underlying driver.Tx (for internal use in XA operations)
+func (tx *Tx) GetTarget() driver.Tx {
+	return tx.target
 }
 
-func (tx *Tx) beforeCommit() error {
+func (tx *Tx) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if tx.target == nil {
+		err := fmt.Errorf("tx.target is nil, cannot execute SQL: %s", query)
+		log.Errorf("Tx.ExecContext failed: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
+	}
+
+	execer, ok := tx.target.(driver.ExecerContext)
+	if !ok {
+		err := fmt.Errorf("tx.target does not support ExecerContext (required for XA), target type=%T, query=%s", tx.target, query)
+		log.Errorf("Tx.ExecContext incompatible driver: %v, xid=%s", err, tx.tranCtx.XID)
+		return nil, err
+	}
+
+	return execer.ExecContext(ctx, query, args)
+}
+
+// Commit do commit action
+func (tx *Tx) Commit() error {
+	tx.beforeCommit()
+	err := tx.commitOnLocal()
+	return err
+}
+
+func (tx *Tx) beforeCommit() {
 	if len(txHooks) != 0 {
 		hl.RLock()
 		defer hl.RUnlock()
 
 		for i := range txHooks {
-			if err := txHooks[i].BeforeCommit(tx); err != nil {
-				return err
-			}
+			txHooks[i].BeforeCommit(tx)
 		}
 	}
-	return nil
 }
 
 func (tx *Tx) Rollback() error {
@@ -135,6 +153,11 @@ func (tx *Tx) Rollback() error {
 		}
 	}
 
+	if tx.target == nil {
+		log.Warnf("tx.target is nil, cannot rollback. This may happen after XA PREPARE. xid=%s", tx.tranCtx.XID)
+		return nil
+	}
+
 	return tx.target.Rollback()
 }
 
@@ -145,6 +168,10 @@ func (tx *Tx) init() error {
 
 // commitOnLocal
 func (tx *Tx) commitOnLocal() error {
+	if tx.target == nil {
+		log.Warnf("tx.target is nil, cannot commit. This may happen after XA PREPARE. xid=%s", tx.tranCtx.XID)
+		return nil
+	}
 	return tx.target.Commit()
 }
 
@@ -214,7 +241,7 @@ func (tx *Tx) report(success bool) error {
 		if err = dataSourceManager.BranchReport(context.Background(), request); err == nil {
 			break
 		}
-		log.Infof("Failed to report [%d / %s] commit done [%v] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
+		log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 		retry.Wait()
 	}
 	return err

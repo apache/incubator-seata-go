@@ -23,14 +23,15 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var xaConnTimeout time.Duration
@@ -114,8 +115,7 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 // BeginTx like common transaction. but it just exec XA START
 func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if !tm.IsGlobalTx(ctx) {
-		tx, err := c.Conn.BeginTx(ctx, opts)
-		return tx, err
+		return c.Conn.BeginTx(ctx, opts)
 	}
 
 	c.autoCommit = false
@@ -140,23 +140,28 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		baseTx, ok := tx.(*Tx)
 		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+			return nil, fmt.Errorf("start xa %s transaction failure: tx type invalid", c.txCtx.XID)
 		}
 
-		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+			return nil, fmt.Errorf("failed to register xa branch %s: %w", c.txCtx.XID, err)
 		}
 
-		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+		c.xaBranchXid = NewXABranchXid(
+			WithXid(c.txCtx.XID),
+			WithBranchId(uint64(c.txCtx.BranchID)),
+			WithDatabaseType(c.txCtx.DBType),
+		)
+
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
+			return nil, err
 		}
 		c.xaActive = true
+		c.branchRegisterTime = time.Now()
 	}
 
 	return &XATx{tx: tx.(*Tx)}, nil
@@ -197,8 +202,11 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}()
 
 	currentAutoCommit := c.autoCommit
+
 	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		tx, err = c.BeginTx(ctx, driver.TxOptions{
+			Isolation: driver.IsolationLevel(gosql.LevelDefault),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +236,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 }
 
 func (c *XAConn) keepIfNecessary() {
-	if c.ShouldBeHeld() {
+	if c.ShouldBeHeld() && c.xaBranchXid != nil {
 		if err := c.res.Hold(c.xaBranchXid.String(), c); err == nil {
 			c.isConnKept = true
 		}
@@ -236,7 +244,7 @@ func (c *XAConn) keepIfNecessary() {
 }
 
 func (c *XAConn) releaseIfNecessary() {
-	if c.ShouldBeHeld() && c.xaBranchXid.String() != "" {
+	if c.ShouldBeHeld() && c.xaBranchXid != nil && c.xaBranchXid.String() != "" {
 		if c.isConnKept {
 			c.res.Release(c.xaBranchXid.String())
 			c.isConnKept = false
@@ -245,7 +253,15 @@ func (c *XAConn) releaseIfNecessary() {
 }
 
 func (c *XAConn) start(ctx context.Context) error {
-	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType)
+	// Extract the underlying transaction from the wrapped Tx
+	var targetTx driver.Tx
+	if baseTx, ok := c.tx.(*Tx); ok && baseTx != nil {
+		targetTx = baseTx.GetTarget()
+	} else {
+		targetTx = c.tx
+	}
+
+	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType, targetTx)
 	if err != nil {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}
@@ -344,18 +360,28 @@ func (c *XAConn) Commit(ctx context.Context) error {
 		return fmt.Errorf("should NOT commit on an inactive session")
 	}
 
-	now := time.Now()
 	if c.end(ctx, xa.TMSuccess) != nil {
 		return c.commitErrorHandle(ctx)
 	}
 
-	if c.checkTimeout(ctx, now) != nil {
+	// Check timeout BEFORE prepare, not after
+	if c.checkTimeout(ctx, time.Now()) != nil {
 		return c.commitErrorHandle(ctx)
 	}
 
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
 		return c.commitErrorHandle(ctx)
 	}
+
+	// Record prepare time for phase 2 timeout checking
+	c.prepareTime = time.Now()
+
+	// Reset connection state after XA PREPARE to allow connection reuse
+	// The XA branch is now in PREPARED state and will be committed/rolled back
+	// in phase 2 by the global coordinator
+	c.autoCommit = true
+	c.xaActive = false
+
 	return nil
 }
 
@@ -373,8 +399,13 @@ func (c *XAConn) ShouldBeHeld() bool {
 }
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
-	if now.Sub(c.branchRegisterTime) > xaConnTimeout {
-		c.XaRollback(ctx, c.xaBranchXid)
+	if xaConnTimeout > 0 && now.Sub(c.branchRegisterTime) > xaConnTimeout {
+		log.Warnf("XA branch timeout detected for xid: %s, attempting rollback", c.txCtx.XID)
+		if c.xaResource != nil && c.xaBranchXid != nil {
+			if err := c.XaRollback(ctx, c.xaBranchXid); err != nil {
+				log.Errorf("failed to rollback timed out XA branch xid: %s, err: %v", c.txCtx.XID, err)
+			}
+		}
 		return fmt.Errorf("XA branch timeout error xid:%s", c.txCtx.XID)
 	}
 	return nil
@@ -403,6 +434,10 @@ func (c *XAConn) CloseForce() error {
 }
 
 func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
+	if c.xaResource == nil {
+		log.Errorf("xaResource is nil, cannot commit xid: %s", xaXid.String())
+		return fmt.Errorf("xaResource is nil for xid: %s", xaXid.String())
+	}
 	err := c.xaResource.Commit(ctx, xaXid.String(), false)
 	c.releaseIfNecessary()
 	return err
@@ -413,23 +448,60 @@ func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 }
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
+	if c.xaResource == nil {
+		log.Errorf("xaResource is nil, cannot rollback xid: %s", xaXid.String())
+		return fmt.Errorf("xaResource is nil for xid: %s", xaXid.String())
+	}
 	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
 }
 
-// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
-// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
 func isXAER_RMFAILAlreadyEnded(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
 			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
 		}
+		// For MySQL errors, only trust the specific error code
+		return false
 	}
-	// TODO: handle other DB errors
+
+	if pgErr, ok := err.(*pq.Error); ok {
+		return isPostgreSQLXAAlreadyEnded(pgErr)
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "idle") ||
+		strings.Contains(errMsg, "already ended") ||
+		strings.Contains(errMsg, "no active") ||
+		strings.Contains(errMsg, "invalid transaction state")
+}
+
+func isPostgreSQLXAAlreadyEnded(pgErr *pq.Error) bool {
+	if pgErr == nil {
+		return false
+	}
+
+	switch pgErr.Code {
+	case types.PostgreSQLErrCodeNoActiveSQLTx:
+		return true
+	case types.PostgreSQLErrCodeIdleInTx:
+		return true
+	case types.PostgreSQLErrCodeFailedSQLTx:
+		return strings.Contains(strings.ToLower(pgErr.Message), "already") ||
+			strings.Contains(strings.ToLower(pgErr.Message), "ended")
+	}
+
+	if pgErr.Code.Class() == types.PostgreSQLErrClassInvalidTxState {
+		message := strings.ToLower(pgErr.Message)
+		return strings.Contains(message, "idle") ||
+			strings.Contains(message, "already ended") ||
+			strings.Contains(message, "no active")
+	}
 
 	return false
 }

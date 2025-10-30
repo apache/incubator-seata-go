@@ -21,48 +21,48 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-type (
-	// trigger
-	trigger interface {
-		LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
+type trigger interface {
+	LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error)
+	LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error)
+}
 
-		LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error)
-	}
-
-	entry struct {
-		value      types.TableMeta
-		lastAccess time.Time
-	}
-)
+type entry struct {
+	value      types.TableMeta
+	lastAccess time.Time
+}
 
 // BaseTableMetaCache
 type BaseTableMetaCache struct {
 	lock           sync.RWMutex
 	expireDuration time.Duration
-	capity         int32
+	capacity       int32
 	size           int32
 	cache          map[string]*entry
 	cancel         context.CancelFunc
 	trigger        trigger
 	db             *sql.DB
-	cfg            *mysql.Config
+	cfg            interface{}
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
+func NewBaseCache(capacity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg interface{}) *BaseTableMetaCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &BaseTableMetaCache{
 		lock:           sync.RWMutex{},
-		capity:         capity,
+		capacity:       capacity,
 		size:           0,
 		expireDuration: expireDuration,
 		cache:          map[string]*entry{},
@@ -77,6 +77,34 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 	return c
 }
 
+func (c *BaseTableMetaCache) enforceCapacity() {
+	if c.capacity <= 0 || int32(len(c.cache)) <= c.capacity {
+		return
+	}
+
+	type lruEntry struct {
+		key        string
+		lastAccess time.Time
+	}
+
+	entries := make([]lruEntry, 0, len(c.cache))
+	for key, entry := range c.cache {
+		entries = append(entries, lruEntry{
+			key:        key,
+			lastAccess: entry.lastAccess,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].lastAccess.Before(entries[j].lastAccess)
+	})
+
+	removeCount := int32(len(c.cache)) - c.capacity
+	for i := int32(0); i < removeCount; i++ {
+		delete(c.cache, entries[i].key)
+	}
+}
+
 // init
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 	go c.refresh(ctx)
@@ -87,43 +115,75 @@ func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 
 // refresh
 func (c *BaseTableMetaCache) refresh(ctx context.Context) {
-	f := func() {
-		if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
-			return
+	f := func(ctx context.Context) bool {
+		if c.db == nil || c.cfg == nil || c.cache == nil {
+			return true
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Printf("refresh: Received a cancel signal, preparing to exit")
+			return false
+		default:
 		}
 
 		tables := make([]string, 0, len(c.cache))
 		for table := range c.cache {
 			tables = append(tables, table)
 		}
+
+		dbName, err := c.getDBName()
+		if err != nil {
+			return true
+		}
+
+		dbType, err := c.getDBType()
+		if err != nil {
+			log.Printf("refresh: failed to get db type, err: %v", err)
+			return true
+		}
+
 		conn, err := c.db.Conn(ctx)
 		if err != nil {
-			return
+			return true
 		}
-		v, err := c.trigger.LoadAll(ctx, c.cfg.DBName, conn, tables...)
+		defer conn.Close()
+		tableMetas, err := c.trigger.LoadAll(ctx, dbName, conn, tables...)
 		if err != nil {
-			return
+			return true
 		}
 
 		c.lock.Lock()
 		defer c.lock.Unlock()
-
-		for i := range v {
-			tm := v[i]
-			if _, ok := c.cache[tm.TableName]; ok {
-				c.cache[tm.TableName] = &entry{
-					value: tm,
-				}
+		for i := range tableMetas {
+			tableMetas[i].DBType = dbType
+			upperTableName := strings.ToUpper(tableMetas[i].TableName)
+			c.cache[upperTableName] = &entry{
+				value:      tableMetas[i],
+				lastAccess: time.Now(),
 			}
 		}
+		c.enforceCapacity()
+		return true
 	}
 
-	f()
+	if !f(ctx) {
+		return
+	}
 
-	ticker := time.NewTicker(time.Duration(1 * time.Minute))
+	ticker := time.NewTicker(c.expireDuration)
 	defer ticker.Stop()
-	for range ticker.C {
-		f()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("refresh: Context cancellation detected, exiting loop")
+			return
+		case <-ticker.C:
+			if !f(ctx) {
+				return
+			}
+		}
 	}
 }
 
@@ -131,23 +191,23 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 	ticker := time.NewTicker(c.expireDuration)
 	defer ticker.Stop()
-	for range ticker.C {
 
-		f := func() {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 			c.lock.Lock()
-			defer c.lock.Unlock()
 
 			cur := time.Now()
-			for k := range c.cache {
-				entry := c.cache[k]
-
+			for k, entry := range c.cache {
 				if cur.Sub(entry.lastAccess) > c.expireDuration {
 					delete(c.cache, k)
 				}
 			}
-		}
 
-		f()
+			c.lock.Unlock()
+		}
 	}
 }
 
@@ -156,33 +216,67 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	defer conn.Close()
-	v, ok := c.cache[tableName]
-	if !ok {
-		meta, err := c.trigger.LoadOne(ctx, dbName, tableName, conn)
-		if err != nil {
-			return types.TableMeta{}, err
-		}
-
-		if meta != nil && !meta.IsEmpty() {
-			c.cache[tableName] = &entry{
-				value:      *meta,
-				lastAccess: time.Now(),
-			}
-
-			return *meta, nil
-		}
-
-		return types.TableMeta{}, fmt.Errorf("not found table metadata")
+	upperTableName := strings.ToUpper(tableName)
+	e, ok := c.cache[upperTableName]
+	if ok {
+		e.lastAccess = time.Now()
+		c.cache[upperTableName] = e
+		return e.value, nil
 	}
 
-	v.lastAccess = time.Now()
-	c.cache[tableName] = v
+	dbType, err := c.getDBType()
+	if err != nil {
+		return types.TableMeta{}, fmt.Errorf("get db type failed: %w", err)
+	}
 
-	return v.value, nil
+	meta, err := c.trigger.LoadOne(ctx, dbName, upperTableName, conn)
+	if err != nil {
+		return types.TableMeta{}, err
+	}
+	if meta == nil || meta.IsEmpty() {
+		return types.TableMeta{}, fmt.Errorf("not found table metadata for %s", tableName)
+	}
+
+	meta.DBType = dbType
+
+	c.cache[upperTableName] = &entry{
+		value:      *meta,
+		lastAccess: time.Now(),
+	}
+	c.enforceCapacity()
+	return *meta, nil
+}
+
+func (c *BaseTableMetaCache) getDBType() (types.DBType, error) {
+	switch cfg := c.cfg.(type) {
+	case *mysql.Config:
+		return types.DBTypeMySQL, nil
+	case string:
+		if _, err := pgx.ParseConfig(cfg); err != nil {
+			return types.DBTypeUnknown, fmt.Errorf("invalid postgresql dsn: %w", err)
+		}
+		return types.DBTypePostgreSQL, nil
+	default:
+		return types.DBTypeUnknown, fmt.Errorf("unsupported config type: %T", cfg)
+	}
 }
 
 func (c *BaseTableMetaCache) Destroy() error {
 	c.cancel()
 	return nil
+}
+
+func (c *BaseTableMetaCache) getDBName() (string, error) {
+	switch cfg := c.cfg.(type) {
+	case *mysql.Config:
+		return cfg.DBName, nil
+	case string:
+		pgxCfg, err := pgx.ParseConfig(cfg)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse postgresql dsn: %w", err)
+		}
+		return pgxCfg.Database, nil
+	default:
+		return "", fmt.Errorf("unsupported config type: %T", cfg)
+	}
 }
