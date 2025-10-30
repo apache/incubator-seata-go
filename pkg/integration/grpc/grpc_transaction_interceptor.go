@@ -46,7 +46,7 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	end := time.Now()
 	log.Infof("RPC: %s, start time: %s, end time: %s, err: %v", method,
-		start.Format("Basic"), end.Format(time.RFC3339), err)
+		start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 	return err
 }
 
