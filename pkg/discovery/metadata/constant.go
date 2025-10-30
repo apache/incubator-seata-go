@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package discovery
+package metadata
+
+type ClusterRole string
 
 const (
-	FILE   string = "file"
-	NACOS  string = "nacos"
-	ETCD   string = "etcd"
-	EUREKA string = "eureka"
-	REDIS  string = "redis"
-	ZK     string = "zk"
-	CONSUL string = "consul"
-	SOFA   string = "sofa"
-	RAFT   string = "raft"
+	LEADER   ClusterRole = "LEADER"
+	FOLLOWER ClusterRole = "FOLLOWER"
+	LEARNER  ClusterRole = "LEARNER"
+	MEMBER   ClusterRole = "MEMBER"
 )
 
-type ServiceInstance struct {
-	Addr string
-	Port int
-}
+type StoreMode string
 
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
-}
+const (
+	FILE  StoreMode = "file"
+	DB    StoreMode = "db"
+	REDIS StoreMode = "redis"
+	RAFT  StoreMode = "raft"
+)
