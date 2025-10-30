@@ -355,6 +355,91 @@ func MySQLStrToJavaType(mysqlType string) JDBCType {
 	}
 }
 
+func PostgresStrToJavaType(postgresType string) JDBCType {
+	switch strings.ToUpper(postgresType) {
+	case "SMALLINT", "INT2":
+		return JDBCTypeSmallInt
+	case "INTEGER", "INT", "INT4", "SERIAL", "SERIAL4":
+		return JDBCTypeInteger
+	case "BIGINT", "INT8", "BIGSERIAL", "SERIAL8":
+		return JDBCTypeBigInt
+	case "TINYINT":
+		return JDBCTypeTinyInt
+
+	case "REAL", "FLOAT4":
+		return JDBCTypeReal
+	case "DOUBLE PRECISION", "FLOAT8":
+		return JDBCTypeDouble
+	case "NUMERIC", "DECIMAL":
+		return JDBCTypeDecimal
+
+	case "CHAR", "CHARACTER":
+		return JDBCTypeChar
+	case "VARCHAR", "CHARACTER VARYING":
+		return JDBCTypeVarchar
+	case "TEXT":
+		return JDBCTypeLongVarchar
+
+	case "BYTEA":
+		return JDBCTypeVarBinary
+
+	case "DATE":
+		return JDBCTypeDate
+	case "TIME":
+		return JDBCTypeTime
+	case "TIME WITH TIME ZONE", "TIMETZ":
+		return JDBCTypeTimeWithTimeZone
+	case "TIMESTAMP", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE":
+		return JDBCTypeTimestampWithTimezone
+
+	case "BOOLEAN":
+		return JDBCTypeBoolean
+
+	case "JSON", "JSONB":
+		return JDBCTypeOther
+	case "ARRAY":
+		return JDBCTypeArray
+	case "BIT", "BIT VARYING", "VARBIT":
+		return JDBCTypeBit
+	case "UUID":
+		return JDBCTypeVarchar
+	case "XML":
+		return JDBCTypeSqlXML
+
+	case "BLOB", "OID":
+		return JDBCTypeBlob
+	case "CLOB":
+		return JDBCTypeClob
+
+	case "INET", "CIDR", "MACADDR", "MACADDR8":
+		return JDBCTypeVarchar
+	case "POINT", "LINE", "LSEG", "BOX", "PATH", "POLYGON", "CIRCLE":
+		return JDBCTypeOther
+	case "INTERVAL":
+		return JDBCTypeOther
+	case "MONEY":
+		return JDBCTypeDecimal
+	case "HSTORE":
+		return JDBCTypeOther
+	case "ENUM":
+		return JDBCTypeVarchar
+
+	default:
+		return JDBCTypeOther
+	}
+}
+
+func ParseDBTypeToJavaType(dbType DBType, dbTypeStr string) JDBCType {
+	switch dbType {
+	case DBTypeMySQL:
+		return MySQLStrToJavaType(dbTypeStr)
+	case DBTypePostgreSQL:
+		return PostgresStrToJavaType(dbTypeStr)
+	default:
+		return JDBCTypeOther
+	}
+}
+
 // XA transaction related error code constants (based on MySQL/MariaDB specifications)
 const (
 	// ErrCodeXAER_RMFAIL_IDLE 1399: XAER_RMFAIL - The command cannot be executed when global transaction is in the IDLE state
@@ -364,4 +449,22 @@ const (
 	// ErrCodeXAER_INVAL 1400: XAER_INVAL - Invalid XA transaction ID format
 	// Triggered by malformed XID (e.g., invalid gtrid/branchid format or excessive length)
 	ErrCodeXAER_INVAL = 1400
+)
+
+// PostgreSQL XA transaction error codes
+const (
+	// PostgreSQL error class 25000: invalid transaction state
+	PostgreSQLErrClassInvalidTxState = "25000"
+
+	// PostgreSQL error code 25001: active SQL transaction
+	PostgreSQLErrCodeActiveSQLTx = "25001"
+
+	// PostgreSQL error code 25P01: no active SQL transaction
+	PostgreSQLErrCodeNoActiveSQLTx = "25P01"
+
+	// PostgreSQL error code 25P02: in failed SQL transaction
+	PostgreSQLErrCodeFailedSQLTx = "25P02"
+
+	// PostgreSQL error code 25P03: idle in transaction
+	PostgreSQLErrCodeIdleInTx = "25P03"
 )

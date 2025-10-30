@@ -27,14 +27,22 @@ import (
 
 // CreateXAResource create a connection for xa with the different db type.
 // Such as mysql, oracle, MARIADB, POSTGRESQL
-func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error) {
+func CreateXAResource(conn driver.Conn, dbType types.DBType, tx ...driver.Tx) (XAResource, error) {
 	var err error
 	var xaConnection XAResource
+
 	switch dbType {
 	case types.DBTypeMySQL:
 		xaConnection = NewMysqlXaConn(conn)
 	case types.DBTypeOracle:
 	case types.DBTypePostgreSQL:
+		var targetTx driver.Tx
+		if len(tx) > 0 && tx[0] != nil {
+			targetTx = tx[0]
+		} else {
+			return nil, fmt.Errorf("postgresql xa resource requires a valid driver.Tx")
+		}
+		xaConnection = NewPostgresqlXaConn(conn, targetTx)
 	default:
 		err = fmt.Errorf("not support db type for :%s", dbType.String())
 	}

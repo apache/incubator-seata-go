@@ -96,6 +96,8 @@ func ParseDBType(driverName string) DBType {
 	switch strings.ToLower(driverName) {
 	case "mysql":
 		return DBTypeMySQL
+	case "postgres", "postgresql", "pgx":
+		return DBTypePostgreSQL
 	default:
 		return DBTypeUnknown
 	}
@@ -157,6 +159,7 @@ type ExecContext struct {
 	// todo delete
 	MetaDataMap map[string]TableMeta
 	Conn        driver.Conn
+	DB          interface{} // *sql.DB for accessing table metadata
 	DBName      string
 	DBType      DBType
 	DbVersion   string

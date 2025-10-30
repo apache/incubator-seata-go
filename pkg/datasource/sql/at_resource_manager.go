@@ -31,6 +31,7 @@ import (
 	"seata.apache.org/seata-go/pkg/protocol/branch"
 	"seata.apache.org/seata-go/pkg/rm"
 	serr "seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
@@ -74,20 +75,28 @@ func (a *ATSourceManager) UnregisterResource(res rm.Resource) error {
 
 // BranchRollback rollback a branch transaction
 func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	log.Infof("[BranchRollback] Starting rollback for xid=%s, branchId=%d, resourceId=%s",
+		branchResource.Xid, branchResource.BranchId, branchResource.ResourceId)
+
 	var dbResource *DBResource
 	if resource, ok := a.resourceCache.Load(branchResource.ResourceId); !ok {
 		err := fmt.Errorf("DB resource is not exist, resourceId: %s", branchResource.ResourceId)
+		log.Errorf("[BranchRollback] DB resource not found: %v", err)
 		return branch.BranchStatusUnknown, err
 	} else {
 		dbResource, _ = resource.(*DBResource)
+		log.Infof("[BranchRollback] Found DB resource, dbType=%v, dbName=%s", dbResource.dbType, dbResource.dbName)
 	}
 
 	undoMgr, err := undo.GetUndoLogManager(dbResource.dbType)
 	if err != nil {
+		log.Errorf("[BranchRollback] Failed to get undo log manager: %v", err)
 		return branch.BranchStatusUnknown, err
 	}
 
-	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName); err != nil {
+	log.Infof("[BranchRollback] Calling undoMgr.RunUndo...")
+	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName, dbResource.cfg); err != nil {
+		log.Errorf("[BranchRollback] RunUndo failed: %v", err)
 		transErr, ok := err.(*serr.SeataError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
@@ -100,6 +109,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, nil
 	}
 
+	log.Infof("[BranchRollback] RunUndo completed successfully")
 	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 

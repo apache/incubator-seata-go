@@ -19,6 +19,7 @@ package builder
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"reflect"
 	"testing"
@@ -44,7 +45,9 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
 
-	datasource.RegisterTableCache(types.DBTypeMySQL, &mysql.TableMetaCache{})
+	datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+		return &mysql.TableMetaCache{}
+	})
 
 	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 		return &types.TableMeta{
@@ -100,7 +103,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := parser.DoParser(tt.sourceQuery)
+			c, err := parser.DoParser(tt.sourceQuery, types.DBTypeMySQL)
 			assert.Nil(t, err)
 			query, args, err := builder.buildBeforeImageSQL(context.Background(), &types.ExecContext{ParseContext: c}, tt.sourceQueryArgs)
 			assert.Nil(t, err)

@@ -19,14 +19,18 @@ package at
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"reflect"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/postgres"
+	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
@@ -40,20 +44,22 @@ import (
 func TestBuildSelectSQLByInsert(t *testing.T) {
 	tests := []struct {
 		name              string
+		dbType            types.DBType
 		query             string
 		queryArgs         []driver.Value
 		NamedValues       []driver.NamedValue
 		metaData          types.TableMeta
 		expectQuery       string
 		expectQueryArgs   []driver.Value
-		orExpectQuery     string
-		orExpectQueryArgs []driver.Value
-		mockInsertResult  mockInsertResult
+		pgExpectQuery     string
+		pgExpectQueryArgs []driver.Value
+		mockInsertResult  mock.MockInsertResult
 		IncrementStep     int
 	}{
 		{
-			name:  "test-1",
-			query: "insert into user(id,name) values (19,'Tony'),(21,'tony')",
+			name:   "test-1-mysql",
+			dbType: types.DBTypeMySQL,
+			query:  "insert into user(id,name) values (19,'Tony'),(21,'tony')",
 			metaData: types.TableMeta{
 				ColumnNames: []string{"id", "name"},
 				Indexs: map[string]types.IndexMeta{
@@ -69,21 +75,17 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
-					},
-					"name": {
-						ColumnName: "name",
-					},
+					"id":   {ColumnName: "id"},
+					"name": {ColumnName: "name"},
 				},
 			},
-
-			expectQuery:     "SELECT id, name FROM user WHERE (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT id, name FROM `user` WHERE (`id`) IN ((?),(?))",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
-			name:  "test-2",
-			query: "insert into user(user_id,name) values (20,'Tony')",
+			name:   "test-2-mysql",
+			dbType: types.DBTypeMySQL,
+			query:  "insert into user(user_id,name) values (20,'Tony')",
 			metaData: types.TableMeta{
 				ColumnNames: []string{"user_id", "name"},
 				Indexs: map[string]types.IndexMeta{
@@ -99,54 +101,100 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 				Columns: map[string]types.ColumnMeta{
-					"user_id": {
-						ColumnName: "user_id",
-					},
-					"name": {
-						ColumnName: "name",
-					},
+					"user_id": {ColumnName: "user_id"},
+					"name":    {ColumnName: "name"},
 				},
 			},
-			expectQuery:     "SELECT user_id, name FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT user_id, name FROM `user` WHERE (`user_id`) IN ((?))",
 			expectQueryArgs: []driver.Value{int64(20)},
+		},
+		{
+			name:   "test-1-postgres",
+			dbType: types.DBTypePostgreSQL,
+			query:  "insert into \"user\"(id,name) values (19,'Tony'),(21,'tony')",
+			metaData: types.TableMeta{
+				ColumnNames: []string{"id", "name"},
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType:      types.IndexTypePrimaryKey,
+						ColumnName: "id",
+						Columns: []types.ColumnMeta{
+							{
+								ColumnName:   "id",
+								DatabaseType: types.GetSqlDataType("BIGINT"),
+							},
+						},
+					},
+				},
+				Columns: map[string]types.ColumnMeta{
+					"id":   {ColumnName: "id"},
+					"name": {ColumnName: "name"},
+				},
+			},
+			pgExpectQuery:     "SELECT \"id\", \"name\" FROM \"user\" WHERE (\"id\") IN (($1),($2)) FOR UPDATE",
+			pgExpectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+			switch test.dbType {
+			case types.DBTypeMySQL:
+				datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					mysqlCfg, ok := cfg.(*mysqlDriver.Config)
+					if !ok {
+						return mysql.NewTableMetaInstance(db, nil)
+					}
+					return mysql.NewTableMetaInstance(db, mysqlCfg)
+				})
+			case types.DBTypePostgreSQL:
+				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					postgresCfg, ok := cfg.(string)
+					if !ok {
+						return postgres.NewTableMetaInstance(db, "")
+					}
+					return postgres.NewTableMetaInstance(db, postgresCfg)
+				})
+			}
+
+			cache := datasource.GetTableCache(test.dbType)
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(cache), "GetTableMeta",
+				func(_ datasource.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &test.metaData, nil
 				})
+			defer stub.Reset()
 
-			c, err := parser.DoParser(test.query)
+			c, err := parser.DoParser(test.query, test.dbType)
 			assert.Nil(t, err)
 
-			executor := NewInsertExecutor(c, &types.ExecContext{
+			execCtx := &types.ExecContext{
 				Values:      test.queryArgs,
 				NamedValues: test.NamedValues,
-			}, []exec.SQLHook{})
+				TxCtx: &types.TransactionContext{
+					DBType: test.dbType,
+				},
+				Conn: mockDBConn(test.dbType),
+			}
 
+			executor := NewInsertExecutor(c, execCtx, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = &test.mockInsertResult
 			executor.(*insertExecutor).incrementStep = test.IncrementStep
 
 			sql, values, err := executor.(*insertExecutor).buildAfterImageSQL(context.Background())
 			assert.Nil(t, err)
-			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
-				if test.orExpectQuery == sql {
-					assert.Equal(t, test.orExpectQueryArgs, values)
-					return
-				}
+
+			if test.dbType == types.DBTypePostgreSQL && test.pgExpectQuery != "" {
+				assert.Equal(t, test.pgExpectQuery, sql)
+				assert.Equal(t, test.pgExpectQueryArgs, util.NamedValueToValue(values))
+			} else {
+				assert.Equal(t, test.expectQuery, sql)
+				assert.Equal(t, test.expectQueryArgs, util.NamedValueToValue(values))
 			}
-			assert.Equal(t, test.expectQuery, sql)
-			assert.Equal(t, test.expectQueryArgs, util.NamedValueToValue(values))
-			stub.Reset()
 		})
 	}
 }
 
-func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
+func TestInsertExecutor_containsPK(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -154,89 +202,7 @@ func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
 	type args struct {
 		meta     types.TableMeta
 		parseCtx *types.ParseContext
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{name: "test-true", fields: fields{}, args: args{meta: types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{{
-						ColumnName: "id",
-					}},
-				},
-			},
-		}, parseCtx: &types.ParseContext{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{{
-					Name: model.CIStr{O: "id", L: "id"},
-				}},
-			},
-		}}, want: true},
-		{name: "test-false", fields: fields{}, args: args{meta: types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{{
-						ColumnName: "id",
-					}},
-				},
-			},
-		}, parseCtx: &types.ParseContext{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{{
-					Name: model.CIStr{O: "name", L: "name"},
-				}},
-			},
-		}}, want: false},
-		{name: "test-false", fields: fields{}, args: args{meta: types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{{
-						ColumnName: "id",
-					}},
-				},
-			},
-		}, parseCtx: &types.ParseContext{}}, want: false},
-		{name: "test-false", fields: fields{}, args: args{meta: types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{{
-						ColumnName: "id",
-					}},
-				},
-			},
-		}, parseCtx: &types.ParseContext{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{{}},
-			},
-		}}, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
-			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
-			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
-
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).containsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
-		})
-	}
-}
-
-func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
-	type fields struct {
-		InsertResult  types.ExecResult
-		IncrementStep int
-	}
-	type args struct {
-		columnName string
-		meta       types.TableMeta
+		dbType   types.DBType
 	}
 	tests := []struct {
 		name   string
@@ -245,7 +211,114 @@ func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
 		want   bool
 	}{
 		{
-			name:   "test-true",
+			name:   "test-true-mysql",
+			fields: fields{},
+			args: args{
+				meta: types.TableMeta{
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
+				parseCtx: &types.ParseContext{
+					InsertStmt: &ast.InsertStmt{
+						Columns: []*ast.ColumnName{{
+							Name: model.CIStr{O: "id", L: "id"},
+						}},
+					},
+				},
+				dbType: types.DBTypeMySQL,
+			},
+			want: true,
+		},
+		{
+			name:   "test-false-mysql",
+			fields: fields{},
+			args: args{
+				meta: types.TableMeta{
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
+				parseCtx: &types.ParseContext{
+					InsertStmt: &ast.InsertStmt{
+						Columns: []*ast.ColumnName{{
+							Name: model.CIStr{O: "name", L: "name"},
+						}},
+					},
+				},
+				dbType: types.DBTypeMySQL,
+			},
+			want: false,
+		},
+		{
+			name:   "test-true-postgres",
+			fields: fields{},
+			args: args{
+				meta: types.TableMeta{
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
+				parseCtx: &types.ParseContext{
+					InsertStmt: &ast.InsertStmt{
+						Columns: []*ast.ColumnName{{
+							Name: model.CIStr{O: "id", L: "id"},
+						}},
+					},
+				},
+				dbType: types.DBTypePostgreSQL,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewInsertExecutor(nil, &types.ExecContext{
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+			}, []exec.SQLHook{})
+			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
+			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+
+			assert.Equalf(t, tt.want, executor.(*insertExecutor).containsPK(tt.args.meta, tt.args.parseCtx), "containsPK(%v, %v)", tt.args.meta, tt.args.parseCtx)
+		})
+	}
+}
+
+func TestInsertExecutor_containPK(t *testing.T) {
+	type fields struct {
+		InsertResult  types.ExecResult
+		IncrementStep int
+	}
+	type args struct {
+		columnName string
+		meta       types.TableMeta
+		dbType     types.DBType
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name:   "test-true-mysql",
 			fields: fields{},
 			args: args{
 				columnName: "id",
@@ -259,11 +332,12 @@ func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
 						},
 					},
 				},
+				dbType: types.DBTypeMySQL,
 			},
 			want: true,
 		},
 		{
-			name:   "test-false",
+			name:   "test-false-mysql",
 			fields: fields{},
 			args: args{
 				columnName: "id",
@@ -277,33 +351,47 @@ func TestMySQLInsertUndoLogBuilder_containPK(t *testing.T) {
 						},
 					},
 				},
+				dbType: types.DBTypeMySQL,
 			},
 			want: false,
 		},
+
 		{
-			name:   "test-false",
+			name:   "test-true-postgres-quoted",
 			fields: fields{},
 			args: args{
-				columnName: "id",
+				columnName: "\"id\"",
 				meta: types.TableMeta{
-					Indexs: map[string]types.IndexMeta{},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
 				},
+				dbType: types.DBTypePostgreSQL,
 			},
-			want: false,
+			want: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(nil, &types.ExecContext{
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+			}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).containPK(tt.args.columnName, tt.args.meta), "isPKColumn(%v, %v)", tt.args.columnName, tt.args.meta)
+			assert.Equalf(t, tt.want, executor.(*insertExecutor).containPK(tt.args.columnName, tt.args.meta), "containPK(%v, %v)", tt.args.columnName, tt.args.meta)
 		})
 	}
 }
 
-func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
+func TestInsertExecutor_getPkIndex(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -311,6 +399,7 @@ func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
 	type args struct {
 		InsertStmt *ast.InsertStmt
 		meta       types.TableMeta
+		dbType     types.DBType
 	}
 	tests := []struct {
 		name   string
@@ -318,105 +407,124 @@ func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
 		args   args
 		want   map[string]int
 	}{
-		{name: "test-0", fields: fields{}, args: args{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{
-					{
-						Name: model.CIStr{O: "id", L: "id"},
-					},
-					{
-						Name: model.CIStr{O: "name", L: "name"},
+		{
+			name:   "test-0-mysql",
+			fields: fields{},
+			args: args{
+				InsertStmt: &ast.InsertStmt{
+					Columns: []*ast.ColumnName{
+						{
+							Name: model.CIStr{O: "id", L: "id"},
+						},
+						{
+							Name: model.CIStr{O: "name", L: "name"},
+						},
 					},
 				},
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {ColumnName: "id"},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
+				dbType: types.DBTypeMySQL,
 			},
-			meta: types.TableMeta{
-				ColumnNames: []string{"id"},
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
+			want: map[string]int{"id": 0},
+		},
+		{
+			name:   "test-1-mysql",
+			fields: fields{},
+			args: args{
+				InsertStmt: &ast.InsertStmt{
+					Columns: []*ast.ColumnName{
+						{Name: model.CIStr{O: "name", L: "name"}},
+						{Name: model.CIStr{O: "id", L: "id"}},
 					},
 				},
-				Indexs: map[string]types.IndexMeta{
-					"id": {
-						IType: types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{{
-							ColumnName: "id",
-						}},
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
 					},
 				},
+				dbType: types.DBTypeMySQL,
 			},
-		}, want: map[string]int{
-			"id": 0,
-		}},
-		{name: "test-1", fields: fields{}, args: args{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{
-					{
-						Name: model.CIStr{O: "name", L: "name"},
-					},
-					{
-						Name: model.CIStr{O: "id", L: "id"},
+			want: map[string]int{"id": 1},
+		},
+		{
+			name:   "test-postgres-quoted-column",
+			fields: fields{},
+			args: args{
+				InsertStmt: &ast.InsertStmt{
+					Columns: []*ast.ColumnName{
+						{Name: model.CIStr{O: "\"name\"", L: "name"}},
+						{Name: model.CIStr{O: "\"id\"", L: "id"}},
 					},
 				},
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
+					},
+				},
+				dbType: types.DBTypePostgreSQL,
 			},
-			meta: types.TableMeta{
-				ColumnNames: []string{"id"},
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
+			want: map[string]int{"id": 1},
+		},
+		{
+			name:   "test-null",
+			fields: fields{},
+			args: args{
+				InsertStmt: &ast.InsertStmt{},
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName: "id",
+							}},
+						},
 					},
 				},
-				Indexs: map[string]types.IndexMeta{
-					"id": {
-						IType: types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{{
-							ColumnName: "id",
-						}},
-					},
-				},
+				dbType: types.DBTypeMySQL,
 			},
-		}, want: map[string]int{
-			"id": 1,
-		}},
-		{name: "test-null", fields: fields{}, args: args{
-			InsertStmt: &ast.InsertStmt{},
-			meta: types.TableMeta{
-				ColumnNames: []string{"id"},
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
-					},
-				},
-				Indexs: map[string]types.IndexMeta{
-					"id": {
-						IType: types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{{
-							ColumnName: "id",
-						}},
-					},
-				},
-			},
-		}, want: map[string]int{}},
-		{name: "test-1", fields: fields{}, args: args{
-			InsertStmt: &ast.InsertStmt{
-				Columns: []*ast.ColumnName{
-					{
-						Name: model.CIStr{O: "name", L: "name"},
-					},
-					{
-						Name: model.CIStr{O: "id", L: "id"},
-					},
-				},
-			},
-			meta: types.TableMeta{},
-		}, want: map[string]int{}},
+			want: map[string]int{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(nil, &types.ExecContext{
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+			}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
-			assert.Equalf(t, tt.want, executor.(*insertExecutor).getPkIndex(tt.args.InsertStmt, tt.args.meta), "getPkIndexArray(%v, %v)", tt.args.InsertStmt, tt.args.meta)
+
+			assert.Equalf(t, tt.want, executor.(*insertExecutor).getPkIndex(tt.args.InsertStmt, tt.args.meta, tt.args.dbType),
+				"getPkIndex(%v, %v, %v)", tt.args.InsertStmt, tt.args.meta, tt.args.dbType)
 		})
 	}
 }
@@ -433,7 +541,7 @@ func genStrDatum(str string) test_driver.Datum {
 	return tmp
 }
 
-func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
+func TestInsertExecutor_parsePkValuesFromStatement(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -442,6 +550,7 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 		insertStmt *ast.InsertStmt
 		meta       types.TableMeta
 		nameValues []driver.NamedValue
+		dbType     types.DBType
 	}
 	tests := []struct {
 		name   string
@@ -450,14 +559,12 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 		want   map[string][]interface{}
 	}{
 		{
-			name:   "test-1",
+			name:   "test-1-mysql",
 			fields: fields{},
 			args: args{
 				insertStmt: &ast.InsertStmt{
 					Columns: []*ast.ColumnName{
-						{
-							Name: model.CIStr{O: "id", L: "id"},
-						},
+						{Name: model.CIStr{O: "id", L: "id"}},
 					},
 					Lists: [][]ast.ExprNode{
 						{
@@ -469,11 +576,7 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 				},
 				meta: types.TableMeta{
 					ColumnNames: []string{"id"},
-					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-					},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
 					Indexs: map[string]types.IndexMeta{
 						"id": {
 							IType: types.IndexTypePrimaryKey,
@@ -484,80 +587,79 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 					},
 				},
 				nameValues: []driver.NamedValue{
-					{
-						Name:  "name",
-						Value: "Tom",
-					},
-					{
-						Name:  "id",
-						Value: 1,
-					},
+					{Name: "name", Value: "Tom"},
+					{Name: "id", Value: 1},
 				},
+				dbType: types.DBTypeMySQL,
 			},
-			want: map[string][]interface{}{
-				"id": {int64(1)},
-			},
+			want: map[string][]interface{}{"id": {int64(1)}},
 		},
 		{
-			name:   "test-placeholder",
+			name:   "test-placeholder-mysql",
 			fields: fields{},
 			args: args{
 				insertStmt: &ast.InsertStmt{
-					Columns: []*ast.ColumnName{
-						{
-							Name: model.CIStr{O: "id", L: "id"},
-						},
-					},
+					Columns: []*ast.ColumnName{{Name: model.CIStr{O: "id", L: "id"}}},
 					Lists: [][]ast.ExprNode{
-						{
-							&test_driver.ValueExpr{
-								Datum: genStrDatum("?"),
-							},
-						},
+						{&test_driver.ValueExpr{Datum: genStrDatum("?")}},
 					},
 				},
 				meta: types.TableMeta{
 					ColumnNames: []string{"id"},
-					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-					},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
 					Indexs: map[string]types.IndexMeta{
-						"id": {
-							IType: types.IndexTypePrimaryKey,
-							Columns: []types.ColumnMeta{{
-								ColumnName: "id",
-							}},
-						},
+						"id": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
 					},
 				},
-				nameValues: []driver.NamedValue{
-					{
-						Name:  "id",
-						Value: int64(1),
+				nameValues: []driver.NamedValue{{Name: "id", Value: int64(1)}},
+				dbType:     types.DBTypeMySQL,
+			},
+			want: map[string][]interface{}{"id": {int64(1)}},
+		},
+
+		{
+			name:   "test-placeholder-postgres",
+			fields: fields{},
+			args: args{
+				insertStmt: &ast.InsertStmt{
+					Columns: []*ast.ColumnName{{Name: model.CIStr{O: "id", L: "id"}}},
+					Lists: [][]ast.ExprNode{
+						{&test_driver.ValueExpr{Datum: genStrDatum("$1")}},
 					},
 				},
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns:     map[string]types.ColumnMeta{"id": {ColumnName: "id"}},
+					Indexs: map[string]types.IndexMeta{
+						"id": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+					},
+				},
+				nameValues: []driver.NamedValue{{Name: "id", Value: int64(1)}},
+				dbType:     types.DBTypePostgreSQL,
 			},
-			want: map[string][]interface{}{
-				"id": {int64(1)},
-			},
+			want: map[string][]interface{}{"id": {int64(1)}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(nil, &types.ExecContext{
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+			}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).parsePkValuesFromStatement(tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
+			got, err := executor.(*insertExecutor).parsePkValuesFromStatement(
+				tt.args.insertStmt, tt.args.meta, tt.args.nameValues, tt.args.dbType)
 			assert.Nil(t, err)
-			assert.Equalf(t, tt.want, got, "parsePkValuesFromStatement(%v, %v, %v)", tt.args.insertStmt, tt.args.meta, tt.args.nameValues)
+			assert.Equalf(t, tt.want, got,
+				"parsePkValuesFromStatement(%v, %v, %v, %v)", tt.args.insertStmt, tt.args.meta, tt.args.nameValues, tt.args.dbType)
 		})
 	}
 }
 
-func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
+func TestInsertExecutor_getPkValuesByColumn(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -565,6 +667,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	type args struct {
 		execCtx *types.ExecContext
 		meta    types.TableMeta
+		dbType  types.DBType
 	}
 	tests := []struct {
 		name   string
@@ -573,15 +676,14 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 		want   map[string][]interface{}
 	}{
 		{
-			name:   "test-1",
+			name:   "test-1-mysql",
 			fields: fields{},
 			args: args{
+				dbType: types.DBTypeMySQL,
 				meta: types.TableMeta{
 					ColumnNames: []string{"id"},
 					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
+						"id": {ColumnName: "id"},
 					},
 					Indexs: map[string]types.IndexMeta{
 						"id": {
@@ -598,56 +700,115 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 							Table: &ast.TableRefsClause{
 								TableRefs: &ast.Join{
 									Left: &ast.TableSource{
-										Source: &ast.TableName{
-											Name: model.CIStr{
-												O: "test",
-											},
-										},
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
 									},
 								},
 							},
-							Columns: []*ast.ColumnName{
-								{
-									Name: model.CIStr{O: "id", L: "id"},
-								},
-							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "id", L: "id"}}},
 							Lists: [][]ast.ExprNode{
-								{
-									&test_driver.ValueExpr{
-										Datum: genIntDatum(1),
-									},
-								},
+								{&test_driver.ValueExpr{Datum: genIntDatum(1)}},
 							},
 						},
 					},
 				},
 			},
-			want: map[string][]interface{}{
-				"id": {int64(1)},
+			want: map[string][]interface{}{"id": {int64(1)}},
+		},
+
+		{
+			name:   "test-1-postgres",
+			fields: fields{},
+			args: args{
+				dbType: types.DBTypePostgreSQL,
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName:    "id",
+							Autoincrement: true,
+							Extra:         "nextval('test_id_seq'::regclass)",
+						},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName:    "id",
+								Autoincrement: true,
+								Extra:         "nextval('test_id_seq'::regclass)",
+							}},
+						},
+					},
+				},
+				execCtx: &types.ExecContext{
+					ParseContext: &types.ParseContext{
+						InsertStmt: &ast.InsertStmt{
+							Table: &ast.TableRefsClause{
+								TableRefs: &ast.Join{
+									Left: &ast.TableSource{
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
+									},
+								},
+							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "id", L: "id"}}},
+							Lists: [][]ast.ExprNode{
+								{&test_driver.ValueExpr{Datum: genIntDatum(2)}},
+							},
+						},
+					},
+				},
 			},
+			want: map[string][]interface{}{"id": {int64(2)}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+			switch tt.args.dbType {
+			case types.DBTypeMySQL:
+				datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					mysqlCfg, ok := cfg.(*mysqlDriver.Config)
+					if !ok {
+						return mysql.NewTableMetaInstance(db, nil)
+					}
+					return mysql.NewTableMetaInstance(db, mysqlCfg)
+				})
+			case types.DBTypePostgreSQL:
+				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					dsn, ok := cfg.(string)
+					if !ok {
+						return postgres.NewTableMetaInstance(db, "")
+					}
+					return postgres.NewTableMetaInstance(db, dsn)
+				})
+			}
+
+			cache := datasource.GetTableCache(tt.args.dbType)
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(cache), "GetTableMeta",
+				func(_ datasource.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
 				})
+			defer stub.Reset()
 
-			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
+			execCtx := &types.ExecContext{
+				ParseContext: tt.args.execCtx.ParseContext,
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+				Conn: mockDBConn(tt.args.dbType),
+			}
+
+			executor := NewInsertExecutor(execCtx.ParseContext, execCtx, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
-			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
+			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), execCtx)
 			assert.Nil(t, err)
-			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
-			stub.Reset()
+			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", execCtx)
 		})
 	}
 }
 
-func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
+func TestInsertExecutor_getPkValuesByAuto(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -655,6 +816,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	type args struct {
 		execCtx *types.ExecContext
 		meta    types.TableMeta
+		dbType  types.DBType
 	}
 	tests := []struct {
 		name    string
@@ -664,12 +826,13 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "test-2",
+			name: "test-2-mysql",
 			fields: fields{
-				InsertResult:  &mockInsertResult{lastInsertID: 100, rowsAffected: 1},
+				InsertResult:  &mock.MockInsertResult{LastInsertID: 100, RowsAffected: 1},
 				IncrementStep: 1,
 			},
 			args: args{
+				dbType: types.DBTypeMySQL,
 				meta: types.TableMeta{
 					ColumnNames: []string{"id", "name"},
 					Indexs: map[string]types.IndexMeta{
@@ -686,12 +849,8 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 						},
 					},
 					Columns: map[string]types.ColumnMeta{
-						"id": {
-							ColumnName: "id",
-						},
-						"name": {
-							ColumnName: "name",
-						},
+						"id":   {ColumnName: "id"},
+						"name": {ColumnName: "name"},
 					},
 				},
 				execCtx: &types.ExecContext{
@@ -700,56 +859,132 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 							Table: &ast.TableRefsClause{
 								TableRefs: &ast.Join{
 									Left: &ast.TableSource{
-										Source: &ast.TableName{
-											Name: model.CIStr{
-												O: "test",
-											},
-										},
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
 									},
 								},
 							},
-							Columns: []*ast.ColumnName{
-								{
-									Name: model.CIStr{O: "name", L: "name"},
-								},
-							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "name", L: "name"}}},
 							Lists: [][]ast.ExprNode{
-								{
-									&test_driver.ValueExpr{
-										Datum: genStrDatum("Tom"),
-									},
-								},
+								{&test_driver.ValueExpr{Datum: genStrDatum("Tom")}},
 							},
 						},
 					},
 				},
 			},
-			want: map[string][]interface{}{
-				"id": {int64(100)},
+			want:    map[string][]interface{}{"id": {int64(100)}},
+			wantErr: assert.NoError,
+		},
+
+		{
+			name: "test-2-postgres",
+			fields: fields{
+				InsertResult: &mock.MockInsertResult{
+					Rows: &mock.GenericMockRows{
+						ColumnNames: []string{"id"},
+						Data:        [][]driver.Value{{int64(200)}},
+					},
+					RowsAffected: 1,
+				},
+				IncrementStep: 1,
 			},
+			args: args{
+				dbType: types.DBTypePostgreSQL,
+				meta: types.TableMeta{
+					ColumnNames: []string{"id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType:      types.IndexTypePrimaryKey,
+							ColumnName: "id",
+							Columns: []types.ColumnMeta{
+								{
+									ColumnName:    "id",
+									DatabaseType:  types.GetSqlDataType("BIGINT"),
+									Autoincrement: true,
+									Extra:         "nextval('test_id_seq'::regclass)",
+								},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName:    "id",
+							Autoincrement: true,
+							Extra:         "nextval('test_id_seq'::regclass)",
+						},
+						"name": {ColumnName: "name"},
+					},
+				},
+				execCtx: &types.ExecContext{
+					ParseContext: &types.ParseContext{
+						InsertStmt: &ast.InsertStmt{
+							Table: &ast.TableRefsClause{
+								TableRefs: &ast.Join{
+									Left: &ast.TableSource{
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
+									},
+								},
+							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "name", L: "name"}}},
+							Lists: [][]ast.ExprNode{
+								{&test_driver.ValueExpr{Datum: genStrDatum("Jerry")}},
+							},
+						},
+					},
+				},
+			},
+			want:    map[string][]interface{}{"id": {int64(200)}},
+			wantErr: assert.NoError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+			switch tt.args.dbType {
+			case types.DBTypeMySQL:
+				datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					mysqlCfg, ok := cfg.(*mysqlDriver.Config)
+					if !ok {
+						return mysql.NewTableMetaInstance(db, nil)
+					}
+					return mysql.NewTableMetaInstance(db, mysqlCfg)
+				})
+			case types.DBTypePostgreSQL:
+				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					dsn, ok := cfg.(string)
+					if !ok {
+						return postgres.NewTableMetaInstance(db, "")
+					}
+					return postgres.NewTableMetaInstance(db, dsn)
+				})
+			}
+
+			cache := datasource.GetTableCache(tt.args.dbType)
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(cache), "GetTableMeta",
+				func(_ datasource.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
 				})
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			defer stub.Reset()
+
+			execCtx := &types.ExecContext{
+				ParseContext: tt.args.execCtx.ParseContext,
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+				Conn: mockDBConn(tt.args.dbType),
+			}
+
+			executor := NewInsertExecutor(execCtx.ParseContext, execCtx, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
 
-			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
-			assert.Nil(t, err)
-			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
-			stub.Reset()
+			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), execCtx)
+			tt.wantErr(t, err)
+			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", execCtx)
 		})
 	}
 }
 
-func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
+func TestInsertExecutor_autoGeneratePks(t *testing.T) {
 	type fields struct {
 		InsertResult  types.ExecResult
 		IncrementStep int
@@ -760,6 +995,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 		lastInsetId    int64
 		updateCount    int64
 		meta           types.TableMeta
+		dbType         types.DBType
 	}
 	tests := []struct {
 		name   string
@@ -767,77 +1003,191 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 		args   args
 		want   map[string][]interface{}
 	}{
-		{name: "test", fields: fields{
-			IncrementStep: 1,
-		}, args: args{
-			meta: types.TableMeta{
-				ColumnNames: []string{"id"},
-				Columns: map[string]types.ColumnMeta{
-					"id": {
-						ColumnName: "id",
-					},
-				},
-				Indexs: map[string]types.IndexMeta{
-					"id": {
-						IType: types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{{
-							ColumnName: "id",
-						}},
-					},
-				},
+
+		{
+			name: "test-mysql-single",
+			fields: fields{
+				IncrementStep: 1,
 			},
-			execCtx: &types.ExecContext{
-				ParseContext: &types.ParseContext{
-					InsertStmt: &ast.InsertStmt{
-						Table: &ast.TableRefsClause{
-							TableRefs: &ast.Join{
-								Left: &ast.TableSource{
-									Source: &ast.TableName{
-										Name: model.CIStr{
-											O: "test",
-										},
+			args: args{
+				dbType:         types.DBTypeMySQL,
+				autoColumnName: "id",
+				lastInsetId:    100,
+				updateCount:    1,
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName:    "id",
+							Autoincrement: true,
+						},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName:    "id",
+								Autoincrement: true,
+							}},
+						},
+					},
+				},
+				execCtx: &types.ExecContext{
+					ParseContext: &types.ParseContext{
+						InsertStmt: &ast.InsertStmt{
+							Table: &ast.TableRefsClause{
+								TableRefs: &ast.Join{
+									Left: &ast.TableSource{
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
 									},
 								},
 							},
-						},
-						Columns: []*ast.ColumnName{
-							{
-								Name: model.CIStr{O: "id", L: "id"},
-							},
-						},
-						Lists: [][]ast.ExprNode{
-							{
-								&test_driver.ValueExpr{
-									Datum: genIntDatum(1),
-								},
-							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "id", L: "id"}}},
+							Lists:   [][]ast.ExprNode{{&test_driver.ValueExpr{Datum: genIntDatum(1)}}},
 						},
 					},
 				},
 			},
-			autoColumnName: "id",
-			lastInsetId:    100,
-			updateCount:    1,
-		}, want: map[string][]interface{}{
-			"id": {int64(100)},
-		}},
+			want: map[string][]interface{}{"id": {int64(100)}},
+		},
+
+		{
+			name: "test-mysql-batch",
+			fields: fields{
+				IncrementStep: 2,
+			},
+			args: args{
+				dbType:         types.DBTypeMySQL,
+				autoColumnName: "id",
+				lastInsetId:    200,
+				updateCount:    3,
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {ColumnName: "id", Autoincrement: true},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName:    "id",
+								Autoincrement: true,
+							}},
+						},
+					},
+				},
+				execCtx: &types.ExecContext{
+					ParseContext: &types.ParseContext{InsertStmt: &ast.InsertStmt{Table: &ast.TableRefsClause{}}},
+				},
+			},
+			want: map[string][]interface{}{"id": {int64(200), int64(202), int64(204)}},
+		},
+
+		{
+			name: "test-postgres-sequence",
+			fields: fields{
+				IncrementStep: 0,
+			},
+			args: args{
+				dbType:         types.DBTypePostgreSQL,
+				autoColumnName: "id",
+				lastInsetId:    300,
+				updateCount:    2,
+				meta: types.TableMeta{
+					ColumnNames: []string{"id"},
+					Columns: map[string]types.ColumnMeta{
+						"id": {
+							ColumnName:    "id",
+							Autoincrement: true,
+							Extra:         "nextval('test_id_seq'::regclass)",
+						},
+					},
+					Indexs: map[string]types.IndexMeta{
+						"id": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{
+								ColumnName:    "id",
+								Autoincrement: true,
+								Extra:         "nextval('test_id_seq'::regclass)",
+							}},
+						},
+					},
+				},
+				execCtx: &types.ExecContext{
+					ParseContext: &types.ParseContext{
+						InsertStmt: &ast.InsertStmt{
+							Table: &ast.TableRefsClause{
+								TableRefs: &ast.Join{
+									Left: &ast.TableSource{
+										Source: &ast.TableName{Name: model.CIStr{O: "test"}},
+									},
+								},
+							},
+							Columns: []*ast.ColumnName{{Name: model.CIStr{O: "name", L: "name"}}},
+							Lists:   [][]ast.ExprNode{{&test_driver.ValueExpr{Datum: genStrDatum("Alice")}}},
+						},
+					},
+				},
+			},
+			want: map[string][]interface{}{"id": {int64(300), int64(301)}},
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+			switch tt.args.dbType {
+			case types.DBTypeMySQL:
+				datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					mysqlCfg, ok := cfg.(*mysqlDriver.Config)
+					if !ok {
+						return mysql.NewTableMetaInstance(db, nil)
+					}
+					return mysql.NewTableMetaInstance(db, mysqlCfg)
+				})
+			case types.DBTypePostgreSQL:
+				datasource.RegisterTableCache(types.DBTypePostgreSQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+					dsn, ok := cfg.(string)
+					if !ok {
+						dsn = ""
+					}
+					return postgres.NewTableMetaInstance(db, dsn)
+				})
+			}
+
+			cache := datasource.GetTableCache(tt.args.dbType)
+			stub := gomonkey.ApplyMethod(reflect.TypeOf(cache), "GetTableMeta",
+				func(_ datasource.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
 				})
+			defer stub.Reset()
 
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			execCtx := &types.ExecContext{
+				ParseContext: tt.args.execCtx.ParseContext,
+				TxCtx: &types.TransactionContext{
+					DBType: tt.args.dbType,
+				},
+				Conn: mockDBConn(tt.args.dbType),
+			}
+
+			executor := NewInsertExecutor(execCtx.ParseContext, execCtx, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
+			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
 
-			got, err := executor.(*insertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
-			assert.Nil(t, err)
-			assert.Equalf(t, tt.want, got, "autoGeneratePks(%v, %v, %v, %v)", tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
-			stub.Reset()
+			got, err := executor.(*insertExecutor).autoGeneratePks(
+				execCtx,
+				tt.args.autoColumnName,
+				tt.args.lastInsetId,
+				tt.args.updateCount,
+			)
+			assert.Nil(t, err, "autoGeneratePks failed: %v", err)
+			assert.Equalf(t, tt.want, got,
+				"autoGeneratePks(execCtx: %v, autoCol: %s, lastId: %d, count: %d)",
+				execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 		})
 	}
+}
+
+func mockDBConn(dbType types.DBType) driver.Conn {
+	return mock.NewGenericMockConn(dbType)
 }

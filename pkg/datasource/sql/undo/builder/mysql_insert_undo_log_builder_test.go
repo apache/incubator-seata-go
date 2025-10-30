@@ -314,7 +314,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c, err := parser.DoParser(test.query)
+			c, err := parser.DoParser(test.query, types.DBTypeMySQL)
 			assert.Nil(t, err)
 			exec := &types.ExecContext{}
 			exec.ParseContext = c

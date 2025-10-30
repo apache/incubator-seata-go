@@ -93,7 +93,7 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
+func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int, dbType types.DBType) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -113,8 +113,18 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			// Use appropriate escape character based on database type
+			var pkName string
+			if dbType == types.DBTypeMySQL {
+				pkName = fmt.Sprintf("`%s`", pkNameList[i])
+			} else if dbType == types.DBTypePostgreSQL {
+				// PostgreSQL: use lowercase without quotes for standard tables
+				pkName = strings.ToLower(pkNameList[i])
+			} else {
+				// Default: use double quotes
+				pkName = fmt.Sprintf(`"%s"`, pkNameList[i])
+			}
+			whereStr.WriteString(pkName)
 		}
 		whereStr.WriteString(") IN (")
 
@@ -160,4 +170,17 @@ func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} {
 		}
 	}
 	return params
+}
+
+// ConvertToPostgreSQLParams converts ? placeholders to PostgreSQL $1, $2, ... format
+func ConvertToPostgreSQLParams(sql string, paramCount int) string {
+	result := sql
+	paramIndex := 1
+
+	for strings.Contains(result, "?") && paramIndex <= paramCount {
+		result = strings.Replace(result, "?", fmt.Sprintf("$%d", paramIndex), 1)
+		paramIndex++
+	}
+
+	return result
 }

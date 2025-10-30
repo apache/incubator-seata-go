@@ -29,6 +29,7 @@ import (
 
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
+	exec.RegisterATExecutor(types.DBTypePostgreSQL, func() exec.SQLExecutor { return &ATExecutor{} })
 }
 
 type executor interface {
@@ -45,7 +46,7 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 
 // ExecWithNamedValue find the executor by sql type
 func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	queryParser, err := parser.DoParser(execCtx.Query)
+	queryParser, err := parser.DoParser(execCtx.Query, execCtx.DBType)
 	if err != nil {
 		return nil, err
 	}

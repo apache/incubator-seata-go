@@ -146,7 +146,7 @@ func TestInsertOnDuplicateBuildBeforeImageSQL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := parser.DoParser(tt.execCtx.Query)
+			c, err := parser.DoParser(tt.execCtx.Query, types.DBTypeMySQL)
 			assert.Nil(t, err)
 			tt.execCtx.ParseContext = c
 			query, args, err := builder.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], tt.sourceQueryArgs)

@@ -89,6 +89,12 @@ func withConf(conf *XAConnConf) dbOption {
 	}
 }
 
+func withCfg(cfg interface{}) dbOption {
+	return func(db *DBResource) {
+		db.cfg = cfg
+	}
+}
+
 func newResource(opts ...dbOption) (*DBResource, error) {
 	db := new(DBResource)
 
@@ -113,6 +119,8 @@ type DBResource struct {
 	dbType     types.DBType
 	undoLogMgr undo.UndoLogManager
 	branchType branch.BranchType
+	// cfg stores database configuration (e.g., *mysql.Config, *pgx.ConnConfig)
+	cfg interface{}
 
 	// for xa
 	metaCache    datasource.TableMetaCache
@@ -140,6 +148,10 @@ func (db *DBResource) init() {
 
 func (db *DBResource) GetResourceId() string {
 	return db.resourceID
+}
+
+func (db *DBResource) GetCfg() interface{} {
+	return db.cfg
 }
 
 func (db *DBResource) GetBranchType() branch.BranchType {

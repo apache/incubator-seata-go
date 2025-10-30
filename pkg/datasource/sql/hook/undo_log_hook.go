@@ -44,7 +44,7 @@ func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext)
 		return nil
 	}
 
-	pc, err := parser.DoParser(execCtx.Query)
+	pc, err := parser.DoParser(execCtx.Query, execCtx.DBType)
 	if err != nil {
 		return err
 	}

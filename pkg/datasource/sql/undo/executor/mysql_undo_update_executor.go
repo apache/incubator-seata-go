@@ -41,7 +41,7 @@ func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExec
 }
 
 func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
-	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
+	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn, dbType)
 	if err != nil {
 		return err
 	}

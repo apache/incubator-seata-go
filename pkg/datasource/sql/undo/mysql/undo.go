@@ -57,8 +57,8 @@ func (m *undoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn dr
 }
 
 // RunUndo undo sql
-func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string) error {
-	return m.Base.Undo(ctx, m.DBType(), xid, branchID, db, dbName)
+func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string, cfg interface{}) error {
+	return m.Base.Undo(ctx, m.DBType(), xid, branchID, db, dbName, cfg)
 }
 
 // DBType

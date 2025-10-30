@@ -17,10 +17,39 @@
 
 package sql
 
+import "seata.apache.org/seata-go/pkg/datasource/sql/types"
+
 func XaIdBuild(xid string, branchId uint64) *XABranchXid {
 	return NewXABranchXid(WithXid(xid), WithBranchId(branchId))
 }
 
 func XaIdBuildWithByte(globalTransactionId []byte, branchQualifier []byte) *XABranchXid {
 	return NewXABranchXid(WithGlobalTransactionId(globalTransactionId), WithBranchQualifier(branchQualifier))
+}
+
+func XaIdBuildForPostgreSQL(xid string, branchId uint64) *XABranchXid {
+	return NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(types.DBTypePostgreSQL),
+		WithFormatId(DefaultFormatId),
+	)
+}
+
+func XaIdBuildWithDatabase(xid string, branchId uint64, dbType types.DBType) *XABranchXid {
+	return NewXABranchXid(
+		WithXid(xid),
+		WithBranchId(branchId),
+		WithDatabaseType(dbType),
+		WithFormatId(DefaultFormatId),
+	)
+}
+
+func XaIdBuildStandard(gtrid []byte, bqual []byte, formatId int32, dbType types.DBType) *XABranchXid {
+	return NewXABranchXid(
+		WithGlobalTransactionId(gtrid),
+		WithBranchQualifier(bqual),
+		WithFormatId(formatId),
+		WithDatabaseType(dbType),
+	)
 }

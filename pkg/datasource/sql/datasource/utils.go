@@ -136,3 +136,80 @@ func parseFloatIfOk(val reflect.Value) (float64, bool) {
 	}
 	return 0, false
 }
+
+// GetActualValue extracts the actual value from pointers and driver.Valuer types
+func GetActualValue(val interface{}) interface{} {
+	if val == nil {
+		return nil
+	}
+
+	// Handle sql.Null* types which implement driver.Valuer
+	switch v := val.(type) {
+	case sql.NullInt64:
+		if v.Valid {
+			return v.Int64
+		}
+		return nil
+	case sql.NullFloat64:
+		if v.Valid {
+			return v.Float64
+		}
+		return nil
+	case sql.NullString:
+		if v.Valid {
+			return v.String
+		}
+		return nil
+	case sql.NullBool:
+		if v.Valid {
+			return v.Bool
+		}
+		return nil
+	case sql.NullTime:
+		if v.Valid {
+			return v.Time
+		}
+		return nil
+	case *sql.NullInt64:
+		if v != nil && v.Valid {
+			return v.Int64
+		}
+		return nil
+	case *sql.NullFloat64:
+		if v != nil && v.Valid {
+			return v.Float64
+		}
+		return nil
+	case *sql.NullString:
+		if v != nil && v.Valid {
+			return v.String
+		}
+		return nil
+	case *sql.NullBool:
+		if v != nil && v.Valid {
+			return v.Bool
+		}
+		return nil
+	case *sql.NullTime:
+		if v != nil && v.Valid {
+			return v.Time
+		}
+		return nil
+	}
+
+	// Use reflection to dereference pointers
+	rv := reflect.ValueOf(val)
+	for rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return nil
+		}
+		rv = rv.Elem()
+	}
+
+	// Return the dereferenced value
+	if rv.IsValid() {
+		return rv.Interface()
+	}
+
+	return val
+}
