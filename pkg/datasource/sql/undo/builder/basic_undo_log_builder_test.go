@@ -118,6 +118,24 @@ func TestBuildLockKey(t *testing.T) {
 			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
 		},
 		{
+			"Three Primary Keys",
+			types.TableMeta{
+				TableName: "test2_name",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsThreePk},
+				},
+			},
+			types.RecordImage{
+				TableName: "test2_name",
+				Rows: []types.RowImage{
+					{[]types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one"), getColumnImage("age", "11")}},
+					{[]types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two"), getColumnImage("age", "22")}},
+					{[]types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
+				},
+			},
+			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
+		},
+		{
 			name: "Single Primary Key",
 			metaData: types.TableMeta{
 				TableName: "single_key",
