@@ -434,9 +434,9 @@ func TestBaseUndoLogManager_getRollbackInfo(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name:         "no compression",
-			rollbackInfo: []byte("test data"),
-			undoContext:  map[string]string{},
+			name:           "no compression",
+			rollbackInfo:   []byte("test data"),
+			undoContext:    map[string]string{},
 			expectedOutput: []byte("test data"),
 		},
 		{
