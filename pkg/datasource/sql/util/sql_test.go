@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock driver.Rows implementation
@@ -336,14 +337,13 @@ func TestScanRows_ContextCancellation(t *testing.T) {
 
 	// Cancel context
 	cancel()
-	time.Sleep(10 * time.Millisecond) // Wait for goroutine to process
 
-	// Check if rows are closed
-	scanRows.closemu.RLock()
-	closed := scanRows.closed
-	scanRows.closemu.RUnlock()
-
-	assert.True(t, closed)
+	// Use require.Eventually instead of time.Sleep
+	require.Eventually(t, func() bool {
+		scanRows.closemu.RLock()
+		defer scanRows.closemu.RUnlock()
+		return scanRows.closed
+	}, 1*time.Second, 10*time.Millisecond, "Rows should be closed after context cancellation")
 }
 
 func TestScanRows_TransactionContext(t *testing.T) {
@@ -357,14 +357,13 @@ func TestScanRows_TransactionContext(t *testing.T) {
 
 	// Cancel transaction context
 	txcancel()
-	time.Sleep(10 * time.Millisecond) // Wait for goroutine to process
 
-	// Check if rows are closed
-	scanRows.closemu.RLock()
-	closed := scanRows.closed
-	scanRows.closemu.RUnlock()
-
-	assert.True(t, closed)
+	// Use require.Eventually instead of time.Sleep
+	require.Eventually(t, func() bool {
+		scanRows.closemu.RLock()
+		defer scanRows.closemu.RUnlock()
+		return scanRows.closed
+	}, 1*time.Second, 10*time.Millisecond, "Rows should be closed after transaction context cancellation")
 }
 
 func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
@@ -383,14 +382,16 @@ func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
 	scanRows.initContextClose(ctx, nil)
 
 	cancel()
-	time.Sleep(10 * time.Millisecond)
 
-	// Should not be closed because bypass is true
-	scanRows.closemu.RLock()
-	closed := scanRows.closed
-	scanRows.closemu.RUnlock()
+	// Give goroutine time to start (if it does), then verify it didn't close
+	time.Sleep(50 * time.Millisecond)
 
-	assert.False(t, closed)
+	// Use require.Never to ensure rows stay open (since bypass is enabled)
+	require.Never(t, func() bool {
+		scanRows.closemu.RLock()
+		defer scanRows.closemu.RUnlock()
+		return scanRows.closed
+	}, 100*time.Millisecond, 10*time.Millisecond, "Rows should NOT be closed when bypass is enabled")
 }
 
 func TestWithLock(t *testing.T) {
