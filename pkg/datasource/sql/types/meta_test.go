@@ -108,3 +108,97 @@ func TestTableMeta_GetPrimaryKeyType(t *testing.T) {
 		})
 	}
 }
+
+func TestTableMetaCache_GetTableMeta(t *testing.T) {
+	cache := map[string]*TableMeta{
+		"table1": &TableMeta{
+			TableName: "table1",
+			Columns: map[string]ColumnMeta{
+				"id": {
+					Schema:     "test",
+					Table:      "table1",
+					ColumnName: "id",
+					ColumnType: "int",
+				},
+			},
+		},
+	}
+
+	// Test existing table
+	meta := cache["table1"]
+	assert.NotNil(t, meta)
+	assert.Equal(t, "table1", meta.TableName)
+
+	// Test non-existing table
+	meta = cache["table2"]
+	assert.Nil(t, meta)
+}
+
+func TestColumnType_DatabaseTypeName(t *testing.T) {
+	meta := ColumnType{DatabaseType: "varchar(255)"}
+	assert.Equal(t, "varchar(255)", meta.DatabaseTypeName())
+}
+
+func TestTableMeta_IsEmpty(t *testing.T) {
+	t.Run("empty table", func(t *testing.T) {
+		meta := &TableMeta{}
+		assert.True(t, meta.IsEmpty())
+	})
+
+	t.Run("table with columns", func(t *testing.T) {
+		meta := &TableMeta{
+			TableName: "test_table",
+			Columns: map[string]ColumnMeta{
+				"id": {ColumnName: "id"},
+			},
+		}
+		assert.False(t, meta.IsEmpty())
+	})
+}
+
+func TestTableMeta_GetPrimaryKeyMap(t *testing.T) {
+	meta := &TableMeta{
+		Indexs: map[string]IndexMeta{
+			"primary": {
+				Name:  "primary",
+				IType: IndexTypePrimaryKey,
+				Columns: []ColumnMeta{
+					{ColumnName: "id"},
+					{ColumnName: "user_id"},
+				},
+			},
+			"normal": {
+				Name:  "normal",
+				IType: IndexTypeNull,
+				Columns: []ColumnMeta{
+					{ColumnName: "name"},
+				},
+			},
+		},
+	}
+
+	primaryKeys := meta.GetPrimaryKeyMap()
+	assert.Len(t, primaryKeys, 2)
+	assert.Contains(t, primaryKeys, "id")
+	assert.Contains(t, primaryKeys, "user_id")
+}
+
+func TestTableMeta_GetPrimaryKeyOnlyName(t *testing.T) {
+	meta := &TableMeta{
+		Indexs: map[string]IndexMeta{
+			"primary": {
+				Name:  "primary",
+				IType: IndexTypePrimaryKey,
+				Columns: []ColumnMeta{
+					{ColumnName: "id"},
+					{ColumnName: "user_id"},
+				},
+			},
+		},
+	}
+
+	primaryKeys := meta.GetPrimaryKeyOnlyName()
+	assert.Len(t, primaryKeys, 2)
+	assert.Contains(t, primaryKeys, "id")
+	assert.Contains(t, primaryKeys, "user_id")
+}
