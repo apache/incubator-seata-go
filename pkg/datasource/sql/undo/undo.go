@@ -94,11 +94,11 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 	return v.mgr, nil
 }
 
-type UndoLogStatue int8
+type UndoLogStatus int8
 
 const (
-	UndoLogStatueNormnal        UndoLogStatue = 0
-	UndoLogStatueGlobalFinished UndoLogStatue = 1
+	UndoLogStatusNormnal        UndoLogStatus = 0
+	UndoLogStatusGlobalFinished UndoLogStatus = 1
 )
 
 type UndologRecord struct {
@@ -106,13 +106,13 @@ type UndologRecord struct {
 	XID          string        `json:"xid"`
 	Context      []byte        `json:"context"`
 	RollbackInfo []byte        `json:"rollbackInfo"`
-	LogStatus    UndoLogStatue `json:"logStatus"`
+	LogStatus    UndoLogStatus `json:"logStatus"`
 	LogCreated   []byte        `json:"logCreated"`
 	LogModified  []byte        `json:"logModified"`
 }
 
 func (u *UndologRecord) CanUndo() bool {
-	return u.LogStatus == UndoLogStatueNormnal
+	return u.LogStatus == UndoLogStatusNormnal
 }
 
 // BranchUndoLog

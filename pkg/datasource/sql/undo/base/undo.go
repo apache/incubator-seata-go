@@ -238,7 +238,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		XID:          tranCtx.XID,
 		Context:      undoLogContent,
 		RollbackInfo: rollbackInfo,
-		LogStatus:    undo.UndoLogStatueNormnal,
+		LogStatus:    undo.UndoLogStatusNormnal,
 	}, conn)
 }
 
@@ -368,13 +368,13 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 			log.Errorf("[Undo] delete undo fail, err: %v", err)
 			return err
 		}
-		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatusGlobalFinished)
 	} else {
 		if err = m.insertUndoLogWithGlobalFinished(ctx, xid, uint64(branchID), conn); err != nil {
 			log.Errorf("[Undo] insert undo with global finished fail, err: %v", err)
 			return err
 		}
-		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatusGlobalFinished)
 	}
 
 	if err = tx.Commit(); err != nil {

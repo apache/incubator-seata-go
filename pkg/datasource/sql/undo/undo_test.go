@@ -217,17 +217,17 @@ func TestGetUndoLogManager(t *testing.T) {
 func TestUndologRecord_CanUndo(t *testing.T) {
 	tests := []struct {
 		name      string
-		logStatus UndoLogStatue
+		logStatus UndoLogStatus
 		want      bool
 	}{
 		{
 			name:      "can undo - normal status",
-			logStatus: UndoLogStatueNormnal,
+			logStatus: UndoLogStatusNormnal,
 			want:      true,
 		},
 		{
 			name:      "cannot undo - global finished",
-			logStatus: UndoLogStatueGlobalFinished,
+			logStatus: UndoLogStatusGlobalFinished,
 			want:      false,
 		},
 	}
