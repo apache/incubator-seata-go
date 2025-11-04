@@ -222,7 +222,7 @@ func TestUndologRecord_CanUndo(t *testing.T) {
 	}{
 		{
 			name:      "can undo - normal status",
-			logStatus: UndoLogStatusNormnal,
+			logStatus: UndoLogStatusNormal,
 			want:      true,
 		},
 		{

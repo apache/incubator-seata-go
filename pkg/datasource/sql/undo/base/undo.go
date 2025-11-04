@@ -238,7 +238,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		XID:          tranCtx.XID,
 		Context:      undoLogContent,
 		RollbackInfo: rollbackInfo,
-		LogStatus:    undo.UndoLogStatusNormnal,
+		LogStatus:    undo.UndoLogStatusNormal,
 	}, conn)
 }
 

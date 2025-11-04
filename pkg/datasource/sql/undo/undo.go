@@ -97,7 +97,7 @@ func GetUndoLogManager(d types.DBType) (UndoLogManager, error) {
 type UndoLogStatus int8
 
 const (
-	UndoLogStatusNormnal        UndoLogStatus = 0
+	UndoLogStatusNormal         UndoLogStatus = 0
 	UndoLogStatusGlobalFinished UndoLogStatus = 1
 )
 
@@ -112,7 +112,7 @@ type UndologRecord struct {
 }
 
 func (u *UndologRecord) CanUndo() bool {
-	return u.LogStatus == UndoLogStatusNormnal
+	return u.LogStatus == UndoLogStatusNormal
 }
 
 // BranchUndoLog
