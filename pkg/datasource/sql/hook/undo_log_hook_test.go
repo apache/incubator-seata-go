@@ -194,7 +194,7 @@ func TestUndoLogSQLHook_Before_GlobalTx_BuilderError(t *testing.T) {
 
 	err := hook.Before(ctx, execCtx)
 	// Should propagate error from builder or parser
-	assert.True(t, err != nil || err == nil)
+	assert.Error(t, err)
 }
 
 func TestUndoLogSQLHook_Before_EmptyXID(t *testing.T) {
