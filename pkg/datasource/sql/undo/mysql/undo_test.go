@@ -49,33 +49,30 @@ func TestUndoLogManager_DBType(t *testing.T) {
 }
 
 func TestUndoLogManager_DeleteUndoLog(t *testing.T) {
-	manager := NewUndoLogManager()
-
 	// Skip test since it requires a real database connection
 	t.Skip("Skipping test that requires database connection")
 
+	manager := NewUndoLogManager()
 	assert.NotPanics(t, func() {
 		manager.DeleteUndoLog(context.Background(), "test-xid", 123, nil)
 	})
 }
 
 func TestUndoLogManager_BatchDeleteUndoLog(t *testing.T) {
-	manager := NewUndoLogManager()
-
 	// Skip test since it requires a real database connection
 	t.Skip("Skipping test that requires database connection")
 
+	manager := NewUndoLogManager()
 	assert.NotPanics(t, func() {
 		manager.BatchDeleteUndoLog([]string{"xid1"}, []int64{123}, nil)
 	})
 }
 
 func TestUndoLogManager_FlushUndoLog(t *testing.T) {
-	manager := NewUndoLogManager()
-
 	// Skip test since it requires a real database connection
 	t.Skip("Skipping test that requires database connection")
 
+	manager := NewUndoLogManager()
 	tranCtx := &types.TransactionContext{
 		XID:      "test-xid",
 		BranchID: 123,
@@ -87,22 +84,20 @@ func TestUndoLogManager_FlushUndoLog(t *testing.T) {
 }
 
 func TestUndoLogManager_RunUndo(t *testing.T) {
-	manager := NewUndoLogManager()
-
 	// Skip test since it requires a real database connection
 	t.Skip("Skipping test that requires database connection")
 
+	manager := NewUndoLogManager()
 	assert.NotPanics(t, func() {
 		manager.RunUndo(context.Background(), "test-xid", 123, nil, "test_db")
 	})
 }
 
 func TestUndoLogManager_HasUndoLogTable(t *testing.T) {
-	manager := NewUndoLogManager()
-
 	// Skip test since it requires a real database connection
 	t.Skip("Skipping test that requires database connection")
 
+	manager := NewUndoLogManager()
 	assert.NotPanics(t, func() {
 		manager.HasUndoLogTable(context.Background(), nil)
 	})
