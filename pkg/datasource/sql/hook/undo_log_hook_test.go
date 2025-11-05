@@ -97,7 +97,7 @@ func TestUndoLogSQLHook_Before_GlobalTx_ParseError(t *testing.T) {
 	// This should handle the parser error
 	err := hook.Before(ctx, execCtx)
 	// Parser will likely return an error for invalid SQL
-	assert.True(t, err != nil || err == nil, "Should handle parser error")
+	assert.Error(t, err, "Should handle parser error")
 }
 
 func TestUndoLogSQLHook_Before_GlobalTx_NoBuilder(t *testing.T) {
