@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +30,27 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
+
+var testLoggerMutex sync.Mutex
+
+func setupTest(t *testing.T) Logger {
+	t.Helper()
+
+	testLoggerMutex.Lock()
+
+	if log == nil {
+		Init()
+	}
+
+	originalLogger := log
+
+	t.Cleanup(func() {
+		log = originalLogger
+		testLoggerMutex.Unlock()
+	})
+
+	return originalLogger
+}
 
 // mockLogger implements Logger interface for testing
 type mockLogger struct {
@@ -166,11 +188,7 @@ func TestLogLevelValues(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	// Test Init
 	Init()
@@ -181,11 +199,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestSetLogger(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -198,11 +212,7 @@ func TestSetLogger(t *testing.T) {
 }
 
 func TestGetLogger(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -212,10 +222,7 @@ func TestGetLogger(t *testing.T) {
 }
 
 func TestDebugFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -230,10 +237,7 @@ func TestDebugFunctions(t *testing.T) {
 }
 
 func TestInfoFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -248,10 +252,7 @@ func TestInfoFunctions(t *testing.T) {
 }
 
 func TestWarnFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -266,10 +267,7 @@ func TestWarnFunctions(t *testing.T) {
 }
 
 func TestErrorFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -284,13 +282,13 @@ func TestErrorFunctions(t *testing.T) {
 }
 
 func TestErrorFunctionsWithNilLogger(t *testing.T) {
-	// Save original logger and stderr
-	originalLogger := log
+	setupTest(t)
+
+	// Save stderr
 	oldStderr := os.Stderr
-	defer func() {
-		log = originalLogger
+	t.Cleanup(func() {
 		os.Stderr = oldStderr
-	}()
+	})
 
 	// Redirect stderr to capture output
 	r, w, _ := os.Pipe()
@@ -312,13 +310,13 @@ func TestErrorFunctionsWithNilLogger(t *testing.T) {
 }
 
 func TestErrorfWithNilLogger(t *testing.T) {
-	// Save original logger and stderr
-	originalLogger := log
+	setupTest(t)
+
+	// Save stderr
 	oldStderr := os.Stderr
-	defer func() {
-		log = originalLogger
+	t.Cleanup(func() {
 		os.Stderr = oldStderr
-	}()
+	})
 
 	// Redirect stderr to capture output
 	r, w, _ := os.Pipe()
@@ -340,10 +338,7 @@ func TestErrorfWithNilLogger(t *testing.T) {
 }
 
 func TestPanicFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -358,11 +353,7 @@ func TestPanicFunctions(t *testing.T) {
 }
 
 func TestPanicWithNilLogger(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	// Set logger to nil
 	log = nil
@@ -374,11 +365,7 @@ func TestPanicWithNilLogger(t *testing.T) {
 }
 
 func TestPanicfWithNilLogger(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	// Set logger to nil
 	log = nil
@@ -390,10 +377,7 @@ func TestPanicfWithNilLogger(t *testing.T) {
 }
 
 func TestFatalFunctions(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
@@ -408,11 +392,7 @@ func TestFatalFunctions(t *testing.T) {
 }
 
 func TestLoggingWithNilLogger(t *testing.T) {
-	// Save original logger
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	// Set logger to nil
 	log = nil
@@ -555,10 +535,7 @@ func TestLogTimeFmt(t *testing.T) {
 }
 
 func TestErrorRecovery(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	// Create a mock logger that panics
 	mock := newMockLogger()
@@ -577,10 +554,7 @@ func TestErrorRecovery(t *testing.T) {
 }
 
 func TestAllLogLevelsWithMock(t *testing.T) {
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
+	setupTest(t)
 
 	mock := newMockLogger()
 	SetLogger(mock)
