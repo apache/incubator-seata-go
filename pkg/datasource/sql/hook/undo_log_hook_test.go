@@ -114,7 +114,7 @@ func TestUndoLogSQLHook_Before_GlobalTx_NoBuilder(t *testing.T) {
 
 	err := hook.Before(ctx, execCtx)
 	// Should return nil when no builder is registered or for SELECT statements
-	assert.True(t, err == nil || err != nil)
+	assert.NoError(t, err)
 }
 
 func TestUndoLogSQLHook_Before_GlobalTx_WithMockBuilder_Success(t *testing.T) {
