@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 
 // mockTCCFenceStore is a mock implementation of TCCFenceStore for testing
 type mockTCCFenceStore struct {
+	mu                               sync.RWMutex
 	insertFunc                       func(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error
 	queryFunc                        func(tx *sql.Tx, xid string, branchId int64) (*model.TCCFenceDO, error)
 	updateFunc                       func(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error
@@ -46,6 +48,8 @@ type mockTCCFenceStore struct {
 }
 
 func (m *mockTCCFenceStore) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFenceDO) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.insertFunc != nil {
 		return m.insertFunc(tx, tccFenceDo)
 	}
@@ -53,6 +57,8 @@ func (m *mockTCCFenceStore) InsertTCCFenceDO(tx *sql.Tx, tccFenceDo *model.TCCFe
 }
 
 func (m *mockTCCFenceStore) QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) (*model.TCCFenceDO, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.queryFunc != nil {
 		return m.queryFunc(tx, xid, branchId)
 	}
@@ -60,6 +66,8 @@ func (m *mockTCCFenceStore) QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int
 }
 
 func (m *mockTCCFenceStore) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId int64, oldStatus enum.FenceStatus, newStatus enum.FenceStatus) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.updateFunc != nil {
 		return m.updateFunc(tx, xid, branchId, oldStatus, newStatus)
 	}
@@ -67,6 +75,8 @@ func (m *mockTCCFenceStore) UpdateTCCFenceDO(tx *sql.Tx, xid string, branchId in
 }
 
 func (m *mockTCCFenceStore) DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.deleteFunc != nil {
 		return m.deleteFunc(tx, xid, branchId)
 	}
@@ -74,6 +84,8 @@ func (m *mockTCCFenceStore) DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId in
 }
 
 func (m *mockTCCFenceStore) DeleteMultipleTCCFenceLogIdentity(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.deleteMultipleFunc != nil {
 		return m.deleteMultipleFunc(tx, identity)
 	}
@@ -81,6 +93,8 @@ func (m *mockTCCFenceStore) DeleteMultipleTCCFenceLogIdentity(tx *sql.Tx, identi
 }
 
 func (m *mockTCCFenceStore) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time, limit int32) (int64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.deleteTCCFenceDOByMdfDateFunc != nil {
 		return m.deleteTCCFenceDOByMdfDateFunc(tx, datetime, limit)
 	}
@@ -88,6 +102,8 @@ func (m *mockTCCFenceStore) DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.
 }
 
 func (m *mockTCCFenceStore) QueryTCCFenceLogIdentityByMdDate(tx *sql.Tx, datetime time.Time) ([]model.FenceLogIdentity, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.queryTCCFenceLogIdentityByMdDate != nil {
 		return m.queryTCCFenceLogIdentityByMdDate(tx, datetime)
 	}
