@@ -111,7 +111,7 @@ func TestTableMeta_GetPrimaryKeyType(t *testing.T) {
 
 func TestTableMetaCache_GetTableMeta(t *testing.T) {
 	cache := map[string]*TableMeta{
-		"table1": &TableMeta{
+		"table1": {
 			TableName: "table1",
 			Columns: map[string]ColumnMeta{
 				"id": {
