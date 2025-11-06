@@ -45,3 +45,35 @@ func TestLoad(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, jsonParser)
 }
+
+func TestLoad_NotFound(t *testing.T) {
+	parser, err := GetCache().Load("nonexistent")
+	assert.NotNil(t, err)
+	assert.Nil(t, parser)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestLoad_Protobuf(t *testing.T) {
+	protobufParser, err := GetCache().Load("protobuf")
+	assert.Nil(t, err)
+	assert.NotNil(t, protobufParser)
+	assert.Equal(t, "protobuf", protobufParser.GetName())
+}
+
+func TestUndoLogParserCache_Store(t *testing.T) {
+	cache := GetCache()
+	assert.NotNil(t, cache)
+
+	// Verify both parsers are stored
+	jsonParser, err := cache.Load("json")
+	assert.NoError(t, err)
+	assert.NotNil(t, jsonParser)
+
+	protobufParser, err := cache.Load("protobuf")
+	assert.NoError(t, err)
+	assert.NotNil(t, protobufParser)
+}
+
+func TestDefaultSerializer(t *testing.T) {
+	assert.Equal(t, "json", DefaultSerializer)
+}
