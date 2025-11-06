@@ -43,10 +43,10 @@ func TestBranchStatus_String_AllCases(t *testing.T) {
 		{BranchStatus(99), "99"}, // default case
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.status.String())
-		})
+	for i, tt := range tests {
+		actual := tt.status.String()
+		assert.Equal(t, tt.expected, actual, "test case %d failed", i)
+
 	}
 }
 
