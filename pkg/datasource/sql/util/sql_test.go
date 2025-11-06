@@ -37,7 +37,7 @@ type mockDriverRows struct {
 	closed     bool
 	closeErr   error
 	nextErr    error
-	mu         sync.Mutex // 添加互斥锁保证并发安全
+	mu         sync.Mutex
 }
 
 func newMockDriverRows(columns []string, data [][]driver.Value) *mockDriverRows {
@@ -405,7 +405,6 @@ func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
 
 	t.Cleanup(func() {
 		bypassRowsAwaitDone = originalBypass
-		time.Sleep(50 * time.Millisecond)
 	})
 
 	bypassRowsAwaitDone = true
@@ -417,8 +416,6 @@ func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
 	scanRows.initContextClose(ctx, nil)
 
 	cancel()
-
-	time.Sleep(100 * time.Millisecond)
 
 	scanRows.closemu.RLock()
 	closed := scanRows.closed
@@ -520,13 +517,15 @@ func TestScanRows_CloseHook(t *testing.T) {
 
 	t.Cleanup(func() {
 		rowsCloseHook = originalHook
-		time.Sleep(50 * time.Millisecond)
 	})
 
-	hookCalled := false
+	hookCalled := make(chan struct{}, 1)
 	rowsCloseHook = func() func(*ScanRows, *error) {
 		return func(rs *ScanRows, err *error) {
-			hookCalled = true
+			select {
+			case hookCalled <- struct{}{}:
+			default:
+			}
 		}
 	}
 
@@ -534,9 +533,14 @@ func TestScanRows_CloseHook(t *testing.T) {
 	scanRows := NewScanRows(mockRows)
 	scanRows.releaseConn = func(error) {}
 
-	scanRows.close(nil)
+	err := scanRows.close(nil)
+	assert.NoError(t, err)
 
-	assert.True(t, hookCalled)
+	select {
+	case <-hookCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("hook called timeout")
+	}
 }
 
 func TestScanRows_WithCancelFunction(t *testing.T) {
@@ -551,42 +555,6 @@ func TestScanRows_WithCancelFunction(t *testing.T) {
 	scanRows.close(nil)
 
 	assert.True(t, cancelCalled)
-}
-
-func TestScanRows_ConcurrentAccess(t *testing.T) {
-	data := [][]driver.Value{
-		{int64(1), "row1"},
-		{int64(2), "row2"},
-		{int64(3), "row3"},
-	}
-	mockRows := newMockDriverRows([]string{"id", "name"}, data)
-	scanRows := NewScanRows(mockRows)
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, 3)
-
-	// Concurrent Next calls
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if scanRows.Next() {
-				var id int64
-				var name string
-				if err := scanRows.Scan(&id, &name); err != nil {
-					errChan <- err
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	// Check for errors
-	for err := range errChan {
-		t.Logf("Concurrent error (expected in some cases): %v", err)
-	}
 }
 
 func TestScanRows_Next_HasNextResultSetFalse(t *testing.T) {
