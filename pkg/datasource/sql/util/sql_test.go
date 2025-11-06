@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Mock driver.Rows implementation
@@ -38,6 +37,7 @@ type mockDriverRows struct {
 	closed     bool
 	closeErr   error
 	nextErr    error
+	mu         sync.Mutex // 添加互斥锁保证并发安全
 }
 
 func newMockDriverRows(columns []string, data [][]driver.Value) *mockDriverRows {
@@ -53,11 +53,16 @@ func (m *mockDriverRows) Columns() []string {
 }
 
 func (m *mockDriverRows) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.closed = true
 	return m.closeErr
 }
 
 func (m *mockDriverRows) Next(dest []driver.Value) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.nextErr != nil {
 		return m.nextErr
 	}
@@ -85,10 +90,15 @@ func newMockDriverRowsWithNextResultSet(columns []string, data [][]driver.Value,
 }
 
 func (m *mockDriverRowsWithNextResultSet) HasNextResultSet() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.hasNextResultSet
 }
 
 func (m *mockDriverRowsWithNextResultSet) NextResultSet() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.nextResultSetErr != nil {
 		return m.nextResultSetErr
 	}
@@ -251,11 +261,16 @@ func TestScanRows_Err(t *testing.T) {
 func TestScanRows_Close(t *testing.T) {
 	mockRows := newMockDriverRows([]string{"id"}, nil)
 	scanRows := NewScanRows(mockRows)
-	scanRows.releaseConn = func(error) {}
+
+	releaseCalled := false
+	scanRows.releaseConn = func(error) {
+		releaseCalled = true
+	}
 
 	err := scanRows.close(nil)
 	assert.NoError(t, err)
 	assert.True(t, mockRows.closed)
+	assert.True(t, releaseCalled)
 }
 
 func TestScanRows_Close_Idempotent(t *testing.T) {
@@ -330,7 +345,12 @@ func TestScanRows_NextResultSet_WhenClosed(t *testing.T) {
 func TestScanRows_ContextCancellation(t *testing.T) {
 	mockRows := newMockDriverRows([]string{"id"}, [][]driver.Value{{int64(1)}})
 	scanRows := NewScanRows(mockRows)
-	scanRows.releaseConn = func(error) {}
+
+	// 使用 channel 来确保清理完成
+	done := make(chan struct{})
+	scanRows.releaseConn = func(error) {
+		close(done)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	scanRows.initContextClose(ctx, nil)
@@ -338,18 +358,27 @@ func TestScanRows_ContextCancellation(t *testing.T) {
 	// Cancel context
 	cancel()
 
-	// Use require.Eventually instead of time.Sleep
-	require.Eventually(t, func() bool {
-		scanRows.closemu.RLock()
-		defer scanRows.closemu.RUnlock()
-		return scanRows.closed
-	}, 1*time.Second, 10*time.Millisecond, "Rows should be closed after context cancellation")
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Context cancellation cleanup timeout")
+	}
+
+	scanRows.closemu.RLock()
+	closed := scanRows.closed
+	scanRows.closemu.RUnlock()
+
+	assert.True(t, closed, "Rows should be closed after context cancellation")
 }
 
 func TestScanRows_TransactionContext(t *testing.T) {
 	mockRows := newMockDriverRows([]string{"id"}, [][]driver.Value{{int64(1)}})
 	scanRows := NewScanRows(mockRows)
-	scanRows.releaseConn = func(error) {}
+
+	done := make(chan struct{})
+	scanRows.releaseConn = func(error) {
+		close(done)
+	}
 
 	ctx := context.Background()
 	txctx, txcancel := context.WithCancel(context.Background())
@@ -358,20 +387,26 @@ func TestScanRows_TransactionContext(t *testing.T) {
 	// Cancel transaction context
 	txcancel()
 
-	// Use require.Eventually instead of time.Sleep
-	require.Eventually(t, func() bool {
-		scanRows.closemu.RLock()
-		defer scanRows.closemu.RUnlock()
-		return scanRows.closed
-	}, 1*time.Second, 10*time.Millisecond, "Rows should be closed after transaction context cancellation")
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Transaction context cancellation cleanup timeout")
+	}
+
+	scanRows.closemu.RLock()
+	closed := scanRows.closed
+	scanRows.closemu.RUnlock()
+
+	assert.True(t, closed, "Rows should be closed after transaction context cancellation")
 }
 
 func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
-	// Save original value
 	originalBypass := bypassRowsAwaitDone
-	defer func() {
+
+	t.Cleanup(func() {
 		bypassRowsAwaitDone = originalBypass
-	}()
+		time.Sleep(50 * time.Millisecond)
+	})
 
 	bypassRowsAwaitDone = true
 
@@ -383,15 +418,13 @@ func TestScanRows_BypassRowsAwaitDone(t *testing.T) {
 
 	cancel()
 
-	// Give goroutine time to start (if it does), then verify it didn't close
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
-	// Use require.Never to ensure rows stay open (since bypass is enabled)
-	require.Never(t, func() bool {
-		scanRows.closemu.RLock()
-		defer scanRows.closemu.RUnlock()
-		return scanRows.closed
-	}, 100*time.Millisecond, 10*time.Millisecond, "Rows should NOT be closed when bypass is enabled")
+	scanRows.closemu.RLock()
+	closed := scanRows.closed
+	scanRows.closemu.RUnlock()
+
+	assert.False(t, closed, "Rows should NOT be closed when bypass is enabled")
 }
 
 func TestWithLock(t *testing.T) {
@@ -483,11 +516,12 @@ func TestScanRows_MultipleResultSets(t *testing.T) {
 }
 
 func TestScanRows_CloseHook(t *testing.T) {
-	// Save original hook
 	originalHook := rowsCloseHook
-	defer func() {
+
+	t.Cleanup(func() {
 		rowsCloseHook = originalHook
-	}()
+		time.Sleep(50 * time.Millisecond)
+	})
 
 	hookCalled := false
 	rowsCloseHook = func() func(*ScanRows, *error) {
