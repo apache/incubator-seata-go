@@ -177,40 +177,40 @@ func TestGetDeleteSQLByBranchIdAndXid(t *testing.T) {
 
 func TestGertDeleteSQLByBranchIdsAndXids(t *testing.T) {
 	tests := []struct {
-		name               string
-		localTccTable      string
-		paramsPlaceHolder  string
-		expectedResult     string
+		name              string
+		localTccTable     string
+		paramsPlaceHolder string
+		expectedResult    string
 	}{
 		{
-			name:               "single pair of parameters",
-			localTccTable:      "tcc_fence_log",
-			paramsPlaceHolder:  "(?,?)",
-			expectedResult:     "delete from  tcc_fence_log  where (xid,branch_id) in ((?,?) )",
+			name:              "single pair of parameters",
+			localTccTable:     "tcc_fence_log",
+			paramsPlaceHolder: "(?,?)",
+			expectedResult:    "delete from  tcc_fence_log  where (xid,branch_id) in ((?,?) )",
 		},
 		{
-			name:               "multiple pairs of parameters",
-			localTccTable:      "tcc_fence_log",
-			paramsPlaceHolder:  "(?,?),(?,?),(?,?)",
-			expectedResult:     "delete from  tcc_fence_log  where (xid,branch_id) in ((?,?),(?,?),(?,?) )",
+			name:              "multiple pairs of parameters",
+			localTccTable:     "tcc_fence_log",
+			paramsPlaceHolder: "(?,?),(?,?),(?,?)",
+			expectedResult:    "delete from  tcc_fence_log  where (xid,branch_id) in ((?,?),(?,?),(?,?) )",
 		},
 		{
-			name:               "custom table with multiple parameters",
-			localTccTable:      "custom_log",
-			paramsPlaceHolder:  "(?,?),(?,?)",
-			expectedResult:     "delete from  custom_log  where (xid,branch_id) in ((?,?),(?,?) )",
+			name:              "custom table with multiple parameters",
+			localTccTable:     "custom_log",
+			paramsPlaceHolder: "(?,?),(?,?)",
+			expectedResult:    "delete from  custom_log  where (xid,branch_id) in ((?,?),(?,?) )",
 		},
 		{
-			name:               "empty table name",
-			localTccTable:      "",
-			paramsPlaceHolder:  "(?,?)",
-			expectedResult:     "delete from    where (xid,branch_id) in ((?,?) )",
+			name:              "empty table name",
+			localTccTable:     "",
+			paramsPlaceHolder: "(?,?)",
+			expectedResult:    "delete from    where (xid,branch_id) in ((?,?) )",
 		},
 		{
-			name:               "empty placeholder",
-			localTccTable:      "tcc_fence_log",
-			paramsPlaceHolder:  "",
-			expectedResult:     "delete from  tcc_fence_log  where (xid,branch_id) in ( )",
+			name:              "empty placeholder",
+			localTccTable:     "tcc_fence_log",
+			paramsPlaceHolder: "",
+			expectedResult:    "delete from  tcc_fence_log  where (xid,branch_id) in ( )",
 		},
 	}
 
