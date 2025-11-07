@@ -37,9 +37,7 @@
 
 ### test:
 
-  - [[#942](https://github.com/apache/incubator-seata-go/issues/942)] improve test coverage for pkg/datasource/sql/undo/executor
-  - [[#944](https://github.com/apache/incubator-seata-go/issues/944)] improve test coverage for pkg/datasource/sql/undo/mysql
-  - [[#945](https://github.com/apache/incubator-seata-go/issues/945)] improve test coverage for pkg/datasource/sql/undo/parser	
+  - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] test case for xxx	
 
 ### contributors:
 

@@ -32,7 +32,7 @@ import (
 func TestNewMySQLUndoDeleteExecutor(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_DELETE,
+		SQLType:   types.SQLTypeDelete,
 	}
 
 	executor := newMySQLUndoDeleteExecutor(sqlUndoLog)
@@ -44,9 +44,12 @@ func TestNewMySQLUndoDeleteExecutor(t *testing.T) {
 func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_DELETE,
+		SQLType:   types.SQLTypeDelete,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
+			TableMeta: &types.TableMeta{
+				TableName: "test_table",
+			},
 			Rows: []types.RowImage{
 				{
 					Columns: []types.ColumnImage{
@@ -69,7 +72,7 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 func TestMySQLUndoDeleteExecutor_BuildUndoSQL_EmptyRows(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_DELETE,
+		SQLType:   types.SQLTypeDelete,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 			Rows:      []types.RowImage{},
@@ -90,7 +93,7 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_DELETE,
+		SQLType:   types.SQLTypeDelete,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{

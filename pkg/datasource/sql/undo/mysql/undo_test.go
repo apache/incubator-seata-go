@@ -174,12 +174,9 @@ func TestUndoLogManager_FlushUndoLog(t *testing.T) {
 
 	// Create transaction context with empty round images
 	tranCtx := &types.TransactionContext{
-		XID:      "test-xid",
-		BranchID: 123,
-		RoundImages: &types.RecordImages{
-			BeforeImages: []*types.RecordImage{},
-			AfterImages:  []*types.RecordImage{},
-		},
+		XID:         "test-xid",
+		BranchID:    123,
+		RoundImages: &types.RoundRecordImage{},
 	}
 
 	// Get raw driver connection
@@ -210,31 +207,34 @@ func TestUndoLogManager_FlushUndoLog_WithImages(t *testing.T) {
 	defer driverConn.Close()
 
 	// Create transaction context with images
-	tranCtx := &types.TransactionContext{
-		XID:      "test-xid",
-		BranchID: 123,
-		RoundImages: &types.RecordImages{
-			BeforeImages: []*types.RecordImage{
-				{
-					TableName: "test_table",
-					SQLType:   types.SQLType_INSERT,
-					Rows:      []*types.Row{},
-				},
-			},
-			AfterImages: []*types.RecordImage{
-				{
-					TableName: "test_table",
-					SQLType:   types.SQLType_INSERT,
-					Rows: []*types.Row{
-						{
-							Fields: []*types.Field{
-								{Name: "id", Value: 1},
-							},
-						},
-					},
+	roundImages := &types.RoundRecordImage{}
+
+	// Add before images
+	beforeImage := &types.RecordImage{
+		TableName: "test_table",
+		SQLType:   types.SQLTypeInsert,
+		Rows:      []types.RowImage{},
+	}
+	roundImages.AppendBeofreImage(beforeImage)
+
+	// Add after images
+	afterImage := &types.RecordImage{
+		TableName: "test_table",
+		SQLType:   types.SQLTypeInsert,
+		Rows: []types.RowImage{
+			{
+				Columns: []types.ColumnImage{
+					{ColumnName: "id", Value: 1},
 				},
 			},
 		},
+	}
+	roundImages.AppendAfterImage(afterImage)
+
+	tranCtx := &types.TransactionContext{
+		XID:         "test-xid",
+		BranchID:    123,
+		RoundImages: roundImages,
 	}
 
 	// Mock the insert operation

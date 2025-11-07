@@ -32,7 +32,7 @@ import (
 func TestNewMySQLUndoUpdateExecutor(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_UPDATE,
+		SQLType:   types.SQLTypeUpdate,
 	}
 
 	executor := newMySQLUndoUpdateExecutor(sqlUndoLog)
@@ -44,7 +44,7 @@ func TestNewMySQLUndoUpdateExecutor(t *testing.T) {
 func TestMySQLUndoUpdateExecutor_BuildUndoSQL(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_UPDATE,
+		SQLType:   types.SQLTypeUpdate,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
@@ -93,7 +93,7 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn_DataValidationDisabled(t *testing.T) 
 
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_UPDATE,
+		SQLType:   types.SQLTypeUpdate,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{

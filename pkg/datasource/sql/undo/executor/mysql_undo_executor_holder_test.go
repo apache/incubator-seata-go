@@ -36,7 +36,7 @@ func TestMySQLUndoExecutorHolder_GetInsertExecutor(t *testing.T) {
 	holder := NewMySQLUndoExecutorHolder()
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_INSERT,
+		SQLType:   types.SQLTypeInsert,
 		AfterImage: &types.RecordImage{
 			TableName: "test_table",
 		},
@@ -51,7 +51,7 @@ func TestMySQLUndoExecutorHolder_GetUpdateExecutor(t *testing.T) {
 	holder := NewMySQLUndoExecutorHolder()
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_UPDATE,
+		SQLType:   types.SQLTypeUpdate,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 		},
@@ -69,7 +69,7 @@ func TestMySQLUndoExecutorHolder_GetDeleteExecutor(t *testing.T) {
 	holder := NewMySQLUndoExecutorHolder()
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_DELETE,
+		SQLType:   types.SQLTypeDelete,
 		BeforeImage: &types.RecordImage{
 			TableName: "test_table",
 		},
@@ -97,19 +97,19 @@ func TestMySQLUndoExecutorHolder_AllExecutorTypes(t *testing.T) {
 	}{
 		{
 			name:     "Insert Executor",
-			sqlType:  types.SQLType_INSERT,
+			sqlType:  types.SQLTypeInsert,
 			getFunc:  holder.GetInsertExecutor,
 			expected: &mySQLUndoInsertExecutor{},
 		},
 		{
 			name:     "Update Executor",
-			sqlType:  types.SQLType_UPDATE,
+			sqlType:  types.SQLTypeUpdate,
 			getFunc:  holder.GetUpdateExecutor,
 			expected: &mySQLUndoUpdateExecutor{},
 		},
 		{
 			name:     "Delete Executor",
-			sqlType:  types.SQLType_DELETE,
+			sqlType:  types.SQLTypeDelete,
 			getFunc:  holder.GetDeleteExecutor,
 			expected: &mySQLUndoDeleteExecutor{},
 		},

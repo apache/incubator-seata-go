@@ -32,7 +32,7 @@ import (
 func TestNewMySQLUndoInsertExecutor(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_INSERT,
+		SQLType:   types.SQLTypeInsert,
 	}
 
 	executor := newMySQLUndoInsertExecutor(sqlUndoLog)
@@ -43,7 +43,7 @@ func TestNewMySQLUndoInsertExecutor(t *testing.T) {
 func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_INSERT,
+		SQLType:   types.SQLTypeInsert,
 		AfterImage: &types.RecordImage{
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
@@ -71,7 +71,7 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 func TestMySQLUndoInsertExecutor_BuildUndoSQL_EmptyRows(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_INSERT,
+		SQLType:   types.SQLTypeInsert,
 		AfterImage: &types.RecordImage{
 			TableName: "test_table",
 			Rows:      []types.RowImage{},
@@ -92,7 +92,7 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
-		SQLType:   types.SQLType_INSERT,
+		SQLType:   types.SQLTypeInsert,
 		AfterImage: &types.RecordImage{
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
