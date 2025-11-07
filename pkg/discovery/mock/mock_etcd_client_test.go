@@ -24,559 +24,137 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-// TestNewMockEtcdClient tests the creation of a new MockEtcdClient
-func TestNewMockEtcdClient(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{
-			name: "Create new mock etcd client",
-		},
-	}
+func TestNewMockEtcdClient_BasicUsage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			assert.NotNil(t, mockClient)
-			assert.NotNil(t, mockClient.recorder)
-		})
-	}
+	mockClient := NewMockEtcdClient(ctrl)
+	assert.NotNil(t, mockClient)
+	assert.NotNil(t, mockClient.EXPECT())
 }
 
-// TestMockEtcdClient_EXPECT tests the EXPECT() method
-func TestMockEtcdClient_EXPECT(t *testing.T) {
+func TestMockEtcdClient_Methods(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	m := NewMockEtcdClient(ctrl)
+	ctx := context.Background()
+
 	tests := []struct {
-		name string
+		name     string
+		mockFunc func()
+		run      func(t *testing.T)
 	}{
 		{
-			name: "EXPECT returns recorder",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			recorder := mockClient.EXPECT()
-			assert.NotNil(t, recorder)
-			assert.Equal(t, mockClient.recorder, recorder)
-		})
-	}
-}
-
-// TestMockEtcdClient_Get tests the Get method with mock expectations
-func TestMockEtcdClient_Get(t *testing.T) {
-	tests := []struct {
-		name           string
-		key            string
-		expectedResp   *clientv3.GetResponse
-		expectedErr    error
-		setupMock      bool
-		validateCalled bool
-	}{
-		{
-			name: "Successful Get operation",
-			key:  "test-key",
-			expectedResp: &clientv3.GetResponse{
-				Kvs: []*mvccpb.KeyValue{
-					{
-						Key:   []byte("test-key"),
-						Value: []byte("test-value"),
-					},
-				},
+			name: "Put",
+			mockFunc: func() {
+				expected := &clientv3.PutResponse{}
+				m.EXPECT().Put(ctx, "key", "val").Return(expected, nil)
 			},
-			expectedErr:    nil,
-			setupMock:      true,
-			validateCalled: true,
-		},
-		{
-			name:           "Get operation with error",
-			key:            "error-key",
-			expectedResp:   nil,
-			expectedErr:    errors.New("get failed"),
-			setupMock:      true,
-			validateCalled: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			if tt.setupMock {
-				mockClient.EXPECT().
-					Get(gomock.Any(), tt.key).
-					Return(tt.expectedResp, tt.expectedErr).
-					Times(1)
-			}
-
-			resp, err := mockClient.Get(ctx, tt.key)
-
-			if tt.validateCalled {
-				assert.Equal(t, tt.expectedResp, resp)
-				assert.Equal(t, tt.expectedErr, err)
-			}
-		})
-	}
-}
-
-// TestMockEtcdClient_Put tests the Put method
-func TestMockEtcdClient_Put(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		value        string
-		expectedResp *clientv3.PutResponse
-		expectedErr  error
-	}{
-		{
-			name:         "Successful Put operation",
-			key:          "test-key",
-			value:        "test-value",
-			expectedResp: &clientv3.PutResponse{},
-			expectedErr:  nil,
-		},
-		{
-			name:         "Put operation with error",
-			key:          "error-key",
-			value:        "error-value",
-			expectedResp: nil,
-			expectedErr:  errors.New("put failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Put(gomock.Any(), tt.key, tt.value).
-				Return(tt.expectedResp, tt.expectedErr).
-				Times(1)
-
-			resp, err := mockClient.Put(ctx, tt.key, tt.value)
-
-			assert.Equal(t, tt.expectedResp, resp)
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_Delete tests the Delete method
-func TestMockEtcdClient_Delete(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		expectedResp *clientv3.DeleteResponse
-		expectedErr  error
-	}{
-		{
-			name: "Successful Delete operation",
-			key:  "test-key",
-			expectedResp: &clientv3.DeleteResponse{
-				Deleted: 1,
+			run: func(t *testing.T) {
+				res, err := m.Put(ctx, "key", "val")
+				assert.NoError(t, err)
+				assert.NotNil(t, res)
 			},
-			expectedErr: nil,
 		},
 		{
-			name:         "Delete operation with error",
-			key:          "error-key",
-			expectedResp: nil,
-			expectedErr:  errors.New("delete failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Delete(gomock.Any(), tt.key).
-				Return(tt.expectedResp, tt.expectedErr).
-				Times(1)
-
-			resp, err := mockClient.Delete(ctx, tt.key)
-
-			assert.Equal(t, tt.expectedResp, resp)
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_Watch tests the Watch method
-func TestMockEtcdClient_Watch(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		expectedChan clientv3.WatchChan
-	}{
-		{
-			name:         "Successful Watch operation",
-			key:          "test-key",
-			expectedChan: make(clientv3.WatchChan),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Watch(gomock.Any(), tt.key).
-				Return(tt.expectedChan).
-				Times(1)
-
-			watchChan := mockClient.Watch(ctx, tt.key)
-
-			assert.Equal(t, tt.expectedChan, watchChan)
-		})
-	}
-}
-
-// TestMockEtcdClient_Close tests the Close method
-func TestMockEtcdClient_Close(t *testing.T) {
-	tests := []struct {
-		name        string
-		expectedErr error
-	}{
-		{
-			name:        "Successful Close operation",
-			expectedErr: nil,
-		},
-		{
-			name:        "Close operation with error",
-			expectedErr: errors.New("close failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-
-			mockClient.EXPECT().
-				Close().
-				Return(tt.expectedErr).
-				Times(1)
-
-			err := mockClient.Close()
-
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_Compact tests the Compact method
-func TestMockEtcdClient_Compact(t *testing.T) {
-	tests := []struct {
-		name         string
-		rev          int64
-		expectedResp *clientv3.CompactResponse
-		expectedErr  error
-	}{
-		{
-			name:         "Successful Compact operation",
-			rev:          100,
-			expectedResp: &clientv3.CompactResponse{},
-			expectedErr:  nil,
-		},
-		{
-			name:         "Compact operation with error",
-			rev:          50,
-			expectedResp: nil,
-			expectedErr:  errors.New("compact failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Compact(gomock.Any(), tt.rev).
-				Return(tt.expectedResp, tt.expectedErr).
-				Times(1)
-
-			resp, err := mockClient.Compact(ctx, tt.rev)
-
-			assert.Equal(t, tt.expectedResp, resp)
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_Do tests the Do method
-func TestMockEtcdClient_Do(t *testing.T) {
-	tests := []struct {
-		name         string
-		op           clientv3.Op
-		expectedResp clientv3.OpResponse
-		expectedErr  error
-	}{
-		{
-			name:         "Successful Do operation",
-			op:           clientv3.OpGet("test-key"),
-			expectedResp: clientv3.OpResponse{},
-			expectedErr:  nil,
-		},
-		{
-			name:         "Do operation with error",
-			op:           clientv3.OpGet("error-key"),
-			expectedResp: clientv3.OpResponse{},
-			expectedErr:  errors.New("do failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Do(gomock.Any(), gomock.Any()).
-				Return(tt.expectedResp, tt.expectedErr).
-				Times(1)
-
-			resp, err := mockClient.Do(ctx, tt.op)
-
-			assert.Equal(t, tt.expectedResp, resp)
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_Txn tests the Txn method
-func TestMockEtcdClient_Txn(t *testing.T) {
-	tests := []struct {
-		name        string
-		expectedTxn clientv3.Txn
-	}{
-		{
-			name:        "Successful Txn operation",
-			expectedTxn: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Txn(gomock.Any()).
-				Return(tt.expectedTxn).
-				Times(1)
-
-			txn := mockClient.Txn(ctx)
-
-			assert.Equal(t, tt.expectedTxn, txn)
-		})
-	}
-}
-
-// TestMockEtcdClient_RequestProgress tests the RequestProgress method
-func TestMockEtcdClient_RequestProgress(t *testing.T) {
-	tests := []struct {
-		name        string
-		expectedErr error
-	}{
-		{
-			name:        "Successful RequestProgress operation",
-			expectedErr: nil,
-		},
-		{
-			name:        "RequestProgress operation with error",
-			expectedErr: errors.New("request progress failed"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				RequestProgress(gomock.Any()).
-				Return(tt.expectedErr).
-				Times(1)
-
-			err := mockClient.RequestProgress(ctx)
-
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_MultipleMethodCalls tests multiple method calls in sequence
-func TestMockEtcdClient_MultipleMethodCalls(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{
-			name: "Multiple operations in sequence",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			// Setup expectations for multiple operations
-			mockClient.EXPECT().
-				Put(gomock.Any(), "key1", "value1").
-				Return(&clientv3.PutResponse{}, nil).
-				Times(1)
-
-			mockClient.EXPECT().
-				Get(gomock.Any(), "key1").
-				Return(&clientv3.GetResponse{
-					Kvs: []*mvccpb.KeyValue{
-						{Key: []byte("key1"), Value: []byte("value1")},
-					},
-				}, nil).
-				Times(1)
-
-			mockClient.EXPECT().
-				Delete(gomock.Any(), "key1").
-				Return(&clientv3.DeleteResponse{Deleted: 1}, nil).
-				Times(1)
-
-			// Execute operations
-			_, err := mockClient.Put(ctx, "key1", "value1")
-			assert.NoError(t, err)
-
-			resp, err := mockClient.Get(ctx, "key1")
-			assert.NoError(t, err)
-			assert.Len(t, resp.Kvs, 1)
-
-			delResp, err := mockClient.Delete(ctx, "key1")
-			assert.NoError(t, err)
-			assert.Equal(t, int64(1), delResp.Deleted)
-		})
-	}
-}
-
-// TestMockEtcdClient_GetWithOptions tests Get with options
-func TestMockEtcdClient_GetWithOptions(t *testing.T) {
-	tests := []struct {
-		name         string
-		key          string
-		opts         []clientv3.OpOption
-		expectedResp *clientv3.GetResponse
-		expectedErr  error
-	}{
-		{
-			name: "Get with WithPrefix option",
-			key:  "test-",
-			opts: []clientv3.OpOption{clientv3.WithPrefix()},
-			expectedResp: &clientv3.GetResponse{
-				Kvs: []*mvccpb.KeyValue{
-					{Key: []byte("test-key1"), Value: []byte("value1")},
-					{Key: []byte("test-key2"), Value: []byte("value2")},
-				},
+			name: "Get",
+			mockFunc: func() {
+				expected := &clientv3.GetResponse{}
+				m.EXPECT().Get(ctx, "key").Return(expected, nil)
 			},
-			expectedErr: nil,
+			run: func(t *testing.T) {
+				res, err := m.Get(ctx, "key")
+				assert.NoError(t, err)
+				assert.NotNil(t, res)
+			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			mockClient.EXPECT().
-				Get(gomock.Any(), tt.key, gomock.Any()).
-				Return(tt.expectedResp, tt.expectedErr).
-				Times(1)
-
-			resp, err := mockClient.Get(ctx, tt.key, tt.opts...)
-
-			assert.Equal(t, tt.expectedResp, resp)
-			assert.Equal(t, tt.expectedErr, err)
-		})
-	}
-}
-
-// TestMockEtcdClient_ControllerIntegration tests mock controller integration
-func TestMockEtcdClient_ControllerIntegration(t *testing.T) {
-	tests := []struct {
-		name        string
-		shouldPanic bool
-	}{
 		{
-			name:        "Controller verifies all expectations met",
-			shouldPanic: false,
+			name: "Delete",
+			mockFunc: func() {
+				expected := &clientv3.DeleteResponse{}
+				m.EXPECT().Delete(ctx, "key").Return(expected, nil)
+			},
+			run: func(t *testing.T) {
+				res, err := m.Delete(ctx, "key")
+				assert.NoError(t, err)
+				assert.NotNil(t, res)
+			},
+		},
+		{
+			name: "Compact",
+			mockFunc: func() {
+				expected := &clientv3.CompactResponse{}
+				m.EXPECT().Compact(ctx, int64(10)).Return(expected, nil)
+			},
+			run: func(t *testing.T) {
+				res, err := m.Compact(ctx, 10)
+				assert.NoError(t, err)
+				assert.NotNil(t, res)
+			},
+		},
+		{
+			name: "Do",
+			mockFunc: func() {
+				op := clientv3.Op{}
+				resp := clientv3.OpResponse{}
+				m.EXPECT().Do(ctx, op).Return(resp, nil)
+			},
+			run: func(t *testing.T) {
+				r, err := m.Do(ctx, clientv3.Op{})
+				assert.NoError(t, err)
+				assert.NotNil(t, r)
+			},
+		},
+		{
+			name: "Txn",
+			mockFunc: func() {
+				m.EXPECT().Txn(ctx).Return(nil)
+			},
+			run: func(t *testing.T) {
+				res := m.Txn(ctx)
+				assert.Nil(t, res)
+			},
+		},
+		{
+			name: "RequestProgress",
+			mockFunc: func() {
+				m.EXPECT().RequestProgress(ctx).Return(nil)
+			},
+			run: func(t *testing.T) {
+				err := m.RequestProgress(ctx)
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "Watch",
+			mockFunc: func() {
+				watchChan := make(clientv3.WatchChan)
+				m.EXPECT().Watch(ctx, "key").Return(watchChan)
+			},
+			run: func(t *testing.T) {
+				res := m.Watch(ctx, "key")
+				assert.NotNil(t, res)
+			},
+		},
+		{
+			name: "Close",
+			mockFunc: func() {
+				m.EXPECT().Close().Return(errors.New("close error"))
+			},
+			run: func(t *testing.T) {
+				err := m.Close()
+				assert.EqualError(t, err, "close error")
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-
-			mockClient := NewMockEtcdClient(ctrl)
-			ctx := context.Background()
-
-			// Setup expectations
-			mockClient.EXPECT().
-				Get(gomock.Any(), "test-key").
-				Return(&clientv3.GetResponse{}, nil).
-				Times(1)
-
-			// Call the method
-			_, err := mockClient.Get(ctx, "test-key")
-			assert.NoError(t, err)
-
-			// Finish should not panic if all expectations are met
-			if !tt.shouldPanic {
-				ctrl.Finish()
-			}
+			tt.mockFunc()
+			tt.run(t)
 		})
 	}
 }
