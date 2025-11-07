@@ -78,8 +78,7 @@ func TestNewMockTestSession(t *testing.T) {
 
 	mock := NewMockTestSession(ctrl)
 	assert.NotNil(t, mock, "NewMockTestSession should return a non-nil mock")
-	assert.NotNil(t, mock.ctrl, "Mock should have a controller")
-	assert.NotNil(t, mock.recorder, "Mock should have a recorder")
+	assert.NotNil(t, mock.EXPECT(), "EXPECT should return a non-nil recorder")
 }
 
 func TestMockTestSession_EXPECT(t *testing.T) {
