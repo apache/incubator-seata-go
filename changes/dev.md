@@ -37,7 +37,8 @@
 
 ### test:
 
-  - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] test case for xxx	
+  - [[#947](https://github.com/apache/incubator-seata-go/issues/947)] improve test coverage for pkg/discovery/mock
+  - [[#948](https://github.com/apache/incubator-seata-go/issues/948)] improve test coverage for pkg/integration	
 
 ### contributors:
 
