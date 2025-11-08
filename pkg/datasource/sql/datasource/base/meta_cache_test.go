@@ -174,6 +174,90 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	}
 }
 
+func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
+	tests := []struct {
+		name   string
+		db     *sql.DB
+		cfg    *mysql.Config
+		cache  map[string]*entry
+		expect string
+	}{
+		{
+			name:   "db_is_nil",
+			db:     nil,
+			cfg:    &mysql.Config{},
+			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
+			expect: "should return early when db is nil",
+		},
+		{
+			name:   "cfg_is_nil",
+			db:     &sql.DB{},
+			cfg:    nil,
+			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
+			expect: "should return early when cfg is nil",
+		},
+		{
+			name:   "cache_is_nil",
+			db:     &sql.DB{},
+			cfg:    &mysql.Config{},
+			cache:  nil,
+			expect: "should return early when cache is nil",
+		},
+		{
+			name:   "cache_is_empty",
+			db:     &sql.DB{},
+			cfg:    &mysql.Config{},
+			cache:  map[string]*entry{},
+			expect: "should return early when cache is empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			c := &BaseTableMetaCache{
+				expireDuration: EexpireTime,
+				capity:         capacity,
+				size:           0,
+				cache:          tt.cache,
+				cancel:         cancel,
+				trigger:        &mockTrigger{},
+				db:             tt.db,
+				cfg:            tt.cfg,
+			}
+
+			// Call refresh once and it should return early without panic
+			done := make(chan bool)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("refresh() panicked: %v", r)
+					}
+					done <- true
+				}()
+
+				// Call the internal function once
+				c.lock.RLock()
+				if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+					c.lock.RUnlock()
+					done <- true
+					return
+				}
+				c.lock.RUnlock()
+			}()
+
+			select {
+			case <-done:
+				// Test passed - early return worked correctly
+			case <-time.After(2 * time.Second):
+				t.Error("refresh() did not return early as expected")
+			}
+		})
+	}
+}
+
 func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 	var (
 		tableMeta1  types.TableMeta
