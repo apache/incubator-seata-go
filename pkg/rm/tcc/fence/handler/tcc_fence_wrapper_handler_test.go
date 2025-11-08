@@ -969,6 +969,9 @@ func TestTraversalCleanChannel_DeleteError(t *testing.T) {
 }
 
 func TestInitLogCleanChannel(t *testing.T) {
+	// Wait a bit to ensure previous tests' goroutines have finished
+	time.Sleep(300 * time.Millisecond)
+
 	log.Init()
 
 	// Create a test DSN for sqlmock
@@ -1001,6 +1004,9 @@ func TestInitLogCleanChannel(t *testing.T) {
 }
 
 func TestInitLogCleanChannel_EmptyDSN(t *testing.T) {
+	// Wait a bit to ensure previous tests' goroutines have finished
+	time.Sleep(300 * time.Millisecond)
+
 	log.Init()
 
 	handler := &tccFenceWrapperHandler{
