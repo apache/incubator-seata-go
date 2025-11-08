@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 

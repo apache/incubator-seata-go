@@ -15,11 +15,23 @@
  * limitations under the License.
  */
 
-package mock
+package rocketmq
 
-import clientv3 "go.etcd.io/etcd/client/v3"
+import "context"
 
-type EtcdClient interface {
-	clientv3.KV
-	clientv3.Watcher
+type TransactionState int
+
+const (
+	TransactionCommit TransactionState = iota
+	TransactionRollback
+	TransactionUnknown
+)
+
+type MQProducer interface {
+	SendMessageInTransaction(ctx context.Context, msg interface{}, xid string, branchId int64) (interface{}, error)
+	EndTransaction(ctx context.Context, sendResult interface{}, state TransactionState) error
+}
+
+type GlobalStatusChecker interface {
+	GetGlobalStatus(ctx context.Context, xid string) (int32, error)
 }
