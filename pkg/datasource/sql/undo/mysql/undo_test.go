@@ -254,6 +254,7 @@ func TestUndoLogManager_FlushUndoLog_WithImages(t *testing.T) {
 	err = manager.FlushUndoLog(tranCtx, rawConn)
 	// Error expected as we're using sqlmock which doesn't fully implement all driver features
 	// The test verifies the method is callable and handles the input
+	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -276,9 +277,10 @@ func TestUndoLogManager_RunUndo(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}))
 	mock.ExpectCommit()
 
-	err = manager.RunUndo(ctx, xid, branchID, db, dbName)
+	_ = manager.RunUndo(ctx, xid, branchID, db, dbName)
 	// The method will execute and attempt database operations
 	// We're testing that it's callable and delegates to Base.Undo
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestUndoLogManager_HasUndoLogTable(t *testing.T) {

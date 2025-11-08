@@ -124,5 +124,7 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 
 	err = executor.ExecuteOn(ctx, types.DBTypeMySQL, conn)
 	// Note: BaseExecutor.ExecuteOn is nil, so this will likely succeed
+	// We're testing that the method is callable and handles the input
+	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
