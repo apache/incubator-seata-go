@@ -42,36 +42,6 @@ func (m *mockConn) SetDeadline(t time.Time) error      { return nil }
 func (m *mockConn) SetReadDeadline(t time.Time) error  { return nil }
 func (m *mockConn) SetWriteDeadline(t time.Time) error { return nil }
 
-// mockEndPoint is a mock implementation of getty.EndPoint
-type mockEndPoint struct {
-	getty.EndPoint
-}
-
-// mockEventListener is a mock implementation of getty.EventListener
-type mockEventListener struct {
-	getty.EventListener
-}
-
-// mockReadWriter is a mock implementation of getty.ReadWriter
-type mockReadWriter struct {
-	getty.ReadWriter
-}
-
-// mockReader is a mock implementation of getty.Reader
-type mockReader struct {
-	getty.Reader
-}
-
-// mockWriter is a mock implementation of getty.Writer
-type mockWriter struct {
-	getty.Writer
-}
-
-// mockSession is a mock implementation of getty.Session
-type mockSession struct {
-	getty.Session
-}
-
 func TestNewMockTestSession(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -163,11 +133,10 @@ func TestMockTestSession_EndPoint(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	expectedEndPoint := &mockEndPoint{}
-	mock.EXPECT().EndPoint().Return(expectedEndPoint).Times(1)
+	mock.EXPECT().EndPoint().Return(nil).Times(1)
 
 	endPoint := mock.EndPoint()
-	assert.Equal(t, expectedEndPoint, endPoint, "EndPoint should return the expected endpoint")
+	assert.Nil(t, endPoint)
 }
 
 func TestMockTestSession_GetActive(t *testing.T) {
@@ -387,9 +356,8 @@ func TestMockTestSession_SetEventListener(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	listener := &mockEventListener{}
-	mock.EXPECT().SetEventListener(listener).Times(1)
-	mock.SetEventListener(listener)
+	mock.EXPECT().SetEventListener(gomock.Any()).Times(1)
+	mock.SetEventListener(nil)
 }
 
 func TestMockTestSession_SetMaxMsgLen(t *testing.T) {
@@ -417,9 +385,8 @@ func TestMockTestSession_SetPkgHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	handler := &mockReadWriter{}
-	mock.EXPECT().SetPkgHandler(handler).Times(1)
-	mock.SetPkgHandler(handler)
+	mock.EXPECT().SetPkgHandler(gomock.Any()).Times(1)
+	mock.SetPkgHandler(nil)
 }
 
 func TestMockTestSession_SetReadTimeout(t *testing.T) {
@@ -437,9 +404,8 @@ func TestMockTestSession_SetReader(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	reader := &mockReader{}
-	mock.EXPECT().SetReader(reader).Times(1)
-	mock.SetReader(reader)
+	mock.EXPECT().SetReader(gomock.Any()).Times(1)
+	mock.SetReader(nil)
 }
 
 func TestMockTestSession_SetSession(t *testing.T) {
@@ -447,9 +413,8 @@ func TestMockTestSession_SetSession(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	session := &mockSession{}
-	mock.EXPECT().SetSession(session).Times(1)
-	mock.SetSession(session)
+	mock.EXPECT().SetSession(gomock.Any()).Times(1)
+	mock.SetSession(nil)
 }
 
 func TestMockTestSession_SetWaitTime(t *testing.T) {
@@ -477,9 +442,8 @@ func TestMockTestSession_SetWriter(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
-	writer := &mockWriter{}
-	mock.EXPECT().SetWriter(writer).Times(1)
-	mock.SetWriter(writer)
+	mock.EXPECT().SetWriter(gomock.Any()).Times(1)
+	mock.SetWriter(nil)
 }
 
 func TestMockTestSession_Stat(t *testing.T) {
@@ -678,16 +642,15 @@ func TestMockTestSession_MultiplePackageWrites(t *testing.T) {
 	defer ctrl.Finish()
 
 	mock := NewMockTestSession(ctrl)
+	timeout := 5 * time.Second
 
 	// Setup expectations for multiple writes
 	mock.EXPECT().IncWritePkgNum().Times(3)
-	mock.EXPECT().WritePkg("pkg1", gomock.Any()).Return(10, 1, nil).Times(1)
-	mock.EXPECT().WritePkg("pkg2", gomock.Any()).Return(20, 2, nil).Times(1)
-	mock.EXPECT().WritePkg("pkg3", gomock.Any()).Return(30, 3, nil).Times(1)
+	mock.EXPECT().WritePkg("pkg1", timeout).Return(10, 1, nil).Times(1)
+	mock.EXPECT().WritePkg("pkg2", timeout).Return(20, 2, nil).Times(1)
+	mock.EXPECT().WritePkg("pkg3", timeout).Return(30, 3, nil).Times(1)
 
 	// Execute writes
-	timeout := 5 * time.Second
-
 	mock.IncWritePkgNum()
 	len1, num1, err1 := mock.WritePkg("pkg1", timeout)
 	assert.Equal(t, 10, len1)
