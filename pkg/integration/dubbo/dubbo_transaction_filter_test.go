@@ -39,11 +39,11 @@ func TestGetDubboTransactionFilter(t *testing.T) {
 		want filter.Filter
 	}{
 		{
-			name: "TestGetDubboTransactionFilter",
+			name: "first_call",
 			want: GetDubboTransactionFilter(),
 		},
 		{
-			name: "TestGetDubboTransactionFilter1",
+			name: "second_call_returns_same_instance",
 			want: GetDubboTransactionFilter(),
 		},
 	}
@@ -54,45 +54,38 @@ func TestGetDubboTransactionFilter(t *testing.T) {
 	}
 }
 
-// TestGetDubboTransactionFilter unit test for GetDubboTransactionFilter
+// TestDubboTransactionFilterOnResponse unit test for OnResponse
 func TestDubboTransactionFilterOnResponse(t *testing.T) {
-	type args struct {
+	tests := []struct {
+		name       string
 		ctx        context.Context
 		result     protocol.Result
 		invoker    protocol.Invoker
 		invocation protocol.Invocation
-	}
-	tests := []struct {
-		name string
-		args args
-		want protocol.Result
+		want       protocol.Result
 	}{
 		{
-			name: "Test_dubboTransactionFilter_OnResponse",
-			args: args{
-				ctx:        context.Background(),
-				result:     nil,
-				invoker:    nil,
-				invocation: nil,
-			},
-			want: nil,
+			name:       "with_background_context",
+			ctx:        context.Background(),
+			result:     nil,
+			invoker:    nil,
+			invocation: nil,
+			want:       nil,
 		},
 		{
-			name: "Test_dubboTransactionFilter_OnResponse1",
-			args: args{
-				ctx:        context.TODO(),
-				result:     nil,
-				invoker:    nil,
-				invocation: nil,
-			},
-			want: nil,
+			name:       "with_todo_context",
+			ctx:        context.TODO(),
+			result:     nil,
+			invoker:    nil,
+			invocation: nil,
+			want:       nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			du := &dubboTransactionFilter{}
-			got := du.OnResponse(tt.args.ctx, tt.args.result, tt.args.invoker, tt.args.invocation)
-			assert.Equal(t, got, tt.want)
+			got := du.OnResponse(tt.ctx, tt.result, tt.invoker, tt.invocation)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -115,7 +108,7 @@ func (m *mockInvocation) Arguments() []interface{}            { return nil }
 func (m *mockInvocation) Reply() interface{}                  { return nil }
 func (m *mockInvocation) Attachments() map[string]interface{} { return m.attachments }
 func (m *mockInvocation) Attributes() map[string]interface{}  { return nil }
-func (m *mockInvocation) AttributeByKey(key string, defaultValue interface{}) interface{} {
+func (m *mockInvocation) AttributeByKey(string, interface{}) interface{} {
 	return nil
 }
 func (m *mockInvocation) SetAttachment(key string, value interface{}) {
@@ -135,19 +128,19 @@ func (m *mockInvocation) GetAttachmentWithDefaultValue(key, defaultValue string)
 	}
 	return defaultValue
 }
-func (m *mockInvocation) ServiceKey() string                  { return "" }
-func (m *mockInvocation) Invoker() protocol.Invoker           { return nil }
-func (m *mockInvocation) SetInvoker(invoker protocol.Invoker) {}
-func (m *mockInvocation) ActualMethodName() string            { return "mockMethod" }
-func (m *mockInvocation) IsGenericInvocation() bool           { return false }
+func (m *mockInvocation) ServiceKey() string          { return "" }
+func (m *mockInvocation) Invoker() protocol.Invoker   { return nil }
+func (m *mockInvocation) SetInvoker(protocol.Invoker) {}
+func (m *mockInvocation) ActualMethodName() string    { return "mockMethod" }
+func (m *mockInvocation) IsGenericInvocation() bool   { return false }
 func (m *mockInvocation) GetAttachmentInterface(key string) interface{} {
 	return m.attachments[key]
 }
-func (m *mockInvocation) GetAttachmentAsContext() context.Context     { return context.Background() }
-func (m *mockInvocation) SetAttribute(key string, value interface{})  {}
-func (m *mockInvocation) GetAttribute(key string) (interface{}, bool) { return nil, false }
-func (m *mockInvocation) GetAttributeWithDefaultValue(key string, defaultValue interface{}) interface{} {
-	return defaultValue
+func (m *mockInvocation) GetAttachmentAsContext() context.Context { return context.Background() }
+func (m *mockInvocation) SetAttribute(string, interface{})        {}
+func (m *mockInvocation) GetAttribute(string) (interface{}, bool) { return nil, false }
+func (m *mockInvocation) GetAttributeWithDefaultValue(string, interface{}) interface{} {
+	return nil
 }
 
 type mockInvoker struct {
@@ -180,191 +173,287 @@ func (m *mockResult) Attachments() map[string]interface{}        { return nil }
 func (m *mockResult) AddAttachment(string, interface{})          {}
 func (m *mockResult) Attachment(string, interface{}) interface{} { return nil }
 
-// TestInvoke_WithXidInContext tests Invoke when XID exists in context
-func TestInvoke_WithXidInContext(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	ctx := tm.InitSeataContext(context.Background())
-	tm.SetXID(ctx, "context-xid-123")
+// TestInvoke tests various scenarios of the Invoke method
+func TestInvoke(t *testing.T) {
+	tests := []struct {
+		name               string
+		setupCtx           func() context.Context
+		setupInvocation    func() *mockInvocation
+		setupInvoker       func() *mockInvoker
+		wantInvoked        bool
+		validateResult     func(*testing.T, protocol.Result)
+		validateContext    func(*testing.T, context.Context)
+		validateInvocation func(*testing.T, *mockInvocation)
+	}{
+		{
+			name: "with_xid_in_context",
+			setupCtx: func() context.Context {
+				ctx := tm.InitSeataContext(context.Background())
+				tm.SetXID(ctx, "context-xid-123")
+				return ctx
+			},
+			setupInvocation: func() *mockInvocation {
+				return newMockInvocation()
+			},
+			setupInvoker: func() *mockInvoker {
+				return &mockInvoker{}
+			},
+			wantInvoked: true,
+			validateResult: func(t *testing.T, result protocol.Result) {
+				assert.NotNil(t, result)
+			},
+			validateInvocation: func(t *testing.T, inv *mockInvocation) {
+				seataXid, ok := inv.GetAttachment(constant.SeataXidKey)
+				assert.True(t, ok)
+				assert.Equal(t, "context-xid-123", seataXid)
 
-	invocation := newMockInvocation()
-	invoker := &mockInvoker{}
-
-	result := filter.Invoke(ctx, invoker, invocation)
-
-	assert.NotNil(t, result)
-	assert.True(t, invoker.invoked)
-
-	// Verify XID was set in attachments for dubbo-go
-	seataXid, ok := invocation.GetAttachment(constant.SeataXidKey)
-	assert.True(t, ok)
-	assert.Equal(t, "context-xid-123", seataXid)
-
-	// Verify XID was set in attachments for dubbo-java
-	txXid, ok := invocation.GetAttachment(constant.XidKey)
-	assert.True(t, ok)
-	assert.Equal(t, "context-xid-123", txXid)
-}
-
-// TestInvoke_WithRpcXidOnly tests Invoke when XID only exists in RPC attachment
-func TestInvoke_WithRpcXidOnly(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	ctx := context.Background()
-
-	invocation := newMockInvocation()
-	invocation.SetAttachment(constant.SeataXidKey, "rpc-xid-456")
-
-	var capturedCtx context.Context
-	invoker := &mockInvoker{
-		invokeFunc: func(ctx context.Context, inv protocol.Invocation) protocol.Result {
-			capturedCtx = ctx
-			return &mockResult{}
+				txXid, ok := inv.GetAttachment(constant.XidKey)
+				assert.True(t, ok)
+				assert.Equal(t, "context-xid-123", txXid)
+			},
+		},
+		{
+			name: "with_rpc_xid_only",
+			setupCtx: func() context.Context {
+				return context.Background()
+			},
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.SeataXidKey, "rpc-xid-456")
+				return inv
+			},
+			setupInvoker: func() *mockInvoker {
+				return &mockInvoker{
+					invokeFunc: func(ctx context.Context, inv protocol.Invocation) protocol.Result {
+						// Verify XID was set in context from RPC attachment
+						xid := tm.GetXID(ctx)
+						if xid != "rpc-xid-456" {
+							return &mockResult{err: assert.AnError}
+						}
+						return &mockResult{}
+					},
+				}
+			},
+			wantInvoked: true,
+			validateResult: func(t *testing.T, result protocol.Result) {
+				assert.NotNil(t, result)
+				assert.NoError(t, result.Error())
+			},
+		},
+		{
+			name: "no_xid",
+			setupCtx: func() context.Context {
+				return context.Background()
+			},
+			setupInvocation: func() *mockInvocation {
+				return newMockInvocation()
+			},
+			setupInvoker: func() *mockInvoker {
+				return &mockInvoker{}
+			},
+			wantInvoked: true,
+			validateResult: func(t *testing.T, result protocol.Result) {
+				assert.NotNil(t, result)
+			},
 		},
 	}
 
-	result := filter.Invoke(ctx, invoker, invocation)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := &dubboTransactionFilter{}
+			ctx := tt.setupCtx()
+			invocation := tt.setupInvocation()
+			invoker := tt.setupInvoker()
 
-	assert.NotNil(t, result)
-	assert.True(t, invoker.invoked)
+			result := filter.Invoke(ctx, invoker, invocation)
 
-	// Verify XID was set in context
-	xid := tm.GetXID(capturedCtx)
-	assert.Equal(t, "rpc-xid-456", xid)
+			assert.Equal(t, tt.wantInvoked, invoker.invoked)
+
+			if tt.validateResult != nil {
+				tt.validateResult(t, result)
+			}
+
+			if tt.validateContext != nil {
+				tt.validateContext(t, ctx)
+			}
+
+			if tt.validateInvocation != nil {
+				tt.validateInvocation(t, invocation)
+			}
+		})
+	}
 }
 
-// TestInvoke_NoXid tests Invoke when no XID exists
-func TestInvoke_NoXid(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	ctx := context.Background()
+// TestGetRpcXid tests getRpcXid with various XID formats
+func TestGetRpcXid(t *testing.T) {
+	tests := []struct {
+		name               string
+		setupInvocation    func() *mockInvocation
+		expectedXid        string
+		expectedPrecedence string
+	}{
+		{
+			name: "dubbo_go_xid",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.SeataXidKey, "dubbo-go-xid")
+				return inv
+			},
+			expectedXid: "dubbo-go-xid",
+		},
+		{
+			name: "dubbo_go_xid_lowercase",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(strings.ToLower(constant.SeataXidKey), "dubbo-go-lower-xid")
+				return inv
+			},
+			expectedXid: "dubbo-go-lower-xid",
+		},
+		{
+			name: "dubbo_java_xid",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.XidKey, "dubbo-java-xid")
+				return inv
+			},
+			expectedXid: "dubbo-java-xid",
+		},
+		{
+			name: "dubbo_java_xid_lowercase",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(strings.ToLower(constant.XidKey), "dubbo-java-lower-xid")
+				return inv
+			},
+			expectedXid: "dubbo-java-lower-xid",
+		},
+		{
+			name: "dubbo_go_takes_precedence",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.SeataXidKey, "dubbo-go-xid")
+				inv.SetAttachment(constant.XidKey, "dubbo-java-xid")
+				return inv
+			},
+			expectedXid:        "dubbo-go-xid",
+			expectedPrecedence: "dubbo-go XID should take precedence",
+		},
+		{
+			name: "empty_xid",
+			setupInvocation: func() *mockInvocation {
+				return newMockInvocation()
+			},
+			expectedXid: "",
+		},
+	}
 
-	invocation := newMockInvocation()
-	invoker := &mockInvoker{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := &dubboTransactionFilter{}
+			invocation := tt.setupInvocation()
 
-	result := filter.Invoke(ctx, invoker, invocation)
+			xid := filter.getRpcXid(invocation)
 
-	assert.NotNil(t, result)
-	assert.True(t, invoker.invoked)
-}
-
-// TestGetRpcXid_DubboGo tests getRpcXid with dubbo-go format
-func TestGetRpcXid_DubboGo(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-	invocation.SetAttachment(constant.SeataXidKey, "dubbo-go-xid")
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "dubbo-go-xid", xid)
-}
-
-// TestGetRpcXid_DubboGoLowercase tests getRpcXid with lowercase dubbo-go format
-func TestGetRpcXid_DubboGoLowercase(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-	invocation.SetAttachment(strings.ToLower(constant.SeataXidKey), "dubbo-go-lower-xid")
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "dubbo-go-lower-xid", xid)
-}
-
-// TestGetRpcXid_DubboJava tests getRpcXid with dubbo-java format
-func TestGetRpcXid_DubboJava(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-	invocation.SetAttachment(constant.XidKey, "dubbo-java-xid")
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "dubbo-java-xid", xid)
-}
-
-// TestGetRpcXid_DubboJavaLowercase tests getRpcXid with lowercase dubbo-java format
-func TestGetRpcXid_DubboJavaLowercase(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-	invocation.SetAttachment(strings.ToLower(constant.XidKey), "dubbo-java-lower-xid")
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "dubbo-java-lower-xid", xid)
-}
-
-// TestGetRpcXid_Precedence tests that dubbo-go XID takes precedence over dubbo-java
-func TestGetRpcXid_Precedence(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-	invocation.SetAttachment(constant.SeataXidKey, "dubbo-go-xid")
-	invocation.SetAttachment(constant.XidKey, "dubbo-java-xid")
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "dubbo-go-xid", xid, "dubbo-go XID should take precedence")
-}
-
-// TestGetRpcXid_Empty tests getRpcXid with no XID
-func TestGetRpcXid_Empty(t *testing.T) {
-	filter := &dubboTransactionFilter{}
-	invocation := newMockInvocation()
-
-	xid := filter.getRpcXid(invocation)
-
-	assert.Equal(t, "", xid)
+			if tt.expectedPrecedence != "" {
+				assert.Equal(t, tt.expectedXid, xid, tt.expectedPrecedence)
+			} else {
+				assert.Equal(t, tt.expectedXid, xid)
+			}
+		})
+	}
 }
 
 // TestGetDubboGoRpcXid tests getDubboGoRpcXid method
 func TestGetDubboGoRpcXid(t *testing.T) {
-	filter := &dubboTransactionFilter{}
+	tests := []struct {
+		name            string
+		setupInvocation func() *mockInvocation
+		expectedXid     string
+	}{
+		{
+			name: "with_seata_xid",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.SeataXidKey, "go-xid-1")
+				return inv
+			},
+			expectedXid: "go-xid-1",
+		},
+		{
+			name: "with_lowercase_seata_xid",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(strings.ToLower(constant.SeataXidKey), "go-xid-lower")
+				return inv
+			},
+			expectedXid: "go-xid-lower",
+		},
+		{
+			name: "empty",
+			setupInvocation: func() *mockInvocation {
+				return newMockInvocation()
+			},
+			expectedXid: "",
+		},
+	}
 
-	t.Run("with_seata_xid", func(t *testing.T) {
-		inv := newMockInvocation()
-		inv.SetAttachment(constant.SeataXidKey, "go-xid-1")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := &dubboTransactionFilter{}
+			invocation := tt.setupInvocation()
 
-		xid := filter.getDubboGoRpcXid(inv)
-		assert.Equal(t, "go-xid-1", xid)
-	})
+			xid := filter.getDubboGoRpcXid(invocation)
 
-	t.Run("with_lowercase_seata_xid", func(t *testing.T) {
-		inv := newMockInvocation()
-		inv.SetAttachment(strings.ToLower(constant.SeataXidKey), "go-xid-lower")
-
-		xid := filter.getDubboGoRpcXid(inv)
-		assert.Equal(t, "go-xid-lower", xid)
-	})
-
-	t.Run("empty", func(t *testing.T) {
-		inv := newMockInvocation()
-
-		xid := filter.getDubboGoRpcXid(inv)
-		assert.Equal(t, "", xid)
-	})
+			assert.Equal(t, tt.expectedXid, xid)
+		})
+	}
 }
 
 // TestGetDubboJavaRpcXid tests getDubboJavaRpcXid method
 func TestGetDubboJavaRpcXid(t *testing.T) {
-	filter := &dubboTransactionFilter{}
+	tests := []struct {
+		name            string
+		setupInvocation func() *mockInvocation
+		expectedXid     string
+	}{
+		{
+			name: "with_xid_key",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(constant.XidKey, "java-xid-1")
+				return inv
+			},
+			expectedXid: "java-xid-1",
+		},
+		{
+			name: "with_lowercase_xid_key",
+			setupInvocation: func() *mockInvocation {
+				inv := newMockInvocation()
+				inv.SetAttachment(strings.ToLower(constant.XidKey), "java-xid-lower")
+				return inv
+			},
+			expectedXid: "java-xid-lower",
+		},
+		{
+			name: "empty",
+			setupInvocation: func() *mockInvocation {
+				return newMockInvocation()
+			},
+			expectedXid: "",
+		},
+	}
 
-	t.Run("with_xid_key", func(t *testing.T) {
-		inv := newMockInvocation()
-		inv.SetAttachment(constant.XidKey, "java-xid-1")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := &dubboTransactionFilter{}
+			invocation := tt.setupInvocation()
 
-		xid := filter.getDubboJavaRpcXid(inv)
-		assert.Equal(t, "java-xid-1", xid)
-	})
+			xid := filter.getDubboJavaRpcXid(invocation)
 
-	t.Run("with_lowercase_xid_key", func(t *testing.T) {
-		inv := newMockInvocation()
-		inv.SetAttachment(strings.ToLower(constant.XidKey), "java-xid-lower")
-
-		xid := filter.getDubboJavaRpcXid(inv)
-		assert.Equal(t, "java-xid-lower", xid)
-	})
-
-	t.Run("empty", func(t *testing.T) {
-		inv := newMockInvocation()
-
-		xid := filter.getDubboJavaRpcXid(inv)
-		assert.Equal(t, "", xid)
-	})
+			assert.Equal(t, tt.expectedXid, xid)
+		})
+	}
 }
 
 // TestInitSeataDubbo tests InitSeataDubbo function
