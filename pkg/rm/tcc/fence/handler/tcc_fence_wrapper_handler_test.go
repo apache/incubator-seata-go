@@ -831,8 +831,6 @@ func TestDestroyLogCleanChannel_OnlyOnce(t *testing.T) {
 }
 
 func TestTraversalCleanChannel(t *testing.T) {
-	log.Init()
-
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -854,8 +852,15 @@ func TestTraversalCleanChannel(t *testing.T) {
 		logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
 	}
 
+	// Use WaitGroup to ensure goroutine completes
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// Start the goroutine
-	go handler.traversalCleanChannel(db)
+	go func() {
+		defer wg.Done()
+		handler.traversalCleanChannel(db)
+	}()
 
 	// Push exactly channelDelete items to trigger batch delete
 	for i := 0; i < channelDelete; i++ {
@@ -871,16 +876,14 @@ func TestTraversalCleanChannel(t *testing.T) {
 	// Close the channel to stop the goroutine
 	close(handler.logQueue)
 
-	// Give it time to finish
-	time.Sleep(100 * time.Millisecond)
+	// Wait for goroutine to finish
+	wg.Wait()
 
 	// Verify expectations
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTraversalCleanChannel_RemainingBatch(t *testing.T) {
-	log.Init()
-
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -902,8 +905,15 @@ func TestTraversalCleanChannel_RemainingBatch(t *testing.T) {
 		logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
 	}
 
+	// Use WaitGroup to ensure goroutine completes
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// Start the goroutine
-	go handler.traversalCleanChannel(db)
+	go func() {
+		defer wg.Done()
+		handler.traversalCleanChannel(db)
+	}()
 
 	// Push less than channelDelete items
 	for i := 0; i < 3; i++ {
@@ -919,16 +929,14 @@ func TestTraversalCleanChannel_RemainingBatch(t *testing.T) {
 	// Close the channel to stop the goroutine and trigger final batch
 	close(handler.logQueue)
 
-	// Give it time to finish
-	time.Sleep(100 * time.Millisecond)
+	// Wait for goroutine to finish
+	wg.Wait()
 
 	// Verify expectations
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTraversalCleanChannel_DeleteError(t *testing.T) {
-	log.Init()
-
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -947,8 +955,15 @@ func TestTraversalCleanChannel_DeleteError(t *testing.T) {
 		logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
 	}
 
+	// Use WaitGroup to ensure goroutine completes
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// Start the goroutine
-	go handler.traversalCleanChannel(db)
+	go func() {
+		defer wg.Done()
+		handler.traversalCleanChannel(db)
+	}()
 
 	// Push channelDelete items to trigger batch delete
 	for i := 0; i < channelDelete; i++ {
@@ -964,16 +979,11 @@ func TestTraversalCleanChannel_DeleteError(t *testing.T) {
 	// Close the channel
 	close(handler.logQueue)
 
-	// Give it time to finish
-	time.Sleep(100 * time.Millisecond)
+	// Wait for goroutine to finish
+	wg.Wait()
 }
 
 func TestInitLogCleanChannel(t *testing.T) {
-	// Wait a bit to ensure previous tests' goroutines have finished
-	time.Sleep(300 * time.Millisecond)
-
-	log.Init()
-
 	// Create a test DSN for sqlmock
 	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	assert.NoError(t, err)
