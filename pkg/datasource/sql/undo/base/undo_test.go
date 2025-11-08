@@ -15,448 +15,352 @@
  * limitations under the License.
  */
 
-package base
+package undo
 
 import (
-	"strings"
+	"context"
+	"database/sql"
+	"database/sql/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func TestGetUndoLogTableName(t *testing.T) {
+type mockUndoLogManager struct {
+	mock.Mock
+}
+
+func (m *mockUndoLogManager) Init() {
+	m.Called()
+}
+
+func (m *mockUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
+	args := m.Called(ctx, xid, branchID, conn)
+	return args.Error(0)
+}
+
+func (m *mockUndoLogManager) BatchDeleteUndoLog(xid []string, branchID []int64, conn *sql.Conn) error {
+	args := m.Called(xid, branchID, conn)
+	return args.Error(0)
+}
+
+func (m *mockUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error {
+	args := m.Called(tranCtx, conn)
+	return args.Error(0)
+}
+
+func (m *mockUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
+	args := m.Called(ctx, xid, branchID, conn, dbName)
+	return args.Error(0)
+}
+
+func (m *mockUndoLogManager) DBType() types.DBType {
+	args := m.Called()
+	return args.Get(0).(types.DBType)
+}
+
+func (m *mockUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (bool, error) {
+	args := m.Called(ctx, conn)
+	return args.Bool(0), args.Error(1)
+}
+
+type mockUndoLogBuilder struct {
+	mock.Mock
+}
+
+func (m *mockUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
+	args := m.Called(ctx, execCtx)
+	return args.Get(0).([]*types.RecordImage), args.Error(1)
+}
+
+func (m *mockUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
+	args := m.Called(ctx, execCtx, beforeImages)
+	return args.Get(0).([]*types.RecordImage), args.Error(1)
+}
+
+func (m *mockUndoLogBuilder) GetExecutorType() types.ExecutorType {
+	args := m.Called()
+	return args.Get(0).(types.ExecutorType)
+}
+
+func TestRegisterUndoLogManager(t *testing.T) {
 	tests := []struct {
-		name     string
-		config   string
-		expected string
+		name    string
+		manager UndoLogManager
+		dbType  types.DBType
+		wantErr bool
 	}{
 		{
-			name:     "default table name",
-			config:   "",
-			expected: " undo_log ",
-		},
-		{
-			name:     "custom table name",
-			config:   "custom_undo_log",
-			expected: "custom_undo_log",
+			name:    "register mysql manager",
+			manager: &mockUndoLogManager{},
+			dbType:  types.DBTypeMySQL,
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalConfig := undo.UndoConfig.LogTable
-			defer func() {
-				undo.UndoConfig.LogTable = originalConfig
-			}()
+			mockMgr := tt.manager.(*mockUndoLogManager)
+			mockMgr.On("DBType").Return(tt.dbType)
+			mockMgr.On("Init").Return()
 
-			undo.UndoConfig.LogTable = tt.config
-			result := getUndoLogTableName()
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestGetCheckUndoLogTableExistSql(t *testing.T) {
-	originalConfig := undo.UndoConfig.LogTable
-	defer func() {
-		undo.UndoConfig.LogTable = originalConfig
-	}()
-
-	undo.UndoConfig.LogTable = "test_undo_log"
-	result := getCheckUndoLogTableExistSql()
-	expected := "SELECT 1 FROM test_undo_log LIMIT 1"
-	assert.Equal(t, expected, result)
-}
-
-func TestGetInsertUndoLogSql(t *testing.T) {
-	originalConfig := undo.UndoConfig.LogTable
-	defer func() {
-		undo.UndoConfig.LogTable = originalConfig
-	}()
-
-	undo.UndoConfig.LogTable = "test_undo_log"
-	result := getInsertUndoLogSql()
-	expected := "INSERT INTO test_undo_log(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
-	assert.Equal(t, expected, result)
-}
-
-func TestGetSelectUndoLogSql(t *testing.T) {
-	originalConfig := undo.UndoConfig.LogTable
-	defer func() {
-		undo.UndoConfig.LogTable = originalConfig
-	}()
-
-	undo.UndoConfig.LogTable = "test_undo_log"
-	result := getSelectUndoLogSql()
-	expected := "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM test_undo_log WHERE branch_id = ? AND xid = ? FOR UPDATE"
-	assert.Equal(t, expected, result)
-}
-
-func TestGetDeleteUndoLogSql(t *testing.T) {
-	originalConfig := undo.UndoConfig.LogTable
-	defer func() {
-		undo.UndoConfig.LogTable = originalConfig
-	}()
-
-	undo.UndoConfig.LogTable = "test_undo_log"
-	result := getDeleteUndoLogSql()
-	expected := "DELETE FROM test_undo_log WHERE branch_id = ? AND xid = ?"
-	assert.Equal(t, expected, result)
-}
-
-func TestNewBaseUndoLogManager(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-	assert.NotNil(t, manager)
-	assert.IsType(t, &BaseUndoLogManager{}, manager)
-}
-
-func TestBaseUndoLogManager_Init(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-	assert.NotPanics(t, func() {
-		manager.Init()
-	})
-}
-
-func TestBaseUndoLogManager_canUndo(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	tests := []struct {
-		name  string
-		state int32
-		want  bool
-	}{
-		{
-			name:  "normal status - can undo",
-			state: UndoLogStatusNormal,
-			want:  true,
-		},
-		{
-			name:  "global finished status - cannot undo",
-			state: UndoLogStatusGlobalFinished,
-			want:  false,
-		},
-		{
-			name:  "invalid status",
-			state: 999,
-			want:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := manager.canUndo(tt.state)
-			assert.Equal(t, tt.want, result)
-		})
-	}
-}
-
-func TestBaseUndoLogManager_UnmarshalContext(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	tests := []struct {
-		name        string
-		input       []byte
-		expected    map[string]string
-		expectError bool
-	}{
-		{
-			name:  "valid json",
-			input: []byte(`{"key1":"value1","key2":"value2"}`),
-			expected: map[string]string{
-				"key1": "value1",
-				"key2": "value2",
-			},
-			expectError: false,
-		},
-		{
-			name:        "invalid json",
-			input:       []byte(`{"key1":value1`),
-			expected:    nil,
-			expectError: true,
-		},
-		{
-			name:        "empty json",
-			input:       []byte(`{}`),
-			expected:    map[string]string{},
-			expectError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := manager.UnmarshalContext(tt.input)
-			if tt.expectError {
+			err := RegisterUndoLogManager(tt.manager)
+			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Nil(t, result)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+			}
+
+			err = RegisterUndoLogManager(tt.manager)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestRegisterUndoLogBuilder(t *testing.T) {
+	executorType := types.InsertExecutor
+	builderFunc := func() UndoLogBuilder {
+		return &mockUndoLogBuilder{}
+	}
+
+	RegisterUndoLogBuilder(executorType, builderFunc)
+
+	builder := GetUndologBuilder(executorType)
+	assert.NotNil(t, builder)
+
+	RegisterUndoLogBuilder(executorType, builderFunc)
+	builder2 := GetUndologBuilder(executorType)
+	assert.NotNil(t, builder2)
+}
+
+func TestGetUndologBuilder(t *testing.T) {
+	tests := []struct {
+		name         string
+		executorType types.ExecutorType
+		setup        func()
+		want         bool
+	}{
+		{
+			name:         "get existing builder",
+			executorType: types.UpdateExecutor,
+			setup: func() {
+				RegisterUndoLogBuilder(types.UpdateExecutor, func() UndoLogBuilder {
+					return &mockUndoLogBuilder{}
+				})
+			},
+			want: true,
+		},
+		{
+			name:         "get non-existing builder",
+			executorType: types.DeleteExecutor,
+			setup:        func() {},
+			want:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			builder := GetUndologBuilder(tt.executorType)
+			if tt.want {
+				assert.NotNil(t, builder)
+			} else {
+				assert.Nil(t, builder)
 			}
 		})
 	}
 }
 
-func TestBaseUndoLogManager_getSerializer(t *testing.T) {
-	manager := NewBaseUndoLogManager()
+func TestGetUndoLogManager(t *testing.T) {
+	mockMgr := &mockUndoLogManager{}
+	mockMgr.On("DBType").Return(types.DBTypeMySQL)
+	mockMgr.On("Init").Return()
+
+	err := RegisterUndoLogManager(mockMgr)
+	assert.NoError(t, err)
 
 	tests := []struct {
-		name     string
-		context  map[string]string
-		expected string
+		name    string
+		dbType  types.DBType
+		wantErr bool
 	}{
 		{
-			name:     "nil context",
-			context:  nil,
-			expected: "",
+			name:    "get existing manager",
+			dbType:  types.DBTypeMySQL,
+			wantErr: false,
 		},
 		{
-			name:     "empty context",
-			context:  map[string]string{},
-			expected: "",
-		},
-		{
-			name: "context with serializer",
-			context: map[string]string{
-				"serializerKey": "json",
-			},
-			expected: "json",
-		},
-		{
-			name: "context without serializer",
-			context: map[string]string{
-				"otherKey": "value",
-			},
-			expected: "",
+			name:    "get non-existing manager",
+			dbType:  types.DBTypePostgreSQL,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := manager.getSerializer(tt.context)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestBaseUndoLogManager_getBatchDeleteUndoLogSql(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	originalConfig := undo.UndoConfig.LogTable
-	defer func() {
-		undo.UndoConfig.LogTable = originalConfig
-	}()
-	undo.UndoConfig.LogTable = "test_undo_log"
-
-	tests := []struct {
-		name        string
-		xid         []string
-		branchID    []int64
-		expectError bool
-		expected    string
-	}{
-		{
-			name:        "empty xid",
-			xid:         []string{},
-			branchID:    []int64{1, 2},
-			expectError: true,
-		},
-		{
-			name:        "empty branchID",
-			xid:         []string{"xid1", "xid2"},
-			branchID:    []int64{},
-			expectError: true,
-		},
-		{
-			name:        "both empty",
-			xid:         []string{},
-			branchID:    []int64{},
-			expectError: true,
-		},
-		{
-			name:     "valid inputs",
-			xid:      []string{"xid1", "xid2"},
-			branchID: []int64{1, 2},
-			expected: " DELETE FROM test_undo_log WHERE branch_id IN  (?,?)  AND xid IN  (?,?) ",
-		},
-		{
-			name:     "single values",
-			xid:      []string{"xid1"},
-			branchID: []int64{1},
-			expected: " DELETE FROM test_undo_log WHERE branch_id IN  (?)  AND xid IN  (?) ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := manager.getBatchDeleteUndoLogSql(tt.xid, tt.branchID)
-			if tt.expectError {
+			manager, err := GetUndoLogManager(tt.dbType)
+			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "xid or branch_id can't nil")
+				assert.Nil(t, manager)
+				assert.Contains(t, err.Error(), "not found UndoLogManager")
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+				assert.NotNil(t, manager)
 			}
 		})
 	}
 }
 
-func TestBaseUndoLogManager_appendInParam(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
+func TestUndologRecord_CanUndo(t *testing.T) {
 	tests := []struct {
-		name     string
-		size     int
-		expected string
+		name      string
+		logStatus UndoLogStatus
+		want      bool
 	}{
 		{
-			name:     "zero size",
-			size:     0,
-			expected: "",
+			name:      "can undo - normal status",
+			logStatus: UndoLogStatusNormal,
+			want:      true,
 		},
 		{
-			name:     "negative size",
-			size:     -1,
-			expected: "",
-		},
-		{
-			name:     "single parameter",
-			size:     1,
-			expected: " (?) ",
-		},
-		{
-			name:     "multiple parameters",
-			size:     3,
-			expected: " (?,?,?) ",
-		},
-		{
-			name:     "five parameters",
-			size:     5,
-			expected: " (?,?,?,?,?) ",
+			name:      "cannot undo - global finished",
+			logStatus: UndoLogStatusGlobalFinished,
+			want:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var builder strings.Builder
-			manager.appendInParam(tt.size, &builder)
-			result := builder.String()
-			assert.Equal(t, tt.expected, result)
+			record := &UndologRecord{
+				LogStatus: tt.logStatus,
+			}
+			assert.Equal(t, tt.want, record.CanUndo())
 		})
 	}
 }
 
-func TestInt64Slice2Str(t *testing.T) {
+func TestBranchUndoLog_Marshal(t *testing.T) {
+	branchLog := &BranchUndoLog{
+		Xid:      "test-xid",
+		BranchID: 123,
+		Logs:     []SQLUndoLog{},
+	}
+
+	result := branchLog.Marshal()
+	assert.Nil(t, result)
+}
+
+func TestBranchUndoLog_Reverse(t *testing.T) {
 	tests := []struct {
-		name        string
-		values      interface{}
-		sep         string
-		expected    string
-		expectError bool
+		name     string
+		logs     []SQLUndoLog
+		expected []string
 	}{
 		{
-			name:     "valid int64 slice",
-			values:   []int64{1, 2, 3, 4, 5},
-			sep:      ",",
-			expected: "1,2,3,4,5",
+			name: "empty logs",
+			logs: []SQLUndoLog{},
 		},
 		{
-			name:     "single value",
-			values:   []int64{42},
-			sep:      ",",
-			expected: "42",
+			name: "single log",
+			logs: []SQLUndoLog{
+				{TableName: "table1"},
+			},
+			expected: []string{"table1"},
 		},
 		{
-			name:     "empty slice",
-			values:   []int64{},
-			sep:      ",",
-			expected: "",
+			name: "multiple logs",
+			logs: []SQLUndoLog{
+				{TableName: "table1"},
+				{TableName: "table2"},
+				{TableName: "table3"},
+			},
+			expected: []string{"table3", "table2", "table1"},
 		},
 		{
-			name:     "different separator",
-			values:   []int64{1, 2, 3},
-			sep:      "|",
-			expected: "1|2|3",
-		},
-		{
-			name:        "invalid type",
-			values:      []string{"1", "2", "3"},
-			sep:         ",",
-			expectError: true,
-		},
-		{
-			name:        "nil value",
-			values:      nil,
-			sep:         ",",
-			expectError: true,
+			name: "even number of logs",
+			logs: []SQLUndoLog{
+				{TableName: "table1"},
+				{TableName: "table2"},
+				{TableName: "table3"},
+				{TableName: "table4"},
+			},
+			expected: []string{"table4", "table3", "table2", "table1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := Int64Slice2Str(tt.values, tt.sep)
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "param type is fault")
+			branchLog := &BranchUndoLog{
+				Logs: tt.logs,
+			}
+			branchLog.Reverse()
+
+			if len(tt.expected) == 0 {
+				assert.Equal(t, 0, len(branchLog.Logs))
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+				assert.Equal(t, len(tt.expected), len(branchLog.Logs))
+				for i, expectedTable := range tt.expected {
+					assert.Equal(t, expectedTable, branchLog.Logs[i].TableName)
+				}
 			}
 		})
 	}
 }
 
-func TestBaseUndoLogManager_encodeDecodeUndoLogCtx(t *testing.T) {
-	manager := NewBaseUndoLogManager()
-
-	testContext := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
+func TestSQLUndoLog_SetTableMeta(t *testing.T) {
+	tableMeta := &types.TableMeta{
+		TableName: "test_table",
 	}
 
-	encoded := manager.encodeUndoLogCtx(testContext)
-	assert.NotNil(t, encoded)
-
-	decoded := manager.decodeUndoLogCtx(encoded)
-	assert.Equal(t, testContext, decoded)
-}
-
-func TestBaseUndoLogManager_getRollbackInfo(t *testing.T) {
-	manager := NewBaseUndoLogManager()
+	beforeImage := &types.RecordImage{}
+	afterImage := &types.RecordImage{}
 
 	tests := []struct {
-		name           string
-		rollbackInfo   []byte
-		undoContext    map[string]string
-		expectedOutput []byte
-		expectError    bool
+		name        string
+		beforeImage *types.RecordImage
+		afterImage  *types.RecordImage
 	}{
 		{
-			name:           "no compression",
-			rollbackInfo:   []byte("test data"),
-			undoContext:    map[string]string{},
-			expectedOutput: []byte("test data"),
+			name:        "both images exist",
+			beforeImage: beforeImage,
+			afterImage:  afterImage,
 		},
 		{
-			name:         "context without compressor",
-			rollbackInfo: []byte("test data"),
-			undoContext: map[string]string{
-				"otherKey": "value",
-			},
-			expectedOutput: []byte("test data"),
+			name:        "only before image",
+			beforeImage: beforeImage,
+			afterImage:  nil,
+		},
+		{
+			name:        "only after image",
+			beforeImage: nil,
+			afterImage:  afterImage,
+		},
+		{
+			name:        "no images",
+			beforeImage: nil,
+			afterImage:  nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := manager.getRollbackInfo(tt.rollbackInfo, tt.undoContext)
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedOutput, result)
+			sqlLog := SQLUndoLog{
+				BeforeImage: tt.beforeImage,
+				AfterImage:  tt.afterImage,
+			}
+
+			sqlLog.SetTableMeta(tableMeta)
+
+			if tt.beforeImage != nil {
+				assert.Equal(t, tableMeta, tt.beforeImage.TableMeta)
+				assert.Equal(t, tableMeta.TableName, tt.beforeImage.TableName)
+			}
+			if tt.afterImage != nil {
+				assert.Equal(t, tableMeta, tt.afterImage.TableMeta)
+				assert.Equal(t, tableMeta.TableName, tt.afterImage.TableName)
 			}
 		})
 	}
