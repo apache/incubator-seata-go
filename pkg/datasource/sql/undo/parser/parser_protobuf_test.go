@@ -107,9 +107,12 @@ func TestProtobufDecode_InvalidData(t *testing.T) {
 func TestProtobufDecode_EmptyData(t *testing.T) {
 	parser := &ProtobufParser{}
 	undoLog, err := parser.Decode([]byte{})
-	// Empty data should fail to decode
-	assert.NotNil(t, err)
-	assert.Nil(t, undoLog)
+	// Empty data decodes to empty BranchUndoLog (protobuf behavior)
+	assert.NoError(t, err)
+	assert.NotNil(t, undoLog)
+	assert.Empty(t, undoLog.Xid)
+	assert.Equal(t, uint64(0), undoLog.BranchID)
+	assert.Empty(t, undoLog.Logs)
 }
 
 func TestProtobufEncode_Nil(t *testing.T) {

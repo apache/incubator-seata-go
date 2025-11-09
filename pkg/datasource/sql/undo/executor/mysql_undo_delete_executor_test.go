@@ -49,6 +49,14 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
 				TableName: "test_table",
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{
+							{ColumnName: "id"},
+						},
+					},
+				},
 			},
 			Rows: []types.RowImage{
 				{
@@ -98,6 +106,14 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
 				TableName: "test_table",
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{
+							{ColumnName: "id"},
+						},
+					},
+				},
 			},
 			Rows: []types.RowImage{
 				{

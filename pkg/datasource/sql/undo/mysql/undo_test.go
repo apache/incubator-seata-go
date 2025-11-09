@@ -199,6 +199,17 @@ func TestUndoLogManager_FlushUndoLog_WithImages(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
+	// Save original config and restore after test
+	originalSerialization := undo.UndoConfig.LogSerialization
+	originalCompressType := undo.UndoConfig.CompressConfig.Type
+	defer func() {
+		undo.UndoConfig.LogSerialization = originalSerialization
+		undo.UndoConfig.CompressConfig.Type = originalCompressType
+	}()
+
+	undo.UndoConfig.LogSerialization = "json"
+	undo.UndoConfig.CompressConfig.Type = "none"
+
 	manager := NewUndoLogManager()
 
 	// Create a mock driver.Conn
@@ -263,21 +274,34 @@ func TestUndoLogManager_RunUndo(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
+	// Save original config and restore after test
+	originalSerialization := undo.UndoConfig.LogSerialization
+	defer func() {
+		undo.UndoConfig.LogSerialization = originalSerialization
+	}()
+
+	undo.UndoConfig.LogSerialization = "json"
+
 	manager := NewUndoLogManager()
 	ctx := context.Background()
 	xid := "test-xid"
 	branchID := int64(123)
 	dbName := "test_db"
 
-	// Mock the connection for Undo operation
+	// Mock the connection for Undo operation - expect full flow
 	mock.ExpectBegin()
 	mock.ExpectPrepare("SELECT (.+) FROM (.+) WHERE branch_id = \\? AND xid = \\? FOR UPDATE").
 		ExpectQuery().
 		WithArgs(branchID, xid).
 		WillReturnRows(sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}))
+	// Expect INSERT for undo with global finished status
+	mock.ExpectPrepare("INSERT INTO undo_log").
+		ExpectExec().
+		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	_ = manager.RunUndo(ctx, xid, branchID, db, dbName)
+	err = manager.RunUndo(ctx, xid, branchID, db, dbName)
+	assert.NoError(t, err)
 	// The method will execute and attempt database operations
 	// We're testing that it's callable and delegates to Base.Undo
 	assert.NoError(t, mock.ExpectationsWereMet())

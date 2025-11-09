@@ -98,6 +98,14 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn_DataValidationDisabled(t *testing.T) 
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
 				TableName: "test_table",
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{
+							{ColumnName: "id"},
+						},
+					},
+				},
 			},
 			Rows: []types.RowImage{
 				{
@@ -112,6 +120,14 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn_DataValidationDisabled(t *testing.T) 
 			TableName: "test_table",
 			TableMeta: &types.TableMeta{
 				TableName: "test_table",
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{
+							{ColumnName: "id"},
+						},
+					},
+				},
 			},
 			Rows: []types.RowImage{
 				{
