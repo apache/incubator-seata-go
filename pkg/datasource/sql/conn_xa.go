@@ -76,6 +76,22 @@ func (c *XAConn) QueryContext(ctx context.Context, query string, args []driver.N
 		}()
 	}
 
+	// Fix for issue #904: In autoCommit mode, Query operations (SELECT) bypass XA transaction logic
+	// to avoid "busy buffer" and "bad connection" errors.
+	//
+	// Rationale:
+	// 1. SELECT is a read-only operation that doesn't modify data, thus doesn't require two-phase commit
+	// 2. In autoCommit mode, executing XA START -> SELECT -> XA END -> XA PREPARE locks the connection
+	//    in PREPARED state, preventing subsequent operations on the same connection
+	// 3. This causes "busy buffer" errors when trying to execute UPDATE/INSERT after a Query
+	// 4. XA protocol is designed to coordinate write operations; read-only queries don't need PREPARE
+	// 5. Database isolation levels already ensure read consistency without XA coordination
+	//
+	// For explicit transactions (BeginTx), all operations including Query still use XA transaction logic.
+	if c.autoCommit && tm.IsGlobalTx(ctx) {
+		return c.Conn.QueryContext(ctx, query, args)
+	}
+
 	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
 		ret, err := c.Conn.QueryContext(ctx, query, args)
 		if err != nil {
