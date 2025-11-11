@@ -1649,3 +1649,53 @@ func TestBaseUndoLogManager_Undo_EmptySQLUndoLogs(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestBaseUndoLogManager_HasUndoLogTable(t *testing.T) {
+	t.Run("table exists - rows should be closed", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		manager := NewBaseUndoLogManager()
+		ctx := context.Background()
+
+		// Mock successful query (table exists)
+		mock.ExpectQuery("SELECT 1 FROM (.+) LIMIT 1").
+			WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+
+		conn, err := db.Conn(ctx)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		exists, err := manager.HasUndoLogTable(ctx, conn)
+		assert.NoError(t, err)
+		assert.True(t, exists)
+
+		// Verify all expectations including rows.Close() was called
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("query error - rows should still be handled", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		manager := NewBaseUndoLogManager()
+		ctx := context.Background()
+
+		// Mock query error (generic error)
+		mock.ExpectQuery("SELECT 1 FROM (.+) LIMIT 1").
+			WillReturnError(errors.New("connection error"))
+
+		conn, err := db.Conn(ctx)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		exists, err := manager.HasUndoLogTable(ctx, conn)
+		assert.Error(t, err)
+		assert.False(t, exists)
+		assert.Contains(t, err.Error(), "connection error")
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}
