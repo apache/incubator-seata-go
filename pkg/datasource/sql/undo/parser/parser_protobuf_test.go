@@ -89,3 +89,35 @@ func TestConvertInterfaceToAnyAndBack(t *testing.T) {
 
 	assert.Equal(t, originalValue, convertedValue, "The converted value should match the original")
 }
+
+func TestProtobufParser_Interface(t *testing.T) {
+	var parser UndoLogParser = &ProtobufParser{}
+	assert.NotNil(t, parser)
+	assert.Equal(t, "protobuf", parser.GetName())
+	assert.Equal(t, []byte{}, parser.GetDefaultContent())
+}
+
+func TestProtobufDecode_InvalidData(t *testing.T) {
+	parser := &ProtobufParser{}
+	undoLog, err := parser.Decode([]byte("invalid protobuf data"))
+	assert.NotNil(t, err)
+	assert.Nil(t, undoLog)
+}
+
+func TestProtobufDecode_EmptyData(t *testing.T) {
+	parser := &ProtobufParser{}
+	undoLog, err := parser.Decode([]byte{})
+	// Empty data decodes to empty BranchUndoLog (protobuf behavior)
+	assert.NoError(t, err)
+	assert.NotNil(t, undoLog)
+	assert.Empty(t, undoLog.Xid)
+	assert.Equal(t, uint64(0), undoLog.BranchID)
+	assert.Empty(t, undoLog.Logs)
+}
+
+func TestProtobufEncode_Nil(t *testing.T) {
+	parser := &ProtobufParser{}
+	bytes, err := parser.Encode(nil)
+	assert.NotNil(t, err)
+	assert.Nil(t, bytes)
+}

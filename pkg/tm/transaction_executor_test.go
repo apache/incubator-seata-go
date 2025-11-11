@@ -276,6 +276,7 @@ func TestCommitOrRollback(t *testing.T) {
 		{
 			ctx: context.Background(),
 			tx: GlobalTransaction{
+				Xid:    "test-xid-rollback",
 				TxRole: Launcher,
 			},
 			ok:                 false,
