@@ -430,7 +430,10 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
 		return false, err
 	}
-	defer rows.Close()
+
+	if rows != nil {
+		defer rows.Close()
+	}
 
 	return true, nil
 }
