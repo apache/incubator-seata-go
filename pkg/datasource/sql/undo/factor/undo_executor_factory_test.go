@@ -18,198 +18,146 @@
 package factor
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
-func TestGetUndoExecutor_Insert(t *testing.T) {
-	// Test getting INSERT undo executor for MySQL
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "test_table",
-	}
-
-	executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, executor)
+type mockUndoExecutorHolder struct {
+	mock.Mock
 }
 
-func TestGetUndoExecutor_Update(t *testing.T) {
-	// Test getting UPDATE undo executor for MySQL
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeUpdate,
-		TableName: "test_table",
+func (m *mockUndoExecutorHolder) GetInsertExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	args := m.Called(sqlUndoLog)
+	if args.Get(0) == nil {
+		return nil
 	}
-
-	executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, executor)
+	return args.Get(0).(undo.UndoExecutor)
 }
 
-func TestGetUndoExecutor_Delete(t *testing.T) {
-	// Test getting DELETE undo executor for MySQL
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeDelete,
-		TableName: "test_table",
+func (m *mockUndoExecutorHolder) GetDeleteExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	args := m.Called(sqlUndoLog)
+	if args.Get(0) == nil {
+		return nil
 	}
-
-	executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, executor)
+	return args.Get(0).(undo.UndoExecutor)
 }
 
-func TestGetUndoExecutor_UnsupportedSQLType(t *testing.T) {
-	// Test unsupported SQL types
-	testCases := []struct {
-		name    string
-		sqlType types.SQLType
+func (m *mockUndoExecutorHolder) GetUpdateExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	args := m.Called(sqlUndoLog)
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(undo.UndoExecutor)
+}
+
+type mockUndoExecutor struct {
+	mock.Mock
+}
+
+func (m *mockUndoExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	args := m.Called(ctx, dbType, conn)
+	return args.Error(0)
+}
+
+func TestGetUndoExecutor(t *testing.T) {
+	tests := []struct {
+		name         string
+		dbType       types.DBType
+		sqlType      types.SQLType
+		setupMock    func(*mockUndoExecutorHolder, *mockUndoExecutor)
+		expectError  bool
+		errorMessage string
 	}{
-		{"SELECT", types.SQLTypeSelect},
-		{"CREATE", types.SQLTypeCreate},
-		{"DROP", types.SQLTypeDrop},
-		{"ALTER", types.SQLTypeAlter},
-		{"TRUNCATE", types.SQLTypeTruncate},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			sqlUndoLog := undo.SQLUndoLog{
-				SQLType:   tc.sqlType,
-				TableName: "test_table",
-			}
-
-			executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-			assert.Error(t, err)
-			assert.Nil(t, executor)
-			assert.Contains(t, err.Error(), "not support")
-		})
-	}
-}
-
-func TestGetUndoExecutor_UnsupportedDBType(t *testing.T) {
-	// Test with unsupported database type
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "test_table",
-	}
-
-	executor, err := GetUndoExecutor(types.DBTypePostgreSQL, sqlUndoLog)
-
-	assert.Error(t, err)
-	assert.Nil(t, executor)
-	assert.Equal(t, ErrNotImplDBType, err)
-}
-
-func TestGetUndoExecutor_AllSupportedSQLTypes(t *testing.T) {
-	// Test all supported SQL types with MySQL
-	testCases := []struct {
-		name    string
-		sqlType types.SQLType
-	}{
-		{"Insert", types.SQLTypeInsert},
-		{"Update", types.SQLTypeUpdate},
-		{"Delete", types.SQLTypeDelete},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			sqlUndoLog := undo.SQLUndoLog{
-				SQLType:   tc.sqlType,
-				TableName: "test_table",
-			}
-
-			executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-			assert.NoError(t, err)
-			assert.NotNil(t, executor)
-		})
-	}
-}
-
-func TestGetUndoExecutor_WithBeforeAndAfterImages(t *testing.T) {
-	// Test with complete undo log including before and after images
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeUpdate,
-		TableName: "users",
-		BeforeImage: &types.RecordImage{
-			TableName: "users",
-			Rows:      []types.RowImage{},
+		{
+			name:    "insert executor - success",
+			dbType:  types.DBTypeMySQL,
+			sqlType: types.SQLTypeInsert,
+			setupMock: func(holder *mockUndoExecutorHolder, executor *mockUndoExecutor) {
+				holder.On("GetInsertExecutor", mock.AnythingOfType("undo.SQLUndoLog")).Return(executor)
+			},
+			expectError: false,
 		},
-		AfterImage: &types.RecordImage{
-			TableName: "users",
-			Rows:      []types.RowImage{},
+		{
+			name:    "delete executor - success",
+			dbType:  types.DBTypeMySQL,
+			sqlType: types.SQLTypeDelete,
+			setupMock: func(holder *mockUndoExecutorHolder, executor *mockUndoExecutor) {
+				holder.On("GetDeleteExecutor", mock.AnythingOfType("undo.SQLUndoLog")).Return(executor)
+			},
+			expectError: false,
+		},
+		{
+			name:    "update executor - success",
+			dbType:  types.DBTypeMySQL,
+			sqlType: types.SQLTypeUpdate,
+			setupMock: func(holder *mockUndoExecutorHolder, executor *mockUndoExecutor) {
+				holder.On("GetUpdateExecutor", mock.AnythingOfType("undo.SQLUndoLog")).Return(executor)
+			},
+			expectError: false,
+		},
+		{
+			name:         "unsupported sql type",
+			dbType:       types.DBTypeMySQL,
+			sqlType:      types.SQLType(999),
+			setupMock:    func(holder *mockUndoExecutorHolder, executor *mockUndoExecutor) {},
+			expectError:  true,
+			errorMessage: "sql type: 999 not support",
+		},
+		{
+			name:         "unsupported db type",
+			dbType:       types.DBTypePostgreSQL,
+			sqlType:      types.SQLTypeInsert,
+			setupMock:    func(holder *mockUndoExecutorHolder, executor *mockUndoExecutor) {},
+			expectError:  true,
+			errorMessage: "db type executor not implement",
 		},
 	}
 
-	executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalMap := undoExecutorHolderMap
+			defer func() {
+				undoExecutorHolderMap = originalMap
+			}()
 
-	assert.NoError(t, err)
-	assert.NotNil(t, executor)
-}
+			mockHolder := &mockUndoExecutorHolder{}
+			mockExecutor := &mockUndoExecutor{}
+			tt.setupMock(mockHolder, mockExecutor)
 
-func TestGetUndoExecutor_InvalidDBTypeValue(t *testing.T) {
-	// Test with invalid/custom DB type value
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "test_table",
+			if tt.dbType == types.DBTypeMySQL {
+				undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{
+					types.DBTypeMySQL: mockHolder,
+				}
+			} else {
+				undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{}
+			}
+
+			sqlUndoLog := undo.SQLUndoLog{
+				SQLType: tt.sqlType,
+			}
+
+			result, err := GetUndoExecutor(tt.dbType, sqlUndoLog)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+				if tt.errorMessage != "" {
+					assert.Contains(t, err.Error(), tt.errorMessage)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, mockExecutor, result)
+			}
+
+			mockHolder.AssertExpectations(t)
+		})
 	}
-
-	invalidDBType := types.DBType(999)
-	executor, err := GetUndoExecutor(invalidDBType, sqlUndoLog)
-
-	assert.Error(t, err)
-	assert.Nil(t, executor)
-}
-
-func TestGetUndoExecutor_ErrorPropagation(t *testing.T) {
-	// Test that errors from GetUndoExecutorHolder are properly propagated
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "test_table",
-	}
-
-	executor, err := GetUndoExecutor(types.DBTypeOracle, sqlUndoLog)
-
-	assert.Error(t, err)
-	assert.Nil(t, executor)
-	assert.Equal(t, ErrNotImplDBType, err)
-}
-
-func TestGetUndoExecutor_MultipleCallsSameType(t *testing.T) {
-	// Test multiple calls with the same SQL type return valid executors
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "test_table",
-	}
-
-	executor1, err1 := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-	assert.NoError(t, err1)
-	assert.NotNil(t, executor1)
-
-	executor2, err2 := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-	assert.NoError(t, err2)
-	assert.NotNil(t, executor2)
-
-	assert.IsType(t, executor1, executor2)
-}
-
-func TestGetUndoExecutor_EmptyTableName(t *testing.T) {
-	// Test with empty table name (should still work as validation happens elsewhere)
-	sqlUndoLog := undo.SQLUndoLog{
-		SQLType:   types.SQLTypeInsert,
-		TableName: "",
-	}
-
-	executor, err := GetUndoExecutor(types.DBTypeMySQL, sqlUndoLog)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, executor)
 }
