@@ -18,6 +18,13 @@
 package base
 
 import (
+	"context"
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/require"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"strings"
 	"testing"
 
@@ -478,7 +485,7 @@ func TestBaseUndoLogManager_InsertUndoLogWithSqlConn_Errors(t *testing.T) {
 		XID:          "test-xid",
 		Context:      []byte("test-context"),
 		RollbackInfo: []byte("test-rollback"),
-		LogStatus:    undo.UndoLogStatueNormnal,
+		LogStatus:    undo.UndoLogStatusNormal,
 	}
 
 	t.Run("prepare error", func(t *testing.T) {
@@ -1317,4 +1324,86 @@ func TestBaseUndoLogManager_HasUndoLogTable(t *testing.T) {
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
+}
+
+// Mock implementations for driver interfaces
+type mockDriverConn struct {
+	prepareFunc func(query string) (driver.Stmt, error)
+	beginFunc   func() (driver.Tx, error)
+	closeFunc   func() error
+}
+
+func (m *mockDriverConn) Prepare(query string) (driver.Stmt, error) {
+	if m.prepareFunc != nil {
+		return m.prepareFunc(query)
+	}
+	return nil, errors.New("prepare not implemented")
+}
+
+func (m *mockDriverConn) Close() error {
+	if m.closeFunc != nil {
+		return m.closeFunc()
+	}
+	return nil
+}
+
+func (m *mockDriverConn) Begin() (driver.Tx, error) {
+	if m.beginFunc != nil {
+		return m.beginFunc()
+	}
+	return nil, errors.New("begin not implemented")
+}
+
+type mockDriverStmt struct {
+	closeFunc    func() error
+	numInputFunc func() int
+	execFunc     func(args []driver.Value) (driver.Result, error)
+	queryFunc    func(args []driver.Value) (driver.Rows, error)
+}
+
+func (m *mockDriverStmt) Close() error {
+	if m.closeFunc != nil {
+		return m.closeFunc()
+	}
+	return nil
+}
+
+func (m *mockDriverStmt) NumInput() int {
+	if m.numInputFunc != nil {
+		return m.numInputFunc()
+	}
+	return -1
+}
+
+func (m *mockDriverStmt) Exec(args []driver.Value) (driver.Result, error) {
+	if m.execFunc != nil {
+		return m.execFunc(args)
+	}
+	return nil, errors.New("exec not implemented")
+}
+
+func (m *mockDriverStmt) Query(args []driver.Value) (driver.Rows, error) {
+	if m.queryFunc != nil {
+		return m.queryFunc(args)
+	}
+	return nil, errors.New("query not implemented")
+}
+
+type mockDriverResult struct {
+	lastInsertIdFunc func() (int64, error)
+	rowsAffectedFunc func() (int64, error)
+}
+
+func (m *mockDriverResult) LastInsertId() (int64, error) {
+	if m.lastInsertIdFunc != nil {
+		return m.lastInsertIdFunc()
+	}
+	return 0, nil
+}
+
+func (m *mockDriverResult) RowsAffected() (int64, error) {
+	if m.rowsAffectedFunc != nil {
+		return m.rowsAffectedFunc()
+	}
+	return 1, nil
 }
