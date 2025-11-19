@@ -15,45 +15,43 @@
  * limitations under the License.
  */
 
-package mysql
+package undo
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
-func TestInitUndoLogManager(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("InitUndoLogManager should not panic, but got: %v", r)
-		}
-	}()
-
-	InitUndoLogManager()
-
-	manager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
-	assert.NoError(t, err)
-	assert.NotNil(t, manager)
-	assert.Equal(t, types.DBTypeMySQL, manager.DBType())
-
-	assert.IsType(t, &undoLogManager{}, manager)
+type mockUndoExecutorImpl struct {
+	mock.Mock
 }
 
-func TestInitUndoLogManager_Multiple(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Multiple calls to InitUndoLogManager should not panic, but got: %v", r)
-		}
-	}()
+func (m *mockUndoExecutorImpl) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	args := m.Called(ctx, dbType, conn)
+	return args.Error(0)
+}
 
-	InitUndoLogManager()
-	InitUndoLogManager()
+func TestUndoExecutor_Interface(t *testing.T) {
+	executor := &mockUndoExecutorImpl{}
+	assert.Implements(t, (*UndoExecutor)(nil), executor)
+}
 
-	manager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
+func TestUndoExecutor_ExecuteOn(t *testing.T) {
+	executor := &mockUndoExecutorImpl{}
+	ctx := context.Background()
+	dbType := types.DBTypeMySQL
+	var conn *sql.Conn
+
+	executor.On("ExecuteOn", ctx, dbType, conn).Return(nil)
+
+	err := executor.ExecuteOn(ctx, dbType, conn)
 	assert.NoError(t, err)
-	assert.NotNil(t, manager)
+
+	executor.AssertExpectations(t)
 }

@@ -18,12 +18,16 @@
 package builder
 
 import (
+	"context"
 	"database/sql/driver"
+	"fmt"
+	"strings"
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/util/log"
-
 	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 func TestBuildDeleteBeforeImageSQL(t *testing.T) {
@@ -71,4 +75,61 @@ func TestBuildDeleteBeforeImageSQL(t *testing.T) {
 			assert.Equal(t, tt.expectQueryArgs, args)
 		})
 	}
+}
+
+func TestGetMySQLDeleteUndoLogBuilder(t *testing.T) {
+	builder := GetMySQLDeleteUndoLogBuilder()
+	assert.NotNil(t, builder)
+	assert.IsType(t, &MySQLDeleteUndoLogBuilder{}, builder)
+}
+
+func TestMySQLDeleteUndoLogBuilder_GetExecutorType(t *testing.T) {
+	builder := &MySQLDeleteUndoLogBuilder{}
+	executorType := builder.GetExecutorType()
+	assert.Equal(t, types.DeleteExecutor, executorType)
+}
+
+func TestMySQLDeleteUndoLogBuilder_BeforeImage(t *testing.T) {
+	log.Init()
+	builder := &MySQLDeleteUndoLogBuilder{}
+
+	// Test with nil values - should handle NamedValues
+	execCtx := &types.ExecContext{
+		Values: nil,
+		NamedValues: []driver.NamedValue{
+			{Name: "0", Value: 100},
+		},
+		Query: "DELETE FROM t_user WHERE id = ?",
+		Conn:  nil,
+	}
+
+	// Since conn is nil, this should panic or return error, let's catch the panic
+	defer func() {
+		if r := recover(); r != nil {
+			// Expected panic due to nil conn or index error
+			panicStr := fmt.Sprintf("%v", r)
+			assert.True(t,
+				strings.Contains(panicStr, "nil pointer") ||
+					strings.Contains(panicStr, "index out of range"),
+				"Expected panic related to nil pointer or index error, got: %s", panicStr)
+		}
+	}()
+
+	_, err := builder.BeforeImage(context.Background(), execCtx)
+	// If we reach here, there should be an error
+	if err == nil {
+		t.Error("Expected error or panic when conn is nil")
+	}
+}
+
+func TestMySQLDeleteUndoLogBuilder_AfterImage(t *testing.T) {
+	builder := &MySQLDeleteUndoLogBuilder{}
+
+	execCtx := &types.ExecContext{}
+	beforeImages := []*types.RecordImage{}
+
+	images, err := builder.AfterImage(context.Background(), execCtx, beforeImages)
+	// AfterImage for DELETE should return nil
+	assert.NoError(t, err)
+	assert.Nil(t, images)
 }
