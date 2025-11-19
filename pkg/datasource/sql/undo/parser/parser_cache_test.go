@@ -103,15 +103,15 @@ func TestCacheSingleton(t *testing.T) {
 
 func TestStoreMethod(t *testing.T) {
 	cache := GetCache()
-
+	
 	mockParser := &mockUndoLogParser{
 		name:           "test-mock",
 		defaultContent: []byte("test"),
 		shouldError:    false,
 	}
-
+	
 	cache.store(mockParser)
-
+	
 	loadedParser, err := cache.Load("test-mock")
 	assert.NoError(t, err)
 	assert.NotNil(t, loadedParser)
