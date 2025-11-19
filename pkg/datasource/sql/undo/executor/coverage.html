@@ -1,0 +1,1066 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>executor: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/executor.go (1.3%)</option>
+				
+				<option value="file1">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/mysql_undo_delete_executor.go (92.1%)</option>
+				
+				<option value="file2">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/mysql_undo_executor_holder.go (100.0%)</option>
+				
+				<option value="file3">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/mysql_undo_insert_executor.go (88.2%)</option>
+				
+				<option value="file4">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/mysql_undo_update_executor.go (90.2%)</option>
+				
+				<option value="file5">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/sql.go (50.5%)</option>
+				
+				<option value="file6">seata.apache.org/seata-go/pkg/datasource/sql/undo/executor/utils.go (94.6%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "context"
+        "database/sql"
+        "database/sql/driver"
+        "fmt"
+        "strings"
+
+        "github.com/goccy/go-json"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+        serr "seata.apache.org/seata-go/pkg/util/errors"
+        "seata.apache.org/seata-go/pkg/util/log"
+)
+
+var _ undo.UndoExecutor = (*BaseExecutor)(nil)
+
+const (
+        checkSQLTemplate = "SELECT * FROM %s WHERE %s FOR UPDATE"
+        maxInSize        = 1000
+)
+
+type BaseExecutor struct {
+        sqlUndoLog undo.SQLUndoLog
+        undoImage  *types.RecordImage
+}
+
+// ExecuteOn
+func (b *BaseExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error <span class="cov8" title="1">{
+        // check data if valid
+        return nil
+}</span>
+
+// UndoPrepare
+func (b *BaseExecutor) UndoPrepare(undoPST *sql.Stmt, undoValues []types.ColumnImage, pkValueList []types.ColumnImage) {<span class="cov0" title="0">
+
+}</span>
+
+func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn) (bool, error) <span class="cov0" title="0">{
+        if !undo.UndoConfig.DataValidation </span><span class="cov0" title="0">{
+                return true, nil
+        }</span>
+        <span class="cov0" title="0">beforeImage := b.sqlUndoLog.BeforeImage
+        afterImage := b.sqlUndoLog.AfterImage
+
+        equals, err := IsRecordsEquals(beforeImage, afterImage)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">if equals </span><span class="cov0" title="0">{
+                log.Infof("Stop rollback because there is no data change between the before data snapshot and the after data snapshot.")
+                return false, nil
+        }</span>
+
+        // Validate if data is dirty.
+        <span class="cov0" title="0">currentImage, err := b.queryCurrentRecords(ctx, conn)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        // compare with current data and after image.
+        <span class="cov0" title="0">equals, err = IsRecordsEquals(afterImage, currentImage)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">if !equals </span><span class="cov0" title="0">{
+                // If current data is not equivalent to the after data, then compare the current data with the before
+                // data, too. No need continue to undo if current data is equivalent to the before data snapshot
+                equals, err = IsRecordsEquals(beforeImage, currentImage)
+                if err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+
+                <span class="cov0" title="0">if equals </span><span class="cov0" title="0">{
+                        log.Infof("Stop rollback because there is no data change between the before data snapshot and the current data snapshot.")
+                        // no need continue undo.
+                        return false, nil
+                }</span> else<span class="cov0" title="0"> {
+                        oldRowJson, _ := json.Marshal(afterImage.Rows)
+                        newRowJson, _ := json.Marshal(currentImage.Rows)
+                        log.Infof("check dirty data failed, old and new data are not equal, "+
+                                "tableName:[%s], oldRows:[%s],newRows:[%s].", afterImage.TableName, oldRowJson, newRowJson)
+                        return false, serr.New(serr.SQLUndoDirtyError, "has dirty records when undo", nil)
+                }</span>
+        }
+        <span class="cov0" title="0">return true, nil</span>
+}
+
+func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) (*types.RecordImage, error) <span class="cov0" title="0">{
+        if b.undoImage == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("undo image is nil")
+        }</span>
+        <span class="cov0" title="0">tableMeta := b.undoImage.TableMeta
+        pkNameList := tableMeta.GetPrimaryKeyOnlyName()
+        pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList)
+
+        if len(pkValues) == 0 </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov0" title="0">where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize)
+        checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
+        params := buildPKParams(b.undoImage.Rows, pkNameList)
+
+        rows, err := conn.QueryContext(ctx, checkSQL, params...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+        image := types.RecordImage{
+                TableName: b.undoImage.TableName,
+                TableMeta: tableMeta,
+                SQLType:   types.SQLTypeSelect,
+        }
+        rowImages := make([]types.RowImage, 0)
+        for rows.Next() </span><span class="cov0" title="0">{
+                columnTypes, err := rows.ColumnTypes()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">slice := datasource.GetScanSlice(columnTypes)
+                if err = rows.Scan(slice...); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">colNames, err := rows.Columns()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">columns := make([]types.ColumnImage, 0)
+                for i, val := range slice </span><span class="cov0" title="0">{
+                        actualVal := val
+                        if v, ok := val.(driver.Valuer); ok </span><span class="cov0" title="0">{
+                                actualVal, _ = v.Value()
+                        }</span>
+                        <span class="cov0" title="0">columns = append(columns, types.ColumnImage{
+                                ColumnName: colNames[i],
+                                Value:      actualVal,
+                        })</span>
+                }
+                <span class="cov0" title="0">rowImages = append(rowImages, types.RowImage{Columns: columns})</span>
+        }
+        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">image.Rows = rowImages
+        return &amp;image, nil</span>
+}
+
+func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage <span class="cov0" title="0">{
+        pkValues := make(map[string][]types.ColumnImage)
+        // todo optimize 3 fors
+        for _, row := range rows </span><span class="cov0" title="0">{
+                for _, column := range row.Columns </span><span class="cov0" title="0">{
+                        for _, pk := range pkNameList </span><span class="cov0" title="0">{
+                                if strings.EqualFold(pk, column.ColumnName) </span><span class="cov0" title="0">{
+                                        values := pkValues[strings.ToUpper(pk)]
+                                        if values == nil </span><span class="cov0" title="0">{
+                                                values = make([]types.ColumnImage, 0)
+                                        }</span>
+                                        <span class="cov0" title="0">values = append(values, column)
+                                        pkValues[pk] = values</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov0" title="0">return pkValues</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "strings"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+)
+
+type mySQLUndoDeleteExecutor struct {
+        baseExecutor *BaseExecutor
+        sqlUndoLog   undo.SQLUndoLog
+}
+
+// newMySQLUndoDeleteExecutor init
+func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoDeleteExecutor <span class="cov8" title="1">{
+        return &amp;mySQLUndoDeleteExecutor{
+                sqlUndoLog:   sqlUndoLog,
+                baseExecutor: &amp;BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+        }
+}</span>
+
+func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error <span class="cov8" title="1">{
+
+        undoSql, _ := m.buildUndoSQL(dbType)
+
+        stmt, err := conn.PrepareContext(ctx, undoSql)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov8" title="1">defer stmt.Close()
+        beforeImage := m.sqlUndoLog.BeforeImage
+
+        for _, row := range beforeImage.Rows </span><span class="cov8" title="1">{
+                undoValues := make([]interface{}, 0)
+                pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">for _, col := range row.Columns </span><span class="cov8" title="1">{
+                        if col.KeyType != types.PrimaryKey.Number() </span><span class="cov8" title="1">{
+                                undoValues = append(undoValues, col.Value)
+                        }</span>
+                }
+
+                <span class="cov8" title="1">for _, col := range pkList </span><span class="cov8" title="1">{
+                        undoValues = append(undoValues, col.Value)
+                }</span>
+
+                <span class="cov8" title="1">if _, err = stmt.Exec(undoValues...); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, error) <span class="cov8" title="1">{
+        beforeImage := m.sqlUndoLog.BeforeImage
+        rows := beforeImage.Rows
+        if len(rows) == 0 </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("invalid undo log")
+        }</span>
+
+        <span class="cov8" title="1">row := rows[0]
+        fields := row.NonPrimaryKeys(row.Columns)
+        pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">fields = append(fields, pkList...)
+
+        var (
+                insertColumns, insertValues         string
+                insertColumnSlice, insertValueSlice []string
+        )
+
+        for key := range fields </span><span class="cov8" title="1">{
+                insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
+                insertValueSlice = append(insertValueSlice, "?")
+        }</span>
+
+        <span class="cov8" title="1">insertColumns = strings.Join(insertColumnSlice, ", ")
+        insertValues = strings.Join(insertValueSlice, ", ")
+
+        // InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
+        insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
+        return fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+)
+
+type MySQLUndoExecutorHolder struct {
+}
+
+func NewMySQLUndoExecutorHolder() undo.UndoExecutorHolder <span class="cov8" title="1">{
+        return &amp;MySQLUndoExecutorHolder{}
+}</span>
+
+// GetInsertExecutor get the mysql Insert UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetInsertExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor <span class="cov8" title="1">{
+        return newMySQLUndoInsertExecutor(sqlUndoLog)
+}</span>
+
+// GetUpdateExecutor get the mysql Update UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetUpdateExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor <span class="cov8" title="1">{
+        return newMySQLUndoUpdateExecutor(sqlUndoLog)
+}</span>
+
+// GetDeleteExecutor get the mysql Delete UndoExecutor by sqlUndoLog
+func (m *MySQLUndoExecutorHolder) GetDeleteExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor <span class="cov8" title="1">{
+        return newMySQLUndoDeleteExecutor(sqlUndoLog)
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+)
+
+type mySQLUndoInsertExecutor struct {
+        BaseExecutor *BaseExecutor
+        sqlUndoLog   undo.SQLUndoLog
+}
+
+// newMySQLUndoInsertExecutor init
+func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExecutor <span class="cov8" title="1">{
+        return &amp;mySQLUndoInsertExecutor{sqlUndoLog: sqlUndoLog}
+}</span>
+
+// ExecuteOn execute insert undo logic
+func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error <span class="cov8" title="1">{
+
+        if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // build delete sql
+        <span class="cov8" title="1">undoSql, _ := m.buildUndoSQL(dbType)
+
+        stmt, err := conn.PrepareContext(ctx, undoSql)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov8" title="1">defer stmt.Close()
+        afterImage := m.sqlUndoLog.AfterImage
+        for _, row := range afterImage.Rows </span><span class="cov8" title="1">{
+                pkValueList := make([]interface{}, 0)
+
+                for _, col := range row.Columns </span><span class="cov8" title="1">{
+                        if col.KeyType == types.PrimaryKey.Number() </span><span class="cov8" title="1">{
+                                pkValueList = append(pkValueList, col.Value)
+                        }</span>
+                }
+
+                <span class="cov8" title="1">if _, err = stmt.Exec(pkValueList...); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// buildUndoSQL build insert undo log
+func (m *mySQLUndoInsertExecutor) buildUndoSQL(dbType types.DBType) (string, error) <span class="cov8" title="1">{
+        afterImage := m.sqlUndoLog.AfterImage
+        rows := afterImage.Rows
+        if len(rows) == 0 </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("invalid undo log")
+        }</span>
+
+        <span class="cov8" title="1">str, err := m.generateDeleteSql(afterImage, rows, dbType, m.sqlUndoLog)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">return str, nil</span>
+}
+
+// generateDeleteSql generate delete sql
+func (m *mySQLUndoInsertExecutor) generateDeleteSql(
+        image *types.RecordImage, rows []types.RowImage,
+        dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) <span class="cov8" title="1">{
+
+        colImages, err := GetOrderedPkList(image, rows[0], dbType)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">var pkList []string
+        for key := range colImages </span><span class="cov8" title="1">{
+                pkList = append(pkList, colImages[key].ColumnName)
+        }</span>
+
+        <span class="cov8" title="1">whereSql := BuildWhereConditionByPKs(pkList, dbType)
+
+        deleteSqlTemplate := "DELETE FROM %s WHERE %s "
+        return fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "strings"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+)
+
+type mySQLUndoUpdateExecutor struct {
+        baseExecutor *BaseExecutor
+        sqlUndoLog   undo.SQLUndoLog
+}
+
+// newMySQLUndoUpdateExecutor init
+func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExecutor <span class="cov8" title="1">{
+        return &amp;mySQLUndoUpdateExecutor{
+                sqlUndoLog:   sqlUndoLog,
+                baseExecutor: &amp;BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+        }
+}</span>
+
+func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error <span class="cov8" title="1">{
+        ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !ok </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">undoSql, _ := m.buildUndoSQL(dbType)
+        stmt, err := conn.PrepareContext(ctx, undoSql)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov8" title="1">defer stmt.Close()
+
+        beforeImage := m.sqlUndoLog.BeforeImage
+        for _, row := range beforeImage.Rows </span><span class="cov8" title="1">{
+                undoValues := make([]interface{}, 0)
+                pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">for _, col := range row.Columns </span><span class="cov8" title="1">{
+                        if col.KeyType != types.IndexTypePrimaryKey </span><span class="cov8" title="1">{
+                                undoValues = append(undoValues, col.Value)
+                        }</span>
+                }
+
+                <span class="cov8" title="1">for _, col := range pkList </span><span class="cov8" title="1">{
+                        undoValues = append(undoValues, col.Value)
+                }</span>
+
+                <span class="cov8" title="1">if _, err = stmt.Exec(undoValues...); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// BuildUndoSQL
+func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, error) <span class="cov8" title="1">{
+        beforeImage := m.sqlUndoLog.BeforeImage
+        rows := beforeImage.Rows
+        row := rows[0]
+
+        var (
+                updateColumns                 string
+                updateColumnSlice, pkNameList []string
+        )
+
+        nonPkFields := row.NonPrimaryKeys(row.Columns)
+        for key := range nonPkFields </span><span class="cov8" title="1">{
+                updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].ColumnName, dbType)+" = ? ")
+        }</span>
+
+        <span class="cov8" title="1">updateColumns = strings.Join(updateColumnSlice, ", ")
+        pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">for key := range pkList </span><span class="cov8" title="1">{
+                pkNameList = append(pkNameList, pkList[key].ColumnName)
+        }</span>
+
+        <span class="cov8" title="1">whereSql := BuildWhereConditionByPKs(pkNameList, dbType)
+
+        // UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
+        updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
+        return fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "database/sql"
+        "strings"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/datasource/sql/undo"
+)
+
+const (
+        Dot            = "."
+        EscapeStandard = "\""
+        EscapeMysql    = "`"
+)
+
+// DelEscape del escape by db type
+func DelEscape(colName string, dbType types.DBType) string <span class="cov8" title="1">{
+        newColName := delEscape(colName, EscapeStandard)
+        if dbType == types.DBTypeMySQL </span><span class="cov8" title="1">{
+                newColName = delEscape(newColName, EscapeMysql)
+        }</span>
+        <span class="cov8" title="1">return newColName</span>
+}
+
+// delEscape
+func delEscape(colName string, escape string) string <span class="cov8" title="1">{
+        if colName == "" </span><span class="cov0" title="0">{
+                return ""
+        }</span>
+
+        <span class="cov8" title="1">if string(colName[0]) == escape &amp;&amp; string(colName[len(colName)-1]) == escape </span><span class="cov8" title="1">{
+                // like "scheme"."id" `scheme`.`id`
+                str := escape + Dot + escape
+                index := strings.Index(colName, str)
+                if index &gt; -1 </span><span class="cov8" title="1">{
+                        return colName[1:index] + Dot + colName[index+len(str):len(colName)-1]
+                }</span>
+
+                <span class="cov0" title="0">return colName[1 : len(colName)-1]</span>
+        } else<span class="cov8" title="1"> {
+                // like "scheme".id `scheme`.id
+                str := escape + Dot
+                index := strings.Index(colName, str)
+                if index &gt; -1 &amp;&amp; string(colName[0]) == escape </span><span class="cov8" title="1">{
+                        return colName[1:index] + Dot + colName[index+len(str):]
+                }</span>
+
+                // like scheme."id" scheme.`id`
+                <span class="cov8" title="1">str = Dot + escape
+                index = strings.Index(colName, str)
+                if index &gt; -1 &amp;&amp; string(colName[len(colName)-1]) == escape </span><span class="cov8" title="1">{
+                        return colName[0:index] + Dot + colName[index+len(str):len(colName)-1]
+                }</span>
+        }
+
+        <span class="cov8" title="1">return colName</span>
+}
+
+// AddEscape if necessary, add escape by db type
+func AddEscape(colName string, dbType types.DBType) string <span class="cov8" title="1">{
+        if dbType == types.DBTypeMySQL </span><span class="cov8" title="1">{
+                return addEscape(colName, dbType, EscapeMysql)
+        }</span>
+
+        <span class="cov0" title="0">return addEscape(colName, dbType, EscapeStandard)</span>
+}
+
+func addEscape(colName string, dbType types.DBType, escape string) string <span class="cov8" title="1">{
+        if colName == "" </span><span class="cov0" title="0">{
+                return colName
+        }</span>
+
+        <span class="cov8" title="1">if string(colName[0]) == escape &amp;&amp; string(colName[len(colName)-1]) == escape </span><span class="cov0" title="0">{
+                return colName
+        }</span>
+
+        <span class="cov8" title="1">if !checkEscape(colName, dbType) </span><span class="cov8" title="1">{
+                return colName
+        }</span>
+
+        <span class="cov8" title="1">if strings.Contains(colName, Dot) </span><span class="cov0" title="0">{
+                // like "scheme".id `scheme`.id
+                str := escape + Dot
+                dotIndex := strings.Index(colName, str)
+                if dotIndex &gt; -1 </span><span class="cov0" title="0">{
+                        tempStr := strings.Builder{}
+                        tempStr.WriteString(colName[0 : dotIndex+len(str)])
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(colName[dotIndex+len(str):])
+                        tempStr.WriteString(escape)
+
+                        return tempStr.String()
+                }</span>
+
+                // like scheme."id" scheme.`id`
+                <span class="cov0" title="0">str = Dot + escape
+                dotIndex = strings.Index(colName, str)
+                if dotIndex &gt; -1 </span><span class="cov0" title="0">{
+                        tempStr := strings.Builder{}
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(colName[0:dotIndex])
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(colName[dotIndex:])
+
+                        return tempStr.String()
+                }</span>
+
+                <span class="cov0" title="0">str = Dot
+                dotIndex = strings.Index(colName, str)
+                if dotIndex &gt; -1 </span><span class="cov0" title="0">{
+                        tempStr := strings.Builder{}
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(colName[0:dotIndex])
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(Dot)
+                        tempStr.WriteString(escape)
+                        tempStr.WriteString(colName[dotIndex+len(str):])
+                        tempStr.WriteString(escape)
+
+                        return tempStr.String()
+                }</span>
+        }
+
+        <span class="cov8" title="1">buf := make([]byte, len(colName)+2)
+        buf[0], buf[len(buf)-1] = escape[0], escape[0]
+
+        for key := range colName </span><span class="cov8" title="1">{
+                buf[key+1] = colName[key]
+        }</span>
+
+        <span class="cov8" title="1">return string(buf)</span>
+}
+
+// checkEscape check whether given field or table name use keywords. the method has database special logic.
+func checkEscape(colName string, dbType types.DBType) bool <span class="cov8" title="1">{
+        switch dbType </span>{
+        case types.DBTypeMySQL:<span class="cov8" title="1">
+                if _, ok := types.GetMysqlKeyWord()[strings.ToUpper(colName)]; ok </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+
+                <span class="cov8" title="1">return false</span>
+        // TODO impl Oracle PG SQLServer ...
+        default:<span class="cov0" title="0">
+                return true</span>
+        }
+}
+
+// BuildWhereConditionByPKs each pk is a condition.the result will like :" id =? and userCode =?"
+func BuildWhereConditionByPKs(pkNameList []string, dbType types.DBType) string <span class="cov8" title="1">{
+        whereStr := strings.Builder{}
+        for i := 0; i &lt; len(pkNameList); i++ </span><span class="cov0" title="0">{
+                if i &gt; 0 </span><span class="cov0" title="0">{
+                        whereStr.WriteString(" and ")
+                }</span>
+
+                <span class="cov0" title="0">pkName := pkNameList[i]
+                whereStr.WriteString(AddEscape(pkName, dbType))
+                whereStr.WriteString(" = ? ")</span>
+        }
+
+        <span class="cov8" title="1">return whereStr.String()</span>
+}
+
+// DataValidationAndGoOn check data valid
+// Todo implement dataValidationAndGoOn
+func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool <span class="cov0" title="0">{
+        return true
+}</span>
+
+func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) <span class="cov8" title="1">{
+
+        pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
+
+        pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
+        pkFields := make([]types.ColumnImage, 0)
+
+        for _, column := range row.PrimaryKeys(row.Columns) </span><span class="cov8" title="1">{
+                column.ColumnName = DelEscape(column.ColumnName, dbType)
+                pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
+        }</span>
+
+        <span class="cov8" title="1">for _, pkName := range pkColumnNameListByOrder </span><span class="cov0" title="0">{
+                for _, col := range pkColumnNameListNoOrder </span><span class="cov0" title="0">{
+                        if strings.Index(col.ColumnName, pkName) &gt; -1 </span><span class="cov0" title="0">{
+                                pkFields = append(pkFields, col)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return pkFields, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package executor
+
+import (
+        "fmt"
+        "strings"
+
+        "seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+        "seata.apache.org/seata-go/pkg/datasource/sql/types"
+        "seata.apache.org/seata-go/pkg/util/log"
+)
+
+// IsRecordsEquals check before record and after record if equal
+func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordImage) (bool, error) <span class="cov8" title="1">{
+        if beforeImage == nil &amp;&amp; afterImage == nil </span><span class="cov8" title="1">{
+                return true, nil
+        }</span>
+        <span class="cov8" title="1">if beforeImage == nil || afterImage == nil </span><span class="cov8" title="1">{
+                return false, nil
+        }</span>
+
+        <span class="cov8" title="1">if !strings.EqualFold(beforeImage.TableName, afterImage.TableName) || len(beforeImage.Rows) != len(afterImage.Rows) </span><span class="cov8" title="1">{
+                return false, nil
+        }</span>
+        <span class="cov8" title="1">if len(beforeImage.Rows) == 0 </span><span class="cov8" title="1">{
+                return true, nil
+        }</span>
+
+        <span class="cov8" title="1">return compareRows(*beforeImage.TableMeta, beforeImage.Rows, afterImage.Rows)</span>
+}
+
+func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) <span class="cov8" title="1">{
+        oldRowMap := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
+        newRowMap := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+
+        for key, oldRow := range oldRowMap </span><span class="cov8" title="1">{
+                newRow := newRowMap[key]
+                if newRow == nil </span><span class="cov0" title="0">{
+                        log.Infof("compare row failed, rowKey %s, reason new field is null", key)
+                        return false, nil
+                }</span>
+                <span class="cov8" title="1">for fieldName, oldValue := range oldRow </span><span class="cov8" title="1">{
+                        newValue := newRow[fieldName]
+                        if !datasource.DeepEqual(newValue, oldValue) </span><span class="cov8" title="1">{
+                                log.Infof("compare row failed, rowKey %s, fieldName %s, oldValue %v, newValud %v", key, fieldName, oldValue, newValue)
+                                return false, nil
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return true, nil</span>
+}
+
+func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map[string]interface{} <span class="cov8" title="1">{
+        rowMap := make(map[string]map[string]interface{}, 0)
+        for _, row := range rows </span><span class="cov8" title="1">{
+                fieldMap := make(map[string]interface{}, 0)
+                var rowKey string
+                var firstUnderline bool
+
+                for _, column := range row.Columns </span><span class="cov8" title="1">{
+                        for i, key := range primaryKeyList </span><span class="cov8" title="1">{
+                                if column.ColumnName == key </span><span class="cov8" title="1">{
+                                        if firstUnderline &amp;&amp; i &gt; 0 </span><span class="cov8" title="1">{
+                                                rowKey += "_##$$_"
+                                        }</span>
+                                        // todo make value more accurate
+                                        <span class="cov8" title="1">rowKey = fmt.Sprintf("%v%v", rowKey, column.GetActualValue())
+                                        firstUnderline = true</span>
+                                }
+                        }
+                        <span class="cov8" title="1">fieldMap[strings.ToUpper(column.ColumnName)] = column.Value</span>
+                }
+                <span class="cov8" title="1">rowMap[rowKey] = fieldMap</span>
+        }
+        <span class="cov8" title="1">return rowMap</span>
+}
+
+// buildWhereConditionByPKs build where condition by primary keys
+// each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
+func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string <span class="cov8" title="1">{
+        var (
+                whereStr  = &amp;strings.Builder{}
+                batchSize = rowSize/maxInSize + 1
+        )
+
+        if rowSize%maxInSize == 0 </span><span class="cov0" title="0">{
+                batchSize = rowSize / maxInSize
+        }</span>
+
+        <span class="cov8" title="1">for batch := 0; batch &lt; batchSize; batch++ </span><span class="cov8" title="1">{
+                if batch &gt; 0 </span><span class="cov8" title="1">{
+                        whereStr.WriteString(" OR ")
+                }</span>
+                <span class="cov8" title="1">whereStr.WriteString("(")
+
+                for i := 0; i &lt; len(pkNameList); i++ </span><span class="cov8" title="1">{
+                        if i &gt; 0 </span><span class="cov8" title="1">{
+                                whereStr.WriteString(",")
+                        }</span>
+                        // todo add escape
+                        <span class="cov8" title="1">whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))</span>
+                }
+                <span class="cov8" title="1">whereStr.WriteString(") IN (")
+
+                var eachSize int
+
+                if batch == batchSize-1 </span><span class="cov8" title="1">{
+                        if rowSize%maxInSize == 0 </span><span class="cov0" title="0">{
+                                eachSize = maxInSize
+                        }</span> else<span class="cov8" title="1"> {
+                                eachSize = rowSize % maxInSize
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        eachSize = maxInSize
+                }</span>
+
+                <span class="cov8" title="1">for i := 0; i &lt; eachSize; i++ </span><span class="cov8" title="1">{
+                        if i &gt; 0 </span><span class="cov8" title="1">{
+                                whereStr.WriteString(",")
+                        }</span>
+                        <span class="cov8" title="1">whereStr.WriteString("(")
+                        for j := 0; j &lt; len(pkNameList); j++ </span><span class="cov8" title="1">{
+                                if j &gt; 0 </span><span class="cov8" title="1">{
+                                        whereStr.WriteString(",")
+                                }</span>
+                                <span class="cov8" title="1">whereStr.WriteString("?")</span>
+                        }
+                        <span class="cov8" title="1">whereStr.WriteString(")")</span>
+                }
+                <span class="cov8" title="1">whereStr.WriteString(")")</span>
+        }
+        <span class="cov8" title="1">return whereStr.String()</span>
+}
+
+func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} <span class="cov8" title="1">{
+        params := make([]interface{}, 0)
+        for _, row := range rows </span><span class="cov8" title="1">{
+                coumnMap := row.GetColumnMap()
+                for _, pk := range pkNameList </span><span class="cov8" title="1">{
+                        col := coumnMap[pk]
+                        if col != nil </span><span class="cov8" title="1">{
+                                params = append(params, col.Value)
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return params</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

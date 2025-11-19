@@ -21,7 +21,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
@@ -49,38 +51,64 @@ func TestUndoLogManager_DBType(t *testing.T) {
 }
 
 func TestUndoLogManager_DeleteUndoLog(t *testing.T) {
-	// Skip test since it requires a real database connection
-	t.Skip("Skipping test that requires database connection")
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
 
 	manager := NewUndoLogManager()
-	assert.NotPanics(t, func() {
-		manager.DeleteUndoLog(context.Background(), "test-xid", 123, nil)
-	})
+	ctx := context.Background()
+
+	// Mock the DELETE query that Base.DeleteUndoLog would execute
+	mock.ExpectPrepare("DELETE FROM (.+) WHERE").
+		ExpectExec().
+		WithArgs(int64(123), "test-xid").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	conn, err := db.Conn(ctx)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	err = manager.DeleteUndoLog(ctx, "test-xid", 123, conn)
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestUndoLogManager_BatchDeleteUndoLog(t *testing.T) {
-	// Skip test since it requires a real database connection
-	t.Skip("Skipping test that requires database connection")
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
 
 	manager := NewUndoLogManager()
-	assert.NotPanics(t, func() {
-		manager.BatchDeleteUndoLog([]string{"xid1"}, []int64{123}, nil)
-	})
+
+	// Mock the batch DELETE query that Base.BatchDeleteUndoLog would execute
+	// Parameters: branchIDStr (comma-separated), xidStr (comma-separated)
+	mock.ExpectPrepare("DELETE FROM (.+) WHERE").
+		ExpectExec().
+		WithArgs("123,456", "xid1,xid2").
+		WillReturnResult(sqlmock.NewResult(0, 2))
+
+	conn, err := db.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	err = manager.BatchDeleteUndoLog([]string{"xid1", "xid2"}, []int64{123, 456}, conn)
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestUndoLogManager_FlushUndoLog(t *testing.T) {
-	// Skip test since it requires a real database connection
-	t.Skip("Skipping test that requires database connection")
-
 	manager := NewUndoLogManager()
+
+	// Test with empty RoundImages (should return nil)
 	tranCtx := &types.TransactionContext{
-		XID:      "test-xid",
-		BranchID: 123,
+		XID:         "test-xid",
+		BranchID:    123,
+		RoundImages: &types.RoundRecordImage{},
 	}
 
-	assert.NotPanics(t, func() {
-		manager.FlushUndoLog(tranCtx, nil)
-	})
+	err := manager.FlushUndoLog(tranCtx, nil)
+	// Should return nil for empty images without needing database connection
+	assert.NoError(t, err)
 }
 
 func TestUndoLogManager_RunUndo(t *testing.T) {
@@ -94,12 +122,26 @@ func TestUndoLogManager_RunUndo(t *testing.T) {
 }
 
 func TestUndoLogManager_HasUndoLogTable(t *testing.T) {
-	// Skip test since it requires a real database connection
-	t.Skip("Skipping test that requires database connection")
+	t.Run("table exists", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	manager := NewUndoLogManager()
-	assert.NotPanics(t, func() {
-		manager.HasUndoLogTable(context.Background(), nil)
+		manager := NewUndoLogManager()
+		ctx := context.Background()
+
+		// Mock successful query (table exists)
+		mock.ExpectQuery("SELECT 1 FROM (.+) LIMIT 1").
+			WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+
+		conn, err := db.Conn(ctx)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		exists, err := manager.HasUndoLogTable(ctx, conn)
+		assert.NoError(t, err)
+		assert.True(t, exists)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }
 
