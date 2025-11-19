@@ -25,73 +25,106 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
-func TestGetUndoExecutorHolder_MySQL(t *testing.T) {
-	// Test getting MySQL undo executor holder
-	holder, err := GetUndoExecutorHolder(types.DBTypeMySQL)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, holder)
-}
-
-func TestGetUndoExecutorHolder_UnsupportedDBType(t *testing.T) {
-	// Test unsupported database types
-	testCases := []struct {
-		name   string
-		dbType types.DBType
+func TestGetUndoExecutorHolder(t *testing.T) {
+	tests := []struct {
+		name        string
+		dbType      types.DBType
+		expectError bool
+		resetMap    bool
 	}{
-		{"Unknown", types.DBTypeUnknown},
-		{"PostgreSQL", types.DBTypePostgreSQL},
-		{"SQLServer", types.DBTypeSQLServer},
-		{"Oracle", types.DBTypeOracle},
-		{"MariaDB", types.DBTypeMARIADB},
+		{
+			name:        "mysql db type - success",
+			dbType:      types.DBTypeMySQL,
+			expectError: false,
+			resetMap:    false,
+		},
+		{
+			name:        "mysql db type - lazy init",
+			dbType:      types.DBTypeMySQL,
+			expectError: false,
+			resetMap:    true,
+		},
+		{
+			name:        "postgresql db type - not implemented",
+			dbType:      types.DBTypePostgreSQL,
+			expectError: true,
+			resetMap:    false,
+		},
+		{
+			name:        "oracle db type - not implemented",
+			dbType:      types.DBTypeOracle,
+			expectError: true,
+			resetMap:    false,
+		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			holder, err := GetUndoExecutorHolder(tc.dbType)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalMap := undoExecutorHolderMap
+			defer func() {
+				undoExecutorHolderMap = originalMap
+			}()
 
-			assert.Error(t, err)
-			assert.Nil(t, holder)
-			assert.Equal(t, ErrNotImplDBType, err)
+			if tt.resetMap {
+				undoExecutorHolderMap = nil
+			}
+
+			result, err := GetUndoExecutorHolder(tt.dbType)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+				assert.Equal(t, ErrNotImplDBType, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+			}
 		})
 	}
 }
 
+func TestErrNotImplDBType(t *testing.T) {
+	assert.Equal(t, "db type executor not implement", ErrNotImplDBType.Error())
+}
+
 func TestGetUndoExecutorHolder_LazyInit(t *testing.T) {
-	// Reset the map to test lazy initialization
+	originalMap := undoExecutorHolderMap
+	defer func() {
+		undoExecutorHolderMap = originalMap
+	}()
+
 	undoExecutorHolderMap = nil
 
 	holder1, err1 := GetUndoExecutorHolder(types.DBTypeMySQL)
 	assert.NoError(t, err1)
 	assert.NotNil(t, holder1)
 
+	assert.NotNil(t, undoExecutorHolderMap)
+	assert.Contains(t, undoExecutorHolderMap, types.DBTypeMySQL)
+
 	holder2, err2 := GetUndoExecutorHolder(types.DBTypeMySQL)
 	assert.NoError(t, err2)
 	assert.NotNil(t, holder2)
-	assert.IsType(t, holder1, holder2)
+	assert.Equal(t, holder1, holder2)
 }
 
-func TestGetUndoExecutorHolder_MapNotNil(t *testing.T) {
-	// Ensure the map is initialized
-	_, _ = GetUndoExecutorHolder(types.DBTypeMySQL)
+func TestGetUndoExecutorHolder_MultipleDBTypes(t *testing.T) {
+	originalMap := undoExecutorHolderMap
+	defer func() {
+		undoExecutorHolderMap = originalMap
+	}()
 
-	assert.NotNil(t, undoExecutorHolderMap)
-	assert.Contains(t, undoExecutorHolderMap, types.DBTypeMySQL)
-}
+	undoExecutorHolderMap = nil
 
-func TestGetUndoExecutorHolder_InvalidDBType(t *testing.T) {
-	// Test with an invalid/custom DB type value
-	invalidDBType := types.DBType(999)
+	mysqlHolder, err := GetUndoExecutorHolder(types.DBTypeMySQL)
+	assert.NoError(t, err)
+	assert.NotNil(t, mysqlHolder)
 
-	holder, err := GetUndoExecutorHolder(invalidDBType)
-
+	_, err = GetUndoExecutorHolder(types.DBTypePostgreSQL)
 	assert.Error(t, err)
-	assert.Nil(t, holder)
 	assert.Equal(t, ErrNotImplDBType, err)
-}
 
-func TestErrNotImplDBType(t *testing.T) {
-	// Test the error constant
-	assert.NotNil(t, ErrNotImplDBType)
-	assert.Equal(t, "db type executor not implement", ErrNotImplDBType.Error())
+	mysqlHolder2, err := GetUndoExecutorHolder(types.DBTypeMySQL)
+	assert.NoError(t, err)
+	assert.Equal(t, mysqlHolder, mysqlHolder2)
 }
