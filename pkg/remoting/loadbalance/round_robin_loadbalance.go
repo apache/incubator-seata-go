@@ -28,29 +28,126 @@ import (
 
 var sequence int32
 
+type rrSnapshot struct {
+	sessions []getty.Session
+}
+
+type rrSelector struct {
+	sessions *sync.Map
+	snapshot atomic.Value
+	mu       sync.Mutex
+}
+
+var selectorCache sync.Map
+
+// getSelector gets or creates the rrSelector for the given sessions.
+func getSelector(sessions *sync.Map) *rrSelector {
+	if v, ok := selectorCache.Load(sessions); ok {
+		return v.(*rrSelector)
+	}
+	selector := &rrSelector{sessions: sessions}
+	selector.snapshot.Store((*rrSnapshot)(nil))
+	actual, _ := selectorCache.LoadOrStore(sessions, selector)
+	return actual.(*rrSelector)
+}
+
 func RoundRobinLoadBalance(sessions *sync.Map, s string) getty.Session {
-	// collect sync.Map adderToSession
-	// filter out closed session instance
-	adderToSession := make(map[string]getty.Session, 0)
-	// map has no sequence, we should sort it to make sure the sequence is always the same
-	adders := make([]string, 0)
-	sessions.Range(func(key, value interface{}) bool {
+	selector := getSelector(sessions)
+	seq := getPositiveSequence()
+	return selector.selectWithSeq(seq)
+}
+
+func (r *rrSelector) getValidSnapshot() *rrSnapshot {
+	v := r.snapshot.Load()
+	if v == nil {
+		return nil
+	}
+	snap := v.(*rrSnapshot)
+	if snap == nil || len(snap.sessions) == 0 {
+		return nil
+	}
+	return snap
+}
+
+func (r *rrSelector) selectWithSeq(seq int) getty.Session {
+	// fast path: use cached snapshot
+	if snap := r.getValidSnapshot(); snap != nil {
+		n := len(snap.sessions)
+		if n > 0 {
+			idx := seq % n
+			session := snap.sessions[idx]
+			if !session.IsClosed() {
+				return session
+			}
+			// selected session is closed, trigger rebuild
+		}
+	}
+
+	// slow path: rebuild snapshot
+	return r.rebuildWithSeq(seq)
+}
+
+func (r *rrSelector) rebuildWithSeq(seq int) getty.Session {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// double check: another goroutine may have rebuilt during lock acquisition
+	if snap := r.getValidSnapshot(); snap != nil {
+		n := len(snap.sessions)
+		if n > 0 {
+			idx := seq % n
+			session := snap.sessions[idx]
+			if !session.IsClosed() {
+				return session
+			}
+		}
+	}
+
+	addrToSession := make(map[string]getty.Session)
+	toDelete := make([]interface{}, 0)
+
+	r.sessions.Range(func(key, value interface{}) bool {
 		session := key.(getty.Session)
 		if session.IsClosed() {
-			sessions.Delete(key)
+			toDelete = append(toDelete, key)
 		} else {
-			adderToSession[session.RemoteAddr()] = session
-			adders = append(adders, session.RemoteAddr())
+			addr := session.RemoteAddr()
+			addrToSession[addr] = session
 		}
 		return true
 	})
-	sort.Strings(adders)
-	// adderToSession eq 0 means there are no available session
-	if len(adderToSession) == 0 {
+
+	// delete closed sessions synchronously
+	for _, k := range toDelete {
+		r.sessions.Delete(k)
+	}
+
+	if len(addrToSession) == 0 {
+		r.snapshot.Store((*rrSnapshot)(nil))
 		return nil
 	}
-	index := getPositiveSequence() % len(adderToSession)
-	return adderToSession[adders[index]]
+
+	// sort by address to ensure consistent order
+	addrs := make([]string, 0, len(addrToSession))
+	for addr := range addrToSession {
+		addrs = append(addrs, addr)
+	}
+	sort.Strings(addrs)
+
+	// build session list from sorted addresses
+	sessions := make([]getty.Session, len(addrs))
+	for i, addr := range addrs {
+		sessions[i] = addrToSession[addr]
+	}
+
+	// store new snapshot
+	snap := &rrSnapshot{sessions: sessions}
+	r.snapshot.Store(snap)
+
+	// select session using the same seq
+	n := len(sessions)
+	idx := seq % n
+	return sessions[idx]
 }
 
 func getPositiveSequence() int {
