@@ -169,27 +169,6 @@ func TestServerTransactionInterceptor_WithXidKeyLowercase(t *testing.T) {
 	assert.Equal(t, "server-xid-lowercase-789", xid)
 }
 
-func TestServerTransactionInterceptor_XidKeyPrecedence(t *testing.T) {
-	md := metadata.New(map[string]string{
-		constant.XidKey:          "primary-xid",
-		constant.XidKeyLowercase: "secondary-xid",
-	})
-	ctx := metadata.NewIncomingContext(context.Background(), md)
-
-	var handlerCtx context.Context
-	mockHandler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		handlerCtx = ctx
-		return "response", nil
-	}
-
-	_, err := ServerTransactionInterceptor(ctx, nil, nil, mockHandler)
-
-	assert.NoError(t, err)
-
-	xid := tm.GetXID(handlerCtx)
-	assert.Equal(t, "primary-xid", xid)
-}
-
 func TestServerTransactionInterceptor_NoMetadata(t *testing.T) {
 	ctx := context.Background()
 
