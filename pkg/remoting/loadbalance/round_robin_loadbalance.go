@@ -28,20 +28,48 @@ import (
 
 var sequence int32
 
+// RoundRobinConfig holds configuration for round-robin load balancing
+type RoundRobinConfig struct {
+	MaxRetries int
+}
+
+// DefaultRoundRobinConfig provides sensible defaults
+var DefaultRoundRobinConfig = RoundRobinConfig{
+	MaxRetries: 3, // Balanced default: enough attempts without excessive overhead
+}
+
 type rrSnapshot struct {
 	sessions []getty.Session
 }
 
 type rrSelector struct {
-	sessions *sync.Map
-	snapshot atomic.Value
-	mu       sync.Mutex
+	sessions   *sync.Map
+	snapshot   atomic.Value // stores *rrSnapshot
+	mu         sync.Mutex
+	maxRetries int
 }
 
-// RoundRobinLoadBalance selects a session using round-robin algorithm
+// RoundRobinLoadBalance selects a session using round-robin algorithm with default config
 func RoundRobinLoadBalance(sessions *sync.Map, s string) getty.Session {
-	// create selector directly without caching to avoid pointer-based cache issues
-	selector := &rrSelector{sessions: sessions}
+	return RoundRobinLoadBalanceWithConfig(sessions, s, DefaultRoundRobinConfig)
+}
+
+func RoundRobinLoadBalanceWithConfig(sessions *sync.Map, s string, config RoundRobinConfig) getty.Session {
+	maxRetries := config.MaxRetries
+
+	// Validate and normalize
+	// Note: 0 is valid (means no retry, directly rebuild on first failure)
+	if maxRetries < 0 {
+		maxRetries = DefaultRoundRobinConfig.MaxRetries
+	}
+	if maxRetries > 10 {
+		maxRetries = 10
+	}
+
+	selector := &rrSelector{
+		sessions:   sessions,
+		maxRetries: maxRetries,
+	}
 	selector.snapshot.Store((*rrSnapshot)(nil))
 
 	seq := getPositiveSequence()
@@ -61,14 +89,25 @@ func (r *rrSelector) getValidSnapshot() *rrSnapshot {
 }
 
 func (r *rrSelector) selectWithSeq(seq int) getty.Session {
-	const maxRetries = 3
+	// if maxRetries is 0, skip retry loop entirely
+	if r.maxRetries == 0 {
+		snap := r.getValidSnapshot()
+		if snap != nil && len(snap.sessions) > 0 {
+			idx := seq % len(snap.sessions)
+			session := snap.sessions[idx]
+			if !session.IsClosed() {
+				return session
+			}
+		}
+		// first attempt failed, rebuild immediately
+		return r.rebuildWithSeq(seq)
+	}
 
-	for retry := 0; retry < maxRetries; retry++ {
+	for retry := 0; retry < r.maxRetries; retry++ {
 		snap := r.getValidSnapshot()
 		if snap != nil {
 			n := len(snap.sessions)
 			if n > 0 {
-				// use different index on retry to avoid selecting same closed session
 				idx := (seq + retry) % n
 				session := snap.sessions[idx]
 				if !session.IsClosed() {
@@ -77,7 +116,7 @@ func (r *rrSelector) selectWithSeq(seq int) getty.Session {
 			}
 		}
 
-		if retry < maxRetries-1 && snap != nil {
+		if retry < r.maxRetries-1 && snap != nil {
 			continue
 		}
 
