@@ -170,10 +170,9 @@ func TestServerTransactionInterceptor_WithXidKeyLowercase(t *testing.T) {
 }
 
 func TestServerTransactionInterceptor_XidKeyPrecedence(t *testing.T) {
-	md := metadata.New(map[string]string{
-		constant.XidKey:          "primary-xid",
-		constant.XidKeyLowercase: "secondary-xid",
-	})
+	md := metadata.MD{
+		"tx_xid": []string{"primary-xid", "secondary-xid"},
+	}
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
 	var handlerCtx context.Context
