@@ -38,21 +38,12 @@ type rrSelector struct {
 	mu       sync.Mutex
 }
 
-var selectorCache sync.Map
-
-// getSelector gets or creates the rrSelector for the given sessions.
-func getSelector(sessions *sync.Map) *rrSelector {
-	if v, ok := selectorCache.Load(sessions); ok {
-		return v.(*rrSelector)
-	}
+// RoundRobinLoadBalance selects a session using round-robin algorithm
+func RoundRobinLoadBalance(sessions *sync.Map, s string) getty.Session {
+	// create selector directly without caching to avoid pointer-based cache issues
 	selector := &rrSelector{sessions: sessions}
 	selector.snapshot.Store((*rrSnapshot)(nil))
-	actual, _ := selectorCache.LoadOrStore(sessions, selector)
-	return actual.(*rrSelector)
-}
 
-func RoundRobinLoadBalance(sessions *sync.Map, s string) getty.Session {
-	selector := getSelector(sessions)
 	seq := getPositiveSequence()
 	return selector.selectWithSeq(seq)
 }
@@ -70,20 +61,29 @@ func (r *rrSelector) getValidSnapshot() *rrSnapshot {
 }
 
 func (r *rrSelector) selectWithSeq(seq int) getty.Session {
-	// fast path: use cached snapshot
-	if snap := r.getValidSnapshot(); snap != nil {
-		n := len(snap.sessions)
-		if n > 0 {
-			idx := seq % n
-			session := snap.sessions[idx]
-			if !session.IsClosed() {
-				return session
+	const maxRetries = 3
+
+	for retry := 0; retry < maxRetries; retry++ {
+		snap := r.getValidSnapshot()
+		if snap != nil {
+			n := len(snap.sessions)
+			if n > 0 {
+				// use different index on retry to avoid selecting same closed session
+				idx := (seq + retry) % n
+				session := snap.sessions[idx]
+				if !session.IsClosed() {
+					return session
+				}
 			}
-			// selected session is closed, trigger rebuild
 		}
+
+		if retry < maxRetries-1 && snap != nil {
+			continue
+		}
+
+		break
 	}
 
-	// slow path: rebuild snapshot
 	return r.rebuildWithSeq(seq)
 }
 
@@ -91,14 +91,17 @@ func (r *rrSelector) rebuildWithSeq(seq int) getty.Session {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// double check: another goroutine may have rebuilt during lock acquisition
-	if snap := r.getValidSnapshot(); snap != nil {
+	snap := r.getValidSnapshot()
+	if snap != nil {
 		n := len(snap.sessions)
 		if n > 0 {
-			idx := seq % n
-			session := snap.sessions[idx]
-			if !session.IsClosed() {
-				return session
+			// try to find an open session starting from the calculated index
+			for i := 0; i < n; i++ {
+				idx := (seq + i) % n
+				session := snap.sessions[idx]
+				if !session.IsClosed() {
+					return session
+				}
 			}
 		}
 	}
@@ -141,8 +144,8 @@ func (r *rrSelector) rebuildWithSeq(seq int) getty.Session {
 	}
 
 	// store new snapshot
-	snap := &rrSnapshot{sessions: sessions}
-	r.snapshot.Store(snap)
+	newSnap := &rrSnapshot{sessions: sessions}
+	r.snapshot.Store(newSnap)
 
 	// select session using the same seq
 	n := len(sessions)

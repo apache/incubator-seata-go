@@ -157,39 +157,6 @@ func TestRoundRobinLoadBalance_SelectedSessionClosed(t *testing.T) {
 	assert.NotNil(t, result3)
 }
 
-func TestGetSelector_CacheReuse(t *testing.T) {
-	sessions := &sync.Map{}
-
-	selector1 := getSelector(sessions)
-	assert.NotNil(t, selector1)
-
-	selector2 := getSelector(sessions)
-	assert.Equal(t, selector1, selector2, "Should return cached selector")
-}
-
-func TestGetSelector_ConcurrentCreation(t *testing.T) {
-	sessions := &sync.Map{}
-
-	selectorCache = sync.Map{}
-
-	var wg sync.WaitGroup
-	selectors := make([]*rrSelector, 10)
-
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			selectors[idx] = getSelector(sessions)
-		}(i)
-	}
-	wg.Wait()
-
-	for i := 1; i < 10; i++ {
-		assert.Equal(t, selectors[0], selectors[i],
-			"All selectors should be the same instance")
-	}
-}
-
 func TestRRSelector_GetValidSnapshot_Nil(t *testing.T) {
 	selector := &rrSelector{sessions: &sync.Map{}}
 	selector.snapshot.Store((*rrSnapshot)(nil))
