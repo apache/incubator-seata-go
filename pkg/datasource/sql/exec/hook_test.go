@@ -140,11 +140,11 @@ func TestRegisterHook(t *testing.T) {
 	defer func() { hookSolts = originalHookSolts }()
 
 	tests := []struct {
-		name              string
-		hooksToRegister   []SQLHook
-		expectedSQLTypes  []types.SQLType
-		expectedCounts    map[types.SQLType]int
-		skipUnknownType   bool
+		name             string
+		hooksToRegister  []SQLHook
+		expectedSQLTypes []types.SQLType
+		expectedCounts   map[types.SQLType]int
+		skipUnknownType  bool
 	}{
 		{
 			name: "register single hook",
