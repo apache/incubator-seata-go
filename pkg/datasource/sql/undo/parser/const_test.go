@@ -15,45 +15,28 @@
  * limitations under the License.
  */
 
-package mysql
+package parser
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
-func TestInitUndoLogManager(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("InitUndoLogManager should not panic, but got: %v", r)
-		}
-	}()
-
-	InitUndoLogManager()
-
-	manager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
-	assert.NoError(t, err)
-	assert.NotNil(t, manager)
-	assert.Equal(t, types.DBTypeMySQL, manager.DBType())
-
-	assert.IsType(t, &undoLogManager{}, manager)
+func TestDefaultSerializer(t *testing.T) {
+	assert.Equal(t, "json", DefaultSerializer)
 }
 
-func TestInitUndoLogManager_Multiple(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Multiple calls to InitUndoLogManager should not panic, but got: %v", r)
-		}
-	}()
+func TestDefaultSerializerIsJsonString(t *testing.T) {
+	assert.IsType(t, "", DefaultSerializer)
+	assert.NotEmpty(t, DefaultSerializer)
+	assert.Contains(t, []string{"json", "protobuf"}, DefaultSerializer)
+}
 
-	InitUndoLogManager()
-	InitUndoLogManager()
-
-	manager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
+func TestDefaultSerializerUsedByCache(t *testing.T) {
+	cache := GetCache()
+	defaultParser, err := cache.GetDefault()
 	assert.NoError(t, err)
-	assert.NotNil(t, manager)
+	assert.NotNil(t, defaultParser)
+	assert.Equal(t, DefaultSerializer, defaultParser.GetName())
 }

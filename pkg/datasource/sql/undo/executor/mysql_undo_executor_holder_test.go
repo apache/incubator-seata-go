@@ -28,103 +28,65 @@ import (
 
 func TestNewMySQLUndoExecutorHolder(t *testing.T) {
 	holder := NewMySQLUndoExecutorHolder()
+
 	assert.NotNil(t, holder)
 	assert.IsType(t, &MySQLUndoExecutorHolder{}, holder)
 }
 
 func TestMySQLUndoExecutorHolder_GetInsertExecutor(t *testing.T) {
-	holder := NewMySQLUndoExecutorHolder()
+	holder := &MySQLUndoExecutorHolder{}
+
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
 		SQLType:   types.SQLTypeInsert,
-		AfterImage: &types.RecordImage{
-			TableName: "test_table",
-		},
 	}
 
 	executor := holder.GetInsertExecutor(sqlUndoLog)
+
 	assert.NotNil(t, executor)
 	assert.IsType(t, &mySQLUndoInsertExecutor{}, executor)
+
+	insertExecutor := executor.(*mySQLUndoInsertExecutor)
+	assert.Equal(t, sqlUndoLog, insertExecutor.sqlUndoLog)
 }
 
 func TestMySQLUndoExecutorHolder_GetUpdateExecutor(t *testing.T) {
-	holder := NewMySQLUndoExecutorHolder()
+	holder := &MySQLUndoExecutorHolder{}
+
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
 		SQLType:   types.SQLTypeUpdate,
-		BeforeImage: &types.RecordImage{
-			TableName: "test_table",
-		},
-		AfterImage: &types.RecordImage{
-			TableName: "test_table",
-		},
 	}
 
 	executor := holder.GetUpdateExecutor(sqlUndoLog)
+
 	assert.NotNil(t, executor)
 	assert.IsType(t, &mySQLUndoUpdateExecutor{}, executor)
+
+	updateExecutor := executor.(*mySQLUndoUpdateExecutor)
+	assert.Equal(t, sqlUndoLog, updateExecutor.sqlUndoLog)
 }
 
 func TestMySQLUndoExecutorHolder_GetDeleteExecutor(t *testing.T) {
-	holder := NewMySQLUndoExecutorHolder()
+	holder := &MySQLUndoExecutorHolder{}
+
 	sqlUndoLog := undo.SQLUndoLog{
 		TableName: "test_table",
 		SQLType:   types.SQLTypeDelete,
-		BeforeImage: &types.RecordImage{
-			TableName: "test_table",
-		},
 	}
 
 	executor := holder.GetDeleteExecutor(sqlUndoLog)
+
 	assert.NotNil(t, executor)
 	assert.IsType(t, &mySQLUndoDeleteExecutor{}, executor)
+
+	deleteExecutor := executor.(*mySQLUndoDeleteExecutor)
+	assert.Equal(t, sqlUndoLog, deleteExecutor.sqlUndoLog)
 }
 
-func TestMySQLUndoExecutorHolder_InterfaceImplementation(t *testing.T) {
-	var holder undo.UndoExecutorHolder = NewMySQLUndoExecutorHolder()
+func TestMySQLUndoExecutorHolder_InterfaceCompliance(t *testing.T) {
+	var holder undo.UndoExecutorHolder = &MySQLUndoExecutorHolder{}
+
 	assert.NotNil(t, holder)
 	assert.Implements(t, (*undo.UndoExecutorHolder)(nil), holder)
-}
-
-func TestMySQLUndoExecutorHolder_AllExecutorTypes(t *testing.T) {
-	holder := NewMySQLUndoExecutorHolder()
-
-	testCases := []struct {
-		name     string
-		sqlType  types.SQLType
-		getFunc  func(undo.SQLUndoLog) undo.UndoExecutor
-		expected interface{}
-	}{
-		{
-			name:     "Insert Executor",
-			sqlType:  types.SQLTypeInsert,
-			getFunc:  holder.GetInsertExecutor,
-			expected: &mySQLUndoInsertExecutor{},
-		},
-		{
-			name:     "Update Executor",
-			sqlType:  types.SQLTypeUpdate,
-			getFunc:  holder.GetUpdateExecutor,
-			expected: &mySQLUndoUpdateExecutor{},
-		},
-		{
-			name:     "Delete Executor",
-			sqlType:  types.SQLTypeDelete,
-			getFunc:  holder.GetDeleteExecutor,
-			expected: &mySQLUndoDeleteExecutor{},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			sqlUndoLog := undo.SQLUndoLog{
-				TableName: "test_table",
-				SQLType:   tc.sqlType,
-			}
-
-			executor := tc.getFunc(sqlUndoLog)
-			assert.NotNil(t, executor)
-			assert.IsType(t, tc.expected, executor)
-		})
-	}
 }

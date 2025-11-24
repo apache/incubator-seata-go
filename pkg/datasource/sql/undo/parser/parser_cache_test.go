@@ -24,6 +24,8 @@ import (
 )
 
 func TestInitCache(t *testing.T) {
+	// Reset cache to test initialization
+	cache = nil
 	assert.Nil(t, cache)
 	initCache()
 	assert.NotNil(t, cache)
@@ -46,34 +48,73 @@ func TestLoad(t *testing.T) {
 	assert.NotNil(t, jsonParser)
 }
 
-func TestLoad_NotFound(t *testing.T) {
-	parser, err := GetCache().Load("nonexistent")
-	assert.NotNil(t, err)
+func TestLoadJsonParser(t *testing.T) {
+	cache := GetCache()
+	parser, err := cache.Load("json")
+	assert.NoError(t, err)
+	assert.NotNil(t, parser)
+	assert.Equal(t, "json", parser.GetName())
+	assert.IsType(t, &JsonParser{}, parser)
+}
+
+func TestLoadProtobufParser(t *testing.T) {
+	cache := GetCache()
+	parser, err := cache.Load("protobuf")
+	assert.NoError(t, err)
+	assert.NotNil(t, parser)
+	assert.Equal(t, "protobuf", parser.GetName())
+	assert.IsType(t, &ProtobufParser{}, parser)
+}
+
+func TestLoadNonExistentParser(t *testing.T) {
+	cache := GetCache()
+	parser, err := cache.Load("non-existent")
+	assert.Error(t, err)
 	assert.Nil(t, parser)
-	assert.Contains(t, err.Error(), "not found")
+	assert.Contains(t, err.Error(), "undo log parser type non-existent not found")
 }
 
-func TestLoad_Protobuf(t *testing.T) {
-	protobufParser, err := GetCache().Load("protobuf")
-	assert.Nil(t, err)
-	assert.NotNil(t, protobufParser)
-	assert.Equal(t, "protobuf", protobufParser.GetName())
+func TestLoadEmptyName(t *testing.T) {
+	cache := GetCache()
+	parser, err := cache.Load("")
+	assert.Error(t, err)
+	assert.Nil(t, parser)
+	assert.Contains(t, err.Error(), "undo log parser type  not found")
 }
 
-func TestUndoLogParserCache_Store(t *testing.T) {
+func TestCacheInitialization(t *testing.T) {
 	cache := GetCache()
 	assert.NotNil(t, cache)
+	assert.NotNil(t, cache.serializerNameToParser)
+	assert.Len(t, cache.serializerNameToParser, 2)
 
-	// Verify both parsers are stored
-	jsonParser, err := cache.Load("json")
-	assert.NoError(t, err)
-	assert.NotNil(t, jsonParser)
+	_, existsJson := cache.serializerNameToParser["json"]
+	assert.True(t, existsJson)
 
-	protobufParser, err := cache.Load("protobuf")
-	assert.NoError(t, err)
-	assert.NotNil(t, protobufParser)
+	_, existsProtobuf := cache.serializerNameToParser["protobuf"]
+	assert.True(t, existsProtobuf)
 }
 
-func TestDefaultSerializer(t *testing.T) {
-	assert.Equal(t, "json", DefaultSerializer)
+func TestCacheSingleton(t *testing.T) {
+	cache1 := GetCache()
+	cache2 := GetCache()
+	assert.Same(t, cache1, cache2)
+}
+
+func TestStoreMethod(t *testing.T) {
+	cache := GetCache()
+
+	mockParser := &mockUndoLogParser{
+		name:           "test-mock",
+		defaultContent: []byte("test"),
+		shouldError:    false,
+	}
+
+	cache.store(mockParser)
+
+	loadedParser, err := cache.Load("test-mock")
+	assert.NoError(t, err)
+	assert.NotNil(t, loadedParser)
+	assert.Equal(t, "test-mock", loadedParser.GetName())
+	assert.Same(t, mockParser, loadedParser)
 }
