@@ -70,7 +70,7 @@ type AsyncWorker struct {
 	rePutBackToQueue           prometheus.Counter
 }
 
-func NewAsyncWorker(prom prometheus.Registerer, conf AsyncWorkerConfig, sourceManager datasource.DataSourceManager) *AsyncWorker {
+func NewAsyncWorker(ctx context.Context, prom prometheus.Registerer, conf AsyncWorkerConfig, sourceManager datasource.DataSourceManager) *AsyncWorker {
 	var asyncWorker AsyncWorker
 	asyncWorker.conf = conf
 	asyncWorker.commitQueue = make(chan phaseTwoContext, asyncWorker.conf.ReceiveChanSize)
@@ -97,7 +97,7 @@ func NewAsyncWorker(prom prometheus.Registerer, conf AsyncWorkerConfig, sourceMa
 		Help: "the counter of commit failure retry counter",
 	})
 
-	go asyncWorker.run()
+	go asyncWorker.run(ctx)
 
 	return &asyncWorker
 }
@@ -122,8 +122,9 @@ func (aw *AsyncWorker) BranchCommit(ctx context.Context, req rm.BranchResource) 
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
-func (aw *AsyncWorker) run() {
+func (aw *AsyncWorker) run(ctx context.Context) {
 	ticker := time.NewTicker(aw.conf.BufferCleanInterval)
+	defer ticker.Stop()
 	phaseCtxs := make([]phaseTwoContext, 0, aw.conf.BufferLimit)
 	for {
 		select {
@@ -134,6 +135,9 @@ func (aw *AsyncWorker) run() {
 			}
 		case <-ticker.C:
 			aw.doBranchCommit(&phaseCtxs)
+		case <-ctx.Done():
+			ticker.Stop()
+			return
 		}
 	}
 }

@@ -41,7 +41,7 @@ func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	}
 
 	undo.InitUndoConfig(cfg)
-	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
+	atSourceManager.worker = NewAsyncWorker(context.Background(), prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
 
