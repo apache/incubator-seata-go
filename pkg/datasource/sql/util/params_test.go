@@ -25,44 +25,148 @@ import (
 )
 
 func TestNamedValueToValue(t *testing.T) {
-	// Test normal conversion
-	nvs := []driver.NamedValue{
-		{Value: "test1", Ordinal: 1},
-		{Value: 123, Ordinal: 2},
-		{Value: true, Ordinal: 3},
+	tests := []struct {
+		name     string
+		input    []driver.NamedValue
+		expected []driver.Value
+	}{
+		{
+			name:     "empty slice",
+			input:    []driver.NamedValue{},
+			expected: []driver.Value{},
+		},
+		{
+			name: "single value",
+			input: []driver.NamedValue{
+				{Name: "param1", Ordinal: 1, Value: "test"},
+			},
+			expected: []driver.Value{"test"},
+		},
+		{
+			name: "multiple values",
+			input: []driver.NamedValue{
+				{Name: "param1", Ordinal: 1, Value: "test1"},
+				{Name: "param2", Ordinal: 2, Value: int64(123)},
+				{Name: "param3", Ordinal: 3, Value: true},
+			},
+			expected: []driver.Value{"test1", int64(123), true},
+		},
+		{
+			name: "nil values",
+			input: []driver.NamedValue{
+				{Name: "param1", Ordinal: 1, Value: nil},
+				{Name: "param2", Ordinal: 2, Value: "test"},
+			},
+			expected: []driver.Value{nil, "test"},
+		},
+		{
+			name: "various types",
+			input: []driver.NamedValue{
+				{Value: int64(42)},
+				{Value: float64(3.14)},
+				{Value: []byte("bytes")},
+				{Value: true},
+			},
+			expected: []driver.Value{int64(42), float64(3.14), []byte("bytes"), true},
+		},
 	}
 
-	vs := NamedValueToValue(nvs)
-	assert.Len(t, vs, 3)
-	assert.Equal(t, "test1", vs[0])
-	assert.Equal(t, 123, vs[1])
-	assert.Equal(t, true, vs[2])
-
-	// Test empty slice
-	emptyNvs := []driver.NamedValue{}
-	emptyVs := NamedValueToValue(emptyNvs)
-	assert.Len(t, emptyVs, 0)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NamedValueToValue(tt.input)
+			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, len(tt.expected), len(result))
+		})
+	}
 }
 
 func TestValueToNamedValue(t *testing.T) {
-	// Test normal conversion
-	vs := []driver.Value{
-		"test1",
-		123,
-		true,
+	tests := []struct {
+		name     string
+		input    []driver.Value
+		expected []driver.NamedValue
+	}{
+		{
+			name:     "empty slice",
+			input:    []driver.Value{},
+			expected: []driver.NamedValue{},
+		},
+		{
+			name:  "single value",
+			input: []driver.Value{"test"},
+			expected: []driver.NamedValue{
+				{Value: "test", Ordinal: 0},
+			},
+		},
+		{
+			name:  "multiple values",
+			input: []driver.Value{"test1", int64(123), true},
+			expected: []driver.NamedValue{
+				{Value: "test1", Ordinal: 0},
+				{Value: int64(123), Ordinal: 1},
+				{Value: true, Ordinal: 2},
+			},
+		},
+		{
+			name:  "nil values",
+			input: []driver.Value{nil, "test", nil},
+			expected: []driver.NamedValue{
+				{Value: nil, Ordinal: 0},
+				{Value: "test", Ordinal: 1},
+				{Value: nil, Ordinal: 2},
+			},
+		},
+		{
+			name:  "various types",
+			input: []driver.Value{int64(42), float64(3.14), []byte("bytes"), true},
+			expected: []driver.NamedValue{
+				{Value: int64(42), Ordinal: 0},
+				{Value: float64(3.14), Ordinal: 1},
+				{Value: []byte("bytes"), Ordinal: 2},
+				{Value: true, Ordinal: 3},
+			},
+		},
 	}
 
-	nvs := ValueToNamedValue(vs)
-	assert.Len(t, nvs, 3)
-	assert.Equal(t, "test1", nvs[0].Value)
-	assert.Equal(t, 123, nvs[1].Value)
-	assert.Equal(t, true, nvs[2].Value)
-	assert.Equal(t, 0, nvs[0].Ordinal)
-	assert.Equal(t, 1, nvs[1].Ordinal)
-	assert.Equal(t, 2, nvs[2].Ordinal)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValueToNamedValue(tt.input)
+			assert.Equal(t, len(tt.expected), len(result))
+			for i := range result {
+				assert.Equal(t, tt.expected[i].Value, result[i].Value)
+				assert.Equal(t, tt.expected[i].Ordinal, result[i].Ordinal)
+			}
+		})
+	}
+}
 
-	// Test empty slice
-	emptyVs := []driver.Value{}
-	emptyNvs := ValueToNamedValue(emptyVs)
-	assert.Len(t, emptyNvs, 0)
+func TestRoundTripConversion(t *testing.T) {
+	original := []driver.Value{"test", int64(123), true, nil}
+	namedValues := ValueToNamedValue(original)
+	converted := NamedValueToValue(namedValues)
+
+	assert.Equal(t, original, converted)
+}
+
+func TestNamedValueToValuePreservesOrder(t *testing.T) {
+	input := []driver.NamedValue{
+		{Name: "z", Ordinal: 2, Value: "third"},
+		{Name: "a", Ordinal: 0, Value: "first"},
+		{Name: "m", Ordinal: 1, Value: "second"},
+	}
+
+	result := NamedValueToValue(input)
+	expected := []driver.Value{"third", "first", "second"}
+
+	assert.Equal(t, expected, result)
+}
+
+func TestValueToNamedValueOrdinalSequence(t *testing.T) {
+	input := []driver.Value{"a", "b", "c", "d", "e"}
+	result := ValueToNamedValue(input)
+
+	for i, nv := range result {
+		assert.Equal(t, i, nv.Ordinal)
+		assert.Equal(t, input[i], nv.Value)
+	}
 }

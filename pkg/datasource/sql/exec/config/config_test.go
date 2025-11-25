@@ -19,22 +19,94 @@ package config
 
 import (
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
-
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/pkg/rm"
 )
 
+// TestInit tests the Init function with various configurations
 func TestInit(t *testing.T) {
-	// Test that Init function sets the LockConfig correctly
-	config := rm.LockConfig{
-		RetryInterval: 10,
-		RetryTimes:    5,
+	tests := []struct {
+		name   string
+		config rm.LockConfig
+		want   rm.LockConfig
+	}{
+		{
+			name: "typical configuration",
+			config: rm.LockConfig{
+				RetryInterval:                       10 * time.Millisecond,
+				RetryTimes:                          30,
+				RetryPolicyBranchRollbackOnConflict: true,
+			},
+			want: rm.LockConfig{
+				RetryInterval:                       10 * time.Millisecond,
+				RetryTimes:                          30,
+				RetryPolicyBranchRollbackOnConflict: true,
+			},
+		},
+		{
+			name: "zero values",
+			config: rm.LockConfig{
+				RetryInterval:                       0,
+				RetryTimes:                          0,
+				RetryPolicyBranchRollbackOnConflict: false,
+			},
+			want: rm.LockConfig{
+				RetryInterval:                       0,
+				RetryTimes:                          0,
+				RetryPolicyBranchRollbackOnConflict: false,
+			},
+		},
+		{
+			name: "edge case values",
+			config: rm.LockConfig{
+				RetryInterval:                       5 * time.Second,
+				RetryTimes:                          1000,
+				RetryPolicyBranchRollbackOnConflict: true,
+			},
+			want: rm.LockConfig{
+				RetryInterval:                       5 * time.Second,
+				RetryTimes:                          1000,
+				RetryPolicyBranchRollbackOnConflict: true,
+			},
+		},
 	}
 
-	Init(config)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			at.LockConfig = rm.LockConfig{}
 
-	// Since the LockConfig is in the at package which is not accessible from here,
-	// we just test that the function runs without panic
-	assert.True(t, true)
+			Init(tt.config)
+
+			if at.LockConfig != tt.want {
+				t.Errorf("Init() = %+v, want %+v", at.LockConfig, tt.want)
+			}
+		})
+	}
+}
+
+// TestInitMultipleCalls tests that calling Init multiple times overwrites the previous configuration
+func TestInitMultipleCalls(t *testing.T) {
+	firstConfig := rm.LockConfig{
+		RetryInterval:                       10 * time.Millisecond,
+		RetryTimes:                          10,
+		RetryPolicyBranchRollbackOnConflict: true,
+	}
+	Init(firstConfig)
+
+	if at.LockConfig != firstConfig {
+		t.Errorf("After first Init(), got %+v, want %+v", at.LockConfig, firstConfig)
+	}
+
+	secondConfig := rm.LockConfig{
+		RetryInterval:                       20 * time.Millisecond,
+		RetryTimes:                          20,
+		RetryPolicyBranchRollbackOnConflict: false,
+	}
+	Init(secondConfig)
+
+	if at.LockConfig != secondConfig {
+		t.Errorf("After second Init(), got %+v, want %+v", at.LockConfig, secondConfig)
+	}
 }
