@@ -190,6 +190,7 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 		for i := range phaseCtxs {
 			aw.commitQueue <- phaseCtxs[i]
 		}
+		return
 	}
 
 	defer conn.Close()
