@@ -369,7 +369,7 @@ func TestStrconvErr(t *testing.T) {
 		if result != regularErr {
 			t.Errorf("expected same error, got %v", result)
 		}
-	}
+	})
 }
 
 // Mock Scanner for testing
