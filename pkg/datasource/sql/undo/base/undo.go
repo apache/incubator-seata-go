@@ -265,6 +265,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 				return
 			}
 		}
+		conn.Close()
 	}()
 
 	stmt, err := conn.PrepareContext(ctx, getSelectUndoLogSql())
