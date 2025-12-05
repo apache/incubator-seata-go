@@ -241,8 +241,13 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(InsertStmt *ast.InsertStmt, meta 
 	if len(meta.Columns) > 0 {
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
 			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if u.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+			normalizedColumnName := executor.DelEscape(sqlColumnName, types.DBTypeMySQL)
+			pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+			for _, pkName := range pkColumnNameList {
+				if strings.EqualFold(pkName, normalizedColumnName) {
+					pkIndexMap[pkName] = paramIdx
+					break
+				}
 			}
 		}
 		return pkIndexMap
