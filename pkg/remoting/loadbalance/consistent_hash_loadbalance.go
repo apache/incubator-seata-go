@@ -89,6 +89,8 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	var sortedHashNodes []int64
 	hashCircle := make(map[int64]getty.Session)
 	var session getty.Session
+	c.RLock()
+	defer c.RUnlock()
 	sessions.Range(func(key, value interface{}) bool {
 		session = key.(getty.Session)
 		for i := 0; i < defaultVirtualNodeNumber; i++ {
