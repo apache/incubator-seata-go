@@ -168,21 +168,33 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 }
 
 func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
-	pkValues := make(map[string][]types.ColumnImage)
-	// todo optimize 3 fors
+	if len(rows) == 0 {
+		return make(map[string][]types.ColumnImage)
+	}
+
+	pkLookup := make(map[string]string, len(pkNameList))
+	for _, pk := range pkNameList {
+		pkLookup[strings.ToLower(pk)] = pk
+	}
+
+	pkValues := make(map[string][]types.ColumnImage, len(pkNameList))
+	for _, pk := range pkNameList {
+		pkValues[pk] = make([]types.ColumnImage, 0, len(rows))
+	}
+
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			for _, pk := range pkNameList {
-				if strings.EqualFold(pk, column.ColumnName) {
-					values := pkValues[strings.ToUpper(pk)]
-					if values == nil {
-						values = make([]types.ColumnImage, 0)
-					}
-					values = append(values, column)
-					pkValues[pk] = values
-				}
+			if originalPk, exists := pkLookup[strings.ToLower(column.ColumnName)]; exists {
+				pkValues[originalPk] = append(pkValues[originalPk], column)
 			}
 		}
 	}
+
+	for pk, values := range pkValues {
+		if len(values) == 0 {
+			delete(pkValues, pk)
+		}
+	}
+
 	return pkValues
 }
