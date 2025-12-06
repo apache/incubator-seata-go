@@ -24,9 +24,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/constant"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 // ClientTransactionInterceptor is client interceptor of grpc,
@@ -46,7 +46,7 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	end := time.Now()
 	log.Infof("RPC: %s, start time: %s, end time: %s, err: %v", method,
-		start.Format("Basic"), end.Format(time.RFC3339), err)
+		start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 	return err
 }
 

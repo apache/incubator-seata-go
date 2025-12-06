@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type MockLocalService struct {

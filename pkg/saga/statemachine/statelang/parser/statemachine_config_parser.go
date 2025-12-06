@@ -23,7 +23,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"

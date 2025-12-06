@@ -24,12 +24,12 @@ import (
 	"log"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	seataErrors "github.com/seata/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	seataErrors "seata.apache.org/seata-go/pkg/util/errors"
 )
 
 var (

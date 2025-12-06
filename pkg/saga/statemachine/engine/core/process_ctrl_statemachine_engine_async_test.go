@@ -26,13 +26,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/config"
-	engExc "github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
-	"github.com/seata/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/config"
+	engExc "seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
+	"seata.apache.org/seata-go/pkg/util/errors"
 )
 
 func TestStartAsyncDisabled(t *testing.T) {
@@ -293,9 +293,9 @@ func TestStartAsyncWithCompensation(t *testing.T) {
 }
 
 type asyncCompensateService struct {
-	mu                  sync.Mutex
-	task1Calls          int
-	task2Calls          int
+	mu                   sync.Mutex
+	task1Calls           int
+	task2Calls           int
 	compensateTask1Calls int
 }
 

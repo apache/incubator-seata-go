@@ -18,7 +18,6 @@
 package at
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -26,29 +25,39 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/reflectx"
 )
 
 type baseExecutor struct {
 	hooks []exec.SQLHook
 }
 
-func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) {
+func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) error {
 	for _, hook := range b.hooks {
-		hook.Before(ctx, execCtx)
+		if err := hook.Before(ctx, execCtx); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) {
+func (b *baseExecutor) afterHooks(ctx context.Context, execCtx *types.ExecContext) error {
 	for _, hook := range b.hooks {
-		hook.After(ctx, execCtx)
+		if err := hook.After(ctx, execCtx); err != nil {
+			log.Errorf("after hook failed: %v", err)
+		}
 	}
+	return nil
 }
 
 // GetScanSlice get the column type for scan
@@ -97,7 +106,13 @@ func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Named
 		selectArgs       = make([]driver.NamedValue, 0)
 	)
 
+	b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs)
 	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if stmt.GroupBy != nil {
+		for _, item := range stmt.GroupBy.Items {
+			b.traversalArgs(item, &selectArgsIndexs)
+		}
+	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
 			b.traversalArgs(item, &selectArgsIndexs)
@@ -140,6 +155,67 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		exprs := node.(*ast.PatternInExpr).List
 		for i := 0; i < len(exprs); i++ {
 			b.traversalArgs(exprs[i], argsIndex)
+		}
+		break
+	case *ast.Join:
+		exprs := node.(*ast.Join)
+		b.traversalArgs(exprs.Left, argsIndex)
+		if exprs.Right != nil {
+			b.traversalArgs(exprs.Right, argsIndex)
+		}
+		if exprs.On != nil {
+			b.traversalArgs(exprs.On.Expr, argsIndex)
+		}
+		break
+	case *ast.UnaryOperationExpr:
+		expr := node.(*ast.UnaryOperationExpr)
+		b.traversalArgs(expr.V, argsIndex)
+		break
+	case *ast.FuncCallExpr:
+		expr := node.(*ast.FuncCallExpr)
+		for _, arg := range expr.Args {
+			b.traversalArgs(arg, argsIndex)
+		}
+		break
+	case *ast.SubqueryExpr:
+		expr := node.(*ast.SubqueryExpr)
+		if expr.Query != nil {
+			b.traversalArgs(expr.Query, argsIndex)
+		}
+		break
+	case *ast.ExistsSubqueryExpr:
+		expr := node.(*ast.ExistsSubqueryExpr)
+		if expr.Sel != nil {
+			b.traversalArgs(expr.Sel, argsIndex)
+		}
+		break
+	case *ast.CompareSubqueryExpr:
+		expr := node.(*ast.CompareSubqueryExpr)
+		b.traversalArgs(expr.L, argsIndex)
+		if expr.R != nil {
+			b.traversalArgs(expr.R, argsIndex)
+		}
+		break
+	case *ast.PatternLikeExpr:
+		expr := node.(*ast.PatternLikeExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
+		b.traversalArgs(expr.Pattern, argsIndex)
+		break
+	case *ast.IsNullExpr:
+		expr := node.(*ast.IsNullExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
+		break
+	case *ast.CaseExpr:
+		expr := node.(*ast.CaseExpr)
+		if expr.Value != nil {
+			b.traversalArgs(expr.Value, argsIndex)
+		}
+		for _, whenClause := range expr.WhenClauses {
+			b.traversalArgs(whenClause.Expr, argsIndex)
+			b.traversalArgs(whenClause.Result, argsIndex)
+		}
+		if expr.ElseClause != nil {
+			b.traversalArgs(expr.ElseClause, argsIndex)
 		}
 		break
 	case *test_driver.ParamMarkerExpr:
@@ -185,6 +261,106 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	}
 
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
+}
+
+func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
+	var needUpdateColumns []string
+	if undo.UndoConfig.OnlyCareUpdateColumns && columns != nil && len(columns) > 0 {
+		needUpdateColumns = columns
+		if !b.containsPKByName(meta, columns) {
+			pkNames := meta.GetPrimaryKeyOnlyName()
+			if pkNames != nil && len(pkNames) > 0 {
+				for _, name := range pkNames {
+					needUpdateColumns = append(needUpdateColumns, name)
+				}
+			}
+		}
+		// todo If it contains onUpdate columns, add onUpdate columns
+	} else {
+		needUpdateColumns = meta.ColumnNames
+	}
+
+	for i := range needUpdateColumns {
+		needUpdateColumns[i] = AddEscape(needUpdateColumns[i], dbType)
+	}
+	return needUpdateColumns
+}
+
+func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
+	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+	if len(pkColumnNameList) == 0 {
+		return false
+	}
+
+	matchCounter := 0
+	for _, column := range columns {
+		for _, pkName := range pkColumnNameList {
+			if strings.EqualFold(pkName, column) ||
+				strings.EqualFold(pkName, strings.ToLower(column)) {
+				matchCounter++
+			}
+		}
+	}
+
+	return matchCounter == len(pkColumnNameList)
+}
+
+func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
+	fields := make([]*ast.SelectField, 0, len(inUseFields))
+
+	tableName := tableAliases
+	if tableAliases == "" {
+		tableName = tableMeta.TableName
+	}
+	if undo.UndoConfig.OnlyCareUpdateColumns {
+		for _, column := range inUseFields {
+			tn := column.Column.Table.O
+			if tn != "" && tn != tableName {
+				continue
+			}
+
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: column.Column,
+				},
+			})
+		}
+
+		if len(fields) == 0 {
+			return fields, nil
+		}
+
+		// select indexes columns
+		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{
+					Name: &ast.ColumnName{
+						Table: model.CIStr{
+							O: tableName,
+							L: tableName,
+						},
+						Name: model.CIStr{
+							O: columnName,
+							L: columnName,
+						},
+					},
+				},
+			})
+		}
+	} else {
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: &ast.ColumnName{
+					Name: model.CIStr{
+						O: "*",
+						L: "*",
+					},
+				},
+			},
+		})
+	}
+
+	return fields, nil
 }
 
 func getSqlNullValue(value interface{}) interface{} {
@@ -316,37 +492,25 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
-	lockKeys.WriteString(meta.TableName)
-	lockKeys.WriteString(":")
+	return util.BuildLockKey(records, meta)
+}
 
-	keys := meta.GetPrimaryKeyOnlyName()
+func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
+	var queryer driver.Queryer
 
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
-			lockKeys.WriteString(",")
-		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
-				}
-			}
-			if hasKeyColumn {
-				filedSequence++
-			}
-		}
+	queryerContext, ok := conn.(driver.QueryerContext)
+	if !ok {
+		queryer, ok = conn.(driver.Queryer)
 	}
+	if ok {
+		var err error
+		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
 
-	return lockKeys.String()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("target conn should been driver.QueryerContext or driver.Queryer")
+	}
+	return rows, nil
 }

@@ -18,6 +18,7 @@
 package types
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
@@ -117,14 +118,16 @@ type RecordImage struct {
 	// Rows data row
 	Rows []RowImage `json:"rows"`
 	// TableMeta table information schema
-	TableMeta *TableMeta `json:"-"`
+	TableMeta     *TableMeta                `json:"-"`
+	PrimaryKeyMap map[string][]driver.Value `json:"primaryKeyMap,omitempty"`
 }
 
 func NewEmptyRecordImage(tableMeta *TableMeta, sqlType SQLType) *RecordImage {
 	return &RecordImage{
-		TableName: tableMeta.TableName,
-		TableMeta: tableMeta,
-		SQLType:   sqlType,
+		TableName:     tableMeta.TableName,
+		TableMeta:     tableMeta,
+		SQLType:       sqlType,
+		PrimaryKeyMap: make(map[string][]driver.Value),
 	}
 }
 
@@ -146,7 +149,7 @@ func (r *RowImage) GetColumnMap() map[string]*ColumnImage {
 // PrimaryKeys Primary keys list.
 func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
 	var pkFields []ColumnImage
-	for key, _ := range cols {
+	for key := range cols {
 		if cols[key].KeyType == PrimaryKey.Number() {
 			pkFields = append(pkFields, cols[key])
 		}
@@ -158,7 +161,7 @@ func (r *RowImage) PrimaryKeys(cols []ColumnImage) []ColumnImage {
 // NonPrimaryKeys get non-primary keys
 func (r *RowImage) NonPrimaryKeys(cols []ColumnImage) []ColumnImage {
 	var nonPkFields []ColumnImage
-	for key, _ := range cols {
+	for key := range cols {
 		if cols[key].KeyType != PrimaryKey.Number() {
 			nonPkFields = append(nonPkFields, cols[key])
 		}
@@ -251,7 +254,7 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 			if err != nil {
 				return err
 			}
-		case JDBCTypeChar, JDBCTypeVarchar:
+		case JDBCTypeChar, JDBCTypeVarchar, JDBCTypeLongVarchar:
 			var val []byte
 			if val, err = base64.StdEncoding.DecodeString(value.(string)); err != nil {
 				val = []byte(value.(string))

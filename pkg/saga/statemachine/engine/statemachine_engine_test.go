@@ -21,8 +21,8 @@ import (
 	"context"
 	"testing"
 
-	enginepkg "github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/core"
+	enginepkg "seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
 )
 
 func TestProcessCtrlEngineInitializes(t *testing.T) {

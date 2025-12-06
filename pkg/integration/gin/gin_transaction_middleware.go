@@ -22,9 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/seata/seata-go/pkg/constant"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/constant"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 // TransactionMiddleware filter gin invocation
@@ -37,7 +37,7 @@ func TransactionMiddleware() gin.HandlerFunc {
 		}
 
 		if len(xid) == 0 {
-			log.Errorf("Gin: header not contain header: %s, global transaction xid", constant.XidKey)
+			log.Errorf("Gin: header does not contain: %s or %s, global transaction xid is missing", constant.XidKey, constant.XidKeyLowercase)
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}

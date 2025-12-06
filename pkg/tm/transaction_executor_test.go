@@ -19,6 +19,7 @@ package tm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/protocol/message"
 )
 
 func TestTransactionExecutorBegin(t *testing.T) {
@@ -275,6 +276,7 @@ func TestCommitOrRollback(t *testing.T) {
 		{
 			ctx: context.Background(),
 			tx: GlobalTransaction{
+				Xid:    "test-xid-rollback",
 				TxRole: Launcher,
 			},
 			ok:                 false,
@@ -317,7 +319,7 @@ func TestCommitOrRollback(t *testing.T) {
 	}
 }
 
-func TestClearTxConf(t *testing.T) {
+func TestTransferTx(t *testing.T) {
 	ctx := InitSeataContext(context.Background())
 
 	SetTx(ctx, &GlobalTransaction{
@@ -327,12 +329,17 @@ func TestClearTxConf(t *testing.T) {
 		TxRole:   Launcher,
 	})
 
-	clearTxConf(ctx)
+	newCtx := transferTx(ctx)
 
 	assert.Equal(t, "123456", GetXID(ctx))
-	assert.Equal(t, UnKnow, *GetTxRole(ctx))
-	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(ctx))
-	assert.Equal(t, "", GetTxName(ctx))
+	assert.Equal(t, Launcher, *GetTxRole(ctx))
+	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
+	assert.Equal(t, "MockTxName", GetTxName(ctx))
+
+	assert.Equal(t, "123456", GetXID(newCtx))
+	assert.Equal(t, UnKnow, *GetTxRole(newCtx))
+	assert.Equal(t, message.GlobalStatusUnKnown, *GetTxStatus(newCtx))
+	assert.Equal(t, "", GetTxName(newCtx))
 }
 
 func TestUseExistGtx(t *testing.T) {
@@ -376,18 +383,29 @@ func TestWithGlobalTx(t *testing.T) {
 	callbackNil := func(ctx context.Context) error {
 		return nil
 	}
+	callbackPanicError := func(ctx context.Context) error {
+		panic(errors.New("mock callback panic error"))
+	}
+	callbackPanicString := func(ctx context.Context) error {
+		panic("mock callback panic string")
+	}
 
 	type testCase struct {
-		GtxConfig             *GtxConfig
-		occurError            bool
-		errMessage            string
-		callbackErr           bool
-		mockBeginFunc         interface{}
-		mockBeginTarget       interface{}
-		mockSecondPhaseFunc   interface{}
-		mockSecondPhaseTarget interface{}
-		secondErr             bool
-		callback              CallbackWithCtx
+		GtxConfig              *GtxConfig
+		occurError             bool
+		timeoutErr             bool
+		errMessage             string
+		callbackErr            bool
+		mockBeginFunc          interface{}
+		mockBeginTarget        interface{}
+		mockSecondPhaseFunc    interface{}
+		mockSecondPhaseTarget  interface{}
+		mockRollbackTargetName string
+		mockRollbackFunc       interface{}
+		mockTimeoutTarget      interface{}
+		mockTimeoutFunc        interface{}
+		secondErr              bool
+		callback               CallbackWithCtx
 	}
 
 	gts := []testCase{
@@ -447,6 +465,34 @@ func TestWithGlobalTx(t *testing.T) {
 			},
 		},
 
+		// case callback panic string
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicString,
+			occurError:      true,
+			errMessage:      "mock callback panic string",
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				return nil
+			},
+		},
+
+		// case callback panic error
+		{
+			GtxConfig: &GtxConfig{
+				Name: "MockGtxConfig",
+			},
+			callbackErr:     true,
+			callback:        callbackPanicError,
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				return nil
+			},
+		},
+
 		// case second mock error
 		{
 			GtxConfig: &GtxConfig{
@@ -464,17 +510,73 @@ func TestWithGlobalTx(t *testing.T) {
 			},
 			secondErr: true,
 		},
+
+		// case tm detected a timeout and executed rollback successfully.
+		{
+			GtxConfig: &GtxConfig{
+				Name:    "MockGtxConfig",
+				Timeout: time.Second * 30,
+			},
+			timeoutErr:      false,
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				SetXID(ctx, "123456")
+				SetTxRole(ctx, Launcher)
+				return nil
+			},
+			callback:          callbackNil,
+			mockTimeoutTarget: isTimeout,
+			mockTimeoutFunc: func(ctx context.Context) bool {
+				return true
+			},
+			mockRollbackTargetName: "Rollback",
+			mockRollbackFunc: func(_ *GlobalTransactionManager, ctx context.Context, gtr *GlobalTransaction) error {
+				return nil
+			},
+		},
+		// tm detected a timeout but rollback threw an exception.
+		{
+			GtxConfig: &GtxConfig{
+				Name:    "MockGtxConfig",
+				Timeout: time.Second * 30,
+			},
+			timeoutErr:      true,
+			errMessage:      "tm detected a timeout but rollback threw an exception",
+			mockBeginTarget: begin,
+			mockBeginFunc: func(ctx context.Context, gc *GtxConfig) error {
+				SetXID(ctx, "123456")
+				SetTxRole(ctx, Launcher)
+				return nil
+			},
+			callback:          callbackNil,
+			mockTimeoutTarget: isTimeout,
+			mockTimeoutFunc: func(ctx context.Context) bool {
+				return true
+			},
+			mockRollbackTargetName: "Rollback",
+			mockRollbackFunc: func(_ *GlobalTransactionManager, ctx context.Context, gtr *GlobalTransaction) error {
+				return fmt.Errorf("tm detected a timeout but rollback threw an exception")
+			},
+		},
 	}
 
 	for i, v := range gts {
 		t.Logf("Case %v: %+v", i, v)
 		var beginStub *gomonkey.Patches
 		var secondStub *gomonkey.Patches
+		var timeoutStub *gomonkey.Patches
+		var rollbackStub *gomonkey.Patches
 		if v.mockBeginTarget != nil {
 			beginStub = gomonkey.ApplyFunc(v.mockBeginTarget, v.mockBeginFunc)
 		}
 		if v.mockSecondPhaseTarget != nil {
 			secondStub = gomonkey.ApplyFunc(v.mockSecondPhaseTarget, v.mockSecondPhaseFunc)
+		}
+		if v.mockTimeoutTarget != nil {
+			timeoutStub = gomonkey.ApplyFunc(v.mockTimeoutTarget, v.mockTimeoutFunc)
+		}
+		if v.mockRollbackTargetName != "" {
+			rollbackStub = gomonkey.ApplyMethod(reflect.TypeOf(GetGlobalTransactionManager()), v.mockRollbackTargetName, v.mockRollbackFunc)
 		}
 
 		ctx := context.Background()
@@ -492,6 +594,10 @@ func TestWithGlobalTx(t *testing.T) {
 			assert.NotNil(t, err)
 		}
 
+		if v.timeoutErr {
+			assert.Regexp(t, v.errMessage, err.Error())
+		}
+
 		if v.mockBeginTarget != nil {
 			beginStub.Reset()
 		}
@@ -499,5 +605,14 @@ func TestWithGlobalTx(t *testing.T) {
 		if v.mockSecondPhaseTarget != nil {
 			secondStub.Reset()
 		}
+
+		if v.mockTimeoutTarget != nil {
+			timeoutStub.Reset()
+		}
+
+		if v.mockRollbackTargetName != "" {
+			rollbackStub.Reset()
+		}
+
 	}
 }

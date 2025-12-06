@@ -22,18 +22,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 )
 
-func TestGetName(t *testing.T) {
+func TestJsonGetName(t *testing.T) {
 	assert.Equal(t, "json", (&JsonParser{}).GetName())
 }
 
-func TestGetDefaultContext(t *testing.T) {
+func TestJsonGetDefaultContext(t *testing.T) {
 	assert.Equal(t, []byte("{}"), (&JsonParser{}).GetDefaultContent())
 }
 
-func TestEncode(t *testing.T) {
+func TestJsonEncode(t *testing.T) {
 	TestCases := []struct {
 		CaseName    string
 		UndoLog     *undo.BranchUndoLog
@@ -67,7 +67,7 @@ func TestEncode(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestJsonDecode(t *testing.T) {
 	TestCases := []struct {
 		CaseName      string
 		ExpectUndoLog undo.BranchUndoLog
@@ -102,4 +102,44 @@ func TestDecode(t *testing.T) {
 		})
 	}
 
+}
+
+func TestJsonDecode_InvalidJSON(t *testing.T) {
+	logParser := &JsonParser{}
+	undoLog, err := logParser.Decode([]byte("invalid json"))
+	assert.NotNil(t, err)
+	assert.Nil(t, undoLog)
+}
+
+func TestJsonDecode_EmptyBytes(t *testing.T) {
+	logParser := &JsonParser{}
+	undoLog, err := logParser.Decode([]byte(""))
+	assert.NotNil(t, err)
+	assert.Nil(t, undoLog)
+}
+
+func TestJsonEncode_WithSQLUndoLogs(t *testing.T) {
+	logParser := &JsonParser{}
+	branchUndoLog := &undo.BranchUndoLog{
+		Xid:      "test-xid",
+		BranchID: 12345,
+		Logs: []undo.SQLUndoLog{
+			{
+				TableName: "test_table",
+			},
+		},
+	}
+
+	bytes, err := logParser.Encode(branchUndoLog)
+	assert.Nil(t, err)
+	assert.NotNil(t, bytes)
+	assert.Contains(t, string(bytes), "test-xid")
+	assert.Contains(t, string(bytes), "test_table")
+}
+
+func TestJsonParser_Interface(t *testing.T) {
+	var parser UndoLogParser = &JsonParser{}
+	assert.NotNil(t, parser)
+	assert.Equal(t, "json", parser.GetName())
+	assert.Equal(t, []byte("{}"), parser.GetDefaultContent())
 }

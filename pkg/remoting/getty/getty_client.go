@@ -24,9 +24,9 @@ import (
 	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
 
-	"github.com/seata/seata-go/pkg/protocol/codec"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/codec"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var (
@@ -35,14 +35,16 @@ var (
 )
 
 type GettyRemotingClient struct {
-	idGenerator *atomic.Uint32
+	idGenerator   *atomic.Uint32
+	gettyRemoting *GettyRemoting
 }
 
 func GetGettyRemotingClient() *GettyRemotingClient {
 	if gettyRemotingClient == nil {
 		onceGettyRemotingClient.Do(func() {
 			gettyRemotingClient = &GettyRemotingClient{
-				idGenerator: &atomic.Uint32{},
+				idGenerator:   &atomic.Uint32{},
+				gettyRemoting: newGettyRemoting(),
 			}
 		})
 	}
@@ -63,7 +65,7 @@ func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, client.asyncCallback)
+	return client.gettyRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
 }
 
 func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {
@@ -74,7 +76,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendASync(rpcMessage, nil, nil)
+	return client.gettyRemoting.SendAsync(rpcMessage, nil, nil)
 }
 
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
@@ -85,7 +87,7 @@ func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}
 		Compressor: 0,
 		Body:       msg,
 	}
-	return GetGettyRemotingInstance().SendSync(rpcMessage, nil, client.syncCallback)
+	return client.gettyRemoting.SendSync(rpcMessage, nil, client.syncCallback)
 }
 
 func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
@@ -96,10 +98,30 @@ func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *
 func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
 	select {
 	case <-gxtime.GetDefaultTimerWheel().After(RpcRequestTimeout):
-		GetGettyRemotingInstance().RemoveMergedMessageFuture(reqMsg.ID)
+		g.gettyRemoting.RemoveMergedMessageFuture(reqMsg.ID)
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:
 		return respMsg.Response, respMsg.Err
 	}
+}
+
+func (client *GettyRemotingClient) GetMergedMessage(msgID int32) *message.MergedWarpMessage {
+	return client.gettyRemoting.GetMergedMessage(msgID)
+}
+
+func (client *GettyRemotingClient) GetMessageFuture(msgID int32) *message.MessageFuture {
+	return client.gettyRemoting.GetMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) RemoveMessageFuture(msgID int32) {
+	client.gettyRemoting.RemoveMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) RemoveMergedMessageFuture(msgID int32) {
+	client.gettyRemoting.RemoveMergedMessageFuture(msgID)
+}
+
+func (client *GettyRemotingClient) NotifyRpcMessageResponse(msg message.RpcMessage) {
+	client.gettyRemoting.NotifyRpcMessageResponse(msg)
 }

@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
 )
 
 type DBType int16
@@ -159,6 +159,7 @@ type ExecContext struct {
 	Conn        driver.Conn
 	DBName      string
 	DBType      DBType
+	DbVersion   string
 	// todo set values for these 4 param
 	IsAutoCommit         bool
 	IsSupportsSavepoints bool

@@ -28,11 +28,11 @@ import (
 
 	"github.com/bluele/gcache"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var branchStatusCache gcache.Cache
@@ -166,6 +166,7 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
+	defer connectionProxyXA.Close()
 
 	if err := connectionProxyXA.XaCommit(ctx, xaID); err != nil {
 		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
@@ -183,6 +184,7 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
 	}
+	defer connectionProxyXA.Close()
 
 	if err = connectionProxyXA.XaRollbackByBranchId(ctx, xaID); err != nil {
 		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)

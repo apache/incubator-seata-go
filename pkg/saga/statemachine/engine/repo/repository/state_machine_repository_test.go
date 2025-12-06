@@ -30,9 +30,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/parser"
-	"github.com/seata/seata-go/pkg/saga/statemachine/store/db"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store/db"
 )
 
 var (

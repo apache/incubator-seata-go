@@ -25,10 +25,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
-	"github.com/seata/seata-go/pkg/util/backoff"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/util/backoff"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var (
@@ -71,6 +71,14 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Durat
 
 // Commit the global transaction.
 func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransaction) error {
+	if isTimeout(ctx) {
+		log.Infof("Rollback: tm detected timeout in global gtr %s", gtr.Xid)
+		if err := GetGlobalTransactionManager().Rollback(ctx, gtr); err != nil {
+			log.Errorf("Rollback transaction failed, error: %v in global gtr %s", err, gtr.Xid)
+			return err
+		}
+		return nil
+	}
 	if gtr.TxRole != Launcher {
 		log.Infof("Ignore Commit(): just involved in global gtr %s", gtr.Xid)
 		return nil
@@ -98,8 +106,15 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 		bf.Wait()
 	}
 
-	if bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
+	if err != nil || bf.Err() != nil {
+		lastErr := err
+		if bf.Err() != nil {
+			if lastErr != nil {
+				lastErr = errors.Wrap(lastErr, bf.Err().Error())
+			} else {
+				lastErr = errors.New(bf.Err().Error())
+			}
+		}
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}
@@ -140,8 +155,15 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		bf.Wait()
 	}
 
-	if bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
+	if err != nil || bf.Err() != nil {
+		lastErr := err
+		if bf.Err() != nil {
+			if lastErr != nil {
+				lastErr = errors.Wrap(lastErr, bf.Err().Error())
+			} else {
+				lastErr = errors.New(bf.Err().Error())
+			}
+		}
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}
@@ -175,4 +197,12 @@ func (g *GlobalTransactionManager) GlobalReport(ctx context.Context, gtr *Global
 	}
 	log.Infof("GlobalReportRequest success, res %v", res)
 	return res.(message.GlobalReportResponse).GlobalStatus, nil
+}
+
+func isTimeout(ctx context.Context) bool {
+	ti := GetTimeInfo(ctx)
+	if ti == nil || ti.createTime == 0 || ti.timeout == 0 {
+		return false
+	}
+	return time.Since(time.Unix(int64(ti.createTime), 0)) > ti.timeout
 }

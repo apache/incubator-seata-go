@@ -1,0 +1,10 @@
+{
+  "question": "模块路径与依赖版本如何统一？",
+  "why": "go.mod/goimports.sh 冲突直接影响构建与格式化，需决定以 master 的 seata.apache.org 为准并补充 saga 所需依赖。",
+  "evidence": [
+    "go.mod（HEAD）模块名为 github.com/seata/seata-go，依赖 dubbo-getty v1.4.10、arana parser v0.2.5、grpc v1.57.0 等；含 koanf v1.4.4、cel-go、etcd 未配置。",
+    "go.mod（master）模块名 seata.apache.org/seata-go，依赖 dubbo-getty v1.5.0、arana parser v0.2.17、grpc v1.56.3、etcd v3.5.6、koanf v1.5.0 等。",
+    "goimports.sh（HEAD）使用 -local github.com/seata/seata-go，安装 goimports@v0.24.1；master 使用 -local seata.apache.org/seata-go，未固定版本。"
+  ],
+  "direction": "采用 master 模块路径与依赖基线，补齐 feature/saga 引入的额外依赖并重新 tidy/goimports 设置。"
+}

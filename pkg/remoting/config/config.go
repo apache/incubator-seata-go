@@ -21,7 +21,7 @@ import (
 	"flag"
 	"time"
 
-	"github.com/seata/seata-go/pkg/util/flagext"
+	"seata.apache.org/seata-go/pkg/util/flagext"
 )
 
 var seataConfig *SeataConfig
@@ -84,7 +84,7 @@ type SeataConfig struct {
 	LoadBalanceType      string
 }
 
-func IniConfig(seataConf *SeataConfig) {
+func InitConfig(seataConf *SeataConfig) {
 	seataConfig = seataConf
 }
 

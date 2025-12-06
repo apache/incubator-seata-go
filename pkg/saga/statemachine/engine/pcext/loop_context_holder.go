@@ -21,8 +21,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 )
 
 type LoopContextHolder struct {

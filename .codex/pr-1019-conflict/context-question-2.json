@@ -1,0 +1,11 @@
+{
+  "question": "remoting 初始化采用哪个实现，如何兼容 Saga/TCC？",
+  "why": "client.Init 冲突点在于调用 InitRpcClient（feature/saga）或 InitGetty（master），且 Saga/TCC 初始化参数不同，影响所有事务模式的连接建立。",
+  "evidence": [
+    "pkg/client/client.go（HEAD）initRemoting 使用 getty.InitRpcClient，随后 rm.InitRm + integration.Init + tcc.InitTCC() + saga.InitSaga()。",
+    "pkg/client/client.go（master）initRemoting 调用 getty.InitGetty，InitRmClient 中 tcc.InitTCC(cfg.TCCConfig.FenceConfig) 未包含 Saga 初始化。",
+    "pkg/remoting/getty/rpc_client.go 仅存在于 feature/saga，master 已删除，取而代之的是 getty_init.go + session_manager.go 初始化。",
+    "SessionManager 实现负载均衡与心跳，依赖 config.InitConfig(seataConfig) 与 loadbalance.Select。"
+  ],
+  "direction": "以 master 的 InitGetty/SessionManager 作为基础，保留 Saga 初始化与 TCC FenceConfig 参数，删除废弃 rpc_client 调用，并确保 remoting 配置仍传递 LoadBalanceType 等信息。"
+}

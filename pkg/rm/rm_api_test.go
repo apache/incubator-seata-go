@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
 )
 
 // MockResource is a mock of Resource interface.

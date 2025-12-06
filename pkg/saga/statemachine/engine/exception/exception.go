@@ -21,7 +21,7 @@ import (
 	perror "errors"
 	"fmt"
 
-	"github.com/seata/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/util/errors"
 )
 
 type EngineExecutionException struct {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine"
 )
 
 func TestStateMachineConfigParser_Parse(t *testing.T) {

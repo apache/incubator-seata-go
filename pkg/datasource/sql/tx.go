@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/rm"
-	"github.com/seata/seata-go/pkg/util/backoff"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/pkg/util/backoff"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var (
@@ -55,7 +55,7 @@ type (
 	txOption func(tx *Tx)
 
 	txHook interface {
-		BeforeCommit(tx *Tx)
+		BeforeCommit(tx *Tx) error
 
 		BeforeRollback(tx *Tx)
 	}
@@ -105,19 +105,24 @@ type Tx struct {
 
 // Commit do commit action
 func (tx *Tx) Commit() error {
-	tx.beforeCommit()
+	if err := tx.beforeCommit(); err != nil {
+		return err
+	}
 	return tx.commitOnLocal()
 }
 
-func (tx *Tx) beforeCommit() {
+func (tx *Tx) beforeCommit() error {
 	if len(txHooks) != 0 {
 		hl.RLock()
 		defer hl.RUnlock()
 
 		for i := range txHooks {
-			txHooks[i].BeforeCommit(tx)
+			if err := txHooks[i].BeforeCommit(tx); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (tx *Tx) Rollback() error {
@@ -166,7 +171,7 @@ func (tx *Tx) register(ctx *types.TransactionContext) error {
 		if !ctx.HasUndoLog() || !ctx.HasLockKey() {
 			return nil
 		}
-		for k, _ := range ctx.LockKeys {
+		for k := range ctx.LockKeys {
 			lockKey += k + ";"
 		}
 		request.LockKeys = lockKey
@@ -209,7 +214,7 @@ func (tx *Tx) report(success bool) error {
 		if err = dataSourceManager.BranchReport(context.Background(), request); err == nil {
 			break
 		}
-		log.Infof("Failed to report [%s / %s] commit done [%s] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
+		log.Infof("Failed to report [%d / %s] commit done [%v] Retry Countdown: %s", tx.tranCtx.BranchID, tx.tranCtx.XID, success, retry)
 		retry.Wait()
 	}
 	return err

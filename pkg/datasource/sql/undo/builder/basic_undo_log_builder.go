@@ -22,14 +22,14 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io"
-	"strings"
-
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"io"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"strings"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
 
 // todo the executor should be stateful
@@ -42,7 +42,7 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 	for _, columnNmae := range columnNames {
 		var (
 			scanVal interface{}
-			// 从metData获取该列的元信息
+			// Gets Meta information about the column from metData
 			columnMeta = tableMeta.Columns[columnNmae]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
@@ -120,6 +120,10 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		for i := 0; i < len(exprs); i++ {
 			b.traversalArgs(exprs[i], argsIndex)
 		}
+		break
+	case *ast.ParenthesesExpr:
+		expr := node.(*ast.ParenthesesExpr)
+		b.traversalArgs(expr.Expr, argsIndex)
 		break
 	case *test_driver.ParamMarkerExpr:
 		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
@@ -243,7 +247,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 		lockKeys      bytes.Buffer
 		filedSequence int
 	)
-	lockKeys.WriteString(meta.TableName)
+	lockKeys.WriteString(strings.ToUpper(meta.TableName))
 	lockKeys.WriteString(":")
 
 	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
@@ -272,37 +276,5 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
-	lockKeys.WriteString(meta.TableName)
-	lockKeys.WriteString(":")
-
-	keys := meta.GetPrimaryKeyOnlyName()
-
-	for _, row := range records.Rows {
-		if filedSequence > 0 {
-			lockKeys.WriteString(",")
-		}
-		pkSplitIndex := 0
-		for _, column := range row.Columns {
-			var hasKeyColumn bool
-			for _, key := range keys {
-				if column.ColumnName == key {
-					hasKeyColumn = true
-					if pkSplitIndex > 0 {
-						lockKeys.WriteString("_")
-					}
-					lockKeys.WriteString(fmt.Sprintf("%v", column.Value))
-					pkSplitIndex++
-				}
-			}
-			if hasKeyColumn {
-				filedSequence++
-			}
-		}
-	}
-
-	return lockKeys.String()
+	return util.BuildLockKey(records, meta)
 }

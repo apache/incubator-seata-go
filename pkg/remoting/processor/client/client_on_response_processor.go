@@ -20,10 +20,10 @@ package client
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/log"
 
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/remoting/getty"
 )
 
 func initOnResponse() {
@@ -46,27 +46,28 @@ type clientOnResponseProcessor struct{}
 
 func (f *clientOnResponseProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
 	log.Infof("the rm client received  clientOnResponse msg %#v from tc server.", rpcMessage)
+	gettyRemotingClient := getty.GetGettyRemotingClient()
 	if mergedResult, ok := rpcMessage.Body.(message.MergeResultMessage); ok {
-		mergedMessage := getty.GetGettyRemotingInstance().GetMergedMessage(rpcMessage.ID)
+		mergedMessage := gettyRemotingClient.GetMergedMessage(rpcMessage.ID)
 		if mergedMessage != nil {
 			for i := 0; i < len(mergedMessage.Msgs); i++ {
 				msgID := mergedMessage.MsgIds[i]
-				response := getty.GetGettyRemotingInstance().GetMessageFuture(msgID)
+				response := gettyRemotingClient.GetMessageFuture(msgID)
 				if response != nil {
 					response.Response = mergedResult.Msgs[i]
 					response.Done <- struct{}{}
-					getty.GetGettyRemotingInstance().RemoveMessageFuture(msgID)
+					gettyRemotingClient.RemoveMessageFuture(msgID)
 				}
 			}
-			getty.GetGettyRemotingInstance().RemoveMergedMessageFuture(rpcMessage.ID)
+			gettyRemotingClient.RemoveMergedMessageFuture(rpcMessage.ID)
 		}
 		return nil
 	} else {
 		// 如果是请求消息，做处理逻辑
-		msgFuture := getty.GetGettyRemotingInstance().GetMessageFuture(rpcMessage.ID)
+		msgFuture := gettyRemotingClient.GetMessageFuture(rpcMessage.ID)
 		if msgFuture != nil {
-			getty.GetGettyRemotingInstance().NotifyRpcMessageResponse(rpcMessage)
-			getty.GetGettyRemotingInstance().RemoveMessageFuture(rpcMessage.ID)
+			gettyRemotingClient.NotifyRpcMessageResponse(rpcMessage)
+			gettyRemotingClient.RemoveMessageFuture(rpcMessage.ID)
 		} else {
 			if _, ok := rpcMessage.Body.(message.AbstractResultMessage); ok {
 				log.Infof("the rm client received response msg [{}] from tc server.", msgFuture)

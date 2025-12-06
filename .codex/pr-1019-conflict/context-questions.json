@@ -1,0 +1,25 @@
+{
+  "known": [
+    "PR #1019 以 master 为基线，feature/saga 分支需与 seata.apache.org 模块路径和新版 remoting 对齐。",
+    "master 已移除 rpc_client.go，使用 InitGetty+SessionManager；loadbalance 新增一致性哈希和最少活跃算法；TCC 需要 FenceConfig。",
+    "feature/saga 引入 SagaConfig、InitSaga，RM BranchReport 忽略 BranchTransactionNotExist，错误码包含 Saga 相关枚举。"
+  ],
+  "questions": [
+    {
+      "q": "模块路径与依赖版本如何统一？是否保留 master 的 seata.apache.org 路径并补充 saga 所需依赖？",
+      "priority": "high"
+    },
+    {
+      "q": "remoting 初始化应采用 master 的 InitGetty 还是保留旧的 InitRpcClient？Saga/TCC 初始化如何适配新 remoting？",
+      "priority": "high"
+    },
+    {
+      "q": "错误码与 RM/TM 错误处理应该合并哪一套逻辑（Saga 额外枚举 vs SQLUndoDirtyError、超时回滚逻辑）？",
+      "priority": "high"
+    },
+    {
+      "q": "README_ZH.md 应保留还是删除？若保留需如何合并更新内容？",
+      "priority": "medium"
+    }
+  ]
+}

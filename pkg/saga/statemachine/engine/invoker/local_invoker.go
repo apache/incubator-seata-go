@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type LocalServiceInvoker struct {

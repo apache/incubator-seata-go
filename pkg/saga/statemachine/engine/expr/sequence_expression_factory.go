@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
 )
 
 // SequenceExpressionFactory implements the ExpressionFactory interface,

@@ -19,15 +19,14 @@ package discovery
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/net"
 )
 
 const (
 	endPointSplitChar = ";"
-	ipPortSplitChar   = ":"
 )
 
 type FileRegistryService struct {
@@ -59,24 +58,20 @@ func (s *FileRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 		addrStr = v
 	}
 	if addrStr == "" {
-		log.Errorf("endpoint is empty. key: %s group: %s", group)
+		log.Errorf("endpoint is empty. key: %s group: %s", key, group)
 		return nil, fmt.Errorf("endpoint is empty. key: %s group: %s", key, group)
 	}
 
 	addrs := strings.Split(addrStr, endPointSplitChar)
 	instances := make([]*ServiceInstance, 0)
 	for _, addr := range addrs {
-		ipPort := strings.Split(addr, ipPortSplitChar)
-		if len(ipPort) != 2 {
-			return nil, fmt.Errorf("endpoint format should like ip:port. endpoint: %s", addr)
-		}
-		ip := ipPort[0]
-		port, err := strconv.Atoi(ipPort[1])
+		host, port, err := net.SplitIPPortStr(addr)
 		if err != nil {
+			log.Errorf("endpoint err. endpoint: %s", addr)
 			return nil, err
 		}
 		instances = append(instances, &ServiceInstance{
-			Addr: ip,
+			Addr: host,
 			Port: port,
 		})
 	}

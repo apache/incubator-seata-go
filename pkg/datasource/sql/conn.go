@@ -21,9 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/exec"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
 )
 
 // Conn is a connection to a database. It is not used concurrently
@@ -246,6 +246,13 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 
 func (c *Conn) GetAutoCommit() bool {
 	return c.autoCommit
+}
+
+func (c *Conn) GetDbVersion() string {
+	if c.res == nil {
+		return ""
+	}
+	return c.res.GetDbVersion()
 }
 
 // Close invalidates and potentially stops any current

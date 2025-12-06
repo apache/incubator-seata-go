@@ -29,12 +29,12 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	mysql2 "github.com/seata/seata-go/pkg/datasource/sql/datasource/mysql"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/util"
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	mysql2 "seata.apache.org/seata-go/pkg/datasource/sql/datasource/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 const (
@@ -120,7 +120,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 	if driverCtx, ok := d.target.(driver.DriverContext); ok {
 		c, err = driverCtx.OpenConnector(name)
 		if err != nil {
-			log.Errorf("open connector: %w", err)
+			log.Errorf("open connector: %v", err)
 			return nil, err
 		}
 	}
@@ -132,7 +132,7 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 	proxy, err := d.getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
 	if err != nil {
-		log.Errorf("register resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 
@@ -152,12 +152,12 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	}
 	res, err := newResource(options...)
 	if err != nil {
-		log.Errorf("create new resource: %w", err)
+		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db))
+	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
-		log.Errorf("regisiter resource: %w", err)
+		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 	return &seataConnector{

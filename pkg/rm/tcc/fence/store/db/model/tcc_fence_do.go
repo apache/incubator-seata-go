@@ -20,7 +20,7 @@ package model
 import (
 	"time"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
 )
 
 type TCCFenceDO struct {
@@ -43,4 +43,13 @@ type TCCFenceDO struct {
 
 	// GmtModified update time
 	GmtModified time.Time
+}
+
+type FenceLogIdentity struct {
+
+	// Xid the global transaction id
+	Xid string
+
+	// BranchId the branch transaction id
+	BranchId int64
 }

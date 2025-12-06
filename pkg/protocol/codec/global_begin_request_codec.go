@@ -20,8 +20,8 @@ package codec
 import (
 	"time"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/util/bytes"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/util/bytes"
 )
 
 type GlobalBeginRequestCodec struct{}

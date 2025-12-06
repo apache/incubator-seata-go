@@ -21,12 +21,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/rm"
-	sagarm "github.com/seata/seata-go/pkg/saga/rm"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/rm"
+	sagarm "seata.apache.org/seata-go/pkg/saga/rm"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type DefaultSagaTransactionalTemplate struct {

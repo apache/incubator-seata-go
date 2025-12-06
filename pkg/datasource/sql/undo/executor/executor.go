@@ -26,10 +26,11 @@ import (
 
 	"github.com/goccy/go-json"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/datasource"
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	serr "seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
@@ -98,7 +99,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 			newRowJson, _ := json.Marshal(currentImage.Rows)
 			log.Infof("check dirty data failed, old and new data are not equal, "+
 				"tableName:[%s], oldRows:[%s],newRows:[%s].", afterImage.TableName, oldRowJson, newRowJson)
-			return false, fmt.Errorf("Has dirty records when undo.")
+			return false, serr.New(serr.SQLUndoDirtyError, "has dirty records when undo", nil)
 		}
 	}
 	return true, nil
@@ -124,7 +125,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	image := types.RecordImage{
 		TableName: b.undoImage.TableName,
 		TableMeta: tableMeta,
@@ -159,7 +160,9 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		}
 		rowImages = append(rowImages, types.RowImage{Columns: columns})
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	image.Rows = rowImages
 	return &image, nil
 }

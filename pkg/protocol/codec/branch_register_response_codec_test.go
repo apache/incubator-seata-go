@@ -20,11 +20,11 @@ package codec
 import (
 	"testing"
 
-	serror "github.com/seata/seata-go/pkg/util/errors"
+	serror "seata.apache.org/seata-go/pkg/util/errors"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/protocol/message"
 )
 
 func TestBranchRegisterResponseCodec(t *testing.T) {

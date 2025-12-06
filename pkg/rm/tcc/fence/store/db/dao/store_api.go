@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence/store/db/model"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
 )
 
 // The TCC Fence Store
@@ -35,6 +35,11 @@ type TCCFenceStore interface {
 	// param branchId the branch transaction id
 	// return the tcc fence do and error msg
 	QueryTCCFenceDO(tx *sql.Tx, xid string, branchId int64) (*model.TCCFenceDO, error)
+
+	// QueryTCCFenceLogIdentityByMdDate tcc fence do by status.
+	// param tx the tx will bind with user business method
+	// param datetime modify time
+	QueryTCCFenceLogIdentityByMdDate(tx *sql.Tx, datetime time.Time) ([]model.FenceLogIdentity, error)
 
 	// InsertTCCFenceDO tcc fence do boolean.
 	// param tx the tx will bind with user business method
@@ -57,11 +62,17 @@ type TCCFenceStore interface {
 	// return the error msg
 	DeleteTCCFenceDO(tx *sql.Tx, xid string, branchId int64) error
 
+	// DeleteMultipleTCCFenceLogIdentity tcc fence log identity boolean.
+	// param tx the tx will bind with user business method
+	// param identity the tcc fence log identity
+	// return the error msg
+	DeleteMultipleTCCFenceLogIdentity(tx *sql.Tx, identity []model.FenceLogIdentity) error
+
 	// DeleteTCCFenceDOByMdfDate tcc fence by datetime.
 	// param tx the tx will bind with user business method
-	// param datetime modify time
-	// return the error msg
-	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time) error
+	// param datetime modify time, int32 limit delete
+	// return the delete number and error msg
+	DeleteTCCFenceDOByMdfDate(tx *sql.Tx, datetime time.Time, limit int32) (int64, error)
 
 	// SetLogTableName LogTable ColumnName
 	// param logTableName logTableName

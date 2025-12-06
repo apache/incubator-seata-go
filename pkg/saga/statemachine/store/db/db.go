@@ -22,7 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 const TimeLayout = "2006-01-02 15:04:05.999999999-07:00"

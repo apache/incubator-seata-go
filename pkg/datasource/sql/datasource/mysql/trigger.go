@@ -25,8 +25,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
 )
 
 type mysqlTrigger struct {
@@ -79,8 +79,16 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 }
 
 // LoadAll
-func (m *mysqlTrigger) LoadAll() ([]types.TableMeta, error) {
-	return []types.TableMeta{}, nil
+func (m *mysqlTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error) {
+	var tableMetas []types.TableMeta
+	for _, tableName := range tables {
+		tableMeta, err := m.LoadOne(ctx, dbName, tableName, conn)
+		if err != nil {
+			continue
+		}
+		tableMetas = append(tableMetas, *tableMeta)
+	}
+	return tableMetas, nil
 }
 
 // getColumnMetas get tableMeta column
@@ -93,6 +101,7 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 	if err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
 
 	rows, err := stmt.Query(dbName, table)
 	if err != nil {
@@ -144,7 +153,9 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 		columnMeta.Autoincrement = strings.Contains(strings.ToLower(extra), "auto_increment")
 		columnMetas = append(columnMetas, columnMeta)
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	if len(columnMetas) == 0 {
 		return nil, fmt.Errorf("can't find column")
 	}
@@ -162,7 +173,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 	if err != nil {
 		return nil, err
 	}
-
+	defer stmt.Close()
 	rows, err := stmt.Query(dbName, tableName)
 	if err != nil {
 		return nil, err
@@ -204,6 +215,8 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 		result = append(result, index)
 
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }

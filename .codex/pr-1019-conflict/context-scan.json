@@ -1,0 +1,48 @@
+{
+  "location": [
+    "依赖与模块：go.mod/go.sum、goimports.sh（模块路径 github.com/seata/seata-go vs seata.apache.org/seata-go；依赖版本差异 dubbo-getty、arana parser、grpc、etcd 等）",
+    "客户端初始化：pkg/client/client.go、pkg/client/config.go（saga 配置与 InitSaga，TCC fence 配置、remoting 初始化方式差异）",
+    "网络与负载均衡：pkg/remoting/getty/rpc_client.go（master 已移除，使用 InitGetty+SessionManager）、pkg/remoting/loadbalance/*（新增 Consistent/LeastActive 选择与 IPv6 测试）",
+    "事务交互：pkg/rm/rm_remoting.go（BranchReport 错误处理差异）、pkg/tm/global_transaction.go（提交超时回滚逻辑、重试错误处理差异）",
+    "错误码：pkg/util/errors/code.go（Saga 相关枚举 vs SQLUndoDirtyError）",
+    "文档：README_ZH.md（master 更新但 feature/saga 删除）"
+  ],
+  "current_state": {
+    "feature_saga": [
+      "模块路径为 github.com/seata/seata-go，客户端 remoting 调用 InitRpcClient；ClientConfig 额外包含 SagaConfig，InitRmClient 会 InitSaga。",
+      "RM 报告错误会忽略 BranchTransactionNotExist，TM 提交/回滚重试结束后仅根据 bf.Err() 包装。",
+      "错误码包含 Saga 状态机和异步启动等枚举。"
+    ],
+    "master": [
+      "模块路径 seata.apache.org/seata-go，remoting 初始化改为 InitGetty + SessionManager（rpc_client 文件删除），TCC.InitTCC 需要 FenceConfig。",
+      "负载均衡 Select 支持 ConsistentHash 与 LeastActive，xid 测试覆盖 IPv6；goimports.sh 使用 seata.apache.org 前缀。",
+      "TM Commit/Rollback 先检测超时，重试错误判断基于 err 或 bf.Err；错误码新增 SQLUndoDirtyError。",
+      "README_ZH.md 仍保留并更新。"
+    ],
+    "similar_cases": [
+      "pkg/remoting/loadbalance/consistent_hash_loadbalance.go 和 least_active_loadbalance.go 已在仓库存在，可作为新算法实现基线。",
+      "remoting/getty/getty_init.go 与 session_manager.go 展示 master remoting 初始化流程。"
+    ]
+  },
+  "tech_stack": [
+    "语言/版本：Go 1.20",
+    "框架/依赖：dubbo-go、dubbo-getty、gost、grpc、koanf、prometheus、etcd client（master）、saga/tcc 模块",
+    "工具：goimports、license-eye、make unit-test/go test ./pkg/..."
+  ],
+  "tests": [
+    "单测集中于改动模块：pkg/remoting/loadbalance/*_test.go、pkg/client/client_test.go、pkg/rm/rm_api_test.go、pkg/tm/global_transaction_test.go、pkg/util/errors/*",
+    "常用命令：go test ./pkg/... 或 make unit-test；冲突文件所在包均有 *_test.go 可验证。"
+  ],
+  "observation": {
+    "issues": [
+      "模块路径和 goimports 前缀不一致会导致依赖解析与格式化失败，需要统一为 seata.apache.org。",
+      "remoting 初始化接口变更（InitRpcClient -> InitGetty），需要在 client.go 等处对齐并清理废弃文件。",
+      "配置结构需兼容 Saga 与新的 TCC FenceConfig；错误码需合并两侧新增项。",
+      "README_ZH.md 在 feature/saga 被删除但 master 更新，需决定保留并合并。"
+    ],
+    "gaps": [
+      "需确定 Saga 功能在新 remoting 初始化下的兼容需求。",
+      "需要明确 error code 顺序/兼容性是否有额外约束。"
+    ]
+  }
+}

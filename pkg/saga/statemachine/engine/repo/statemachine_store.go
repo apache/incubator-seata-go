@@ -20,7 +20,7 @@ package repo
 import (
 	"io"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )
 
 type StateLogRepository interface {

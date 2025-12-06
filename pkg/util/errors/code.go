@@ -101,6 +101,9 @@ const (
 	// FencePhaseError have fence phase but is not illegal value
 	FencePhaseError
 
+	// SQLUndoDirtyError sql undo dirty data error
+	SQLUndoDirtyError
+
 	// ObjectNotExists object not exists
 	ObjectNotExists
 	// StateMachineInstanceNotExists State machine instance not exists

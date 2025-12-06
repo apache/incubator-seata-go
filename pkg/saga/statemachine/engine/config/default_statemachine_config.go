@@ -29,18 +29,18 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/seata/seata-go/pkg/protocol/branch"
-	baserm "github.com/seata/seata-go/pkg/rm"
-	sagarm "github.com/seata/seata-go/pkg/saga/rm"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/invoker"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/repo/repository"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/sequence"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/strategy"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/store"
+	"seata.apache.org/seata-go/pkg/protocol/branch"
+	baserm "seata.apache.org/seata-go/pkg/rm"
+	sagarm "seata.apache.org/seata-go/pkg/saga/rm"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/repo"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/repo/repository"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/strategy"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store"
 )
 
 const (

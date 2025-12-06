@@ -23,12 +23,14 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/seata/seata-go/pkg/datasource/sql/types"
-	"github.com/seata/seata-go/pkg/datasource/sql/xa"
-	"github.com/seata/seata-go/pkg/tm"
-	"github.com/seata/seata-go/pkg/util/log"
+	"github.com/go-sql-driver/mysql"
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/pkg/datasource/sql/xa"
+	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 var xaConnTimeout time.Duration
@@ -102,7 +104,11 @@ func (c *XAConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		return types.NewResult(types.WithResult(ret)), nil
 	})
 
-	return ret.GetResult(), err
+	if err != nil {
+		return nil, err
+	}
+
+	return ret.GetResult(), nil
 }
 
 // BeginTx like common transaction. but it just exec XA START
@@ -177,13 +183,6 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		err error
 	)
 
-	currentAutoCommit := c.autoCommit
-	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-		if err != nil {
-			return nil, err
-		}
-	}
 	defer func() {
 		recoverErr := recover()
 		if err != nil || recoverErr != nil {
@@ -197,18 +196,26 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		}
 	}()
 
+	currentAutoCommit := c.autoCommit
+	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// execute SQL
 	ret, err := f()
 	if err != nil {
 		// XA End & Rollback
 		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-			log.Errorf("failed to rollback xa branch of :%s, err:%w", c.txCtx.XID, rollbackErr)
+			log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 		}
 		return nil, err
 	}
 
 	if tx != nil && currentAutoCommit {
-		if err := c.Commit(ctx); err != nil {
+		if err = c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
 			if err := c.Rollback(ctx); err != nil {
@@ -257,11 +264,11 @@ func (c *XAConn) start(ctx context.Context) error {
 }
 
 func (c *XAConn) end(ctx context.Context, flags int) error {
-	err := c.termination(c.xaBranchXid.String())
+	err := c.xaResource.End(ctx, c.xaBranchXid.String(), flags)
 	if err != nil {
 		return err
 	}
-	err = c.xaResource.End(ctx, c.xaBranchXid.String(), flags)
+	err = c.termination(c.xaBranchXid.String())
 	if err != nil {
 		return err
 	}
@@ -297,9 +304,19 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	}
 
 	if !c.rollBacked {
-		if c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail) != nil {
-			return c.rollbackErrorHandle()
+		// First end the XA branch with TMFail
+		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
+			// Handle XAER_RMFAIL exception - check if it's already ended
+			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
+			if isXAER_RMFAILAlreadyEnded(err) {
+				// If already ended, continue with rollback
+				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
+			} else {
+				return c.rollbackErrorHandle()
+			}
 		}
+
+		// Then perform XA rollback
 		if c.XaRollback(ctx, c.xaBranchXid) != nil {
 			c.cleanXABranchContext()
 			return c.rollbackErrorHandle()
@@ -308,6 +325,7 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 			c.cleanXABranchContext()
 			return fmt.Errorf("failed to report XA branch commit-failure on xid:%s err:%w", c.txCtx.XID, err)
 		}
+		c.rollBacked = true
 	}
 	c.cleanXABranchContext()
 	return nil
@@ -398,4 +416,20 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
+}
+
+// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
+// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
+func isXAER_RMFAILAlreadyEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
+			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
+		}
+	}
+	// TODO: handle other DB errors
+
+	return false
 }

@@ -26,8 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type FuncInvoker struct {

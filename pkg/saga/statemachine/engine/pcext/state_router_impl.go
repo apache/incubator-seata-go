@@ -20,14 +20,14 @@ package pcext
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine/exception"
-	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
-	sagaState "github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
-	seataErrors "github.com/seata/seata-go/pkg/util/errors"
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	sagaState "seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	seataErrors "seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
 type EndStateRouter struct {

@@ -20,10 +20,10 @@ package client
 import (
 	"context"
 
-	"github.com/seata/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/pkg/util/log"
 
-	"github.com/seata/seata-go/pkg/protocol/message"
-	"github.com/seata/seata-go/pkg/remoting/getty"
+	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/pkg/remoting/getty"
 )
 
 func initHeartBeat() {
@@ -37,6 +37,10 @@ func (f *clientHeartBeatProcessor) Process(ctx context.Context, rpcMessage messa
 		if !msg.Ping {
 			log.Debug("received PONG from {}", ctx)
 		}
+	}
+	msgFuture := getty.GetGettyRemotingClient().GetMessageFuture(rpcMessage.ID)
+	if msgFuture != nil {
+		getty.GetGettyRemotingClient().RemoveMessageFuture(rpcMessage.ID)
 	}
 	return nil
 }

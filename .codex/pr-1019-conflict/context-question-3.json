@@ -1,0 +1,11 @@
+{
+  "question": "错误码及 RM/TM 错误处理采用何种合并策略？",
+  "why": "BranchReport 返回值处理、超时提交/回滚逻辑和错误码枚举不一致，直接影响事务状态判断和重试行为。",
+  "evidence": [
+    "pkg/rm/rm_remoting.go（HEAD）BranchReport 对 BranchTransactionNotExist 不视为错误，使用 serrors.SeataError 包装；master 仅返回 errors.New(res.Msg)。",
+    "pkg/tm/global_transaction.go（master）Commit 若检测超时会转向 Rollback，并在重试循环中检查 err||bf.Err()；feature/saga 缺少超时判断，重试错误只看 bf.Err()。",
+    "pkg/util/errors/code.go（feature/saga）包含 Saga/状态机相关枚举、AsyncStartDisabled 等；master 新增 SQLUndoDirtyError 但缺少前述枚举。"
+  ],
+  "direction": "保留对 BranchTransactionNotExist 的容错与 Saga/TCC 相关错误码，同时合并 master 的 SQLUndoDirtyError 与超时回滚逻辑，确保重试错误判断完整。",
+  "cost_notice": "第3次深挖，评估成本：合并需同步下游调用与测试覆盖。"
+}

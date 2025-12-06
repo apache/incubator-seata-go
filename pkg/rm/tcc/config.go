@@ -20,7 +20,7 @@ package tcc
 import (
 	"flag"
 
-	"github.com/seata/seata-go/pkg/rm/tcc/fence"
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence"
 )
 
 type Config struct {

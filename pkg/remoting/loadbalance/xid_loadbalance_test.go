@@ -24,7 +24,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/seata/seata-go/pkg/remoting/mock"
+	"seata.apache.org/seata-go/pkg/remoting/mock"
 )
 
 func TestXidLoadBalance(t *testing.T) {
@@ -82,6 +82,12 @@ func TestXidLoadBalance(t *testing.T) {
 			name:        "xid is not exist",
 			sessions:    sessions,
 			xid:         "127.0.0.1:9000:111",
+			returnAddrs: []string{"127.0.0.1:8000", "127.0.0.1:8002"},
+		},
+		{
+			name:        "ip is ipv6",
+			sessions:    sessions,
+			xid:         "2000:0000:0000:0000:0001:2345:6789:abcd:8002:111",
 			returnAddrs: []string{"127.0.0.1:8000", "127.0.0.1:8002"},
 		},
 	}
