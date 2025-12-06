@@ -116,6 +116,25 @@ func (p *StateMachineConfigParser) ReadConfigFile(configFilePath string) ([]byte
 	return buf.Bytes(), nil
 }
 
+// 去除配置内容前后的许可证块注释，保证 JSON/YAML 可被正确解析
+func stripLicenseBlock(content []byte) []byte {
+	trimmed := bytes.TrimSpace(content)
+
+	if bytes.HasPrefix(trimmed, []byte("/*")) {
+		if end := bytes.Index(trimmed, []byte("*/")); end != -1 {
+			trimmed = bytes.TrimSpace(trimmed[end+2:])
+		}
+	}
+
+	if bytes.HasSuffix(trimmed, []byte("*/")) {
+		if start := bytes.LastIndex(trimmed, []byte("/*")); start != -1 {
+			trimmed = bytes.TrimSpace(trimmed[:start])
+		}
+	}
+
+	return trimmed
+}
+
 func (p *StateMachineConfigParser) getParser(content []byte) (ConfigParser, error) {
 	k := koanf.New(".")
 	if err := k.Load(rawbytes.Provider(content), json.Parser()); err == nil {
@@ -131,10 +150,12 @@ func (p *StateMachineConfigParser) getParser(content []byte) (ConfigParser, erro
 }
 
 func (p *StateMachineConfigParser) Parse(content []byte) (*statemachine.StateMachineObject, error) {
-	parser, err := p.getParser(content)
+	cleanContent := stripLicenseBlock(content)
+
+	parser, err := p.getParser(cleanContent)
 	if err != nil {
 		return nil, err
 	}
 
-	return parser.Parse(content)
+	return parser.Parse(cleanContent)
 }

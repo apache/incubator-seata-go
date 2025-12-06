@@ -18,6 +18,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -374,6 +375,25 @@ type ConfigFileParams struct {
 	TCEnabled                       bool     `json:"tc_enabled" yaml:"tc_enabled"`
 }
 
+// 清理配置文件前后的许可证块注释，避免破坏 JSON/YAML 解析
+func stripLicenseBlock(content []byte) []byte {
+	trimmed := bytes.TrimSpace(content)
+
+	if bytes.HasPrefix(trimmed, []byte("/*")) {
+		if end := bytes.Index(trimmed, []byte("*/")); end != -1 {
+			trimmed = bytes.TrimSpace(trimmed[end+2:])
+		}
+	}
+
+	if bytes.HasSuffix(trimmed, []byte("*/")) {
+		if start := bytes.LastIndex(trimmed, []byte("/*")); start != -1 {
+			trimmed = bytes.TrimSpace(trimmed[:start])
+		}
+	}
+
+	return trimmed
+}
+
 func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 	if c.seqGenerator == nil {
 		c.seqGenerator = sequence.NewUUIDSeqGenerator()
@@ -389,10 +409,12 @@ func (c *DefaultStateMachineConfig) LoadConfig(configPath string) error {
 
 	switch ext {
 	case ".json":
+		content = stripLicenseBlock(content)
 		if err := json.Unmarshal(content, &configFileParams); err != nil {
 			return fmt.Errorf("failed to unmarshal config file as JSON: %w", err)
 		}
 	case ".yaml", ".yml":
+		content = stripLicenseBlock(content)
 		if err := yaml.Unmarshal(content, &configFileParams); err != nil {
 			return fmt.Errorf("failed to unmarshal config file as YAML: %w", err)
 		}
