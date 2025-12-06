@@ -82,7 +82,7 @@ func CreateOutputParams(config engine.StateMachineConfig, expressionResolver exp
 		serviceTaskState.SetOutputExpressions(outputExpressions)
 	}
 	outputValues := make(map[string]any, len(outputExpressions))
-	for paramName, _ := range outputExpressions {
+	for paramName := range outputExpressions {
 		outputValues[paramName] = GetValue(outputExpressions[paramName], variablesFrom, nil)
 	}
 	return outputValues, nil
@@ -110,10 +110,11 @@ func CreateValueExpression(expressionResolver expr.ExpressionResolver, paramAssi
 		valueExpression = paramList
 	case string:
 		value := paramAssignment.(string)
-		if !strings.HasPrefix(value, "$") {
+		if strings.HasPrefix(value, "$") {
+			valueExpression = expressionResolver.Expression(value)
+		} else {
 			valueExpression = paramAssignment
 		}
-		valueExpression = expressionResolver.Expression(value)
 	default:
 		valueExpression = paramAssignment
 	}
@@ -142,7 +143,7 @@ func GetValue(valueExpression any, variablesFrom any, stateInstance statelang.St
 	case []any:
 		valueExpressionList := valueExpression.([]any)
 		listValue := make([]any, 0, len(valueExpression.([]any)))
-		for i, _ := range valueExpressionList {
+		for i := range valueExpressionList {
 			listValue = append(listValue, GetValue(valueExpressionList[i], variablesFrom, stateInstance))
 		}
 		return listValue

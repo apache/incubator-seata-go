@@ -128,8 +128,9 @@ func (a AsyncEventBus) Offer(ctx context.Context, event Event) (bool, error) {
 	}
 
 	for _, eventConsumer := range eventConsumerList {
+		consumer := eventConsumer
 		go func() {
-			err := eventConsumer.Process(ctx, processContext)
+			err := consumer.Process(ctx, processContext)
 			if err != nil {
 				log.Errorf("process event %T error: %s", event, err.Error())
 			}

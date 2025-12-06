@@ -38,7 +38,7 @@ import (
 func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
 	if processContext.HasVariable(constant.VarNameIsLoopState) {
 		if processContext.HasVariable(constant.LoopSemaphore) {
-			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(semaphore.Weighted)
+			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(*semaphore.Weighted)
 			if !ok {
 				return errors.New("semaphore type is not weighted")
 			}
@@ -68,6 +68,9 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	}
 
 	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
+	if !ok {
+		return errors.New("state machine config type is not engine.StateMachineConfig")
+	}
 
 	if err := stateMachineConfig.StatusDecisionStrategy().DecideOnEndState(ctx, processContext, stateMachineInstance, exp); err != nil {
 		return err
@@ -169,7 +172,7 @@ func HandleException(processContext process_ctrl.ProcessContext, abstractTaskSta
 				exceptionMatch.SetExceptionTypes(exceptionTypes)
 			}
 
-			for i, _ := range exceptionTypes {
+			for i := range exceptionTypes {
 				if reflect.TypeOf(err) == exceptionTypes[i] {
 					// HACK: we can not get error type in config file during runtime, so we use exception str
 					if strings.Contains(err.Error(), exceptions[i]) {
