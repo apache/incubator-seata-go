@@ -27,6 +27,10 @@ import (
 	"seata.apache.org/seata-go/pkg/remoting/getty"
 )
 
+type contextKey string
+
+const testContextKey contextKey = "test-key"
+
 func TestRmDeleteUndoLogProcessor_Process(t *testing.T) {
 	processor := &rmDeleteUndoLogProcessor{}
 
@@ -150,7 +154,7 @@ func TestRmDeleteUndoLogProcessor_ProcessWithContext(t *testing.T) {
 		},
 		{
 			name: "process with custom context",
-			ctx:  context.WithValue(context.Background(), "test-key", "test-value"),
+			ctx:  context.WithValue(context.Background(), testContextKey, "test-value"), // 修改这里
 			req: message.UndoLogDeleteRequest{
 				ResourceId: "test-resource-2",
 				SaveDays:   14,
