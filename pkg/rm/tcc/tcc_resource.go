@@ -21,8 +21,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/rm/tcc/fence"
 
 	"seata.apache.org/seata-go/pkg/constant"
 	"seata.apache.org/seata-go/pkg/protocol/branch"

@@ -22,12 +22,14 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
-	"io"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"strings"
 
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 )
