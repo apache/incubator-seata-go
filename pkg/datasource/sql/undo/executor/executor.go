@@ -177,22 +177,16 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 		pkLookup[strings.ToLower(pk)] = pk
 	}
 
-	pkValues := make(map[string][]types.ColumnImage, len(pkNameList))
-	for _, pk := range pkNameList {
-		pkValues[pk] = make([]types.ColumnImage, 0, len(rows))
-	}
+	pkValues := make(map[string][]types.ColumnImage)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
 			if originalPk, exists := pkLookup[strings.ToLower(column.ColumnName)]; exists {
+				if _, initialized := pkValues[originalPk]; !initialized {
+					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))
+				}
 				pkValues[originalPk] = append(pkValues[originalPk], column)
 			}
-		}
-	}
-
-	for pk, values := range pkValues {
-		if len(values) == 0 {
-			delete(pkValues, pk)
 		}
 	}
 
