@@ -181,8 +181,9 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			if originalPk, exists := pkLookup[strings.ToLower(column.ColumnName)]; exists {
-				if _, initialized := pkValues[originalPk]; !initialized {
+			columnNameLower := strings.ToLower(column.ColumnName)
+			if originalPk, exists := pkLookup[columnNameLower]; exists {
+				if pkValues[originalPk] == nil {
 					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))
 				}
 				pkValues[originalPk] = append(pkValues[originalPk], column)
