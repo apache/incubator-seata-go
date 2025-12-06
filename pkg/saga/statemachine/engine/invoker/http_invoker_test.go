@@ -25,8 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 func TestHTTPInvokerInvokeSucceedWithOutRetry(t *testing.T) {

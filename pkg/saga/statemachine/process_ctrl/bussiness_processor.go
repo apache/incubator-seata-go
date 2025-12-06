@@ -19,10 +19,12 @@ package process_ctrl
 
 import (
 	"context"
+	"sync"
+
 	"github.com/pkg/errors"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl/process"
-	"sync"
 )
 
 type BusinessProcessor interface {

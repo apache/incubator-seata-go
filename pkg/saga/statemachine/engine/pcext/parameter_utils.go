@@ -19,14 +19,15 @@ package pcext
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/seata/seata-go/pkg/saga/statemachine/constant"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"github.com/seata/seata-go/pkg/saga/statemachine/engine/expr"
 	"github.com/seata/seata-go/pkg/saga/statemachine/process_ctrl"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang"
 	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
-	"strings"
-	"sync"
 )
 
 func CreateInputParams(processContext process_ctrl.ProcessContext, expressionResolver expr.ExpressionResolver,

@@ -18,9 +18,11 @@
 package parser
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 )
 
 func TestStateMachineConfigParser_Parse(t *testing.T) {
