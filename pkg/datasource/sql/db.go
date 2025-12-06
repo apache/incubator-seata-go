@@ -129,7 +129,9 @@ func (db *DBResource) init() {
 	conn, err := db.connector.Connect(ctx)
 	if err != nil {
 		log.Errorf("connect: %v", err)
+		return
 	}
+	defer conn.Close()
 	version, err := selectDBVersion(ctx, conn)
 	if err != nil {
 		log.Errorf("select db version: %v", err)
