@@ -45,31 +45,29 @@ type (
 
 // BaseTableMetaCache
 type BaseTableMetaCache struct {
-	lock           sync.RWMutex
-	expireDuration time.Duration
-	capity         int32
-	size           int32
-	cache          map[string]*entry
-	cancel         context.CancelFunc
-	trigger        trigger
-	db             *sql.DB
-	cfg            *mysql.Config
+	lock            sync.RWMutex
+	expireDuration  time.Duration
+	refreshInterval time.Duration
+	capity          int32
+	size            int32
+	cache           map[string]*entry
+	trigger         trigger
+	db              *sql.DB
+	cfg             *mysql.Config
 }
 
 // NewBaseCache
-func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
-	ctx, cancel := context.WithCancel(context.Background())
-
+func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
 	c := &BaseTableMetaCache{
-		lock:           sync.RWMutex{},
-		capity:         capity,
-		size:           0,
-		expireDuration: expireDuration,
-		cache:          map[string]*entry{},
-		cancel:         cancel,
-		trigger:        trigger,
-		cfg:            cfg,
-		db:             db,
+		lock:            sync.RWMutex{},
+		capity:          capity,
+		size:            0,
+		expireDuration:  expireDuration,
+		refreshInterval: time.Minute,
+		cache:           map[string]*entry{},
+		trigger:         trigger,
+		cfg:             cfg,
+		db:              db,
 	}
 
 	c.Init(ctx)
@@ -77,11 +75,10 @@ func NewBaseCache(capity int32, expireDuration time.Duration, trigger trigger, d
 	return c
 }
 
-// init
+// Init
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
-
 	return nil
 }
 
@@ -127,10 +124,15 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 
 	f()
 
-	ticker := time.NewTicker(time.Duration(1 * time.Minute))
+	ticker := time.NewTicker(c.refreshInterval)
 	defer ticker.Stop()
-	for range ticker.C {
-		f()
+	for {
+		select {
+		case <-ticker.C:
+			f()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -138,23 +140,27 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 	ticker := time.NewTicker(c.expireDuration)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-ticker.C:
+			f := func() {
+				c.lock.Lock()
+				defer c.lock.Unlock()
 
-		f := func() {
-			c.lock.Lock()
-			defer c.lock.Unlock()
+				cur := time.Now()
+				for k := range c.cache {
+					entry := c.cache[k]
 
-			cur := time.Now()
-			for k := range c.cache {
-				entry := c.cache[k]
-
-				if cur.Sub(entry.lastAccess) > c.expireDuration {
-					delete(c.cache, k)
+					if cur.Sub(entry.lastAccess) > c.expireDuration {
+						delete(c.cache, k)
+					}
 				}
 			}
-		}
 
-		f()
+			f()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -190,6 +196,5 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName
 }
 
 func (c *BaseTableMetaCache) Destroy() error {
-	c.cancel()
 	return nil
 }
