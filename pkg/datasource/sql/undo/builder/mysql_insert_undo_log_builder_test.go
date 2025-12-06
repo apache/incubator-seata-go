@@ -626,6 +626,36 @@ func TestMySQLInsertUndoLogBuilder_getPkIndex(t *testing.T) {
 				},
 			},
 			meta: types.TableMeta{}}, want: map[string]int{}},
+		{name: "test-backtick-wrapped-id", fields: fields{}, args: args{
+			InsertStmt: &ast.InsertStmt{
+				Columns: []*ast.ColumnName{
+					{
+						Name: model.CIStr{O: "`ID`", L: "id"},
+					},
+					{
+						Name: model.CIStr{O: "`NAME`", L: "name"},
+					},
+				},
+			},
+			meta: types.TableMeta{
+				ColumnNames: []string{"id"},
+				Columns: map[string]types.ColumnMeta{
+					"id": {
+						ColumnName: "id",
+					},
+				},
+				Indexs: map[string]types.IndexMeta{
+					"id": {
+						IType: types.IndexTypePrimaryKey,
+						Columns: []types.ColumnMeta{{
+							ColumnName: "id",
+						}},
+					},
+				},
+			},
+		}, want: map[string]int{
+			"id": 0,
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
