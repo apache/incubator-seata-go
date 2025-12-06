@@ -18,8 +18,9 @@
 package rm
 
 import (
-	"github.com/seata/seata-go/pkg/saga/statemachine/engine"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
 )
 
 var (

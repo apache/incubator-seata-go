@@ -20,8 +20,14 @@ package pcext
 import (
 	"context"
 	"errors"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	stateimpl "seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type StateHandler interface {
@@ -53,18 +59,29 @@ func NewStateMachineProcessHandler() *StateMachineProcessHandler {
 }
 
 func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
-	stateInstruction, _ := processContext.GetInstruction().(StateInstruction)
+	var stateInstruction *StateInstruction
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		stateInstruction = v
+	case StateInstruction:
+		tmp := v
+		stateInstruction = &tmp
+	default:
+		return errors.New("invalid state instruction from processContext")
+	}
 
 	state, err := stateInstruction.GetState(processContext)
 	if err != nil {
 		return err
 	}
 
+	// mark Fail end-state to influence final machine status decision
+	if state.Type() == constant.StateTypeFail {
+		processContext.SetVariable(constant.VarNameFailEndStateFlag, true)
+	}
+
 	stateType := state.Type()
 	stateHandler := s.GetStateHandler(stateType)
-	if stateHandler == nil {
-		return errors.New("Not support [" + stateType + "] state handler")
-	}
 
 	interceptAbleStateHandler, ok := stateHandler.(InterceptAbleStateHandler)
 
@@ -82,9 +99,61 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 		}
 	}
 
-	err = stateHandler.Process(ctx, processContext)
-	if err != nil {
-		return err
+	// Prepare current state instance in context before processing
+	smInst, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	if !ok || smInst == nil {
+		return errors.New("state machine instance not found in context")
+	}
+
+	stInst := statelang.NewStateInstanceImpl()
+	stInst.SetName(state.Name())
+	stInst.SetType(state.Type())
+	// If service task, enrich service attributes
+	if svc, ok := state.(*stateimpl.ServiceTaskStateImpl); ok {
+		stInst.SetServiceName(svc.ServiceName())
+		stInst.SetServiceMethod(svc.ServiceMethod())
+		stInst.SetServiceType(svc.ServiceType())
+		stInst.SetForUpdate(svc.ForUpdate())
+
+		// ensure mutex lock for parameter evaluation exists
+		if !processContext.HasVariable(constant.VarNameProcessContextMutexLock) {
+			processContext.SetVariable(constant.VarNameProcessContextMutexLock, &sync.Mutex{})
+		}
+		// if this is a compensation execution, mark the link to original state
+		if v := processContext.GetVariable("_compensate_for_state_id_"); v != nil {
+			if sid, ok := v.(string); ok && sid != "" {
+				stInst.SetStateIDCompensatedFor(sid)
+				// also add to holder's 'StatesForCompensation' for final status decision
+				holder := GetCurrentCompensationHolder(ctx, processContext, true)
+				holder.StatesForCompensation().Store(stInst.Name(), stInst)
+				// clear after consuming
+				processContext.RemoveVariable("_compensate_for_state_id_")
+			}
+		}
+
+		// evaluate input params from CEL expressions if any
+		if cfg, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig); ok {
+			var exprResolver expr.ExpressionResolver = cfg.ExpressionResolver()
+			// use all variables in process context for expression scope
+			variables := processContext.GetVariables()
+			inputParams := CreateInputParams(processContext, exprResolver, stInst, svc.AbstractTaskState, variables)
+			processContext.SetVariable(constant.VarNameInputParams, inputParams)
+		}
+	}
+	// Assign a temporary ID key for list/map tracking
+	tmpId := state.Name()
+	if tmpId == "" {
+		tmpId = "state"
+	}
+	smInst.PutState(tmpId, stInst)
+	processContext.SetVariable(constant.VarNameStateInst, stInst)
+
+	// Execute handler when present; end states don't require a handler
+	if stateHandler != nil {
+		err = stateHandler.Process(ctx, processContext)
+		if err != nil {
+			return err
+		}
 	}
 
 	if stateHandlerInterceptorList != nil && len(stateHandlerInterceptorList) > 0 {
@@ -93,6 +162,19 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	// Set execution result on state instance
+	if ex, _ := processContext.GetVariable(constant.VarNameCurrentException).(error); ex != nil {
+		stInst.SetStatus(statelang.FA)
+		stInst.SetError(ex)
+	} else {
+		// For Fail end state, mark FA; otherwise mark SU
+		if stateType == constant.StateTypeFail {
+			stInst.SetStatus(statelang.FA)
+		} else {
+			stInst.SetStatus(statelang.SU)
 		}
 	}
 

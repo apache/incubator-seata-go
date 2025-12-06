@@ -19,6 +19,7 @@ package state
 
 import (
 	"github.com/google/uuid"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 )
 

@@ -19,8 +19,10 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/store/db"
 )
 
@@ -41,8 +44,10 @@ func prepareDB() {
 	oncePrepareDB.Do(func() {
 		var err error
 		testdb, err = sql.Open("sqlite3", ":memory:")
-		query_, err := os.ReadFile("../../../../../testdata/sql/saga/sqlite_init.sql")
-		initScript := string(query_)
+		if err != nil {
+			panic(err)
+		}
+		initScript, err := readInitSQL()
 		if err != nil {
 			panic(err)
 		}
@@ -52,9 +57,48 @@ func prepareDB() {
 	})
 }
 
+func readInitSQL() (string, error) {
+	return readTestFile("testdata/sql/saga/sqlite_init.sql")
+}
+
 func loadStateMachineByYaml() string {
-	query, _ := os.ReadFile("../../../../../testdata/saga/statelang/simple_statemachine.json")
-	return string(query)
+	path, err := locateTestFile("testdata/saga/statelang/simple_statemachine.json")
+	if err != nil {
+		panic(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
+func readTestFile(rel string) (string, error) {
+	path, err := locateTestFile(rel)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func locateTestFile(rel string) (string, error) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	base := filepath.Dir(thisFile)
+	candidates := []string{
+		filepath.Join(base, rel),
+		filepath.Join(base, "../../../../../", rel),
+		filepath.Join(base, "../../../../../../", rel),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c, nil
+		}
+	}
+	return "", fmt.Errorf("test file not found: %s (checked %v)", rel, candidates)
 }
 
 func TestStateMachineInMemory(t *testing.T) {

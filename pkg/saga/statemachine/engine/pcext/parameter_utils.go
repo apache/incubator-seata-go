@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"fmt"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"strings"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
-func CreateInputParams(processContext ProcessContext, expressionResolver expr.ExpressionResolver,
+func CreateInputParams(processContext process_ctrl.ProcessContext, expressionResolver expr.ExpressionResolver,
 	stateInstance *statelang.StateInstanceImpl, serviceTaskState *state.AbstractTaskState, variablesFrom any) []any {
 	inputAssignments := serviceTaskState.Input()
 	if inputAssignments == nil || len(inputAssignments) == 0 {
@@ -58,7 +61,7 @@ func CreateInputParams(processContext ProcessContext, expressionResolver expr.Ex
 	return inputValues
 }
 
-func CreateOutputParams(config StateMachineConfig, expressionResolver expr.ExpressionResolver,
+func CreateOutputParams(config engine.StateMachineConfig, expressionResolver expr.ExpressionResolver,
 	serviceTaskState *state.AbstractTaskState, variablesFrom any) (map[string]any, error) {
 	outputAssignments := serviceTaskState.Output()
 	if outputAssignments == nil || len(outputAssignments) == 0 {

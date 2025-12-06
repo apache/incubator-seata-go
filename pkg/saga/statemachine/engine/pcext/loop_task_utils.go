@@ -15,38 +15,59 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-func GetLoopConfig(ctx context.Context, processContext ProcessContext, currentState statelang.State) state.Loop {
-	if matchLoop(currentState) {
-		taskState := currentState.(state.AbstractTaskState)
-		stateMachineInstance := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
-		stateMachineConfig := processContext.GetVariable(constant.VarNameStateMachineConfig).(StateMachineConfig)
-
-		if taskState.Loop() != nil {
-			loop := taskState.Loop()
-			collectionName := loop.Collection()
-			if collectionName != "" {
-				expression := CreateValueExpression(stateMachineConfig.ExpressionResolver(), collectionName)
-				collection := GetValue(expression, stateMachineInstance.Context(), nil)
-				collectionList := collection.([]any)
-				if len(collectionList) > 0 {
-					current := GetCurrentLoopContextHolder(ctx, processContext, true)
-					current.SetCollection(collection)
-					return loop
-				}
-			}
-			log.Warn("State [{}] loop collection param [{}] invalid", currentState.Name(), collectionName)
+func GetLoopConfig(ctx context.Context, processContext process_ctrl.ProcessContext, currentState statelang.State) state.Loop {
+	if !matchLoop(currentState) {
+		return nil
+	}
+	// Extract underlying AbstractTaskState pointer safely
+	var task *state.AbstractTaskState
+	switch s := currentState.(type) {
+	case *state.ServiceTaskStateImpl:
+		task = s.AbstractTaskState
+	case *state.ScriptTaskStateImpl:
+		task = s.AbstractTaskState
+	case *state.SubStateMachineImpl:
+		if s.ServiceTaskStateImpl != nil {
+			task = s.ServiceTaskStateImpl.AbstractTaskState
 		}
+	default:
+		return nil
+	}
+	if task == nil || task.Loop() == nil {
+		return nil
+	}
 
+	loop := task.Loop()
+	collectionName := loop.Collection()
+	if collectionName == "" {
+		return nil
+	}
+
+	stateMachineInstance := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	stateMachineConfig := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
+	expression := CreateValueExpression(stateMachineConfig.ExpressionResolver(), collectionName)
+	collection := GetValue(expression, stateMachineInstance.Context(), nil)
+	if collection == nil {
+		log.Warn("State [{}] loop collection param [{}] invalid", currentState.Name(), collectionName)
+		return nil
+	}
+	if collectionList, ok := collection.([]any); ok && len(collectionList) > 0 {
+		current := GetCurrentLoopContextHolder(ctx, processContext, true)
+		current.SetCollection(collection)
+		return loop
 	}
 	return nil
 }

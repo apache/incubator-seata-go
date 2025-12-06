@@ -20,7 +20,9 @@ package process_ctrl
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/pkg/util/collection"
 	"seata.apache.org/seata-go/pkg/util/log"
@@ -74,7 +76,15 @@ func (d DirectEventBus) Offer(ctx context.Context, event Event) (bool, error) {
 		return false, nil
 	}
 
-	stack := processContext.GetVariable(constant.VarNameSyncExeStack).(*collection.Stack)
+	// Get or initialize execution stack from process context
+	var stack *collection.Stack
+	if v := processContext.GetVariable(constant.VarNameSyncExeStack); v != nil {
+		if s, ok := v.(*collection.Stack); ok {
+			stack = s
+			// Existing stack means we're in a nested offer; not the first event
+			isFirstEvent = false
+		}
+	}
 	if stack == nil {
 		stack = collection.NewStack()
 		processContext.SetVariable(constant.VarNameSyncExeStack, stack)

@@ -19,36 +19,35 @@ package repository
 
 import (
 	"context"
-	"database/sql"
+	"sync"
+
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/store/db"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store"
 )
 
 var (
-	stateLogRepositoryImpl *StateLogRepositoryImpl
+	stateLogRepositoryImpl     *StateLogRepositoryImpl
+	onceStateLogRepositoryImpl sync.Once
 )
 
 type StateLogRepositoryImpl struct {
-	stateLogStore *db.StateLogStore
+	stateLogStore store.StateLogStore
 }
 
-func NewStateLogRepositoryImpl(hsqldb *sql.DB, tablePrefix string) *StateLogRepositoryImpl {
-	if stateLogRepositoryImpl == nil {
-		stateLogRepositoryImpl = &StateLogRepositoryImpl{
-			stateLogStore: db.NewStateLogStore(hsqldb, tablePrefix),
-		}
-	}
-
+func NewStateLogRepositoryImpl() *StateLogRepositoryImpl {
+	onceStateLogRepositoryImpl.Do(func() {
+		stateLogRepositoryImpl = &StateLogRepositoryImpl{}
+	})
 	return stateLogRepositoryImpl
 }
 
 func (s *StateLogRepositoryImpl) RecordStateMachineStarted(
 	ctx context.Context,
 	machineInstance statelang.StateMachineInstance,
-	processContext core.ProcessContext,
+	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
 		return errors.New("stateLogStore is not initialized")
@@ -59,7 +58,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineStarted(
 func (s *StateLogRepositoryImpl) RecordStateMachineFinished(
 	ctx context.Context,
 	machineInstance statelang.StateMachineInstance,
-	processContext core.ProcessContext,
+	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
 		return errors.New("stateLogStore is not initialized")
@@ -70,7 +69,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineFinished(
 func (s *StateLogRepositoryImpl) RecordStateMachineRestarted(
 	ctx context.Context,
 	machineInstance statelang.StateMachineInstance,
-	processContext core.ProcessContext,
+	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
 		return errors.New("stateLogStore is not initialized")
@@ -81,7 +80,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineRestarted(
 func (s *StateLogRepositoryImpl) RecordStateStarted(
 	ctx context.Context,
 	stateInstance statelang.StateInstance,
-	processContext core.ProcessContext,
+	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
 		return errors.New("stateLogStore is not initialized")
@@ -92,7 +91,7 @@ func (s *StateLogRepositoryImpl) RecordStateStarted(
 func (s *StateLogRepositoryImpl) RecordStateFinished(
 	ctx context.Context,
 	stateInstance statelang.StateInstance,
-	processContext core.ProcessContext,
+	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
 		return errors.New("stateLogStore is not initialized")
@@ -135,6 +134,6 @@ func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMa
 	return s.stateLogStore.GetStateInstanceListByMachineInstanceId(stateMachineInstanceId)
 }
 
-func (s *StateLogRepositoryImpl) SetStateLogStore(stateLogStore *db.StateLogStore) {
+func (s *StateLogRepositoryImpl) SetStateLogStore(stateLogStore store.StateLogStore) {
 	s.stateLogStore = stateLogStore
 }

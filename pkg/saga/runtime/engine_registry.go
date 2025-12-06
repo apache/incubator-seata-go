@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package engine
+package runtime
 
 import (
 	"context"
+	"sync"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )
 
-type StatusDecisionStrategy interface {
-	// DecideOnEndState Determine state machine execution status when executing to EndState
-	DecideOnEndState(ctx context.Context, processContext process_ctrl.ProcessContext,
-		stateMachineInstance statelang.StateMachineInstance, exp error) error
-	// DecideOnTaskStateFail Determine state machine execution status when executing TaskState error
-	DecideOnTaskStateFail(ctx context.Context, processContext process_ctrl.ProcessContext,
-		stateMachineInstance statelang.StateMachineInstance, exp error) error
-	// DecideMachineForwardExecutionStatus Determine the forward execution state of the state machine
-	DecideMachineForwardExecutionStatus(ctx context.Context,
-		stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error
+// Engine is a minimal facade for state machine operations needed by Saga RM
+type Engine interface {
+	Forward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
+	ReloadStateMachineInstance(ctx context.Context, instId string) (statelang.StateMachineInstance, error)
+}
+
+var (
+	mu        sync.RWMutex
+	engineRef Engine
+)
+
+func SetEngine(e Engine) {
+	mu.Lock()
+	engineRef = e
+	mu.Unlock()
+}
+
+func GetEngine() Engine {
+	mu.RLock()
+	e := engineRef
+	mu.RUnlock()
+	return e
 }

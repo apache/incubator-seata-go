@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package core
+package engine
 
 import (
 	"context"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )
 
@@ -53,6 +55,6 @@ type StateMachineEngine interface {
 }
 
 type CallBack interface {
-	OnFinished(ctx context.Context, context ProcessContext, stateMachineInstance statelang.StateMachineInstance)
-	OnError(ctx context.Context, context ProcessContext, stateMachineInstance statelang.StateMachineInstance, err error)
+	OnFinished(ctx context.Context, context process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance)
+	OnError(ctx context.Context, context process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance, err error)
 }

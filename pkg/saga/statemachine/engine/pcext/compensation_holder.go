@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
+	"sync"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/pkg/util/collection"
-	"sync"
 )
 
 type CompensationHolder struct {
@@ -67,14 +69,24 @@ func NewCompensationHolder() *CompensationHolder {
 	}
 }
 
-func GetCurrentCompensationHolder(ctx context.Context, processContext ProcessContext, forceCreate bool) *CompensationHolder {
-	compensationholder := processContext.GetVariable(constant.VarNameCurrentCompensationHolder).(*CompensationHolder)
-	lock := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
+func GetCurrentCompensationHolder(ctx context.Context, processContext process_ctrl.ProcessContext, forceCreate bool) *CompensationHolder {
+	var holder *CompensationHolder
+	if v := processContext.GetVariable(constant.VarNameCurrentCompensationHolder); v != nil {
+		if h, ok := v.(*CompensationHolder); ok {
+			holder = h
+		}
+	}
+	// ensure context mutex exists
+	lock, _ := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
+	if lock == nil {
+		lock = &sync.Mutex{}
+		processContext.SetVariable(constant.VarNameProcessContextMutexLock, lock)
+	}
 	lock.Lock()
 	defer lock.Unlock()
-	if compensationholder == nil && forceCreate {
-		compensationholder = NewCompensationHolder()
-		processContext.SetVariable(constant.VarNameCurrentCompensationHolder, compensationholder)
+	if holder == nil && forceCreate {
+		holder = NewCompensationHolder()
+		processContext.SetVariable(constant.VarNameCurrentCompensationHolder, holder)
 	}
-	return compensationholder
+	return holder
 }

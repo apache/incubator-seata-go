@@ -18,10 +18,12 @@
 package db
 
 import (
-	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 
 	_ "github.com/mattn/go-sqlite3"
 )

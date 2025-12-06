@@ -71,6 +71,14 @@ func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
 	return stateMachineRepositoryImpl
 }
 
+func (s *StateMachineRepositoryImpl) SetDefaultTenantId(tenantId string) {
+	s.defaultTenantId = tenantId
+}
+
+func (s *StateMachineRepositoryImpl) GetDefaultTenantId() string {
+	return s.defaultTenantId
+}
+
 func (s *StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (statelang.StateMachine, error) {
 	stateMachine := s.stateMachineMapById[stateMachineId]
 	if stateMachine == nil && s.stateLangStore != nil {
@@ -82,6 +90,9 @@ func (s *StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) 
 			oldStateMachine, err := s.stateLangStore.GetStateMachineById(stateMachineId)
 			if err != nil {
 				return oldStateMachine, err
+			}
+			if oldStateMachine == nil {
+				return nil, nil
 			}
 
 			parseStatMachine, err := parser.NewJSONStateMachineParser().Parse(oldStateMachine.Content())
@@ -126,6 +137,9 @@ func (s *StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName
 			if err != nil {
 				return oldStateMachine, err
 			}
+			if oldStateMachine == nil {
+				return nil, nil
+			}
 
 			parseStatMachine, err := parser.NewJSONStateMachineParser().Parse(oldStateMachine.Content())
 			if err != nil {
@@ -148,6 +162,10 @@ func (s *StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName
 func (s *StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.StateMachine) error {
 	stateMachineName := machine.Name()
 	tenantId := machine.TenantId()
+	if tenantId == "" && s.defaultTenantId != "" {
+		machine.SetTenantId(s.defaultTenantId)
+		tenantId = s.defaultTenantId
+	}
 
 	if s.stateLangStore != nil {
 		oldStateMachine, err := s.stateLangStore.GetLastVersionStateMachine(stateMachineName, tenantId)
@@ -226,14 +244,6 @@ func (s *StateMachineRepositoryImpl) SetCharset(charset string) {
 
 func (s *StateMachineRepositoryImpl) GetCharset() string {
 	return s.charset
-}
-
-func (s *StateMachineRepositoryImpl) SetDefaultTenantId(defaultTenantId string) {
-	s.defaultTenantId = defaultTenantId
-}
-
-func (s *StateMachineRepositoryImpl) GetDefaultTenantId() string {
-	return s.defaultTenantId
 }
 
 func (s *StateMachineRepositoryImpl) SetJsonParserName(jsonParserName string) {

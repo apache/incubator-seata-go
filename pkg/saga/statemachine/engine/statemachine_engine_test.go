@@ -15,19 +15,35 @@
  * limitations under the License.
  */
 
-package engine
+package engine_test
 
 import (
 	"context"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
 	"testing"
+
+	enginepkg "seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
 )
 
-func TestEngine(t *testing.T) {
-
+func TestProcessCtrlEngineInitializes(t *testing.T) {
+	eng, err := core.NewProcessCtrlStateMachineEngine()
+	if err != nil {
+		t.Fatalf("unexpected init error: %v", err)
+	}
+	if eng.GetStateMachineConfig() == nil {
+		t.Fatalf("state machine config should not be nil")
+	}
+	if _, ok := interface{}(eng).(enginepkg.StateMachineEngine); !ok {
+		t.Fatalf("ProcessCtrlStateMachineEngine should satisfy engine.StateMachineEngine")
+	}
 }
 
-func TestSimpleStateMachine(t *testing.T) {
-	engine := core.NewProcessCtrlStateMachineEngine()
-	engine.Start(context.Background(), "simpleStateMachine", "tenantId", nil)
+func TestProcessCtrlEngineStartMissingDefinitionFails(t *testing.T) {
+	eng, err := core.NewProcessCtrlStateMachineEngine()
+	if err != nil {
+		t.Fatalf("unexpected init error: %v", err)
+	}
+	if _, err = eng.Start(context.Background(), "undefined", "", nil); err == nil {
+		t.Fatalf("expected error when starting undefined state machine")
+	}
 }

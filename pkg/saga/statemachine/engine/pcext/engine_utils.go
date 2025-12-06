@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package core
+package pcext
 
 import (
 	"context"
 	"errors"
-	"golang.org/x/sync/semaphore"
 	"reflect"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
-	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/semaphore"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/pkg/util/log"
 )
 
-func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
+func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
 	if processContext.HasVariable(constant.VarNameIsLoopState) {
 		if processContext.HasVariable(constant.LoopSemaphore) {
 			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(semaphore.Weighted)
@@ -49,9 +53,13 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 
 	stateMachineInstance.SetEndTime(time.Now())
 
-	exp, ok := processContext.GetVariable(constant.VarNameCurrentException).(error)
-	if !ok {
-		return errors.New("exception type is not error")
+	var exp error
+	if v := processContext.GetVariable(constant.VarNameCurrentException); v != nil {
+		ev, ok := v.(error)
+		if !ok {
+			return errors.New("exception type is not error")
+		}
+		exp = ev
 	}
 
 	if exp != nil {
@@ -59,10 +67,43 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 		log.Debugf("Exception Occurred: %s", exp)
 	}
 
-	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(StateMachineConfig)
+	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 
 	if err := stateMachineConfig.StatusDecisionStrategy().DecideOnEndState(ctx, processContext, stateMachineInstance, exp); err != nil {
 		return err
+	}
+
+	// Reconcile compensation status using executed compensation states to align with Java semantics
+	// If there are compensation states and all succeeded, override to SU. If any failed/unknown, mark UN.
+	// This guards against edge cases where holder/stack visibility causes FA.
+	compSeen := false
+	compAllSU := true
+	for _, si := range stateMachineInstance.StateList() {
+		if si.StateIDCompensatedFor() != "" {
+			compSeen = true
+			if si.Status() != statelang.SU {
+				compAllSU = false
+				break
+			}
+		}
+	}
+	if compSeen {
+		if compAllSU {
+			log.Debugf("All compensation states SU, overriding machine compensation_status to SU for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.SU)
+			// In Java semantics, compensation success with Fail end yields final machine status FA
+			stateMachineInstance.SetStatus(statelang.FA)
+		} else if stateMachineInstance.CompensationStatus() == "" || stateMachineInstance.CompensationStatus() == statelang.RU {
+			log.Debugf("Compensation states contain non-SU, marking compensation_status UN for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.UN)
+		}
+	} else {
+		log.Debugf("No compensation states observed for machine [%s]", stateMachineInstance.ID())
+		if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+			// Fail end without compensation: normalize to status=FA, empty compensation_status
+			stateMachineInstance.SetCompensationStatus("")
+			stateMachineInstance.SetStatus(statelang.FA)
+		}
 	}
 
 	contextParams, ok := processContext.GetVariable(constant.VarNameStateMachineContext).(map[string]interface{})
@@ -75,11 +116,16 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 	}
 	stateMachineInstance.SetEndParams(endParams)
 
-	stateInstruction, ok := processContext.GetInstruction().(StateInstruction)
-	if !ok {
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		v.SetEnd(true)
+	case StateInstruction:
+		tmp := v
+		tmp.SetEnd(true)
+		processContext.SetInstruction(&tmp)
+	default:
 		return errors.New("state instruction type is not process_ctrl.StateInstruction")
 	}
-	stateInstruction.SetEnd(true)
 
 	stateMachineInstance.SetRunning(false)
 	stateMachineInstance.SetEndTime(time.Now())
@@ -91,7 +137,7 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 		}
 	}
 
-	callBack, ok := processContext.GetVariable(constant.VarNameAsyncCallback).(CallBack)
+	callBack, ok := processContext.GetVariable(constant.VarNameAsyncCallback).(engine.CallBack)
 	if ok {
 		if exp != nil {
 			callBack.OnError(ctx, processContext, stateMachineInstance, exp)
@@ -103,7 +149,7 @@ func EndStateMachine(ctx context.Context, processContext ProcessContext) error {
 	return nil
 }
 
-func HandleException(processContext ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
+func HandleException(processContext process_ctrl.ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
 	catches := abstractTaskState.Catches()
 	if catches != nil && len(catches) != 0 {
 		for _, exceptionMatch := range catches {
@@ -127,7 +173,7 @@ func HandleException(processContext ProcessContext, abstractTaskState *state.Abs
 				if reflect.TypeOf(err) == exceptionTypes[i] {
 					// HACK: we can not get error type in config file during runtime, so we use exception str
 					if strings.Contains(err.Error(), exceptions[i]) {
-						hierarchicalProcessContext := processContext.(HierarchicalProcessContext)
+						hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
 						hierarchicalProcessContext.SetVariable(constant.VarNameCurrentExceptionRoute, exceptionMatch.Next())
 						return
 					}
@@ -137,7 +183,7 @@ func HandleException(processContext ProcessContext, abstractTaskState *state.Abs
 	}
 
 	log.Error("Task execution failed and no catches configured")
-	hierarchicalProcessContext := processContext.(HierarchicalProcessContext)
+	hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
 	hierarchicalProcessContext.SetVariable(constant.VarNameIsExceptionNotCatch, true)
 }
 

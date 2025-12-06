@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl/process"
 )

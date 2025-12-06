@@ -29,7 +29,7 @@ require (
 	golang.org/x/sync v0.11.0
 	google.golang.org/grpc v1.57.0
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 )
 
@@ -41,7 +41,10 @@ require (
 	google.golang.org/protobuf v1.31.0
 )
 
-require github.com/knadh/koanf v1.5.0
+require (
+	github.com/knadh/koanf v1.5.0
+	github.com/robertkrimen/otto v0.5.1
+)
 
 require (
 	github.com/RoaringBitmap/roaring v1.2.0 // indirect
@@ -102,6 +105,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
 
 require (

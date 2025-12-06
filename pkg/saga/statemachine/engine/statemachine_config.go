@@ -15,26 +15,29 @@
  * limitations under the License.
  */
 
-package core
+package engine
 
 import (
 	"sync"
 
 	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/repo"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store"
 )
 
 type StateMachineConfig interface {
-	StateLogRepository() StateLogRepository
+	StateLogRepository() repo.StateLogRepository
 
-	StateMachineRepository() StateMachineRepository
+	StateMachineRepository() repo.StateMachineRepository
 
-	StateLogStore() StateLogStore
+	StateLogStore() store.StateLogStore
 
-	StateLangStore() StateLangStore
+	StateLangStore() store.StateLangStore
 
-	ExpressionFactoryManager() expr.ExpressionFactoryManager
+	ExpressionFactoryManager() *expr.ExpressionFactoryManager
 
 	ExpressionResolver() expr.ExpressionResolver
 
@@ -42,9 +45,11 @@ type StateMachineConfig interface {
 
 	StatusDecisionStrategy() StatusDecisionStrategy
 
-	EventPublisher() EventPublisher
+	EventPublisher() process_ctrl.EventPublisher
 
-	AsyncEventPublisher() EventPublisher
+	AsyncEventPublisher() process_ctrl.EventPublisher
+
+	EnableAsync() bool
 
 	ServiceInvokerManager() invoker.ServiceInvokerManager
 
@@ -52,11 +57,25 @@ type StateMachineConfig interface {
 
 	CharSet() string
 
-	DefaultTenantId() string
+	GetDefaultTenantId() string
 
-	TransOperationTimeout() int
+	GetTransOperationTimeout() int
 
-	ServiceInvokeTimeout() int
+	GetServiceInvokeTimeout() int
+
+	IsSagaBranchRegisterEnable() bool
+
+	IsRmReportSuccessEnable() bool
 
 	ComponentLock() *sync.Mutex
+
+	RegisterStateMachineDef(resources []string) error
+
+	RegisterExpressionFactory(expressionType string, factory expr.ExpressionFactory)
+
+	RegisterServiceInvoker(serviceType string, invoker invoker.ServiceInvoker)
+
+	GetExpressionFactory(expressionType string) expr.ExpressionFactory
+
+	GetServiceInvoker(serviceType string) (invoker.ServiceInvoker, error)
 }

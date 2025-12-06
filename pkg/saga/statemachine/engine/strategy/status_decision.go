@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package core
+package strategy
 
 import (
 	"context"
@@ -23,21 +23,11 @@ import (
 
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/pcext"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
-
-type StatusDecisionStrategy interface {
-	// DecideOnEndState Determine state machine execution status when executing to EndState
-	DecideOnEndState(ctx context.Context, processContext ProcessContext,
-		stateMachineInstance statelang.StateMachineInstance, exp error) error
-	// DecideOnTaskStateFail Determine state machine execution status when executing TaskState error
-	DecideOnTaskStateFail(ctx context.Context, processContext ProcessContext,
-		stateMachineInstance statelang.StateMachineInstance, exp error) error
-	// DecideMachineForwardExecutionStatus Determine the forward execution state of the state machine
-	DecideMachineForwardExecutionStatus(ctx context.Context,
-		stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error
-}
 
 type DefaultStatusDecisionStrategy struct {
 }
@@ -46,12 +36,32 @@ func NewDefaultStatusDecisionStrategy() *DefaultStatusDecisionStrategy {
 	return &DefaultStatusDecisionStrategy{}
 }
 
-func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, processContext ProcessContext,
+func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, processContext process_ctrl.ProcessContext,
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
 	if statelang.RU == stateMachineInstance.CompensationStatus() {
-		compensationHolder := GetCurrentCompensationHolder(ctx, processContext, true)
+		compensationHolder := pcext.GetCurrentCompensationHolder(ctx, processContext, true)
+		// special-case: entered compensation but no compensations to execute
+		if v, ok := processContext.GetVariable(constant.VarNameNoCompensation).(bool); ok && v {
+			// If end is Fail, align semantics to FA with empty compensation_status
+			if fe, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && fe {
+				stateMachineInstance.SetStatus(statelang.FA)
+				stateMachineInstance.SetCompensationStatus("")
+				return nil
+			}
+		}
 		if err := decideMachineCompensateStatus(ctx, stateMachineInstance, compensationHolder); err != nil {
 			return err
+		}
+		// If no compensation executed (no states and empty stack) and end is Fail, normalize to FA + empty compStatus
+		if compensationHolder.StateStackNeedCompensation().Empty() {
+			empty := true
+			compensationHolder.StatesForCompensation().Range(func(key, value any) bool { empty = false; return true })
+			if empty {
+				if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+					stateMachineInstance.SetStatus(statelang.FA)
+					stateMachineInstance.SetCompensationStatus("")
+				}
+			}
 		}
 	} else {
 		failEndStateFlag, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool)
@@ -72,10 +82,17 @@ func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, pro
 		stateMachineInstance.ID(), stateMachineInstance.StateMachine().Name(),
 		stateMachineInstance.Status(), stateMachineInstance.CompensationStatus())
 
+	// If ended via Fail state, normalize final machine status to FA (Java semantics)
+	if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+		if stateMachineInstance.Status() != statelang.FA {
+			stateMachineInstance.SetStatus(statelang.FA)
+		}
+	}
+
 	return nil
 }
 
-func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance statelang.StateMachineInstance, compensationHolder *CompensationHolder) error {
+func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance statelang.StateMachineInstance, compensationHolder *pcext.CompensationHolder) error {
 	if stateMachineInstance.Status() == "" || statelang.RU == stateMachineInstance.Status() {
 		stateMachineInstance.SetStatus(statelang.UN)
 	}
@@ -212,7 +229,7 @@ func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachin
 		return
 	}
 
-	netType := GetNetExceptionType(exp)
+	netType := pcext.GetNetExceptionType(exp)
 	switch netType {
 	case constant.ConnectException, constant.ConnectTimeoutException, constant.NotNetException:
 		log.Warnf("Detected network connect issue, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
@@ -228,7 +245,7 @@ func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachin
 	}
 }
 
-func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext ProcessContext,
+func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext process_ctrl.ProcessContext,
 	stateMachineInstance statelang.StateMachineInstance, exp error) error {
 
 	log.Debugf("Starting DecideOnTaskStateFail for StateMachineInstance[id:%s]", stateMachineInstance.ID())

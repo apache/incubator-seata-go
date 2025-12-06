@@ -20,9 +20,10 @@ package invoker
 import (
 	"context"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 	"reflect"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
 type LocalServiceInvoker struct {
@@ -104,39 +105,43 @@ func (l *LocalServiceInvoker) getMethod(serviceName, methodName string, paramTyp
 }
 
 func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.Type) ([]reflect.Value, error) {
-	numIn := methodType.NumIn()
-	paramStart, paramCount := 1, 0
-
-	if numIn > 0 {
-		paramCount = numIn - paramStart
+	argTotal := methodType.NumIn()
+	if argTotal == 0 {
+		return nil, nil
 	}
 
-	if paramCount == 0 {
-		if len(input) > 0 {
-			return nil, fmt.Errorf("unexpected parameters: expected 0, got %d", len(input))
+	argCount := argTotal - 1 // skip receiver
+	if argCount <= 0 {
+		return nil, nil
+	}
+
+	params := make([]reflect.Value, argCount)
+	for i := 0; i < argCount; i++ {
+		paramType := methodType.In(i + 1)
+		if i >= len(input) {
+			params[i] = reflect.Zero(paramType)
+			continue
 		}
-		return []reflect.Value{}, nil
-	}
-
-	if len(input) < paramCount {
-		return nil, fmt.Errorf("insufficient parameters: expected %d, got %d", paramCount, len(input))
-	}
-
-	if len(input) > paramCount {
-		return nil, fmt.Errorf("too many parameters: expected %d, got %d", paramCount, len(input))
-	}
-
-	params := make([]reflect.Value, paramCount)
-	for i := 0; i < paramCount; i++ {
-		methodParamIndex := i + paramStart
-		paramType := methodType.In(methodParamIndex)
 
 		converted, err := l.convertParam(input[i], paramType)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %d conversion error: %w", i, err)
 		}
 
-		params[i] = reflect.ValueOf(converted)
+		val := reflect.ValueOf(converted)
+		if !val.IsValid() {
+			params[i] = reflect.Zero(paramType)
+			continue
+		}
+		if val.Type().AssignableTo(paramType) {
+			params[i] = val
+			continue
+		}
+		if val.Type().ConvertibleTo(paramType) {
+			params[i] = val.Convert(paramType)
+			continue
+		}
+		params[i] = reflect.Zero(paramType)
 	}
 
 	return params, nil

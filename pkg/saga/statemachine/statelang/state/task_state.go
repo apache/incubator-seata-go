@@ -19,6 +19,7 @@ package state
 
 import (
 	"reflect"
+
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"testing"
 
-	pkgerr "github.com/seata/seata-go/pkg/util/errors"
+	pkgerr "seata.apache.org/seata-go/pkg/util/errors"
 )
 
 func TestIsEngineExecutionException(t *testing.T) {
