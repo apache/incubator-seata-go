@@ -20,8 +20,9 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 	"testing"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
 
 	"github.com/stretchr/testify/assert"
 

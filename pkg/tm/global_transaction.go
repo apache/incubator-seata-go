@@ -107,7 +107,14 @@ func (g *GlobalTransactionManager) Commit(ctx context.Context, gtr *GlobalTransa
 	}
 
 	if err != nil || bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
+		lastErr := err
+		if bf.Err() != nil {
+			if lastErr != nil {
+				lastErr = errors.Wrap(lastErr, bf.Err().Error())
+			} else {
+				lastErr = errors.New(bf.Err().Error())
+			}
+		}
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}
@@ -148,8 +155,15 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 		bf.Wait()
 	}
 
-	if err != nil && bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
+	if err != nil || bf.Err() != nil {
+		lastErr := err
+		if bf.Err() != nil {
+			if lastErr != nil {
+				lastErr = errors.Wrap(lastErr, bf.Err().Error())
+			} else {
+				lastErr = errors.New(bf.Err().Error())
+			}
+		}
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
 		return lastErr
 	}
@@ -158,6 +172,31 @@ func (g *GlobalTransactionManager) Rollback(ctx context.Context, gtr *GlobalTran
 	gtr.TxStatus = res.(message.GlobalRollbackResponse).GlobalStatus
 
 	return nil
+}
+
+// GlobalReport Global report.
+func (g *GlobalTransactionManager) GlobalReport(ctx context.Context, gtr *GlobalTransaction) (message.GlobalStatus, error) {
+	if gtr.Xid == "" {
+		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReport xid should not be empty")
+	}
+
+	req := message.GlobalReportRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
+			Xid: gtr.Xid,
+		},
+		GlobalStatus: gtr.TxStatus,
+	}
+	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	if err != nil {
+		log.Errorf("GlobalBeginRequest  error %v", err)
+		return message.GlobalStatusUnKnown, err
+	}
+	if res == nil || res.(message.GlobalReportResponse).ResultCode == message.ResultCodeFailed {
+		log.Errorf("GlobalReportRequest result is empty or result code is failed, res %v", res)
+		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReportRequest result is empty or result code is failed.")
+	}
+	log.Infof("GlobalReportRequest success, res %v", res)
+	return res.(message.GlobalReportResponse).GlobalStatus, nil
 }
 
 func isTimeout(ctx context.Context) bool {

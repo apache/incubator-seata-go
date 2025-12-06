@@ -101,5 +101,21 @@ const (
 	// FencePhaseError have fence phase but is not illegal value
 	FencePhaseError
 
+	// SQLUndoDirtyError sql undo dirty data error
 	SQLUndoDirtyError
+
+	// ObjectNotExists object not exists
+	ObjectNotExists
+	// StateMachineInstanceNotExists State machine instance not exists
+	StateMachineInstanceNotExists
+	// ContextVariableReplayFailed Context variable replay failed
+	ContextVariableReplayFailed
+	// InvalidParameter Context variable replay failed
+	InvalidParameter
+	// OperationDenied Operation denied
+	OperationDenied
+	// ForwardInvalid Forward invalid
+	ForwardInvalid
+	// AsynchronousStartDisabled Async start is disabled in configuration
+	AsynchronousStartDisabled
 )

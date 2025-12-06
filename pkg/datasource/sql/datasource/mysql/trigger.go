@@ -32,6 +32,11 @@ import (
 type mysqlTrigger struct {
 }
 
+var (
+	getColumnMetasFn = (*mysqlTrigger).getColumnMetas
+	getIndexesFn     = (*mysqlTrigger).getIndexes
+)
+
 func NewMysqlTrigger() *mysqlTrigger {
 	return &mysqlTrigger{}
 }
@@ -44,7 +49,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 		Indexs:    make(map[string]types.IndexMeta),
 	}
 
-	columnMetas, err := m.getColumnMetas(ctx, dbName, tableName, conn)
+	columnMetas, err := getColumnMetasFn(m, ctx, dbName, tableName, conn)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not found any columnMeta in the table: %s", tableName)
 	}
@@ -56,7 +61,7 @@ func (m *mysqlTrigger) LoadOne(ctx context.Context, dbName string, tableName str
 	}
 	tableMeta.ColumnNames = columns
 
-	indexes, err := m.getIndexes(ctx, dbName, tableName, conn)
+	indexes, err := getIndexesFn(m, ctx, dbName, tableName, conn)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not found any index in the table: %s", tableName)
 	}
