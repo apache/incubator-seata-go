@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         ## 👋 Thank you for your feedback!
-        
+
         Please fill out the following information to help us understand and resolve the issue.
 
   - type: checkboxes
@@ -18,6 +18,8 @@ body:
       options:
         - label: "🔍 I have searched the [existing issues](https://github.com/apache/incubator-seata-go/issues) and confirmed this is not a duplicate"
           required: true
+        - label: "🛠️ I am willing to try to fix this bug myself."
+          required: false
 
   - type: markdown
     attributes:
