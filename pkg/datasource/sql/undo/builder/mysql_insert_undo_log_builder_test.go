@@ -1039,3 +1039,42 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 		})
 	}
 }
+
+func TestGetMySQLInsertUndoLogBuilder(t *testing.T) {
+	builder := GetMySQLInsertUndoLogBuilder()
+	assert.NotNil(t, builder)
+	assert.IsType(t, &MySQLInsertUndoLogBuilder{}, builder)
+}
+
+func TestMySQLInsertUndoLogBuilder_GetExecutorType(t *testing.T) {
+	builder := &MySQLInsertUndoLogBuilder{}
+	executorType := builder.GetExecutorType()
+	assert.Equal(t, types.InsertExecutor, executorType)
+}
+
+func TestMySQLInsertUndoLogBuilder_BeforeImage(t *testing.T) {
+	builder := &MySQLInsertUndoLogBuilder{}
+
+	execCtx := &types.ExecContext{}
+
+	images, err := builder.BeforeImage(context.Background(), execCtx)
+	// BeforeImage for INSERT should return empty images
+	assert.NoError(t, err)
+	assert.Len(t, images, 0)
+}
+
+func TestMySQLInsertUndoLogBuilder_AfterImage(t *testing.T) {
+	builder := &MySQLInsertUndoLogBuilder{}
+
+	// Test with nil conn - should return empty result
+	execCtx := &types.ExecContext{
+		Values: []driver.Value{100, "test"},
+		Query:  "INSERT INTO t_user (id, name) VALUES (?, ?)",
+		Conn:   nil,
+	}
+	beforeImages := []*types.RecordImage{}
+
+	images, err := builder.AfterImage(context.Background(), execCtx, beforeImages)
+	assert.NoError(t, err)
+	assert.Len(t, images, 0)
+}

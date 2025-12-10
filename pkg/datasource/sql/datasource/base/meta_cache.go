@@ -88,7 +88,10 @@ func (c *BaseTableMetaCache) Init(ctx context.Context) error {
 // refresh
 func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 	f := func() {
+		// Get table names with read lock
+		c.lock.RLock()
 		if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+			c.lock.RUnlock()
 			return
 		}
 
@@ -96,6 +99,9 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 		for table := range c.cache {
 			tables = append(tables, table)
 		}
+		c.lock.RUnlock()
+
+		// Load metadata without lock (I/O operation)
 		conn, err := c.db.Conn(ctx)
 		if err != nil {
 			return
@@ -105,6 +111,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 			return
 		}
 
+		// Update cache with write lock
 		c.lock.Lock()
 		defer c.lock.Unlock()
 
