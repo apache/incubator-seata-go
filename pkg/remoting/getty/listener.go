@@ -56,6 +56,10 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 
 func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	log.Infof("Open new getty session ")
+	if session == nil {
+		log.Warn("OnOpen called with nil session")
+		return nil
+	}
 	sessionManager.registerSession(session)
 	conf := config.GetSeataConfig()
 	go func() {
@@ -88,6 +92,10 @@ func (g *gettyClientHandler) OnClose(session getty.Session) {
 }
 
 func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
+	if session == nil {
+		log.Warn("OnMessage called with nil session")
+		return
+	}
 	ctx := context.Background()
 	log.Debug("received message: {%#v}", pkg)
 
@@ -110,6 +118,10 @@ func (g *gettyClientHandler) OnMessage(session getty.Session, pkg interface{}) {
 }
 
 func (g *gettyClientHandler) OnCron(session getty.Session) {
+	if session == nil {
+		log.Debug("OnCron called with nil session")
+		return
+	}
 	log.Debug("session{%s} Oncron executing", session.Stat())
 	err := g.transferHeartBeat(session, message.HeartBeatMessagePing)
 	if err != nil {
@@ -130,6 +142,9 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 }
 
 func (g *gettyClientHandler) transferHeartBeat(session getty.Session, msg message.HeartBeatMessage) error {
+	if session == nil {
+		return nil
+	}
 	rpcMessage := message.RpcMessage{
 		ID:         int32(g.idGenerator.Inc()),
 		Type:       message.GettyRequestTypeHeartbeatRequest,
@@ -150,6 +165,10 @@ func (g *gettyClientHandler) cleanupSession(session getty.Session) {
 	cleanupSession(session)
 }
 func cleanupSession(session getty.Session) {
+	if session == nil {
+		log.Debug("cleanupSession called with nil session")
+		return
+	}
 	session.RemoveAttribute(heartBeatRetryTimesKey)
 	log.Debugf("Cleaned up resources for session: %s", session.Stat())
 }
