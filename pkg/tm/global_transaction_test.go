@@ -19,7 +19,10 @@ package tm
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -33,6 +36,14 @@ import (
 	"seata.apache.org/seata-go/pkg/protocol/message"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
 )
+
+func TestMain(m *testing.M) {
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		fmt.Println("skip pkg/tm tests on darwin/arm64 due to gomonkey instability")
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
 
 func TestBegin(t *testing.T) {
 	log.Init()

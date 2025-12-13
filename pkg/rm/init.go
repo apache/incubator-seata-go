@@ -30,3 +30,8 @@ type RmConfig struct {
 func InitRm(cfg RmConfig) {
 	rmConfig = cfg
 }
+
+// GetRmAppAndGroup returns current RM applicationId and txServiceGroup
+func GetRmAppAndGroup() (string, string) {
+	return rmConfig.ApplicationID, rmConfig.TxServiceGroup
+}

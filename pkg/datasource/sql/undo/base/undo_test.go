@@ -22,11 +22,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/stretchr/testify/require"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"strings"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/require"
+
+	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 
 	"github.com/stretchr/testify/assert"
 

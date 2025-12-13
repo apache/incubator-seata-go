@@ -57,3 +57,26 @@ func TestEncodeDecodeMap(t *testing.T) {
 		})
 	}
 }
+
+func TestStack(t *testing.T) {
+	stack := NewStack()
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+	stack.Push(4)
+
+	len := stack.Len()
+	if len != 4 {
+		t.Errorf("stack.Len() failed. Got %d, expected 4.", len)
+	}
+
+	value := stack.Peak().(int)
+	if value != 4 {
+		t.Errorf("stack.Peak() failed. Got %d, expected 4.", value)
+	}
+
+	value = stack.Pop().(int)
+	if value != 4 {
+		t.Errorf("stack.Pop() failed. Got %d, expected 4.", value)
+	}
+}
