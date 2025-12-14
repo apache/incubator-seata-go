@@ -417,6 +417,7 @@ func TestStateLogStore_RecordStateMachineRestarted(t *testing.T) {
 	assert.Nil(t, err)
 	expected.SetRunning(false)
 	err = stateLogStore.RecordStateMachineFinished(context.Background(), expected, ctx)
+	assert.Nil(t, err)
 
 	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())
 	assert.Nil(t, err)

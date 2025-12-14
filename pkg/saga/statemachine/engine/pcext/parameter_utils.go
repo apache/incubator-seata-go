@@ -64,7 +64,7 @@ func CreateInputParams(processContext process_ctrl.ProcessContext, expressionRes
 func CreateOutputParams(config engine.StateMachineConfig, expressionResolver expr.ExpressionResolver,
 	serviceTaskState *state.AbstractTaskState, variablesFrom any) (map[string]any, error) {
 	outputAssignments := serviceTaskState.Output()
-	if outputAssignments == nil || len(outputAssignments) == 0 {
+	if len(outputAssignments) == 0 {
 		return make(map[string]any, 0), nil
 	}
 
@@ -89,61 +89,52 @@ func CreateOutputParams(config engine.StateMachineConfig, expressionResolver exp
 }
 
 func CreateValueExpression(expressionResolver expr.ExpressionResolver, paramAssignment any) any {
-	var valueExpression any
-
-	switch paramAssignment.(type) {
+	switch v := paramAssignment.(type) {
 	case expr.Expression:
-		valueExpression = paramAssignment
+		return v
 	case map[string]any:
-		paramMapAssignment := paramAssignment.(map[string]any)
-		paramMap := make(map[string]any, len(paramMapAssignment))
-		for key, value := range paramMapAssignment {
+		paramMap := make(map[string]any, len(v))
+		for key, value := range v {
 			paramMap[key] = CreateValueExpression(expressionResolver, value)
 		}
-		valueExpression = paramMap
+		return paramMap
 	case []any:
-		paramListAssignment := paramAssignment.([]any)
-		paramList := make([]any, 0, len(paramListAssignment))
-		for _, value := range paramListAssignment {
+		paramList := make([]any, 0, len(v))
+		for _, value := range v {
 			paramList = append(paramList, CreateValueExpression(expressionResolver, value))
 		}
-		valueExpression = paramList
+		return paramList
 	case string:
-		value := paramAssignment.(string)
-		if !strings.HasPrefix(value, "$") {
-			valueExpression = paramAssignment
+		if !strings.HasPrefix(v, "$") {
+			return v
 		}
-		valueExpression = expressionResolver.Expression(value)
+		return expressionResolver.Expression(v)
 	default:
-		valueExpression = paramAssignment
+		return paramAssignment
 	}
-	return valueExpression
 }
 
 func GetValue(valueExpression any, variablesFrom any, stateInstance statelang.StateInstance) any {
-	switch valueExpression.(type) {
+	switch v := valueExpression.(type) {
 	case expr.Expression:
-		expression := valueExpression.(expr.Expression)
-		value := expression.Value(variablesFrom)
-		if _, ok := valueExpression.(expr.SequenceExpression); value != nil && stateInstance != nil && stateInstance.BusinessKey() == "" && ok {
+		value := v.Value(variablesFrom)
+		if _, ok := v.(expr.SequenceExpression); value != nil && stateInstance != nil && stateInstance.BusinessKey() == "" && ok {
 			stateInstance.SetBusinessKey(fmt.Sprintf("%v", value))
 		}
 		return value
 	case map[string]any:
-		mapValueExpression := valueExpression.(map[string]any)
-		mapValue := make(map[string]any, len(mapValueExpression))
-		for key, value := range mapValueExpression {
-			value = GetValue(value, variablesFrom, stateInstance)
-			if value != nil {
-				mapValue[key] = value
+		mapValue := make(map[string]any, len(v))
+		for key, value := range v {
+			resolved := GetValue(value, variablesFrom, stateInstance)
+			if resolved != nil {
+				mapValue[key] = resolved
 			}
 		}
 		return mapValue
 	case []any:
-		valueExpressionList := valueExpression.([]any)
-		listValue := make([]any, 0, len(valueExpression.([]any)))
-		for i := range valueExpressionList {
-			listValue = append(listValue, GetValue(valueExpressionList[i], variablesFrom, stateInstance))
+		listValue := make([]any, 0, len(v))
+		for i := range v {
+			listValue = append(listValue, GetValue(v[i], variablesFrom, stateInstance))
 		}
 		return listValue
 	default:
