@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/core"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/store"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
 
@@ -44,7 +44,7 @@ type StateMachineRepositoryImpl struct {
 	stateMachineMapById            map[string]statelang.StateMachine
 	stateMachineMapByNameAndTenant map[string]statelang.StateMachine
 
-	stateLangStore  core.StateLangStore
+	stateLangStore  store.StateLangStore
 	seqGenerator    sequence.SeqGenerator
 	defaultTenantId string
 	jsonParserName  string
@@ -230,7 +230,7 @@ func (s *StateMachineRepositoryImpl) RegistryStateMachineByReader(reader io.Read
 	return nil
 }
 
-func (s *StateMachineRepositoryImpl) SetStateLangStore(stateLangStore core.StateLangStore) {
+func (s *StateMachineRepositoryImpl) SetStateLangStore(stateLangStore store.StateLangStore) {
 	s.stateLangStore = stateLangStore
 }
 

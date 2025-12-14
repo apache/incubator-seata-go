@@ -26,8 +26,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-
 	"github.com/stretchr/testify/assert"
 	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
 )

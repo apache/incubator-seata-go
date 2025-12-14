@@ -43,7 +43,7 @@ require (
 
 require (
 	github.com/knadh/koanf v1.5.0
-	github.com/robertkrimen/otto v0.5.1
+	github.com/robertkrimen/otto v0.4.0
 )
 
 require (

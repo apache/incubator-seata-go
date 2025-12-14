@@ -405,7 +405,7 @@ func (s *StateLogStore) reportTransactionFinished(ctx context.Context, machineIn
 	err = s.sagaTransactionalTemplate.ReportTransaction(ctx, globalTransaction)
 	if err != nil {
 		// Enhanced error logging aligned with Java implementation (DbAndReportTcStateLogStore.java:246-261)
-		log.Errorf("Report transaction finish to server failed: StateMachine=%s, XID=%s, Status=%s, Err=%v",
+		log.Errorf("Report transaction finish to server failed: StateMachine=%s, XID=%s, Status=%v, Err=%v",
 			machineInstance.StateMachine().Name(),
 			machineInstance.ID(),
 			globalStatus,

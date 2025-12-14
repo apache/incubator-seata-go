@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -114,10 +115,10 @@ func TestHTTPInvokerInvokeFailedInRetry(t *testing.T) {
 }
 
 func TestHTTPInvokerAsyncInvoke(t *testing.T) {
-	called := false
+	var called atomic.Bool
 	// create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
+		called.Store(true)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	}))
@@ -135,8 +136,9 @@ func TestHTTPInvokerAsyncInvoke(t *testing.T) {
 
 	// verify
 	assert.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	assert.True(t, called)
+	assert.Eventually(t, func() bool {
+		return called.Load()
+	}, 500*time.Millisecond, 10*time.Millisecond)
 }
 
 func newHTTPServiceTaskState() state.ServiceTaskState {

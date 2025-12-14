@@ -19,16 +19,12 @@ package invoker
 
 import (
 	"context"
+	"fmt"
 	"reflect"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 	"sync"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
 )
-
-type ScriptInvokerManager interface {
-}
-
-type ScriptInvoker interface {
-}
 
 type ServiceInvokerManager interface {
 	ServiceInvoker(serviceType string) ServiceInvoker
@@ -38,6 +34,49 @@ type ServiceInvokerManager interface {
 type ServiceInvoker interface {
 	Invoke(ctx context.Context, input []any, service state.ServiceTaskState) (output []reflect.Value, err error)
 	Close(ctx context.Context) error
+}
+
+// ScriptInvoker 脚本调用器接口
+type ScriptInvoker interface {
+	Type() string
+	Invoke(ctx context.Context, script string, params map[string]interface{}) (interface{}, error)
+	Close(ctx context.Context) error
+}
+
+// ScriptInvokerManager 脚本调用器管理器
+type ScriptInvokerManager interface {
+	GetInvoker(scriptType string) (ScriptInvoker, error)
+	RegisterInvoker(invoker ScriptInvoker) error
+}
+
+type ScriptInvokerManagerImpl struct {
+	invokers map[string]ScriptInvoker
+	mutex    sync.RWMutex
+}
+
+func NewScriptInvokerManager() ScriptInvokerManager {
+	return &ScriptInvokerManagerImpl{invokers: make(map[string]ScriptInvoker)}
+}
+
+func (manager *ScriptInvokerManagerImpl) GetInvoker(scriptType string) (ScriptInvoker, error) {
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
+
+	invoker := manager.invokers[scriptType]
+	if invoker == nil {
+		return nil, fmt.Errorf("script invoker %s not found", scriptType)
+	}
+	return invoker, nil
+}
+
+func (manager *ScriptInvokerManagerImpl) RegisterInvoker(invoker ScriptInvoker) error {
+	if invoker == nil {
+		return fmt.Errorf("script invoker is nil")
+	}
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+	manager.invokers[invoker.Type()] = invoker
+	return nil
 }
 
 type ServiceInvokerManagerImpl struct {
