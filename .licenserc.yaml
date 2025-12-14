@@ -61,6 +61,7 @@ header: # `header` section is configurations for source codes license header.
     - 'DISCLAIMER'
     - 'NOTICE'
     - '.github'
+    - '*.json'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   language:
