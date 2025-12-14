@@ -24,8 +24,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"seata.apache.org/seata-go/pkg/saga"
 	"strings"
+
+	"seata.apache.org/seata-go/pkg/saga"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
