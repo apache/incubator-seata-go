@@ -386,6 +386,7 @@ func TestStateLogStore_RecordStateMachineFinished(t *testing.T) {
 	expected.SetEndTime(time.Now())
 	expected.SetRunning(false)
 	err = stateLogStore.RecordStateMachineFinished(context.Background(), expected, ctx)
+	assert.Nil(t, err)
 	assert.Equal(t, "{\"end\":100}", expected.SerializedEndParams())
 	assert.NotEmpty(t, expected.SerializedError())
 	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())

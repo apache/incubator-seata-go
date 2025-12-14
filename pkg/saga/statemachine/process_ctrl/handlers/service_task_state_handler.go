@@ -61,6 +61,9 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 		return err
 	}
 	serviceTaskStateImpl, ok := stateInterface.(*state.ServiceTaskStateImpl)
+	if !ok {
+		return errors.New("invalid service task state type from instruction")
+	}
 
 	serviceName := serviceTaskStateImpl.ServiceName()
 	methodName := serviceTaskStateImpl.ServiceMethod()
@@ -253,6 +256,9 @@ func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context,
 	}
 
 	compensateInst, err := machineEngine.Compensate(ctx, subStateMachineInstId, startParams)
+	if err != nil {
+		return nil, err
+	}
 	instance.SetStatus(compensateInst.CompensationStatus())
 	log.Debugf("<<<<<<<<<<<<<<<<<<<<<< Compensate sub statemachine [id:%s] finished with status[%s], "+"compensateState[%s]",
 		subStateMachineInstId, compensateInst.Status(), compensateInst.CompensationStatus())

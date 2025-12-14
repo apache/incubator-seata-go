@@ -38,9 +38,9 @@ import (
 func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
 	if processContext.HasVariable(constant.VarNameIsLoopState) {
 		if processContext.HasVariable(constant.LoopSemaphore) {
-			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(semaphore.Weighted)
-			if !ok {
-				return errors.New("semaphore type is not weighted")
+			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(*semaphore.Weighted)
+			if !ok || weighted == nil {
+				return errors.New("semaphore type is not *semaphore.Weighted")
 			}
 			weighted.Release(1)
 		}
@@ -68,6 +68,9 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	}
 
 	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
+	if !ok {
+		return errors.New("state machine config type is not engine.StateMachineConfig")
+	}
 
 	if err := stateMachineConfig.StatusDecisionStrategy().DecideOnEndState(ctx, processContext, stateMachineInstance, exp); err != nil {
 		return err
@@ -151,32 +154,35 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 
 func HandleException(processContext process_ctrl.ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
 	catches := abstractTaskState.Catches()
-	if catches != nil && len(catches) != 0 {
-		for _, exceptionMatch := range catches {
-			exceptions := exceptionMatch.Exceptions()
-			exceptionTypes := exceptionMatch.ExceptionTypes()
-			if exceptions != nil && len(exceptions) != 0 {
-				if exceptionTypes == nil {
-					lock := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
+	for _, exceptionMatch := range catches {
+		exceptions := exceptionMatch.Exceptions()
+		exceptionTypes := exceptionMatch.ExceptionTypes()
+		if len(exceptions) != 0 {
+			if exceptionTypes == nil {
+				lock, _ := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
+				if lock != nil {
 					lock.Lock()
 					defer lock.Unlock()
-					error := errors.New("")
-					for i := 0; i < len(exceptions); i++ {
-						exceptionTypes = append(exceptionTypes, reflect.TypeOf(error))
-					}
 				}
-
-				exceptionMatch.SetExceptionTypes(exceptionTypes)
-			}
-
-			for i, _ := range exceptionTypes {
-				if reflect.TypeOf(err) == exceptionTypes[i] {
-					// HACK: we can not get error type in config file during runtime, so we use exception str
-					if strings.Contains(err.Error(), exceptions[i]) {
-						hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
-						hierarchicalProcessContext.SetVariable(constant.VarNameCurrentExceptionRoute, exceptionMatch.Next())
-						return
+				if exceptionMatch.ExceptionTypes() == nil {
+					errorType := reflect.TypeOf(errors.New(""))
+					for range exceptions {
+						exceptionTypes = append(exceptionTypes, errorType)
 					}
+					exceptionMatch.SetExceptionTypes(exceptionTypes)
+				} else {
+					exceptionTypes = exceptionMatch.ExceptionTypes()
+				}
+			}
+		}
+
+		for i := range exceptionTypes {
+			if reflect.TypeOf(err) == exceptionTypes[i] {
+				// HACK: we can not get error type in config file during runtime, so we use exception str
+				if strings.Contains(err.Error(), exceptions[i]) {
+					hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
+					hierarchicalProcessContext.SetVariable(constant.VarNameCurrentExceptionRoute, exceptionMatch.Next())
+					return
 				}
 			}
 		}

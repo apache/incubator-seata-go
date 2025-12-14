@@ -33,17 +33,17 @@ import (
 func CreateInputParams(processContext process_ctrl.ProcessContext, expressionResolver expr.ExpressionResolver,
 	stateInstance *statelang.StateInstanceImpl, serviceTaskState *state.AbstractTaskState, variablesFrom any) []any {
 	inputAssignments := serviceTaskState.Input()
-	if inputAssignments == nil || len(inputAssignments) == 0 {
+	if len(inputAssignments) == 0 {
 		return inputAssignments
 	}
 
 	inputExpressions := serviceTaskState.InputExpressions()
-	if inputExpressions == nil || len(inputExpressions) == 0 {
+	if len(inputExpressions) == 0 {
 		lock := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
 		lock.Lock()
 		defer lock.Unlock()
 		inputExpressions = serviceTaskState.InputExpressions()
-		if inputExpressions == nil || len(inputExpressions) == 0 {
+		if len(inputExpressions) == 0 {
 			inputExpressions = make([]any, 0, len(inputAssignments))
 
 			for _, assignment := range inputAssignments {
@@ -82,7 +82,7 @@ func CreateOutputParams(config engine.StateMachineConfig, expressionResolver exp
 		serviceTaskState.SetOutputExpressions(outputExpressions)
 	}
 	outputValues := make(map[string]any, len(outputExpressions))
-	for paramName, _ := range outputExpressions {
+	for paramName := range outputExpressions {
 		outputValues[paramName] = GetValue(outputExpressions[paramName], variablesFrom, nil)
 	}
 	return outputValues, nil
@@ -142,7 +142,7 @@ func GetValue(valueExpression any, variablesFrom any, stateInstance statelang.St
 	case []any:
 		valueExpressionList := valueExpression.([]any)
 		listValue := make([]any, 0, len(valueExpression.([]any)))
-		for i, _ := range valueExpressionList {
+		for i := range valueExpressionList {
 			listValue = append(listValue, GetValue(valueExpressionList[i], variablesFrom, stateInstance))
 		}
 		return listValue

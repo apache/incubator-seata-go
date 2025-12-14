@@ -126,10 +126,10 @@ func TestInitRemotingFunction(t *testing.T) {
 
 func TestSyncOnceTypes(t *testing.T) {
 	// Test that all once variables are of type sync.Once
-	assert.IsType(t, sync.Once{}, onceInitTmClient)
-	assert.IsType(t, sync.Once{}, onceInitRmClient)
-	assert.IsType(t, sync.Once{}, onceInitDatasource)
-	assert.IsType(t, sync.Once{}, onceInitRegistry)
+	assert.IsType(t, &sync.Once{}, &onceInitTmClient)
+	assert.IsType(t, &sync.Once{}, &onceInitRmClient)
+	assert.IsType(t, &sync.Once{}, &onceInitDatasource)
+	assert.IsType(t, &sync.Once{}, &onceInitRegistry)
 }
 
 func TestConfigStruct(t *testing.T) {

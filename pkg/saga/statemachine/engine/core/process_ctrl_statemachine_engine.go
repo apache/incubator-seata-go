@@ -422,10 +422,10 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 			startParams[constant.VarNameBusinesskey] = businessKey
 		}
 
-		if startParams[constant.VarNameParentId] != nil {
-			parentId, ok := startParams[constant.VarNameParentId].(string)
+		if parentRaw, exists := startParams[constant.VarNameParentId]; exists {
+			parentId, ok := parentRaw.(string)
 			if !ok {
-
+				return nil, fmt.Errorf("parentId must be string")
 			}
 			stateMachineInstance.SetParentID(parentId)
 			delete(startParams, constant.VarNameParentId)
@@ -478,6 +478,9 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 	context := contextBuilder.Build()
 
 	contextVariables, err := p.getStateMachineContextVariables(ctx, stateMachineInstance)
+	if err != nil {
+		return nil, err
+	}
 
 	if replaceParams != nil {
 		for key, value := range replaceParams {
