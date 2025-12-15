@@ -20,11 +20,7 @@ package config
 import (
 	"flag"
 	"time"
-
-	"seata.apache.org/seata-go/pkg/util/flagext"
 )
-
-var seataConfig *SeataConfig
 
 type Config struct {
 	ReconnectInterval int           `yaml:"reconnect-interval" json:"reconnect-interval" koanf:"reconnect-interval"`
@@ -73,21 +69,4 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.BoolVar(&cfg.EnableRmClientBatchSendRequest, prefix+".enable-rm-client-batch-send-request", true, "Allow batch sending of requests (RM).")
 	f.DurationVar(&cfg.RPCRmRequestTimeout, prefix+".rpc-rm-request-timeout", 30*time.Second, "RM send request timeout.")
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
-}
-
-// todo refactor config
-type SeataConfig struct {
-	ApplicationID        string
-	TxServiceGroup       string
-	ServiceVgroupMapping flagext.StringMap
-	ServiceGrouplist     flagext.StringMap
-	LoadBalanceType      string
-}
-
-func InitConfig(seataConf *SeataConfig) {
-	seataConfig = seataConf
-}
-
-func GetSeataConfig() *SeataConfig {
-	return seataConfig
 }

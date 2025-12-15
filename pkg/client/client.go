@@ -25,7 +25,6 @@ import (
 	"seata.apache.org/seata-go/pkg/datasource/sql/exec/config"
 	"seata.apache.org/seata-go/pkg/discovery"
 	"seata.apache.org/seata-go/pkg/integration"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
 	"seata.apache.org/seata-go/pkg/remoting/getty"
 	"seata.apache.org/seata-go/pkg/remoting/processor/client"
 	"seata.apache.org/seata-go/pkg/rm"
@@ -64,15 +63,12 @@ func initTmClient(cfg *Config) {
 
 // initRemoting init remoting
 func initRemoting(cfg *Config) {
-	seataConfig := remoteConfig.SeataConfig{
-		ApplicationID:        cfg.ApplicationID,
-		TxServiceGroup:       cfg.TxServiceGroup,
-		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
-		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
-		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
+	clientIdentity := getty.ClientIdentity{
+		ApplicationID:  cfg.ApplicationID,
+		TxServiceGroup: cfg.TxServiceGroup,
 	}
 
-	getty.InitGetty(&cfg.GettyConfig, &seataConfig)
+	getty.InitGetty(&cfg.GettyConfig, &clientIdentity)
 }
 
 // InitRmClient init client rm client

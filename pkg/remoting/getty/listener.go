@@ -27,7 +27,6 @@ import (
 	"seata.apache.org/seata-go/pkg/constant"
 	"seata.apache.org/seata-go/pkg/protocol/codec"
 	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/config"
 	"seata.apache.org/seata-go/pkg/remoting/processor"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
@@ -57,12 +56,12 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	log.Infof("Open new getty session ")
 	sessionManager.registerSession(session)
-	conf := config.GetSeataConfig()
+	clientIdentity := sessionManager.clientIdentity
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			Version:                 constant.SeataVersion,
-			ApplicationId:           conf.ApplicationID,
-			TransactionServiceGroup: conf.TxServiceGroup,
+			ApplicationId:           clientIdentity.ApplicationID,
+			TransactionServiceGroup: clientIdentity.TxServiceGroup,
 		}}
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {

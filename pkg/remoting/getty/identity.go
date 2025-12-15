@@ -17,12 +17,9 @@
 
 package getty
 
-import (
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/remoting/config"
-)
-
-func InitGetty(gettyConfig *config.Config, clientIdentity *ClientIdentity) {
-	codec.Init()
-	initSessionManager(gettyConfig, clientIdentity)
+// ClientIdentity represents the identity of a seata client,
+// including application ID and transaction service group.
+type ClientIdentity struct {
+	ApplicationID  string
+	TxServiceGroup string
 }
