@@ -58,6 +58,13 @@ type SessionManager struct {
 	clientIdentity *ClientIdentity
 }
 
+// ClientIdentity represents the identity of a seata client,
+// including application ID and transaction service group.
+type ClientIdentity struct {
+	ApplicationID  string
+	TxServiceGroup string
+}
+
 func initSessionManager(gettyConfig *config.Config, clientIdentity *ClientIdentity) {
 	if sessionManager == nil {
 		onceSessionManager.Do(func() {
