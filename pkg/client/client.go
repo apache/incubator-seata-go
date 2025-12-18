@@ -30,6 +30,7 @@ import (
 	"seata.apache.org/seata-go/pkg/remoting/processor/client"
 	"seata.apache.org/seata-go/pkg/rm"
 	"seata.apache.org/seata-go/pkg/rm/tcc"
+	saga "seata.apache.org/seata-go/pkg/saga/rm"
 	"seata.apache.org/seata-go/pkg/tm"
 	"seata.apache.org/seata-go/pkg/util/log"
 )
@@ -62,7 +63,7 @@ func initTmClient(cfg *Config) {
 	})
 }
 
-// initRemoting init remoting
+// initRemoting init rpc client
 func initRemoting(cfg *Config) {
 	seataConfig := remoteConfig.SeataConfig{
 		ApplicationID:        cfg.ApplicationID,
@@ -89,6 +90,7 @@ func initRmClient(cfg *Config) {
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
+		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})

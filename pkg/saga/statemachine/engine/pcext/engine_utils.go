@@ -1,0 +1,236 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package pcext
+
+import (
+	"context"
+	"errors"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
+	"golang.org/x/sync/semaphore"
+
+	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/pkg/util/log"
+)
+
+func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {
+	if processContext.HasVariable(constant.VarNameIsLoopState) {
+		if processContext.HasVariable(constant.LoopSemaphore) {
+			weighted, ok := processContext.GetVariable(constant.LoopSemaphore).(*semaphore.Weighted)
+			if !ok || weighted == nil {
+				return errors.New("semaphore type is not *semaphore.Weighted")
+			}
+			weighted.Release(1)
+		}
+	}
+
+	stateMachineInstance, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	if !ok {
+		return errors.New("state machine instance type is not statelang.StateMachineInstance")
+	}
+
+	stateMachineInstance.SetEndTime(time.Now())
+
+	var exp error
+	if v := processContext.GetVariable(constant.VarNameCurrentException); v != nil {
+		ev, ok := v.(error)
+		if !ok {
+			return errors.New("exception type is not error")
+		}
+		exp = ev
+	}
+
+	if exp != nil {
+		stateMachineInstance.SetException(exp)
+		log.Debugf("Exception Occurred: %s", exp)
+	}
+
+	stateMachineConfig, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
+	if !ok {
+		return errors.New("state machine config type is not engine.StateMachineConfig")
+	}
+
+	if err := stateMachineConfig.StatusDecisionStrategy().DecideOnEndState(ctx, processContext, stateMachineInstance, exp); err != nil {
+		return err
+	}
+
+	// Reconcile compensation status using executed compensation states to align with Java semantics
+	// If there are compensation states and all succeeded, override to SU. If any failed/unknown, mark UN.
+	// This guards against edge cases where holder/stack visibility causes FA.
+	compSeen := false
+	compAllSU := true
+	for _, si := range stateMachineInstance.StateList() {
+		if si.StateIDCompensatedFor() != "" {
+			compSeen = true
+			if si.Status() != statelang.SU {
+				compAllSU = false
+				break
+			}
+		}
+	}
+	if compSeen {
+		if compAllSU {
+			log.Debugf("All compensation states SU, overriding machine compensation_status to SU for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.SU)
+			// In Java semantics, compensation success with Fail end yields final machine status FA
+			stateMachineInstance.SetStatus(statelang.FA)
+		} else if stateMachineInstance.CompensationStatus() == "" || stateMachineInstance.CompensationStatus() == statelang.RU {
+			log.Debugf("Compensation states contain non-SU, marking compensation_status UN for [%s]", stateMachineInstance.ID())
+			stateMachineInstance.SetCompensationStatus(statelang.UN)
+		}
+	} else {
+		log.Debugf("No compensation states observed for machine [%s]", stateMachineInstance.ID())
+		if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
+			// Fail end without compensation: normalize to status=FA, empty compensation_status
+			stateMachineInstance.SetCompensationStatus("")
+			stateMachineInstance.SetStatus(statelang.FA)
+		}
+	}
+
+	contextParams, ok := processContext.GetVariable(constant.VarNameStateMachineContext).(map[string]interface{})
+	if !ok {
+		return errors.New("state machine context type is not map[string]interface{}")
+	}
+	endParams := stateMachineInstance.EndParams()
+	for k, v := range contextParams {
+		endParams[k] = v
+	}
+	stateMachineInstance.SetEndParams(endParams)
+
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		v.SetEnd(true)
+	case StateInstruction:
+		tmp := v
+		tmp.SetEnd(true)
+		processContext.SetInstruction(&tmp)
+	default:
+		return errors.New("state instruction type is not process_ctrl.StateInstruction")
+	}
+
+	stateMachineInstance.SetRunning(false)
+	stateMachineInstance.SetEndTime(time.Now())
+
+	if stateMachineInstance.StateMachine().IsPersist() && stateMachineConfig.StateLangStore() != nil {
+		err := stateMachineConfig.StateLogStore().RecordStateMachineFinished(ctx, stateMachineInstance, processContext)
+		if err != nil {
+			return err
+		}
+	}
+
+	callBack, ok := processContext.GetVariable(constant.VarNameAsyncCallback).(engine.CallBack)
+	if ok {
+		if exp != nil {
+			callBack.OnError(ctx, processContext, stateMachineInstance, exp)
+		} else {
+			callBack.OnFinished(ctx, processContext, stateMachineInstance)
+		}
+	}
+
+	return nil
+}
+
+func HandleException(processContext process_ctrl.ProcessContext, abstractTaskState *state.AbstractTaskState, err error) {
+	catches := abstractTaskState.Catches()
+	for _, exceptionMatch := range catches {
+		exceptions := exceptionMatch.Exceptions()
+		exceptionTypes := exceptionMatch.ExceptionTypes()
+		if len(exceptions) != 0 {
+			if exceptionTypes == nil {
+				lock, _ := processContext.GetVariable(constant.VarNameProcessContextMutexLock).(*sync.Mutex)
+				if lock != nil {
+					lock.Lock()
+					defer lock.Unlock()
+				}
+				if exceptionMatch.ExceptionTypes() == nil {
+					errorType := reflect.TypeOf(errors.New(""))
+					for range exceptions {
+						exceptionTypes = append(exceptionTypes, errorType)
+					}
+					exceptionMatch.SetExceptionTypes(exceptionTypes)
+				} else {
+					exceptionTypes = exceptionMatch.ExceptionTypes()
+				}
+			}
+		}
+
+		for i := range exceptionTypes {
+			if reflect.TypeOf(err) == exceptionTypes[i] {
+				// HACK: we can not get error type in config file during runtime, so we use exception str
+				if strings.Contains(err.Error(), exceptions[i]) {
+					hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
+					hierarchicalProcessContext.SetVariable(constant.VarNameCurrentExceptionRoute, exceptionMatch.Next())
+					return
+				}
+			}
+		}
+	}
+
+	log.Error("Task execution failed and no catches configured")
+	hierarchicalProcessContext := processContext.(process_ctrl.HierarchicalProcessContext)
+	hierarchicalProcessContext.SetVariable(constant.VarNameIsExceptionNotCatch, true)
+}
+
+// GetOriginStateName get origin state name without suffix like fork
+func GetOriginStateName(stateInstance statelang.StateInstance) string {
+	stateName := stateInstance.Name()
+	if stateName != "" {
+		end := strings.LastIndex(stateName, constant.LoopStateNamePattern)
+		if end > -1 {
+			return stateName[:end+1]
+		}
+	}
+	return stateName
+}
+
+// IsTimeout test if is timeout
+func IsTimeout(gmtUpdated time.Time, timeoutMillis int) bool {
+	if timeoutMillis < 0 {
+		return false
+	}
+	return time.Now().Unix()-gmtUpdated.Unix() > int64(timeoutMillis)
+}
+
+func GenerateParentId(stateInstance statelang.StateInstance) string {
+	return stateInstance.MachineInstanceID() + constant.SeperatorParentId + stateInstance.ID()
+}
+
+// GetNetExceptionType Speculate what kind of network anomaly is caused by the error
+func GetNetExceptionType(err error) constant.NetExceptionType {
+	if err == nil {
+		return constant.NotNetException
+	}
+
+	// If it contains a specific error message, simply guess
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "connection refused") {
+		return constant.ConnectException
+	} else if strings.Contains(errMsg, "timeout") {
+		return constant.ConnectTimeoutException
+	} else if strings.Contains(errMsg, "i/o timeout") {
+		return constant.ReadTimeoutException
+	}
+	return constant.NotNetException
+}
