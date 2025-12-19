@@ -21,8 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Mock implementations for testing
