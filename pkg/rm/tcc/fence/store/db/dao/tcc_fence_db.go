@@ -21,10 +21,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/util/log"
 	"strings"
 	"sync"
 	"time"
+
+	"seata.apache.org/seata-go/pkg/util/log"
 
 	"github.com/go-sql-driver/mysql"
 

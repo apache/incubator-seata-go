@@ -55,5 +55,5 @@ func (z Zip) Decompress(data []byte) ([]byte, error) {
 }
 
 func (z Zip) GetCompressorType() CompressorType {
-	return CompressorZstd
+	return CompressorZip
 }
