@@ -18,6 +18,7 @@
 package at
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"testing"
 
@@ -34,7 +35,9 @@ import (
 
 func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
+	datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+		return mysql.NewTableMetaInstance(db, nil)
+	})
 
 	tests := []struct {
 		name            string
@@ -101,7 +104,9 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 
 func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: false})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
+	datasource.RegisterTableCache(types.DBTypeMySQL, func(db *sql.DB, cfg interface{}) datasource.TableMetaCache {
+		return mysql.NewTableMetaInstance(db, nil)
+	})
 
 	tests := []struct {
 		name            string
