@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package enum
+package testdata
 
-// FencePhase used to mark the stage of a tcc transaction
-type FencePhase byte
-
-const (
-	// FencePhaseNotExist fence phase not exist
-	FencePhaseNotExist = FencePhase(0)
-
-	// FencePhasePrepare prepare fence phase
-	FencePhasePrepare = FencePhase(1)
-
-	// FencePhaseCommit commit fence phase
-	FencePhaseCommit = FencePhase(2)
-
-	// FencePhaseRollback rollback fence phase
-	FencePhaseRollback = FencePhase(3)
-
-	// FencePhaseAction One stage submission
-	FencePhaseAction = FencePhase(4)
-	// FencePhaseCompensationAction Compensation status during one-stage transaction rollback
-	FencePhaseCompensationAction = FencePhase(5)
+import (
+	"context"
+	"github.com/seata/seata-go/pkg/tm"
 )
+
+type TestSagaTwoPhaseService struct{}
+
+func (*TestSagaTwoPhaseService) Action(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return true, nil
+}
+
+func (*TestSagaTwoPhaseService) Compensation(ctx context.Context, businessActionContext *tm.BusinessActionContext) (bool, error) {
+	return true, nil
+}
