@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
 	"seata.apache.org/seata-go/pkg/util/flagext"
 )
 
