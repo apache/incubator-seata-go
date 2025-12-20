@@ -21,12 +21,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"testing"
-	"time"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 
 	pb "github.com/seata/seata-go/testdata/saga/engine/invoker/grpc"
 )

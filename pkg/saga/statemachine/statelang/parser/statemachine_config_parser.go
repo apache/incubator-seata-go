@@ -20,9 +20,10 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/seata/seata-go/pkg/saga/statemachine"
 	"io"
 	"os"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"

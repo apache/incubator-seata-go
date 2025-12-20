@@ -19,15 +19,80 @@ package invoker
 
 import (
 	"context"
-	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
+	"encoding/json"
 	"reflect"
 	"sync"
+
+	"github.com/seata/seata-go/pkg/saga/statemachine/statelang/state"
 )
 
+type JsonParser interface {
+	Unmarshal(data []byte, v any) error
+	Marshal(v any) ([]byte, error)
+}
+
+type DefaultJsonParser struct{}
+
+func (p *DefaultJsonParser) Unmarshal(data []byte, v any) error {
+	return json.Unmarshal(data, v)
+}
+
+func (p *DefaultJsonParser) Marshal(v any) ([]byte, error) {
+	return json.Marshal(v)
+}
+
 type ScriptInvokerManager interface {
+	GetInvoker(scriptType string) (ScriptInvoker, error)
+	RegisterInvoker(invoker ScriptInvoker)
+	Execute(ctx context.Context, scriptType string, script string, params map[string]interface{}) (interface{}, error)
 }
 
 type ScriptInvoker interface {
+	Invoke(ctx context.Context, script string, params map[string]interface{}) (interface{}, error)
+	Type() string
+	Close(ctx context.Context) error
+}
+
+type ScriptInvokerManagerImpl struct {
+	invokers map[string]ScriptInvoker
+	mutex    sync.Mutex
+}
+
+func NewScriptInvokerManager() *ScriptInvokerManagerImpl {
+	return &ScriptInvokerManagerImpl{
+		invokers: make(map[string]ScriptInvoker),
+	}
+}
+
+func (m *ScriptInvokerManagerImpl) GetInvoker(scriptType string) (ScriptInvoker, error) {
+	if scriptType == "" {
+		return nil, nil
+	}
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	invoker, exists := m.invokers[scriptType]
+	if !exists {
+		return nil, nil
+	}
+	return invoker, nil
+}
+
+func (m *ScriptInvokerManagerImpl) RegisterInvoker(invoker ScriptInvoker) {
+	if invoker == nil || invoker.Type() == "" {
+		return
+	}
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.invokers[invoker.Type()] = invoker
+}
+
+func (m *ScriptInvokerManagerImpl) Execute(ctx context.Context, scriptType string, script string, params map[string]interface{}) (interface{}, error) {
+	invoker, err := m.GetInvoker(scriptType)
+	if err != nil || invoker == nil {
+		return nil, err
+	}
+	return invoker.Invoke(ctx, script, params)
 }
 
 type ServiceInvokerManager interface {

@@ -1,0 +1,13 @@
+{
+  "trans_operation_timeout": 30000,
+  "service_invoke_timeout": 30000,
+  "charset": "UTF-8",
+  "default_tenant_id": "tenant_1",  
+  "saga_retry_persist_mode_update": true,
+  "saga_compensate_persist_mode_update": true,
+  "saga_branch_register_enable": true,
+  "rm_report_success_enable": true,
+  "state_machine_resources": [
+    "testdata/order_saga_v2.json"
+  ]
+}

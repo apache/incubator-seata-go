@@ -65,6 +65,7 @@ const (
 	VarNameCurrentCompensateTriggerState string = "_is_compensating_"
 	VarNameCurrentCompensationHolder     string = "_current_compensation_holder_"
 	VarNameFirstCompensationStateStarted string = "_first_compensation_state_started"
+	VarNameNoCompensation                string = "_no_compensation_case_"
 	VarNameCurrentLoopContextHolder      string = "_current_loop_context_holder_"
 	VarNameRetriedStateInstId            string = "_retried_state_instance_id"
 	VarNameIsForSubStatMachineForward    string = "_is_for_sub_statemachine_forward_"
