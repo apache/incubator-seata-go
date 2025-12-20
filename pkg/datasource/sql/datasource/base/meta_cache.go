@@ -103,6 +103,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 		if err != nil {
 			return
 		}
+		defer conn.Close()
 		v, err := c.trigger.LoadAll(ctx, c.cfg.DBName, conn, tables...)
 		if err != nil {
 			return

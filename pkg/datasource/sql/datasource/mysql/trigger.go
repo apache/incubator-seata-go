@@ -30,6 +30,8 @@ import (
 )
 
 type mysqlTrigger struct {
+	getColumnMetasFn func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error)
+	getIndexesFn     func(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error)
 }
 
 func NewMysqlTrigger() *mysqlTrigger {
@@ -93,6 +95,10 @@ func (m *mysqlTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Con
 
 // getColumnMetas get tableMeta column
 func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+	if m.getColumnMetasFn != nil {
+		return m.getColumnMetasFn(ctx, dbName, table, conn)
+	}
+
 	table = executor.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
 
@@ -165,6 +171,10 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 
 // getIndex get tableMetaIndex
 func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
+	if m.getIndexesFn != nil {
+		return m.getIndexesFn(ctx, dbName, tableName, conn)
+	}
+
 	tableName = executor.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
 

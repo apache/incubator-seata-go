@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"seata.apache.org/seata-go/pkg/remoting/mock"
 	"seata.apache.org/seata-go/pkg/remoting/rpc"
 )

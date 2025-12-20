@@ -28,6 +28,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
+
 	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/testdata"
 )
@@ -106,7 +107,6 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				},
 				trigger: &mockTrigger{},
 				cfg:     &mysql.Config{},
-				db:      &sql.DB{},
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("test"),
@@ -125,7 +125,6 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				},
 				trigger: &mockTrigger{},
 				cfg:     &mysql.Config{},
-				db:      &sql.DB{},
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("TEST"),
@@ -133,13 +132,12 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			connStub := gomonkey.ApplyMethodFunc(tt.fields.db, "Conn",
-				func(_ context.Context) (*sql.Conn, error) {
-					return &sql.Conn{}, nil
-				})
-
-			defer connStub.Reset()
+			//  Use sqlmock to simulate a database connection
+			db, _, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Failed to create sqlmock: %v", err)
+			}
+			defer db.Close()
 
 			loadAllStub := gomonkey.ApplyMethodFunc(tt.fields.trigger, "LoadAll",
 				func(_ context.Context, _ string, _ *sql.Conn, _ ...string) ([]types.TableMeta, error) {
@@ -155,7 +153,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				size:            tt.fields.size,
 				cache:           tt.fields.cache,
 				trigger:         tt.fields.trigger,
-				db:              tt.fields.db,
+				db:              db,
 				cfg:             tt.fields.cfg,
 			}
 			go c.refresh(tt.args.ctx)
