@@ -55,24 +55,17 @@ type SessionManager struct {
 	allSessions    sync.Map
 	sessionSize    int32
 	gettyConf      *config.Config
-	clientIdentity *ClientIdentity
+	seataConfig    *config.SeataConfig
 }
 
-// ClientIdentity represents the identity of a seata client,
-// including application ID and transaction service group.
-type ClientIdentity struct {
-	ApplicationID  string
-	TxServiceGroup string
-}
-
-func initSessionManager(gettyConfig *config.Config, clientIdentity *ClientIdentity) {
+func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
 	if sessionManager == nil {
 		onceSessionManager.Do(func() {
 			sessionManager = &SessionManager{
 				allSessions:    sync.Map{},
 				serverSessions: sync.Map{},
 				gettyConf:      gettyConfig,
-				clientIdentity: clientIdentity,
+				seataConfig:    seataConfig,
 			}
 			sessionManager.init()
 		})
@@ -98,7 +91,7 @@ func (g *SessionManager) init() {
 
 func (g *SessionManager) getAvailServerList() []*discovery.ServiceInstance {
 	registryService := discovery.GetRegistry()
-	instances, err := registryService.Lookup(g.clientIdentity.TxServiceGroup)
+	instances, err := registryService.Lookup(g.seataConfig.TxServiceGroup)
 	if err != nil {
 		return nil
 	}

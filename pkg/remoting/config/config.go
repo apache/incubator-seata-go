@@ -70,3 +70,10 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.DurationVar(&cfg.RPCRmRequestTimeout, prefix+".rpc-rm-request-timeout", 30*time.Second, "RM send request timeout.")
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
 }
+
+// SeataConfig represents the identity of a seata client,
+// including application ID and transaction service group.
+type SeataConfig struct {
+	ApplicationID  string
+	TxServiceGroup string
+}

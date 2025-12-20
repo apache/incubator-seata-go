@@ -159,3 +159,49 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestSeataConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   SeataConfig
+		expected SeataConfig
+	}{
+		{
+			name:   "Empty Config",
+			config: SeataConfig{},
+			expected: SeataConfig{
+				ApplicationID:  "",
+				TxServiceGroup: "",
+			},
+		},
+		{
+			name: "Basic Config",
+			config: SeataConfig{
+				ApplicationID:  "test-app",
+				TxServiceGroup: "test-group",
+			},
+			expected: SeataConfig{
+				ApplicationID:  "test-app",
+				TxServiceGroup: "test-group",
+			},
+		},
+		{
+			name: "Full Config",
+			config: SeataConfig{
+				ApplicationID:  "seata-go-app",
+				TxServiceGroup: "my_tx_group",
+			},
+			expected: SeataConfig{
+				ApplicationID:  "seata-go-app",
+				TxServiceGroup: "my_tx_group",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected.ApplicationID, tt.config.ApplicationID)
+			assert.Equal(t, tt.expected.TxServiceGroup, tt.config.TxServiceGroup)
+		})
+	}
+}
