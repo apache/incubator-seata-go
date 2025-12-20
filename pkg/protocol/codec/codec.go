@@ -140,6 +140,7 @@ func Init() {
 	// RM
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &UndoLogDeleteRequestCodec{})
 
 	// TM
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMRequestCodec{})
