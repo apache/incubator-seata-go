@@ -13,6 +13,8 @@ body:
           required: true
         - label: I have searched the [release notes](https://github.com/apache/incubator-seata-go/releases) of this repository and believe that this is not a duplicate.
           required: true
+        - label: "🛠️ I am willing to try to take this task myself."
+          required: false
 
   - type: textarea
     id: solution-description
