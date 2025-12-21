@@ -167,3 +167,28 @@ func isTimeout(ctx context.Context) bool {
 	}
 	return time.Since(time.Unix(int64(ti.createTime), 0)) > ti.timeout
 }
+
+// GlobalReport Global report.
+func (g *GlobalTransactionManager) GlobalReport(ctx context.Context, gtr *GlobalTransaction) (message.GlobalStatus, error) {
+	if gtr.Xid == "" {
+		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReport xid should not be empty")
+	}
+
+	req := message.GlobalReportRequest{
+		AbstractGlobalEndRequest: message.AbstractGlobalEndRequest{
+			Xid: gtr.Xid,
+		},
+		GlobalStatus: gtr.TxStatus,
+	}
+	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	if err != nil {
+		log.Errorf("GlobalBeginRequest  error %v", err)
+		return message.GlobalStatusUnKnown, err
+	}
+	if res == nil || res.(message.GlobalReportResponse).ResultCode == message.ResultCodeFailed {
+		log.Errorf("GlobalReportRequest result is empty or result code is failed, res %v", res)
+		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReportRequest result is empty or result code is failed.")
+	}
+	log.Infof("GlobalReportRequest success, res %v", res)
+	return res.(message.GlobalReportResponse).GlobalStatus, nil
+}
