@@ -19,9 +19,9 @@ package fence
 
 import (
 	"flag"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/config"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/handler"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/dao"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/config"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/handler"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/dao"
 	"time"
 )
 

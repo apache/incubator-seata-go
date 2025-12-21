@@ -20,16 +20,16 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	_ "seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
+	_ "seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 func TestBuildSelectSQLByUpdateJoin(t *testing.T) {

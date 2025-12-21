@@ -25,8 +25,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/remoting/mock"
-	"seata.apache.org/seata-go/pkg/remoting/rpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
+	"seata.apache.org/seata-go/v2/pkg/remoting/rpc"
 )
 
 func TestLeastActiveLoadBalance(t *testing.T) {

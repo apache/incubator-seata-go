@@ -27,12 +27,12 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/testdata"
+	"seata.apache.org/seata-go/v2/testdata"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 func initMockIndexMeta() []types.IndexMeta {

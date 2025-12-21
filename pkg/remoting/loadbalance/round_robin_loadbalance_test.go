@@ -26,7 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/remoting/mock"
+	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
 func TestRoundRobinLoadBalance_Normal(t *testing.T) {

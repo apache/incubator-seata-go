@@ -25,10 +25,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/util/backoff"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/util/backoff"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 var (

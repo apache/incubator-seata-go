@@ -28,8 +28,8 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/testdata"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/testdata"
 )
 
 var (

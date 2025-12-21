@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/util/flagext"
+	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {

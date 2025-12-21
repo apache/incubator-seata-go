@@ -23,7 +23,7 @@ package util
 
 import (
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"strings"
 )
 

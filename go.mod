@@ -1,4 +1,4 @@
-module seata.apache.org/seata-go
+module seata.apache.org/seata-go/v2
 
 go 1.20
 

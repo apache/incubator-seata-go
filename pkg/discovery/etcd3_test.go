@@ -23,7 +23,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3"
 	"reflect"
-	"seata.apache.org/seata-go/pkg/discovery/mock"
+	"seata.apache.org/seata-go/v2/pkg/discovery/mock"
 	"testing"
 	"time"
 )
