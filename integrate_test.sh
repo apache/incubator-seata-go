@@ -38,9 +38,11 @@ echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 echo "use seata-go-samples $3 branch for integration testing"
 git clone https://github.com/apache/incubator-seata-go-samples samples && cd samples
 
+go clean -modcache
+
 # update seata-go to current commit id
 
-go mod edit -replace=seata.apache.org/seata-go/v2=github.com/"$1"@"$2"
+go mod edit -replace=seata.apache.org/seata-go/v2=github.com/"$1"@"$2"/v2
 
 go mod tidy
 
