@@ -42,7 +42,7 @@ go clean -modcache
 
 # update seata-go to current commit id
 
-go mod edit -replace=seata.apache.org/seata-go/v2=github.com/"$1"/@"$2"
+go mod edit -replace=seata.apache.org/seata-go/v2=github.com/"$1"@"$2"
 
 go mod tidy
 
