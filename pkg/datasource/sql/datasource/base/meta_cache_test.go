@@ -86,6 +86,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		ctx context.Context
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -136,9 +137,18 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
+			mockConn := &sql.Conn{}
+
+			closeStub := gomonkey.ApplyMethodFunc(mockConn, "Close",
+				func() error {
+					return nil
+				})
+
+			defer closeStub.Reset()
+
 			connStub := gomonkey.ApplyMethodFunc(tt.fields.db, "Conn",
 				func(_ context.Context) (*sql.Conn, error) {
-					return &sql.Conn{}, nil
+					return mockConn, nil
 				})
 
 			defer connStub.Reset()
