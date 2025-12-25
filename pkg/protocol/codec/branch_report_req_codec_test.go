@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/message"
+	model2 "seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 )
 
 func TestBranchReportRequestCodec(t *testing.T) {

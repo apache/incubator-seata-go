@@ -24,8 +24,8 @@ import (
 
 	getty "github.com/apache/dubbo-getty"
 
-	"seata.apache.org/seata-go/pkg/util/log"
-	"seata.apache.org/seata-go/pkg/util/net"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/net"
 )
 
 func XidLoadBalance(sessions *sync.Map, xid string) getty.Session {

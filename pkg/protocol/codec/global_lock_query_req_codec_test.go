@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 )
 
 func TestGlobalLockQueryRequestCodec(t *testing.T) {

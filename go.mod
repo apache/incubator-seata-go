@@ -1,4 +1,4 @@
-module seata.apache.org/seata-go
+module seata.apache.org/seata-go/v2
 
 go 1.20
 
@@ -42,6 +42,7 @@ require (
 )
 
 require (
+	github.com/golang/snappy v0.0.4
 	github.com/knadh/koanf v1.5.0
 	github.com/robertkrimen/otto v0.4.0
 )
@@ -66,7 +67,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

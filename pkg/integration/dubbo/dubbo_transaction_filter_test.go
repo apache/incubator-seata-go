@@ -28,8 +28,8 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/constant"
-	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/constant"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 // TestGetDubboTransactionFilter unit test for GetDubboTransactionFilter

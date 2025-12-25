@@ -28,15 +28,15 @@ import (
 
 	"github.com/arana-db/parser/mysql"
 
-	"seata.apache.org/seata-go/pkg/compressor"
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/factor"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/parser"
-	"seata.apache.org/seata-go/pkg/util/collection"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/compressor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/factor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
+	"seata.apache.org/seata-go/v2/pkg/util/collection"
+	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (
