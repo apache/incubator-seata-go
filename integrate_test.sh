@@ -40,8 +40,7 @@ git clone https://github.com/apache/incubator-seata-go-samples samples && cd sam
 
 
 # update seata-go to current commit id
-go mod edit -replace=seata.apache.org/seata-go=seata.apache.org/seata-go/v2
-go mod edit -replace=seata.apache.org/seata-go/v2=github.com/"$1"/v2@"$2"
+go mod edit -replace=seata.apache.org/seata-go=github.com/"$1"/v2@"$2"
 
 go clean -modcache
 go mod tidy
