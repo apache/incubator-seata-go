@@ -21,12 +21,12 @@ import (
 	"context"
 	"errors"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/pcext"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/pcext"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type DefaultStatusDecisionStrategy struct {

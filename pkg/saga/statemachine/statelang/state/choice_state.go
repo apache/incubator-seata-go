@@ -17,7 +17,7 @@
 
 package state
 
-import "seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+import "seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 
 type ChoiceState interface {
 	statelang.State

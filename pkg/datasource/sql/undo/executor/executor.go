@@ -26,11 +26,11 @@ import (
 
 	"github.com/goccy/go-json"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)

@@ -25,8 +25,8 @@ import (
 	_ "github.com/arana-db/parser/test_driver"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
-	_ "seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
+	_ "seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
