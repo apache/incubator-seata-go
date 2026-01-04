@@ -22,12 +22,12 @@ import (
 	"errors"
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	stateimpl "seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	stateimpl "seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
 )
 
 type StateHandler interface {

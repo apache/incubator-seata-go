@@ -20,11 +20,11 @@ package codec
 import (
 	"testing"
 
-	model2 "seata.apache.org/seata-go/pkg/protocol/branch"
+	model2 "seata.apache.org/seata-go/v2/pkg/protocol/branch"
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 )
 
 func TestBranchCommitRequestCodec(t *testing.T) {

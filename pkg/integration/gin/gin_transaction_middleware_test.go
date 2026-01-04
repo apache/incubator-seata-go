@@ -26,7 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/constant"
+	"seata.apache.org/seata-go/v2/pkg/constant"
 )
 
 func init() {

@@ -20,7 +20,7 @@ package state
 import (
 	"github.com/google/uuid"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
 )
 
 type SubStateMachine interface {

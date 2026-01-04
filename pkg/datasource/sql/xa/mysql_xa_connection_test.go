@@ -28,7 +28,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 )
 
 func TestMysqlXAConn_Commit(t *testing.T) {

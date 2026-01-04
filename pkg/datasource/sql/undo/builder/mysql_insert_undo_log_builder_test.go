@@ -22,7 +22,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	_ "seata.apache.org/seata-go/pkg/util/log"
+	_ "seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"github.com/arana-db/parser/test_driver"
 
@@ -32,9 +32,9 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/mock"
-	"seata.apache.org/seata-go/pkg/datasource/sql/parser"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestBuildSelectSQLByInsert(t *testing.T) {
