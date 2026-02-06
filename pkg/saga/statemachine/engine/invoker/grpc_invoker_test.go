@@ -28,9 +28,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
 
-	pb "seata.apache.org/seata-go/testdata/saga/engine/invoker/grpc"
+	pb "seata.apache.org/seata-go/v2/testdata/saga/engine/invoker/grpc"
 )
 
 type MockGPRCClientImpl struct {

@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/repo/repository"
-	dbstore "seata.apache.org/seata-go/pkg/saga/statemachine/store/db"
-	sagaTm "seata.apache.org/seata-go/pkg/saga/tm"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/repo/repository"
+	dbstore "seata.apache.org/seata-go/v2/pkg/saga/statemachine/store/db"
+	sagaTm "seata.apache.org/seata-go/v2/pkg/saga/tm"
 )
 
 // SetupStoresFromConfig wires DB-backed StateLogStore/StateLangStore and Saga TM template

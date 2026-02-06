@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func BuildLockKey(records *types.RecordImage, meta types.TableMeta) string {

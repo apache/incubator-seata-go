@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 // SnowflakeSeqGenerator snowflake gen ids

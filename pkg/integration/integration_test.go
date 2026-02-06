@@ -23,8 +23,8 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/extension"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/constant"
-	"seata.apache.org/seata-go/pkg/integration/dubbo"
+	"seata.apache.org/seata-go/v2/pkg/constant"
+	"seata.apache.org/seata-go/v2/pkg/integration/dubbo"
 )
 
 // TestInit tests the Init function

@@ -26,7 +26,7 @@ import (
 	"runtime"
 	"strings"
 
-	"seata.apache.org/seata-go/pkg/saga"
+	"seata.apache.org/seata-go/v2/pkg/saga"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
@@ -34,15 +34,15 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 
-	"seata.apache.org/seata-go/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/discovery"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/flagext"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 const (
