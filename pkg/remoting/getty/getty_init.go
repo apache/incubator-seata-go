@@ -18,8 +18,8 @@
 package getty
 
 import (
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 )
 
 func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {

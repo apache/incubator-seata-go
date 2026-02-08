@@ -25,8 +25,8 @@ import (
 
 	etcd3 "go.etcd.io/etcd/client/v3"
 
-	"seata.apache.org/seata-go/pkg/util/log"
-	"seata.apache.org/seata-go/pkg/util/net"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/net"
 )
 
 const (

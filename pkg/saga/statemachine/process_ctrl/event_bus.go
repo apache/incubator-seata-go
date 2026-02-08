@@ -23,9 +23,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/util/collection"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/util/collection"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type EventBus interface {

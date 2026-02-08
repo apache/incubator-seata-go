@@ -30,11 +30,11 @@ import (
 	getty "github.com/apache/dubbo-getty"
 	gxsync "github.com/dubbogo/gost/sync"
 
-	"seata.apache.org/seata-go/pkg/discovery"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/loadbalance"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (

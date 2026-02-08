@@ -18,7 +18,7 @@
 package codec
 
 import (
-	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 )
 
 type GlobalCommitResponseCodec struct {

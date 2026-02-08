@@ -27,7 +27,7 @@ import (
 	"github.com/arana-db/parser/model"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestGetMySQLMultiDeleteUndoLogBuilder(t *testing.T) {
