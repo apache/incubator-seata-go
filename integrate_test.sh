@@ -40,7 +40,7 @@ git clone https://github.com/apache/incubator-seata-go-samples samples && cd sam
 
 # update seata-go to current commit id
 
-go mod edit -replace=seata.apache.org/seata-go=github.com/"$1"@"$2"
+go mod edit -replace=seata.apache.org/seata-go="${ROOT_DIR}"
 
 go mod tidy
 
