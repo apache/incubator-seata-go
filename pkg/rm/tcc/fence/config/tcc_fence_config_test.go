@@ -20,7 +20,7 @@ package config
 import (
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 func TestInitFence(t *testing.T) {

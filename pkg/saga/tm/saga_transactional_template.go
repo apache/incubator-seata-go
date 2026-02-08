@@ -21,8 +21,8 @@ import (
 	"context"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 type SagaTransactionalTemplate interface {

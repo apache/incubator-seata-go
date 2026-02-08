@@ -28,8 +28,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type GRPCInvoker struct {

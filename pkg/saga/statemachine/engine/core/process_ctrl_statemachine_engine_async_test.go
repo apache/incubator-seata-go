@@ -26,13 +26,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/config"
-	engExc "seata.apache.org/seata-go/pkg/saga/statemachine/engine/exception"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
-	"seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/config"
+	engExc "seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/exception"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/parser"
+	"seata.apache.org/seata-go/v2/pkg/util/errors"
 )
 
 func TestStartAsyncDisabled(t *testing.T) {

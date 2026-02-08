@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/model"
 )
 
 // The TCC Fence Store

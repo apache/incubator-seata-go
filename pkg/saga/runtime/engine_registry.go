@@ -21,7 +21,7 @@ import (
 	"context"
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 )
 
 // Engine is a minimal facade for state machine operations needed by Saga RM
