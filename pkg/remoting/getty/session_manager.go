@@ -49,6 +49,10 @@ var (
 	onceSessionManager = &sync.Once{}
 )
 
+func GetSessionManager() *SessionManager {
+	return sessionManager
+}
+
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool
 	serverSessions sync.Map
@@ -212,6 +216,7 @@ func (g *SessionManager) releaseSession(session getty.Session) {
 		m, _ := g.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 		sMap := m.(*sync.Map)
 		sMap.Delete(session)
+		g.cleanupSessionResources(session)
 		session.Close()
 	}
 	atomic.AddInt32(&g.sessionSize, -1)
@@ -223,4 +228,8 @@ func (g *SessionManager) registerSession(session getty.Session) {
 	sMap := m.(*sync.Map)
 	sMap.Store(session, true)
 	atomic.AddInt32(&g.sessionSize, 1)
+}
+
+func (g *SessionManager) cleanupSessionResources(session getty.Session) {
+	cleanupSession(session)
 }
