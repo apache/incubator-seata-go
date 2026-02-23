@@ -143,6 +143,8 @@ type TransactionContext struct {
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
+	// LocalTx local transaction instance, managed by at connection
+	LocalTx driver.Tx
 }
 
 // ExecContext
