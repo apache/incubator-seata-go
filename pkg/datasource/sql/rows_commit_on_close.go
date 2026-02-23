@@ -23,7 +23,7 @@ import (
 	"io"
 	"sync/atomic"
 
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type closeState int32
