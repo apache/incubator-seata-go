@@ -20,11 +20,11 @@ package codec
 import (
 	"math"
 
-	serror "seata.apache.org/seata-go/pkg/util/errors"
+	serror "seata.apache.org/seata-go/v2/pkg/util/errors"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/bytes"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 )
 
 type BranchCommitResponseCodec struct{}

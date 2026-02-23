@@ -18,7 +18,7 @@
 package expr
 
 import (
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/sequence"
 )
 
 type SequenceExpression struct {

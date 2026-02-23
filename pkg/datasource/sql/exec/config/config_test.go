@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/at"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 // TestInit tests the Init function with various configurations

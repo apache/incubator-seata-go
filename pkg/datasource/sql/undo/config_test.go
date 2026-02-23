@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/compressor"
+	"seata.apache.org/seata-go/v2/pkg/compressor"
 )
 
 func TestInitUndoConfig(t *testing.T) {

@@ -23,14 +23,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/config"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/pcext"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/utils"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl/process"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/parser"
-	stateimpl "seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/config"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/pcext"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/utils"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl/process"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/parser"
+	stateimpl "seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
 )
 
 const compensationRouteMachine = `{

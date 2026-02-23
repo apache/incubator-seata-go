@@ -27,7 +27,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
-	"seata.apache.org/seata-go/pkg/discovery/mock"
+	"seata.apache.org/seata-go/v2/pkg/discovery/mock"
 )
 
 func TestEtcd3RegistryService_Lookup(t *testing.T) {

@@ -28,12 +28,12 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/dao"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/dao"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/model"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type tccFenceWrapperHandler struct {

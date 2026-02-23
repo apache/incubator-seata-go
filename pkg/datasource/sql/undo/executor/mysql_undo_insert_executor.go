@@ -22,8 +22,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
 type mySQLUndoInsertExecutor struct {

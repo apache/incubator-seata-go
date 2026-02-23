@@ -20,11 +20,11 @@ package config
 import (
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/pcext"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl/handlers"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl/process"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/pcext"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl/handlers"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl/process"
 )
 
 // bootstrapProcessWiring wires default handlers/routers and router handler into BusinessProcessor

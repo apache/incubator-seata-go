@@ -20,9 +20,9 @@ package parser
 import (
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
 )
 
 type JSONStateMachineParser struct {
