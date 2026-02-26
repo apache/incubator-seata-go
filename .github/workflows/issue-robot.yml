@@ -14,20 +14,111 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+name: "🤖 AI Translate to English (Gemini)"
 
-name: 'issue translator'
 on:
-  issue_comment:
-    types: [created]
   issues:
-    types: [opened]
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+  pull-requests: write
 
 jobs:
-  build:
+  translate:
     runs-on: ubuntu-latest
+    if: github.event.sender.type != 'Bot'
     steps:
-      - uses: tomsun28/issues-translate-action@v2.6
+      - name: 🧠 Translate to English
+        uses: actions/github-script@v7
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
-          # it is not necessary to decide whether you need to modify the issue header content
-          IS_MODIFY_TITLE: false
-          CUSTOM_BOT_NOTE: RoBot detected the issue body's language is not English, translate it automatically. 👯👭🏻🧑‍🤝‍🧑👫🧑🏿‍🤝‍🧑🏻👩🏾‍🤝‍👨🏿👬🏿
+          script: |
+            const { payload, repo, eventName } = context;
+            const apiKey = process.env.GEMINI_API_KEY;
+            
+            if (!apiKey) return;
+
+            let content = "";
+            let title = "";
+            let targetNumber = 0;
+            let commentId = null;
+            const isReviewComment = eventName === 'pull_request_review_comment';
+
+            if (isReviewComment) {
+              content = payload.comment.body;
+              targetNumber = payload.pull_request.number;
+              commentId = payload.comment.id;
+            } else if (payload.comment) {
+              content = payload.comment.body;
+              targetNumber = payload.issue ? payload.issue.number : payload.pull_request.number;
+              commentId = payload.comment.id;
+            } else if (payload.issue) {
+              content = payload.issue.body;
+              title = payload.issue.title;
+              targetNumber = payload.issue.number;
+            } else if (payload.pull_request) {
+              content = payload.pull_request.body;
+              title = payload.pull_request.title;
+              targetNumber = payload.pull_request.number;
+            }
+
+            if (!content && !title) return;
+
+            async function translate(textToTranslate) {
+              if (!textToTranslate) return "";
+              
+              const systemPrompt = `You are a professional technical translator for open-source projects. 
+              Task: Translate the content into natural, professional technical English (en-US).
+              Rules:
+              1. Detect the language. If it is already in English, return the original text exactly.
+              2. Preserve all Markdown formatting, links, and HTML tags.
+              3. DO NOT translate code blocks, variables, or console logs.
+              4. Output ONLY the translated text.`;
+
+              const prompt = `${systemPrompt}\n\nContent:\n${textToTranslate}`;
+
+              try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                return data.candidates[0].content.parts[0].text.trim();
+              } catch (e) {
+                console.error('API Error:', e);
+                return textToTranslate;
+              }
+            }
+
+            const [tTitle, tBody] = await Promise.all([
+                title ? translate(title) : Promise.resolve(""),
+                content ? translate(content) : Promise.resolve("")
+            ]);
+
+            if (tTitle === title && tBody === content) return;
+
+            let reply = `> 🤖 **AI Auto Translation (English)**\n>\n`;
+            if (tTitle && tTitle !== title) reply += `> **Title:** ${tTitle}\n>\n`;
+            if (tBody && tBody !== content) reply += `> **Body:**\n>\n${tBody.replace(/^/gm, '> ')}\n`;
+            reply += `\n*This translation is automatically generated for non-English content.*`;
+
+            if (isReviewComment) {
+              await github.rest.pulls.createReplyForReviewComment({
+                owner: repo.owner, repo: repo.repo, pull_number: targetNumber,
+                comment_id: commentId, body: reply
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: repo.owner, repo: repo.repo, issue_number: targetNumber,
+                body: reply
+              });
+            }
