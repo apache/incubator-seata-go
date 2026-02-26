@@ -299,10 +299,17 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		return pkIndexMap
 	}
 	if len(meta.Columns) > 0 {
+		pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+		pkNameSet := make(map[string]string, len(pkColumnNameList))
+		for _, pkName := range pkColumnNameList {
+			pkNameSet[strings.ToLower(pkName)] = pkName
+		}
+
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
 			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if i.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+			normalizedColumn := DelEscape(sqlColumnName, types.DBTypeMySQL)
+			if pkName, exists := pkNameSet[strings.ToLower(normalizedColumn)]; exists {
+				pkIndexMap[pkName] = paramIdx
 			}
 		}
 		return pkIndexMap
