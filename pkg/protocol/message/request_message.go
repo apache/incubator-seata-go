@@ -131,7 +131,7 @@ func (req GlobalRollbackRequest) GetTypeCode() MessageType {
 
 type UndoLogDeleteRequest struct {
 	ResourceId string
-	SaveDays   MessageType
+	SaveDays   int16
 	BranchType model2.BranchType
 }
 
