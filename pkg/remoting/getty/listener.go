@@ -27,6 +27,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/constant"
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/processor"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )

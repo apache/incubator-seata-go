@@ -20,6 +20,8 @@ package config
 import (
 	"flag"
 	"time"
+
+	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 type Config struct {
