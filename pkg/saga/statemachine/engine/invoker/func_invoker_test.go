@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
 )
 
 // struct's method test

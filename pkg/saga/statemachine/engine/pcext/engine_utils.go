@@ -27,12 +27,12 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/constant"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang/state"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext) error {

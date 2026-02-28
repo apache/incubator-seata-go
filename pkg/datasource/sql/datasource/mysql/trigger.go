@@ -25,8 +25,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
 )
 
 type mysqlTrigger struct {

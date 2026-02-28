@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 
 	_ "github.com/mattn/go-sqlite3"
 )
