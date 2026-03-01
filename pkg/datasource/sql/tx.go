@@ -135,6 +135,12 @@ func (tx *Tx) Rollback() error {
 		}
 	}
 
+	// In XA mode, target might be nil (set with withOriginTx(nil))
+	// The XA transaction is managed separately, so just return nil
+	if tx.target == nil {
+		return nil
+	}
+
 	return tx.target.Rollback()
 }
 
