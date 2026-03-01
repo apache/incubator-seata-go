@@ -466,6 +466,7 @@ func TestWatch(t *testing.T) {
 
 	// Configure client
 	mockAddr := mockServer.Listener.Addr().String()
+	testConfig.ServerAddr = mockAddr
 	client := GetInstance(testConfig)
 	client.logger = zap.NewNop()
 	client.availableNamingMap.Store(mockAddr, int32(0))
