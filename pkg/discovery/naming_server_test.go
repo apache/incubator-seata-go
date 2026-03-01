@@ -262,9 +262,10 @@ func TestLookup_FirstCall(t *testing.T) {
 			// Handle login request, return valid JWT token
 			w.Header().Set("Content-Type", contentTypeJSON)
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"code": "200",
-				"data": "mock-jwt-token",
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    "200",
+				"data":    "mock-jwt-token",
+				"success": true,
 			})
 
 		case "/naming/v1/discovery":
@@ -354,15 +355,23 @@ func TestRefreshToken_Success(t *testing.T) {
 		if r.URL.Path != "/api/v1/auth/login" || r.Method != http.MethodPost {
 			t.Errorf("Invalid request: %s %s", r.Method, r.URL.Path)
 		}
-		// Verify credentials
-		if r.URL.Query().Get("username") != testConfig.Username || r.URL.Query().Get("password") != testConfig.Password {
+		// Verify credentials from JSON body
+		var loginReq struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
+			t.Errorf("Failed to decode login request: %v", err)
+		}
+		if loginReq.Username != testConfig.Username || loginReq.Password != testConfig.Password {
 			t.Error("Invalid username/password in request")
 		}
 		// Return success response with token
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"code": "200",
-			"data": "mock-jwt-token",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "200",
+			"data":    "mock-jwt-token",
+			"success": true,
 		})
 	}))
 	defer mockServer.Close()
@@ -388,9 +397,10 @@ func TestRefreshToken_RetryMechanism(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"code": "200",
-			"data": "retry-success-token",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "200",
+			"data":    "retry-success-token",
+			"success": true,
 		})
 	}))
 	defer mockServer.Close()
@@ -419,14 +429,12 @@ func TestWatch(t *testing.T) {
 			if r.Method != http.MethodPost {
 				t.Errorf("login: Expected POST, got %s", r.Method)
 			}
-			if r.URL.Query().Get("username") != testConfig.Username || r.URL.Query().Get("password") != testConfig.Password {
-				t.Error("login: Invalid username/password")
-			}
 			w.Header().Set("Content-Type", contentTypeJSON)
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"code": "200",
-				"data": "mock-jwt-token",
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    "200",
+				"data":    "mock-jwt-token",
+				"success": true,
 			})
 
 		case "/naming/v1/watch":
