@@ -44,6 +44,12 @@ func (h *undoLogSQLHook) Before(ctx context.Context, execCtx *types.ExecContext)
 		return nil
 	}
 
+	// Skip undo log generation for XA mode - XA transactions don't need undo logs
+	// Undo logs are only needed for AT mode's automatic compensation
+	if execCtx.TxCtx != nil && execCtx.TxCtx.TransactionMode == types.XAMode {
+		return nil
+	}
+
 	pc, err := parser.DoParser(execCtx.Query)
 	if err != nil {
 		return err
