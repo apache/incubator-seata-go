@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"net/url"
-	"seata.apache.org/seata-go/pkg/util/rand"
+	"seata.apache.org/seata-go/v2/pkg/util/rand"
 	"strconv"
 	"strings"
 	"sync"
