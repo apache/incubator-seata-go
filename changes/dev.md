@@ -30,6 +30,7 @@
 ### bugfix：
 
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
+  - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
 
 ### optimize：
 
@@ -37,7 +38,11 @@
 
 ### test:
 
-  - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] test case for xxx	
+  - [[#958](https://github.com/apache/incubator-seata-go/issues/958)] improve test coverage for pkg/rm/tcc/fence/store/db/sql (100%)
+  - [[#957](https://github.com/apache/incubator-seata-go/issues/957)] improve test coverage for pkg/rm/tcc/fence/handler (84.5%)
+  - [[#955](https://github.com/apache/incubator-seata-go/issues/955)] improve test coverage for pkg/rm/tcc/fence (95.1%)
+  - [[#947](https://github.com/apache/incubator-seata-go/issues/947)] improve test coverage for pkg/discovery/mock
+  - [[#948](https://github.com/apache/incubator-seata-go/issues/948)] improve test coverage for pkg/integration	
 
 ### contributors:
 

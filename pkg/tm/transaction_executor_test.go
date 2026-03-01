@@ -30,7 +30,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 )
 
 func TestTransactionExecutorBegin(t *testing.T) {
@@ -276,6 +276,7 @@ func TestCommitOrRollback(t *testing.T) {
 		{
 			ctx: context.Background(),
 			tx: GlobalTransaction{
+				Xid:    "test-xid-rollback",
 				TxRole: Launcher,
 			},
 			ok:                 false,
@@ -367,7 +368,7 @@ func TestBeginNewGtx(t *testing.T) {
 	assert.Equal(t, message.GlobalStatusBegin, *GetTxStatus(ctx))
 
 	// case return error
-	err := errors.New("Mock Error")
+	err := errors.New("Mock Exception")
 	gomonkey.ApplyMethod(reflect.TypeOf(GetGlobalTransactionManager()), "Begin",
 		func(_ *GlobalTransactionManager, ctx context.Context, timeout time.Duration) error {
 			return err

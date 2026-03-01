@@ -25,10 +25,10 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (

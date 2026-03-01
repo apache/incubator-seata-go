@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestBuildWhereConditionByPKs(t *testing.T) {
@@ -98,6 +98,24 @@ func TestBuildLockKey(t *testing.T) {
 				},
 			},
 			"TEST_NAME:1_one,2_two",
+		},
+		{
+			"Three Primary Keys",
+			types.TableMeta{
+				TableName: "test2_name",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: columnsThreePk},
+				},
+			},
+			types.RecordImage{
+				TableName: "test2_name",
+				Rows: []types.RowImage{
+					{Columns: []types.ColumnImage{getColumnImage("id", 1), getColumnImage("userId", "one"), getColumnImage("age", "11")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 2), getColumnImage("userId", "two"), getColumnImage("age", "22")}},
+					{Columns: []types.ColumnImage{getColumnImage("id", 3), getColumnImage("userId", "three"), getColumnImage("age", "33")}},
+				},
+			},
+			"TEST2_NAME:1_one_11,2_two_22,3_three_33",
 		},
 		{
 			"Three Primary Keys",

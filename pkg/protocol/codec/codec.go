@@ -23,8 +23,8 @@ import (
 
 	"vimagination.zapto.org/byteio"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type CodecType byte
@@ -114,6 +114,7 @@ func (c *CodecManager) Encode(codecType CodecType, in interface{}) []byte {
 
 func Init() {
 	// Global
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalReportResponseCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &GlobalBeginResponseCodec{})

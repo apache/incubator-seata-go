@@ -26,21 +26,23 @@ import (
 	"runtime"
 	"strings"
 
+	"seata.apache.org/seata-go/v2/pkg/saga"
+
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 
-	"seata.apache.org/seata-go/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/discovery"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/flagext"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 const (
@@ -85,6 +87,8 @@ type Config struct {
 	TransportConfig   remoteConfig.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
+
+	SagaConfig saga.Config `yaml:"saga" json:"saga" koanf:"saga"`
 }
 
 func (c *Config) RegisterFlags(f *flag.FlagSet) {
@@ -103,6 +107,7 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
 	c.RegistryConfig.RegisterFlagsWithPrefix("registry", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
+	c.SagaConfig.RegisterFlagsWithPrefix("saga", f)
 }
 
 type loaderConf struct {

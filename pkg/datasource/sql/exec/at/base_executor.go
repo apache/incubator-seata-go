@@ -30,12 +30,12 @@ import (
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"seata.apache.org/seata-go/pkg/util/log"
-	"seata.apache.org/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 )
 
 type baseExecutor struct {

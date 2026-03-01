@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         ## 🚀 功能请求
-        
+
         感谢您为项目提供新的想法和建议！
 
   - type: checkboxes
@@ -20,6 +20,8 @@ body:
           required: true
         - label: "📋 我已经查看了 [发布说明](https://github.com/apache/incubator-seata-go/releases)，确信此功能尚未实现"
           required: true
+        - label: "🛠️ 我愿意自己处理这个议题"
+          required: false
 
   - type: markdown
     attributes:

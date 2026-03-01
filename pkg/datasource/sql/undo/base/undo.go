@@ -28,15 +28,15 @@ import (
 
 	"github.com/arana-db/parser/mysql"
 
-	"seata.apache.org/seata-go/pkg/compressor"
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/factor"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/parser"
-	"seata.apache.org/seata-go/pkg/util/collection"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/compressor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/factor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
+	"seata.apache.org/seata-go/v2/pkg/util/collection"
+	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (
@@ -238,7 +238,7 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		XID:          tranCtx.XID,
 		Context:      undoLogContent,
 		RollbackInfo: rollbackInfo,
-		LogStatus:    undo.UndoLogStatueNormnal,
+		LogStatus:    undo.UndoLogStatusNormal,
 	}, conn)
 }
 
@@ -368,13 +368,13 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 			log.Errorf("[Undo] delete undo fail, err: %v", err)
 			return err
 		}
-		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+		log.Infof("xid %v branch %v, undo_log deleted with %v", xid, branchID, undo.UndoLogStatusGlobalFinished)
 	} else {
 		if err = m.insertUndoLogWithGlobalFinished(ctx, xid, uint64(branchID), conn); err != nil {
 			log.Errorf("[Undo] insert undo with global finished fail, err: %v", err)
 			return err
 		}
-		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatueGlobalFinished)
+		log.Infof("xid %v branch %v, undo_log added with %v", xid, branchID, undo.UndoLogStatusGlobalFinished)
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -421,13 +421,18 @@ func (m *BaseUndoLogManager) DBType() types.DBType {
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	if _, err = conn.QueryContext(ctx, getCheckUndoLogTableExistSql()); err != nil { //nolint:rowserrcheck,sqlclosecheck
+	rows, err := conn.QueryContext(ctx, getCheckUndoLogTableExistSql())
+	if err != nil {
 		// 1146 mysql table not exist fault code
 		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
 			return false, nil
 		}
 		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
-		return
+		return false, err
+	}
+
+	if rows != nil {
+		defer rows.Close()
 	}
 
 	return true, nil
