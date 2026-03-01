@@ -40,6 +40,8 @@ func (c CompressorType) GetCompressor() Compressor {
 		return &Gzip{}
 	case CompressorZip:
 		return &Zip{}
+	case CompressorSevenz:
+		return &Sevenz{}
 	case CompressorBzip2:
 		return &Bzip2{}
 	case CompressorLz4:
