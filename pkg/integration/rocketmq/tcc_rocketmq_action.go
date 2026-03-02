@@ -82,11 +82,20 @@ func (a *TCCRocketMQAction) Prepare(ctx context.Context, params interface{}) (bo
 }
 
 func (a *TCCRocketMQAction) Commit(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
+	// Commit is a no-op because RocketMQ transactional messages use a check-back mechanism.
+	// When the global transaction commits, RocketMQ will invoke CheckLocalTransaction
+	// via SeataTransactionListener to determine the final message disposition.
+	// The message has already been sent to the broker during Prepare phase with an
+	// initial state of UnknowState, pending the check-back resolution.
 	log.Infof("[TCCRocketMQ] Commit (no-op, rely on check-back), xid=%s, branchId=%d", bac.Xid, bac.BranchId)
 	return true, nil
 }
 
 func (a *TCCRocketMQAction) Rollback(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
+	// Rollback is a no-op because RocketMQ transactional messages use a check-back mechanism.
+	// When the global transaction rolls back, RocketMQ will invoke CheckLocalTransaction
+	// via SeataTransactionListener, which queries the TC for the global status and returns
+	// RollbackMessageState, causing the broker to discard the message.
 	log.Infof("[TCCRocketMQ] Rollback (no-op, rely on check-back), xid=%s, branchId=%d", bac.Xid, bac.BranchId)
 	return true, nil
 }

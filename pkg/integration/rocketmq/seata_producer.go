@@ -36,9 +36,16 @@ type transactionProducerInterface interface {
 	SendMessageInTransaction(context.Context, *primitive.Message) (*primitive.TransactionSendResult, error)
 }
 
+type normalProducerInterface interface {
+	Start() error
+	Shutdown() error
+	SendSync(ctx context.Context, msg ...*primitive.Message) (*primitive.SendResult, error)
+}
+
 type SeataMQProducer struct {
 	config              *SeataMQProducerConfig
 	transactionProducer transactionProducerInterface
+	normalProducer      normalProducerInterface
 	tccAction           *TCCRocketMQAction
 	tccProxy            *tcc.TCCServiceProxy
 
@@ -65,12 +72,9 @@ func NewSeataMQProducer(cfg *SeataMQProducerConfig) (*SeataMQProducer, error) {
 
 	p.tccAction = NewTCCRocketMQAction(p)
 
-	tccResource, err := tcc.ParseTCCResource(p.tccAction)
-	if err != nil {
-		return nil, fmt.Errorf("parse TCC resource failed: %w", err)
-	}
-
-	p.tccProxy, err = tcc.NewTCCServiceProxy(tccResource)
+	// NewTCCServiceProxy internally calls ParseTCCResource, so we pass the action directly
+	var err error
+	p.tccProxy, err = tcc.NewTCCServiceProxy(p.tccAction)
 	if err != nil {
 		return nil, fmt.Errorf("create TCC proxy failed: %w", err)
 	}
@@ -81,6 +85,11 @@ func NewSeataMQProducer(cfg *SeataMQProducerConfig) (*SeataMQProducer, error) {
 	p.transactionProducer, err = producer.NewTransactionProducer(listener, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("create transaction producer failed: %w", err)
+	}
+
+	p.normalProducer, err = producer.NewDefaultProducer(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("create normal producer failed: %w", err)
 	}
 
 	return p, nil
@@ -94,7 +103,16 @@ func (p *SeataMQProducer) Start() error {
 		return fmt.Errorf("producer already closed")
 	}
 
-	return p.transactionProducer.Start()
+	if err := p.transactionProducer.Start(); err != nil {
+		return err
+	}
+
+	if err := p.normalProducer.Start(); err != nil {
+		p.transactionProducer.Shutdown()
+		return err
+	}
+
+	return nil
 }
 
 func (p *SeataMQProducer) Shutdown() error {
@@ -106,7 +124,19 @@ func (p *SeataMQProducer) Shutdown() error {
 	}
 
 	p.closed = true
-	return p.transactionProducer.Shutdown()
+
+	var errs []error
+	if err := p.transactionProducer.Shutdown(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.normalProducer.Shutdown(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("shutdown errors: %v", errs)
+	}
+	return nil
 }
 
 func (p *SeataMQProducer) Send(ctx context.Context, msg *primitive.Message) (*primitive.SendResult, error) {
@@ -140,11 +170,7 @@ func (p *SeataMQProducer) Send(ctx context.Context, msg *primitive.Message) (*pr
 }
 
 func (p *SeataMQProducer) sendSync(ctx context.Context, msg *primitive.Message) (*primitive.SendResult, error) {
-	result, err := p.transactionProducer.SendMessageInTransaction(ctx, msg)
-	if err != nil {
-		return nil, err
-	}
-	return result.SendResult, nil
+	return p.normalProducer.SendSync(ctx, msg)
 }
 
 func getStringFromMap(m map[string]interface{}, key string) string {

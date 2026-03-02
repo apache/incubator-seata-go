@@ -18,6 +18,8 @@
 package rocketmq
 
 import (
+	"fmt"
+
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 
 	"seata.apache.org/seata-go/v2/pkg/constant"
@@ -63,11 +65,17 @@ func (l *SeataTransactionListener) CheckLocalTransaction(msgExt *primitive.Messa
 	case message.GlobalStatusCommitted:
 		log.Infof("[SeataTransactionListener] Global tx committed, xid=%s", xid)
 		return primitive.CommitMessageState
+	case message.GlobalStatusCommitting, message.GlobalStatusBegin:
+		log.Infof("[SeataTransactionListener] Global tx committing/in progress, xid=%s, status=%v", xid, globalStatus)
+		return primitive.UnknowState
+	case message.GlobalStatusRollbacking:
+		log.Infof("[SeataTransactionListener] Global tx rolling back, xid=%s, status=%v", xid, globalStatus)
+		return primitive.UnknowState
 	case message.GlobalStatusRollbacked, message.GlobalStatusTimeoutRollbacked, message.GlobalStatusRollbackFailed:
 		log.Infof("[SeataTransactionListener] Global tx rollbacked, xid=%s, status=%v", xid, globalStatus)
 		return primitive.RollbackMessageState
 	default:
-		log.Infof("[SeataTransactionListener] Global tx in progress, xid=%s, status=%v", xid, globalStatus)
+		log.Infof("[SeataTransactionListener] Global tx in unknown state, xid=%s, status=%v", xid, globalStatus)
 		return primitive.UnknowState
 	}
 }
@@ -82,5 +90,10 @@ func (l *SeataTransactionListener) queryGlobalStatus(xid string) (message.Global
 	if err != nil {
 		return message.GlobalStatusUnKnown, err
 	}
-	return res.(message.GlobalStatusResponse).GlobalStatus, nil
+	gsResp, ok := res.(message.GlobalStatusResponse)
+	if !ok {
+		log.Errorf("[SeataTransactionListener] Invalid response type for GetGlobalStatus, xid=%s", xid)
+		return message.GlobalStatusUnKnown, fmt.Errorf("invalid response type: %T", res)
+	}
+	return gsResp.GlobalStatus, nil
 }

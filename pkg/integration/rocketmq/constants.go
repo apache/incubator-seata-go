@@ -21,7 +21,6 @@ const (
 	ResourceIDTCCRocketMQ = "tccRocketMQ"
 
 	ActionContextKeyMessage         = "message"
-	ActionContextKeySendResult      = "sendResult"
 	ActionContextKeyOffsetMsgId     = "offsetMsgId"
 	ActionContextKeyCommitLogOffset = "commitLogOffset"
 	ActionContextKeyMsgId           = "msgId"

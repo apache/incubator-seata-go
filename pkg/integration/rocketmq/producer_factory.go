@@ -25,34 +25,31 @@ import (
 var (
 	globalProducer      *SeataMQProducer
 	producerMutex       sync.RWMutex
-	producerInitOnce    sync.Once
 	producerInitialized bool
 )
 
 func InitSeataMQProducer(cfg *SeataMQProducerConfig) error {
-	var initErr error
-	producerInitOnce.Do(func() {
-		producerMutex.Lock()
-		defer producerMutex.Unlock()
+	producerMutex.Lock()
+	defer producerMutex.Unlock()
 
-		producer, err := NewSeataMQProducer(cfg)
-		if err != nil {
-			initErr = fmt.Errorf("failed to create SeataMQProducer: %w", err)
-			return
-		}
+	// Allow re-initialization if previous attempt failed
+	if producerInitialized && globalProducer != nil {
+		return nil
+	}
 
-		globalProducer = producer
-		producerInitialized = true
+	producer, err := NewSeataMQProducer(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create SeataMQProducer: %w", err)
+	}
 
-		if err := producer.Start(); err != nil {
-			initErr = fmt.Errorf("failed to start SeataMQProducer: %w", err)
-			globalProducer = nil
-			producerInitialized = false
-			return
-		}
-	})
+	if err := producer.Start(); err != nil {
+		return fmt.Errorf("failed to start SeataMQProducer: %w", err)
+	}
 
-	return initErr
+	globalProducer = producer
+	producerInitialized = true
+
+	return nil
 }
 
 func GetSeataMQProducer() (*SeataMQProducer, error) {
