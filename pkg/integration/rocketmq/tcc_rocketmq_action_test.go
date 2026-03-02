@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package constant
+package rocketmq
 
-const (
-	ActionStartTime = "action-start-time"
-	HostName        = "host-name"
-	ActionContext   = "actionContext"
+import (
+	"testing"
 
-	PrepareMethod  = "sys::prepare"
-	CommitMethod   = "sys::commit"
-	RollbackMethod = "sys::rollback"
-	ActionName     = "actionName"
+	"github.com/stretchr/testify/assert"
 
-	SeataXidKey     = "SEATA_XID"
-	XidKey          = "TX_XID"
-	XidKeyLowercase = "tx_xid"
-	MdcXidKey       = "X-TX-XID"
-	MdcBranchIDKey  = "X-TX-BRANCH-ID"
-	BranchTypeKey   = "TX_BRANCH_TYPE"
-	GlobalLockKey   = "TX_LOCK"
-	SeataFilterKey  = "seataDubboFilter"
-
-	SeataVersion = "1.1.0"
-
-	TccBusinessActionContextParameter = "tccParam"
-
-	// RocketMQ message property keys for XID and BranchId propagation
-	PropertySeataXID      = "SEATA_XID"
-	PropertySeataBranchId = "SEATA_BRANCH_ID"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
 )
+
+func TestTCCRocketMQAction_ParseTCCResource(t *testing.T) {
+	action := &TCCRocketMQAction{}
+
+	resource, err := tcc.ParseTCCResource(action)
+	assert.NoError(t, err)
+	assert.NotNil(t, resource)
+
+	assert.Equal(t, ResourceIDTCCRocketMQ, resource.GetResourceId())
+	assert.Equal(t, ResourceIDTCCRocketMQ, action.GetActionName())
+}
+
+func TestTCCRocketMQAction_GetActionName(t *testing.T) {
+	action := &TCCRocketMQAction{}
+	assert.Equal(t, ResourceIDTCCRocketMQ, action.GetActionName())
+}
