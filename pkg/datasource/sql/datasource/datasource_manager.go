@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 var (

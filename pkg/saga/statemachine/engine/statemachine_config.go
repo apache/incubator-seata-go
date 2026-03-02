@@ -20,12 +20,12 @@ package engine
 import (
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/expr"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/invoker"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/repo"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/engine/sequence"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/store"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/expr"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/invoker"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/repo"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/sequence"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/store"
 )
 
 type StateMachineConfig interface {

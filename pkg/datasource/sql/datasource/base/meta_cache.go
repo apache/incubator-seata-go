@@ -26,7 +26,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 type (

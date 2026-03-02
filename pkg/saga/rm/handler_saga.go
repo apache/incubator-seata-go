@@ -18,8 +18,8 @@
 package rm
 
 import (
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 type RMHandlerSaga struct{}

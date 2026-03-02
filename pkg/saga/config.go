@@ -20,7 +20,7 @@ package saga
 import (
 	"flag"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine"
 )
 
 type Config struct {

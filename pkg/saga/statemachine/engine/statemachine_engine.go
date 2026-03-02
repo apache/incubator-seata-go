@@ -20,8 +20,8 @@ package engine
 import (
 	"context"
 
-	"seata.apache.org/seata-go/pkg/saga/statemachine/process_ctrl"
-	"seata.apache.org/seata-go/pkg/saga/statemachine/statelang"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
+	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 )
 
 type StateMachineEngine interface {

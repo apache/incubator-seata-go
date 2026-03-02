@@ -22,16 +22,16 @@ import (
 	"flag"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/util/fanout"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/util/fanout"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type phaseTwoContext struct {
