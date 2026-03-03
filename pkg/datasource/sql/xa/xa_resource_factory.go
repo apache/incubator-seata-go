@@ -34,6 +34,7 @@ func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error)
 	case types.DBTypeMySQL:
 		xaConnection = NewMysqlXaConn(conn)
 	case types.DBTypeOracle:
+		xaConnection = NewOracleXaConn(conn)
 	case types.DBTypePostgreSQL:
 	default:
 		err = fmt.Errorf("not support db type for :%s", dbType.String())
