@@ -87,7 +87,10 @@ func NewSeataMQProducer(cfg *SeataMQProducerConfig) (*SeataMQProducer, error) {
 		return nil, fmt.Errorf("create transaction producer failed: %w", err)
 	}
 
-	p.normalProducer, err = producer.NewDefaultProducer(opts...)
+	normalCfg := *cfg
+	normalCfg.GroupName = cfg.GroupName + "-normal"
+	normalOpts := normalCfg.ToRocketMQProducerOptions()
+	p.normalProducer, err = producer.NewDefaultProducer(normalOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("create normal producer failed: %w", err)
 	}
