@@ -20,7 +20,6 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
-	"reflect"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -59,26 +58,12 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	// For XA mode, use a plain executor without AT-specific hooks (like undo log generation)
+	// For XA mode, use a plain executor without AT-specific hooks
 	// XA transactions don't need undo logs - they use the two-phase commit protocol managed by TC
+	// Note: undo_log_hook.go already handles skipping undo log generation for XA mode
 	if transactionMode == types.XAMode {
 		e := &BaseExecutor{}
-		// Only attach non-AT hooks for XA mode (e.g., logger hook, but not undo log hook)
-		xaHooks := make([]SQLHook, 0, 2)
-		for _, h := range hooks {
-			// Check if this is an undo log hook by type name
-			// undoLogSQLHook is not exported, so we use reflection to check the type name
-			// Use Type() directly (not Elem()) to get the concrete type safely
-			typeName := ""
-			if h != nil {
-				typeName = reflect.TypeOf(h).Elem().Name()
-			}
-			// Skip undo log hooks for XA mode
-			if typeName != "undoLogSQLHook" {
-				xaHooks = append(xaHooks, h)
-			}
-		}
-		e.Interceptors(xaHooks)
+		e.Interceptors(hooks)
 		return e, nil
 	}
 
