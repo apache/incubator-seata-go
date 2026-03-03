@@ -128,7 +128,11 @@ func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) 
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		// messageFuture.Err = rpcMessage.Err
-		messageFuture.Done <- struct{}{}
+		select {
+		case messageFuture.Done <- struct{}{}:
+		default:
+			log.Warnf("response arrived after timeout for msg ID: %d", rpcMessage.ID)
+		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
