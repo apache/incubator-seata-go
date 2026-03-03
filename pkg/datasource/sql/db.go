@@ -117,7 +117,8 @@ type DBResource struct {
 	// for xa
 	metaCache    datasource.TableMetaCache
 	shouldBeHeld bool
-	keeper       sync.Map
+	keeper       sync.Map // xaBranchID -> *XAConn
+	xaConnsByXID sync.Map // xid -> *XAConn (for XA branch reuse in autoCommit mode)
 }
 
 func (db *DBResource) GetResourceGroupId() string {
@@ -188,6 +189,25 @@ func (db *DBResource) Hold(xaBranchID string, v interface{}) error {
 
 func (db *DBResource) Release(xaBranchID string) {
 	db.keeper.Delete(xaBranchID)
+}
+
+// RegisterXABranch registers an XA connection by xid for reuse in autoCommit mode
+func (db *DBResource) RegisterXABranch(xid string, conn *XAConn) {
+	db.xaConnsByXID.Store(xid, conn)
+}
+
+// GetXABranch retrieves an XA connection by xid for reuse
+func (db *DBResource) GetXABranch(xid string) *XAConn {
+	v, ok := db.xaConnsByXID.Load(xid)
+	if !ok {
+		return nil
+	}
+	return v.(*XAConn)
+}
+
+// UnregisterXABranch removes an XA connection by xid
+func (db *DBResource) UnregisterXABranch(xid string) {
+	db.xaConnsByXID.Delete(xid)
 }
 
 func (db *DBResource) Lookup(xaBranchID string) (interface{}, bool) {
