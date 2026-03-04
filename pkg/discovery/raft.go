@@ -87,8 +87,10 @@ func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	if clusterName == "" {
 		return nil, fmt.Errorf("cluster doesnt exist")
 	}
+	r.mu.Lock()
 	r.currentTransactionServiceGroup = key
 	r.currentTransactionClusterName = clusterName
+	r.mu.Unlock()
 
 	if !r.metadata.ContainsGroup(clusterName) {
 		if _, ok := r.loadInitAddresses(clusterName); !ok && r.cfg.ServerAddr != "" {
@@ -239,7 +241,9 @@ func (r *RaftRegistryService) startQueryMetadata() {
 						}
 
 						if shouldFetch {
+							r.mu.RLock()
 							clusterName := r.currentTransactionClusterName
+							r.mu.RUnlock()
 							groups := r.metadata.Groups(clusterName)
 							if len(groups) == 0 {
 								groups = append(groups, "")
@@ -436,7 +440,9 @@ func (r *RaftRegistryService) queryHttpAddress(clusterName, group string) (strin
 	}
 
 	if len(nodes) > 0 {
+		r.mu.RLock()
 		currentServiceGroup := r.currentTransactionServiceGroup
+		r.mu.RUnlock()
 		if aliveAny, ok := r.aliveNodes.Load(currentServiceGroup); ok {
 			aliveNodes, ok := aliveAny.([]*ServiceInstance)
 			if !ok {
