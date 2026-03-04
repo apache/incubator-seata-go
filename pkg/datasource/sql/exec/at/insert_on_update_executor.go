@@ -97,7 +97,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -211,14 +211,15 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 	parameterMap := make(map[string][]driver.NamedValue)
 	insertColumns := getInsertColumns(insertStmt)
 	placeHolderIndex := 0
+	dbType := i.execContext.DBType
 	for _, rowColumns := range insertRows {
 		if len(rowColumns) != len(insertColumns) {
 			log.Errorf("insert row's column size not equal to insert column size. row columns:%+v insert columns:%+v", rowColumns, insertColumns)
 			return nil, 0, fmt.Errorf("invalid insert row's column size")
 		}
-		for i, col := range insertColumns {
-			columnName := DelEscape(col, types.DBTypeMySQL)
-			val := rowColumns[i]
+		for idx, col := range insertColumns {
+			columnName := DelEscape(col, dbType)
+			val := rowColumns[idx]
 			rStr, ok := val.(string)
 			if ok && strings.EqualFold(rStr, sqlPlaceholder) {
 				objects := args[placeHolderIndex]
@@ -226,7 +227,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQLParameters(insertStmt *ast.I
 				placeHolderIndex++
 			} else {
 				parameterMap[columnName] = append(parameterMap[col], driver.NamedValue{
-					Ordinal: i + 1,
+					Ordinal: idx + 1,
 					Name:    columnName,
 					Value:   val,
 				})
@@ -264,7 +265,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +316,7 @@ func (i *insertOnUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordIma
 
 // isPKColumn check the column name to see if it is a primary key column
 func (i *insertOnUpdateExecutor) isPKColumn(columnName string, meta types.TableMeta) bool {
-	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := DelEscape(columnName, i.execContext.DBType)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false

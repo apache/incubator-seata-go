@@ -120,6 +120,7 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				DBType:      types.DBTypeMySQL,
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -214,6 +215,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 				},
 			}
 			execCtx := &types.ExecContext{
+				DBType:      types.DBTypeMySQL,
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -244,6 +246,7 @@ func TestATExecutor_ExecWithNamedValue_ParserError(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		DBType:      types.DBTypeMySQL,
 		Query:       "INVALID SQL",
 		NamedValues: []driver.NamedValue{},
 	}
@@ -310,6 +313,7 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				DBType: types.DBTypeMySQL,
 				Query:  tt.query,
 				Values: tt.values,
 			}
@@ -344,6 +348,7 @@ func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		DBType: types.DBTypeMySQL,
 		Query:  "INVALID SQL",
 		Values: []driver.Value{"test"},
 	}

@@ -126,6 +126,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			executor := NewInsertExecutor(c, &types.ExecContext{
 				Values:      test.queryArgs,
 				NamedValues: test.NamedValues,
+				DBType:      types.DBTypeMySQL,
 			}, []exec.SQLHook{})
 
 			executor.(*insertExecutor).businesSQLResult = &test.mockInsertResult
@@ -635,7 +636,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 					return &tt.args.meta, nil
 				})
 
-			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{DBType: types.DBTypeMySQL}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
@@ -736,7 +737,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 					return &tt.args.meta, nil
 				})
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(nil, &types.ExecContext{DBType: types.DBTypeMySQL}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext

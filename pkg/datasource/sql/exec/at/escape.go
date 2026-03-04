@@ -34,7 +34,7 @@ const (
 // DelEscape del escape by db type
 func DelEscape(colName string, dbType types.DBType) string {
 	newColName := delEscape(colName, escapeStandard)
-	if dbType == types.DBTypeMySQL {
+	if dbType == types.DBTypeMySQL || dbType == types.DBTypeMARIADB {
 		newColName = delEscape(newColName, escapeMysql)
 	}
 	return newColName
@@ -76,7 +76,7 @@ func delEscape(colName string, escape string) string {
 
 // AddEscape if necessary, add escape by db type
 func AddEscape(colName string, dbType types.DBType) string {
-	if dbType == types.DBTypeMySQL {
+	if dbType == types.DBTypeMySQL || dbType == types.DBTypeMARIADB {
 		return addEscape(colName, dbType, escapeMysql)
 	}
 
@@ -152,13 +152,15 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 // checkEscape check whether given field or table name use keywords. the method has database special logic.
 func checkEscape(colName string, dbType types.DBType) bool {
 	switch dbType {
-	case types.DBTypeMySQL:
+	case types.DBTypeMySQL, types.DBTypeMARIADB:
 		if _, ok := types.GetMysqlKeyWord()[strings.ToUpper(colName)]; ok {
 			return true
 		}
-
 		return false
-	// TODO impl Oracle PG SQLServer ...
+	case types.DBTypeOracle:
+		// Oracle reserved words - for now, always escape to be safe
+		// TODO: implement Oracle keyword checker similar to mysql_keyword_checker.go
+		return true
 	default:
 		return true
 	}

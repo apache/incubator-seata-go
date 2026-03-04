@@ -103,7 +103,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	}
 
 	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 	beforeImage := beforeImages[0]
 
 	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

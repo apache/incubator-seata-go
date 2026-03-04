@@ -93,7 +93,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
-	if s.metaData, err = datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	if s.metaData, err = datasource.GetTableCache(s.execContext.DBType).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
 		return nil, err
 	}
 

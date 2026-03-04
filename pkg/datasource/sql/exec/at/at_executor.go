@@ -29,6 +29,8 @@ import (
 
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
+	exec.RegisterATExecutor(types.DBTypeMARIADB, func() exec.SQLExecutor { return &ATExecutor{} })
+	exec.RegisterATExecutor(types.DBTypeOracle, func() exec.SQLExecutor { return &ATExecutor{} })
 }
 
 type executor interface {
