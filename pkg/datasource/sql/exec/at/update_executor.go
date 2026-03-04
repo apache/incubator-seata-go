@@ -102,7 +102,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 
 		// select indexes columns
 		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+		metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {
 			return "", nil, err
 		}

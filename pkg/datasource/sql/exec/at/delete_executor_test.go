@@ -72,7 +72,7 @@ func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
-			executor := NewDeleteExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewDeleteExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 			query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL(tt.sourceQuery, util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)

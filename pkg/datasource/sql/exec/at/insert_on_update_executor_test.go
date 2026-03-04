@@ -31,6 +31,7 @@ import (
 func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 	var (
 		ioe = insertOnUpdateExecutor{
+			execContext:               &types.ExecContext{DBType: types.DBTypeMySQL},
 			beforeImageSqlPrimaryKeys: make(map[string]bool),
 		}
 		tableMeta1 types.TableMeta

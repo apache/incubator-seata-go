@@ -63,7 +63,7 @@ func Test_multiDeleteExecutor_buildBeforeImageSQL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			queryParser, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
-			executor := NewMultiDeleteExecutor(queryParser, &types.ExecContext{Query: tt.sourceQuery, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewMultiDeleteExecutor(queryParser, &types.ExecContext{DBType: types.DBTypeMySQL, Query: tt.sourceQuery, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 			query, args, err := executor.buildBeforeImageSQL()
 			assert.Nil(t, err)
 			assert.Equal(t, query, tt.expectQuery)

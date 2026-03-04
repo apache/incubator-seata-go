@@ -84,7 +84,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	// get all pk value
 	tableName, _ := i.parserCtx.GetTableName()
 
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}
@@ -190,7 +190,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	for _, column := range i.parserCtx.InsertStmt.Columns {
 		insertColumns = append(insertColumns, column.Name.O)
 	}
-	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, types.DBTypeMySQL), ", "))
+	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, i.execContext.DBType), ", "))
 	suffix.WriteString(" FROM " + tableName)
 	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, "mysql", maxInSize)
 	suffix.WriteString(" WHERE " + whereSQL + " ")
@@ -271,7 +271,7 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 // containPK compare column name and primary key name
 func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := DelEscape(columnName, i.execContext.DBType)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -314,7 +314,7 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, i.execContext.DBType)] = pkIndex
 		}
 	}
 
@@ -425,7 +425,7 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +464,7 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 	}
 
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(i.execContext.DBType).GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

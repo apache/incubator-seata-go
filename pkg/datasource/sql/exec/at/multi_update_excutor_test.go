@@ -74,7 +74,7 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 			//for _, v := range c.MultiStmt {
 			//	updateStmts = append(updateStmts, v.UpdateStmt)
 			//}
-			executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewMultiUpdateExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 
 			query, args, err := executor.buildBeforeImageSQL(util.ValueToNamedValue(tt.sourceQueryArgs), &types.TableMeta{})
 			assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 	//	updateStmts = append(updateStmts, v.UpdateStmt)
 	//}
 
-	executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
+	executor := NewMultiUpdateExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
 	_, _, err = executor.buildBeforeImageSQL(util.ValueToNamedValue(sourceQueryArgs), &types.TableMeta{})
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "multi update SQL with orderBy condition is not support yet")
@@ -146,7 +146,7 @@ func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 			//for _, v := range c.MultiStmt {
 			//	updateStmts = append(updateStmts, v.UpdateStmt)
 			//}
-			executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewMultiUpdateExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 
 			query, args, err := executor.buildBeforeImageSQL(util.ValueToNamedValue(tt.sourceQueryArgs), &meta)
 			assert.NoError(t, err)
@@ -161,7 +161,7 @@ func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 	c, err := parser.DoParser(sourceQuery)
 	assert.NoError(t, err)
 
-	executor := NewMultiUpdateExecutor(c, &types.ExecContext{NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
+	executor := NewMultiUpdateExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, NamedValues: util.ValueToNamedValue(sourceQueryArgs)}, []exec.SQLHook{})
 	_, _, err = executor.buildBeforeImageSQL(util.ValueToNamedValue(sourceQueryArgs), &meta)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "multi update SQL with orderBy condition is not support yet")

@@ -216,7 +216,7 @@ func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
-			executor := NewUpdateJoinExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewUpdateJoinExecutor(c, &types.ExecContext{DBType: types.DBTypeMySQL, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 			tableNames := executor.(*updateJoinExecutor).parseTableName(c.UpdateStmt.TableRefs.TableRefs)
 			for tbName, tableAliases := range tableNames {
 				query, args, err := executor.(*updateJoinExecutor).buildBeforeImageSQL(context.Background(), MetaDataMap[tbName], tableAliases, util.ValueToNamedValue(tt.sourceQueryArgs))

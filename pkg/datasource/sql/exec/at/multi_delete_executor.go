@@ -111,7 +111,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(m.execContext.DBType).GetTableMeta(ctx, m.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 
 func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordImage, error) {
 	tableName, _ := m.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(m.execContext.DBType).GetTableMeta(ctx, m.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

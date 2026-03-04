@@ -112,7 +112,7 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 	var recordImages []*types.RecordImage
 
 	for tbName, tableAliases := range u.tableAliasesMap {
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tbName)
+		metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, tbName)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 
 	var recordImages []*types.RecordImage
 	for _, beforeImage := range beforeImages {
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, beforeImage.TableName)
+		metaData, err := datasource.GetTableCache(u.execContext.DBType).GetTableMeta(ctx, u.execContext.DBName, beforeImage.TableName)
 		if err != nil {
 			return nil, err
 		}
