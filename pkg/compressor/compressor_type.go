@@ -29,6 +29,7 @@ const (
 	CompressorLz4     CompressorType = "Lz4"
 	CompressorDeflate CompressorType = "Deflate"
 	CompressorZstd    CompressorType = "Zstd"
+	CompressorSnappy  CompressorType = "Snappy"
 )
 
 func (c CompressorType) GetCompressor() Compressor {
@@ -45,6 +46,8 @@ func (c CompressorType) GetCompressor() Compressor {
 		return &Lz4{}
 	case CompressorZstd:
 		return &Zstd{}
+	case CompressorSnappy:
+		return &Snappy{}
 	case CompressorDeflate:
 		return &DeflateCompress{}
 	default:

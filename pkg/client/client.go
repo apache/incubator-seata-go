@@ -20,18 +20,19 @@ package client
 import (
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/datasource"
-	at "seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/config"
-	"seata.apache.org/seata-go/pkg/discovery"
-	"seata.apache.org/seata-go/pkg/integration"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/remoting/processor/client"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource"
+	at "seata.apache.org/seata-go/v2/pkg/datasource/sql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/config"
+	"seata.apache.org/seata-go/v2/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/integration"
+	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/remoting/processor/client"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 // Init seata client client
@@ -62,7 +63,7 @@ func initTmClient(cfg *Config) {
 	})
 }
 
-// initRemoting init remoting
+// initRemoting init rpc client
 func initRemoting(cfg *Config) {
 	seataConfig := remoteConfig.SeataConfig{
 		ApplicationID:        cfg.ApplicationID,
@@ -89,6 +90,7 @@ func initRmClient(cfg *Config) {
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
+		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})

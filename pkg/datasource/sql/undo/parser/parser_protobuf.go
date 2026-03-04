@@ -19,14 +19,15 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
 type ProtobufParser struct {
@@ -44,6 +45,9 @@ func (p *ProtobufParser) GetDefaultContent() []byte {
 
 // Encode branch undo log to byte array
 func (p *ProtobufParser) Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, error) {
+	if branchUndoLog == nil {
+		return nil, fmt.Errorf("branchUndoLog cannot be nil")
+	}
 	protoLog := ConvertToProto(branchUndoLog)
 	return proto.Marshal(protoLog)
 }
@@ -60,6 +64,9 @@ func (p *ProtobufParser) Decode(data []byte) (*undo.BranchUndoLog, error) {
 }
 
 func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
+	if intreeLog == nil {
+		return nil
+	}
 	protoLog := &BranchUndoLog{
 		Xid:      intreeLog.Xid,
 		BranchID: intreeLog.BranchID,

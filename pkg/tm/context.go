@@ -19,9 +19,10 @@ package tm
 
 import (
 	"context"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
 	"time"
+
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
 )
 
 type ContextParam string

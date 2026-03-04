@@ -26,11 +26,11 @@ import (
 
 	"github.com/goccy/go-json"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
@@ -168,21 +168,28 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 }
 
 func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
+	if len(rows) == 0 {
+		return make(map[string][]types.ColumnImage)
+	}
+
+	pkLookup := make(map[string]string, len(pkNameList))
+	for _, pk := range pkNameList {
+		pkLookup[strings.ToLower(pk)] = pk
+	}
+
 	pkValues := make(map[string][]types.ColumnImage)
-	// todo optimize 3 fors
+
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			for _, pk := range pkNameList {
-				if strings.EqualFold(pk, column.ColumnName) {
-					values := pkValues[strings.ToUpper(pk)]
-					if values == nil {
-						values = make([]types.ColumnImage, 0)
-					}
-					values = append(values, column)
-					pkValues[pk] = values
+			columnNameLower := strings.ToLower(column.ColumnName)
+			if originalPk, exists := pkLookup[columnNameLower]; exists {
+				if pkValues[originalPk] == nil {
+					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))
 				}
+				pkValues[originalPk] = append(pkValues[originalPk], column)
 			}
 		}
 	}
+
 	return pkValues
 }

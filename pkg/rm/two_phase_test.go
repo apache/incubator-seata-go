@@ -24,8 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/tm"
-	testdata2 "seata.apache.org/seata-go/testdata"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	testdata2 "seata.apache.org/seata-go/v2/testdata"
 )
 
 var UserProviderInstance = NewTwoPhaseDemoService()

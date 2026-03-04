@@ -18,14 +18,16 @@
 package discovery
 
 import (
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/api/v3/mvccpb"
-	"go.etcd.io/etcd/client/v3"
-	"reflect"
-	"seata.apache.org/seata-go/pkg/discovery/mock"
-	"testing"
-	"time"
+	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"seata.apache.org/seata-go/v2/pkg/discovery/mock"
 )
 
 func TestEtcd3RegistryService_Lookup(t *testing.T) {
