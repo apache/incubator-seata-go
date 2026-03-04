@@ -23,7 +23,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"seata.apache.org/seata-go/pkg/discovery/metadata"
+	"seata.apache.org/seata-go/v2/pkg/discovery/metadata"
 	"sync"
 	"sync/atomic"
 	"testing"
