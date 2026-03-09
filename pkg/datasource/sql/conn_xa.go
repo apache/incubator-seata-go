@@ -144,6 +144,8 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
 		}
 
+		baseTx.xaConn = c
+
 		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
 			c.cleanXABranchContext()

@@ -96,11 +96,25 @@ func withTxCtx(ctx *types.TransactionContext) txOption {
 	}
 }
 
+// withXAConn
+func withXAConn(xaConn interface {
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}) txOption {
+	return func(t *Tx) {
+		t.xaConn = xaConn
+	}
+}
+
 // Tx
 type Tx struct {
 	conn    *Conn
 	tranCtx *types.TransactionContext
 	target  driver.Tx
+	xaConn  interface {
+		Commit(ctx context.Context) error
+		Rollback(ctx context.Context) error
+	}
 }
 
 // Commit do commit action
