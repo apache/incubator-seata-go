@@ -162,7 +162,9 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.xaActive = true
 	}
 
-	return &XATx{tx: tx.(*Tx)}, nil
+	xaTx := &XATx{tx: tx.(*Tx)}
+	xaTx.tx.target = c.tx
+	return xaTx, nil
 }
 
 func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
@@ -214,6 +216,16 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
 			log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 		}
+		if c.txCtx.IsBranchRegistered() {
+			baseTx := &Tx{
+				conn:    c.Conn,
+				tranCtx: c.txCtx,
+				target:  c.tx,
+			}
+			if reportErr := baseTx.report(false); reportErr != nil {
+				log.Errorf("failed to report SQL execution failure for xa branch [%d/%s]: %v", c.txCtx.BranchID, c.txCtx.XID, reportErr)
+			}
+		}
 		return nil, err
 	}
 
@@ -221,8 +233,18 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		if err = c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
-			if err := c.Rollback(ctx); err != nil {
-				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, err)
+			if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
+				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
+			}
+			if c.txCtx.IsBranchRegistered() {
+				baseTx := &Tx{
+					conn:    c.Conn,
+					tranCtx: c.txCtx,
+					target:  c.tx,
+				}
+				if reportErr := baseTx.report(false); reportErr != nil {
+					log.Errorf("failed to report commit failure for xa branch [%d/%s]: %v", c.txCtx.BranchID, c.txCtx.XID, reportErr)
+				}
 			}
 		}
 	}
@@ -359,6 +381,8 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
 		return c.commitErrorHandle(ctx)
 	}
+
+	c.prepareTime = time.Now()
 	return nil
 }
 
