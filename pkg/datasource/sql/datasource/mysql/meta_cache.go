@@ -43,7 +43,7 @@ type TableMetaCache struct {
 
 func NewTableMetaInstance(db *sql.DB, cfg *mysql.Config) *TableMetaCache {
 	tableMetaInstance := &TableMetaCache{
-		tableMetaCache: base.NewBaseCache(capacity, EexpireTime, NewMysqlTrigger(), db, cfg),
+		tableMetaCache: base.NewBaseCache(context.Background(), capacity, EexpireTime, NewMysqlTrigger(), db, cfg),
 		db:             db,
 	}
 	return tableMetaInstance
