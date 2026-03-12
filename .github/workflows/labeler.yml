@@ -19,9 +19,32 @@
 
 name: "pull request labeler"
 on:
-  - pull_request_target
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
 
 jobs:
+  block-wip:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: "fail for wip pull request"
+        if: ${{ startsWith(github.event.pull_request.title, 'WIP') || contains(github.event.pull_request.labels.*.name, 'do-not-merge/wip') }}
+        run: |
+          echo "This pull request is marked as WIP and cannot be merged."
+          echo "Remove the do-not-merge/wip label or update the title."
+          exit 1
+
+      - name: "pass when pull request is mergeable"
+        if: ${{ !startsWith(github.event.pull_request.title, 'WIP') && !contains(github.event.pull_request.labels.*.name, 'do-not-merge/wip') }}
+        run: echo "Pull request passed WIP guard."
+
   triage:
     permissions:
       contents: read
