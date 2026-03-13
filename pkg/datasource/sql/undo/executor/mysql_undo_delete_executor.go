@@ -25,6 +25,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mySQLUndoDeleteExecutor struct {
@@ -53,7 +54,7 @@ func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 
 	for _, row := range beforeImage.Rows {
 		undoValues := make([]interface{}, 0)
-		pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+		pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 		if err != nil {
 			return err
 		}
@@ -85,7 +86,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	row := rows[0]
 	fields := row.NonPrimaryKeys(row.Columns)
-	pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+	pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +99,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 	)
 
 	for key := range fields {
-		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
+		insertColumnSlice = append(insertColumnSlice, util.AddEscape(fields[key].ColumnName, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}
 
