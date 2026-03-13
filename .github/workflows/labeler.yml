@@ -34,16 +34,22 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - name: "fail for wip pull request"
-        if: ${{ startsWith(github.event.pull_request.title, 'WIP') || contains(github.event.pull_request.labels.*.name, 'do-not-merge/wip') }}
+      - name: "check wip pull request"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
-          echo "This pull request is marked as WIP and cannot be merged."
-          echo "Remove the do-not-merge/wip label or update the title."
-          exit 1
+          if echo "$PR_TITLE" | grep -iqE '^[[:space:]]*(\[WIP\]|WIP\b)'; then
+            echo "::error::Pull request title starts with WIP. Please remove the WIP prefix to allow merging."
+            exit 1
+          fi
 
-      - name: "pass when pull request is mergeable"
-        if: ${{ !startsWith(github.event.pull_request.title, 'WIP') && !contains(github.event.pull_request.labels.*.name, 'do-not-merge/wip') }}
-        run: echo "Pull request passed WIP guard."
+          if echo ",$PR_LABELS," | grep -qi ',do-not-merge/wip,'; then
+            echo "::error::Pull request has the 'do-not-merge/wip' label. Please remove this label to allow merging."
+            exit 1
+          fi
+
+          echo "Pull request passed WIP guard."
 
   triage:
     permissions:
