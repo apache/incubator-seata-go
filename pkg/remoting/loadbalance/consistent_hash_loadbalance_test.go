@@ -22,13 +22,22 @@ import (
 	"sync"
 	"testing"
 
+	getty "github.com/apache/dubbo-getty"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
+func resetConsistentHashForTest() {
+	consistentInstance = nil
+	once = sync.Once{}
+}
+
 func TestConsistentHashLoadBalance(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -49,4 +58,34 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 		t.Logf("key: %v, value: %v", key, value)
 		return true
 	})
+}
+
+func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	closedSession := mock.NewMockTestSession(ctrl)
+	closedSession.EXPECT().IsClosed().AnyTimes().Return(true)
+
+	openSession := mock.NewMockTestSession(ctrl)
+	openSession.EXPECT().IsClosed().AnyTimes().Return(false)
+	openSession.EXPECT().RemoteAddr().AnyTimes().Return("127.0.0.1:8001")
+
+	sessions.Store(closedSession, "closed")
+	sessions.Store(openSession, "open")
+
+	c := &Consistent{
+		virtualNodeCount: defaultVirtualNodeNumber,
+		hashCircle: map[int64]getty.Session{
+			1: closedSession,
+		},
+		sortedHashNodes: []int64{1},
+	}
+
+	result := c.pick(sessions, "test_xid")
+	assert.NotNil(t, result)
+	assert.Equal(t, openSession, result)
+
+	_, stillExists := sessions.Load(closedSession)
+	assert.False(t, stillExists)
 }
