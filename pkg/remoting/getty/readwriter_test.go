@@ -51,3 +51,28 @@ func TestRpcPackageHandler(t *testing.T) {
 
 	assert.Equal(t, msg, msg2)
 }
+
+func TestRpcPackageHandler_EmptyHeadMapValue(t *testing.T) {
+	msg := message.RpcMessage{
+		ID:         1124,
+		Type:       message.GettyRequestTypeRequestSync,
+		Codec:      byte(codec.CodecTypeSeata),
+		Compressor: byte(1),
+		HeadMap: map[string]string{
+			"name": "Jack",
+			"note": "",
+		},
+		Body: message.GlobalBeginRequest{
+			Timeout:         2 * time.Second,
+			TransactionName: "SeataGoTransaction",
+		},
+	}
+
+	codec := RpcPackageHandler{}
+	bytes, err := codec.Write(nil, msg)
+	assert.Nil(t, err)
+	msg2, _, err := codec.Read(nil, bytes)
+	assert.Nil(t, err)
+
+	assert.Equal(t, msg, msg2)
+}
