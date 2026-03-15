@@ -208,9 +208,10 @@ func (tx *Tx) report(success bool) error {
 	}
 	status := getStatus(success)
 	request := rm.BranchReportParam{
-		Xid:      tx.tranCtx.XID,
-		BranchId: int64(tx.tranCtx.BranchID),
-		Status:   status,
+		BranchType: tx.tranCtx.TransactionMode.BranchType(),
+		Xid:        tx.tranCtx.XID,
+		BranchId:   int64(tx.tranCtx.BranchID),
+		Status:     status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransactionMode.BranchType())
 	if dataSourceManager == nil {

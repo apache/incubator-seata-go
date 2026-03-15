@@ -128,11 +128,24 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
 
-	tx, err := c.Conn.BeginTx(ctx, opts)
+	physicalTx, err := c.beginPhysicalTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	c.tx = tx
+	c.tx = physicalTx
+
+	tx, err := newTx(
+		withDriverConn(c.Conn),
+		withTxCtx(c.txCtx),
+		withOriginTx(physicalTx),
+		withXAConn(c),
+	)
+	if err != nil {
+		if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
+			log.Errorf("failed to rollback physical xa transaction after init failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
+		}
+		return nil, err
+	}
 
 	if !c.autoCommit {
 		if c.xaActive {
@@ -148,6 +161,9 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
+			if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
+				log.Errorf("failed to rollback physical xa transaction after register failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
+			}
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
 		}
@@ -156,15 +172,23 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
+			if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
+				log.Errorf("failed to rollback physical xa transaction after start failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
+			}
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 		}
 		c.xaActive = true
 	}
 
-	xaTx := &XATx{tx: tx.(*Tx)}
-	xaTx.tx.target = c.tx
-	return xaTx, nil
+	return &XATx{tx: tx.(*Tx)}, nil
+}
+
+func (c *XAConn) beginPhysicalTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if conn, ok := c.Conn.targetConn.(driver.ConnBeginTx); ok {
+		return conn.BeginTx(ctx, opts)
+	}
+	return c.Conn.targetConn.Begin()
 }
 
 func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
@@ -190,12 +214,17 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 
 	defer func() {
 		recoverErr := recover()
-		if err != nil || recoverErr != nil {
-			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+		if recoverErr != nil {
+			log.Errorf("conn xa rollback recoverErr:%v", recoverErr)
+			if tx != nil {
+				if rollbackErr := tx.Rollback(); rollbackErr != nil {
+					log.Errorf("conn xa rollback error:%v", rollbackErr)
+				}
+				return
+			}
 			if c.tx != nil {
-				rollbackErr := c.tx.Rollback()
-				if rollbackErr != nil {
-					log.Errorf("conn at rollback error:%v", rollbackErr)
+				if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
+					log.Errorf("conn xa rollback error:%v", rollbackErr)
 				}
 			}
 		}
@@ -212,40 +241,23 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	// execute SQL
 	ret, err := f()
 	if err != nil {
-		// XA End & Rollback
-		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-			log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
-		}
-		if c.txCtx.IsBranchRegistered() {
-			baseTx := &Tx{
-				conn:    c.Conn,
-				tranCtx: c.txCtx,
-				target:  c.tx,
+		if tx != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 			}
-			if reportErr := baseTx.report(false); reportErr != nil {
-				log.Errorf("failed to report SQL execution failure for xa branch [%d/%s]: %v", c.txCtx.BranchID, c.txCtx.XID, reportErr)
+		} else {
+			if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
+				log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 			}
 		}
 		return nil, err
 	}
 
 	if tx != nil && currentAutoCommit {
-		if err = c.Commit(ctx); err != nil {
+		// Commit through XATx so phase-one reporting stays coupled to driver.Tx lifecycle.
+		if err = tx.Commit(); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
-			// XA End & Rollback
-			if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
-			}
-			if c.txCtx.IsBranchRegistered() {
-				baseTx := &Tx{
-					conn:    c.Conn,
-					tranCtx: c.txCtx,
-					target:  c.tx,
-				}
-				if reportErr := baseTx.report(false); reportErr != nil {
-					log.Errorf("failed to report commit failure for xa branch [%d/%s]: %v", c.txCtx.BranchID, c.txCtx.XID, reportErr)
-				}
-			}
+			return nil, err
 		}
 	}
 

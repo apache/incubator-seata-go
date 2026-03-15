@@ -22,9 +22,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 type mockXAConnection struct {
@@ -118,6 +122,81 @@ func TestXATx_commitOnXA_CommitFailure_BranchNotRegistered(t *testing.T) {
 	assert.Equal(t, 1, mockConn.commitCalls)
 }
 
+func TestXATx_commitOnXA_CommitSuccess_BranchRegisteredReportsSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := mock.NewMockDataSourceManager(ctrl)
+	mockMgr.SetBranchType(branch.BranchTypeXA)
+	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, param rm.BranchReportParam) error {
+			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
+			assert.Equal(t, int64(123), param.BranchId)
+			assert.EqualValues(t, branch.BranchStatusPhaseoneDone, param.Status)
+			assert.Equal(t, "test-xid", param.Xid)
+			return nil
+		},
+	).Times(1)
+
+	tranCtx := types.NewTxCtx()
+	tranCtx.XID = "test-xid"
+	tranCtx.BranchID = 123
+	tranCtx.TransactionMode = types.XAMode
+
+	mockConn := &mockXAConnection{}
+
+	xaTx := &XATx{
+		tx: &Tx{
+			tranCtx: tranCtx,
+			xaConn:  mockConn,
+		},
+	}
+
+	err := xaTx.commitOnXA()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, mockConn.commitCalls)
+}
+
+func TestXATx_commitOnXA_CommitFailure_BranchRegisteredReportsFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := mock.NewMockDataSourceManager(ctrl)
+	mockMgr.SetBranchType(branch.BranchTypeXA)
+	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, param rm.BranchReportParam) error {
+			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
+			assert.Equal(t, int64(123), param.BranchId)
+			assert.EqualValues(t, branch.BranchStatusPhaseoneFailed, param.Status)
+			assert.Equal(t, "test-xid", param.Xid)
+			return nil
+		},
+	).Times(1)
+
+	tranCtx := types.NewTxCtx()
+	tranCtx.XID = "test-xid"
+	tranCtx.BranchID = 123
+	tranCtx.TransactionMode = types.XAMode
+
+	mockConn := &mockXAConnection{
+		commitErr: errors.New("XA PREPARE failed"),
+	}
+
+	xaTx := &XATx{
+		tx: &Tx{
+			tranCtx: tranCtx,
+			xaConn:  mockConn,
+		},
+	}
+
+	err := xaTx.commitOnXA()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "XA PREPARE failed")
+	assert.Equal(t, 1, mockConn.commitCalls)
+}
+
 func TestXATx_Rollback_NoGlobalTransaction(t *testing.T) {
 	tranCtx := types.NewTxCtx()
 	tranCtx.XID = ""
@@ -192,6 +271,42 @@ func TestXATx_Rollback_XAConnError(t *testing.T) {
 	err := xaTx.Rollback()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "XA ROLLBACK failed")
+	assert.Equal(t, 1, mockConn.rollbackCalls)
+}
+
+func TestXATx_Rollback_BranchRegisteredReportsFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := mock.NewMockDataSourceManager(ctrl)
+	mockMgr.SetBranchType(branch.BranchTypeXA)
+	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, param rm.BranchReportParam) error {
+			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
+			assert.Equal(t, int64(123), param.BranchId)
+			assert.EqualValues(t, branch.BranchStatusPhaseoneFailed, param.Status)
+			assert.Equal(t, "test-xid", param.Xid)
+			return nil
+		},
+	).Times(1)
+
+	tranCtx := types.NewTxCtx()
+	tranCtx.XID = "test-xid"
+	tranCtx.BranchID = 123
+	tranCtx.TransactionMode = types.XAMode
+
+	mockConn := &mockXAConnection{}
+
+	xaTx := &XATx{
+		tx: &Tx{
+			tranCtx: tranCtx,
+			xaConn:  mockConn,
+		},
+	}
+
+	err := xaTx.Rollback()
+	assert.NoError(t, err)
 	assert.Equal(t, 1, mockConn.rollbackCalls)
 }
 
