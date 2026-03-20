@@ -117,10 +117,9 @@ func TestRmDeleteUndoLogProcessor_ProcessWithContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("cancelled context should be handled gracefully", func(t *testing.T) {
+	t.Run("canceled context should be handled gracefully", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // cancel immediately
-		
 		err := processor.Process(ctx, message.RpcMessage{
 			ID:   2,
 			Type: message.GettyRequestTypeRequestSync,
