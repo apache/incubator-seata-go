@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package executor
+package util
 
 import (
 	"database/sql"
@@ -92,7 +92,7 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 		return colName
 	}
 
-	if !checkEscape(colName, dbType) {
+	if !CheckEscape(colName, dbType) {
 		return colName
 	}
 
@@ -149,8 +149,8 @@ func addEscape(colName string, dbType types.DBType, escape string) string {
 	return string(buf)
 }
 
-// checkEscape check whether given field or table name use keywords. the method has database special logic.
-func checkEscape(colName string, dbType types.DBType) bool {
+// CheckEscape check whether given field or table name use keywords. the method has database special logic.
+func CheckEscape(colName string, dbType types.DBType) bool {
 	switch dbType {
 	case types.DBTypeMySQL:
 		if _, ok := types.GetMysqlKeyWord()[strings.ToUpper(colName)]; ok {
