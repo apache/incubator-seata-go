@@ -18,7 +18,9 @@
 package discovery
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -28,10 +30,11 @@ func TestInitRegistry(t *testing.T) {
 		registryConfig *RegistryConfig
 	}
 	tests := []struct {
-		name         string
-		args         args
-		hasPanic     bool
-		expectedType string
+		name                 string
+		args                 args
+		hasPanic             bool
+		expectedType         string
+		panicMessageContains string
 	}{
 		{
 			name: "file",
@@ -72,13 +75,84 @@ func TestInitRegistry(t *testing.T) {
 			},
 			hasPanic: true,
 		},
+		{
+			name: "nacos type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: NACOS,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", NACOS),
+		},
+		{
+			name: "eureka type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: EUREKA,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", EUREKA),
+		},
+		{
+			name: "redis type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: REDIS,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", REDIS),
+		},
+		{
+			name: "zk type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: ZK,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", ZK),
+		},
+		{
+			name: "consul type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: CONSUL,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", CONSUL),
+		},
+		{
+			name: "sofa type is not implemented",
+			args: args{
+				registryConfig: &RegistryConfig{
+					Type: SOFA,
+				},
+				serviceConfig: &ServiceConfig{},
+			},
+			hasPanic:             true,
+			panicMessageContains: fmt.Sprintf("service registry type %s is not implemented", SOFA),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			registryServiceInstance = nil
 			defer func() {
 				if r := recover(); r != nil {
 					if !tt.hasPanic {
 						t.Errorf("panic is not expected!")
+						return
+					}
+					if tt.panicMessageContains != "" && !strings.Contains(fmt.Sprint(r), tt.panicMessageContains) {
+						t.Errorf("panic = %v, want message containing %q", r, tt.panicMessageContains)
 					}
 				} else if tt.hasPanic {
 					t.Errorf("Expected a panic but did not receive one")
