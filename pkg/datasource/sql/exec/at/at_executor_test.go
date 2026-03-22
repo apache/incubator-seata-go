@@ -358,6 +358,91 @@ func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
 	assert.Nil(t, result, "result should be nil on error")
 }
 
+func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
+	beforeErr := fmt.Errorf("before hook error")
+
+	tests := []struct {
+		name        string
+		newExecutor func(hooks []exec.SQLHook) executor
+	}{
+		{
+			name: "insert",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &insertExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "insert on update",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &insertOnUpdateExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "delete",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return deleteExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "multi delete",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &multiDeleteExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "multi",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &multiExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "multi update",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &multiUpdateExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "select for update",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &selectForUpdateExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "update",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &updateExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+		{
+			name: "update join",
+			newExecutor: func(hooks []exec.SQLHook) executor {
+				return &updateJoinExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hook := &mockSQLHook{beforeError: beforeErr}
+			callbackCount := 0
+
+			result, err := tt.newExecutor([]exec.SQLHook{hook}).ExecContext(
+				context.Background(),
+				func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+					callbackCount++
+					return &mockExecResult{rowsAffected: 1}, nil
+				},
+			)
+
+			assert.ErrorIs(t, err, beforeErr)
+			assert.Nil(t, result)
+			assert.Equal(t, 1, hook.beforeCallCount)
+			assert.Equal(t, 0, hook.afterCallCount)
+			assert.Equal(t, 0, callbackCount)
+		})
+	}
+}
+
 type mockSQLHook struct {
 	sqlType         types.SQLType
 	beforeCallCount int
