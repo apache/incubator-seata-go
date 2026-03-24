@@ -29,6 +29,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func TestNewMySQLUndoInsertExecutor(t *testing.T) {
@@ -129,7 +130,7 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
 				var pkList []types.ColumnImage
 				for _, col := range row.Columns {
 					if col.KeyType == types.PrimaryKey.Number() {
@@ -141,7 +142,7 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 			defer patches.Reset()
 
 			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
+			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
 				if len(pkNameList) == 1 {
 					return "`" + pkNameList[0] + "` = ?"
 				} else if len(pkNameList) == 2 {
@@ -201,7 +202,7 @@ func TestMySQLUndoInsertExecutor_GenerateDeleteSql(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
 				var pkList []types.ColumnImage
 				for _, col := range row.Columns {
 					if col.KeyType == types.PrimaryKey.Number() {
@@ -213,7 +214,7 @@ func TestMySQLUndoInsertExecutor_GenerateDeleteSql(t *testing.T) {
 			defer patches.Reset()
 
 			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
+			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
 				return "`" + pkNameList[0] + "` = ?"
 			})
 
@@ -328,6 +329,25 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 				return nil
 			})
 			defer patches.Reset()
+
+			// Mock GetOrderedPkList function
+			patches.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+				var pkList []types.ColumnImage
+				for _, col := range row.Columns {
+					if col.KeyType == types.PrimaryKey.Number() {
+						pkList = append(pkList, col)
+					}
+				}
+				return pkList, nil
+			})
+
+			// Mock BuildWhereConditionByPKs function
+			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
+				if len(pkNameList) == 0 {
+					return ""
+				}
+				return "`" + pkNameList[0] + "` = ?"
+			})
 
 			executor := &mySQLUndoInsertExecutor{
 				BaseExecutor: &BaseExecutor{

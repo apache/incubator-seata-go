@@ -29,6 +29,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -181,7 +182,8 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			columnNameLower := strings.ToLower(column.ColumnName)
+			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
+			columnNameLower := strings.ToLower(cleanName)
 			if originalPk, exists := pkLookup[columnNameLower]; exists {
 				if pkValues[originalPk] == nil {
 					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))
