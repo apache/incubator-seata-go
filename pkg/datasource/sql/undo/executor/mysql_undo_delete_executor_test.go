@@ -29,6 +29,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func TestNewMySQLUndoDeleteExecutor(t *testing.T) {
@@ -126,7 +127,7 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
 				var pkList []types.ColumnImage
 				for _, col := range row.Columns {
 					if col.KeyType == types.PrimaryKey.Number() {
@@ -138,7 +139,7 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 			defer patches.Reset()
 
 			// Mock AddEscape function
-			patches.ApplyFunc(AddEscape, func(columnName string, dbType types.DBType) string {
+			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
 				return "`" + columnName + "`"
 			})
 
@@ -215,7 +216,7 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
+			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
 				var pkList []types.ColumnImage
 				for _, col := range row.Columns {
 					if col.KeyType == types.PrimaryKey.Number() {
@@ -227,7 +228,7 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 			defer patches.Reset()
 
 			// Mock AddEscape function
-			patches.ApplyFunc(AddEscape, func(columnName string, dbType types.DBType) string {
+			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
 				return "`" + columnName + "`"
 			})
 
