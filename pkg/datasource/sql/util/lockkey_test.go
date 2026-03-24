@@ -541,3 +541,71 @@ func TestBuildLockKey_LargeNumberOfRows(t *testing.T) {
 	assert.Contains(t, lockKey, "1,2,3")
 	assert.Contains(t, lockKey, ",99,100")
 }
+
+func TestBuildLockKey_EscapedColumnNames(t *testing.T) {
+	tableMeta := types.TableMeta{
+		TableName: "t_order",
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
+			},
+		},
+	}
+
+	recordImage := &types.RecordImage{
+		TableName: "t_order",
+		SQLType:   types.SQLTypeInsert,
+		Rows: []types.RowImage{
+			{
+				Columns: []types.ColumnImage{
+					{ColumnName: "`id`", Value: 1, KeyType: types.IndexTypePrimaryKey},
+					{ColumnName: "`name`", Value: "order1"},
+				},
+			},
+			{
+				Columns: []types.ColumnImage{
+					{ColumnName: "`id`", Value: 2, KeyType: types.IndexTypePrimaryKey},
+					{ColumnName: "`name`", Value: "order2"},
+				},
+			},
+		},
+	}
+
+	lockKey := BuildLockKey(recordImage, tableMeta)
+	assert.Equal(t, "T_ORDER:1,2", lockKey)
+}
+
+func TestBuildLockKey_EscapedCompositeKey(t *testing.T) {
+	tableMeta := types.TableMeta{
+		TableName: "t_order",
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "order_id"},
+					{ColumnName: "user_id"},
+				},
+			},
+		},
+	}
+
+	recordImage := &types.RecordImage{
+		TableName: "t_order",
+		SQLType:   types.SQLTypeInsert,
+		Rows: []types.RowImage{
+			{
+				Columns: []types.ColumnImage{
+					{ColumnName: "`order_id`", Value: 100, KeyType: types.IndexTypePrimaryKey},
+					{ColumnName: "`user_id`", Value: 1, KeyType: types.IndexTypePrimaryKey},
+					{ColumnName: "`amount`", Value: 99.99},
+				},
+			},
+		},
+	}
+
+	lockKey := BuildLockKey(recordImage, tableMeta)
+	assert.Equal(t, "T_ORDER:100_1", lockKey)
+}

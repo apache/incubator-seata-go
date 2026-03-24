@@ -609,3 +609,52 @@ func TestParsePkValuesNoMatchingPK(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Len(t, result, 0)
 }
+
+func TestParsePkValuesEscapedColumnName(t *testing.T) {
+	executor := &BaseExecutor{}
+
+	rows := []types.RowImage{
+		{Columns: []types.ColumnImage{
+			{ColumnName: "`id`", Value: 1},
+			{ColumnName: "`name`", Value: "test"},
+		}},
+		{Columns: []types.ColumnImage{
+			{ColumnName: "`id`", Value: 2},
+			{ColumnName: "`name`", Value: "test2"},
+		}},
+	}
+
+	pkNameList := []string{"id"}
+
+	result := executor.parsePkValues(rows, pkNameList)
+
+	assert.NotNil(t, result)
+	assert.Len(t, result, 1)
+	assert.Contains(t, result, "id")
+	assert.Len(t, result["id"], 2)
+	assert.Equal(t, 1, result["id"][0].Value)
+	assert.Equal(t, 2, result["id"][1].Value)
+}
+
+func TestParsePkValuesEscapedCompositePK(t *testing.T) {
+	executor := &BaseExecutor{}
+
+	rows := []types.RowImage{
+		{Columns: []types.ColumnImage{
+			{ColumnName: "`order_id`", Value: 100},
+			{ColumnName: "`user_id`", Value: 1},
+			{ColumnName: "`amount`", Value: 99.99},
+		}},
+	}
+
+	pkNameList := []string{"order_id", "user_id"}
+
+	result := executor.parsePkValues(rows, pkNameList)
+
+	assert.NotNil(t, result)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, "order_id")
+	assert.Contains(t, result, "user_id")
+	assert.Equal(t, 100, result["order_id"][0].Value)
+	assert.Equal(t, 1, result["user_id"][0].Value)
+}
