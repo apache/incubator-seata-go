@@ -242,10 +242,11 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 		columns := make([]types.ColumnImage, 0)
 		// build record image
 		for i, name := range columnNames {
-			columnMeta := tableMetaData.Columns[name]
+			cleanName := util.DelEscape(name, types.DBTypeMySQL)
+			columnMeta := tableMetaData.Columns[cleanName]
 
 			keyType := types.IndexTypeNull
-			if _, ok := tableMetaData.GetPrimaryKeyMap()[name]; ok {
+			if _, ok := tableMetaData.GetPrimaryKeyMap()[cleanName]; ok {
 				keyType = types.IndexTypePrimaryKey
 			}
 			jdbcType := types.MySQLStrToJavaType(columnMeta.DatabaseTypeString)
@@ -281,7 +282,7 @@ func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, d
 	}
 
 	for i := range needUpdateColumns {
-		needUpdateColumns[i] = AddEscape(needUpdateColumns[i], dbType)
+		needUpdateColumns[i] = util.AddEscape(needUpdateColumns[i], dbType)
 	}
 	return needUpdateColumns
 }
@@ -294,9 +295,9 @@ func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string)
 
 	matchCounter := 0
 	for _, column := range columns {
+		cleanColumn := util.DelEscape(column, types.DBTypeMySQL)
 		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column) ||
-				strings.EqualFold(pkName, strings.ToLower(column)) {
+			if strings.EqualFold(pkName, cleanColumn) {
 				matchCounter++
 			}
 		}
@@ -479,8 +480,14 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string)
 	params := make([]driver.NamedValue, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
+		// Build a normalized map with escaped characters removed
+		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
+		for k, v := range coumnMap {
+			normalizedMap[util.DelEscape(k, types.DBTypeMySQL)] = v
+		}
 		for i, pk := range pkNameList {
-			if col, ok := coumnMap[pk]; ok {
+			cleanPK := util.DelEscape(pk, types.DBTypeMySQL)
+			if col, ok := normalizedMap[cleanPK]; ok {
 				params = append(params, driver.NamedValue{
 					Ordinal: i, Value: col.Value,
 				})

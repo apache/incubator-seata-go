@@ -217,6 +217,41 @@ func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
 				Columns: []*ast.ColumnName{{}},
 			},
 		}}, want: false},
+		{name: "test-escaped-backtick-true", fields: fields{}, args: args{meta: types.TableMeta{
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{{
+						ColumnName: "id",
+					}},
+				},
+			},
+		}, parseCtx: &types.ParseContext{
+			InsertStmt: &ast.InsertStmt{
+				Columns: []*ast.ColumnName{{
+					Name: model.CIStr{O: "`id`", L: "`id`"},
+				}, {
+					Name: model.CIStr{O: "`name`", L: "`name`"},
+				}},
+			},
+		}}, want: true},
+		// Issue #702: mixed escaped and unescaped columns
+		{name: "test-mixed-escape-true", fields: fields{}, args: args{meta: types.TableMeta{
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{{
+						ColumnName: "id",
+					}},
+				},
+			},
+		}, parseCtx: &types.ParseContext{
+			InsertStmt: &ast.InsertStmt{
+				Columns: []*ast.ColumnName{{
+					Name: model.CIStr{O: "`id`", L: "`id`"},
+				}},
+			},
+		}}, want: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
