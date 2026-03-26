@@ -20,12 +20,10 @@ package rocketmq
 const (
 	ResourceIDTCCRocketMQ = "tccRocketMQ"
 
-	ActionContextKeyMessage         = "message"
-	ActionContextKeyOffsetMsgId     = "offsetMsgId"
-	ActionContextKeyCommitLogOffset = "commitLogOffset"
-	ActionContextKeyMsgId           = "msgId"
-	ActionContextKeyQueueId         = "queueId"
-	ActionContextKeyQueueOffset     = "queueOffset"
-	ActionContextKeyTransactionId   = "transactionId"
-	ActionContextKeyBrokerName      = "brokerName"
+	ActionContextKeyOffsetMsgId   = "offsetMsgId"
+	ActionContextKeyMsgId         = "msgId"
+	ActionContextKeyQueueId       = "queueId"
+	ActionContextKeyQueueOffset   = "queueOffset"
+	ActionContextKeyTransactionId = "transactionId"
+	ActionContextKeyBrokerName    = "brokerName"
 )

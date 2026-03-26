@@ -131,7 +131,7 @@ func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) 
 		select {
 		case messageFuture.Done <- struct{}{}:
 		default:
-			log.Warnf("response arrived after timeout for msg ID: %d", rpcMessage.ID)
+			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
 		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {

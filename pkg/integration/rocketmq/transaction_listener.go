@@ -29,7 +29,6 @@ import (
 )
 
 type SeataTransactionListener struct {
-	producer       *SeataMQProducer
 	remotingClient globalStatusRequestSender
 }
 
@@ -37,9 +36,8 @@ type globalStatusRequestSender interface {
 	SendSyncRequest(msg interface{}) (interface{}, error)
 }
 
-func NewSeataTransactionListener(producer *SeataMQProducer) *SeataTransactionListener {
+func NewSeataTransactionListener(_ *SeataMQProducer) *SeataTransactionListener {
 	return &SeataTransactionListener{
-		producer:       producer,
 		remotingClient: getty.GetGettyRemotingClient(),
 	}
 }
@@ -100,14 +98,14 @@ func (l *SeataTransactionListener) queryGlobalStatus(xid string) (message.Global
 }
 
 func mapGlobalStatusToLocalTransactionState(globalStatus message.GlobalStatus) primitive.LocalTransactionState {
+	// Finished only means the TC no longer manages the session, so it cannot safely
+	// distinguish a late check on a committed transaction from a rollback outcome.
 	switch globalStatus {
 	case message.GlobalStatusCommitted, message.GlobalStatusAsyncCommitting:
 		return primitive.CommitMessageState
 	case message.GlobalStatusRollbacked, message.GlobalStatusTimeoutRollbacked, message.GlobalStatusRollbackFailed,
 		message.GlobalStatusTimeoutRollbackFailed, message.GlobalStatusCommitFailed:
 		return primitive.RollbackMessageState
-		// Finished only means the TC no longer manages the session, so it cannot safely
-		// distinguish a late check on a committed transaction from a rollback outcome.
 	case message.GlobalStatusBegin, message.GlobalStatusCommitting, message.GlobalStatusCommitRetrying,
 		message.GlobalStatusRollbacking, message.GlobalStatusRollbackRetrying, message.GlobalStatusTimeoutRollbacking,
 		message.GlobalStatusTimeoutRollbackRetrying, message.GlobalStatusFinished:
