@@ -47,23 +47,25 @@ func (tx *XATx) Rollback() error {
 		return nil
 	}
 
+	if originTx.xaConn == nil {
+		return fmt.Errorf("xa transaction requires xaConn")
+	}
+
 	xid := originTx.tranCtx.XID
 	branchID := originTx.tranCtx.BranchID
 
 	log.Infof("xa branch [%d/%s] executing XA rollback", branchID, xid)
 
-	if originTx.xaConn != nil {
-		if err := originTx.xaConn.Rollback(context.Background()); err != nil {
-			log.Errorf("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK failed: %v", branchID, xid, err)
-			if originTx.tranCtx.IsBranchRegistered() {
-				if reportErr := originTx.report(false); reportErr != nil {
-					log.Errorf("xa branch [%d/%s] failed to report rollback failure to TC: %v", branchID, xid, reportErr)
-				}
+	if err := originTx.xaConn.Rollback(context.Background()); err != nil {
+		log.Errorf("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK failed: %v", branchID, xid, err)
+		if originTx.tranCtx.IsBranchRegistered() {
+			if reportErr := originTx.report(false); reportErr != nil {
+				log.Errorf("xa branch [%d/%s] failed to report rollback failure to TC: %v", branchID, xid, reportErr)
 			}
-			return err
 		}
-		log.Infof("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK succeeded", branchID, xid)
+		return err
 	}
+	log.Infof("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK succeeded", branchID, xid)
 
 	if originTx.tranCtx.IsBranchRegistered() {
 		if err := originTx.report(false); err != nil {

@@ -51,6 +51,18 @@ type XAConn struct {
 	isConnKept         bool
 }
 
+// xaBranchTx satisfies database/sql's transaction contract while XA branch
+// lifecycle is driven by XA START/END/PREPARE on the connection itself.
+type xaBranchTx struct{}
+
+func (xaBranchTx) Commit() error {
+	return nil
+}
+
+func (xaBranchTx) Rollback() error {
+	return nil
+}
+
 func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if c.createOnceTxContext(ctx) {
 		defer func() {
@@ -128,22 +140,16 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
 
-	physicalTx, err := c.beginPhysicalTx(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	c.tx = physicalTx
+	branchTx := xaBranchTx{}
+	c.tx = branchTx
 
 	tx, err := newTx(
 		withDriverConn(c.Conn),
 		withTxCtx(c.txCtx),
-		withOriginTx(physicalTx),
+		withOriginTx(branchTx),
 		withXAConn(c),
 	)
 	if err != nil {
-		if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
-			log.Errorf("failed to rollback physical xa transaction after init failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
-		}
 		return nil, err
 	}
 
@@ -161,9 +167,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
-			if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
-				log.Errorf("failed to rollback physical xa transaction after register failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
-			}
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
 		}
@@ -172,9 +175,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
-			if rollbackErr := physicalTx.Rollback(); rollbackErr != nil {
-				log.Errorf("failed to rollback physical xa transaction after start failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
-			}
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 		}
@@ -182,13 +182,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	}
 
 	return &XATx{tx: tx.(*Tx)}, nil
-}
-
-func (c *XAConn) beginPhysicalTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if conn, ok := c.Conn.targetConn.(driver.ConnBeginTx); ok {
-		return conn.BeginTx(ctx, opts)
-	}
-	return c.Conn.targetConn.Begin()
 }
 
 func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
@@ -357,10 +350,6 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		if c.XaRollback(ctx, c.xaBranchXid) != nil {
 			c.cleanXABranchContext()
 			return c.rollbackErrorHandle()
-		}
-		if err := c.tx.Rollback(); err != nil {
-			c.cleanXABranchContext()
-			return fmt.Errorf("failed to report XA branch commit-failure on xid:%s err:%w", c.txCtx.XID, err)
 		}
 		c.rollBacked = true
 	}

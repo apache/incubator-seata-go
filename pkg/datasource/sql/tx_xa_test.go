@@ -128,7 +128,7 @@ func TestXATx_commitOnXA_CommitSuccess_BranchRegisteredReportsSuccess(t *testing
 
 	mockMgr := mock.NewMockDataSourceManager(ctrl)
 	mockMgr.SetBranchType(branch.BranchTypeXA)
-	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	registerResourceManagerForTest(t, mockMgr)
 	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, param rm.BranchReportParam) error {
 			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
@@ -164,7 +164,7 @@ func TestXATx_commitOnXA_CommitFailure_BranchRegisteredReportsFailure(t *testing
 
 	mockMgr := mock.NewMockDataSourceManager(ctrl)
 	mockMgr.SetBranchType(branch.BranchTypeXA)
-	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	registerResourceManagerForTest(t, mockMgr)
 	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, param rm.BranchReportParam) error {
 			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
@@ -209,6 +209,31 @@ func TestXATx_Rollback_NoGlobalTransaction(t *testing.T) {
 
 	err := xaTx.Rollback()
 	assert.NoError(t, err)
+}
+
+func TestXATx_Rollback_MissingXAConn(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := mock.NewMockDataSourceManager(ctrl)
+	mockMgr.SetBranchType(branch.BranchTypeXA)
+	registerResourceManagerForTest(t, mockMgr)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).Times(0)
+
+	tranCtx := types.NewTxCtx()
+	tranCtx.XID = "test-xid"
+	tranCtx.BranchID = 123
+	tranCtx.TransactionMode = types.XAMode
+
+	xaTx := &XATx{
+		tx: &Tx{
+			tranCtx: tranCtx,
+		},
+	}
+
+	err := xaTx.Rollback()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "xa transaction requires xaConn")
 }
 
 func TestXATx_Rollback_BranchNotRegistered(t *testing.T) {
@@ -280,7 +305,7 @@ func TestXATx_Rollback_BranchRegisteredReportsFailure(t *testing.T) {
 
 	mockMgr := mock.NewMockDataSourceManager(ctrl)
 	mockMgr.SetBranchType(branch.BranchTypeXA)
-	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
+	registerResourceManagerForTest(t, mockMgr)
 	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, param rm.BranchReportParam) error {
 			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
@@ -387,6 +412,6 @@ func TestXATx_Commit_BeforeCommitError(t *testing.T) {
 }
 
 func TestGetStatus(t *testing.T) {
-	assert.NotNil(t, getStatus(true))
-	assert.NotNil(t, getStatus(false))
+	assert.EqualValues(t, branch.BranchStatusPhaseoneDone, getStatus(true))
+	assert.EqualValues(t, branch.BranchStatusPhaseoneFailed, getStatus(false))
 }
