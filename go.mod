@@ -6,6 +6,7 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/apache/dubbo-getty v1.5.0
+	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/arana-db/parser v0.2.17
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
@@ -52,7 +53,6 @@ require (
 	github.com/Workiva/go-datastructures v1.0.52 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/apache/dubbo-go-hessian2 v1.11.4 // indirect
-	github.com/apache/rocketmq-client-go/v2 v2.1.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
@@ -62,7 +62,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -113,11 +112,9 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
-	stathat.com/c/consistent v1.0.0 // indirect
 )
 
 require (
-	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
 	github.com/klauspost/compress v1.15.11
 	github.com/mattn/go-colorable v0.1.8 // indirect

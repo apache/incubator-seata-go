@@ -42,12 +42,16 @@ type normalProducerInterface interface {
 	SendSync(ctx context.Context, msg ...*primitive.Message) (*primitive.SendResult, error)
 }
 
+type tccPrepareProxy interface {
+	Prepare(context.Context, interface{}) (interface{}, error)
+}
+
 type SeataMQProducer struct {
 	config              *SeataMQProducerConfig
 	transactionProducer transactionProducerInterface
 	normalProducer      normalProducerInterface
 	tccAction           *TCCRocketMQAction
-	tccProxy            *tcc.TCCServiceProxy
+	tccProxy            tccPrepareProxy
 
 	mu     sync.RWMutex
 	closed bool
@@ -165,6 +169,9 @@ func (p *SeataMQProducer) Send(ctx context.Context, msg *primitive.Message) (*pr
 	}
 
 	bac := tm.GetBusinessActionContext(ctx)
+	if bac == nil || bac.ActionContext == nil {
+		return nil, fmt.Errorf("BusinessActionContext action context not found after Prepare")
+	}
 	return &primitive.SendResult{
 		Status:      primitive.SendOK,
 		MsgID:       getStringFromMap(bac.ActionContext, ActionContextKeyMsgId),

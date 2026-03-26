@@ -29,11 +29,19 @@ import (
 )
 
 type SeataTransactionListener struct {
-	producer *SeataMQProducer
+	producer       *SeataMQProducer
+	remotingClient globalStatusRequestSender
+}
+
+type globalStatusRequestSender interface {
+	SendSyncRequest(msg interface{}) (interface{}, error)
 }
 
 func NewSeataTransactionListener(producer *SeataMQProducer) *SeataTransactionListener {
-	return &SeataTransactionListener{producer: producer}
+	return &SeataTransactionListener{
+		producer:       producer,
+		remotingClient: getty.GetGettyRemotingClient(),
+	}
 }
 
 func (l *SeataTransactionListener) ExecuteLocalTransaction(msg *primitive.Message) primitive.LocalTransactionState {
@@ -61,23 +69,16 @@ func (l *SeataTransactionListener) CheckLocalTransaction(msgExt *primitive.Messa
 		return primitive.UnknowState
 	}
 
-	switch globalStatus {
-	case message.GlobalStatusCommitted:
+	localTransactionState := mapGlobalStatusToLocalTransactionState(globalStatus)
+	switch localTransactionState {
+	case primitive.CommitMessageState:
 		log.Infof("[SeataTransactionListener] Global tx committed, xid=%s", xid)
-		return primitive.CommitMessageState
-	case message.GlobalStatusCommitting, message.GlobalStatusBegin:
-		log.Infof("[SeataTransactionListener] Global tx committing/in progress, xid=%s, status=%v", xid, globalStatus)
-		return primitive.UnknowState
-	case message.GlobalStatusRollbacking:
-		log.Infof("[SeataTransactionListener] Global tx rolling back, xid=%s, status=%v", xid, globalStatus)
-		return primitive.UnknowState
-	case message.GlobalStatusRollbacked, message.GlobalStatusTimeoutRollbacked, message.GlobalStatusRollbackFailed:
+	case primitive.RollbackMessageState:
 		log.Infof("[SeataTransactionListener] Global tx rollbacked, xid=%s, status=%v", xid, globalStatus)
-		return primitive.RollbackMessageState
 	default:
-		log.Infof("[SeataTransactionListener] Global tx in unknown state, xid=%s, status=%v", xid, globalStatus)
-		return primitive.UnknowState
+		log.Infof("[SeataTransactionListener] Global tx waiting for final state, xid=%s, status=%v", xid, globalStatus)
 	}
+	return localTransactionState
 }
 
 func (l *SeataTransactionListener) queryGlobalStatus(xid string) (message.GlobalStatus, error) {
@@ -86,7 +87,7 @@ func (l *SeataTransactionListener) queryGlobalStatus(xid string) (message.Global
 			Xid: xid,
 		},
 	}
-	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	res, err := l.remotingClient.SendSyncRequest(req)
 	if err != nil {
 		return message.GlobalStatusUnKnown, err
 	}
@@ -96,4 +97,20 @@ func (l *SeataTransactionListener) queryGlobalStatus(xid string) (message.Global
 		return message.GlobalStatusUnKnown, fmt.Errorf("invalid response type: %T", res)
 	}
 	return gsResp.GlobalStatus, nil
+}
+
+func mapGlobalStatusToLocalTransactionState(globalStatus message.GlobalStatus) primitive.LocalTransactionState {
+	switch globalStatus {
+	case message.GlobalStatusCommitted, message.GlobalStatusAsyncCommitting:
+		return primitive.CommitMessageState
+	case message.GlobalStatusRollbacked, message.GlobalStatusTimeoutRollbacked, message.GlobalStatusRollbackFailed,
+		message.GlobalStatusTimeoutRollbackFailed, message.GlobalStatusCommitFailed, message.GlobalStatusFinished:
+		return primitive.RollbackMessageState
+	case message.GlobalStatusBegin, message.GlobalStatusCommitting, message.GlobalStatusCommitRetrying,
+		message.GlobalStatusRollbacking, message.GlobalStatusRollbackRetrying, message.GlobalStatusTimeoutRollbacking,
+		message.GlobalStatusTimeoutRollbackRetrying:
+		return primitive.UnknowState
+	default:
+		return primitive.UnknowState
+	}
 }

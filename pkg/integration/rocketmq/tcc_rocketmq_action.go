@@ -57,6 +57,9 @@ func (a *TCCRocketMQAction) Prepare(ctx context.Context, params interface{}) (bo
 	if xid == "" {
 		return false, fmt.Errorf("XID not found in context")
 	}
+	if bac.ActionContext == nil {
+		bac.ActionContext = make(map[string]interface{}, 6)
+	}
 
 	msg.WithProperty(constant.PropertySeataXID, xid)
 	msg.WithProperty(constant.PropertySeataBranchId, fmt.Sprintf("%d", bac.BranchId))
