@@ -40,11 +40,14 @@ type tccFenceWrapperHandler struct {
 	tccFenceDao       dao.TCCFenceStore
 	logQueue          chan *model.FenceLogIdentity
 	logCache          list.List
+	cacheMutex        sync.Mutex
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
+	logCacheOnce      sync.Once
 	logTaskOnce       sync.Once
 	db                *sql.DB
 	dbMutex           sync.RWMutex
+	stopDrainCache    chan struct{}
 }
 
 const (
@@ -222,6 +225,9 @@ func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
 		close(handler.logQueue)
+		if handler.stopDrainCache != nil {
+			close(handler.stopDrainCache)
+		}
 		handler.dbMutex.Lock()
 		if handler.db != nil {
 			handler.db.Close()
@@ -240,16 +246,21 @@ func (handler *tccFenceWrapperHandler) deleteBatchFence(tx *sql.Tx, batch []mode
 }
 
 func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
-	// todo implement
 	fli := &model.FenceLogIdentity{
 		Xid:      xid,
 		BranchId: branchId,
 	}
 	select {
 	case handler.logQueue <- fli:
-	// todo add batch delete from log cache.
 	default:
+		handler.cacheMutex.Lock()
 		handler.logCache.PushBack(fli)
+		handler.cacheMutex.Unlock()
+
+		handler.logCacheOnce.Do(func() {
+			handler.stopDrainCache = make(chan struct{})
+			go handler.drainCacheTask()
+		})
 	}
 	log.Infof("add one log to clean queue: %v ", fli)
 }
@@ -289,4 +300,59 @@ func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
 			tx.Commit()
 		}
 	}
+}
+
+func (handler *tccFenceWrapperHandler) drainCacheTask() {
+	ticker := time.NewTicker(cleanInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			handler.cacheMutex.Lock()
+
+			if handler.logCache.Len() == 0 {
+				handler.cacheMutex.Unlock()
+				continue
+			}
+
+			handler.dbMutex.RLock()
+			db := handler.db
+			handler.dbMutex.RUnlock()
+			if db == nil {
+				handler.cacheMutex.Unlock()
+				continue
+			}
+
+			var batch []model.FenceLogIdentity
+			for e := handler.logCache.Front(); e != nil; {
+				next := e.Next()
+
+				fli := e.Value.(*model.FenceLogIdentity)
+				batch = append(batch, *fli)
+				handler.logCache.Remove(e)
+
+				e = next
+			}
+
+			handler.cacheMutex.Unlock()
+
+			if len(batch) > 0 {
+				tx, err := db.Begin()
+				if err != nil {
+					log.Warnf("failed to begin transaction: %v", err)
+					continue
+				}
+				err = handler.deleteBatchFence(tx, batch)
+				if err != nil {
+					log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+				} else {
+					tx.Commit()
+				}
+			}
+		case <-handler.stopDrainCache:
+			return
+		}
+	}
+
 }

@@ -1041,3 +1041,92 @@ func TestConstants(t *testing.T) {
 	assert.Equal(t, 24*time.Hour, cleanExpired)
 	assert.Equal(t, 5*time.Minute, cleanInterval)
 }
+
+func TestDrainCacheTask(t *testing.T) {
+	log.Init()
+
+	oldInterval := cleanInterval
+	cleanInterval = 20 * time.Millisecond
+	defer func() { cleanInterval = oldInterval }()
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	// drainCacheTask should execute one delete batch with Begin + Commit.
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+
+	deleted := make(chan struct{}, 1)
+
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			for _, it := range identity {
+				if it.Xid == "xid-cache" && it.BranchId == 2 {
+					select {
+					case deleted <- struct{}{}:
+					default:
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1), // Intentionally small queue to trigger the default branch.
+		db:          db,
+	}
+
+	// Fill the queue first.
+	handler.pushCleanChannel("xid-queue", 1)
+	// Push one more item so it falls back to cache and starts drainCacheTask via logCacheOnce.Do(...).
+	handler.pushCleanChannel("xid-cache", 2)
+
+	time.Sleep(100 * time.Millisecond)
+	assert.NotNil(t, handler.stopDrainCache)
+
+	select {
+	case <-deleted:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected drainCacheTask to delete cached identity")
+	}
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+
+	// Cleanup to avoid goroutine leaks.
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_DBNil(t *testing.T) {
+	log.Init()
+
+	oldInterval := cleanInterval
+	cleanInterval = 20 * time.Millisecond
+	defer func() { cleanInterval = oldInterval }()
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao:    &mockTCCFenceStore{},
+		logQueue:       make(chan *model.FenceLogIdentity, 1),
+		stopDrainCache: make(chan struct{}),
+		// Keep db as nil intentionally.
+	}
+
+	handler.cacheMutex.Lock()
+	handler.logCache.PushBack(&model.FenceLogIdentity{Xid: "xid-nil", BranchId: 9})
+	handler.cacheMutex.Unlock()
+
+	go handler.drainCacheTask()
+
+	time.Sleep(100 * time.Millisecond)
+
+	handler.cacheMutex.Lock()
+	cacheLen := handler.logCache.Len()
+	handler.cacheMutex.Unlock()
+
+	assert.Equal(t, 1, cacheLen)
+
+	handler.DestroyLogCleanChannel()
+}
