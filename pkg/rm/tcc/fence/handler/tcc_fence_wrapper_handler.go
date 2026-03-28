@@ -215,10 +215,13 @@ func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 			log.Errorf("failed to commit transaction: %v", err)
 		}
 
-		// push to clean channel
-		for _, identity := range identityList {
-			handler.logQueue <- &identity
-		}
+		handler.enqueueFenceLogIdentities(identityList)
+	}
+}
+
+func (handler *tccFenceWrapperHandler) enqueueFenceLogIdentities(identityList []model.FenceLogIdentity) {
+	for i := range identityList {
+		handler.logQueue <- &identityList[i]
 	}
 }
 
