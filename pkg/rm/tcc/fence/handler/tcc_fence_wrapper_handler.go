@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -57,10 +58,18 @@ const (
 )
 
 var (
-	fenceHandler  *tccFenceWrapperHandler
-	fenceOnce     sync.Once
-	cleanInterval = 5 * time.Minute
+	fenceHandler       *tccFenceWrapperHandler
+	fenceOnce          sync.Once
+	cleanIntervalNanos atomic.Int64
 )
+
+func init() {
+	cleanIntervalNanos.Store(int64(5 * time.Minute))
+}
+
+func currentCleanInterval() time.Duration {
+	return time.Duration(cleanIntervalNanos.Load())
+}
 
 func GetFenceHandler() *tccFenceWrapperHandler {
 	if fenceHandler == nil {
@@ -73,8 +82,8 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 	return fenceHandler
 }
 
-func (handler *tccFenceWrapperHandler) InitCleanPeriod(time time.Duration) {
-	cleanInterval = time
+func (handler *tccFenceWrapperHandler) InitCleanPeriod(d time.Duration) {
+	cleanIntervalNanos.Store(int64(d))
 }
 
 func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
@@ -191,7 +200,7 @@ func (handler *tccFenceWrapperHandler) InitLogCleanChannel(dsn string) {
 
 func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 
-	ticker := time.NewTicker(cleanInterval)
+	ticker := time.NewTicker(currentCleanInterval())
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -306,7 +315,7 @@ func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
 }
 
 func (handler *tccFenceWrapperHandler) drainCacheTask() {
-	ticker := time.NewTicker(cleanInterval)
+	ticker := time.NewTicker(currentCleanInterval())
 	defer ticker.Stop()
 
 	for {
@@ -340,18 +349,34 @@ func (handler *tccFenceWrapperHandler) drainCacheTask() {
 
 			handler.cacheMutex.Unlock()
 
-			if len(batch) > 0 {
-				tx, err := db.Begin()
-				if err != nil {
-					log.Warnf("failed to begin transaction: %v", err)
-					continue
+			if len(batch) == 0 {
+				continue
+			}
+			requeue := func() {
+				handler.cacheMutex.Lock()
+				for _, b := range batch {
+					handler.logCache.PushBack(&model.FenceLogIdentity{Xid: b.Xid, BranchId: b.BranchId})
 				}
-				err = handler.deleteBatchFence(tx, batch)
-				if err != nil {
-					log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
-				} else {
-					tx.Commit()
-				}
+				handler.cacheMutex.Unlock()
+			}
+			tx, err := db.Begin()
+			if err != nil {
+				log.Warnf("failed to begin transaction: %v", err)
+				requeue()
+				continue
+			}
+			err = handler.deleteBatchFence(tx, batch)
+			if err != nil {
+				_ = tx.Rollback()
+				log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+				requeue()
+				continue
+			}
+			if err = tx.Commit(); err != nil {
+				_ = tx.Rollback()
+				log.Errorf("failed to commit transaction: %v", err)
+				requeue()
+				continue
 			}
 		case <-handler.stopDrainCache:
 			return

@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -143,10 +144,10 @@ func TestInitCleanPeriod(t *testing.T) {
 	testDuration := 10 * time.Minute
 
 	handler.InitCleanPeriod(testDuration)
-	assert.Equal(t, testDuration, cleanInterval)
+	assert.Equal(t, testDuration, currentCleanInterval())
 
 	// Reset to default for other tests
-	cleanInterval = 5 * time.Minute
+	cleanIntervalNanos.Store(int64(5 * time.Minute))
 }
 
 func TestPrepareFence_Success(t *testing.T) {
@@ -796,6 +797,8 @@ func TestPushCleanChannel_FullQueue(t *testing.T) {
 		logQueue: make(chan *model.FenceLogIdentity, 1),
 	}
 
+	// Second pushCleanChannel starts drainCacheTask; stop it before the next test mutates cleanInterval.
+	defer handler.DestroyLogCleanChannel()
 	// Fill the queue
 	handler.pushCleanChannel("xid1", 1)
 
@@ -1062,15 +1065,15 @@ func TestConstants(t *testing.T) {
 	assert.Equal(t, 500, maxQueueSize)
 	assert.Equal(t, 5, channelDelete)
 	assert.Equal(t, 24*time.Hour, cleanExpired)
-	assert.Equal(t, 5*time.Minute, cleanInterval)
+	assert.Equal(t, 5*time.Minute, currentCleanInterval())
 }
 
 func TestDrainCacheTask(t *testing.T) {
 	log.Init()
 
-	oldInterval := cleanInterval
-	cleanInterval = 20 * time.Millisecond
-	defer func() { cleanInterval = oldInterval }()
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
 
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -1126,9 +1129,9 @@ func TestDrainCacheTask(t *testing.T) {
 func TestDrainCacheTask_DBNil(t *testing.T) {
 	log.Init()
 
-	oldInterval := cleanInterval
-	cleanInterval = 20 * time.Millisecond
-	defer func() { cleanInterval = oldInterval }()
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
 
 	handler := &tccFenceWrapperHandler{
 		tccFenceDao:    &mockTCCFenceStore{},
@@ -1150,6 +1153,155 @@ func TestDrainCacheTask_DBNil(t *testing.T) {
 	handler.cacheMutex.Unlock()
 
 	assert.Equal(t, 1, cacheLen)
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_DeleteError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	// Each drain tick: Begin -> deleteBatchFence (error) -> Rollback. Allow several ticks before Destroy stops the goroutine.
+	for i := 0; i < 10; i++ {
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return errors.New("simulated delete failure")
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// Require both in one poll: (1) Len()>=1 alone is true before the first drain (second push left an item).
+	// (2) deleteCalls>=1 alone can race the next ticker tick (cache emptied again before we read Len).
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n >= 1
+	}, 2*time.Second, 10*time.Millisecond,
+		"delete must have run and logCache must still hold requeued identities (stable window)")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_BeginError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin().WillReturnError(errors.New("simulated begin failure"))
+	for i := 0; i < 15; i++ {
+		mock.ExpectBegin()
+		mock.ExpectCommit()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// First tick: Begin fails (requeue). deleteCalls stays 0. Later tick: delete succeeds and cache drains.
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n == 0
+	}, 2*time.Second, 10*time.Millisecond,
+		"successful delete after begin failure should empty requeued cache")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_CommitError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectCommit().WillReturnError(errors.New("simulated commit failure"))
+	for i := 0; i < 15; i++ {
+		mock.ExpectBegin()
+		mock.ExpectCommit()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// First tick: delete ok, Commit fails (requeue), deleteCalls==1 and Len==1. Later tick finishes cleanup.
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n == 0
+	}, 2*time.Second, 10*time.Millisecond,
+		"successful commit after prior commit failure should empty requeued cache")
 
 	handler.DestroyLogCleanChannel()
 }
