@@ -766,6 +766,29 @@ func TestPushCleanChannel(t *testing.T) {
 	}
 }
 
+func TestEnqueueFenceLogIdentities_PreserveDistinctValues(t *testing.T) {
+	log.Init()
+
+	handler := &tccFenceWrapperHandler{
+		logQueue: make(chan *model.FenceLogIdentity, 3),
+	}
+	identities := []model.FenceLogIdentity{
+		{Xid: "xid1", BranchId: 1},
+		{Xid: "xid2", BranchId: 2},
+		{Xid: "xid3", BranchId: 3},
+	}
+
+	handler.enqueueFenceLogIdentities(identities)
+
+	consumed := []model.FenceLogIdentity{
+		*<-handler.logQueue,
+		*<-handler.logQueue,
+		*<-handler.logQueue,
+	}
+
+	assert.Equal(t, identities, consumed)
+}
+
 func TestPushCleanChannel_FullQueue(t *testing.T) {
 	log.Init()
 
