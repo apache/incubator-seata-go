@@ -55,7 +55,16 @@ const (
 	maxQueueSize  = 500
 	channelDelete = 5
 	cleanExpired  = 24 * time.Hour
+	// maxFenceLogCacheRetries is how many times a fence log identity may be re-queued to logCache
+	// after a failed drain (Begin/delete/commit). Beyond this, entries are dropped to avoid unbounded retry.
+	maxFenceLogCacheRetries = 3
 )
+
+// fenceLogCacheEntry is the value type stored in logCache (queue-full overflow path).
+type fenceLogCacheEntry struct {
+	identity   model.FenceLogIdentity
+	retryCount int
+}
 
 var (
 	fenceHandler       *tccFenceWrapperHandler
@@ -266,7 +275,7 @@ func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int
 	case handler.logQueue <- fli:
 	default:
 		handler.cacheMutex.Lock()
-		handler.logCache.PushBack(fli)
+		handler.logCache.PushBack(&fenceLogCacheEntry{identity: *fli})
 		handler.cacheMutex.Unlock()
 
 		handler.logCacheOnce.Do(func() {
@@ -336,12 +345,12 @@ func (handler *tccFenceWrapperHandler) drainCacheTask() {
 				continue
 			}
 
-			var batch []model.FenceLogIdentity
+			var drained []fenceLogCacheEntry
 			for e := handler.logCache.Front(); e != nil; {
 				next := e.Next()
 
-				fli := e.Value.(*model.FenceLogIdentity)
-				batch = append(batch, *fli)
+				ent := e.Value.(*fenceLogCacheEntry)
+				drained = append(drained, *ent)
 				handler.logCache.Remove(e)
 
 				e = next
@@ -349,13 +358,26 @@ func (handler *tccFenceWrapperHandler) drainCacheTask() {
 
 			handler.cacheMutex.Unlock()
 
+			batch := make([]model.FenceLogIdentity, len(drained))
+			for i := range drained {
+				batch[i] = drained[i].identity
+			}
+
 			if len(batch) == 0 {
 				continue
 			}
 			requeue := func() {
 				handler.cacheMutex.Lock()
-				for _, b := range batch {
-					handler.logCache.PushBack(&model.FenceLogIdentity{Xid: b.Xid, BranchId: b.BranchId})
+				for _, it := range drained {
+					if it.retryCount >= maxFenceLogCacheRetries {
+						log.Errorf("max fence log cache retries exceeded, dropping: xid=%s, branchId=%d",
+							it.identity.Xid, it.identity.BranchId)
+						continue
+					}
+					handler.logCache.PushBack(&fenceLogCacheEntry{
+						identity:   it.identity,
+						retryCount: it.retryCount + 1,
+					})
 				}
 				handler.cacheMutex.Unlock()
 			}
