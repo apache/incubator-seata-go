@@ -26,6 +26,7 @@ var (
 	globalProducer      *SeataMQProducer
 	producerMutex       sync.RWMutex
 	producerInitialized bool
+	newSeataMQProducer  = NewSeataMQProducer
 )
 
 func InitSeataMQProducer(cfg *SeataMQProducerConfig) error {
@@ -37,7 +38,7 @@ func InitSeataMQProducer(cfg *SeataMQProducerConfig) error {
 		return nil
 	}
 
-	producer, err := NewSeataMQProducer(cfg)
+	producer, err := newSeataMQProducer(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create SeataMQProducer: %w", err)
 	}
