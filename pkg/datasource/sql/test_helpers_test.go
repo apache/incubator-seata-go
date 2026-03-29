@@ -33,7 +33,9 @@ func registerResourceManagerForTest(t *testing.T, resourceManager rm.ResourceMan
 	t.Cleanup(func() {
 		if hasPrevMgr {
 			rm.GetRmCacheInstance().RegisterResourceManager(prevMgr)
+			return
 		}
+		rm.GetRmCacheInstance().UnregisterResourceManager(resourceManager.GetBranchType())
 	})
 }
 

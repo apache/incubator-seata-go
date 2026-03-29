@@ -36,6 +36,8 @@ import (
 
 var xaConnTimeout time.Duration
 
+var errXABranchLifecycleManaged = errors.New("xa branch lifecycle is managed by XATx or XAConn")
+
 // XAConn Database connection proxy object under XA transaction model
 // Conn is assumed to be stateful.
 type XAConn struct {
@@ -51,16 +53,17 @@ type XAConn struct {
 	isConnKept         bool
 }
 
-// xaBranchTx satisfies database/sql's transaction contract while XA branch
-// lifecycle is driven by XA START/END/PREPARE on the connection itself.
+// xaBranchTx is a sentinel driver.Tx used to satisfy database/sql wiring while
+// the real XA branch lifecycle is driven by XATx/XAConn through XA START/END/PREPARE.
+// Any direct Commit/Rollback on this placeholder indicates the caller bypassed the XA flow.
 type xaBranchTx struct{}
 
 func (xaBranchTx) Commit() error {
-	return nil
+	return errXABranchLifecycleManaged
 }
 
 func (xaBranchTx) Rollback() error {
-	return nil
+	return errXABranchLifecycleManaged
 }
 
 func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
@@ -140,6 +143,8 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
 
+	// Keep a sentinel target in Tx so any accidental fallback to the generic
+	// driver.Tx path fails fast instead of silently masking XA lifecycle bugs.
 	branchTx := xaBranchTx{}
 	c.tx = branchTx
 

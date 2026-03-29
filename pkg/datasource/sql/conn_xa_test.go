@@ -506,3 +506,13 @@ func TestXAConn_BeginTx_DoesNotStartPhysicalTx(t *testing.T) {
 	err = tx.Rollback()
 	assert.NoError(t, err)
 }
+
+func TestXABranchTx_CommitRollbackFailFast(t *testing.T) {
+	branchTx := xaBranchTx{}
+
+	err := branchTx.Commit()
+	assert.ErrorIs(t, err, errXABranchLifecycleManaged)
+
+	err = branchTx.Rollback()
+	assert.ErrorIs(t, err, errXABranchLifecycleManaged)
+}
