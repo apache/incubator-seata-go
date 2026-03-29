@@ -114,7 +114,9 @@ func TestParseDBType(t *testing.T) {
 		{"mysql", "mysql", DBTypeMySQL},
 		{"MySQL uppercase", "MySQL", DBTypeMySQL},
 		{"MYSQL", "MYSQL", DBTypeMySQL},
-		{"postgres", "postgres", DBTypeUnknown},
+		{"postgres", "postgres", DBTypePostgreSQL},
+		{"postgresql", "postgresql", DBTypePostgreSQL},
+		{"oracle", "oracle", DBTypeOracle},
 		{"unknown", "unknown", DBTypeUnknown},
 		{"empty", "", DBTypeUnknown},
 	}
