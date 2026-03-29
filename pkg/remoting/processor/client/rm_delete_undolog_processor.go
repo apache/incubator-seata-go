@@ -32,6 +32,8 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
+const defaultDeleteBatchSize = 1000
+
 func initDeleteUndoLog() {
 	getty.GetGettyClientHandlerInstance().RegisterProcessor(
 		message.MessageTypeRmDeleteUndolog, &rmDeleteUndoLogProcessor{})
@@ -112,7 +114,12 @@ func (r *rmDeleteUndoLogProcessor) batchDeleteByLogCreated(ctx context.Context, 
 		undoLogTable = "undo_log"
 	}
 
-	deleteSQL := fmt.Sprintf("DELETE FROM %s WHERE log_created <= ? LIMIT 1000", undoLogTable)
+	batchSize := undo.UndoConfig.DeleteBatchSize
+	if batchSize <= 0 {
+		batchSize = defaultDeleteBatchSize
+	}
+
+	deleteSQL := fmt.Sprintf("DELETE FROM %s WHERE log_created <= ? LIMIT %d", undoLogTable, batchSize)
 
 	totalAffected := int64(0)
 	for {
@@ -122,7 +129,7 @@ func (r *rmDeleteUndoLogProcessor) batchDeleteByLogCreated(ctx context.Context, 
 		}
 		affected, _ := result.RowsAffected()
 		totalAffected += affected
-		if affected < 1000 {
+		if affected < int64(batchSize) {
 			break
 		}
 	}

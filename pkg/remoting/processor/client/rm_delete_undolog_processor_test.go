@@ -168,3 +168,31 @@ func BenchmarkProcess_NonAT(b *testing.B) {
 		_ = p.Process(context.Background(), msg)
 	}
 }
+
+func TestBatchDeleteByLogCreated_CustomBatchSize(t *testing.T) {
+	original := undo.UndoConfig.DeleteBatchSize
+	undo.UndoConfig.DeleteBatchSize = 2 // 小批次，方便验证循环
+	defer func() { undo.UndoConfig.DeleteBatchSize = original }()
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	// 第一批删了 2 行（等于 batchSize），继续
+	mock.ExpectExec("DELETE FROM undo_log WHERE log_created <= ?").
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 2))
+	// 第二批删了 1 行（小于 batchSize），退出
+	mock.ExpectExec("DELETE FROM undo_log WHERE log_created <= ?").
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	conn, err := db.Conn(context.Background())
+	assert.NoError(t, err)
+	defer conn.Close()
+
+	p := &rmDeleteUndoLogProcessor{}
+	err = p.batchDeleteByLogCreated(context.Background(), conn, time.Now())
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
