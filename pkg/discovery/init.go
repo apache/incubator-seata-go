@@ -47,6 +47,9 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 		//TODO: init consul registry
 	case SOFA:
 		//TODO: init sofa registry
+	case NAMINGSERVER:
+		// init namingserver registry
+		registryService = newNamingServerRegistryService(serviceConfig, &registryConfig.NamingServer)
 	default:
 		err = fmt.Errorf("service registry not support registry type:%s", registryConfig.Type)
 	}
@@ -59,4 +62,15 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 
 func GetRegistry() RegistryService {
 	return registryServiceInstance
+}
+
+func GetNamingserverRegistry() (NamingserverRegistry, error) {
+	if registryServiceInstance == nil {
+		return nil, fmt.Errorf("registry service not initialized")
+	}
+	namingReg, ok := registryServiceInstance.(NamingserverRegistry)
+	if !ok {
+		return nil, fmt.Errorf("current registry is not namingserver")
+	}
+	return namingReg, nil
 }
