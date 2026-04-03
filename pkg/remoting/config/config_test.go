@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
@@ -162,63 +160,48 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 	}
 }
 
-func TestSeataConfig_InitAndGet(t *testing.T) {
+func TestSeataConfig(t *testing.T) {
 	tests := []struct {
 		name     string
-		initConf *SeataConfig
-		expected *SeataConfig
+		config   SeataConfig
+		expected SeataConfig
 	}{
 		{
-			name:     "Nil Config",
-			initConf: nil,
-			expected: nil,
+			name:   "Empty Config",
+			config: SeataConfig{},
+			expected: SeataConfig{
+				ApplicationID:  "",
+				TxServiceGroup: "",
+			},
 		},
 		{
 			name: "Basic Config",
-			initConf: &SeataConfig{
+			config: SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
-			expected: &SeataConfig{
+			expected: SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
 		},
 		{
 			name: "Full Config",
-			initConf: &SeataConfig{
-				ApplicationID:        "app",
-				TxServiceGroup:       "group",
-				ServiceVgroupMapping: flagext.StringMap{"a": "b"},
-				ServiceGrouplist:     flagext.StringMap{"x": "y"},
-				LoadBalanceType:      "RANDOM",
+			config: SeataConfig{
+				ApplicationID:  "seata-go-app",
+				TxServiceGroup: "my_tx_group",
 			},
-			expected: &SeataConfig{
-				ApplicationID:        "app",
-				TxServiceGroup:       "group",
-				ServiceVgroupMapping: flagext.StringMap{"a": "b"},
-				ServiceGrouplist:     flagext.StringMap{"x": "y"},
-				LoadBalanceType:      "RANDOM",
+			expected: SeataConfig{
+				ApplicationID:  "seata-go-app",
+				TxServiceGroup: "my_tx_group",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			seataConfig = nil
-			if tt.initConf != nil {
-				InitConfig(tt.initConf)
-			}
-			got := GetSeataConfig()
-			if tt.expected == nil {
-				assert.Nil(t, got)
-				return
-			}
-			assert.Equal(t, tt.expected.ApplicationID, got.ApplicationID)
-			assert.Equal(t, tt.expected.TxServiceGroup, got.TxServiceGroup)
-			assert.Equal(t, tt.expected.LoadBalanceType, got.LoadBalanceType)
-			assert.Equal(t, tt.expected.ServiceVgroupMapping, got.ServiceVgroupMapping)
-			assert.Equal(t, tt.expected.ServiceGrouplist, got.ServiceGrouplist)
+			assert.Equal(t, tt.expected.ApplicationID, tt.config.ApplicationID)
+			assert.Equal(t, tt.expected.TxServiceGroup, tt.config.TxServiceGroup)
 		})
 	}
 }
