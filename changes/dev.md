@@ -26,6 +26,7 @@
 ### feature：
 
   - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
+  - support XA branch reuse in autoCommit mode
 
 ### bugfix：
 
