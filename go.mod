@@ -45,6 +45,7 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/knadh/koanf v1.5.0
 	github.com/robertkrimen/otto v0.4.0
+	github.com/ulikunitz/xz v0.5.15
 )
 
 require (
