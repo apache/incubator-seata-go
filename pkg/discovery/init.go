@@ -35,18 +35,8 @@ func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) 
 	case ETCD:
 		//init etcd registry
 		registryService = newEtcdRegistryService(serviceConfig, &registryConfig.Etcd3)
-	case NACOS:
-		//TODO: init nacos registry
-	case EUREKA:
-		//TODO: init eureka registry
-	case REDIS:
-		//TODO: init redis registry
-	case ZK:
-		//TODO: init zk registry
-	case CONSUL:
-		//TODO: init consul registry
-	case SOFA:
-		//TODO: init sofa registry
+	case NACOS, EUREKA, REDIS, ZK, CONSUL, SOFA:
+		err = fmt.Errorf("service registry type %s is not implemented", registryConfig.Type)
 	default:
 		err = fmt.Errorf("service registry not support registry type:%s", registryConfig.Type)
 	}
