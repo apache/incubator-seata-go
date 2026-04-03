@@ -60,7 +60,9 @@ func NewUpdateExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 
 // ExecContext exec SQL, and generate before image and after image
 func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	u.beforeHooks(ctx, u.execContext)
+	if err := u.beforeHooks(ctx, u.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
 	}()
