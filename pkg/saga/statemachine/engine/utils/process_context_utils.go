@@ -61,10 +61,10 @@ func (p *ProcessContextBuilder) WithInstruction(instruction process_ctrl.Instruc
 	return p
 }
 
-func (p *ProcessContextBuilder) WithStateMachineInstance(stateMachineInstance statelang.StateMachineInstance) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithStateMachineInstance(stateMachineInstance *statelang.StateMachineInstance) *ProcessContextBuilder {
 	if stateMachineInstance != nil {
 		p.processContext.SetVariable(constant.VarNameStateMachineInst, stateMachineInstance)
-		p.processContext.SetVariable(constant.VarNameStateMachine, stateMachineInstance.StateMachine())
+		p.processContext.SetVariable(constant.VarNameStateMachine, stateMachineInstance.StateMachine)
 	}
 
 	return p
@@ -100,7 +100,7 @@ func (p *ProcessContextBuilder) WithIsAsyncExecution(async bool) *ProcessContext
 	return p
 }
 
-func (p *ProcessContextBuilder) WithStateInstance(state statelang.StateInstance) *ProcessContextBuilder {
+func (p *ProcessContextBuilder) WithStateInstance(state *statelang.StateInstance) *ProcessContextBuilder {
 	if state != nil {
 		p.processContext.SetVariable(constant.VarNameStateInst, state)
 	}

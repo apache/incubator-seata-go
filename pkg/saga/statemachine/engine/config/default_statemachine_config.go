@@ -18,7 +18,6 @@
 package config
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -64,16 +63,9 @@ type DefaultStateMachineConfig struct {
 	rmReportSuccessEnable           bool
 	stateMachineResources           []string
 
-	// Components
-	processController process_ctrl.ProcessController
-
 	// Event Bus
 	syncEventBus  process_ctrl.EventBus
 	asyncEventBus process_ctrl.EventBus
-
-	// Event publisher
-	syncProcessCtrlEventPublisher  process_ctrl.EventPublisher
-	asyncProcessCtrlEventPublisher process_ctrl.EventPublisher
 
 	// Store related components
 	stateLogRepository     repo.StateLogRepository
@@ -133,14 +125,6 @@ func (c *DefaultStateMachineConfig) SetSyncEventBus(syncEventBus process_ctrl.Ev
 
 func (c *DefaultStateMachineConfig) SetAsyncEventBus(asyncEventBus process_ctrl.EventBus) {
 	c.asyncEventBus = asyncEventBus
-}
-
-func (c *DefaultStateMachineConfig) SetSyncProcessCtrlEventPublisher(syncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
-	c.syncProcessCtrlEventPublisher = syncProcessCtrlEventPublisher
-}
-
-func (c *DefaultStateMachineConfig) SetAsyncProcessCtrlEventPublisher(asyncProcessCtrlEventPublisher process_ctrl.EventPublisher) {
-	c.asyncProcessCtrlEventPublisher = asyncProcessCtrlEventPublisher
 }
 
 func (c *DefaultStateMachineConfig) SetStateLogRepository(stateLogRepository repo.StateLogRepository) {
@@ -221,14 +205,6 @@ func (c *DefaultStateMachineConfig) SyncEventBus() process_ctrl.EventBus {
 
 func (c *DefaultStateMachineConfig) AsyncEventBus() process_ctrl.EventBus {
 	return c.asyncEventBus
-}
-
-func (c *DefaultStateMachineConfig) EventPublisher() process_ctrl.EventPublisher {
-	return c.syncProcessCtrlEventPublisher
-}
-
-func (c *DefaultStateMachineConfig) AsyncEventPublisher() process_ctrl.EventPublisher {
-	return c.asyncProcessCtrlEventPublisher
 }
 
 func (c *DefaultStateMachineConfig) ServiceInvokerManager() invoker.ServiceInvokerManager {
@@ -435,28 +411,6 @@ func (c *DefaultStateMachineConfig) applyConfigFileParams(rc *ConfigFileParams) 
 	c.tcEnabled = rc.TCEnabled
 }
 
-func (c *DefaultStateMachineConfig) registerEventConsumers() error {
-	if c.processController == nil {
-		return fmt.Errorf("ProcessController is not initialized")
-	}
-
-	pcImpl, ok := c.processController.(*process_ctrl.ProcessControllerImpl)
-	if !ok {
-		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
-	}
-
-	if pcImpl.BusinessProcessor() == nil {
-		return fmt.Errorf("BusinessProcessor in ProcessController is not initialized")
-	}
-
-	consumer := process_ctrl.NewProcessCtrlEventConsumer(c.processController)
-
-	c.syncEventBus.RegisterEventConsumer(consumer)
-	c.asyncEventBus.RegisterEventConsumer(consumer)
-
-	return nil
-}
-
 func (c *DefaultStateMachineConfig) Init() error {
 	if err := c.initExpressionComponents(); err != nil {
 		return fmt.Errorf("initialize expression components failed: %w", err)
@@ -472,10 +426,6 @@ func (c *DefaultStateMachineConfig) Init() error {
 
 	if err := c.SetupStoresFromConfig(); err != nil {
 		return fmt.Errorf("setup stores from config failed: %w", err)
-	}
-
-	if err := c.registerEventConsumers(); err != nil {
-		return fmt.Errorf("register event consumers failed: %w", err)
 	}
 
 	if c.stateMachineRepository != nil && len(c.stateMachineResources) > 0 {
@@ -663,9 +613,6 @@ func (c *DefaultStateMachineConfig) EvaluateExpression(expressionStr string, con
 }
 
 func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, error) {
-	ctx := context.Background()
-	defaultBP := process_ctrl.NewBusinessProcessor()
-
 	c := &DefaultStateMachineConfig{
 		transOperationTimeout:           DefaultTransOperTimeout,
 		serviceInvokeTimeout:            DefaultServiceInvokeTimeout,
@@ -679,16 +626,6 @@ func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, e
 		componentLock:                   &sync.Mutex{},
 		seqGenerator:                    sequence.NewUUIDSeqGenerator(),
 		statusDecisionStrategy:          strategy.NewDefaultStatusDecisionStrategy(),
-		processController: func() process_ctrl.ProcessController {
-			pc := &process_ctrl.ProcessControllerImpl{}
-			pc.SetBusinessProcessor(defaultBP)
-			return pc
-		}(),
-		syncEventBus:  process_ctrl.NewDirectEventBus(),
-		asyncEventBus: process_ctrl.NewAsyncEventBus(ctx, 1000, 5),
-
-		syncProcessCtrlEventPublisher:  nil,
-		asyncProcessCtrlEventPublisher: nil,
 
 		stateLogStore:  &NoopStateLogStore{},
 		stateLangStore: &NoopStateLangStore{},
@@ -697,9 +634,6 @@ func NewDefaultStateMachineConfig(opts ...Option) (*DefaultStateMachineConfig, e
 	c.stateMachineRepository = repository.GetStateMachineRepositoryImpl()
 	c.stateLogRepository = repository.NewStateLogRepositoryImpl()
 	repository.GetStateMachineRepositoryImpl().SetDefaultTenantId(c.defaultTenantId)
-
-	c.syncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.syncEventBus)
-	c.asyncProcessCtrlEventPublisher = process_ctrl.NewProcessCtrlEventPublisher(c.asyncEventBus)
 
 	for _, opt := range opts {
 		opt(c)
@@ -747,22 +681,6 @@ func WithStatusDecisionStrategy(strategy engine.StatusDecisionStrategy) Option {
 func WithSeqGenerator(gen sequence.SeqGenerator) Option {
 	return func(c *DefaultStateMachineConfig) {
 		c.seqGenerator = gen
-	}
-}
-
-func WithProcessController(ctrl process_ctrl.ProcessController) Option {
-	return func(c *DefaultStateMachineConfig) {
-		c.processController = ctrl
-	}
-}
-
-func WithBusinessProcessor(bp process_ctrl.BusinessProcessor) Option {
-	return func(c *DefaultStateMachineConfig) {
-		if pc, ok := c.processController.(*process_ctrl.ProcessControllerImpl); ok {
-			pc.SetBusinessProcessor(bp)
-		} else {
-			log.Printf("ProcessController is not of type *ProcessControllerImpl, unable to set BusinessProcessor")
-		}
 	}
 }
 

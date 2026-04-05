@@ -26,9 +26,9 @@ import (
 
 // Engine is a minimal facade for state machine operations needed by Saga RM
 type Engine interface {
-	Forward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
-	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (statelang.StateMachineInstance, error)
-	ReloadStateMachineInstance(ctx context.Context, instId string) (statelang.StateMachineInstance, error)
+	Forward(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (*statelang.StateMachineInstance, error)
+	Compensate(ctx context.Context, stateMachineInstId string, replaceParams map[string]interface{}) (*statelang.StateMachineInstance, error)
+	ReloadStateMachineInstance(ctx context.Context, instId string) (*statelang.StateMachineInstance, error)
 }
 
 var (
