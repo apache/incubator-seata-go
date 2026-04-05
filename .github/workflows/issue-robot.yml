@@ -28,6 +28,7 @@ permissions:
 jobs:
   translate:
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/github-script@v7
         with:
@@ -44,25 +45,43 @@ jobs:
             if (actor.type === 'Bot') return;
             if (text.startsWith('> Bot detected the issue body')) return;
 
-            // Quick heuristic: low non-ASCII ratio means likely English
-            const nonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
-            if (nonAscii / text.length < 0.1) return;
-
-            // Detect source language from Unicode character ranges
-            const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+            // Count script-specific characters (excludes emoji and symbols)
+            const cjk = (text.match(/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g) || []).length;
             const kana = (text.match(/[\u3040-\u30ff]/g) || []).length;
             const hangul = (text.match(/[\uac00-\ud7af]/g) || []).length;
             const cyrillic = (text.match(/[\u0400-\u04ff]/g) || []).length;
+            const arabic = (text.match(/[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/g) || []).length;
+            const devanagari = (text.match(/[\u0900-\u097f]/g) || []).length;
+            const thai = (text.match(/[\u0e00-\u0e7f]/g) || []).length;
 
-            let srcLang = 'zh-CN';
+            const nonEnglishChars = cjk + kana + hangul + cyrillic + arabic + devanagari + thai;
+            if (nonEnglishChars / text.length < 0.1) return;
+
+            // Detect source language
+            let srcLang = null;
             if (kana > cjk * 0.1) srcLang = 'ja';
             else if (hangul > cjk) srcLang = 'ko';
-            else if (cyrillic > cjk) srcLang = 'ru';
+            else if (cyrillic > 0) srcLang = 'ru';
+            else if (arabic > 0) srcLang = 'ar';
+            else if (devanagari > 0) srcLang = 'hi';
+            else if (thai > 0) srcLang = 'th';
+            else if (cjk > 0) srcLang = 'zh-CN';
+
+            if (!srcLang) {
+              core.info('Unable to determine source language, skipping.');
+              return;
+            }
+
+            // Redact common secret patterns before sending to translation API
+            let sanitized = text.substring(0, 3000);
+            sanitized = sanitized.replace(
+              /(token|key|secret|password|passwd|authorization|bearer)[\s:=]+\S+/gi,
+              '$1: [REDACTED]'
+            );
 
             // Split text into chunks (MyMemory limit: 500 chars/request)
-            const input = text.substring(0, 3000);
             const chunks = [];
-            let remaining = input;
+            let remaining = sanitized;
             while (remaining.length > 0) {
               if (remaining.length <= 500) {
                 chunks.push(remaining);
