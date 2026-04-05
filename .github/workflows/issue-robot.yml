@@ -22,12 +22,94 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  issues: write
+
 jobs:
-  build:
+  translate:
     runs-on: ubuntu-latest
     steps:
-      - uses: tomsun28/issues-translate-action@v2.6
+      - uses: actions/github-script@v7
         with:
-          # it is not necessary to decide whether you need to modify the issue header content
-          IS_MODIFY_TITLE: false
-          CUSTOM_BOT_NOTE: RoBot detected the issue body's language is not English, translate it automatically. 👯👭🏻🧑‍🤝‍🧑👫🧑🏿‍🤝‍🧑🏻👩🏾‍🤝‍👨🏿👬🏿
+          script: |
+            const isComment = context.eventName === 'issue_comment';
+            const text = isComment
+              ? context.payload.comment.body
+              : context.payload.issue.body;
+
+            if (!text || !text.trim()) return;
+
+            // Skip bot users and our own translation comments
+            const actor = isComment ? context.payload.comment.user : context.payload.issue.user;
+            if (actor.type === 'Bot') return;
+            if (text.startsWith('> Bot detected the issue body')) return;
+
+            // Quick heuristic: low non-ASCII ratio means likely English
+            const nonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
+            if (nonAscii / text.length < 0.1) return;
+
+            // Detect source language from Unicode character ranges
+            const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+            const kana = (text.match(/[\u3040-\u30ff]/g) || []).length;
+            const hangul = (text.match(/[\uac00-\ud7af]/g) || []).length;
+            const cyrillic = (text.match(/[\u0400-\u04ff]/g) || []).length;
+
+            let srcLang = 'zh-CN';
+            if (kana > cjk * 0.1) srcLang = 'ja';
+            else if (hangul > cjk) srcLang = 'ko';
+            else if (cyrillic > cjk) srcLang = 'ru';
+
+            // Split text into chunks (MyMemory limit: 500 chars/request)
+            const input = text.substring(0, 3000);
+            const chunks = [];
+            let remaining = input;
+            while (remaining.length > 0) {
+              if (remaining.length <= 500) {
+                chunks.push(remaining);
+                break;
+              }
+              let i = remaining.lastIndexOf('\n', 500);
+              if (i < 150) i = remaining.lastIndexOf('。', 500);
+              if (i < 150) i = remaining.lastIndexOf('. ', 500);
+              if (i < 0 || i < 150) i = 500;
+              else i++;
+              chunks.push(remaining.substring(0, i));
+              remaining = remaining.substring(i);
+            }
+
+            // Translate each chunk via MyMemory API (free, no key needed)
+            const translated = [];
+            for (const chunk of chunks) {
+              const params = new URLSearchParams({
+                q: chunk,
+                langpair: `${srcLang}|en`,
+              });
+              const res = await fetch('https://api.mymemory.translated.net/get', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString(),
+              });
+              if (!res.ok) {
+                core.warning(`MyMemory API error: ${res.status}`);
+                return;
+              }
+              const data = await res.json();
+              if (data.responseStatus !== 200) {
+                core.warning(`MyMemory error: ${data.responseDetails || data.responseStatus}`);
+                return;
+              }
+              translated.push(data.responseData.translatedText);
+            }
+
+            const truncNote = text.length > 3000
+              ? '\n\n> Note: original text was truncated due to length.'
+              : '';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `> Bot detected the issue body's language is not English, translate it automatically.${truncNote}\n\n${translated.join('')}`,
+            });
+
+            core.info(`Translated from ${srcLang} to en.`);
