@@ -582,7 +582,7 @@ func (s *StateLogStore) generateRetryStateInstanceId(stateInstance *statelang.St
 		}
 		originalStateInstId = originalStateInst.ID
 	}
-	return fmt.Sprintf("%s.%d", originalStateInstId, maxIndex)
+	return fmt.Sprintf("%s.%d", originalStateInstId, maxIndex+1)
 }
 
 func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance *statelang.StateInstance, isUpdateMode bool) string {
@@ -902,8 +902,8 @@ func (s *StateLogStore) branchReport(ctx context.Context, stateInstance *statela
 func (s *StateLogStore) findOutOriginalStateInstanceOfRetryState(stateInstance *statelang.StateInstance) *statelang.StateInstance {
 	stateMap := stateInstance.StateMachineInstance.StateMap()
 	originalStateInst := stateMap[stateInstance.StateIDRetriedFor]
-	for originalStateInst.StateIDRetriedFor != "" {
-		originalStateInst = stateMap[stateInstance.StateIDRetriedFor]
+	for originalStateInst != nil && originalStateInst.StateIDRetriedFor != "" {
+		originalStateInst = stateMap[originalStateInst.StateIDRetriedFor]
 	}
 	return originalStateInst
 }
@@ -911,8 +911,8 @@ func (s *StateLogStore) findOutOriginalStateInstanceOfRetryState(stateInstance *
 func (s *StateLogStore) findOutOriginalStateInstanceOfCompensateState(stateInstance *statelang.StateInstance) *statelang.StateInstance {
 	stateMap := stateInstance.StateMachineInstance.StateMap()
 	originalStateInst := stateMap[stateInstance.StateIDCompensatedFor]
-	for originalStateInst.StateIDRetriedFor != "" {
-		originalStateInst = stateMap[stateInstance.StateIDRetriedFor]
+	for originalStateInst != nil && originalStateInst.StateIDRetriedFor != "" {
+		originalStateInst = stateMap[originalStateInst.StateIDRetriedFor]
 	}
 	return originalStateInst
 }
