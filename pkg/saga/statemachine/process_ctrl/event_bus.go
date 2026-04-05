@@ -19,9 +19,6 @@ package process_ctrl
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/v2/pkg/util/collection"
@@ -29,129 +26,70 @@ import (
 )
 
 type EventBus interface {
-	Offer(ctx context.Context, event Event) (bool, error)
-
-	EventConsumerList(event Event) []EventConsumer
-
-	RegisterEventConsumer(consumer EventConsumer)
-}
-
-type BaseEventBus struct {
-	eventConsumerList []EventConsumer
-}
-
-func (b *BaseEventBus) RegisterEventConsumer(consumer EventConsumer) {
-	if b.eventConsumerList == nil {
-		b.eventConsumerList = make([]EventConsumer, 0)
-	}
-	b.eventConsumerList = append(b.eventConsumerList, consumer)
-}
-
-func (b *BaseEventBus) EventConsumerList(event Event) []EventConsumer {
-	var acceptedConsumerList = make([]EventConsumer, 0)
-	for i := range b.eventConsumerList {
-		eventConsumer := b.eventConsumerList[i]
-		if eventConsumer.Accept(event) {
-			acceptedConsumerList = append(acceptedConsumerList, eventConsumer)
-		}
-	}
-	return acceptedConsumerList
+	Run(ctx context.Context, processContext ProcessContext) error
 }
 
 type DirectEventBus struct {
-	BaseEventBus
+	handler       ProcessHandler
+	processRouter ProcessRouter
 }
 
-func (d DirectEventBus) Offer(ctx context.Context, event Event) (bool, error) {
-	eventConsumerList := d.EventConsumerList(event)
-	if len(eventConsumerList) == 0 {
-		log.Debugf("cannot find event handler by type: %T", event)
-		return false, nil
-	}
+func NewDirectEventBus(handler ProcessHandler, router ProcessRouter) *DirectEventBus {
+	return &DirectEventBus{handler: handler, processRouter: router}
+}
 
-	isFirstEvent := true
-	processContext, ok := event.(ProcessContext)
-	if !ok {
-		log.Errorf("event %T is illegal, required process_ctrl.ProcessContext", event)
-		return false, nil
-	}
-
-	// Get or initialize execution stack from process context
-	var stack *collection.Stack
-	if v := processContext.GetVariable(constant.VarNameSyncExeStack); v != nil {
-		if s, ok := v.(*collection.Stack); ok {
-			stack = s
-			// Existing stack means we're in a nested offer; not the first event
-			isFirstEvent = false
-		}
-	}
-	if stack == nil {
-		stack = collection.NewStack()
-		processContext.SetVariable(constant.VarNameSyncExeStack, stack)
-		isFirstEvent = true
-	}
-
+func (d *DirectEventBus) Run(ctx context.Context, processContext ProcessContext) error {
+	// Use stack to avoid deep recursion (same as original DirectEventBus.Offer)
+	stack := collection.NewStack()
+	processContext.SetVariable(constant.VarNameSyncExeStack, stack)
 	stack.Push(processContext)
-	if isFirstEvent {
-		for stack.Len() > 0 {
-			currentContext := stack.Pop().(ProcessContext)
-			for _, eventConsumer := range eventConsumerList {
-				err := eventConsumer.Process(ctx, currentContext)
-				if err != nil {
-					log.Errorf("process event %T error: %s", event, err.Error())
-					return false, err
-				}
-			}
+
+	for stack.Len() > 0 {
+		current := stack.Pop().(ProcessContext)
+		if err := d.handler.Process(ctx, current); err != nil {
+			return err
+		}
+		instruction, err := d.processRouter.Route(ctx, current)
+		if err != nil {
+			return err
+		}
+		if instruction != nil {
+			current.SetInstruction(instruction)
+			stack.Push(current)
 		}
 	}
-
-	return true, nil
+	return nil
 }
 
 type AsyncEventBus struct {
-	BaseEventBus
+	handler       ProcessHandler
+	processRouter ProcessRouter
 }
 
-func (a AsyncEventBus) Offer(ctx context.Context, event Event) (bool, error) {
-	eventConsumerList := a.EventConsumerList(event)
-	if len(eventConsumerList) == 0 {
-		errStr := fmt.Sprintf("cannot find event handler by type: %T", event)
-		log.Errorf(errStr)
-		return false, errors.New(errStr)
-	}
+func NewAsyncEventBus(handler ProcessHandler, router ProcessRouter) *AsyncEventBus {
+	return &AsyncEventBus{handler: handler, processRouter: router}
+}
 
-	processContext, ok := event.(ProcessContext)
-	if !ok {
-		errStr := fmt.Sprintf("event %T is illegal, required process_ctrl.ProcessContext", event)
-		log.Errorf(errStr)
-		return false, errors.New(errStr)
-	}
-
-	for _, eventConsumer := range eventConsumerList {
-		consumer := eventConsumer
-		go func() {
-			err := consumer.Process(ctx, processContext)
-			if err != nil {
-				log.Errorf("process event %T error: %s", event, err.Error())
+func (a *AsyncEventBus) Run(ctx context.Context, processContext ProcessContext) error {
+	go func() {
+		stack := collection.NewStack()
+		stack.Push(processContext)
+		for stack.Len() > 0 {
+			current := stack.Pop().(ProcessContext)
+			if err := a.handler.Process(ctx, current); err != nil {
+				log.Errorf("async process error: %s", err.Error())
+				return
 			}
-		}()
-	}
-
-	return true, nil
-}
-
-func NewDirectEventBus() *DirectEventBus {
-	return &DirectEventBus{
-		BaseEventBus: BaseEventBus{
-			eventConsumerList: make([]EventConsumer, 0),
-		},
-	}
-}
-
-func NewAsyncEventBus(ctx context.Context, queueSize int, workerCount int) *AsyncEventBus {
-	return &AsyncEventBus{
-		BaseEventBus: BaseEventBus{
-			eventConsumerList: make([]EventConsumer, 0),
-		},
-	}
+			instruction, err := a.processRouter.Route(ctx, current)
+			if err != nil {
+				log.Errorf("async route error: %s", err.Error())
+				return
+			}
+			if instruction != nil {
+				current.SetInstruction(instruction)
+				stack.Push(current)
+			}
+		}
+	}()
+	return nil
 }

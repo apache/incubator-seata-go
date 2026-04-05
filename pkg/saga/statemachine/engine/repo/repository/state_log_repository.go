@@ -46,7 +46,7 @@ func NewStateLogRepositoryImpl() *StateLogRepositoryImpl {
 
 func (s *StateLogRepositoryImpl) RecordStateMachineStarted(
 	ctx context.Context,
-	machineInstance statelang.StateMachineInstance,
+	machineInstance *statelang.StateMachineInstance,
 	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
@@ -57,7 +57,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineStarted(
 
 func (s *StateLogRepositoryImpl) RecordStateMachineFinished(
 	ctx context.Context,
-	machineInstance statelang.StateMachineInstance,
+	machineInstance *statelang.StateMachineInstance,
 	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
@@ -68,7 +68,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineFinished(
 
 func (s *StateLogRepositoryImpl) RecordStateMachineRestarted(
 	ctx context.Context,
-	machineInstance statelang.StateMachineInstance,
+	machineInstance *statelang.StateMachineInstance,
 	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
@@ -79,7 +79,7 @@ func (s *StateLogRepositoryImpl) RecordStateMachineRestarted(
 
 func (s *StateLogRepositoryImpl) RecordStateStarted(
 	ctx context.Context,
-	stateInstance statelang.StateInstance,
+	stateInstance *statelang.StateInstance,
 	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
@@ -90,7 +90,7 @@ func (s *StateLogRepositoryImpl) RecordStateStarted(
 
 func (s *StateLogRepositoryImpl) RecordStateFinished(
 	ctx context.Context,
-	stateInstance statelang.StateInstance,
+	stateInstance *statelang.StateInstance,
 	processContext process_ctrl.ProcessContext,
 ) error {
 	if s.stateLogStore == nil {
@@ -99,35 +99,35 @@ func (s *StateLogRepositoryImpl) RecordStateFinished(
 	return s.stateLogStore.RecordStateFinished(ctx, stateInstance, processContext)
 }
 
-func (s *StateLogRepositoryImpl) GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateMachineInstance(stateMachineInstanceId string) (*statelang.StateMachineInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
 	return s.stateLogStore.GetStateMachineInstance(stateMachineInstanceId)
 }
 
-func (s *StateLogRepositoryImpl) GetStateMachineInstanceByBusinessKey(businessKey, tenantId string) (statelang.StateMachineInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateMachineInstanceByBusinessKey(businessKey, tenantId string) (*statelang.StateMachineInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
 	return s.stateLogStore.GetStateMachineInstanceByBusinessKey(businessKey, tenantId)
 }
 
-func (s *StateLogRepositoryImpl) GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateMachineInstanceByParentId(parentId string) ([]*statelang.StateMachineInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
 	return s.stateLogStore.GetStateMachineInstanceByParentId(parentId)
 }
 
-func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId string) (statelang.StateInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateInstance(stateInstanceId, machineInstId string) (*statelang.StateInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}
 	return s.stateLogStore.GetStateInstance(stateInstanceId, machineInstId)
 }
 
-func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
+func (s *StateLogRepositoryImpl) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]*statelang.StateInstance, error) {
 	if s.stateLogStore == nil {
 		return nil, errors.New("stateLogStore is not initialized")
 	}

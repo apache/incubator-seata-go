@@ -31,7 +31,7 @@ import (
 )
 
 func CreateInputParams(processContext process_ctrl.ProcessContext, expressionResolver expr.ExpressionResolver,
-	stateInstance *statelang.StateInstanceImpl, serviceTaskState *state.AbstractTaskState, variablesFrom any) []any {
+	stateInstance *statelang.StateInstance, serviceTaskState *state.AbstractTaskState, variablesFrom any) []any {
 	inputAssignments := serviceTaskState.Input()
 	if len(inputAssignments) == 0 {
 		return inputAssignments
@@ -114,12 +114,12 @@ func CreateValueExpression(expressionResolver expr.ExpressionResolver, paramAssi
 	}
 }
 
-func GetValue(valueExpression any, variablesFrom any, stateInstance statelang.StateInstance) any {
+func GetValue(valueExpression any, variablesFrom any, stateInstance *statelang.StateInstance) any {
 	switch v := valueExpression.(type) {
 	case expr.Expression:
 		value := v.Value(variablesFrom)
-		if _, ok := v.(expr.SequenceExpression); value != nil && stateInstance != nil && stateInstance.BusinessKey() == "" && ok {
-			stateInstance.SetBusinessKey(fmt.Sprintf("%v", value))
+		if _, ok := v.(expr.SequenceExpression); value != nil && stateInstance != nil && stateInstance.BusinessKey == "" && ok {
+			stateInstance.BusinessKey = fmt.Sprintf("%v", value)
 		}
 		return value
 	case map[string]any:

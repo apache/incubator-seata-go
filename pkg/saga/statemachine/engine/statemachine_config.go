@@ -45,9 +45,9 @@ type StateMachineConfig interface {
 
 	StatusDecisionStrategy() StatusDecisionStrategy
 
-	EventPublisher() process_ctrl.EventPublisher
+	SyncEventBus() process_ctrl.EventBus
 
-	AsyncEventPublisher() process_ctrl.EventPublisher
+	AsyncEventBus() process_ctrl.EventBus
 
 	EnableAsync() bool
 
