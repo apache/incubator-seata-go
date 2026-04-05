@@ -40,12 +40,6 @@ type Consistent struct {
 	sortedHashNodes []int64
 }
 
-func (c *Consistent) put(key int64, session getty.Session) {
-	c.Lock()
-	defer c.Unlock()
-	c.hashCircle[key] = session
-}
-
 func (c *Consistent) hash(key string) int64 {
 	hashByte := md5.Sum([]byte(key))
 	var res int64
@@ -57,28 +51,42 @@ func (c *Consistent) hash(key string) int64 {
 	return res
 }
 
-// pick get a  node
-func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
-	hashKey := c.hash(key)
+func (c *Consistent) pickByHash(hashKey int64) getty.Session {
+	c.RLock()
+	defer c.RUnlock()
+
+	if len(c.sortedHashNodes) == 0 {
+		return nil
+	}
+
 	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
 		return c.sortedHashNodes[i] >= hashKey
 	})
-
 	if index == len(c.sortedHashNodes) {
-		return RandomLoadBalance(sessions, key)
+		index = 0
 	}
 
-	c.RLock()
-	session, ok := c.hashCircle[c.sortedHashNodes[index]]
-	if !ok {
-		c.RUnlock()
-		return RandomLoadBalance(sessions, key)
+	return c.hashCircle[c.sortedHashNodes[index]]
+}
+
+// pick get a  node
+func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
+	hashKey := c.hash(key)
+	session := c.pickByHash(hashKey)
+	if session == nil {
+		c.refreshHashCircle(sessions)
+		session = c.pickByHash(hashKey)
+		if session == nil {
+			return RandomLoadBalance(sessions, key)
+		}
 	}
-	c.RUnlock()
 
 	if session.IsClosed() {
-		go c.refreshHashCircle(sessions)
-		return c.firstKey()
+		c.refreshHashCircle(sessions)
+		session = c.pickByHash(hashKey)
+		if session == nil || session.IsClosed() {
+			return RandomLoadBalance(sessions, key)
+		}
 	}
 
 	return session
@@ -86,32 +94,42 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 
 // refreshHashCircle refresh hashCircle
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
-	var sortedHashNodes []int64
-	hashCircle := make(map[int64]getty.Session)
-	var session getty.Session
-	c.RLock()
-	defer c.RUnlock()
+	var (
+		sortedHashNodes []int64
+		hashCircle      = make(map[int64]getty.Session)
+		closedSessions  []interface{}
+	)
+
 	sessions.Range(func(key, value interface{}) bool {
-		session = key.(getty.Session)
+		session := key.(getty.Session)
+		if session.IsClosed() {
+			closedSessions = append(closedSessions, key)
+			return true
+		}
+
 		for i := 0; i < defaultVirtualNodeNumber; i++ {
 			if !session.IsClosed() {
 				position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
 				hashCircle[position] = session
 				sortedHashNodes = append(sortedHashNodes, position)
-			} else {
-				sessions.Delete(key)
 			}
 		}
 		return true
 	})
+
+	for _, session := range closedSessions {
+		sessions.Delete(session)
+	}
 
 	// virtual node sort
 	sort.Slice(sortedHashNodes, func(i, j int) bool {
 		return sortedHashNodes[i] < sortedHashNodes[j]
 	})
 
+	c.Lock()
 	c.sortedHashNodes = sortedHashNodes
 	c.hashCircle = hashCircle
+	c.Unlock()
 }
 
 func (c *Consistent) firstKey() getty.Session {
@@ -128,27 +146,10 @@ func (c *Consistent) firstKey() getty.Session {
 func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	once.Do(func() {
 		consistentInstance = &Consistent{
-			hashCircle: make(map[int64]getty.Session),
+			virtualNodeCount: defaultVirtualNodeNumber,
+			hashCircle:       make(map[int64]getty.Session),
 		}
-		// construct hash circle
-		sessions.Range(func(key, value interface{}) bool {
-			session := key.(getty.Session)
-			for i := 0; i < defaultVirtualNodeNumber; i++ {
-				if !session.IsClosed() {
-					position := consistentInstance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
-					consistentInstance.put(position, session)
-					consistentInstance.sortedHashNodes = append(consistentInstance.sortedHashNodes, position)
-				} else {
-					sessions.Delete(key)
-				}
-			}
-			return true
-		})
-
-		// virtual node sort
-		sort.Slice(consistentInstance.sortedHashNodes, func(i, j int) bool {
-			return consistentInstance.sortedHashNodes[i] < consistentInstance.sortedHashNodes[j]
-		})
+		consistentInstance.refreshHashCircle(sessions)
 	})
 
 	return consistentInstance

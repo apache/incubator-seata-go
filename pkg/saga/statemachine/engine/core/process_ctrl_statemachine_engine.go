@@ -414,6 +414,7 @@ func (p ProcessCtrlStateMachineEngine) createMachineInstance(stateMachineName st
 
 	stateMachineInstance := statelang.NewStateMachineInstance()
 	stateMachineInstance.StateMachine = stateMachine
+	stateMachineInstance.MachineID = stateMachine.ID()
 	stateMachineInstance.TenantID = tenantId
 	stateMachineInstance.BusinessKey = businessKey
 	stateMachineInstance.StartParams = startParams
