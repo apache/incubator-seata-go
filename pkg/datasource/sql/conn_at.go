@@ -21,6 +21,7 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
+	"errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -192,7 +193,7 @@ func (c *ATConn) createTxAndExecIfNeeded(ctx context.Context, f func() (types.Ex
 
 	ret, err := f()
 	if err != nil {
-		return nil, err
+		return nil, c.rollbackCreatedTx(tx, err)
 	}
 
 	// For ExecContext, commit the transaction if it was created
@@ -233,7 +234,7 @@ func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.E
 
 	ret, err := f()
 	if err != nil {
-		return nil, err
+		return nil, c.rollbackCreatedTx(tx, err)
 	}
 
 	// For QueryContext, wrap rows to commit on close
@@ -254,4 +255,18 @@ func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.E
 	}
 
 	return ret, nil
+}
+
+func (c *ATConn) rollbackCreatedTx(tx driver.Tx, execErr error) error {
+	if tx == nil || execErr == nil {
+		return execErr
+	}
+
+	rollbackErr := tx.Rollback()
+	if rollbackErr != nil {
+		log.Errorf("conn at rollback error:%v", rollbackErr)
+		return errors.Join(execErr, rollbackErr)
+	}
+
+	return execErr
 }
