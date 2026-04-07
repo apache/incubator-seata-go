@@ -212,7 +212,7 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 
 		valueLength := bytes.ReadUInt16(in)
 		if valueLength == 0 {
-			key = ""
+			value = ""
 		} else {
 			valueBytes := make([]byte, valueLength)
 			in.Read(valueBytes)
@@ -221,7 +221,6 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 
 		res[key] = value
 		readedLength += 4 + keyLength + valueLength
-		fmt.Sprintln("done")
 	}
 	return res
 }
