@@ -26,15 +26,49 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
-type MysqlXAConn struct {
-	driver.Conn
+func init() {
+	RegisterXAResourceFactory(types.DBTypeMySQL, &mysqlXAResourceFactory{})
 }
 
-func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
+// mysqlXAResourceFactory creates MySQL-specific XA resources and error classifiers.
+type mysqlXAResourceFactory struct{}
+
+func (f *mysqlXAResourceFactory) CreateXAResource(conn driver.Conn) XAResource {
 	return &MysqlXAConn{Conn: conn}
+}
+
+func (f *mysqlXAResourceFactory) CreateErrorClassifier() XAErrorClassifier {
+	return &MysqlXAErrorClassifier{}
+}
+
+// MysqlXAErrorClassifier classifies MySQL-specific XA errors.
+type MysqlXAErrorClassifier struct{}
+
+// IsAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended.
+// Expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed
+// when global transaction is in the IDLE state
+func (c *MysqlXAErrorClassifier) IsAlreadyEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
+			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
+		}
+	}
+	return false
+}
+
+// MysqlXAConn implements XAResource for MySQL using native XA SQL statements.
+type MysqlXAConn struct {
+	driver.Conn
 }
 
 func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
