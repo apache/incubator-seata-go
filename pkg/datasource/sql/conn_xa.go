@@ -23,10 +23,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/go-sql-driver/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
@@ -45,6 +42,7 @@ type XAConn struct {
 
 	tx                 driver.Tx
 	xaResource         xa.XAResource
+	xaErrorClassifier  xa.XAErrorClassifier
 	xaBranchXid        *XABranchXid
 	xaActive           bool
 	rollBacked         bool
@@ -285,6 +283,7 @@ func (c *XAConn) start(ctx context.Context) error {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}
 	c.xaResource = xaResource
+	c.xaErrorClassifier = xa.CreateErrorClassifier(c.dbType)
 
 	if err := c.xaResource.Start(ctx, c.xaBranchXid.String(), xa.TMNoFlags); err != nil {
 		return fmt.Errorf("xa xid %s resource connection start err:%w", c.txCtx.XID, err)
@@ -343,7 +342,7 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
 			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
-			if isXAER_RMFAILAlreadyEnded(err) {
+			if c.xaErrorClassifier.IsAlreadyEnded(err) {
 				// If already ended, continue with rollback
 				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
 			} else {
@@ -449,20 +448,4 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
-}
-
-// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
-// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
-func isXAER_RMFAILAlreadyEnded(err error) bool {
-	if err == nil {
-		return false
-	}
-	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
-		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
-			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
-		}
-	}
-	// TODO: handle other DB errors
-
-	return false
 }

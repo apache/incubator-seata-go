@@ -36,6 +36,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
@@ -403,8 +404,9 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isXAER_RMFAILAlreadyEnded(tt.err); got != tt.want {
-				t.Errorf("isXAER_RMFAILAlreadyEnded() = %v, want %v", got, tt.want)
+			classifier := &xa.MysqlXAErrorClassifier{}
+			if got := classifier.IsAlreadyEnded(tt.err); got != tt.want {
+				t.Errorf("MysqlXAErrorClassifier.IsAlreadyEnded() = %v, want %v", got, tt.want)
 			}
 		})
 	}
