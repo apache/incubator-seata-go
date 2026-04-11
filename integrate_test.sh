@@ -38,11 +38,18 @@ echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 echo "use seata-go-samples $3 branch for integration testing"
 git clone https://github.com/apache/incubator-seata-go-samples samples && cd samples
 
-# update seata-go to current commit id
-
-go mod edit -replace=seata.apache.org/seata-go=github.com/"$1"@"$2"
+# update seata-go to current dir
+go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 
 go mod tidy
+
+# ensure docker-compose is available (newer Docker uses 'docker compose')
+if ! command -v docker-compose &> /dev/null; then
+    mkdir -p /tmp/docker-shims
+    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
+    chmod +x /tmp/docker-shims/docker-compose
+    export PATH="/tmp/docker-shims:$PATH"
+fi
 
 # start integrate test
 ./start_integrate_test.sh

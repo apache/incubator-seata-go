@@ -25,10 +25,10 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (
@@ -211,7 +211,7 @@ func (u *MySQLInsertUndoLogBuilder) containsPK(meta types.TableMeta, parseCtx *t
 
 // containPK compare column name and primary key name
 func (u *MySQLInsertUndoLogBuilder) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := executor.DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := util.DelEscape(columnName, types.DBTypeMySQL)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -254,7 +254,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(InsertStmt *ast.InsertStmt, meta 
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if u.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[executor.DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
 		}
 	}
 

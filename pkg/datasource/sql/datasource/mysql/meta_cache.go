@@ -26,8 +26,8 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource/base"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/base"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 var (
@@ -43,7 +43,7 @@ type TableMetaCache struct {
 
 func NewTableMetaInstance(db *sql.DB, cfg *mysql.Config) *TableMetaCache {
 	tableMetaInstance := &TableMetaCache{
-		tableMetaCache: base.NewBaseCache(capacity, EexpireTime, NewMysqlTrigger(), db, cfg),
+		tableMetaCache: base.NewBaseCache(context.Background(), capacity, EexpireTime, NewMysqlTrigger(), db, cfg),
 		db:             db,
 	}
 	return tableMetaInstance

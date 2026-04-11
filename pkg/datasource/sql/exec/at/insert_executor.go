@@ -25,11 +25,11 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (
@@ -258,9 +258,9 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 	matchCounter := 0
 	for _, column := range parseCtx.InsertStmt.Columns {
+		cleanName := util.DelEscape(column.Name.O, types.DBTypeMySQL)
 		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column.Name.O) ||
-				strings.EqualFold(pkName, column.Name.L) {
+			if strings.EqualFold(pkName, cleanName) {
 				matchCounter++
 			}
 		}
@@ -271,7 +271,7 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 // containPK compare column name and primary key name
 func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := util.DelEscape(columnName, types.DBTypeMySQL)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -314,7 +314,7 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
 		}
 	}
 

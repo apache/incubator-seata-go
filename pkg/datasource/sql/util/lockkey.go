@@ -23,8 +23,9 @@ package util
 
 import (
 	"fmt"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"strings"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func BuildLockKey(records *types.RecordImage, meta types.TableMeta) string {
@@ -46,7 +47,8 @@ func BuildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 	columns := make([]ColMapItem, 0, len(keys))
 	if len(records.Rows) > 0 {
 		for colIdx, column := range records.Rows[0].Columns {
-			if pkIdx, ok := keyIndexMap[column.ColumnName]; ok {
+			cleanName := DelEscape(column.ColumnName, types.DBTypeMySQL)
+			if pkIdx, ok := keyIndexMap[cleanName]; ok {
 				columns = append(columns, ColMapItem{pkIndex: pkIdx, colIndex: colIdx})
 			}
 		}

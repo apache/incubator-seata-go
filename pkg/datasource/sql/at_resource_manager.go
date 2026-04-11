@@ -25,12 +25,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
-	serr "seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 )
 
 func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
@@ -41,7 +41,7 @@ func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	}
 
 	undo.InitUndoConfig(cfg)
-	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
+	atSourceManager.worker = NewAsyncWorker(context.Background(), prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
 

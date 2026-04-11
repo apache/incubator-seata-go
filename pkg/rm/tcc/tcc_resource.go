@@ -21,15 +21,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence"
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/constant"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence"
+
+	"seata.apache.org/seata-go/v2/pkg/constant"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 var (
@@ -103,14 +104,12 @@ func (t *TCCResourceManager) BranchReport(ctx context.Context, param rm.BranchRe
 }
 
 // LockQuery query lock status of transaction branch
-func (t *TCCResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	// TODO implement me
-	panic("implement me")
+func (t *TCCResourceManager) LockQuery(_ context.Context, _ rm.LockQueryParam) (bool, error) {
+	return false, nil
 }
 
-func (t *TCCResourceManager) UnregisterResource(resource rm.Resource) error {
-	// TODO implement me
-	panic("implement me")
+func (t *TCCResourceManager) UnregisterResource(_ rm.Resource) error {
+	return fmt.Errorf("UnregisterResource is not supported for TCCResourceManager")
 }
 
 func (t *TCCResourceManager) RegisterResource(resource rm.Resource) error {

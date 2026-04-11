@@ -18,9 +18,11 @@
 package at
 
 import (
-	"github.com/stretchr/testify/assert"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestBaseExecBuildLockKey(t *testing.T) {
@@ -200,6 +202,117 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 				},
 			},
 			expected: "TYPE_PK:true_3.14,false_0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
+			assert.Equal(t, tt.expected, lockKeys)
+		})
+	}
+}
+
+func TestBaseExecContainsPKByName_EscapedColumns(t *testing.T) {
+	meta := &types.TableMeta{
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		columns []string
+		want    bool
+	}{
+		{
+			name:    "plain column matches PK",
+			columns: []string{"id", "name"},
+			want:    true,
+		},
+		{
+			name:    "backtick-escaped column matches PK",
+			columns: []string{"`id`", "name"},
+			want:    true,
+		},
+		{
+			name:    "all backtick-escaped columns",
+			columns: []string{"`id`", "`name`"},
+			want:    true,
+		},
+		{
+			name:    "case-insensitive backtick-escaped",
+			columns: []string{"`ID`", "`NAME`"},
+			want:    true,
+		},
+		{
+			name:    "no PK in columns",
+			columns: []string{"`name`", "`age`"},
+			want:    false,
+		},
+	}
+
+	var exec baseExecutor
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exec.containsPKByName(meta, tt.columns)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
+	var exec baseExecutor
+
+	getColumnImage := func(columnName string, value interface{}) types.ColumnImage {
+		return types.ColumnImage{KeyType: types.IndexTypePrimaryKey, ColumnName: columnName, Value: value}
+	}
+
+	tests := []struct {
+		name     string
+		metaData types.TableMeta
+		records  types.RecordImage
+		expected string
+	}{
+		{
+			name: "Backtick-escaped single PK",
+			metaData: types.TableMeta{
+				TableName: "test_table",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+				},
+			},
+			records: types.RecordImage{
+				TableName: "test_table",
+				Rows: []types.RowImage{
+					{Columns: []types.ColumnImage{getColumnImage("`id`", 1), {ColumnName: "`name`", Value: "test"}}},
+				},
+			},
+			expected: "TEST_TABLE:1",
+		},
+		{
+			name: "Backtick-escaped composite PK",
+			metaData: types.TableMeta{
+				TableName: "orders",
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY_KEY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{
+						{ColumnName: "order_id"},
+						{ColumnName: "user_id"},
+					}},
+				},
+			},
+			records: types.RecordImage{
+				TableName: "orders",
+				Rows: []types.RowImage{
+					{Columns: []types.ColumnImage{getColumnImage("`order_id`", 100), getColumnImage("`user_id`", 1)}},
+					{Columns: []types.ColumnImage{getColumnImage("`order_id`", 200), getColumnImage("`user_id`", 2)}},
+				},
+			},
+			expected: "ORDERS:100_1,200_2",
 		},
 	}
 	for _, tt := range tests {

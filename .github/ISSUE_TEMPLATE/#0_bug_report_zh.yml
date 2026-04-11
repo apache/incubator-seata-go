@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         ## 👋 感谢您的反馈！
-        
+
         请填写以下信息帮助我们更好地理解和解决问题。
 
   - type: checkboxes
@@ -18,6 +18,8 @@ body:
       options:
         - label: "🔍 我已经搜索过 [现有 Issues](https://github.com/apache/incubator-seata-go/issues)，确信这不是重复问题"
           required: true
+        - label: "🛠️ 我愿意自己处理这个议题"
+          required: false
 
   - type: markdown
     attributes:

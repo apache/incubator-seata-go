@@ -20,15 +20,25 @@ package loadbalance
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 
+	getty "github.com/apache/dubbo-getty"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/remoting/mock"
+	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
+func resetConsistentHashForTest() {
+	consistentInstance = nil
+	once = sync.Once{}
+}
+
 func TestConsistentHashLoadBalance(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -49,4 +59,126 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 		t.Logf("key: %v, value: %v", key, value)
 		return true
 	})
+}
+
+func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	closedSession := mock.NewMockTestSession(ctrl)
+	closedSession.EXPECT().IsClosed().AnyTimes().Return(true)
+
+	openSession := mock.NewMockTestSession(ctrl)
+	openSession.EXPECT().IsClosed().AnyTimes().Return(false)
+	openSession.EXPECT().RemoteAddr().AnyTimes().Return("127.0.0.1:8001")
+
+	sessions.Store(closedSession, "closed")
+	sessions.Store(openSession, "open")
+
+	c := &Consistent{
+		virtualNodeCount: defaultVirtualNodeNumber,
+		hashCircle: map[int64]getty.Session{
+			1: closedSession,
+		},
+		sortedHashNodes: []int64{1},
+	}
+
+	result := c.pick(sessions, "test_xid")
+	assert.NotNil(t, result)
+	assert.Equal(t, openSession, result)
+
+	_, stillExists := sessions.Load(closedSession)
+	assert.False(t, stillExists)
+}
+
+func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	stableSession := mock.NewMockTestSession(ctrl)
+	stableSession.EXPECT().IsClosed().AnyTimes().Return(false)
+	stableSession.EXPECT().RemoteAddr().AnyTimes().Return("127.0.0.1:9000")
+	sessions.Store(stableSession, "stable")
+
+	type flappingSession struct {
+		session getty.Session
+		addr    string
+		closed  atomic.Bool
+	}
+
+	flapping := make([]*flappingSession, 0, 2)
+	for i := 0; i < 2; i++ {
+		addr := fmt.Sprintf("127.0.0.1:900%d", i+1)
+		state := &flappingSession{addr: addr}
+
+		session := mock.NewMockTestSession(ctrl)
+		session.EXPECT().IsClosed().AnyTimes().DoAndReturn(func() bool {
+			return state.closed.Load()
+		})
+		session.EXPECT().RemoteAddr().AnyTimes().Return(addr)
+
+		state.session = session
+		flapping = append(flapping, state)
+		sessions.Store(session, addr)
+	}
+
+	c := &Consistent{
+		virtualNodeCount: defaultVirtualNodeNumber,
+		hashCircle:       make(map[int64]getty.Session),
+	}
+	c.refreshHashCircle(sessions)
+
+	const (
+		pickers    = 8
+		iterations = 200
+	)
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+
+	for pickerID := 0; pickerID < pickers; pickerID++ {
+		pickerID := pickerID
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				session := c.pick(sessions, fmt.Sprintf("xid-%d-%d", pickerID, i))
+				if session == nil {
+					continue
+				}
+				_ = session.IsClosed()
+			}
+		}()
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < iterations; i++ {
+			state := flapping[i%len(flapping)]
+			if i%2 == 0 {
+				state.closed.Store(true)
+			} else {
+				state.closed.Store(false)
+				sessions.Store(state.session, state.addr)
+			}
+
+			c.refreshHashCircle(sessions)
+		}
+	}()
+
+	close(start)
+	wg.Wait()
+
+	result := c.pick(sessions, "final-xid")
+	assert.NotNil(t, result)
+	assert.False(t, result.IsClosed())
 }

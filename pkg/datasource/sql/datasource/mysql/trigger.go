@@ -25,11 +25,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mysqlTrigger struct {
+	getColumnMetasFn func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error)
+	getIndexesFn     func(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error)
 }
 
 func NewMysqlTrigger() *mysqlTrigger {
@@ -93,7 +95,11 @@ func (m *mysqlTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Con
 
 // getColumnMetas get tableMeta column
 func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
-	table = executor.DelEscape(table, types.DBTypeMySQL)
+	if m.getColumnMetasFn != nil {
+		return m.getColumnMetasFn(ctx, dbName, table, conn)
+	}
+
+	table = util.DelEscape(table, types.DBTypeMySQL)
 	var columnMetas []types.ColumnMeta
 
 	columnMetaSql := "SELECT `TABLE_NAME`, `TABLE_SCHEMA`, `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_TYPE`, `COLUMN_KEY`, `IS_NULLABLE`, `COLUMN_DEFAULT`, `EXTRA` FROM INFORMATION_SCHEMA.COLUMNS WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
@@ -165,7 +171,11 @@ func (m *mysqlTrigger) getColumnMetas(ctx context.Context, dbName string, table 
 
 // getIndex get tableMetaIndex
 func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
-	tableName = executor.DelEscape(tableName, types.DBTypeMySQL)
+	if m.getIndexesFn != nil {
+		return m.getIndexesFn(ctx, dbName, tableName, conn)
+	}
+
+	tableName = util.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
 
 	indexMetaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"

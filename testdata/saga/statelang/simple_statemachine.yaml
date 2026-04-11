@@ -1,0 +1,105 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+Name: simpleTestStateMachine
+Comment: 测试状态机定义
+StartState: FirstState
+Version: 0.0.1
+States:
+  FirstState:
+    Type: ServiceTask
+    ServiceName: is.seata.saga.DemoService
+    ServiceMethod: foo
+    IsPersist: false
+    Next: ScriptState
+  ScriptState:
+    Type: ScriptTask
+    ScriptType: groovy
+    ScriptContent: return 'hello ' + inputA
+    Input:
+      - inputA: $.data1
+    Output:
+      scriptStateResult: '$.#root'
+    Next: ChoiceState
+  ChoiceState:
+    Type: Choice
+    Choices:
+      - Expression: foo == 1
+        Next: FirstMatchState
+      - Expression: foo == 2
+        Next: SecondMatchState
+    Default: FailState
+  FirstMatchState:
+    Type: ServiceTask
+    ServiceName: is.seata.saga.DemoService
+    ServiceMethod: bar
+    CompensateState: CompensateFirst
+    Status:
+      return.code == 'S': SU
+      return.code == 'F': FA
+      '$exception{java.lang.Throwable}': UN
+    Input:
+      - inputA1: $.data1
+        inputA2:
+          a: $.data2.a
+      - inputB: $.header
+    Output:
+      firstMatchStateResult: '$.#root'
+    Retry:
+      - Exceptions: [java.lang.Exception]
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 1.5
+    Catch:
+      - Exceptions:
+          - java.lang.Exception
+        Next: CompensationTrigger
+    Next: SuccessState
+  CompensateFirst:
+    Type: ServiceTask
+    ServiceName: is.seata.saga.DemoService
+    ServiceMethod: compensateBar
+    IsForCompensation: true
+    IsForUpdate: true
+    Input:
+      - input: $.data
+    Output:
+      firstMatchStateResult: '$.#root'
+    Status:
+      return.code == 'S': SU
+      return.code == 'F': FA
+      '$exception{java.lang.Throwable}': UN
+  CompensationTrigger:
+    Type: CompensationTrigger
+    Next: CompensateEndState
+  CompensateEndState:
+    Type: Fail
+    ErrorCode: StateCompensated
+    Message: State Compensated!
+  SecondMatchState:
+    Type: SubStateMachine
+    StateMachineName: simpleTestSubStateMachine
+    Input:
+      - input: $.data
+      - header: $.header
+    Output:
+      firstMatchStateResult: '$.#root'
+    Next: SuccessState
+  FailState:
+    Type: Fail
+    ErrorCode: DefaultStateError
+    Message: No Matches!
+  SuccessState:
+    Type: Succeed

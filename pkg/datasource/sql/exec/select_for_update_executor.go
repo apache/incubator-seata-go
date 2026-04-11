@@ -25,19 +25,19 @@ import (
 	"io"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo/builder"
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/rm"
-	seatabytes "seata.apache.org/seata-go/pkg/util/bytes"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/builder"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	seatabytes "seata.apache.org/seata-go/v2/pkg/util/bytes"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 const (
@@ -268,8 +268,8 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 	}
 
 	if originalAutoCommit {
-		if err = tx.Commit(); err != nil {
-			return nil, err
+		if tx != nil {
+			execCtx.TxCtx.LocalTx = tx
 		}
 		execCtx.IsAutoCommit = true
 	}

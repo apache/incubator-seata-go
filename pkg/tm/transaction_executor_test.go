@@ -92,7 +92,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 		// use exist
 		{
 			ctx: context.Background(),
-			gc: &tm.GtxConfig{
+			gc: &GtxConfig{
 				Name:        "MockGtxName",
 				Propagation: tm.Required,
 			},

@@ -22,8 +22,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mySQLUndoInsertExecutor struct {
@@ -90,7 +91,7 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	image *types.RecordImage, rows []types.RowImage,
 	dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
 
-	colImages, err := GetOrderedPkList(image, rows[0], dbType)
+	colImages, err := util.GetOrderedPkList(image, rows[0], dbType)
 	if err != nil {
 		return "", err
 	}
@@ -100,7 +101,7 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 		pkList = append(pkList, colImages[key].ColumnName)
 	}
 
-	whereSql := BuildWhereConditionByPKs(pkList, dbType)
+	whereSql := util.BuildWhereConditionByPKs(pkList, dbType)
 
 	deleteSqlTemplate := "DELETE FROM %s WHERE %s "
 	return fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil

@@ -25,13 +25,27 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type mockTCCManagedResource struct{}
+
+func (m mockTCCManagedResource) GetResourceGroupId() string {
+	return "DEFAULT"
+}
+
+func (m mockTCCManagedResource) GetResourceId() string {
+	return "mock-tcc-resource"
+}
+
+func (m mockTCCManagedResource) GetBranchType() branch.BranchType {
+	return branch.BranchTypeTCC
+}
 
 func TestActionContext(t *testing.T) {
 	applicationData := `{"actionContext":{"zhangsan":"lisi"}}`
@@ -68,4 +82,22 @@ func TestBranchReport(t *testing.T) {
 		})
 
 	assert.Nil(t, err)
+}
+
+func TestLockQueryReturnsFalse(t *testing.T) {
+	lockable, err := GetTCCResourceManagerInstance().LockQuery(context.Background(), rm.LockQueryParam{
+		BranchType: branch.BranchTypeTCC,
+		ResourceId: "mock-tcc-resource",
+		Xid:        "xid-1",
+		LockKeys:   "ignored",
+	})
+
+	assert.NoError(t, err)
+	assert.False(t, lockable)
+}
+
+func TestUnregisterResourceReturnsExplicitError(t *testing.T) {
+	err := GetTCCResourceManagerInstance().UnregisterResource(mockTCCManagedResource{})
+
+	assert.EqualError(t, err, "UnregisterResource is not supported for TCCResourceManager")
 }

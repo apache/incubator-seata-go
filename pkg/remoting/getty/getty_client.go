@@ -24,9 +24,9 @@ import (
 	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
 
-	"seata.apache.org/seata-go/pkg/protocol/codec"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 var (

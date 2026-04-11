@@ -20,9 +20,9 @@ package codec
 import (
 	"math"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/util/bytes"
-	serror "seata.apache.org/seata-go/pkg/util/errors"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/util/bytes"
+	serror "seata.apache.org/seata-go/v2/pkg/util/errors"
 )
 
 type CommonGlobalEndResponseCodec struct{}

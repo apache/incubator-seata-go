@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"seata.apache.org/seata-go/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 )
 
 type DBType int16
@@ -143,6 +143,8 @@ type TransactionContext struct {
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
+	// LocalTx local transaction instance, managed by at connection
+	LocalTx driver.Tx
 }
 
 // ExecContext

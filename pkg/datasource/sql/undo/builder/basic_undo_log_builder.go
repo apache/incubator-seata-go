@@ -22,14 +22,15 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
-	"io"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
-	"strings"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 // todo the executor should be stateful
@@ -231,8 +232,14 @@ func (b *BasicUndoLogBuilder) buildPKParams(rows []types.RowImage, pkNameList []
 	params := make([]driver.Value, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
+		// Build a normalized map with escaped characters removed
+		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
+		for k, v := range coumnMap {
+			normalizedMap[util.DelEscape(k, types.DBTypeMySQL)] = v
+		}
 		for _, pk := range pkNameList {
-			col := coumnMap[pk]
+			cleanPK := util.DelEscape(pk, types.DBTypeMySQL)
+			col := normalizedMap[cleanPK]
 			if col != nil {
 				params = append(params, col.Value)
 			}

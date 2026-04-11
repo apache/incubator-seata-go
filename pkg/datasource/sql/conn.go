@@ -21,9 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 // Conn is a connection to a database. It is not used concurrently
@@ -114,11 +114,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	targetConn, ok := c.targetConn.(driver.ExecerContext)
 	if !ok {
-		values := make([]driver.Value, 0, len(args))
-		for i := range args {
-			values = append(values, args[i].Value)
-		}
-		return c.Exec(query, values)
+		return c.Exec(query, util.NamedValueToValue(args))
 	}
 
 	ret, err := targetConn.ExecContext(ctx, query, args)
@@ -166,13 +162,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	conn, ok := c.targetConn.(driver.QueryerContext)
 	if !ok {
-		values := make([]driver.Value, 0, len(args))
-
-		for i := range args {
-			values = append(values, args[i].Value)
-		}
-
-		return c.Query(query, values)
+		return c.Query(query, util.NamedValueToValue(args))
 	}
 
 	ret, err := conn.QueryContext(ctx, query, args)

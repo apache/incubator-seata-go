@@ -39,6 +39,7 @@ import (
 	gettyTM "seata.apache.org/seata-go/pkg/tm/transaction/getty"
 	grpcTM "seata.apache.org/seata-go/pkg/tm/transaction/grpc"
 	"seata.apache.org/seata-go/pkg/util/log"
+	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
 )
 
 // Init seata client
@@ -82,6 +83,7 @@ func initRemoting(cfg *Config) {
 		TxServiceGroup:       cfg.TxServiceGroup,
 		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
 		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
+		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
 	}
 
 	remoteConfig.InitTransportConfig(&cfg.TransportConfig)
@@ -115,6 +117,7 @@ func initRmClient(cfg *Config) {
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC(cfg.TCCConfig.FenceConfig)
+		saga.InitSaga()
 		at.InitAT(cfg.ClientConfig.UndoConfig, cfg.AsyncWorkerConfig)
 		at.InitXA(cfg.ClientConfig.XaConfig)
 	})

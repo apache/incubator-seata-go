@@ -32,6 +32,8 @@ func TestZipCompress(t *testing.T) {
 	assert.NoError(t, err)
 	t.Logf("compress res: %v", string(compressRes))
 
+	assert.EqualValues(t, CompressorZip, g.GetCompressorType())
+
 	decompressRes, err := g.Decompress(compressRes)
 	assert.NoError(t, err)
 	t.Logf("decompress res: %v", string(decompressRes))

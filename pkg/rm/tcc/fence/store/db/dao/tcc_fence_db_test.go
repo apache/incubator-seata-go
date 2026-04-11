@@ -31,9 +31,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/enum"
-	"seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/model"
-	sql2 "seata.apache.org/seata-go/pkg/rm/tcc/fence/store/db/sql"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/model"
+	sql2 "seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/store/db/sql"
 )
 
 func TestTccFenceStoreDatabaseMapper_SetLogTableName(t *testing.T) {
