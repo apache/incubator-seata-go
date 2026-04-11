@@ -21,6 +21,7 @@ import (
 	"context"
 	gosql "database/sql"
 	"database/sql/driver"
+	"errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -51,7 +52,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		}()
 	}
 
-	ret, err := c.createNewTxOnExecIfNeed(ctx, func() (types.ExecResult, error) {
+	ret, err := c.createTxAndExecIfNeeded(ctx, func() (types.ExecResult, error) {
 		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
 		if err != nil {
 			return nil, err
@@ -83,6 +84,48 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 		return nil, err
 	}
 	return ret.GetResult(), nil
+}
+
+// QueryContext
+func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if c.createOnceTxContext(ctx) {
+		defer func() {
+			c.txCtx = types.NewTxCtx()
+		}()
+	}
+
+	ret, err := c.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
+		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
+		if err != nil {
+			return nil, err
+		}
+
+		execCtx := &types.ExecContext{
+			TxCtx:                c.txCtx,
+			Query:                query,
+			NamedValues:          args,
+			Conn:                 c.targetConn,
+			DBName:               c.dbName,
+			DbVersion:            c.GetDbVersion(),
+			IsSupportsSavepoints: true,
+			IsAutoCommit:         c.GetAutoCommit(),
+		}
+
+		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				ret, err := c.Conn.QueryContext(ctx, query, args)
+				if err != nil {
+					return nil, err
+				}
+				return types.NewResult(types.WithRows(ret)), nil
+			})
+
+		return ret, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.GetRows(), nil
 }
 
 // BeginTx
@@ -122,7 +165,8 @@ func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
 	return onceTx
 }
 
-func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
+// createTxAndExecIfNeeded creates a transaction for execution context and commits it after execution
+func (c *ATConn) createTxAndExecIfNeeded(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
 	var (
 		tx  driver.Tx
 		err error
@@ -133,25 +177,26 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		if err != nil {
 			return nil, err
 		}
-	}
-	defer func() {
-		recoverErr := recover()
-		if recoverErr != nil {
-			log.Errorf("at exec panic, recoverErr:%v", recoverErr)
-			if tx != nil {
-				rollbackErr := tx.Rollback()
-				if rollbackErr != nil {
-					log.Errorf("conn at rollback error:%v", rollbackErr)
+		defer func() {
+			recoverErr := recover()
+			if recoverErr != nil {
+				log.Errorf("at exec panic, recoverErr:%v", recoverErr)
+				if tx != nil {
+					rollbackErr := tx.Rollback()
+					if rollbackErr != nil {
+						log.Errorf("conn at rollback error:%v", rollbackErr)
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	ret, err := f()
 	if err != nil {
-		return nil, err
+		return nil, c.rollbackCreatedTx(tx, err)
 	}
 
+	// For ExecContext, commit the transaction if it was created
 	if tx != nil {
 		if err := tx.Commit(); err != nil {
 			return nil, err
@@ -159,4 +204,69 @@ func (c *ATConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}
 
 	return ret, nil
+}
+
+// createTxAndQueryIfNeeded creates a transaction for query context and wraps the rows to commit on close
+func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
+	var (
+		tx  driver.Tx
+		err error
+	)
+
+	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			recoverErr := recover()
+			if recoverErr != nil {
+				log.Errorf("at exec panic, recoverErr:%v", recoverErr)
+				if tx != nil {
+					rollbackErr := tx.Rollback()
+					if rollbackErr != nil {
+						log.Errorf("conn at rollback error:%v", rollbackErr)
+					}
+				}
+			}
+		}()
+	}
+
+	ret, err := f()
+	if err != nil {
+		return nil, c.rollbackCreatedTx(tx, err)
+	}
+
+	// For QueryContext, wrap rows to commit on close
+	var activeTx driver.Tx
+	if c.txCtx.LocalTx != nil {
+		activeTx = c.txCtx.LocalTx
+	} else if tx != nil {
+		activeTx = tx
+	}
+
+	if activeTx != nil {
+		if rows, ok := ret.(types.ExecResult); ok {
+			if dr := rows.GetRows(); dr != nil {
+				wrappedRows := &RowsCommitOnClose{rows: dr, tx: activeTx}
+				return types.NewResult(types.WithRows(wrappedRows)), nil
+			}
+		}
+	}
+
+	return ret, nil
+}
+
+func (c *ATConn) rollbackCreatedTx(tx driver.Tx, execErr error) error {
+	if tx == nil || execErr == nil {
+		return execErr
+	}
+
+	rollbackErr := tx.Rollback()
+	if rollbackErr != nil {
+		log.Errorf("conn at rollback error:%v", rollbackErr)
+		return errors.Join(execErr, rollbackErr)
+	}
+
+	return execErr
 }
