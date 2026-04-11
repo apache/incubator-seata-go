@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"sync/atomic"
 	"testing"
 
@@ -241,6 +242,100 @@ func TestATConn_BeginTx(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&comitCnt))
+	})
+}
+
+func TestATConn_CreateTxHelpersRollbackOnError(t *testing.T) {
+	t.Run("createTxAndExecIfNeeded rolls back created tx on error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		CleanTxHooks()
+		defer CleanTxHooks()
+
+		mockTx := mock.NewMockTestDriverTx(ctrl)
+		mockTx.EXPECT().Rollback().Return(nil).Times(1)
+
+		mockConn := mock.NewMockTestDriverConn(ctrl)
+		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).Return(mockTx, nil).Times(1)
+
+		atConn := &ATConn{
+			Conn: &Conn{
+				res: &DBResource{
+					dbType:     types.DBTypeMySQL,
+					resourceID: "resource-id",
+				},
+				txCtx: &types.TransactionContext{
+					TransactionMode: types.ATMode,
+				},
+				targetConn: mockConn,
+				autoCommit: true,
+			},
+		}
+
+		var rollbackCnt int32
+		RegisterTxHook(&mockTxHook{
+			beforeRollback: func(tx *Tx) {
+				atomic.AddInt32(&rollbackCnt, 1)
+			},
+		})
+
+		ctx := tm.InitSeataContext(context.Background())
+		tm.SetXID(ctx, uuid.NewString())
+		expectedErr := errors.New("exec failed")
+
+		ret, err := atConn.createTxAndExecIfNeeded(ctx, func() (types.ExecResult, error) {
+			return nil, expectedErr
+		})
+
+		assert.Nil(t, ret)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&rollbackCnt))
+	})
+
+	t.Run("createTxAndQueryIfNeeded rolls back created tx on error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		CleanTxHooks()
+		defer CleanTxHooks()
+
+		mockTx := mock.NewMockTestDriverTx(ctrl)
+		mockTx.EXPECT().Rollback().Return(nil).Times(1)
+
+		mockConn := mock.NewMockTestDriverConn(ctrl)
+		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).Return(mockTx, nil).Times(1)
+
+		atConn := &ATConn{
+			Conn: &Conn{
+				res: &DBResource{
+					dbType:     types.DBTypeMySQL,
+					resourceID: "resource-id",
+				},
+				txCtx: &types.TransactionContext{
+					TransactionMode: types.ATMode,
+				},
+				targetConn: mockConn,
+				autoCommit: true,
+			},
+		}
+
+		var rollbackCnt int32
+		RegisterTxHook(&mockTxHook{
+			beforeRollback: func(tx *Tx) {
+				atomic.AddInt32(&rollbackCnt, 1)
+			},
+		})
+
+		ctx := tm.InitSeataContext(context.Background())
+		tm.SetXID(ctx, uuid.NewString())
+		expectedErr := errors.New("query failed")
+
+		ret, err := atConn.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
+			return nil, expectedErr
+		})
+
+		assert.Nil(t, ret)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&rollbackCnt))
 	})
 }
 
