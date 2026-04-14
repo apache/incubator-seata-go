@@ -195,7 +195,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	defer func() {
 		recoverErr := recover()
 		// Check if error is ErrSkip - don't rollback for this special error
-		isErrSkip := err != nil && (err == driver.ErrSkip || err.Error() == "driver: skip fast-path; continue as if unimplemented")
+		isErrSkip := err != nil && errors.Is(err, driver.ErrSkip)
 
 		if (err != nil && !isErrSkip) || recoverErr != nil {
 			// Don't try to rollback if tx is nil or XA rollback was already done
@@ -241,7 +241,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		// Check if this is driver.ErrSkip - not a real error, just means use fallback path
 		// In this case, don't rollback the XA branch, just return the error
 		// The database/sql package will handle the retry
-		isErrSkip := err == driver.ErrSkip || err.Error() == "driver: skip fast-path; continue as if unimplemented"
+		isErrSkip := errors.Is(err, driver.ErrSkip)
 		if isErrSkip {
 			return nil, err
 		}
