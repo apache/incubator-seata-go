@@ -23,10 +23,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/go-sql-driver/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
@@ -43,6 +40,7 @@ type XAConn struct {
 
 	tx                 driver.Tx
 	xaResource         xa.XAResource
+	xaErrorClassifier  xa.XAErrorClassifier
 	xaBranchXid        *XABranchXid
 	xaActive           bool
 	rollBacked         bool
@@ -119,8 +117,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return tx, err
 	}
 
-	// Save the original autoCommit state before modifying it
-	wasAutoCommit := c.autoCommit
 	c.autoCommit = false
 
 	c.txCtx = types.NewTxCtx()
@@ -129,9 +125,6 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.ResourceID = c.res.resourceID
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
-	// Store the original autoCommit state for later use in commit logic
-	// If true, this XA branch supports multiple SQL statements (autoCommit mode)
-	c.txCtx.IsAutoCommitXABranch = wasAutoCommit
 
 	tx, err := c.Conn.BeginTx(ctx, opts)
 	if err != nil {
@@ -177,7 +170,7 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 		c.txCtx.ResourceID = c.res.resourceID
 		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransactionMode = types.XAMode
-		c.txCtx.IsAutoCommitXABranch = true
+		c.txCtx.GlobalLockRequire = true
 	}
 
 	return onceTx
@@ -185,21 +178,15 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 
 func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
 	var (
-		tx           driver.Tx
-		err          error
-		xaRollbacked bool // Track if XA rollback was already done to avoid duplicate rollback
+		tx  driver.Tx
+		err error
 	)
-
-	xid := tm.GetXID(ctx)
 
 	defer func() {
 		recoverErr := recover()
-		// Check if error is ErrSkip - don't rollback for this special error
-		isErrSkip := err != nil && errors.Is(err, driver.ErrSkip)
-
-		if (err != nil && !isErrSkip) || recoverErr != nil {
-			// Don't try to rollback if tx is nil or XA rollback was already done
-			if c.tx != nil && !xaRollbacked {
+		if err != nil || recoverErr != nil {
+			log.Errorf("conn at rollback  error:%v or recoverErr:%v", err, recoverErr)
+			if c.tx != nil {
 				rollbackErr := c.tx.Rollback()
 				if rollbackErr != nil {
 					log.Errorf("conn at rollback error:%v", rollbackErr)
@@ -209,55 +196,23 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	}()
 
 	currentAutoCommit := c.autoCommit
-
-	// For global transactions in autoCommit mode, create/reuse XA branch
 	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		// Check if we already have an active XA branch for this transaction
-		heldConn := c.res.GetXABranch(xid)
-		if heldConn != nil && heldConn.xaActive && heldConn.txCtx.XID == xid {
-			if heldConn != c {
-				// Delegate to the connection that holds the XA branch
-				return heldConn.createNewTxOnExecIfNeed(ctx, f)
-			}
-			// Current connection already has the XA branch, execute SQL directly
-			// Skip creating a new branch
-		} else {
-			// Create new XA branch
-			tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-			if err != nil {
-				return nil, err
-			}
-
-			// Register the XA branch in the resource holder for reuse by subsequent SQL statements
-			if c.xaBranchXid != nil {
-				c.res.RegisterXABranch(xid, c)
-			}
+		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	// execute SQL
 	ret, err := f()
 	if err != nil {
-		// Check if this is driver.ErrSkip - not a real error, just means use fallback path
-		// In this case, don't rollback the XA branch, just return the error
-		// The database/sql package will handle the retry
-		isErrSkip := errors.Is(err, driver.ErrSkip)
-		if isErrSkip {
-			return nil, err
+		// XA End & Rollback
+		if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
+			log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 		}
-		// On real error, rollback the entire branch
-		if c.xaActive {
-			if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-				log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
-			}
-		}
-		xaRollbacked = true // Mark that rollback was handled
 		return nil, err
 	}
 
-	// For autoCommit mode with global transaction, call Commit()
-	// The Commit method will skip actual XA END/PREPARE if IsAutoCommitXABranch is true
-	// This allows multiple SQL statements to use the same XA branch
 	if tx != nil && currentAutoCommit {
 		if err = c.Commit(ctx); err != nil {
 			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
@@ -265,8 +220,6 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 			if err := c.Rollback(ctx); err != nil {
 				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, err)
 			}
-			xaRollbacked = true
-			return nil, err
 		}
 	}
 
@@ -296,24 +249,18 @@ func (c *XAConn) start(ctx context.Context) error {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}
 	c.xaResource = xaResource
+	c.xaErrorClassifier = xa.CreateErrorClassifier(c.dbType)
 
 	if err := c.xaResource.Start(ctx, c.xaBranchXid.String(), xa.TMNoFlags); err != nil {
 		return fmt.Errorf("xa xid %s resource connection start err:%w", c.txCtx.XID, err)
 	}
 
-	// For multi-statement XA transactions (originally in autoCommit mode),
-	// skip the termination check. The check will be done during Phase 2 commit/rollback.
-	if c.txCtx.IsAutoCommitXABranch {
-		return nil
-	}
-
-	// For explicit transactions (BeginTx mode), do the normal termination check
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
 		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
 		c.XaRollback(ctx, c.xaBranchXid)
 		return err
 	}
-	return nil
+	return err
 }
 
 func (c *XAConn) end(ctx context.Context, flags int) error {
@@ -348,8 +295,7 @@ func (c *XAConn) cleanXABranchContext() {
 }
 
 func (c *XAConn) Rollback(ctx context.Context) error {
-	// For autoCommit mode (multi-statement transactions), check if rollback is needed
-	if c.autoCommit && !c.xaActive {
+	if c.autoCommit {
 		return nil
 	}
 
@@ -361,8 +307,10 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		// First end the XA branch with TMFail
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
-			if isXAER_RMFAILAlreadyEnded(err) {
-				// Already ended, continue with rollback
+			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
+			if c.xaErrorClassifier.IsAlreadyEnded(err) {
+				// If already ended, continue with rollback
+				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
 			} else {
 				return c.rollbackErrorHandle()
 			}
@@ -380,10 +328,6 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		c.rollBacked = true
 	}
 	c.cleanXABranchContext()
-
-	// Clean up resource holder on rollback
-	c.res.UnregisterXABranch(c.txCtx.XID)
-
 	return nil
 }
 
@@ -392,12 +336,6 @@ func (c *XAConn) rollbackErrorHandle() error {
 }
 
 func (c *XAConn) Commit(ctx context.Context) error {
-	// If this XA branch was created in autoCommit mode (multi-statement transaction),
-	// don't do the actual XA commit here. The TC will handle it in Phase 2.
-	if c.txCtx.IsAutoCommitXABranch {
-		return nil
-	}
-
 	if c.autoCommit {
 		return nil
 	}
@@ -407,7 +345,6 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	}
 
 	now := time.Now()
-
 	if c.end(ctx, xa.TMSuccess) != nil {
 		return c.commitErrorHandle(ctx)
 	}
@@ -419,10 +356,6 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
 		return c.commitErrorHandle(ctx)
 	}
-
-	// Unregister from resource holder after successful prepare
-	c.res.UnregisterXABranch(c.txCtx.XID)
-
 	return nil
 }
 
@@ -453,11 +386,10 @@ func (c *XAConn) Close() error {
 		return nil
 	}
 	c.cleanXABranchContext()
-	// Check if Conn is nil before calling Close
-	if c.Conn == nil {
-		return nil
+	if err := c.Conn.Close(); err != nil {
+		return err
 	}
-	return c.Conn.Close()
+	return nil
 }
 
 func (c *XAConn) CloseForce() error {
@@ -484,20 +416,4 @@ func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Rollback(ctx, xaXid.String())
 	c.releaseIfNecessary()
 	return err
-}
-
-// isXAER_RMFAILAlreadyEnded checks if the XAER_RMFAIL error indicates the XA branch is already ended
-// expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state
-func isXAER_RMFAILAlreadyEnded(err error) bool {
-	if err == nil {
-		return false
-	}
-	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
-		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
-			return strings.Contains(mysqlErr.Message, "IDLE state") || strings.Contains(mysqlErr.Message, "already ended")
-		}
-	}
-	// TODO: handle other DB errors
-
-	return false
 }
