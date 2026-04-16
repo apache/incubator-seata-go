@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -143,10 +144,10 @@ func TestInitCleanPeriod(t *testing.T) {
 	testDuration := 10 * time.Minute
 
 	handler.InitCleanPeriod(testDuration)
-	assert.Equal(t, testDuration, cleanInterval)
+	assert.Equal(t, testDuration, currentCleanInterval())
 
 	// Reset to default for other tests
-	cleanInterval = 5 * time.Minute
+	cleanIntervalNanos.Store(int64(5 * time.Minute))
 }
 
 func TestPrepareFence_Success(t *testing.T) {
@@ -766,6 +767,29 @@ func TestPushCleanChannel(t *testing.T) {
 	}
 }
 
+func TestEnqueueFenceLogIdentities_PreserveDistinctValues(t *testing.T) {
+	log.Init()
+
+	handler := &tccFenceWrapperHandler{
+		logQueue: make(chan *model.FenceLogIdentity, 3),
+	}
+	identities := []model.FenceLogIdentity{
+		{Xid: "xid1", BranchId: 1},
+		{Xid: "xid2", BranchId: 2},
+		{Xid: "xid3", BranchId: 3},
+	}
+
+	handler.enqueueFenceLogIdentities(identities)
+
+	consumed := []model.FenceLogIdentity{
+		*<-handler.logQueue,
+		*<-handler.logQueue,
+		*<-handler.logQueue,
+	}
+
+	assert.Equal(t, identities, consumed)
+}
+
 func TestPushCleanChannel_FullQueue(t *testing.T) {
 	log.Init()
 
@@ -773,6 +797,8 @@ func TestPushCleanChannel_FullQueue(t *testing.T) {
 		logQueue: make(chan *model.FenceLogIdentity, 1),
 	}
 
+	// Second pushCleanChannel starts drainCacheTask; stop it before the next test mutates cleanInterval.
+	defer handler.DestroyLogCleanChannel()
 	// Fill the queue
 	handler.pushCleanChannel("xid1", 1)
 
@@ -1039,5 +1065,376 @@ func TestConstants(t *testing.T) {
 	assert.Equal(t, 500, maxQueueSize)
 	assert.Equal(t, 5, channelDelete)
 	assert.Equal(t, 24*time.Hour, cleanExpired)
-	assert.Equal(t, 5*time.Minute, cleanInterval)
+	assert.Equal(t, 5*time.Minute, currentCleanInterval())
+}
+
+func TestDrainCacheTask(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	// drainCacheTask should execute one delete batch with Begin + Commit.
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+
+	deleted := make(chan struct{}, 1)
+
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			for _, it := range identity {
+				if it.Xid == "xid-cache" && it.BranchId == 2 {
+					select {
+					case deleted <- struct{}{}:
+					default:
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1), // Intentionally small queue to trigger the default branch.
+		db:          db,
+	}
+
+	// Fill the queue first.
+	handler.pushCleanChannel("xid-queue", 1)
+	// Push one more item so it falls back to cache and starts drainCacheTask via logCacheOnce.Do(...).
+	handler.pushCleanChannel("xid-cache", 2)
+
+	time.Sleep(100 * time.Millisecond)
+	assert.NotNil(t, handler.stopDrainCache)
+
+	select {
+	case <-deleted:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected drainCacheTask to delete cached identity")
+	}
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+
+	// Cleanup to avoid goroutine leaks.
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_DBNil(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao:    &mockTCCFenceStore{},
+		logQueue:       make(chan *model.FenceLogIdentity, 1),
+		stopDrainCache: make(chan struct{}),
+		// Keep db as nil intentionally.
+	}
+
+	handler.cacheMutex.Lock()
+	handler.logCache.PushBack(&fenceLogCacheEntry{identity: model.FenceLogIdentity{Xid: "xid-nil", BranchId: 9}})
+	handler.cacheMutex.Unlock()
+
+	go handler.drainCacheTask()
+
+	time.Sleep(100 * time.Millisecond)
+
+	handler.cacheMutex.Lock()
+	cacheLen := handler.logCache.Len()
+	handler.cacheMutex.Unlock()
+
+	assert.Equal(t, 1, cacheLen)
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_DeleteError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	// Each drain tick: Begin -> deleteBatchFence (error) -> Rollback. Allow several ticks before Destroy stops the goroutine.
+	for i := 0; i < 10; i++ {
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return errors.New("simulated delete failure")
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// Require both in one poll: (1) Len()>=1 alone is true before the first drain (second push left an item).
+	// (2) deleteCalls>=1 alone can race the next ticker tick (cache emptied again before we read Len).
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n >= 1
+	}, 2*time.Second, 10*time.Millisecond,
+		"delete must have run and logCache must still hold requeued identities (stable window)")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_BeginError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin().WillReturnError(errors.New("simulated begin failure"))
+	for i := 0; i < 15; i++ {
+		mock.ExpectBegin()
+		mock.ExpectCommit()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// First tick: Begin fails (requeue). deleteCalls stays 0. Later tick: delete succeeds and cache drains.
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n == 0
+	}, 2*time.Second, 10*time.Millisecond,
+		"successful delete after begin failure should empty requeued cache")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_CommitError_RequeuesToCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectCommit().WillReturnError(errors.New("simulated commit failure"))
+	for i := 0; i < 15; i++ {
+		mock.ExpectBegin()
+		mock.ExpectCommit()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return nil
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// First tick: delete ok, Commit fails (requeue), deleteCalls==1 and Len==1. Later tick finishes cleanup.
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < 1 {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n == 0
+	}, 2*time.Second, 10*time.Millisecond,
+		"successful commit after prior commit failure should empty requeued cache")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_MaxRetries_DropsFromCache(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	for i := 0; i < 12; i++ {
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+	}
+
+	var deleteCalls atomic.Int32
+	mockDao := &mockTCCFenceStore{
+		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			deleteCalls.Add(1)
+			return errors.New("always fail delete")
+		},
+	}
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: mockDao,
+		logQueue:    make(chan *model.FenceLogIdentity, 1),
+		db:          db,
+	}
+
+	handler.pushCleanChannel("xid-queue", 1)
+	handler.pushCleanChannel("xid-cache", 2)
+
+	// maxFenceLogCacheRetries=3: requeue with counts 1,2,3 then drop on fourth failure (fourth successful Begin + failed delete).
+	assert.Eventually(t, func() bool {
+		if deleteCalls.Load() < int32(maxFenceLogCacheRetries+1) {
+			return false
+		}
+		handler.cacheMutex.Lock()
+		n := handler.logCache.Len()
+		handler.cacheMutex.Unlock()
+		return n == 0
+	}, 4*time.Second, 10*time.Millisecond,
+		"after max requeues, failed drain should drop identities from logCache")
+
+	handler.DestroyLogCleanChannel()
+}
+
+func TestDrainCacheTask_StopsOnDestroy(t *testing.T) {
+	log.Init()
+
+	oldInterval := currentCleanInterval()
+	cleanIntervalNanos.Store(int64(20 * time.Millisecond))
+	defer cleanIntervalNanos.Store(int64(oldInterval))
+
+	waitDrainGoroutine := func(t *testing.T, wg *sync.WaitGroup) {
+		t.Helper()
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("drainCacheTask goroutine did not exit after DestroyLogCleanChannel")
+		}
+	}
+
+	t.Run("emptyLogCache", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		handler := &tccFenceWrapperHandler{
+			tccFenceDao: &mockTCCFenceStore{},
+			logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
+		}
+		handler.logCacheOnce.Do(func() {
+			handler.stopDrainCache = make(chan struct{})
+			go func() {
+				defer wg.Done()
+				handler.drainCacheTask()
+			}()
+		})
+
+		time.Sleep(30 * time.Millisecond)
+
+		assert.NotPanics(t, func() {
+			handler.DestroyLogCleanChannel()
+		})
+
+		waitDrainGoroutine(t, &wg)
+	})
+
+	t.Run("withPendingCacheEntries", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		db, mock, err := sqlmock.New()
+		assert.NoError(t, err)
+		defer db.Close()
+		for i := 0; i < 10; i++ {
+			mock.ExpectBegin()
+			mock.ExpectCommit()
+		}
+
+		handler := &tccFenceWrapperHandler{
+			tccFenceDao: &mockTCCFenceStore{},
+			logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
+			db:          db,
+		}
+		handler.logCacheOnce.Do(func() {
+			handler.stopDrainCache = make(chan struct{})
+			go func() {
+				defer wg.Done()
+				handler.drainCacheTask()
+			}()
+		})
+
+		handler.cacheMutex.Lock()
+		handler.logCache.PushBack(&fenceLogCacheEntry{identity: model.FenceLogIdentity{Xid: "xid-pending", BranchId: 1}})
+		handler.cacheMutex.Unlock()
+
+		time.Sleep(50 * time.Millisecond)
+
+		assert.NotPanics(t, func() {
+			handler.DestroyLogCleanChannel()
+		})
+
+		waitDrainGoroutine(t, &wg)
+	})
 }

@@ -15,34 +15,36 @@
  * limitations under the License.
  */
 
-package xa
+package sql
 
 import (
-	"database/sql/driver"
-	"fmt"
+	"context"
+	"testing"
+	"time"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/v2/pkg/util/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
-// CreateXAResource create a connection for xa with the different db type.
-// Such as mysql, oracle, MARIADB, POSTGRESQL
-func CreateXAResource(conn driver.Conn, dbType types.DBType) (XAResource, error) {
-	var err error
-	var xaConnection XAResource
-	switch dbType {
-	case types.DBTypeMySQL:
-		xaConnection = NewMysqlXaConn(conn)
-	case types.DBTypeOracle:
-	case types.DBTypePostgreSQL:
-	default:
-		err = fmt.Errorf("not support db type for :%s", dbType.String())
+func TestAsyncWorker_Lifecycle(t *testing.T) {
+	cfg := AsyncWorkerConfig{
+		BufferLimit:            10,
+		BufferCleanInterval:    time.Second,
+		ReceiveChanSize:        10,
+		CommitWorkerCount:      1,
+		CommitWorkerBufferSize: 10,
 	}
 
-	if err != nil {
-		log.Errorf(err.Error())
-		return nil, err
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
-	return xaConnection, nil
+	// Pass nil as sourceManager since we don't process tasks in this test
+	_ = NewAsyncWorker(ctx, prometheus.NewRegistry(), cfg, nil)
+
+	// Allow it to run for a bit
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel context to stop worker
+	cancel()
+
+	// Give it some time to exit (though we can't verify it easily without exposing internal state)
+	time.Sleep(50 * time.Millisecond)
 }

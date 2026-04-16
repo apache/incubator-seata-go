@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package executor
+package util
 
 import (
 	"log"
@@ -139,31 +139,31 @@ func TestAddEscapeSQLServer(t *testing.T) {
 func TestCheckEscapeMySQLKeywords(t *testing.T) {
 	keywords := []string{"SELECT", "INSERT", "UPDATE", "DELETE", "ALTER", "CREATE", "DROP", "TABLE"}
 	for _, keyword := range keywords {
-		result := checkEscape(keyword, types.DBTypeMySQL)
+		result := CheckEscape(keyword, types.DBTypeMySQL)
 		assert.True(t, result, "Expected %s to be a MySQL keyword", keyword)
 
 		lowerKeyword := keyword
-		result = checkEscape(lowerKeyword, types.DBTypeMySQL)
+		result = CheckEscape(lowerKeyword, types.DBTypeMySQL)
 		assert.True(t, result, "Expected %s to be a MySQL keyword (case-insensitive)", lowerKeyword)
 	}
 }
 
 func TestCheckEscapeNonKeyword(t *testing.T) {
-	result := checkEscape("my_column", types.DBTypeMySQL)
+	result := CheckEscape("my_column", types.DBTypeMySQL)
 	assert.False(t, result)
 
-	result = checkEscape("user_name", types.DBTypeMySQL)
+	result = CheckEscape("user_name", types.DBTypeMySQL)
 	assert.False(t, result)
 }
 
 func TestCheckEscapeNonMySQL(t *testing.T) {
-	result := checkEscape("anything", types.DBTypePostgreSQL)
+	result := CheckEscape("anything", types.DBTypePostgreSQL)
 	assert.True(t, result)
 
-	result = checkEscape("anything", types.DBTypeOracle)
+	result = CheckEscape("anything", types.DBTypeOracle)
 	assert.True(t, result)
 
-	result = checkEscape("anything", types.DBTypeSQLServer)
+	result = CheckEscape("anything", types.DBTypeSQLServer)
 	assert.True(t, result)
 }
 

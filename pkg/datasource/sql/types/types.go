@@ -96,6 +96,14 @@ func ParseDBType(driverName string) DBType {
 	switch strings.ToLower(driverName) {
 	case "mysql":
 		return DBTypeMySQL
+	case "postgres", "postgresql", "pgx":
+		return DBTypePostgreSQL
+	case "oracle", "godror", "go-ora":
+		return DBTypeOracle
+	case "sqlserver", "mssql":
+		return DBTypeSQLServer
+	case "mariadb":
+		return DBTypeMARIADB
 	default:
 		return DBTypeUnknown
 	}
@@ -143,6 +151,8 @@ type TransactionContext struct {
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
+	// LocalTx local transaction instance, managed by at connection
+	LocalTx driver.Tx
 }
 
 // ExecContext

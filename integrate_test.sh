@@ -43,5 +43,13 @@ go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 
 go mod tidy
 
+# ensure docker-compose is available (newer Docker uses 'docker compose')
+if ! command -v docker-compose &> /dev/null; then
+    mkdir -p /tmp/docker-shims
+    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
+    chmod +x /tmp/docker-shims/docker-compose
+    export PATH="/tmp/docker-shims:$PATH"
+fi
+
 # start integrate test
 ./start_integrate_test.sh
