@@ -239,10 +239,17 @@ func (u *MySQLInsertUndoLogBuilder) getPkIndex(InsertStmt *ast.InsertStmt, meta 
 		return pkIndexMap
 	}
 	if len(meta.Columns) > 0 {
+		pkColumnNameList := meta.GetPrimaryKeyOnlyName()
+		pkNameSet := make(map[string]string, len(pkColumnNameList))
+		for _, pkName := range pkColumnNameList {
+			pkNameSet[strings.ToLower(pkName)] = pkName
+		}
+
 		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
 			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if u.containPK(sqlColumnName, meta) {
-				pkIndexMap[sqlColumnName] = paramIdx
+			normalizedColumnName := executor.DelEscape(sqlColumnName, types.DBTypeMySQL)
+			if pkName, exists := pkNameSet[strings.ToLower(normalizedColumnName)]; exists {
+				pkIndexMap[pkName] = paramIdx
 			}
 		}
 		return pkIndexMap
