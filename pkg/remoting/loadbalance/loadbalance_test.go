@@ -87,7 +87,7 @@ func TestSelect_RoutesLeastActive(t *testing.T) {
 }
 
 // TestSelect_UnknownFallsBackToRandom documents that an unrecognized
-// strategy keeps the historical behaviour of random selection.
+// strategy keeps the historical behavior of random selection.
 func TestSelect_UnknownFallsBackToRandom(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
