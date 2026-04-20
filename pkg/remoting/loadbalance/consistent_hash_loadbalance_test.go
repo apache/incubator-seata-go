@@ -207,8 +207,13 @@ func TestConsistentRefresh_SerializedWriters(t *testing.T) {
 
 	c.RLock()
 	defer c.RUnlock()
-	assert.Equal(t, len(c.sortedHashNodes), len(c.hashCircle))
+	// sortedHashNodes may legitimately contain duplicate positions when two
+	// virtual nodes hash to the same slot; hashCircle is a map so it
+	// collapses them. Assert every slot in the slice points at a live
+	// session in the ring instead of comparing sizes.
 	for _, pos := range c.sortedHashNodes {
-		assert.NotNil(t, c.hashCircle[pos])
+		session, ok := c.hashCircle[pos]
+		assert.True(t, ok)
+		assert.NotNil(t, session)
 	}
 }

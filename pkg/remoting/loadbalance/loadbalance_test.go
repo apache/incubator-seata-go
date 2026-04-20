@@ -46,12 +46,12 @@ func TestSelect_RoutesConsistentHash(t *testing.T) {
 
 	c := NewConsistent(0)
 
-	first := Select(consistentHashLoadBalance, sessions, "xid-A", c)
+	first := SelectWithConsistent(consistentHashLoadBalance, sessions, "xid-A", c)
 	assert.NotNil(t, first)
 
 	// Consistent hashing must be deterministic for the same xid+ring.
 	for i := 0; i < 5; i++ {
-		again := Select(consistentHashLoadBalance, sessions, "xid-A", c)
+		again := SelectWithConsistent(consistentHashLoadBalance, sessions, "xid-A", c)
 		assert.Equal(t, first.RemoteAddr(), again.RemoteAddr())
 	}
 }
@@ -82,7 +82,7 @@ func TestSelect_RoutesLeastActive(t *testing.T) {
 		rpc.RemoveStatus(idleAddr)
 	}()
 
-	result := Select(leastActiveLoadBalance, sessions, "any-xid", nil)
+	result := Select(leastActiveLoadBalance, sessions, "any-xid")
 	assert.Equal(t, idleAddr, result.RemoteAddr())
 }
 
@@ -96,6 +96,6 @@ func TestSelect_UnknownFallsBackToRandom(t *testing.T) {
 	s.EXPECT().IsClosed().AnyTimes().Return(false)
 	sessions.Store(s, "only")
 
-	result := Select("NotARealBalancer", sessions, "xid", nil)
+	result := Select("NotARealBalancer", sessions, "xid")
 	assert.NotNil(t, result)
 }

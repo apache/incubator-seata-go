@@ -31,10 +31,17 @@ const (
 	leastActiveLoadBalance    = "LeastActiveLoadBalance"
 )
 
-// Select dispatches to the balancer named by loadBalanceType.
+// Select preserves the original API and dispatches without a consistent-hash
+// ring. Callers that configure ConsistentHashLoadBalance must use
+// SelectWithConsistent; this overload falls back to random for that strategy.
+func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+	return SelectWithConsistent(loadBalanceType, sessions, xid, nil)
+}
+
+// SelectWithConsistent dispatches to the balancer named by loadBalanceType.
 // consistent is only used by the consistent-hash strategy; other strategies
 // ignore it and may safely receive nil.
-func Select(loadBalanceType string, sessions *sync.Map, xid string, consistent *Consistent) getty.Session {
+func SelectWithConsistent(loadBalanceType string, sessions *sync.Map, xid string, consistent *Consistent) getty.Session {
 	switch loadBalanceType {
 	case randomLoadBalance:
 		return RandomLoadBalance(sessions, xid)
