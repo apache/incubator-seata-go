@@ -31,7 +31,10 @@ const (
 	leastActiveLoadBalance    = "LeastActiveLoadBalance"
 )
 
-func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+// Select dispatches to the balancer named by loadBalanceType.
+// consistent is only used by the consistent-hash strategy; other strategies
+// ignore it and may safely receive nil.
+func Select(loadBalanceType string, sessions *sync.Map, xid string, consistent *Consistent) getty.Session {
 	switch loadBalanceType {
 	case randomLoadBalance:
 		return RandomLoadBalance(sessions, xid)
@@ -39,6 +42,10 @@ func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Sessio
 		return XidLoadBalance(sessions, xid)
 	case roundRobinLoadBalance:
 		return RoundRobinLoadBalance(sessions, xid)
+	case consistentHashLoadBalance:
+		return ConsistentHashLoadBalance(consistent, sessions, xid)
+	case leastActiveLoadBalance:
+		return LeastActiveLoadBalance(sessions, xid)
 	default:
 		return RandomLoadBalance(sessions, xid)
 	}

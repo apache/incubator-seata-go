@@ -26,18 +26,31 @@ import (
 	getty "github.com/apache/dubbo-getty"
 )
 
-var (
-	once                     sync.Once
-	defaultVirtualNodeNumber = 10
-	consistentInstance       *Consistent
-)
+const defaultVirtualNodeNumber = 10
 
 type Consistent struct {
+	// readLock/writeLock guards hashCircle / sortedHashNodes.
 	sync.RWMutex
+	// refreshMu serializes concurrent refresh operations so that two
+	// goroutines do not redundantly rebuild the ring and race on the final
+	// assignment.
+	refreshMu sync.Mutex
+
 	virtualNodeCount int
-	// consistent hashCircle
-	hashCircle      map[int64]getty.Session
-	sortedHashNodes []int64
+	hashCircle       map[int64]getty.Session
+	sortedHashNodes  []int64
+}
+
+// NewConsistent builds a Consistent balancer. A non-positive virtualNodes
+// falls back to the default.
+func NewConsistent(virtualNodes int) *Consistent {
+	if virtualNodes <= 0 {
+		virtualNodes = defaultVirtualNodeNumber
+	}
+	return &Consistent{
+		virtualNodeCount: virtualNodes,
+		hashCircle:       make(map[int64]getty.Session),
+	}
 }
 
 func (c *Consistent) hash(key string) int64 {
@@ -69,7 +82,7 @@ func (c *Consistent) pickByHash(hashKey int64) getty.Session {
 	return c.hashCircle[c.sortedHashNodes[index]]
 }
 
-// pick get a  node
+// pick get a node
 func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 	hashKey := c.hash(key)
 	session := c.pickByHash(hashKey)
@@ -92,36 +105,31 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 	return session
 }
 
-// refreshHashCircle refresh hashCircle
+// refreshHashCircle rebuilds the hash ring from the current sessions snapshot.
+// refreshMu guarantees that two concurrent refreshes do not overwrite each
+// other with stale rings.
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
-	var (
-		sortedHashNodes []int64
-		hashCircle      = make(map[int64]getty.Session)
-		closedSessions  []interface{}
-	)
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
+
+	var sortedHashNodes []int64
+	hashCircle := make(map[int64]getty.Session)
 
 	sessions.Range(func(key, value interface{}) bool {
 		session := key.(getty.Session)
 		if session.IsClosed() {
-			closedSessions = append(closedSessions, key)
+			sessions.Delete(key)
 			return true
 		}
 
-		for i := 0; i < defaultVirtualNodeNumber; i++ {
-			if !session.IsClosed() {
-				position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
-				hashCircle[position] = session
-				sortedHashNodes = append(sortedHashNodes, position)
-			}
+		for i := 0; i < c.virtualNodeCount; i++ {
+			position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
+			hashCircle[position] = session
+			sortedHashNodes = append(sortedHashNodes, position)
 		}
 		return true
 	})
 
-	for _, session := range closedSessions {
-		sessions.Delete(session)
-	}
-
-	// virtual node sort
 	sort.Slice(sortedHashNodes, func(i, j int) bool {
 		return sortedHashNodes[i] < sortedHashNodes[j]
 	})
@@ -132,34 +140,12 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	c.Unlock()
 }
 
-func (c *Consistent) firstKey() getty.Session {
-	c.RLock()
-	defer c.RUnlock()
-
-	if len(c.sortedHashNodes) > 0 {
-		return c.hashCircle[c.sortedHashNodes[0]]
+// ConsistentHashLoadBalance picks a session deterministically for xid using
+// the supplied Consistent ring. If c is nil it falls back to random selection
+// so callers that forget to plumb a ring stay functional.
+func ConsistentHashLoadBalance(c *Consistent, sessions *sync.Map, xid string) getty.Session {
+	if c == nil {
+		return RandomLoadBalance(sessions, xid)
 	}
-
-	return nil
-}
-
-func newConsistenceInstance(sessions *sync.Map) *Consistent {
-	once.Do(func() {
-		consistentInstance = &Consistent{
-			virtualNodeCount: defaultVirtualNodeNumber,
-			hashCircle:       make(map[int64]getty.Session),
-		}
-		consistentInstance.refreshHashCircle(sessions)
-	})
-
-	return consistentInstance
-}
-
-func ConsistentHashLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	if consistentInstance == nil {
-		newConsistenceInstance(sessions)
-	}
-
-	// pick a node
-	return consistentInstance.pick(sessions, xid)
+	return c.pick(sessions, xid)
 }

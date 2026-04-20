@@ -20,11 +20,10 @@ package loadbalance
 import (
 	"math/rand"
 	"sync"
-	"time"
-
-	"seata.apache.org/seata-go/v2/pkg/remoting/rpc"
 
 	getty "github.com/apache/dubbo-getty"
+
+	"seata.apache.org/seata-go/v2/pkg/remoting/rpc"
 )
 
 func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
@@ -56,10 +55,8 @@ func LeastActiveLoadBalance(sessions *sync.Map, xid string) getty.Session {
 	if leastCount == 0 {
 		return nil
 	}
-
 	if leastCount == 1 {
 		return leastIndexes[0]
-	} else {
-		return leastIndexes[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(leastCount)]
 	}
+	return leastIndexes[rand.Intn(leastCount)]
 }
