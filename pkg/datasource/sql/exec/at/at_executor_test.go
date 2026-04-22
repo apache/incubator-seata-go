@@ -422,6 +422,7 @@ func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			hook := &mockSQLHook{beforeError: beforeErr}
 			callbackCount := 0
