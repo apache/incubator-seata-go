@@ -29,6 +29,31 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/remoting/rpc"
 )
 
+// TestSelect_ConsistentHash_Deterministic locks down that the public Select()
+// API delivers stable routing for ConsistentHashLoadBalance without the caller
+// managing a ring — the package-level defaultConsistent is used.
+func TestSelect_ConsistentHash_Deterministic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	for i := 0; i < 3; i++ {
+		addr := fmt.Sprintf("127.0.0.1:90%02d", i)
+		s := mock.NewMockTestSession(ctrl)
+		s.EXPECT().IsClosed().AnyTimes().Return(false)
+		s.EXPECT().RemoteAddr().AnyTimes().Return(addr)
+		sessions.Store(s, addr)
+	}
+
+	first := Select(consistentHashLoadBalance, sessions, "xid-stable")
+	assert.NotNil(t, first)
+
+	for i := 0; i < 5; i++ {
+		again := Select(consistentHashLoadBalance, sessions, "xid-stable")
+		assert.Equal(t, first.RemoteAddr(), again.RemoteAddr(),
+			"Select(ConsistentHashLoadBalance) must be deterministic for the same xid")
+	}
+}
+
 // TestSelect_RoutesConsistentHash pins down the P7 regression: configuring
 // "ConsistentHashLoadBalance" must actually dispatch to the consistent-hash
 // strategy, not silently fall through to random.
