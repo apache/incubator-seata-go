@@ -23,6 +23,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -74,8 +75,9 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 		var firstUnderline bool
 
 		for _, column := range row.Columns {
+			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
 			for i, key := range primaryKeyList {
-				if column.ColumnName == key {
+				if cleanName == key {
 					if firstUnderline && i > 0 {
 						rowKey += "_##$$_"
 					}
@@ -84,7 +86,7 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 					firstUnderline = true
 				}
 			}
-			fieldMap[strings.ToUpper(column.ColumnName)] = column.Value
+			fieldMap[strings.ToUpper(cleanName)] = column.Value
 		}
 		rowMap[rowKey] = fieldMap
 	}
@@ -152,8 +154,14 @@ func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} {
 	params := make([]interface{}, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
+		// Build a normalized map with escaped characters removed
+		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
+		for k, v := range coumnMap {
+			normalizedMap[util.DelEscape(k, types.DBTypeMySQL)] = v
+		}
 		for _, pk := range pkNameList {
-			col := coumnMap[pk]
+			cleanPK := util.DelEscape(pk, types.DBTypeMySQL)
+			col := normalizedMap[cleanPK]
 			if col != nil {
 				params = append(params, col.Value)
 			}

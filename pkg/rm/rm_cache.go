@@ -48,6 +48,10 @@ func (d *ResourceManagerCache) RegisterResourceManager(resourceManager ResourceM
 	d.resourceManagerMap.Store(resourceManager.GetBranchType(), resourceManager)
 }
 
+func (d *ResourceManagerCache) UnregisterResourceManager(branchType branch.BranchType) {
+	d.resourceManagerMap.Delete(branchType)
+}
+
 func (d *ResourceManagerCache) GetResourceManager(branchType branch.BranchType) ResourceManager {
 	rm, ok := d.resourceManagerMap.Load(branchType)
 	if !ok {
