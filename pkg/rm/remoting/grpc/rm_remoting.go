@@ -20,11 +20,11 @@ package grpc
 import (
 	"fmt"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/grpc"
-	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
-	"seata.apache.org/seata-go/pkg/rm"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"github.com/pkg/errors"
 )

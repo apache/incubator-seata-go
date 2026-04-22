@@ -24,7 +24,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/remoting/rpc"
 
-	"seata.apache.org/seata-go/pkg/protocol/connection"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 func LeastActiveLoadBalance(sessions *sync.Map, xid string) connection.Connection {

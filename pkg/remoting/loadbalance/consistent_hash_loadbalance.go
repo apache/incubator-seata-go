@@ -23,7 +23,7 @@ import (
 	"sort"
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/protocol/connection"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 var (

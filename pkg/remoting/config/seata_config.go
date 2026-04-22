@@ -17,7 +17,7 @@
 
 package config
 
-import "seata.apache.org/seata-go/pkg/util/flagext"
+import "seata.apache.org/seata-go/v2/pkg/util/flagext"
 
 var (
 	seataConfig *SeataConfig

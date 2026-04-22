@@ -17,7 +17,7 @@
 
 package grpc
 
-import "seata.apache.org/seata-go/pkg/remoting/config"
+import "seata.apache.org/seata-go/v2/pkg/remoting/config"
 
 func InitGrpc(grpcConfig *config.Config) {
 	initChannelManager(grpcConfig)

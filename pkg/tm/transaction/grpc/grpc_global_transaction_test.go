@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/remoting/grpc"
-	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
-	"seata.apache.org/seata-go/pkg/tm"
-	grpc2 "seata.apache.org/seata-go/pkg/tm/transaction/grpc"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	grpc2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/pkg/errors"

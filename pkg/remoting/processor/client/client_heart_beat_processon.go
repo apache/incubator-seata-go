@@ -20,15 +20,15 @@ package client
 import (
 	"context"
 
-	"seata.apache.org/seata-go/pkg/util/log"
-	"seata.apache.org/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 
-	"seata.apache.org/seata-go/pkg/protocol"
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/remoting/grpc"
-	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/protocol"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 )
 
 func initHeartBeat() {

@@ -20,8 +20,8 @@ package grpc
 import (
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"

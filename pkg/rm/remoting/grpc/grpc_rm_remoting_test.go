@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
 func TestGetGrpcRMRemotingInstance(t *testing.T) {
