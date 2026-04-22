@@ -20,8 +20,8 @@ package reflectx_test
 import (
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/remoting/grpc/pb"
-	"seata.apache.org/seata-go/pkg/util/reflectx"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"

@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/tm"
-	"seata.apache.org/seata-go/pkg/util/backoff"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/util/backoff"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"github.com/pkg/errors"
 )
@@ -143,4 +143,8 @@ func (g *GettyGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Gl
 	gtr.TxStatus = res.(message.GlobalRollbackResponse).GlobalStatus
 
 	return nil
+}
+
+func (g *GettyGlobalTransactionManager) GlobalReport(ctx context.Context, gtr *tm.GlobalTransaction) (interface{}, error) {
+	return nil, fmt.Errorf("GlobalReport not implemented for getty")
 }

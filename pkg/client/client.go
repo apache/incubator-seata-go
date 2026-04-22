@@ -20,25 +20,25 @@ package client
 import (
 	"sync"
 
-	"seata.apache.org/seata-go/pkg/datasource"
-	at "seata.apache.org/seata-go/pkg/datasource/sql"
-	"seata.apache.org/seata-go/pkg/datasource/sql/exec/config"
-	"seata.apache.org/seata-go/pkg/discovery"
-	"seata.apache.org/seata-go/pkg/integration"
-	"seata.apache.org/seata-go/pkg/protocol"
-	remoteConfig "seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	"seata.apache.org/seata-go/pkg/remoting/grpc"
-	"seata.apache.org/seata-go/pkg/remoting/loadbalance"
-	"seata.apache.org/seata-go/pkg/remoting/processor/client"
-	"seata.apache.org/seata-go/pkg/rm"
-	gettyRM "seata.apache.org/seata-go/pkg/rm/remoting/getty"
-	grpcRM "seata.apache.org/seata-go/pkg/rm/remoting/grpc"
-	"seata.apache.org/seata-go/pkg/rm/tcc"
-	"seata.apache.org/seata-go/pkg/tm"
-	gettyTM "seata.apache.org/seata-go/pkg/tm/transaction/getty"
-	grpcTM "seata.apache.org/seata-go/pkg/tm/transaction/grpc"
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/datasource"
+	at "seata.apache.org/seata-go/v2/pkg/datasource/sql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/config"
+	"seata.apache.org/seata-go/v2/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/integration"
+	"seata.apache.org/seata-go/v2/pkg/protocol"
+	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
+	"seata.apache.org/seata-go/v2/pkg/remoting/processor/client"
+	"seata.apache.org/seata-go/v2/pkg/rm"
+	gettyRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/getty"
+	grpcRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	gettyTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
+	grpcTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
 )
 
@@ -83,7 +83,6 @@ func initRemoting(cfg *Config) {
 		TxServiceGroup:       cfg.TxServiceGroup,
 		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
 		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
-		LoadBalanceType:      cfg.GettyConfig.LoadBalanceType,
 	}
 
 	remoteConfig.InitTransportConfig(&cfg.TransportConfig)

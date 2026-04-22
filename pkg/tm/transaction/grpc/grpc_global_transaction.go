@@ -160,3 +160,7 @@ func (g *GrpcGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Glo
 
 	return nil
 }
+
+func (g *GrpcGlobalTransactionManager) GlobalReport(ctx context.Context, gtr *tm.GlobalTransaction) (interface{}, error) {
+	return nil, fmt.Errorf("GlobalReport not implemented for grpc")
+}

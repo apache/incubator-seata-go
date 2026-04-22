@@ -20,7 +20,7 @@ package getty_test
 import (
 	"context"
 	"reflect"
-	"seata.apache.org/seata-go/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 	"testing"
 	"time"
 
@@ -29,11 +29,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/pkg/util/log"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 
-	"seata.apache.org/seata-go/pkg/protocol/message"
-	"seata.apache.org/seata-go/pkg/remoting/getty"
-	getty2 "seata.apache.org/seata-go/pkg/tm/transaction/getty"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	getty2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
 )
 
 func TestGettyGlobalTransactionBegin(t *testing.T) {

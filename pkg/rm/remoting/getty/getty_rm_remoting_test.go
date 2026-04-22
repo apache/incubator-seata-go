@@ -20,8 +20,8 @@ package getty
 import (
 	"testing"
 
-	"seata.apache.org/seata-go/pkg/remoting/config"
-	"seata.apache.org/seata-go/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 
 	"github.com/stretchr/testify/assert"
 )

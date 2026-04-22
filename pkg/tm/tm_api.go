@@ -26,4 +26,5 @@ type GlobalTransactionManager interface {
 	Begin(ctx context.Context, timeout time.Duration) error
 	Commit(ctx context.Context, gtr *GlobalTransaction) error
 	Rollback(ctx context.Context, gtr *GlobalTransaction) error
+	GlobalReport(ctx context.Context, gtr *GlobalTransaction) (interface{}, error)
 }
