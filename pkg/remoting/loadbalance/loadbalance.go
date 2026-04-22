@@ -31,7 +31,22 @@ const (
 	leastActiveLoadBalance    = "LeastActiveLoadBalance"
 )
 
+// defaultConsistent is the package-level ring used by Select so that callers
+// who do not manage their own Consistent instance still get true consistent
+// hashing rather than silent fallback to random.
+var defaultConsistent = NewConsistent(0)
+
+// Select dispatches to the balancer named by loadBalanceType.
+// For ConsistentHashLoadBalance a package-level ring is used so that the same
+// xid always maps to the same session across calls.
 func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Session {
+	return SelectWithConsistent(loadBalanceType, sessions, xid, defaultConsistent)
+}
+
+// SelectWithConsistent dispatches to the balancer named by loadBalanceType.
+// consistent is only used by the consistent-hash strategy; other strategies
+// ignore it and may safely receive nil.
+func SelectWithConsistent(loadBalanceType string, sessions *sync.Map, xid string, consistent *Consistent) getty.Session {
 	switch loadBalanceType {
 	case randomLoadBalance:
 		return RandomLoadBalance(sessions, xid)
@@ -39,6 +54,10 @@ func Select(loadBalanceType string, sessions *sync.Map, xid string) getty.Sessio
 		return XidLoadBalance(sessions, xid)
 	case roundRobinLoadBalance:
 		return RoundRobinLoadBalance(sessions, xid)
+	case consistentHashLoadBalance:
+		return ConsistentHashLoadBalance(consistent, sessions, xid)
+	case leastActiveLoadBalance:
+		return LeastActiveLoadBalance(sessions, xid)
 	default:
 		return RandomLoadBalance(sessions, xid)
 	}

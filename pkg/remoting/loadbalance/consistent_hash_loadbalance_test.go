@@ -30,15 +30,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
-func resetConsistentHashForTest() {
-	consistentInstance = nil
-	once = sync.Once{}
-}
-
 func TestConsistentHashLoadBalance(t *testing.T) {
-	resetConsistentHashForTest()
-	defer resetConsistentHashForTest()
-
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -51,7 +43,8 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 		sessions.Store(session, fmt.Sprintf("session-%d", i))
 	}
 
-	result := ConsistentHashLoadBalance(sessions, "test_xid")
+	c := NewConsistent(0)
+	result := ConsistentHashLoadBalance(c, sessions, "test_xid")
 	assert.NotNil(t, result)
 	assert.False(t, result.IsClosed())
 
@@ -61,10 +54,20 @@ func TestConsistentHashLoadBalance(t *testing.T) {
 	})
 }
 
-func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
-	resetConsistentHashForTest()
-	defer resetConsistentHashForTest()
+func TestConsistentHashLoadBalance_NilBalancerFallsBackToRandom(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
 
+	session := mock.NewMockTestSession(ctrl)
+	session.EXPECT().IsClosed().Return(false).AnyTimes()
+	sessions.Store(session, "only")
+
+	// A nil *Consistent must not panic and must still yield a live session.
+	result := ConsistentHashLoadBalance(nil, sessions, "test_xid")
+	assert.Equal(t, getty.Session(session), result)
+}
+
+func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -78,26 +81,21 @@ func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
 	sessions.Store(closedSession, "closed")
 	sessions.Store(openSession, "open")
 
-	c := &Consistent{
-		virtualNodeCount: defaultVirtualNodeNumber,
-		hashCircle: map[int64]getty.Session{
-			1: closedSession,
-		},
-		sortedHashNodes: []int64{1},
-	}
+	c := NewConsistent(0)
+	c.Lock()
+	c.hashCircle = map[int64]getty.Session{1: closedSession}
+	c.sortedHashNodes = []int64{1}
+	c.Unlock()
 
 	result := c.pick(sessions, "test_xid")
 	assert.NotNil(t, result)
-	assert.Equal(t, openSession, result)
+	assert.Equal(t, getty.Session(openSession), result)
 
 	_, stillExists := sessions.Load(closedSession)
 	assert.False(t, stillExists)
 }
 
 func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
-	resetConsistentHashForTest()
-	defer resetConsistentHashForTest()
-
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -128,10 +126,7 @@ func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
 		sessions.Store(session, addr)
 	}
 
-	c := &Consistent{
-		virtualNodeCount: defaultVirtualNodeNumber,
-		hashCircle:       make(map[int64]getty.Session),
-	}
+	c := NewConsistent(0)
 	c.refreshHashCircle(sessions)
 
 	const (
@@ -181,4 +176,44 @@ func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
 	result := c.pick(sessions, "final-xid")
 	assert.NotNil(t, result)
 	assert.False(t, result.IsClosed())
+}
+
+// TestConsistentRefresh_SerializedWriters asserts that two goroutines
+// rebuilding the ring at the same time still leave it in a consistent
+// "every hash-node maps to something in the circle" state.
+func TestConsistentRefresh_SerializedWriters(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sessions := &sync.Map{}
+
+	for i := 0; i < 4; i++ {
+		addr := fmt.Sprintf("127.0.0.1:70%02d", i)
+		s := mock.NewMockTestSession(ctrl)
+		s.EXPECT().IsClosed().AnyTimes().Return(false)
+		s.EXPECT().RemoteAddr().AnyTimes().Return(addr)
+		sessions.Store(s, addr)
+	}
+
+	c := NewConsistent(0)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.refreshHashCircle(sessions)
+		}()
+	}
+	wg.Wait()
+
+	c.RLock()
+	defer c.RUnlock()
+	// sortedHashNodes may legitimately contain duplicate positions when two
+	// virtual nodes hash to the same slot; hashCircle is a map so it
+	// collapses them. Assert every slot in the slice points at a live
+	// session in the ring instead of comparing sizes.
+	for _, pos := range c.sortedHashNodes {
+		session, ok := c.hashCircle[pos]
+		assert.True(t, ok)
+		assert.NotNil(t, session)
+	}
 }
