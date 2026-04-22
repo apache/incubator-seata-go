@@ -73,7 +73,9 @@ func NewSelectForUpdateExecutor(parserCtx *types.ParseContext, execContext *type
 }
 
 func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	s.beforeHooks(ctx, s.execContext)
+	if err := s.beforeHooks(ctx, s.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		s.afterHooks(ctx, s.execContext)
 	}()
