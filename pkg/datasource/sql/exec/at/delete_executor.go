@@ -48,7 +48,9 @@ func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 
 // ExecContext exec SQL, and generate before image and after image
 func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	d.beforeHooks(ctx, d.execContext)
+	if err := d.beforeHooks(ctx, d.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
 	}()

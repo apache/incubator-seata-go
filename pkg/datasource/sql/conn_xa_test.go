@@ -38,6 +38,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
@@ -170,6 +171,31 @@ func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQL
 	return ctrl, db, mi, ti
 }
 
+func newMockXAConn(t *testing.T, ctrl *gomock.Controller, branchID int64) (*XAConn, *mock.MockDataSourceManager) {
+	t.Helper()
+
+	mockMgr := mock.NewMockDataSourceManager(ctrl)
+	mockMgr.SetBranchType(branch.BranchTypeXA)
+	registerResourceManagerForTest(t, mockMgr)
+	mockMgr.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).AnyTimes().Return(branchID, nil)
+
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	baseMockConn(mockConn)
+
+	return &XAConn{
+		Conn: &Conn{
+			res: &DBResource{
+				resourceID: "jdbc:mysql://test/resource",
+				dbType:     types.DBTypeMySQL,
+			},
+			txCtx:      types.NewTxCtx(),
+			targetConn: mockConn,
+			autoCommit: true,
+			dbType:     types.DBTypeMySQL,
+		},
+	}, mockMgr
+}
+
 func TestXAConn_ExecContext(t *testing.T) {
 
 	ctrl, db, mi, ti := initXAConnTestResource(t)
@@ -206,8 +232,7 @@ func TestXAConn_ExecContext(t *testing.T) {
 		_, err = db.ExecContext(ctx, "SELECT 1")
 		assert.NoError(t, err)
 
-		// todo fix
-		assert.Equal(t, int32(0), atomic.LoadInt32(&comitCnt))
+		assert.Equal(t, int32(2), atomic.LoadInt32(&comitCnt))
 	})
 
 	t.Run("not xid", func(t *testing.T) {
@@ -389,7 +414,7 @@ func TestXAConn_Rollback_XAER_RMFAIL(t *testing.T) {
 
 // Covers the XA rollback flow when End() returns XAER_RMFAIL (IDLE/already ended)
 func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
-	ctrl, db, _, ti := initXAConnTestResource(t)
+	ctrl, db, _, _ := initXAConnTestResource(t)
 	defer func() {
 		simulateExecContextError = nil
 		db.Close()
@@ -400,18 +425,14 @@ func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
 	ctx := tm.InitSeataContext(context.Background())
 	tm.SetXID(ctx, uuid.New().String())
 
-	// Ensure Tx.Rollback has a non-nil underlying target to avoid nil-deref when test triggers rollback
-	ti.beforeRollback = func(tx *Tx) {
-		mtx := mock.NewMockTestDriverTx(ctrl)
-		mtx.EXPECT().Rollback().AnyTimes().Return(nil)
-		tx.target = mtx
-	}
-
 	// Inject: XA END returns XAER_RMFAIL(IDLE), normal SQL returns an error to trigger rollback
 	simulateExecContextError = func(query string) error {
 		upper := strings.ToUpper(query)
 		if strings.HasPrefix(upper, "XA END") {
-			return &mysql.MySQLError{Number: types.ErrCodeXAER_RMFAIL_IDLE, Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state"}
+			return &mysql.MySQLError{
+				Number:  types.ErrCodeXAER_RMFAIL_IDLE,
+				Message: "Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the IDLE state",
+			}
 		}
 		if !strings.HasPrefix(upper, "XA ") {
 			return io.EOF
@@ -424,4 +445,76 @@ func TestXAConn_Rollback_HandleXAERRMFAILAlreadyEnded(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error to trigger rollback path")
 	}
+}
+
+func TestXAConn_ExecContext_AutoCommitReportsPhaseOneDone(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	CleanTxHooks()
+	defer CleanTxHooks()
+
+	xaConn, mockMgr := newMockXAConn(t, ctrl, 123)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, param rm.BranchReportParam) error {
+			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
+			assert.Equal(t, int64(123), param.BranchId)
+			assert.EqualValues(t, branch.BranchStatusPhaseoneDone, param.Status)
+			return nil
+		},
+	).Times(1)
+
+	var commitCnt int32
+	RegisterTxHook(&mockTxHook{
+		beforeCommit: func(tx *Tx) error {
+			atomic.AddInt32(&commitCnt, 1)
+			return nil
+		},
+	})
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, uuid.NewString())
+
+	_, err := xaConn.ExecContext(ctx, "SELECT 1", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&commitCnt))
+}
+
+func TestXAConn_BeginTx_DoesNotStartPhysicalTx(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	xaConn, mockMgr := newMockXAConn(t, ctrl, 123)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, param rm.BranchReportParam) error {
+			assert.Equal(t, branch.BranchTypeXA, param.BranchType)
+			assert.Equal(t, int64(123), param.BranchId)
+			assert.EqualValues(t, branch.BranchStatusPhaseoneFailed, param.Status)
+			return nil
+		},
+	).Times(1)
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, uuid.NewString())
+
+	tx, err := xaConn.BeginTx(ctx, driver.TxOptions{})
+	assert.NoError(t, err)
+
+	xaTx, ok := tx.(*XATx)
+	if assert.True(t, ok) {
+		_, noop := xaTx.tx.target.(xaBranchTx)
+		assert.True(t, noop)
+	}
+
+	err = tx.Rollback()
+	assert.NoError(t, err)
+}
+
+func TestXABranchTx_CommitRollbackFailFast(t *testing.T) {
+	branchTx := xaBranchTx{}
+
+	err := branchTx.Commit()
+	assert.ErrorIs(t, err, errXABranchLifecycleManaged)
+
+	err = branchTx.Rollback()
+	assert.ErrorIs(t, err, errXABranchLifecycleManaged)
 }
