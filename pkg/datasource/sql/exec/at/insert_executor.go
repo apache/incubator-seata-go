@@ -52,7 +52,9 @@ func NewInsertExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 }
 
 func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	i.beforeHooks(ctx, i.execContext)
+	if err := i.beforeHooks(ctx, i.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		i.afterHooks(ctx, i.execContext)
 	}()
@@ -258,9 +260,9 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 	matchCounter := 0
 	for _, column := range parseCtx.InsertStmt.Columns {
+		cleanName := util.DelEscape(column.Name.O, types.DBTypeMySQL)
 		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column.Name.O) ||
-				strings.EqualFold(pkName, column.Name.L) {
+			if strings.EqualFold(pkName, cleanName) {
 				matchCounter++
 			}
 		}
@@ -271,7 +273,7 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 // containPK compare column name and primary key name
 func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := util.DelEscape(columnName, types.DBTypeMySQL)
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -314,7 +316,7 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
 		}
 	}
 

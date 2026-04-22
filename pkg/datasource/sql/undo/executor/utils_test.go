@@ -516,3 +516,56 @@ func TestBuildPKParams(t *testing.T) {
 		})
 	}
 }
+
+func TestRowListToMap_EscapedColumnNames(t *testing.T) {
+	rows := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "`id`", Value: 1},
+				{ColumnName: "`name`", Value: "test"},
+			},
+		},
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "`id`", Value: 2},
+				{ColumnName: "`name`", Value: "test2"},
+			},
+		},
+	}
+	primaryKeyList := []string{"id"}
+
+	result := rowListToMap(rows, primaryKeyList)
+
+	assert.Len(t, result, 2)
+	// Verify rows can be found by their PK values
+	row1, exists := result["1"]
+	assert.True(t, exists, "Row with PK=1 should exist")
+	if exists {
+		// After fix, fieldMap key uses cleaned (unescaped) uppercase column name
+		assert.Equal(t, 1, row1["ID"])
+		assert.Equal(t, "test", row1["NAME"])
+	}
+}
+
+func TestBuildPKParams_EscapedColumnNames(t *testing.T) {
+	rows := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "`id`", Value: 1},
+				{ColumnName: "`name`", Value: "test"},
+			},
+		},
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "`id`", Value: 2},
+				{ColumnName: "`name`", Value: "test2"},
+			},
+		},
+	}
+	pkNameList := []string{"id"}
+
+	result := buildPKParams(rows, pkNameList)
+
+	assert.Len(t, result, 2)
+	assert.Equal(t, []interface{}{1, 2}, result)
+}
