@@ -115,8 +115,9 @@ The latest tag / release is the latest stable version.
 
 ## Documentation
 
+[Quick Start](./docs/quickstart.md)
 
-You can view the full documentation from Seata Official Website: [Seata Website page](https://seata.apache.org/zh-cn/docs/overview/what-is-seata).
+You can view the full documentation from Seata Official Website: [Seata Website page](https://seata.apache.org/docs/overview/what-is-seata).  
 
 ## Reporting bugs
 

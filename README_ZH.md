@@ -115,6 +115,8 @@ go get seata.apache.org/seata-go@2.0.0
 最新的 tag / release 就是目前的最新稳定版本。
 ## 文档
 
+[快速开始](./docs/quickstart_zh.md)
+
 你可以访问 Seata 官方网站获取完整文档：[Seata 官网](https://seata.apache.org/zh-cn/docs/overview/what-is-seata)
 ## 问题报告
 
