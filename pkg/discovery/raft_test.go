@@ -123,12 +123,6 @@ func TestMetadataHandler(t *testing.T) {
 		{
 			Addr: "127.0.0.1",
 			Port: 7001,
-		}, {
-			Addr: "127.0.0.1",
-			Port: 7002,
-		}, {
-			Addr: "127.0.0.1",
-			Port: 7003,
 		},
 	}
 	assert.Equal(t, serviceInstances, instances)

@@ -125,14 +125,6 @@ func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 			r.startQueryMetadata()
 		}
 	}
-	return r.getServiceInstances(clusterName, "")
-}
-
-func (r *RaftRegistryService) aliveLookup(transactionServiceGroup string) ([]*ServiceInstance, error) {
-	clusterName := r.vgroupMapping[transactionServiceGroup]
-	if clusterName == "" {
-		return nil, fmt.Errorf("cluster doesnt exist")
-	}
 	leader := r.metadata.GetLeader(clusterName)
 	if leader != nil {
 		endpoint, err := r.selectEndpoint(transactionEndpoint, leader)
