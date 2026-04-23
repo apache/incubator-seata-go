@@ -217,24 +217,37 @@ func (g *ChannelManager) selectChannel(msg interface{}) *Channel {
 }
 
 func (g *ChannelManager) getXid(msg interface{}) string {
-	var xid string
-	if tmpMsg, ok := msg.(pb.AbstractGlobalEndRequestProto); ok {
-		xid = tmpMsg.Xid
-	} else if tmpMsg, ok := msg.(pb.GlobalBeginRequestProto); ok {
-		xid = tmpMsg.TransactionName
-	} else if tmpMsg, ok := msg.(pb.BranchRegisterRequestProto); ok {
-		xid = tmpMsg.Xid
-	} else if tmpMsg, ok := msg.(pb.BranchReportRequestProto); ok {
-		xid = tmpMsg.Xid
-	} else {
-		msgType := reflect.TypeOf(msg)
-		msgValue := reflect.ValueOf(msg)
-		if msgType.Kind() == reflect.Ptr {
-			msgValue = msgValue.Elem()
-		}
-		xid = msgValue.FieldByName("Xid").String()
+	switch tmpMsg := msg.(type) {
+	case *pb.AbstractGlobalEndRequestProto:
+		return tmpMsg.Xid
+	case *pb.GlobalBeginRequestProto:
+		return tmpMsg.TransactionName
+	case *pb.BranchRegisterRequestProto:
+		return tmpMsg.Xid
+	case *pb.BranchReportRequestProto:
+		return tmpMsg.Xid
 	}
-	return xid
+
+	msgValue := reflect.ValueOf(msg)
+	if !msgValue.IsValid() {
+		return ""
+	}
+	if msgValue.Kind() == reflect.Ptr {
+		if msgValue.IsNil() {
+			return ""
+		}
+		msgValue = msgValue.Elem()
+	}
+	if msgValue.Kind() != reflect.Struct {
+		return ""
+	}
+	if field := msgValue.FieldByName("Xid"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	if field := msgValue.FieldByName("TransactionName"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	return ""
 }
 
 func (g *ChannelManager) releaseChannel(channel *Channel) {

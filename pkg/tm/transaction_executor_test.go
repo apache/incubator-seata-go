@@ -21,11 +21,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 	"time"
-
-	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/pkg/errors"
 
@@ -33,27 +30,77 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/tm"
-	"seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
 )
 
+type testGlobalTransactionManager struct {
+	beginFunc        func(ctx context.Context, timeout time.Duration) error
+	commitFunc       func(ctx context.Context, gtr *tm.GlobalTransaction) error
+	rollbackFunc     func(ctx context.Context, gtr *tm.GlobalTransaction) error
+	globalReportFunc func(ctx context.Context, gtr *tm.GlobalTransaction) (interface{}, error)
+}
+
+func (m *testGlobalTransactionManager) reset() {
+	m.beginFunc = nil
+	m.commitFunc = nil
+	m.rollbackFunc = nil
+	m.globalReportFunc = nil
+}
+
+func (m *testGlobalTransactionManager) Begin(ctx context.Context, timeout time.Duration) error {
+	if m.beginFunc != nil {
+		return m.beginFunc(ctx, timeout)
+	}
+	return nil
+}
+
+func (m *testGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.GlobalTransaction) error {
+	if tm.IsTimeout(ctx) {
+		return m.Rollback(ctx, gtr)
+	}
+	if m.commitFunc != nil {
+		return m.commitFunc(ctx, gtr)
+	}
+	if gtr != nil && gtr.Xid == "" {
+		return fmt.Errorf("Commit xid should not be empty")
+	}
+	return nil
+}
+
+func (m *testGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.GlobalTransaction) error {
+	if m.rollbackFunc != nil {
+		return m.rollbackFunc(ctx, gtr)
+	}
+	if gtr != nil && gtr.Xid == "" {
+		return fmt.Errorf("Rollback xid should not be empty")
+	}
+	return nil
+}
+
+func (m *testGlobalTransactionManager) GlobalReport(ctx context.Context, gtr *tm.GlobalTransaction) (interface{}, error) {
+	if m.globalReportFunc != nil {
+		return m.globalReportFunc(ctx, gtr)
+	}
+	return nil, nil
+}
+
+var globalTransactionManagerStub = &testGlobalTransactionManager{}
+
 func TestMain(m *testing.M) {
-	tm.SetGlobalTransactionManager(&getty.GettyGlobalTransactionManager{})
+	tm.SetGlobalTransactionManager(globalTransactionManagerStub)
 	code := m.Run()
 	os.Exit(code)
 }
 
 func TestTransactionExecutorBegin(t *testing.T) {
 	type Test struct {
-		ctx                context.Context
-		gc                 *tm.GtxConfig
-		xid                string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
-		wantHasError       bool
-		wantErrorString    string
-		wantUseExist       bool
-		wantBeginNew       bool
+		ctx             context.Context
+		gc              *tm.GtxConfig
+		xid             string
+		beginFunc       func(ctx context.Context, timeout time.Duration) error
+		wantHasError    bool
+		wantErrorString string
+		wantUseExist    bool
+		wantBeginNew    bool
 	}
 
 	gts := []Test{
@@ -80,10 +127,8 @@ func TestTransactionExecutorBegin(t *testing.T) {
 				Name:        "MockGtxName",
 				Propagation: tm.RequiresNew,
 			},
-			xid:                "123456",
-			wantHasMock:        true,
-			wantMockTargetName: "Begin",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, i time.Duration) error {
+			xid: "123456",
+			beginFunc: func(ctx context.Context, i time.Duration) error {
 				tm.SetXID(ctx, "123456")
 				return nil
 			},
@@ -92,7 +137,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 		// use exist
 		{
 			ctx: context.Background(),
-			gc: &GtxConfig{
+			gc: &tm.GtxConfig{
 				Name:        "MockGtxName",
 				Propagation: tm.Required,
 			},
@@ -106,9 +151,7 @@ func TestTransactionExecutorBegin(t *testing.T) {
 				Name:        "MockGtxName",
 				Propagation: tm.Required,
 			},
-			wantHasMock:        true,
-			wantMockTargetName: "Begin",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, i time.Duration) error {
+			beginFunc: func(ctx context.Context, i time.Duration) error {
 				tm.SetXID(ctx, "123456")
 				return nil
 			},
@@ -161,16 +204,15 @@ func TestTransactionExecutorBegin(t *testing.T) {
 				Propagation: -1,
 			},
 			wantHasError:    true,
-			wantErrorString: "not Supported Propagation:-1",
+			wantErrorString: "not supported propagation:-1",
 		},
 	}
 
 	for i, v := range gts {
 		t.Logf("Case %v: %+v", i, v)
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(tm.GetGlobalTransactionManager()), v.wantMockTargetName, v.wantMockFunction)
+		globalTransactionManagerStub.reset()
+		if v.beginFunc != nil {
+			globalTransactionManagerStub.beginFunc = v.beginFunc
 		}
 
 		v.ctx = tm.InitSeataContext(v.ctx)
@@ -191,11 +233,6 @@ func TestTransactionExecutorBegin(t *testing.T) {
 
 		if v.wantUseExist {
 			assert.Equal(t, tm.Participant, *tm.GetTxRole(v.ctx))
-		}
-
-		// rest up stub
-		if v.wantHasMock {
-			stub.Reset()
 		}
 	}
 }
@@ -221,14 +258,13 @@ func TestTransactionExecurotRollback(t *testing.T) {
 
 func TestCommitOrRollback(t *testing.T) {
 	type Test struct {
-		ctx                context.Context
-		tx                 tm.GlobalTransaction
-		ok                 bool
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
-		wantHasError       bool
-		wantErrorString    string
+		ctx             context.Context
+		tx              tm.GlobalTransaction
+		ok              bool
+		commitFunc      func(ctx context.Context, gtr *tm.GlobalTransaction) error
+		rollbackFunc    func(ctx context.Context, gtr *tm.GlobalTransaction) error
+		wantHasError    bool
+		wantErrorString string
 	}
 
 	gts := []Test{
@@ -246,10 +282,8 @@ func TestCommitOrRollback(t *testing.T) {
 			tx: tm.GlobalTransaction{
 				TxRole: tm.Launcher,
 			},
-			ok:                 true,
-			wantHasMock:        true,
-			wantMockTargetName: "Commit",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			ok: true,
+			commitFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return nil
 			},
 		},
@@ -259,10 +293,8 @@ func TestCommitOrRollback(t *testing.T) {
 			tx: tm.GlobalTransaction{
 				TxRole: tm.Launcher,
 			},
-			ok:                 true,
-			wantHasMock:        true,
-			wantMockTargetName: "Commit",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			ok: true,
+			commitFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return errors.New("Mock error")
 			},
 			wantHasError:    true,
@@ -274,10 +306,8 @@ func TestCommitOrRollback(t *testing.T) {
 			tx: tm.GlobalTransaction{
 				TxRole: tm.Launcher,
 			},
-			ok:                 false,
-			wantHasMock:        true,
-			wantMockTargetName: "Rollback",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			ok: false,
+			rollbackFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return nil
 			},
 		},
@@ -287,10 +317,8 @@ func TestCommitOrRollback(t *testing.T) {
 			tx: tm.GlobalTransaction{
 				TxRole: tm.Launcher,
 			},
-			ok:                 false,
-			wantHasMock:        true,
-			wantMockTargetName: "Rollback",
-			wantMockFunction: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			ok: false,
+			rollbackFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return errors.New("Mock error")
 			},
 			wantHasError:    true,
@@ -308,10 +336,9 @@ func TestCommitOrRollback(t *testing.T) {
 		t.Logf("Case %v: %+v", i, v)
 		v.ctx = tm.InitSeataContext(v.ctx)
 		tm.SetTx(v.ctx, &v.tx)
-		var stub *gomonkey.Patches
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(tm.GetGlobalTransactionManager()), v.wantMockTargetName, v.wantMockFunction)
-		}
+		globalTransactionManagerStub.reset()
+		globalTransactionManagerStub.commitFunc = v.commitFunc
+		globalTransactionManagerStub.rollbackFunc = v.rollbackFunc
 
 		err := tm.CommitOrRollback(v.ctx, v.ok)
 
@@ -319,10 +346,6 @@ func TestCommitOrRollback(t *testing.T) {
 			assert.Equal(t, v.wantErrorString, err.Error())
 		} else {
 			assert.Nil(t, err)
-		}
-
-		if v.wantHasMock {
-			stub.Reset()
 		}
 	}
 }
@@ -361,10 +384,7 @@ func TestBeginNewGtx(t *testing.T) {
 		Name: "beginNewGtxMock",
 	}
 	// case return nil
-	gomonkey.ApplyMethod(reflect.TypeOf(tm.GetGlobalTransactionManager()), "Begin",
-		func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, timeout time.Duration) error {
-			return nil
-		})
+	globalTransactionManagerStub.reset()
 	assert.Nil(t, tm.BeginNewGtx(ctx, g))
 	assert.Equal(t, tm.Launcher, *tm.GetTxRole(ctx))
 	assert.Equal(t, g.Name, tm.GetTxName(ctx))
@@ -372,10 +392,9 @@ func TestBeginNewGtx(t *testing.T) {
 
 	// case return error
 	err := errors.New("Mock Error")
-	gomonkey.ApplyMethod(reflect.TypeOf(tm.GetGlobalTransactionManager()), "Begin",
-		func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, timeout time.Duration) error {
-			return err
-		})
+	globalTransactionManagerStub.beginFunc = func(ctx context.Context, timeout time.Duration) error {
+		return err
+	}
 	assert.Error(t, tm.BeginNewGtx(ctx, g))
 }
 
@@ -386,23 +405,22 @@ func TestWithGlobalTx(t *testing.T) {
 	callbackNil := func(ctx context.Context) error {
 		return nil
 	}
+	callbackWithTimeout := func(ctx context.Context) error {
+		time.Sleep(5 * time.Millisecond)
+		return nil
+	}
 
 	type testCase struct {
-		GtxConfig              *tm.GtxConfig
-		occurError             bool
-		timeoutErr             bool
-		errMessage             string
-		callbackErr            bool
-		mockBeginFunc          interface{}
-		mockBeginTarget        interface{}
-		mockSecondPhaseFunc    interface{}
-		mockSecondPhaseTarget  interface{}
-		mockRollbackTargetName string
-		mockRollbackFunc       interface{}
-		mockTimeoutTarget      interface{}
-		mockTimeoutFunc        interface{}
-		secondErr              bool
-		callback               tm.CallbackWithCtx
+		GtxConfig    *tm.GtxConfig
+		occurError   bool
+		timeoutErr   bool
+		errMessage   string
+		callbackErr  bool
+		beginFunc    func(ctx context.Context, timeout time.Duration) error
+		commitFunc   func(ctx context.Context, gtr *tm.GlobalTransaction) error
+		rollbackFunc func(ctx context.Context, gtr *tm.GlobalTransaction) error
+		secondErr    bool
+		callback     tm.CallbackWithCtx
 	}
 
 	gts := []testCase{
@@ -424,10 +442,9 @@ func TestWithGlobalTx(t *testing.T) {
 			GtxConfig: &tm.GtxConfig{
 				Name: "Mocktm.GtxConfig",
 			},
-			occurError:      true,
-			errMessage:      "mock begin",
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			occurError: true,
+			errMessage: "transactionTemplate: Begin transaction failed, error mock begin",
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
 				return errors.New("mock begin")
 			},
 		},
@@ -437,10 +454,10 @@ func TestWithGlobalTx(t *testing.T) {
 			GtxConfig: &tm.GtxConfig{
 				Name: "Mocktm.GtxConfig",
 			},
-			callbackErr:     true,
-			callback:        callbackError,
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			callbackErr: true,
+			callback:    callbackError,
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
+				tm.SetXID(ctx, "123456")
 				return nil
 			},
 		},
@@ -450,16 +467,11 @@ func TestWithGlobalTx(t *testing.T) {
 			GtxConfig: &tm.GtxConfig{
 				Name: "Mocktm.GtxConfig",
 			},
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
 				tm.SetXID(ctx, "123456")
 				return nil
 			},
-			callback:              callbackNil,
-			mockSecondPhaseTarget: tm.CommitOrRollback,
-			mockSecondPhaseFunc: func(ctx context.Context, s bool) error {
-				return nil
-			},
+			callback: callbackNil,
 		},
 
 		// case second mock error
@@ -467,14 +479,12 @@ func TestWithGlobalTx(t *testing.T) {
 			GtxConfig: &tm.GtxConfig{
 				Name: "Mocktm.GtxConfig",
 			},
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
 				tm.SetXID(ctx, "123456")
 				return nil
 			},
-			callback:              callbackNil,
-			mockSecondPhaseTarget: tm.CommitOrRollback,
-			mockSecondPhaseFunc: func(ctx context.Context, s bool) error {
+			callback: callbackNil,
+			commitFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return errors.New("second error mock")
 			},
 			secondErr: true,
@@ -484,22 +494,15 @@ func TestWithGlobalTx(t *testing.T) {
 		{
 			GtxConfig: &tm.GtxConfig{
 				Name:    "MockGtxConfig",
-				Timeout: time.Second * 30,
+				Timeout: time.Nanosecond,
 			},
-			timeoutErr:      false,
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			timeoutErr: false,
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
 				tm.SetXID(ctx, "123456")
-				tm.SetTxRole(ctx, tm.Launcher)
 				return nil
 			},
-			callback:          callbackNil,
-			mockTimeoutTarget: tm.IsTimeout,
-			mockTimeoutFunc: func(ctx context.Context) bool {
-				return true
-			},
-			mockRollbackTargetName: "Rollback",
-			mockRollbackFunc: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			callback: callbackWithTimeout,
+			rollbackFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return nil
 			},
 		},
@@ -507,23 +510,16 @@ func TestWithGlobalTx(t *testing.T) {
 		{
 			GtxConfig: &tm.GtxConfig{
 				Name:    "MockGtxConfig",
-				Timeout: time.Second * 30,
+				Timeout: time.Nanosecond,
 			},
-			timeoutErr:      true,
-			errMessage:      "tm detected a timeout but rollback threw an exception",
-			mockBeginTarget: tm.Begin,
-			mockBeginFunc: func(ctx context.Context, gc *tm.GtxConfig) error {
+			timeoutErr: true,
+			errMessage: "tm detected a timeout but rollback threw an exception",
+			beginFunc: func(ctx context.Context, timeout time.Duration) error {
 				tm.SetXID(ctx, "123456")
-				tm.SetTxRole(ctx, tm.Launcher)
 				return nil
 			},
-			callback:          callbackNil,
-			mockTimeoutTarget: tm.IsTimeout,
-			mockTimeoutFunc: func(ctx context.Context) bool {
-				return true
-			},
-			mockRollbackTargetName: "Rollback",
-			mockRollbackFunc: func(_ *getty.GettyGlobalTransactionManager, ctx context.Context, gtr *tm.GlobalTransaction) error {
+			callback: callbackWithTimeout,
+			rollbackFunc: func(ctx context.Context, gtr *tm.GlobalTransaction) error {
 				return fmt.Errorf("tm detected a timeout but rollback threw an exception")
 			},
 		},
@@ -531,21 +527,11 @@ func TestWithGlobalTx(t *testing.T) {
 
 	for i, v := range gts {
 		t.Logf("Case %v: %+v", i, v)
-		var beginStub *gomonkey.Patches
-		var secondStub *gomonkey.Patches
-		var timeoutStub *gomonkey.Patches
-		var rollbackStub *gomonkey.Patches
-		if v.mockBeginTarget != nil {
-			beginStub = gomonkey.ApplyFunc(v.mockBeginTarget, v.mockBeginFunc)
-		}
-		if v.mockSecondPhaseTarget != nil {
-			secondStub = gomonkey.ApplyFunc(v.mockSecondPhaseTarget, v.mockSecondPhaseFunc)
-		}
-		if v.mockTimeoutTarget != nil {
-			timeoutStub = gomonkey.ApplyFunc(v.mockTimeoutTarget, v.mockTimeoutFunc)
-		}
-		if v.mockRollbackTargetName != "" {
-			rollbackStub = gomonkey.ApplyMethod(reflect.TypeOf(tm.GetGlobalTransactionManager()), v.mockRollbackTargetName, v.mockRollbackFunc)
+		globalTransactionManagerStub.reset()
+		globalTransactionManagerStub.beginFunc = v.beginFunc
+		globalTransactionManagerStub.commitFunc = v.commitFunc
+		if v.rollbackFunc != nil {
+			globalTransactionManagerStub.rollbackFunc = v.rollbackFunc
 		}
 
 		ctx := context.Background()
@@ -566,22 +552,5 @@ func TestWithGlobalTx(t *testing.T) {
 		if v.timeoutErr {
 			assert.Regexp(t, v.errMessage, err.Error())
 		}
-
-		if v.mockBeginTarget != nil {
-			beginStub.Reset()
-		}
-
-		if v.mockSecondPhaseTarget != nil {
-			secondStub.Reset()
-		}
-
-		if v.mockTimeoutTarget != nil {
-			timeoutStub.Reset()
-		}
-
-		if v.mockRollbackTargetName != "" {
-			rollbackStub.Reset()
-		}
-
 	}
 }

@@ -39,7 +39,6 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			expected: Config{
 				ReconnectInterval: 0,
 				ConnectionNum:     1,
-				LoadBalanceType:   "XID",
 			},
 		},
 		{
@@ -47,12 +46,10 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			args: []string{
 				"-remoting.reconnect-interval=5000",
 				"-remoting.connection-num=10",
-				"-remoting.load-balance-type=ROUND_ROBIN",
 			},
 			expected: Config{
 				ReconnectInterval: 5000,
 				ConnectionNum:     10,
-				LoadBalanceType:   "ROUND_ROBIN",
 			},
 		},
 	}
@@ -65,7 +62,6 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			_ = fs.Parse(tt.args)
 			assert.Equal(t, tt.expected.ReconnectInterval, cfg.ReconnectInterval)
 			assert.Equal(t, tt.expected.ConnectionNum, cfg.ConnectionNum)
-			assert.Equal(t, tt.expected.LoadBalanceType, cfg.LoadBalanceType)
 		})
 	}
 }
@@ -191,14 +187,12 @@ func TestSeataConfig_InitAndGet(t *testing.T) {
 				TxServiceGroup:       "group",
 				ServiceVgroupMapping: flagext.StringMap{"a": "b"},
 				ServiceGrouplist:     flagext.StringMap{"x": "y"},
-				LoadBalanceType:      "RANDOM",
 			},
 			expected: &SeataConfig{
 				ApplicationID:        "app",
 				TxServiceGroup:       "group",
 				ServiceVgroupMapping: flagext.StringMap{"a": "b"},
 				ServiceGrouplist:     flagext.StringMap{"x": "y"},
-				LoadBalanceType:      "RANDOM",
 			},
 		},
 	}
@@ -207,7 +201,7 @@ func TestSeataConfig_InitAndGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			seataConfig = nil
 			if tt.initConf != nil {
-				InitConfig(tt.initConf)
+				InitSeataConfig(tt.initConf)
 			}
 			got := GetSeataConfig()
 			if tt.expected == nil {
@@ -216,7 +210,6 @@ func TestSeataConfig_InitAndGet(t *testing.T) {
 			}
 			assert.Equal(t, tt.expected.ApplicationID, got.ApplicationID)
 			assert.Equal(t, tt.expected.TxServiceGroup, got.TxServiceGroup)
-			assert.Equal(t, tt.expected.LoadBalanceType, got.LoadBalanceType)
 			assert.Equal(t, tt.expected.ServiceVgroupMapping, got.ServiceVgroupMapping)
 			assert.Equal(t, tt.expected.ServiceGrouplist, got.ServiceGrouplist)
 		})
