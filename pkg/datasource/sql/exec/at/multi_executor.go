@@ -39,7 +39,9 @@ func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecCont
 
 // ExecContext exec SQL, and generate before image and after image
 func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	m.beforeHooks(ctx, m.execContext)
+	if err := m.beforeHooks(ctx, m.execContext); err != nil {
+		return nil, err
+	}
 
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
