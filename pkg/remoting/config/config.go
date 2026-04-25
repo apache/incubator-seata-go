@@ -20,11 +20,7 @@ package config
 import (
 	"flag"
 	"time"
-
-	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
-
-var seataConfig *SeataConfig
 
 type Config struct {
 	ReconnectInterval int           `yaml:"reconnect-interval" json:"reconnect-interval" koanf:"reconnect-interval"`
@@ -75,19 +71,9 @@ func (cfg *TransportConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagS
 	f.DurationVar(&cfg.RPCTmRequestTimeout, prefix+".rpc-tm-request-timeout", 30*time.Second, "TM send request timeout.")
 }
 
-// todo refactor config
+// SeataConfig represents the identity of a seata client,
+// including application ID and transaction service group.
 type SeataConfig struct {
-	ApplicationID        string
-	TxServiceGroup       string
-	ServiceVgroupMapping flagext.StringMap
-	ServiceGrouplist     flagext.StringMap
-	LoadBalanceType      string
-}
-
-func InitConfig(seataConf *SeataConfig) {
-	seataConfig = seataConf
-}
-
-func GetSeataConfig() *SeataConfig {
-	return seataConfig
+	ApplicationID  string
+	TxServiceGroup string
 }
