@@ -63,8 +63,7 @@ func TestGrpcRemotingClient_SendAsyncResponse(t *testing.T) {
 	assert.Empty(t, err)
 }
 
-// TestGrpcRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
-func TestGrpcRemotingClient_SendAsyncRequest(t *testing.T) {
+func TestAsyncRequestType(t *testing.T) {
 	tests := []struct {
 		name         string
 		message      interface{}
@@ -83,18 +82,21 @@ func TestGrpcRemotingClient_SendAsyncRequest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var capturedType message.RequestType
-			patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
-				func(_ *GrpcRemoting, msg message.RpcMessage, s *Channel, callback callbackMethod) error {
-					capturedType = msg.Type
-					return nil
-				})
-			defer patches.Reset()
-			err := GetGrpcRemotingClient().SendAsyncRequest(test.message)
-			assert.Empty(t, err)
-			assert.Equal(t, test.expectedType, capturedType)
+			assert.Equal(t, test.expectedType, asyncRequestType(test.message))
 		})
 	}
+}
+
+// TestGrpcRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
+func TestGrpcRemotingClient_SendAsyncRequest(t *testing.T) {
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
+		func(_ *GrpcRemoting, msg message.RpcMessage, s *Channel, callback callbackMethod) error {
+			return nil
+		})
+	defer patches.Reset()
+
+	assert.Empty(t, GetGrpcRemotingClient().SendAsyncRequest(&pb.HeartbeatMessageProto{}))
+	assert.Empty(t, GetGrpcRemotingClient().SendAsyncRequest("message"))
 }
 
 // Test_syncCallback unit test for syncCallback function

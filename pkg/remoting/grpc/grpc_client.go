@@ -53,21 +53,22 @@ func GetGrpcRemotingClient() *GrpcRemotingClient {
 }
 
 func (client *GrpcRemotingClient) SendAsyncRequest(msg interface{}) error {
-	var msgType message.RequestType
-	if isHeartbeatRequest(msg) {
-		msgType = message.RequestTypeHeartbeatRequest
-	} else {
-		msgType = message.RequestTypeRequestOneway
-	}
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
-		Type:       msgType,
+		Type:       asyncRequestType(msg),
 		Codec:      byte(codec.CodecTypeGRPC),
 		Compressor: 0,
 		HeadMap:    make(map[string]string),
 		Body:       msg,
 	}
 	return client.grpcRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
+}
+
+func asyncRequestType(msg interface{}) message.RequestType {
+	if isHeartbeatRequest(msg) {
+		return message.RequestTypeHeartbeatRequest
+	}
+	return message.RequestTypeRequestOneway
 }
 
 func isHeartbeatRequest(msg interface{}) bool {

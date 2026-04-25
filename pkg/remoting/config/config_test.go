@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
@@ -38,6 +39,7 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			expected: Config{
 				ReconnectInterval: 0,
 				ConnectionNum:     1,
+				LoadBalanceType:   "XID",
 			},
 		},
 		{
@@ -105,6 +107,7 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			name: "Defaults",
 			args: []string{},
 			expected: TransportConfig{
+				Protocol:                       "seata",
 				Type:                           "TCP",
 				Server:                         "NIO",
 				Heartbeat:                      true,
@@ -120,6 +123,7 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 		{
 			name: "Custom Values",
 			args: []string{
+				"-transport.protocol=grpc",
 				"-transport.type=UDP",
 				"-transport.server=NETTY",
 				"-transport.heartbeat=false",
@@ -132,6 +136,7 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 				"-transport.shutdown.wait=5s",
 			},
 			expected: TransportConfig{
+				Protocol:                       "grpc",
 				Type:                           "UDP",
 				Server:                         "NETTY",
 				Heartbeat:                      false,
@@ -152,6 +157,7 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			fs := flag.NewFlagSet("test", flag.ContinueOnError)
 			cfg.RegisterFlagsWithPrefix("transport", fs)
 			_ = fs.Parse(tt.args)
+			assert.Equal(t, tt.expected.Protocol, cfg.Protocol)
 			assert.Equal(t, tt.expected.Type, cfg.Type)
 			assert.Equal(t, tt.expected.Server, cfg.Server)
 			assert.Equal(t, tt.expected.Heartbeat, cfg.Heartbeat)
@@ -169,24 +175,21 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 func TestSeataConfig_InitAndGet(t *testing.T) {
 	tests := []struct {
 		name     string
-		config   SeataConfig
-		expected SeataConfig
+		initConf *SeataConfig
+		expected *SeataConfig
 	}{
 		{
-			name:   "Empty Config",
-			config: SeataConfig{},
-			expected: SeataConfig{
-				ApplicationID:  "",
-				TxServiceGroup: "",
-			},
+			name:     "Nil Config",
+			initConf: nil,
+			expected: nil,
 		},
 		{
 			name: "Basic Config",
-			config: SeataConfig{
+			initConf: &SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
-			expected: SeataConfig{
+			expected: &SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
@@ -210,8 +213,6 @@ func TestSeataConfig_InitAndGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected.ApplicationID, tt.config.ApplicationID)
-			assert.Equal(t, tt.expected.TxServiceGroup, tt.config.TxServiceGroup)
 			seataConfig = nil
 			if tt.initConf != nil {
 				InitSeataConfig(tt.initConf)

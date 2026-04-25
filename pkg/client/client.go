@@ -91,7 +91,7 @@ func initRemoting(cfg *Config) {
 	case protocol.ProtocolGRPC:
 		grpc.InitGrpc(&cfg.RemotingConfig)
 	default:
-		getty.InitGetty(&cfg.RemotingConfig)
+		getty.InitGetty(&cfg.RemotingConfig, &seataConfig)
 	}
 }
 
