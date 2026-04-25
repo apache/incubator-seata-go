@@ -18,19 +18,22 @@
 package discovery
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	gostnet "github.com/dubbogo/gost/net"
-	"go.uber.org/zap"
 	"net/http"
 	"net/url"
-	"seata.apache.org/seata-go/v2/pkg/util/rand"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	gostnet "github.com/dubbogo/gost/net"
+	"go.uber.org/zap"
+
+	"seata.apache.org/seata-go/v2/pkg/util/rand"
 )
 
 const (
@@ -101,15 +104,17 @@ type NamingServerClient struct {
 	mu                       sync.Mutex
 	instance                 *NamingServerClient
 	term                     int64
-	jwtToken                 string
 	tokenTimeStamp           int64
-	isSubscribed             bool
 	namingAddrCache          string
 	namingAddrCacheTimestamp int64
 
 	availableNamingMap sync.Map
 	vgroupAddressMap   sync.Map
 	listenerServiceMap sync.Map
+	subscribedVGroups  sync.Map
+
+	tokenMu  sync.RWMutex
+	jwtToken string
 
 	healthCheckTicker *time.Ticker
 	closeChan         chan struct{}
@@ -127,7 +132,18 @@ type NamingServerRegistryService struct {
 	client *NamingServerClient
 }
 
-var _ NamingserverRegistry = (*NamingServerRegistryService)(nil)
+var _ NamingServerRegistry = (*NamingServerRegistryService)(nil)
+
+func buildNamingServerURL(addr string, elem ...string) (string, error) {
+	baseURL := strings.TrimSpace(addr)
+	if baseURL == "" {
+		return "", fmt.Errorf("naming server address is empty")
+	}
+	if !strings.Contains(baseURL, "://") {
+		baseURL = httpPrefix + baseURL
+	}
+	return url.JoinPath(baseURL, elem...)
+}
 
 func (n *NamingServerRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	return n.client.Lookup(key)
@@ -230,7 +246,11 @@ func (c *NamingServerClient) checkAvailableNamingAddr(urlList []string) {
 }
 
 func (c *NamingServerClient) doHealthCheck(addr string) bool {
-	checkURL := fmt.Sprintf("%s%s/naming/v1/health", httpPrefix, addr)
+	checkURL, err := buildNamingServerURL(addr, "naming", "v1", "health")
+	if err != nil {
+		c.logger.Error("build health check url failed", zap.String("addr", addr), zap.Error(err))
+		return false
+	}
 
 	req, err := http.NewRequest(http.MethodGet, checkURL, nil)
 	if err != nil {
@@ -249,18 +269,21 @@ func (c *NamingServerClient) doHealthCheck(addr string) bool {
 }
 
 func (c *NamingServerClient) getNamingAddrs() []string {
-	return strings.Split(c.config.ServerAddr, ",")
+	parts := strings.Split(c.config.ServerAddr, ",")
+	addrs := make([]string, 0, len(parts))
+	for _, part := range parts {
+		addr := strings.TrimSpace(part)
+		if addr == "" {
+			continue
+		}
+		addrs = append(addrs, addr)
+	}
+	return addrs
 }
 
 func (c *NamingServerClient) Lookup(vGroup string) ([]*ServiceInstance, error) {
-	if !c.isSubscribed {
-		if err := c.RefreshGroup(vGroup); err != nil {
-			return nil, fmt.Errorf("refresh group failed: %w", err)
-		}
-		listener := &RefreshListener{client: c}
-		if err := c.Subscribe(vGroup, listener); err != nil {
-			return nil, fmt.Errorf("subscribe failed: %w", err)
-		}
+	if err := c.Subscribe(vGroup, nil); err != nil {
+		return nil, fmt.Errorf("subscribe failed: %w", err)
 	}
 
 	val, ok := c.vgroupAddressMap.Load(vGroup)
@@ -311,13 +334,22 @@ func (c *NamingServerClient) RefreshGroup(vGroup string) error {
 	params.Add("vGroup", vGroup)
 	params.Add("namespace", c.config.Namespace)
 
-	discoveryURL := fmt.Sprintf("%s%s/naming/v1/discovery?%s", httpPrefix, namingAddr, params.Encode())
-	req, err := http.NewRequest(http.MethodGet, discoveryURL, nil)
+	discoveryURL, err := buildNamingServerURL(namingAddr, "naming", "v1", "discovery")
 	if err != nil {
 		return err
 	}
-	if c.jwtToken != "" {
-		req.Header.Set(authorizationHeader, c.jwtToken)
+	discoveryReqURL, err := url.Parse(discoveryURL)
+	if err != nil {
+		return fmt.Errorf("parse discovery url failed: %w", err)
+	}
+	discoveryReqURL.RawQuery = params.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, discoveryReqURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	if jwtToken := c.getJWTToken(); jwtToken != "" {
+		req.Header.Set(authorizationHeader, jwtToken)
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
 
@@ -386,6 +418,18 @@ func (c *NamingServerClient) clearNamingAddrCache() {
 	c.namingAddrCacheTimestamp = 0
 }
 
+func (c *NamingServerClient) getJWTToken() string {
+	c.tokenMu.RLock()
+	defer c.tokenMu.RUnlock()
+	return c.jwtToken
+}
+
+func (c *NamingServerClient) setJWTToken(token string) {
+	c.tokenMu.Lock()
+	c.jwtToken = token
+	c.tokenMu.Unlock()
+}
+
 func (c *NamingServerClient) isTokenExpired() bool {
 	if c.config.Username == "" || c.config.Password == "" {
 		return false
@@ -429,7 +473,10 @@ func (c *NamingServerClient) RefreshToken(addr string) error {
 }
 
 func (c *NamingServerClient) doRefreshToken(addr string) error {
-	loginURL := fmt.Sprintf("%s%s/api/v1/auth/login", httpPrefix, addr)
+	loginURL, err := buildNamingServerURL(addr, "api", "v1", "auth", "login")
+	if err != nil {
+		return err
+	}
 
 	loginReq := struct {
 		Username string `json:"username"`
@@ -444,7 +491,7 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 		return fmt.Errorf("marshal login request failed: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, loginURL, strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, loginURL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -478,7 +525,8 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 		zap.Bool("success", loginResp.Success),
 		zap.String("code", fmt.Sprint(loginResp.Code)),
 		zap.String("msg", loginResp.Msg),
-		zap.String("data", loginResp.Data))
+		zap.Bool("tokenPresent", loginResp.Data != ""),
+		zap.Int("tokenLength", len(loginResp.Data)))
 
 	if !loginResp.Success {
 		errMsg := fmt.Sprintf("authentication failed: success=false, msg=%s", loginResp.Msg)
@@ -489,7 +537,7 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 		return fmt.Errorf("authentication failed: token is empty")
 	}
 
-	c.jwtToken = loginResp.Data
+	c.setJWTToken(loginResp.Data)
 	atomic.StoreInt64(&c.tokenTimeStamp, time.Now().UnixMilli())
 	c.logger.Info("token refreshed successfully", zap.String("addr", addr))
 	return nil
@@ -516,24 +564,19 @@ func (c *NamingServerClient) handleMetadata(metaResp *MetaResponse, vGroup strin
 	return nil
 }
 
-type RefreshListener struct {
-	client *NamingServerClient
-}
-
-func (l *RefreshListener) OnEvent(vGroup string) error {
-	return l.client.RefreshGroup(vGroup)
-}
-
 func (c *NamingServerClient) Subscribe(vGroup string, listener NamingListener) error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	if listener != nil {
+		var listeners []NamingListener
+		if val, ok := c.listenerServiceMap.Load(vGroup); ok {
+			listeners = append(listeners, val.([]NamingListener)...)
+		}
+		listeners = append(listeners, listener)
+		c.listenerServiceMap.Store(vGroup, listeners)
+	}
+	c.mu.Unlock()
 
-	val, _ := c.listenerServiceMap.LoadOrStore(vGroup, []NamingListener{})
-	listeners := append(val.([]NamingListener), listener)
-	c.listenerServiceMap.Store(vGroup, listeners)
-
-	if !c.isSubscribed {
-		c.isSubscribed = true
+	if _, loaded := c.subscribedVGroups.LoadOrStore(vGroup, struct{}{}); !loaded {
 		c.wg.Add(1)
 		go c.watchLoop(vGroup)
 	}
@@ -611,13 +654,22 @@ func (c *NamingServerClient) Watch(vGroup string) (bool, error) {
 	params.Add("timeout", strconv.FormatInt(longPollTimeoutPeriod.Milliseconds(), 10))
 	params.Add("clientAddr", clientIP)
 
-	watchURL := fmt.Sprintf("%s%s/naming/v1/watch?%s", httpPrefix, namingAddr, params.Encode())
-	req, err := http.NewRequest(http.MethodPost, watchURL, nil)
+	watchURL, err := buildNamingServerURL(namingAddr, "naming", "v1", "watch")
 	if err != nil {
 		return false, err
 	}
-	if c.jwtToken != "" {
-		req.Header.Set(authorizationHeader, c.jwtToken)
+	watchReqURL, err := url.Parse(watchURL)
+	if err != nil {
+		return false, fmt.Errorf("parse watch url failed: %w", err)
+	}
+	watchReqURL.RawQuery = params.Encode()
+
+	req, err := http.NewRequest(http.MethodPost, watchReqURL.String(), nil)
+	if err != nil {
+		return false, err
+	}
+	if jwtToken := c.getJWTToken(); jwtToken != "" {
+		req.Header.Set(authorizationHeader, jwtToken)
 	}
 	req.Header.Set("Content-Type", contentTypeJSON)
 
@@ -647,13 +699,11 @@ func (c *NamingServerClient) Close() {
 }
 
 func (n *NamingServerRegistryService) Register(instance *ServiceInstance) error {
-	//TODO implement me
-	panic("implement me")
+	return errors.New("register is not supported by NamingServerRegistryService")
 }
 
 func (n *NamingServerRegistryService) Deregister(instance *ServiceInstance) error {
-	//TODO implement me
-	panic("implement me")
+	return errors.New("deregister is not supported by NamingServerRegistryService")
 }
 
 func (n *NamingServerRegistryService) doHealthCheck(addr string) bool {

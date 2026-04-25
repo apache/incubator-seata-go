@@ -20,14 +20,18 @@ package discovery
 import (
 	"encoding/json"
 	"flag"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // fake config for tests
@@ -41,16 +45,47 @@ var testConfig = &NamingServerConfig{
 	MetadataMaxAgeMs:            1000,
 }
 
+func cloneTestConfig() *NamingServerConfig {
+	cfg := *testConfig
+	return &cfg
+}
+
 // Test getNamingAddrs splits config.ServerAddr
 func TestGetNamingAddrs(t *testing.T) {
+	cfg := cloneTestConfig()
+	cfg.ServerAddr = "127.0.0.1:8080, localhost:9090 , ,http://127.0.0.1:8081 "
 	client := &NamingServerClient{
-		config:         testConfig,
+		config:         cfg,
 		httpClient:     &http.Client{Timeout: 3 * time.Second},
 		longPollClient: &http.Client{Timeout: 30 * time.Second},
 	}
 	addrs := client.getNamingAddrs()
-	if len(addrs) != 2 {
-		t.Errorf("expected 2 addresses, got %d", len(addrs))
+	expected := []string{"127.0.0.1:8080", "localhost:9090", "http://127.0.0.1:8081"}
+	if len(addrs) != len(expected) {
+		t.Fatalf("expected %d addresses, got %d", len(expected), len(addrs))
+	}
+	for i, addr := range expected {
+		if addrs[i] != addr {
+			t.Errorf("expected address %q at index %d, got %q", addr, i, addrs[i])
+		}
+	}
+}
+
+func TestBuildNamingServerURL(t *testing.T) {
+	urlWithoutScheme, err := buildNamingServerURL("127.0.0.1:8081", "naming", "v1", "health")
+	if err != nil {
+		t.Fatalf("unexpected error for host:port address: %v", err)
+	}
+	if urlWithoutScheme != "http://127.0.0.1:8081/naming/v1/health" {
+		t.Fatalf("unexpected url without scheme: %s", urlWithoutScheme)
+	}
+
+	urlWithScheme, err := buildNamingServerURL("http://127.0.0.1:8081", "naming", "v1", "health")
+	if err != nil {
+		t.Fatalf("unexpected error for full url address: %v", err)
+	}
+	if urlWithScheme != "http://127.0.0.1:8081/naming/v1/health" {
+		t.Fatalf("unexpected url with scheme: %s", urlWithScheme)
 	}
 }
 
@@ -104,6 +139,9 @@ func TestDoHealthCheck(t *testing.T) {
 	}
 	if !client.doHealthCheck(addr) {
 		t.Error("expected healthy server to return true")
+	}
+	if !client.doHealthCheck(httpPrefix + addr) {
+		t.Error("expected healthy server with explicit scheme to return true")
 	}
 
 	// unhealthy server
@@ -300,6 +338,14 @@ func TestLookup_FirstCall(t *testing.T) {
 				t.Errorf("Failed to encode response: %v", err)
 			}
 
+		case "/naming/v1/watch":
+			if r.Header.Get(authorizationHeader) != "mock-jwt-token" {
+				t.Errorf("watch request missing valid token: %s", r.Header.Get(authorizationHeader))
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			w.WriteHeader(http.StatusNotModified)
+
 		case "/naming/v1/health":
 			w.WriteHeader(http.StatusOK)
 
@@ -312,8 +358,10 @@ func TestLookup_FirstCall(t *testing.T) {
 
 	// Configure client to use mock server
 	mockAddr := mockServer.Listener.Addr().String()
-	testConfig.ServerAddr = mockAddr
-	client := GetInstance(testConfig)
+	cfg := cloneTestConfig()
+	cfg.ServerAddr = mockAddr
+	client := GetInstance(cfg)
+	defer resetInstance()
 	client.logger = zap.NewNop()
 	client.availableNamingMap.Store(mockAddr, int32(0))
 	client.namingAddrCache = mockAddr
@@ -376,13 +424,13 @@ func TestRefreshToken_Success(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	client := GetInstance(testConfig)
+	client := GetInstance(cloneTestConfig())
 	client.logger = zap.NewNop()
 	err := client.RefreshToken(mockServer.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("RefreshToken failed: %v", err)
 	}
-	if client.jwtToken != "mock-jwt-token" {
+	if client.getJWTToken() != "mock-jwt-token" {
 		t.Error("jwtToken not updated after login")
 	}
 }
@@ -405,7 +453,7 @@ func TestRefreshToken_RetryMechanism(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	client := GetInstance(testConfig)
+	client := GetInstance(cloneTestConfig())
 	client.logger = zap.NewNop()
 	err := client.RefreshToken(mockServer.Listener.Addr().String())
 	if err != nil {
@@ -414,7 +462,7 @@ func TestRefreshToken_RetryMechanism(t *testing.T) {
 	if attemptCount != 3 {
 		t.Errorf("Expected 3 attempts, got %d", attemptCount)
 	}
-	if client.jwtToken != "retry-success-token" {
+	if client.getJWTToken() != "retry-success-token" {
 		t.Error("jwtToken not updated after retry success")
 	}
 }
@@ -466,8 +514,9 @@ func TestWatch(t *testing.T) {
 
 	// Configure client
 	mockAddr := mockServer.Listener.Addr().String()
-	testConfig.ServerAddr = mockAddr
-	client := GetInstance(testConfig)
+	cfg := cloneTestConfig()
+	cfg.ServerAddr = mockAddr
+	client := GetInstance(cfg)
 	client.logger = zap.NewNop()
 	client.availableNamingMap.Store(mockAddr, int32(0))
 	client.namingAddrCache = mockAddr
@@ -492,7 +541,7 @@ func TestWatch_ErrorResponse(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	client := GetInstance(testConfig)
+	client := GetInstance(cloneTestConfig())
 	client.logger = zap.NewNop()
 	mockAddr := mockServer.Listener.Addr().String()
 	client.availableNamingMap.Store(mockAddr, int32(0))
@@ -593,7 +642,10 @@ func TestNamingServerConfig_DefaultValues(t *testing.T) {
 	var tmpConfig struct {
 		NamingServer NamingServerConfig `yaml:"naming-server"`
 	}
-	data, _ := os.ReadFile(tmpFile.Name())
+	data, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read temp file: %v", err)
+	}
 	if err := yaml.Unmarshal(data, &tmpConfig); err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
@@ -688,5 +740,75 @@ func TestInitRegistry_WithNamingServerConfig(t *testing.T) {
 	}
 	if client.config.TokenValidityInMilliseconds != 600000 {
 		t.Errorf("Client TokenValidity: expected 600000, got %d", client.config.TokenValidityInMilliseconds)
+	}
+}
+
+func TestRegistryConfig_NamingServerJSONTag(t *testing.T) {
+	var cfg RegistryConfig
+	err := json.Unmarshal([]byte(`{"type":"namingserver","naming-server":{"server-addr":"127.0.0.1:8081"}}`), &cfg)
+	if err != nil {
+		t.Fatalf("json unmarshal failed: %v", err)
+	}
+	if cfg.NamingServer.ServerAddr != "127.0.0.1:8081" {
+		t.Fatalf("expected naming server addr from json tag, got %q", cfg.NamingServer.ServerAddr)
+	}
+}
+
+func TestSubscribeStartsWatchLoopPerVGroup(t *testing.T) {
+	var (
+		mu         sync.Mutex
+		watchCount = make(map[string]int)
+	)
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/naming/v1/watch":
+			vGroup := r.URL.Query().Get("vGroup")
+			mu.Lock()
+			watchCount[vGroup]++
+			mu.Unlock()
+			w.WriteHeader(http.StatusNotModified)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer mockServer.Close()
+
+	mockAddr := mockServer.Listener.Addr().String()
+	client := &NamingServerClient{
+		config:            &NamingServerConfig{ServerAddr: mockAddr, Namespace: "public"},
+		logger:            zap.NewNop(),
+		closeChan:         make(chan struct{}),
+		healthCheckTicker: time.NewTicker(time.Hour),
+		httpClient:        &http.Client{Timeout: 100 * time.Millisecond},
+		longPollClient:    &http.Client{Timeout: 100 * time.Millisecond},
+	}
+	defer client.Close()
+
+	client.availableNamingMap.Store(mockAddr, int32(0))
+	client.namingAddrCache = mockAddr
+
+	if err := client.Subscribe("group-a", nil); err != nil {
+		t.Fatalf("subscribe group-a failed: %v", err)
+	}
+	if err := client.Subscribe("group-b", nil); err != nil {
+		t.Fatalf("subscribe group-b failed: %v", err)
+	}
+
+	assert.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return watchCount["group-a"] > 0 && watchCount["group-b"] > 0
+	}, 2*time.Second, 20*time.Millisecond)
+}
+
+func TestNamingServerRegistryService_RegisterDeregisterNotSupported(t *testing.T) {
+	service := &NamingServerRegistryService{}
+
+	if err := service.Register(&ServiceInstance{Addr: "127.0.0.1", Port: 8091}); err == nil {
+		t.Fatal("expected register to return an error")
+	}
+	if err := service.Deregister(&ServiceInstance{Addr: "127.0.0.1", Port: 8091}); err == nil {
+		t.Fatal("expected deregister to return an error")
 	}
 }

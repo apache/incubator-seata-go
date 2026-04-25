@@ -42,7 +42,7 @@ type RegistryConfig struct {
 	File         FileConfig         `yaml:"file" json:"file" koanf:"file"`
 	Nacos        NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	Etcd3        Etcd3Config        `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
-	NamingServer NamingServerConfig `yaml:"naming-server" json:"namingServer" koanf:"naming-server"`
+	NamingServer NamingServerConfig `yaml:"naming-server" json:"naming-server" koanf:"naming-server"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {

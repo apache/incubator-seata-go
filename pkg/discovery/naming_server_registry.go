@@ -17,7 +17,7 @@
 
 package discovery
 
-type NamingserverRegistry interface {
+type NamingServerRegistry interface {
 	RegistryService
 
 	Register(instance *ServiceInstance) error
@@ -25,7 +25,7 @@ type NamingserverRegistry interface {
 	Deregister(instance *ServiceInstance) error
 
 	// doHealthCheck
-	// perform a health check and call the/amine/v1/health interface
+	// perform a health check and call the /naming/v1/health interface.
 	doHealthCheck(addr string) bool
 
 	// RefreshToken
@@ -40,3 +40,6 @@ type NamingserverRegistry interface {
 	// Monitor service changes and call the /naming/v1/watch interface.
 	Watch(vGroup string) (bool, error)
 }
+
+// NamingserverRegistry is kept as a compatibility alias for the original exported name.
+type NamingserverRegistry = NamingServerRegistry
