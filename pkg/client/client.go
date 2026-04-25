@@ -35,11 +35,11 @@ import (
 	gettyRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/getty"
 	grpcRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	gettyTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
 	grpcTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
-	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
 )
 
 // Init seata client
