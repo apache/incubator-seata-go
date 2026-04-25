@@ -40,7 +40,9 @@ type multiDeleteExecutor struct {
 }
 
 func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	m.beforeHooks(ctx, m.execContext)
+	if err := m.beforeHooks(ctx, m.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
 	}()
