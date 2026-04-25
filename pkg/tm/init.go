@@ -22,3 +22,7 @@ var config TmConfig
 func InitTm(tmConfig TmConfig) {
 	config = tmConfig
 }
+
+func GetTmConfig() TmConfig {
+	return config
+}

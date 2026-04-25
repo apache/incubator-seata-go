@@ -165,3 +165,25 @@ func TestGettyRemoting_RemoveMergedMessageFuture(t *testing.T) {
 		})
 	}
 }
+
+func TestGettyRemoting_SendSync_NoSession(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = &SessionManager{sessionSize: 1}
+	t.Cleanup(func() {
+		sessionManager = originalSessionManager
+	})
+
+	_, err := newGettyRemoting().SendSync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}
+
+func TestGettyRemoting_SendAsync_NoSession(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = &SessionManager{sessionSize: 1}
+	t.Cleanup(func() {
+		sessionManager = originalSessionManager
+	})
+
+	err := newGettyRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}

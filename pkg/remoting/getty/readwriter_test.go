@@ -30,7 +30,7 @@ import (
 func TestRpcPackageHandler(t *testing.T) {
 	msg := message.RpcMessage{
 		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: byte(1),
 		HeadMap: map[string]string{
@@ -55,7 +55,7 @@ func TestRpcPackageHandler(t *testing.T) {
 func TestRpcPackageHandler_EmptyHeadMapValue(t *testing.T) {
 	msg := message.RpcMessage{
 		ID:         1124,
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: byte(1),
 		HeadMap: map[string]string{
@@ -80,7 +80,7 @@ func TestRpcPackageHandler_EmptyHeadMapValue(t *testing.T) {
 func TestRpcPackageHandler_EmptyHeadMapKey(t *testing.T) {
 	msg := message.RpcMessage{
 		ID:         1125,
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: byte(1),
 		HeadMap: map[string]string{

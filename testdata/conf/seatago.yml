@@ -89,6 +89,7 @@ seata:
     # Netty related configurations
     # type
     type: TCP
+    protocol: seata
     server: NIO
     heartbeat: true
     # Encoding and decoding mode
@@ -145,11 +146,12 @@ seata:
       url: root:12345678@tcp(127.0.0.1:3306)/seata_client1?charset=utf8&parseTime=True
       log-table-name: tcc_fence_log_test
       clean-period: 60s
-  # getty configuration
-  getty:
+  # remoting configuration
+  remoting:
     reconnect-interval: 0
-    # temporary not supported connection-num
+    # getty temporary not supported connection-num
     connection-num: 1
+    # getty configuration
     session:
       compress-encoding: false
       tcp-no-delay: true
@@ -163,3 +165,12 @@ seata:
       max-msg-len: 16498688
       session-name: client_test
       cron-period: 1s
+    # grpc configuration
+    stream:
+      max-recv-msg-size: 10485760
+      max-send-msg-size: 10485760
+      keep-alive-time: 30s
+      keep-alive-timeout: 10s
+      permit-without-stream: true
+      heartbeat-interval: 1s
+      dial-timeout: 5s

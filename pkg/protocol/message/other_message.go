@@ -19,7 +19,7 @@ package message
 
 type RpcMessage struct {
 	ID         int32
-	Type       GettyRequestType
+	Type       RequestType
 	Codec      byte
 	Compressor byte
 	HeadMap    map[string]string

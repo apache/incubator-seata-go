@@ -31,6 +31,10 @@ func InitRm(cfg RmConfig) {
 	rmConfig = cfg
 }
 
+func GetRmConfig() RmConfig {
+	return rmConfig
+}
+
 // GetRmAppAndGroup returns current RM applicationId and txServiceGroup
 func GetRmAppAndGroup() (string, string) {
 	return rmConfig.ApplicationID, rmConfig.TxServiceGroup

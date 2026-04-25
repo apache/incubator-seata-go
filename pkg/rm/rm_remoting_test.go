@@ -18,18 +18,36 @@
 package rm
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetRMRemotingInstance(t *testing.T) {
-	tests := struct {
-		name string
-		want *RMRemoting
-	}{"test1", &RMRemoting{}}
+type testRMRemoting struct{}
 
-	t.Run(tests.name, func(t *testing.T) {
-		assert.Equalf(t, tests.want, GetRMRemotingInstance(), "GetRMRemotingInstance()")
-	})
+func (t *testRMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
+	return 0, nil
+}
+
+func (t *testRMRemoting) BranchReport(param BranchReportParam) error {
+	return nil
+}
+
+func (t *testRMRemoting) LockQuery(param LockQueryParam) (bool, error) {
+	return false, nil
+}
+
+func (t *testRMRemoting) RegisterResource(resource Resource) error {
+	return nil
+}
+
+func TestGetRMRemotingInstance(t *testing.T) {
+	rmRemoting = nil
+	onceRMRRemoting = &sync.Once{}
+
+	want := &testRMRemoting{}
+	SetRMRemotingInstance(want)
+
+	assert.Same(t, want, GetRMRemotingInstance(), "GetRMRemotingInstance() should return the configured singleton")
 }

@@ -49,7 +49,7 @@ type ATSourceManager struct {
 	resourceCache sync.Map
 	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
-	rmRemoting    *rm.RMRemoting
+	rmRemoting    rm.RMRemoting
 }
 
 func (a *ATSourceManager) GetBranchType() branch.BranchType {

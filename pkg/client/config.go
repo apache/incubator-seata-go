@@ -26,8 +26,6 @@ import (
 	"runtime"
 	"strings"
 
-	"seata.apache.org/seata-go/v2/pkg/saga"
-
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
@@ -39,8 +37,10 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
+	saga "seata.apache.org/seata-go/v2/pkg/saga"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
@@ -58,10 +58,11 @@ const (
 )
 
 type ClientConfig struct {
-	TmConfig   tm.TmConfig  `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
-	RmConfig   rm.Config    `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
-	UndoConfig undo.Config  `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
-	XaConfig   sql.XAConfig `yaml:"xa" json:"xa" koanf:"xa"`
+	TmConfig          tm.TmConfig        `yaml:"tm" json:"tm,omitempty" koanf:"tm"`
+	RmConfig          rm.Config          `yaml:"rm" json:"rm,omitempty" koanf:"rm"`
+	UndoConfig        undo.Config        `yaml:"undo" json:"undo,omitempty" koanf:"undo"`
+	XaConfig          sql.XAConfig       `yaml:"xa" json:"xa" koanf:"xa"`
+	LoadBalanceConfig loadbalance.Config `yaml:"load-balance" json:"load-balance" koanf:"load-balance"`
 }
 
 func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -69,6 +70,7 @@ func (c *ClientConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	c.RmConfig.RegisterFlagsWithPrefix(prefix+".rm", f)
 	c.UndoConfig.RegisterFlagsWithPrefix(prefix+".undo", f)
 	c.XaConfig.RegisterFlagsWithPrefix(prefix+".xa", f)
+	c.LoadBalanceConfig.RegisterFlagsWithPrefix(prefix+".load-balance", f)
 }
 
 type Config struct {
@@ -83,7 +85,7 @@ type Config struct {
 	AsyncWorkerConfig sql.AsyncWorkerConfig        `yaml:"async" json:"async" koanf:"async"`
 	TCCConfig         tcc.Config                   `yaml:"tcc" json:"tcc" koanf:"tcc"`
 	ClientConfig      ClientConfig                 `yaml:"client" json:"client" koanf:"client"`
-	GettyConfig       remoteConfig.Config          `yaml:"getty" json:"getty" koanf:"getty"`
+	RemotingConfig    remoteConfig.Config          `yaml:"remoting" json:"remoting" koanf:"remoting"`
 	TransportConfig   remoteConfig.TransportConfig `yaml:"transport" json:"transport" koanf:"transport"`
 	ServiceConfig     discovery.ServiceConfig      `yaml:"service" json:"service" koanf:"service"`
 	RegistryConfig    discovery.RegistryConfig     `yaml:"registry" json:"registry" koanf:"registry"`
@@ -103,8 +105,8 @@ func (c *Config) RegisterFlags(f *flag.FlagSet) {
 	c.AsyncWorkerConfig.RegisterFlagsWithPrefix("async-worker", f)
 	c.TCCConfig.RegisterFlagsWithPrefix("tcc", f)
 	c.ClientConfig.RegisterFlagsWithPrefix("client", f)
-	c.GettyConfig.RegisterFlagsWithPrefix("getty", f)
 	c.TransportConfig.RegisterFlagsWithPrefix("transport", f)
+	c.RemotingConfig.RegisterFlagsWithPrefix("remoting", f)
 	c.RegistryConfig.RegisterFlagsWithPrefix("registry", f)
 	c.ServiceConfig.RegisterFlagsWithPrefix("service", f)
 	c.SagaConfig.RegisterFlagsWithPrefix("saga", f)
