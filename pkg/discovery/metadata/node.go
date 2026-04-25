@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package discovery
+package metadata
 
-const (
-	FILE   string = "file"
-	NACOS  string = "nacos"
-	ETCD   string = "etcd"
-	EUREKA string = "eureka"
-	REDIS  string = "redis"
-	ZK     string = "zk"
-	CONSUL string = "consul"
-	SOFA   string = "sofa"
-	RAFT   string = "raft"
-)
+type Node struct {
+	Control     *Endpoint
+	Transaction *Endpoint
+	Internal    *Endpoint
 
-type ServiceInstance struct {
-	Addr string
-	Port int
+	Weight    float64
+	Healthy   bool
+	Timestamp int64
+
+	Group    string
+	Role     ClusterRole
+	Version  string
+	Metadata map[string]interface{}
 }
 
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
+type Endpoint struct {
+	Host     string
+	Protocol string
+	Port     int
 }

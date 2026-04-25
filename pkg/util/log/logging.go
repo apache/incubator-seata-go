@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	getty "github.com/apache/dubbo-getty"
@@ -101,6 +102,7 @@ type Logger interface {
 }
 
 var (
+	loggerMu  sync.RWMutex
 	log       Logger
 	zapLogger *zap.Logger
 
@@ -142,9 +144,15 @@ func encodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder)
 
 func Init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
-	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
-	log = zapLogger.Sugar()
-	getty.SetLogger(log)
+	logger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(1))
+	sugared := logger.Sugar()
+
+	loggerMu.Lock()
+	zapLogger = logger
+	log = sugared
+	loggerMu.Unlock()
+
+	getty.SetLogger(sugared)
 }
 
 func InitWithOption(logPath string, level LogLevel) {
@@ -164,68 +172,89 @@ func InitWithOption(logPath string, level LogLevel) {
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
-	zapLogger = zap.New(core, zap.AddCaller())
+	logger := zap.New(core, zap.AddCaller())
+	sugared := logger.Sugar()
 
-	log = zapLogger.Sugar()
-	getty.SetLogger(log)
+	loggerMu.Lock()
+	zapLogger = logger
+	log = sugared
+	loggerMu.Unlock()
+
+	getty.SetLogger(sugared)
 }
 
 // SetLogger: customize yourself logger.
 func SetLogger(logger Logger) {
+	loggerMu.Lock()
 	log = logger
+	loggerMu.Unlock()
 }
 
 // GetLogger get logger
 func GetLogger() Logger {
+	loggerMu.RLock()
+	defer loggerMu.RUnlock()
+	return log
+}
+
+func currentLogger() Logger {
+	loggerMu.RLock()
+	defer loggerMu.RUnlock()
 	return log
 }
 
 // Debug ...
 func Debug(v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Debug(v...)
+	logger.Debug(v...)
 }
 
 // Debugf ...
 func Debugf(format string, v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Debugf(format, v...)
+	logger.Debugf(format, v...)
 }
 
 // Info ...
 func Info(v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Info(v...)
+	logger.Info(v...)
 }
 
 // Infof ...
 func Infof(format string, v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Infof(format, v...)
+	logger.Infof(format, v...)
 }
 
 // Warn ...
 func Warn(v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Warn(v...)
+	logger.Warn(v...)
 }
 
 // Warnf ...
 func Warnf(format string, v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		return
 	}
-	log.Warnf(format, v...)
+	logger.Warnf(format, v...)
 }
 
 // Error ...
@@ -235,11 +264,12 @@ func Error(v ...interface{}) {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", v)
 		}
 	}()
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", v)
 		return
 	}
-	log.Error(v...)
+	logger.Error(v...)
 }
 
 // Errorf ...
@@ -251,49 +281,54 @@ func Errorf(format string, v ...interface{}) {
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 	}()
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		fmt.Fprintf(os.Stderr, "ERROR: ")
 		fmt.Fprintf(os.Stderr, format, v...)
 		fmt.Fprintf(os.Stderr, "\n")
 		return
 	}
-	log.Errorf(format, v...)
+	logger.Errorf(format, v...)
 }
 
 // Panic ...
 func Panic(v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		panic(v)
 	}
-	log.Panic(v...)
+	logger.Panic(v...)
 }
 
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		panic(fmt.Sprintf(format, v...))
 	}
-	log.Panicf(format, v...)
+	logger.Panicf(format, v...)
 }
 
 // Fatal ...
 func Fatal(v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		fmt.Fprintf(os.Stderr, "FATAL: %v\n", v)
 		os.Exit(1)
 		return
 	}
-	log.Fatal(v...)
+	logger.Fatal(v...)
 }
 
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
-	if log == nil {
+	logger := currentLogger()
+	if logger == nil {
 		fmt.Fprintf(os.Stderr, "FATAL: ")
 		fmt.Fprintf(os.Stderr, format, v...)
 		fmt.Fprintf(os.Stderr, "\n")
 		os.Exit(1)
 		return
 	}
-	log.Fatalf(format, v...)
+	logger.Fatalf(format, v...)
 }
