@@ -58,6 +58,15 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
+	// For XA mode, use a plain executor without AT-specific hooks
+	// XA transactions don't need undo logs - they use the two-phase commit protocol managed by TC
+	// Note: undo_log_hook.go already handles skipping undo log generation for XA mode
+	if transactionMode == types.XAMode {
+		e := &BaseExecutor{}
+		e.Interceptors(hooks)
+		return e, nil
+	}
+
 	e := atExecutors[dbType]()
 	e.Interceptors(hooks)
 	return e, nil
