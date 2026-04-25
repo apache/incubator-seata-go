@@ -28,43 +28,43 @@ import (
 // All methods perform no actual operations and return nil or zero values to ensure validation passes.
 type NoopStateLogStore struct{}
 
-func (s *NoopStateLogStore) RecordStateMachineStarted(ctx context.Context, machineInstance statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
+func (s *NoopStateLogStore) RecordStateMachineStarted(ctx context.Context, machineInstance *statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
 	return nil
 }
 
-func (s *NoopStateLogStore) RecordStateMachineFinished(ctx context.Context, machineInstance statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
+func (s *NoopStateLogStore) RecordStateMachineFinished(ctx context.Context, machineInstance *statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
 	return nil
 }
 
-func (s *NoopStateLogStore) RecordStateMachineRestarted(ctx context.Context, machineInstance statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
+func (s *NoopStateLogStore) RecordStateMachineRestarted(ctx context.Context, machineInstance *statelang.StateMachineInstance, pc process_ctrl.ProcessContext) error {
 	return nil
 }
 
-func (s *NoopStateLogStore) RecordStateStarted(ctx context.Context, stateInstance statelang.StateInstance, pc process_ctrl.ProcessContext) error {
+func (s *NoopStateLogStore) RecordStateStarted(ctx context.Context, stateInstance *statelang.StateInstance, pc process_ctrl.ProcessContext) error {
 	return nil
 }
 
-func (s *NoopStateLogStore) RecordStateFinished(ctx context.Context, stateInstance statelang.StateInstance, pc process_ctrl.ProcessContext) error {
+func (s *NoopStateLogStore) RecordStateFinished(ctx context.Context, stateInstance *statelang.StateInstance, pc process_ctrl.ProcessContext) error {
 	return nil
 }
 
-func (s *NoopStateLogStore) GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error) {
+func (s *NoopStateLogStore) GetStateMachineInstance(stateMachineInstanceId string) (*statelang.StateMachineInstance, error) {
 	return nil, nil
 }
 
-func (s *NoopStateLogStore) GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateMachineInstance, error) {
+func (s *NoopStateLogStore) GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (*statelang.StateMachineInstance, error) {
 	return nil, nil
 }
 
-func (s *NoopStateLogStore) GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error) {
+func (s *NoopStateLogStore) GetStateMachineInstanceByParentId(parentId string) ([]*statelang.StateMachineInstance, error) {
 	return nil, nil
 }
 
-func (s *NoopStateLogStore) GetStateInstance(stateInstanceId string, stateMachineInstanceId string) (statelang.StateInstance, error) {
+func (s *NoopStateLogStore) GetStateInstance(stateInstanceId string, stateMachineInstanceId string) (*statelang.StateInstance, error) {
 	return nil, nil
 }
 
-func (s *NoopStateLogStore) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error) {
+func (s *NoopStateLogStore) GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]*statelang.StateInstance, error) {
 	return nil, nil
 }
 

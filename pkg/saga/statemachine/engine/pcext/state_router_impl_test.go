@@ -90,30 +90,30 @@ func TestTaskStateRouterBuildsCompensationStackFromExecutedStates(t *testing.T) 
 	sm.SetContent(compensationRouteMachine)
 	require.NoError(t, cfg.StateMachineRepository().RegistryStateMachine(sm))
 
-	inst := statelang.NewStateMachineInstanceImpl()
-	inst.SetID("comp-route-inst")
-	inst.SetStateMachine(sm)
-	inst.SetStatus(statelang.RU)
-	inst.SetCompensationStatus("")
+	inst := statelang.NewStateMachineInstance()
+	inst.ID = "comp-route-inst"
+	inst.StateMachine = sm
+	inst.Status = statelang.RU
+	inst.CompensationStatus = ""
 
-	serviceAInst := statelang.NewStateInstanceImpl()
-	serviceAInst.SetID("svcA-1")
-	serviceAInst.SetName("ServiceA")
-	serviceAInst.SetType(constant.StateTypeServiceTask)
-	serviceAInst.SetMachineInstanceID(inst.ID())
-	serviceAInst.SetStateMachineInstance(inst)
-	serviceAInst.SetStatus(statelang.RU)
+	serviceAInst := statelang.NewStateInstance()
+	serviceAInst.ID = "svcA-1"
+	serviceAInst.Name = "ServiceA"
+	serviceAInst.TypeName = constant.StateTypeServiceTask
+	serviceAInst.MachineInstanceID = inst.ID
+	serviceAInst.StateMachineInstance = inst
+	serviceAInst.Status = statelang.RU
 
-	serviceBInst := statelang.NewStateInstanceImpl()
-	serviceBInst.SetID("svcB-1")
-	serviceBInst.SetName("ServiceB")
-	serviceBInst.SetType(constant.StateTypeServiceTask)
-	serviceBInst.SetMachineInstanceID(inst.ID())
-	serviceBInst.SetStateMachineInstance(inst)
-	serviceBInst.SetStatus(statelang.SU)
+	serviceBInst := statelang.NewStateInstance()
+	serviceBInst.ID = "svcB-1"
+	serviceBInst.Name = "ServiceB"
+	serviceBInst.TypeName = constant.StateTypeServiceTask
+	serviceBInst.MachineInstanceID = inst.ID
+	serviceBInst.StateMachineInstance = inst
+	serviceBInst.Status = statelang.SU
 
-	inst.PutState(serviceAInst.ID(), serviceAInst)
-	inst.PutState(serviceBInst.ID(), serviceBInst)
+	inst.PutState(serviceAInst.ID, serviceAInst)
+	inst.PutState(serviceBInst.ID, serviceBInst)
 
 	ctx := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
@@ -125,7 +125,7 @@ func TestTaskStateRouterBuildsCompensationStackFromExecutedStates(t *testing.T) 
 	ctx.SetVariable(constant.VarNameStateMachineInst, inst)
 	ctx.SetVariable(constant.VarNameStateMachine, sm)
 	ctx.SetVariable(constant.VarNameStateMachineConfig, cfg)
-	ctx.SetVariable(constant.VarNameStateInst, statelang.StateInstance(nil))
+	ctx.SetVariable(constant.VarNameStateInst, (*statelang.StateInstance)(nil))
 
 	router := pcext.TaskStateRouter{}
 	compTrigger := stateimpl.NewCompensationTriggerStateImpl()
@@ -141,9 +141,9 @@ func TestTaskStateRouterBuildsCompensationStackFromExecutedStates(t *testing.T) 
 	holder.StatesNeedCompensation().Range(func(key, value any) bool {
 		stateName, ok := key.(string)
 		require.True(t, ok)
-		inst, ok := value.(statelang.StateInstance)
+		inst, ok := value.(*statelang.StateInstance)
 		require.True(t, ok)
-		compensated[stateName] = inst.Name()
+		compensated[stateName] = inst.Name
 		return true
 	})
 

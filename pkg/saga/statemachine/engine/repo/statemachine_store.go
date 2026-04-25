@@ -24,15 +24,15 @@ import (
 )
 
 type StateLogRepository interface {
-	GetStateMachineInstance(stateMachineInstanceId string) (statelang.StateMachineInstance, error)
+	GetStateMachineInstance(stateMachineInstanceId string) (*statelang.StateMachineInstance, error)
 
-	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (statelang.StateMachineInstance, error)
+	GetStateMachineInstanceByBusinessKey(businessKey string, tenantId string) (*statelang.StateMachineInstance, error)
 
-	GetStateMachineInstanceByParentId(parentId string) ([]statelang.StateMachineInstance, error)
+	GetStateMachineInstanceByParentId(parentId string) ([]*statelang.StateMachineInstance, error)
 
-	GetStateInstance(stateInstanceId string, stateMachineInstanceId string) (statelang.StateInstance, error)
+	GetStateInstance(stateInstanceId string, stateMachineInstanceId string) (*statelang.StateInstance, error)
 
-	GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]statelang.StateInstance, error)
+	GetStateInstanceListByMachineInstanceId(stateMachineInstanceId string) ([]*statelang.StateInstance, error)
 }
 
 type StateMachineRepository interface {
