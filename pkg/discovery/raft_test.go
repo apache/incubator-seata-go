@@ -19,34 +19,79 @@ package discovery
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"seata.apache.org/seata-go/v2/pkg/discovery/metadata"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"seata.apache.org/seata-go/v2/pkg/discovery/metadata"
 )
 
-var (
-	serviceConfig = &ServiceConfig{VgroupMapping: map[string]string{"default_tx_group": "default"}}
-	raftConfig    = RaftConfig{
-		MetadataMaxAgeMs:            int64(30000),
-		ServerAddr:                  "",
-		TokenValidityInMilliseconds: int64(1740000),
-	}
-	registryConfig = &RegistryConfig{
+func newTestServiceConfig() *ServiceConfig {
+	return &ServiceConfig{VgroupMapping: map[string]string{"default_tx_group": "default"}}
+}
+
+func newTestRegistryConfig(serverAddr string) *RegistryConfig {
+	return &RegistryConfig{
 		Type:             "raft",
-		NamingserverAddr: "",
+		NamingserverAddr: serverAddr,
 		Username:         "seata",
 		Password:         "seata",
-		Raft:             raftConfig,
+		Raft: RaftConfig{
+			MetadataMaxAgeMs:            int64(30000),
+			ServerAddr:                  serverAddr,
+			TokenValidityInMilliseconds: int64(1740000),
+		},
 	}
-)
+}
+
+func newTestServiceInstance(t *testing.T, addr string) *ServiceInstance {
+	t.Helper()
+
+	host, portStr, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+
+	return &ServiceInstance{Addr: host, Port: port}
+}
+
+func newTestMetadataNode(t *testing.T, addr, group string, role metadata.ClusterRole) *metadata.Node {
+	t.Helper()
+
+	serviceInstance := newTestServiceInstance(t, addr)
+
+	return &metadata.Node{
+		Control:     &metadata.Endpoint{Host: serviceInstance.Addr, Port: serviceInstance.Port},
+		Transaction: &metadata.Endpoint{Host: serviceInstance.Addr, Port: serviceInstance.Port},
+		Internal:    &metadata.Endpoint{Host: serviceInstance.Addr, Port: serviceInstance.Port},
+		Group:       group,
+		Role:        role,
+		Version:     "2.5.0",
+		Metadata:    map[string]interface{}{},
+	}
+}
+
+func clonePostForm(r *http.Request) map[string][]string {
+	result := make(map[string][]string, len(r.PostForm))
+	for key, values := range r.PostForm {
+		result[key] = append([]string(nil), values...)
+	}
+	return result
+}
 
 func TestMetadataHandler(t *testing.T) {
+	serviceConfig := newTestServiceConfig()
+	registryConfig := newTestRegistryConfig("")
+
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("Received request: %s %s", r.Method, r.URL.Path)
 
@@ -126,6 +171,14 @@ func TestMetadataHandler(t *testing.T) {
 		},
 	}
 	assert.Equal(t, serviceInstances, instances)
+}
+
+func TestLookupIncludesServiceGroupInMissingClusterError(t *testing.T) {
+	service := NewRaftRegistryService(newTestServiceConfig(), newTestRegistryConfig(""))
+
+	_, err := service.Lookup("missing_tx_group")
+
+	require.EqualError(t, err, "cluster doesn't exist for serviceGroup=missing_tx_group")
 }
 
 func TestMultiClusterWatch(t *testing.T) {
@@ -208,6 +261,8 @@ func TestMultiClusterWatch(t *testing.T) {
 }
 
 func TestConcurrentAccess(t *testing.T) {
+	serviceConfig := newTestServiceConfig()
+
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/auth/login":
@@ -247,17 +302,7 @@ func TestConcurrentAccess(t *testing.T) {
 	defer mockServer.Close()
 
 	mockAddr := mockServer.Listener.Addr().String()
-	testRegistryConfig := &RegistryConfig{
-		Type:             "raft",
-		NamingserverAddr: mockAddr,
-		Username:         "seata",
-		Password:         "seata",
-		Raft: RaftConfig{
-			MetadataMaxAgeMs:            int64(30000),
-			ServerAddr:                  mockAddr,
-			TokenValidityInMilliseconds: int64(1740000),
-		},
-	}
+	testRegistryConfig := newTestRegistryConfig(mockAddr)
 
 	service := NewRaftRegistryService(serviceConfig, testRegistryConfig)
 	defer service.Close()
@@ -325,7 +370,92 @@ func TestWatchErrorRecovery(t *testing.T) {
 	assert.NotEmpty(t, address)
 }
 
+func TestWatchProcessesAllClustersAndAllGroupTerms(t *testing.T) {
+	var (
+		cluster1WatchCount int32
+		cluster2WatchCount int32
+		formMu             sync.Mutex
+		cluster1Form       map[string][]string
+	)
+
+	cluster1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/metadata/v1/watch" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse watch form failed: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		formMu.Lock()
+		cluster1Form = clonePostForm(r)
+		formMu.Unlock()
+
+		atomic.AddInt32(&cluster1WatchCount, 1)
+		w.WriteHeader(http.StatusNotModified)
+	}))
+	defer cluster1Server.Close()
+
+	cluster2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/metadata/v1/watch" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		atomic.AddInt32(&cluster2WatchCount, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer cluster2Server.Close()
+
+	cluster1Addr := cluster1Server.Listener.Addr().String()
+	cluster2Addr := cluster2Server.Listener.Addr().String()
+
+	service := &RaftRegistryService{
+		metadata:       metadata.NewMetadata(),
+		initAddresses:  sync.Map{},
+		cfg:            &RaftConfig{TokenValidityInMilliseconds: 1740000},
+		tokenTimestamp: time.Now().UnixMilli(),
+		httpClient:     &http.Client{},
+		random:         rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+
+	service.metadata.RefreshMetadata("cluster1", metadata.MetadataResponse{
+		Term: 3,
+		Nodes: []*metadata.Node{
+			newTestMetadataNode(t, cluster1Addr, "group-a", metadata.LEADER),
+			newTestMetadataNode(t, cluster1Addr, "group-b", metadata.FOLLOWER),
+		},
+	})
+	service.metadata.RefreshMetadata("cluster2", metadata.MetadataResponse{
+		Term: 5,
+		Nodes: []*metadata.Node{
+			newTestMetadataNode(t, cluster2Addr, "group-c", metadata.LEADER),
+		},
+	})
+
+	service.initAddresses.Store("cluster1", []*ServiceInstance{newTestServiceInstance(t, cluster1Addr)})
+	service.initAddresses.Store("cluster2", []*ServiceInstance{newTestServiceInstance(t, cluster2Addr)})
+
+	result, err := service.watch()
+
+	require.NoError(t, err)
+	assert.True(t, result)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&cluster1WatchCount))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&cluster2WatchCount))
+
+	formMu.Lock()
+	defer formMu.Unlock()
+	require.NotNil(t, cluster1Form)
+	assert.Equal(t, []string{"3"}, cluster1Form["group-a"])
+	assert.Equal(t, []string{"3"}, cluster1Form["group-b"])
+}
+
 func TestRefreshAliveLookup(t *testing.T) {
+	serviceConfig := newTestServiceConfig()
+
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/auth/login":
@@ -362,17 +492,7 @@ func TestRefreshAliveLookup(t *testing.T) {
 	defer mockServer.Close()
 
 	mockAddr := mockServer.Listener.Addr().String()
-	testRegistryConfig := &RegistryConfig{
-		Type:             "raft",
-		NamingserverAddr: mockAddr,
-		Username:         "seata",
-		Password:         "seata",
-		Raft: RaftConfig{
-			MetadataMaxAgeMs:            int64(30000),
-			ServerAddr:                  mockAddr,
-			TokenValidityInMilliseconds: int64(1740000),
-		},
-	}
+	testRegistryConfig := newTestRegistryConfig(mockAddr)
 
 	service := NewRaftRegistryService(serviceConfig, testRegistryConfig)
 	defer service.Close()

@@ -85,7 +85,7 @@ func NewRaftRegistryService(config *ServiceConfig, raftConfig *RegistryConfig) *
 func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	clusterName := r.vgroupMapping[key]
 	if clusterName == "" {
-		return nil, fmt.Errorf("cluster doesnt exist")
+		return nil, fmt.Errorf("cluster doesn't exist for serviceGroup=%s", key)
 	}
 	r.mu.Lock()
 	r.currentTransactionServiceGroup = key
@@ -233,17 +233,24 @@ func (r *RaftRegistryService) startQueryMetadata() {
 						}
 
 						if shouldFetch {
-							r.mu.RLock()
-							clusterName := r.currentTransactionClusterName
-							r.mu.RUnlock()
-							groups := r.metadata.Groups(clusterName)
-							if len(groups) == 0 {
-								groups = append(groups, "")
+							clusterNames := r.clusterNamesFromInit()
+							if len(clusterNames) == 0 {
+								r.mu.RLock()
+								if r.currentTransactionClusterName != "" {
+									clusterNames = append(clusterNames, r.currentTransactionClusterName)
+								}
+								r.mu.RUnlock()
 							}
-							for _, g := range groups {
-								err := r.acquireClusterMetaData(clusterName, g)
-								if err != nil {
-									log.Errorf("acquire cluster metadata failed: cluster=%s group=%s err=%v", clusterName, g, err)
+							for _, clusterName := range clusterNames {
+								groups := r.metadata.Groups(clusterName)
+								if len(groups) == 0 {
+									groups = append(groups, "")
+								}
+								for _, g := range groups {
+									err := r.acquireClusterMetaData(clusterName, g)
+									if err != nil {
+										log.Errorf("acquire cluster metadata failed: cluster=%s group=%s err=%v", clusterName, g, err)
+									}
 								}
 							}
 
@@ -257,56 +264,68 @@ func (r *RaftRegistryService) startQueryMetadata() {
 }
 
 func (r *RaftRegistryService) watch() (bool, error) {
-	header := map[string]string{
-		"Content-Type": "application/x-www-form-urlencoded",
-	}
 	clusterNames := r.clusterNamesFromInit()
+	needsRefresh := false
 	for _, clusterName := range clusterNames {
 		groupTerms := r.metadata.GetClusterTerm(clusterName)
 		if groupTerms == nil {
 			groupTerms = map[string]int64{"": 0}
 		}
+
+		var (
+			tcAddress string
+			err       error
+		)
 		for group := range groupTerms {
-			tcAddress, err := r.queryHttpAddress(clusterName, group)
-			if err != nil {
-				log.Infof("no tc address to watch for cluster %s: %v", clusterName, err)
-				continue
+			tcAddress, err = r.queryHttpAddress(clusterName, group)
+			if err == nil {
+				break
 			}
-			if r.isTokenExpired() {
-				if err = r.refreshToken(); err != nil {
-					return false, err
-				}
-			}
-			if r.jwtToken != "" {
-				header["Authorization"] = r.jwtToken
-			}
+			log.Infof("no tc address to watch for cluster %s group %s: %v", clusterName, group, err)
+		}
+		if tcAddress == "" {
+			continue
+		}
 
-			form := url.Values{}
-			for k, v := range groupTerms {
-				form.Set(k, strconv.FormatInt(v, 10))
-			}
-
-			endpoint := fmt.Sprintf("http://%s/metadata/v1/watch", tcAddress)
-			req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
-			if err != nil {
+		header := map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		}
+		if r.isTokenExpired() {
+			if err = r.refreshToken(); err != nil {
 				return false, err
 			}
-			for hk, hv := range header {
-				req.Header.Set(hk, hv)
-			}
-			resp, err := r.doRequest(req, 30*time.Second)
-			if err != nil {
-				log.Errorf("watch cluster node: %s, fail: %v", tcAddress, err)
-				return false, err
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusUnauthorized {
-				return false, errors.New("authentication failed: missing username/password")
-			}
-			return resp.StatusCode == http.StatusOK, nil
+		}
+		if r.jwtToken != "" {
+			header["Authorization"] = r.jwtToken
+		}
+
+		form := url.Values{}
+		for group, term := range groupTerms {
+			form.Set(group, strconv.FormatInt(term, 10))
+		}
+
+		endpoint := fmt.Sprintf("http://%s/metadata/v1/watch", tcAddress)
+		req, err := http.NewRequest("POST", endpoint, strings.NewReader(form.Encode()))
+		if err != nil {
+			return false, err
+		}
+		for hk, hv := range header {
+			req.Header.Set(hk, hv)
+		}
+		resp, err := r.doRequest(req, 30*time.Second)
+		if err != nil {
+			log.Errorf("watch cluster node: %s, fail: %v", tcAddress, err)
+			return false, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusUnauthorized {
+			return false, errors.New("authentication failed: missing username/password")
+		}
+		if resp.StatusCode == http.StatusOK {
+			needsRefresh = true
 		}
 	}
-	return false, nil
+	return needsRefresh, nil
 }
 
 func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) error {

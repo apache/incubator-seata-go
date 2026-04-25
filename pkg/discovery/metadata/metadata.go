@@ -134,14 +134,14 @@ func (m *Metadata) GetClusterTerm(clusterName string) map[string]int64 {
 }
 
 func (m *Metadata) RefreshMetadata(clusterName string, response MetadataResponse) {
-	var nodes []*Node
+	nodesByGroup := make(map[string][]*Node)
 	for _, node := range response.Nodes {
+		nodesByGroup[node.Group] = append(nodesByGroup[node.Group], node)
 		if node.Role == LEADER {
 			groupMapAny, _ := m.leaders.LoadOrStore(clusterName, &sync.Map{})
 			groupMap := groupMapAny.(*sync.Map)
 			groupMap.Store(node.Group, node)
 		}
-		nodes = append(nodes, node)
 	}
 
 	switch response.StoreMode {
@@ -151,11 +151,12 @@ func (m *Metadata) RefreshMetadata(clusterName string, response MetadataResponse
 		m.storeMode = FILE
 	}
 
-	if len(nodes) > 0 {
-		group := nodes[0].Group
-		m.SetNodes(clusterName, group, nodes)
+	if len(nodesByGroup) > 0 {
 		termMapAny, _ := m.clusterTerm.LoadOrStore(clusterName, &sync.Map{})
 		termMap := termMapAny.(*sync.Map)
-		termMap.Store(group, response.Term)
+		for group, nodes := range nodesByGroup {
+			m.SetNodes(clusterName, group, nodes)
+			termMap.Store(group, response.Term)
+		}
 	}
 }

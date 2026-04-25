@@ -50,6 +50,7 @@ type RegistryConfig struct {
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+".type", "file", "The registry type.")
+	f.StringVar(&cfg.NamingserverAddr, prefix+".namingserver-addr", "", "The naming server address of registry.")
 	f.StringVar(&cfg.Username, prefix+".username", "seata", "Username for authentication")
 	f.StringVar(&cfg.Password, prefix+".password", "seata", "Password for authentication")
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
@@ -100,7 +101,7 @@ func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 
 type RaftConfig struct {
 	MetadataMaxAgeMs            int64  `yaml:"metadata-max-age-ms" json:"metadata-max-age-ms" koanf:"metadata-max-age-ms"`
-	ServerAddr                  string `yaml:"serverAddr" json:"server-addr" koanf:"server-addr"`
+	ServerAddr                  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
 	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
 }
 
