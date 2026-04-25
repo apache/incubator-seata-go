@@ -189,8 +189,9 @@ func (g *ChannelManager) registerTm(addr string) error {
 }
 
 func (g *ChannelManager) selectChannel(msg interface{}) *Channel {
-	channel := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, &g.allChannels, g.getXid(msg)).(*Channel)
-	if channel != nil {
+	selected := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, &g.allChannels, g.getXid(msg))
+	channel, ok := selected.(*Channel)
+	if ok && channel != nil {
 		return channel
 	}
 

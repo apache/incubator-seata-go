@@ -51,6 +51,10 @@ func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callba
 	if channel == nil {
 		channel = channelManager.selectChannel(msg)
 	}
+	if channel == nil || channel.IsClosed() {
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		return nil, fmt.Errorf("stream is closed")
+	}
 	rpc.BeginCount(channel.addr)
 	resp, err := g.sendAsync(channel, msg, callback)
 	rpc.EndCount(channel.addr)
@@ -65,6 +69,10 @@ func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callba
 func (g *GrpcRemoting) SendAsync(msg message.RpcMessage, channel *Channel, callback callbackMethod) error {
 	if channel == nil {
 		channel = channelManager.selectChannel(msg)
+	}
+	if channel == nil || channel.IsClosed() {
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		return fmt.Errorf("stream is closed")
 	}
 	rpc.BeginCount(channel.addr)
 	_, err := g.sendAsync(channel, msg, callback)

@@ -60,24 +60,25 @@ func (c *Consistent) hash(key string) int64 {
 // pick get a  node
 func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection {
 	hashKey := c.hash(key)
+
+	c.RLock()
 	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
 		return c.sortedHashNodes[i] >= hashKey
 	})
 
 	if index == len(c.sortedHashNodes) {
-		return RandomLoadBalance(sessions, key)
-	}
-
-	c.RLock()
-	session, ok := c.hashCircle[c.sortedHashNodes[index]]
-	if !ok {
 		c.RUnlock()
 		return RandomLoadBalance(sessions, key)
 	}
+
+	session, ok := c.hashCircle[c.sortedHashNodes[index]]
 	c.RUnlock()
+	if !ok {
+		return RandomLoadBalance(sessions, key)
+	}
 
 	if session.IsClosed() {
-		go c.refreshHashCircle(sessions)
+		c.refreshHashCircle(sessions)
 		return c.firstKey()
 	}
 
@@ -108,8 +109,10 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 		return sortedHashNodes[i] < sortedHashNodes[j]
 	})
 
+	c.Lock()
 	c.sortedHashNodes = sortedHashNodes
 	c.hashCircle = hashCircle
+	c.Unlock()
 }
 
 func (c *Consistent) firstKey() connection.Connection {
@@ -125,7 +128,7 @@ func (c *Consistent) firstKey() connection.Connection {
 
 func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	once.Do(func() {
-		consistentInstance = &Consistent{
+		instance := &Consistent{
 			hashCircle: make(map[int64]connection.Connection),
 		}
 		// construct hash circle
@@ -133,9 +136,9 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 			session := key.(connection.Connection)
 			for i := 0; i < virtualNodeNumber; i++ {
 				if !session.IsClosed() {
-					position := consistentInstance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
-					consistentInstance.put(position, session)
-					consistentInstance.sortedHashNodes = append(consistentInstance.sortedHashNodes, position)
+					position := instance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
+					instance.put(position, session)
+					instance.sortedHashNodes = append(instance.sortedHashNodes, position)
 				} else {
 					sessions.Delete(key)
 				}
@@ -144,19 +147,17 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 		})
 
 		// virtual node sort
-		sort.Slice(consistentInstance.sortedHashNodes, func(i, j int) bool {
-			return consistentInstance.sortedHashNodes[i] < consistentInstance.sortedHashNodes[j]
+		sort.Slice(instance.sortedHashNodes, func(i, j int) bool {
+			return instance.sortedHashNodes[i] < instance.sortedHashNodes[j]
 		})
+
+		consistentInstance = instance
 	})
 
 	return consistentInstance
 }
 
 func ConsistentHashLoadBalance(sessions *sync.Map, xid string) connection.Connection {
-	if consistentInstance == nil {
-		newConsistenceInstance(sessions)
-	}
-
 	// pick a node
-	return consistentInstance.pick(sessions, xid)
+	return newConsistenceInstance(sessions).pick(sessions, xid)
 }

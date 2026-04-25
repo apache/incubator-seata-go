@@ -165,3 +165,25 @@ func TestGrpcRemoting_RemoveMergedMessageFuture(t *testing.T) {
 		})
 	}
 }
+
+func TestGrpcRemoting_SendSync_NoChannel(t *testing.T) {
+	originalChannelManager := channelManager
+	channelManager = &ChannelManager{clientSize: 1}
+	t.Cleanup(func() {
+		channelManager = originalChannelManager
+	})
+
+	_, err := newGrpcRemoting().SendSync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "stream is closed")
+}
+
+func TestGrpcRemoting_SendAsync_NoChannel(t *testing.T) {
+	originalChannelManager := channelManager
+	channelManager = &ChannelManager{clientSize: 1}
+	t.Cleanup(func() {
+		channelManager = originalChannelManager
+	})
+
+	err := newGrpcRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "stream is closed")
+}

@@ -41,11 +41,12 @@ func TestGrpcRemotingClient_SendSyncRequest(t *testing.T) {
 			},
 		},
 	}
-	gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendSync",
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendSync",
 		func(_ *GrpcRemoting, msg message.RpcMessage, s *Channel, callback callbackMethod) (interface{},
 			error) {
 			return respMsg, nil
 		})
+	defer patches.Reset()
 	resp, err := GetGrpcRemotingClient().SendSyncRequest("message")
 	assert.Empty(t, err)
 	assert.Equal(t, respMsg, resp.(*pb.GlobalBeginResponseProto))
@@ -53,10 +54,11 @@ func TestGrpcRemotingClient_SendSyncRequest(t *testing.T) {
 
 // TestGrpcRemotingClient_SendAsyncResponse unit test for SendAsyncResponse function
 func TestGrpcRemotingClient_SendAsyncResponse(t *testing.T) {
-	gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
 		func(_ *GrpcRemoting, msg message.RpcMessage, s *Channel, callback callbackMethod) error {
 			return nil
 		})
+	defer patches.Reset()
 	err := GetGrpcRemotingClient().SendAsyncResponse(1, "message")
 	assert.Empty(t, err)
 }
@@ -64,26 +66,33 @@ func TestGrpcRemotingClient_SendAsyncResponse(t *testing.T) {
 // TestGrpcRemotingClient_SendAsyncRequest unit test for SendAsyncRequest function
 func TestGrpcRemotingClient_SendAsyncRequest(t *testing.T) {
 	tests := []struct {
-		name    string
-		message interface{}
+		name         string
+		message      interface{}
+		expectedType message.RequestType
 	}{
 		{
-			name:    "HeartBeatMessage",
-			message: &pb.HeartbeatMessageProto{},
+			name:         "HeartBeatMessage",
+			message:      &pb.HeartbeatMessageProto{},
+			expectedType: message.RequestTypeHeartbeatRequest,
 		},
 		{
-			name:    "not HeartBeatMessage",
-			message: "message",
+			name:         "not HeartBeatMessage",
+			message:      "message",
+			expectedType: message.RequestTypeRequestOneway,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
+			var capturedType message.RequestType
+			patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient().grpcRemoting), "SendAsync",
 				func(_ *GrpcRemoting, msg message.RpcMessage, s *Channel, callback callbackMethod) error {
+					capturedType = msg.Type
 					return nil
 				})
+			defer patches.Reset()
 			err := GetGrpcRemotingClient().SendAsyncRequest(test.message)
 			assert.Empty(t, err)
+			assert.Equal(t, test.expectedType, capturedType)
 		})
 	}
 }

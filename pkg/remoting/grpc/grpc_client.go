@@ -26,6 +26,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -53,7 +54,7 @@ func GetGrpcRemotingClient() *GrpcRemotingClient {
 
 func (client *GrpcRemotingClient) SendAsyncRequest(msg interface{}) error {
 	var msgType message.RequestType
-	if _, ok := msg.(message.HeartBeatMessage); ok {
+	if isHeartbeatRequest(msg) {
 		msgType = message.RequestTypeHeartbeatRequest
 	} else {
 		msgType = message.RequestTypeRequestOneway
@@ -67,6 +68,15 @@ func (client *GrpcRemotingClient) SendAsyncRequest(msg interface{}) error {
 		Body:       msg,
 	}
 	return client.grpcRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
+}
+
+func isHeartbeatRequest(msg interface{}) bool {
+	switch msg.(type) {
+	case message.HeartBeatMessage, *pb.HeartbeatMessageProto:
+		return true
+	default:
+		return false
+	}
 }
 
 func (client *GrpcRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {

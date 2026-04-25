@@ -19,6 +19,7 @@ package config
 
 import (
 	"flag"
+	"reflect"
 	"testing"
 	"time"
 
@@ -85,6 +86,12 @@ func TestShutdownConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			assert.Equal(t, tt.expected, cfg.Wait)
 		})
 	}
+}
+
+func TestShutdownConfig_KoanfTag(t *testing.T) {
+	field, ok := reflect.TypeOf(ShutdownConfig{}).FieldByName("Wait")
+	assert.True(t, ok)
+	assert.Equal(t, "wait", field.Tag.Get("koanf"))
 }
 
 func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {

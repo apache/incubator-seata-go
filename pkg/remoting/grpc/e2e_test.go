@@ -91,8 +91,9 @@ func startMockServer(t *testing.T) (addr string, received chan *pb.GrpcMessagePr
 // newTestChannel dials the mock server and returns a ready Channel.
 func newTestChannel(t *testing.T, addr string) *Channel {
 	t.Helper()
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
-		grpc.WithTimeout(3*time.Second))
+	dialCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(dialCtx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	require.NoError(t, err)
 
 	client := pb.NewSeataServiceClient(conn)

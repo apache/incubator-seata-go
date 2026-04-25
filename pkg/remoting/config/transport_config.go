@@ -27,7 +27,7 @@ var (
 )
 
 type ShutdownConfig struct {
-	Wait time.Duration `yaml:"wait" json:"wait" konaf:"wait"`
+	Wait time.Duration `yaml:"wait" json:"wait" koanf:"wait"`
 }
 
 func (cfg *ShutdownConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
