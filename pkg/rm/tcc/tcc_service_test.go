@@ -39,7 +39,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	//"github.com/apache/seata-go/sample/tcc/dubbo/client/service"
-	testdata2 "seata.apache.org/seata-go/testdata"
+	testdata2 "seata.apache.org/seata-go/v2/testdata"
 )
 
 var (
