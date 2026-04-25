@@ -1052,12 +1052,13 @@ func TestInitLogCleanChannel_EmptyDSN(t *testing.T) {
 	// Test with empty DSN - sql.Open still returns a non-nil DB even with empty DSN
 	// but it may not be usable
 	handler.InitLogCleanChannel("")
+	defer handler.DestroyLogCleanChannel()
 
 	// Verify db was attempted to be set (sql.Open returns non-nil DB even with empty DSN)
 	handler.dbMutex.RLock()
-	defer handler.dbMutex.RUnlock()
 	// DB object is created but may not be functional
 	assert.NotNil(t, handler.db)
+	handler.dbMutex.RUnlock()
 }
 
 func TestConstants(t *testing.T) {
