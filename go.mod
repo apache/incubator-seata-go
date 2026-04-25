@@ -6,6 +6,7 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/apache/dubbo-getty v1.5.0
+	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/arana-db/parser v0.2.17
 	github.com/bluele/gcache v0.0.2
 	github.com/dsnet/compress v0.0.1
@@ -82,6 +83,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pingcap/errors v0.11.5-0.20210425183316-da1aaba5fb63 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -90,8 +92,12 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
+	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/tidwall/gjson v1.13.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -109,7 +115,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
 	github.com/klauspost/compress v1.15.11
 	github.com/mattn/go-colorable v0.1.8 // indirect
