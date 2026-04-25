@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"seata.apache.org/seata-go/v2/pkg/util/flagext"
 )
 
 func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
@@ -47,10 +45,12 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			args: []string{
 				"-remoting.reconnect-interval=5000",
 				"-remoting.connection-num=10",
+				"-remoting.load-balance-type=ROUND_ROBIN",
 			},
 			expected: Config{
 				ReconnectInterval: 5000,
 				ConnectionNum:     10,
+				LoadBalanceType:   "ROUND_ROBIN",
 			},
 		},
 	}
@@ -63,6 +63,7 @@ func TestConfig_RegisterFlagsWithPrefix(t *testing.T) {
 			_ = fs.Parse(tt.args)
 			assert.Equal(t, tt.expected.ReconnectInterval, cfg.ReconnectInterval)
 			assert.Equal(t, tt.expected.ConnectionNum, cfg.ConnectionNum)
+			assert.Equal(t, tt.expected.LoadBalanceType, cfg.LoadBalanceType)
 		})
 	}
 }
@@ -168,21 +169,24 @@ func TestTransportConfig_RegisterFlagsWithPrefix(t *testing.T) {
 func TestSeataConfig_InitAndGet(t *testing.T) {
 	tests := []struct {
 		name     string
-		initConf *SeataConfig
-		expected *SeataConfig
+		config   SeataConfig
+		expected SeataConfig
 	}{
 		{
-			name:     "Nil Config",
-			initConf: nil,
-			expected: nil,
+			name:   "Empty Config",
+			config: SeataConfig{},
+			expected: SeataConfig{
+				ApplicationID:  "",
+				TxServiceGroup: "",
+			},
 		},
 		{
 			name: "Basic Config",
-			initConf: &SeataConfig{
+			config: SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
-			expected: &SeataConfig{
+			expected: SeataConfig{
 				ApplicationID:  "test-app",
 				TxServiceGroup: "test-group",
 			},
@@ -206,6 +210,8 @@ func TestSeataConfig_InitAndGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected.ApplicationID, tt.config.ApplicationID)
+			assert.Equal(t, tt.expected.TxServiceGroup, tt.config.TxServiceGroup)
 			seataConfig = nil
 			if tt.initConf != nil {
 				InitSeataConfig(tt.initConf)

@@ -22,7 +22,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 )
 
-func InitGetty(gettyConfig *config.Config) {
+func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
 	codec.Init()
-	initSessionManager(gettyConfig)
+	initSessionManager(gettyConfig, seataConfig)
 }
