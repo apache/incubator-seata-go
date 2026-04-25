@@ -17,6 +17,13 @@
 
 package sql
 
+import (
+	"context"
+	"fmt"
+
+	"seata.apache.org/seata-go/v2/pkg/util/log"
+)
+
 type XATx struct {
 	tx *Tx
 }
@@ -32,15 +39,82 @@ func (tx *XATx) Commit() error {
 	return tx.commitOnXA()
 }
 
+// Rollback executes XA END(TMFAIL), XA ROLLBACK and reports to TC
 func (tx *XATx) Rollback() error {
 	originTx := tx.tx
-	if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
-		return originTx.report(false)
+
+	if !originTx.tranCtx.OpenGlobalTransaction() {
+		return nil
 	}
+
+	if originTx.xaConn == nil {
+		return fmt.Errorf("xa transaction requires xaConn")
+	}
+
+	xid := originTx.tranCtx.XID
+	branchID := originTx.tranCtx.BranchID
+
+	log.Infof("xa branch [%d/%s] executing XA rollback", branchID, xid)
+
+	if err := originTx.xaConn.Rollback(context.Background()); err != nil {
+		log.Errorf("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK failed: %v", branchID, xid, err)
+		if originTx.tranCtx.IsBranchRegistered() {
+			if reportErr := originTx.report(false); reportErr != nil {
+				log.Errorf("xa branch [%d/%s] failed to report rollback failure to TC: %v", branchID, xid, reportErr)
+			}
+		}
+		return err
+	}
+	log.Infof("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK succeeded", branchID, xid)
+
+	if originTx.tranCtx.IsBranchRegistered() {
+		if err := originTx.report(false); err != nil {
+			log.Errorf("xa branch [%d/%s] failed to report rollback to TC: %v", branchID, xid, err)
+			return err
+		}
+		log.Infof("xa branch [%d/%s] reported rollback to TC", branchID, xid)
+	}
+
 	return nil
 }
 
-// commitOnXA commit xa and register branch transaction
+// commitOnXA executes XA END, XA PREPARE and reports to TC
 func (tx *XATx) commitOnXA() error {
+	originTx := tx.tx
+
+	if !originTx.tranCtx.OpenGlobalTransaction() {
+		return nil
+	}
+
+	if originTx.xaConn == nil {
+		return fmt.Errorf("xa transaction requires xaConn")
+	}
+
+	xid := originTx.tranCtx.XID
+	branchID := originTx.tranCtx.BranchID
+
+	log.Infof("xa branch [%d/%s] executing XA END + XA PREPARE", branchID, xid)
+
+	if err := originTx.xaConn.Commit(context.Background()); err != nil {
+		log.Errorf("xa branch [%d/%s] XA END + XA PREPARE failed: %v", branchID, xid, err)
+		if originTx.tranCtx.IsBranchRegistered() {
+			if reportErr := originTx.report(false); reportErr != nil {
+				log.Errorf("xa branch [%d/%s] failed to report phase-1 failure to TC: %v", branchID, xid, reportErr)
+				return fmt.Errorf("XA PREPARE failed: %w, and report failed: %v", err, reportErr)
+			}
+		}
+		return err
+	}
+
+	log.Infof("xa branch [%d/%s] XA END + XA PREPARE succeeded", branchID, xid)
+
+	if originTx.tranCtx.IsBranchRegistered() {
+		if err := originTx.report(true); err != nil {
+			log.Errorf("xa branch [%d/%s] failed to report phase-1 success to TC: %v", branchID, xid, err)
+			return fmt.Errorf("XA PREPARE succeeded but report to TC failed: %w", err)
+		}
+		log.Infof("xa branch [%d/%s] reported phase-1 success to TC", branchID, xid)
+	}
+
 	return nil
 }

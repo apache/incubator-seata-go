@@ -52,7 +52,9 @@ func NewInsertExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 }
 
 func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	i.beforeHooks(ctx, i.execContext)
+	if err := i.beforeHooks(ctx, i.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		i.afterHooks(ctx, i.execContext)
 	}()
