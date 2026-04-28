@@ -26,6 +26,7 @@
 ### feature：
 
   - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
+  - support PostgreSQL XA via pgx driver
 
 ### bugfix：
 

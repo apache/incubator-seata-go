@@ -20,7 +20,10 @@ package xa
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -60,39 +63,155 @@ func (c *PostgresXAErrorClassifier) IsAlreadyEnded(err error) bool {
 //   - Requires max_prepared_transactions > 0 in postgresql.conf.
 type PostgresXAConn struct {
 	driver.Conn
+	tx driver.Tx
 }
 
 func (c *PostgresXAConn) Start(ctx context.Context, xid string, flags int) error {
-	log.Infof("xa branch start (postgres no-op), xid %s", xid)
+	log.Infof("xa branch start (postgres begin), xid %s", xid)
+
+	if flags != TMNoFlags {
+		return errors.New("invalid arguments")
+	}
+	if c.tx != nil {
+		return fmt.Errorf("postgres xa transaction already started, xid %s", xid)
+	}
+
+	var (
+		tx  driver.Tx
+		err error
+	)
+	if conn, ok := c.Conn.(driver.ConnBeginTx); ok {
+		tx, err = conn.BeginTx(ctx, driver.TxOptions{})
+	} else {
+		tx, err = c.Conn.Begin()
+	}
+	if err != nil {
+		log.Errorf("postgres xa branch start failed, xid %s, err %v", xid, err)
+		return err
+	}
+
+	c.tx = tx
 	return nil
 }
 
 func (c *PostgresXAConn) End(ctx context.Context, xid string, flags int) error {
 	log.Infof("xa branch end (postgres no-op), xid %s", xid)
-	return nil
+
+	switch flags {
+	case TMSuccess, TMFail:
+		return nil
+	default:
+		return errors.New("invalid arguments")
+	}
 }
 
 func (c *PostgresXAConn) XAPrepare(ctx context.Context, xid string) error {
-	// TODO: PREPARE TRANSACTION 'xid'
-	return fmt.Errorf("PostgreSQL XA prepare not yet implemented")
+	log.Infof("postgres xa branch prepare, xid %s", xid)
+
+	if c.tx == nil {
+		return fmt.Errorf("postgres xa prepare requires active transaction, xid %s", xid)
+	}
+
+	query := "PREPARE TRANSACTION " + quotePostgresXID(xid)
+	conn, _ := c.Conn.(driver.ExecerContext)
+	_, err := conn.ExecContext(ctx, query, nil)
+	if err != nil {
+		log.Errorf("postgres xa branch prepare failed, xid %s, err %v", xid, err)
+		return err
+	}
+
+	c.tx = nil
+	return nil
 }
 
 func (c *PostgresXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
-	// TODO: COMMIT PREPARED 'xid' (onePhase=true → regular commit by upper layer)
-	return fmt.Errorf("PostgreSQL XA commit not yet implemented")
+	if onePhase {
+		if c.tx == nil {
+			return fmt.Errorf("postgres xa one-phase commit requires active transaction, xid %s", xid)
+		}
+		if err := c.tx.Commit(); err != nil {
+			log.Errorf("postgres xa one-phase commit failed, xid %s, err %v", xid, err)
+			return err
+		}
+		c.tx = nil
+		return nil
+	}
+
+	if c.tx != nil {
+		return fmt.Errorf("postgres xa commit requires prepared transaction, xid %s", xid)
+	}
+
+	log.Infof("postgres xa branch commit prepared, xid %s", xid)
+
+	query := "COMMIT PREPARED " + quotePostgresXID(xid)
+	conn, _ := c.Conn.(driver.ExecerContext)
+	_, err := conn.ExecContext(ctx, query, nil)
+	if err != nil {
+		log.Errorf("postgres xa branch commit prepared failed, xid %s, err %v", xid, err)
+	}
+	return err
 }
 
 func (c *PostgresXAConn) Rollback(ctx context.Context, xid string) error {
-	// TODO: ROLLBACK PREPARED 'xid'
-	return fmt.Errorf("PostgreSQL XA rollback not yet implemented")
+	if c.tx != nil {
+		log.Infof("postgres xa branch rollback active transaction, xid %s", xid)
+		err := c.tx.Rollback()
+		if err != nil {
+			log.Errorf("postgres xa branch rollback active transaction failed, xid %s, err %v", xid, err)
+			return err
+		}
+		c.tx = nil
+		return nil
+	}
+
+	log.Infof("postgres xa branch rollback prepared, xid %s", xid)
+
+	query := "ROLLBACK PREPARED " + quotePostgresXID(xid)
+	conn, _ := c.Conn.(driver.ExecerContext)
+	_, err := conn.ExecContext(ctx, query, nil)
+	if err != nil {
+		log.Errorf("postgres xa branch rollback prepared failed, xid %s, err %v", xid, err)
+	}
+	return err
 }
 
 func (c *PostgresXAConn) Recover(ctx context.Context, flag int) ([]string, error) {
-	if (flag & TMStartRScan) == 0 {
+	startRscan := (flag & TMStartRScan) > 0
+	endRscan := (flag & TMEndRScan) > 0
+
+	if !startRscan && !endRscan && flag != TMNoFlags {
+		return nil, errors.New("invalid arguments")
+	}
+	if !startRscan {
 		return nil, nil
 	}
-	// TODO: SELECT gid FROM pg_prepared_xacts WHERE database = current_database()
-	return nil, fmt.Errorf("PostgreSQL XA recover not yet implemented")
+
+	conn := c.Conn.(driver.QueryerContext)
+	rows, err := conn.QueryContext(ctx, "SELECT gid FROM pg_prepared_xacts WHERE database = current_database()", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	xids := make([]string, 0)
+	dest := make([]driver.Value, 1)
+	for {
+		if err = rows.Next(dest); err != nil {
+			if err == io.EOF {
+				return xids, nil
+			}
+			return nil, err
+		}
+
+		switch v := dest[0].(type) {
+		case string:
+			xids = append(xids, v)
+		case []byte:
+			xids = append(xids, string(v))
+		default:
+			return nil, errors.New("the protocol of postgres prepared transaction query is error")
+		}
+	}
 }
 
 func (c *PostgresXAConn) Forget(ctx context.Context, xid string) error {
@@ -104,3 +223,7 @@ func (c *PostgresXAConn) GetTransactionTimeout() time.Duration { return 0 }
 func (c *PostgresXAConn) IsSameRM(ctx context.Context, resource XAResource) bool { return false }
 
 func (c *PostgresXAConn) SetTransactionTimeout(duration time.Duration) bool { return false }
+
+func quotePostgresXID(xid string) string {
+	return "'" + strings.ReplaceAll(xid, "'", "''") + "'"
+}

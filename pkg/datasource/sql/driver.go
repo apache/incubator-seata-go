@@ -28,6 +28,8 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	mysql2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
@@ -42,6 +44,8 @@ const (
 	SeataATMySQLDriver = "seata-at-mysql"
 	// SeataXAMySQLDriver MySQL driver for XA mode
 	SeataXAMySQLDriver = "seata-xa-mysql"
+	// SeataXAPostgresDriver PostgreSQL driver for XA mode
+	SeataXAPostgresDriver = "seata-xa-postgres"
 )
 
 func initDriver() {
@@ -50,6 +54,7 @@ func initDriver() {
 			branchType: branch.BranchTypeAT,
 			transType:  types.ATMode,
 			target:     mysql.MySQLDriver{},
+			targetName: "mysql",
 		},
 	})
 
@@ -58,6 +63,16 @@ func initDriver() {
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
 			target:     mysql.MySQLDriver{},
+			targetName: "mysql",
+		},
+	})
+
+	sql.Register(SeataXAPostgresDriver, &seataXADriver{
+		seataDriver: &seataDriver{
+			branchType: branch.BranchTypeXA,
+			transType:  types.XAMode,
+			target:     stdlib.GetDefaultDriver(),
+			targetName: "pgx",
 		},
 	})
 }
@@ -74,8 +89,6 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.ATMode
-	cfg, _ := mysql.ParseDSN(name)
-	_connector.cfg = cfg
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -94,8 +107,6 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 
 	_connector, _ := connector.(*seataConnector)
 	_connector.transType = types.XAMode
-	cfg, _ := mysql.ParseDSN(name)
-	_connector.cfg = cfg
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -106,6 +117,7 @@ type seataDriver struct {
 	branchType branch.BranchType
 	transType  types.TransactionMode
 	target     driver.Driver
+	targetName string
 }
 
 // Open never be called, because seataDriver implemented dri.DriverContext interface.
@@ -141,13 +153,17 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType types.DBType,
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
-	cfg, _ := mysql.ParseDSN(dataSourceName)
+	meta, err := parseConnectorMetadata(dataSourceName, dbType)
+	if err != nil {
+		return nil, err
+	}
+
 	options := []dbOption{
 		withResourceID(parseResourceID(dataSourceName)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
-		withDBName(cfg.DBName),
+		withDBName(meta.dbName),
 		withConnector(connector),
 	}
 	res, err := newResource(options...)
@@ -155,20 +171,56 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
+
+	if dbType == types.DBTypeMySQL {
+		cfg, err := mysql.ParseDSN(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn: %w", err)
+		}
+		datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
+	}
+
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("register resource: %v", err)
 		return nil, err
 	}
 	return &seataConnector{
-		res:    res,
-		target: connector,
-		cfg:    cfg,
+		branchType:   d.branchType,
+		transType:    d.transType,
+		targetDriver: d.target,
+		targetName:   d.targetName,
+		res:          res,
+		target:       connector,
+		dbName:       meta.dbName,
+		dbType:       dbType,
 	}, nil
 }
 
 func (d *seataDriver) getTargetDriverName() string {
-	return "mysql"
+	return d.targetName
+}
+
+type connectorMetadata struct {
+	dbName string
+}
+
+func parseConnectorMetadata(dataSourceName string, dbType types.DBType) (*connectorMetadata, error) {
+	switch dbType {
+	case types.DBTypeMySQL:
+		cfg, err := mysql.ParseDSN(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: cfg.DBName}, nil
+	case types.DBTypePostgreSQL:
+		cfg, err := pgx.ParseConfig(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse postgres dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: cfg.Database}, nil
+	default:
+		return nil, fmt.Errorf("unsupported connector metadata for db type %s", dbType.String())
+	}
 }
 
 type dsnConnector struct {
