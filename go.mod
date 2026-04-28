@@ -16,6 +16,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/cel-go v0.18.0
 	github.com/google/uuid v1.3.0
+	github.com/jackc/pgx/v5 v5.4.3
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pierrec/lz4/v4 v4.1.17
@@ -68,6 +69,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible // indirect

@@ -273,7 +273,9 @@ return tm.WithGlobalTx(ctx, &tm.GtxConfig{Name: "inventory-tcc"}, func(ctx conte
 
 ### XA 模式示例
 
-当前仓库已支持 MySQL XA，事务入口与 AT 相同，只需要将驱动切换为 `seata-xa-mysql`：
+XA 模式的事务入口与 AT 相同。
+
+如果使用 MySQL XA，只需要将驱动切换为 `seata-xa-mysql`：
 
 ```go
 db, err := sql.Open(
@@ -281,5 +283,16 @@ db, err := sql.Open(
 	"root:password@tcp(127.0.0.1:3306)/seata_demo?charset=utf8mb4&parseTime=True&multiStatements=true",
 )
 ```
+
+如果使用 PostgreSQL XA，可使用基于 pgx 的驱动 `seata-xa-postgres`：
+
+```go
+db, err := sql.Open(
+	"seata-xa-postgres",
+	"postgres://postgres:password@127.0.0.1:5432/seata_demo?sslmode=disable",
+)
+```
+
+> PostgreSQL XA 依赖 prepared transaction，使用前需要在 PostgreSQL 服务端开启 `max_prepared_transactions > 0`。
 
 > 完整示例可参考：[XA 模式示例](https://github.com/apache/incubator-seata-go-samples/tree/main/xa/basic)。
