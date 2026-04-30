@@ -44,6 +44,7 @@ const (
 type BaseExecutor struct {
 	sqlUndoLog undo.SQLUndoLog
 	undoImage  *types.RecordImage
+	dbType     types.DBType
 }
 
 // ExecuteOn
@@ -110,17 +111,21 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	if b.undoImage == nil {
 		return nil, fmt.Errorf("undo image is nil")
 	}
+	dbType := b.dbType
+	if dbType == types.DBTypeUnknown {
+		dbType = types.DBTypeMySQL
+	}
 	tableMeta := b.undoImage.TableMeta
 	pkNameList := tableMeta.GetPrimaryKeyOnlyName()
-	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList)
+	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList, dbType)
 
 	if len(pkValues) == 0 {
 		return nil, nil
 	}
 
-	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize)
-	checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
-	params := buildPKParams(b.undoImage.Rows, pkNameList)
+	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), dbType, maxInSize)
+	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where), dbType)
+	params := buildPKParams(b.undoImage.Rows, pkNameList, dbType)
 
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)
 	if err != nil {
@@ -168,7 +173,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	return &image, nil
 }
 
-func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
+func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string, dbType types.DBType) map[string][]types.ColumnImage {
 	if len(rows) == 0 {
 		return make(map[string][]types.ColumnImage)
 	}
@@ -182,7 +187,7 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
+			cleanName := util.DelEscape(column.ColumnName, dbType)
 			columnNameLower := strings.ToLower(cleanName)
 			if originalPk, exists := pkLookup[columnNameLower]; exists {
 				if pkValues[originalPk] == nil {

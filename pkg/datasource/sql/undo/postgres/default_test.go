@@ -15,33 +15,28 @@
  * limitations under the License.
  */
 
-package factor
+package postgres
 
 import (
-	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
 )
 
-var undoExecutorHolderMap map[types.DBType]undo.UndoExecutorHolder
-
-var ErrNotImplDBType = errors.New("db type executor not implement")
-
-// GetUndoExecutorHolder get exactly executor holder
-func GetUndoExecutorHolder(dbType types.DBType) (undo.UndoExecutorHolder, error) {
-	// lazy init
-	if undoExecutorHolderMap == nil {
-		undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{
-			types.DBTypeMySQL:      executor.NewMySQLUndoExecutorHolder(),
-			types.DBTypePostgreSQL: executor.NewPostgreSQLUndoExecutorHolder(),
+func TestInitUndoLogManager(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("InitUndoLogManager should not panic, but got: %v", r)
 		}
-	}
+	}()
 
-	if executorHolder, ok := undoExecutorHolderMap[dbType]; ok {
-		return executorHolder, nil
-	} else {
-		return nil, ErrNotImplDBType
-	}
+	InitUndoLogManager()
+
+	manager, err := undo.GetUndoLogManager(types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	assert.NotNil(t, manager)
+	assert.Equal(t, types.DBTypePostgreSQL, manager.DBType())
 }

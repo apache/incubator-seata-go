@@ -27,8 +27,21 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
+var (
+	parseSQLQuery              = parser.DoParser
+	isGlobalTx                 = tm.IsGlobalTx
+	newPlainExecutor           = NewPlainExecutor
+	newInsertExecutor          = NewInsertExecutor
+	newUpdateExecutor          = NewUpdateExecutor
+	newDeleteExecutor          = NewDeleteExecutor
+	newSelectForUpdateExecutor = NewSelectForUpdateExecutor
+	newInsertOnUpdateExecutor  = NewInsertOnUpdateExecutor
+	newMultiExecutor           = NewMultiExecutor
+)
+
 func Init() {
 	exec.RegisterATExecutor(types.DBTypeMySQL, func() exec.SQLExecutor { return &ATExecutor{} })
+	exec.RegisterATExecutor(types.DBTypePostgreSQL, func() exec.SQLExecutor { return &postgresATExecutor{} })
 }
 
 type executor interface {
@@ -45,31 +58,31 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 
 // ExecWithNamedValue find the executor by sql type
 func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	queryParser, err := parser.DoParser(execCtx.Query)
+	queryParser, err := parseSQLQuery(execCtx.Query)
 	if err != nil {
 		return nil, err
 	}
 
 	var executor executor
 
-	if !tm.IsGlobalTx(ctx) {
-		executor = NewPlainExecutor(queryParser, execCtx)
+	if !isGlobalTx(ctx) {
+		executor = newPlainExecutor(queryParser, execCtx)
 	} else {
 		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
-			executor = NewInsertExecutor(queryParser, execCtx, e.hooks)
+			executor = newInsertExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeUpdate:
-			executor = NewUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = newUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeDelete:
-			executor = NewDeleteExecutor(queryParser, execCtx, e.hooks)
+			executor = newDeleteExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeSelectForUpdate:
-			executor = NewSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = newSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeInsertOnDuplicateUpdate:
-			executor = NewInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
+			executor = newInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
 		case types.SQLTypeMulti:
-			executor = NewMultiExecutor(queryParser, execCtx, e.hooks)
+			executor = newMultiExecutor(queryParser, execCtx, e.hooks)
 		default:
-			executor = NewPlainExecutor(queryParser, execCtx)
+			executor = newPlainExecutor(queryParser, execCtx)
 		}
 	}
 

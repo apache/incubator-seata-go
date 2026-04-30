@@ -77,6 +77,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 
 // beforeImage build before image
 func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	dbType := effectiveDBType(d.execContext.DBType)
 	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContext.Query, d.execContext.NamedValues)
 	if err != nil {
 		return nil, err
@@ -105,13 +106,13 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, d.execContext.DBName, tableName)
 
 	if err != nil {
 		return nil, err
 	}
 
-	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete, dbType)
 	if err != nil {
 		return nil, err
 	}
@@ -126,9 +127,13 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 
 // buildBeforeImageSQL build delete sql from delete sql
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
-	p, err := parser.DoParser(query)
-	if err != nil {
-		return "", nil, err
+	p := d.parserCtx
+	if p == nil || p.DeleteStmt == nil {
+		var err error
+		p, err = parser.DoParser(query)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if p.DeleteStmt == nil {
@@ -151,8 +156,12 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
+	sql := d.normalizeGeneratedSQL(string(b.Bytes()), d.execContext.DBType)
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
+
+	if effectiveDBType(d.execContext.DBType) == types.DBTypePostgreSQL {
+		return util.CompactPostgreSQLPlaceholders(sql, args)
+	}
 
 	return sql, d.buildSelectArgs(&selStmt, args), nil
 }
@@ -160,7 +169,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(effectiveDBType(d.execContext.DBType)).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

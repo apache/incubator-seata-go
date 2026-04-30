@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package mysql
+package postgres
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync"
 	"time"
-
-	"github.com/go-sql-driver/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/base"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 var (
-	capacity      int32 = 1024
-	EexpireTime         = 15 * time.Minute
-	tableMetaOnce sync.Once
+	capacity   int32 = 1024
+	expireTime       = 15 * time.Minute
 )
 
 type TableMetaCache struct {
@@ -41,25 +37,17 @@ type TableMetaCache struct {
 	db             *sql.DB
 }
 
-func NewTableMetaInstance(db *sql.DB, cfg *mysql.Config) *TableMetaCache {
-	dbName := ""
-	if cfg != nil {
-		dbName = cfg.DBName
-	}
-
-	tableMetaInstance := &TableMetaCache{
-		tableMetaCache: base.NewBaseCache(context.Background(), capacity, EexpireTime, NewMysqlTrigger(), db, dbName),
+func NewTableMetaInstance(db *sql.DB, dbName string) *TableMetaCache {
+	return &TableMetaCache{
+		tableMetaCache: base.NewBaseCache(context.Background(), capacity, expireTime, NewPostgresTrigger(), db, dbName),
 		db:             db,
 	}
-	return tableMetaInstance
 }
 
-// Init
 func (c *TableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
 	return nil
 }
 
-// GetTableMeta get table info from cache or information schema
 func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
 	if tableName == "" {
 		return nil, fmt.Errorf("table name is empty")
@@ -78,7 +66,6 @@ func (c *TableMetaCache) GetTableMeta(ctx context.Context, dbName, tableName str
 	return &tableMeta, nil
 }
 
-// Destroy
 func (c *TableMetaCache) Destroy() error {
 	return nil
 }

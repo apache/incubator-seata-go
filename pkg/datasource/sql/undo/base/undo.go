@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/factor"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/collection"
 	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
@@ -53,19 +55,19 @@ func getUndoLogTableName() string {
 }
 
 func getCheckUndoLogTableExistSql() string {
-	return "SELECT 1 FROM " + getUndoLogTableName() + " LIMIT 1"
+	return NewBaseUndoLogManager().getCheckUndoLogTableExistSql()
 }
 
 func getInsertUndoLogSql() string {
-	return "INSERT INTO " + getUndoLogTableName() + "(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, now(6), now(6))"
+	return NewBaseUndoLogManager().getInsertUndoLogSql()
 }
 
 func getSelectUndoLogSql() string {
-	return "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ? FOR UPDATE"
+	return NewBaseUndoLogManager().getSelectUndoLogSql()
 }
 
 func getDeleteUndoLogSql() string {
-	return "DELETE FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ?"
+	return NewBaseUndoLogManager().getDeleteUndoLogSql()
 }
 
 // undo log status
@@ -77,10 +79,91 @@ const (
 )
 
 // BaseUndoLogManager
-type BaseUndoLogManager struct{}
+type BaseUndoLogManager struct {
+	dbType types.DBType
+}
 
-func NewBaseUndoLogManager() *BaseUndoLogManager {
-	return &BaseUndoLogManager{}
+func NewBaseUndoLogManager(dbTypes ...types.DBType) *BaseUndoLogManager {
+	dbType := types.DBTypeMySQL
+	if len(dbTypes) > 0 && dbTypes[0] != types.DBTypeUnknown {
+		dbType = dbTypes[0]
+	}
+	return &BaseUndoLogManager{dbType: dbType}
+}
+
+func (m *BaseUndoLogManager) dialect() types.DBType {
+	if m == nil || m.dbType == types.DBTypeUnknown {
+		return types.DBTypeMySQL
+	}
+	return m.dbType
+}
+
+func (m *BaseUndoLogManager) getCheckUndoLogTableExistSql() string {
+	return "SELECT 1 FROM " + getUndoLogTableName() + " LIMIT 1"
+}
+
+func (m *BaseUndoLogManager) getInsertUndoLogSql() string {
+	timestampExpr := "now(6)"
+	if m.dialect() == types.DBTypePostgreSQL {
+		timestampExpr = "CURRENT_TIMESTAMP"
+	}
+
+	sql := fmt.Sprintf(
+		"INSERT INTO %s(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES (?, ?, ?, ?, ?, %s, %s)",
+		getUndoLogTableName(),
+		timestampExpr,
+		timestampExpr,
+	)
+	return util.RewritePlaceholders(sql, m.dialect())
+}
+
+func (m *BaseUndoLogManager) getSelectUndoLogSql() string {
+	if m.dialect() != types.DBTypePostgreSQL {
+		return "SELECT `branch_id`,`xid`,`context`,`rollback_info`,`log_status` FROM " + getUndoLogTableName() + " WHERE branch_id = ? AND xid = ? FOR UPDATE"
+	}
+
+	sql := fmt.Sprintf(
+		"SELECT %s,%s,%s,%s,%s FROM %s WHERE %s = ? AND %s = ? FOR UPDATE",
+		util.AddEscape("branch_id", m.dialect()),
+		util.AddEscape("xid", m.dialect()),
+		util.AddEscape("context", m.dialect()),
+		util.AddEscape("rollback_info", m.dialect()),
+		util.AddEscape("log_status", m.dialect()),
+		getUndoLogTableName(),
+		util.AddEscape("branch_id", m.dialect()),
+		util.AddEscape("xid", m.dialect()),
+	)
+	return util.RewritePlaceholders(sql, m.dialect())
+}
+
+func (m *BaseUndoLogManager) getDeleteUndoLogSql() string {
+	sql := fmt.Sprintf("DELETE FROM %s WHERE branch_id = ? AND xid = ?", getUndoLogTableName())
+	return util.RewritePlaceholders(sql, m.dialect())
+}
+
+type sqlStateError interface {
+	SQLState() string
+}
+
+func (m *BaseUndoLogManager) isUndoLogTableNotExistError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if m.dialect() == types.DBTypeMySQL {
+		var e *mysql.SQLError
+		return errors.As(err, &e) && e.Code == mysql.ErrNoSuchTable
+	}
+
+	if m.dialect() == types.DBTypePostgreSQL {
+		var stateErr sqlStateError
+		if errors.As(err, &stateErr) && stateErr.SQLState() == "42P01" {
+			return true
+		}
+		return strings.Contains(err.Error(), "SQLSTATE 42P01")
+	}
+
+	return false
 }
 
 // Init
@@ -90,11 +173,33 @@ func (m *BaseUndoLogManager) Init() {
 // InsertUndoLog
 func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn driver.Conn) error {
 	log.Infof("begin to insert undo log, xid %v, branch id %v", record.XID, record.BranchID)
-	stmt, err := conn.Prepare(getInsertUndoLogSql())
+	ctx := context.Background()
+
+	var (
+		stmt driver.Stmt
+		err  error
+	)
+	if prepareCtx, ok := conn.(driver.ConnPrepareContext); ok {
+		stmt, err = prepareCtx.PrepareContext(ctx, m.getInsertUndoLogSql())
+	} else {
+		stmt, err = conn.Prepare(m.getInsertUndoLogSql())
+	}
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
+	defer stmt.Close()
+
+	if stmtExecCtx, ok := stmt.(driver.StmtExecContext); ok {
+		_, err = stmtExecCtx.ExecContext(ctx, []driver.NamedValue{
+			{Ordinal: 1, Value: record.BranchID},
+			{Ordinal: 2, Value: record.XID},
+			{Ordinal: 3, Value: record.Context},
+			{Ordinal: 4, Value: record.RollbackInfo},
+			{Ordinal: 5, Value: int64(record.LogStatus)},
+		})
+	} else {
+		_, err = stmt.Exec([]driver.Value{record.BranchID, record.XID, record.Context, record.RollbackInfo, int64(record.LogStatus)})
+	}
 	if err != nil {
 		return err
 	}
@@ -102,7 +207,7 @@ func (m *BaseUndoLogManager) InsertUndoLog(record undo.UndologRecord, conn drive
 }
 
 func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, record undo.UndologRecord, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, getInsertUndoLogSql())
+	stmt, err := conn.PrepareContext(ctx, m.getInsertUndoLogSql())
 	if err != nil {
 		return err
 	}
@@ -117,7 +222,7 @@ func (m *BaseUndoLogManager) InsertUndoLogWithSqlConn(ctx context.Context, recor
 
 // DeleteUndoLog exec delete single undo log operate
 func (m *BaseUndoLogManager) DeleteUndoLog(ctx context.Context, xid string, branchID int64, conn *sql.Conn) error {
-	stmt, err := conn.PrepareContext(ctx, getDeleteUndoLogSql())
+	stmt, err := conn.PrepareContext(ctx, m.getDeleteUndoLogSql())
 	if err != nil {
 		log.Errorf("[DeleteUndoLog] prepare sql fail, err: %v", err)
 		return err
@@ -267,7 +372,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		}
 	}()
 
-	stmt, err := conn.PrepareContext(ctx, getSelectUndoLogSql())
+	stmt, err := conn.PrepareContext(ctx, m.getSelectUndoLogSql())
 	if err != nil {
 		log.Errorf("prepare sql fail, err: %v", err)
 		return err
@@ -338,7 +443,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		branchUndoLog.Reverse()
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, dbName, undoLog.TableName)
+			tableMeta, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, dbName, undoLog.TableName)
 			if err != nil {
 				log.Errorf("get table meta fail, err: %v", err)
 				return err
@@ -416,15 +521,14 @@ func (m *BaseUndoLogManager) insertUndoLogWithGlobalFinished(ctx context.Context
 
 // DBType
 func (m *BaseUndoLogManager) DBType() types.DBType {
-	panic("implement me")
+	return m.dialect()
 }
 
 // HasUndoLogTable check undo log table if exist
 func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn) (res bool, err error) {
-	rows, err := conn.QueryContext(ctx, getCheckUndoLogTableExistSql())
+	rows, err := conn.QueryContext(ctx, m.getCheckUndoLogTableExistSql())
 	if err != nil {
-		// 1146 mysql table not exist fault code
-		if e, ok := err.(*mysql.SQLError); ok && e.Code == mysql.ErrNoSuchTable {
+		if m.isUndoLogTableNotExistError(err) {
 			return false, nil
 		}
 		log.Errorf("[HasUndoLogTable] query sql fail, err: %v", err)
@@ -452,7 +556,7 @@ func (m *BaseUndoLogManager) getBatchDeleteUndoLogSql(xid []string, branchID []i
 	undoLogDeleteSql.WriteString(" AND xid IN ")
 	m.appendInParam(len(xid), &undoLogDeleteSql)
 
-	return undoLogDeleteSql.String(), nil
+	return util.RewritePlaceholders(undoLogDeleteSql.String(), m.dialect()), nil
 }
 
 // appendInParam build in param

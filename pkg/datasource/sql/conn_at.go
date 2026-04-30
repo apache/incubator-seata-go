@@ -58,16 +58,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 			return nil, err
 		}
 
-		execCtx := &types.ExecContext{
-			TxCtx:                c.txCtx,
-			Query:                query,
-			NamedValues:          args,
-			Conn:                 c.targetConn,
-			DBName:               c.dbName,
-			DbVersion:            c.GetDbVersion(),
-			IsSupportsSavepoints: true,
-			IsAutoCommit:         c.GetAutoCommit(),
-		}
+		execCtx := c.newExecContext(c.txCtx, query, nil, args)
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
@@ -100,16 +91,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 			return nil, err
 		}
 
-		execCtx := &types.ExecContext{
-			TxCtx:                c.txCtx,
-			Query:                query,
-			NamedValues:          args,
-			Conn:                 c.targetConn,
-			DBName:               c.dbName,
-			DbVersion:            c.GetDbVersion(),
-			IsSupportsSavepoints: true,
-			IsAutoCommit:         c.GetAutoCommit(),
-		}
+		execCtx := c.newExecContext(c.txCtx, query, nil, args)
 
 		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {

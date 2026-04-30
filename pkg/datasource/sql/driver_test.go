@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 )
@@ -60,31 +62,8 @@ func Test_seataATDriver_Open(t *testing.T) {
 	defer db.Close()
 
 	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
-
-		v := reflect.ValueOf(db)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-
-		field := v.FieldByName("connector")
-		fieldVal := reflectx.GetUnexportedField(field)
-
-		driverVal, ok := fieldVal.(driver.Connector).Driver().(*seataATDriver)
-		assert.True(t, ok, "need seata at driver")
-
-		vv := reflect.ValueOf(driverVal)
-		if vv.Kind() == reflect.Ptr {
-			vv = vv.Elem()
-		}
-		field = vv.FieldByName("target")
-
-		mockDriver := mock.NewMockTestDriver(ctrl)
-
-		reflectx.SetUnexportedField(field, mockDriver)
-
-		connector := &dsnConnector{
-			driver: driverVal,
-		}
+		connector := mock.NewMockTestDriverConnector(ctrl)
+		connector.EXPECT().Connect(gomock.Any()).Return(nil, fmt.Errorf("connect error"))
 		return connector
 	})
 
@@ -117,6 +96,34 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 
 	_, ok := fieldVal.(*seataATConnector)
 	assert.True(t, ok, "need return seata at connector")
+}
+
+func Test_seataATPostgresDriver_OpenConnector(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+	_ = mockMgr
+
+	db, err := sql.Open(SeataATPostgresDriver, postgresTestDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+
+	v := reflect.ValueOf(db)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	field := v.FieldByName("connector")
+	fieldVal := reflectx.GetUnexportedField(field)
+
+	connector, ok := fieldVal.(*seataATConnector)
+	assert.True(t, ok, "need return seata at connector")
+	assert.Equal(t, types.DBTypePostgreSQL, connector.dbType)
+	assert.Equal(t, "seata_go_test", connector.dbName)
 }
 
 func Test_seataXADriver_OpenConnector(t *testing.T) {
