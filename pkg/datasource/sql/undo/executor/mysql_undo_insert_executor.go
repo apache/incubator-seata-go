@@ -34,11 +34,15 @@ type mySQLUndoInsertExecutor struct {
 
 // newMySQLUndoInsertExecutor init
 func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExecutor {
-	return &mySQLUndoInsertExecutor{sqlUndoLog: sqlUndoLog}
+	return &mySQLUndoInsertExecutor{
+		sqlUndoLog:   sqlUndoLog,
+		BaseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+	}
 }
 
 // ExecuteOn execute insert undo logic
 func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	m.BaseExecutor.dbType = dbType
 
 	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
 		return err
@@ -104,5 +108,5 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	whereSql := util.BuildWhereConditionByPKs(pkList, dbType)
 
 	deleteSqlTemplate := "DELETE FROM %s WHERE %s "
-	return fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
+	return util.RewritePlaceholders(fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), dbType), nil
 }

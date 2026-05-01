@@ -80,3 +80,21 @@ func Test_deleteExecutor_buildBeforeImageSQL(t *testing.T) {
 		})
 	}
 }
+
+func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
+	sourceQueryArgs := []driver.Value{100, 18, 28}
+	c, err := parser.DoParser("delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3")
+	assert.Nil(t, err)
+
+	executor := NewDeleteExecutor(c, &types.ExecContext{
+		DBType:      types.DBTypePostgreSQL,
+		Values:      sourceQueryArgs,
+		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+	}, []exec.SQLHook{})
+	query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL("delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3", util.ValueToNamedValue(sourceQueryArgs))
+	assert.Nil(t, err)
+	assert.Equal(t, "SELECT * FROM t_user WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
+	assert.NotContains(t, query, "SQL_NO_CACHE")
+	assert.NotContains(t, query, "`")
+}

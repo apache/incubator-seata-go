@@ -98,13 +98,14 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, nil
 	}
 
+	dbType := effectiveDBType(u.execContext.DBType)
 	selectSQL, selectArgs, err := u.buildBeforeImageSQL(ctx, u.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+	image, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, dbType)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +153,9 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return &types.RecordImage{}, nil
 	}
 
+	dbType := effectiveDBType(u.execContext.DBType)
 	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +183,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+	afterImage, err := u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, dbType)
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +201,7 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	if len(beforeImage.Rows) == 0 {
 		return "", nil
 	}
+	dbType := effectiveDBType(u.execContext.DBType)
 	sb := strings.Builder{}
 	// todo: OnlyCareUpdateColumns should load from config first
 	var selectFields string
@@ -213,10 +216,10 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	} else {
 		selectFields = "*"
 	}
-	sb.WriteString("SELECT " + selectFields + " FROM " + meta.TableName + " WHERE ")
-	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
+	sb.WriteString("SELECT " + selectFields + " FROM " + util.AddEscape(meta.TableName, dbType) + " WHERE ")
+	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), dbType, maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
-	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
+	return u.normalizeGeneratedSQL(sb.String(), dbType), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), dbType)
 }
 
 // buildAfterImageSQL build the SQL to query before image data
@@ -226,6 +229,7 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		return "", nil, fmt.Errorf("invalid update stmt")
 	}
 
+	dbType := effectiveDBType(u.execContext.DBType)
 	updateStmt := u.parserCtx.UpdateStmt
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 
@@ -239,8 +243,13 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		}
 
 		// select indexes columns
+		tableCache, err := u.getTableCache(dbType)
+		if err != nil {
+			return "", nil, err
+		}
+
 		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+		metaData, err := tableCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
 		if err != nil {
 			return "", nil, err
 		}
@@ -284,8 +293,12 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
+	sql := u.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
+
+	if dbType == types.DBTypePostgreSQL {
+		return util.CompactPostgreSQLPlaceholders(sql, args)
+	}
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
 }

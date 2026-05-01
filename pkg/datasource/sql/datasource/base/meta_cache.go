@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
-
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
@@ -53,11 +51,11 @@ type BaseTableMetaCache struct {
 	cache           map[string]*entry
 	trigger         trigger
 	db              *sql.DB
-	cfg             *mysql.Config
+	dbName          string
 }
 
 // NewBaseCache
-func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, cfg *mysql.Config) *BaseTableMetaCache {
+func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, dbName string) *BaseTableMetaCache {
 	c := &BaseTableMetaCache{
 		lock:            sync.RWMutex{},
 		capity:          capity,
@@ -66,7 +64,7 @@ func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duratio
 		refreshInterval: time.Minute,
 		cache:           map[string]*entry{},
 		trigger:         trigger,
-		cfg:             cfg,
+		dbName:          dbName,
 		db:              db,
 	}
 
@@ -77,6 +75,10 @@ func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duratio
 
 // Init
 func (c *BaseTableMetaCache) Init(ctx context.Context) error {
+	if c.db == nil || c.dbName == "" {
+		return nil
+	}
+
 	go c.refresh(ctx)
 	go c.scanExpire(ctx)
 	return nil
@@ -87,7 +89,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 	f := func() {
 		// Get table names with read lock
 		c.lock.RLock()
-		if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+		if c.db == nil || c.dbName == "" || c.cache == nil || len(c.cache) == 0 {
 			c.lock.RUnlock()
 			return
 		}
@@ -104,7 +106,7 @@ func (c *BaseTableMetaCache) refresh(ctx context.Context) {
 			return
 		}
 		defer conn.Close()
-		v, err := c.trigger.LoadAll(ctx, c.cfg.DBName, conn, tables...)
+		v, err := c.trigger.LoadAll(ctx, c.dbName, conn, tables...)
 		if err != nil {
 			return
 		}
