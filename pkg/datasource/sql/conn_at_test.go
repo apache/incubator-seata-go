@@ -385,7 +385,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 						columns: []string{"version"},
 						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
 					}, nil
-				case strings.HasPrefix(query, "SELECT * FROM t_user WHERE id=$3"):
+				case strings.HasPrefix(query, "SELECT * FROM t_user WHERE id=$1"):
 					return &postgresMockRows{
 						columns: []string{"name", "age", "id"},
 						data:    [][]driver.Value{{"alice", int64(18), int64(1)}},
@@ -416,7 +416,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), "UPDATE t_user SET name = $1, age = $2 WHERE id = $3", "bob", int64(19), int64(1))
 	assert.NoError(t, err)
-	assert.Contains(t, queryLog, "SELECT * FROM t_user WHERE id=$3 FOR UPDATE")
+	assert.Contains(t, queryLog, "SELECT * FROM t_user WHERE id=$1 FOR UPDATE")
 	assert.Contains(t, queryLog[len(queryLog)-1], `("id") IN (($1))`)
 	assert.Equal(t, []string{"UPDATE t_user SET name = $1, age = $2 WHERE id = $3"}, execLog)
 	assert.NoError(t, tx.Rollback())
