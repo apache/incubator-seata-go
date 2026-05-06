@@ -148,7 +148,7 @@ func (g *ChannelManager) newConn(addr string) (conn *grpc.ClientConn, err error)
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithStreamInterceptor(grpc2.ClientTransactionStreamInterceptor))
-	opts = append(opts, grpc.WithInitialConnWindowSize(1 * 1024 * 1024))
+	opts = append(opts, grpc.WithInitialConnWindowSize(1*1024*1024))
 	return grpc.DialContext(ctx, addr, opts...)
 }
 
