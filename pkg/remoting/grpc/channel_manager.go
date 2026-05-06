@@ -36,6 +36,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -144,10 +145,10 @@ func (g *ChannelManager) newConn(addr string) (conn *grpc.ClientConn, err error)
 		PermitWithoutStream: g.config.StreamConfig.PermitWithoutStream,
 	}
 	opts = append(opts, grpc.WithKeepaliveParams(kaParams))
-	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithStreamInterceptor(grpc2.ClientTransactionStreamInterceptor))
-	grpc.InitialConnWindowSize(1 * 1024 * 1024)
+	opts = append(opts, grpc.WithInitialConnWindowSize(1 * 1024 * 1024))
 	return grpc.DialContext(ctx, addr, opts...)
 }
 
