@@ -138,3 +138,30 @@ func Test_seataXAConnector_Connect(t *testing.T) {
 	assert.True(t, ok, "need return seata xa connection")
 	assert.True(t, xaConn.txCtx.TransactionMode == types.Local, "init need local tx")
 }
+
+func Test_seataConnector_Connect_UsesResourceDBType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	mockConn.EXPECT().Close().AnyTimes().Return(nil)
+
+	mockConnector := mock.NewMockTestDriverConnector(ctrl)
+	mockConnector.EXPECT().Connect(gomock.Any()).Return(mockConn, nil)
+
+	connector := &seataConnector{
+		target: mockConnector,
+		res: &DBResource{
+			dbType: types.DBTypeOracle,
+			dbName: "xe",
+		},
+	}
+
+	conn, err := connector.Connect(context.Background())
+	assert.NoError(t, err)
+
+	proxy, ok := conn.(*Conn)
+	assert.True(t, ok, "need return base connection proxy")
+	assert.Equal(t, types.DBTypeOracle, proxy.dbType)
+	assert.Equal(t, "xe", proxy.dbName)
+}
