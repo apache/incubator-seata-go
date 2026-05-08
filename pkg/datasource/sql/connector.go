@@ -119,8 +119,8 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
-		dbName:     c.cfg.DBName,
-		dbType:     types.DBTypeMySQL,
+		dbName:     c.res.dbName,
+		dbType:     c.res.dbType,
 	}, nil
 }
 
@@ -134,6 +134,9 @@ func (c *seataConnector) Driver() driver.Driver {
 	})
 
 	return &seataDriver{
-		target: c.driver,
+		branchType: c.res.branchType,
+		transType:  c.transType,
+		target:     c.driver,
+		driverName: dbTypeDriverName(c.res.dbType),
 	}
 }

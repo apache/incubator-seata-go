@@ -86,32 +86,37 @@ func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
 	for {
 		select {
 		case <-ticker.C:
-			xaManager.resourceCache.Range(func(key, value any) bool {
-				source, ok := value.(*DBResource)
-				if !ok {
-					return true
-				}
-				if source.IsShouldBeHeld() {
-					return true
-				}
-
-				source.GetKeeper().Range(func(key, value any) bool {
-					connectionXA, isConnectionXA := value.(*XAConn)
-					if !isConnectionXA {
-						return true
-					}
-
-					if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
-						if err := connectionXA.CloseForce(); err != nil {
-							log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
-						}
-					}
-					return true
-				})
-				return true
-			})
+			xaManager.closeTimeoutXAConnections(time.Now())
 		}
 	}
+}
+
+func (xaManager *XAResourceManager) closeTimeoutXAConnections(now time.Time) {
+	xaManager.resourceCache.Range(func(key, value any) bool {
+		source, ok := value.(*DBResource)
+		if !ok {
+			return true
+		}
+		if source.IsShouldBeHeld() {
+			return true
+		}
+
+		source.GetKeeper().Range(func(key, value any) bool {
+			connectionXA, isConnectionXA := value.(*XAConn)
+			if !isConnectionXA {
+				return true
+			}
+
+			if connectionXA.prepareTime.IsZero() || now.Sub(connectionXA.prepareTime) <= xaManager.config.TwoPhaseHoldTime {
+				return true
+			}
+			if err := connectionXA.CloseForce(); err != nil {
+				log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
+			}
+			return true
+		})
+		return true
+	})
 }
 
 func (xaManager *XAResourceManager) GetBranchType() branch.BranchType {
@@ -162,6 +167,14 @@ func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid
 
 func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
 	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId))
+	status, err := branchStatus(xaID.String())
+	if err != nil {
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
+	}
+	if status == branch.BranchStatusPhasetwoCommitted {
+		return status, nil
+	}
+
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
@@ -170,10 +183,17 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 
 	if err := connectionProxyXA.XaCommit(ctx, xaID); err != nil {
 		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
-		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
-		return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+		if connectionProxyXA.isBranchCommitted(err) {
+			setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
+			return branch.BranchStatusPhasetwoCommitted, nil
+		}
+		if connectionProxyXA.isBranchRollbacked(err) {
+			return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
+		}
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 
+	setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 	log.Infof("%s was committed", xaID.String())
 	return branch.BranchStatusPhasetwoCommitted, nil
 }
@@ -188,8 +208,13 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 
 	if err = connectionProxyXA.XaRollbackByBranchId(ctx, xaID); err != nil {
 		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
-		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
-		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+		if connectionProxyXA.isBranchRollbacked(err) {
+			return branch.BranchStatusPhasetwoRollbacked, nil
+		}
+		if connectionProxyXA.isBranchCommitted(err) {
+			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+		}
+		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
 
 	log.Infof("%s was rollback", xaID.String())
@@ -213,6 +238,9 @@ func (xaManager *XAResourceManager) CreateTableMetaCache(ctx context.Context, re
 }
 
 func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {
+	if branchStatusCache == nil {
+		return branch.BranchStatusUnknown, nil
+	}
 	tmpBranchStatus, err := branchStatusCache.GetIFPresent(xaBranchXid)
 	if err != nil {
 		if errors.Is(err, gcache.KeyNotFoundError) {
@@ -229,5 +257,8 @@ func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {
 }
 
 func setBranchStatus(xaBranchXid string, status branch.BranchStatus) {
+	if branchStatusCache == nil {
+		return
+	}
 	branchStatusCache.Set(xaBranchXid, status)
 }

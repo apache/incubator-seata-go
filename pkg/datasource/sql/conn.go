@@ -107,7 +107,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 		return nil, err
 	}
 
-	return types.NewResult(types.WithResult(ret)).GetResult(), nil
+	return normalizeDriverResult(ret), nil
 }
 
 // ExecContext
@@ -121,7 +121,14 @@ func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.Name
 	if err != nil {
 		return nil, err
 	}
-	return types.NewResult(types.WithResult(ret)).GetResult(), nil
+	return normalizeDriverResult(ret), nil
+}
+
+func normalizeDriverResult(ret driver.Result) driver.Result {
+	if ret == nil {
+		return driver.ResultNoRows
+	}
+	return ret
 }
 
 // Query
@@ -201,21 +208,26 @@ func (c *Conn) Begin() (driver.Tx, error) {
 //
 //	global transaction according to tranCtx. If so, it needs to be included in the transaction management of seata
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if c.txCtx.TransactionMode == types.XAMode {
-		c.autoCommit = false
-		return newTx(
-			withDriverConn(c),
-			withTxCtx(c.txCtx),
-			withOriginTx(nil),
-		)
+	if c.txCtx == nil {
+		c.txCtx = types.NewTxCtx()
+		if c.res != nil {
+			c.txCtx.DBType = c.res.dbType
+		}
+		c.txCtx.TxOpt = opts
 	}
 
-	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
-		tx, err := conn.BeginTx(ctx, opts)
-		if err != nil {
-			return nil, err
+	if c.txCtx.TransactionMode == types.XAMode {
+		previousAutoCommit := c.autoCommit
+		c.autoCommit = false
+		var tx driver.Tx
+		var err error
+		if c.dbType == types.DBTypeOracle {
+			tx, err = c.beginTargetTx(ctx, opts)
+			if err != nil {
+				c.autoCommit = previousAutoCommit
+				return nil, err
+			}
 		}
-
 		return newTx(
 			withDriverConn(c),
 			withTxCtx(c.txCtx),
@@ -223,15 +235,35 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		)
 	}
 
-	txi, err := c.Begin()
+	tx, err := c.beginTargetTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
+
 	return newTx(
 		withDriverConn(c),
 		withTxCtx(c.txCtx),
-		withOriginTx(txi),
+		withOriginTx(tx),
 	)
+}
+
+func (c *Conn) beginTargetTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if conn, ok := c.targetConn.(driver.ConnBeginTx); ok {
+		return conn.BeginTx(ctx, opts)
+	}
+	c.autoCommit = false
+	tx, err := c.targetConn.Begin()
+	if err != nil {
+		return nil, err
+	}
+	if c.txCtx == nil {
+		c.txCtx = types.NewTxCtx()
+		if c.res != nil {
+			c.txCtx.DBType = c.res.dbType
+		}
+		c.txCtx.TxOpt = opts
+	}
+	return tx, nil
 }
 
 func (c *Conn) GetAutoCommit() bool {
