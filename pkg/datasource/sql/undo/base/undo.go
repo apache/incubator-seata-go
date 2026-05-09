@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/arana-db/parser/mysql"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/compressor"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"

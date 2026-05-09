@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/model"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
@@ -196,8 +196,8 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 			b.traversalArgs(expr.R, argsIndex)
 		}
 		break
-	case *ast.PatternLikeExpr:
-		expr := node.(*ast.PatternLikeExpr)
+	case *ast.PatternLikeOrIlikeExpr:
+		expr := node.(*ast.PatternLikeOrIlikeExpr)
 		b.traversalArgs(expr.Expr, argsIndex)
 		b.traversalArgs(expr.Pattern, argsIndex)
 		break

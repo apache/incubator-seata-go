@@ -139,21 +139,21 @@ func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid
 	resource, ok := xaManager.resourceCache.Load(branchResource.ResourceId)
 	if !ok {
 		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+		log.Errorf("%s", err.Error())
 		return nil, err
 	}
 
 	dbResource, ok := resource.(*DBResource)
 	if !ok {
 		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+		log.Errorf("%s", err.Error())
 		return nil, err
 	}
 
 	connectionProxyXA, err := dbResource.ConnectionForXA(ctx, xaID)
 	if err != nil {
 		err := fmt.Errorf("get connection for rollback xa, resourceId: %s", branchResource.ResourceId)
-		log.Errorf(err.Error())
+		log.Errorf("%s", err.Error())
 		return nil, err
 	}
 

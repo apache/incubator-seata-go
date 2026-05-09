@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	aparser "github.com/arana-db/parser"
-	"github.com/arana-db/parser/format"
+	aparser "github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 
@@ -30,7 +30,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 
-	_ "github.com/arana-db/parser/test_driver"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 )
 
 func TestDoParser(t *testing.T) {
