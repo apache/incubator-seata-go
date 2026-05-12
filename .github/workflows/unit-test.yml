@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.20.14
+          - 1.25.10
 
     steps:
     - name: "Set up Go"
