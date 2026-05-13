@@ -44,13 +44,13 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: "set up go"
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: 1.25.10
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v8
