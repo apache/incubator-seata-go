@@ -93,7 +93,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{}) error {
 	if !tm.IsGlobalTx(ctx) {
 		errStr := "BranchRegister error, transaction should be opened"
-		log.Errorf(errStr)
+		log.Errorf("%s", errStr)
 		return errors.New(errStr)
 	}
 
