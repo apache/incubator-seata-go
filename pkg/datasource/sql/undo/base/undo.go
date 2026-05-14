@@ -433,6 +433,9 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 
 	if rows != nil {
 		defer rows.Close()
+		if err = rows.Err(); err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil

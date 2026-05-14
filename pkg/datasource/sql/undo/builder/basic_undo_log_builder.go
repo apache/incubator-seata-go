@@ -25,9 +25,9 @@ import (
 	"io"
 	"strings"
 
+	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/test_driver"
-	gxsort "github.com/dubbogo/gost/sort"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"

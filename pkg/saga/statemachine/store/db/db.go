@@ -54,6 +54,9 @@ func SelectOne[T any](db *sql.DB, sql string, fn ScanRows[T], args ...any) (T, e
 	if rows.Next() {
 		return fn(rows)
 	}
+	if err := rows.Err(); err != nil {
+		return result, err
+	}
 	return result, errors.New("no target selected")
 }
 
@@ -80,6 +83,9 @@ func SelectList[T any](db *sql.DB, sql string, fn ScanRows[T], args ...any) ([]T
 			return result, err
 		}
 		result = append(result, obj)
+	}
+	if err := rows.Err(); err != nil {
+		return result, err
 	}
 
 	return result, nil

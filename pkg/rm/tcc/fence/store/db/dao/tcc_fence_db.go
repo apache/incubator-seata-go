@@ -125,6 +125,9 @@ func (t *TccFenceStoreDatabaseMapper) QueryTCCFenceLogIdentityByMdDate(tx *sql.T
 			BranchId: branchId,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query tcc fence rows error, [%w]", err)
+	}
 	return fenceLogIdentities, nil
 }
 

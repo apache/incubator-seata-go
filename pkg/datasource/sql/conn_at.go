@@ -246,8 +246,8 @@ func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.E
 	}
 
 	if activeTx != nil {
-		if rows, ok := ret.(types.ExecResult); ok {
-			if dr := rows.GetRows(); dr != nil {
+		if ret != nil {
+			if dr := ret.GetRows(); dr != nil {
 				wrappedRows := &RowsCommitOnClose{rows: dr, tx: activeTx}
 				return types.NewResult(types.WithRows(wrappedRows)), nil
 			}
