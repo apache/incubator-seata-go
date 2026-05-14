@@ -105,30 +105,22 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	if node == nil {
 		return
 	}
-	switch node.(type) {
+	switch node := node.(type) {
 	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr)
-		b.traversalArgs(expr.L, argsIndex)
-		b.traversalArgs(expr.R, argsIndex)
-		break
+		b.traversalArgs(node.L, argsIndex)
+		b.traversalArgs(node.R, argsIndex)
 	case *ast.BetweenExpr:
-		expr := node.(*ast.BetweenExpr)
-		b.traversalArgs(expr.Left, argsIndex)
-		b.traversalArgs(expr.Right, argsIndex)
-		break
+		b.traversalArgs(node.Left, argsIndex)
+		b.traversalArgs(node.Right, argsIndex)
 	case *ast.PatternInExpr:
-		exprs := node.(*ast.PatternInExpr).List
+		exprs := node.List
 		for i := 0; i < len(exprs); i++ {
 			b.traversalArgs(exprs[i], argsIndex)
 		}
-		break
 	case *ast.ParenthesesExpr:
-		expr := node.(*ast.ParenthesesExpr)
-		b.traversalArgs(expr.Expr, argsIndex)
-		break
+		b.traversalArgs(node.Expr, argsIndex)
 	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
+		*argsIndex = append(*argsIndex, int32(node.Order))
 	}
 }
 
@@ -194,7 +186,7 @@ func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowS
 				whereStr.WriteString(",")
 			}
 			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 		}
 		whereStr.WriteString(") IN (")
 
@@ -273,7 +265,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 			if pkSplitIndex > 0 {
 				lockKeys.WriteString("_")
 			}
-			lockKeys.WriteString(fmt.Sprintf("%v", value))
+			fmt.Fprintf(&lockKeys, "%v", value)
 			pkSplitIndex++
 		}
 		filedSequence++

@@ -345,13 +345,13 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 
 	pkValuesMap := make(map[string][]interface{})
 
-	if nameValues != nil && len(nameValues) > 0 {
+	if len(nameValues) > 0 {
 		// use prepared statements
 		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 		if err != nil {
 			return nil, err
 		}
-		if insertRows == nil || len(insertRows) == 0 {
+		if len(insertRows) == 0 {
 			return nil, err
 		}
 		totalPlaceholderNum := -1

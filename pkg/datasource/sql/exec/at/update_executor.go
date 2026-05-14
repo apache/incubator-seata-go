@@ -83,7 +83,7 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	}
 
 	if len(beforeImage.Rows) != len(afterImage.Rows) {
-		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys")
 	}
 
 	u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)

@@ -93,7 +93,7 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 	}
 
 	if len(afterImages) != len(beforeImages) {
-		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys")
 	}
 
 	u.execContext.TxCtx.RoundImages.AppendBeofreImages(beforeImages)

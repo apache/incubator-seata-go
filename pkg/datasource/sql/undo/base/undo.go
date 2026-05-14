@@ -528,7 +528,7 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	if undoLogContext == nil {
 		return
 	}
-	serializer, _ = undoLogContext[serializerKey]
+	serializer = undoLogContext[serializerKey]
 	return
 }
 

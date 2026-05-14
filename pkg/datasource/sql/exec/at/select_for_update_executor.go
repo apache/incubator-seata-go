@@ -218,7 +218,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
+		return "", fmt.Errorf("%s needs to contain the primary key", meta.TableName)
 	}
 
 	var fields []*ast.SelectField
@@ -298,7 +298,7 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 			}
 
 			// if the value type is *int64, *string etc. then get the true value
-			lockKeys.WriteString(fmt.Sprintf("%v", reflect.ValueOf(value).Elem()))
+			fmt.Fprintf(&lockKeys, "%v", reflect.ValueOf(value).Elem())
 		}
 	}
 	return lockKeys.String()

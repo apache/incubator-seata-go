@@ -106,7 +106,7 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return []*types.RecordImage{{}}, nil
 	}
 
-	if beforeImages == nil || len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
+	if len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
 		return beforeImages, nil
 	}
 

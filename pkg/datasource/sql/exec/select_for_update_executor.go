@@ -280,7 +280,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 func (u *SelectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
+		return "", fmt.Errorf("%s needs to contain the primary key", meta.TableName)
 	}
 
 	fields := []*ast.SelectField{}
@@ -340,7 +340,7 @@ func (s SelectForUpdateExecutor) buildLockKey(rows driver.Rows, meta types.Table
 			if pkSplitIndex > 0 {
 				lockKeys.WriteString("_")
 			}
-			lockKeys.WriteString(fmt.Sprintf("%v", value))
+			fmt.Fprintf(&lockKeys, "%v", value)
 			pkSplitIndex++
 		}
 		filedSequence++
