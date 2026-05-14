@@ -112,7 +112,7 @@ type seataDriver struct {
 // reference package: datasource/sql [https://cs.opensource.google/go/go/+/master:src/database/sql/sql.go;l=813]
 // and maybe the sql.BD will be call Driver() method, but it obtain the Driver is fron Connector that is proxed by seataConnector.
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
-	return nil, errors.New("operation unsupport.")
+	return nil, errors.New("operation unsupported")
 }
 
 func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {

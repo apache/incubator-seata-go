@@ -157,7 +157,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
-		return "", nil, fmt.Errorf("Pk columnName size is zero")
+		return "", nil, fmt.Errorf("pk columnName size is zero")
 	}
 
 	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
@@ -330,7 +330,7 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 		return nil, nil
 	}
 	pkIndexMap := i.getPkIndex(insertStmt, meta)
-	if pkIndexMap == nil || len(pkIndexMap) == 0 {
+	if len(pkIndexMap) == 0 {
 		return nil, fmt.Errorf("pkIndex is not found")
 	}
 	var pkIndexArray []int
@@ -612,7 +612,7 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 			} else {
 				for _, index := range pkIndexArray {
 					if index == i {
-						return nil, fmt.Errorf("Unknown SQLExpr:%v", node)
+						return nil, fmt.Errorf("unknown SQLExpr: %v", node)
 					}
 				}
 				row = append(row, ast.DefaultExpr{})

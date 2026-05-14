@@ -278,7 +278,7 @@ func (c *XAConn) releaseIfNecessary() {
 }
 
 func (c *XAConn) start(ctx context.Context) error {
-	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType)
+	xaResource, err := xa.CreateXAResource(c.targetConn, c.dbType)
 	if err != nil {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}

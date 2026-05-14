@@ -245,10 +245,8 @@ func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, d
 		needUpdateColumns = columns
 		if !b.containsPKByName(meta, columns) {
 			pkNames := meta.GetPrimaryKeyOnlyName()
-			if pkNames != nil && len(pkNames) > 0 {
-				for _, name := range pkNames {
-					needUpdateColumns = append(needUpdateColumns, name)
-				}
+			if len(pkNames) > 0 {
+				needUpdateColumns = append(needUpdateColumns, pkNames...)
 			}
 		}
 		// todo If it contains onUpdate columns, add onUpdate columns
