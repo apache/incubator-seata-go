@@ -200,7 +200,7 @@ func (g *SessionManager) getXid(msg interface{}) string {
 	} else {
 		msgType := reflect.TypeOf(msg)
 		msgValue := reflect.ValueOf(msg)
-		if msgType.Kind() == reflect.Ptr {
+		if msgType.Kind() == reflect.Pointer {
 			msgValue = msgValue.Elem()
 		}
 		xid = msgValue.FieldByName("Xid").String()

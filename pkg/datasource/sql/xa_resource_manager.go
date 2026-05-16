@@ -83,34 +83,31 @@ type XAResourceManager struct {
 
 func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
 	ticker := time.NewTicker(time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			xaManager.resourceCache.Range(func(key, value any) bool {
-				source, ok := value.(*DBResource)
-				if !ok {
-					return true
-				}
-				if source.IsShouldBeHeld() {
+	for range ticker.C {
+		xaManager.resourceCache.Range(func(key, value any) bool {
+			source, ok := value.(*DBResource)
+			if !ok {
+				return true
+			}
+			if source.IsShouldBeHeld() {
+				return true
+			}
+
+			source.GetKeeper().Range(func(key, value any) bool {
+				connectionXA, isConnectionXA := value.(*XAConn)
+				if !isConnectionXA {
 					return true
 				}
 
-				source.GetKeeper().Range(func(key, value any) bool {
-					connectionXA, isConnectionXA := value.(*XAConn)
-					if !isConnectionXA {
-						return true
+				if time.Since(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
+					if err := connectionXA.CloseForce(); err != nil {
+						log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
 					}
-
-					if time.Now().Sub(connectionXA.prepareTime) > xaManager.config.TwoPhaseHoldTime {
-						if err := connectionXA.CloseForce(); err != nil {
-							log.Errorf("Force close the xa xid:%s physical connection fail", connectionXA.txCtx.XID)
-						}
-					}
-					return true
-				})
+				}
 				return true
 			})
-		}
+			return true
+		})
 	}
 }
 

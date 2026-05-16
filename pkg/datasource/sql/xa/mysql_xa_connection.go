@@ -102,12 +102,9 @@ func (c *MysqlXAConn) End(ctx context.Context, xid string, flags int) error {
 
 	switch flags {
 	case TMSuccess:
-		break
 	case TMSuspend:
 		sb.WriteString(" SUSPEND")
-		break
 	case TMFail:
-		break
 	default:
 		return errors.New("invalid arguments")
 	}
@@ -175,7 +172,7 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 	}
 
 	dest := make([]driver.Value, 4)
-	for true {
+	for {
 		if err = res.Next(dest); err != nil {
 			if err == io.EOF {
 				return xids, nil
@@ -190,7 +187,6 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 
 		xids = append(xids, string(gtridAndbqual))
 	}
-	return xids, err
 }
 
 func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
@@ -226,12 +222,9 @@ func (c *MysqlXAConn) Start(ctx context.Context, xid string, flags int) error {
 	switch flags {
 	case TMJoin:
 		sb.WriteString(" JOIN")
-		break
 	case TMResume:
 		sb.WriteString(" RESUME")
-		break
 	case TMNoFlags:
-		break
 	default:
 		return errors.New("invalid arguments")
 	}

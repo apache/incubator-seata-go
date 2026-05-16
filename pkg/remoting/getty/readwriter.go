@@ -116,11 +116,12 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		HeadMap:    header.Meta,
 	}
 
-	if header.MessageType == message.GettyRequestTypeHeartbeatRequest {
+	switch header.MessageType {
+	case message.GettyRequestTypeHeartbeatRequest:
 		rpcMessage.Body = message.HeartBeatMessagePing
-	} else if header.MessageType == message.GettyRequestTypeHeartbeatResponse {
+	case message.GettyRequestTypeHeartbeatResponse:
 		rpcMessage.Body = message.HeartBeatMessagePong
-	} else {
+	default:
 		if header.BodyLength > 0 {
 			msg := codec.GetCodecManager().Decode(codec.CodecType(header.CodecType), data[header.HeadLength:])
 			rpcMessage.Body = msg

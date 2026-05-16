@@ -116,7 +116,7 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 				whereStr.WriteString(",")
 			}
 			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 		}
 		whereStr.WriteString(") IN (")
 

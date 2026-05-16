@@ -61,7 +61,7 @@ func (g *GlobalTransactionManager) Begin(ctx context.Context, timeout time.Durat
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
 		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
-		return fmt.Errorf("GlobalBeginRequest result is empty or result code is failed.")
+		return fmt.Errorf("GlobalBeginRequest result is empty or result code is failed")
 	}
 	log.Infof("GlobalBeginRequest success, res %v", res)
 
@@ -187,7 +187,7 @@ func (g *GlobalTransactionManager) GlobalReport(ctx context.Context, gtr *Global
 	}
 	if res == nil || res.(message.GlobalReportResponse).ResultCode == message.ResultCodeFailed {
 		log.Errorf("GlobalReportRequest result is empty or result code is failed, res %v", res)
-		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReportRequest result is empty or result code is failed.")
+		return message.GlobalStatusUnKnown, fmt.Errorf("GlobalReportRequest result is empty or result code is failed")
 	}
 	log.Infof("GlobalReportRequest success, res %v", res)
 	return res.(message.GlobalReportResponse).GlobalStatus, nil
