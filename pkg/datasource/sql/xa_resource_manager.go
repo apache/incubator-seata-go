@@ -143,21 +143,21 @@ func (xaManager *XAResourceManager) xaIDBuilder(xid string, branchId uint64) XAX
 func (xaManager *XAResourceManager) finishBranch(ctx context.Context, xaID XAXid, branchResource rm.BranchResource) (*XAConn, error) {
 	resource, ok := xaManager.resourceCache.Load(branchResource.ResourceId)
 	if !ok {
-		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
+		err := fmt.Errorf("unknow resource for finish xa branch, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	dbResource, ok := resource.(*DBResource)
 	if !ok {
-		err := fmt.Errorf("unknow resource for rollback xa, resourceId: %s", branchResource.ResourceId)
+		err := fmt.Errorf("unknow resource for finish xa branch, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	connectionProxyXA, err := dbResource.ConnectionForXA(ctx, xaID)
 	if err != nil {
-		err := fmt.Errorf("get connection for rollback xa, resourceId: %s", branchResource.ResourceId)
+		err := fmt.Errorf("get connection for finish xa branch, resourceId: %s", branchResource.ResourceId)
 		log.Errorf(err.Error())
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 
 	connectionProxyXA, err := xaManager.finishBranch(ctx, xaID, branchResource)
 	if err != nil {
-		return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
+		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 	defer connectionProxyXA.Close()
 

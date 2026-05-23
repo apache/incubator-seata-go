@@ -88,21 +88,53 @@ func (m *oracleXAIntegrationManager) CreateTableMetaCache(context.Context, strin
 	return nil, nil
 }
 
+func setupOracleXAIntegrationState(t *testing.T, manager rm.ResourceManager) {
+	t.Helper()
+
+	prevBranchStatusCache := branchStatusCache
+	prevXAConnTimeout := xaConnTimeout
+
+	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
+	xaConnTimeout = time.Hour
+	registerResourceManagerForTest(t, manager)
+
+	t.Cleanup(func() {
+		branchStatusCache = prevBranchStatusCache
+		xaConnTimeout = prevXAConnTimeout
+	})
+}
+
+func TestSetupOracleXAIntegrationStateRestoresGlobals(t *testing.T) {
+	prevBranchStatusCache := gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
+	prevXAConnTimeout := 2 * time.Second
+	prevManager := &oracleXAIntegrationManager{}
+	branchStatusCache = prevBranchStatusCache
+	xaConnTimeout = prevXAConnTimeout
+	registerResourceManagerForTest(t, prevManager)
+
+	t.Run("setup", func(t *testing.T) {
+		manager := &oracleXAIntegrationManager{}
+		setupOracleXAIntegrationState(t, manager)
+
+		require.False(t, prevBranchStatusCache == branchStatusCache)
+		require.Equal(t, time.Hour, xaConnTimeout)
+		require.Same(t, manager, rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeXA))
+	})
+
+	require.True(t, prevBranchStatusCache == branchStatusCache)
+	require.Equal(t, prevXAConnTimeout, xaConnTimeout)
+	require.Same(t, prevManager, rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeXA))
+}
+
 func TestOracleXAIntegration_SeataXAOracleFirstAndSecondPhase(t *testing.T) {
 	dsn := os.Getenv("ORACLE_XA_DSN")
 	if dsn == "" {
 		t.Skip("set ORACLE_XA_DSN to run Oracle XA integration test")
 	}
 
-	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
-	xaConnTimeout = time.Hour
-	t.Cleanup(func() {
-		xaConnTimeout = 0
-	})
-
 	ctx := context.Background()
 	manager := &oracleXAIntegrationManager{}
-	rm.GetRmCacheInstance().RegisterResourceManager(manager)
+	setupOracleXAIntegrationState(t, manager)
 
 	directDB, err := sql.Open("oracle", dsn)
 	require.NoError(t, err)
@@ -165,16 +197,9 @@ func TestOracleXAIntegration_SeataXAOracleRollback(t *testing.T) {
 		t.Skip("set ORACLE_XA_DSN to run Oracle XA integration test")
 	}
 
-	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
-	xaConnTimeout = time.Hour
-	t.Cleanup(func() {
-		branchStatusCache = nil
-		xaConnTimeout = 0
-	})
-
 	ctx := context.Background()
 	manager := &oracleXAIntegrationManager{}
-	rm.GetRmCacheInstance().RegisterResourceManager(manager)
+	setupOracleXAIntegrationState(t, manager)
 
 	directDB, err := sql.Open("oracle", dsn)
 	require.NoError(t, err)
@@ -225,16 +250,9 @@ func TestOracleXAIntegration_SeataXAOracleReadOnlySkipsSecondPhaseCommit(t *test
 		t.Skip("set ORACLE_XA_DSN to run Oracle XA integration test")
 	}
 
-	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
-	xaConnTimeout = time.Hour
-	t.Cleanup(func() {
-		branchStatusCache = nil
-		xaConnTimeout = 0
-	})
-
 	ctx := context.Background()
 	manager := &oracleXAIntegrationManager{}
-	rm.GetRmCacheInstance().RegisterResourceManager(manager)
+	setupOracleXAIntegrationState(t, manager)
 
 	directDB, err := sql.Open("oracle", dsn)
 	require.NoError(t, err)

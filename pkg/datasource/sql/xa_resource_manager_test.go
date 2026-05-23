@@ -249,6 +249,19 @@ func TestXAResourceManager_BranchCommit_UsesMappedXidAndReleasesHeldConnection(t
 	assert.Equal(t, 1, targetConn.closeCalls)
 }
 
+func TestXAResourceManager_BranchCommit_ReturnsCommitFailureWhenFinishBranchFails(t *testing.T) {
+	manager := &XAResourceManager{}
+
+	status, err := manager.BranchCommit(context.Background(), rm.BranchResource{
+		ResourceId: "missing-resource",
+		Xid:        "commit-xid",
+		BranchId:   23,
+	})
+
+	require.Error(t, err)
+	assert.EqualValues(t, branch.BranchStatusPhasetwoCommitFailedRetryable, status)
+}
+
 func TestXAResourceManager_BranchCommit_PreservesHeldConnectionOnError(t *testing.T) {
 	xaID := XaIdBuild("commit-error-xid", 23)
 	commitErr := errors.New("temporary commit failure")
