@@ -15,14 +15,31 @@
  * limitations under the License.
  */
 
-package getty
+package discovery
 
-import (
-	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
-	"seata.apache.org/seata-go/v2/pkg/remoting/config"
-)
+type NamingServerRegistry interface {
+	RegistryService
 
-func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
-	codec.Init()
-	initSessionManager(gettyConfig, seataConfig)
+	Register(instance *ServiceInstance) error
+
+	Deregister(instance *ServiceInstance) error
+
+	// doHealthCheck
+	// perform a health check and call the /naming/v1/health interface.
+	doHealthCheck(addr string) bool
+
+	// RefreshToken
+	// Refresh the JWT token and call the /api/v1/auth/login interface.
+	RefreshToken(addr string) error
+
+	// RefreshGroup
+	// Refresh the service group information and call the /naming/v1/discovery interface.
+	RefreshGroup(vGroup string) error
+
+	// Watch
+	// Monitor service changes and call the /naming/v1/watch interface.
+	Watch(vGroup string) (bool, error)
 }
+
+// NamingserverRegistry is kept as a compatibility alias for the original exported name.
+type NamingserverRegistry = NamingServerRegistry

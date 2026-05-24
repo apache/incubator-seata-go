@@ -18,14 +18,15 @@
 package discovery
 
 const (
-	FILE   string = "file"
-	NACOS  string = "nacos"
-	ETCD   string = "etcd"
-	EUREKA string = "eureka"
-	REDIS  string = "redis"
-	ZK     string = "zk"
-	CONSUL string = "consul"
-	SOFA   string = "sofa"
+	FILE         string = "file"
+	NACOS        string = "nacos"
+	ETCD         string = "etcd"
+	EUREKA       string = "eureka"
+	REDIS        string = "redis"
+	ZK           string = "zk"
+	CONSUL       string = "consul"
+	SOFA         string = "sofa"
+	NAMINGSERVER string = "namingserver"
 )
 
 type ServiceInstance struct {

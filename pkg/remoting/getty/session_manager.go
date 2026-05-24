@@ -55,15 +55,17 @@ type SessionManager struct {
 	allSessions    sync.Map
 	sessionSize    int32
 	gettyConf      *config.Config
+	seataConfig    *config.SeataConfig
 }
 
-func initSessionManager(gettyConfig *config.Config) {
+func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
 	if sessionManager == nil {
 		onceSessionManager.Do(func() {
 			sessionManager = &SessionManager{
 				allSessions:    sync.Map{},
 				serverSessions: sync.Map{},
 				gettyConf:      gettyConfig,
+				seataConfig:    seataConfig,
 			}
 			sessionManager.init()
 		})
@@ -89,7 +91,7 @@ func (g *SessionManager) init() {
 
 func (g *SessionManager) getAvailServerList() []*discovery.ServiceInstance {
 	registryService := discovery.GetRegistry()
-	instances, err := registryService.Lookup(config.GetSeataConfig().TxServiceGroup)
+	instances, err := registryService.Lookup(g.seataConfig.TxServiceGroup)
 	if err != nil {
 		return nil
 	}
@@ -158,7 +160,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 }
 
 func (g *SessionManager) selectSession(msg interface{}) getty.Session {
-	session := loadbalance.Select(config.GetSeataConfig().LoadBalanceType, &g.allSessions, g.getXid(msg))
+	session := loadbalance.Select(g.gettyConf.LoadBalanceType, &g.allSessions, g.getXid(msg))
 	if session != nil {
 		return session
 	}
