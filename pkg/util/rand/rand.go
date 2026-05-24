@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package getty
+package rand
 
 import (
-	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
-	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"math/rand"
+	"sync"
+	"time"
 )
 
-func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
-	codec.Init()
-	initSessionManager(gettyConfig, seataConfig)
+var (
+	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu      sync.Mutex
+)
+
+func RandIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	return randGen.Intn(n)
 }
