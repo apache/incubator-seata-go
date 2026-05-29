@@ -23,13 +23,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 func TestATExecutor_Interceptors(t *testing.T) {
@@ -63,6 +60,50 @@ func TestATExecutor_Interceptors(t *testing.T) {
 			executor.Interceptors(tt.interceptors)
 			assert.Equal(t, len(tt.interceptors), len(executor.hooks), "hooks count should match")
 		})
+	}
+}
+
+func replaceATExecutorFactories(t *testing.T, mock executor) {
+	t.Helper()
+
+	originalPlainExecutor := newPlainExecutor
+	originalInsertExecutor := newInsertExecutor
+	originalUpdateExecutor := newUpdateExecutor
+	originalDeleteExecutor := newDeleteExecutor
+	originalSelectForUpdateExecutor := newSelectForUpdateExecutor
+	originalInsertOnUpdateExecutor := newInsertOnUpdateExecutor
+	originalMultiExecutor := newMultiExecutor
+
+	t.Cleanup(func() {
+		newPlainExecutor = originalPlainExecutor
+		newInsertExecutor = originalInsertExecutor
+		newUpdateExecutor = originalUpdateExecutor
+		newDeleteExecutor = originalDeleteExecutor
+		newSelectForUpdateExecutor = originalSelectForUpdateExecutor
+		newInsertOnUpdateExecutor = originalInsertOnUpdateExecutor
+		newMultiExecutor = originalMultiExecutor
+	})
+
+	newPlainExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext) executor {
+		return mock
+	}
+	newInsertExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
+	}
+	newUpdateExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
+	}
+	newDeleteExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
+	}
+	newSelectForUpdateExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
+	}
+	newInsertOnUpdateExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
+	}
+	newMultiExecutor = func(parserCtx *types.ParseContext, execCtx *types.ExecContext, hooks []exec.SQLHook) executor {
+		return mock
 	}
 }
 
@@ -106,17 +147,22 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			patches := gomonkey.ApplyFunc(tm.IsGlobalTx, func(ctx context.Context) bool {
-				return false
+			originalIsGlobalTx := isGlobalTx
+			originalParseSQLQuery := parseSQLQuery
+			t.Cleanup(func() {
+				isGlobalTx = originalIsGlobalTx
+				parseSQLQuery = originalParseSQLQuery
 			})
-			defer patches.Reset()
 
-			patchesParser := gomonkey.ApplyFunc(parser.DoParser, func(query string) (*types.ParseContext, error) {
+			isGlobalTx = func(ctx context.Context) bool {
+				return false
+			}
+
+			parseSQLQuery = func(query string) (*types.ParseContext, error) {
 				return &types.ParseContext{
 					SQLType: tt.sqlType,
 				}, nil
-			})
-			defer patchesParser.Reset()
+			}
 
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
@@ -196,17 +242,23 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			patches := gomonkey.ApplyFunc(tm.IsGlobalTx, func(ctx context.Context) bool {
-				return true
+			originalIsGlobalTx := isGlobalTx
+			originalParseSQLQuery := parseSQLQuery
+			t.Cleanup(func() {
+				isGlobalTx = originalIsGlobalTx
+				parseSQLQuery = originalParseSQLQuery
 			})
-			defer patches.Reset()
 
-			patchesParser := gomonkey.ApplyFunc(parser.DoParser, func(query string) (*types.ParseContext, error) {
+			isGlobalTx = func(ctx context.Context) bool {
+				return true
+			}
+			replaceATExecutorFactories(t, &mockExecutor{})
+
+			parseSQLQuery = func(query string) (*types.ParseContext, error) {
 				return &types.ParseContext{
 					SQLType: tt.sqlType,
 				}, nil
-			})
-			defer patchesParser.Reset()
+			}
 
 			executor := &ATExecutor{
 				hooks: []exec.SQLHook{
@@ -237,14 +289,9 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithNamedValue_ParserError(t *testing.T) {
-	patches := gomonkey.ApplyFunc(parser.DoParser, func(query string) (*types.ParseContext, error) {
-		return nil, fmt.Errorf("parser error")
-	})
-	defer patches.Reset()
-
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
-		Query:       "INVALID SQL",
+		Query:       "SELECT FROM",
 		NamedValues: []driver.NamedValue{},
 	}
 
@@ -256,7 +303,6 @@ func TestATExecutor_ExecWithNamedValue_ParserError(t *testing.T) {
 
 	assert.Error(t, err, "should return parser error")
 	assert.Nil(t, result, "result should be nil on error")
-	assert.Contains(t, err.Error(), "parser error", "error message should contain parser error")
 }
 
 func TestATExecutor_ExecWithValue(t *testing.T) {
@@ -296,17 +342,22 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			patches := gomonkey.ApplyFunc(tm.IsGlobalTx, func(ctx context.Context) bool {
-				return false
+			originalIsGlobalTx := isGlobalTx
+			originalParseSQLQuery := parseSQLQuery
+			t.Cleanup(func() {
+				isGlobalTx = originalIsGlobalTx
+				parseSQLQuery = originalParseSQLQuery
 			})
-			defer patches.Reset()
 
-			patchesParser := gomonkey.ApplyFunc(parser.DoParser, func(query string) (*types.ParseContext, error) {
+			isGlobalTx = func(ctx context.Context) bool {
+				return false
+			}
+
+			parseSQLQuery = func(query string) (*types.ParseContext, error) {
 				return &types.ParseContext{
 					SQLType: tt.sqlType,
 				}, nil
-			})
-			defer patchesParser.Reset()
+			}
 
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
@@ -337,14 +388,9 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
-	patches := gomonkey.ApplyFunc(parser.DoParser, func(query string) (*types.ParseContext, error) {
-		return nil, fmt.Errorf("parser error")
-	})
-	defer patches.Reset()
-
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
-		Query:  "INVALID SQL",
+		Query:  "SELECT FROM",
 		Values: []driver.Value{"test"},
 	}
 
