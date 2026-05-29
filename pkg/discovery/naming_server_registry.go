@@ -17,24 +17,29 @@
 
 package discovery
 
-const (
-	FILE         string = "file"
-	NACOS        string = "nacos"
-	ETCD         string = "etcd"
-	EUREKA       string = "eureka"
-	REDIS        string = "redis"
-	ZK           string = "zk"
-	CONSUL       string = "consul"
-	SOFA         string = "sofa"
-	NAMINGSERVER string = "namingserver"
-)
+type NamingServerRegistry interface {
+	RegistryService
 
-type ServiceInstance struct {
-	Addr string
-	Port int
+	Register(instance *ServiceInstance) error
+
+	Deregister(instance *ServiceInstance) error
+
+	// doHealthCheck
+	// perform a health check and call the /naming/v1/health interface.
+	doHealthCheck(addr string) bool
+
+	// RefreshToken
+	// Refresh the JWT token and call the /api/v1/auth/login interface.
+	RefreshToken(addr string) error
+
+	// RefreshGroup
+	// Refresh the service group information and call the /naming/v1/discovery interface.
+	RefreshGroup(vGroup string) error
+
+	// Watch
+	// Monitor service changes and call the /naming/v1/watch interface.
+	Watch(vGroup string) (bool, error)
 }
 
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
-}
+// NamingserverRegistry is kept as a compatibility alias for the original exported name.
+type NamingserverRegistry = NamingServerRegistry
