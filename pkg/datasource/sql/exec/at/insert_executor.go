@@ -20,12 +20,12 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -35,6 +35,25 @@ import (
 const (
 	sqlPlaceholder = "?"
 )
+
+var errPostgreSQLInsertLastInsertIDUnsupported = errors.New("LastInsertId is not supported for PostgreSQL AT insert")
+
+type insertResult struct {
+	lastInsertID  int64
+	rowsAffected  int64
+	lastInsertErr error
+}
+
+func (r *insertResult) LastInsertId() (int64, error) {
+	if r.lastInsertErr != nil {
+		return 0, r.lastInsertErr
+	}
+	return r.lastInsertID, nil
+}
+
+func (r *insertResult) RowsAffected() (int64, error) {
+	return r.rowsAffected, nil
+}
 
 // insertExecutor execute insert SQL
 type insertExecutor struct {
@@ -51,6 +70,13 @@ func NewInsertExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 	return &insertExecutor{parserCtx: parserCtx, execContext: execContent, baseExecutor: baseExecutor{hooks: hooks}}
 }
 
+func (i *insertExecutor) dbType() types.DBType {
+	if i.execContext == nil {
+		return types.DBTypeMySQL
+	}
+	return effectiveDBType(i.execContext.DBType)
+}
+
 func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	if err := i.beforeHooks(ctx, i.execContext); err != nil {
 		return nil, err
@@ -62,6 +88,17 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	beforeImage, err := i.beforeImage(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if i.dbType() == types.DBTypePostgreSQL {
+		res, afterImage, err := i.execPostgreSQLInsert(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+		i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+		return res, nil
 	}
 
 	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
@@ -85,8 +122,13 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	tableCache, err := i.getTableCache(i.dbType())
+	if err != nil {
+		return nil, err
+	}
+
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +141,14 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, nil
 	}
 
+	dbType := i.dbType()
+	tableCache, err := i.getTableCache(dbType)
+	if err != nil {
+		return nil, err
+	}
+
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -109,29 +157,17 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 		return nil, err
 	}
 
-	var rowsi driver.Rows
-	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = i.execContext.Conn.(driver.Queryer)
+	rowsi, err := i.queryRows(ctx, selectSQL, selectArgs)
+	if err != nil {
+		return nil, err
 	}
-	if ok {
-		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
-		defer func() {
-			if rowsi != nil {
-				rowsi.Close()
-			}
-		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
 		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
-	}
+	}()
 
-	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert)
+	image, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert, dbType)
 	if err != nil {
 		return nil, err
 	}
@@ -141,12 +177,111 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	return image, nil
 }
 
+func (i *insertExecutor) execPostgreSQLInsert(ctx context.Context) (types.ExecResult, *types.RecordImage, error) {
+	tableCache, err := i.getTableCache(types.DBTypePostgreSQL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tableName, _ := i.parserCtx.GetTableName()
+	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	returningSQL, err := i.buildPostgreSQLReturningInsertSQL(metaData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// PostgreSQL insert uses RETURNING to capture inserted rows, including generated PKs.
+	rowsi, err := i.queryRows(ctx, returningSQL, i.execContext.NamedValues)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if rowsi != nil {
+			rowsi.Close()
+		}
+	}()
+
+	afterImage, err := i.buildRecordImages(rowsi, metaData, types.SQLTypeInsert, types.DBTypePostgreSQL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	lockKey := i.buildLockKey(afterImage, *metaData)
+	if lockKey != "" {
+		i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
+	}
+
+	result := types.NewResult(types.WithResult(&insertResult{
+		rowsAffected:  int64(len(afterImage.Rows)),
+		lastInsertErr: errPostgreSQLInsertLastInsertIDUnsupported,
+	}))
+	i.businesSQLResult = result
+	return result, afterImage, nil
+}
+
+func (i *insertExecutor) buildPostgreSQLReturningInsertSQL(meta *types.TableMeta) (string, error) {
+	if meta == nil {
+		return "", fmt.Errorf("table meta is nil")
+	}
+	if !i.isAstStmtValid() {
+		return "", fmt.Errorf("invalid insert stmt")
+	}
+
+	insertColumns := make([]string, 0, len(i.parserCtx.InsertStmt.Columns))
+	for _, column := range i.parserCtx.InsertStmt.Columns {
+		insertColumns = append(insertColumns, column.Name.O)
+	}
+
+	returningColumns := i.getNeedColumns(meta, insertColumns, types.DBTypePostgreSQL)
+	if len(returningColumns) == 0 {
+		returningColumns = i.getNeedColumns(meta, nil, types.DBTypePostgreSQL)
+	}
+
+	return trimTrailingSemicolon(i.execContext.Query) + " RETURNING " + strings.Join(returningColumns, ", "), nil
+}
+
+func (i *insertExecutor) queryRows(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
+	var queryer driver.Queryer
+	if !ok {
+		queryer, ok = i.execContext.Conn.(driver.Queryer)
+	}
+	if !ok {
+		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
+		return nil, fmt.Errorf("invalid conn")
+	}
+
+	rowsi, err := util.CtxDriverQuery(ctx, queryerCtx, queryer, query, args)
+	if err != nil {
+		log.Errorf("ctx driver query: %+v", err)
+		return nil, err
+	}
+	return rowsi, nil
+}
+
+func trimTrailingSemicolon(query string) string {
+	trimmed := strings.TrimSpace(query)
+	for strings.HasSuffix(trimmed, ";") {
+		trimmed = strings.TrimSpace(strings.TrimSuffix(trimmed, ";"))
+	}
+	return trimmed
+}
+
 // buildAfterImageSQL build select sql from insert sql
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
 	// get all pk value
-	tableName, _ := i.parserCtx.GetTableName()
+	dbType := i.dbType()
+	tableCache, err := i.getTableCache(dbType)
+	if err != nil {
+		return "", nil, err
+	}
 
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	tableName, _ := i.parserCtx.GetTableName()
+	meta, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return "", nil, err
 	}
@@ -178,7 +313,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 				Columns: []types.ColumnImage{{
 					KeyType:    types.IndexTypePrimaryKey,
 					ColumnName: tmpKey,
-					ColumnType: types.MySQLStrToJavaType(dataTypeMap[tmpKey]),
+					ColumnType: jdbcTypeForDatabaseType(dbType, dataTypeMap[tmpKey]),
 					Value:      tmpArray[i],
 				}},
 			})
@@ -192,12 +327,12 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	for _, column := range i.parserCtx.InsertStmt.Columns {
 		insertColumns = append(insertColumns, column.Name.O)
 	}
-	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, types.DBTypeMySQL), ", "))
+	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, dbType), ", "))
 	suffix.WriteString(" FROM " + tableName)
-	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, "mysql", maxInSize)
+	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, dbType, maxInSize)
 	suffix.WriteString(" WHERE " + whereSQL + " ")
 	sb.WriteString(suffix.String())
-	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList), nil
+	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList, dbType), nil
 }
 
 func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
@@ -259,8 +394,9 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 	}
 
 	matchCounter := 0
+	dbType := i.dbType()
 	for _, column := range parseCtx.InsertStmt.Columns {
-		cleanName := util.DelEscape(column.Name.O, types.DBTypeMySQL)
+		cleanName := util.DelEscape(column.Name.O, dbType)
 		for _, pkName := range pkColumnNameList {
 			if strings.EqualFold(pkName, cleanName) {
 				matchCounter++
@@ -273,7 +409,7 @@ func (i *insertExecutor) containsPK(meta types.TableMeta, parseCtx *types.ParseC
 
 // containPK compare column name and primary key name
 func (i *insertExecutor) containPK(columnName string, meta types.TableMeta) bool {
-	newColumnName := util.DelEscape(columnName, types.DBTypeMySQL)
+	newColumnName := util.DelEscape(columnName, i.dbType())
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
 		return false
@@ -316,7 +452,7 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		tmpColumnMeta := columnMeta
 		pkIndex++
 		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, types.DBTypeMySQL)] = pkIndex
+			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, i.dbType())] = pkIndex
 		}
 	}
 
@@ -426,8 +562,13 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 		return nil, nil
 	}
 
+	tableCache, err := i.getTableCache(i.dbType())
+	if err != nil {
+		return nil, err
+	}
+
 	tableName, _ := i.parserCtx.GetTableName()
-	meta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -465,8 +606,17 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 		return nil, nil
 	}
 
+	if i.dbType() == types.DBTypePostgreSQL {
+		return nil, fmt.Errorf("postgresql auto generated pk retrieval should use RETURNING path")
+	}
+
+	tableCache, err := i.getTableCache(i.dbType())
+	if err != nil {
+		return nil, err
+	}
+
 	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}
