@@ -20,17 +20,14 @@ package at
 import (
 	"context"
 	"database/sql/driver"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -114,11 +111,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-					return &test.metaData, nil
-				})
+			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &test.metaData})
 
 			c, err := parser.DoParser(test.query)
 			assert.Nil(t, err)
@@ -141,9 +134,41 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			}
 			assert.Equal(t, test.expectQuery, sql)
 			assert.Equal(t, test.expectQueryArgs, util.NamedValueToValue(values))
-			stub.Reset()
 		})
 	}
+}
+
+func TestBuildPostgreSQLReturningInsertSQL(t *testing.T) {
+	parseCtx, err := parser.DoParser("INSERT INTO t_user(name, age) VALUES ($1, $2);")
+	assert.NoError(t, err)
+
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+		Query:  "INSERT INTO t_user(name, age) VALUES ($1, $2);",
+		DBType: types.DBTypePostgreSQL,
+	}, []exec.SQLHook{})
+
+	meta := &types.TableMeta{
+		TableName:   "t_user",
+		ColumnNames: []string{"id", "name", "age"},
+		Columns: map[string]types.ColumnMeta{
+			"id": {
+				ColumnName:         "id",
+				DatabaseTypeString: "INTEGER",
+			},
+			"name": {
+				ColumnName:         "name",
+				DatabaseTypeString: "VARCHAR",
+			},
+			"age": {
+				ColumnName:         "age",
+				DatabaseTypeString: "INTEGER",
+			},
+		},
+	}
+
+	sql, err := executor.(*insertExecutor).buildPostgreSQLReturningInsertSQL(meta)
+	assert.NoError(t, err)
+	assert.Equal(t, `INSERT INTO t_user(name, age) VALUES ($1, $2) RETURNING "id", "name", "age"`, sql)
 }
 
 func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
@@ -664,11 +689,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-					return &tt.args.meta, nil
-				})
+			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
 
 			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
@@ -677,7 +698,6 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 			got, err := executor.(*insertExecutor).getPkValuesByColumn(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
-			stub.Reset()
 		})
 	}
 }
@@ -766,11 +786,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-					return &tt.args.meta, nil
-				})
+			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
@@ -779,7 +795,6 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 			got, err := executor.(*insertExecutor).getPkValuesByAuto(context.Background(), tt.args.execCtx)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
-			stub.Reset()
 		})
 	}
 }
@@ -859,11 +874,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-			stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-				func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-					return &tt.args.meta, nil
-				})
+			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
 
 			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
@@ -872,7 +883,6 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 			got, err := executor.(*insertExecutor).autoGeneratePks(tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "autoGeneratePks(%v, %v, %v, %v)", tt.args.execCtx, tt.args.autoColumnName, tt.args.lastInsetId, tt.args.updateCount)
-			stub.Reset()
 		})
 	}
 }

@@ -127,7 +127,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate)
+	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate)
+	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 	if err != nil {
 		return nil, err
 	}
@@ -226,9 +226,9 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 		selectFieldsStr = strings.Join(meta.ColumnNames, comma)
 	}
 	selectSql.WriteString("SELECT " + selectFieldsStr + " FROM " + meta.TableName + " WHERE ")
-	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
+	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), types.DBTypeMySQL, maxInSize)
 	selectSql.WriteString(" " + whereSQL + " ")
-	return selectSql.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
+	return selectSql.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType))
 }
 
 // buildSelectSQLByUpdate build select sql from update sql

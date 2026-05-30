@@ -33,9 +33,15 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 )
 
+const postgresTestDSN = "postgres://seata_go:password@127.0.0.1:5432/seata_go_test?sslmode=disable"
+
 type initConnectorFunc func(t *testing.T, ctrl *gomock.Controller) driver.Connector
 
 func initMockConnector(t *testing.T, ctrl *gomock.Controller) driver.Connector {
+	return initMockConnectorWithVersion(t, ctrl, "8.0.29")
+}
+
+func initMockConnectorWithVersion(t *testing.T, ctrl *gomock.Controller, version string) driver.Connector {
 	mockConn := mock.NewMockTestDriverConn(ctrl)
 
 	connector := mock.NewMockTestDriverConnector(ctrl)
@@ -44,7 +50,7 @@ func initMockConnector(t *testing.T, ctrl *gomock.Controller) driver.Connector {
 		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 			rows := &mysqlMockRows{}
 			rows.data = [][]interface{}{
-				{"8.0.29"},
+				{version},
 			}
 			return rows, nil
 		})
@@ -93,6 +99,33 @@ func Test_seataATConnector_Connect(t *testing.T) {
 	atConn, ok := conn.(*ATConn)
 	assert.True(t, ok, "need return seata at connection")
 	assert.True(t, atConn.txCtx.TransactionMode == types.Local, "init need local tx")
+}
+
+func Test_seataATConnector_Connect_PostgreSQL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+	_ = mockMgr
+
+	db, err := sql.Open(SeataATPostgresDriver, postgresTestDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+
+	proxyConnector := initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
+		return initMockConnectorWithVersion(t, ctrl, "PostgreSQL 15.4")
+	})
+	conn, err := proxyConnector.Connect(context.Background())
+	assert.NoError(t, err)
+
+	atConn, ok := conn.(*ATConn)
+	assert.True(t, ok, "need return seata at connection")
+	assert.True(t, atConn.txCtx.TransactionMode == types.Local, "init need local tx")
+	assert.Equal(t, types.DBTypePostgreSQL, atConn.dbType)
+	assert.Equal(t, "seata_go_test", atConn.dbName)
 }
 
 func initMockXaConnector(t *testing.T, ctrl *gomock.Controller, db *sql.DB, f initConnectorFunc) driver.Connector {
