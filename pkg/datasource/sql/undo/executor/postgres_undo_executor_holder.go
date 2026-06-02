@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package factor
+package executor
 
 import (
-	"errors"
-
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
 )
 
-var undoExecutorHolderMap map[types.DBType]undo.UndoExecutorHolder
+type PostgreSQLUndoExecutorHolder struct{}
 
-var ErrNotImplDBType = errors.New("db type executor not implement")
+func NewPostgreSQLUndoExecutorHolder() undo.UndoExecutorHolder {
+	return &PostgreSQLUndoExecutorHolder{}
+}
 
-// GetUndoExecutorHolder get exactly executor holder
-func GetUndoExecutorHolder(dbType types.DBType) (undo.UndoExecutorHolder, error) {
-	// lazy init
-	if undoExecutorHolderMap == nil {
-		undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{
-			types.DBTypeMySQL:      executor.NewMySQLUndoExecutorHolder(),
-			types.DBTypePostgreSQL: executor.NewPostgreSQLUndoExecutorHolder(),
-		}
-	}
+func (p *PostgreSQLUndoExecutorHolder) GetInsertExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	executor := newMySQLUndoInsertExecutor(sqlUndoLog)
+	executor.BaseExecutor.dbType = types.DBTypePostgreSQL
+	return executor
+}
 
-	if executorHolder, ok := undoExecutorHolderMap[dbType]; ok {
-		return executorHolder, nil
-	} else {
-		return nil, ErrNotImplDBType
-	}
+func (p *PostgreSQLUndoExecutorHolder) GetUpdateExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	executor := newMySQLUndoUpdateExecutor(sqlUndoLog)
+	executor.baseExecutor.dbType = types.DBTypePostgreSQL
+	return executor
+}
+
+func (p *PostgreSQLUndoExecutorHolder) GetDeleteExecutor(sqlUndoLog undo.SQLUndoLog) undo.UndoExecutor {
+	executor := newMySQLUndoDeleteExecutor(sqlUndoLog)
+	executor.baseExecutor.dbType = types.DBTypePostgreSQL
+	return executor
 }

@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package discovery
+package postgres
 
-const (
-	FILE         string = "file"
-	NACOS        string = "nacos"
-	ETCD         string = "etcd"
-	EUREKA       string = "eureka"
-	REDIS        string = "redis"
-	ZK           string = "zk"
-	CONSUL       string = "consul"
-	SOFA         string = "sofa"
-	NAMINGSERVER string = "namingserver"
-	RAFT   		 string = "raft"
+import (
+	"github.com/pkg/errors"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
-type ServiceInstance struct {
-	Addr string
-	Port int
-}
-
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
+func InitUndoLogManager() {
+	if err := undo.RegisterUndoLogManager(NewUndoLogManager()); err != nil {
+		panic(errors.WithStack(err))
+	}
 }

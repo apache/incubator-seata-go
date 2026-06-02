@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package discovery
+package postgres
 
-const (
-	FILE         string = "file"
-	NACOS        string = "nacos"
-	ETCD         string = "etcd"
-	EUREKA       string = "eureka"
-	REDIS        string = "redis"
-	ZK           string = "zk"
-	CONSUL       string = "consul"
-	SOFA         string = "sofa"
-	NAMINGSERVER string = "namingserver"
-	RAFT   		 string = "raft"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
-type ServiceInstance struct {
-	Addr string
-	Port int
-}
+func TestInitUndoLogManager(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("InitUndoLogManager should not panic, but got: %v", r)
+		}
+	}()
 
-type RegistryService interface {
-	Lookup(key string) ([]*ServiceInstance, error)
-	Close()
+	InitUndoLogManager()
+
+	manager, err := undo.GetUndoLogManager(types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	assert.NotNil(t, manager)
+	assert.Equal(t, types.DBTypePostgreSQL, manager.DBType())
 }

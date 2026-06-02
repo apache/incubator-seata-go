@@ -38,13 +38,14 @@ func (cfg *ServiceConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 }
 
 type RegistryConfig struct {
-	Type             string      `yaml:"type" json:"type" koanf:"type"`
+	Type         string             `yaml:"type" json:"type" koanf:"type"`
+	File         FileConfig         `yaml:"file" json:"file" koanf:"file"`
+	Nacos        NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
+	Etcd3        Etcd3Config        `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
+	NamingServer NamingServerConfig `yaml:"naming-server" json:"naming-server" koanf:"naming-server"`
 	NamingserverAddr string      `yaml:"namingserver-addr" json:"namingserver-addr" koanf:"namingserver-addr"`
 	Username         string      `yaml:"username" json:"username" koanf:"username"`
 	Password         string      `yaml:"password" json:"password" koanf:"password"`
-	File             FileConfig  `yaml:"file" json:"file" koanf:"file"`
-	Nacos            NacosConfig `yaml:"nacos" json:"nacos" koanf:"nacos"`
-	Etcd3            Etcd3Config `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
 	Raft             RaftConfig  `yaml:"raft" json:"raft" koanf:"raft"`
 }
 
@@ -56,6 +57,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
+	cfg.NamingServer.RegisterFlagsWithPrefix(prefix+".naming-server", f)
 	cfg.Raft.RegisterFlagsWithPrefix(prefix+".raft", f)
 }
 
@@ -109,4 +111,28 @@ func (cfg *RaftConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.Int64Var(&cfg.MetadataMaxAgeMs, prefix+".metadata-max-age-ms", 30000, "Maximum age of metadata in milliseconds before refresh")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "127.0.0.1:7091", "The server address of raft registry")
 	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 1740000, "Token validity duration in milliseconds")
+}
+
+type NamingServerConfig struct {
+	Cluster                     string `yaml:"cluster" json:"cluster" koanf:"cluster"`
+	ServerAddr                  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	Namespace                   string `yaml:"namespace" json:"namespace" koanf:"namespace"`
+	HeartbeatPeriod             int    `yaml:"heartbeat-period" json:"heartbeat-period" koanf:"heartbeat-period"`
+	MetadataMaxAgeMs            int64  `yaml:"metadata-max-age-ms" json:"metadata-max-age-ms" koanf:"metadata-max-age-ms"`
+	Username                    string `yaml:"username" json:"username" koanf:"username"`
+	Password                    string `yaml:"password" json:"password" koanf:"password"`
+	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
+	SecretKey                   string `yaml:"secret-key" json:"secret-key" koanf:"secret-key"`
+}
+
+func (cfg *NamingServerConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The cluster name of naming server")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "127.0.0.1:8081", "The server address of naming server (host:port)")
+	f.StringVar(&cfg.Namespace, prefix+".namespace", "public", "The namespace of naming server")
+	f.IntVar(&cfg.HeartbeatPeriod, prefix+".heartbeat-period", 5000, "The heartbeat period in milliseconds")
+	f.Int64Var(&cfg.MetadataMaxAgeMs, prefix+".metadata-max-age-ms", 30000, "The max age of metadata in milliseconds")
+	f.StringVar(&cfg.Username, prefix+".username", "", "The username for authentication")
+	f.StringVar(&cfg.Password, prefix+".password", "", "The password for authentication")
+	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 29*60*1000, "The validity period of token in milliseconds")
+	f.StringVar(&cfg.SecretKey, prefix+".secret-key", "", "The secret key for JWT authentication (matches Naming Server's secretKey)")
 }

@@ -80,6 +80,44 @@ func TestBuildSelectPKSQL(t *testing.T) {
 	assert.Equal(t, "SELECT SQL_NO_CACHE id,order_id FROM t_user WHERE age>? FOR UPDATE" == selSQL, true)
 }
 
+func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
+	e := selectForUpdateExecutor{
+		execContext: &types.ExecContext{DBType: types.DBTypePostgreSQL},
+	}
+	sql := "select name, order_id from t_user where age > $1 for update"
+
+	ctx, err := parser.DoParser(sql)
+	assert.Nil(t, err)
+
+	metaData := types.TableMeta{
+		TableName: "t_user",
+		Indexs: map[string]types.IndexMeta{
+			"id": {
+				IType:      types.IndexTypePrimaryKey,
+				ColumnName: "id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
+			},
+			"order_id": {
+				IType:      types.IndexTypePrimaryKey,
+				ColumnName: "order_id",
+				Columns: []types.ColumnMeta{
+					{ColumnName: "order_id"},
+				},
+			},
+		},
+	}
+
+	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
+	assert.Nil(t, err)
+	assert.Contains(t, []string{
+		"SELECT id,order_id FROM t_user WHERE age>$1 FOR UPDATE",
+		"SELECT order_id,id FROM t_user WHERE age>$1 FOR UPDATE",
+	}, selSQL)
+	assert.NotContains(t, selSQL, "SQL_NO_CACHE")
+}
+
 func TestBuildLockKey(t *testing.T) {
 	e := selectForUpdateExecutor{}
 
