@@ -41,10 +41,12 @@ func newTestServiceConfig() *ServiceConfig {
 
 func newTestRegistryConfig(serverAddr string) *RegistryConfig {
 	return &RegistryConfig{
-		Type:             "raft",
-		NamingserverAddr: serverAddr,
-		Username:         "seata",
-		Password:         "seata",
+		Type: "raft",
+		NamingServer: NamingServerConfig{
+			ServerAddr: serverAddr,
+			Username:   "seata",
+			Password:   "seata",
+		},
 		Raft: RaftConfig{
 			MetadataMaxAgeMs:            int64(30000),
 			ServerAddr:                  serverAddr,
@@ -158,7 +160,7 @@ func TestMetadataHandler(t *testing.T) {
 	defer mockServer.Close()
 	mockAddr := mockServer.Listener.Addr().String()
 	registryConfig.Raft.ServerAddr = mockAddr
-	registryConfig.NamingserverAddr = mockAddr
+	registryConfig.NamingServer.ServerAddr = mockAddr
 	service := NewRaftRegistryService(serviceConfig, registryConfig)
 	instances, err := service.Lookup("default_tx_group")
 	if err != nil {
@@ -233,10 +235,12 @@ func TestMultiClusterWatch(t *testing.T) {
 
 	mockAddr := mockServer.Listener.Addr().String()
 	multiRegistryConfig := &RegistryConfig{
-		Type:             "raft",
-		NamingserverAddr: mockAddr,
-		Username:         "seata",
-		Password:         "seata",
+		Type: "raft",
+		NamingServer: NamingServerConfig{
+			ServerAddr: mockAddr,
+			Username:   "seata",
+			Password:   "seata",
+		},
 		Raft: RaftConfig{
 			MetadataMaxAgeMs:            int64(30000),
 			ServerAddr:                  mockAddr + "," + mockAddr,

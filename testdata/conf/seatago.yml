@@ -121,9 +121,6 @@ seata:
   # Registration Center
   registry:
     type: file
-    namingserver-addr: 127.0.0.1:8081
-    username: seata
-    password: seata
     file:
       name: seatago.yml
     nacos:

@@ -52,11 +52,11 @@ func TestRegistryConfigRegisterFlagsWithPrefix(t *testing.T) {
 	cfg.RegisterFlagsWithPrefix("registry", fs)
 
 	err := fs.Parse([]string{
-		"-registry.namingserver-addr=127.0.0.1:8081",
+		"-registry.naming-server.server-addr=127.0.0.1:8081",
 		"-registry.raft.server-addr=127.0.0.1:7091",
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "127.0.0.1:8081", cfg.NamingserverAddr)
+	assert.Equal(t, "127.0.0.1:8081", cfg.NamingServer.ServerAddr)
 	assert.Equal(t, "127.0.0.1:7091", cfg.Raft.ServerAddr)
 }

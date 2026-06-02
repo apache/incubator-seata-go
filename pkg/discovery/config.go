@@ -43,17 +43,11 @@ type RegistryConfig struct {
 	Nacos        NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	Etcd3        Etcd3Config        `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
 	NamingServer NamingServerConfig `yaml:"naming-server" json:"naming-server" koanf:"naming-server"`
-	NamingserverAddr string      `yaml:"namingserver-addr" json:"namingserver-addr" koanf:"namingserver-addr"`
-	Username         string      `yaml:"username" json:"username" koanf:"username"`
-	Password         string      `yaml:"password" json:"password" koanf:"password"`
-	Raft             RaftConfig  `yaml:"raft" json:"raft" koanf:"raft"`
+	Raft         RaftConfig         `yaml:"raft" json:"raft" koanf:"raft"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+".type", "file", "The registry type.")
-	f.StringVar(&cfg.NamingserverAddr, prefix+".namingserver-addr", "", "The naming server address of registry.")
-	f.StringVar(&cfg.Username, prefix+".username", "seata", "Username for authentication")
-	f.StringVar(&cfg.Password, prefix+".password", "seata", "Password for authentication")
 	cfg.File.RegisterFlagsWithPrefix(prefix+".file", f)
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
