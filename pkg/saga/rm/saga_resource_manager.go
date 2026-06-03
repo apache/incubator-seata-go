@@ -38,7 +38,7 @@ var (
 )
 
 type SagaResourceManager struct {
-	rmRemoting    *rm.RMRemoting
+	rmRemoting    rm.RMRemoting
 	resourceCache sync.Map
 }
 

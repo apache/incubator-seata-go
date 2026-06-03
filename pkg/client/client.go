@@ -25,17 +25,24 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/config"
 	"seata.apache.org/seata-go/v2/pkg/discovery"
 	"seata.apache.org/seata-go/v2/pkg/integration"
+	"seata.apache.org/seata-go/v2/pkg/protocol"
 	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
 	"seata.apache.org/seata-go/v2/pkg/remoting/processor/client"
 	"seata.apache.org/seata-go/v2/pkg/rm"
+	gettyRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/getty"
+	grpcRM "seata.apache.org/seata-go/v2/pkg/rm/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
 	saga "seata.apache.org/seata-go/v2/pkg/saga/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
+	gettyTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
+	grpcTM "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
-// Init seata client client
+// Init seata client
 func Init() {
 	InitPath("")
 }
@@ -60,23 +67,39 @@ var (
 func initTmClient(cfg *Config) {
 	onceInitTmClient.Do(func() {
 		tm.InitTm(cfg.ClientConfig.TmConfig)
+		switch protocol.Protocol(remoteConfig.GetTransportConfig().Protocol) {
+		case protocol.ProtocolGRPC:
+			tm.SetGlobalTransactionManager(&grpcTM.GrpcGlobalTransactionManager{})
+		default:
+			tm.SetGlobalTransactionManager(&gettyTM.GettyGlobalTransactionManager{})
+		}
 	})
 }
 
-// initRemoting init rpc client
+// initRemoting init remoting
 func initRemoting(cfg *Config) {
 	seataConfig := remoteConfig.SeataConfig{
-		ApplicationID:  cfg.ApplicationID,
-		TxServiceGroup: cfg.TxServiceGroup,
+		ApplicationID:        cfg.ApplicationID,
+		TxServiceGroup:       cfg.TxServiceGroup,
+		ServiceVgroupMapping: cfg.ServiceConfig.VgroupMapping,
+		ServiceGrouplist:     cfg.ServiceConfig.Grouplist,
 	}
 
-	getty.InitGetty(&cfg.GettyConfig, &seataConfig)
+	remoteConfig.InitTransportConfig(&cfg.TransportConfig)
+	remoteConfig.InitSeataConfig(&seataConfig)
+	switch protocol.Protocol(remoteConfig.GetTransportConfig().Protocol) {
+	case protocol.ProtocolGRPC:
+		grpc.InitGrpc(&cfg.RemotingConfig)
+	default:
+		getty.InitGetty(&cfg.RemotingConfig, &seataConfig)
+	}
 }
 
 // InitRmClient init client rm client
 func initRmClient(cfg *Config) {
 	onceInitRmClient.Do(func() {
 		log.Init()
+		loadbalance.InitLoadBalanceConfig(cfg.ClientConfig.LoadBalanceConfig)
 		initRemoting(cfg)
 		rm.InitRm(rm.RmConfig{
 			Config:         cfg.ClientConfig.RmConfig,
@@ -84,6 +107,12 @@ func initRmClient(cfg *Config) {
 			TxServiceGroup: cfg.TxServiceGroup,
 		})
 		config.Init(cfg.ClientConfig.RmConfig.LockConfig)
+		switch protocol.Protocol(remoteConfig.GetTransportConfig().Protocol) {
+		case protocol.ProtocolGRPC:
+			rm.SetRMRemotingInstance(&grpcRM.GrpcRMRemoting{})
+		default:
+			rm.SetRMRemotingInstance(&gettyRM.GettyRMRemoting{})
+		}
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC(cfg.TCCConfig.FenceConfig)

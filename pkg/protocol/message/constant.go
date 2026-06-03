@@ -20,9 +20,9 @@ package message
 var MagicCodeBytes = [2]byte{0xda, 0xda}
 
 type (
-	MessageType      int
-	GettyRequestType byte
-	GlobalStatus     byte
+	MessageType  int
+	RequestType  byte
+	GlobalStatus byte
 )
 
 const (
@@ -157,19 +157,19 @@ const (
 	V1HeadLength = 16
 
 	// Request message type
-	GettyRequestTypeRequestSync GettyRequestType = 0
+	RequestTypeRequestSync RequestType = 0
 
 	// Response message type
-	GettyRequestTypeResponse GettyRequestType = 1
+	RequestTypeResponse RequestType = 1
 
 	// Request which no need response
-	GettyRequestTypeRequestOneway GettyRequestType = 2
+	RequestTypeRequestOneway RequestType = 2
 
 	// Heartbeat Request
-	GettyRequestTypeHeartbeatRequest GettyRequestType = 3
+	RequestTypeHeartbeatRequest RequestType = 3
 
 	// Heartbeat Response
-	GettyRequestTypeHeartbeatResponse GettyRequestType = 4
+	RequestTypeHeartbeatResponse RequestType = 4
 )
 
 const (

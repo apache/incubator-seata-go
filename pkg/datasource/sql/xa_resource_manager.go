@@ -78,7 +78,7 @@ type XAResourceManager struct {
 	config        XAConfig
 	resourceCache sync.Map
 	basic         *datasource.BasicSourceManager
-	rmRemoting    *rm.RMRemoting
+	rmRemoting    rm.RMRemoting
 }
 
 func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {

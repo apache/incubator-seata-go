@@ -23,15 +23,16 @@ import (
 	"sync/atomic"
 	"testing"
 
-	getty "github.com/apache/dubbo-getty"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
 func resetConsistentHashForTest() {
 	consistentInstance = nil
+	virtualNodeNumber = 10
 	once = sync.Once{}
 }
 
@@ -79,8 +80,8 @@ func TestConsistentPick_RefreshesClosedSession(t *testing.T) {
 	sessions.Store(openSession, "open")
 
 	c := &Consistent{
-		virtualNodeCount: defaultVirtualNodeNumber,
-		hashCircle: map[int64]getty.Session{
+		virtualNodeCount: virtualNodeNumber,
+		hashCircle: map[int64]connection.Connection{
 			1: closedSession,
 		},
 		sortedHashNodes: []int64{1},
@@ -107,7 +108,7 @@ func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
 	sessions.Store(stableSession, "stable")
 
 	type flappingSession struct {
-		session getty.Session
+		session connection.Connection
 		addr    string
 		closed  atomic.Bool
 	}
@@ -129,8 +130,8 @@ func TestConsistentPick_ConcurrentPickAndRefresh(t *testing.T) {
 	}
 
 	c := &Consistent{
-		virtualNodeCount: defaultVirtualNodeNumber,
-		hashCircle:       make(map[int64]getty.Session),
+		virtualNodeCount: virtualNodeNumber,
+		hashCircle:       make(map[int64]connection.Connection),
 	}
 	c.refreshHashCircle(sessions)
 

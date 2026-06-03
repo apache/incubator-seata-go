@@ -88,7 +88,7 @@ func GetTCCResourceManagerInstance() *TCCResourceManager {
 }
 
 type TCCResourceManager struct {
-	rmRemoting *rm.RMRemoting
+	rmRemoting rm.RMRemoting
 	// resourceID -> resource
 	resourceManagerMap sync.Map
 }

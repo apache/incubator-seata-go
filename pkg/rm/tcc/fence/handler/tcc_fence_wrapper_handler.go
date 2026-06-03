@@ -49,6 +49,8 @@ type tccFenceWrapperHandler struct {
 	db                *sql.DB
 	dbMutex           sync.RWMutex
 	stopDrainCache    chan struct{}
+	stopLogCleanTask  chan struct{}
+	backgroundWg      sync.WaitGroup
 }
 
 const (
@@ -197,12 +199,25 @@ func (handler *tccFenceWrapperHandler) InitLogCleanChannel(dsn string) {
 	handler.db = db
 	handler.dbMutex.Unlock()
 
+	if handler.logQueue == nil {
+		handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
+	}
+
 	handler.logQueueOnce.Do(func() {
-		go handler.traversalCleanChannel(db)
+		handler.backgroundWg.Add(1)
+		go func() {
+			defer handler.backgroundWg.Done()
+			handler.traversalCleanChannel(db)
+		}()
 	})
 
 	handler.logTaskOnce.Do(func() {
-		go handler.initLogCleanTask(db)
+		handler.stopLogCleanTask = make(chan struct{})
+		handler.backgroundWg.Add(1)
+		go func() {
+			defer handler.backgroundWg.Done()
+			handler.initLogCleanTask(db)
+		}()
 	})
 
 }
@@ -212,28 +227,33 @@ func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 	ticker := time.NewTicker(currentCleanInterval())
 	defer ticker.Stop()
 
-	for range ticker.C {
-		tx, err := db.Begin()
-		if err != nil {
-			log.Warnf("failed to begin transaction: %v", err)
-			continue
+	for {
+		select {
+		case <-ticker.C:
+			tx, err := db.Begin()
+			if err != nil {
+				log.Warnf("failed to begin transaction: %v", err)
+				continue
+			}
+
+			expiredTime := time.Now().Add(-cleanExpired)
+			identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
+
+			if err != nil {
+				log.Warnf("failed to delete expired logs: %v", err)
+				tx.Rollback()
+				continue
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				log.Errorf("failed to commit transaction: %v", err)
+			}
+
+			handler.enqueueFenceLogIdentities(identityList)
+		case <-handler.stopLogCleanTask:
+			return
 		}
-
-		expiredTime := time.Now().Add(-cleanExpired)
-		identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
-
-		if err != nil {
-			log.Warnf("failed to delete expired logs: %v", err)
-			tx.Rollback()
-			continue
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			log.Errorf("failed to commit transaction: %v", err)
-		}
-
-		handler.enqueueFenceLogIdentities(identityList)
 	}
 }
 
@@ -245,13 +265,19 @@ func (handler *tccFenceWrapperHandler) enqueueFenceLogIdentities(identityList []
 
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
-		close(handler.logQueue)
+		if handler.logQueue != nil {
+			close(handler.logQueue)
+		}
 		if handler.stopDrainCache != nil {
 			close(handler.stopDrainCache)
 		}
+		if handler.stopLogCleanTask != nil {
+			close(handler.stopLogCleanTask)
+		}
+		handler.backgroundWg.Wait()
 		handler.dbMutex.Lock()
 		if handler.db != nil {
-			handler.db.Close()
+			_ = handler.db.Close()
 			handler.db = nil
 		}
 		handler.dbMutex.Unlock()
@@ -280,18 +306,17 @@ func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int
 
 		handler.logCacheOnce.Do(func() {
 			handler.stopDrainCache = make(chan struct{})
-			go handler.drainCacheTask()
+			handler.backgroundWg.Add(1)
+			go func() {
+				defer handler.backgroundWg.Done()
+				handler.drainCacheTask()
+			}()
 		})
 	}
 	log.Infof("add one log to clean queue: %v ", fli)
 }
 
 func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
-
-	if handler.logQueue == nil {
-		handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
-	}
-
 	counter := 0
 	batch := []model.FenceLogIdentity{}
 
