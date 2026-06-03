@@ -433,7 +433,7 @@ func TestBuildWhereConditionByPKs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildWhereConditionByPKs(tt.pkNameList, tt.rowSize, tt.maxInSize)
+			result := buildWhereConditionByPKs(tt.pkNameList, tt.rowSize, types.DBTypeMySQL, tt.maxInSize)
 
 			assert.Contains(t, result, tt.expectedSQL)
 			// Verify structure contains proper closing parentheses
@@ -509,7 +509,7 @@ func TestBuildPKParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildPKParams(tt.rows, tt.pkNameList)
+			result := buildPKParams(tt.rows, tt.pkNameList, types.DBTypeMySQL)
 
 			assert.Len(t, result, tt.expectedLen)
 			assert.Equal(t, tt.expectedVals, result)
@@ -564,7 +564,7 @@ func TestBuildPKParams_EscapedColumnNames(t *testing.T) {
 	}
 	pkNameList := []string{"id"}
 
-	result := buildPKParams(rows, pkNameList)
+	result := buildPKParams(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.Len(t, result, 2)
 	assert.Equal(t, []interface{}{1, 2}, result)

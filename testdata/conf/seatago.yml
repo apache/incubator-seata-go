@@ -136,6 +136,10 @@ seata:
     etcd3:
       cluster: "default"
       server-addr: "http://localhost:2379"
+    raft:
+      metadata-max-age-ms: 30000
+      server-addr: 127.0.0.1:7091
+      token-validity-in-milliseconds: 1740000
     naming-server:
       cluster: "default"
       server-addr: "127.0.0.1:8081"

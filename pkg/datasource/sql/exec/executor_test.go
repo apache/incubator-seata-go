@@ -136,6 +136,14 @@ func TestBuildExecutor(t *testing.T) {
 			wantErr:         false,
 		},
 		{
+			name:            "missing executor builder returns error",
+			dbType:          types.DBTypeSQLServer,
+			transactionMode: types.ATMode,
+			query:           "SELECT * FROM users WHERE name = 'Alice'",
+			wantErr:         true,
+			errMsg:          ErrATExecutorBuilderNotRegistered.Error(),
+		},
+		{
 			name:            "invalid SQL query",
 			dbType:          types.DBTypeMySQL,
 			transactionMode: types.ATMode,
@@ -150,6 +158,9 @@ func TestBuildExecutor(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err, "should return error for invalid query")
 				assert.Nil(t, executor, "executor should be nil on error")
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 			} else {
 				assert.NoError(t, err, "should not return error for valid query")
 				assert.NotNil(t, executor, "executor should not be nil")

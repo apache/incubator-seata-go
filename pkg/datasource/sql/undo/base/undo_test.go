@@ -128,6 +128,30 @@ func TestBaseUndoLogManager_Init(t *testing.T) {
 	})
 }
 
+func TestBaseUndoLogManager_PostgreSQLSQLBuilders(t *testing.T) {
+	manager := NewBaseUndoLogManager(types.DBTypePostgreSQL)
+	originalConfig := undo.UndoConfig.LogTable
+	defer func() {
+		undo.UndoConfig.LogTable = originalConfig
+	}()
+
+	undo.UndoConfig.LogTable = "test_undo_log"
+
+	assert.Equal(t, types.DBTypePostgreSQL, manager.DBType())
+	assert.Equal(t,
+		`INSERT INTO test_undo_log(branch_id,xid,context,rollback_info,log_status,log_created,log_modified) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		manager.getInsertUndoLogSql(),
+	)
+	assert.Equal(t,
+		`SELECT "branch_id","xid","context","rollback_info","log_status" FROM test_undo_log WHERE "branch_id" = $1 AND "xid" = $2 FOR UPDATE`,
+		manager.getSelectUndoLogSql(),
+	)
+	assert.Equal(t,
+		`DELETE FROM test_undo_log WHERE branch_id = $1 AND xid = $2`,
+		manager.getDeleteUndoLogSql(),
+	)
+}
+
 func TestBaseUndoLogManager_canUndo(t *testing.T) {
 	manager := NewBaseUndoLogManager()
 
@@ -497,6 +521,58 @@ func TestBaseUndoLogManager_InsertUndoLogWithSqlConn_Errors(t *testing.T) {
 		err := manager.InsertUndoLogWithSqlConn(ctx, record, conn)
 		assert.Error(t, err)
 	})
+}
+
+func TestBaseUndoLogManager_InsertUndoLog_UsesStmtExecContext(t *testing.T) {
+	manager := NewBaseUndoLogManager(types.DBTypePostgreSQL)
+
+	record := undo.UndologRecord{
+		BranchID:     123,
+		XID:          "test-xid",
+		Context:      []byte("test-context"),
+		RollbackInfo: []byte("test-rollback"),
+		LogStatus:    undo.UndoLogStatusNormal,
+	}
+
+	var (
+		execCalled        bool
+		execContextCalled bool
+		closeCalled       bool
+	)
+
+	conn := &mockDriverConn{
+		prepareFunc: func(query string) (driver.Stmt, error) {
+			assert.Contains(t, query, "INSERT INTO")
+			return &mockDriverStmtExecContext{
+				mockDriverStmt: mockDriverStmt{
+					closeFunc: func() error {
+						closeCalled = true
+						return nil
+					},
+					execFunc: func(args []driver.Value) (driver.Result, error) {
+						execCalled = true
+						return nil, errors.New("legacy stmt.Exec should not be called")
+					},
+				},
+				execContextFunc: func(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+					execContextCalled = true
+					require.Len(t, args, 5)
+					assert.EqualValues(t, 123, args[0].Value)
+					assert.Equal(t, "test-xid", args[1].Value)
+					assert.Equal(t, []byte("test-context"), args[2].Value)
+					assert.Equal(t, []byte("test-rollback"), args[3].Value)
+					assert.EqualValues(t, undo.UndoLogStatusNormal, args[4].Value)
+					return driver.RowsAffected(1), nil
+				},
+			}, nil
+		},
+	}
+
+	err := manager.InsertUndoLog(record, conn)
+	require.NoError(t, err)
+	assert.False(t, execCalled)
+	assert.True(t, execContextCalled)
+	assert.True(t, closeCalled)
 }
 
 func TestBaseUndoLogManager_DeleteUndoLog_ExecError(t *testing.T) {
@@ -1389,6 +1465,18 @@ func (m *mockDriverStmt) Query(args []driver.Value) (driver.Rows, error) {
 		return m.queryFunc(args)
 	}
 	return nil, errors.New("query not implemented")
+}
+
+type mockDriverStmtExecContext struct {
+	mockDriverStmt
+	execContextFunc func(ctx context.Context, args []driver.NamedValue) (driver.Result, error)
+}
+
+func (m *mockDriverStmtExecContext) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if m.execContextFunc != nil {
+		return m.execContextFunc(ctx, args)
+	}
+	return nil, errors.New("exec context not implemented")
 }
 
 type mockDriverResult struct {

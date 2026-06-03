@@ -87,6 +87,12 @@ func (c *seataXAConnector) Driver() driver.Driver {
 // If a Connector implements io.Closer, the sql package's DB.Close
 // method will call Close and return error (if any).
 type seataConnector struct {
+	transType types.TransactionMode
+	res       *DBResource
+	driver    *seataDriver
+	target    driver.Connector
+	dbType    types.DBType
+	dbName    string
 	transType    types.TransactionMode
 	branchType   branch.BranchType
 	targetDriver driver.Driver
@@ -131,6 +137,7 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 // mainly to maintain compatibility with the Driver method
 // on sql.DB.
 func (c *seataConnector) Driver() driver.Driver {
+	return c.driver
 	c.once.Do(func() {
 		if c.targetDriver != nil {
 			c.driver = c.targetDriver
