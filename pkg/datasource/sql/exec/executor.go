@@ -22,7 +22,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
