@@ -43,6 +43,7 @@ type RegistryConfig struct {
 	Nacos        NacosConfig        `yaml:"nacos" json:"nacos" koanf:"nacos"`
 	Etcd3        Etcd3Config        `yaml:"etcd3" json:"etcd3" koanf:"etcd3"`
 	NamingServer NamingServerConfig `yaml:"naming-server" json:"naming-server" koanf:"naming-server"`
+	Raft         RaftConfig         `yaml:"raft" json:"raft" koanf:"raft"`
 }
 
 func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -51,6 +52,7 @@ func (cfg *RegistryConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSe
 	cfg.Nacos.RegisterFlagsWithPrefix(prefix+".nacos", f)
 	cfg.Etcd3.RegisterFlagsWithPrefix(prefix+".etcd3", f)
 	cfg.NamingServer.RegisterFlagsWithPrefix(prefix+".naming-server", f)
+	cfg.Raft.RegisterFlagsWithPrefix(prefix+".raft", f)
 }
 
 type FileConfig struct {
@@ -91,6 +93,18 @@ type Etcd3Config struct {
 func (cfg *Etcd3Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Cluster, prefix+".cluster", "default", "The server address of registry.")
 	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "http://localhost:2379", "The server address of registry.")
+}
+
+type RaftConfig struct {
+	MetadataMaxAgeMs            int64  `yaml:"metadata-max-age-ms" json:"metadata-max-age-ms" koanf:"metadata-max-age-ms"`
+	ServerAddr                  string `yaml:"server-addr" json:"server-addr" koanf:"server-addr"`
+	TokenValidityInMilliseconds int64  `yaml:"token-validity-in-milliseconds" json:"token-validity-in-milliseconds" koanf:"token-validity-in-milliseconds"`
+}
+
+func (cfg *RaftConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.Int64Var(&cfg.MetadataMaxAgeMs, prefix+".metadata-max-age-ms", 30000, "Maximum age of metadata in milliseconds before refresh")
+	f.StringVar(&cfg.ServerAddr, prefix+".server-addr", "127.0.0.1:7091", "The server address of raft registry")
+	f.Int64Var(&cfg.TokenValidityInMilliseconds, prefix+".token-validity-in-milliseconds", 1740000, "Token validity duration in milliseconds")
 }
 
 type NamingServerConfig struct {
