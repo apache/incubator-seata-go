@@ -29,8 +29,6 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
-	pgxstdlib "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
@@ -71,7 +69,7 @@ var (
 	}
 	postgresDriverDescriptor = driverDescriptor{
 		dbType:      types.DBTypePostgreSQL,
-		target:      pgxstdlib.GetDefaultDriver(),
+		target:      stdlib.GetDefaultDriver(),
 		parseDBName: parsePostgresDBName,
 		newTableMetaCache: func(db *sql.DB, dbName string) datasource.TableMetaCache {
 			return postgres2.NewTableMetaInstance(db, dbName)
@@ -112,6 +110,7 @@ func initDriver() {
 		seataDriver: &seataDriver{
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
+			descriptor: postgresDriverDescriptor,
 			target:     stdlib.GetDefaultDriver(),
 			targetName: "pgx",
 		},
@@ -233,20 +232,15 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		return nil, err
 	}
 	return &seataConnector{
-		transType: d.transType,
-		res:       res,
-		driver:    d,
-		target:    connector,
-		dbType:    dbType,
-		dbName:    dbName,
-		branchType:   d.branchType,
 		transType:    d.transType,
+		branchType:   d.branchType,
+		res:          res,
+		driver:       d,
+		target:       connector,
 		targetDriver: d.target,
 		targetName:   d.targetName,
-		res:          res,
-		target:       connector,
-		dbName:       meta.dbName,
 		dbType:       dbType,
+		dbName:       dbName,
 	}, nil
 }
 
@@ -264,6 +258,8 @@ func parsePostgresDBName(dsn string) (string, error) {
 		return "", err
 	}
 	return cfg.Database, nil
+}
+
 func (d *seataDriver) getTargetDriverName() string {
 	return d.targetName
 }
