@@ -36,7 +36,7 @@ type MessageFuture struct {
 func NewMessageFuture(message RpcMessage) *MessageFuture {
 	return &MessageFuture{
 		ID:   message.ID,
-		Done: make(chan struct{}),
+		Done: make(chan struct{}, 1), // Buffered channel prevents lost signals in timeout race
 	}
 }
 
