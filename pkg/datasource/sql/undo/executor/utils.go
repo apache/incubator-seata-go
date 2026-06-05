@@ -95,7 +95,7 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
+func buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType types.DBType, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -115,7 +115,10 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
+			if dbType == types.DBTypePostgreSQL {
+				whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
+				continue
+			}
 			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
 		}
 		whereStr.WriteString(") IN (")
@@ -147,20 +150,20 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 		}
 		whereStr.WriteString(")")
 	}
-	return whereStr.String()
+	return util.RewritePlaceholders(whereStr.String(), dbType)
 }
 
-func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} {
+func buildPKParams(rows []types.RowImage, pkNameList []string, dbType types.DBType) []interface{} {
 	params := make([]interface{}, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
 		// Build a normalized map with escaped characters removed
 		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
 		for k, v := range coumnMap {
-			normalizedMap[util.DelEscape(k, types.DBTypeMySQL)] = v
+			normalizedMap[util.DelEscape(k, dbType)] = v
 		}
 		for _, pk := range pkNameList {
-			cleanPK := util.DelEscape(pk, types.DBTypeMySQL)
+			cleanPK := util.DelEscape(pk, dbType)
 			col := normalizedMap[cleanPK]
 			if col != nil {
 				params = append(params, col.Value)
