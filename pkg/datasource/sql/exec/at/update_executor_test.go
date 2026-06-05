@@ -19,15 +19,13 @@ package at
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -36,23 +34,41 @@ import (
 	_ "seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
+type stubTableMetaCache struct {
+	meta *types.TableMeta
+}
+
+func (s *stubTableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
+	return nil
+}
+
+func (s *stubTableMetaCache) GetTableMeta(ctx context.Context, dbName, table string) (*types.TableMeta, error) {
+	return s.meta, nil
+}
+
+func (s *stubTableMetaCache) Destroy() error {
+	return nil
+}
+
 func TestBuildSelectSQLByUpdate(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() {
+		undo.UndoConfig = originalUndoConfig
+	})
+
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
-	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta",
-		func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-			return &types.TableMeta{
-				Indexs: map[string]types.IndexMeta{
-					"id": {
-						IType: types.IndexTypePrimaryKey,
-						Columns: []types.ColumnMeta{
-							{ColumnName: "id"},
-						},
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{
+		meta: &types.TableMeta{
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
 					},
 				},
-			}, nil
-		})
-	defer stub.Reset()
+			},
+		},
+	})
 
 	tests := []struct {
 		name            string
@@ -97,4 +113,66 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 			assert.Equal(t, tt.expectQueryArgs, util.NamedValueToValue(args))
 		})
 	}
+}
+
+func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() {
+		undo.UndoConfig = originalUndoConfig
+	})
+
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
+	datasource.RegisterTableCache(types.DBTypePostgreSQL, &stubTableMetaCache{
+		meta: &types.TableMeta{
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+		},
+	})
+
+	sourceQueryArgs := []driver.Value{"Jack", 1, 100, 18, 28}
+	c, err := parser.DoParser("update t_user set name = $1, age = $2 where id = $3 and name = 'Jack' and age between $4 and $5")
+	assert.Nil(t, err)
+
+	executor := NewUpdateExecutor(c, &types.ExecContext{
+		DBType:      types.DBTypePostgreSQL,
+		DBName:      "public",
+		Values:      sourceQueryArgs,
+		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+	}, []exec.SQLHook{})
+
+	query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(sourceQueryArgs))
+	assert.Nil(t, err)
+	assert.Equal(t, "SELECT name,age,id FROM t_user WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, []driver.Value{100, 18, 28}, util.NamedValueToValue(args))
+
+	meta := &types.TableMeta{
+		TableName: "t_user",
+		Indexs: map[string]types.IndexMeta{
+			"id": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
+				},
+			},
+		},
+	}
+	afterSQL, afterArgs := executor.(*updateExecutor).buildAfterImageSQL(types.RecordImage{
+		Rows: []types.RowImage{
+			{Columns: []types.ColumnImage{
+				{ColumnName: "name", Value: "Jack"},
+				{ColumnName: "age", Value: 1},
+				{ColumnName: "id", Value: 100},
+			}},
+		},
+	}, meta)
+	assert.NotContains(t, afterSQL, "SQL_NO_CACHE")
+	assert.NotContains(t, afterSQL, "`")
+	assert.Contains(t, afterSQL, `("id") IN (($1))`)
+	assert.Equal(t, []driver.Value{100}, util.NamedValueToValue(afterArgs))
 }

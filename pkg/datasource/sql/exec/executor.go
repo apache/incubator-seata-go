@@ -20,6 +20,8 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
+	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -27,6 +29,8 @@ import (
 
 var (
 	atExecutors = make(map[types.DBType]func() SQLExecutor)
+	// ErrATExecutorBuilderNotRegistered indicates the db type has no AT executor root registered.
+	ErrATExecutorBuilderNotRegistered = errors.New("at executor builder not registered")
 )
 
 // RegisterATExecutor AT executor
@@ -51,6 +55,11 @@ type (
 func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, query string) (SQLExecutor, error) {
 	parseContext, err := parser.DoParser(query)
 	if err != nil {
+		if dbType == types.DBTypePostgreSQL {
+			// PostgreSQL local execution must remain pass-through even when the
+			// shared parser cannot understand PostgreSQL-only syntax yet.
+			return newATExecutor(dbType, nil)
+		}
 		return nil, err
 	}
 
@@ -58,7 +67,19 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	e := atExecutors[dbType]()
+	return newATExecutor(dbType, hooks)
+}
+
+func newATExecutor(dbType types.DBType, hooks []SQLHook) (SQLExecutor, error) {
+	builder, ok := atExecutors[dbType]
+	if !ok || builder == nil {
+		return nil, fmt.Errorf("%w: dbType=%d", ErrATExecutorBuilderNotRegistered, dbType)
+	}
+
+	e := builder()
+	if e == nil {
+		return nil, fmt.Errorf("%w: dbType=%d", ErrATExecutorBuilderNotRegistered, dbType)
+	}
 	e.Interceptors(hooks)
 	return e, nil
 }

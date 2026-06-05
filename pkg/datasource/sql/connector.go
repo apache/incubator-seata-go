@@ -20,16 +20,12 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
-	"sync"
-
-	"github.com/go-sql-driver/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 type seataATConnector struct {
 	*seataConnector
-	transType types.TransactionMode
 }
 
 func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -53,7 +49,6 @@ func (c *seataATConnector) Driver() driver.Driver {
 
 type seataXAConnector struct {
 	*seataConnector
-	transType types.TransactionMode
 }
 
 func (c *seataXAConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -90,10 +85,10 @@ func (c *seataXAConnector) Driver() driver.Driver {
 type seataConnector struct {
 	transType types.TransactionMode
 	res       *DBResource
-	once      sync.Once
-	driver    driver.Driver
+	driver    *seataDriver
 	target    driver.Connector
-	cfg       *mysql.Config
+	dbType    types.DBType
+	dbName    string
 }
 
 // Connect returns a connection to the database.
@@ -119,8 +114,8 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		res:        c.res,
 		txCtx:      types.NewTxCtx(),
 		autoCommit: true,
-		dbName:     c.cfg.DBName,
-		dbType:     types.DBTypeMySQL,
+		dbName:     c.dbName,
+		dbType:     c.dbType,
 	}, nil
 }
 
@@ -128,12 +123,5 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 // mainly to maintain compatibility with the Driver method
 // on sql.DB.
 func (c *seataConnector) Driver() driver.Driver {
-	c.once.Do(func() {
-		d := c.target.Driver()
-		c.driver = d
-	})
-
-	return &seataDriver{
-		target: c.driver,
-	}
+	return c.driver
 }
