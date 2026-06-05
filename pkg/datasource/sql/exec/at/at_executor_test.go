@@ -490,6 +490,129 @@ func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 	}
 }
 
+func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
+	originalIsGlobalTx := isGlobalTx
+	originalParseSQLQuery := parseSQLQuery
+	t.Cleanup(func() {
+		isGlobalTx = originalIsGlobalTx
+		parseSQLQuery = originalParseSQLQuery
+	})
+
+	isGlobalTx = func(ctx context.Context) bool {
+		return true
+	}
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		return &types.ParseContext{
+			SQLType:      types.SQLTypeInsert,
+			ExecutorType: types.ReplaceIntoExecutor,
+		}, nil
+	}
+
+	executor := &ATExecutor{}
+	execCtx := &types.ExecContext{
+		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",
+		NamedValues: []driver.NamedValue{{Name: "", Value: 1}, {Name: "", Value: "new"}},
+	}
+
+	callCount := 0
+	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+		callCount++
+		return &mockExecResult{rowsAffected: 1}, nil
+	}
+
+	result, err := executor.ExecWithNamedValue(context.Background(), execCtx, callback)
+
+	assert.Error(t, err, "should return error")
+	if err != nil {
+		assert.Contains(t, err.Error(), "NotSupportYetException: AT mode currently does not support REPLACE INTO statement")
+	}
+	assert.Nil(t, result, "result should be nil on error")
+	assert.Equal(t, 0, callCount, "callback should not be called because of early interception")
+}
+
+func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
+	originalIsGlobalTx := isGlobalTx
+	originalParseSQLQuery := parseSQLQuery
+	t.Cleanup(func() {
+		isGlobalTx = originalIsGlobalTx
+		parseSQLQuery = originalParseSQLQuery
+	})
+
+	isGlobalTx = func(ctx context.Context) bool {
+		return true
+	}
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		return &types.ParseContext{
+			SQLType:      types.SQLTypeInsert,
+			ExecutorType: types.ReplaceIntoExecutor,
+		}, nil
+	}
+
+	executor := &ATExecutor{}
+	execCtx := &types.ExecContext{
+		Query:  "REPLACE INTO users (id, name) VALUES (?, ?)",
+		Values: []driver.Value{1, "new"},
+	}
+
+	callCount := 0
+	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+		callCount++
+		return &mockExecResult{rowsAffected: 1}, nil
+	}
+
+	result, err := executor.ExecWithValue(context.Background(), execCtx, callback)
+
+	assert.Error(t, err, "should return error")
+	if err != nil {
+		assert.Contains(t, err.Error(), "NotSupportYetException: AT mode currently does not support REPLACE INTO statement")
+	}
+	assert.Nil(t, result, "result should be nil on error")
+	assert.Equal(t, 0, callCount, "callback should not be called because of early interception")
+}
+
+func TestATExecutor_ExecWithNamedValue_ReplaceInto_NonGlobalTx(t *testing.T) {
+	originalIsGlobalTx := isGlobalTx
+	originalParseSQLQuery := parseSQLQuery
+	t.Cleanup(func() {
+		isGlobalTx = originalIsGlobalTx
+		parseSQLQuery = originalParseSQLQuery
+	})
+
+	isGlobalTx = func(ctx context.Context) bool {
+		return false
+	}
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		return &types.ParseContext{
+			SQLType:      types.SQLTypeInsert,
+			ExecutorType: types.ReplaceIntoExecutor,
+		}, nil
+	}
+
+	replaceATExecutorFactories(t, &mockExecutor{
+		execContextFunc: func(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+			return f(ctx, "", nil)
+		},
+	})
+
+	executor := &ATExecutor{}
+	execCtx := &types.ExecContext{
+		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",
+		NamedValues: []driver.NamedValue{{Name: "", Value: 1}, {Name: "", Value: "new"}},
+	}
+
+	callCount := 0
+	callback := func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+		callCount++
+		return &mockExecResult{rowsAffected: 1}, nil
+	}
+
+	result, err := executor.ExecWithNamedValue(context.Background(), execCtx, callback)
+
+	assert.NoError(t, err, "should not return error in non-global tx")
+	assert.NotNil(t, result, "result should not be nil")
+	assert.Equal(t, 1, callCount, "callback should be called exactly once (passed through)")
+}
+
 type mockSQLHook struct {
 	sqlType         types.SQLType
 	beforeCallCount int
