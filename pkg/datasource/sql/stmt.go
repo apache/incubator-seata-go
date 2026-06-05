@@ -69,11 +69,7 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:  s.txCtx,
-		Query:  s.query,
-		Values: args,
-	}
+	execCtx := s.conn.newExecContext(s.txCtx, s.query, args, nil)
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
@@ -105,13 +101,9 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:       s.txCtx,
-		Query:       s.query,
-		NamedValues: args,
-	}
+	execCtx := s.conn.newExecContext(s.txCtx, s.query, nil, args)
 
-	ret, err := executor.ExecWithNamedValue(context.Background(), execCtx,
+	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 			ret, err := stmt.QueryContext(ctx, args)
 			if err != nil {
@@ -138,11 +130,7 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:  s.txCtx,
-		Query:  s.query,
-		Values: args,
-	}
+	execCtx := s.conn.newExecContext(s.txCtx, s.query, args, nil)
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
@@ -173,11 +161,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:       s.txCtx,
-		Query:       s.query,
-		NamedValues: args,
-	}
+	execCtx := s.conn.newExecContext(s.txCtx, s.query, nil, args)
 
 	ret, err := executor.ExecWithNamedValue(ctx, execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {

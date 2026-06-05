@@ -42,6 +42,7 @@ func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExec
 }
 
 func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	m.baseExecutor.dbType = dbType
 	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
 	if err != nil {
 		return err
@@ -113,5 +114,5 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
 	updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
-	return fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), nil
+	return util.RewritePlaceholders(fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), dbType), nil
 }
