@@ -26,7 +26,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -80,7 +79,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		cache          map[string]*entry
 		trigger        trigger
 		db             *sql.DB
-		cfg            *mysql.Config
+		dbName         string
 	}
 	type args struct {
 		ctx context.Context
@@ -106,7 +105,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 					},
 				},
 				trigger: &mockTrigger{},
-				cfg:     &mysql.Config{},
+				dbName:  "test_db",
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("test"),
@@ -124,7 +123,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 					},
 				},
 				trigger: &mockTrigger{},
-				cfg:     &mysql.Config{},
+				dbName:  "test_db",
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("TEST"),
@@ -154,7 +153,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cache:           tt.fields.cache,
 				trigger:         tt.fields.trigger,
 				db:              db,
-				cfg:             tt.fields.cfg,
+				dbName:          tt.fields.dbName,
 			}
 			go c.refresh(tt.args.ctx)
 			time.Sleep(time.Second * 3)
@@ -174,35 +173,35 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 	tests := []struct {
 		name   string
 		db     *sql.DB
-		cfg    *mysql.Config
+		dbName string
 		cache  map[string]*entry
 		expect string
 	}{
 		{
 			name:   "db_is_nil",
 			db:     nil,
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
 			expect: "should return early when db is nil",
 		},
 		{
-			name:   "cfg_is_nil",
+			name:   "db_name_is_empty",
 			db:     &sql.DB{},
-			cfg:    nil,
+			dbName: "",
 			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
-			expect: "should return early when cfg is nil",
+			expect: "should return early when dbName is empty",
 		},
 		{
 			name:   "cache_is_nil",
 			db:     &sql.DB{},
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  nil,
 			expect: "should return early when cache is nil",
 		},
 		{
 			name:   "cache_is_empty",
 			db:     &sql.DB{},
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  map[string]*entry{},
 			expect: "should return early when cache is empty",
 		},
@@ -220,7 +219,7 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 				cache:          tt.cache,
 				trigger:        &mockTrigger{},
 				db:             tt.db,
-				cfg:            tt.cfg,
+				dbName:         tt.dbName,
 			}
 
 			// Call refresh once and it should return early without panic
@@ -235,7 +234,7 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 
 				// Call the internal function once
 				c.lock.RLock()
-				if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+				if c.db == nil || c.dbName == "" || c.cache == nil || len(c.cache) == 0 {
 					c.lock.RUnlock()
 					done <- true
 					return
@@ -370,7 +369,7 @@ func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
 		expireDuration:  1 * time.Millisecond,
 		refreshInterval: 1 * time.Millisecond,
 		cache:           make(map[string]*entry),
-		// db and cfg are nil, so refresh() logic will return early, which is fine for coverage
+		// db and dbName are unset, so refresh() logic will return early, which is fine for coverage
 	}
 
 	// Init starts the goroutines
