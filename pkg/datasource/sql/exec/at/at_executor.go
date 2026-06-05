@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -68,6 +69,9 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 	if !isGlobalTx(ctx) {
 		executor = newPlainExecutor(queryParser, execCtx)
 	} else {
+		if queryParser.ExecutorType == types.ReplaceIntoExecutor {
+			return nil, errors.New("NotSupportYetException: AT mode currently does not support REPLACE INTO statement")
+		}
 		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
 			executor = newInsertExecutor(queryParser, execCtx, e.hooks)
