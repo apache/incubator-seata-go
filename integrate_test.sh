@@ -36,9 +36,39 @@ echo "github pull request base branch -> $3"
 echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 
 echo "use seata-go-samples $3 branch for integration testing"
-git clone https://github.com/apache/incubator-seata-go-samples samples && cd samples
+SAMPLES_DIR=$(mktemp -d "${ROOT_DIR}/.seata-go-samples.XXXXXX")
+cleanup_samples() {
+    rm -rf "${SAMPLES_DIR}"
+}
+trap cleanup_samples EXIT
+
+git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}" && cd "${SAMPLES_DIR}"
+
+adapt_samples_to_seata_go_v2() {
+    find . -type f -name '*.go' -print0 | while IFS= read -r -d '' file; do
+        perl -pi -e 's#seata\.apache\.org/seata-go/pkg#seata.apache.org/seata-go/v2/pkg#g' "$file"
+    done
+
+    go mod edit -droprequire=seata.apache.org/seata-go || true
+    go mod edit -require=seata.apache.org/seata-go/v2@v2.0.0
+}
+
+cleanup_saga_e2e() {
+    docker-compose -f saga/e2e/docker-compose.yml down -v --remove-orphans || true
+}
+
+run_saga_e2e_test() {
+    set +e
+    ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
+    local result=$?
+    set -e
+
+    cleanup_saga_e2e
+    return $result
+}
 
 # update seata-go to current dir
+adapt_samples_to_seata_go_v2
 go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 
 go mod tidy
@@ -53,3 +83,6 @@ fi
 
 # start integrate test
 ./start_integrate_test.sh
+
+# start saga e2e test
+run_saga_e2e_test
