@@ -54,6 +54,19 @@ func (tx *XATx) Rollback() error {
 	xid := originTx.tranCtx.XID
 	branchID := originTx.tranCtx.BranchID
 
+	// For autoCommit mode (branch reuse), skip XA END/ROLLBACK but report failure
+	if originTx.tranCtx.IsAutoCommitXABranch {
+		log.Infof("xa branch [%d/%s] in autoCommit mode, skipping XA END/ROLLBACK for branch reuse", branchID, xid)
+		if originTx.tranCtx.IsBranchRegistered() {
+			if err := originTx.report(false); err != nil {
+				log.Errorf("xa branch [%d/%s] failed to report rollback failure to TC: %v", branchID, xid, err)
+				return err
+			}
+			log.Infof("xa branch [%d/%s] reported rollback to TC (autoCommit mode)", branchID, xid)
+		}
+		return nil
+	}
+
 	log.Infof("xa branch [%d/%s] executing XA rollback", branchID, xid)
 
 	if err := originTx.xaConn.Rollback(context.Background()); err != nil {
@@ -92,6 +105,19 @@ func (tx *XATx) commitOnXA() error {
 
 	xid := originTx.tranCtx.XID
 	branchID := originTx.tranCtx.BranchID
+
+	// For autoCommit mode (branch reuse), skip XA END/PREPARE but report success
+	if originTx.tranCtx.IsAutoCommitXABranch {
+		log.Infof("xa branch [%d/%s] in autoCommit mode, skipping XA END/PREPARE for branch reuse", branchID, xid)
+		if originTx.tranCtx.IsBranchRegistered() {
+			if err := originTx.report(true); err != nil {
+				log.Errorf("xa branch [%d/%s] failed to report phase-1 success to TC: %v", branchID, xid, err)
+				return err
+			}
+			log.Infof("xa branch [%d/%s] reported phase-1 success to TC (autoCommit mode)", branchID, xid)
+		}
+		return nil
+	}
 
 	log.Infof("xa branch [%d/%s] executing XA END + XA PREPARE", branchID, xid)
 

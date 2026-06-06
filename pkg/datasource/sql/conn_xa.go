@@ -161,27 +161,31 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, err
 	}
 
-	if !c.autoCommit {
-		if c.xaActive {
-			return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
-		}
+	// Create XA branch for both explicit transactions and autoCommit mode (branch reuse)
+	// In autoCommit mode, we register the branch but keep it open for multiple SQL statements
+	if c.xaActive {
+		return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
+	}
 
-		baseTx, ok := tx.(*Tx)
-		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
-		}
+	baseTx, ok := tx.(*Tx)
+	if !ok {
+		return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+	}
 
-		baseTx.xaConn = c
+	baseTx.xaConn = c
 
-		c.branchRegisterTime = time.Now()
-		if err := baseTx.register(c.txCtx); err != nil {
-			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
-		}
+	c.branchRegisterTime = time.Now()
+	if err := baseTx.register(c.txCtx); err != nil {
+		c.cleanXABranchContext()
+		return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+	}
 
-		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
-		c.keepIfNecessary()
+	c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+	c.keepIfNecessary()
 
+	// For autoCommit mode (branch reuse), skip XA START here
+	// It will be done when needed for the actual execution
+	if !wasAutoCommit {
 		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
@@ -222,12 +226,13 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 		isErrSkip := err != nil && errors.Is(err, driver.ErrSkip)
 
 		if (err != nil && !isErrSkip) || recoverErr != nil {
-			// Don't try to rollback if tx is nil or XA rollback was already done
-			if c.tx != nil && !xaRollbacked {
-				rollbackErr := c.tx.Rollback()
+			// For XA transactions, use the connection's rollback which handles XA END + ROLLBACK
+			if !xaRollbacked && c.xaActive {
+				rollbackErr := c.Rollback(ctx)
 				if rollbackErr != nil {
-					log.Errorf("conn at rollback error:%v", rollbackErr)
+					log.Errorf("defer rollback xa branch error:%v", rollbackErr)
 				}
+				xaRollbacked = true
 			}
 		}
 	}()
@@ -283,11 +288,11 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.Ex
 	// The Commit method will skip actual XA END/PREPARE if IsAutoCommitXABranch is true
 	// This allows multiple SQL statements to use the same XA branch
 	if tx != nil && currentAutoCommit {
-		if err = c.Commit(ctx); err != nil {
-			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
+		if err = tx.Commit(); err != nil {
+			log.Errorf("xa transaction commit failure xid:%s, err:%v", c.txCtx.XID, err)
 			// XA End & Rollback
-			if err := c.Rollback(ctx); err != nil {
-				log.Errorf("xa connection proxy rollback failure xid:%s, err:%v", c.txCtx.XID, err)
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Errorf("xa transaction rollback failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
 			}
 			xaRollbacked = true
 			return nil, err
@@ -387,7 +392,7 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
 			if c.xaErrorClassifier.IsAlreadyEnded(err) {
-					log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
+				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
 				// Already ended, continue with rollback
 			} else {
 				return c.rollbackErrorHandle()
