@@ -273,7 +273,9 @@ If you need fence mode, set `seata.tcc.fence.enable: true` in `seatago.yml` and 
 
 ### XA Example
 
-The current repository supports MySQL XA. The transaction entrypoint is the same as AT; you only need to switch the driver to `seata-xa-mysql`:
+The transaction entrypoint is the same as AT.
+
+For MySQL XA, switch the driver to `seata-xa-mysql`:
 
 ```go
 db, err := sql.Open(
@@ -281,5 +283,16 @@ db, err := sql.Open(
 	"root:password@tcp(127.0.0.1:3306)/seata_demo?charset=utf8mb4&parseTime=True&multiStatements=true",
 )
 ```
+
+For PostgreSQL XA, use the pgx-based driver `seata-xa-postgres`:
+
+```go
+db, err := sql.Open(
+	"seata-xa-postgres",
+	"postgres://postgres:password@127.0.0.1:5432/seata_demo?sslmode=disable",
+)
+```
+
+> PostgreSQL XA relies on prepared transactions. Set `max_prepared_transactions > 0` on the PostgreSQL server before using this mode.
 
 > Full example: [XA Example](https://github.com/apache/incubator-seata-go-samples/tree/main/xa/basic).
