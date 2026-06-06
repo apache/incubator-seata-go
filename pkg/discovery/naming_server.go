@@ -531,7 +531,7 @@ func (c *NamingServerClient) doRefreshToken(addr string) error {
 	if !loginResp.Success {
 		errMsg := fmt.Sprintf("authentication failed: success=false, msg=%s", loginResp.Msg)
 		c.logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return fmt.Errorf("authentication failed: success=false, msg=%s", loginResp.Msg)
 	}
 	if loginResp.Data == "" {
 		return fmt.Errorf("authentication failed: token is empty")

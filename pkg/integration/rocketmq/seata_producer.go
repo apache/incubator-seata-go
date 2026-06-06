@@ -62,7 +62,7 @@ func NewSeataMQProducer(cfg *SeataMQProducerConfig) (*SeataMQProducer, error) {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
-	if cfg.NameServerAddrs == nil || len(cfg.NameServerAddrs) == 0 {
+	if len(cfg.NameServerAddrs) == 0 {
 		return nil, fmt.Errorf("NameServerAddrs cannot be empty")
 	}
 

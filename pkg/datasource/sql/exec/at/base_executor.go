@@ -492,7 +492,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 				whereStr.WriteString(",")
 			}
 			if effectiveDBType(dbType) == types.DBTypeMySQL {
-				whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+				fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 				continue
 			}
 			whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
