@@ -27,6 +27,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -62,6 +63,45 @@ func (xaBranchTx) Commit() error {
 
 func (xaBranchTx) Rollback() error {
 	return errXABranchLifecycleManaged
+}
+
+// ResetSession is called by database/sql before a pooled connection is reused.
+func (c *XAConn) ResetSession(ctx context.Context) error {
+	if c.shouldDetachFromPool() {
+		return c.detachHeldConnection(ctx)
+	}
+	c.resetWrapperState()
+	return c.Conn.ResetSession(ctx)
+}
+
+func (c *XAConn) detachHeldConnection(ctx context.Context) error {
+	if c.Conn == nil || c.res == nil || c.res.connector == nil || c.xaBranchXid == nil {
+		return driver.ErrBadConn
+	}
+
+	replacementConn, err := c.res.connector.Connect(ctx)
+	if err != nil {
+		return err
+	}
+
+	c.storeHeldConnectionCopy()
+	c.Conn.targetConn = replacementConn
+	c.resetWrapperState()
+	return nil
+}
+
+func (c *XAConn) resetWrapperState() {
+	c.tx = nil
+	c.xaResource = nil
+	c.xaErrorClassifier = nil
+	c.xaBranchXid = nil
+	c.xaActive = false
+	c.rollBacked = false
+	c.branchRegisterTime = time.Time{}
+	c.prepareTime = time.Time{}
+	c.isConnKept = false
+	c.autoCommit = true
+	c.txCtx = types.NewTxCtx()
 }
 
 func (c *XAConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
@@ -132,6 +172,8 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return tx, err
 	}
 
+	previousAutoCommit := c.autoCommit
+	previousTxCtx := c.txCtx
 	c.autoCommit = false
 
 	c.txCtx = types.NewTxCtx()
@@ -141,19 +183,31 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
 
-	// Keep a sentinel target in Tx so any accidental fallback to the generic
-	// driver.Tx path fails fast instead of silently masking XA lifecycle bugs.
-	branchTx := xaBranchTx{}
-	c.tx = branchTx
+	var tx driver.Tx
+	var err error
+	if c.dbType == types.DBTypeOracle {
+		tx, err = c.Conn.BeginTx(ctx, opts)
+		if err != nil {
+			c.restoreXABeginState(previousAutoCommit, previousTxCtx)
+			return nil, err
+		}
+		c.tx = tx
+	} else {
+		// Keep a sentinel target in Tx so any accidental fallback to the generic
+		// driver.Tx path fails fast instead of silently masking XA lifecycle bugs.
+		branchTx := xaBranchTx{}
+		c.tx = branchTx
 
-	tx, err := newTx(
-		withDriverConn(c.Conn),
-		withTxCtx(c.txCtx),
-		withOriginTx(branchTx),
-		withXAConn(c),
-	)
-	if err != nil {
-		return nil, err
+		tx, err = newTx(
+			withDriverConn(c.Conn),
+			withTxCtx(c.txCtx),
+			withOriginTx(branchTx),
+			withXAConn(c),
+		)
+		if err != nil {
+			c.restoreXABeginState(previousAutoCommit, previousTxCtx)
+			return nil, err
+		}
 	}
 
 	if !c.autoCommit {
@@ -163,23 +217,24 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 
 		baseTx, ok := tx.(*Tx)
 		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+			err := fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+			return nil, c.cleanXABeginFailure(tx, err, previousAutoCommit, previousTxCtx)
 		}
 
 		baseTx.xaConn = c
 
 		c.branchRegisterTime = time.Now()
 		if err := baseTx.register(c.txCtx); err != nil {
-			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+			err = fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+			return nil, c.cleanXABeginFailure(tx, err, previousAutoCommit, previousTxCtx)
 		}
 
 		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
 		c.keepIfNecessary()
 
 		if err = c.start(ctx); err != nil {
-			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
+			err = fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
+			return nil, c.cleanXABeginFailure(tx, err, previousAutoCommit, previousTxCtx)
 		}
 		c.xaActive = true
 	}
@@ -269,6 +324,9 @@ func (c *XAConn) keepIfNecessary() {
 }
 
 func (c *XAConn) releaseIfNecessary() {
+	if c.xaBranchXid == nil {
+		return
+	}
 	if c.ShouldBeHeld() && c.xaBranchXid.String() != "" {
 		if c.isConnKept {
 			c.res.Release(c.xaBranchXid.String())
@@ -290,7 +348,7 @@ func (c *XAConn) start(ctx context.Context) error {
 	}
 
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
-		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
+		c.xaResource.End(ctx, c.xaBranchXid.String(), c.rollbackEndFlag())
 		c.XaRollback(ctx, c.xaBranchXid)
 		return err
 	}
@@ -328,6 +386,31 @@ func (c *XAConn) cleanXABranchContext() {
 	}
 }
 
+func (c *XAConn) restoreXABeginState(autoCommit bool, txCtx *types.TransactionContext) {
+	c.autoCommit = autoCommit
+	c.txCtx = txCtx
+	c.tx = nil
+}
+
+func (c *XAConn) cleanXABeginFailure(tx driver.Tx, cause error, autoCommit bool, txCtx *types.TransactionContext) error {
+	defer c.restoreXABeginState(autoCommit, txCtx)
+
+	c.releaseIfNecessary()
+	c.cleanXABranchContext()
+
+	baseTx, ok := tx.(*Tx)
+	if !ok || baseTx.target == nil {
+		return cause
+	}
+	if _, sentinel := baseTx.target.(xaBranchTx); sentinel {
+		return cause
+	}
+	if err := tx.Rollback(); err != nil {
+		return errors.Join(cause, fmt.Errorf("failed to rollback target transaction after XA begin failure: %w", err))
+	}
+	return cause
+}
+
 func (c *XAConn) Rollback(ctx context.Context) error {
 	if c.autoCommit {
 		return nil
@@ -338,22 +421,22 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	}
 
 	if !c.rollBacked {
-		// First end the XA branch with TMFail
-		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
+		endFlag := c.rollbackEndFlag()
+		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), endFlag); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
 			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
 			if c.xaErrorClassifier.IsAlreadyEnded(err) {
 				// If already ended, continue with rollback
 				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
 			} else {
-				return c.rollbackErrorHandle()
+				return c.rollbackEndErrorHandle(endFlag, err)
 			}
 		}
 
 		// Then perform XA rollback
 		if c.XaRollback(ctx, c.xaBranchXid) != nil {
 			c.cleanXABranchContext()
-			return c.rollbackErrorHandle()
+			return c.rollbackErrorHandle(endFlag)
 		}
 		c.rollBacked = true
 	}
@@ -361,8 +444,41 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	return nil
 }
 
-func (c *XAConn) rollbackErrorHandle() error {
-	return fmt.Errorf("failed to end(TMFAIL) xa branch on [%v] - [%v]", c.txCtx.XID, c.xaBranchXid.GetBranchId())
+func (c *XAConn) rollbackEndFlag() int {
+	if c.xaDBType() == types.DBTypeOracle {
+		return xa.TMSuccess
+	}
+	return xa.TMFail
+}
+
+func (c *XAConn) rollbackErrorHandle(endFlag int) error {
+	return fmt.Errorf("failed to end(%s) xa branch on [%v] - [%v]", xaEndFlagName(endFlag), c.txCtx.XID, c.xaBranchXid.GetBranchId())
+}
+
+func (c *XAConn) rollbackEndErrorHandle(endFlag int, endErr error) error {
+	err := errors.Join(c.rollbackErrorHandle(endFlag), endErr)
+	if c.xaDBType() != types.DBTypeOracle {
+		return err
+	}
+	if targetErr := c.finishTargetTx(false); targetErr != nil {
+		err = errors.Join(err, fmt.Errorf("failed to rollback target transaction after XA end failure: %w", targetErr))
+	}
+	c.releaseIfNecessary()
+	c.cleanXABranchContext()
+	return err
+}
+
+func xaEndFlagName(flag int) string {
+	switch flag {
+	case xa.TMSuccess:
+		return "TMSUCCESS"
+	case xa.TMFail:
+		return "TMFAIL"
+	case xa.TMSuspend:
+		return "TMSUSPEND"
+	default:
+		return fmt.Sprintf("%d", flag)
+	}
 }
 
 func (c *XAConn) Commit(ctx context.Context) error {
@@ -375,33 +491,44 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	}
 
 	now := time.Now()
-	if c.end(ctx, xa.TMSuccess) != nil {
-		return c.commitErrorHandle(ctx)
+	if err := c.end(ctx, xa.TMSuccess); err != nil {
+		return c.commitErrorHandle(ctx, err)
 	}
 
-	if c.checkTimeout(ctx, now) != nil {
-		return c.commitErrorHandle(ctx)
+	if err := c.checkTimeout(ctx, now); err != nil {
+		return c.commitErrorHandle(ctx, err)
 	}
 
-	if c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()) != nil {
-		return c.commitErrorHandle(ctx)
+	if err := c.xaResource.XAPrepare(ctx, c.xaBranchXid.String()); err != nil {
+		if errors.Is(err, xa.ErrXAReadOnly) {
+			c.finishCompletedTargetTx(true)
+			setBranchStatus(c.xaBranchXid.String(), branch.BranchStatusPhasetwoCommitted)
+			c.cleanXABranchContext()
+			return nil
+		}
+		return c.commitErrorHandle(ctx, err)
 	}
 
 	c.prepareTime = time.Now()
+	c.storeHeldConnectionCopy()
 	return nil
 }
 
-func (c *XAConn) commitErrorHandle(ctx context.Context) error {
-	var err error
-	if err = c.XaRollback(ctx, c.xaBranchXid); err != nil {
-		err = fmt.Errorf("failed to report XA branch commit-failure xid:%s, err:%w", c.txCtx.XID, err)
+func (c *XAConn) commitErrorHandle(ctx context.Context, cause error) error {
+	if err := c.XaRollback(ctx, c.xaBranchXid); err != nil {
+		cause = errors.Join(cause,
+			fmt.Errorf("failed to rollback XA branch after commit-failure xid:%s, err:%w", c.txCtx.XID, err))
 	}
 	c.cleanXABranchContext()
-	return err
+	return cause
 }
 
 func (c *XAConn) ShouldBeHeld() bool {
-	return c.res.IsShouldBeHeld() || (c.res.GetDbType().String() != "" && c.res.GetDbType() != types.DBTypeUnknown)
+	return c.res != nil && c.res.IsShouldBeHeld()
+}
+
+func (c *XAConn) shouldDetachFromPool() bool {
+	return c.isConnKept && c.ShouldBeHeld() && c.xaBranchXid != nil && !c.prepareTime.IsZero()
 }
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
@@ -436,7 +563,11 @@ func (c *XAConn) CloseForce() error {
 
 func (c *XAConn) XaCommit(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Commit(ctx, xaXid.String(), false)
-	c.releaseIfNecessary()
+	if c.isBranchCommitted(err) {
+		c.finishCompletedTargetTx(true)
+	} else if c.isBranchRollbacked(err) {
+		c.finishCompletedTargetTx(false)
+	}
 	return err
 }
 
@@ -446,6 +577,86 @@ func (c *XAConn) XaRollbackByBranchId(ctx context.Context, xaXid XAXid) error {
 
 func (c *XAConn) XaRollback(ctx context.Context, xaXid XAXid) error {
 	err := c.xaResource.Rollback(ctx, xaXid.String())
-	c.releaseIfNecessary()
+	if c.isBranchRollbacked(err) {
+		c.finishCompletedTargetTx(false)
+	} else if c.isBranchCommitted(err) {
+		c.finishCompletedTargetTx(true)
+	}
 	return err
+}
+
+func (c *XAConn) isBranchCommitted(err error) bool {
+	if err == nil {
+		return true
+	}
+	if classifier, ok := c.xaErrorClassifier.(xa.XACommitErrorClassifier); ok {
+		return classifier.IsAlreadyCommitted(err)
+	}
+	return c.isBranchFinished(err)
+}
+
+func (c *XAConn) isBranchRollbacked(err error) bool {
+	if err == nil {
+		return true
+	}
+	if classifier, ok := c.xaErrorClassifier.(xa.XARollbackErrorClassifier); ok {
+		return classifier.IsAlreadyRollbacked(err)
+	}
+	return c.isBranchFinished(err)
+}
+
+func (c *XAConn) isBranchFinished(err error) bool {
+	return err == nil || (c.xaErrorClassifier != nil && c.xaErrorClassifier.IsAlreadyEnded(err))
+}
+
+func (c *XAConn) finishTargetTx(commit bool) error {
+	if c.xaDBType() != types.DBTypeOracle || c.tx == nil {
+		return nil
+	}
+
+	tx, ok := c.tx.(*Tx)
+	if !ok || tx.target == nil {
+		return nil
+	}
+
+	var err error
+	if commit {
+		err = tx.target.Commit()
+	} else {
+		err = tx.target.Rollback()
+	}
+	c.tx = nil
+	c.autoCommit = true
+	return err
+}
+
+func (c *XAConn) finishCompletedTargetTx(commit bool) {
+	if err := c.finishTargetTx(commit); err != nil {
+		log.Errorf("finish target transaction after xa branch completed failed, xid:%v, err:%v", c.xaBranchXid, err)
+	}
+	c.releaseIfNecessary()
+}
+
+func (c *XAConn) storeHeldConnectionCopy() {
+	if !c.isConnKept || c.Conn == nil || c.res == nil || c.xaBranchXid == nil {
+		return
+	}
+
+	heldBaseConn := *c.Conn
+	heldXAConn := *c
+	heldXAConn.Conn = &heldBaseConn
+	c.res.keeper.Store(c.xaBranchXid.String(), &heldXAConn)
+}
+
+func (c *XAConn) xaDBType() types.DBType {
+	if c.Conn == nil {
+		return types.DBTypeUnknown
+	}
+	if c.Conn.dbType != 0 && c.Conn.dbType != types.DBTypeUnknown {
+		return c.Conn.dbType
+	}
+	if c.Conn.res != nil {
+		return c.Conn.res.GetDbType()
+	}
+	return types.DBTypeUnknown
 }

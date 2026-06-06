@@ -24,12 +24,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	go_ora "github.com/sijms/go-ora/v2"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	mysql2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
@@ -38,6 +41,14 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
+)
+
+var (
+	oracleConnStrSIDPattern     = regexp.MustCompile(`(?i)\bSID\s*=\s*([^\s)]+)`)
+	oracleConnStrServicePattern = regexp.MustCompile(`(?i)SERVICE[_[:space:]]*NAME\s*=\s*([^\s)]+)`)
+	oracleConnStrHostPattern    = regexp.MustCompile(`(?i)\bHOST\s*=\s*([^\s)]+)`)
+	oracleConnStrPortPattern    = regexp.MustCompile(`(?i)\bPORT\s*=\s*([^\s)]+)`)
+	oracleJDBCServerPattern     = regexp.MustCompile(`(?i)@//([^/]+)`)
 )
 
 const (
@@ -49,6 +60,8 @@ const (
 	SeataXAMySQLDriver = "seata-xa-mysql"
 	// SeataXAPostgresDriver PostgreSQL driver for XA mode
 	SeataXAPostgresDriver = "seata-xa-postgres"
+	// SeataXAOracleDriver Oracle driver for XA mode
+	SeataXAOracleDriver = "seata-xa-oracle"
 )
 
 type driverDescriptor struct {
@@ -74,6 +87,11 @@ var (
 		newTableMetaCache: func(db *sql.DB, dbName string) datasource.TableMetaCache {
 			return postgres2.NewTableMetaInstance(db, dbName)
 		},
+	}
+	oracleDriverDescriptor = driverDescriptor{
+		dbType:      types.DBTypeOracle,
+		target:      &go_ora.OracleDriver{},
+		parseDBName: parseOracleDBName,
 	}
 )
 
@@ -113,6 +131,16 @@ func initDriver() {
 			descriptor: postgresDriverDescriptor,
 			target:     stdlib.GetDefaultDriver(),
 			targetName: "pgx",
+		},
+	})
+
+	sql.Register(SeataXAOracleDriver, &seataXADriver{
+		seataDriver: &seataDriver{
+			branchType: branch.BranchTypeXA,
+			transType:  types.XAMode,
+			descriptor: oracleDriverDescriptor,
+			target:     &go_ora.OracleDriver{},
+			targetName: "oracle",
 		},
 	})
 }
@@ -204,7 +232,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		return nil, fmt.Errorf("parse db name: %w", err)
 	}
 	options := []dbOption{
-		withResourceID(parseResourceID(dataSourceName)),
+		withResourceID(parseResourceID(dataSourceName, dbType)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
@@ -217,7 +245,6 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
-
 	if dbType == types.DBTypeMySQL {
 		cfg, err := mysql.ParseDSN(dataSourceName)
 		if err != nil {
@@ -226,7 +253,9 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
 	}
 
-	datasource.RegisterTableCache(dbType, d.descriptor.newTableMetaCache(db, dbName))
+	if dbType != types.DBTypeMySQL && d.descriptor.newTableMetaCache != nil {
+		datasource.RegisterTableCache(dbType, d.descriptor.newTableMetaCache(db, dbName))
+	}
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("register resource: %v", err)
 		return nil, err
@@ -260,6 +289,14 @@ func parsePostgresDBName(dsn string) (string, error) {
 	return cfg.Database, nil
 }
 
+func parseOracleDBName(dsn string) (string, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "", err
+	}
+	return oracleDatabaseName(u), nil
+}
+
 func (d *seataDriver) getTargetDriverName() string {
 	return d.targetName
 }
@@ -282,6 +319,12 @@ func parseConnectorMetadata(dataSourceName string, dbType types.DBType) (*connec
 			return nil, fmt.Errorf("parse postgres dsn: %w", err)
 		}
 		return &connectorMetadata{dbName: cfg.Database}, nil
+	case types.DBTypeOracle:
+		dbName, err := parseOracleDBName(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse oracle dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: dbName}, nil
 	default:
 		return nil, fmt.Errorf("unsupported connector metadata for db type %s", dbType.String())
 	}
@@ -300,13 +343,152 @@ func (t *dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-func parseResourceID(dsn string) string {
+func parseResourceID(dsn string, dbType types.DBType) string {
+	if dbType == types.DBTypeOracle {
+		if res := oracleResourceID(dsn); res != "" {
+			return strings.ReplaceAll(res, ",", "|")
+		}
+	}
 	i := strings.Index(dsn, "?")
 	res := dsn
 	if i > 0 {
 		res = dsn[:i]
 	}
 	return strings.ReplaceAll(res, ",", "|")
+}
+
+func oracleResourceID(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return ""
+	}
+	if dbName := oracleDatabaseName(u); dbName != "" {
+		if server := oracleServerName(u.Query()); server != "" {
+			u.Host = server
+		}
+		u.Path = "/" + dbName
+		u.RawQuery = ""
+		return u.String()
+	}
+	return ""
+}
+
+func oracleDatabaseName(u *url.URL) string {
+	if dbName := oracleQueryDatabaseName(u.Query()); dbName != "" {
+		return dbName
+	}
+	if dbName := oracleConnStrDatabaseName(u.Query()); dbName != "" {
+		return dbName
+	}
+	return strings.Trim(u.Path, "/")
+}
+
+func oracleQueryDatabaseName(query url.Values) string {
+	return oracleQueryValue(query, "SID", "SERVICE NAME")
+}
+
+func oracleConnStrDatabaseName(query url.Values) string {
+	for key, values := range query {
+		if normalizeOracleQueryKey(key) != "CONNSTR" {
+			continue
+		}
+		for _, value := range values {
+			if dbName := oracleDatabaseNameFromConnStr(value); dbName != "" {
+				return dbName
+			}
+		}
+	}
+	return ""
+}
+
+func oracleServerName(query url.Values) string {
+	if server := oracleQueryValue(query, "SERVER"); server != "" {
+		return server
+	}
+	for key, values := range query {
+		if normalizeOracleQueryKey(key) != "CONNSTR" {
+			continue
+		}
+		for _, value := range values {
+			if server := oracleServerNameFromConnStr(value); server != "" {
+				return server
+			}
+		}
+	}
+	return ""
+}
+
+func oracleServerNameFromConnStr(connStr string) string {
+	if server := oracleConnStrPatternValue(oracleJDBCServerPattern, connStr); server != "" {
+		return server
+	}
+	host := oracleConnStrPatternValue(oracleConnStrHostPattern, connStr)
+	if host == "" {
+		return ""
+	}
+	if port := oracleConnStrPatternValue(oracleConnStrPortPattern, connStr); port != "" {
+		return host + ":" + port
+	}
+	return host
+}
+
+func oracleDatabaseNameFromConnStr(connStr string) string {
+	connStr = strings.TrimSpace(connStr)
+	if connStr == "" {
+		return ""
+	}
+	if dbName := oracleConnStrPatternValue(oracleConnStrSIDPattern, connStr); dbName != "" {
+		return dbName
+	}
+	if dbName := oracleConnStrPatternValue(oracleConnStrServicePattern, connStr); dbName != "" {
+		return dbName
+	}
+	return oracleConnStrPathDatabaseName(connStr)
+}
+
+func oracleConnStrPatternValue(pattern *regexp.Regexp, connStr string) string {
+	matches := pattern.FindStringSubmatch(connStr)
+	if len(matches) < 2 {
+		return ""
+	}
+	return oracleCleanDatabaseName(matches[1])
+}
+
+func oracleConnStrPathDatabaseName(connStr string) string {
+	idx := strings.LastIndex(connStr, "/")
+	if idx < 0 || idx == len(connStr)-1 {
+		return ""
+	}
+	dbName := connStr[idx+1:]
+	if end := strings.IndexAny(dbName, "?)"); end >= 0 {
+		dbName = dbName[:end]
+	}
+	return oracleCleanDatabaseName(dbName)
+}
+
+func oracleCleanDatabaseName(dbName string) string {
+	return strings.Trim(strings.TrimSpace(dbName), `"'`)
+}
+
+func oracleQueryValue(query url.Values, names ...string) string {
+	for _, name := range names {
+		for key, values := range query {
+			if normalizeOracleQueryKey(key) != name {
+				continue
+			}
+			for _, value := range values {
+				if value = strings.TrimSpace(value); value != "" {
+					return value
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeOracleQueryKey(key string) string {
+	key = strings.ReplaceAll(key, "_", " ")
+	return strings.ToUpper(strings.Join(strings.Fields(key), " "))
 }
 
 func selectDBVersion(ctx context.Context, conn driver.Conn) (string, error) {
