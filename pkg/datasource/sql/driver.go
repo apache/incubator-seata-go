@@ -31,7 +31,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
-	pgxstdlib "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/stdlib"
 	go_ora "github.com/sijms/go-ora/v2"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
@@ -58,6 +58,8 @@ const (
 	SeataATPostgresDriver = "seata-at-postgres"
 	// SeataXAMySQLDriver MySQL driver for XA mode
 	SeataXAMySQLDriver = "seata-xa-mysql"
+	// SeataXAPostgresDriver PostgreSQL driver for XA mode
+	SeataXAPostgresDriver = "seata-xa-postgres"
 	// SeataXAOracleDriver Oracle driver for XA mode
 	SeataXAOracleDriver = "seata-xa-oracle"
 )
@@ -80,7 +82,7 @@ var (
 	}
 	postgresDriverDescriptor = driverDescriptor{
 		dbType:      types.DBTypePostgreSQL,
-		target:      pgxstdlib.GetDefaultDriver(),
+		target:      stdlib.GetDefaultDriver(),
 		parseDBName: parsePostgresDBName,
 		newTableMetaCache: func(db *sql.DB, dbName string) datasource.TableMetaCache {
 			return postgres2.NewTableMetaInstance(db, dbName)
@@ -98,6 +100,8 @@ func initDriver() {
 		seataDriver: &seataDriver{
 			branchType: branch.BranchTypeAT,
 			transType:  types.ATMode,
+			target:     mysql.MySQLDriver{},
+			targetName: "mysql",
 			descriptor: mySQLDriverDescriptor,
 		},
 	})
@@ -115,6 +119,18 @@ func initDriver() {
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
 			descriptor: mySQLDriverDescriptor,
+			target:     mysql.MySQLDriver{},
+			targetName: "mysql",
+		},
+	})
+
+	sql.Register(SeataXAPostgresDriver, &seataXADriver{
+		seataDriver: &seataDriver{
+			branchType: branch.BranchTypeXA,
+			transType:  types.XAMode,
+			descriptor: postgresDriverDescriptor,
+			target:     stdlib.GetDefaultDriver(),
+			targetName: "pgx",
 		},
 	})
 
@@ -123,6 +139,8 @@ func initDriver() {
 			branchType: branch.BranchTypeXA,
 			transType:  types.XAMode,
 			descriptor: oracleDriverDescriptor,
+			target:     &go_ora.OracleDriver{},
+			targetName: "oracle",
 		},
 	})
 }
@@ -138,6 +156,7 @@ func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err erro
 	}
 
 	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.ATMode
 
 	return &seataATConnector{
 		seataConnector: _connector,
@@ -155,6 +174,7 @@ func (d *seataXADriver) OpenConnector(name string) (c driver.Connector, err erro
 	}
 
 	_connector, _ := connector.(*seataConnector)
+	_connector.transType = types.XAMode
 
 	return &seataXAConnector{
 		seataConnector: _connector,
@@ -165,6 +185,8 @@ type seataDriver struct {
 	branchType branch.BranchType
 	transType  types.TransactionMode
 	descriptor driverDescriptor
+	target     driver.Driver
+	targetName string
 }
 
 // Open never be called, because seataDriver implemented dri.DriverContext interface.
@@ -200,6 +222,11 @@ func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error)
 
 func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType types.DBType,
 	db *sql.DB, dataSourceName string) (driver.Connector, error) {
+	meta, err := parseConnectorMetadata(dataSourceName, dbType)
+	if err != nil {
+		return nil, err
+	}
+
 	dbName, err := d.descriptor.parseDBName(dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("parse db name: %w", err)
@@ -210,6 +237,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		withBranchType(d.branchType),
 		withDBType(dbType),
 		withDBName(dbName),
+		withDBName(meta.dbName),
 		withConnector(connector),
 	}
 	res, err := newResource(options...)
@@ -217,7 +245,15 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
-	if d.descriptor.newTableMetaCache != nil {
+	if dbType == types.DBTypeMySQL {
+		cfg, err := mysql.ParseDSN(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn: %w", err)
+		}
+		datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
+	}
+
+	if dbType != types.DBTypeMySQL && d.descriptor.newTableMetaCache != nil {
 		datasource.RegisterTableCache(dbType, d.descriptor.newTableMetaCache(db, dbName))
 	}
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
@@ -225,12 +261,15 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		return nil, err
 	}
 	return &seataConnector{
-		transType: d.transType,
-		res:       res,
-		driver:    d,
-		target:    connector,
-		dbType:    dbType,
-		dbName:    dbName,
+		transType:    d.transType,
+		branchType:   d.branchType,
+		res:          res,
+		driver:       d,
+		target:       connector,
+		targetDriver: d.target,
+		targetName:   d.targetName,
+		dbType:       dbType,
+		dbName:       dbName,
 	}, nil
 }
 
@@ -256,6 +295,39 @@ func parseOracleDBName(dsn string) (string, error) {
 		return "", err
 	}
 	return oracleDatabaseName(u), nil
+}
+
+func (d *seataDriver) getTargetDriverName() string {
+	return d.targetName
+}
+
+type connectorMetadata struct {
+	dbName string
+}
+
+func parseConnectorMetadata(dataSourceName string, dbType types.DBType) (*connectorMetadata, error) {
+	switch dbType {
+	case types.DBTypeMySQL:
+		cfg, err := mysql.ParseDSN(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse mysql dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: cfg.DBName}, nil
+	case types.DBTypePostgreSQL:
+		cfg, err := pgx.ParseConfig(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse postgres dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: cfg.Database}, nil
+	case types.DBTypeOracle:
+		dbName, err := parseOracleDBName(dataSourceName)
+		if err != nil {
+			return nil, fmt.Errorf("parse oracle dsn: %w", err)
+		}
+		return &connectorMetadata{dbName: dbName}, nil
+	default:
+		return nil, fmt.Errorf("unsupported connector metadata for db type %s", dbType.String())
+	}
 }
 
 type dsnConnector struct {

@@ -20,12 +20,15 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 )
 
 type seataATConnector struct {
 	*seataConnector
+	transType types.TransactionMode
 }
 
 func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -49,6 +52,7 @@ func (c *seataATConnector) Driver() driver.Driver {
 
 type seataXAConnector struct {
 	*seataConnector
+	transType types.TransactionMode
 }
 
 func (c *seataXAConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -83,12 +87,16 @@ func (c *seataXAConnector) Driver() driver.Driver {
 // If a Connector implements io.Closer, the sql package's DB.Close
 // method will call Close and return error (if any).
 type seataConnector struct {
-	transType types.TransactionMode
-	res       *DBResource
-	driver    *seataDriver
-	target    driver.Connector
-	dbType    types.DBType
-	dbName    string
+	transType    types.TransactionMode
+	branchType   branch.BranchType
+	res          *DBResource
+	driver       driver.Driver
+	target       driver.Connector
+	targetDriver driver.Driver
+	targetName   string
+	dbType       types.DBType
+	dbName       string
+	once         sync.Once
 }
 
 // Connect returns a connection to the database.
@@ -123,5 +131,18 @@ func (c *seataConnector) Connect(ctx context.Context) (driver.Conn, error) {
 // mainly to maintain compatibility with the Driver method
 // on sql.DB.
 func (c *seataConnector) Driver() driver.Driver {
-	return c.driver
+	c.once.Do(func() {
+		if c.targetDriver != nil {
+			c.driver = c.targetDriver
+			return
+		}
+		c.driver = c.target.Driver()
+	})
+
+	return &seataDriver{
+		branchType: c.branchType,
+		transType:  c.transType,
+		target:     c.driver,
+		targetName: c.targetName,
+	}
 }
