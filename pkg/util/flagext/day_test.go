@@ -19,6 +19,7 @@ package flagext
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,6 +54,36 @@ func TestDayValueYAML(t *testing.T) {
 			Day *DayValue `yaml:"day"`
 		}
 
+		var testStruct TestStruct
+		testStruct.Day = &DayValue{}
+		require.NoError(t, testStruct.Day.Set("1985-06-02"))
+		expected := []byte(`day: "1985-06-02"
+`)
+
+		actual, err := yaml.Marshal(testStruct)
+		require.NoError(t, err)
+		assert.Equal(t, expected, actual)
+
+		var actualStruct TestStruct
+		err = yaml.Unmarshal(expected, &actualStruct)
+		require.NoError(t, err)
+		assert.Equal(t, testStruct, actualStruct)
+	}
+	// Test UTC-stable string and YAML serialization in western timezones.
+	{
+		loc, err := time.LoadLocation("America/Los_Angeles")
+		if err != nil {
+			loc = time.FixedZone("UTC-8", -8*60*60)
+		}
+
+		originalLocal := time.Local
+		time.Local = loc
+		defer func() {
+			time.Local = originalLocal
+		}()
+		type TestStruct struct {
+			Day *DayValue `yaml:"day"`
+		}
 		var testStruct TestStruct
 		testStruct.Day = &DayValue{}
 		require.NoError(t, testStruct.Day.Set("1985-06-02"))

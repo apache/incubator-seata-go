@@ -32,6 +32,10 @@ type DayValue struct {
 	set bool
 }
 
+func (v DayValue) utcTime() time.Time {
+	return v.Time.Time().UTC()
+}
+
 // NewDayValue makes a new DayValue; will round t down to the nearest midnight.
 func NewDayValue(t model.Time) DayValue {
 	return DayValue{
@@ -42,7 +46,7 @@ func NewDayValue(t model.Time) DayValue {
 
 // String implements flag.Value
 func (v DayValue) String() string {
-	return v.Time.Time().Format(time.RFC3339)
+	return v.utcTime().Format(time.RFC3339)
 }
 
 // Set implements flag.Value
@@ -72,5 +76,5 @@ func (v *DayValue) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // MarshalYAML implements yaml.Marshaler.
 func (v DayValue) MarshalYAML() (interface{}, error) {
-	return v.Time.Time().Format("2006-01-02"), nil
+	return v.utcTime().Format("2006-01-02"), nil
 }
