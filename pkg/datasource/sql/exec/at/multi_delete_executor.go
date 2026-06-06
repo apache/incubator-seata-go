@@ -117,7 +117,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	if err != nil {
 		return nil, err
 	}
-	image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete, types.DBTypeMySQL)
 	if err != nil {
 		log.Errorf("record images : %+v", err)
 		return nil, err

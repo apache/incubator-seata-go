@@ -95,7 +95,8 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
-	if s.metaData, err = datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	dbType := effectiveDBType(s.execContext.DBType)
+	if s.metaData, err = datasource.GetTableCache(dbType).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
 		return nil, err
 	}
 
@@ -250,7 +251,11 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 
 	b := seatabytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
+	dbType := types.DBTypeMySQL
+	if s.execContext != nil {
+		dbType = effectiveDBType(s.execContext.DBType)
+	}
+	sql := s.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil

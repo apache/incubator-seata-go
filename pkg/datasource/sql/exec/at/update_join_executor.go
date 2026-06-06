@@ -130,7 +130,7 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
 			if rowerr := rows.Close(); rowerr != nil {
@@ -177,7 +177,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
 			if rowerr := rowsi.Close(); rowerr != nil {
@@ -266,7 +266,7 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName()), nil
+	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType)), nil
 }
 
 func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) map[string]string {
