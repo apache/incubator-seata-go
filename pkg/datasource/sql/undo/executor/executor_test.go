@@ -365,7 +365,7 @@ func TestQueryCurrentRecordsSuccess(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(1, "test_updated")
 
-	mock.ExpectQuery("SELECT \\* FROM t_user WHERE").
+	mock.ExpectQuery("SELECT \\* FROM .*t_user.* WHERE").
 		WithArgs(1).
 		WillReturnRows(rows)
 
@@ -420,7 +420,7 @@ func TestQueryCurrentRecordsQueryError(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery("SELECT \\* FROM t_user WHERE").
+	mock.ExpectQuery("SELECT \\* FROM .*t_user.* WHERE").
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("database connection error"))
 
@@ -477,7 +477,7 @@ func TestQueryCurrentRecordsCompositePrimaryKey(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"order_id", "user_id", "amount"}).
 		AddRow(100, 1, 199.99)
 
-	mock.ExpectQuery("SELECT \\* FROM t_order WHERE").
+	mock.ExpectQuery("SELECT \\* FROM .*t_order.* WHERE").
 		WillReturnRows(rows)
 
 	result, err := executor.queryCurrentRecords(context.Background(), conn)
@@ -503,7 +503,7 @@ func TestParsePkValuesSinglePK(t *testing.T) {
 
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 1)
@@ -528,7 +528,7 @@ func TestParsePkValuesMultipleRows(t *testing.T) {
 
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Contains(t, result, "id")
@@ -547,7 +547,7 @@ func TestParsePkValuesCompositePK(t *testing.T) {
 
 	pkNameList := []string{"order_id", "user_id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 2)
@@ -571,7 +571,7 @@ func TestParsePkValuesCaseInsensitive(t *testing.T) {
 
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 1)
@@ -586,7 +586,7 @@ func TestParsePkValuesEmptyRows(t *testing.T) {
 	rows := []types.RowImage{}
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 0)
@@ -604,7 +604,7 @@ func TestParsePkValuesNoMatchingPK(t *testing.T) {
 
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 0)
@@ -626,7 +626,7 @@ func TestParsePkValuesEscapedColumnName(t *testing.T) {
 
 	pkNameList := []string{"id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 1)
@@ -649,7 +649,7 @@ func TestParsePkValuesEscapedCompositePK(t *testing.T) {
 
 	pkNameList := []string{"order_id", "user_id"}
 
-	result := executor.parsePkValues(rows, pkNameList)
+	result := executor.parsePkValues(rows, pkNameList, types.DBTypeMySQL)
 
 	assert.NotNil(t, result)
 	assert.Len(t, result, 2)

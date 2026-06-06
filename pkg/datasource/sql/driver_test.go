@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -60,31 +61,8 @@ func Test_seataATDriver_Open(t *testing.T) {
 	defer db.Close()
 
 	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
-
-		v := reflect.ValueOf(db)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-
-		field := v.FieldByName("connector")
-		fieldVal := reflectx.GetUnexportedField(field)
-
-		driverVal, ok := fieldVal.(driver.Connector).Driver().(*seataATDriver)
-		assert.True(t, ok, "need seata at driver")
-
-		vv := reflect.ValueOf(driverVal)
-		if vv.Kind() == reflect.Ptr {
-			vv = vv.Elem()
-		}
-		field = vv.FieldByName("target")
-
-		mockDriver := mock.NewMockTestDriver(ctrl)
-
-		reflectx.SetUnexportedField(field, mockDriver)
-
-		connector := &dsnConnector{
-			driver: driverVal,
-		}
+		connector := mock.NewMockTestDriverConnector(ctrl)
+		connector.EXPECT().Connect(gomock.Any()).Return(nil, fmt.Errorf("connect error"))
 		return connector
 	})
 
@@ -119,6 +97,34 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 	assert.True(t, ok, "need return seata at connector")
 }
 
+func Test_seataATPostgresDriver_OpenConnector(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
+	_ = mockMgr
+
+	db, err := sql.Open(SeataATPostgresDriver, postgresTestDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+
+	v := reflect.ValueOf(db)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	field := v.FieldByName("connector")
+	fieldVal := reflectx.GetUnexportedField(field)
+
+	connector, ok := fieldVal.(*seataATConnector)
+	assert.True(t, ok, "need return seata at connector")
+	assert.Equal(t, types.DBTypePostgreSQL, connector.dbType)
+	assert.Equal(t, "seata_go_test", connector.dbName)
+}
+
 func Test_seataXADriver_OpenConnector(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -145,10 +151,10 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 	assert.True(t, ok, "need return seata xa connector")
 }
 
-func TestShouldUseMySQLTableCache(t *testing.T) {
-	assert.True(t, shouldUseMySQLTableCache(types.DBTypeMySQL))
-	assert.True(t, shouldUseMySQLTableCache(types.DBTypeMARIADB))
-	assert.False(t, shouldUseMySQLTableCache(types.DBTypeOracle))
+func TestDriverDescriptorTableMetaCache(t *testing.T) {
+	assert.NotNil(t, mySQLDriverDescriptor.newTableMetaCache)
+	assert.NotNil(t, postgresDriverDescriptor.newTableMetaCache)
+	assert.Nil(t, oracleDriverDescriptor.newTableMetaCache)
 }
 
 func TestParseResourceIDOracleIncludesServiceName(t *testing.T) {
@@ -216,10 +222,18 @@ func TestParseResourceIDOracleStripsNonIdentityQuery(t *testing.T) {
 	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB1", resourceID)
 }
 
-func TestParseDBNameOracleUsesQueryIdentity(t *testing.T) {
-	assert.Equal(t, "FREEPDB1", parseDBName("oracle://system:pass@localhost:1521/?service name=FREEPDB1", types.DBTypeOracle))
-	assert.Equal(t, "ORCL1", parseDBName("oracle://system:pass@localhost:1521/?SID=ORCL1", types.DBTypeOracle))
-	assert.Equal(t, "QUERYDB", parseDBName("oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB", types.DBTypeOracle))
-	assert.Equal(t, "SIDDB", parseDBName("oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB&SID=SIDDB", types.DBTypeOracle))
-	assert.Equal(t, "FREEPDB1", parseDBName("oracle://system:pass@localhost:1521/?connStr=(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))", types.DBTypeOracle))
+func TestParseOracleDBNameUsesQueryIdentity(t *testing.T) {
+	cases := map[string]string{
+		"oracle://system:pass@localhost:1521/?service name=FREEPDB1":                                        "FREEPDB1",
+		"oracle://system:pass@localhost:1521/?SID=ORCL1":                                                    "ORCL1",
+		"oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB":                                   "QUERYDB",
+		"oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB&SID=SIDDB":                         "SIDDB",
+		"oracle://system:pass@localhost:1521/?connStr=(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))": "FREEPDB1",
+	}
+
+	for dsn, expected := range cases {
+		dbName, err := parseOracleDBName(dsn)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, dbName)
+	}
 }

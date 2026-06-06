@@ -78,7 +78,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 			return nil, err
 		}
 
-		return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
+		return &Stmt{conn: c, stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
 	}
 
 	s, err := conn.PrepareContext(ctx, query)
@@ -143,11 +143,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:  c.txCtx,
-		Query:  query,
-		Values: args,
-	}
+	execCtx := c.newExecContext(c.txCtx, query, args, nil)
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
@@ -268,6 +264,25 @@ func (c *Conn) beginTargetTx(ctx context.Context, opts driver.TxOptions) (driver
 
 func (c *Conn) GetAutoCommit() bool {
 	return c.autoCommit
+}
+
+func (c *Conn) newExecContext(txCtx *types.TransactionContext, query string, values []driver.Value, namedValues []driver.NamedValue) *types.ExecContext {
+	if txCtx == nil {
+		txCtx = c.txCtx
+	}
+
+	return &types.ExecContext{
+		TxCtx:                txCtx,
+		Query:                query,
+		Values:               values,
+		NamedValues:          namedValues,
+		Conn:                 c.targetConn,
+		DBName:               c.dbName,
+		DBType:               c.dbType,
+		DbVersion:            c.GetDbVersion(),
+		IsSupportsSavepoints: true,
+		IsAutoCommit:         c.GetAutoCommit(),
+	}
 }
 
 func (c *Conn) GetDbVersion() string {

@@ -27,6 +27,7 @@ const (
 	CONSUL       string = "consul"
 	SOFA         string = "sofa"
 	NAMINGSERVER string = "namingserver"
+	RAFT         string = "raft"
 )
 
 type ServiceInstance struct {

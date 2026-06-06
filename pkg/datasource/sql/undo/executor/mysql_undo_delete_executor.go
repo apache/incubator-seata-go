@@ -42,6 +42,7 @@ func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoDeleteExec
 }
 
 func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	m.baseExecutor.dbType = dbType
 
 	undoSql, _ := m.buildUndoSQL(dbType)
 
@@ -108,5 +109,5 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
 	insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
-	return fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), nil
+	return util.RewritePlaceholders(fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), dbType), nil
 }
