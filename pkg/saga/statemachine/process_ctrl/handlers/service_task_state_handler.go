@@ -46,15 +46,9 @@ func (s *ServiceTaskStateHandler) State() string {
 }
 
 func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
-	var stateInstruction *pcext.StateInstruction
-	switch v := processContext.GetInstruction().(type) {
-	case *pcext.StateInstruction:
-		stateInstruction = v
-	case pcext.StateInstruction:
-		tmp := v
-		stateInstruction = &tmp
-	default:
-		return errors.New("invalid state instruction from processContext")
+	stateInstruction, err := pcext.GetStateInstruction(processContext)
+	if err != nil {
+		return err
 	}
 	stateInterface, err := stateInstruction.GetState(processContext)
 	if err != nil {
@@ -67,7 +61,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 
 	serviceName := serviceTaskStateImpl.ServiceName()
 	methodName := serviceTaskStateImpl.ServiceMethod()
-	stateInstance, ok := processContext.GetVariable(constant.VarNameStateInst).(statelang.StateInstance)
+	stateInstance, ok := processContext.GetVariable(constant.VarNameStateInst).(*statelang.StateInstance)
 	if !ok {
 		return errors.New("invalid state instance type from processContext")
 	}
@@ -90,9 +84,9 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 
 		// mark instance failed and persist finish if store enabled
 		if stateInstance != nil {
-			stateInstance.SetStatus(statelang.FA)
-			stateInstance.SetEndTime(time.Now())
-			stateInstance.SetUpdatedTime(time.Now())
+			stateInstance.Status = statelang.FA
+			stateInstance.EndTime = time.Now()
+			stateInstance.UpdatedTime = time.Now()
 			if okCfg && stateMachineConfig.StateLogStore() != nil {
 				_ = stateMachineConfig.StateLogStore().RecordStateFinished(ctx, stateInstance, processContext)
 			}
@@ -114,22 +108,22 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 
 	// set timestamps and status before persisting
 	now := time.Now()
-	stateInstance.SetStartedTime(now)
-	stateInstance.SetUpdatedTime(now)
-	stateInstance.SetStatus(statelang.RU)
+	stateInstance.StartedTime = now
+	stateInstance.UpdatedTime = now
+	stateInstance.Status = statelang.RU
 	log.Debugf(">>>>>>>>>>>>>>>>>>>>>> Start to execute State[%s], ServiceName[%s], Method[%s], Input:%s",
 		serviceTaskStateImpl.Name(), serviceName, methodName, input)
 
 	// set input on state instance and persist started
-	stateInstance.SetInputParams(input)
+	stateInstance.InputParams = input
 	if okCfg && stateMachineConfig.StateLogStore() != nil {
 		if err := stateMachineConfig.StateLogStore().RecordStateStarted(ctx, stateInstance, processContext); err != nil {
 			handleResultErr(err)
 			return nil
 		}
-		// now the stateInstance.ID() is assigned (branchId or generated). Put into stateMap keyed by ID
-		if smi, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance); ok && smi != nil {
-			smi.PutState(stateInstance.ID(), stateInstance)
+		// now the stateInstance.ID is assigned (branchId or generated). Put into stateMap keyed by ID
+		if smi, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(*statelang.StateMachineInstance); ok && smi != nil {
+			smi.PutState(stateInstance.ID, stateInstance)
 		}
 	}
 
@@ -186,7 +180,7 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 		serviceTaskStateImpl.Name(), serviceName, methodName, result)
 
 	if result != nil {
-		stateInstance.SetOutputParams(result)
+		stateInstance.OutputParams = result
 		hierarchicalProcessContext, ok := processContext.(process_ctrl.HierarchicalProcessContext)
 		if !ok {
 			handleResultErr(errors.New("invalid hierarchical process context type from processContext"))
@@ -197,9 +191,9 @@ func (s *ServiceTaskStateHandler) Process(ctx context.Context, processContext pr
 	}
 
 	// mark succeed and persist finished
-	stateInstance.SetStatus(statelang.SU)
-	stateInstance.SetEndTime(time.Now())
-	stateInstance.SetUpdatedTime(time.Now())
+	stateInstance.Status = statelang.SU
+	stateInstance.EndTime = time.Now()
+	stateInstance.UpdatedTime = time.Now()
 	if okCfg && stateMachineConfig.StateLogStore() != nil {
 		if err := stateMachineConfig.StateLogStore().RecordStateFinished(ctx, stateInstance, processContext); err != nil {
 			handleResultErr(err)
@@ -219,7 +213,7 @@ func (s *ServiceTaskStateHandler) RegistryStateHandlerInterceptor(stateHandlerIn
 }
 
 func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context, processContext process_ctrl.ProcessContext,
-	serviceTaskState state.ServiceTaskState, input any, instance statelang.StateInstance,
+	serviceTaskState state.ServiceTaskState, input any, instance *statelang.StateInstance,
 	machineEngine engine.StateMachineEngine) (any, error) {
 	subStateMachineParentId, ok := processContext.GetVariable(serviceTaskState.Name() + constant.VarNameSubMachineParentId).(string)
 	if !ok {
@@ -242,7 +236,7 @@ func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context,
 			"cannot find sub statemachine instance by parentId:"+subStateMachineParentId, nil)
 	}
 
-	subStateMachineInstId := subInst[0].ID()
+	subStateMachineInstId := subInst[0].ID
 	log.Debugf(">>>>>>>>>>>>>>>>>>>>>> Start to compensate sub statemachine [id:%s]", subStateMachineInstId)
 
 	startParams := make(map[string]any)
@@ -259,8 +253,8 @@ func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	instance.SetStatus(compensateInst.CompensationStatus())
+	instance.Status = compensateInst.CompensationStatus
 	log.Debugf("<<<<<<<<<<<<<<<<<<<<<< Compensate sub statemachine [id:%s] finished with status[%s], "+"compensateState[%s]",
-		subStateMachineInstId, compensateInst.Status(), compensateInst.CompensationStatus())
-	return compensateInst.EndParams(), nil
+		subStateMachineInstId, compensateInst.Status, compensateInst.CompensationStatus)
+	return compensateInst.EndParams, nil
 }

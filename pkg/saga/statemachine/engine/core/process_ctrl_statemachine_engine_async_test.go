@@ -117,7 +117,7 @@ func TestStartAsyncSuccessfulFlow(t *testing.T) {
 	inst, err := engine.StartAsync(context.Background(), "AsyncSimple", "", nil, callback)
 	require.NoError(t, err)
 	require.NotNil(t, inst)
-	require.Equal(t, "AsyncSimple", inst.StateMachine().Name())
+	require.Equal(t, "AsyncSimple", inst.StateMachine.Name())
 
 	select {
 	case <-callback.Done():
@@ -127,7 +127,7 @@ func TestStartAsyncSuccessfulFlow(t *testing.T) {
 
 	require.NoError(t, callback.Err())
 	require.NotNil(t, callback.Instance())
-	require.Equal(t, statelang.SU, callback.Instance().Status())
+	require.Equal(t, statelang.SU, callback.Instance().Status)
 	require.Equal(t, 1, service.Calls())
 }
 
@@ -153,7 +153,7 @@ type asyncTestCallback struct {
 	done chan struct{}
 	once sync.Once
 	mu   sync.Mutex
-	inst statelang.StateMachineInstance
+	inst *statelang.StateMachineInstance
 	err  error
 }
 
@@ -161,7 +161,7 @@ func newAsyncTestCallback() *asyncTestCallback {
 	return &asyncTestCallback{done: make(chan struct{})}
 }
 
-func (c *asyncTestCallback) OnFinished(ctx context.Context, _ process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance) {
+func (c *asyncTestCallback) OnFinished(ctx context.Context, _ process_ctrl.ProcessContext, stateMachineInstance *statelang.StateMachineInstance) {
 	c.mu.Lock()
 	c.inst = stateMachineInstance
 	c.err = nil
@@ -169,7 +169,7 @@ func (c *asyncTestCallback) OnFinished(ctx context.Context, _ process_ctrl.Proce
 	c.once.Do(func() { close(c.done) })
 }
 
-func (c *asyncTestCallback) OnError(ctx context.Context, _ process_ctrl.ProcessContext, stateMachineInstance statelang.StateMachineInstance, err error) {
+func (c *asyncTestCallback) OnError(ctx context.Context, _ process_ctrl.ProcessContext, stateMachineInstance *statelang.StateMachineInstance, err error) {
 	c.mu.Lock()
 	c.inst = stateMachineInstance
 	c.err = err
@@ -187,7 +187,7 @@ func (c *asyncTestCallback) Err() error {
 	return c.err
 }
 
-func (c *asyncTestCallback) Instance() statelang.StateMachineInstance {
+func (c *asyncTestCallback) Instance() *statelang.StateMachineInstance {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.inst
@@ -276,7 +276,7 @@ func TestStartAsyncWithCompensation(t *testing.T) {
 	inst, err := engine.StartAsync(context.Background(), "AsyncCompensation", "", nil, callback)
 	require.NoError(t, err)
 	require.NotNil(t, inst)
-	require.Equal(t, "AsyncCompensation", inst.StateMachine().Name())
+	require.Equal(t, "AsyncCompensation", inst.StateMachine.Name())
 
 	select {
 	case <-callback.Done():
@@ -287,7 +287,7 @@ func TestStartAsyncWithCompensation(t *testing.T) {
 	// Should finish with error due to Task2 failure
 	// Note: In test environment without DB store, compensation flow may not be fully executed
 	require.NotNil(t, callback.Instance())
-	require.NotEqual(t, statelang.SU, callback.Instance().Status(), "Status should not be SU after Task2 fails")
+	require.NotEqual(t, statelang.SU, callback.Instance().Status, "Status should not be SU after Task2 fails")
 	require.Equal(t, 1, service.Task1Calls(), "Task1 should be called once")
 	require.Equal(t, 1, service.Task2Calls(), "Task2 should be called once (and fail)")
 }

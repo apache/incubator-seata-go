@@ -87,8 +87,8 @@ func (s *SagaResourceManager) BranchCommit(ctx context.Context, resource rm.Bran
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
 
-	status := stMaInst.Status()
-	compStatus := stMaInst.CompensationStatus()
+	status := stMaInst.Status
+	compStatus := stMaInst.CompensationStatus
 
 	switch {
 	case status == statelang.SU && compStatus == "":
@@ -111,7 +111,7 @@ func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.Br
 		return branch.BranchStatusPhasetwoRollbacked, nil
 	}
 
-	strategy := stMaInst.StateMachine().RecoverStrategy()
+	strategy := stMaInst.StateMachine.RecoverStrategy()
 	appData := resource.ApplicationData
 	isTimeoutRollback := bytes.Equal(appData, []byte{byte(message.GlobalStatusTimeoutRollbacking)}) || bytes.Equal(appData, []byte{byte(message.GlobalStatusTimeoutRollbackRetrying)})
 
@@ -121,7 +121,7 @@ func (s *SagaResourceManager) BranchRollback(ctx context.Context, resource rm.Br
 	}
 
 	stMaInst, err = engine.Compensate(ctx, resource.Xid, nil)
-	if err == nil && stMaInst.CompensationStatus() == statelang.SU {
+	if err == nil && stMaInst.CompensationStatus == statelang.SU {
 		return branch.BranchStatusPhasetwoRollbacked, nil
 	}
 

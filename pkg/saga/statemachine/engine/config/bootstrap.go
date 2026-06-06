@@ -18,45 +18,26 @@
 package config
 
 import (
-	"fmt"
-
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/pcext"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl/handlers"
-	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl/process"
 )
 
-// bootstrapProcessWiring wires default handlers/routers and router handler into BusinessProcessor
+// bootstrapProcessWiring creates the process handler, router, and wires them into EventBus instances
 func (c *DefaultStateMachineConfig) bootstrapProcessWiring() error {
 	// Process handler for state machine
 	smHandler := pcext.NewStateMachineProcessHandler()
 	// Register ServiceTask handler by default
 	smHandler.RegistryStateHandler(constant.StateTypeServiceTask, handlers.NewServiceTaskStateHandler())
 
-	// Router for state machine
+	// Process router for state machine
 	smRouter := &pcext.StateMachineProcessRouter{}
 	smRouter.InitDefaultStateRouters()
 
-	// Default router handler binds event publisher and process routers
-	drh := &process_ctrl.DefaultRouterHandler{}
-	drh.SetEventPublisher(c.EventPublisher())
-	drh.SetProcessRouters(map[string]process_ctrl.ProcessRouter{
-		string(process.StateLang): smRouter,
-	})
+	// Create EventBus instances with handler and router
+	c.syncEventBus = process_ctrl.NewDirectEventBus(smHandler, smRouter)
+	c.asyncEventBus = process_ctrl.NewAsyncEventBus(smHandler, smRouter)
 
-	// Register into BusinessProcessor
-	pcImpl, ok := c.processController.(*process_ctrl.ProcessControllerImpl)
-	if !ok {
-		return fmt.Errorf("ProcessController is not an instance of ProcessControllerImpl")
-	}
-	bp := pcImpl.BusinessProcessor()
-	// need concrete DefaultBusinessProcessor to call Registry APIs
-	dbp, ok := bp.(*process_ctrl.DefaultBusinessProcessor)
-	if !ok {
-		return fmt.Errorf("BusinessProcessor is not DefaultBusinessProcessor, got %T", bp)
-	}
-	dbp.RegistryProcessHandler(process.StateLang, smHandler)
-	dbp.RegistryRouterHandler(process.StateLang, drh)
 	return nil
 }

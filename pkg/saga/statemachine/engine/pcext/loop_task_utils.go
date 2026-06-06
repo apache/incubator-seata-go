@@ -32,20 +32,7 @@ func GetLoopConfig(ctx context.Context, processContext process_ctrl.ProcessConte
 	if !matchLoop(currentState) {
 		return nil
 	}
-	// Extract underlying AbstractTaskState pointer safely
-	var task *state.AbstractTaskState
-	switch s := currentState.(type) {
-	case *state.ServiceTaskStateImpl:
-		task = s.AbstractTaskState
-	case *state.ScriptTaskStateImpl:
-		task = s.AbstractTaskState
-	case *state.SubStateMachineImpl:
-		if s.ServiceTaskStateImpl != nil {
-			task = s.ServiceTaskStateImpl.AbstractTaskState
-		}
-	default:
-		return nil
-	}
+	task := ExtractAbstractTaskState(currentState)
 	if task == nil || task.Loop() == nil {
 		return nil
 	}
@@ -56,10 +43,10 @@ func GetLoopConfig(ctx context.Context, processContext process_ctrl.ProcessConte
 		return nil
 	}
 
-	stateMachineInstance := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	stateMachineInstance := processContext.GetVariable(constant.VarNameStateMachineInst).(*statelang.StateMachineInstance)
 	stateMachineConfig := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig)
 	expression := CreateValueExpression(stateMachineConfig.ExpressionResolver(), collectionName)
-	collection := GetValue(expression, stateMachineInstance.Context(), nil)
+	collection := GetValue(expression, stateMachineInstance.Context, nil)
 	if collection == nil {
 		log.Warn("State [{}] loop collection param [{}] invalid", currentState.Name(), collectionName)
 		return nil

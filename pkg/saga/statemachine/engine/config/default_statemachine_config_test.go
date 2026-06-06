@@ -280,15 +280,9 @@ func TestAllComponentsInitialization(t *testing.T) {
 	err = config.Init()
 	assert.NoError(t, err, "Failed to initialize config")
 
-	t.Run("ProcessController", func(t *testing.T) {
-		assert.NotNil(t, config.processController, "Process controller is not initialized")
-	})
-
-	t.Run("EventBusAndPublisher", func(t *testing.T) {
+	t.Run("EventBus", func(t *testing.T) {
 		assert.NotNil(t, config.syncEventBus, "Sync event bus is not initialized")
 		assert.NotNil(t, config.asyncEventBus, "Async event bus is not initialized")
-		assert.NotNil(t, config.syncProcessCtrlEventPublisher, "Sync event publisher is not initialized")
-		assert.NotNil(t, config.asyncProcessCtrlEventPublisher, "Async event publisher is not initialized")
 	})
 
 	t.Run("StoreComponents", func(t *testing.T) {

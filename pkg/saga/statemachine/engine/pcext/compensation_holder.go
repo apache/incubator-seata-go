@@ -57,7 +57,7 @@ func (c *CompensationHolder) SetStateStackNeedCompensation(stateStackNeedCompens
 	c.stateStackNeedCompensation = stateStackNeedCompensation
 }
 
-func (c *CompensationHolder) AddToBeCompensatedState(stateName string, toBeCompensatedState statelang.StateInstance) {
+func (c *CompensationHolder) AddToBeCompensatedState(stateName string, toBeCompensatedState *statelang.StateInstance) {
 	c.statesNeedCompensation.Store(stateName, toBeCompensatedState)
 }
 

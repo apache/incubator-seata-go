@@ -51,7 +51,7 @@ import (
 	seataErrors "seata.apache.org/seata-go/v2/pkg/util/errors"
 )
 
-func mockProcessContext(stateMachineName string, stateMachineInstance statelang.StateMachineInstance) process_ctrl.ProcessContext {
+func mockProcessContext(stateMachineName string, stateMachineInstance *statelang.StateMachineInstance) process_ctrl.ProcessContext {
 	ctx := utils.NewProcessContextBuilder().
 		WithProcessType(process.StateLang).
 		WithOperationName(constant.OperationNameStart).
@@ -61,7 +61,7 @@ func mockProcessContext(stateMachineName string, stateMachineInstance statelang.
 	return ctx
 }
 
-func mockMachineInstance(stateMachineName string) statelang.StateMachineInstance {
+func mockMachineInstance(stateMachineName string) *statelang.StateMachineInstance {
 	stateMachine := statelang.NewStateMachineImpl()
 	stateMachine.SetName(stateMachineName)
 	stateMachine.SetComment("This is a test state machine")
@@ -69,14 +69,14 @@ func mockMachineInstance(stateMachineName string) statelang.StateMachineInstance
 	stateMachine.SetID(stateMachineName)
 	stateMachine.SetTenantId("000001")
 
-	inst := statelang.NewStateMachineInstanceImpl()
-	inst.SetStateMachine(stateMachine)
-	inst.SetMachineID(stateMachineName)
+	inst := statelang.NewStateMachineInstance()
+	inst.StateMachine = stateMachine
+	inst.MachineID = stateMachineName
 
-	inst.SetStartParams(map[string]any{"start": 100})
-	inst.SetStatus(statelang.RU)
-	inst.SetStartedTime(time.Now())
-	inst.SetUpdatedTime(time.Now())
+	inst.StartParams = map[string]any{"start": 100}
+	inst.Status = statelang.RU
+	inst.StartedTime = time.Now()
+	inst.UpdatedTime = time.Now()
 	return inst
 }
 
@@ -226,9 +226,9 @@ func (s *stubConfig) StatusDecisionStrategy() engine.StatusDecisionStrategy {
 	return strategy.NewDefaultStatusDecisionStrategy()
 }
 
-func (s *stubConfig) EventPublisher() process_ctrl.EventPublisher { return nil }
+func (s *stubConfig) SyncEventBus() process_ctrl.EventBus { return nil }
 
-func (s *stubConfig) AsyncEventPublisher() process_ctrl.EventPublisher { return nil }
+func (s *stubConfig) AsyncEventBus() process_ctrl.EventBus { return nil }
 
 func (s *stubConfig) EnableAsync() bool { return false }
 
@@ -308,23 +308,23 @@ func (f *fakeSagaTemplate) BranchReport(ctx context.Context, xid string, branchI
 
 func (f *fakeSagaTemplate) CleanUp(ctx context.Context) {}
 
-func newServiceTaskState(machine statelang.StateMachineInstance) statelang.StateInstance {
-	state := statelang.NewStateInstanceImpl()
-	state.SetStateMachineInstance(machine)
-	state.SetMachineInstanceID(machine.ID())
-	state.SetName("ServiceTask1")
-	state.SetType(constant.StateTypeServiceTask)
-	state.SetServiceName("DemoService")
-	state.SetServiceMethod("foo")
-	state.SetServiceType("LOCAL")
-	state.SetForUpdate(false)
-	state.SetStartedTime(time.Now())
-	state.SetStatus(statelang.RU)
+func newServiceTaskState(machine *statelang.StateMachineInstance) *statelang.StateInstance {
+	state := statelang.NewStateInstance()
+	state.StateMachineInstance = machine
+	state.MachineInstanceID = machine.ID
+	state.Name = "ServiceTask1"
+	state.TypeName = constant.StateTypeServiceTask
+	state.ServiceName = "DemoService"
+	state.ServiceMethod = "foo"
+	state.ServiceType = "LOCAL"
+	state.IsForUpdate = false
+	state.StartedTime = time.Now()
+	state.Status = statelang.RU
 	return state
 }
 
-func attachServiceTaskDefinition(machine statelang.StateMachineInstance, cfg *stubConfig, name string) {
-	sm := machine.StateMachine()
+func attachServiceTaskDefinition(machine *statelang.StateMachineInstance, cfg *stubConfig, name string) {
+	sm := machine.StateMachine
 	task := stateimpl.NewServiceTaskStateImpl()
 	task.SetName(name)
 	task.SetServiceName("DemoService")
@@ -341,21 +341,21 @@ func TestStateLogStore_RecordStateMachineStarted(t *testing.T) {
 	const stateMachineName = "stateMachine"
 	stateLogStore := NewStateLogStore(db, "seata_")
 	expected := mockMachineInstance(stateMachineName)
-	expected.SetBusinessKey("test_started")
+	expected.BusinessKey = "test_started"
 	ctx := mockProcessContext(stateMachineName, expected)
 	mockStateMachineConfig(ctx)
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
-	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())
+	actual, err := stateLogStore.GetStateMachineInstance(expected.ID)
 	assert.Nil(t, err)
-	assert.Equal(t, expected.ID(), actual.ID())
-	assert.Equal(t, expected.MachineID(), actual.MachineID())
-	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Exception())
-	assert.Nil(t, actual.SerializedError())
-	assert.Equal(t, expected.Status(), actual.Status())
-	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
-	assert.Equal(t, expected.UpdatedTime().UnixNano(), actual.UpdatedTime().UnixNano())
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.MachineID, actual.MachineID)
+	assert.Equal(t, fmt.Sprint(expected.StartParams), fmt.Sprint(actual.StartParams))
+	assert.Nil(t, actual.Exception)
+	assert.Nil(t, actual.SerializedError)
+	assert.Equal(t, expected.Status, actual.Status)
+	assert.Equal(t, expected.StartedTime.UnixNano(), actual.StartedTime.UnixNano())
+	assert.Equal(t, expected.UpdatedTime.UnixNano(), actual.UpdatedTime.UnixNano())
 }
 
 func prepareCleanDB(t *testing.T) {
@@ -375,33 +375,33 @@ func TestStateLogStore_RecordStateMachineFinished(t *testing.T) {
 	const stateMachineName = "stateMachine"
 	stateLogStore := NewStateLogStore(db, "seata_")
 	expected := mockMachineInstance(stateMachineName)
-	expected.SetBusinessKey("test_finished")
+	expected.BusinessKey = "test_finished"
 	ctx := mockProcessContext(stateMachineName, expected)
 	mockStateMachineConfig(ctx)
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
-	expected.SetEndParams(map[string]any{"end": 100})
-	expected.SetException(errors.New("this is a test error"))
-	expected.SetStatus(statelang.FA)
-	expected.SetEndTime(time.Now())
-	expected.SetRunning(false)
+	expected.EndParams = map[string]any{"end": 100}
+	expected.Exception = errors.New("this is a test error")
+	expected.Status = statelang.FA
+	expected.EndTime = time.Now()
+	expected.IsRunning = false
 	err = stateLogStore.RecordStateMachineFinished(context.Background(), expected, ctx)
 	assert.Nil(t, err)
-	assert.Equal(t, "{\"end\":100}", expected.SerializedEndParams())
-	assert.NotEmpty(t, expected.SerializedError())
-	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())
+	assert.Equal(t, "{\"end\":100}", expected.SerializedEndParams)
+	assert.NotEmpty(t, expected.SerializedError)
+	actual, err := stateLogStore.GetStateMachineInstance(expected.ID)
 	assert.Nil(t, err)
 
-	assert.Equal(t, expected.ID(), actual.ID())
-	assert.Equal(t, expected.MachineID(), actual.MachineID())
-	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Equal(t, "this is a test error", actual.Exception().Error())
-	assert.Equal(t, expected.Status(), actual.Status())
-	assert.Equal(t, expected.IsRunning(), actual.IsRunning())
-	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
-	assert.False(t, actual.UpdatedTime().IsZero())
-	assert.True(t, actual.UpdatedTime().UnixNano() >= actual.StartedTime().UnixNano())
-	assert.False(t, expected.EndTime().IsZero())
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.MachineID, actual.MachineID)
+	assert.Equal(t, fmt.Sprint(expected.StartParams), fmt.Sprint(actual.StartParams))
+	assert.Equal(t, "this is a test error", actual.Exception.Error())
+	assert.Equal(t, expected.Status, actual.Status)
+	assert.Equal(t, expected.IsRunning, actual.IsRunning)
+	assert.Equal(t, expected.StartedTime.UnixNano(), actual.StartedTime.UnixNano())
+	assert.False(t, actual.UpdatedTime.IsZero())
+	assert.True(t, actual.UpdatedTime.UnixNano() >= actual.StartedTime.UnixNano())
+	assert.False(t, expected.EndTime.IsZero())
 }
 
 func TestStateLogStore_RecordStateMachineRestarted(t *testing.T) {
@@ -410,25 +410,25 @@ func TestStateLogStore_RecordStateMachineRestarted(t *testing.T) {
 	const stateMachineName = "stateMachine"
 	stateLogStore := NewStateLogStore(db, "seata_")
 	expected := mockMachineInstance(stateMachineName)
-	expected.SetBusinessKey("test_restarted")
+	expected.BusinessKey = "test_restarted"
 	ctx := mockProcessContext(stateMachineName, expected)
 	mockStateMachineConfig(ctx)
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
-	expected.SetRunning(false)
+	expected.IsRunning = false
 	err = stateLogStore.RecordStateMachineFinished(context.Background(), expected, ctx)
 	assert.Nil(t, err)
 
-	actual, err := stateLogStore.GetStateMachineInstance(expected.ID())
+	actual, err := stateLogStore.GetStateMachineInstance(expected.ID)
 	assert.Nil(t, err)
-	assert.False(t, actual.IsRunning())
+	assert.False(t, actual.IsRunning)
 
-	actual.SetRunning(true)
+	actual.IsRunning = true
 	err = stateLogStore.RecordStateMachineRestarted(context.Background(), actual, ctx)
 	assert.Nil(t, err)
-	actual, err = stateLogStore.GetStateMachineInstance(actual.ID())
+	actual, err = stateLogStore.GetStateMachineInstance(actual.ID)
 	assert.Nil(t, err)
-	assert.True(t, actual.IsRunning())
+	assert.True(t, actual.IsRunning)
 }
 
 func TestStateLogStore_RecordStateStarted(t *testing.T) {
@@ -443,43 +443,43 @@ func TestStateLogStore_RecordStateStarted(t *testing.T) {
 	_ = mockStateMachineConfig(ctx)
 	cfg := mockStateMachineConfig(ctx)
 	attachServiceTaskDefinition(machineInstance, cfg, "ServiceTask1")
-	machineInstance.SetID("test")
+	machineInstance.ID = "test"
 
-	common := statelang.NewStateInstanceImpl()
-	common.SetStateMachineInstance(machineInstance)
-	common.SetMachineInstanceID(machineInstance.ID())
-	common.SetName("ServiceTask1")
-	common.SetType("ServiceTask")
-	common.SetStartedTime(time.Now())
-	common.SetServiceName("DemoService")
-	common.SetServiceMethod("foo")
-	common.SetServiceType("RPC")
-	common.SetForUpdate(false)
-	common.SetInputParams(map[string]string{"input": "test"})
-	common.SetStatus(statelang.RU)
-	common.SetBusinessKey("test_state_started")
+	common := statelang.NewStateInstance()
+	common.StateMachineInstance = machineInstance
+	common.MachineInstanceID = machineInstance.ID
+	common.Name = "ServiceTask1"
+	common.TypeName = "ServiceTask"
+	common.StartedTime = time.Now()
+	common.ServiceName = "DemoService"
+	common.ServiceMethod = "foo"
+	common.ServiceType = "RPC"
+	common.IsForUpdate = false
+	common.InputParams = map[string]string{"input": "test"}
+	common.Status = statelang.RU
+	common.BusinessKey = "test_state_started"
 
-	origin := statelang.NewStateInstanceImpl()
-	origin.SetID("origin")
-	origin.SetStateMachineInstance(machineInstance)
-	origin.SetMachineInstanceID(machineInstance.ID())
+	origin := statelang.NewStateInstance()
+	origin.ID = "origin"
+	origin.StateMachineInstance = machineInstance
+	origin.MachineInstanceID = machineInstance.ID
 	machineInstance.PutState("origin", origin)
 
-	retried := statelang.NewStateInstanceImpl()
-	retried.SetStateMachineInstance(machineInstance)
-	retried.SetMachineInstanceID(machineInstance.ID())
-	retried.SetID("origin.1")
-	retried.SetStateIDRetriedFor("origin")
+	retried := statelang.NewStateInstance()
+	retried.StateMachineInstance = machineInstance
+	retried.MachineInstanceID = machineInstance.ID
+	retried.ID = "origin.1"
+	retried.StateIDRetriedFor = "origin"
 
-	compensated := statelang.NewStateInstanceImpl()
-	compensated.SetStateMachineInstance(machineInstance)
-	compensated.SetMachineInstanceID(machineInstance.ID())
-	compensated.SetID("origin-1")
-	compensated.SetStateIDCompensatedFor("origin")
+	compensated := statelang.NewStateInstance()
+	compensated.StateMachineInstance = machineInstance
+	compensated.MachineInstanceID = machineInstance.ID
+	compensated.ID = "origin-1"
+	compensated.StateIDCompensatedFor = "origin"
 
 	tests := []struct {
 		name     string
-		expected statelang.StateInstance
+		expected *statelang.StateInstance
 	}{
 		{"common", common},
 		{"retried", retried},
@@ -489,22 +489,22 @@ func TestStateLogStore_RecordStateStarted(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := stateLogStore.RecordStateStarted(context.Background(), test.expected, ctx)
 			assert.Nil(t, err)
-			actual, err := stateLogStore.GetStateInstance(test.expected.ID(), machineInstance.ID())
+			actual, err := stateLogStore.GetStateInstance(test.expected.ID, machineInstance.ID)
 			assert.Nil(t, err)
-			assert.Equal(t, test.expected.ID(), actual.ID())
-			assert.Equal(t, test.expected.StateMachineInstance().ID(), actual.MachineInstanceID())
-			assert.Equal(t, test.expected.Name(), actual.Name())
-			assert.Equal(t, test.expected.Type(), actual.Type())
-			assert.Equal(t, test.expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
-			assert.Equal(t, test.expected.ServiceName(), actual.ServiceName())
-			assert.Equal(t, test.expected.ServiceMethod(), actual.ServiceMethod())
-			assert.Equal(t, test.expected.ServiceType(), actual.ServiceType())
-			assert.Equal(t, test.expected.IsForUpdate(), actual.IsForUpdate())
-			assert.Equal(t, test.expected.SerializedInputParams(), actual.SerializedInputParams())
-			assert.Equal(t, test.expected.Status(), actual.Status())
-			assert.Equal(t, test.expected.BusinessKey(), actual.BusinessKey())
-			assert.Equal(t, test.expected.StateIDCompensatedFor(), actual.StateIDCompensatedFor())
-			assert.Equal(t, test.expected.StateIDRetriedFor(), actual.StateIDRetriedFor())
+			assert.Equal(t, test.expected.ID, actual.ID)
+			assert.Equal(t, test.expected.StateMachineInstance.ID, actual.MachineInstanceID)
+			assert.Equal(t, test.expected.Name, actual.Name)
+			assert.Equal(t, test.expected.TypeName, actual.TypeName)
+			assert.Equal(t, test.expected.StartedTime.UnixNano(), actual.StartedTime.UnixNano())
+			assert.Equal(t, test.expected.ServiceName, actual.ServiceName)
+			assert.Equal(t, test.expected.ServiceMethod, actual.ServiceMethod)
+			assert.Equal(t, test.expected.ServiceType, actual.ServiceType)
+			assert.Equal(t, test.expected.IsForUpdate, actual.IsForUpdate)
+			assert.Equal(t, test.expected.SerializedInputParams, actual.SerializedInputParams)
+			assert.Equal(t, test.expected.Status, actual.Status)
+			assert.Equal(t, test.expected.BusinessKey, actual.BusinessKey)
+			assert.Equal(t, test.expected.StateIDCompensatedFor, actual.StateIDCompensatedFor)
+			assert.Equal(t, test.expected.StateIDRetriedFor, actual.StateIDRetriedFor)
 		})
 	}
 }
@@ -525,7 +525,7 @@ func TestRecordStateStartedSkipBranchRegister(t *testing.T) {
 	state := newServiceTaskState(machine)
 	require.NoError(t, store.RecordStateStarted(context.Background(), state, ctx))
 	require.Equal(t, baseRegister, globalFakeRM.branchRegisterCalls)
-	require.NotEmpty(t, state.ID())
+	require.NotEmpty(t, state.ID)
 }
 
 func TestRecordStateStartedTriggersBranchRegisterWhenEnabled(t *testing.T) {
@@ -533,7 +533,7 @@ func TestRecordStateStartedTriggersBranchRegisterWhenEnabled(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-branch-enable")
+	machine.ID = "machine-branch-enable"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -545,8 +545,8 @@ func TestRecordStateStartedTriggersBranchRegisterWhenEnabled(t *testing.T) {
 	state := newServiceTaskState(machine)
 	require.NoError(t, store.RecordStateStarted(context.Background(), state, ctx))
 	require.Equal(t, baseRegister+1, globalFakeRM.branchRegisterCalls)
-	require.NotEmpty(t, state.ID())
-	_, parseErr := strconv.ParseInt(state.ID(), 10, 64)
+	require.NotEmpty(t, state.ID)
+	_, parseErr := strconv.ParseInt(state.ID, 10, 64)
 	require.NoError(t, parseErr)
 }
 
@@ -555,7 +555,7 @@ func TestRecordStateStartedBranchRegisterError(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-branch-error")
+	machine.ID = "machine-branch-error"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -586,7 +586,7 @@ func TestRecordStateStartedDerivesCompensationIdFromHolder(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-comp-holder")
+	machine.ID = "machine-comp-holder"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -595,9 +595,9 @@ func TestRecordStateStartedDerivesCompensationIdFromHolder(t *testing.T) {
 	baseRegister := globalFakeRM.branchRegisterCalls
 
 	original := newServiceTaskState(machine)
-	original.SetName("ReduceInventory")
-	original.SetID("origin-branch")
-	machine.PutState(original.ID(), original)
+	original.Name = "ReduceInventory"
+	original.ID = "origin-branch"
+	machine.PutState(original.ID, original)
 
 	holder := pcext.NewCompensationHolder()
 	holder.AddToBeCompensatedState("CompensateReduceInventory", original)
@@ -605,21 +605,21 @@ func TestRecordStateStartedDerivesCompensationIdFromHolder(t *testing.T) {
 
 	attachServiceTaskDefinition(machine, cfg, "CompensateReduceInventory")
 	compensate := newServiceTaskState(machine)
-	compensate.SetName("CompensateReduceInventory")
-	compensate.SetServiceName("inventoryAction")
-	compensate.SetServiceMethod("CompensateReduce")
-	compensate.SetServiceType("LOCAL")
-	compensate.SetStartedTime(time.Now())
+	compensate.Name = "CompensateReduceInventory"
+	compensate.ServiceName = "inventoryAction"
+	compensate.ServiceMethod = "CompensateReduce"
+	compensate.ServiceType = "LOCAL"
+	compensate.StartedTime = time.Now()
 
 	require.NoError(t, store.RecordStateStarted(context.Background(), compensate, ctx))
 	require.Equal(t, baseRegister, globalFakeRM.branchRegisterCalls)
-	require.Equal(t, "origin-branch-1", compensate.ID())
-	require.Equal(t, "origin-branch", compensate.StateIDCompensatedFor())
+	require.Equal(t, "origin-branch-1", compensate.ID)
+	require.Equal(t, "origin-branch", compensate.StateIDCompensatedFor)
 
-	stored, err := store.GetStateInstance(compensate.ID(), machine.ID())
+	stored, err := store.GetStateInstance(compensate.ID, machine.ID)
 	require.NoError(t, err)
-	require.Equal(t, compensate.ID(), stored.ID())
-	require.Equal(t, "origin-branch", stored.StateIDCompensatedFor())
+	require.Equal(t, compensate.ID, stored.ID)
+	require.Equal(t, "origin-branch", stored.StateIDCompensatedFor)
 }
 
 func TestRecordStateFinishedSkipBranchReportOnSuccessWhenDisabled(t *testing.T) {
@@ -627,7 +627,7 @@ func TestRecordStateFinishedSkipBranchReportOnSuccessWhenDisabled(t *testing.T) 
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-report-disabled")
+	machine.ID = "machine-report-disabled"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -641,7 +641,7 @@ func TestRecordStateFinishedSkipBranchReportOnSuccessWhenDisabled(t *testing.T) 
 	state := newServiceTaskState(machine)
 	require.NoError(t, store.RecordStateStarted(context.Background(), state, ctx))
 
-	state.SetStatus(statelang.SU)
+	state.Status = statelang.SU
 	require.NoError(t, store.RecordStateFinished(context.Background(), state, ctx))
 	require.Equal(t, baseRegister+1, globalFakeRM.branchRegisterCalls)
 	require.Equal(t, baseReport, globalFakeRM.branchReportCalls)
@@ -652,7 +652,7 @@ func TestRecordStateFinishedReportsWhenEnabled(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-report-enabled")
+	machine.ID = "machine-report-enabled"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -666,7 +666,7 @@ func TestRecordStateFinishedReportsWhenEnabled(t *testing.T) {
 	state := newServiceTaskState(machine)
 	require.NoError(t, store.RecordStateStarted(context.Background(), state, ctx))
 
-	state.SetStatus(statelang.SU)
+	state.Status = statelang.SU
 	require.NoError(t, store.RecordStateFinished(context.Background(), state, ctx))
 	require.Equal(t, baseRegister+1, globalFakeRM.branchRegisterCalls)
 	require.Equal(t, baseReport+1, globalFakeRM.branchReportCalls)
@@ -677,7 +677,7 @@ func TestRecordStateFinishedPropagatesBranchReportError(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-report-error")
+	machine.ID = "machine-report-error"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetSagaBranchRegisterEnable(true)
@@ -691,7 +691,7 @@ func TestRecordStateFinishedPropagatesBranchReportError(t *testing.T) {
 	state := newServiceTaskState(machine)
 	require.NoError(t, store.RecordStateStarted(context.Background(), state, ctx))
 
-	state.SetStatus(statelang.SU)
+	state.Status = statelang.SU
 	globalFakeRM.mu.Lock()
 	globalFakeRM.branchReportErr = errors.New("mock branch report error")
 	globalFakeRM.mu.Unlock()
@@ -715,24 +715,24 @@ func TestRecordStateFinishedWithoutStartDoesNotInsertFallback(t *testing.T) {
 
 	store := NewStateLogStore(db, "seata_")
 	machine := mockMachineInstance("stateMachine")
-	machine.SetID("machine-finish-only")
+	machine.ID = "machine-finish-only"
 	ctx := mockProcessContext("stateMachine", machine)
 	cfg := mockStateMachineConfig(ctx)
 	cfg.SetRmReportSuccessEnable(false)
 
 	state := newServiceTaskState(machine)
-	state.SetName("ReduceInventory")
-	state.SetID("missing-start")
-	state.SetStatus(statelang.SU)
-	state.SetEndTime(time.Now())
-	state.SetUpdatedTime(time.Now())
+	state.Name = "ReduceInventory"
+	state.ID = "missing-start"
+	state.Status = statelang.SU
+	state.EndTime = time.Now()
+	state.UpdatedTime = time.Now()
 
 	err := store.RecordStateFinished(context.Background(), state, ctx)
 	require.Error(t, err)
 	engErr, ok := engExc.IsEngineExecutionException(err)
 	require.True(t, ok)
 	require.Equal(t, seataErrors.TransactionErrorCodeFailedWriteSession, engErr.Code)
-	_, getErr := store.GetStateInstance(state.ID(), machine.ID())
+	_, getErr := store.GetStateInstance(state.ID, machine.ID)
 	require.Error(t, getErr)
 }
 
@@ -745,7 +745,7 @@ func TestStateLogStore_RecordStateFinished(t *testing.T) {
 
 	machineInstance := mockMachineInstance("stateMachine")
 	ctx := mockProcessContext(stateMachineName, machineInstance)
-	machineInstance.SetID("test")
+	machineInstance.ID = "test"
 	cfg := mockStateMachineConfig(ctx)
 	attachServiceTaskDefinition(machineInstance, cfg, "ServiceTask1")
 
@@ -754,17 +754,17 @@ func TestStateLogStore_RecordStateFinished(t *testing.T) {
 	err := stateLogStore.RecordStateStarted(context.Background(), state, ctx)
 	assert.Nil(t, err)
 
-	state.SetStatus(statelang.UN)
-	state.SetError(errors.New("this is a test error"))
-	state.SetOutputParams(map[string]string{"output": "test"})
+	state.Status = statelang.UN
+	state.Err = errors.New("this is a test error")
+	state.OutputParams = map[string]string{"output": "test"}
 	err = stateLogStore.RecordStateFinished(context.Background(), state, ctx)
 	assert.Nil(t, err)
-	actual, err := stateLogStore.GetStateInstance(state.ID(), machineInstance.ID())
+	actual, err := stateLogStore.GetStateInstance(state.ID, machineInstance.ID)
 	assert.Nil(t, err)
-	assert.Equal(t, state.Status(), actual.Status())
-	assert.Equal(t, state.Error().Error(), actual.Error().Error())
-	assert.NotEmpty(t, actual.OutputParams())
-	assert.Equal(t, state.SerializedOutputParams(), actual.SerializedOutputParams())
+	assert.Equal(t, state.Status, actual.Status)
+	assert.Equal(t, state.Err.Error(), actual.Err.Error())
+	assert.NotEmpty(t, actual.OutputParams)
+	assert.Equal(t, state.SerializedOutputParams, actual.SerializedOutputParams)
 }
 
 func TestStateLogStore_GetStateMachineInstanceByBusinessKey(t *testing.T) {
@@ -773,22 +773,22 @@ func TestStateLogStore_GetStateMachineInstanceByBusinessKey(t *testing.T) {
 	const stateMachineName = "stateMachine"
 	stateLogStore := NewStateLogStore(db, "seata_")
 	expected := mockMachineInstance(stateMachineName)
-	expected.SetBusinessKey("test_business_key")
-	expected.SetTenantID("000001")
+	expected.BusinessKey = "test_business_key"
+	expected.TenantID = "000001"
 	ctx := mockProcessContext(stateMachineName, expected)
 
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
 	assert.Nil(t, err)
-	actual, err := stateLogStore.GetStateMachineInstanceByBusinessKey(expected.BusinessKey(), expected.TenantID())
+	actual, err := stateLogStore.GetStateMachineInstanceByBusinessKey(expected.BusinessKey, expected.TenantID)
 	assert.Nil(t, err)
-	assert.Equal(t, expected.ID(), actual.ID())
-	assert.Equal(t, expected.MachineID(), actual.MachineID())
-	assert.Equal(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Exception())
-	assert.Nil(t, actual.SerializedError())
-	assert.Equal(t, expected.Status(), actual.Status())
-	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
-	assert.Equal(t, expected.UpdatedTime().UnixNano(), actual.UpdatedTime().UnixNano())
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.MachineID, actual.MachineID)
+	assert.Equal(t, fmt.Sprint(expected.StartParams), fmt.Sprint(actual.StartParams))
+	assert.Nil(t, actual.Exception)
+	assert.Nil(t, actual.SerializedError)
+	assert.Equal(t, expected.Status, actual.Status)
+	assert.Equal(t, expected.StartedTime.UnixNano(), actual.StartedTime.UnixNano())
+	assert.Equal(t, expected.UpdatedTime.UnixNano(), actual.UpdatedTime.UnixNano())
 }
 
 func TestStateLogStore_GetStateMachineInstanceByParentId(t *testing.T) {
@@ -800,8 +800,8 @@ func TestStateLogStore_GetStateMachineInstanceByParentId(t *testing.T) {
 	)
 	stateLogStore := NewStateLogStore(db, "seata_")
 	expected := mockMachineInstance(stateMachineName)
-	expected.SetBusinessKey("test_parent_id")
-	expected.SetParentID(parentId)
+	expected.BusinessKey = "test_parent_id"
+	expected.ParentID = parentId
 	ctx := mockProcessContext(stateMachineName, expected)
 
 	err := stateLogStore.RecordStateMachineStarted(context.Background(), expected, ctx)
@@ -811,13 +811,13 @@ func TestStateLogStore_GetStateMachineInstanceByParentId(t *testing.T) {
 
 	assert.Equal(t, 1, len(actualList))
 	actual := actualList[0]
-	assert.Equal(t, expected.ID(), actual.ID())
-	assert.Equal(t, expected.MachineID(), actual.MachineID())
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.MachineID, actual.MachineID)
 	// no startParams, endParams and Exception
-	assert.NotEqual(t, fmt.Sprint(expected.StartParams()), fmt.Sprint(actual.StartParams()))
-	assert.Nil(t, actual.Exception())
-	assert.Nil(t, actual.SerializedError())
-	assert.Equal(t, expected.Status(), actual.Status())
-	assert.Equal(t, expected.StartedTime().UnixNano(), actual.StartedTime().UnixNano())
-	assert.Equal(t, expected.UpdatedTime().UnixNano(), actual.UpdatedTime().UnixNano())
+	assert.NotEqual(t, fmt.Sprint(expected.StartParams), fmt.Sprint(actual.StartParams))
+	assert.Nil(t, actual.Exception)
+	assert.Nil(t, actual.SerializedError)
+	assert.Equal(t, expected.Status, actual.Status)
+	assert.Equal(t, expected.StartedTime.UnixNano(), actual.StartedTime.UnixNano())
+	assert.Equal(t, expected.UpdatedTime.UnixNano(), actual.UpdatedTime.UnixNano())
 }

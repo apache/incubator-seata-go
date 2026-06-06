@@ -33,15 +33,9 @@ type StateMachineProcessRouter struct {
 }
 
 func (s *StateMachineProcessRouter) Route(ctx context.Context, processContext process_ctrl.ProcessContext) (process_ctrl.Instruction, error) {
-	var stateInstruction *StateInstruction
-	switch v := processContext.GetInstruction().(type) {
-	case *StateInstruction:
-		stateInstruction = v
-	case StateInstruction:
-		tmp := v
-		stateInstruction = &tmp
-	default:
-		return nil, errors.New("instruction is not a state instruction")
+	stateInstruction, err := GetStateInstruction(processContext)
+	if err != nil {
+		return nil, err
 	}
 
 	var state statelang.State
@@ -92,20 +86,20 @@ func (s *StateMachineProcessRouter) Route(ctx context.Context, processContext pr
 		return instruction, nil
 	}()
 
-	if interceptors == nil || len(executedInterceptors) == 0 {
+	if len(executedInterceptors) > 0 {
 		for i := len(executedInterceptors) - 1; i >= 0; i-- {
 			err := executedInterceptors[i].PostRoute(ctx, processContext, instruction, exception)
 			if err != nil {
 				return nil, err
 			}
 		}
+	}
 
-		// if 'Succeed' or 'Fail' State did not configured, we must end the state machine
-		if instruction == nil && !stateInstruction.End() {
-			err := EndStateMachine(ctx, processContext)
-			if err != nil {
-				return nil, err
-			}
+	// if 'Succeed' or 'Fail' State did not configured, we must end the state machine
+	if instruction == nil && !stateInstruction.End() {
+		err := EndStateMachine(ctx, processContext)
+		if err != nil {
+			return nil, err
 		}
 	}
 

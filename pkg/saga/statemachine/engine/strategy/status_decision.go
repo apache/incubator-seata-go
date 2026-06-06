@@ -37,15 +37,15 @@ func NewDefaultStatusDecisionStrategy() *DefaultStatusDecisionStrategy {
 }
 
 func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, processContext process_ctrl.ProcessContext,
-	stateMachineInstance statelang.StateMachineInstance, exp error) error {
-	if statelang.RU == stateMachineInstance.CompensationStatus() {
+	stateMachineInstance *statelang.StateMachineInstance, exp error) error {
+	if statelang.RU == stateMachineInstance.CompensationStatus {
 		compensationHolder := pcext.GetCurrentCompensationHolder(ctx, processContext, true)
 		// special-case: entered compensation but no compensations to execute
 		if v, ok := processContext.GetVariable(constant.VarNameNoCompensation).(bool); ok && v {
 			// If end is Fail, align semantics to FA with empty compensation_status
 			if fe, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && fe {
-				stateMachineInstance.SetStatus(statelang.FA)
-				stateMachineInstance.SetCompensationStatus("")
+				stateMachineInstance.Status = statelang.FA
+				stateMachineInstance.CompensationStatus = ""
 				return nil
 			}
 		}
@@ -58,8 +58,8 @@ func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, pro
 			compensationHolder.StatesForCompensation().Range(func(key, value any) bool { empty = false; return true })
 			if empty {
 				if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
-					stateMachineInstance.SetStatus(statelang.FA)
-					stateMachineInstance.SetCompensationStatus("")
+					stateMachineInstance.Status = statelang.FA
+					stateMachineInstance.CompensationStatus = ""
 				}
 			}
 		}
@@ -73,38 +73,38 @@ func (d DefaultStatusDecisionStrategy) DecideOnEndState(ctx context.Context, pro
 		}
 	}
 
-	if stateMachineInstance.CompensationStatus() != "" && constant.OperationNameForward ==
-		processContext.GetVariable(constant.VarNameOperationName).(string) && statelang.SU == stateMachineInstance.Status() {
-		stateMachineInstance.SetCompensationStatus(statelang.FA)
+	if stateMachineInstance.CompensationStatus != "" && constant.OperationNameForward ==
+		processContext.GetVariable(constant.VarNameOperationName).(string) && statelang.SU == stateMachineInstance.Status {
+		stateMachineInstance.CompensationStatus = statelang.FA
 	}
 
 	log.Debugf("StateMachine Instance[id:%s,name:%s] execute finish with status[%s], compensation status [%s].",
-		stateMachineInstance.ID(), stateMachineInstance.StateMachine().Name(),
-		stateMachineInstance.Status(), stateMachineInstance.CompensationStatus())
+		stateMachineInstance.ID, stateMachineInstance.StateMachine.Name(),
+		stateMachineInstance.Status, stateMachineInstance.CompensationStatus)
 
 	// If ended via Fail state, normalize final machine status to FA (Java semantics)
 	if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
-		if stateMachineInstance.Status() != statelang.FA {
-			stateMachineInstance.SetStatus(statelang.FA)
+		if stateMachineInstance.Status != statelang.FA {
+			stateMachineInstance.Status = statelang.FA
 		}
 	}
 
 	return nil
 }
 
-func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance statelang.StateMachineInstance, compensationHolder *pcext.CompensationHolder) error {
-	if stateMachineInstance.Status() == "" || statelang.RU == stateMachineInstance.Status() {
-		stateMachineInstance.SetStatus(statelang.UN)
+func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance *statelang.StateMachineInstance, compensationHolder *pcext.CompensationHolder) error {
+	if stateMachineInstance.Status == "" || statelang.RU == stateMachineInstance.Status {
+		stateMachineInstance.Status = statelang.UN
 	}
 	if !compensationHolder.StateStackNeedCompensation().Empty() {
 		hasCompensateSUorUN := false
 		compensationHolder.StatesForCompensation().Range(
 			func(key, value any) bool {
-				stateInstance, ok := value.(statelang.StateInstance)
+				stateInstance, ok := value.(*statelang.StateInstance)
 				if !ok {
 					return false
 				}
-				if statelang.UN == stateInstance.Status() || statelang.SU == stateInstance.Status() {
+				if statelang.UN == stateInstance.Status || statelang.SU == stateInstance.Status {
 					hasCompensateSUorUN = true
 					return true
 				}
@@ -112,19 +112,19 @@ func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance sta
 			})
 
 		if hasCompensateSUorUN {
-			stateMachineInstance.SetCompensationStatus(statelang.UN)
+			stateMachineInstance.CompensationStatus = statelang.UN
 		} else {
-			stateMachineInstance.SetCompensationStatus(statelang.FA)
+			stateMachineInstance.CompensationStatus = statelang.FA
 		}
 	} else {
 		hasCompensateError := false
 		compensationHolder.StatesForCompensation().Range(
 			func(key, value any) bool {
-				stateInstance, ok := value.(statelang.StateInstance)
+				stateInstance, ok := value.(*statelang.StateInstance)
 				if !ok {
 					return false
 				}
-				if statelang.SU != stateInstance.Status() {
+				if statelang.SU != stateInstance.Status {
 					hasCompensateError = true
 					return true
 				}
@@ -132,40 +132,40 @@ func decideMachineCompensateStatus(ctx context.Context, stateMachineInstance sta
 			})
 
 		if hasCompensateError {
-			stateMachineInstance.SetCompensationStatus(statelang.UN)
+			stateMachineInstance.CompensationStatus = statelang.UN
 		} else {
-			stateMachineInstance.SetCompensationStatus(statelang.SU)
+			stateMachineInstance.CompensationStatus = statelang.SU
 		}
 	}
 	return nil
 }
 
-func decideMachineForwardExecutionStatus(ctx context.Context, stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) (bool, error) {
+func decideMachineForwardExecutionStatus(ctx context.Context, stateMachineInstance *statelang.StateMachineInstance, exp error, specialPolicy bool) (bool, error) {
 	result := false
 
-	if stateMachineInstance.Status() == "" || statelang.RU == stateMachineInstance.Status() {
+	if stateMachineInstance.Status == "" || statelang.RU == stateMachineInstance.Status {
 		result = true
 		stateList := stateMachineInstance.StateList()
 		//Determine the final state of the entire state machine based on the state of each StateInstance
 		setMachineStatusBasedOnStateListAndException(stateMachineInstance, stateList, exp)
 
-		if specialPolicy && statelang.SU == stateMachineInstance.Status() {
+		if specialPolicy && statelang.SU == stateMachineInstance.Status {
 			for _, stateInstance := range stateMachineInstance.StateList() {
-				if !stateInstance.IsIgnoreStatus() && (stateInstance.IsForUpdate() || stateInstance.IsForCompensation()) {
-					stateMachineInstance.SetStatus(statelang.UN)
+				if !stateInstance.IgnoreStatus && (stateInstance.IsForUpdate || stateInstance.IsForCompensation()) {
+					stateMachineInstance.Status = statelang.UN
 					break
 				}
 			}
-			if statelang.SU == stateMachineInstance.Status() {
-				stateMachineInstance.SetStatus(statelang.FA)
+			if statelang.SU == stateMachineInstance.Status {
+				stateMachineInstance.Status = statelang.FA
 			}
 		}
 	}
 	return result, nil
 }
 
-func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang.StateMachineInstance,
-	stateList []statelang.StateInstance, exp error) {
+func setMachineStatusBasedOnStateListAndException(stateMachineInstance *statelang.StateMachineInstance,
+	stateList []*statelang.StateInstance, exp error) {
 	hasSetStatus := false
 	hasSuccessUpdateService := false
 	if stateList != nil && len(stateList) > 0 {
@@ -174,19 +174,19 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 		for i := len(stateList) - 1; i >= 0; i-- {
 			stateInstance := stateList[i]
 
-			if stateInstance.IsIgnoreStatus() || stateInstance.IsForCompensation() {
+			if stateInstance.IgnoreStatus || stateInstance.IsForCompensation() {
 				continue
 			}
-			if statelang.UN == stateInstance.Status() {
-				stateMachineInstance.SetStatus(statelang.UN)
+			if statelang.UN == stateInstance.Status {
+				stateMachineInstance.Status = statelang.UN
 				hasSetStatus = true
-			} else if statelang.SU == stateInstance.Status() {
-				if constant.StateTypeServiceTask == stateInstance.Type() {
-					if stateInstance.IsForUpdate() && !stateInstance.IsForCompensation() {
+			} else if statelang.SU == stateInstance.Status {
+				if constant.StateTypeServiceTask == stateInstance.TypeName {
+					if stateInstance.IsForUpdate && !stateInstance.IsForCompensation() {
 						hasSuccessUpdateService = true
 					}
 				}
-			} else if statelang.SK == stateInstance.Status() {
+			} else if statelang.SK == stateInstance.Status {
 				// ignore
 			} else {
 				hasUnsuccessService = true
@@ -195,9 +195,9 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 
 		if !hasSetStatus && hasUnsuccessService {
 			if hasSuccessUpdateService {
-				stateMachineInstance.SetStatus(statelang.UN)
+				stateMachineInstance.Status = statelang.UN
 			} else {
-				stateMachineInstance.SetStatus(statelang.FA)
+				stateMachineInstance.Status = statelang.FA
 			}
 			hasSetStatus = true
 		}
@@ -208,47 +208,47 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 	}
 }
 
-func setMachineStatusBasedOnException(stateMachineInstance statelang.StateMachineInstance, exp error, hasSuccessUpdateService bool) {
+func setMachineStatusBasedOnException(stateMachineInstance *statelang.StateMachineInstance, exp error, hasSuccessUpdateService bool) {
 
 	if exp == nil {
-		log.Debugf("No error found, setting StateMachineInstance[id:%s] status to SU", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.SU)
+		log.Debugf("No error found, setting StateMachineInstance[id:%s] status to SU", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.SU
 		return
 	}
 
 	var engineExp *exception.EngineExecutionException
 	if errors.As(exp, &engineExp) && engineExp.ErrCode == constant.FrameworkErrorCodeStateMachineExecutionTimeout {
-		log.Warnf("Execution timeout detected, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.UN)
+		log.Warnf("Execution timeout detected, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.UN
 		return
 	}
 
 	if hasSuccessUpdateService {
-		log.Infof("Has successful update service, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.UN)
+		log.Infof("Has successful update service, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.UN
 		return
 	}
 
 	netType := pcext.GetNetExceptionType(exp)
 	switch netType {
 	case constant.ConnectException, constant.ConnectTimeoutException, constant.NotNetException:
-		log.Warnf("Detected network connect issue, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.FA)
+		log.Warnf("Detected network connect issue, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.FA
 	case constant.ReadTimeoutException:
-		log.Warnf("Detected read timeout, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.UN)
+		log.Warnf("Detected read timeout, setting StateMachineInstance[id:%s] status to UN", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.UN
 	default:
 		//Default failure
-		log.Errorf("Unknown exception type, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID())
-		stateMachineInstance.SetStatus(statelang.FA)
+		log.Errorf("Unknown exception type, setting StateMachineInstance[id:%s] status to FA", stateMachineInstance.ID)
+		stateMachineInstance.Status = statelang.FA
 
 	}
 }
 
 func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context, processContext process_ctrl.ProcessContext,
-	stateMachineInstance statelang.StateMachineInstance, exp error) error {
+	stateMachineInstance *statelang.StateMachineInstance, exp error) error {
 
-	log.Debugf("Starting DecideOnTaskStateFail for StateMachineInstance[id:%s]", stateMachineInstance.ID())
+	log.Debugf("Starting DecideOnTaskStateFail for StateMachineInstance[id:%s]", stateMachineInstance.ID)
 	result, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, true)
 	if err != nil {
 		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)
@@ -256,16 +256,16 @@ func (d DefaultStatusDecisionStrategy) DecideOnTaskStateFail(ctx context.Context
 	}
 
 	if !result {
-		log.Warnf("Forward execution result is false, setting compensation status UN for StateMachineInstance[id:%s]", stateMachineInstance.ID())
-		stateMachineInstance.SetCompensationStatus(statelang.UN)
+		log.Warnf("Forward execution result is false, setting compensation status UN for StateMachineInstance[id:%s]", stateMachineInstance.ID)
+		stateMachineInstance.CompensationStatus = statelang.UN
 	}
 	return nil
 }
 
 func (d DefaultStatusDecisionStrategy) DecideMachineForwardExecutionStatus(ctx context.Context,
-	stateMachineInstance statelang.StateMachineInstance, exp error, specialPolicy bool) error {
+	stateMachineInstance *statelang.StateMachineInstance, exp error, specialPolicy bool) error {
 
-	log.Debugf("Starting DecideMachineForwardExecutionStatus for StateMachineInstance[id:%s], specialPolicy: %v", stateMachineInstance.ID(), specialPolicy)
+	log.Debugf("Starting DecideMachineForwardExecutionStatus for StateMachineInstance[id:%s], specialPolicy: %v", stateMachineInstance.ID, specialPolicy)
 	_, err := decideMachineForwardExecutionStatus(ctx, stateMachineInstance, exp, specialPolicy)
 	if err != nil {
 		log.Errorf("DecideMachineForwardExecutionStatus failed: %v", err)

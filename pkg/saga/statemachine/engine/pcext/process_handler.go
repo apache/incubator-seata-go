@@ -59,15 +59,9 @@ func NewStateMachineProcessHandler() *StateMachineProcessHandler {
 }
 
 func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext process_ctrl.ProcessContext) error {
-	var stateInstruction *StateInstruction
-	switch v := processContext.GetInstruction().(type) {
-	case *StateInstruction:
-		stateInstruction = v
-	case StateInstruction:
-		tmp := v
-		stateInstruction = &tmp
-	default:
-		return errors.New("invalid state instruction from processContext")
+	stateInstruction, err := GetStateInstruction(processContext)
+	if err != nil {
+		return err
 	}
 
 	state, err := stateInstruction.GetState(processContext)
@@ -100,20 +94,20 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 	}
 
 	// Prepare current state instance in context before processing
-	smInst, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	smInst, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(*statelang.StateMachineInstance)
 	if !ok || smInst == nil {
 		return errors.New("state machine instance not found in context")
 	}
 
-	stInst := statelang.NewStateInstanceImpl()
-	stInst.SetName(state.Name())
-	stInst.SetType(state.Type())
+	stInst := statelang.NewStateInstance()
+	stInst.Name = state.Name()
+	stInst.TypeName = state.Type()
 	// If service task, enrich service attributes
 	if svc, ok := state.(*stateimpl.ServiceTaskStateImpl); ok {
-		stInst.SetServiceName(svc.ServiceName())
-		stInst.SetServiceMethod(svc.ServiceMethod())
-		stInst.SetServiceType(svc.ServiceType())
-		stInst.SetForUpdate(svc.ForUpdate())
+		stInst.ServiceName = svc.ServiceName()
+		stInst.ServiceMethod = svc.ServiceMethod()
+		stInst.ServiceType = svc.ServiceType()
+		stInst.IsForUpdate = svc.ForUpdate()
 
 		// ensure mutex lock for parameter evaluation exists
 		if !processContext.HasVariable(constant.VarNameProcessContextMutexLock) {
@@ -122,10 +116,10 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 		// if this is a compensation execution, mark the link to original state
 		if v := processContext.GetVariable("_compensate_for_state_id_"); v != nil {
 			if sid, ok := v.(string); ok && sid != "" {
-				stInst.SetStateIDCompensatedFor(sid)
+				stInst.StateIDCompensatedFor = sid
 				// also add to holder's 'StatesForCompensation' for final status decision
 				holder := GetCurrentCompensationHolder(ctx, processContext, true)
-				holder.StatesForCompensation().Store(stInst.Name(), stInst)
+				holder.StatesForCompensation().Store(stInst.Name, stInst)
 				// clear after consuming
 				processContext.RemoveVariable("_compensate_for_state_id_")
 			}
@@ -167,14 +161,14 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 
 	// Set execution result on state instance
 	if ex, _ := processContext.GetVariable(constant.VarNameCurrentException).(error); ex != nil {
-		stInst.SetStatus(statelang.FA)
-		stInst.SetError(ex)
+		stInst.Status = statelang.FA
+		stInst.Err = ex
 	} else {
 		// For Fail end state, mark FA; otherwise mark SU
 		if stateType == constant.StateTypeFail {
-			stInst.SetStatus(statelang.FA)
+			stInst.Status = statelang.FA
 		} else {
-			stInst.SetStatus(statelang.SU)
+			stInst.Status = statelang.SU
 		}
 	}
 

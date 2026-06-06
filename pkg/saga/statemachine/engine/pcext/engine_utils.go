@@ -32,6 +32,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
+	"seata.apache.org/seata-go/v2/pkg/util/collection"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -46,12 +47,12 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 		}
 	}
 
-	stateMachineInstance, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(statelang.StateMachineInstance)
+	stateMachineInstance, ok := processContext.GetVariable(constant.VarNameStateMachineInst).(*statelang.StateMachineInstance)
 	if !ok {
-		return errors.New("state machine instance type is not statelang.StateMachineInstance")
+		return errors.New("state machine instance type is not *statelang.StateMachineInstance")
 	}
 
-	stateMachineInstance.SetEndTime(time.Now())
+	stateMachineInstance.EndTime = time.Now()
 
 	var exp error
 	if v := processContext.GetVariable(constant.VarNameCurrentException); v != nil {
@@ -63,7 +64,7 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	}
 
 	if exp != nil {
-		stateMachineInstance.SetException(exp)
+		stateMachineInstance.Exception = exp
 		log.Debugf("Exception Occurred: %s", exp)
 	}
 
@@ -82,9 +83,9 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	compSeen := false
 	compAllSU := true
 	for _, si := range stateMachineInstance.StateList() {
-		if si.StateIDCompensatedFor() != "" {
+		if si.StateIDCompensatedFor != "" {
 			compSeen = true
-			if si.Status() != statelang.SU {
+			if si.Status != statelang.SU {
 				compAllSU = false
 				break
 			}
@@ -92,20 +93,20 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	}
 	if compSeen {
 		if compAllSU {
-			log.Debugf("All compensation states SU, overriding machine compensation_status to SU for [%s]", stateMachineInstance.ID())
-			stateMachineInstance.SetCompensationStatus(statelang.SU)
+			log.Debugf("All compensation states SU, overriding machine compensation_status to SU for [%s]", stateMachineInstance.ID)
+			stateMachineInstance.CompensationStatus = statelang.SU
 			// In Java semantics, compensation success with Fail end yields final machine status FA
-			stateMachineInstance.SetStatus(statelang.FA)
-		} else if stateMachineInstance.CompensationStatus() == "" || stateMachineInstance.CompensationStatus() == statelang.RU {
-			log.Debugf("Compensation states contain non-SU, marking compensation_status UN for [%s]", stateMachineInstance.ID())
-			stateMachineInstance.SetCompensationStatus(statelang.UN)
+			stateMachineInstance.Status = statelang.FA
+		} else if stateMachineInstance.CompensationStatus == "" || stateMachineInstance.CompensationStatus == statelang.RU {
+			log.Debugf("Compensation states contain non-SU, marking compensation_status UN for [%s]", stateMachineInstance.ID)
+			stateMachineInstance.CompensationStatus = statelang.UN
 		}
 	} else {
-		log.Debugf("No compensation states observed for machine [%s]", stateMachineInstance.ID())
+		log.Debugf("No compensation states observed for machine [%s]", stateMachineInstance.ID)
 		if v, ok := processContext.GetVariable(constant.VarNameFailEndStateFlag).(bool); ok && v {
 			// Fail end without compensation: normalize to status=FA, empty compensation_status
-			stateMachineInstance.SetCompensationStatus("")
-			stateMachineInstance.SetStatus(statelang.FA)
+			stateMachineInstance.CompensationStatus = ""
+			stateMachineInstance.Status = statelang.FA
 		}
 	}
 
@@ -113,27 +114,23 @@ func EndStateMachine(ctx context.Context, processContext process_ctrl.ProcessCon
 	if !ok {
 		return errors.New("state machine context type is not map[string]interface{}")
 	}
-	endParams := stateMachineInstance.EndParams()
+	endParams := stateMachineInstance.EndParams
 	for k, v := range contextParams {
 		endParams[k] = v
 	}
-	stateMachineInstance.SetEndParams(endParams)
+	stateMachineInstance.EndParams = endParams
 
-	switch v := processContext.GetInstruction().(type) {
-	case *StateInstruction:
-		v.SetEnd(true)
-	case StateInstruction:
-		tmp := v
-		tmp.SetEnd(true)
-		processContext.SetInstruction(&tmp)
-	default:
-		return errors.New("state instruction type is not process_ctrl.StateInstruction")
+	inst, err := GetStateInstruction(processContext)
+	if err != nil {
+		return err
 	}
+	inst.SetEnd(true)
+	processContext.SetInstruction(inst)
 
-	stateMachineInstance.SetRunning(false)
-	stateMachineInstance.SetEndTime(time.Now())
+	stateMachineInstance.IsRunning = false
+	stateMachineInstance.EndTime = time.Now()
 
-	if stateMachineInstance.StateMachine().IsPersist() && stateMachineConfig.StateLangStore() != nil {
+	if stateMachineInstance.StateMachine.IsPersist() && stateMachineConfig.StateLangStore() != nil {
 		err := stateMachineConfig.StateLogStore().RecordStateMachineFinished(ctx, stateMachineInstance, processContext)
 		if err != nil {
 			return err
@@ -194,8 +191,8 @@ func HandleException(processContext process_ctrl.ProcessContext, abstractTaskSta
 }
 
 // GetOriginStateName get origin state name without suffix like fork
-func GetOriginStateName(stateInstance statelang.StateInstance) string {
-	stateName := stateInstance.Name()
+func GetOriginStateName(stateInstance *statelang.StateInstance) string {
+	stateName := stateInstance.Name
 	if stateName != "" {
 		end := strings.LastIndex(stateName, constant.LoopStateNamePattern)
 		if end > -1 {
@@ -213,8 +210,8 @@ func IsTimeout(gmtUpdated time.Time, timeoutMillis int) bool {
 	return time.Now().Unix()-gmtUpdated.Unix() > int64(timeoutMillis)
 }
 
-func GenerateParentId(stateInstance statelang.StateInstance) string {
-	return stateInstance.MachineInstanceID() + constant.SeperatorParentId + stateInstance.ID()
+func GenerateParentId(stateInstance *statelang.StateInstance) string {
+	return stateInstance.MachineInstanceID + constant.SeperatorParentId + stateInstance.ID
 }
 
 // GetNetExceptionType Speculate what kind of network anomaly is caused by the error
@@ -233,4 +230,55 @@ func GetNetExceptionType(err error) constant.NetExceptionType {
 		return constant.ReadTimeoutException
 	}
 	return constant.NotNetException
+}
+
+// GetStateInstruction extracts *StateInstruction from the ProcessContext's instruction,
+// handling both pointer and value type assertions.
+func GetStateInstruction(processContext process_ctrl.ProcessContext) (*StateInstruction, error) {
+	switch v := processContext.GetInstruction().(type) {
+	case *StateInstruction:
+		return v, nil
+	case StateInstruction:
+		tmp := v
+		return &tmp, nil
+	default:
+		return nil, errors.New("instruction is not a StateInstruction")
+	}
+}
+
+// ExtractAbstractTaskState extracts the underlying *AbstractTaskState from various
+// state implementation types (ServiceTask, ScriptTask, SubStateMachine).
+func ExtractAbstractTaskState(s statelang.State) *state.AbstractTaskState {
+	switch v := s.(type) {
+	case *state.ServiceTaskStateImpl:
+		return v.AbstractTaskState
+	case *state.ScriptTaskStateImpl:
+		return v.AbstractTaskState
+	case *state.SubStateMachineImpl:
+		if v.ServiceTaskStateImpl != nil {
+			return v.ServiceTaskStateImpl.AbstractTaskState
+		}
+	}
+	return nil
+}
+
+// BuildCompensationStack iterates executed state instances in reverse order and pushes
+// successful forward states (that have a compensation state defined) onto the stack.
+func BuildCompensationStack(states []*statelang.StateInstance, sm statelang.StateMachine, stack *collection.Stack) {
+	for i := len(states) - 1; i >= 0; i-- {
+		si := states[i]
+		if si.StateIDCompensatedFor != "" {
+			continue
+		}
+		if si.Status != statelang.SU {
+			continue
+		}
+		originName := GetOriginStateName(si)
+		def := sm.State(originName)
+		task := ExtractAbstractTaskState(def)
+		if task == nil || task.CompensateState() == "" {
+			continue
+		}
+		stack.Push(si)
+	}
 }
