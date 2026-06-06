@@ -29,9 +29,9 @@ type xaState int
 
 const (
 	xaStateIdle     xaState = iota // No XA transaction
-	xaStateStarted                  // XA START executed
-	xaStateEnded                    // XA END executed
-	xaStatePrepared                 // XA PREPARE executed
+	xaStateStarted                 // XA START executed
+	xaStateEnded                   // XA END executed
+	xaStatePrepared                // XA PREPARE executed
 )
 
 // xaEntry represents an active XA transaction branch

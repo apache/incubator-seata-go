@@ -150,34 +150,34 @@ func TestBuildExecutor(t *testing.T) {
 			query:           "INVALID SQL QUERY",
 			wantErr:         true,
 		},
-			{
-				name:            "XA mode INSERT statement",
-				dbType:          types.DBTypeMySQL,
-				transactionMode: types.XAMode,
-				query:           "INSERT INTO users (name, age) VALUES ('Alice', 30)",
-				wantErr:         false,
-			},
-			{
-				name:            "XA mode UPDATE statement",
-				dbType:          types.DBTypeMySQL,
-				transactionMode: types.XAMode,
-				query:           "UPDATE users SET age = 31 WHERE name = 'Alice'",
-				wantErr:         false,
-			},
-			{
-				name:            "XA mode DELETE statement",
-				dbType:          types.DBTypeMySQL,
-				transactionMode: types.XAMode,
-				query:           "DELETE FROM users WHERE name = 'Alice'",
-				wantErr:         false,
-			},
-			{
-				name:            "XA mode SELECT statement",
-				dbType:          types.DBTypeMySQL,
-				transactionMode: types.XAMode,
-				query:           "SELECT * FROM users WHERE name = 'Alice'",
-				wantErr:         false,
-			},
+		{
+			name:            "XA mode INSERT statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "INSERT INTO users (name, age) VALUES ('Alice', 30)",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode UPDATE statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "UPDATE users SET age = 31 WHERE name = 'Alice'",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode DELETE statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "DELETE FROM users WHERE name = 'Alice'",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode SELECT statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "SELECT * FROM users WHERE name = 'Alice'",
+			wantErr:         false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,9 +199,9 @@ func TestBuildExecutor(t *testing.T) {
 					assert.NotNil(t, baseExec.hooks, "BaseExecutor should have hooks set")
 				} else {
 					assert.True(t, mockExecutor.interceptorsCalled, "Interceptors should be called")
-				assert.NotEmpty(t, mockExecutor.hooks, "hooks should be set")
-			}
+					assert.NotEmpty(t, mockExecutor.hooks, "hooks should be set")
 				}
+			}
 		})
 	}
 }
