@@ -55,6 +55,7 @@ type SessionManager struct {
 	allSessions    sync.Map
 	sessionSize    int32
 	gettyConf      *config.Config
+	consistent     *loadbalance.Consistent
 	seataConfig    *config.SeataConfig
 }
 
@@ -65,6 +66,7 @@ func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataCon
 				allSessions:    sync.Map{},
 				serverSessions: sync.Map{},
 				gettyConf:      gettyConfig,
+				consistent:     loadbalance.NewConsistent(0),
 				seataConfig:    seataConfig,
 			}
 			sessionManager.init()
@@ -160,7 +162,7 @@ func (g *SessionManager) newSession(session getty.Session) error {
 }
 
 func (g *SessionManager) selectSession(msg interface{}) getty.Session {
-	session := loadbalance.Select(g.gettyConf.LoadBalanceType, &g.allSessions, g.getXid(msg))
+	session := loadbalance.SelectWithConsistent(config.GetSeataConfig().LoadBalanceType, &g.allSessions, g.getXid(msg), g.consistent)
 	if session != nil {
 		return session
 	}

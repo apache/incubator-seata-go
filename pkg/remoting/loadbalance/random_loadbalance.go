@@ -20,14 +20,11 @@ package loadbalance
 import (
 	"math/rand"
 	"sync"
-	"time"
 
 	getty "github.com/apache/dubbo-getty"
 )
 
 func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	//collect sync.Map keys
-	//filted out closed session instance
 	var keys []getty.Session
 	sessions.Range(func(key, value interface{}) bool {
 		session := key.(getty.Session)
@@ -38,11 +35,8 @@ func RandomLoadBalance(sessions *sync.Map, xid string) getty.Session {
 		}
 		return true
 	})
-	//keys eq 0 means there are no available session
 	if len(keys) == 0 {
 		return nil
 	}
-	//random in keys
-	randomIndex := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(keys))
-	return keys[randomIndex]
+	return keys[rand.Intn(len(keys))]
 }
