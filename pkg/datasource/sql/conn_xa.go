@@ -132,6 +132,8 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return tx, err
 	}
 
+	// Save the original autoCommit state before modifying it
+	wasAutoCommit := c.autoCommit
 	c.autoCommit = false
 
 	c.txCtx = types.NewTxCtx()
@@ -140,6 +142,9 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 	c.txCtx.ResourceID = c.res.resourceID
 	c.txCtx.XID = tm.GetXID(ctx)
 	c.txCtx.TransactionMode = types.XAMode
+	// Store the original autoCommit state for later use in commit logic
+	// If true, this XA branch supports multiple SQL statements (autoCommit mode)
+	c.txCtx.IsAutoCommitXABranch = wasAutoCommit
 
 	// Keep a sentinel target in Tx so any accidental fallback to the generic
 	// driver.Tx path fails fast instead of silently masking XA lifecycle bugs.
@@ -156,27 +161,31 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, err
 	}
 
-	if !c.autoCommit {
-		if c.xaActive {
-			return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
-		}
+	// Create XA branch for both explicit transactions and autoCommit mode (branch reuse)
+	// In autoCommit mode, we register the branch but keep it open for multiple SQL statements
+	if c.xaActive {
+		return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
+	}
 
-		baseTx, ok := tx.(*Tx)
-		if !ok {
-			return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
-		}
+	baseTx, ok := tx.(*Tx)
+	if !ok {
+		return nil, fmt.Errorf("start xa %s transaction failure for the tx is a wrong type", c.txCtx.XID)
+	}
 
-		baseTx.xaConn = c
+	baseTx.xaConn = c
 
-		c.branchRegisterTime = time.Now()
-		if err := baseTx.register(c.txCtx); err != nil {
-			c.cleanXABranchContext()
-			return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
-		}
+	c.branchRegisterTime = time.Now()
+	if err := baseTx.register(c.txCtx); err != nil {
+		c.cleanXABranchContext()
+		return nil, fmt.Errorf("failed to register xa branch %s, err:%w", c.txCtx.XID, err)
+	}
 
-		c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
-		c.keepIfNecessary()
+	c.xaBranchXid = XaIdBuild(c.txCtx.XID, c.txCtx.BranchID)
+	c.keepIfNecessary()
 
+	// For autoCommit mode (branch reuse), skip XA START here
+	// It will be done when needed for the actual execution
+	if !wasAutoCommit {
 		if err = c.start(ctx); err != nil {
 			c.cleanXABranchContext()
 			return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
@@ -196,7 +205,7 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 		c.txCtx.ResourceID = c.res.resourceID
 		c.txCtx.XID = tm.GetXID(ctx)
 		c.txCtx.TransactionMode = types.XAMode
-		c.txCtx.GlobalLockRequire = true
+		c.txCtx.IsAutoCommitXABranch = true
 	}
 
 	return onceTx
@@ -204,55 +213,88 @@ func (c *XAConn) createOnceTxContext(ctx context.Context) bool {
 
 func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
 	var (
-		tx  driver.Tx
-		err error
+		tx           driver.Tx
+		err          error
+		xaRollbacked bool // Track if XA rollback was already done to avoid duplicate rollback
 	)
+
+	xid := tm.GetXID(ctx)
 
 	defer func() {
 		recoverErr := recover()
-		if recoverErr != nil {
-			log.Errorf("conn xa rollback recoverErr:%v", recoverErr)
-			if tx != nil {
-				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Errorf("conn xa rollback error:%v", rollbackErr)
+		// Check if error is ErrSkip - don't rollback for this special error
+		isErrSkip := err != nil && errors.Is(err, driver.ErrSkip)
+
+		if (err != nil && !isErrSkip) || recoverErr != nil {
+			// For XA transactions, use the connection's rollback which handles XA END + ROLLBACK
+			if !xaRollbacked && c.xaActive {
+				rollbackErr := c.Rollback(ctx)
+				if rollbackErr != nil {
+					log.Errorf("defer rollback xa branch error:%v", rollbackErr)
 				}
-				return
-			}
-			if c.tx != nil {
-				if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
-					log.Errorf("conn xa rollback error:%v", rollbackErr)
-				}
+				xaRollbacked = true
 			}
 		}
 	}()
 
 	currentAutoCommit := c.autoCommit
+
+	// For global transactions in autoCommit mode, create/reuse XA branch
 	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-		if err != nil {
-			return nil, err
+		// Check if we already have an active XA branch for this transaction
+		heldConn := c.res.GetXABranch(xid)
+		if heldConn != nil && heldConn.xaActive && heldConn.txCtx.XID == xid {
+			if heldConn != c {
+				// Delegate to the connection that holds the XA branch
+				return heldConn.createNewTxOnExecIfNeed(ctx, f)
+			}
+			// Current connection already has the XA branch, execute SQL directly
+			// Skip creating a new branch
+		} else {
+			// Create new XA branch
+			tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+			if err != nil {
+				return nil, err
+			}
+
+			// Register the XA branch in the resource holder for reuse by subsequent SQL statements
+			if c.xaBranchXid != nil {
+				c.res.RegisterXABranch(xid, c)
+			}
 		}
 	}
 
 	// execute SQL
 	ret, err := f()
 	if err != nil {
-		if tx != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
-			}
-		} else {
+		// Check if this is driver.ErrSkip - not a real error, just means use fallback path
+		// In this case, don't rollback the XA branch, just return the error
+		// The database/sql package will handle the retry
+		isErrSkip := errors.Is(err, driver.ErrSkip)
+		if isErrSkip {
+			return nil, err
+		}
+		// On real error, rollback the entire branch
+		if c.xaActive {
 			if rollbackErr := c.Rollback(ctx); rollbackErr != nil {
 				log.Errorf("failed to rollback xa branch of :%s, err:%v", c.txCtx.XID, rollbackErr)
 			}
 		}
+		xaRollbacked = true // Mark that rollback was handled
 		return nil, err
 	}
 
+	// For autoCommit mode with global transaction, call Commit()
+	// The Commit method will skip actual XA END/PREPARE if IsAutoCommitXABranch is true
+	// This allows multiple SQL statements to use the same XA branch
 	if tx != nil && currentAutoCommit {
-		// Commit through XATx so phase-one reporting stays coupled to driver.Tx lifecycle.
 		if err = tx.Commit(); err != nil {
-			log.Errorf("xa connection proxy commit failure xid:%s, err:%v", c.txCtx.XID, err)
+			log.Errorf("xa transaction commit failure xid:%s, err:%v", c.txCtx.XID, err)
+			// XA End & Rollback
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Errorf("xa transaction rollback failure xid:%s, err:%v", c.txCtx.XID, rollbackErr)
+			}
+			xaRollbacked = true
 			return nil, err
 		}
 	}
@@ -289,12 +331,19 @@ func (c *XAConn) start(ctx context.Context) error {
 		return fmt.Errorf("xa xid %s resource connection start err:%w", c.txCtx.XID, err)
 	}
 
+	// For multi-statement XA transactions (originally in autoCommit mode),
+	// skip the termination check. The check will be done during Phase 2 commit/rollback.
+	if c.txCtx.IsAutoCommitXABranch {
+		return nil
+	}
+
+	// For explicit transactions (BeginTx mode), do the normal termination check
 	if err := c.termination(c.xaBranchXid.String()); err != nil {
 		c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail)
 		c.XaRollback(ctx, c.xaBranchXid)
 		return err
 	}
-	return err
+	return nil
 }
 
 func (c *XAConn) end(ctx context.Context, flags int) error {
@@ -329,7 +378,8 @@ func (c *XAConn) cleanXABranchContext() {
 }
 
 func (c *XAConn) Rollback(ctx context.Context) error {
-	if c.autoCommit {
+	// For autoCommit mode (multi-statement transactions), check if rollback is needed
+	if c.autoCommit && !c.xaActive {
 		return nil
 	}
 
@@ -341,10 +391,9 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		// First end the XA branch with TMFail
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
 			// Handle XAER_RMFAIL exception - check if it's already ended
-			//expected error: Error 1399 (XAE07): XAER_RMFAIL: The command cannot be executed when global transaction is in the  IDLE state
 			if c.xaErrorClassifier.IsAlreadyEnded(err) {
-				// If already ended, continue with rollback
 				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
+				// Already ended, continue with rollback
 			} else {
 				return c.rollbackErrorHandle()
 			}
@@ -358,6 +407,10 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 		c.rollBacked = true
 	}
 	c.cleanXABranchContext()
+
+	// Clean up resource holder on rollback
+	c.res.UnregisterXABranch(c.txCtx.XID)
+
 	return nil
 }
 
@@ -366,6 +419,12 @@ func (c *XAConn) rollbackErrorHandle() error {
 }
 
 func (c *XAConn) Commit(ctx context.Context) error {
+	// If this XA branch was created in autoCommit mode (multi-statement transaction),
+	// don't do the actual XA commit here. The TC will handle it in Phase 2.
+	if c.txCtx.IsAutoCommitXABranch {
+		return nil
+	}
+
 	if c.autoCommit {
 		return nil
 	}
@@ -375,6 +434,7 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	}
 
 	now := time.Now()
+
 	if c.end(ctx, xa.TMSuccess) != nil {
 		return c.commitErrorHandle(ctx)
 	}
@@ -388,6 +448,15 @@ func (c *XAConn) Commit(ctx context.Context) error {
 	}
 
 	c.prepareTime = time.Now()
+
+	// Update registry state to PREPARED and unregister
+	registry := getXARegistry()
+	registry.setState(c.txCtx.XID, xaStatePrepared)
+	registry.unregister(c.txCtx.XID)
+
+	// Unregister from resource holder after successful prepare
+	c.res.UnregisterXABranch(c.txCtx.XID)
+
 	return nil
 }
 
@@ -418,10 +487,11 @@ func (c *XAConn) Close() error {
 		return nil
 	}
 	c.cleanXABranchContext()
-	if err := c.Conn.Close(); err != nil {
-		return err
+	// Check if Conn is nil before calling Close
+	if c.Conn == nil {
+		return nil
 	}
-	return nil
+	return c.Conn.Close()
 }
 
 func (c *XAConn) CloseForce() error {
