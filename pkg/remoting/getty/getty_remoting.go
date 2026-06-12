@@ -134,6 +134,7 @@ func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) 
 			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
 		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)
+		g.futures.Delete(rpcMessage.ID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
 	}
