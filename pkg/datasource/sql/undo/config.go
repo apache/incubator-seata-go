@@ -43,6 +43,7 @@ type Config struct {
 	LogTable              string         `yaml:"log-table" json:"log-table,omitempty" koanf:"log-table"`
 	OnlyCareUpdateColumns bool           `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" koanf:"only-care-update-columns"`
 	CompressConfig        CompressConfig `yaml:"compress" json:"compress,omitempty" koanf:"compress"`
+	DeleteBatchSize       int            `yaml:"delete-batch-size" json:"delete-batch-size,omitempty" koanf:"delete-batch-size"`
 }
 
 func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {

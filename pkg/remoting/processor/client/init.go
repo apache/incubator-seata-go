@@ -23,4 +23,5 @@ func RegisterProcessor() {
 	initOnResponse()
 	initBranchCommit()
 	initBranchRollback()
+	initDeleteUndoLog()
 }
