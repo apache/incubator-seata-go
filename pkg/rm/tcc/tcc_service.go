@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -84,9 +85,47 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 		}
 	}
 
-	// to set up the fence phase
 	tm.SetFencePhase(ctx, enum.FencePhasePrepare)
-	return t.TCCResource.Prepare(ctx, params)
+	result, err := t.TCCResource.Prepare(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	bac := tm.GetBusinessActionContext(ctx)
+	if bac != nil && bac.IsDelayReport {
+		if err := t.reportActionContext(ctx, bac); err != nil {
+			return nil, fmt.Errorf("report action context failed after prepare: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
+func (t *TCCServiceProxy) reportActionContext(ctx context.Context, bac *tm.BusinessActionContext) error {
+	updatedActionContext := make(map[string]interface{})
+	for k, v := range bac.ActionContext {
+		updatedActionContext[k] = v
+	}
+	applicationData, err := json.Marshal(map[string]interface{}{
+		constant.ActionContext: updatedActionContext,
+	})
+	if err != nil {
+		log.Errorf("[TCC] marshal updated ActionContext failed, xid=%s, branchId=%d, err=%v", bac.Xid, bac.BranchId, err)
+		return fmt.Errorf("marshal updated ActionContext failed: %w", err)
+	}
+	err = rm.GetRMRemotingInstance().BranchReport(rm.BranchReportParam{
+		BranchType:      branch.BranchTypeTCC,
+		Xid:             bac.Xid,
+		BranchId:        bac.BranchId,
+		Status:          branch.BranchStatusRegistered,
+		ApplicationData: string(applicationData),
+	})
+	if err != nil {
+		log.Errorf("[TCC] report updated ActionContext failed, xid=%s, branchId=%d, err=%v", bac.Xid, bac.BranchId, err)
+		return fmt.Errorf("report updated ActionContext failed: %w", err)
+	}
+	log.Infof("[TCC] report updated ActionContext success, xid=%s, branchId=%d", bac.Xid, bac.BranchId)
+	return nil
 }
 
 // registeBranch send register branch transaction request

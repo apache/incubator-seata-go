@@ -26,4 +26,5 @@ const (
 	ActionContextKeyQueueOffset   = "queueOffset"
 	ActionContextKeyTransactionId = "transactionId"
 	ActionContextKeyBrokerName    = "brokerName"
+	ActionContextKeyTopic         = "topic"
 )
