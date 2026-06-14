@@ -119,7 +119,7 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType types.DBT
 				whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
 				continue
 			}
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 		}
 		whereStr.WriteString(") IN (")
 

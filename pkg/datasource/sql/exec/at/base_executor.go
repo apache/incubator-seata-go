@@ -25,10 +25,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/model"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
@@ -217,73 +217,50 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	if node == nil {
 		return
 	}
-	switch node.(type) {
+	switch expr := node.(type) {
 	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr)
 		b.traversalArgs(expr.L, argsIndex)
 		b.traversalArgs(expr.R, argsIndex)
-		break
 	case *ast.BetweenExpr:
-		expr := node.(*ast.BetweenExpr)
 		b.traversalArgs(expr.Left, argsIndex)
 		b.traversalArgs(expr.Right, argsIndex)
-		break
 	case *ast.PatternInExpr:
-		exprs := node.(*ast.PatternInExpr).List
-		for i := 0; i < len(exprs); i++ {
-			b.traversalArgs(exprs[i], argsIndex)
+		for i := 0; i < len(expr.List); i++ {
+			b.traversalArgs(expr.List[i], argsIndex)
 		}
-		break
 	case *ast.Join:
-		exprs := node.(*ast.Join)
-		b.traversalArgs(exprs.Left, argsIndex)
-		if exprs.Right != nil {
-			b.traversalArgs(exprs.Right, argsIndex)
+		b.traversalArgs(expr.Left, argsIndex)
+		if expr.Right != nil {
+			b.traversalArgs(expr.Right, argsIndex)
 		}
-		if exprs.On != nil {
-			b.traversalArgs(exprs.On.Expr, argsIndex)
+		if expr.On != nil {
+			b.traversalArgs(expr.On.Expr, argsIndex)
 		}
-		break
 	case *ast.UnaryOperationExpr:
-		expr := node.(*ast.UnaryOperationExpr)
 		b.traversalArgs(expr.V, argsIndex)
-		break
 	case *ast.FuncCallExpr:
-		expr := node.(*ast.FuncCallExpr)
 		for _, arg := range expr.Args {
 			b.traversalArgs(arg, argsIndex)
 		}
-		break
 	case *ast.SubqueryExpr:
-		expr := node.(*ast.SubqueryExpr)
 		if expr.Query != nil {
 			b.traversalArgs(expr.Query, argsIndex)
 		}
-		break
 	case *ast.ExistsSubqueryExpr:
-		expr := node.(*ast.ExistsSubqueryExpr)
 		if expr.Sel != nil {
 			b.traversalArgs(expr.Sel, argsIndex)
 		}
-		break
 	case *ast.CompareSubqueryExpr:
-		expr := node.(*ast.CompareSubqueryExpr)
 		b.traversalArgs(expr.L, argsIndex)
 		if expr.R != nil {
 			b.traversalArgs(expr.R, argsIndex)
 		}
-		break
-	case *ast.PatternLikeExpr:
-		expr := node.(*ast.PatternLikeExpr)
+	case *ast.PatternLikeOrIlikeExpr:
 		b.traversalArgs(expr.Expr, argsIndex)
 		b.traversalArgs(expr.Pattern, argsIndex)
-		break
 	case *ast.IsNullExpr:
-		expr := node.(*ast.IsNullExpr)
 		b.traversalArgs(expr.Expr, argsIndex)
-		break
 	case *ast.CaseExpr:
-		expr := node.(*ast.CaseExpr)
 		if expr.Value != nil {
 			b.traversalArgs(expr.Value, argsIndex)
 		}
@@ -294,10 +271,8 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		if expr.ElseClause != nil {
 			b.traversalArgs(expr.ElseClause, argsIndex)
 		}
-		break
 	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
+		*argsIndex = append(*argsIndex, int32(expr.Order))
 	}
 }
 
@@ -347,10 +322,8 @@ func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, d
 		needUpdateColumns = columns
 		if !b.containsPKByName(meta, columns) {
 			pkNames := meta.GetPrimaryKeyOnlyName()
-			if pkNames != nil && len(pkNames) > 0 {
-				for _, name := range pkNames {
-					needUpdateColumns = append(needUpdateColumns, name)
-				}
+			if len(pkNames) > 0 {
+				needUpdateColumns = append(needUpdateColumns, pkNames...)
 			}
 		}
 		// todo If it contains onUpdate columns, add onUpdate columns
@@ -519,7 +492,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 				whereStr.WriteString(",")
 			}
 			if effectiveDBType(dbType) == types.DBTypeMySQL {
-				whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+				fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 				continue
 			}
 			whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))

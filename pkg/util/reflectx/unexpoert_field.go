@@ -39,7 +39,7 @@ func GetElemDataValue(data interface{}) interface{} {
 	value := reflect.ValueOf(data)
 	kind := reflect.TypeOf(data).Kind()
 	switch kind {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return value.Elem().Interface()
 	}
 	return value.Interface()

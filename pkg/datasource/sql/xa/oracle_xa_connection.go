@@ -64,31 +64,31 @@ type OracleXAConn struct {
 func (c *OracleXAConn) Start(ctx context.Context, xid string, flags int) error {
 	log.Infof("xa branch start (oracle), xid %s", xid)
 	// TODO: DBMS_XA.XA_START via PL/SQL block, map xid to DBMS_XA_XID
-	return fmt.Errorf("Oracle XA start not yet implemented")
+	return fmt.Errorf("oracle XA start not yet implemented")
 }
 
 func (c *OracleXAConn) End(ctx context.Context, xid string, flags int) error {
 	log.Infof("xa branch end (oracle), xid %s", xid)
 	// TODO: DBMS_XA.XA_END via PL/SQL block
-	return fmt.Errorf("Oracle XA end not yet implemented")
+	return fmt.Errorf("oracle XA end not yet implemented")
 }
 
 func (c *OracleXAConn) XAPrepare(ctx context.Context, xid string) error {
 	log.Infof("xa branch prepare (oracle), xid %s", xid)
 	// TODO: DBMS_XA.XA_PREPARE via PL/SQL block
-	return fmt.Errorf("Oracle XA prepare not yet implemented")
+	return fmt.Errorf("oracle XA prepare not yet implemented")
 }
 
 func (c *OracleXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {
 	log.Infof("xa branch commit (oracle), xid %s, onePhase %v", xid, onePhase)
 	// TODO: DBMS_XA.XA_COMMIT via PL/SQL block
-	return fmt.Errorf("Oracle XA commit not yet implemented")
+	return fmt.Errorf("oracle XA commit not yet implemented")
 }
 
 func (c *OracleXAConn) Rollback(ctx context.Context, xid string) error {
 	log.Infof("xa branch rollback (oracle), xid %s", xid)
 	// TODO: DBMS_XA.XA_ROLLBACK via PL/SQL block
-	return fmt.Errorf("Oracle XA rollback not yet implemented")
+	return fmt.Errorf("oracle XA rollback not yet implemented")
 }
 
 func (c *OracleXAConn) Recover(ctx context.Context, flag int) ([]string, error) {
@@ -96,12 +96,12 @@ func (c *OracleXAConn) Recover(ctx context.Context, flag int) ([]string, error) 
 		return nil, nil
 	}
 	// TODO: SELECT globalid, branchid FROM DBA_PENDING_TRANSACTIONS
-	return nil, fmt.Errorf("Oracle XA recover not yet implemented")
+	return nil, fmt.Errorf("oracle XA recover not yet implemented")
 }
 
 func (c *OracleXAConn) Forget(ctx context.Context, xid string) error {
 	// TODO: DBMS_XA.XA_FORGET via PL/SQL block
-	return fmt.Errorf("Oracle XA forget not yet implemented")
+	return fmt.Errorf("oracle XA forget not yet implemented")
 }
 
 func (c *OracleXAConn) GetTransactionTimeout() time.Duration { return 0 }

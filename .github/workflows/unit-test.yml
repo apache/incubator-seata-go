@@ -35,21 +35,21 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.20.14
+          - 1.25.10
 
     steps:
     - name: "Set up Go"
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.golang }}
 
     - name: "Checkout code"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: "Cache dependencies"
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"

@@ -23,8 +23,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
@@ -160,10 +160,10 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue
 		}
 
 		if deleteParser.Limit != nil {
-			return "", nil, fmt.Errorf("Multi delete SQL with limit condition is not support yet!")
+			return "", nil, fmt.Errorf("multi delete SQL with limit condition is not supported yet")
 		}
 		if deleteParser.Order != nil {
-			return "", nil, fmt.Errorf("Multi delete SQL with orderBy condition is not support yet!")
+			return "", nil, fmt.Errorf("multi delete SQL with orderBy condition is not supported yet")
 		}
 		if deleteParser.Where == nil || !hasWhereCondition {
 			hasWhereCondition = false
@@ -178,7 +178,7 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue
 		if whereCondition != "" {
 			whereCondition += " OR "
 		}
-		whereCondition += fmt.Sprintf("(%s)", string(whereBuffer.Bytes()))
+		whereCondition += fmt.Sprintf("(%s)", whereBuffer.String())
 
 		newParams := m.buildSelectArgs(&ast.SelectStmt{
 			Where:      deleteParser.Where,

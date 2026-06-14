@@ -49,7 +49,7 @@ func (s SubStateMachineParser) Parse(stateName string, stateMap map[string]inter
 		return nil, err
 	}
 
-	stateMachineName, err := s.BaseStateParser.GetString(stateName, stateMap, "StateMachineName")
+	stateMachineName, err := s.GetString(stateName, stateMap, "StateMachineName")
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (c CompensateSubStateMachineStateParser) Parse(stateName string, stateMap m
 	compensateSubStateMachineStateImpl.SetForCompensation(true)
 
 	if stateMap != nil {
-		err := c.ParseTaskAttributes(stateName, compensateSubStateMachineStateImpl.ServiceTaskStateImpl.AbstractTaskState, stateMap)
+		err := c.ParseTaskAttributes(stateName, compensateSubStateMachineStateImpl.AbstractTaskState, stateMap)
 		if err != nil {
 			return nil, err
 		}

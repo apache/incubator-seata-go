@@ -200,7 +200,7 @@ func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types
 
 	for _, pkName := range pkColumnNameListByOrder {
 		for _, col := range pkColumnNameListNoOrder {
-			if strings.Index(col.ColumnName, pkName) > -1 {
+			if strings.Contains(col.ColumnName, pkName) {
 				pkFields = append(pkFields, col)
 			}
 		}

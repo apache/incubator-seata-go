@@ -57,8 +57,8 @@ func TestIsEngineExecutionException(t *testing.T) {
 			if ok != c.wantOk {
 				t.Errorf("expected ok=%v, got %v", c.wantOk, ok)
 			}
-			if ok && fie.SeataError.Message != c.wantMsg {
-				t.Errorf("expected Message=%q, got %q", c.wantMsg, fie.SeataError.Message)
+			if ok && fie.Message != c.wantMsg {
+				t.Errorf("expected Message=%q, got %q", c.wantMsg, fie.Message)
 			}
 			if !ok && fie != nil {
 				t.Errorf("expected fie=nil, got %v", fie)

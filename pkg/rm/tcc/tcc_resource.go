@@ -63,7 +63,7 @@ func (t *TCCResource) GetResourceGroupId() string {
 }
 
 func (t *TCCResource) GetResourceId() string {
-	return t.TwoPhaseAction.GetActionName()
+	return t.GetActionName()
 }
 
 func (t *TCCResource) GetBranchType() branch.BranchType {
@@ -142,7 +142,7 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 	tm.SetFencePhase(ctx, enum.FencePhaseCommit)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Commit(ctx, businessActionContext)
+	_, err := tccResource.Commit(ctx, businessActionContext)
 	if err != nil {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
@@ -187,7 +187,7 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 	tm.SetFencePhase(ctx, enum.FencePhaseRollback)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)
+	_, err := tccResource.Rollback(ctx, businessActionContext)
 	if err != nil {
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}

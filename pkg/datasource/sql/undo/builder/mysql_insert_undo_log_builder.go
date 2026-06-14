@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -103,7 +103,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
-		return "", nil, fmt.Errorf("Pk columnName size is zero")
+		return "", nil, fmt.Errorf("pk columnName size is zero")
 	}
 
 	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
@@ -268,7 +268,7 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 		return nil, nil
 	}
 	pkIndexMap := u.getPkIndex(insertStmt, meta)
-	if pkIndexMap == nil || len(pkIndexMap) == 0 {
+	if len(pkIndexMap) == 0 {
 		return nil, fmt.Errorf("pkIndex is not found")
 	}
 	var pkIndexArray []int
@@ -283,13 +283,13 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 
 	pkValuesMap := make(map[string][]interface{})
 
-	if nameValues != nil && len(nameValues) > 0 {
+	if len(nameValues) > 0 {
 		//use prepared statements
 		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
 		if err != nil {
 			return nil, err
 		}
-		if insertRows == nil || len(insertRows) == 0 {
+		if len(insertRows) == 0 {
 			return nil, err
 		}
 		totalPlaceholderNum := -1
@@ -539,7 +539,7 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 			} else {
 				for _, index := range pkIndexArray {
 					if index == i {
-						return nil, fmt.Errorf("Unknown SQLExpr:%v", node)
+						return nil, fmt.Errorf("unknown SQLExpr:%v", node)
 					}
 				}
 				row = append(row, ast.DefaultExpr{})

@@ -62,7 +62,7 @@ func (r *RMRemoting) BranchRegister(param BranchRegisterParam) (int64, error) {
 	}
 	branchResp := resp.(message.BranchRegisterResponse)
 	if branchResp.ResultCode == message.ResultCodeFailed {
-		return 0, fmt.Errorf("Response %s", branchResp.Msg)
+		return 0, fmt.Errorf("response %s", branchResp.Msg)
 	}
 	return branchResp.BranchId, nil
 }

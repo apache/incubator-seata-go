@@ -24,7 +24,6 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/constant"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine"
-	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/engine/expr"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/process_ctrl"
 	"seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang"
 	stateimpl "seata.apache.org/seata-go/v2/pkg/saga/statemachine/statelang/state"
@@ -90,7 +89,7 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 		stateHandlerInterceptorList = interceptAbleStateHandler.StateHandlerInterceptorList()
 	}
 
-	if stateHandlerInterceptorList != nil && len(stateHandlerInterceptorList) > 0 {
+	if len(stateHandlerInterceptorList) > 0 {
 		for _, stateHandlerInterceptor := range stateHandlerInterceptorList {
 			err = stateHandlerInterceptor.PreProcess(ctx, processContext)
 			if err != nil {
@@ -133,7 +132,7 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 
 		// evaluate input params from CEL expressions if any
 		if cfg, ok := processContext.GetVariable(constant.VarNameStateMachineConfig).(engine.StateMachineConfig); ok {
-			var exprResolver expr.ExpressionResolver = cfg.ExpressionResolver()
+			exprResolver := cfg.ExpressionResolver()
 			// use all variables in process context for expression scope
 			variables := processContext.GetVariables()
 			inputParams := CreateInputParams(processContext, exprResolver, stInst, svc.AbstractTaskState, variables)
@@ -156,7 +155,7 @@ func (s *StateMachineProcessHandler) Process(ctx context.Context, processContext
 		}
 	}
 
-	if stateHandlerInterceptorList != nil && len(stateHandlerInterceptorList) > 0 {
+	if len(stateHandlerInterceptorList) > 0 {
 		for _, stateHandlerInterceptor := range stateHandlerInterceptorList {
 			err = stateHandlerInterceptor.PostProcess(ctx, processContext)
 			if err != nil {

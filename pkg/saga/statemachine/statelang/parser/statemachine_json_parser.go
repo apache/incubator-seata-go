@@ -124,8 +124,5 @@ func (stateMachineParser JSONStateMachineParser) setForCompensation(stateValue s
 }
 
 func (stateMachineParser JSONStateMachineParser) isTaskState(stateType string) bool {
-	if stateType == constant.StateTypeServiceTask {
-		return true
-	}
-	return false
+	return stateType == constant.StateTypeServiceTask
 }

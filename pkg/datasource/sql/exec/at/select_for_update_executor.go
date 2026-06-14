@@ -29,9 +29,9 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/tm"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
@@ -45,7 +45,7 @@ import (
 )
 
 var (
-	lockConflictError = errors.New("lock conflict error")
+	errLockConflict = errors.New("lock conflict error")
 )
 
 type selectForUpdateExecutor struct {
@@ -113,7 +113,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 
 	for bf.Ongoing() {
 		result, err = s.doExecContext(ctx, f)
-		if err == nil || errors.Is(err, lockConflictError) {
+		if err == nil || errors.Is(err, errLockConflict) {
 			break
 		}
 		bf.Wait()
@@ -209,7 +209,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	}
 
 	if !lockable {
-		return nil, lockConflictError
+		return nil, errLockConflict
 	}
 
 	return result, nil
@@ -219,7 +219,7 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *types.TableMeta) (string, error) {
 	pks := meta.GetPrimaryKeyOnlyName()
 	if len(pks) == 0 {
-		return "", fmt.Errorf("%s needs to contain the primary key.", meta.TableName)
+		return "", fmt.Errorf("%s needs to contain the primary key", meta.TableName)
 	}
 
 	var fields []*ast.SelectField
@@ -303,7 +303,7 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 			}
 
 			// if the value type is *int64, *string etc. then get the true value
-			lockKeys.WriteString(fmt.Sprintf("%v", reflect.ValueOf(value).Elem()))
+			fmt.Fprintf(&lockKeys, "%v", reflect.ValueOf(value).Elem())
 		}
 	}
 	return lockKeys.String()

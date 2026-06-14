@@ -73,7 +73,7 @@ func (t *TCCServiceProxy) Reference() string {
 	if t.referenceName != "" {
 		return t.referenceName
 	}
-	return reflectx.GetReference(t.TCCResource.TwoPhaseAction.GetTwoPhaseService())
+	return reflectx.GetReference(t.GetTwoPhaseService())
 }
 
 func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (interface{}, error) {
@@ -93,7 +93,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{}) error {
 	if !tm.IsGlobalTx(ctx) {
 		errStr := "BranchRegister error, transaction should be opened"
-		log.Errorf(errStr)
+		log.Errorf("%s", errStr)
 		return errors.New(errStr)
 	}
 
@@ -127,10 +127,10 @@ func (t *TCCServiceProxy) registeBranch(ctx context.Context, params interface{})
 func (t *TCCServiceProxy) initActionContext(params interface{}) map[string]interface{} {
 	actionContext := t.getActionContextParameters(params)
 	actionContext[constant.ActionStartTime] = time.Now().UnixNano() / 1e6
-	actionContext[constant.PrepareMethod] = t.TCCResource.TwoPhaseAction.GetPrepareMethodName()
-	actionContext[constant.CommitMethod] = t.TCCResource.TwoPhaseAction.GetCommitMethodName()
-	actionContext[constant.RollbackMethod] = t.TCCResource.TwoPhaseAction.GetRollbackMethodName()
-	actionContext[constant.ActionName] = t.TCCResource.TwoPhaseAction.GetActionName()
+	actionContext[constant.PrepareMethod] = t.GetPrepareMethodName()
+	actionContext[constant.CommitMethod] = t.GetCommitMethodName()
+	actionContext[constant.RollbackMethod] = t.GetRollbackMethodName()
+	actionContext[constant.ActionName] = t.GetActionName()
 	actionContext[constant.HostName], _ = gostnet.GetLocalIP()
 	return actionContext
 }
@@ -188,14 +188,12 @@ func (t *TCCServiceProxy) getOrCreateBusinessActionContext(params interface{}) *
 		return &tm.BusinessActionContext{}
 	}
 
-	switch params.(type) {
+	switch params := params.(type) {
 	case tm.BusinessActionContext:
-		v := params.(tm.BusinessActionContext)
-		return &v
+		return &params
 	case *tm.BusinessActionContext:
-		v := params.(*tm.BusinessActionContext)
-		if v != nil {
-			return v
+		if params != nil {
+			return params
 		}
 		return &tm.BusinessActionContext{}
 	default:
@@ -234,7 +232,7 @@ func obtainStructValueType(o interface{}) (bool, reflect.Value, reflect.Type) {
 	switch v.Kind() {
 	case reflect.Struct:
 		return true, v, t
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return true, v.Elem(), t.Elem()
 	default:
 		return false, v, nil

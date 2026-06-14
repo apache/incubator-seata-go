@@ -37,7 +37,7 @@ func GetReference(service interface{}) string {
 	switch kind {
 	case reflect.Struct:
 		ref = sType.Name()
-	case reflect.Ptr:
+	case reflect.Pointer:
 		sName := sType.Elem().Name()
 		if sName != "" {
 			ref = sName

@@ -83,7 +83,7 @@ func (c *PostgresXAConn) Start(ctx context.Context, xid string, flags int) error
 	if conn, ok := c.Conn.(driver.ConnBeginTx); ok {
 		tx, err = conn.BeginTx(ctx, driver.TxOptions{})
 	} else {
-		tx, err = c.Conn.Begin()
+		tx, err = c.Begin()
 	}
 	if err != nil {
 		log.Errorf("postgres xa branch start failed, xid %s, err %v", xid, err)

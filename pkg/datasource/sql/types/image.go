@@ -280,7 +280,7 @@ func (c *ColumnImage) GetActualValue() interface{} {
 	value := reflect.ValueOf(c.Value)
 	kind := reflect.TypeOf(c.Value).Kind()
 	switch kind {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return value.Elem().Interface()
 	}
 	return c.Value

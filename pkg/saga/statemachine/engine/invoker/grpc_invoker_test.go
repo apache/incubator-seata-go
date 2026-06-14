@@ -65,7 +65,7 @@ func TestGRPCInvokerInvokeSucceedWithOutRetry(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	if values == nil || len(values) == 0 {
+	if len(values) == 0 {
 		t.Error("no value in values")
 		return
 	}
@@ -85,7 +85,7 @@ func TestGRPCInvokerInvokeSucceedInRetry(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	if values == nil || len(values) == 0 {
+	if len(values) == 0 {
 		t.Error("no value in values")
 		return
 	}
