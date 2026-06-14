@@ -19,9 +19,11 @@ package parser
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	aparser "github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
@@ -96,4 +98,43 @@ func TestK(t *testing.T) {
 	stmt[0].Restore(cc)
 
 	fmt.Println(stmt)
+}
+
+func TestAssignParamMarkerOrders(t *testing.T) {
+	p := aparser.New()
+	stmtNodes, _, err := p.Parse("update t set name = ?, age = ? where id = ? and status in (?, ?)", "", "")
+	assert.NoError(t, err)
+
+	assignParamMarkerOrders(stmtNodes)
+
+	assertParamMarkerOrders(t, stmtNodes, []int{0, 1, 2, 3, 4})
+}
+
+func TestDoParserAssignsParamMarkerOrders(t *testing.T) {
+	parseCtx, err := DoParser("update t set name = ? where id = ?; delete from t where status = ? and age between ? and ?")
+	assert.NoError(t, err)
+	assert.Len(t, parseCtx.MultiStmt, 2)
+
+	assertParamMarkerOrders(t, []ast.StmtNode{
+		parseCtx.MultiStmt[0].UpdateStmt,
+		parseCtx.MultiStmt[1].DeleteStmt,
+	}, []int{0, 1, 2, 3, 4})
+}
+
+func assertParamMarkerOrders(t *testing.T, stmtNodes []ast.StmtNode, expected []int) {
+	t.Helper()
+
+	visitor := &paramMarkerOrderVisitor{}
+	for _, node := range stmtNodes {
+		node.Accept(visitor)
+	}
+	sort.Slice(visitor.markers, func(i, j int) bool {
+		return visitor.markers[i].Offset < visitor.markers[j].Offset
+	})
+
+	orders := make([]int, 0, len(visitor.markers))
+	for _, marker := range visitor.markers {
+		orders = append(orders, marker.Order)
+	}
+	assert.Equal(t, expected, orders)
 }
