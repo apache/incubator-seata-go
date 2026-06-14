@@ -94,7 +94,7 @@ func (t *TCCServiceProxy) Prepare(ctx context.Context, params interface{}) (inte
 	bac := tm.GetBusinessActionContext(ctx)
 	if bac != nil && bac.IsDelayReport {
 		if err := t.reportActionContext(ctx, bac); err != nil {
-			return nil, fmt.Errorf("report action context failed after prepare: %w", err)
+			log.Warnf("[TCC] report action context failed after prepare, fallback to original branch applicationData (broker check-back may be used), xid=%s, branchId=%d, err=%v", bac.Xid, bac.BranchId, err)
 		}
 	}
 
