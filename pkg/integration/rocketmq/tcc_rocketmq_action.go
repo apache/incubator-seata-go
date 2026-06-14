@@ -91,8 +91,13 @@ func (a *TCCRocketMQAction) Prepare(ctx context.Context, params interface{}) (bo
 
 func (a *TCCRocketMQAction) Commit(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
 	topic := getStringFromMap(bac.ActionContext, ActionContextKeyTopic)
-	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackCommit)
 	brokerName := getStringFromMap(bac.ActionContext, ActionContextKeyBrokerName)
+	if topic == "" || brokerName == "" {
+		log.Warnf("[TCCRocketMQ] Commit missing metadata (topic=%s, brokerName=%s), skip active END_TRANSACTION, fallback to check-back, xid=%s, branchId=%d",
+			topic, brokerName, bac.Xid, bac.BranchId)
+		return true, nil
+	}
+	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackCommit)
 	err := sendEndTransaction(
 		a.producer.config.NameServerAddrs,
 		topic,
@@ -113,8 +118,13 @@ func (a *TCCRocketMQAction) Commit(ctx context.Context, bac *tm.BusinessActionCo
 
 func (a *TCCRocketMQAction) Rollback(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
 	topic := getStringFromMap(bac.ActionContext, ActionContextKeyTopic)
-	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackRollback)
 	brokerName := getStringFromMap(bac.ActionContext, ActionContextKeyBrokerName)
+	if topic == "" || brokerName == "" {
+		log.Warnf("[TCCRocketMQ] Rollback missing metadata (topic=%s, brokerName=%s), skip active END_TRANSACTION, fallback to check-back, xid=%s, branchId=%d",
+			topic, brokerName, bac.Xid, bac.BranchId)
+		return true, nil
+	}
+	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackRollback)
 	err := sendEndTransaction(
 		a.producer.config.NameServerAddrs,
 		topic,
