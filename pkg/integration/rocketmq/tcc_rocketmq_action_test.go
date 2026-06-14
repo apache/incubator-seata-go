@@ -19,7 +19,9 @@ package rocketmq
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/stretchr/testify/assert"
@@ -88,6 +90,224 @@ func TestTCCRocketMQActionPrepare_SetsMessagePropertiesAndActionContext(t *testi
 	assert.Equal(t, "tx-1", bac.ActionContext[ActionContextKeyTransactionId])
 	assert.Equal(t, 3, bac.ActionContext[ActionContextKeyQueueId])
 	assert.Equal(t, "broker-a", bac.ActionContext[ActionContextKeyBrokerName])
+	assert.Equal(t, "topic-test", bac.ActionContext[ActionContextKeyTopic])
 	assert.Equal(t, 1, transactionProducer.sendCalls)
 	assert.Same(t, msg, transactionProducer.lastMsg)
+}
+
+func TestTCCRocketMQAction_Commit_Success(t *testing.T) {
+	resolver := &stubBrokerAddrResolver{addr: "192.168.1.100:10911"}
+	sender := &stubTCPSender{}
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				NameServerAddrs: []string{"nameserver:9876"},
+				GroupName:       "test-group",
+				SendMsgTimeout:  3 * time.Second,
+			},
+		},
+		resolver: resolver,
+		sender:   sender,
+	}
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-123",
+		BranchId: 1001,
+		ActionContext: map[string]interface{}{
+			ActionContextKeyMsgId:         "msg-1",
+			ActionContextKeyOffsetMsgId:   "offset-1",
+			ActionContextKeyQueueOffset:   int64(11),
+			ActionContextKeyTransactionId: "tx-1",
+			ActionContextKeyQueueId:       3,
+			ActionContextKeyBrokerName:    "broker-a",
+			ActionContextKeyTopic:         "topic-test",
+		},
+	}
+
+	ok, err := action.Commit(context.Background(), bac)
+
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, 1, resolver.calls)
+	assert.Equal(t, "topic-test", resolver.lastTopic)
+	assert.Equal(t, "broker-a", resolver.lastBroker)
+	assert.Equal(t, 1, sender.calls)
+	assert.Equal(t, "192.168.1.100:10911", sender.lastAddr)
+}
+
+func TestTCCRocketMQAction_Commit_ErrorOnResolverError(t *testing.T) {
+	resolver := &stubBrokerAddrResolver{err: errors.New("name server unreachable")}
+	sender := &stubTCPSender{}
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				NameServerAddrs: []string{"nameserver:9876"},
+				GroupName:       "test-group",
+				SendMsgTimeout:  3 * time.Second,
+			},
+		},
+		resolver: resolver,
+		sender:   sender,
+	}
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-123",
+		BranchId: 1001,
+		ActionContext: map[string]interface{}{
+			ActionContextKeyMsgId:         "msg-1",
+			ActionContextKeyQueueOffset:   int64(11),
+			ActionContextKeyTransactionId: "tx-1",
+			ActionContextKeyBrokerName:    "broker-a",
+			ActionContextKeyTopic:         "topic-test",
+		},
+	}
+
+	ok, err := action.Commit(context.Background(), bac)
+
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, 0, sender.calls)
+}
+
+func TestTCCRocketMQAction_Rollback_Success(t *testing.T) {
+	resolver := &stubBrokerAddrResolver{addr: "192.168.1.100:10911"}
+	sender := &stubTCPSender{}
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				NameServerAddrs: []string{"nameserver:9876"},
+				GroupName:       "test-group",
+				SendMsgTimeout:  3 * time.Second,
+			},
+		},
+		resolver: resolver,
+		sender:   sender,
+	}
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-456",
+		BranchId: 2002,
+		ActionContext: map[string]interface{}{
+			ActionContextKeyMsgId:         "msg-2",
+			ActionContextKeyOffsetMsgId:   "offset-2",
+			ActionContextKeyQueueOffset:   int64(22),
+			ActionContextKeyTransactionId: "tx-2",
+			ActionContextKeyQueueId:       1,
+			ActionContextKeyBrokerName:    "broker-b",
+			ActionContextKeyTopic:         "topic-rollback",
+		},
+	}
+
+	ok, err := action.Rollback(context.Background(), bac)
+
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, 1, resolver.calls)
+	assert.Equal(t, "topic-rollback", resolver.lastTopic)
+	assert.Equal(t, "broker-b", resolver.lastBroker)
+	assert.Equal(t, 1, sender.calls)
+	assert.Equal(t, "192.168.1.100:10911", sender.lastAddr)
+}
+
+func TestBuildEndTransactionHeader_ParseCommitLogOffset(t *testing.T) {
+	offsetMsgID := primitive.CreateMessageId([]byte{10, 93, 233, 58}, 10911, 42)
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				GroupName: "test-group",
+			},
+		},
+	}
+	bac := &tm.BusinessActionContext{
+		ActionContext: map[string]interface{}{
+			ActionContextKeyOffsetMsgId:   offsetMsgID,
+			ActionContextKeyQueueOffset:   int64(11),
+			ActionContextKeyMsgId:         "msg-1",
+			ActionContextKeyTransactionId: "tx-1",
+		},
+	}
+
+	header := action.buildEndTransactionHeader(bac, "test-topic", commitOrRollbackCommit)
+
+	assert.Equal(t, "test-topic", header.Topic)
+	assert.Equal(t, "test-group", header.ProducerGroup)
+	assert.Equal(t, int64(11), header.TranStateTableOffset)
+	assert.Equal(t, int64(42), header.CommitLogOffset)
+	assert.Equal(t, commitOrRollbackCommit, header.CommitOrRollback)
+	assert.Equal(t, "msg-1", header.MsgID)
+	assert.Equal(t, "tx-1", header.TransactionId)
+	assert.False(t, header.FromTransactionCheck)
+}
+
+func TestBuildEndTransactionHeader_InvalidOffsetMsgID(t *testing.T) {
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				GroupName: "test-group",
+			},
+		},
+	}
+	bac := &tm.BusinessActionContext{
+		ActionContext: map[string]interface{}{
+			ActionContextKeyOffsetMsgId: "invalid-id",
+			ActionContextKeyQueueOffset: int64(11),
+		},
+	}
+
+	header := action.buildEndTransactionHeader(bac, "test-topic", commitOrRollbackRollback)
+
+	assert.Equal(t, "test-topic", header.Topic)
+	assert.Equal(t, int64(0), header.CommitLogOffset)
+	assert.Equal(t, commitOrRollbackRollback, header.CommitOrRollback)
+}
+
+func TestBuildEndTransactionHeader_MissingOffsetMsgID(t *testing.T) {
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				GroupName: "test-group",
+			},
+		},
+	}
+	bac := &tm.BusinessActionContext{
+		ActionContext: map[string]interface{}{
+			ActionContextKeyQueueOffset: int64(11),
+		},
+	}
+
+	header := action.buildEndTransactionHeader(bac, "test-topic", commitOrRollbackCommit)
+
+	assert.Equal(t, "test-topic", header.Topic)
+	assert.Equal(t, int64(0), header.CommitLogOffset)
+}
+
+func TestTCCRocketMQAction_Rollback_ErrorOnSendError(t *testing.T) {
+	resolver := &stubBrokerAddrResolver{addr: "192.168.1.100:10911"}
+	sender := &stubTCPSender{err: errors.New("connection refused")}
+	action := &TCCRocketMQAction{
+		producer: &SeataMQProducer{
+			config: &SeataMQProducerConfig{
+				NameServerAddrs: []string{"nameserver:9876"},
+				GroupName:       "test-group",
+				SendMsgTimeout:  3 * time.Second,
+			},
+		},
+		resolver: resolver,
+		sender:   sender,
+	}
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-789",
+		BranchId: 3003,
+		ActionContext: map[string]interface{}{
+			ActionContextKeyMsgId:         "msg-3",
+			ActionContextKeyQueueOffset:   int64(33),
+			ActionContextKeyTransactionId: "tx-3",
+			ActionContextKeyBrokerName:    "broker-c",
+			ActionContextKeyTopic:         "topic-send-err",
+		},
+	}
+
+	ok, err := action.Rollback(context.Background(), bac)
+
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, 1, resolver.calls)
+	assert.Equal(t, 1, sender.calls)
 }

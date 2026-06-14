@@ -30,11 +30,15 @@ import (
 
 type TCCRocketMQAction struct {
 	producer *SeataMQProducer
+	resolver brokerAddrResolver
+	sender   tcpSender
 }
 
 func NewTCCRocketMQAction(producer *SeataMQProducer) *TCCRocketMQAction {
 	return &TCCRocketMQAction{
 		producer: producer,
+		resolver: &defaultBrokerAddrResolver{},
+		sender:   &defaultTCPSender{},
 	}
 }
 
@@ -78,6 +82,7 @@ func (a *TCCRocketMQAction) Prepare(ctx context.Context, params interface{}) (bo
 		bac.ActionContext[ActionContextKeyQueueId] = result.MessageQueue.QueueId
 		bac.ActionContext[ActionContextKeyBrokerName] = result.MessageQueue.BrokerName
 	}
+	bac.ActionContext[ActionContextKeyTopic] = msg.Topic
 
 	log.Infof("[TCCRocketMQ] Prepare success, xid=%s, branchId=%d, msgId=%s", xid, bac.BranchId, result.MsgID)
 
@@ -85,20 +90,82 @@ func (a *TCCRocketMQAction) Prepare(ctx context.Context, params interface{}) (bo
 }
 
 func (a *TCCRocketMQAction) Commit(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
-	// Commit is a no-op because RocketMQ transactional messages use a check-back mechanism.
-	// When the global transaction commits, RocketMQ will invoke CheckLocalTransaction
-	// via SeataTransactionListener to determine the final message disposition.
-	// The message has already been sent to the broker during Prepare phase with an
-	// initial state of UnknowState, pending the check-back resolution.
-	log.Infof("[TCCRocketMQ] Commit (no-op, rely on check-back), xid=%s, branchId=%d", bac.Xid, bac.BranchId)
+	topic := getStringFromMap(bac.ActionContext, ActionContextKeyTopic)
+	brokerName := getStringFromMap(bac.ActionContext, ActionContextKeyBrokerName)
+	if topic == "" || brokerName == "" {
+		log.Warnf("[TCCRocketMQ] Commit missing metadata (topic=%s, brokerName=%s), skip active END_TRANSACTION, fallback to check-back, xid=%s, branchId=%d",
+			topic, brokerName, bac.Xid, bac.BranchId)
+		return true, nil
+	}
+	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackCommit)
+	err := sendEndTransaction(
+		a.producer.config.NameServerAddrs,
+		topic,
+		brokerName,
+		header,
+		a.producer.config.SendMsgTimeout,
+		a.resolver,
+		a.sender,
+	)
+	if err != nil {
+		log.Warnf("[TCCRocketMQ] Commit send END_TRANSACTION failed, fallback to check-back, xid=%s, branchId=%d, err=%v",
+			bac.Xid, bac.BranchId, err)
+		return true, nil
+	}
+	log.Infof("[TCCRocketMQ] Commit send END_TRANSACTION success, xid=%s, branchId=%d", bac.Xid, bac.BranchId)
 	return true, nil
 }
 
 func (a *TCCRocketMQAction) Rollback(ctx context.Context, bac *tm.BusinessActionContext) (bool, error) {
-	// Rollback is a no-op because RocketMQ transactional messages use a check-back mechanism.
-	// When the global transaction rolls back, RocketMQ will invoke CheckLocalTransaction
-	// via SeataTransactionListener, which queries the TC for the global status and returns
-	// RollbackMessageState, causing the broker to discard the message.
-	log.Infof("[TCCRocketMQ] Rollback (no-op, rely on check-back), xid=%s, branchId=%d", bac.Xid, bac.BranchId)
+	topic := getStringFromMap(bac.ActionContext, ActionContextKeyTopic)
+	brokerName := getStringFromMap(bac.ActionContext, ActionContextKeyBrokerName)
+	if topic == "" || brokerName == "" {
+		log.Warnf("[TCCRocketMQ] Rollback missing metadata (topic=%s, brokerName=%s), skip active END_TRANSACTION, fallback to check-back, xid=%s, branchId=%d",
+			topic, brokerName, bac.Xid, bac.BranchId)
+		return true, nil
+	}
+	header := a.buildEndTransactionHeader(bac, topic, commitOrRollbackRollback)
+	err := sendEndTransaction(
+		a.producer.config.NameServerAddrs,
+		topic,
+		brokerName,
+		header,
+		a.producer.config.SendMsgTimeout,
+		a.resolver,
+		a.sender,
+	)
+	if err != nil {
+		log.Warnf("[TCCRocketMQ] Rollback send END_TRANSACTION failed, fallback to check-back, xid=%s, branchId=%d, err=%v",
+			bac.Xid, bac.BranchId, err)
+		return true, nil
+	}
+	log.Infof("[TCCRocketMQ] Rollback send END_TRANSACTION success, xid=%s, branchId=%d", bac.Xid, bac.BranchId)
 	return true, nil
+}
+
+func (a *TCCRocketMQAction) buildEndTransactionHeader(bac *tm.BusinessActionContext, topic string, commitOrRollback int) *endTransactionRequestHeader {
+	actionCtx := bac.ActionContext
+	if actionCtx == nil {
+		actionCtx = make(map[string]interface{})
+	}
+
+	offsetMsgID := getStringFromMap(actionCtx, ActionContextKeyOffsetMsgId)
+	commitLogOffset := int64(0)
+	if offsetMsgID != "" {
+		msgID, err := primitive.UnmarshalMsgID([]byte(offsetMsgID))
+		if err == nil {
+			commitLogOffset = msgID.Offset
+		}
+	}
+
+	return &endTransactionRequestHeader{
+		Topic:                topic,
+		ProducerGroup:        a.producer.config.GroupName,
+		TranStateTableOffset: getQueueOffsetFromActionContext(actionCtx),
+		CommitLogOffset:      commitLogOffset,
+		CommitOrRollback:     commitOrRollback,
+		FromTransactionCheck: false,
+		MsgID:                getStringFromMap(actionCtx, ActionContextKeyMsgId),
+		TransactionId:        getStringFromMap(actionCtx, ActionContextKeyTransactionId),
+	}
 }

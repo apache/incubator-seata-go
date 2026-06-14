@@ -73,7 +73,7 @@ func TestSeataTransactionListenerCheckLocalTransaction_StatusMapping(t *testing.
 		{name: "commit retrying", globalStatus: message.GlobalStatusCommitRetrying, expected: primitive.UnknowState},
 		{name: "rollbacking", globalStatus: message.GlobalStatusRollbacking, expected: primitive.UnknowState},
 		{name: "timeout rollback retrying", globalStatus: message.GlobalStatusTimeoutRollbackRetrying, expected: primitive.UnknowState},
-		{name: "commit failed", globalStatus: message.GlobalStatusCommitFailed, expected: primitive.RollbackMessageState},
+		{name: "commit failed", globalStatus: message.GlobalStatusCommitFailed, expected: primitive.UnknowState},
 		{name: "timeout rollback failed", globalStatus: message.GlobalStatusTimeoutRollbackFailed, expected: primitive.RollbackMessageState},
 		{name: "finished", globalStatus: message.GlobalStatusFinished, expected: primitive.UnknowState},
 	}

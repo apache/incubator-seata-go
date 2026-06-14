@@ -104,11 +104,11 @@ func mapGlobalStatusToLocalTransactionState(globalStatus message.GlobalStatus) p
 	case message.GlobalStatusCommitted, message.GlobalStatusAsyncCommitting:
 		return primitive.CommitMessageState
 	case message.GlobalStatusRollbacked, message.GlobalStatusTimeoutRollbacked, message.GlobalStatusRollbackFailed,
-		message.GlobalStatusTimeoutRollbackFailed, message.GlobalStatusCommitFailed:
+		message.GlobalStatusTimeoutRollbackFailed:
 		return primitive.RollbackMessageState
 	case message.GlobalStatusBegin, message.GlobalStatusCommitting, message.GlobalStatusCommitRetrying,
 		message.GlobalStatusRollbacking, message.GlobalStatusRollbackRetrying, message.GlobalStatusTimeoutRollbacking,
-		message.GlobalStatusTimeoutRollbackRetrying, message.GlobalStatusFinished:
+		message.GlobalStatusTimeoutRollbackRetrying, message.GlobalStatusFinished, message.GlobalStatusCommitFailed:
 		return primitive.UnknowState
 	default:
 		return primitive.UnknowState
