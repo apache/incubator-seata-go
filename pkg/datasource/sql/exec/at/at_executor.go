@@ -31,6 +31,7 @@ import (
 var (
 	parseSQLQuery              = parser.DoParser
 	isGlobalTx                 = tm.IsGlobalTx
+	hooksForSQLType            = exec.HooksForSQLType
 	newPlainExecutor           = NewPlainExecutor
 	newInsertExecutor          = NewInsertExecutor
 	newUpdateExecutor          = NewUpdateExecutor

@@ -407,6 +407,11 @@ func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
 func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 	beforeErr := fmt.Errorf("before hook error")
 
+	multiParseCtx, err := parseSQLQuery("INSERT INTO t_user(id) VALUES (1);" + "INSERT INTO t_user(id) VALUES (2)")
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	tests := []struct {
 		name        string
 		newExecutor func(hooks []exec.SQLHook) executor
@@ -438,7 +443,7 @@ func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 		{
 			name: "multi",
 			newExecutor: func(hooks []exec.SQLHook) executor {
-				return &multiExecutor{baseExecutor: baseExecutor{hooks: hooks}, execContext: &types.ExecContext{}}
+				return &multiExecutor{baseExecutor: baseExecutor{hooks: hooks}, parserCtx: multiParseCtx, execContext: &types.ExecContext{DBType: types.DBTypeMySQL}}
 			},
 		},
 		{

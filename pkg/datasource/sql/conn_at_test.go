@@ -48,6 +48,33 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func TestATConnRejectsPreparedMultiSQL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+
+	conn := &ATConn{Conn: &Conn{targetConn: targetConn}}
+
+	queries := []string{"INSERT INTO t_user(id) VALUES (?);" + "INSERT INTO t_user(id) VALUES (?)",
+		"UPDATE t_user SET name = ? WHERE id = ?;" + "DELETE FROM t_user_log WHERE user_id = ?",
+	}
+
+	for _, query := range queries {
+		stmt, err := conn.Prepare(query)
+		assert.Nil(t, stmt)
+		assert.ErrorIs(t, err, errATPreparedMultiSQLUnsupported)
+
+		stmt, err = conn.PrepareContext(context.Background(), query)
+		assert.Nil(t, stmt)
+		assert.ErrorIs(t, err, errATPreparedMultiSQLUnsupported)
+	}
+}
+
+func TestRejectATPreparedMultiSQLAllowsSingleStatement(t *testing.T) {
+	err := rejectATPreparedMultiSQL("UPDATE t_user SET name = ? WHERE id = ?")
+
+	assert.NoError(t, err)
+}
+
 type postgresMockRows struct {
 	columns []string
 	data    [][]driver.Value
