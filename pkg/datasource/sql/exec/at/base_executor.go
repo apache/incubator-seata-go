@@ -341,46 +341,54 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
 }
 
-func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
-	var needUpdateColumns []string
-	if undo.UndoConfig.OnlyCareUpdateColumns && columns != nil && len(columns) > 0 {
-		needUpdateColumns = columns
-		if !b.containsPKByName(meta, columns) {
-			pkNames := meta.GetPrimaryKeyOnlyName()
-			if pkNames != nil && len(pkNames) > 0 {
-				for _, name := range pkNames {
-					needUpdateColumns = append(needUpdateColumns, name)
-				}
-			}
+func buildImageSelectColumns(meta *types.TableMeta, requested []string, dbType types.DBType, onlyCareRequested bool) ([]string, error) {
+	if meta == nil {
+		return nil, fmt.Errorf("table meta is nil")
+	}
+
+	dbType = effectiveDBType(dbType)
+	pkNames := meta.GetPrimaryKeyOnlyName()
+	if len(pkNames) == 0 {
+		return nil, fmt.Errorf("primary key metadata is empty")
+	}
+
+	columns := meta.ColumnNames
+	if onlyCareRequested && len(requested) > 0 {
+		columns = requested
+	}
+	result := append(make([]string, 0, len(columns)+len(pkNames)), columns...)
+	seen := make(map[string]struct{}, len(result)+len(pkNames))
+	for _, column := range result {
+		name := strings.ToLower(util.DelEscape(column, dbType))
+		if name == "" {
+			return nil, fmt.Errorf("image select column name is empty")
 		}
-		// todo If it contains onUpdate columns, add onUpdate columns
-	} else {
-		needUpdateColumns = meta.ColumnNames
+		if _, ok := seen[name]; ok {
+			return nil, fmt.Errorf("image select column %q found more than once", column)
+		}
+		seen[name] = struct{}{}
 	}
 
-	for i := range needUpdateColumns {
-		needUpdateColumns[i] = util.AddEscape(needUpdateColumns[i], dbType)
-	}
-	return needUpdateColumns
-}
-
-func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	if len(pkColumnNameList) == 0 {
-		return false
-	}
-
-	matchCounter := 0
-	for _, column := range columns {
-		cleanColumn := util.DelEscape(column, types.DBTypeMySQL)
-		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, cleanColumn) {
-				matchCounter++
-			}
+	primaryKeys := make(map[string]struct{}, len(pkNames))
+	for _, pkName := range pkNames {
+		name := strings.ToLower(util.DelEscape(pkName, dbType))
+		if name == "" {
+			return nil, fmt.Errorf("primary key column name is empty")
+		}
+		if _, ok := primaryKeys[name]; ok {
+			return nil, fmt.Errorf("primary key %q exists more than once in metadata", pkName)
+		}
+		primaryKeys[name] = struct{}{}
+		if _, ok := seen[name]; !ok {
+			result = append(result, pkName)
+			seen[name] = struct{}{}
 		}
 	}
 
-	return matchCounter == len(pkColumnNameList)
+	for index := range result {
+		result[index] = util.AddEscape(result[index], dbType)
+	}
+	return result, nil
 }
 
 func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
@@ -582,6 +590,49 @@ func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string,
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
 func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 	return util.BuildLockKey(records, meta)
+}
+
+func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, afterImage *types.RecordImage) error {
+	if execCtx == nil || execCtx.TxCtx == nil {
+		return fmt.Errorf("transaction context is nil")
+	}
+	if beforeImage == nil || afterImage == nil {
+		return fmt.Errorf("before and after images must not be nil")
+	}
+	if len(beforeImage.Rows) == 0 && len(afterImage.Rows) == 0 {
+		return nil
+	}
+
+	lockImage := afterImage
+	if beforeImage.SQLType == types.SQLTypeDelete {
+		lockImage = beforeImage
+	}
+	if len(lockImage.Rows) == 0 {
+		return fmt.Errorf("lock image rows are empty")
+	}
+	if lockImage.TableMeta == nil {
+		return fmt.Errorf("lock image table meta is nil")
+	}
+	for rowIndex, row := range lockImage.Rows {
+		primaryKeys, err := util.GetOrderedPkList(lockImage, row, effectiveDBType(execCtx.DBType))
+		if err != nil {
+			return fmt.Errorf("invalid lock image row %d: %w", rowIndex, err)
+		}
+		for _, primaryKey := range primaryKeys {
+			if primaryKey.GetActualValue() == nil {
+				return fmt.Errorf("primary key %q is nil in lock image row %d", primaryKey.ColumnName, rowIndex)
+			}
+		}
+	}
+
+	lockKey := b.buildLockKey(lockImage, *lockImage.TableMeta)
+	if lockKey == "" {
+		return fmt.Errorf("lock key is empty")
+	}
+	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	execCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	execCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	return nil
 }
 
 func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {

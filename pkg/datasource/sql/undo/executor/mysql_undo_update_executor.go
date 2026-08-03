@@ -51,7 +51,10 @@ func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 		return nil
 	}
 
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err

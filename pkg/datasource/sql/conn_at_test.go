@@ -1159,6 +1159,11 @@ func newATCommitFailureContext(dbType types.DBType) *types.TransactionContext {
 		SQLType:   types.SQLTypeUpdate,
 		Rows:      []types.RowImage{{}},
 	})
+	txCtx.RoundImages.AppendAfterImage(&types.RecordImage{
+		TableName: "test_table",
+		SQLType:   types.SQLTypeUpdate,
+		Rows:      []types.RowImage{{}},
+	})
 	return txCtx
 }
 

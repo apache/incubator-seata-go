@@ -71,8 +71,9 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	d.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	d.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	if err := d.prepareUndoPair(d.execContext, beforeImage, afterImage); err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
@@ -148,9 +149,6 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	image.SQLType = types.SQLTypeDelete
 	image.TableMeta = metaData
-
-	lockKey := d.buildLockKey(image, *metaData)
-	d.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return image, nil
 }

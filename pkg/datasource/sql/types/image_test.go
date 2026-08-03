@@ -63,6 +63,26 @@ func TestColumnImage_UnmarshalJSON(t *testing.T) {
 			expectValue: int8(20),
 		},
 		{
+			name:        "test-big-int-at-float64-precision-limit",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1 << 53)},
+			expectValue: int64(1 << 53),
+		},
+		{
+			name:        "test-big-int-above-float64-precision",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1<<53 + 1)},
+			expectValue: int64(1<<53 + 1),
+		},
+		{
+			name:        "test-max-big-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1<<63 - 1)},
+			expectValue: int64(1<<63 - 1),
+		},
+		{
+			name:        "test-unsigned-big-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: uint64(1<<64 - 1)},
+			expectValue: uint64(1<<64 - 1),
+		},
+		{
 			name: "test-double",
 			image: &ColumnImage{
 				KeyType:    IndexTypeNull,

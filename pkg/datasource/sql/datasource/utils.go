@@ -19,6 +19,7 @@ package datasource
 
 import (
 	"database/sql"
+	"math/big"
 	"reflect"
 )
 
@@ -115,24 +116,29 @@ func DeepEqual(x, y interface{}) bool {
 	case reflect.Ptr:
 		typy = typy.Elem()
 	}
+	if (typx.Kind() == reflect.Float32 || typx.Kind() == reflect.Float64) &&
+		(typy.Kind() == reflect.Float32 || typy.Kind() == reflect.Float64) {
+		return typx.Float() == typy.Float()
+	}
 
-	flx, okx := parseFloatIfOk(typx)
-	fly, oky := parseFloatIfOk(typy)
+	flx, okx := parseNumberIfOk(typx)
+	fly, oky := parseNumberIfOk(typy)
 	if okx && oky {
-		return flx == fly
+		return flx.Cmp(fly) == 0
 	}
 
 	return reflect.DeepEqual(typx.Interface(), typy.Interface())
 }
 
-func parseFloatIfOk(val reflect.Value) (float64, bool) {
+func parseNumberIfOk(val reflect.Value) (*big.Rat, bool) {
 	switch val.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return float64(val.Int()), true
+		return new(big.Rat).SetInt64(val.Int()), true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return float64(val.Uint()), true
+		return new(big.Rat).SetUint64(val.Uint()), true
 	case reflect.Float32, reflect.Float64:
-		return float64(val.Float()), true
+		value := new(big.Rat).SetFloat64(val.Float())
+		return value, value != nil
 	}
-	return 0, false
+	return nil, false
 }

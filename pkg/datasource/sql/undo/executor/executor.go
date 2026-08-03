@@ -37,7 +37,7 @@ import (
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
 
 const (
-	checkSQLTemplate = "SELECT * FROM %s WHERE %s FOR UPDATE"
+	checkSQLTemplate = "SELECT %s FROM %s WHERE %s FOR UPDATE"
 	maxInSize        = 1000
 )
 
@@ -123,8 +123,15 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		return nil, nil
 	}
 
+	selectColumns := make([]string, 0, len(b.undoImage.Rows[0].Columns))
+	for _, column := range b.undoImage.Rows[0].Columns {
+		selectColumns = append(selectColumns, util.AddEscape(column.ColumnName, dbType))
+	}
+	if len(selectColumns) == 0 {
+		return nil, fmt.Errorf("undo image columns are empty")
+	}
 	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), dbType, maxInSize)
-	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where), dbType)
+	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), b.undoImage.TableName, where), dbType)
 	params := buildPKParams(b.undoImage.Rows, pkNameList, dbType)
 
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)

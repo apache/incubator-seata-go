@@ -365,7 +365,7 @@ func TestQueryCurrentRecordsSuccess(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(1, "test_updated")
 
-	mock.ExpectQuery("SELECT \\* FROM .*t_user.* WHERE").
+	mock.ExpectQuery("SELECT .*id.*, .*name.* FROM .*t_user.* WHERE").
 		WithArgs(1).
 		WillReturnRows(rows)
 
@@ -420,7 +420,7 @@ func TestQueryCurrentRecordsQueryError(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery("SELECT \\* FROM .*t_user.* WHERE").
+	mock.ExpectQuery("SELECT .*id.* FROM .*t_user.* WHERE").
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("database connection error"))
 
@@ -443,7 +443,8 @@ func TestQueryCurrentRecordsCompositePrimaryKey(t *testing.T) {
 	defer conn.Close()
 
 	tableMeta := types.TableMeta{
-		TableName: "t_order",
+		TableName:   "t_order",
+		ColumnNames: []string{"order_id", "user_id", "amount"},
 		Columns: map[string]types.ColumnMeta{
 			"order_id": {ColumnName: "order_id"},
 			"user_id":  {ColumnName: "user_id"},
@@ -466,18 +467,19 @@ func TestQueryCurrentRecordsCompositePrimaryKey(t *testing.T) {
 			TableMeta: &tableMeta,
 			Rows: []types.RowImage{
 				{Columns: []types.ColumnImage{
-					{ColumnName: "order_id", Value: 100},
 					{ColumnName: "user_id", Value: 1},
 					{ColumnName: "amount", Value: 99.99},
+					{ColumnName: "order_id", Value: 100},
 				}},
 			},
 		},
 	}
 
-	rows := sqlmock.NewRows([]string{"order_id", "user_id", "amount"}).
-		AddRow(100, 1, 199.99)
+	rows := sqlmock.NewRows([]string{"user_id", "amount", "order_id"}).
+		AddRow(1, 199.99, 100)
 
-	mock.ExpectQuery("SELECT \\* FROM .*t_order.* WHERE").
+	mock.ExpectQuery("SELECT .*user_id.*, .*amount.*, .*order_id.* FROM .*t_order.* WHERE").
+		WithArgs(100, 1).
 		WillReturnRows(rows)
 
 	result, err := executor.queryCurrentRecords(context.Background(), conn)

@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
@@ -89,6 +90,35 @@ func TestConvertInterfaceToAnyAndBack(t *testing.T) {
 	assert.NoError(t, err, "convertAnyToInterface should not return an error")
 
 	assert.Equal(t, originalValue, convertedValue, "The converted value should match the original")
+}
+
+func TestProtobufBigIntRoundTrip(t *testing.T) {
+	values := []interface{}{
+		int64(1 << 53),
+		int64(1<<53 + 1),
+		int64(1<<63 - 1),
+		uint64(1<<64 - 1),
+		nil,
+	}
+	columns := make([]types.ColumnImage, len(values))
+	for index, value := range values {
+		columns[index] = types.ColumnImage{ColumnType: types.JDBCTypeBigInt, Value: value}
+	}
+	undoLog := &undo.BranchUndoLog{
+		Logs: []undo.SQLUndoLog{{
+			BeforeImage: &types.RecordImage{Rows: []types.RowImage{{Columns: columns}}},
+		}},
+	}
+
+	data, err := (&ProtobufParser{}).Encode(undoLog)
+	assert.NoError(t, err)
+	decoded, err := (&ProtobufParser{}).Decode(data)
+	assert.NoError(t, err)
+
+	actualColumns := decoded.Logs[0].BeforeImage.Rows[0].Columns
+	for index, expected := range values {
+		assert.Equal(t, expected, actualColumns[index].Value)
+	}
 }
 
 func TestProtobufParser_Interface(t *testing.T) {

@@ -18,8 +18,10 @@
 package parser
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -173,7 +175,7 @@ func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
 				}
 
 				for _, pbCol := range pbRow.Columns {
-					anyValue, err := convertAnyToInterface(pbCol.Value)
+					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
 						continue
 					}
@@ -205,7 +207,7 @@ func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
 				}
 
 				for _, pbCol := range pbRow.Columns {
-					anyValue, err := convertAnyToInterface(pbCol.Value)
+					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
 						continue
 					}
@@ -240,6 +242,55 @@ func convertAnyToInterface(anyValue *any.Any) (interface{}, error) {
 	uErr := json.Unmarshal(bytesValue.Value, &value)
 	if uErr != nil {
 		return value, uErr
+	}
+	return value, nil
+}
+
+func convertAnyToColumnValue(anyValue *any.Any, columnType types.JDBCType) (interface{}, error) {
+	bytesValue := &wrappers.BytesValue{}
+	if err := anypb.UnmarshalTo(anyValue, bytesValue, proto.UnmarshalOptions{}); err != nil {
+		return nil, err
+	}
+	if bytes.Equal(bytesValue.Value, []byte("null")) {
+		return nil, nil
+	}
+
+	switch columnType {
+	case types.JDBCTypeReal, types.JDBCTypeDecimal, types.JDBCTypeDouble,
+		types.JDBCTypeTinyInt, types.JDBCTypeSmallInt, types.JDBCTypeInteger, types.JDBCTypeBigInt:
+		decoder := json.NewDecoder(bytes.NewReader(bytesValue.Value))
+		decoder.UseNumber()
+		var value json.Number
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		switch columnType {
+		case types.JDBCTypeReal:
+			parsed, err := strconv.ParseFloat(value.String(), 32)
+			return float32(parsed), err
+		case types.JDBCTypeDecimal, types.JDBCTypeDouble:
+			return strconv.ParseFloat(value.String(), 64)
+		case types.JDBCTypeTinyInt:
+			parsed, err := strconv.ParseInt(value.String(), 10, 8)
+			return int8(parsed), err
+		case types.JDBCTypeSmallInt:
+			parsed, err := strconv.ParseInt(value.String(), 10, 16)
+			return int16(parsed), err
+		case types.JDBCTypeInteger:
+			parsed, err := strconv.ParseInt(value.String(), 10, 32)
+			return int32(parsed), err
+		case types.JDBCTypeBigInt:
+			parsed, err := strconv.ParseInt(value.String(), 10, 64)
+			if err == nil {
+				return parsed, nil
+			}
+			return strconv.ParseUint(value.String(), 10, 64)
+		}
+	}
+
+	var value interface{}
+	if err := json.Unmarshal(bytesValue.Value, &value); err != nil {
+		return nil, err
 	}
 	return value, nil
 }

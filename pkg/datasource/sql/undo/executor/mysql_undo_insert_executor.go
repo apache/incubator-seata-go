@@ -43,13 +43,19 @@ func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExec
 // ExecuteOn execute insert undo logic
 func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 	m.BaseExecutor.dbType = dbType
-
-	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
+	ok, err := m.BaseExecutor.dataValidationAndGoOn(ctx, conn)
+	if err != nil {
 		return err
+	}
+	if !ok {
+		return nil
 	}
 
 	// build delete sql
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
@@ -58,12 +64,13 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	defer stmt.Close()
 	afterImage := m.sqlUndoLog.AfterImage
 	for _, row := range afterImage.Rows {
-		pkValueList := make([]interface{}, 0)
-
-		for _, col := range row.Columns {
-			if col.KeyType == types.PrimaryKey.Number() {
-				pkValueList = append(pkValueList, col.Value)
-			}
+		pkList, err := util.GetOrderedPkList(afterImage, row, dbType)
+		if err != nil {
+			return err
+		}
+		pkValueList := make([]interface{}, 0, len(pkList))
+		for _, col := range pkList {
+			pkValueList = append(pkValueList, col.Value)
 		}
 
 		if _, err = stmt.Exec(pkValueList...); err != nil {
