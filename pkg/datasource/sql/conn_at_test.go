@@ -52,7 +52,7 @@ func TestATConnRejectsPreparedMultiSQL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	targetConn := mock.NewMockTestDriverConn(ctrl)
 
-	conn := &ATConn{Conn: &Conn{targetConn: targetConn}}
+	conn := &ATConn{Conn: &Conn{targetConn: targetConn, dbType: types.DBTypeMySQL}}
 
 	queries := []string{"INSERT INTO t_user(id) VALUES (?);" + "INSERT INTO t_user(id) VALUES (?)",
 		"UPDATE t_user SET name = ? WHERE id = ?;" + "DELETE FROM t_user_log WHERE user_id = ?",
@@ -70,8 +70,27 @@ func TestATConnRejectsPreparedMultiSQL(t *testing.T) {
 }
 
 func TestRejectATPreparedMultiSQLAllowsSingleStatement(t *testing.T) {
-	err := rejectATPreparedMultiSQL("UPDATE t_user SET name = ? WHERE id = ?")
+	err := rejectATPreparedMultiSQL(types.DBTypeMySQL, "UPDATE t_user SET name = ? WHERE id = ?")
 
+	assert.NoError(t, err)
+}
+
+func TestATConnAllowsPreparedMultiSQLForPostgreSQL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+	targetStmt := mock.NewMockTestDriverStmt(ctrl)
+	query := "UPDATE t_user SET name = $1 WHERE id = $2;DELETE FROM t_user_log WHERE user_id = $3"
+	conn := &ATConn{Conn: &Conn{targetConn: targetConn, dbType: types.DBTypePostgreSQL}}
+
+	targetConn.EXPECT().Prepare(query).Return(targetStmt, nil)
+	targetConn.EXPECT().PrepareContext(gomock.Any(), query).Return(targetStmt, nil)
+
+	stmt, err := conn.Prepare(query)
+	assert.NotNil(t, stmt)
+	assert.NoError(t, err)
+
+	stmt, err = conn.PrepareContext(context.Background(), query)
+	assert.NotNil(t, stmt)
 	assert.NoError(t, err)
 }
 

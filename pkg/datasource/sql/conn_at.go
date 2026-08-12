@@ -55,7 +55,11 @@ type ATConn struct {
 
 var errATPreparedMultiSQLUnsupported = errors.New("seata AT: prepared multi-SQL is unsupported; use Exec or ExecContext")
 
-func rejectATPreparedMultiSQL(query string) error {
+func rejectATPreparedMultiSQL(dbType types.DBType, query string) error {
+	if dbType != types.DBTypeMySQL {
+		return nil
+	}
+
 	parseCtx, err := sqlparser.DoParser(query)
 	if err != nil || parseCtx == nil {
 		return nil
@@ -69,7 +73,7 @@ func rejectATPreparedMultiSQL(query string) error {
 }
 
 func (c *ATConn) Prepare(query string) (driver.Stmt, error) {
-	if err := rejectATPreparedMultiSQL(query); err != nil {
+	if err := rejectATPreparedMultiSQL(c.dbType, query); err != nil {
 		return nil, err
 	}
 
@@ -77,7 +81,7 @@ func (c *ATConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if err := rejectATPreparedMultiSQL(query); err != nil {
+	if err := rejectATPreparedMultiSQL(c.dbType, query); err != nil {
 		return nil, err
 	}
 

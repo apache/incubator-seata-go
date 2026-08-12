@@ -586,6 +586,7 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 
 func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
 	var queryer driver.Queryer
+	var rows driver.Rows
 
 	queryerContext, ok := conn.(driver.QueryerContext)
 	if !ok {

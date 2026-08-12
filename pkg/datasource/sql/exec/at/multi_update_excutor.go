@@ -45,7 +45,6 @@ type multiUpdateExecutor struct {
 	execContext *types.ExecContext
 }
 
-var rows driver.Rows
 var comma = ","
 
 // NewMultiUpdateExecutor get new multi update executor
@@ -173,7 +172,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 	// use
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData)
 
-	rows, err = u.rowsPrepare(ctx, selectSQL, selectArgs)
+	rows, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
 	if err != nil {
 		return nil, err
 	}
