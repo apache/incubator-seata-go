@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -186,24 +185,29 @@ func (c *MysqlXAConn) Recover(ctx context.Context, flag int) (xids []string, err
 	if err != nil {
 		return nil, err
 	}
+	defer res.Close()
 
 	dest := make([]driver.Value, 4)
-	for true {
+	for {
 		if err = res.Next(dest); err != nil {
 			if err == io.EOF {
 				return xids, nil
 			}
 			return nil, err
 		}
-		gtridAndbqual, ok := dest[3].(string)
-		if !ok {
+
+		// The driver reads a text-protocol result set with
+		// readLengthEncodedString, so every column arrives as []byte; only a
+		// mock hands back a string.
+		switch v := dest[3].(type) {
+		case string:
+			xids = append(xids, v)
+		case []byte:
+			xids = append(xids, string(v))
+		default:
 			return nil, errors.New("the protocol of XA RECOVER statement is error")
 		}
-		fmt.Printf("gtr: %v", gtridAndbqual)
-
-		xids = append(xids, string(gtridAndbqual))
 	}
-	return xids, err
 }
 
 func (c *MysqlXAConn) Rollback(ctx context.Context, xid string) error {
