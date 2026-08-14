@@ -20,11 +20,14 @@ package at
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
+
+var aggregateHookFallbackWarnOnce sync.Once
 
 type multiExecutor struct {
 	baseExecutor
@@ -44,10 +47,23 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	if plan.useAggregatePath && !hasStatementSpecificHooks(plan) {
-		return m.execAggregate(ctx, f, m.parserCtx)
+	if plan.useAggregatePath {
+		if hasStatementSpecificHooks(plan) {
+			warnAggregateHookFallbackOnce()
+		} else {
+			return m.execAggregate(ctx, f, m.parserCtx)
+		}
 	}
 	return m.execSequential(ctx, f, plan)
+}
+
+func warnAggregateHookFallbackOnce() {
+	aggregateHookFallbackWarnOnce.Do(func() {
+		log.Warn(
+			"AT multi-SQL aggregate path skipped because statement-specific hooks are registered globally; " +
+				"using sequential execution to preserve the per-statement hook lifecycle",
+		)
+	})
 }
 
 func hasStatementSpecificHooks(plan *multiExecutionPlan) bool {
@@ -71,7 +87,8 @@ func hasStatementSpecificHooks(plan *multiExecutionPlan) bool {
 //
 // It generates aggregate before images, executes the original multi-SQL once,
 // generates aggregate after images, validates them, and only then appends the
-// images to the transaction context.
+// images to the transaction context. The callback result is returned unchanged;
+// this executor does not aggregate RowsAffected or LastInsertId across statements.
 func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNamedValue, parseCtx *types.ParseContext) (types.ExecResult, error) {
 	if err := m.beforeHooks(ctx, m.execContext); err != nil {
 		return nil, err

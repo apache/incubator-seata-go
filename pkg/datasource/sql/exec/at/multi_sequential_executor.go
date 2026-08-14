@@ -35,13 +35,15 @@ import (
 //
 // The first loop prepares all statement-local SQL and validates the total argument count.
 // The second loop performs the actual business execution.
+// It intentionally returns the final successful statement's ExecResult to
+// match the aggregate path. RowsAffected and LastInsertId are not accumulated.
 func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithNamedValue, plan *multiExecutionPlan) (types.ExecResult, error) {
 	if plan == nil {
-		return nil, fmt.Errorf("%w: execution plan is nil", ErrInvalidMultiSQL)
+		return nil, fmt.Errorf("%w: execution plan is nil", errInvalidMultiSQL)
 	}
 
 	if len(plan.statements) == 0 {
-		return nil, fmt.Errorf("%w: execution plan contains no statements", ErrInvalidMultiSQL)
+		return nil, fmt.Errorf("%w: execution plan contains no statements", errInvalidMultiSQL)
 	}
 
 	queries := make([]string, len(plan.statements))
@@ -60,6 +62,10 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 			return nil, fmt.Errorf("restore statement %d SQL: %w", index, err)
 		}
 
+		// Multi-statement parsing assigns parameter-marker orders globally across
+		// all child statements. Reparse each restored child as standalone SQL to
+		// rebase marker orders to the child-local argument slice expected by the
+		// existing single-statement executors.
 		childParseCtx, err := parser.DoParser(query)
 		if err != nil {
 			return nil, fmt.Errorf("parse restored statement %d: %w", index, err)
@@ -68,7 +74,7 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		if childParseCtx.ExecutorType != statementCtx.ExecutorType {
 			return nil, fmt.Errorf(
 				"%w: statement %d changed executor type from %v to %v after restoration",
-				ErrInvalidMultiSQL, index, statementCtx.ExecutorType, childParseCtx.ExecutorType,
+				errInvalidMultiSQL, index, statementCtx.ExecutorType, childParseCtx.ExecutorType,
 			)
 		}
 
@@ -91,7 +97,7 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 	if totalArgCount != len(m.execContext.NamedValues) {
 		return nil, fmt.Errorf(
 			"%w: statements require %d arguments, but %d were provided",
-			ErrInvalidMultiSQL, totalArgCount, len(m.execContext.NamedValues),
+			errInvalidMultiSQL, totalArgCount, len(m.execContext.NamedValues),
 		)
 	}
 
@@ -131,7 +137,7 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		}
 
 		if result == nil {
-			return nil, fmt.Errorf("%w: statement %d returned nil result", ErrInvalidMultiSQL, index)
+			return nil, fmt.Errorf("%w: statement %d returned nil result", errInvalidMultiSQL, index)
 		}
 
 		lastResult = result
@@ -158,7 +164,7 @@ func newSequentialStatementExecutor(index int, parseCtx *types.ParseContext, exe
 
 	default:
 		return nil, fmt.Errorf("%w: statement %d uses executor type %v",
-			ErrUnsupportedMultiSQL, index, parseCtx.ExecutorType,
+			errUnsupportedMultiSQL, index, parseCtx.ExecutorType,
 		)
 	}
 }
@@ -166,7 +172,7 @@ func newSequentialStatementExecutor(index int, parseCtx *types.ParseContext, exe
 // getStatementNode gets the concrete AST node from ParseContext.
 func getStatementNode(parseCtx *types.ParseContext) (ast.StmtNode, error) {
 	if parseCtx == nil {
-		return nil, fmt.Errorf("%w: statement parse context is nil", ErrInvalidMultiSQL)
+		return nil, fmt.Errorf("%w: statement parse context is nil", errInvalidMultiSQL)
 	}
 
 	switch parseCtx.ExecutorType {
@@ -180,7 +186,7 @@ func getStatementNode(parseCtx *types.ParseContext) (ast.StmtNode, error) {
 		return parseCtx.DeleteStmt, nil
 
 	default:
-		return nil, fmt.Errorf("%w: executor type %v", ErrUnsupportedMultiSQL, parseCtx.ExecutorType)
+		return nil, fmt.Errorf("%w: executor type %v", errUnsupportedMultiSQL, parseCtx.ExecutorType)
 	}
 }
 
@@ -190,7 +196,7 @@ func getStatementNode(parseCtx *types.ParseContext) (ast.StmtNode, error) {
 // restore SQL from the AST.
 func restoreStatementSQL(stmt ast.StmtNode) (string, error) {
 	if stmt == nil {
-		return "", fmt.Errorf("%w: statement AST is nil", ErrInvalidMultiSQL)
+		return "", fmt.Errorf("%w: statement AST is nil", errInvalidMultiSQL)
 	}
 
 	query := trimStatementSemicolon(stmt.OriginalText())
@@ -207,7 +213,7 @@ func restoreStatementSQL(stmt ast.StmtNode) (string, error) {
 
 	query = trimStatementSemicolon(buffer.String())
 	if query == "" {
-		return "", fmt.Errorf("%w: restored statement SQL is empty", ErrInvalidMultiSQL)
+		return "", fmt.Errorf("%w: restored statement SQL is empty", errInvalidMultiSQL)
 	}
 	return query, nil
 }
@@ -240,7 +246,7 @@ func countStatementParameters(stmt ast.StmtNode) (int, error) {
 	counter := new(parameterCounter)
 
 	if _, ok := stmt.Accept(counter); !ok {
-		return 0, fmt.Errorf("%w: parameter traversal stopped unexpectedly", ErrInvalidMultiSQL)
+		return 0, fmt.Errorf("%w: parameter traversal stopped unexpectedly", errInvalidMultiSQL)
 	}
 
 	return counter.count, nil

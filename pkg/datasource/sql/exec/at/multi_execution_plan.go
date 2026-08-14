@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	ErrInvalidMultiSQL     = errors.New("invalid multi SQL")
-	ErrUnsupportedMultiSQL = errors.New("unsupported multi SQL")
+	errInvalidMultiSQL     = errors.New("invalid multi SQL")
+	errUnsupportedMultiSQL = errors.New("unsupported multi SQL")
 )
 
 // multiExecutionPlan contains the validated statements in their original order
@@ -40,20 +40,20 @@ type multiExecutionPlan struct {
 // or business SQL execution occurs.
 func buildMultiExecutionPlan(parseCtx *types.ParseContext, dbType types.DBType) (*multiExecutionPlan, error) {
 	if parseCtx == nil {
-		return nil, fmt.Errorf("%w: parse context", ErrInvalidMultiSQL)
+		return nil, fmt.Errorf("%w: parse context", errInvalidMultiSQL)
 	}
 
 	if len(parseCtx.MultiStmt) < 2 {
 		return nil, fmt.Errorf(
 			"%w: expected at least two statements, got %d",
-			ErrInvalidMultiSQL, len(parseCtx.MultiStmt))
+			errInvalidMultiSQL, len(parseCtx.MultiStmt))
 	}
 
 	// Multi-SQL AT execution is currently enabled only for MySQL.
 	if effectiveDBType(dbType) != types.DBTypeMySQL {
 		return nil, fmt.Errorf(
 			"%w: database type %v is not supported",
-			ErrUnsupportedMultiSQL, dbType,
+			errUnsupportedMultiSQL, dbType,
 		)
 	}
 
@@ -79,45 +79,45 @@ func buildMultiExecutionPlan(parseCtx *types.ParseContext, dbType types.DBType) 
 // The table name is returned temporarily for aggregate-path detection.
 func validateMultiStatement(index int, parseCtx *types.ParseContext) (string, error) {
 	if parseCtx == nil {
-		return "", fmt.Errorf("%w: statement %d parse context is nil", ErrInvalidMultiSQL, index)
+		return "", fmt.Errorf("%w: statement %d parse context is nil", errInvalidMultiSQL, index)
 	}
 
 	switch parseCtx.ExecutorType {
 	case types.InsertExecutor:
 		if parseCtx.InsertStmt == nil {
-			return "", fmt.Errorf("%w: statement %d is marked as INSERT but has no INSERT AST", ErrInvalidMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d is marked as INSERT but has no INSERT AST", errInvalidMultiSQL, index)
 		}
 
 	case types.UpdateExecutor:
 		if parseCtx.UpdateStmt == nil {
-			return "", fmt.Errorf("%w: statement %d is marked as UPDATE but has no UPDATE AST", ErrInvalidMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d is marked as UPDATE but has no UPDATE AST", errInvalidMultiSQL, index)
 		}
 
 		updateStmt := parseCtx.UpdateStmt
 		if updateStmt.TableRefs == nil || updateStmt.TableRefs.TableRefs == nil {
-			return "", fmt.Errorf("%w: statement %d has invalid UPDATE table references", ErrInvalidMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d has invalid UPDATE table references", errInvalidMultiSQL, index)
 		}
 
 		if updateStmt.TableRefs.TableRefs.Right != nil {
-			return "", fmt.Errorf("%w: statement %d uses UPDATE JOIN", ErrUnsupportedMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d uses UPDATE JOIN", errUnsupportedMultiSQL, index)
 		}
 
 	case types.DeleteExecutor:
 		if parseCtx.DeleteStmt == nil {
-			return "", fmt.Errorf("%w: statement %d is marked as DELETE but has no DELETE AST", ErrInvalidMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d is marked as DELETE but has no DELETE AST", errInvalidMultiSQL, index)
 		}
 
 		if parseCtx.DeleteStmt.IsMultiTable {
-			return "", fmt.Errorf("%w: statement %d uses multi-table DELETE", ErrUnsupportedMultiSQL, index)
+			return "", fmt.Errorf("%w: statement %d uses multi-table DELETE", errUnsupportedMultiSQL, index)
 		}
 
 	default:
-		return "", fmt.Errorf("%w: statement %d uses executor type %v", ErrUnsupportedMultiSQL, index, parseCtx.ExecutorType)
+		return "", fmt.Errorf("%w: statement %d uses executor type %v", errUnsupportedMultiSQL, index, parseCtx.ExecutorType)
 	}
 
 	tableName, err := parseCtx.GetTableName()
 	if err != nil {
-		return "", fmt.Errorf("%w: get table name for statement %d: %v", ErrInvalidMultiSQL, index, err)
+		return "", fmt.Errorf("%w: get table name for statement %d: %w", errInvalidMultiSQL, index, err)
 	}
 
 	return tableName, nil

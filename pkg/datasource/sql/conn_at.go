@@ -53,15 +53,22 @@ type ATConn struct {
 	*Conn
 }
 
-var errATPreparedMultiSQLUnsupported = errors.New("seata AT: prepared multi-SQL is unsupported; use Exec or ExecContext")
+var (
+	errATPreparedMultiSQLUnsupported = errors.New("seata AT: prepared multi-SQL is unsupported; use Exec or ExecContext")
+	parseATPreparedSQL               = sqlparser.DoParser
+)
 
 func rejectATPreparedMultiSQL(dbType types.DBType, query string) error {
-	if dbType != types.DBTypeMySQL {
+	if dbType != types.DBTypeMySQL || !strings.Contains(query, ";") {
 		return nil
 	}
 
-	parseCtx, err := sqlparser.DoParser(query)
+	parseCtx, err := parseATPreparedSQL(query)
 	if err != nil || parseCtx == nil {
+		// This is a best-effort Prepare guard, not the AT execution-time
+		// validation boundary. Preserve Prepare compatibility for SQL that
+		// the parser cannot handle; BuildExecutor parses it again before
+		// AT execution.
 		return nil
 	}
 

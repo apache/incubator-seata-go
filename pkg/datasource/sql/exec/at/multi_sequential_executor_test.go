@@ -394,6 +394,41 @@ func TestExecSequentialPreservesOrderAndArguments(t *testing.T) {
 	}
 }
 
+func TestExecSequentialReturnsFinalStatementResult(t *testing.T) {
+	sourceQuery := "INSERT INTO t_user(id, name) VALUES (?, ?);" +
+		"INSERT INTO t_user(id, name) VALUES (?, ?)"
+	namedValues := sequentialNamedValuesForTest(int64(1), "user1", int64(2), "user2")
+	results := []*mockExecResult{
+		{lastInsertID: 101, rowsAffected: 2},
+		{lastInsertID: 202, rowsAffected: 5},
+	}
+
+	installSequentialFactoriesForTest(t)
+	multiExec := newMultiExecutorForSequentialTest(t, sourceQuery, namedValues, nil)
+	executionCount := 0
+
+	result, err := multiExec.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		result := results[executionCount]
+		executionCount++
+		return result, nil
+	})
+
+	if !assert.NoError(t, err) || !assert.Same(t, results[1], result) {
+		return
+	}
+	assert.Equal(t, len(results), executionCount)
+
+	rowsAffected, err := result.GetResult().RowsAffected()
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(5), rowsAffected)
+	}
+
+	lastInsertID, err := result.GetResult().LastInsertId()
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(202), lastInsertID)
+	}
+}
+
 func TestExecSequentialStopsOnMiddleFailure(t *testing.T) {
 	sourceQuery := "INSERT INTO t_user(id, name) VALUES (?,?);" +
 		"INSERT INTO t_user(id, name) VALUES (?,?);" +
@@ -480,7 +515,7 @@ func TestExecSequentialRejectsArgumentCountMismatchBeforeSideEffects(t *testing.
 			})
 
 			assert.Nil(t, result)
-			if !assert.ErrorIs(t, err, ErrInvalidMultiSQL) {
+			if !assert.ErrorIs(t, err, errInvalidMultiSQL) {
 				return
 			}
 			assert.Contains(t, err.Error(), "statements require 4 arguments")

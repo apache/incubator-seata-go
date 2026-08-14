@@ -168,13 +168,13 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 			name:        "nil parse context",
 			parseCtx:    nil,
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrInvalidMultiSQL,
+			expectError: errInvalidMultiSQL,
 		},
 		{
 			name:        "single statement",
 			parseCtx:    mustParseMultiExecutionPlanTestSQL(t, "UPDATE t_user SET name = ? WHERE id = ?"),
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrInvalidMultiSQL,
+			expectError: errInvalidMultiSQL,
 		},
 		{
 			name: "unsupported database type",
@@ -184,7 +184,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 					"UPDATE t_user SET age = ? WHERE id = ?",
 			),
 			dbType:      types.DBTypePostgreSQL,
-			expectError: ErrUnsupportedMultiSQL,
+			expectError: errUnsupportedMultiSQL,
 		},
 		{
 			name: "unsupported select statement",
@@ -194,7 +194,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 					"UPDATE t_user SET name = ? WHERE id = ?",
 			),
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrUnsupportedMultiSQL,
+			expectError: errUnsupportedMultiSQL,
 		},
 		{
 			name: "nil child parse context",
@@ -207,7 +207,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 				},
 			},
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrInvalidMultiSQL,
+			expectError: errInvalidMultiSQL,
 		},
 		{
 			name: "update executor without update AST",
@@ -223,7 +223,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 				},
 			},
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrInvalidMultiSQL,
+			expectError: errInvalidMultiSQL,
 		},
 		{
 			name: "update join is unsupported",
@@ -237,7 +237,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 					"SET u.status = 2 WHERE a.status = 1",
 			),
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrUnsupportedMultiSQL,
+			expectError: errUnsupportedMultiSQL,
 		},
 		{
 			name: "delete join is unsupported",
@@ -251,7 +251,7 @@ func TestBuildMultiExecutionPlanError(t *testing.T) {
 					"WHERE a.status = ?",
 			),
 			dbType:      types.DBTypeMySQL,
-			expectError: ErrUnsupportedMultiSQL,
+			expectError: errUnsupportedMultiSQL,
 		},
 	}
 
