@@ -117,7 +117,7 @@ type DBResource struct {
 	// for xa
 	metaCache    datasource.TableMetaCache
 	shouldBeHeld bool
-	keeper       sync.Map
+	keeper       sync.Map // xaBranchID -> *XAConn
 }
 
 func (db *DBResource) GetResourceGroupId() string {

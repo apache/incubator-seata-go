@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -62,20 +61,23 @@ func initMockColumnMeta() []types.ColumnMeta {
 	}
 }
 
-func initGetIndexesStub(m *mysqlTrigger, indexMeta []types.IndexMeta) *gomonkey.Patches {
-	getIndexesStub := gomonkey.ApplyPrivateMethod(m, "getIndexes",
-		func(_ *mysqlTrigger, ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
-			return indexMeta, nil
-		})
-	return getIndexesStub
+// initGetIndexesStub injects a getIndexes implementation via the mysqlTrigger's
+// built-in getIndexesFn seam. This replaces gomonkey.ApplyPrivateMethod, which
+// rewrites the method's machine code and silently no-ops once the compiler inlines
+// getIndexes (default builds without -race/-gcflags=all=-l), making the LoadOne/
+// LoadAll tests order-dependent.
+func initGetIndexesStub(m *mysqlTrigger, indexMeta []types.IndexMeta) {
+	m.getIndexesFn = func(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
+		return indexMeta, nil
+	}
 }
 
-func initGetColumnMetasStub(m *mysqlTrigger, columnMeta []types.ColumnMeta) *gomonkey.Patches {
-	getColumnMetasStub := gomonkey.ApplyPrivateMethod(m, "getColumnMetas",
-		func(_ *mysqlTrigger, ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
-			return columnMeta, nil
-		})
-	return getColumnMetasStub
+// initGetColumnMetasStub injects a getColumnMetas implementation via the
+// mysqlTrigger's built-in getColumnMetasFn seam (see initGetIndexesStub).
+func initGetColumnMetasStub(m *mysqlTrigger, columnMeta []types.ColumnMeta) {
+	m.getColumnMetasFn = func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+		return columnMeta, nil
+	}
 }
 
 func Test_mysqlTrigger_LoadOne(t *testing.T) {
@@ -105,11 +107,8 @@ func Test_mysqlTrigger_LoadOne(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &mysqlTrigger{}
 
-			getColumnMetasStub := initGetColumnMetasStub(m, tt.columnMeta)
-			defer getColumnMetasStub.Reset()
-
-			getIndexesStub := initGetIndexesStub(m, tt.indexMeta)
-			defer getIndexesStub.Reset()
+			initGetColumnMetasStub(m, tt.columnMeta)
+			initGetIndexesStub(m, tt.indexMeta)
 
 			got, err := m.LoadOne(tt.args.ctx, tt.args.dbName, tt.args.tableName, tt.args.conn)
 			if err != nil {
@@ -175,11 +174,8 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &mysqlTrigger{}
 
-			getColumnMetasStub := initGetColumnMetasStub(m, tt.columnMeta)
-			defer getColumnMetasStub.Reset()
-
-			getIndexesStub := initGetIndexesStub(m, tt.indexMeta)
-			defer getIndexesStub.Reset()
+			initGetColumnMetasStub(m, tt.columnMeta)
+			initGetIndexesStub(m, tt.indexMeta)
 
 			got, err := m.LoadAll(tt.args.ctx, tt.args.dbName, tt.args.conn, tt.args.tables...)
 			if err != nil {
@@ -234,25 +230,19 @@ func Test_mysqlTrigger_LoadOne_ErrorCases(t *testing.T) {
 			m := &mysqlTrigger{}
 
 			if tt.columnMetaErr != nil {
-				getColumnMetasStub := gomonkey.ApplyPrivateMethod(m, "getColumnMetas",
-					func(_ *mysqlTrigger, ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
-						return nil, tt.columnMetaErr
-					})
-				defer getColumnMetasStub.Reset()
+				m.getColumnMetasFn = func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+					return nil, tt.columnMetaErr
+				}
 			} else {
-				getColumnMetasStub := initGetColumnMetasStub(m, tt.columnMeta)
-				defer getColumnMetasStub.Reset()
+				initGetColumnMetasStub(m, tt.columnMeta)
 			}
 
 			if tt.indexMetaErr != nil {
-				getIndexesStub := gomonkey.ApplyPrivateMethod(m, "getIndexes",
-					func(_ *mysqlTrigger, ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
-						return nil, tt.indexMetaErr
-					})
-				defer getIndexesStub.Reset()
+				m.getIndexesFn = func(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
+					return nil, tt.indexMetaErr
+				}
 			} else {
-				getIndexesStub := initGetIndexesStub(m, tt.indexMeta)
-				defer getIndexesStub.Reset()
+				initGetIndexesStub(m, tt.indexMeta)
 			}
 
 			_, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
@@ -300,11 +290,8 @@ func Test_mysqlTrigger_LoadOne_ComplexIndexes(t *testing.T) {
 		},
 	}
 
-	getColumnMetasStub := initGetColumnMetasStub(m, columnMeta)
-	defer getColumnMetasStub.Reset()
-
-	getIndexesStub := initGetIndexesStub(m, indexMeta)
-	defer getIndexesStub.Reset()
+	initGetColumnMetasStub(m, columnMeta)
+	initGetIndexesStub(m, indexMeta)
 
 	tableMeta, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
 
@@ -604,18 +591,15 @@ func Test_mysqlTrigger_LoadAll_ErrorHandling(t *testing.T) {
 	indexMeta := initMockIndexMeta()
 
 	callCount := 0
-	getColumnMetasStub := gomonkey.ApplyPrivateMethod(m, "getColumnMetas",
-		func(_ *mysqlTrigger, ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
-			callCount++
-			if callCount == 2 {
-				return nil, errors.New("column error")
-			}
-			return columnMeta, nil
-		})
-	defer getColumnMetasStub.Reset()
+	m.getColumnMetasFn = func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+		callCount++
+		if callCount == 2 {
+			return nil, errors.New("column error")
+		}
+		return columnMeta, nil
+	}
 
-	getIndexesStub := initGetIndexesStub(m, indexMeta)
-	defer getIndexesStub.Reset()
+	initGetIndexesStub(m, indexMeta)
 
 	// LoadAll should continue even if one table fails
 	result, err := m.LoadAll(context.Background(), "testdb", nil, "table1", "table2", "table3")
@@ -657,11 +641,8 @@ func Test_mysqlTrigger_LoadOne_MultipleIndexesOnSameColumn(t *testing.T) {
 		},
 	}
 
-	getColumnMetasStub := initGetColumnMetasStub(m, columnMeta)
-	defer getColumnMetasStub.Reset()
-
-	getIndexesStub := initGetIndexesStub(m, indexMeta)
-	defer getIndexesStub.Reset()
+	initGetColumnMetasStub(m, columnMeta)
+	initGetIndexesStub(m, indexMeta)
 
 	tableMeta, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
 

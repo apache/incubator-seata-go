@@ -26,11 +26,13 @@
 ### feature：
 
   - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
+  - support XA branch enrollment for autoCommit statements in a global transaction: each autoCommit statement is registered and prepared as its own complete XA branch (note: N autoCommit statements create N branches at the TC); parameterized statements (which the default go-sql-driver DSN answers with `driver.ErrSkip`) are executed via an in-branch Prepare+Exec fallback so they stay inside the branch
   - support PostgreSQL XA via pgx driver
   - [[#1130](https://github.com/apache/incubator-seata-go/issues/1130)] support MySQL multi-value INSERT in AT mode for composite and mixed primary keys
 
 ### bugfix：
 
+  - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable

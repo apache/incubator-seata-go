@@ -27,11 +27,13 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 ### feature：
 
 - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] 添加二阶段事务接口，以及dubbo集成
+- 支持全局事务中 autoCommit 语句的 XA 分支注册：每条 autoCommit 语句都作为一个完整的 XA 分支单独注册并 prepare（注意：N 条 autoCommit 语句会在 TC 侧产生 N 个分支）；带参数的语句（默认 go-sql-driver DSN 会返回 `driver.ErrSkip`）通过分支内 Prepare+Exec 回退执行，从而保证仍在分支内完成
 - 支持基于 pgx 驱动的 PostgreSQL XA
 - [[#1130](https://github.com/apache/incubator-seata-go/issues/1130)] 支持 AT 模式下 MySQL 多值 INSERT 的复合主键与混合主键场景
 
 ### bugfix：
 
+- [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
 
 ### optimize：

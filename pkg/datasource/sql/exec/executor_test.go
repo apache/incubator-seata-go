@@ -150,6 +150,34 @@ func TestBuildExecutor(t *testing.T) {
 			query:           "INVALID SQL QUERY",
 			wantErr:         true,
 		},
+		{
+			name:            "XA mode INSERT statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "INSERT INTO users (name, age) VALUES ('Alice', 30)",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode UPDATE statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "UPDATE users SET age = 31 WHERE name = 'Alice'",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode DELETE statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "DELETE FROM users WHERE name = 'Alice'",
+			wantErr:         false,
+		},
+		{
+			name:            "XA mode SELECT statement",
+			dbType:          types.DBTypeMySQL,
+			transactionMode: types.XAMode,
+			query:           "SELECT * FROM users WHERE name = 'Alice'",
+			wantErr:         false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -165,8 +193,14 @@ func TestBuildExecutor(t *testing.T) {
 				assert.NoError(t, err, "should not return error for valid query")
 				assert.NotNil(t, executor, "executor should not be nil")
 				// Verify that the mock executor received the interceptors
-				assert.True(t, mockExecutor.interceptorsCalled, "Interceptors should be called")
-				assert.NotEmpty(t, mockExecutor.hooks, "hooks should be set")
+				if tt.transactionMode == types.XAMode {
+					assert.IsType(t, &BaseExecutor{}, executor, "XA mode should return BaseExecutor")
+					baseExec := executor.(*BaseExecutor)
+					assert.NotNil(t, baseExec.hooks, "BaseExecutor should have hooks set")
+				} else {
+					assert.True(t, mockExecutor.interceptorsCalled, "Interceptors should be called")
+					assert.NotEmpty(t, mockExecutor.hooks, "hooks should be set")
+				}
 			}
 		})
 	}
@@ -324,23 +358,44 @@ func TestBaseExecutor_ExecWithValue(t *testing.T) {
 	tests := []struct {
 		name            string
 		setupHooks      []SQLHook
+		innerExecutor   SQLExecutor
 		callback        CallbackWithNamedValue
 		execCtx         *types.ExecContext
 		wantErr         bool
 		wantBeforeCount int
 		wantAfterCount  int
+		// wantArgs is the exact []driver.NamedValue the callback must receive on the
+		// e.ex == nil pass-through path (values converted from execCtx.Values). Length
+		// and every element are asserted, so an off-by-N conversion bug cannot pass.
+		wantArgs []driver.NamedValue
 	}{
 		{
-			name: "execute with values - converts to NamedValues",
+			name: "e.ex == nil - values are converted to NamedValues without extra empty slots",
 			callback: func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				// Verify that values were converted to NamedValues
-				assert.NotEmpty(t, args, "args should not be empty")
 				return newMockExecResult(1, 1), nil
 			},
 			execCtx: &types.ExecContext{
 				Query:  "UPDATE users SET age = ? WHERE name = ?",
 				Values: []driver.Value{31, "Alice"},
 			},
+			wantArgs: []driver.NamedValue{
+				{Ordinal: 0, Value: 31},
+				{Ordinal: 1, Value: "Alice"},
+			},
+			wantErr:         false,
+			wantBeforeCount: 0,
+			wantAfterCount:  0,
+		},
+		{
+			name: "e.ex == nil - empty values produce empty args",
+			callback: func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				return newMockExecResult(1, 1), nil
+			},
+			execCtx: &types.ExecContext{
+				Query:  "DELETE FROM users",
+				Values: []driver.Value{},
+			},
+			wantArgs:        []driver.NamedValue{},
 			wantErr:         false,
 			wantBeforeCount: 0,
 			wantAfterCount:  0,
@@ -356,6 +411,10 @@ func TestBaseExecutor_ExecWithValue(t *testing.T) {
 			execCtx: &types.ExecContext{
 				Query:  "UPDATE users SET age = ? WHERE name = ?",
 				Values: []driver.Value{31, "Alice"},
+			},
+			wantArgs: []driver.NamedValue{
+				{Ordinal: 0, Value: 31},
+				{Ordinal: 1, Value: "Alice"},
 			},
 			wantErr:         false,
 			wantBeforeCount: 1,
@@ -373,7 +432,34 @@ func TestBaseExecutor_ExecWithValue(t *testing.T) {
 				Query:  "UPDATE users SET age = ? WHERE name = ?",
 				Values: []driver.Value{31, "Alice"},
 			},
+			wantArgs: []driver.NamedValue{
+				{Ordinal: 0, Value: 31},
+				{Ordinal: 1, Value: "Alice"},
+			},
 			wantErr:         true,
+			wantBeforeCount: 1,
+			wantAfterCount:  1,
+		},
+		{
+			name: "e.ex != nil - delegates to the inner executor",
+			setupHooks: []SQLHook{
+				&mockSQLHook{sqlType: types.SQLTypeUpdate},
+			},
+			innerExecutor: &mockSQLExecutor{
+				execWithValueFunc: func(ctx context.Context, execCtx *types.ExecContext, f CallbackWithNamedValue) (types.ExecResult, error) {
+					return newMockExecResult(2, 2), nil
+				},
+			},
+			callback: func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+				// The inner executor short-circuits the pass-through conversion, so the
+				// base executor must never invoke this callback itself.
+				panic("callback should not be called when inner executor is set")
+			},
+			execCtx: &types.ExecContext{
+				Query:  "UPDATE users SET age = ? WHERE name = ?",
+				Values: []driver.Value{31, "Alice"},
+			},
+			wantErr:         false,
 			wantBeforeCount: 1,
 			wantAfterCount:  1,
 		},
@@ -381,11 +467,23 @@ func TestBaseExecutor_ExecWithValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := &BaseExecutor{
-				hooks: tt.setupHooks,
+			// Wrap the callback to assert the exact converted args on the pass-through path.
+			callback := tt.callback
+			if tt.wantArgs != nil {
+				inner := tt.callback
+				callback = func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+					assert.Equal(t, len(tt.wantArgs), len(args), "converted args length should match values length")
+					assert.Equal(t, tt.wantArgs, args, "converted args should match expected NamedValues")
+					return inner(ctx, query, args)
+				}
 			}
 
-			result, err := executor.ExecWithValue(context.Background(), tt.execCtx, tt.callback)
+			executor := &BaseExecutor{
+				hooks: tt.setupHooks,
+				ex:    tt.innerExecutor,
+			}
+
+			result, err := executor.ExecWithValue(context.Background(), tt.execCtx, callback)
 
 			if tt.wantErr {
 				assert.Error(t, err, "should return error")

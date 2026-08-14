@@ -147,7 +147,7 @@ type TransactionContext struct {
 	BranchID uint64
 	// XID global transaction id
 	XID string
-	// GlobalLockRequire
+	// GlobalLockRequire indicates whether global lock is required (used in AT mode)
 	GlobalLockRequire bool
 	// RoundImages when run in AT mode, record before and after Row image
 	RoundImages *RoundRecordImage
