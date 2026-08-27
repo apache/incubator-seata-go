@@ -112,7 +112,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return res, nil
 	}
 
-	i.keyPlan, err = i.buildInsertKeyPlan(beforeImage.TableMeta)
+	i.keyPlan, err = i.buildInsertKeyPlan(ctx, beforeImage.TableMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +438,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	if err != nil {
 		return "", nil, err
 	}
-	pkValuesMap, err := i.getPkValues(i.execContext, *meta)
+	pkValuesMap, err := i.getPkValues(ctx, i.execContext, *meta)
 	if err != nil {
 		return "", nil, err
 	}
@@ -498,9 +498,9 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList, dbType), nil
 }
 
-func (i *insertExecutor) getPkValues(execCtx *types.ExecContext, meta types.TableMeta) (map[string][]interface{}, error) {
+func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, meta types.TableMeta) (map[string][]interface{}, error) {
 	if i.keyPlan == nil {
-		plan, err := i.buildInsertKeyPlan(&meta)
+		plan, err := i.buildInsertKeyPlan(ctx, &meta)
 		if err != nil {
 			return nil, err
 		}
@@ -509,7 +509,7 @@ func (i *insertExecutor) getPkValues(execCtx *types.ExecContext, meta types.Tabl
 	return i.resolveInsertKeyPlan(execCtx)
 }
 
-func (i *insertExecutor) buildInsertKeyPlan(meta *types.TableMeta) (*insertKeyPlan, error) {
+func (i *insertExecutor) buildInsertKeyPlan(ctx context.Context, meta *types.TableMeta) (*insertKeyPlan, error) {
 	if meta == nil || !i.isAstStmtValid() {
 		return nil, fmt.Errorf("invalid insert metadata or statement")
 	}
@@ -532,6 +532,8 @@ func (i *insertExecutor) buildInsertKeyPlan(meta *types.TableMeta) (*insertKeyPl
 
 	plan := &insertKeyPlan{rowCount: len(stmt.Lists), pkValues: make(map[string][]interface{})}
 	pkMeta := meta.GetPrimaryKeyMap()
+	zeroGeneratesAutoIncrement := false
+	zeroModeChecked := false
 	for _, pkName := range pkNames {
 		columnMeta, ok := pkMeta[pkName]
 		if !ok {
@@ -543,12 +545,33 @@ func (i *insertExecutor) buildInsertKeyPlan(meta *types.TableMeta) (*insertKeyPl
 			if len(values) != plan.rowCount {
 				return nil, fmt.Errorf("insert primary key %s has %d values, want %d", pkName, len(values), plan.rowCount)
 			}
-			for _, value := range values {
+			for valueIndex, value := range values {
+				if boolValue, ok := value.(bool); ok && columnMeta.Autoincrement {
+					if boolValue {
+						value = int64(1)
+					} else {
+						value = int64(0)
+					}
+					values[valueIndex] = value
+				}
 				switch value.(type) {
 				case nil, *ast.DefaultExpr, ast.DefaultExpr:
 					generatedCount++
 				case ast.ExprNode:
 					return nil, fmt.Errorf("insert primary key expression for %s cannot be determined", pkName)
+				default:
+					if columnMeta.Autoincrement && isNumericZero(value) {
+						if !zeroModeChecked {
+							zeroGeneratesAutoIncrement, err = i.zeroGeneratesAutoIncrement(ctx)
+							if err != nil {
+								return nil, err
+							}
+							zeroModeChecked = true
+						}
+						if zeroGeneratesAutoIncrement {
+							generatedCount++
+						}
+					}
 				}
 			}
 		} else {
@@ -571,6 +594,29 @@ func (i *insertExecutor) buildInsertKeyPlan(meta *types.TableMeta) (*insertKeyPl
 		plan.autoColumn = pkName
 	}
 	return plan, nil
+}
+
+func (i *insertExecutor) zeroGeneratesAutoIncrement(ctx context.Context) (bool, error) {
+	rows, err := i.queryRows(ctx, "SELECT FIND_IN_SET('NO_AUTO_VALUE_ON_ZERO', @@SESSION.sql_mode)", nil)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	values := make([]driver.Value, 1)
+	if err := rows.Next(values); err != nil {
+		return false, err
+	}
+	return isNumericZero(values[0]), nil
+}
+
+func isNumericZero(value interface{}) bool {
+	text := fmt.Sprint(value)
+	if bytes, ok := value.([]byte); ok {
+		text = string(bytes)
+	}
+	numeric, err := strconv.ParseFloat(text, 64)
+	return err == nil && numeric == 0
 }
 
 func (i *insertExecutor) resolveInsertKeyPlan(execCtx *types.ExecContext) (map[string][]interface{}, error) {
@@ -726,6 +772,9 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 		expectedColumns = len(meta.ColumnNames)
 	}
 	for rowIndex, list := range insertStmt.Lists {
+		if len(insertStmt.Columns) == 0 && len(list) == 0 {
+			continue
+		}
 		if len(list) != expectedColumns {
 			return nil, fmt.Errorf("insert row %d has %d values, want %d", rowIndex, len(list), expectedColumns)
 		}
@@ -742,6 +791,12 @@ func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, 
 
 	pkValuesMap := make(map[string][]interface{})
 	for _, list := range insertStmt.Lists {
+		if len(list) == 0 {
+			for _, pkName := range meta.GetPrimaryKeyOnlyName() {
+				pkValuesMap[pkName] = append(pkValuesMap[pkName], ast.DefaultExpr{})
+			}
+			continue
+		}
 		for pkName, pkIndex := range i.getPkIndex(insertStmt, meta) {
 			if pkIndex < 0 || pkIndex >= len(list) {
 				return nil, fmt.Errorf("primary key %s index %d out of range", pkName, pkIndex)

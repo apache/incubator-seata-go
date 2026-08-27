@@ -74,7 +74,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 			columnMeta = tableMeta.Columns[columnName]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
-		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "JSONB", "TINYTEXT", "UUID", "BPCHAR", "CHARACTER VARYING", "CHARACTER":
+		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "JSONB", "TINYTEXT", "UUID", "BPCHAR", "CHARACTER VARYING", "CHARACTER", "DECIMAL", "NUMERIC":
 			var scanVal sql.NullString
 			scanSlice = append(scanSlice, &scanVal)
 		case "BIT", "INT", "INTEGER", "INT2", "INT4", "INT8", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT", "SERIAL", "BIGSERIAL", "SMALLSERIAL":
@@ -96,7 +96,7 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 		case "DATE", "DATETIME", "TIME", "TIME WITH TIME ZONE", "TIME WITHOUT TIME ZONE", "TIMESTAMP", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE", "YEAR":
 			var scanVal sql.NullTime
 			scanSlice = append(scanSlice, &scanVal)
-		case "DECIMAL", "DOUBLE", "DOUBLE PRECISION", "FLOAT", "NUMERIC", "REAL":
+		case "DOUBLE", "DOUBLE PRECISION", "FLOAT", "REAL":
 			if columnMeta.IsNullable == 0 {
 				scanVal := float64(0)
 				scanSlice = append(scanSlice, &scanVal)

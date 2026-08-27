@@ -418,6 +418,106 @@ func TestInsertKeyPlanUsesParamMarkerOrder(t *testing.T) {
 	assert.Equal(t, []driver.Value{int64(42)}, util.NamedValueToValue(values))
 }
 
+func TestInsertKeyPlanZeroValueRespectsSQLMode(t *testing.T) {
+	meta := &types.TableMeta{
+		ColumnNames: []string{"id", "name"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{
+				ColumnName: "id", Autoincrement: true,
+			}},
+		}},
+	}
+
+	for _, tt := range []struct {
+		name         string
+		query        string
+		args         []driver.Value
+		modePosition driver.Value
+		wantPK       driver.Value
+		checkSQLMode bool
+	}{
+		{name: "literal zero generates", query: "insert into user(id,name) values (0,'Tony')", modePosition: 0, wantPK: int64(42), checkSQLMode: true},
+		{name: "prepared zero generates", query: "insert into user(id,name) values (?,?)", args: []driver.Value{int64(0), "Tony"}, modePosition: []byte("0"), wantPK: int64(42), checkSQLMode: true},
+		{name: "literal zero remains explicit", query: "insert into user(id,name) values (0,'Tony')", modePosition: 1, wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared zero remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{int64(0), "Tony"}, modePosition: []byte("1"), wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared false generates", query: "insert into user(id,name) values (?,?)", args: []driver.Value{false, "Tony"}, modePosition: 0, wantPK: int64(42), checkSQLMode: true},
+		{name: "prepared false remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{false, "Tony"}, modePosition: 1, wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared true remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{true, "Tony"}, wantPK: int64(1)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(tt.query)
+			if !assert.NoError(t, err) {
+				return
+			}
+			conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+			if tt.checkSQLMode {
+				conn.EXPECT().QueryContext(gomock.Any(), "SELECT FIND_IN_SET('NO_AUTO_VALUE_ON_ZERO', @@SESSION.sql_mode)", gomock.Any()).Return(&insertAfterImageRows{
+					columns: []string{"FIND_IN_SET"},
+					rows:    [][]driver.Value{{tt.modePosition}},
+				}, nil)
+			}
+			execCtx := &types.ExecContext{
+				Conn: conn, NamedValues: util.ValueToNamedValue(tt.args),
+			}
+			executor := NewInsertExecutor(parseCtx, execCtx, nil).(*insertExecutor)
+			executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
+
+			executor.keyPlan, err = executor.buildInsertKeyPlan(context.Background(), meta)
+			if !assert.NoError(t, err) {
+				return
+			}
+			values, err := executor.resolveInsertKeyPlan(execCtx)
+			assert.NoError(t, err)
+			assert.Equal(t, []interface{}{tt.wantPK}, values["id"])
+		})
+	}
+}
+
+func TestInsertKeyPlanEmptyValuesUsesLastInsertID(t *testing.T) {
+	meta := &types.TableMeta{Indexs: map[string]types.IndexMeta{"PRIMARY": {
+		IType: types.IndexTypePrimaryKey,
+		Columns: []types.ColumnMeta{{
+			ColumnName: "id", Autoincrement: true,
+		}},
+	}}}
+
+	for _, query := range []string{
+		"insert into user () values ()",
+		"insert into user values ()",
+	} {
+		t.Run(query, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(query)
+			if !assert.NoError(t, err) {
+				return
+			}
+			execCtx := &types.ExecContext{}
+			executor := NewInsertExecutor(parseCtx, execCtx, nil).(*insertExecutor)
+			executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
+
+			executor.keyPlan, err = executor.buildInsertKeyPlan(context.Background(), meta)
+			if !assert.NoError(t, err) {
+				return
+			}
+			values, err := executor.resolveInsertKeyPlan(execCtx)
+			assert.NoError(t, err)
+			assert.Equal(t, []interface{}{int64(42)}, values["id"])
+		})
+	}
+
+	t.Run("explicit columns remain invalid", func(t *testing.T) {
+		parseCtx, err := parser.DoParser("insert into user(id) values ()")
+		if !assert.NoError(t, err) {
+			return
+		}
+		executor := NewInsertExecutor(parseCtx, &types.ExecContext{}, nil).(*insertExecutor)
+
+		_, err = executor.buildInsertKeyPlan(context.Background(), meta)
+
+		assert.ErrorContains(t, err, "has 0 values, want 1")
+	})
+}
+
 func TestBuildSelectSQLByInsertAddsOnlyMissingCompositePKs(t *testing.T) {
 	originalUndoConfig := undo.UndoConfig
 	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })

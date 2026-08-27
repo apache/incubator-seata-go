@@ -241,21 +241,15 @@ func (c *ColumnImage) UnmarshalJSON(data []byte) error {
 				return err
 			}
 			actualValue = float32(parsedValue)
-		case JDBCTypeDecimal, JDBCTypeDouble: // 8 Bytes
+		case JDBCTypeDecimal:
+			if decimal, ok := value.(string); ok {
+				actualValue = decimal
+			} else {
+				actualValue, err = strconv.ParseFloat(value.(json.Number).String(), 64)
+			}
+		case JDBCTypeDouble: // 8 Bytes
 			actualValue, err = strconv.ParseFloat(value.(json.Number).String(), 64)
-		case JDBCTypeTinyInt: // 1 Bytes
-			var parsedValue int64
-			parsedValue, err = strconv.ParseInt(value.(json.Number).String(), 10, 8)
-			actualValue = int8(parsedValue)
-		case JDBCTypeSmallInt: // 2 Bytes
-			var parsedValue int64
-			parsedValue, err = strconv.ParseInt(value.(json.Number).String(), 10, 16)
-			actualValue = int16(parsedValue)
-		case JDBCTypeInteger: // 4 Bytes
-			var parsedValue int64
-			parsedValue, err = strconv.ParseInt(value.(json.Number).String(), 10, 32)
-			actualValue = int32(parsedValue)
-		case JDBCTypeBigInt: // 8Bytes
+		case JDBCTypeTinyInt, JDBCTypeSmallInt, JDBCTypeInteger, JDBCTypeBigInt:
 			actualValue, err = strconv.ParseInt(value.(json.Number).String(), 10, 64)
 			if err != nil {
 				actualValue, err = strconv.ParseUint(value.(json.Number).String(), 10, 64)

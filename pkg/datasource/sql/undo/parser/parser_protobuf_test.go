@@ -92,17 +92,16 @@ func TestConvertInterfaceToAnyAndBack(t *testing.T) {
 	assert.Equal(t, originalValue, convertedValue, "The converted value should match the original")
 }
 
-func TestProtobufBigIntRoundTrip(t *testing.T) {
-	values := []interface{}{
-		int64(1 << 53),
-		int64(1<<53 + 1),
-		int64(1<<63 - 1),
-		uint64(1<<64 - 1),
-		nil,
-	}
-	columns := make([]types.ColumnImage, len(values))
-	for index, value := range values {
-		columns[index] = types.ColumnImage{ColumnType: types.JDBCTypeBigInt, Value: value}
+func TestProtobufIntegerRoundTrip(t *testing.T) {
+	columns := []types.ColumnImage{
+		{ColumnType: types.JDBCTypeTinyInt, Value: int64(255)},
+		{ColumnType: types.JDBCTypeSmallInt, Value: int64(65535)},
+		{ColumnType: types.JDBCTypeInteger, Value: int64(4294967295)},
+		{ColumnType: types.JDBCTypeBigInt, Value: int64(1 << 53)},
+		{ColumnType: types.JDBCTypeBigInt, Value: int64(1<<53 + 1)},
+		{ColumnType: types.JDBCTypeBigInt, Value: int64(1<<63 - 1)},
+		{ColumnType: types.JDBCTypeBigInt, Value: uint64(1<<64 - 1)},
+		{ColumnType: types.JDBCTypeBigInt, Value: nil},
 	}
 	undoLog := &undo.BranchUndoLog{
 		Logs: []undo.SQLUndoLog{{
@@ -116,9 +115,56 @@ func TestProtobufBigIntRoundTrip(t *testing.T) {
 	assert.NoError(t, err)
 
 	actualColumns := decoded.Logs[0].BeforeImage.Rows[0].Columns
+	for index, expected := range columns {
+		assert.Equal(t, expected.Value, actualColumns[index].Value)
+	}
+}
+
+func TestProtobufDecimalRoundTrip(t *testing.T) {
+	values := []interface{}{
+		"12345678901234567890.12345678901234567890",
+		float64(13.37),
+		nil,
+	}
+	columns := make([]types.ColumnImage, len(values))
+	for index, value := range values {
+		columns[index] = types.ColumnImage{ColumnType: types.JDBCTypeDecimal, Value: value}
+	}
+	undoLog := &undo.BranchUndoLog{Logs: []undo.SQLUndoLog{{
+		BeforeImage: &types.RecordImage{Rows: []types.RowImage{{Columns: columns}}},
+	}}}
+
+	data, err := (&ProtobufParser{}).Encode(undoLog)
+	assert.NoError(t, err)
+	decoded, err := (&ProtobufParser{}).Decode(data)
+	assert.NoError(t, err)
+
+	actualColumns := decoded.Logs[0].BeforeImage.Rows[0].Columns
 	for index, expected := range values {
 		assert.Equal(t, expected, actualColumns[index].Value)
 	}
+}
+
+func TestProtobufDecodeInvalidIntegerReturnsError(t *testing.T) {
+	undoLog := &undo.BranchUndoLog{
+		Logs: []undo.SQLUndoLog{{
+			BeforeImage: &types.RecordImage{Rows: []types.RowImage{{Columns: []types.ColumnImage{{
+				ColumnType: types.JDBCTypeInteger,
+				Value:      "invalid",
+			}}}}},
+		}},
+	}
+
+	data, err := (&ProtobufParser{}).Encode(undoLog)
+	assert.NoError(t, err)
+	decoded, err := (&ProtobufParser{}).Decode(data)
+	assert.Error(t, err)
+	assert.Nil(t, decoded)
+
+	protoLog := ConvertToProto(undoLog)
+	converted := ConvertToIntree(protoLog)
+	assert.NotNil(t, converted)
+	assert.Empty(t, converted.Logs[0].BeforeImage.Rows[0].Columns)
 }
 
 func TestProtobufParser_Interface(t *testing.T) {

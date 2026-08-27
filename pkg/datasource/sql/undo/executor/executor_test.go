@@ -20,17 +20,26 @@ package executor
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/agiledragon/gomonkey/v2"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	datasourcemysql "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
+	sqlparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	undoparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
 	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -382,6 +391,151 @@ func TestQueryCurrentRecordsSuccess(t *testing.T) {
 	assert.NotNil(t, result.Rows[0].Columns[1].Value)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryCurrentRecordsPreservesDecimalRepresentation(t *testing.T) {
+	tests := []struct {
+		name        string
+		undoValue   interface{}
+		expectValue interface{}
+	}{
+		{name: "exact decimal string", undoValue: "13.370000", expectValue: "13.370000"},
+		{name: "legacy decimal float", undoValue: float64(13.37), expectValue: float64(13.37)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+
+			conn, err := db.Conn(context.Background())
+			require.NoError(t, err)
+			defer conn.Close()
+
+			idColumn := types.ColumnMeta{ColumnName: "id"}
+			tableMeta := types.TableMeta{
+				TableName: "t_decimal",
+				Columns: map[string]types.ColumnMeta{
+					"id":     idColumn,
+					"amount": {ColumnName: "amount", DatabaseTypeString: "DECIMAL"},
+				},
+				Indexs: map[string]types.IndexMeta{
+					"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{idColumn}},
+				},
+			}
+			executor := &BaseExecutor{dbType: types.DBTypeMySQL, undoImage: &types.RecordImage{
+				TableName: "t_decimal",
+				TableMeta: &tableMeta,
+				Rows: []types.RowImage{{Columns: []types.ColumnImage{
+					{ColumnName: "id", ColumnType: types.JDBCTypeBigInt, Value: int64(1)},
+					{ColumnName: "amount", ColumnType: types.JDBCTypeDecimal, Value: tt.undoValue},
+				}}},
+			}}
+			rows := sqlmock.NewRowsWithColumnDefinition(
+				sqlmock.NewColumn("id").OfType("BIGINT", int64(0)),
+				sqlmock.NewColumn("amount").OfType("DECIMAL", sql.RawBytes{}),
+			).AddRow(int64(1), "13.370000")
+			mock.ExpectQuery("SELECT .*id.*, .*amount.* FROM .*t_decimal.* WHERE").
+				WithArgs(int64(1)).
+				WillReturnRows(rows)
+
+			result, err := executor.queryCurrentRecords(context.Background(), conn)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectValue, result.Rows[0].Columns[1].Value)
+			assert.Equal(t, types.JDBCTypeDecimal, result.Rows[0].Columns[1].ColumnType)
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestMySQLUndoInsertExecutorDecimalDataValidation(t *testing.T) {
+	dsn := os.Getenv("SEATA_GO_TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("SEATA_GO_TEST_MYSQL_DSN is not set")
+	}
+
+	cfg, err := mysqldriver.ParseDSN(dsn)
+	require.NoError(t, err)
+	db, err := sql.Open("mysql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	const tableName = "seata_go_decimal_undo_test"
+	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName)
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "CREATE TABLE "+tableName+" (id BIGINT PRIMARY KEY, amount DECIMAL(20,6))")
+	require.NoError(t, err)
+	defer conn.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName)
+
+	previousTableCache := datasource.GetTableCache(types.DBTypeMySQL)
+	datasource.RegisterTableCache(types.DBTypeMySQL, datasourcemysql.NewTableMetaInstance(db, cfg))
+	defer datasource.RegisterTableCache(types.DBTypeMySQL, previousTableCache)
+
+	query := "INSERT INTO " + tableName + " (id, amount) VALUES (?, ?)"
+	parseCtx, err := sqlparser.DoParser(query)
+	require.NoError(t, err)
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	execCtx := &types.ExecContext{
+		TxCtx:       txCtx,
+		Query:       query,
+		NamedValues: []driver.NamedValue{{Ordinal: 1, Value: int64(1)}, {Ordinal: 2, Value: "13.370000"}},
+		DBName:      cfg.DBName,
+		DBType:      types.DBTypeMySQL,
+	}
+	err = conn.Raw(func(rawConn interface{}) error {
+		driverConn, ok := rawConn.(driver.Conn)
+		if !ok {
+			return fmt.Errorf("MySQL connection does not implement driver.Conn")
+		}
+		execer, ok := rawConn.(driver.ExecerContext)
+		if !ok {
+			return fmt.Errorf("MySQL connection does not implement driver.ExecerContext")
+		}
+		execCtx.Conn = driverConn
+		_, execErr := at.NewInsertExecutor(parseCtx, execCtx, nil).ExecContext(ctx, func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
+			result, execErr := execer.ExecContext(ctx, query, args)
+			if execErr != nil {
+				return nil, execErr
+			}
+			return types.NewResult(types.WithResult(result)), nil
+		})
+		return execErr
+	})
+	require.NoError(t, err)
+	require.Len(t, txCtx.RoundImages.BeofreImages(), 1)
+	require.Len(t, txCtx.RoundImages.AfterImages(), 1)
+	afterImage := txCtx.RoundImages.AfterImages()[0]
+	require.Equal(t, "13.370000", afterImage.Rows[0].GetColumnMap()["amount"].Value)
+
+	branchUndoLog := &undo.BranchUndoLog{Logs: []undo.SQLUndoLog{{
+		SQLType:     types.SQLTypeInsert,
+		TableName:   tableName,
+		BeforeImage: txCtx.RoundImages.BeofreImages()[0],
+		AfterImage:  afterImage,
+	}}}
+	encoded, err := (&undoparser.JsonParser{}).Encode(branchUndoLog)
+	require.NoError(t, err)
+	decoded, err := (&undoparser.JsonParser{}).Decode(encoded)
+	require.NoError(t, err)
+	decoded.Logs[0].SetTableMeta(afterImage.TableMeta)
+
+	dataValidation := undo.UndoConfig.DataValidation
+	undo.UndoConfig.DataValidation = true
+	defer func() { undo.UndoConfig.DataValidation = dataValidation }()
+
+	err = newMySQLUndoInsertExecutor(decoded.Logs[0]).ExecuteOn(ctx, types.DBTypeMySQL, conn)
+	require.NoError(t, err)
+
+	var count int
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&count))
+	assert.Zero(t, count)
 }
 
 func TestQueryCurrentRecordsQueryError(t *testing.T) {

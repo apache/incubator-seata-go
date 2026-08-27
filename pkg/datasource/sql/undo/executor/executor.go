@@ -151,6 +151,18 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 			return nil, err
 		}
 		slice := datasource.GetScanSlice(columnTypes)
+		undoColumns := b.undoImage.Rows[0].Columns
+		for i, column := range undoColumns {
+			if column.ColumnType != types.JDBCTypeDecimal {
+				continue
+			}
+			switch column.GetActualValue().(type) {
+			case float32, float64:
+				slice[i] = &sql.NullFloat64{}
+			default:
+				slice[i] = &sql.NullString{}
+			}
+		}
 		if err = rows.Scan(slice...); err != nil {
 			return nil, err
 		}
@@ -168,6 +180,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 			}
 			columns = append(columns, types.ColumnImage{
 				ColumnName: colNames[i],
+				ColumnType: undoColumns[i].ColumnType,
 				Value:      actualVal,
 			})
 		}

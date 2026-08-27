@@ -62,7 +62,7 @@ func (p *ProtobufParser) Decode(data []byte) (*undo.BranchUndoLog, error) {
 		return nil, err
 	}
 
-	return ConvertToIntree(branchUndoLog), nil
+	return convertToIntree(branchUndoLog, true)
 }
 
 func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
@@ -150,6 +150,11 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
 }
 
 func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
+	intreeLog, _ := convertToIntree(protoLog, false)
+	return intreeLog
+}
+
+func convertToIntree(protoLog *BranchUndoLog, strict bool) (*undo.BranchUndoLog, error) {
 	intreeLog := &undo.BranchUndoLog{
 		Xid:      protoLog.Xid,
 		BranchID: protoLog.BranchID,
@@ -177,6 +182,9 @@ func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
 				for _, pbCol := range pbRow.Columns {
 					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
+						if strict {
+							return nil, fmt.Errorf("convert before image column %q: %w", pbCol.ColumnName, err)
+						}
 						continue
 					}
 
@@ -209,6 +217,9 @@ func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
 				for _, pbCol := range pbRow.Columns {
 					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
+						if strict {
+							return nil, fmt.Errorf("convert after image column %q: %w", pbCol.ColumnName, err)
+						}
 						continue
 					}
 
@@ -229,7 +240,7 @@ func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
 		intreeLog.Logs = append(intreeLog.Logs, undoSqlLog)
 	}
 
-	return intreeLog
+	return intreeLog, nil
 }
 
 func convertAnyToInterface(anyValue *any.Any) (interface{}, error) {
@@ -247,6 +258,9 @@ func convertAnyToInterface(anyValue *any.Any) (interface{}, error) {
 }
 
 func convertAnyToColumnValue(anyValue *any.Any, columnType types.JDBCType) (interface{}, error) {
+	if anyValue == nil {
+		return nil, nil
+	}
 	bytesValue := &wrappers.BytesValue{}
 	if err := anypb.UnmarshalTo(anyValue, bytesValue, proto.UnmarshalOptions{}); err != nil {
 		return nil, err
@@ -254,9 +268,25 @@ func convertAnyToColumnValue(anyValue *any.Any, columnType types.JDBCType) (inte
 	if bytes.Equal(bytesValue.Value, []byte("null")) {
 		return nil, nil
 	}
+	if columnType == types.JDBCTypeDecimal {
+		decoder := json.NewDecoder(bytes.NewReader(bytesValue.Value))
+		decoder.UseNumber()
+		var value interface{}
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		if decimal, ok := value.(string); ok {
+			return decimal, nil
+		}
+		number, ok := value.(json.Number)
+		if !ok {
+			return nil, fmt.Errorf("invalid decimal value %T", value)
+		}
+		return strconv.ParseFloat(number.String(), 64)
+	}
 
 	switch columnType {
-	case types.JDBCTypeReal, types.JDBCTypeDecimal, types.JDBCTypeDouble,
+	case types.JDBCTypeReal, types.JDBCTypeDouble,
 		types.JDBCTypeTinyInt, types.JDBCTypeSmallInt, types.JDBCTypeInteger, types.JDBCTypeBigInt:
 		decoder := json.NewDecoder(bytes.NewReader(bytesValue.Value))
 		decoder.UseNumber()
@@ -268,18 +298,9 @@ func convertAnyToColumnValue(anyValue *any.Any, columnType types.JDBCType) (inte
 		case types.JDBCTypeReal:
 			parsed, err := strconv.ParseFloat(value.String(), 32)
 			return float32(parsed), err
-		case types.JDBCTypeDecimal, types.JDBCTypeDouble:
+		case types.JDBCTypeDouble:
 			return strconv.ParseFloat(value.String(), 64)
-		case types.JDBCTypeTinyInt:
-			parsed, err := strconv.ParseInt(value.String(), 10, 8)
-			return int8(parsed), err
-		case types.JDBCTypeSmallInt:
-			parsed, err := strconv.ParseInt(value.String(), 10, 16)
-			return int16(parsed), err
-		case types.JDBCTypeInteger:
-			parsed, err := strconv.ParseInt(value.String(), 10, 32)
-			return int32(parsed), err
-		case types.JDBCTypeBigInt:
+		case types.JDBCTypeTinyInt, types.JDBCTypeSmallInt, types.JDBCTypeInteger, types.JDBCTypeBigInt:
 			parsed, err := strconv.ParseInt(value.String(), 10, 64)
 			if err == nil {
 				return parsed, nil

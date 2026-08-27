@@ -18,12 +18,24 @@
 package at
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
+
+func TestGetScanSlicePreservesDecimal(t *testing.T) {
+	executor := baseExecutor{}
+	meta := &types.TableMeta{Columns: map[string]types.ColumnMeta{
+		"amount": {ColumnName: "amount", DatabaseTypeString: "DECIMAL"},
+	}}
+
+	scanSlice := executor.GetScanSlice([]string{"amount"}, meta)
+
+	assert.IsType(t, &sql.NullString{}, scanSlice[0])
+}
 
 func TestBaseExecBuildLockKey(t *testing.T) {
 	var exec baseExecutor
