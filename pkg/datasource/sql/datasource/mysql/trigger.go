@@ -178,7 +178,7 @@ func (m *mysqlTrigger) getIndexes(ctx context.Context, dbName string, tableName 
 	tableName = util.DelEscape(tableName, types.DBTypeMySQL)
 	result := make([]types.IndexMeta, 0)
 
-	indexMetaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	indexMetaSql := "SELECT `INDEX_NAME`, `COLUMN_NAME`, `NON_UNIQUE` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ? ORDER BY `SEQ_IN_INDEX` ASC"
 	stmt, err := conn.PrepareContext(ctx, indexMetaSql)
 	if err != nil {
 		return nil, err

@@ -66,9 +66,11 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	for _, row := range afterImage.Rows {
 		pkList, err := util.GetOrderedPkList(afterImage, row, dbType)
 		if err != nil {
-			return err
+			return fmt.Errorf("UNDO-INSERT-CONTEXT-ERROR [Op: ExecuteOn, Table: %s]: failed to parse ordered primary keys from record image: %w", m.sqlUndoLog.TableName, err)
 		}
+
 		pkValueList := make([]interface{}, 0, len(pkList))
+
 		for _, col := range pkList {
 			pkValueList = append(pkValueList, col.Value)
 		}

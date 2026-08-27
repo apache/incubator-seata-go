@@ -433,7 +433,6 @@ func TestRowListToMap(t *testing.T) {
 							}
 						}
 					}
-
 					rowData, exists := result[expectedKey]
 					assert.True(t, exists, "Row should exist in map with key: %s", expectedKey)
 
@@ -626,4 +625,106 @@ func TestBuildPKParams_EscapedColumnNames(t *testing.T) {
 
 	assert.Len(t, result, 2)
 	assert.Equal(t, []interface{}{1, 2}, result)
+}
+
+func TestRowListToMap_CompositePK_ColumnOrderIndependent(t *testing.T) {
+	primaryKeyList := []string{"tenant_id", "id"}
+
+	tests := []struct {
+		name string
+		rows []types.RowImage
+		want map[string]bool
+	}{
+		{
+			name: "physical columns order: tenant_id then id",
+			rows: []types.RowImage{
+				{
+					Columns: []types.ColumnImage{
+						{ColumnName: "tenant_id", Value: "tenant123"},
+						{ColumnName: "id", Value: 456},
+						{ColumnName: "name", Value: "test_a"},
+					},
+				},
+			},
+			want: map[string]bool{"v9:tenant123v3:456": true},
+		},
+		{
+			name: "physical columns order: id then tenant_id (shuffled)",
+			rows: []types.RowImage{
+				{
+					Columns: []types.ColumnImage{
+						{ColumnName: "id", Value: 456},
+						{ColumnName: "name", Value: "test_b"},
+						{ColumnName: "tenant_id", Value: "tenant123"},
+					},
+				},
+			},
+			want: map[string]bool{"v9:tenant123v3:456": true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMap, err := rowListToMap(tt.rows, primaryKeyList)
+
+			assert.NoError(t, err)
+			assert.Len(t, gotMap, 1)
+			for gotKey := range gotMap {
+				assert.True(t, tt.want[gotKey], "generated rowKey %s not matching expected order", gotKey)
+			}
+		})
+	}
+}
+
+func TestRowListToMap_MissingPKReturnsError(t *testing.T) {
+	primaryKeyList := []string{"tenant_id", "id"}
+	rows := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "id", Value: 789},
+				{ColumnName: "name", Value: "test_sentinel"},
+			},
+		},
+	}
+
+	_, err := rowListToMap(rows, primaryKeyList)
+	assert.ErrorContains(t, err, "primary key \"tenant_id\" not found")
+}
+
+func TestRowListToMap_CollisionPrevention(t *testing.T) {
+	primaryKeyList := []string{"pk1", "pk2"}
+
+	rowsA := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "pk1", Value: "a_##$$_b"},
+				{ColumnName: "pk2", Value: "c"},
+			},
+		},
+	}
+	rowsB := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "pk1", Value: "a"},
+				{ColumnName: "pk2", Value: "b_##$$_c"},
+			},
+		},
+	}
+
+	mapA, err := rowListToMap(rowsA, primaryKeyList)
+	assert.NoError(t, err)
+	mapB, err := rowListToMap(rowsB, primaryKeyList)
+	assert.NoError(t, err)
+
+	var keyA, keyB string
+	for k := range mapA {
+		keyA = k
+	}
+	for k := range mapB {
+		keyB = k
+	}
+
+	assert.Equal(t, "v8:a_##$$_bv1:c", keyA)
+	assert.Equal(t, "v1:av8:b_##$$_c", keyB)
+	assert.NotEqual(t, keyA, keyB, "Length-prefixed encoding must guarantee zero collision")
 }

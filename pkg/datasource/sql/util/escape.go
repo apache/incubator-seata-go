@@ -188,8 +188,11 @@ func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
 }
 
 func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-	if image == nil || image.TableMeta == nil {
-		return nil, fmt.Errorf("invalid primary key metadata")
+	if image == nil {
+		return nil, fmt.Errorf("invalid record image: image is nil")
+	}
+	if image.TableMeta == nil {
+		return nil, fmt.Errorf("invalid primary key metadata: table meta is nil")
 	}
 	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameListByOrder) == 0 {
