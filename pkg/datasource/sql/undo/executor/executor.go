@@ -120,7 +120,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList, dbType)
 
 	if len(pkValues) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("primary key values not found in undo image")
 	}
 
 	selectColumns := make([]string, 0, len(b.undoImage.Rows[0].Columns))

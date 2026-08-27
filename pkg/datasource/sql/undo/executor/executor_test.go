@@ -332,7 +332,7 @@ func TestQueryCurrentRecordsEmptyPKValues(t *testing.T) {
 	result, err := executor.queryCurrentRecords(context.Background(), nil)
 
 	assert.Nil(t, result)
-	assert.NoError(t, err)
+	assert.EqualError(t, err, "primary key values not found in undo image")
 }
 
 func TestQueryCurrentRecordsSuccess(t *testing.T) {
