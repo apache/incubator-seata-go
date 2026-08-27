@@ -340,21 +340,6 @@ func (i *insertExecutor) buildPostgreSQLReturningInsertSQL(meta *types.TableMeta
 	return trimTrailingSemicolon(i.execContext.Query) + " RETURNING " + strings.Join(returningColumns, ", "), nil
 }
 
-// rowsWithStmt wraps driver.Rows and closes the statement when rows are closed
-type rowsWithStmt struct {
-	driver.Rows
-	stmt driver.Stmt
-}
-
-func (r *rowsWithStmt) Close() error {
-	rowsErr := r.Rows.Close()
-	stmtErr := r.stmt.Close()
-	if rowsErr != nil {
-		return rowsErr
-	}
-	return stmtErr
-}
-
 func (i *insertExecutor) queryRows(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	// Try direct query first
 	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
@@ -402,7 +387,7 @@ func (i *insertExecutor) queryRows(ctx context.Context, query string, args []dri
 		return nil, err
 	}
 
-	return &rowsWithStmt{Rows: rows, stmt: stmt}, nil
+	return util.NewRowsWithStmt(rows, stmt), nil
 }
 
 func namedValuesToValues(named []driver.NamedValue) ([]driver.Value, error) {

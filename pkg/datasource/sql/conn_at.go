@@ -32,12 +32,6 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
-// rowsWithStmt wraps driver.Rows and closes the statement when rows are closed
-type rowsWithStmt struct {
-	driver.Rows
-	stmt driver.Stmt
-}
-
 // nonRetryableATError preserves the commit error without exposing the retry signal to database/sql.
 type nonRetryableATError struct{ cause error }
 
@@ -48,15 +42,6 @@ func (e nonRetryableATError) Is(target error) bool {
 }
 
 func (e nonRetryableATError) As(target any) bool { return errors.As(e.cause, target) }
-
-func (r *rowsWithStmt) Close() error {
-	rowsErr := r.Rows.Close()
-	stmtErr := r.stmt.Close()
-	if rowsErr != nil {
-		return rowsErr
-	}
-	return stmtErr
-}
 
 // ATConn Database connection proxy object under XA transaction model
 // Conn is assumed to be stateful.
@@ -194,7 +179,7 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 					}
 
 					// Wrap rows with statement to close both together
-					wrappedRows := &rowsWithStmt{Rows: rows, stmt: stmt}
+					wrappedRows := util.NewRowsWithStmt(rows, stmt)
 					return types.NewResult(types.WithRows(wrappedRows)), nil
 				}
 

@@ -147,6 +147,39 @@ func TestATConnAllowsPreparedMultiSQLForPostgreSQL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestATConnQueryContextPrepareFallbackPreservesCloseErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+	targetStmt := mock.NewMockTestDriverStmt(ctrl)
+	targetRows := mock.NewMockTestDriverRows(ctrl)
+	ctx := context.Background()
+	query := "SELECT id FROM t_user WHERE id = ?"
+	args := []driver.NamedValue{{Ordinal: 1, Value: int64(1)}}
+	rowsCloseErr := errors.New("rows close failed")
+	stmtCloseErr := errors.New("statement close failed")
+
+	targetConn.EXPECT().QueryContext(ctx, query, args).Return(nil, driver.ErrSkip)
+	targetConn.EXPECT().Prepare(query).Return(targetStmt, nil)
+	targetStmt.EXPECT().QueryContext(ctx, args).Return(targetRows, nil)
+	targetRows.EXPECT().Close().Return(rowsCloseErr)
+	targetStmt.EXPECT().Close().Return(stmtCloseErr)
+
+	conn := &ATConn{Conn: &Conn{
+		res:        &DBResource{dbType: types.DBTypeMySQL},
+		txCtx:      types.NewTxCtx(),
+		targetConn: targetConn,
+		dbType:     types.DBTypeMySQL,
+	}}
+
+	rows, err := conn.QueryContext(ctx, query, args)
+	if !assert.NoError(t, err) || !assert.NotNil(t, rows) {
+		return
+	}
+	closeErr := rows.Close()
+	assert.ErrorIs(t, closeErr, rowsCloseErr)
+	assert.ErrorIs(t, closeErr, stmtCloseErr)
+}
+
 type postgresMockRows struct {
 	columns []string
 	data    [][]driver.Value

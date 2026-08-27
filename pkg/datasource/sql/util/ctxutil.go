@@ -127,6 +127,11 @@ type rowsWithStmt struct {
 	stmt driver.Stmt
 }
 
+// NewRowsWithStmt wraps rows and closes both rows and stmt when the returned rows are closed.
+func NewRowsWithStmt(rows driver.Rows, stmt driver.Stmt) driver.Rows {
+	return &rowsWithStmt{Rows: rows, stmt: stmt}
+}
+
 func (r *rowsWithStmt) Close() error {
 	var rowsErr error
 	if r.Rows != nil {
@@ -208,5 +213,5 @@ func CtxDriverQueryWithPrepareFallback(ctx context.Context, conn driver.Conn, qu
 		return nil, err
 	}
 
-	return &rowsWithStmt{Rows: rows, stmt: stmt}, nil
+	return NewRowsWithStmt(rows, stmt), nil
 }
