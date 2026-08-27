@@ -40,6 +40,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	undoparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
+	sqlutil "seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -494,13 +495,9 @@ func TestMySQLUndoInsertExecutorDecimalDataValidation(t *testing.T) {
 		if !ok {
 			return fmt.Errorf("MySQL connection does not implement driver.Conn")
 		}
-		execer, ok := rawConn.(driver.ExecerContext)
-		if !ok {
-			return fmt.Errorf("MySQL connection does not implement driver.ExecerContext")
-		}
 		execCtx.Conn = driverConn
 		_, execErr := at.NewInsertExecutor(parseCtx, execCtx, nil).ExecContext(ctx, func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-			result, execErr := execer.ExecContext(ctx, query, args)
+			result, execErr := sqlutil.CtxDriverExecWithPrepareFallback(ctx, driverConn, query, args)
 			if execErr != nil {
 				return nil, execErr
 			}
