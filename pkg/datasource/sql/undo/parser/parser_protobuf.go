@@ -50,7 +50,10 @@ func (p *ProtobufParser) Encode(branchUndoLog *undo.BranchUndoLog) ([]byte, erro
 	if branchUndoLog == nil {
 		return nil, fmt.Errorf("branchUndoLog cannot be nil")
 	}
-	protoLog := ConvertToProto(branchUndoLog)
+	protoLog, err := ConvertToProto(branchUndoLog)
+	if err != nil {
+		return nil, err
+	}
 	return proto.Marshal(protoLog)
 }
 
@@ -62,12 +65,12 @@ func (p *ProtobufParser) Decode(data []byte) (*undo.BranchUndoLog, error) {
 		return nil, err
 	}
 
-	return convertToIntree(branchUndoLog, true)
+	return ConvertToIntree(branchUndoLog)
 }
 
-func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
+func ConvertToProto(intreeLog *undo.BranchUndoLog) (*BranchUndoLog, error) {
 	if intreeLog == nil {
-		return nil
+		return nil, nil
 	}
 	protoLog := &BranchUndoLog{
 		Xid:      intreeLog.Xid,
@@ -95,7 +98,7 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
 				for _, col := range row.Columns {
 					anyValue, err := convertInterfaceToAny(col.GetActualValue())
 					if err != nil {
-						continue
+						return nil, fmt.Errorf("convert before image column %q: %w", col.ColumnName, err)
 					}
 
 					protoCol := &ColumnImage{
@@ -127,7 +130,7 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
 				for _, col := range row.Columns {
 					anyValue, err := convertInterfaceToAny(col.Value)
 					if err != nil {
-						continue
+						return nil, fmt.Errorf("convert after image column %q: %w", col.ColumnName, err)
 					}
 
 					protoCol := &ColumnImage{
@@ -146,15 +149,10 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) *BranchUndoLog {
 
 		protoLog.Logs = append(protoLog.Logs, protolog)
 	}
-	return protoLog
+	return protoLog, nil
 }
 
-func ConvertToIntree(protoLog *BranchUndoLog) *undo.BranchUndoLog {
-	intreeLog, _ := convertToIntree(protoLog, false)
-	return intreeLog
-}
-
-func convertToIntree(protoLog *BranchUndoLog, strict bool) (*undo.BranchUndoLog, error) {
+func ConvertToIntree(protoLog *BranchUndoLog) (*undo.BranchUndoLog, error) {
 	intreeLog := &undo.BranchUndoLog{
 		Xid:      protoLog.Xid,
 		BranchID: protoLog.BranchID,
@@ -182,10 +180,7 @@ func convertToIntree(protoLog *BranchUndoLog, strict bool) (*undo.BranchUndoLog,
 				for _, pbCol := range pbRow.Columns {
 					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
-						if strict {
-							return nil, fmt.Errorf("convert before image column %q: %w", pbCol.ColumnName, err)
-						}
-						continue
+						return nil, fmt.Errorf("convert before image column %q: %w", pbCol.ColumnName, err)
 					}
 
 					undoCol := types.ColumnImage{
@@ -217,10 +212,7 @@ func convertToIntree(protoLog *BranchUndoLog, strict bool) (*undo.BranchUndoLog,
 				for _, pbCol := range pbRow.Columns {
 					anyValue, err := convertAnyToColumnValue(pbCol.Value, types.JDBCType(pbCol.ColumnType))
 					if err != nil {
-						if strict {
-							return nil, fmt.Errorf("convert after image column %q: %w", pbCol.ColumnName, err)
-						}
-						continue
+						return nil, fmt.Errorf("convert after image column %q: %w", pbCol.ColumnName, err)
 					}
 
 					undoCol := types.ColumnImage{
@@ -318,10 +310,13 @@ func convertAnyToColumnValue(anyValue *any.Any, columnType types.JDBCType) (inte
 
 func convertInterfaceToAny(v interface{}) (*any.Any, error) {
 	anyValue := &any.Any{}
-	bytes, _ := json.Marshal(v)
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
 	bytesValue := &wrappers.BytesValue{
 		Value: bytes,
 	}
-	err := anypb.MarshalFrom(anyValue, bytesValue, proto.MarshalOptions{})
+	err = anypb.MarshalFrom(anyValue, bytesValue, proto.MarshalOptions{})
 	return anyValue, err
 }

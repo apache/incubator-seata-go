@@ -18,9 +18,11 @@
 package parser
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -149,6 +151,7 @@ func TestProtobufDecodeInvalidIntegerReturnsError(t *testing.T) {
 	undoLog := &undo.BranchUndoLog{
 		Logs: []undo.SQLUndoLog{{
 			BeforeImage: &types.RecordImage{Rows: []types.RowImage{{Columns: []types.ColumnImage{{
+				ColumnName: "id",
 				ColumnType: types.JDBCTypeInteger,
 				Value:      "invalid",
 			}}}}},
@@ -161,10 +164,31 @@ func TestProtobufDecodeInvalidIntegerReturnsError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, decoded)
 
-	protoLog := ConvertToProto(undoLog)
-	converted := ConvertToIntree(protoLog)
-	assert.NotNil(t, converted)
-	assert.Empty(t, converted.Logs[0].BeforeImage.Rows[0].Columns)
+	protoLog, err := ConvertToProto(undoLog)
+	require.NoError(t, err)
+	converted, err := ConvertToIntree(protoLog)
+	assert.Error(t, err)
+	assert.Nil(t, converted)
+}
+
+func TestProtobufEncodeInvalidValueReturnsError(t *testing.T) {
+	undoLog := &undo.BranchUndoLog{
+		Logs: []undo.SQLUndoLog{{
+			AfterImage: &types.RecordImage{Rows: []types.RowImage{{Columns: []types.ColumnImage{{
+				ColumnName: "amount",
+				ColumnType: types.JDBCTypeDouble,
+				Value:      math.Inf(1),
+			}}}}},
+		}},
+	}
+
+	data, err := (&ProtobufParser{}).Encode(undoLog)
+	assert.Error(t, err)
+	assert.Nil(t, data)
+
+	protoLog, err := ConvertToProto(undoLog)
+	assert.Error(t, err)
+	assert.Nil(t, protoLog)
 }
 
 func TestProtobufParser_Interface(t *testing.T) {
