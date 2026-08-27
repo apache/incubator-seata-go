@@ -250,7 +250,9 @@ func TestBaseExecutorPrepareUndoPair(t *testing.T) {
 		wantLock   string
 		wantPairs  int
 	}{
-		{name: "no-op", sqlType: types.SQLTypeUpdate, wantPairs: 0},
+		{name: "empty update", sqlType: types.SQLTypeUpdate, wantPairs: 0},
+		{name: "unchanged update", sqlType: types.SQLTypeUpdate, beforeRows: rows(1), afterRows: rows(1), wantPairs: 0},
+		{name: "reordered unchanged update", sqlType: types.SQLTypeUpdate, beforeRows: append(rows(1), rows(2)...), afterRows: append(rows(2), rows(1)...), wantPairs: 0},
 		{name: "update locks after image", sqlType: types.SQLTypeUpdate, beforeRows: rows(1), afterRows: rows(2), wantLock: "TEST_TABLE:2", wantPairs: 1},
 		{name: "delete locks before image", sqlType: types.SQLTypeDelete, beforeRows: rows(1), wantLock: "TEST_TABLE:1", wantPairs: 1},
 		{name: "insert locks after image", sqlType: types.SQLTypeInsert, afterRows: rows(2), wantLock: "TEST_TABLE:2", wantPairs: 1},
@@ -279,20 +281,26 @@ func TestBaseExecutorPrepareUndoPair(t *testing.T) {
 func TestBaseExecutorPrepareUndoPairKeepsCompositeLockKeyFormat(t *testing.T) {
 	meta := &types.TableMeta{
 		TableName:   "test_table",
-		ColumnNames: []string{"id", "tenant_id"},
+		ColumnNames: []string{"id", "tenant_id", "value"},
 		Indexs: map[string]types.IndexMeta{"PRIMARY": {
 			IType:   types.IndexTypePrimaryKey,
 			Columns: []types.ColumnMeta{{ColumnName: "id"}, {ColumnName: "tenant_id"}},
 		}},
 	}
-	rows := []types.RowImage{{Columns: []types.ColumnImage{
+	beforeRows := []types.RowImage{{Columns: []types.ColumnImage{
 		{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 1},
 		{ColumnName: "tenant_id", KeyType: types.IndexTypePrimaryKey, Value: 2},
+		{ColumnName: "value", Value: "before"},
+	}}}
+	afterRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 1},
+		{ColumnName: "tenant_id", KeyType: types.IndexTypePrimaryKey, Value: 2},
+		{ColumnName: "value", Value: "after"},
 	}}}
 	txCtx := types.NewTxCtx()
 	execCtx := &types.ExecContext{TxCtx: txCtx, DBType: types.DBTypeMySQL}
-	beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: rows}
-	afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: rows}
+	beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: beforeRows}
+	afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: afterRows}
 
 	err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
 

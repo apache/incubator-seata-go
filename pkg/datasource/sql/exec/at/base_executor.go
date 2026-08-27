@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -592,6 +593,53 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	return util.BuildLockKey(records, meta)
 }
 
+func rowsByPrimaryKey(image *types.RecordImage, dbType types.DBType) (map[string]types.RowImage, error) {
+	rows := make(map[string]types.RowImage, len(image.Rows))
+	for _, row := range image.Rows {
+		primaryKeys, err := util.GetOrderedPkList(image, row, dbType)
+		if err != nil {
+			return nil, err
+		}
+		var key strings.Builder
+		for _, primaryKey := range primaryKeys {
+			value := primaryKey.GetActualValue()
+			if value == nil {
+				key.WriteByte('n')
+				continue
+			}
+			part := fmt.Sprintf("%v", value)
+			fmt.Fprintf(&key, "v%d:%s", len(part), part)
+		}
+		rowKey := key.String()
+		if _, ok := rows[rowKey]; ok {
+			return nil, fmt.Errorf("primary key %q found more than once in record image", rowKey)
+		}
+		rows[rowKey] = row
+	}
+	return rows, nil
+}
+
+func rowsEqualByPrimaryKey(beforeImage, afterImage *types.RecordImage, dbType types.DBType) (bool, error) {
+	if len(beforeImage.Rows) != len(afterImage.Rows) {
+		return false, nil
+	}
+	beforeRows, err := rowsByPrimaryKey(beforeImage, dbType)
+	if err != nil {
+		return false, err
+	}
+	afterRows, err := rowsByPrimaryKey(afterImage, dbType)
+	if err != nil {
+		return false, err
+	}
+	for key, beforeRow := range beforeRows {
+		afterRow, ok := afterRows[key]
+		if !ok || !reflect.DeepEqual(beforeRow, afterRow) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, afterImage *types.RecordImage) error {
 	if execCtx == nil || execCtx.TxCtx == nil {
 		return fmt.Errorf("transaction context is nil")
@@ -622,6 +670,15 @@ func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, 
 			if primaryKey.GetActualValue() == nil {
 				return fmt.Errorf("primary key %q is nil in lock image row %d", primaryKey.ColumnName, rowIndex)
 			}
+		}
+	}
+	if beforeImage.SQLType == types.SQLTypeUpdate {
+		equal, err := rowsEqualByPrimaryKey(beforeImage, afterImage, effectiveDBType(execCtx.DBType))
+		if err != nil {
+			return fmt.Errorf("compare update images: %w", err)
+		}
+		if equal {
+			return nil
 		}
 	}
 

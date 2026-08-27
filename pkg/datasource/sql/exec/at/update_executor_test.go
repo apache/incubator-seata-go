@@ -170,6 +170,8 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(100)}), nil),
 		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(110)}), nil),
 		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(110)}), nil),
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(110)}), nil),
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(110)}), nil),
 		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), int64(120)}), nil),
 		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames), nil),
 	)
@@ -183,6 +185,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		rowsAffected int64
 	}{
 		{args: []driver.Value{int64(110), int64(1)}, rowsAffected: 1},
+		{args: []driver.Value{int64(110), int64(1)}},
 		{args: []driver.Value{int64(120), int64(1)}, rowsAffected: 1},
 		{args: []driver.Value{int64(999), int64(2)}},
 	} {
@@ -209,7 +212,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 	assert.EqualValues(t, 110, afterImages[0].Rows[0].GetColumnMap()["balance"].Value)
 	assert.EqualValues(t, 110, beforeImages[1].Rows[0].GetColumnMap()["balance"].Value)
 	assert.EqualValues(t, 120, afterImages[1].Rows[0].GetColumnMap()["balance"].Value)
-	assert.Equal(t, 3, callbacks)
+	assert.Equal(t, 4, callbacks)
 	assert.Equal(t, map[string]struct{}{"ACCOUNT:1": {}}, txCtx.LockKeys)
 }
 
