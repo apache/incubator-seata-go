@@ -19,6 +19,7 @@ package executor
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
@@ -467,9 +468,10 @@ func TestMySQLUndoInsertExecutorDecimalDataValidation(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	const tableName = "seata_go_decimal_undo_test"
-	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName)
+	var tableSuffix [8]byte
+	_, err = rand.Read(tableSuffix[:])
 	require.NoError(t, err)
+	tableName := fmt.Sprintf("seata_go_decimal_undo_test_%x", tableSuffix)
 	_, err = conn.ExecContext(ctx, "CREATE TABLE "+tableName+" (id BIGINT PRIMARY KEY, amount DECIMAL(20,6))")
 	require.NoError(t, err)
 	defer conn.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName)
