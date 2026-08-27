@@ -23,7 +23,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 )
 
 // Mock implementations for testing
@@ -502,4 +504,209 @@ func TestNamedValueToValue_Empty(t *testing.T) {
 	result, err := namedValueToValue(input)
 	assert.NoError(t, err)
 	assert.Empty(t, result)
+}
+
+func TestCtxDriverExecWithPrepareFallback(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	query := "INSERT INTO t_user(id, name) VALUES (?, ?)"
+	args := []driver.NamedValue{{Ordinal: 1, Value: int64(1)}, {Ordinal: 2, Value: "user1"}}
+
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+	targetStmt := mock.NewMockTestDriverStmt(ctrl)
+
+	targetConn.EXPECT().ExecContext(ctx, query, args).Return(nil, driver.ErrSkip)
+	targetConn.EXPECT().PrepareContext(ctx, query).Return(targetStmt, nil)
+	targetStmt.EXPECT().ExecContext(ctx, args).Return(driver.RowsAffected(1), nil)
+	targetStmt.EXPECT().Close().Return(nil)
+
+	result, err := CtxDriverExecWithPrepareFallback(ctx, targetConn, query, args)
+
+	if !assert.NoError(t, err) || !assert.NotNil(t, result) {
+		return
+	}
+
+	affected, err := result.RowsAffected()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), affected)
+}
+
+func TestNewRowsWithStmt(t *testing.T) {
+	t.Run("close preserves rows and statement errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetRows := mock.NewMockTestDriverRows(ctrl)
+		targetStmt := mock.NewMockTestDriverStmt(ctrl)
+		rowsCloseErr := errors.New("rows close failed")
+		stmtCloseErr := errors.New("statement close failed")
+
+		targetRows.EXPECT().Close().Times(1).Return(rowsCloseErr)
+		targetStmt.EXPECT().Close().Times(1).Return(stmtCloseErr)
+
+		closeErr := NewRowsWithStmt(targetRows, targetStmt).Close()
+		assert.ErrorIs(t, closeErr, rowsCloseErr)
+		assert.ErrorIs(t, closeErr, stmtCloseErr)
+	})
+
+	t.Run("nil rows", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetStmt := mock.NewMockTestDriverStmt(ctrl)
+		targetStmt.EXPECT().Close().Times(1).Return(nil)
+
+		assert.NoError(t, NewRowsWithStmt(nil, targetStmt).Close())
+	})
+
+	t.Run("nil statement", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetRows := mock.NewMockTestDriverRows(ctrl)
+		targetRows.EXPECT().Close().Times(1).Return(nil)
+
+		assert.NoError(t, NewRowsWithStmt(targetRows, nil).Close())
+	})
+
+	t.Run("nil rows and statement", func(t *testing.T) {
+		assert.NoError(t, NewRowsWithStmt(nil, nil).Close())
+	})
+}
+
+func TestCtxDriverQueryWithPrepareFallback(t *testing.T) {
+	ctx := context.Background()
+	query := "SELECT id, name FROM t_user WHERE id IN (?, ?)"
+	args := []driver.NamedValue{
+		{
+			Ordinal: 1,
+			Value:   int64(1),
+		},
+		{
+			Ordinal: 2,
+			Value:   int64(2),
+		},
+	}
+
+	t.Run("direct query success does not prepare", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		targetRows := mock.NewMockTestDriverRows(ctrl)
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(targetRows, nil)
+		targetRows.EXPECT().Close().Times(1).Return(nil)
+
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+
+		if !assert.NoError(t, err) || !assert.NotNil(t, rows) {
+			return
+		}
+
+		assert.Same(t, targetRows, rows)
+		assert.NoError(t, rows.Close())
+	})
+
+	t.Run("ErrSkip falls back to prepared query", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		targetStmt := mock.NewMockTestDriverStmt(ctrl)
+		targetRows := mock.NewMockTestDriverRows(ctrl)
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(nil, driver.ErrSkip)
+		targetConn.EXPECT().PrepareContext(ctx, query).Times(1).Return(targetStmt, nil)
+		targetStmt.EXPECT().QueryContext(ctx, args).Times(1).Return(targetRows, nil)
+		targetRows.EXPECT().Close().Times(1).Return(nil)
+		targetStmt.EXPECT().Close().Times(1).Return(nil)
+
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+
+		if !assert.NoError(t, err) || !assert.NotNil(t, rows) {
+			return
+		}
+
+		assert.NotSame(t, targetRows, rows)
+		assert.NoError(t, rows.Close())
+	})
+
+	t.Run("non ErrSkip error does not prepare", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		expectedErr := errors.New("direct query failed")
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(nil, expectedErr)
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+
+		assert.Nil(t, rows)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+
+	t.Run("prepare error is returned", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		expectedErr := errors.New("prepare query failed")
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(nil, driver.ErrSkip)
+		targetConn.EXPECT().PrepareContext(ctx, query).Times(1).Return(nil, expectedErr)
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+
+		assert.Nil(t, rows)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+
+	t.Run("prepared query error closes statement", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		targetStmt := mock.NewMockTestDriverStmt(ctrl)
+		expectedErr := errors.New("prepared query failed")
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(nil, driver.ErrSkip)
+		targetConn.EXPECT().PrepareContext(ctx, query).Times(1).Return(targetStmt, nil)
+		targetStmt.EXPECT().QueryContext(ctx, args).Times(1).Return(nil, expectedErr)
+		targetStmt.EXPECT().Close().Times(1).Return(nil)
+
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+		assert.Nil(t, rows)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+
+	t.Run("close preserves rows and statement errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		targetConn := mock.NewMockTestDriverConn(ctrl)
+		targetStmt := mock.NewMockTestDriverStmt(ctrl)
+		targetRows := mock.NewMockTestDriverRows(ctrl)
+
+		rowsCloseErr := errors.New("rows close failed")
+		stmtCloseErr := errors.New("statement close failed")
+
+		targetConn.EXPECT().QueryContext(ctx, query, args).Times(1).Return(nil, driver.ErrSkip)
+		targetConn.EXPECT().PrepareContext(ctx, query).Times(1).Return(targetStmt, nil)
+		targetStmt.EXPECT().QueryContext(ctx, args).Times(1).Return(targetRows, nil)
+		targetRows.EXPECT().Close().Times(1).Return(rowsCloseErr)
+		targetStmt.EXPECT().Close().Times(1).Return(stmtCloseErr)
+
+		rows, err := CtxDriverQueryWithPrepareFallback(ctx, targetConn, query, args)
+
+		if !assert.NoError(t, err) || !assert.NotNil(t, rows) {
+			return
+		}
+
+		closeErr := rows.Close()
+
+		assert.ErrorIs(t, closeErr, rowsCloseErr)
+		assert.ErrorIs(t, closeErr, stmtCloseErr)
+	})
 }

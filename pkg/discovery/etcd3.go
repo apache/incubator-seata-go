@@ -39,12 +39,18 @@ const (
 type EtcdRegistryService struct {
 	client        *etcd3.Client
 	cfg           etcd3.Config
-	vgroupMapping map[string]string
+	vgroupMapping map[string]string // copied during construction; read-only afterwards
 	store         *AddressStore
 
 	stopCh    chan struct{}
 	closeOnce sync.Once
+
+	subscriptionsMu sync.Mutex
+	subscriptions   map[*registryChangeSubscription]struct{}
+	closed          bool
 }
+
+var _ RegistrySubscriber = (*EtcdRegistryService)(nil)
 
 func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) (RegistryService, error) {
 	if config == nil {
@@ -62,7 +68,10 @@ func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) (Re
 		return nil, fmt.Errorf("failed to create etcd3 client: %w", err)
 	}
 
-	vgroupMapping := config.VgroupMapping
+	vgroupMapping := make(map[string]string, len(config.VgroupMapping))
+	for key, cluster := range config.VgroupMapping {
+		vgroupMapping[key] = cluster
+	}
 
 	etcdRegistryService := &EtcdRegistryService{
 		client:        cli,
@@ -104,8 +113,11 @@ func (s *EtcdRegistryService) watch(key string) {
 		}
 
 	}
-	// watch the changes of endpoints
-	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
+	watchOptions := []etcd3.OpOption{etcd3.WithPrefix()}
+	if resp != nil && resp.Header != nil {
+		watchOptions = append(watchOptions, etcd3.WithRev(resp.Header.Revision+1))
+	}
+	watchCh := s.client.Watch(ctx, key, watchOptions...)
 
 	for {
 		select {
@@ -198,14 +210,71 @@ func getClusterAndAddress(key []byte) (string, string, int, error) {
 func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 	cluster := s.vgroupMapping[key]
 	if cluster == "" {
-		return nil, fmt.Errorf("cluster doesnt exit")
+		return nil, fmt.Errorf("cluster doesn't exist")
 	}
 
 	return s.store.Snapshot(cluster), nil
 }
 
+func (s *EtcdRegistryService) Subscribe(key string, listener RegistryChangeListener) (RegistrySubscription, error) {
+	if listener == nil {
+		return nil, fmt.Errorf("registry change listener is nil")
+	}
+
+	cluster := s.vgroupMapping[key]
+	if cluster == "" {
+		return nil, fmt.Errorf("cluster doesn't exist")
+	}
+
+	subscription := newRegistryChangeSubscription(listener)
+	// Register before checking closed so taking the initial snapshot cannot miss
+	// an update. If Close wins the race, the check below removes the callback.
+	initial, unsubscribe := s.store.subscribeWithSnapshot(cluster, func(changedCluster string, instances []*ServiceInstance) {
+		if changedCluster == cluster {
+			subscription.publish(RegistryChangeEvent{Key: key, Instances: instances})
+		}
+	})
+	subscription.initialize(RegistryChangeEvent{Key: key, Instances: initial}, func() {
+		unsubscribe()
+		s.removeSubscription(subscription)
+	})
+
+	s.subscriptionsMu.Lock()
+	if s.closed {
+		s.subscriptionsMu.Unlock()
+		subscription.Unsubscribe()
+		return nil, fmt.Errorf("registry service is closed")
+	}
+	if s.subscriptions == nil {
+		s.subscriptions = make(map[*registryChangeSubscription]struct{})
+	}
+	s.subscriptions[subscription] = struct{}{}
+	s.subscriptionsMu.Unlock()
+
+	subscription.start()
+	return subscription, nil
+}
+
+func (s *EtcdRegistryService) removeSubscription(subscription *registryChangeSubscription) {
+	s.subscriptionsMu.Lock()
+	delete(s.subscriptions, subscription)
+	s.subscriptionsMu.Unlock()
+}
+
 func (s *EtcdRegistryService) Close() {
 	s.closeOnce.Do(func() {
+		s.subscriptionsMu.Lock()
+		s.closed = true
+		subscriptions := make([]*registryChangeSubscription, 0, len(s.subscriptions))
+		for subscription := range s.subscriptions {
+			subscriptions = append(subscriptions, subscription)
+		}
+		s.subscriptions = nil
+		s.subscriptionsMu.Unlock()
+
+		for _, subscription := range subscriptions {
+			subscription.Unsubscribe()
+		}
 		if s.stopCh != nil {
 			close(s.stopCh)
 		}

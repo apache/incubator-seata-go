@@ -552,6 +552,30 @@ func Test_mysqlTrigger_getIndexes(t *testing.T) {
 				assert.Equal(t, types.IndexTypePrimaryKey, indexes[0].IType)
 			},
 		},
+		{
+			name: "success_composite_primary_key",
+			setupMock: func() {
+				rows := sqlmock.NewRows([]string{"INDEX_NAME", "COLUMN_NAME", "NON_UNIQUE"}).
+					AddRow("PRIMARY", "tenant_id", 0).
+					AddRow("PRIMARY", "id", 0)
+
+				mock.ExpectPrepare("SELECT (.+) FROM `INFORMATION_SCHEMA`.`STATISTICS`").
+					ExpectQuery().
+					WithArgs("testdb", "users").
+					WillReturnRows(rows)
+			},
+			expectError:   false,
+			expectedCount: 2,
+			validateIndex: func(t *testing.T, indexes []types.IndexMeta) {
+				assert.Equal(t, types.IndexTypePrimaryKey, indexes[0].IType)
+				assert.Equal(t, "PRIMARY", indexes[0].Name)
+				assert.Equal(t, "tenant_id", indexes[0].ColumnName)
+
+				assert.Equal(t, types.IndexTypePrimaryKey, indexes[1].IType)
+				assert.Equal(t, "PRIMARY", indexes[1].Name)
+				assert.Equal(t, "id", indexes[1].ColumnName)
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -37,6 +37,19 @@ type Conn struct {
 	autoCommit bool
 	dbName     string
 	dbType     types.DBType
+	invalid    bool
+}
+
+func (c *Conn) invalidate() { c.invalid = true }
+
+func (c *Conn) IsValid() bool {
+	if c.invalid {
+		return false
+	}
+	if validator, ok := c.targetConn.(driver.Validator); ok {
+		return validator.IsValid()
+	}
+	return true
 }
 
 // ResetSession is called prior to executing a query on the connection

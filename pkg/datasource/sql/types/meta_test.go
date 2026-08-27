@@ -84,6 +84,33 @@ func TestTableMeta_GetPrimaryKeyTypeStrMap(t *testing.T) {
 		}}, want: map[string]string{
 			"id": "BIGINT",
 		}},
+		{
+			name: "test-composite-pk",
+			fields: fields{
+				TableName: "test_composite",
+				Indexs: map[string]IndexMeta{
+					"PRIMARY": {
+						Name:       "PRIMARY",
+						ColumnName: "id",
+						IType:      IndexTypePrimaryKey,
+						Columns: []ColumnMeta{
+							{
+								ColumnName:         "tenant_id",
+								DatabaseTypeString: "VARCHAR",
+							},
+							{
+								ColumnName:         "id",
+								DatabaseTypeString: "BIGINT",
+							},
+						},
+					},
+				},
+			},
+			want: map[string]string{
+				"tenant_id": "VARCHAR",
+				"id":        "BIGINT",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -148,7 +148,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 			}
 
 			// Wrap rows with statement to close both together
-			rowsi = &rowsWithStmt{Rows: rowsi, stmt: stmt}
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
 		}
 
 		defer func() {
@@ -228,7 +228,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 			}
 
 			// Wrap rows with statement to close both together
-			rowsi = &rowsWithStmt{Rows: rowsi, stmt: stmt}
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
 		}
 
 		defer func() {

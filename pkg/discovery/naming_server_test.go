@@ -802,6 +802,97 @@ func TestSubscribeStartsWatchLoopPerVGroup(t *testing.T) {
 	}, 2*time.Second, 20*time.Millisecond)
 }
 
+func TestNamingServerRegistryService_SubscribePublishesSnapshots(t *testing.T) {
+	client := newSubscriptionTestNamingClient(t)
+	client.vgroupAddressMap.Store("default_tx_group", []NamingServerNode{{
+		Healthy:     true,
+		Transaction: Endpoint{Host: "127.0.0.1", Port: 8091},
+	}})
+	service := &NamingServerRegistryService{client: client}
+
+	events := make(chan RegistryChangeEvent, 2)
+	subscription, err := service.Subscribe("default_tx_group", func(event RegistryChangeEvent) {
+		events <- event
+	})
+	if err != nil {
+		t.Fatalf("subscribe failed: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	assert.Equal(t, RegistryChangeEvent{
+		Key:       "default_tx_group",
+		Instances: []*ServiceInstance{{Addr: "127.0.0.1", Port: 8091}},
+	}, nextRegistryChangeEvent(t, events))
+
+	client.vgroupAddressMap.Store("default_tx_group", []NamingServerNode{{
+		Healthy:     true,
+		Transaction: Endpoint{Host: "127.0.0.2", Port: 8092},
+	}})
+	fireNamingListeners(t, client, "default_tx_group")
+	assert.Equal(t, RegistryChangeEvent{
+		Key:       "default_tx_group",
+		Instances: []*ServiceInstance{{Addr: "127.0.0.2", Port: 8092}},
+	}, nextRegistryChangeEvent(t, events))
+
+	subscription.Unsubscribe()
+	if _, ok := client.listenerServiceMap.Load("default_tx_group"); ok {
+		t.Fatal("naming server listener was not removed after unsubscribe")
+	}
+	if _, ok := client.subscribedVGroups.Load("default_tx_group"); ok {
+		t.Fatal("naming server watch was not removed after unsubscribe")
+	}
+}
+
+func TestNamingServerRegistryService_CloseUnsubscribesListeners(t *testing.T) {
+	client := newSubscriptionTestNamingClient(t)
+	client.vgroupAddressMap.Store("default_tx_group", []NamingServerNode{{
+		Healthy:     true,
+		Transaction: Endpoint{Host: "127.0.0.1", Port: 8091},
+	}})
+	service := &NamingServerRegistryService{client: client}
+
+	events := make(chan RegistryChangeEvent, 1)
+	subscription, err := service.Subscribe("default_tx_group", func(event RegistryChangeEvent) {
+		events <- event
+	})
+	if err != nil {
+		t.Fatalf("subscribe failed: %v", err)
+	}
+	nextRegistryChangeEvent(t, events)
+
+	service.Close()
+	concreteSubscription := subscription.(*registryChangeSubscription)
+	waitForSignal(t, concreteSubscription.doneCh, "naming server registry subscription to close")
+	if _, ok := client.listenerServiceMap.Load("default_tx_group"); ok {
+		t.Fatal("naming server listener was not removed after close")
+	}
+	if _, ok := client.subscribedVGroups.Load("default_tx_group"); ok {
+		t.Fatal("naming server watch was not removed after close")
+	}
+	service.Close()
+}
+
+func TestNamingServerRegistryService_SubscribeAfterCloseDoesNotStartWatch(t *testing.T) {
+	client := newSubscriptionTestNamingClient(t)
+	client.vgroupAddressMap.Store("default_tx_group", []NamingServerNode{{
+		Healthy:     true,
+		Transaction: Endpoint{Host: "127.0.0.1", Port: 8091},
+	}})
+	service := &NamingServerRegistryService{client: client}
+
+	service.Close()
+	subscription, err := service.Subscribe("default_tx_group", func(RegistryChangeEvent) {})
+	if err == nil {
+		t.Fatal("expected subscribe after close to fail")
+	}
+	if subscription != nil {
+		t.Fatal("expected subscribe after close to return nil subscription")
+	}
+	if _, ok := client.subscribedVGroups.Load("default_tx_group"); ok {
+		t.Fatal("subscribe after close started a naming server watch")
+	}
+}
+
 func TestNamingServerRegistryService_RegisterDeregisterNotSupported(t *testing.T) {
 	service := &NamingServerRegistryService{}
 
@@ -810,5 +901,47 @@ func TestNamingServerRegistryService_RegisterDeregisterNotSupported(t *testing.T
 	}
 	if err := service.Deregister(&ServiceInstance{Addr: "127.0.0.1", Port: 8091}); err == nil {
 		t.Fatal("expected deregister to return an error")
+	}
+}
+
+func newSubscriptionTestNamingClient(t *testing.T) *NamingServerClient {
+	t.Helper()
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/naming/v1/watch":
+			w.WriteHeader(http.StatusNotModified)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(mockServer.Close)
+
+	mockAddr := mockServer.Listener.Addr().String()
+	client := &NamingServerClient{
+		config:            &NamingServerConfig{ServerAddr: mockAddr, Namespace: "public"},
+		logger:            zap.NewNop(),
+		closeChan:         make(chan struct{}),
+		healthCheckTicker: time.NewTicker(time.Hour),
+		httpClient:        &http.Client{Timeout: 100 * time.Millisecond},
+		longPollClient:    &http.Client{Timeout: 100 * time.Millisecond},
+	}
+	client.availableNamingMap.Store(mockAddr, int32(0))
+	client.namingAddrCache = mockAddr
+	t.Cleanup(client.Close)
+	return client
+}
+
+func fireNamingListeners(t *testing.T, client *NamingServerClient, vGroup string) {
+	t.Helper()
+
+	val, ok := client.listenerServiceMap.Load(vGroup)
+	if !ok {
+		t.Fatalf("no listener registered for vGroup %s", vGroup)
+	}
+	for _, entry := range val.([]namingListenerEntry) {
+		if err := entry.listener.OnEvent(vGroup); err != nil {
+			t.Fatalf("listener callback failed: %v", err)
+		}
 	}
 }

@@ -245,21 +245,6 @@ func (i *insertExecutor) buildPostgreSQLReturningInsertSQL(meta *types.TableMeta
 	return trimTrailingSemicolon(i.execContext.Query) + " RETURNING " + strings.Join(returningColumns, ", "), nil
 }
 
-// rowsWithStmt wraps driver.Rows and closes the statement when rows are closed
-type rowsWithStmt struct {
-	driver.Rows
-	stmt driver.Stmt
-}
-
-func (r *rowsWithStmt) Close() error {
-	rowsErr := r.Rows.Close()
-	stmtErr := r.stmt.Close()
-	if rowsErr != nil {
-		return rowsErr
-	}
-	return stmtErr
-}
-
 func (i *insertExecutor) queryRows(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	// Try direct query first
 	queryerCtx, ok := i.execContext.Conn.(driver.QueryerContext)
@@ -307,7 +292,7 @@ func (i *insertExecutor) queryRows(ctx context.Context, query string, args []dri
 		return nil, err
 	}
 
-	return &rowsWithStmt{Rows: rows, stmt: stmt}, nil
+	return util.NewRowsWithStmt(rows, stmt), nil
 }
 
 func namedValuesToValues(named []driver.NamedValue) ([]driver.Value, error) {
@@ -360,22 +345,22 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	if len(dataTypeMap) != len(pkColumnNameList) {
 		return "", nil, fmt.Errorf("PK columnName size don't equal PK DataType size")
 	}
-	var pkRowImages []types.RowImage
 
 	rowSize := len(pkValuesMap[pkColumnNameList[0]])
+	pkRowImages := make([]types.RowImage, 0, rowSize)
 	for i := 0; i < rowSize; i++ {
+		columns := make([]types.ColumnImage, 0, len(pkColumnNameList))
 		for _, name := range pkColumnNameList {
 			tmpKey := name
 			tmpArray := pkValuesMap[tmpKey]
-			pkRowImages = append(pkRowImages, types.RowImage{
-				Columns: []types.ColumnImage{{
-					KeyType:    types.IndexTypePrimaryKey,
-					ColumnName: tmpKey,
-					ColumnType: jdbcTypeForDatabaseType(dbType, dataTypeMap[tmpKey]),
-					Value:      tmpArray[i],
-				}},
+			columns = append(columns, types.ColumnImage{
+				KeyType:    types.IndexTypePrimaryKey,
+				ColumnName: tmpKey,
+				ColumnType: jdbcTypeForDatabaseType(dbType, dataTypeMap[tmpKey]),
+				Value:      tmpArray[i],
 			})
 		}
+		pkRowImages = append(pkRowImages, types.RowImage{Columns: columns})
 	}
 	// build check sql
 	sb := strings.Builder{}

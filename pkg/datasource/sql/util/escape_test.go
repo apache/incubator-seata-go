@@ -314,3 +314,63 @@ func TestGetOrderedPkListEmptyRow(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Len(t, result, 0)
 }
+
+func TestGetOrderedPkListNilGuards(t *testing.T) {
+	row := types.RowImage{
+		Columns: []types.ColumnImage{
+			{ColumnName: "id", Value: 1, KeyType: types.IndexTypePrimaryKey},
+		},
+	}
+
+	result, err := GetOrderedPkList(nil, row, types.DBTypeMySQL)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "invalid record image")
+
+	imageWithNilMeta := &types.RecordImage{
+		TableName: "t_user",
+		TableMeta: nil,
+	}
+	result, err = GetOrderedPkList(imageWithNilMeta, row, types.DBTypeMySQL)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "table meta is nil")
+}
+
+func TestGetOrderedPkListCompositePK_ShuffledInput(t *testing.T) {
+	tableMeta := types.TableMeta{
+		TableName:   "t_order",
+		ColumnNames: []string{"tenant_id", "order_id", "user_id"},
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "tenant_id"},
+					{ColumnName: "order_id"},
+				},
+			},
+		},
+	}
+
+	image := &types.RecordImage{
+		TableName: "t_order",
+		TableMeta: &tableMeta,
+	}
+
+	shuffledRow := types.RowImage{
+		Columns: []types.ColumnImage{
+			{ColumnName: "order_id", Value: 999, KeyType: types.IndexTypePrimaryKey},
+			{ColumnName: "amount", Value: 88.8, KeyType: types.IndexTypeNull},
+			{ColumnName: "tenant_id", Value: "tenant_A", KeyType: types.IndexTypePrimaryKey},
+		},
+	}
+
+	orderedPks, err := GetOrderedPkList(image, shuffledRow, types.DBTypeMySQL)
+
+	assert.NoError(t, err)
+	assert.Len(t, orderedPks, 2)
+	assert.Equal(t, "tenant_id", orderedPks[0].ColumnName)
+	assert.Equal(t, "tenant_A", orderedPks[0].Value)
+	assert.Equal(t, "order_id", orderedPks[1].ColumnName)
+	assert.Equal(t, 999, orderedPks[1].Value)
+}

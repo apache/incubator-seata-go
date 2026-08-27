@@ -88,26 +88,20 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		records []*types.RecordImage
 	)
 
-	queryerCtx, ok := m.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = m.execContext.Conn.(driver.Queryer)
-	}
-	if !ok {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
-	}
-
-	rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, args)
-	defer func() {
-		if rowsi != nil {
-			rowsi.Close()
-		}
-	}()
+	rowsi, err = util.CtxDriverQueryWithPrepareFallback(ctx, m.execContext.Conn, selectSQL, args)
 	if err != nil {
-		log.Errorf("ctx driver query: %+v", err)
+		log.Errorf("aggregate delete image query failed: %+v", err)
 		return nil, err
 	}
+	defer func() {
+		if rowsi == nil {
+			return
+		}
+
+		if closeErr := rowsi.Close(); closeErr != nil {
+			log.Errorf("rows close fail,err: %v", closeErr)
+		}
+	}()
 
 	tableName, err := m.getFromTableInSQL()
 	if err != nil {

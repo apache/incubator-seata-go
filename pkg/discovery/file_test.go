@@ -245,3 +245,14 @@ func TestFileRegistryService_Lookup(t *testing.T) {
 		})
 	}
 }
+
+func TestFileRegistryService_DoesNotImplementRegistrySubscriber(t *testing.T) {
+	service := newFileRegistryService(&ServiceConfig{
+		VgroupMapping: map[string]string{"default_tx_group": "default"},
+		Grouplist:     map[string]string{"default": "127.0.0.1:8091"},
+	})
+
+	if _, ok := service.(RegistrySubscriber); ok {
+		t.Fatal("file registry should keep lookup-only behavior")
+	}
+}

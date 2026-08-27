@@ -68,27 +68,36 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 }
 
 func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map[string]interface{} {
-	rowMap := make(map[string]map[string]interface{}, 0)
-	for _, row := range rows {
-		fieldMap := make(map[string]interface{}, 0)
-		var rowKey string
-		var firstUnderline bool
+	rowMap := make(map[string]map[string]interface{}, len(rows))
+	for rowIndex, row := range rows {
+		fieldMap := make(map[string]interface{}, len(row.Columns))
+		pkValues := make(map[string]interface{}, len(primaryKeyList))
 
 		for _, column := range row.Columns {
 			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
-			for i, key := range primaryKeyList {
-				if cleanName == key {
-					if firstUnderline && i > 0 {
-						rowKey += "_##$$_"
-					}
-					// todo make value more accurate
-					rowKey = fmt.Sprintf("%v%v", rowKey, column.GetActualValue())
-					firstUnderline = true
+			for _, key := range primaryKeyList {
+				if strings.EqualFold(cleanName, key) {
+					pkValues[key] = column.GetActualValue()
 				}
 			}
 			fieldMap[strings.ToUpper(cleanName)] = column.Value
 		}
-		rowMap[rowKey] = fieldMap
+
+		var sb strings.Builder
+		for i, key := range primaryKeyList {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			val, ok := pkValues[key]
+			var valStr string
+			if !ok || val == nil {
+				valStr = fmt.Sprintf("__SENTINEL_MISSING_PK_%s_ROW_%d__", key, rowIndex)
+			} else {
+				valStr = fmt.Sprintf("%v", val)
+			}
+			sb.WriteString(fmt.Sprintf("%d:%s", len(valStr), valStr))
+		}
+		rowMap[sb.String()] = fieldMap
 	}
 	return rowMap
 }

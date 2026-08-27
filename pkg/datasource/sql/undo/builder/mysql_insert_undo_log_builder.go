@@ -113,9 +113,9 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	if len(dataTypeMap) != len(pkColumnNameList) {
 		return "", nil, fmt.Errorf("PK columnName size don't equal PK DataType size")
 	}
-	var pkRowImages []types.RowImage
 
 	rowSize := len(pkValuesMap[pkColumnNameList[0]])
+	pkRowImages := make([]types.RowImage, 0, rowSize*len(pkColumnNameList))
 	for i := 0; i < rowSize; i++ {
 		for _, name := range pkColumnNameList {
 			tmpKey := name
@@ -445,11 +445,10 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 }
 
 func canAutoIncrement(pkMetaMap map[string]types.ColumnMeta) bool {
-	if len(pkMetaMap) != 1 {
-		return false
-	}
 	for _, meta := range pkMetaMap {
-		return meta.Autoincrement
+		if meta.Autoincrement {
+			return true
+		}
 	}
 	return false
 }
@@ -504,7 +503,7 @@ func pkValuesMapMerge(dest *map[string][]interface{}, src map[string][]interface
 	for k, v := range src {
 		tmpK := k
 		tmpV := v
-		(*dest)[tmpK] = append((*dest)[tmpK], tmpV)
+		(*dest)[tmpK] = append((*dest)[tmpK], tmpV...)
 	}
 }
 

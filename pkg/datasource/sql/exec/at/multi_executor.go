@@ -20,11 +20,14 @@ package at
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
+
+var aggregateHookFallbackWarnOnce sync.Once
 
 type multiExecutor struct {
 	baseExecutor
@@ -39,6 +42,54 @@ func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecCont
 
 // ExecContext exec SQL, and generate before image and after image
 func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	plan, err := buildMultiExecutionPlan(m.parserCtx, m.execContext.DBType)
+	if err != nil {
+		return nil, err
+	}
+
+	if plan.useAggregatePath {
+		if hasStatementSpecificHooks(plan) {
+			warnAggregateHookFallbackOnce()
+		} else {
+			return m.execAggregate(ctx, f, m.parserCtx)
+		}
+	}
+	return m.execSequential(ctx, f, plan)
+}
+
+func warnAggregateHookFallbackOnce() {
+	aggregateHookFallbackWarnOnce.Do(func() {
+		log.Warn(
+			"AT multi-SQL aggregate path skipped because statement-specific hooks are registered globally; " +
+				"using sequential execution to preserve the per-statement hook lifecycle",
+		)
+	})
+}
+
+func hasStatementSpecificHooks(plan *multiExecutionPlan) bool {
+	if plan == nil {
+		return false
+	}
+
+	for _, statementCtx := range plan.statements {
+		if statementCtx == nil {
+			continue
+		}
+
+		if len(hooksForSQLType(statementCtx.SQLType)) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// execAggregate executes the optimized grouped UPDATE/DELETE path.
+//
+// It generates aggregate before images, executes the original multi-SQL once,
+// generates aggregate after images, validates them, and only then appends the
+// images to the transaction context. The callback result is returned unchanged;
+// this executor does not aggregate RowsAffected or LastInsertId across statements.
+func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNamedValue, parseCtx *types.ParseContext) (types.ExecResult, error) {
 	if err := m.beforeHooks(ctx, m.execContext); err != nil {
 		return nil, err
 	}
@@ -47,30 +98,33 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		m.afterHooks(ctx, m.execContext)
 	}()
 
-	beforeImages, err := m.beforeImage(ctx, m.parserCtx)
+	beforeImages, err := m.beforeImage(ctx, parseCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := f(ctx, m.execContext.Query, m.execContext.NamedValues)
+	result, err := f(ctx, m.execContext.Query, m.execContext.NamedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	afterImages, err := m.afterImage(ctx, m.parserCtx, beforeImages)
+	afterImages, err := m.afterImage(ctx, parseCtx, beforeImages)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, beforeImage := range beforeImages {
-		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	}
-	for _, afterImage := range afterImages {
-		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	if err := validateAggregateImages(parseCtx, beforeImages, afterImages); err != nil {
+		return nil, err
 	}
 
-	return res, nil
+	for index := range beforeImages {
+		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImages[index])
+		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImages[index])
+	}
+
+	return result, nil
 }
+
 func (m *multiExecutor) beforeImage(ctx context.Context, parseContext *types.ParseContext) ([]*types.RecordImage, error) {
 	if len(parseContext.MultiStmt) == 0 {
 		return nil, nil
@@ -166,4 +220,35 @@ func (m *multiExecutor) groupParsersByTableName(parseContext *types.ParseContext
 	}
 
 	return tableParsers, err
+}
+
+func validateAggregateImages(parseCtx *types.ParseContext, beforeImages []*types.RecordImage, afterImages []*types.RecordImage) error {
+	if len(beforeImages) != len(afterImages) {
+		return fmt.Errorf("aggregate before/after image count mismatch: "+"before=%d, after=%d", len(beforeImages), len(afterImages))
+	}
+
+	if parseCtx == nil || len(parseCtx.MultiStmt) == 0 || parseCtx.MultiStmt[0] == nil {
+		return fmt.Errorf("aggregate parse context contains no statements")
+	}
+
+	executorType := parseCtx.MultiStmt[0].ExecutorType
+
+	for index := range beforeImages {
+		beforeImage := beforeImages[index]
+		afterImage := afterImages[index]
+
+		if beforeImage == nil || afterImage == nil {
+			return fmt.Errorf("aggregate image %d is nil", index)
+		}
+
+		if beforeImage.TableName != afterImage.TableName {
+			return fmt.Errorf("aggregate image %d table mismatch: "+"before=%q, after=%q", index, beforeImage.TableName, afterImage.TableName)
+		}
+
+		if executorType == types.UpdateExecutor && len(beforeImage.Rows) != len(afterImage.Rows) {
+			return fmt.Errorf("aggregate update image %d row count mismatch: "+"before=%d, after=%d", index, len(beforeImage.Rows), len(afterImage.Rows))
+		}
+	}
+
+	return nil
 }

@@ -122,7 +122,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 			}
 
 			// Wrap rows with statement to close both together
-			rowsi = &rowsWithStmt{Rows: rowsi, stmt: stmt}
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
 		}
 
 		defer func() {

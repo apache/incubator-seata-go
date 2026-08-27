@@ -19,6 +19,7 @@ package util
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -187,21 +188,25 @@ func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
 }
 
 func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-
+	if image == nil || image.TableMeta == nil {
+		return nil, fmt.Errorf("invalid record image or table meta is nil")
+	}
 	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
 
-	pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
-	pkFields := make([]types.ColumnImage, 0)
+	rawPks := row.PrimaryKeys(row.Columns)
+	pkColumnNameListNoOrder := make([]types.ColumnImage, 0, len(rawPks))
+	pkFields := make([]types.ColumnImage, 0, len(pkColumnNameListByOrder))
 
-	for _, column := range row.PrimaryKeys(row.Columns) {
+	for _, column := range rawPks {
 		column.ColumnName = DelEscape(column.ColumnName, dbType)
 		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
 	}
 
 	for _, pkName := range pkColumnNameListByOrder {
 		for _, col := range pkColumnNameListNoOrder {
-			if strings.Index(col.ColumnName, pkName) > -1 {
+			if strings.EqualFold(col.ColumnName, pkName) {
 				pkFields = append(pkFields, col)
+				break
 			}
 		}
 	}

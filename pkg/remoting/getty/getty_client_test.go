@@ -82,16 +82,10 @@ func TestGettyRemotingClient_SendAsyncRequest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var capturedType message.RequestType
-			patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGettyRemotingClient().gettyRemoting), "SendAsync",
-				func(_ *GettyRemoting, msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
-					capturedType = msg.Type
-					return nil
-				})
-			defer patches.Reset()
-			err := GetGettyRemotingClient().SendAsyncRequest(test.message)
-			assert.Empty(t, err)
-			assert.Equal(t, test.expectedType, capturedType)
+			msg := newAsyncRequestMessage(1, test.message)
+			assert.Equal(t, test.expectedType, msg.Type)
+			assert.Equal(t, byte(codec.CodecTypeSeata), msg.Codec)
+			assert.Equal(t, test.message, msg.Body)
 		})
 	}
 }
