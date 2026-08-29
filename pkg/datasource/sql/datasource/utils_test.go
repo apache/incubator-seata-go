@@ -23,7 +23,32 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestDeepEqualNumericPrecision(t *testing.T) {
+	tests := []struct {
+		name     string
+		left     interface{}
+		right    interface{}
+		expected bool
+	}{
+		{name: "adjacent large signed integers", left: int64(1 << 53), right: int64(1<<53 + 1), expected: false},
+		{name: "adjacent large unsigned integers", left: uint64(1 << 63), right: uint64(1<<63 + 1), expected: false},
+		{name: "different integer widths", left: int32(42), right: int64(42), expected: true},
+		{name: "signed and unsigned", left: int64(42), right: uint64(42), expected: true},
+		{name: "negative signed and unsigned", left: int64(-1), right: uint64(^uint64(0)), expected: false},
+		{name: "different float widths", left: float32(42), right: float64(42), expected: true},
+		{name: "exact integer and float", left: int64(1 << 53), right: float64(1 << 53), expected: true},
+		{name: "inexact integer and float", left: int64(1<<53 + 1), right: float64(1 << 53), expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, DeepEqual(tt.left, tt.right))
+		})
+	}
+}
 
 func TestGetScanSlice(t *testing.T) {
 	db, mock, err := sqlmock.New()

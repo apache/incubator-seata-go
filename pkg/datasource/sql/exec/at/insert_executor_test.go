@@ -20,17 +20,21 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"io"
 	"testing"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
@@ -380,7 +384,355 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 	}
 }
 
+func TestInsertKeyPlanUsesParamMarkerOrder(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName:   "user",
+		ColumnNames: []string{"id", "name"},
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id"}, "name": {ColumnName: "name"},
+		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{
+				ColumnName: "id", DatabaseTypeString: "BIGINT",
+			}},
+		}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+
+	for _, tt := range []struct {
+		name    string
+		query   string
+		args    []driver.Value
+		want    []driver.Value
+		wantErr string
+	}{
+		{"function before pk", "insert into user(name,id) values (concat(?,?),?),(concat(?,?),?)", []driver.Value{"a", "b", 19, "c", "d", 21}, []driver.Value{19, 21}, ""},
+		{"function after pk", "insert into user(id,name) values (?,concat(?,?)),(?,concat(?,?))", []driver.Value{19, "a", "b", 21, "c", "d"}, []driver.Value{19, 21}, ""},
+		{"nested function", "insert into user(name,id) values (concat(upper(?),?),?),(lower(?),?)", []driver.Value{"a", "b", 19, "c", 21}, []driver.Value{19, 21}, ""},
+		{"insufficient args", "insert into user(name,id) values (concat(?,?),?)", []driver.Value{"a", "b"}, nil, "parameter index 2 out of range"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(tt.query)
+			assert.NoError(t, err)
+			executor := NewInsertExecutor(parseCtx, &types.ExecContext{NamedValues: util.ValueToNamedValue(tt.args)}, nil).(*insertExecutor)
+
+			_, values, err := executor.buildAfterImageSQL(context.Background())
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, util.NamedValueToValue(values))
+		})
+	}
+
+	autoMeta := *meta
+	autoMeta.Indexs = map[string]types.IndexMeta{"PRIMARY": {
+		IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id", DatabaseTypeString: "BIGINT", Autoincrement: true}},
+	}}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &autoMeta})
+	parseCtx, err := parser.DoParser("insert into user(id,name) values (default,?)")
+	assert.NoError(t, err)
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{NamedValues: util.ValueToNamedValue([]driver.Value{"generated"})}, nil).(*insertExecutor)
+	executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
+	_, values, err := executor.buildAfterImageSQL(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, []driver.Value{int64(42)}, util.NamedValueToValue(values))
+}
+
+func TestInsertKeyPlanZeroValueRespectsSQLMode(t *testing.T) {
+	meta := &types.TableMeta{
+		ColumnNames: []string{"id", "name"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{
+				ColumnName: "id", Autoincrement: true,
+			}},
+		}},
+	}
+
+	for _, tt := range []struct {
+		name         string
+		query        string
+		args         []driver.Value
+		modePosition driver.Value
+		wantPK       driver.Value
+		checkSQLMode bool
+	}{
+		{name: "literal zero generates", query: "insert into user(id,name) values (0,'Tony')", modePosition: 0, wantPK: int64(42), checkSQLMode: true},
+		{name: "prepared zero generates", query: "insert into user(id,name) values (?,?)", args: []driver.Value{int64(0), "Tony"}, modePosition: []byte("0"), wantPK: int64(42), checkSQLMode: true},
+		{name: "literal zero remains explicit", query: "insert into user(id,name) values (0,'Tony')", modePosition: 1, wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared zero remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{int64(0), "Tony"}, modePosition: []byte("1"), wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared false generates", query: "insert into user(id,name) values (?,?)", args: []driver.Value{false, "Tony"}, modePosition: 0, wantPK: int64(42), checkSQLMode: true},
+		{name: "prepared false remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{false, "Tony"}, modePosition: 1, wantPK: int64(0), checkSQLMode: true},
+		{name: "prepared true remains explicit", query: "insert into user(id,name) values (?,?)", args: []driver.Value{true, "Tony"}, wantPK: int64(1)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(tt.query)
+			if !assert.NoError(t, err) {
+				return
+			}
+			conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+			if tt.checkSQLMode {
+				conn.EXPECT().QueryContext(gomock.Any(), "SELECT FIND_IN_SET('NO_AUTO_VALUE_ON_ZERO', @@SESSION.sql_mode)", gomock.Any()).Return(&insertAfterImageRows{
+					columns: []string{"FIND_IN_SET"},
+					rows:    [][]driver.Value{{tt.modePosition}},
+				}, nil)
+			}
+			execCtx := &types.ExecContext{
+				Conn: conn, NamedValues: util.ValueToNamedValue(tt.args),
+			}
+			executor := NewInsertExecutor(parseCtx, execCtx, nil).(*insertExecutor)
+			executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
+
+			executor.keyPlan, err = executor.buildInsertKeyPlan(context.Background(), meta)
+			if !assert.NoError(t, err) {
+				return
+			}
+			values, err := executor.resolveInsertKeyPlan(execCtx)
+			assert.NoError(t, err)
+			assert.Equal(t, []interface{}{tt.wantPK}, values["id"])
+		})
+	}
+}
+
+func TestInsertKeyPlanEmptyValuesUsesLastInsertID(t *testing.T) {
+	meta := &types.TableMeta{Indexs: map[string]types.IndexMeta{"PRIMARY": {
+		IType: types.IndexTypePrimaryKey,
+		Columns: []types.ColumnMeta{{
+			ColumnName: "id", Autoincrement: true,
+		}},
+	}}}
+
+	for _, query := range []string{
+		"insert into user () values ()",
+		"insert into user values ()",
+	} {
+		t.Run(query, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(query)
+			if !assert.NoError(t, err) {
+				return
+			}
+			execCtx := &types.ExecContext{}
+			executor := NewInsertExecutor(parseCtx, execCtx, nil).(*insertExecutor)
+			executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
+
+			executor.keyPlan, err = executor.buildInsertKeyPlan(context.Background(), meta)
+			if !assert.NoError(t, err) {
+				return
+			}
+			values, err := executor.resolveInsertKeyPlan(execCtx)
+			assert.NoError(t, err)
+			assert.Equal(t, []interface{}{int64(42)}, values["id"])
+		})
+	}
+
+	t.Run("explicit columns remain invalid", func(t *testing.T) {
+		parseCtx, err := parser.DoParser("insert into user(id) values ()")
+		if !assert.NoError(t, err) {
+			return
+		}
+		executor := NewInsertExecutor(parseCtx, &types.ExecContext{}, nil).(*insertExecutor)
+
+		_, err = executor.buildInsertKeyPlan(context.Background(), meta)
+
+		assert.ErrorContains(t, err, "has 0 values, want 1")
+	})
+}
+
+func TestBuildSelectSQLByInsertAddsOnlyMissingCompositePKs(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
+
+	meta := &types.TableMeta{
+		TableName:   "user",
+		ColumnNames: []string{"id", "tenant_id", "name"},
+		Columns: map[string]types.ColumnMeta{
+			"id":        {ColumnName: "id"},
+			"tenant_id": {ColumnName: "tenant_id"},
+			"name":      {ColumnName: "name"},
+		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{
+				{ColumnName: "id", DatabaseTypeString: "BIGINT", Autoincrement: true},
+				{ColumnName: "tenant_id", DatabaseTypeString: "BIGINT"},
+			},
+		}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	parseCtx, err := parser.DoParser("insert into user(tenant_id,name) values (100,'Tony')")
+	assert.NoError(t, err)
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{}, nil).(*insertExecutor)
+	executor.businesSQLResult = &mockInsertResult{lastInsertID: 19, rowsAffected: 1}
+
+	sql, values, err := executor.buildAfterImageSQL(context.Background())
+
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT tenant_id, name, id FROM user WHERE (`id`,`tenant_id`) IN ((?,?)) ", sql)
+	assert.Equal(t, []driver.Value{int64(19), int64(100)}, util.NamedValueToValue(values))
+}
+
+func TestInsertExecutorRejectsUnsafeSourcesBeforeBusinessSQL(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName: "user", ColumnNames: []string{"id", "name"},
+		Columns: map[string]types.ColumnMeta{"id": {ColumnName: "id"}, "name": {ColumnName: "name"}},
+		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+
+	for _, query := range []string{
+		"insert ignore into user(id,name) values (1,'a'),(2,'b')",
+		"insert into user(id,name) select id,name from other_user",
+		"insert into user(id,name) values (uuid(),'generated')",
+	} {
+		parseCtx, err := parser.DoParser(query)
+		assert.NoError(t, err)
+		called := false
+		executor := NewInsertExecutor(parseCtx, &types.ExecContext{Query: query, TxCtx: types.NewTxCtx()}, nil)
+		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+			called = true
+			return mockInsertResult{rowsAffected: 1}, nil
+		})
+		assert.Error(t, err)
+		assert.False(t, called)
+	}
+}
+
+func TestInsertExecutorRejectsIncompleteAfterImage(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		query string
+		rows  [][]driver.Value
+		want  string
+	}{
+		{
+			name:  "empty after image",
+			query: "insert into user(id,name) values (1,'a')",
+			want:  "has 0 rows, expected 1",
+		},
+		{
+			name:  "missing expected row",
+			query: "insert into user(id,name) values (1,'a'),(2,'b')",
+			rows:  [][]driver.Value{{int64(1), "a"}},
+			want:  "has 1 rows, expected 2",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			txCtx, err := executeInsertWithAfterRows(t, tt.query, tt.rows)
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "insert after image for table user")
+			assert.ErrorContains(t, err, tt.want)
+			assert.Empty(t, txCtx.RoundImages.BeofreImages())
+			assert.Empty(t, txCtx.RoundImages.AfterImages())
+			assert.Empty(t, txCtx.LockKeys)
+		})
+	}
+}
+
+func TestInsertExecutorRejectsUnexpectedAfterImagePrimaryKey(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		query string
+		rows  [][]driver.Value
+		want  string
+	}{
+		{
+			name:  "unexpected primary key",
+			query: "insert into user(id,name) values (1,'a')",
+			rows:  [][]driver.Value{{int64(2), "a"}},
+			want:  "contains unexpected primary key [2]",
+		},
+		{
+			name:  "duplicate primary key",
+			query: "insert into user(id,name) values (1,'a'),(2,'b')",
+			rows:  [][]driver.Value{{int64(1), "a"}, {int64(1), "duplicate"}},
+			want:  "contains duplicate primary key [1]",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			txCtx, err := executeInsertWithAfterRows(t, tt.query, tt.rows)
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "insert after image for table user")
+			assert.ErrorContains(t, err, tt.want)
+			assert.Empty(t, txCtx.RoundImages.BeofreImages())
+			assert.Empty(t, txCtx.RoundImages.AfterImages())
+			assert.Empty(t, txCtx.LockKeys)
+		})
+	}
+}
+
+func executeInsertWithAfterRows(t *testing.T, query string, rows [][]driver.Value) (*types.TransactionContext, error) {
+	t.Helper()
+	meta := &types.TableMeta{
+		TableName:   "user",
+		ColumnNames: []string{"id", "name"},
+		Columns: map[string]types.ColumnMeta{
+			"id":   {ColumnName: "id", DatabaseTypeString: "BIGINT"},
+			"name": {ColumnName: "name", DatabaseTypeString: "VARCHAR"},
+		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{
+				ColumnName: "id", DatabaseTypeString: "BIGINT",
+			}},
+		}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+
+	parseCtx, err := parser.DoParser(query)
+	assert.NoError(t, err)
+	conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+	conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(&insertAfterImageRows{
+		columns: []string{"id", "name"},
+		rows:    rows,
+	}, nil)
+	txCtx := types.NewTxCtx()
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+		Query: query,
+		TxCtx: txCtx,
+		Conn:  conn,
+	}, nil)
+
+	_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		return mockInsertResult{rowsAffected: int64(len(parseCtx.InsertStmt.Lists))}, nil
+	})
+	return txCtx, err
+}
+
+func TestInsertIgnoreNoOpSkipsAfterImage(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName: "user", ColumnNames: []string{"id", "name"},
+		Columns: map[string]types.ColumnMeta{"id": {ColumnName: "id"}, "name": {ColumnName: "name"}},
+		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	query := "insert ignore into user(id,name) values (?,?)"
+	parseCtx, err := parser.DoParser(query)
+	assert.NoError(t, err)
+	txCtx := types.NewTxCtx()
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+		Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{1, "existing"}), TxCtx: txCtx,
+	}, nil)
+
+	_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		return mockInsertResult{rowsAffected: 0}, nil
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, txCtx.RoundImages.BeofreImages())
+	assert.Empty(t, txCtx.RoundImages.AfterImages())
+	assert.Empty(t, txCtx.LockKeys)
+}
+
 func TestBuildPostgreSQLReturningInsertSQL(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: false})
+
 	parseCtx, err := parser.DoParser("INSERT INTO t_user(name, age) VALUES ($1, $2);")
 	assert.NoError(t, err)
 
@@ -406,11 +758,44 @@ func TestBuildPostgreSQLReturningInsertSQL(t *testing.T) {
 				DatabaseTypeString: "INTEGER",
 			},
 		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}},
+		}},
 	}
 
 	sql, err := executor.(*insertExecutor).buildPostgreSQLReturningInsertSQL(meta)
 	assert.NoError(t, err)
 	assert.Equal(t, `INSERT INTO t_user(name, age) VALUES ($1, $2) RETURNING "id", "name", "age"`, sql)
+}
+
+func TestBuildPostgreSQLReturningInsertSQLAddsOnlyMissingCompositePKs(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
+
+	parseCtx, err := parser.DoParser("INSERT INTO t_user(tenant_id, name) VALUES ($1, $2)")
+	assert.NoError(t, err)
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+		Query:  "INSERT INTO t_user(tenant_id, name) VALUES ($1, $2)",
+		DBType: types.DBTypePostgreSQL,
+	}, nil)
+	meta := &types.TableMeta{
+		TableName:   "t_user",
+		ColumnNames: []string{"id", "tenant_id", "name"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{
+				{ColumnName: "id", Autoincrement: true},
+				{ColumnName: "tenant_id"},
+			},
+		}},
+	}
+
+	sql, err := executor.(*insertExecutor).buildPostgreSQLReturningInsertSQL(meta)
+
+	assert.NoError(t, err)
+	assert.Equal(t, `INSERT INTO t_user(tenant_id, name) VALUES ($1, $2) RETURNING "tenant_id", "name", "id"`, sql)
 }
 
 func TestMySQLInsertUndoLogBuilder_containsPK(t *testing.T) {
@@ -812,9 +1197,7 @@ func TestMySQLInsertUndoLogBuilder_parsePkValuesFromStatement(t *testing.T) {
 					},
 					Lists: [][]ast.ExprNode{
 						{
-							&test_driver.ValueExpr{
-								Datum: genStrDatum("?"),
-							},
+							&test_driver.ParamMarkerExpr{},
 						},
 					},
 				},
@@ -1211,6 +1594,29 @@ func (s *autoIncrementStepStmt) Query(args []driver.Value) (driver.Rows, error) 
 
 type autoIncrementStepRows struct {
 	value driver.Value
+}
+
+type insertAfterImageRows struct {
+	columns []string
+	rows    [][]driver.Value
+	index   int
+}
+
+func (r *insertAfterImageRows) Columns() []string {
+	return r.columns
+}
+
+func (r *insertAfterImageRows) Close() error {
+	return nil
+}
+
+func (r *insertAfterImageRows) Next(dest []driver.Value) error {
+	if r.index >= len(r.rows) {
+		return io.EOF
+	}
+	copy(dest, r.rows[r.index])
+	r.index++
+	return nil
 }
 
 func (r *autoIncrementStepRows) Columns() []string {

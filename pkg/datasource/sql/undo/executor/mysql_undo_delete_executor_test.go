@@ -23,19 +23,19 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func TestNewMySQLUndoDeleteExecutor(t *testing.T) {
 	sqlUndoLog := undo.SQLUndoLog{
-		TableName: "test_table",
-		SQLType:   types.SQLTypeDelete,
+		TableName:   "test_table",
+		SQLType:     types.SQLTypeDelete,
+		BeforeImage: &types.RecordImage{TableName: "before"},
+		AfterImage:  &types.RecordImage{TableName: "after"},
 	}
 
 	executor := newMySQLUndoDeleteExecutor(sqlUndoLog)
@@ -44,7 +44,7 @@ func TestNewMySQLUndoDeleteExecutor(t *testing.T) {
 	assert.Equal(t, sqlUndoLog, executor.sqlUndoLog)
 	assert.NotNil(t, executor.baseExecutor)
 	assert.Equal(t, sqlUndoLog, executor.baseExecutor.sqlUndoLog)
-	assert.Equal(t, sqlUndoLog.AfterImage, executor.baseExecutor.undoImage)
+	assert.Equal(t, sqlUndoLog.BeforeImage, executor.baseExecutor.undoImage)
 }
 
 func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
@@ -67,10 +67,11 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
+							IType:   types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
+					ColumnNames: []string{"id", "name", "age"},
 				},
 				Rows: []types.RowImage{
 					{
@@ -82,7 +83,7 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 					},
 				},
 			},
-			wantSQL: "INSERT INTO test_table (`name`, `age`, `id`) VALUES (?, ?, ?)",
+			wantSQL: "INSERT INTO test_table (name, age, id) VALUES (?, ?, ?)",
 			wantErr: false,
 		},
 		{
@@ -98,22 +99,26 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "user_id",
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{
+								{ColumnName: "user_id"},
+								{ColumnName: "order_id"},
+							},
 						},
 					},
+					ColumnNames: []string{"user_id", "order_id", "amount"},
 				},
 				Rows: []types.RowImage{
 					{
 						Columns: []types.ColumnImage{
-							{ColumnName: "user_id", KeyType: types.PrimaryKey.Number(), Value: 1},
 							{ColumnName: "order_id", KeyType: types.PrimaryKey.Number(), Value: 100},
 							{ColumnName: "amount", KeyType: types.IndexTypeNull, Value: 99.99},
+							{ColumnName: "user_id", KeyType: types.PrimaryKey.Number(), Value: 1},
 						},
 					},
 				},
 			},
-			wantSQL: "INSERT INTO test_table (`amount`, `user_id`, `order_id`) VALUES (?, ?, ?)",
+			wantSQL: "INSERT INTO test_table (amount, user_id, order_id) VALUES (?, ?, ?)",
 			wantErr: false,
 		},
 		{
@@ -126,23 +131,6 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.PrimaryKey.Number() {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock AddEscape function
-			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
-				return "`" + columnName + "`"
-			})
-
 			executor := &mySQLUndoDeleteExecutor{
 				sqlUndoLog: undo.SQLUndoLog{
 					TableName:   tt.beforeImage.TableName,
@@ -164,27 +152,39 @@ func TestMySQLUndoDeleteExecutor_BuildUndoSQL(t *testing.T) {
 }
 
 func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
+	dataValidation := undo.UndoConfig.DataValidation
+	undo.UndoConfig.DataValidation = true
+	defer func() { undo.UndoConfig.DataValidation = dataValidation }()
+
+	tableMeta := &types.TableMeta{
+		TableName: "test_table",
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+		},
+	}
+
 	tests := []struct {
 		name        string
 		beforeImage *types.RecordImage
+		currentRows *sqlmock.Rows
 		expectError bool
 		setupMock   func(mock sqlmock.Sqlmock)
 	}{
 		{
-			name: "execute on success",
+			name: "restore when current image is empty",
 			beforeImage: &types.RecordImage{
 				TableName: "test_table",
 				Rows: []types.RowImage{
 					{
 						Columns: []types.ColumnImage{
-							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: 1},
+							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: int64(1)},
 							{ColumnName: "name", KeyType: types.IndexTypeNull, Value: "test"},
 							{ColumnName: "age", KeyType: types.IndexTypeNull, Value: 25},
 						},
 					},
 				},
 			},
-			expectError: false,
+			currentRows: sqlmock.NewRows([]string{"id", "name", "age"}),
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectPrepare("INSERT INTO test_table").
 					ExpectExec().
@@ -193,18 +193,46 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 			},
 		},
 		{
+			name: "skip when current image already equals before image",
+			beforeImage: &types.RecordImage{
+				TableName: "test_table",
+				Rows: []types.RowImage{{Columns: []types.ColumnImage{
+					{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: int64(1)},
+				}}},
+			},
+			currentRows: sqlmock.NewRowsWithColumnDefinition(
+				sqlmock.NewColumn("id").OfType("BIGINT", int64(0)),
+			).AddRow(1),
+			setupMock: func(mock sqlmock.Sqlmock) {},
+		},
+		{
+			name: "reject dirty current image",
+			beforeImage: &types.RecordImage{
+				TableName: "test_table",
+				Rows: []types.RowImage{{Columns: []types.ColumnImage{
+					{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: int64(1)},
+				}}},
+			},
+			currentRows: sqlmock.NewRowsWithColumnDefinition(
+				sqlmock.NewColumn("id").OfType("BIGINT", int64(0)),
+			).AddRow(2),
+			expectError: true,
+			setupMock:   func(mock sqlmock.Sqlmock) {},
+		},
+		{
 			name: "execute with prepare error",
 			beforeImage: &types.RecordImage{
 				TableName: "test_table",
 				Rows: []types.RowImage{
 					{
 						Columns: []types.ColumnImage{
-							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: 1},
+							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: int64(1)},
 							{ColumnName: "name", KeyType: types.IndexTypeNull, Value: "test"},
 						},
 					},
 				},
 			},
+			currentRows: sqlmock.NewRows([]string{"id", "name"}),
 			expectError: true,
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectPrepare("INSERT INTO test_table").
@@ -215,23 +243,6 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.PrimaryKey.Number() {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock AddEscape function
-			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
-				return "`" + columnName + "`"
-			})
-
 			// Setup sqlmock
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
@@ -243,20 +254,17 @@ func TestMySQLUndoDeleteExecutor_ExecuteOn(t *testing.T) {
 			defer conn.Close()
 
 			// Setup mock expectations
+			tt.beforeImage.TableMeta = tableMeta
+			mock.ExpectQuery("SELECT .* FROM test_table .* FOR UPDATE").
+				WithArgs(1).
+				WillReturnRows(tt.currentRows)
 			tt.setupMock(mock)
 
-			executor := &mySQLUndoDeleteExecutor{
-				baseExecutor: &BaseExecutor{
-					sqlUndoLog: undo.SQLUndoLog{
-						TableName:   tt.beforeImage.TableName,
-						BeforeImage: tt.beforeImage,
-					},
-				},
-				sqlUndoLog: undo.SQLUndoLog{
-					TableName:   tt.beforeImage.TableName,
-					BeforeImage: tt.beforeImage,
-				},
-			}
+			executor := newMySQLUndoDeleteExecutor(undo.SQLUndoLog{
+				TableName:   tt.beforeImage.TableName,
+				BeforeImage: tt.beforeImage,
+				AfterImage:  &types.RecordImage{TableName: tt.beforeImage.TableName, TableMeta: tableMeta},
+			})
 
 			err = executor.ExecuteOn(ctx, types.DBTypeMySQL, conn)
 

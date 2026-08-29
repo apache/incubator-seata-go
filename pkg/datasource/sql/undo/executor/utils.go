@@ -47,8 +47,14 @@ func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordIma
 }
 
 func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) {
-	oldRowMap := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
-	newRowMap := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+	oldRowMap, err := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
+	if err != nil {
+		return false, err
+	}
+	newRowMap, err := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+	if err != nil {
+		return false, err
+	}
 
 	for key, oldRow := range oldRowMap {
 		newRow := newRowMap[key]
@@ -67,39 +73,46 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 	return true, nil
 }
 
-func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map[string]interface{} {
-	rowMap := make(map[string]map[string]interface{}, len(rows))
-	for rowIndex, row := range rows {
-		fieldMap := make(map[string]interface{}, len(row.Columns))
-		pkValues := make(map[string]interface{}, len(primaryKeyList))
+func rowListToMap(rows []types.RowImage, primaryKeyList []string) (map[string]map[string]interface{}, error) {
+	if len(primaryKeyList) == 0 {
+		return nil, fmt.Errorf("primary key list is empty")
+	}
+	rowMap := make(map[string]map[string]interface{}, 0)
+	for _, row := range rows {
+		fieldMap := make(map[string]interface{}, 0)
+		columnMap := make(map[string]*types.ColumnImage, len(row.Columns))
 
-		for _, column := range row.Columns {
+		for i, column := range row.Columns {
 			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
-			for _, key := range primaryKeyList {
-				if strings.EqualFold(cleanName, key) {
-					pkValues[key] = column.GetActualValue()
-				}
+			name := strings.ToLower(cleanName)
+			if _, ok := columnMap[name]; ok {
+				return nil, fmt.Errorf("column %q found more than once in row image", cleanName)
 			}
+			columnMap[name] = &row.Columns[i]
 			fieldMap[strings.ToUpper(cleanName)] = column.Value
 		}
 
-		var sb strings.Builder
-		for i, key := range primaryKeyList {
-			if i > 0 {
-				sb.WriteString(",")
+		var rowKey strings.Builder
+		for _, primaryKey := range primaryKeyList {
+			column, ok := columnMap[strings.ToLower(util.DelEscape(primaryKey, types.DBTypeMySQL))]
+			if !ok {
+				return nil, fmt.Errorf("primary key %q not found in row image", primaryKey)
 			}
-			val, ok := pkValues[key]
-			var valStr string
-			if !ok || val == nil {
-				valStr = fmt.Sprintf("__SENTINEL_MISSING_PK_%s_ROW_%d__", key, rowIndex)
-			} else {
-				valStr = fmt.Sprintf("%v", val)
+			value := column.GetActualValue()
+			if value == nil {
+				rowKey.WriteByte('n')
+				continue
 			}
-			sb.WriteString(fmt.Sprintf("%d:%s", len(valStr), valStr))
+			keyPart := fmt.Sprintf("%v", value)
+			fmt.Fprintf(&rowKey, "v%d:%s", len(keyPart), keyPart)
 		}
-		rowMap[sb.String()] = fieldMap
+		key := rowKey.String()
+		if _, ok := rowMap[key]; ok {
+			return nil, fmt.Errorf("primary key %q found more than once in row image", key)
+		}
+		rowMap[key] = fieldMap
 	}
-	return rowMap
+	return rowMap, nil
 }
 
 // buildWhereConditionByPKs build where condition by primary keys

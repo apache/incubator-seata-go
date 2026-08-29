@@ -248,17 +248,17 @@ func TestGetOrderedPkListCompositePK(t *testing.T) {
 	assert.Equal(t, 1, result[1].Value)
 }
 
-func TestGetOrderedPkListWithEscapedNames(t *testing.T) {
+func TestGetOrderedPkListWithEscapedCaseInsensitiveNames(t *testing.T) {
 	tableMeta := types.TableMeta{
 		TableName: "t_user",
 		Columns: map[string]types.ColumnMeta{
-			"id": {ColumnName: "id"},
+			"ID": {ColumnName: "ID"},
 		},
 		Indexs: map[string]types.IndexMeta{
 			"PRIMARY": {
 				IType: types.IndexTypePrimaryKey,
 				Columns: []types.ColumnMeta{
-					{ColumnName: "id"},
+					{ColumnName: "ID"},
 				},
 			},
 		},
@@ -310,9 +310,31 @@ func TestGetOrderedPkListEmptyRow(t *testing.T) {
 
 	result, err := GetOrderedPkList(image, row, types.DBTypeMySQL)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Len(t, result, 0)
+	assert.Error(t, err)
+	assert.Empty(t, result)
+}
+
+func TestGetOrderedPkListRejectsInexactOrDuplicatePK(t *testing.T) {
+	tableMeta := &types.TableMeta{
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType:   types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{{ColumnName: "id"}},
+			},
+		},
+	}
+
+	image := &types.RecordImage{TableMeta: tableMeta}
+	_, err := GetOrderedPkList(image, types.RowImage{Columns: []types.ColumnImage{
+		{ColumnName: "order_id", KeyType: types.PrimaryKey.Number()},
+	}}, types.DBTypeMySQL)
+	assert.Error(t, err)
+
+	_, err = GetOrderedPkList(image, types.RowImage{Columns: []types.ColumnImage{
+		{ColumnName: "id", KeyType: types.PrimaryKey.Number()},
+		{ColumnName: "ID", KeyType: types.PrimaryKey.Number()},
+	}}, types.DBTypeMySQL)
+	assert.Error(t, err)
 }
 
 func TestGetOrderedPkListNilGuards(t *testing.T) {

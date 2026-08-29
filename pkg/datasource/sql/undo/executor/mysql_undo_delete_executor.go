@@ -37,14 +37,24 @@ type mySQLUndoDeleteExecutor struct {
 func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoDeleteExecutor {
 	return &mySQLUndoDeleteExecutor{
 		sqlUndoLog:   sqlUndoLog,
-		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.BeforeImage},
 	}
 }
 
 func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 	m.baseExecutor.dbType = dbType
+	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
 
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {

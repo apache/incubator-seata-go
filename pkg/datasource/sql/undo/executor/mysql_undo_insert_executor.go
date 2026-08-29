@@ -43,13 +43,19 @@ func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExec
 // ExecuteOn execute insert undo logic
 func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
 	m.BaseExecutor.dbType = dbType
-
-	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
+	ok, err := m.BaseExecutor.dataValidationAndGoOn(ctx, conn)
+	if err != nil {
 		return err
+	}
+	if !ok {
+		return nil
 	}
 
 	// build delete sql
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {

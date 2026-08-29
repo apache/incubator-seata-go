@@ -165,7 +165,8 @@ func TestConvertToProto(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			protoLog := ConvertToProto(tt.intreeLog)
+			protoLog, err := ConvertToProto(tt.intreeLog)
+			require.NoError(t, err)
 
 			assert.NotNil(t, protoLog)
 			assert.Equal(t, tt.intreeLog.Xid, protoLog.Xid)
@@ -261,7 +262,8 @@ func TestConvertToIntree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			intreeLog := ConvertToIntree(tt.protoLog)
+			intreeLog, err := ConvertToIntree(tt.protoLog)
+			require.NoError(t, err)
 
 			assert.NotNil(t, intreeLog)
 			assert.Equal(t, tt.expectXid, intreeLog.Xid)
@@ -349,8 +351,10 @@ func TestConvertToProtoAndBack(t *testing.T) {
 		},
 	}
 
-	protoLog := ConvertToProto(originalLog)
-	convertedBack := ConvertToIntree(protoLog)
+	protoLog, err := ConvertToProto(originalLog)
+	require.NoError(t, err)
+	convertedBack, err := ConvertToIntree(protoLog)
+	require.NoError(t, err)
 
 	assert.Equal(t, originalLog.Xid, convertedBack.Xid)
 	assert.Equal(t, originalLog.BranchID, convertedBack.BranchID)
