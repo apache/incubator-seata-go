@@ -43,6 +43,7 @@ type Config struct {
 	LogTable              string         `yaml:"log-table" json:"log-table,omitempty" koanf:"log-table"`
 	OnlyCareUpdateColumns bool           `yaml:"only-care-update-columns" json:"only-care-update-columns,omitempty" koanf:"only-care-update-columns"`
 	CompressConfig        CompressConfig `yaml:"compress" json:"compress,omitempty" koanf:"compress"`
+	DeleteBatchSize       int            `yaml:"delete-batch-size" json:"delete-batch-size,omitempty" koanf:"delete-batch-size"`
 }
 
 func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -50,6 +51,7 @@ func (u *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&u.LogSerialization, prefix+".log-serialization", "json", "Serialization method.")
 	f.StringVar(&u.LogTable, prefix+".log-table", "undo_log", "undo log table name.")
 	f.BoolVar(&u.OnlyCareUpdateColumns, prefix+".only-care-update-columns", true, "The switch for degrade check.")
+	f.IntVar(&u.DeleteBatchSize, prefix+".delete-batch-size", 1000, "The batch size when deleting expired undo log.")
 	u.CompressConfig.RegisterFlagsWithPrefix(prefix+".compress", f)
 }
 
