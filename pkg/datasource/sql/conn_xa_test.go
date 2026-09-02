@@ -158,8 +158,45 @@ func (s *fakePreparedStmt) QueryContext(ctx context.Context, args []driver.Named
 	return rows, nil
 }
 
+type closeErrorDriverConn struct {
+	err        error
+	closeCalls int32
+	resetCalls int32
+}
+
+func (c *closeErrorDriverConn) Prepare(query string) (driver.Stmt, error) {
+	return nil, driver.ErrSkip
+}
+
+func (c *closeErrorDriverConn) Close() error {
+	atomic.AddInt32(&c.closeCalls, 1)
+	return c.err
+}
+
+func (c *closeErrorDriverConn) Begin() (driver.Tx, error) {
+	return nil, errors.New("not supported")
+}
+
+func (c *closeErrorDriverConn) ResetSession(ctx context.Context) error {
+	atomic.AddInt32(&c.resetCalls, 1)
+	return nil
+}
+
+type blockingPhaseTwoXAResource struct {
+	phaseTwoTestXAResource
+	started chan struct{}
+	proceed chan struct{}
+}
+
+func (r *blockingPhaseTwoXAResource) Commit(ctx context.Context, xid string, onePhase bool) error {
+	close(r.started)
+	<-r.proceed
+	return nil
+}
+
 func baseMockConn(mockConn *mock.MockTestDriverConn) {
 	branchStatusCache = gcache.New(1024).LRU().Expiration(time.Minute * 10).Build()
+	xaConnTimeout = time.Minute
 
 	mockConn.EXPECT().ExecContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
 		func(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
@@ -197,6 +234,145 @@ func baseMockConn(mockConn *mock.MockTestDriverConn) {
 			}
 			return rows, nil
 		})
+}
+
+func TestDBResource_CheckDBVersionUsesEffectiveXADetachSetting(t *testing.T) {
+	tests := []struct {
+		name        string
+		version     string
+		detachValue driver.Value
+		queryErr    error
+		expectQuery bool
+		wantHeld    bool
+		wantProbe   bool
+		wantErr     bool
+	}{
+		{
+			name:     "mysql before 8.0.29 always keeps owner",
+			version:  "8.0.28",
+			wantHeld: true,
+		},
+		{
+			name:        "detach enabled allows new connection phase two",
+			version:     "8.0.29",
+			detachValue: []byte("1"),
+			expectQuery: true,
+			wantHeld:    false,
+			wantProbe:   true,
+		},
+		{
+			name:        "detach disabled keeps owner",
+			version:     "8.0.29",
+			detachValue: "OFF",
+			expectQuery: true,
+			wantHeld:    true,
+			wantProbe:   true,
+		},
+		{
+			name:        "probe failure falls back to keeping owner",
+			version:     "8.0.29",
+			queryErr:    errors.New("permission denied"),
+			expectQuery: true,
+			wantHeld:    true,
+			wantProbe:   true,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockConn := mock.NewMockTestDriverConn(ctrl)
+			if tt.expectQuery {
+				call := mockConn.EXPECT().QueryContext(
+					gomock.Any(),
+					"SELECT @@session.xa_detach_on_prepare",
+					gomock.Any(),
+				)
+				if tt.queryErr != nil {
+					call.Return(nil, tt.queryErr)
+				} else {
+					call.Return(&mysqlMockRows{data: [][]interface{}{{tt.detachValue}}}, nil)
+				}
+			}
+
+			resource := &DBResource{
+				dbType:    types.DBTypeMySQL,
+				dbVersion: tt.version,
+			}
+			err := resource.checkDbVersion(context.Background(), mockConn)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantHeld, resource.shouldBeHeld)
+			assert.Equal(t, tt.wantProbe, resource.probeXADetachOnPrepare)
+		})
+	}
+}
+
+func TestXAConn_ConfigureConnectionHoldUsesActualSessionSetting(t *testing.T) {
+	tests := []struct {
+		name        string
+		detachValue driver.Value
+		queryErr    error
+		wantHeld    bool
+	}{
+		{
+			name:        "actual session detach enabled",
+			detachValue: int64(1),
+			wantHeld:    false,
+		},
+		{
+			name:        "actual session detach disabled",
+			detachValue: int64(0),
+			wantHeld:    true,
+		},
+		{
+			name:     "actual session probe failure is conservative",
+			queryErr: errors.New("session variable unavailable"),
+			wantHeld: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockConn := mock.NewMockTestDriverConn(ctrl)
+			call := mockConn.EXPECT().QueryContext(
+				gomock.Any(),
+				"SELECT @@session.xa_detach_on_prepare",
+				gomock.Any(),
+			)
+			if tt.queryErr != nil {
+				call.Return(nil, tt.queryErr)
+			} else {
+				call.Return(&mysqlMockRows{data: [][]interface{}{{tt.detachValue}}}, nil)
+			}
+
+			resource := &DBResource{
+				dbType:                 types.DBTypeMySQL,
+				probeXADetachOnPrepare: true,
+			}
+			xaConn := &XAConn{
+				Conn: &Conn{
+					targetConn: mockConn,
+					res:        resource,
+					dbType:     types.DBTypeMySQL,
+				},
+			}
+
+			xaConn.configureConnectionHold(context.Background())
+
+			assert.Equal(t, tt.wantHeld, xaConn.ShouldBeHeld())
+		})
+	}
 }
 
 func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
@@ -261,6 +437,224 @@ func newMockXAConn(t *testing.T, ctrl *gomock.Controller, branchID int64) (*XACo
 	}, mockMgr
 }
 
+func TestXAConn_CommitPreservesPrepareErrorAfterCompensatingRollback(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	xaConn, _ := newMockXAConn(t, ctrl, 123)
+	xaConn.autoCommit = false
+	xaConn.xaActive = true
+	xaConn.txCtx.XID = "127.0.0.1:8091:1001"
+	xaConn.txCtx.BranchID = 123
+	xaConn.xaBranchXid = XaIdBuild(xaConn.txCtx.XID, uint64(xaConn.txCtx.BranchID))
+	xaConn.xaResource = &xa.MysqlXAConn{Conn: xaConn.Conn.targetConn}
+	xaConn.xaErrorClassifier = &xa.MysqlXAErrorClassifier{}
+	xaConn.branchRegisterTime = time.Now()
+
+	previousTimeout := xaConnTimeout
+	xaConnTimeout = time.Minute
+	defer func() {
+		xaConnTimeout = previousTimeout
+		simulateExecContextError = nil
+	}()
+
+	prepareErr := errors.New("prepare failed after XA END")
+	simulateExecContextError = func(query string) error {
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(query)), "XA PREPARE") {
+			return prepareErr
+		}
+		return nil
+	}
+
+	err := xaConn.Commit(context.Background())
+
+	assert.ErrorIs(t, err, prepareErr)
+	assert.Contains(t, err.Error(), "prepare failed after XA END")
+}
+
+func TestXAConn_CloseForceReleasesKeeperWhenPhysicalCloseFails(t *testing.T) {
+	closeErr := errors.New("physical close failed")
+	xaID := XaIdBuild("127.0.0.1:8091:1001", 123)
+	resource := &DBResource{dbType: types.DBTypeMySQL, shouldBeHeld: true}
+	xaConn := &XAConn{
+		Conn: &Conn{
+			targetConn: &closeErrorDriverConn{err: closeErr},
+			res:        resource,
+			dbType:     types.DBTypeMySQL,
+		},
+		xaBranchXid:  xaID,
+		xaActive:     true,
+		shouldBeHeld: true,
+		isConnKept:   true,
+	}
+	assert.NoError(t, resource.Hold(xaID.String(), xaConn))
+
+	err := xaConn.CloseForce()
+
+	assert.ErrorIs(t, err, closeErr)
+	_, held := resource.Lookup(xaID.String())
+	assert.False(t, held)
+	assert.False(t, xaConn.isConnKept)
+	assert.False(t, xaConn.xaActive)
+}
+
+func TestXAConn_HeldConnectionTransfersOwnershipFromPoolToKeeper(t *testing.T) {
+	underlying := &closeErrorDriverConn{}
+	xaID := XaIdBuild("127.0.0.1:8091:1001", 123)
+	resource := &DBResource{dbType: types.DBTypeMySQL, shouldBeHeld: true}
+	xaConn := &XAConn{
+		Conn: &Conn{
+			targetConn: underlying,
+			res:        resource,
+			dbType:     types.DBTypeMySQL,
+		},
+		xaResource:     &phaseTwoTestXAResource{},
+		xaBranchXid:    xaID,
+		shouldBeHeld:   true,
+		isConnKept:     true,
+		prepareTime:    time.Now(),
+		physicalClosed: false,
+	}
+	assert.NoError(t, resource.Hold(xaID.String(), xaConn))
+
+	assert.ErrorIs(t, xaConn.ResetSession(context.Background()), driver.ErrBadConn)
+	assert.Equal(t, int32(0), atomic.LoadInt32(&underlying.resetCalls))
+
+	assert.NoError(t, xaConn.Close())
+	assert.Equal(t, int32(0), atomic.LoadInt32(&underlying.closeCalls))
+	_, heldBeforePhaseTwo := resource.Lookup(xaID.String())
+	assert.True(t, heldBeforePhaseTwo)
+
+	assert.NoError(t, xaConn.XaCommit(context.Background(), xaID))
+	_, heldAfterPhaseTwo := resource.Lookup(xaID.String())
+	assert.False(t, heldAfterPhaseTwo)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&underlying.closeCalls))
+	assert.ErrorIs(t, xaConn.ResetSession(context.Background()), driver.ErrBadConn)
+}
+
+func TestXAConn_PhaseTwoAndTimeoutCloseHaveSinglePhysicalOwner(t *testing.T) {
+	underlying := &closeErrorDriverConn{}
+	xaID := XaIdBuild("127.0.0.1:8091:1001", 123)
+	resource := &DBResource{dbType: types.DBTypeMySQL, shouldBeHeld: true}
+	xaResource := &blockingPhaseTwoXAResource{
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	xaConn := &XAConn{
+		Conn: &Conn{
+			targetConn: underlying,
+			res:        resource,
+			dbType:     types.DBTypeMySQL,
+		},
+		xaResource:   xaResource,
+		xaBranchXid:  xaID,
+		shouldBeHeld: true,
+		isConnKept:   true,
+		prepareTime:  time.Now(),
+	}
+	assert.NoError(t, resource.Hold(xaID.String(), xaConn))
+	assert.ErrorIs(t, xaConn.ResetSession(context.Background()), driver.ErrBadConn)
+	assert.NoError(t, xaConn.Close())
+
+	commitDone := make(chan error, 1)
+	go func() {
+		commitDone <- xaConn.XaCommit(context.Background(), xaID)
+	}()
+	<-xaResource.started
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- xaConn.CloseForce()
+	}()
+
+	select {
+	case err := <-closeDone:
+		t.Fatalf("timeout close raced ahead of phase two: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(xaResource.proceed)
+	assert.NoError(t, <-commitDone)
+	assert.NoError(t, <-closeDone)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&underlying.closeCalls))
+	_, held := resource.Lookup(xaID.String())
+	assert.False(t, held)
+}
+
+func TestXAConn_BeginTxReleasesKeeperWhenXAStartFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	xaConn, _ := newMockXAConn(t, ctrl, 123)
+	xaConn.res.shouldBeHeld = true
+
+	defer func() {
+		simulateExecContextError = nil
+	}()
+	startErr := errors.New("XA START failed")
+	simulateExecContextError = func(query string) error {
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(query)), "XA START") {
+			return startErr
+		}
+		return nil
+	}
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, "127.0.0.1:8091:1001")
+	_, err := xaConn.BeginTx(ctx, driver.TxOptions{})
+
+	assert.ErrorIs(t, err, startErr)
+	xaID := XaIdBuild(tm.GetXID(ctx), 123)
+	_, held := xaConn.res.Lookup(xaID.String())
+	assert.False(t, held)
+	assert.False(t, xaConn.isKept())
+}
+
+func TestXAConn_TerminationRejectsCachedTerminalStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status branch.BranchStatus
+	}{
+		{
+			name:   "committed",
+			status: branch.BranchStatusPhasetwoCommitted,
+		},
+		{
+			name:   "rollbacked",
+			status: branch.BranchStatusPhasetwoRollbacked,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branchStatusCache = gcache.New(16).LRU().Expiration(time.Minute).Build()
+			xaID := XaIdBuild("127.0.0.1:8091:1001", 123)
+			resource := &DBResource{dbType: types.DBTypeMySQL, shouldBeHeld: true}
+			xaConn := &XAConn{
+				Conn: &Conn{
+					res:   resource,
+					txCtx: types.NewTxCtx(),
+				},
+				xaBranchXid:  xaID,
+				shouldBeHeld: true,
+				isConnKept:   true,
+			}
+			xaConn.txCtx.XID = xaID.GetGlobalXid()
+			assert.NoError(t, resource.Hold(xaID.String(), xaConn))
+			setBranchStatus(xaID.String(), tt.status)
+
+			err := xaConn.termination(xaID.String())
+
+			assert.Error(t, err)
+			if err != nil {
+				assert.Contains(t, err.Error(), tt.status.String())
+			}
+			_, held := resource.Lookup(xaID.String())
+			assert.False(t, held)
+		})
+	}
+}
+
 func TestXAConn_ShouldBeHeld(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -295,6 +689,7 @@ func TestXAConn_ShouldBeHeld(t *testing.T) {
 				shouldBeHeld: tt.resourceHold,
 			}
 			conn := &XAConn{Conn: &Conn{res: resource}}
+			conn.configureConnectionHold(context.Background())
 
 			assert.Equal(t, tt.want, conn.ShouldBeHeld())
 		})

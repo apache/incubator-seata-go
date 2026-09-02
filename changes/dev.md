@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1147](https://github.com/apache/incubator-seata-go/issues/1147)] fix XA failure-path status, retry, idempotency, and held-connection ownership
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker

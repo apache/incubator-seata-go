@@ -87,6 +87,16 @@ type XAErrorClassifier interface {
 	IsAlreadyEnded(err error) bool
 }
 
+// XAPhaseTwoErrorClassifier optionally classifies database-specific phase-two
+// outcomes. Implementations must only report an already-completed outcome when
+// the database error proves that exact direction; ambiguous NOTA errors must
+// remain retryable.
+type XAPhaseTwoErrorClassifier interface {
+	IsAlreadyCommitted(err error) bool
+	IsAlreadyRollbacked(err error) bool
+	IsUnretryable(err error) bool
+}
+
 // defaultErrorClassifier is a no-op classifier that never matches any error.
 // Used as a fallback when no database-specific classifier is registered.
 type defaultErrorClassifier struct{}

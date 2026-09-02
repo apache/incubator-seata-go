@@ -26,9 +26,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestMysqlXAConn_Commit(t *testing.T) {
@@ -304,4 +306,44 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 	}
 	m.idx++
 	return nil
+}
+
+func TestMysqlXAErrorClassifier_PhaseTwo(t *testing.T) {
+	classifier := &MysqlXAErrorClassifier{}
+
+	rollbackCodes := []uint16{
+		types.ErrCodeXA_RBROLLBACK,
+		types.ErrCodeXA_RBTIMEOUT,
+		types.ErrCodeXA_RBDEADLOCK,
+	}
+	for _, code := range rollbackCodes {
+		err := &mysql.MySQLError{Number: code}
+		if !classifier.IsAlreadyRollbacked(err) {
+			t.Fatalf("error code %d should prove the XA branch rolled back", code)
+		}
+		if classifier.IsAlreadyCommitted(err) {
+			t.Fatalf("error code %d must not be classified as committed", code)
+		}
+	}
+
+	unretryableCodes := []uint16{
+		types.ErrCodeXAER_INVAL,
+		types.ErrCodeXAER_OUTSIDE,
+	}
+	for _, code := range unretryableCodes {
+		if !classifier.IsUnretryable(&mysql.MySQLError{Number: code}) {
+			t.Fatalf("error code %d should be unretryable", code)
+		}
+	}
+
+	nota := &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA}
+	if classifier.IsAlreadyCommitted(nota) {
+		t.Fatal("XAER_NOTA is ambiguous and must not be classified as committed")
+	}
+	if classifier.IsAlreadyRollbacked(nota) {
+		t.Fatal("XAER_NOTA is ambiguous and must not be classified as rollbacked")
+	}
+	if classifier.IsUnretryable(errors.New("temporary network error")) {
+		t.Fatal("unknown connection errors should remain retryable")
+	}
 }
