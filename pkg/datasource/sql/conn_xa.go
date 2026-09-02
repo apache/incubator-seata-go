@@ -579,7 +579,7 @@ func (c *XAConn) commitErrorHandle(ctx context.Context) error {
 }
 
 func (c *XAConn) ShouldBeHeld() bool {
-	return c.res.IsShouldBeHeld() || (c.res.GetDbType().String() != "" && c.res.GetDbType() != types.DBTypeUnknown)
+	return c.res.IsShouldBeHeld() || c.res.GetDbType() == types.DBTypeUnknown
 }
 
 func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
