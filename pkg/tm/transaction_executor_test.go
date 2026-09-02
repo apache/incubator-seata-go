@@ -554,3 +554,249 @@ func TestWithGlobalTx(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedRequiredMustCommitOuterTransaction(t *testing.T) {
+	globalTransactionManagerStub.reset()
+	defer globalTransactionManagerStub.reset()
+
+	var committedXids []string
+	xidCounter := 0
+
+	globalTransactionManagerStub.beginFunc = func(ctx context.Context, timeout time.Duration) error {
+		xidCounter++
+		tm.SetXID(ctx, fmt.Sprintf("xid-%d", xidCounter))
+		return nil
+	}
+	globalTransactionManagerStub.commitFunc = func(ctx context.Context, gtr *tm.GlobalTransaction) error {
+		if gtr != nil {
+			committedXids = append(committedXids, gtr.Xid)
+		}
+		return nil
+	}
+
+	err := tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
+		Name: "outer", Propagation: tm.Required,
+	}, func(ctx context.Context) error {
+		return tm.WithGlobalTx(ctx, &tm.GtxConfig{
+			Name: "inner", Propagation: tm.Required,
+		}, func(context.Context) error {
+			return nil
+		})
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(committedXids))
+	assert.Equal(t, "xid-1", committedXids[0])
+}
+
+func TestGlobalTxPropagationMatrix(t *testing.T) {
+	type testMatrixCase struct {
+		name              string
+		innerPropagation  tm.Propagation
+		innerAction       func(ctx context.Context) error
+		outerAction       func(ctx context.Context) error
+		wantInnerExecuted bool
+		wantInnerTx       bool
+		wantOuterErr      bool
+		wantCommits       []string
+		wantRollbacks     []string
+	}
+
+	tests := []testMatrixCase{
+		// Required -> Required
+		{
+			name:             "Required_Required_Success",
+			innerPropagation: tm.Required,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      false,
+			wantCommits:       []string{"xid-1"},
+			wantRollbacks:     nil,
+		},
+		{
+			name:             "Required_Required_InnerError",
+			innerPropagation: tm.Required,
+			innerAction: func(ctx context.Context) error {
+				return fmt.Errorf("inner business error")
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      true,
+			wantCommits:       nil,
+			wantRollbacks:     []string{"xid-1"},
+		},
+		{
+			name:             "Required_Required_InnerPanic",
+			innerPropagation: tm.Required,
+			innerAction: func(ctx context.Context) error {
+				panic("inner runtime panic")
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      true,
+			wantCommits:       nil,
+			wantRollbacks:     []string{"xid-1"},
+		},
+
+		// Required -> RequiresNew
+		{
+			name:             "Required_RequiresNew_Success",
+			innerPropagation: tm.RequiresNew,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      false,
+			wantCommits:       []string{"xid-2", "xid-1"},
+			wantRollbacks:     nil,
+		},
+		{
+			name:             "Required_RequiresNew_InnerError",
+			innerPropagation: tm.RequiresNew,
+			innerAction: func(ctx context.Context) error {
+				return fmt.Errorf("requires_new error")
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      true,
+			wantCommits:       nil,
+			wantRollbacks:     []string{"xid-2", "xid-1"},
+		},
+		{
+			name:             "Required_RequiresNew_OuterError_InnerCommitted",
+			innerPropagation: tm.RequiresNew,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			outerAction: func(ctx context.Context) error {
+				return fmt.Errorf("outer business error")
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      true,
+			wantCommits:       []string{"xid-2"},
+			wantRollbacks:     []string{"xid-1"},
+		},
+
+		// Required -> NotSupported
+		{
+			name:             "Required_NotSupported_Success",
+			innerPropagation: tm.NotSupported,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       false,
+			wantOuterErr:      false,
+			wantCommits:       []string{"xid-1"},
+			wantRollbacks:     nil,
+		},
+
+		// Required -> Supports
+		{
+			name:             "Required_Supports_Success",
+			innerPropagation: tm.Supports,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      false,
+			wantCommits:       []string{"xid-1"},
+			wantRollbacks:     nil,
+		},
+
+		// Required -> Mandatory
+		{
+			name:             "Required_Mandatory_Success",
+			innerPropagation: tm.Mandatory,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: true,
+			wantInnerTx:       true,
+			wantOuterErr:      false,
+			wantCommits:       []string{"xid-1"},
+			wantRollbacks:     nil,
+		},
+
+		// Required -> Never
+		{
+			name:             "Required_Never_Reject",
+			innerPropagation: tm.Never,
+			innerAction: func(ctx context.Context) error {
+				return nil
+			},
+			wantInnerExecuted: false,
+			wantInnerTx:       false,
+			wantOuterErr:      true,
+			wantCommits:       nil,
+			wantRollbacks:     []string{"xid-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			globalTransactionManagerStub.reset()
+			defer globalTransactionManagerStub.reset()
+
+			var committedXids []string
+			var rollbackedXids []string
+			xidCounter := 0
+
+			globalTransactionManagerStub.beginFunc = func(ctx context.Context, timeout time.Duration) error {
+				xidCounter++
+				tm.SetXID(ctx, fmt.Sprintf("xid-%d", xidCounter))
+				return nil
+			}
+			globalTransactionManagerStub.commitFunc = func(ctx context.Context, gtr *tm.GlobalTransaction) error {
+				if gtr != nil {
+					committedXids = append(committedXids, gtr.Xid)
+				}
+				return nil
+			}
+			globalTransactionManagerStub.rollbackFunc = func(ctx context.Context, gtr *tm.GlobalTransaction) error {
+				if gtr != nil {
+					rollbackedXids = append(rollbackedXids, gtr.Xid)
+				}
+				return nil
+			}
+
+			innerExecuted := false
+			err := tm.WithGlobalTx(context.Background(), &tm.GtxConfig{
+				Name: "outer", Propagation: tm.Required,
+			}, func(ctx context.Context) error {
+				innerErr := tm.WithGlobalTx(ctx, &tm.GtxConfig{
+					Name: "inner", Propagation: tt.innerPropagation,
+				}, func(innerCtx context.Context) error {
+					innerExecuted = true
+					assert.Equal(t, tt.wantInnerTx, tm.IsGlobalTx(innerCtx))
+					if tt.innerAction != nil {
+						return tt.innerAction(innerCtx)
+					}
+					return nil
+				})
+				if innerErr != nil {
+					return innerErr
+				}
+				if tt.outerAction != nil {
+					return tt.outerAction(ctx)
+				}
+				return nil
+			})
+
+			assert.Equal(t, tt.wantInnerExecuted, innerExecuted)
+			if tt.wantOuterErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantCommits, committedXids)
+			assert.Equal(t, tt.wantRollbacks, rollbackedXids)
+		})
+	}
+}
