@@ -56,7 +56,8 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	}
 
 	if IsGlobalTx(ctx) {
-		ClearTxConf(ctx)
+		// derive isolated context to avoid overwriting outer launcher role during nested calls
+		ctx = transferTx(ctx)
 	}
 
 	// TODO(#277): Revisit explicit dynamic degradation after defining its consistency guarantees and usage constraints.
