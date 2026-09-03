@@ -30,32 +30,40 @@ on:
   # Allows you to run this workflow manually from the Actions tab
 #  workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.20.0
-
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: "set up go"
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.0
-
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
-
-      - name: "golang ci lint"
-        uses: golangci/golangci-lint-action@v3.1.0
+        uses: actions/checkout@v7.0.1
         with:
-          version: v1.51.0
+          fetch-depth: 2
+
+      - name: "set up go"
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.1"
+
+      - name: "golang ci lint pull request"
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.13.2
           args: --timeout=10m
-          skip-cache: true
-          skip-pkg-cache: true
+          only-new-issues: true
+
+      - name: "golang ci lint push"
+        if: ${{ github.event_name == 'push' }}
+        uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.13.2
+          args: --timeout=10m --new-from-rev=HEAD~1

@@ -51,6 +51,11 @@ adapt_samples_to_seata_go_v2() {
 
     go mod edit -droprequire=seata.apache.org/seata-go || true
     go mod edit -require=seata.apache.org/seata-go/v2@v2.0.0
+
+    if grep -R -n --include='*.go' 'seata\.apache\.org/seata-go/pkg' .; then
+        echo "old seata-go v1 imports remain after v2 migration"
+        exit 1
+    fi
 }
 
 cleanup_saga_e2e() {
@@ -59,7 +64,7 @@ cleanup_saga_e2e() {
 
 run_saga_e2e_test() {
     set +e
-    ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
+    WAIT_READY_MARGIN="${WAIT_READY_MARGIN:-30}" ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
     local result=$?
     set -e
 
@@ -74,11 +79,16 @@ go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 go mod tidy
 
 # ensure docker-compose is available (newer Docker uses 'docker compose')
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose &> /dev/null && docker compose version >/dev/null 2>&1; then
     mkdir -p /tmp/docker-shims
     printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
     chmod +x /tmp/docker-shims/docker-compose
     export PATH="/tmp/docker-shims:$PATH"
+fi
+
+if ! command -v docker-compose &> /dev/null; then
+    echo "docker-compose is required for integration tests (install Docker Compose v2 or standalone docker-compose)"
+    exit 1
 fi
 
 # start integrate test

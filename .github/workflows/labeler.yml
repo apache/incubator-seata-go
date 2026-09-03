@@ -58,13 +58,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           submodules: true
 
       - name: "labeler"
-        uses: actions/labeler@v4
+        uses: actions/labeler@v7.0.0
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: .github/actions/labeler/labeler.yml

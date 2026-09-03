@@ -15,44 +15,21 @@
 # limitations under the License.
 #
 
-version: "2"
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
 
-linters:
-  default: none
-  enable:
-    - govet
-    - staticcheck
-    - ineffassign
-    - misspell
-    - asciicheck
-    - bodyclose
-    - rowserrcheck
-    - durationcheck
-    - sqlclosecheck
-  settings:
-    govet:
-      enable:
-        - shadow
-    misspell:
-      locale: US
-  exclusions:
-    paths:
-      - test/testdata_etc
-      - pkg/golinters/goanalysis/(checker|passes)
-    rules:
-      - text: "weak cryptographic primitive"
-        linters:
-          - gosec
-      - linters:
-          - staticcheck
-        text: "SA1019:"
-      - path: _test\.go
-        linters:
-          - errcheck
-          - gosec
-          - rowserrcheck
-          - govet
-
-formatters:
-  enable:
-    - gofmt
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+      time: "04:00"
+      timezone: UTC
+    open-pull-requests-limit: 5

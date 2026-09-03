@@ -19,7 +19,7 @@
 
 ## Prerequisites
 
-- Go >= 1.20
+- Go >= 1.26
 - Java >= 8
 - MySQL >= 8.0
 
