@@ -290,14 +290,31 @@ func TestCommitResponseShapes(t *testing.T) {
 			wantErr: "incomplete global commit response",
 		},
 		{
+			// ResultCodeFailed is the zero value, so this also covers a
+			// truncated or corrupt payload: the getty codec reads past the end
+			// of the buffer without reporting it and returns zeros.
+			name:  "rejected by the TC",
+			getty: func() (interface{}, error) { return message.GlobalCommitResponse{}, nil },
+			grpc: func() (interface{}, error) {
+				return &pb.GlobalCommitResponseProto{AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{}}, nil
+			},
+			wantErr: "global commit was not accepted by the TC",
+		},
+		{
 			name: "committed",
 			getty: func() (interface{}, error) {
 				return message.GlobalCommitResponse{AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+					AbstractTransactionResponse: message.AbstractTransactionResponse{
+						AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+					},
 					GlobalStatus: message.GlobalStatusCommitted,
 				}}, nil
 			},
 			grpc: func() (interface{}, error) {
 				return &pb.GlobalCommitResponseProto{AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+						AbstractResultMessage: &pb.AbstractResultMessageProto{ResultCode: pb.ResultCodeProto_Success},
+					},
 					GlobalStatus: pb.GlobalStatusProto_Committed,
 				}}, nil
 			},
@@ -337,14 +354,31 @@ func TestRollbackResponseShapes(t *testing.T) {
 			wantErr: "incomplete global rollback response",
 		},
 		{
+			// ResultCodeFailed is the zero value, so this also covers a
+			// truncated or corrupt payload: the getty codec reads past the end
+			// of the buffer without reporting it and returns zeros.
+			name:  "rejected by the TC",
+			getty: func() (interface{}, error) { return message.GlobalRollbackResponse{}, nil },
+			grpc: func() (interface{}, error) {
+				return &pb.GlobalRollbackResponseProto{AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{}}, nil
+			},
+			wantErr: "global rollback was not accepted by the TC",
+		},
+		{
 			name: "rolled back",
 			getty: func() (interface{}, error) {
 				return message.GlobalRollbackResponse{AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+					AbstractTransactionResponse: message.AbstractTransactionResponse{
+						AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+					},
 					GlobalStatus: message.GlobalStatusRollbacked,
 				}}, nil
 			},
 			grpc: func() (interface{}, error) {
 				return &pb.GlobalRollbackResponseProto{AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+						AbstractResultMessage: &pb.AbstractResultMessageProto{ResultCode: pb.ResultCodeProto_Success},
+					},
 					GlobalStatus: pb.GlobalStatusProto_Rollbacked,
 				}}, nil
 			},

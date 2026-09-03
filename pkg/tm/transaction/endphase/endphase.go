@@ -78,6 +78,17 @@ func UnexpectedResponse(action string, res interface{}) error {
 	return fmt.Errorf("unexpected %s response type %T", action, res)
 }
 
+// RejectedResponse reports a second phase the TC did not accept. It also covers
+// a truncated or corrupt payload, because the getty codec reads the wire bytes
+// without reporting a short read and ResultCodeFailed is the zero value, so an
+// empty body decodes into exactly this shape.
+func RejectedResponse(action, msg string) error {
+	if msg == "" {
+		return fmt.Errorf("%s was not accepted by the TC", action)
+	}
+	return fmt.Errorf("%s was not accepted by the TC: %s", action, msg)
+}
+
 // IncompleteResponse reports a response of the expected type that is missing
 // the payload holding the global status. Protobuf getters return zero values
 // for a missing message, so without this check the transaction would silently

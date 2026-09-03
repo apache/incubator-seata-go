@@ -102,6 +102,12 @@ func (g *GettyGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Glob
 		return endErr
 	}
 
+	if resp.ResultCode != message.ResultCodeSuccess {
+		endErr := endphase.RejectedResponse("global commit", resp.Msg)
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
 	gtr.TxStatus = resp.GlobalStatus
 
@@ -146,6 +152,12 @@ func (g *GettyGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Gl
 	resp, ok := res.(message.GlobalRollbackResponse)
 	if !ok {
 		endErr := endphase.UnexpectedResponse("global rollback", res)
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	if resp.ResultCode != message.ResultCodeSuccess {
+		endErr := endphase.RejectedResponse("global rollback", resp.Msg)
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
 		return endErr
 	}

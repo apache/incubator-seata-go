@@ -118,6 +118,12 @@ func (g *GrpcGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Globa
 		return endErr
 	}
 
+	if result := resp.GetAbstractGlobalEndResponse().GetAbstractTransactionResponse().GetAbstractResultMessage(); result.GetResultCode() != pb.ResultCodeProto_Success {
+		endErr := endphase.RejectedResponse("global commit", result.GetMsg())
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
 	gtr.TxStatus = message.GlobalStatus(resp.GetAbstractGlobalEndResponse().GetGlobalStatus())
 
@@ -172,6 +178,12 @@ func (g *GrpcGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Glo
 	}
 	if resp.GetAbstractGlobalEndResponse() == nil {
 		endErr := endphase.IncompleteResponse("global rollback")
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	if result := resp.GetAbstractGlobalEndResponse().GetAbstractTransactionResponse().GetAbstractResultMessage(); result.GetResultCode() != pb.ResultCodeProto_Success {
+		endErr := endphase.RejectedResponse("global rollback", result.GetMsg())
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
 		return endErr
 	}
