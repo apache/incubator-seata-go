@@ -26,10 +26,9 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/tm/transaction/endphase"
 	"seata.apache.org/seata-go/v2/pkg/util/backoff"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
-
-	"github.com/pkg/errors"
 )
 
 type GrpcGlobalTransactionManager struct{}
@@ -102,14 +101,25 @@ func (g *GrpcGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Globa
 		bf.Wait()
 	}
 
-	if err != nil || bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
-		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
-		return lastErr
+	if endErr := endphase.Err(ctx, err, bf.Err(), res); endErr != nil {
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	resp, ok := res.(*pb.GlobalCommitResponseProto)
+	if !ok {
+		endErr := endphase.UnexpectedResponse("global commit", res)
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+	if resp.GetAbstractGlobalEndResponse() == nil {
+		endErr := endphase.IncompleteResponse("global commit")
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
 	}
 
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
-	gtr.TxStatus = message.GlobalStatus(res.(*pb.GlobalCommitResponseProto).AbstractGlobalEndResponse.GlobalStatus)
+	gtr.TxStatus = message.GlobalStatus(resp.GetAbstractGlobalEndResponse().GetGlobalStatus())
 
 	return nil
 }
@@ -149,14 +159,25 @@ func (g *GrpcGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Glo
 		bf.Wait()
 	}
 
-	if err != nil && bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
-		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
-		return lastErr
+	if endErr := endphase.Err(ctx, err, bf.Err(), res); endErr != nil {
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	resp, ok := res.(*pb.GlobalRollbackResponseProto)
+	if !ok {
+		endErr := endphase.UnexpectedResponse("global rollback", res)
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+	if resp.GetAbstractGlobalEndResponse() == nil {
+		endErr := endphase.IncompleteResponse("global rollback")
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
 	}
 
 	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
-	gtr.TxStatus = message.GlobalStatus(res.(*pb.GlobalRollbackResponseProto).AbstractGlobalEndResponse.GlobalStatus)
+	gtr.TxStatus = message.GlobalStatus(resp.GetAbstractGlobalEndResponse().GetGlobalStatus())
 
 	return nil
 }
