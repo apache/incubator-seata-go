@@ -35,6 +35,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
+- [[#1159](https://github.com/apache/incubator-seata-go/issues/1159)] 修复同步请求超时、以及无人等待回复的消息发送后 message future 泄漏，并避免重复响应阻塞传输层接收循环
 
 ### optimize：
 
