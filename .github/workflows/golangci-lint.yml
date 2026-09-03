@@ -46,12 +46,24 @@ jobs:
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "set up go"
         uses: actions/setup-go@v7.0.0
         with:
           go-version: "1.27.1"
+
+      - name: "check gofmt"
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted=$(git ls-files -z '*.go' | xargs -0 -r gofmt -l)
+          if [[ -n "$unformatted" ]]; then
+            echo "The following Go files are not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: "golang ci lint pull request"
         if: ${{ github.event_name == 'pull_request' }}
@@ -66,4 +78,4 @@ jobs:
         uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.13.2
-          args: --timeout=10m --new-from-rev=HEAD~1
+          args: --timeout=10m --new-from-rev=${{ github.event.before }}

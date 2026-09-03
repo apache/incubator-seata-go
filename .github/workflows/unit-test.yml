@@ -44,6 +44,7 @@ jobs:
       uses: actions/checkout@v7.0.1
       with:
         submodules: true
+        persist-credentials: false
 
     - name: "Set up Go"
       uses: actions/setup-go@v7.0.0
@@ -57,7 +58,7 @@ jobs:
         path: ~/go/pkg/mod
         key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
         restore-keys: |
-          "${{ runner.os }}-go-"
+          ${{ runner.os }}-go-
 
     - name: Shutdown default mysql
       run: sudo service mysql stop

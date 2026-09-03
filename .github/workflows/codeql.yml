@@ -53,6 +53,7 @@ jobs:
           # We must fetch at least the immediate parents so that if this is
           # a pull request then we can checkout the head.
           fetch-depth: 2
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7.0.0

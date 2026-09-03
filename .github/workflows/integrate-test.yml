@@ -43,6 +43,8 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - name: "checkout ${{ github.ref }}"
       uses: actions/checkout@v7.0.1
+      with:
+        persist-credentials: false
 
     - name: "set up go"
       uses: actions/setup-go@v7.0.0

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
@@ -13,8 +15,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-#!/bin/bash
 
 set -e
 set -x
@@ -35,6 +35,19 @@ echo "github pull request repo param -> $1"
 echo "github pull request base branch -> $3"
 echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 
+# ensure docker-compose is available (newer Docker uses 'docker compose')
+if ! command -v docker-compose &> /dev/null && docker compose version >/dev/null 2>&1; then
+    mkdir -p /tmp/docker-shims
+    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
+    chmod +x /tmp/docker-shims/docker-compose
+    export PATH="/tmp/docker-shims:$PATH"
+fi
+
+if ! command -v docker-compose &> /dev/null; then
+    echo "docker-compose is required for integration tests (install Docker Compose v2 or standalone docker-compose)" >&2
+    exit 1
+fi
+
 echo "use seata-go-samples $3 branch for integration testing"
 SAMPLES_DIR=$(mktemp -d "${ROOT_DIR}/.seata-go-samples.XXXXXX")
 cleanup_samples() {
@@ -49,10 +62,10 @@ adapt_samples_to_seata_go_v2() {
         perl -pi -e 's#seata\.apache\.org/seata-go/pkg#seata.apache.org/seata-go/v2/pkg#g' "$file"
     done
 
-    go mod edit -droprequire=seata.apache.org/seata-go || true
+    go mod edit -droprequire=seata.apache.org/seata-go
     go mod edit -require=seata.apache.org/seata-go/v2@v2.0.0
 
-    if grep -R -n --include='*.go' 'seata\.apache\.org/seata-go/pkg' .; then
+    if grep -R -n --exclude-dir=.git --include='*.go' 'seata\.apache\.org/seata-go/pkg' .; then
         echo "old seata-go v1 imports remain after v2 migration"
         exit 1
     fi
@@ -77,19 +90,6 @@ adapt_samples_to_seata_go_v2
 go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 
 go mod tidy
-
-# ensure docker-compose is available (newer Docker uses 'docker compose')
-if ! command -v docker-compose &> /dev/null && docker compose version >/dev/null 2>&1; then
-    mkdir -p /tmp/docker-shims
-    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
-    chmod +x /tmp/docker-shims/docker-compose
-    export PATH="/tmp/docker-shims:$PATH"
-fi
-
-if ! command -v docker-compose &> /dev/null; then
-    echo "docker-compose is required for integration tests (install Docker Compose v2 or standalone docker-compose)"
-    exit 1
-fi
 
 # start integrate test
 ./start_integrate_test.sh
