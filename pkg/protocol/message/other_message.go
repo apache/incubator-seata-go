@@ -40,6 +40,19 @@ func NewMessageFuture(message RpcMessage) *MessageFuture {
 	}
 }
 
+// Complete records the response and wakes the waiter, reporting whether it
+// signaled. Done holds a single signal, so a duplicate or late response is
+// dropped rather than blocking the caller, which is the transport receive loop.
+func (f *MessageFuture) Complete(response interface{}) bool {
+	f.Response = response
+	select {
+	case f.Done <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
 type HeartBeatMessage struct {
 	Ping bool
 }
