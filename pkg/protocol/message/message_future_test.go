@@ -18,6 +18,7 @@
 package message
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -54,5 +55,28 @@ func TestMessageFutureCompleteDropsDuplicate(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Complete() blocked on a duplicate response")
+	}
+}
+
+// Both transports decode each incoming message in its own goroutine, so two
+// responses for the same ID can call Complete concurrently. Run under -race:
+// this is what actually proves there is no data race on Response, not just
+// that the logical result looks right.
+func TestMessageFutureCompleteIsRaceFreeUnderConcurrentCalls(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		future := NewMessageFuture(RpcMessage{ID: 1})
+		var wg sync.WaitGroup
+		results := make([]bool, 2)
+		wg.Add(2)
+		go func() { defer wg.Done(); results[0] = future.Complete("first") }()
+		go func() { defer wg.Done(); results[1] = future.Complete("second") }()
+		wg.Wait()
+
+		if results[0] == results[1] {
+			t.Fatalf("round %d: both Complete calls reported %v, want exactly one true", i, results[0])
+		}
+		if future.Response != "first" && future.Response != "second" {
+			t.Fatalf("round %d: Response = %v, want one of the two calls' payloads", i, future.Response)
+		}
 	}
 }

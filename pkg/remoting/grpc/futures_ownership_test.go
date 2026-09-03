@@ -173,7 +173,7 @@ func TestNotifyRpcMessageResponseDoesNotBlockWhenAlreadySignaled(t *testing.T) {
 	remoting := newGrpcRemoting()
 	req := message.RpcMessage{ID: 1}
 	future := message.NewMessageFuture(req)
-	future.Done <- struct{}{}
+	future.Complete("first") // fills Done the same way production code does
 	remoting.futures.Store(req.ID, future)
 
 	returned := make(chan struct{})
@@ -186,6 +186,12 @@ func TestNotifyRpcMessageResponseDoesNotBlockWhenAlreadySignaled(t *testing.T) {
 	case <-returned:
 	case <-time.After(2 * time.Second):
 		t.Fatal("NotifyRpcMessageResponse blocked when the future was already signaled")
+	}
+
+	// The dropped duplicate must not overwrite the response the first call
+	// already recorded, or a slow reader could observe either value.
+	if future.Response != "first" {
+		t.Fatalf("Response = %v, want \"first\" to survive the dropped duplicate", future.Response)
 	}
 }
 
