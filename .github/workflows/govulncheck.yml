@@ -92,9 +92,36 @@ jobs:
             govulncheck.json
             govulncheck.exit-code
             sbom.cdx.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90
 
       - name: Enforce vulnerability scan result
         if: ${{ always() && steps.vulnerability-scan.outcome == 'failure' }}
         run: exit 1
+
+  release-assets:
+    name: Attach security artifacts to release
+    if: ${{ always() && github.event_name == 'release' && needs.security.result != 'cancelled' }}
+    needs: security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download security artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: go-security-${{ github.sha }}
+          path: release-assets
+
+      - name: Upload security artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            release-assets/sbom.cdx.json \
+            release-assets/govulncheck.txt \
+            release-assets/govulncheck.json \
+            release-assets/govulncheck.exit-code \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

@@ -48,21 +48,31 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-echo "use seata-go-samples $3 branch for integration testing"
+SAMPLES_REF="${SAMPLES_REF:-}"
+echo "use seata-go-samples ref ${SAMPLES_REF:-remote default} for integration testing"
 SAMPLES_DIR=$(mktemp -d "${ROOT_DIR}/.seata-go-samples.XXXXXX")
 cleanup_samples() {
     rm -rf "${SAMPLES_DIR}"
 }
 trap cleanup_samples EXIT
 
-git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}" && cd "${SAMPLES_DIR}"
+if ! git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}"; then
+    echo "failed to clone incubator-seata-go-samples" >&2
+    exit 1
+fi
+cd "${SAMPLES_DIR}"
+if [[ -n "${SAMPLES_REF}" ]]; then
+    git fetch --depth 1 origin "${SAMPLES_REF}"
+    git checkout --detach FETCH_HEAD
+fi
+echo "seata-go-samples commit -> $(git rev-parse HEAD)"
 
 adapt_samples_to_seata_go_v2() {
     find . -type f -name '*.go' -print0 | while IFS= read -r -d '' file; do
         perl -pi -e 's#seata\.apache\.org/seata-go/pkg#seata.apache.org/seata-go/v2/pkg#g' "$file"
     done
 
-    go mod edit -droprequire=seata.apache.org/seata-go
+    go mod edit -droprequire=seata.apache.org/seata-go || true
     go mod edit -require=seata.apache.org/seata-go/v2@v2.0.0
 
     if grep -R -n --exclude-dir=.git --include='*.go' 'seata\.apache\.org/seata-go/pkg' .; then

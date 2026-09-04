@@ -1,6 +1,6 @@
 module seata.apache.org/seata-go/v2
 
-go 1.26.0
+go 1.26.8
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.4
