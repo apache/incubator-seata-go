@@ -734,8 +734,7 @@ func TestBaseUndoLogManager_FlushUndoLog_MorePaths(t *testing.T) {
 		undo.UndoConfig.CompressConfig.Type = "none"
 
 		err := manager.FlushUndoLog(tranCtx, mockConn)
-		// Error may occur, but we're testing the code path
-		_ = err
+		assert.EqualError(t, err, "before and after image count mismatch: 1 != 2")
 	})
 
 	t.Run("nil images in array", func(t *testing.T) {

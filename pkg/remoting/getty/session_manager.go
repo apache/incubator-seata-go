@@ -51,11 +51,55 @@ var (
 
 type SessionManager struct {
 	// serverAddress -> rpc_client.Session -> bool
-	serverSessions sync.Map
-	allSessions    sync.Map
-	sessionSize    int32
-	gettyConf      *config.Config
-	seataConfig    *config.SeataConfig
+	serverSessions        sync.Map
+	allSessions           sync.Map
+	sessionSize           int32
+	gettyConf             *config.Config
+	seataConfig           *config.SeataConfig
+	registrySubscription  discovery.RegistrySubscription
+	serverClients         sync.Map
+	serverAddressMu       sync.RWMutex
+	serverAddressSnapshot map[string]struct{}
+	serverAddressReady    bool
+	startClient           func(*discovery.ServiceInstance) closeableClient
+}
+
+type closeableClient interface {
+	Close()
+}
+
+type serverClientEntry struct {
+	mu     sync.Mutex
+	client closeableClient
+	closed bool
+}
+
+func (e *serverClientEntry) setClient(client closeableClient) bool {
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		client.Close()
+		return false
+	}
+	e.client = client
+	e.mu.Unlock()
+	return true
+}
+
+func (e *serverClientEntry) Close() {
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		return
+	}
+	e.closed = true
+	client := e.client
+	e.client = nil
+	e.mu.Unlock()
+
+	if client != nil {
+		client.Close()
+	}
 }
 
 func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
@@ -73,29 +117,156 @@ func initSessionManager(gettyConfig *config.Config, seataConfig *config.SeataCon
 }
 
 func (g *SessionManager) init() {
-	addressList := g.getAvailServerList()
+	g.initWithRegistry(discovery.GetRegistry())
+}
+
+func (g *SessionManager) initWithRegistry(registryService discovery.RegistryService) {
+	if registryService == nil {
+		log.Warn("registry service not initialized")
+		return
+	}
+	if g.subscribeRegistry(registryService) {
+		return
+	}
+
+	addressList := g.getAvailServerList(registryService)
 	if len(addressList) == 0 {
 		log.Warn("no have valid seata server list")
 	}
-	for _, address := range addressList {
-		gettyClient := getty.NewTCPClient(
-			getty.WithServerAddress(net.JoinHostPort(address.Addr, strconv.Itoa(address.Port))),
-			// todo if read c.gettyConf.ConnectionNum, will cause the connect to fail
-			getty.WithConnectionNumber(1),
-			getty.WithReconnectInterval(g.gettyConf.ReconnectInterval),
-			getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
-		)
-		go gettyClient.RunEventLoop(g.newSession)
-	}
+	g.refreshServerList(addressList)
 }
 
-func (g *SessionManager) getAvailServerList() []*discovery.ServiceInstance {
-	registryService := discovery.GetRegistry()
+func (g *SessionManager) subscribeRegistry(registryService discovery.RegistryService) bool {
+	subscriber, ok := registryService.(discovery.RegistrySubscriber)
+	if !ok {
+		return false
+	}
+	subscription, err := subscriber.Subscribe(g.seataConfig.TxServiceGroup, func(event discovery.RegistryChangeEvent) {
+		if event.Key != g.seataConfig.TxServiceGroup {
+			return
+		}
+		g.refreshServerList(event.Instances)
+	})
+	if err != nil {
+		log.Warnf("subscribe registry changes failed: %v", err)
+		return false
+	}
+	g.registrySubscription = subscription
+	return true
+}
+
+func (g *SessionManager) getAvailServerList(registryService discovery.RegistryService) []*discovery.ServiceInstance {
 	instances, err := registryService.Lookup(g.seataConfig.TxServiceGroup)
 	if err != nil {
+		log.Warnf("lookup seata server list failed: %v", err)
 		return nil
 	}
 	return instances
+}
+
+func (g *SessionManager) refreshServerList(instances []*discovery.ServiceInstance) {
+	servers := make(map[string]*discovery.ServiceInstance, len(instances))
+	for _, instance := range instances {
+		if instance == nil || instance.Addr == "" || instance.Port <= 0 {
+			continue
+		}
+		clone := &discovery.ServiceInstance{Addr: instance.Addr, Port: instance.Port}
+		servers[serverAddress(clone)] = clone
+	}
+
+	removedAddresses := g.replaceServerAddressSnapshot(servers)
+	for _, address := range removedAddresses {
+		g.releaseServerAddress(address)
+	}
+
+	for _, instance := range servers {
+		g.ensureServerClient(instance)
+	}
+}
+
+func (g *SessionManager) replaceServerAddressSnapshot(servers map[string]*discovery.ServiceInstance) []string {
+	g.serverAddressMu.Lock()
+	var removedAddresses []string
+	for address := range g.serverAddressSnapshot {
+		if _, ok := servers[address]; !ok {
+			removedAddresses = append(removedAddresses, address)
+		}
+	}
+	g.serverAddressSnapshot = make(map[string]struct{}, len(servers))
+	for address := range servers {
+		g.serverAddressSnapshot[address] = struct{}{}
+	}
+	g.serverAddressReady = true
+	g.serverAddressMu.Unlock()
+	return removedAddresses
+}
+
+func (g *SessionManager) ensureServerClient(instance *discovery.ServiceInstance) {
+	address := serverAddress(instance)
+	entry := &serverClientEntry{}
+	if _, loaded := g.serverClients.LoadOrStore(address, entry); loaded {
+		return
+	}
+	var client closeableClient
+	if g.startClient != nil {
+		client = g.startClient(instance)
+	} else {
+		client = g.startGettyClient(instance)
+	}
+	if client == nil {
+		g.serverClients.CompareAndDelete(address, entry)
+		return
+	}
+	if !entry.setClient(client) {
+		return
+	}
+	if !g.isServerAddressAvailable(address) || !g.isServerClientEntryCurrent(address, entry) {
+		g.releaseServerClientEntry(address, entry)
+		return
+	}
+}
+
+func (g *SessionManager) isServerClientEntryCurrent(address string, entry *serverClientEntry) bool {
+	current, ok := g.serverClients.Load(address)
+	return ok && current == entry
+}
+
+func (g *SessionManager) releaseServerClientEntry(address string, entry *serverClientEntry) {
+	g.serverClients.CompareAndDelete(address, entry)
+	entry.Close()
+}
+
+func (g *SessionManager) startGettyClient(instance *discovery.ServiceInstance) getty.Client {
+	gettyClient := getty.NewTCPClient(
+		getty.WithServerAddress(serverAddress(instance)),
+		// todo if read c.gettyConf.ConnectionNum, will cause the connect to fail
+		getty.WithConnectionNumber(1),
+		getty.WithReconnectInterval(g.gettyConf.ReconnectInterval),
+		getty.WithClientTaskPool(gxsync.NewTaskPoolSimple(0)),
+	)
+	go gettyClient.RunEventLoop(g.newSession)
+	return gettyClient
+}
+
+func (g *SessionManager) releaseServerAddress(address string) {
+	if clientAny, loaded := g.serverClients.LoadAndDelete(address); loaded {
+		if client, ok := clientAny.(closeableClient); ok && client != nil {
+			client.Close()
+		}
+	}
+	if sessionsAny, ok := g.serverSessions.LoadAndDelete(address); ok {
+		sessions := sessionsAny.(*sync.Map)
+		sessions.Range(func(key, _ interface{}) bool {
+			if session, ok := key.(getty.Session); ok {
+				g.releaseSession(session)
+			}
+			return true
+		})
+	}
+}
+
+func serverAddress(instance *discovery.ServiceInstance) string {
+	return net.JoinHostPort(instance.Addr, strconv.Itoa(instance.Port))
 }
 
 func (g *SessionManager) setSessionConfig(session getty.Session) {
@@ -160,32 +331,57 @@ func (g *SessionManager) newSession(session getty.Session) error {
 }
 
 func (g *SessionManager) selectSession(msg interface{}) getty.Session {
-	selected := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, &g.allSessions, g.getXid(msg))
+	sessions := g.selectableSessions()
+	selected := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, sessions, g.getXid(msg))
 	session, ok := selected.(getty.Session)
 	if ok && session != nil {
 		return session
 	}
 
-	if g.sessionSize == 0 {
+	if selectableConnectionCount(sessions) == 0 {
 		ticker := time.NewTicker(time.Duration(checkAliveInternal) * time.Millisecond)
 		defer ticker.Stop()
 		for i := 0; i < maxCheckAliveRetry; i++ {
 			<-ticker.C
-			g.allSessions.Range(func(key, value interface{}) bool {
-				session = key.(getty.Session)
-				if session.IsClosed() {
-					g.releaseSession(session)
-				} else {
-					return false
-				}
-				return true
-			})
-			if session != nil {
+			sessions = g.selectableSessions()
+			selected = loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, sessions, g.getXid(msg))
+			session, ok = selected.(getty.Session)
+			if ok && session != nil {
 				return session
 			}
 		}
 	}
 	return nil
+}
+
+func (g *SessionManager) selectableSessions() *sync.Map {
+	sessions := &sync.Map{}
+	g.allSessions.Range(func(key, value interface{}) bool {
+		session, ok := key.(getty.Session)
+		if !ok {
+			return true
+		}
+		if session.IsClosed() {
+			g.releaseSession(session)
+			return true
+		}
+		if g.isServerAddressAvailable(session.RemoteAddr()) {
+			sessions.Store(session, value)
+		}
+		return true
+	})
+	return sessions
+}
+
+func (g *SessionManager) isServerAddressAvailable(address string) bool {
+	g.serverAddressMu.RLock()
+	defer g.serverAddressMu.RUnlock()
+
+	if !g.serverAddressReady {
+		return true
+	}
+	_, ok := g.serverAddressSnapshot[address]
+	return ok
 }
 
 func (g *SessionManager) getXid(msg interface{}) string {
@@ -210,20 +406,42 @@ func (g *SessionManager) getXid(msg interface{}) string {
 }
 
 func (g *SessionManager) releaseSession(session getty.Session) {
-	g.allSessions.Delete(session)
-	if !session.IsClosed() {
-		m, _ := g.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
+	if session == nil {
+		return
+	}
+	if _, loaded := g.allSessions.LoadAndDelete(session); !loaded {
+		return
+	}
+	if m, ok := g.serverSessions.Load(session.RemoteAddr()); ok {
 		sMap := m.(*sync.Map)
 		sMap.Delete(session)
+	}
+	if !session.IsClosed() {
 		session.Close()
 	}
 	atomic.AddInt32(&g.sessionSize, -1)
 }
 
 func (g *SessionManager) registerSession(session getty.Session) {
-	g.allSessions.Store(session, true)
+	if !g.isServerAddressAvailable(session.RemoteAddr()) {
+		log.Warnf("skip session for removed server address: %s", session.RemoteAddr())
+		session.Close()
+		return
+	}
+	if _, loaded := g.allSessions.LoadOrStore(session, true); loaded {
+		return
+	}
 	m, _ := g.serverSessions.LoadOrStore(session.RemoteAddr(), &sync.Map{})
 	sMap := m.(*sync.Map)
 	sMap.Store(session, true)
 	atomic.AddInt32(&g.sessionSize, 1)
+}
+
+func selectableConnectionCount(connections *sync.Map) int {
+	count := 0
+	connections.Range(func(_, _ interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }

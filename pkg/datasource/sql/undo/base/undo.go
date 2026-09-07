@@ -279,15 +279,15 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	sqlUndoLogs := make([]undo.SQLUndoLog, 0)
 	beforeImages := tranCtx.RoundImages.BeofreImages()
 	afterImages := tranCtx.RoundImages.AfterImages()
+	if !tranCtx.RoundImages.IsBeforeAfterSizeEq() {
+		return fmt.Errorf("before and after image count mismatch: %d != %d", len(beforeImages), len(afterImages))
+	}
 
 	if beforeImages.IsEmptyImage() && afterImages.IsEmptyImage() {
 		return nil
 	}
 
 	size := len(beforeImages)
-	if size < len(afterImages) {
-		size = len(afterImages)
-	}
 
 	for i := 0; i < size; i++ {
 		var (

@@ -43,6 +43,8 @@ jobs:
           # See: https://hub.docker.com/_/mysql
           MYSQL_DATABASE: seata_go_test
           MYSQL_ROOT_PASSWORD: seata_go
+          MYSQL_USER: seata_go
+          MYSQL_PASSWORD: seata_go
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -65,6 +67,8 @@ jobs:
 
       - name: "run go test and out codecov"
         run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
+        env:
+          SEATA_GO_TEST_MYSQL_DSN: seata_go:seata_go@tcp(127.0.0.1:3306)/seata_go_test
 
       - name: "upload coverage"
         uses: codecov/codecov-action@v4.0.1

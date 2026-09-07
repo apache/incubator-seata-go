@@ -401,5 +401,5 @@ func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs 
 		return nil, nil
 	}
 
-	return &rowsWithStmt{Rows: rows, stmt: stmt}, nil
+	return util.NewRowsWithStmt(rows, stmt), nil
 }

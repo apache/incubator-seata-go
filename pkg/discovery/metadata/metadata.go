@@ -134,14 +134,24 @@ func (m *Metadata) GetClusterTerm(clusterName string) map[string]int64 {
 }
 
 func (m *Metadata) RefreshMetadata(clusterName string, response MetadataResponse) {
+	m.refreshMetadata(clusterName, "", response)
+}
+
+// RefreshGroupMetadata replaces the metadata for one queried group.
+func (m *Metadata) RefreshGroupMetadata(clusterName, group string, response MetadataResponse) {
+	m.refreshMetadata(clusterName, group, response)
+}
+
+func (m *Metadata) refreshMetadata(clusterName, queriedGroup string, response MetadataResponse) {
 	nodesByGroup := make(map[string][]*Node)
 	for _, node := range response.Nodes {
-		nodesByGroup[node.Group] = append(nodesByGroup[node.Group], node)
-		if node.Role == LEADER {
-			groupMapAny, _ := m.leaders.LoadOrStore(clusterName, &sync.Map{})
-			groupMap := groupMapAny.(*sync.Map)
-			groupMap.Store(node.Group, node)
+		if node == nil {
+			continue
 		}
+		nodesByGroup[node.Group] = append(nodesByGroup[node.Group], node)
+	}
+	if len(nodesByGroup) == 0 && queriedGroup != "" {
+		nodesByGroup[queriedGroup] = nil
 	}
 
 	switch response.StoreMode {
@@ -152,9 +162,20 @@ func (m *Metadata) RefreshMetadata(clusterName string, response MetadataResponse
 	}
 
 	if len(nodesByGroup) > 0 {
+		leaderMapAny, _ := m.leaders.LoadOrStore(clusterName, &sync.Map{})
+		leaderMap := leaderMapAny.(*sync.Map)
 		termMapAny, _ := m.clusterTerm.LoadOrStore(clusterName, &sync.Map{})
 		termMap := termMapAny.(*sync.Map)
 		for group, nodes := range nodesByGroup {
+			leaderMap.Delete(group)
+			clusterNodesAny, _ := m.clusterNodes.LoadOrStore(clusterName, &sync.Map{})
+			clusterNodes := clusterNodesAny.(*sync.Map)
+			clusterNodes.Delete(group)
+			for _, node := range nodes {
+				if node.Role == LEADER {
+					leaderMap.Store(group, node)
+				}
+			}
 			m.SetNodes(clusterName, group, nodes)
 			termMap.Store(group, response.Term)
 		}

@@ -27,8 +27,10 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -59,11 +61,19 @@ func (r *insertResult) RowsAffected() (int64, error) {
 // insertExecutor execute insert SQL
 type insertExecutor struct {
 	baseExecutor
-	parserCtx     *types.ParseContext
-	execContext   *types.ExecContext
-	incrementStep int
+	parserCtx      *types.ParseContext
+	execContext    *types.ExecContext
+	incrementStep  int
+	keyPlan        *insertKeyPlan
+	resolvedPKRows []types.RowImage
 	// businesSQLResult after insert sql
 	businesSQLResult types.ExecResult
+}
+
+type insertKeyPlan struct {
+	rowCount   int
+	pkValues   map[string][]interface{}
+	autoColumn string
 }
 
 // NewInsertExecutor get insert executor
@@ -102,6 +112,11 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return res, nil
 	}
 
+	i.keyPlan, err = i.buildInsertKeyPlan(ctx, beforeImage.TableMeta)
+	if err != nil {
+		return nil, err
+	}
+
 	res, err := f(ctx, i.execContext.Query, i.execContext.NamedValues)
 	if err != nil {
 		return nil, err
@@ -110,14 +125,29 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	if i.businesSQLResult == nil {
 		i.businesSQLResult = res
 	}
+	noOp, err := i.validateInsertResult()
+	if err != nil {
+		return nil, err
+	}
+	if noOp {
+		afterImage := types.NewEmptyRecordImage(beforeImage.TableMeta, types.SQLTypeInsert)
+		if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
 
 	afterImage, err := i.afterImage(ctx)
 	if err != nil {
 		return nil, err
 	}
+	if err := i.validateAfterImage(afterImage); err != nil {
+		return nil, err
+	}
 
-	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	if err := i.prepareUndoPair(i.execContext, beforeImage, afterImage); err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
@@ -172,10 +202,75 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	if err != nil {
 		return nil, err
 	}
+	image.TableMeta = metaData
 
-	lockKey := i.buildLockKey(image, *metaData)
-	i.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	return image, nil
+}
+
+func (i *insertExecutor) validateAfterImage(afterImage *types.RecordImage) error {
+	tableName, _ := i.parserCtx.GetTableName()
+	if afterImage == nil || afterImage.TableMeta == nil {
+		return fmt.Errorf("insert after image for table %s is unavailable", tableName)
+	}
+	if len(afterImage.Rows) != len(i.resolvedPKRows) {
+		return fmt.Errorf("insert after image for table %s has %d rows, expected %d", tableName, len(afterImage.Rows), len(i.resolvedPKRows))
+	}
+
+	actualPKRows := make([]types.RowImage, 0, len(afterImage.Rows))
+	for _, row := range afterImage.Rows {
+		pkColumns, err := util.GetOrderedPkList(afterImage, row, i.dbType())
+		if err != nil {
+			return fmt.Errorf("insert after image for table %s: %w", tableName, err)
+		}
+		actualPKRows = append(actualPKRows, types.RowImage{Columns: pkColumns})
+	}
+
+	matchedExpected := make([]bool, len(i.resolvedPKRows))
+	for _, actualRow := range actualPKRows {
+		match := -1
+		for expectedIndex, expectedRow := range i.resolvedPKRows {
+			if !primaryKeyRowsEqual(expectedRow, actualRow) {
+				continue
+			}
+			if match >= 0 {
+				return fmt.Errorf("insert after image for table %s has duplicate expected primary key %v", tableName, primaryKeyValues(actualRow))
+			}
+			match = expectedIndex
+		}
+		if match < 0 {
+			return fmt.Errorf("insert after image for table %s contains unexpected primary key %v", tableName, primaryKeyValues(actualRow))
+		}
+		if matchedExpected[match] {
+			return fmt.Errorf("insert after image for table %s contains duplicate primary key %v", tableName, primaryKeyValues(actualRow))
+		}
+		matchedExpected[match] = true
+	}
+	for expectedIndex, ok := range matchedExpected {
+		if !ok {
+			return fmt.Errorf("insert after image for table %s is missing expected primary key %v", tableName, primaryKeyValues(i.resolvedPKRows[expectedIndex]))
+		}
+	}
+	return nil
+}
+
+func primaryKeyRowsEqual(expected, actual types.RowImage) bool {
+	if len(expected.Columns) != len(actual.Columns) {
+		return false
+	}
+	for index := range expected.Columns {
+		if !datasource.DeepEqual(expected.Columns[index].GetActualValue(), actual.Columns[index].GetActualValue()) {
+			return false
+		}
+	}
+	return true
+}
+
+func primaryKeyValues(row types.RowImage) []interface{} {
+	values := make([]interface{}, 0, len(row.Columns))
+	for index := range row.Columns {
+		values = append(values, row.Columns[index].GetActualValue())
+	}
+	return values
 }
 
 func (i *insertExecutor) execPostgreSQLInsert(ctx context.Context) (types.ExecResult, *types.RecordImage, error) {
@@ -237,27 +332,12 @@ func (i *insertExecutor) buildPostgreSQLReturningInsertSQL(meta *types.TableMeta
 		insertColumns = append(insertColumns, column.Name.O)
 	}
 
-	returningColumns := i.getNeedColumns(meta, insertColumns, types.DBTypePostgreSQL)
-	if len(returningColumns) == 0 {
-		returningColumns = i.getNeedColumns(meta, nil, types.DBTypePostgreSQL)
+	returningColumns, err := buildImageSelectColumns(meta, insertColumns, types.DBTypePostgreSQL, undo.UndoConfig.OnlyCareUpdateColumns)
+	if err != nil {
+		return "", err
 	}
 
 	return trimTrailingSemicolon(i.execContext.Query) + " RETURNING " + strings.Join(returningColumns, ", "), nil
-}
-
-// rowsWithStmt wraps driver.Rows and closes the statement when rows are closed
-type rowsWithStmt struct {
-	driver.Rows
-	stmt driver.Stmt
-}
-
-func (r *rowsWithStmt) Close() error {
-	rowsErr := r.Rows.Close()
-	stmtErr := r.stmt.Close()
-	if rowsErr != nil {
-		return rowsErr
-	}
-	return stmtErr
 }
 
 func (i *insertExecutor) queryRows(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
@@ -307,7 +387,7 @@ func (i *insertExecutor) queryRows(ctx context.Context, query string, args []dri
 		return nil, err
 	}
 
-	return &rowsWithStmt{Rows: rows, stmt: stmt}, nil
+	return util.NewRowsWithStmt(rows, stmt), nil
 }
 
 func namedValuesToValues(named []driver.NamedValue) ([]driver.Value, error) {
@@ -343,7 +423,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	if err != nil {
 		return "", nil, err
 	}
-	pkValuesMap, err := i.getPkValues(ctx, i.execContext, i.parserCtx, *meta)
+	pkValuesMap, err := i.getPkValues(ctx, i.execContext, *meta)
 	if err != nil {
 		return "", nil, err
 	}
@@ -360,22 +440,27 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	if len(dataTypeMap) != len(pkColumnNameList) {
 		return "", nil, fmt.Errorf("PK columnName size don't equal PK DataType size")
 	}
-	var pkRowImages []types.RowImage
+	pkRowImages := make([]types.RowImage, 0)
 
 	rowSize := len(pkValuesMap[pkColumnNameList[0]])
-	for i := 0; i < rowSize; i++ {
+	if rowSize == 0 {
+		return "", nil, fmt.Errorf("insert primary key values are empty")
+	}
+	for rowIndex := 0; rowIndex < rowSize; rowIndex++ {
+		columns := make([]types.ColumnImage, 0, len(pkColumnNameList))
 		for _, name := range pkColumnNameList {
-			tmpKey := name
-			tmpArray := pkValuesMap[tmpKey]
-			pkRowImages = append(pkRowImages, types.RowImage{
-				Columns: []types.ColumnImage{{
-					KeyType:    types.IndexTypePrimaryKey,
-					ColumnName: tmpKey,
-					ColumnType: jdbcTypeForDatabaseType(dbType, dataTypeMap[tmpKey]),
-					Value:      tmpArray[i],
-				}},
+			values := pkValuesMap[name]
+			if len(values) != rowSize {
+				return "", nil, fmt.Errorf("insert primary key %s has %d values, want %d", name, len(values), rowSize)
+			}
+			columns = append(columns, types.ColumnImage{
+				KeyType:    types.IndexTypePrimaryKey,
+				ColumnName: name,
+				ColumnType: jdbcTypeForDatabaseType(dbType, dataTypeMap[name]),
+				Value:      values[rowIndex],
 			})
 		}
+		pkRowImages = append(pkRowImages, types.RowImage{Columns: columns})
 	}
 	// build check sql
 	sb := strings.Builder{}
@@ -385,57 +470,192 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 	for _, column := range i.parserCtx.InsertStmt.Columns {
 		insertColumns = append(insertColumns, column.Name.O)
 	}
-	sb.WriteString("SELECT " + strings.Join(i.getNeedColumns(meta, insertColumns, dbType), ", "))
+	selectColumns, err := buildImageSelectColumns(meta, insertColumns, dbType, undo.UndoConfig.OnlyCareUpdateColumns)
+	if err != nil {
+		return "", nil, err
+	}
+	sb.WriteString("SELECT " + strings.Join(selectColumns, ", "))
 	suffix.WriteString(" FROM " + tableName)
 	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, dbType, maxInSize)
 	suffix.WriteString(" WHERE " + whereSQL + " ")
 	sb.WriteString(suffix.String())
+	i.resolvedPKRows = pkRowImages
 	return sb.String(), i.buildPKParams(pkRowImages, pkColumnNameList, dbType), nil
 }
 
-func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext, meta types.TableMeta) (map[string][]interface{}, error) {
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	pkValuesMap := make(map[string][]interface{})
-	var err error
-	// when there is only one pk in the table
-	if len(pkColumnNameList) == 1 {
-		if i.containsPK(meta, parseCtx) {
-			// the insert sql contain pk value
-			pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		} else if containsColumns(parseCtx) {
-			// the insert table pk auto generated
-			pkValuesMap, err = i.getPkValuesByAuto(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		// when there is multiple pk in the table
-		// 1,all pk columns are filled value.
-		// 2,the auto increment pk column value is null, and other pk value are not null.
-		pkValuesMap, err = i.getPkValuesByColumn(ctx, execCtx)
+func (i *insertExecutor) getPkValues(ctx context.Context, execCtx *types.ExecContext, meta types.TableMeta) (map[string][]interface{}, error) {
+	if i.keyPlan == nil {
+		plan, err := i.buildInsertKeyPlan(ctx, &meta)
 		if err != nil {
 			return nil, err
 		}
-		for _, columnName := range pkColumnNameList {
-			if _, ok := pkValuesMap[columnName]; !ok {
-				curPkValuesMap, err := i.getPkValuesByAuto(ctx, execCtx)
-				if err != nil {
-					return nil, err
-				}
-				pkValuesMapMerge(&pkValuesMap, curPkValuesMap)
-			}
-		}
+		i.keyPlan = plan
 	}
-	return pkValuesMap, nil
+	return i.resolveInsertKeyPlan(execCtx)
+}
+
+func (i *insertExecutor) buildInsertKeyPlan(ctx context.Context, meta *types.TableMeta) (*insertKeyPlan, error) {
+	if meta == nil || !i.isAstStmtValid() {
+		return nil, fmt.Errorf("invalid insert metadata or statement")
+	}
+	stmt := i.parserCtx.InsertStmt
+	if stmt.Select != nil || len(stmt.Lists) == 0 {
+		return nil, fmt.Errorf("insert source other than VALUES is unsupported")
+	}
+	if stmt.IgnoreErr && len(stmt.Lists) > 1 {
+		return nil, fmt.Errorf("multi-values INSERT IGNORE is unsupported because successful rows cannot be determined")
+	}
+
+	pkNames := meta.GetPrimaryKeyOnlyName()
+	if len(pkNames) == 0 {
+		return nil, fmt.Errorf("pk columnName size is zero")
+	}
+	pkValues, err := i.parsePkValuesFromStatement(stmt, *meta, i.execContext.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	plan := &insertKeyPlan{rowCount: len(stmt.Lists), pkValues: make(map[string][]interface{})}
+	pkMeta := meta.GetPrimaryKeyMap()
+	zeroGeneratesAutoIncrement := false
+	zeroModeChecked := false
+	for _, pkName := range pkNames {
+		columnMeta, ok := pkMeta[pkName]
+		if !ok {
+			return nil, fmt.Errorf("primary key metadata not found for %s", pkName)
+		}
+		values, present := pkValues[pkName]
+		generatedCount := 0
+		if present {
+			if len(values) != plan.rowCount {
+				return nil, fmt.Errorf("insert primary key %s has %d values, want %d", pkName, len(values), plan.rowCount)
+			}
+			for valueIndex, value := range values {
+				if boolValue, ok := value.(bool); ok && columnMeta.Autoincrement {
+					if boolValue {
+						value = int64(1)
+					} else {
+						value = int64(0)
+					}
+					values[valueIndex] = value
+				}
+				switch value.(type) {
+				case nil, *ast.DefaultExpr, ast.DefaultExpr:
+					generatedCount++
+				case ast.ExprNode:
+					return nil, fmt.Errorf("insert primary key expression for %s cannot be determined", pkName)
+				default:
+					if columnMeta.Autoincrement && isNumericZero(value) {
+						if !zeroModeChecked {
+							zeroGeneratesAutoIncrement, err = i.zeroGeneratesAutoIncrement(ctx)
+							if err != nil {
+								return nil, err
+							}
+							zeroModeChecked = true
+						}
+						if zeroGeneratesAutoIncrement {
+							generatedCount++
+						}
+					}
+				}
+			}
+		} else {
+			generatedCount = plan.rowCount
+		}
+
+		if generatedCount == 0 {
+			plan.pkValues[pkName] = values
+			continue
+		}
+		if !columnMeta.Autoincrement {
+			return nil, fmt.Errorf("primary key %s is not explicitly specified or auto-increment", pkName)
+		}
+		if generatedCount != plan.rowCount {
+			return nil, fmt.Errorf("mixed explicit and generated values for auto-increment primary key %s are unsupported", pkName)
+		}
+		if plan.autoColumn != "" && plan.autoColumn != pkName {
+			return nil, fmt.Errorf("multiple generated primary keys are unsupported")
+		}
+		plan.autoColumn = pkName
+	}
+	return plan, nil
+}
+
+func (i *insertExecutor) zeroGeneratesAutoIncrement(ctx context.Context) (bool, error) {
+	rows, err := i.queryRows(ctx, "SELECT FIND_IN_SET('NO_AUTO_VALUE_ON_ZERO', @@SESSION.sql_mode)", nil)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	values := make([]driver.Value, 1)
+	if err := rows.Next(values); err != nil {
+		return false, err
+	}
+	return isNumericZero(values[0]), nil
+}
+
+func isNumericZero(value interface{}) bool {
+	text := fmt.Sprint(value)
+	if bytes, ok := value.([]byte); ok {
+		text = string(bytes)
+	}
+	numeric, err := strconv.ParseFloat(text, 64)
+	return err == nil && numeric == 0
+}
+
+func (i *insertExecutor) resolveInsertKeyPlan(execCtx *types.ExecContext) (map[string][]interface{}, error) {
+	values := make(map[string][]interface{}, len(i.keyPlan.pkValues)+1)
+	for name, pkValues := range i.keyPlan.pkValues {
+		values[name] = append([]interface{}(nil), pkValues...)
+	}
+
+	if i.keyPlan.autoColumn == "" {
+		return values, nil
+	}
+	if i.businesSQLResult == nil || i.businesSQLResult.GetResult() == nil {
+		return nil, fmt.Errorf("insert result is unavailable for generated primary key")
+	}
+
+	lastInsertID, err := i.businesSQLResult.GetResult().LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	if lastInsertID <= 0 {
+		return nil, fmt.Errorf("last insert id is unavailable for generated primary key %s", i.keyPlan.autoColumn)
+	}
+
+	if i.keyPlan.rowCount == 1 {
+		values[i.keyPlan.autoColumn] = []interface{}{lastInsertID}
+		return values, nil
+	}
+
+	generated, err := i.autoGeneratePks(execCtx, i.keyPlan.autoColumn, lastInsertID, int64(i.keyPlan.rowCount))
+	if err != nil {
+		return nil, err
+	}
+	pkValuesMapMerge(&values, generated)
+	return values, nil
+}
+
+func (i *insertExecutor) validateInsertResult() (bool, error) {
+	if i.keyPlan == nil || i.businesSQLResult == nil || i.businesSQLResult.GetResult() == nil {
+		return false, fmt.Errorf("insert key plan or result is unavailable")
+	}
+	if !i.parserCtx.InsertStmt.IgnoreErr {
+		return false, nil
+	}
+	rowsAffected, err := i.businesSQLResult.GetResult().RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if rowsAffected == 0 {
+		return true, nil
+	}
+	if rowsAffected != 1 {
+		return false, fmt.Errorf("single-row INSERT IGNORE affected %d rows", rowsAffected)
+	}
+	return false, nil
 }
 
 // containsPK the columns contains table meta pk
@@ -503,26 +723,12 @@ func (i *insertExecutor) getPkIndex(InsertStmt *ast.InsertStmt, meta types.Table
 		}
 		return pkIndexMap
 	}
-	if len(meta.Columns) > 0 {
-		for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
-			sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
-			if pkColumnName, ok := i.matchPKColumnName(sqlColumnName, meta); ok {
-				pkIndexMap[pkColumnName] = paramIdx
-			}
-		}
-		return pkIndexMap
-	}
-
-	pkIndex := -1
-	allColumns := meta.Columns
-	for _, columnMeta := range allColumns {
-		tmpColumnMeta := columnMeta
-		pkIndex++
-		if i.containPK(tmpColumnMeta.ColumnName, meta) {
-			pkIndexMap[util.DelEscape(tmpColumnMeta.ColumnName, i.dbType())] = pkIndex
+	for paramIdx := 0; paramIdx < insertColumnsSize; paramIdx++ {
+		sqlColumnName := InsertStmt.Columns[paramIdx].Name.O
+		if pkColumnName, ok := i.matchPKColumnName(sqlColumnName, meta); ok {
+			pkIndexMap[pkColumnName] = paramIdx
 		}
 	}
-
 	return pkIndexMap
 }
 
@@ -540,94 +746,63 @@ func (i *insertExecutor) matchPKColumnName(columnName string, meta types.TableMe
 // return the primary key and values<key:primary key,value:primary key values></key:primary>
 func (i *insertExecutor) parsePkValuesFromStatement(insertStmt *ast.InsertStmt, meta types.TableMeta, nameValues []driver.NamedValue) (map[string][]interface{}, error) {
 	if insertStmt == nil {
-		return nil, nil
+		return nil, fmt.Errorf("insert statement is nil")
 	}
-	pkIndexMap := i.getPkIndex(insertStmt, meta)
-	if pkIndexMap == nil || len(pkIndexMap) == 0 {
-		return nil, fmt.Errorf("pkIndex is not found")
-	}
-	var pkIndexArray []int
-	for _, val := range pkIndexMap {
-		tmpVal := val
-		pkIndexArray = append(pkIndexArray, tmpVal)
+	if len(insertStmt.Lists) == 0 {
+		return nil, fmt.Errorf("insert VALUES list is empty")
 	}
 
-	if insertStmt == nil || len(insertStmt.Lists) == 0 {
-		return nil, fmt.Errorf("parCtx is nil, perhaps InsertStmt is empty")
+	expectedColumns := len(insertStmt.Columns)
+	if expectedColumns == 0 {
+		expectedColumns = len(meta.ColumnNames)
+	}
+	for rowIndex, list := range insertStmt.Lists {
+		if len(insertStmt.Columns) == 0 && len(list) == 0 {
+			continue
+		}
+		if len(list) != expectedColumns {
+			return nil, fmt.Errorf("insert row %d has %d values, want %d", rowIndex, len(list), expectedColumns)
+		}
+		for _, node := range list {
+			var indexes []int32
+			i.traversalArgs(node, &indexes)
+			for _, index := range indexes {
+				if index < 0 || int(index) >= len(nameValues) {
+					return nil, fmt.Errorf("insert parameter index %d out of range for %d arguments", index, len(nameValues))
+				}
+			}
+		}
 	}
 
 	pkValuesMap := make(map[string][]interface{})
-
-	if nameValues != nil && len(nameValues) > 0 {
-		// use prepared statements
-		insertRows, err := getInsertRows(insertStmt, pkIndexArray)
-		if err != nil {
-			return nil, err
+	for _, list := range insertStmt.Lists {
+		if len(list) == 0 {
+			for _, pkName := range meta.GetPrimaryKeyOnlyName() {
+				pkValuesMap[pkName] = append(pkValuesMap[pkName], ast.DefaultExpr{})
+			}
+			continue
 		}
-		if insertRows == nil || len(insertRows) == 0 {
-			return nil, err
-		}
-		totalPlaceholderNum := -1
-		for _, row := range insertRows {
-			if len(row) == 0 {
+		for pkName, pkIndex := range i.getPkIndex(insertStmt, meta) {
+			if pkIndex < 0 || pkIndex >= len(list) {
+				return nil, fmt.Errorf("primary key %s index %d out of range", pkName, pkIndex)
+			}
+			node := list[pkIndex]
+			if _, ok := node.(ast.ParamMarkerExpr); ok {
+				var indexes []int32
+				i.traversalArgs(node, &indexes)
+				if len(indexes) != 1 {
+					return nil, fmt.Errorf("primary key %s parameter position cannot be determined", pkName)
+				}
+				pkValuesMap[pkName] = append(pkValuesMap[pkName], nameValues[indexes[0]].Value)
 				continue
 			}
-			currentRowPlaceholderNum := -1
-			for _, r := range row {
-				rStr, ok := r.(string)
-				if ok && strings.EqualFold(rStr, sqlPlaceholder) {
-					totalPlaceholderNum += 1
-					currentRowPlaceholderNum += 1
-				}
+			if valueExpr, ok := node.(ast.ValueExpr); ok {
+				pkValuesMap[pkName] = append(pkValuesMap[pkName], valueExpr.GetValue())
+				continue
 			}
-			var pkKey string
-			var pkIndex int
-			var pkValues []interface{}
-			for key, index := range pkIndexMap {
-				curKey := key
-				curIndex := index
-
-				pkKey = curKey
-				pkValues = pkValuesMap[pkKey]
-
-				pkIndex = curIndex
-				if pkIndex > len(row)-1 {
-					continue
-				}
-				pkValue := row[pkIndex]
-				pkValueStr, ok := pkValue.(string)
-				if ok && strings.EqualFold(pkValueStr, sqlPlaceholder) {
-					currentRowNotPlaceholderNumBeforePkIndex := 0
-					for i := range row {
-						r := row[i]
-						rStr, ok := r.(string)
-						if i < pkIndex && ok && !strings.EqualFold(rStr, sqlPlaceholder) {
-							currentRowNotPlaceholderNumBeforePkIndex++
-						}
-					}
-					idx := totalPlaceholderNum - currentRowPlaceholderNum + pkIndex - currentRowNotPlaceholderNumBeforePkIndex
-					pkValues = append(pkValues, nameValues[idx].Value)
-				} else {
-					pkValues = append(pkValues, pkValue)
-				}
-				pkValuesMap[pkKey] = pkValues
-			}
-		}
-	} else {
-		for _, list := range insertStmt.Lists {
-			for pkName, pkIndex := range pkIndexMap {
-				tmpPkName := pkName
-				tmpPkIndex := pkIndex
-				if tmpPkIndex >= len(list) {
-					return nil, fmt.Errorf("pkIndex out of range")
-				}
-				if node, ok := list[tmpPkIndex].(ast.ValueExpr); ok {
-					pkValuesMap[tmpPkName] = append(pkValuesMap[tmpPkName], node.GetValue())
-				}
-			}
+			pkValuesMap[pkName] = append(pkValuesMap[pkName], node)
 		}
 	}
-
 	return pkValuesMap, nil
 }
 

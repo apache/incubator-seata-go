@@ -18,12 +18,24 @@
 package at
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
+
+func TestGetScanSlicePreservesDecimal(t *testing.T) {
+	executor := baseExecutor{}
+	meta := &types.TableMeta{Columns: map[string]types.ColumnMeta{
+		"amount": {ColumnName: "amount", DatabaseTypeString: "DECIMAL"},
+	}}
+
+	scanSlice := executor.GetScanSlice([]string{"amount"}, meta)
+
+	assert.IsType(t, &sql.NullString{}, scanSlice[0])
+}
 
 func TestBaseExecBuildLockKey(t *testing.T) {
 	var exec baseExecutor
@@ -212,57 +224,263 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 	}
 }
 
-func TestBaseExecContainsPKByName_EscapedColumns(t *testing.T) {
+func TestBaseExecutorPrepareUndoPair(t *testing.T) {
 	meta := &types.TableMeta{
+		TableName: "test_table",
 		Indexs: map[string]types.IndexMeta{
 			"PRIMARY": {
-				IType: types.IndexTypePrimaryKey,
-				Columns: []types.ColumnMeta{
-					{ColumnName: "id"},
-				},
+				IType:   types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{{ColumnName: "id"}},
 			},
 		},
 	}
+	rows := func(id int) []types.RowImage {
+		return []types.RowImage{{Columns: []types.ColumnImage{{
+			ColumnName: "id",
+			KeyType:    types.IndexTypePrimaryKey,
+			Value:      id,
+		}}}}
+	}
 
 	tests := []struct {
-		name    string
-		columns []string
-		want    bool
+		name       string
+		sqlType    types.SQLType
+		beforeRows []types.RowImage
+		afterRows  []types.RowImage
+		wantLock   string
+		wantPairs  int
+	}{
+		{name: "empty update", sqlType: types.SQLTypeUpdate, wantPairs: 0},
+		{name: "unchanged update", sqlType: types.SQLTypeUpdate, beforeRows: rows(1), afterRows: rows(1), wantPairs: 0},
+		{name: "reordered unchanged update", sqlType: types.SQLTypeUpdate, beforeRows: append(rows(1), rows(2)...), afterRows: append(rows(2), rows(1)...), wantPairs: 0},
+		{name: "update locks after image", sqlType: types.SQLTypeUpdate, beforeRows: rows(1), afterRows: rows(2), wantLock: "TEST_TABLE:2", wantPairs: 1},
+		{name: "delete locks before image", sqlType: types.SQLTypeDelete, beforeRows: rows(1), wantLock: "TEST_TABLE:1", wantPairs: 1},
+		{name: "insert locks after image", sqlType: types.SQLTypeInsert, afterRows: rows(2), wantLock: "TEST_TABLE:2", wantPairs: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			txCtx := types.NewTxCtx()
+			execCtx := &types.ExecContext{TxCtx: txCtx}
+			beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: tt.sqlType, Rows: tt.beforeRows}
+			afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: tt.sqlType, Rows: tt.afterRows}
+
+			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+
+			assert.NoError(t, err)
+			assert.Len(t, txCtx.RoundImages.BeofreImages(), tt.wantPairs)
+			assert.Len(t, txCtx.RoundImages.AfterImages(), tt.wantPairs)
+			assert.Len(t, txCtx.LockKeys, tt.wantPairs)
+			if tt.wantLock != "" {
+				assert.Contains(t, txCtx.LockKeys, tt.wantLock)
+			}
+		})
+	}
+}
+
+func TestBaseExecutorPrepareUndoPairKeepsCompositeLockKeyFormat(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName:   "test_table",
+		ColumnNames: []string{"id", "tenant_id", "value"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}, {ColumnName: "tenant_id"}},
+		}},
+	}
+	beforeRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 1},
+		{ColumnName: "tenant_id", KeyType: types.IndexTypePrimaryKey, Value: 2},
+		{ColumnName: "value", Value: "before"},
+	}}}
+	afterRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 1},
+		{ColumnName: "tenant_id", KeyType: types.IndexTypePrimaryKey, Value: 2},
+		{ColumnName: "value", Value: "after"},
+	}}}
+	txCtx := types.NewTxCtx()
+	execCtx := &types.ExecContext{TxCtx: txCtx, DBType: types.DBTypeMySQL}
+	beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: beforeRows}
+	afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: afterRows}
+
+	err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+
+	assert.NoError(t, err)
+	assert.Contains(t, txCtx.LockKeys, "TEST_TABLE:1_2")
+}
+
+func TestBaseExecutorPrepareUndoPairRejectsInvalidLockImage(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName: "test_table",
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}},
+		}},
+	}
+	primaryKey := func(name string, value interface{}) types.ColumnImage {
+		return types.ColumnImage{ColumnName: name, KeyType: types.IndexTypePrimaryKey, Value: value}
+	}
+	validRows := []types.RowImage{{Columns: []types.ColumnImage{primaryKey("id", 1)}}}
+	tests := []struct {
+		name      string
+		meta      *types.TableMeta
+		afterRows []types.RowImage
+		wantErr   string
+	}{
+		{name: "chosen lock image is empty", meta: meta, wantErr: "lock image rows are empty"},
+		{name: "primary key metadata is empty", meta: &types.TableMeta{TableName: "test_table"}, afterRows: validRows, wantErr: "primary key metadata is empty"},
+		{name: "primary key is missing", meta: meta, afterRows: []types.RowImage{{Columns: []types.ColumnImage{{ColumnName: "name", Value: "test"}}}}, wantErr: "not found in row image"},
+		{name: "primary key is duplicated", meta: meta, afterRows: []types.RowImage{{Columns: []types.ColumnImage{primaryKey("id", 1), primaryKey("ID", 1)}}}, wantErr: "found more than once"},
+		{name: "extra primary key is present", meta: meta, afterRows: []types.RowImage{{Columns: []types.ColumnImage{primaryKey("id", 1), primaryKey("tenant_id", 2)}}}, wantErr: "not defined in table metadata"},
+		{name: "primary key value is nil", meta: meta, afterRows: []types.RowImage{{Columns: []types.ColumnImage{primaryKey("id", nil)}}}, wantErr: "is nil"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			txCtx := types.NewTxCtx()
+			execCtx := &types.ExecContext{TxCtx: txCtx, DBType: types.DBTypeMySQL}
+			beforeImage := &types.RecordImage{TableName: "test_table", TableMeta: tt.meta, SQLType: types.SQLTypeUpdate, Rows: validRows}
+			afterImage := &types.RecordImage{TableName: "test_table", TableMeta: tt.meta, SQLType: types.SQLTypeUpdate, Rows: tt.afterRows}
+
+			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, txCtx.LockKeys)
+			assert.Empty(t, txCtx.RoundImages.BeofreImages())
+			assert.Empty(t, txCtx.RoundImages.AfterImages())
+		})
+	}
+}
+
+func TestBuildImageSelectColumns(t *testing.T) {
+	compositeMeta := func() *types.TableMeta {
+		return &types.TableMeta{
+			ColumnNames: []string{"id", "tenant_id", "name"},
+			Indexs: map[string]types.IndexMeta{"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id", Autoincrement: true},
+					{ColumnName: "tenant_id"},
+				},
+			}},
+		}
+	}
+
+	tests := []struct {
+		name              string
+		meta              *types.TableMeta
+		requested         []string
+		dbType            types.DBType
+		onlyCareRequested bool
+		want              []string
+		wantErr           string
 	}{
 		{
-			name:    "plain column matches PK",
-			columns: []string{"id", "name"},
-			want:    true,
+			name:              "adds only missing composite primary key",
+			meta:              compositeMeta(),
+			requested:         []string{"tenant_id", "name"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: true,
+			want:              []string{"tenant_id", "name", "id"},
 		},
 		{
-			name:    "backtick-escaped column matches PK",
-			columns: []string{"`id`", "name"},
-			want:    true,
+			name:              "preserves complete composite primary key",
+			meta:              compositeMeta(),
+			requested:         []string{"tenant_id", "name", "id"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: true,
+			want:              []string{"tenant_id", "name", "id"},
 		},
 		{
-			name:    "all backtick-escaped columns",
-			columns: []string{"`id`", "`name`"},
-			want:    true,
+			name:              "matches escaped primary key case insensitively",
+			meta:              compositeMeta(),
+			requested:         []string{"`TENANT_ID`", "order"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: true,
+			want:              []string{"`TENANT_ID`", "`order`", "id"},
 		},
 		{
-			name:    "case-insensitive backtick-escaped",
-			columns: []string{"`ID`", "`NAME`"},
-			want:    true,
+			name:              "uses all columns without explicit columns",
+			meta:              compositeMeta(),
+			dbType:            types.DBTypePostgreSQL,
+			onlyCareRequested: true,
+			want:              []string{`"id"`, `"tenant_id"`, `"name"`},
 		},
 		{
-			name:    "no PK in columns",
-			columns: []string{"`name`", "`age`"},
-			want:    false,
+			name:              "uses all columns when only care is disabled",
+			meta:              compositeMeta(),
+			requested:         []string{"name"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: false,
+			want:              []string{"id", "tenant_id", "name"},
+		},
+		{
+			name:    "rejects nil metadata",
+			dbType:  types.DBTypeMySQL,
+			wantErr: "table meta is nil",
+		},
+		{
+			name: "rejects missing primary key metadata",
+			meta: &types.TableMeta{
+				ColumnNames: []string{"name"},
+			},
+			dbType:  types.DBTypeMySQL,
+			wantErr: "primary key metadata is empty",
+		},
+		{
+			name:              "rejects duplicate requested columns",
+			meta:              compositeMeta(),
+			requested:         []string{"id", "`ID`"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: true,
+			wantErr:           "found more than once",
+		},
+		{
+			name: "rejects duplicate primary key metadata",
+			meta: &types.TableMeta{
+				ColumnNames: []string{"id", "name"},
+				Indexs: map[string]types.IndexMeta{"PRIMARY": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+						{ColumnName: "`ID`"},
+					},
+				}},
+			},
+			requested:         []string{"name"},
+			dbType:            types.DBTypeMySQL,
+			onlyCareRequested: true,
+			wantErr:           "exists more than once in metadata",
 		},
 	}
 
-	var exec baseExecutor
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := exec.containsPKByName(meta, tt.columns)
-			assert.Equal(t, tt.want, result)
+			got, err := buildImageSelectColumns(tt.meta, tt.requested, tt.dbType, tt.onlyCareRequested)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestBuildImageSelectColumnsDoesNotMutateInput(t *testing.T) {
+	meta := &types.TableMeta{
+		ColumnNames: []string{"id", "name", "age"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}},
+		}},
+	}
+	requested := make([]string, 2, 3)
+	copy(requested, []string{"name", "age"})
+
+	_, err := buildImageSelectColumns(meta, requested, types.DBTypePostgreSQL, true)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"name", "age"}, requested)
 }
 
 func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {

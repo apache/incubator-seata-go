@@ -45,7 +45,6 @@ type multiUpdateExecutor struct {
 	execContext *types.ExecContext
 }
 
-var rows driver.Rows
 var comma = ","
 
 // NewMultiUpdateExecutor get new multi update executor
@@ -87,7 +86,7 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	}
 
 	for i, afterImage := range afterImages {
-		beforeImage := afterImages[i]
+		beforeImage := beforeImages[i]
 		if len(beforeImage.Rows) != len(afterImage.Rows) {
 			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
@@ -117,15 +116,19 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	}
 
 	rows, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
-	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Errorf("rows close fail, err:%v", err)
-			return
-		}
-	}()
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		if rows == nil {
+			return
+		}
+
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Errorf("rows close fail,err: %v", closeErr)
+		}
+	}()
 
 	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 	if err != nil {
@@ -148,6 +151,9 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, errors.New("empty beforeImages")
 	}
 	beforeImage := beforeImages[0]
+	if beforeImage == nil {
+		return nil, errors.New("aggregate update before image is nil")
+	}
 
 	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
@@ -155,19 +161,30 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, err
 	}
 
+	// No row matched the aggregate UPDATE predicates.
+	//
+	// Do not generate an after-image SELECT with an empty primary-key list.
+	// Return one empty image so that before/after image counts remain equal.
+	if len(beforeImage.Rows) == 0 {
+		return []*types.RecordImage{types.NewEmptyRecordImage(metaData, u.parserCtx.SQLType)}, nil
+	}
+
 	// use
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData)
 
-	rows, err = u.rowsPrepare(ctx, selectSQL, selectArgs)
-	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Errorf("rows close fail, err:%v", err)
-			return
-		}
-	}()
+	rows, err := u.rowsPrepare(ctx, selectSQL, selectArgs)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if rows == nil {
+			return
+		}
+
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Errorf("rows close fail,err: %v", closeErr)
+		}
+	}()
 
 	image, err := u.buildRecordImages(rows, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 	if err != nil {
@@ -179,25 +196,12 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 }
 
 func (u *multiUpdateExecutor) rowsPrepare(ctx context.Context, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
-	var queryer driver.Queryer
-
-	queryerContext, ok := u.execContext.Conn.(driver.QueryerContext)
-	if !ok {
-		queryer, ok = u.execContext.Conn.(driver.Queryer)
+	rowsi, err := util.CtxDriverQueryWithPrepareFallback(ctx, u.execContext.Conn, selectSQL, selectArgs)
+	if err != nil {
+		log.Errorf("aggregate update image query failed,err: %+v", err)
+		return nil, err
 	}
-	if ok {
-		var err error
-		rows, err = util.CtxDriverQuery(ctx, queryerContext, queryer, selectSQL, selectArgs)
-
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
-		}
-	} else {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, errors.New("invalid conn")
-	}
-	return rows, nil
+	return rowsi, nil
 }
 
 // buildAfterImageSQL build the SQL to query after image data

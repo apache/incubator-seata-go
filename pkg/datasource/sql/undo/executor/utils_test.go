@@ -22,10 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
@@ -118,6 +116,7 @@ func TestIsRecordsEquals(t *testing.T) {
 						"PRIMARY": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "id",
+							Columns:    []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
 				},
@@ -133,6 +132,7 @@ func TestIsRecordsEquals(t *testing.T) {
 						"PRIMARY": {
 							IType:      types.IndexTypePrimaryKey,
 							ColumnName: "id",
+							Columns:    []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
 				},
@@ -147,18 +147,6 @@ func TestIsRecordsEquals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock compareRows function for the case where we need to compare actual rows
-			if tt.beforeImage != nil && tt.afterImage != nil &&
-				tt.beforeImage.TableName == tt.afterImage.TableName &&
-				len(tt.beforeImage.Rows) == len(tt.afterImage.Rows) &&
-				len(tt.beforeImage.Rows) > 0 {
-
-				patches := gomonkey.ApplyFunc(compareRows, func(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) {
-					return tt.expectResult, nil
-				})
-				defer patches.Reset()
-			}
-
 			result, err := IsRecordsEquals(tt.beforeImage, tt.afterImage)
 
 			assert.Equal(t, tt.expectResult, result)
@@ -188,6 +176,7 @@ func TestCompareRows(t *testing.T) {
 					"PRIMARY": {
 						IType:      types.IndexTypePrimaryKey,
 						ColumnName: "id",
+						Columns:    []types.ColumnMeta{{ColumnName: "id"}},
 					},
 				},
 			},
@@ -218,6 +207,7 @@ func TestCompareRows(t *testing.T) {
 					"PRIMARY": {
 						IType:      types.IndexTypePrimaryKey,
 						ColumnName: "id",
+						Columns:    []types.ColumnMeta{{ColumnName: "id"}},
 					},
 				},
 			},
@@ -248,6 +238,7 @@ func TestCompareRows(t *testing.T) {
 					"PRIMARY": {
 						IType:      types.IndexTypePrimaryKey,
 						ColumnName: "id",
+						Columns:    []types.ColumnMeta{{ColumnName: "id"}},
 					},
 				},
 			},
@@ -280,20 +271,6 @@ func TestCompareRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock TableMeta.GetPrimaryKeyOnlyName
-			patches := gomonkey.ApplyMethod(&tt.tableMeta, "GetPrimaryKeyOnlyName", func() []string {
-				if primaryIndex, exists := tt.tableMeta.Indexs["PRIMARY"]; exists {
-					return []string{primaryIndex.ColumnName}
-				}
-				return []string{"id"}
-			})
-			defer patches.Reset()
-
-			// Mock datasource.DeepEqual
-			patches.ApplyFunc(datasource.DeepEqual, func(a, b interface{}) bool {
-				return a == b
-			})
-
 			result, err := compareRows(tt.tableMeta, tt.oldRows, tt.newRows)
 
 			assert.Equal(t, tt.expectResult, result)
@@ -304,6 +281,89 @@ func TestCompareRows(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompareRowsUsesMetadataPrimaryKeyOrder(t *testing.T) {
+	meta := types.TableMeta{
+		ColumnNames: []string{"pk1", "pk2", "value"},
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{
+				{ColumnName: "pk1"}, {ColumnName: "pk2"},
+			}},
+		},
+	}
+	oldRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "pk2", Value: "B"}, {ColumnName: "value", Value: "same"}, {ColumnName: "pk1", Value: 1},
+	}}}
+	newRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "value", Value: "same"}, {ColumnName: "pk1", Value: 1}, {ColumnName: "pk2", Value: "B"},
+	}}}
+
+	equal, err := compareRows(meta, oldRows, newRows)
+
+	assert.NoError(t, err)
+	assert.True(t, equal)
+}
+
+func TestRowListToMapRejectsInvalidPrimaryKeyProjection(t *testing.T) {
+	_, err := rowListToMap(nil, nil)
+	assert.ErrorContains(t, err, "primary key list is empty")
+
+	_, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "value", Value: "missing pk"},
+	}}}, []string{"id"})
+	assert.ErrorContains(t, err, "primary key \"id\" not found")
+
+	_, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "id", Value: 1},
+		{ColumnName: "ID", Value: 1},
+	}}}, []string{"id"})
+	assert.ErrorContains(t, err, "column \"ID\" found more than once")
+
+	duplicate := types.RowImage{Columns: []types.ColumnImage{{ColumnName: "id", Value: 1}}}
+	_, err = rowListToMap([]types.RowImage{duplicate, duplicate}, []string{"id"})
+	assert.ErrorContains(t, err, "primary key")
+}
+
+func TestCompositePrimaryKeyEncoding(t *testing.T) {
+	const delimiter = "_##$$_"
+	row := func(pk1, pk2, value interface{}) types.RowImage {
+		return types.RowImage{Columns: []types.ColumnImage{
+			{ColumnName: "pk1", Value: pk1},
+			{ColumnName: "pk2", Value: pk2},
+			{ColumnName: "value", Value: value},
+		}}
+	}
+	first := row("a", "b"+delimiter+"c", "same")
+	second := row("a"+delimiter+"b", "c", "same")
+	primaryKeys := []string{"pk1", "pk2"}
+
+	rows, err := rowListToMap([]types.RowImage{first, second}, primaryKeys)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 2)
+
+	meta := types.TableMeta{
+		ColumnNames: []string{"pk1", "pk2", "value"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "pk1"}, {ColumnName: "pk2"}},
+		}},
+	}
+	equal, err := compareRows(meta, []types.RowImage{first, second}, []types.RowImage{second, first})
+	assert.NoError(t, err)
+	assert.True(t, equal)
+
+	equal, err = compareRows(meta, []types.RowImage{first, second}, []types.RowImage{row("a"+delimiter+"b", "c", "changed"), first})
+	assert.NoError(t, err)
+	assert.False(t, equal)
+
+	rows, err = rowListToMap([]types.RowImage{row(nil, "x", nil), row("<nil>", "x", nil)}, primaryKeys)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 2)
+
+	rows, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{{ColumnName: "id", Value: delimiter}}}}, []string{"id"})
+	assert.NoError(t, err)
+	assert.Len(t, rows, 1)
 }
 
 func TestRowListToMap(t *testing.T) {
@@ -356,27 +416,23 @@ func TestRowListToMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := rowListToMap(tt.rows, tt.primaryKeyList)
+			result, err := rowListToMap(tt.rows, tt.primaryKeyList)
 
+			assert.NoError(t, err)
 			assert.Len(t, result, tt.expectedCount)
 
 			if len(tt.rows) > 0 {
 				for _, row := range tt.rows {
 					// Verify that each row can be found in the map by constructing expected key
 					var expectedKey string
-					var firstUnderline bool
 					for _, column := range row.Columns {
-						for i, key := range tt.primaryKeyList {
+						for _, key := range tt.primaryKeyList {
 							if column.ColumnName == key {
-								if firstUnderline && i > 0 {
-									expectedKey += "_##$$_"
-								}
-								expectedKey += fmt.Sprintf("%v", column.GetActualValue())
-								firstUnderline = true
+								keyPart := fmt.Sprintf("%v", column.GetActualValue())
+								expectedKey += fmt.Sprintf("v%d:%s", len(keyPart), keyPart)
 							}
 						}
 					}
-
 					rowData, exists := result[expectedKey]
 					assert.True(t, exists, "Row should exist in map with key: %s", expectedKey)
 
@@ -534,11 +590,12 @@ func TestRowListToMap_EscapedColumnNames(t *testing.T) {
 	}
 	primaryKeyList := []string{"id"}
 
-	result := rowListToMap(rows, primaryKeyList)
+	result, err := rowListToMap(rows, primaryKeyList)
 
+	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 	// Verify rows can be found by their PK values
-	row1, exists := result["1"]
+	row1, exists := result["v1:1"]
 	assert.True(t, exists, "Row with PK=1 should exist")
 	if exists {
 		// After fix, fieldMap key uses cleaned (unescaped) uppercase column name
@@ -568,4 +625,106 @@ func TestBuildPKParams_EscapedColumnNames(t *testing.T) {
 
 	assert.Len(t, result, 2)
 	assert.Equal(t, []interface{}{1, 2}, result)
+}
+
+func TestRowListToMap_CompositePK_ColumnOrderIndependent(t *testing.T) {
+	primaryKeyList := []string{"tenant_id", "id"}
+
+	tests := []struct {
+		name string
+		rows []types.RowImage
+		want map[string]bool
+	}{
+		{
+			name: "physical columns order: tenant_id then id",
+			rows: []types.RowImage{
+				{
+					Columns: []types.ColumnImage{
+						{ColumnName: "tenant_id", Value: "tenant123"},
+						{ColumnName: "id", Value: 456},
+						{ColumnName: "name", Value: "test_a"},
+					},
+				},
+			},
+			want: map[string]bool{"v9:tenant123v3:456": true},
+		},
+		{
+			name: "physical columns order: id then tenant_id (shuffled)",
+			rows: []types.RowImage{
+				{
+					Columns: []types.ColumnImage{
+						{ColumnName: "id", Value: 456},
+						{ColumnName: "name", Value: "test_b"},
+						{ColumnName: "tenant_id", Value: "tenant123"},
+					},
+				},
+			},
+			want: map[string]bool{"v9:tenant123v3:456": true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMap, err := rowListToMap(tt.rows, primaryKeyList)
+
+			assert.NoError(t, err)
+			assert.Len(t, gotMap, 1)
+			for gotKey := range gotMap {
+				assert.True(t, tt.want[gotKey], "generated rowKey %s not matching expected order", gotKey)
+			}
+		})
+	}
+}
+
+func TestRowListToMap_MissingPKReturnsError(t *testing.T) {
+	primaryKeyList := []string{"tenant_id", "id"}
+	rows := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "id", Value: 789},
+				{ColumnName: "name", Value: "test_sentinel"},
+			},
+		},
+	}
+
+	_, err := rowListToMap(rows, primaryKeyList)
+	assert.ErrorContains(t, err, "primary key \"tenant_id\" not found")
+}
+
+func TestRowListToMap_CollisionPrevention(t *testing.T) {
+	primaryKeyList := []string{"pk1", "pk2"}
+
+	rowsA := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "pk1", Value: "a_##$$_b"},
+				{ColumnName: "pk2", Value: "c"},
+			},
+		},
+	}
+	rowsB := []types.RowImage{
+		{
+			Columns: []types.ColumnImage{
+				{ColumnName: "pk1", Value: "a"},
+				{ColumnName: "pk2", Value: "b_##$$_c"},
+			},
+		},
+	}
+
+	mapA, err := rowListToMap(rowsA, primaryKeyList)
+	assert.NoError(t, err)
+	mapB, err := rowListToMap(rowsB, primaryKeyList)
+	assert.NoError(t, err)
+
+	var keyA, keyB string
+	for k := range mapA {
+		keyA = k
+	}
+	for k := range mapB {
+		keyB = k
+	}
+
+	assert.Equal(t, "v8:a_##$$_bv1:c", keyA)
+	assert.Equal(t, "v1:av8:b_##$$_c", keyB)
+	assert.NotEqual(t, keyA, keyB, "Length-prefixed encoding must guarantee zero collision")
 }

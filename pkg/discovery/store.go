@@ -50,21 +50,28 @@ func (s *AddressStore) Update(cluster string, instances []*ServiceInstance) {
 }
 
 func (s *AddressStore) Subscribe(subscriber AddressStoreSubscriber) func() {
+	_, unsubscribe := s.subscribeWithSnapshot("", subscriber)
+	return unsubscribe
+}
+
+func (s *AddressStore) subscribeWithSnapshot(cluster string, subscriber AddressStoreSubscriber) ([]*ServiceInstance, func()) {
 	if subscriber == nil {
-		return func() {}
+		return s.Snapshot(cluster), func() {}
 	}
 
 	s.mu.Lock()
 	id := s.nextID
 	s.nextID++
 	s.subscribers[id] = subscriber
+	snapshot := cloneServiceInstances(s.clusters[cluster])
 	s.mu.Unlock()
 
-	return func() {
+	unsubscribe := func() {
 		s.mu.Lock()
 		delete(s.subscribers, id)
 		s.mu.Unlock()
 	}
+	return snapshot, unsubscribe
 }
 
 func (s *AddressStore) upsert(cluster string, instance *ServiceInstance) {

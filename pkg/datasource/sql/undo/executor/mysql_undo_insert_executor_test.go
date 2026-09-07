@@ -19,17 +19,14 @@ package executor
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func TestNewMySQLUndoInsertExecutor(t *testing.T) {
@@ -64,10 +61,11 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
+							IType:   types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
+					ColumnNames: []string{"id", "name"},
 				},
 				Rows: []types.RowImage{
 					{
@@ -81,7 +79,7 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 			sqlUndoLog: undo.SQLUndoLog{
 				TableName: "test_table",
 			},
-			wantSQL: "DELETE FROM test_table WHERE `id` = ? ",
+			wantSQL: "DELETE FROM test_table WHERE id = ?  ",
 			wantErr: false,
 		},
 		{
@@ -97,10 +95,14 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "user_id",
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{
+								{ColumnName: "user_id"},
+								{ColumnName: "order_id"},
+							},
 						},
 					},
+					ColumnNames: []string{"user_id", "order_id", "amount"},
 				},
 				Rows: []types.RowImage{
 					{
@@ -115,7 +117,7 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 			sqlUndoLog: undo.SQLUndoLog{
 				TableName: "test_table",
 			},
-			wantSQL: "DELETE FROM test_table WHERE `user_id` = ? AND `order_id` = ? ",
+			wantSQL: "DELETE FROM test_table WHERE user_id = ?  and order_id = ?  ",
 			wantErr: false,
 		},
 		{
@@ -129,28 +131,6 @@ func TestMySQLUndoInsertExecutor_BuildUndoSQL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.PrimaryKey.Number() {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
-				if len(pkNameList) == 1 {
-					return "`" + pkNameList[0] + "` = ?"
-				} else if len(pkNameList) == 2 {
-					return "`" + pkNameList[0] + "` = ? AND `" + pkNameList[1] + "` = ?"
-				}
-				return ""
-			})
-
 			executor := &mySQLUndoInsertExecutor{
 				sqlUndoLog: tt.sqlUndoLog,
 			}
@@ -182,6 +162,15 @@ func TestMySQLUndoInsertExecutor_GenerateDeleteSql(t *testing.T) {
 			name: "generate delete SQL success",
 			image: &types.RecordImage{
 				TableName: "test_table",
+				TableMeta: &types.TableMeta{
+					Indexs: map[string]types.IndexMeta{
+						"PRIMARY": {
+							IType:   types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{ColumnName: "id"}},
+						},
+					},
+					ColumnNames: []string{"id"},
+				},
 			},
 			rows: []types.RowImage{
 				{
@@ -194,30 +183,13 @@ func TestMySQLUndoInsertExecutor_GenerateDeleteSql(t *testing.T) {
 			sqlUndoLog: undo.SQLUndoLog{
 				TableName: "test_table",
 			},
-			wantSQL: "DELETE FROM test_table WHERE `id` = ? ",
+			wantSQL: "DELETE FROM test_table WHERE id = ?  ",
 			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.PrimaryKey.Number() {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
-				return "`" + pkNameList[0] + "` = ?"
-			})
-
 			executor := &mySQLUndoInsertExecutor{
 				sqlUndoLog: tt.sqlUndoLog,
 			}
@@ -235,34 +207,43 @@ func TestMySQLUndoInsertExecutor_GenerateDeleteSql(t *testing.T) {
 }
 
 func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
+	unchangedImage := &types.RecordImage{TableName: "test_table"}
 	tests := []struct {
-		name        string
-		afterImage  *types.RecordImage
-		expectError bool
-		setupMock   func(mock sqlmock.Sqlmock)
+		name           string
+		beforeImage    *types.RecordImage
+		afterImage     *types.RecordImage
+		dataValidation bool
+		expectError    bool
+		setupMock      func(mock sqlmock.Sqlmock)
 	}{
 		{
-			name: "execute on success",
+			name: "execute composite primary key in metadata order",
 			afterImage: &types.RecordImage{
 				TableName: "test_table",
 				TableMeta: &types.TableMeta{
 					TableName: "test_table",
 					Columns: map[string]types.ColumnMeta{
-						"id":   {ColumnName: "id"},
+						"pk1":  {ColumnName: "pk1"},
+						"pk2":  {ColumnName: "pk2"},
 						"name": {ColumnName: "name"},
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{
+								{ColumnName: "pk1"},
+								{ColumnName: "pk2"},
+							},
 						},
 					},
+					ColumnNames: []string{"pk1", "name", "pk2"},
 				},
 				Rows: []types.RowImage{
 					{
 						Columns: []types.ColumnImage{
-							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: 1},
+							{ColumnName: "pk2", KeyType: types.PrimaryKey.Number(), Value: 2},
 							{ColumnName: "name", KeyType: types.IndexTypeNull, Value: "test"},
+							{ColumnName: "pk1", KeyType: types.PrimaryKey.Number(), Value: 1},
 						},
 					},
 				},
@@ -271,9 +252,16 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectPrepare("DELETE FROM test_table").
 					ExpectExec().
-					WithArgs(sqlmock.AnyArg()).
+					WithArgs(1, 2).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
+		},
+		{
+			name:           "skip when before and after images are equal",
+			beforeImage:    unchangedImage,
+			afterImage:     unchangedImage,
+			dataValidation: true,
+			setupMock:      func(mock sqlmock.Sqlmock) {},
 		},
 		{
 			name: "execute with prepare error",
@@ -287,10 +275,11 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
+							IType:   types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
+					ColumnNames: []string{"id", "name"},
 				},
 				Rows: []types.RowImage{
 					{
@@ -307,10 +296,30 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 					WillReturnError(assert.AnError)
 			},
 		},
+		{
+			name: "execute with ordered pk list error",
+			afterImage: &types.RecordImage{
+				TableName: "test_table",
+				TableMeta: &types.TableMeta{TableName: "test_table"},
+				Rows: []types.RowImage{
+					{
+						Columns: []types.ColumnImage{
+							{ColumnName: "id", KeyType: types.PrimaryKey.Number(), Value: 1},
+						},
+					},
+				},
+			},
+			expectError: true,
+			setupMock:   func(mock sqlmock.Sqlmock) {},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			dataValidation := undo.UndoConfig.DataValidation
+			undo.UndoConfig.DataValidation = tt.dataValidation
+			defer func() { undo.UndoConfig.DataValidation = dataValidation }()
+
 			// Setup sqlmock
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
@@ -324,43 +333,11 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 			// Setup mock expectations
 			tt.setupMock(mock)
 
-			// Mock BaseExecutor.ExecuteOn to return nil
-			patches := gomonkey.ApplyFunc((*BaseExecutor).ExecuteOn, func(be *BaseExecutor, ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
-				return nil
+			executor := newMySQLUndoInsertExecutor(undo.SQLUndoLog{
+				TableName:   tt.afterImage.TableName,
+				BeforeImage: tt.beforeImage,
+				AfterImage:  tt.afterImage,
 			})
-			defer patches.Reset()
-
-			// Mock GetOrderedPkList function
-			patches.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.PrimaryKey.Number() {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-
-			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
-				if len(pkNameList) == 0 {
-					return ""
-				}
-				return "`" + pkNameList[0] + "` = ?"
-			})
-
-			executor := &mySQLUndoInsertExecutor{
-				BaseExecutor: &BaseExecutor{
-					sqlUndoLog: undo.SQLUndoLog{
-						TableName:  tt.afterImage.TableName,
-						AfterImage: tt.afterImage,
-					},
-				},
-				sqlUndoLog: undo.SQLUndoLog{
-					TableName:  tt.afterImage.TableName,
-					AfterImage: tt.afterImage,
-				},
-			}
 
 			err = executor.ExecuteOn(ctx, types.DBTypeMySQL, conn)
 
@@ -372,6 +349,78 @@ func TestMySQLUndoInsertExecutor_ExecuteOn(t *testing.T) {
 
 			// Verify all expectations were met
 			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+func TestMySQLUndoInsertExecutor_BuildUndoSQL_CompositePK(t *testing.T) {
+	afterImage := &types.RecordImage{
+		TableName: "test_table",
+		TableMeta: &types.TableMeta{
+			TableName: "test_table",
+			Columns: map[string]types.ColumnMeta{
+				"tenant_id": {ColumnName: "tenant_id"},
+				"id":        {ColumnName: "id"},
+			},
+			Indexs: map[string]types.IndexMeta{
+				"PRIMARY": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "tenant_id"},
+						{ColumnName: "id"},
+					},
+				},
+			},
+			ColumnNames: []string{"tenant_id", "id"},
+		},
+		Rows: []types.RowImage{
+			{
+				Columns: []types.ColumnImage{
+					{ColumnName: "tenant_id", KeyType: types.IndexTypePrimaryKey, Value: "tenant_1"},
+					{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 100},
+				},
+			},
+		},
+	}
+
+	sqlUndoLog := undo.SQLUndoLog{
+		TableName:  "test_table",
+		AfterImage: afterImage,
+	}
+
+	executor := &mySQLUndoInsertExecutor{
+		sqlUndoLog: sqlUndoLog,
+	}
+
+	gotSQL, err := executor.buildUndoSQL(types.DBTypeMySQL)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "DELETE FROM test_table WHERE tenant_id = ?  and id = ?  ", gotSQL)
+}
+
+func TestMySQLUndoExecutorsPropagateBuildUndoSQLError(t *testing.T) {
+	dataValidation := undo.UndoConfig.DataValidation
+	undo.UndoConfig.DataValidation = false
+	defer func() { undo.UndoConfig.DataValidation = dataValidation }()
+
+	image := &types.RecordImage{
+		TableMeta: &types.TableMeta{Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+		}},
+		Rows: []types.RowImage{{Columns: []types.ColumnImage{
+			{ColumnName: "order_id", KeyType: types.PrimaryKey.Number(), Value: 1},
+		}}},
+	}
+	sqlUndoLog := undo.SQLUndoLog{BeforeImage: image, AfterImage: image}
+	executors := map[string]undo.UndoExecutor{
+		"insert": newMySQLUndoInsertExecutor(sqlUndoLog),
+		"delete": newMySQLUndoDeleteExecutor(sqlUndoLog),
+		"update": newMySQLUndoUpdateExecutor(sqlUndoLog),
+	}
+
+	for name, executor := range executors {
+		t.Run(name, func(t *testing.T) {
+			err := executor.ExecuteOn(context.Background(), types.DBTypeMySQL, nil)
+			assert.ErrorContains(t, err, "primary key")
 		})
 	}
 }

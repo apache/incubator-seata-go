@@ -310,6 +310,32 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
 			orExpectQueryArgs: []driver.Value{"Tony", int64(19), "Tom", int64(20)},
 		},
+		{
+			name:  "test-composite-autoincrement-shadow-path",
+			query: "insert into user(tenant_id, name) values ('tenantX', 'Jack')",
+			metaDataMap: map[string]types.TableMeta{
+				"user": {
+					ColumnNames: []string{"tenant_id", "id", "name"},
+					Indexs: map[string]types.IndexMeta{
+						"PRIMARY": {
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{
+								{ColumnName: "tenant_id", DatabaseType: types.GetSqlDataType("VARCHAR"), Autoincrement: false},
+								{ColumnName: "id", DatabaseType: types.GetSqlDataType("BIGINT"), Autoincrement: true},
+							},
+						},
+					},
+					Columns: map[string]types.ColumnMeta{
+						"tenant_id": {ColumnName: "tenant_id", Autoincrement: false},
+						"id":        {ColumnName: "id", Autoincrement: true},
+						"name":      {ColumnName: "name", Autoincrement: false},
+					},
+				},
+			},
+			mockInsertResult: NewMockInsertResult(500, 1),
+			expectQuery:      "SELECT * FROM user WHERE (`tenant_id`,`id`) IN ((?,?)) ",
+			expectQueryArgs:  []driver.Value{"tenantX", int64(500)},
+		},
 	}
 
 	for _, test := range tests {

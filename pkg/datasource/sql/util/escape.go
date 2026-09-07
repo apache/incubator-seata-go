@@ -19,6 +19,7 @@ package util
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -187,23 +188,44 @@ func DataValidationAndGoOn(sqlUndoLog undo.SQLUndoLog, conn *sql.Conn) bool {
 }
 
 func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-
+	if image == nil {
+		return nil, fmt.Errorf("invalid record image: image is nil")
+	}
+	if image.TableMeta == nil {
+		return nil, fmt.Errorf("invalid primary key metadata: table meta is nil")
+	}
 	pkColumnNameListByOrder := image.TableMeta.GetPrimaryKeyOnlyName()
-
-	pkColumnNameListNoOrder := make([]types.ColumnImage, 0)
-	pkFields := make([]types.ColumnImage, 0)
-
-	for _, column := range row.PrimaryKeys(row.Columns) {
-		column.ColumnName = DelEscape(column.ColumnName, dbType)
-		pkColumnNameListNoOrder = append(pkColumnNameListNoOrder, column)
+	if len(pkColumnNameListByOrder) == 0 {
+		return nil, fmt.Errorf("primary key metadata is empty")
 	}
 
-	for _, pkName := range pkColumnNameListByOrder {
-		for _, col := range pkColumnNameListNoOrder {
-			if strings.Index(col.ColumnName, pkName) > -1 {
-				pkFields = append(pkFields, col)
-			}
+	pkByName := make(map[string]types.ColumnImage, len(pkColumnNameListByOrder))
+	for _, column := range row.PrimaryKeys(row.Columns) {
+		column.ColumnName = DelEscape(column.ColumnName, dbType)
+		name := strings.ToLower(column.ColumnName)
+		if _, ok := pkByName[name]; ok {
+			return nil, fmt.Errorf("primary key %q found more than once", column.ColumnName)
 		}
+		pkByName[name] = column
+	}
+
+	pkFields := make([]types.ColumnImage, 0, len(pkColumnNameListByOrder))
+	seen := make(map[string]struct{}, len(pkColumnNameListByOrder))
+	for _, pkName := range pkColumnNameListByOrder {
+		name := strings.ToLower(DelEscape(pkName, dbType))
+		if _, ok := seen[name]; ok {
+			return nil, fmt.Errorf("primary key %q exists more than once in metadata", pkName)
+		}
+		seen[name] = struct{}{}
+		column, ok := pkByName[name]
+		if !ok {
+			return nil, fmt.Errorf("primary key %q not found in row image", pkName)
+		}
+		pkFields = append(pkFields, column)
+		delete(pkByName, name)
+	}
+	for name := range pkByName {
+		return nil, fmt.Errorf("primary key %q is not defined in table metadata", name)
 	}
 
 	return pkFields, nil

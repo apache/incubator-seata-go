@@ -31,6 +31,7 @@ import (
 var (
 	parseSQLQuery              = parser.DoParser
 	isGlobalTx                 = tm.IsGlobalTx
+	hooksForSQLType            = exec.HooksForSQLType
 	newPlainExecutor           = NewPlainExecutor
 	newInsertExecutor          = NewInsertExecutor
 	newUpdateExecutor          = NewUpdateExecutor
@@ -65,8 +66,12 @@ func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.Exec
 	}
 
 	var executor executor
+	isATMode := isGlobalTx(ctx)
+	if execCtx.TxCtx != nil {
+		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
+	}
 
-	if !isGlobalTx(ctx) {
+	if !isATMode {
 		executor = newPlainExecutor(queryParser, execCtx)
 	} else {
 		if queryParser.ExecutorType == types.ReplaceIntoExecutor {

@@ -62,14 +62,26 @@ func (c *Channel) IsClosed() bool {
 
 func (c *Channel) close() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.IsClosed() {
-		close(c.closeCh)
-		if err := c.stream.CloseSend(); err != nil {
+	if c.IsClosed() {
+		c.mu.Unlock()
+		return
+	}
+	close(c.closeCh)
+	stream := c.stream
+	conn := c.conn
+	c.mu.Unlock()
+
+	if stream != nil {
+		if err := stream.CloseSend(); err != nil {
 			log.Debugf("CloseSend error: %v", err)
 		}
-		c.wg.Wait()
 	}
+	if conn != nil {
+		if err := conn.Close(); err != nil {
+			log.Debugf("ClientConn close error: %v", err)
+		}
+	}
+	c.wg.Wait()
 }
 
 func (c *Channel) softReconnect() error {

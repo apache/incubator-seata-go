@@ -66,6 +66,10 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 	for {
 		select {
 		case <-ticker.C:
+			if !channelManager.isServerAddressAvailable(channel.addr) {
+				channelManager.releaseChannel(channel)
+				return
+			}
 			err := g.transferHeartBeat(channel, &pb.HeartbeatMessageProto{Ping: true})
 			if err != nil {
 				heartBeatRetryTimes++
@@ -80,6 +84,10 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 					flag := false
 					var reconnectErr error
 					for !flag {
+						if !channelManager.isServerAddressAvailable(channel.addr) {
+							channelManager.releaseChannel(channel)
+							return
+						}
 						state := channel.conn.GetState()
 						switch state {
 						case connectivity.Shutdown:
@@ -98,7 +106,9 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 							channel.conn.WaitForStateChange(ctx, state)
 							continue
 						}
-						channelManager.registerChannel(channel)
+						if !channelManager.registerChannel(channel) {
+							return
+						}
 
 						flag = true
 

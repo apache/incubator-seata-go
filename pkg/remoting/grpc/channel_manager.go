@@ -58,16 +58,26 @@ type ChannelManager struct {
 	//addr:map[Channel]bool
 	serverChannels sync.Map
 	//stream:bool
-	allChannels sync.Map
-	clientSize  int32
-	config      *config.Config
+	allChannels           sync.Map
+	clientSize            int32
+	config                *config.Config
+	seataConfig           *config.SeataConfig
+	registrySubscription  discovery.RegistrySubscription
+	startedAddresses      sync.Map
+	serverAddressMu       sync.RWMutex
+	serverAddressSnapshot map[string]struct{}
+	serverAddressReady    bool
+	startChannel          func(*discovery.ServiceInstance)
 }
 
-func initChannelManager(config *config.Config) {
+type channelStartEntry struct{}
+
+func initChannelManager(grpcConfig *config.Config) {
 	if channelManager == nil {
 		onceChannelManager.Do(func() {
 			channelManager = &ChannelManager{
-				config:         config,
+				config:         grpcConfig,
+				seataConfig:    config.GetSeataConfig(),
 				allChannels:    sync.Map{},
 				serverChannels: sync.Map{},
 			}
@@ -77,50 +87,162 @@ func initChannelManager(config *config.Config) {
 }
 
 func (g *ChannelManager) init() {
-	addressList := g.getAvailServerList()
+	g.initWithRegistry(discovery.GetRegistry())
+}
+
+func (g *ChannelManager) initWithRegistry(registryService discovery.RegistryService) {
+	if registryService == nil {
+		log.Warn("registry service not initialized")
+		return
+	}
+	if g.seataConfig == nil || g.seataConfig.TxServiceGroup == "" {
+		log.Warn("transaction service group not initialized")
+		return
+	}
+	if g.subscribeRegistry(registryService) {
+		return
+	}
+
+	addressList := g.getAvailServerList(registryService)
 	if len(addressList) == 0 {
 		log.Warn("no have valid seata server list")
 	}
-	for _, address := range addressList {
-		addr := net.JoinHostPort(address.Addr, strconv.Itoa(address.Port))
-		if conn, err := g.newConn(addr); err != nil {
-			log.Errorf("failed to dial gRPC addr %s: %v", addr, err)
-			continue
-		} else {
-			regLock := sync.Mutex{}
-			registered := atomic.Bool{}
-			// todo if read g.config.ConnectionNum, will cause the connect to fail
-			for i := 1; i <= 1; i++ {
-				channel := &Channel{
-					addr:       addr,
-					conn:       conn,
-					sendCh:     make(chan *pb.GrpcMessageProto, defaultSendChBuffer),
-					closeCh:    make(chan struct{}),
-					wg:         sync.WaitGroup{},
-					mu:         sync.Mutex{},
-					regLock:    &regLock,
-					registered: &registered,
-				}
+	g.refreshServerList(addressList)
+}
 
-				channel, err = g.initChannel(channel)
-				if err != nil {
-					log.Errorf("failed to create gRPC stream error: %v", err)
-					continue
-				}
-				g.registerChannel(channel)
-			}
-			if err = g.registerTm(addr); err != nil {
-				log.Errorf("%v", err)
-				g.releaseChannelByAddr(addr)
-			}
+func (g *ChannelManager) subscribeRegistry(registryService discovery.RegistryService) bool {
+	subscriber, ok := registryService.(discovery.RegistrySubscriber)
+	if !ok {
+		return false
+	}
+	subscription, err := subscriber.Subscribe(g.seataConfig.TxServiceGroup, func(event discovery.RegistryChangeEvent) {
+		if event.Key != g.seataConfig.TxServiceGroup {
+			return
 		}
+		g.refreshServerList(event.Instances)
+	})
+	if err != nil {
+		log.Warnf("subscribe registry changes failed: %v", err)
+		return false
+	}
+	g.registrySubscription = subscription
+	return true
+}
+
+func (g *ChannelManager) refreshServerList(instances []*discovery.ServiceInstance) {
+	servers := make(map[string]*discovery.ServiceInstance, len(instances))
+	for _, instance := range instances {
+		if instance == nil || instance.Addr == "" || instance.Port <= 0 {
+			continue
+		}
+		clone := &discovery.ServiceInstance{Addr: instance.Addr, Port: instance.Port}
+		servers[serverAddress(clone)] = clone
+	}
+
+	removedAddresses := g.replaceServerAddressSnapshot(servers)
+	for _, address := range removedAddresses {
+		g.releaseChannelByAddr(address)
+	}
+
+	for _, instance := range servers {
+		g.ensureChannel(instance)
 	}
 }
 
-func (g *ChannelManager) getAvailServerList() []*discovery.ServiceInstance {
-	registryService := discovery.GetRegistry()
-	instances, err := registryService.Lookup(config.GetSeataConfig().TxServiceGroup)
+func (g *ChannelManager) replaceServerAddressSnapshot(servers map[string]*discovery.ServiceInstance) []string {
+	g.serverAddressMu.Lock()
+	var removedAddresses []string
+	for address := range g.serverAddressSnapshot {
+		if _, ok := servers[address]; !ok {
+			removedAddresses = append(removedAddresses, address)
+		}
+	}
+	g.serverAddressSnapshot = make(map[string]struct{}, len(servers))
+	for address := range servers {
+		g.serverAddressSnapshot[address] = struct{}{}
+	}
+	g.serverAddressReady = true
+	g.serverAddressMu.Unlock()
+	return removedAddresses
+}
+
+func (g *ChannelManager) ensureChannel(instance *discovery.ServiceInstance) {
+	address := serverAddress(instance)
+	entry := &channelStartEntry{}
+	if _, loaded := g.startedAddresses.LoadOrStore(address, entry); loaded {
+		return
+	}
+	if g.startChannel != nil {
+		g.startChannel(instance)
+		return
+	}
+	go g.startGrpcChannel(instance, entry)
+}
+
+func (g *ChannelManager) startGrpcChannel(instance *discovery.ServiceInstance, entry *channelStartEntry) {
+	addr := serverAddress(instance)
+	if !g.isServerAddressAvailable(addr) || !g.isChannelStartCurrent(addr, entry) {
+		g.deleteChannelStart(addr, entry)
+		return
+	}
+
+	conn, err := g.newConn(addr)
 	if err != nil {
+		log.Errorf("failed to dial gRPC addr %s: %v", addr, err)
+		g.deleteChannelStart(addr, entry)
+		return
+	}
+
+	regLock := sync.Mutex{}
+	registered := atomic.Bool{}
+	// todo if read g.config.ConnectionNum, will cause the connect to fail
+	channel := &Channel{
+		addr:       addr,
+		conn:       conn,
+		sendCh:     make(chan *pb.GrpcMessageProto, defaultSendChBuffer),
+		closeCh:    make(chan struct{}),
+		wg:         sync.WaitGroup{},
+		mu:         sync.Mutex{},
+		regLock:    &regLock,
+		registered: &registered,
+	}
+
+	channel, err = g.initChannel(channel)
+	if err != nil {
+		log.Errorf("failed to create gRPC stream error: %v", err)
+		_ = conn.Close()
+		g.deleteChannelStart(addr, entry)
+		return
+	}
+	if !g.isServerAddressAvailable(addr) || !g.isChannelStartCurrent(addr, entry) {
+		channel.close()
+		g.deleteChannelStart(addr, entry)
+		return
+	}
+	if !g.registerChannel(channel) {
+		_ = conn.Close()
+		g.deleteChannelStart(addr, entry)
+		return
+	}
+	if err = g.registerTm(addr); err != nil {
+		log.Errorf("%v", err)
+		g.releaseChannelByAddr(addr)
+	}
+}
+
+func (g *ChannelManager) isChannelStartCurrent(address string, entry *channelStartEntry) bool {
+	current, ok := g.startedAddresses.Load(address)
+	return ok && current == entry
+}
+
+func (g *ChannelManager) deleteChannelStart(address string, entry *channelStartEntry) {
+	g.startedAddresses.CompareAndDelete(address, entry)
+}
+
+func (g *ChannelManager) getAvailServerList(registryService discovery.RegistryService) []*discovery.ServiceInstance {
+	instances, err := registryService.Lookup(g.seataConfig.TxServiceGroup)
+	if err != nil {
+		log.Warnf("lookup seata server list failed: %v", err)
 		return nil
 	}
 	return instances
@@ -190,32 +312,50 @@ func (g *ChannelManager) registerTm(addr string) error {
 }
 
 func (g *ChannelManager) selectChannel(msg interface{}) *Channel {
-	selected := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, &g.allChannels, g.getXid(msg))
-	channel, ok := selected.(*Channel)
-	if ok && channel != nil {
+	channels := g.selectableChannels()
+	channel := g.selectAvailableChannel(channels, msg)
+	if channel != nil {
 		return channel
 	}
 
-	if g.clientSize == 0 {
+	if selectableConnectionCount(channels) == 0 {
 		ticker := time.NewTicker(time.Duration(checkAliveInternal) * time.Millisecond)
 		defer ticker.Stop()
 		for i := 0; i < maxCheckAliveRetry; i++ {
 			<-ticker.C
-			g.allChannels.Range(func(key, value interface{}) bool {
-				channel = key.(*Channel)
-				if channel.IsClosed() {
-					g.releaseChannel(channel)
-				} else {
-					return false
-				}
-				return true
-			})
+			channels = g.selectableChannels()
+			channel = g.selectAvailableChannel(channels, msg)
 			if channel != nil {
 				return channel
 			}
 		}
 	}
 	return nil
+}
+
+func (g *ChannelManager) selectAvailableChannel(channels *sync.Map, msg interface{}) *Channel {
+	selected := loadbalance.Select(loadbalance.GetLoadBalanceConfig().Type, channels, g.getXid(msg))
+	channel, ok := selected.(*Channel)
+	if ok && g.isChannelSelectable(channels, channel) {
+		return channel
+	}
+
+	// Some load balancers cache their result. Re-select from the current
+	// snapshot if a cached result points to a removed server address.
+	selected = loadbalance.Select("RandomLoadBalance", channels, g.getXid(msg))
+	channel, ok = selected.(*Channel)
+	if ok && g.isChannelSelectable(channels, channel) {
+		return channel
+	}
+	return nil
+}
+
+func (g *ChannelManager) isChannelSelectable(channels *sync.Map, channel *Channel) bool {
+	if channel == nil || channel.IsClosed() || !g.isServerAddressAvailable(channel.addr) {
+		return false
+	}
+	_, ok := channels.Load(channel)
+	return ok
 }
 
 func (g *ChannelManager) getXid(msg interface{}) string {
@@ -253,22 +393,43 @@ func (g *ChannelManager) getXid(msg interface{}) string {
 }
 
 func (g *ChannelManager) releaseChannel(channel *Channel) {
-	g.allChannels.Delete(channel)
-	if !channel.IsClosed() {
-		m, _ := g.serverChannels.LoadOrStore(channel.addr, &sync.Map{})
+	if _, loaded := g.allChannels.LoadAndDelete(channel); !loaded {
+		return
+	}
+	if m, ok := g.serverChannels.Load(channel.addr); ok {
 		sMap := m.(*sync.Map)
 		sMap.Delete(channel)
+	}
+	if !channel.IsClosed() {
 		channel.close()
 	}
 	atomic.AddInt32(&g.clientSize, -1)
+	if g.getAllChannelIsClosedByAddr(channel.addr) {
+		g.startedAddresses.Delete(channel.addr)
+	}
 }
 
-func (g *ChannelManager) registerChannel(channel *Channel) {
-	g.allChannels.LoadOrStore(channel, true)
+func (g *ChannelManager) registerChannel(channel *Channel) bool {
+	if !g.isServerAddressAvailable(channel.addr) {
+		log.Warnf("skip channel for removed server address: %s", channel.addr)
+		if _, loaded := g.allChannels.Load(channel); loaded {
+			g.releaseChannel(channel)
+		} else if !channel.IsClosed() {
+			channel.close()
+		}
+		return false
+	}
+	if _, loaded := g.allChannels.LoadOrStore(channel, true); loaded {
+		return true
+	}
 	m, _ := g.serverChannels.LoadOrStore(channel.addr, &sync.Map{})
 	sMap := m.(*sync.Map)
 	sMap.Store(channel, true)
+	if _, loaded := g.startedAddresses.Load(channel.addr); !loaded {
+		g.startedAddresses.Store(channel.addr, &channelStartEntry{})
+	}
 	atomic.AddInt32(&g.clientSize, 1)
+	return true
 }
 
 func (g *ChannelManager) releaseChannelByAddr(addr string) {
@@ -279,7 +440,10 @@ func (g *ChannelManager) releaseChannelByAddr(addr string) {
 		}
 		return true
 	})
+	g.serverChannels.Delete(addr)
+	g.startedAddresses.Delete(addr)
 }
+
 func (g *ChannelManager) getAllChannelIsClosedByAddr(addr string) bool {
 	flag := true
 	g.allChannels.Range(func(key, value any) bool {
@@ -293,4 +457,47 @@ func (g *ChannelManager) getAllChannelIsClosedByAddr(addr string) bool {
 		return true
 	})
 	return flag
+}
+
+func (g *ChannelManager) selectableChannels() *sync.Map {
+	channels := &sync.Map{}
+	g.allChannels.Range(func(key, value interface{}) bool {
+		channel, ok := key.(*Channel)
+		if !ok {
+			return true
+		}
+		if channel.IsClosed() {
+			g.releaseChannel(channel)
+			return true
+		}
+		if g.isServerAddressAvailable(channel.addr) {
+			channels.Store(channel, value)
+		}
+		return true
+	})
+	return channels
+}
+
+func selectableConnectionCount(connections *sync.Map) int {
+	count := 0
+	connections.Range(func(_, _ interface{}) bool {
+		count++
+		return true
+	})
+	return count
+}
+
+func (g *ChannelManager) isServerAddressAvailable(address string) bool {
+	g.serverAddressMu.RLock()
+	defer g.serverAddressMu.RUnlock()
+
+	if !g.serverAddressReady {
+		return true
+	}
+	_, ok := g.serverAddressSnapshot[address]
+	return ok
+}
+
+func serverAddress(instance *discovery.ServiceInstance) string {
+	return net.JoinHostPort(instance.Addr, strconv.Itoa(instance.Port))
 }

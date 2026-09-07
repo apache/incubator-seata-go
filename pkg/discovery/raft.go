@@ -43,10 +43,11 @@ const (
 )
 
 type RaftRegistryService struct {
-	cfg                            *RaftConfig
-	metadata                       *metadata.Metadata
-	initAddresses                  sync.Map // clusterName -> []*ServiceInstance
-	aliveNodes                     sync.Map // transactionServiceGroup -> []*ServiceInstance
+	cfg           *RaftConfig
+	metadata      *metadata.Metadata
+	initAddresses sync.Map // clusterName -> []*ServiceInstance
+	aliveNodes    sync.Map // transactionServiceGroup -> []*ServiceInstance
+	// vgroupMapping is copied during construction and read-only afterward.
 	vgroupMapping                  map[string]string
 	namingserverAddress            string
 	username                       string
@@ -56,14 +57,29 @@ type RaftRegistryService struct {
 	currentTransactionServiceGroup string
 	currentTransactionClusterName  string
 	mu                             sync.RWMutex
+	stateMu                        sync.RWMutex
 	stopCh                         chan struct{}
 	refreshOnce                    sync.Once
+	closeOnce                      sync.Once
+	subscriptionsMu                sync.Mutex
+	subscriptions                  map[*registryChangeSubscription]raftSubscription
+	closed                         bool
 	httpClient                     *http.Client
 	random                         *rand.Rand
 }
 
+type raftSubscription struct {
+	key     string
+	cluster string
+}
+
+var _ RegistrySubscriber = (*RaftRegistryService)(nil)
+
 func NewRaftRegistryService(config *ServiceConfig, raftConfig *RegistryConfig) *RaftRegistryService {
-	vgroupMapping := config.VgroupMapping
+	vgroupMapping := make(map[string]string, len(config.VgroupMapping))
+	for key, value := range config.VgroupMapping {
+		vgroupMapping[key] = value
+	}
 
 	r := &RaftRegistryService{
 		cfg:                 &raftConfig.Raft,
@@ -83,6 +99,9 @@ func NewRaftRegistryService(config *ServiceConfig, raftConfig *RegistryConfig) *
 }
 
 func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
+	if r.isClosed() {
+		return nil, fmt.Errorf("registry service is closed")
+	}
 	clusterName := r.vgroupMapping[key]
 	if clusterName == "" {
 		return nil, fmt.Errorf("cluster doesn't exist for serviceGroup=%s", key)
@@ -125,6 +144,13 @@ func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 			r.startQueryMetadata()
 		}
 	}
+	r.stateMu.RLock()
+	instances, err := r.snapshotForClusterLocked(clusterName)
+	r.stateMu.RUnlock()
+	return instances, err
+}
+
+func (r *RaftRegistryService) snapshotForClusterLocked(clusterName string) ([]*ServiceInstance, error) {
 	leader := r.metadata.GetLeader(clusterName)
 	if leader != nil {
 		endpoint, err := r.selectEndpoint(transactionEndpoint, leader)
@@ -134,6 +160,63 @@ func (r *RaftRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
 		return []*ServiceInstance{endpoint}, nil
 	}
 	return r.getServiceInstances(clusterName, "")
+}
+
+// Subscribe reports Raft registry snapshots for a transaction service group.
+func (r *RaftRegistryService) Subscribe(key string, listener RegistryChangeListener) (RegistrySubscription, error) {
+	if listener == nil {
+		return nil, fmt.Errorf("registry change listener is nil")
+	}
+	if r.isClosed() {
+		return nil, fmt.Errorf("registry service is closed")
+	}
+	clusterName := r.vgroupMapping[key]
+	if clusterName == "" {
+		return nil, fmt.Errorf("cluster doesn't exist for serviceGroup=%s", key)
+	}
+
+	if _, err := r.Lookup(key); err != nil {
+		return nil, err
+	}
+
+	subscription := newRegistryChangeSubscription(listener)
+	r.stateMu.Lock()
+	r.subscriptionsMu.Lock()
+	if r.closed {
+		r.subscriptionsMu.Unlock()
+		r.stateMu.Unlock()
+		return nil, fmt.Errorf("registry service is closed")
+	}
+	if r.subscriptions == nil {
+		r.subscriptions = make(map[*registryChangeSubscription]raftSubscription)
+	}
+	instances, err := r.snapshotForClusterLocked(clusterName)
+	if err != nil {
+		r.subscriptionsMu.Unlock()
+		r.stateMu.Unlock()
+		return nil, err
+	}
+	r.subscriptions[subscription] = raftSubscription{key: key, cluster: clusterName}
+	subscription.initialize(RegistryChangeEvent{Key: key, Instances: instances}, func() {
+		r.removeSubscription(subscription)
+	})
+	r.subscriptionsMu.Unlock()
+	r.stateMu.Unlock()
+
+	subscription.start()
+	return subscription, nil
+}
+
+func (r *RaftRegistryService) removeSubscription(subscription *registryChangeSubscription) {
+	r.subscriptionsMu.Lock()
+	delete(r.subscriptions, subscription)
+	r.subscriptionsMu.Unlock()
+}
+
+func (r *RaftRegistryService) isClosed() bool {
+	r.subscriptionsMu.Lock()
+	defer r.subscriptionsMu.Unlock()
+	return r.closed
 }
 
 func (r *RaftRegistryService) getServiceInstances(clusterName, group string) ([]*ServiceInstance, error) {
@@ -179,11 +262,23 @@ func (r *RaftRegistryService) RefreshAliveLookup(transactionServiceGroup string,
 }
 
 func (r *RaftRegistryService) Close() {
-	select {
-	case <-r.stopCh:
-	default:
-		close(r.stopCh)
-	}
+	r.closeOnce.Do(func() {
+		r.subscriptionsMu.Lock()
+		r.closed = true
+		subscriptions := make([]*registryChangeSubscription, 0, len(r.subscriptions))
+		for subscription := range r.subscriptions {
+			subscriptions = append(subscriptions, subscription)
+		}
+		r.subscriptions = nil
+		r.subscriptionsMu.Unlock()
+
+		for _, subscription := range subscriptions {
+			subscription.Unsubscribe()
+		}
+		if r.stopCh != nil {
+			close(r.stopCh)
+		}
+	})
 }
 
 func (r *RaftRegistryService) selectEndpoint(t string, n *metadata.Node) (*ServiceInstance, error) {
@@ -368,7 +463,10 @@ func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) 
 		if err = json.Unmarshal(body, &mr); err != nil {
 			return fmt.Errorf("unmarshal metadataResponse failed: %w", err)
 		}
-		r.metadata.RefreshMetadata(clusterName, mr)
+		r.stateMu.Lock()
+		r.metadata.RefreshGroupMetadata(clusterName, group, mr)
+		r.publishClusterSnapshotLocked(clusterName)
+		r.stateMu.Unlock()
 		return nil
 	} else if resp.StatusCode == http.StatusUnauthorized {
 		if err = r.refreshToken(); err != nil {
@@ -377,6 +475,33 @@ func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) 
 		return fmt.Errorf("authentication failed! you should configure the correct username and password")
 	}
 	return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+}
+
+func (r *RaftRegistryService) publishClusterSnapshotLocked(clusterName string) {
+	instances, err := r.snapshotForClusterLocked(clusterName)
+	if err != nil {
+		log.Warnf("build registry snapshot failed for cluster=%s: %v", clusterName, err)
+		return
+	}
+
+	r.subscriptionsMu.Lock()
+	subscriptions := make([]struct {
+		subscription *registryChangeSubscription
+		key          string
+	}, 0)
+	for subscription, state := range r.subscriptions {
+		if state.cluster == clusterName {
+			subscriptions = append(subscriptions, struct {
+				subscription *registryChangeSubscription
+				key          string
+			}{subscription: subscription, key: state.key})
+		}
+	}
+	r.subscriptionsMu.Unlock()
+
+	for _, item := range subscriptions {
+		item.subscription.publish(RegistryChangeEvent{Key: item.key, Instances: cloneServiceInstances(instances)})
+	}
 }
 
 /* -------------------- Token management -------------------- */

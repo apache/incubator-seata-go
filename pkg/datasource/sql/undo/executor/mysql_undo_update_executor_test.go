@@ -19,17 +19,14 @@ package executor
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func TestNewMySQLUndoUpdateExecutor(t *testing.T) {
@@ -67,10 +64,11 @@ func TestMySQLUndoUpdateExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "id",
+							IType:   types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{{ColumnName: "id"}},
 						},
 					},
+					ColumnNames: []string{"id", "name", "age"},
 				},
 				Rows: []types.RowImage{
 					{
@@ -82,7 +80,7 @@ func TestMySQLUndoUpdateExecutor_BuildUndoSQL(t *testing.T) {
 					},
 				},
 			},
-			wantSQL: "UPDATE test_table SET `name` = ? , `age` = ?  WHERE `id` = ? ",
+			wantSQL: "UPDATE test_table SET name = ? , age = ?  WHERE id = ?  ",
 			wantErr: false,
 		},
 		{
@@ -98,55 +96,32 @@ func TestMySQLUndoUpdateExecutor_BuildUndoSQL(t *testing.T) {
 					},
 					Indexs: map[string]types.IndexMeta{
 						"PRIMARY": {
-							IType:      types.IndexTypePrimaryKey,
-							ColumnName: "user_id",
+							IType: types.IndexTypePrimaryKey,
+							Columns: []types.ColumnMeta{
+								{ColumnName: "user_id"},
+								{ColumnName: "order_id"},
+							},
 						},
 					},
+					ColumnNames: []string{"user_id", "order_id", "amount"},
 				},
 				Rows: []types.RowImage{
 					{
 						Columns: []types.ColumnImage{
-							{ColumnName: "user_id", KeyType: types.IndexTypePrimaryKey, Value: 1},
 							{ColumnName: "order_id", KeyType: types.IndexTypePrimaryKey, Value: 100},
 							{ColumnName: "amount", KeyType: types.IndexTypeNull, Value: 99.99},
+							{ColumnName: "user_id", KeyType: types.IndexTypePrimaryKey, Value: 1},
 						},
 					},
 				},
 			},
-			wantSQL: "UPDATE test_table SET `amount` = ?  WHERE `user_id` = ? AND `order_id` = ? ",
+			wantSQL: "UPDATE test_table SET amount = ?  WHERE user_id = ?  and order_id = ?  ",
 			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.IndexTypePrimaryKey {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock AddEscape function
-			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
-				return "`" + columnName + "`"
-			})
-
-			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
-				if len(pkNameList) == 1 {
-					return "`" + pkNameList[0] + "` = ?"
-				} else if len(pkNameList) == 2 {
-					return "`" + pkNameList[0] + "` = ? AND `" + pkNameList[1] + "` = ?"
-				}
-				return ""
-			})
-
 			executor := &mySQLUndoUpdateExecutor{
 				sqlUndoLog: undo.SQLUndoLog{
 					TableName:   tt.beforeImage.TableName,
@@ -167,12 +142,18 @@ func TestMySQLUndoUpdateExecutor_BuildUndoSQL(t *testing.T) {
 }
 
 func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
+	tableMeta := &types.TableMeta{
+		TableName: "test_table",
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
+		},
+	}
 	tests := []struct {
-		name               string
-		beforeImage        *types.RecordImage
-		dataValidationPass bool
-		expectError        bool
-		setupMock          func(mock sqlmock.Sqlmock)
+		name        string
+		beforeImage *types.RecordImage
+		skipUndo    bool
+		expectError bool
+		setupMock   func(mock sqlmock.Sqlmock)
 	}{
 		{
 			name: "execute on success",
@@ -187,8 +168,6 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
 					},
 				},
 			},
-			dataValidationPass: true,
-			expectError:        false,
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectPrepare("UPDATE test_table").
 					ExpectExec().
@@ -209,9 +188,8 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
 					},
 				},
 			},
-			dataValidationPass: false,
-			expectError:        false,
-			setupMock:          func(mock sqlmock.Sqlmock) {},
+			skipUndo:  true,
+			setupMock: func(mock sqlmock.Sqlmock) {},
 		},
 		{
 			name: "execute with prepare error",
@@ -226,8 +204,7 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
 					},
 				},
 			},
-			dataValidationPass: true,
-			expectError:        true,
+			expectError: true,
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectPrepare("UPDATE test_table").
 					WillReturnError(assert.AnError)
@@ -237,30 +214,10 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetOrderedPkList function
-			patches := gomonkey.ApplyFunc(util.GetOrderedPkList, func(image *types.RecordImage, row types.RowImage, dbType types.DBType) ([]types.ColumnImage, error) {
-				var pkList []types.ColumnImage
-				for _, col := range row.Columns {
-					if col.KeyType == types.IndexTypePrimaryKey {
-						pkList = append(pkList, col)
-					}
-				}
-				return pkList, nil
-			})
-			defer patches.Reset()
-
-			// Mock AddEscape function
-			patches.ApplyFunc(util.AddEscape, func(columnName string, dbType types.DBType) string {
-				return "`" + columnName + "`"
-			})
-
-			// Mock BuildWhereConditionByPKs function
-			patches.ApplyFunc(util.BuildWhereConditionByPKs, func(pkNameList []string, dbType types.DBType) string {
-				if len(pkNameList) == 1 {
-					return "`" + pkNameList[0] + "` = ?"
-				}
-				return ""
-			})
+			dataValidation := undo.UndoConfig.DataValidation
+			undo.UndoConfig.DataValidation = tt.skipUndo
+			defer func() { undo.UndoConfig.DataValidation = dataValidation }()
+			tt.beforeImage.TableMeta = tableMeta
 
 			// Setup sqlmock
 			db, mock, err := sqlmock.New()
@@ -275,26 +232,15 @@ func TestMySQLUndoUpdateExecutor_ExecuteOn(t *testing.T) {
 			// Setup mock expectations
 			tt.setupMock(mock)
 
-			// Create mock baseExecutor
-			mockBaseExecutor := &BaseExecutor{
-				sqlUndoLog: undo.SQLUndoLog{
-					TableName:   tt.beforeImage.TableName,
-					BeforeImage: tt.beforeImage,
-				},
+			var afterImage *types.RecordImage
+			if tt.skipUndo {
+				afterImage = tt.beforeImage
 			}
-
-			// Mock BaseExecutor.dataValidationAndGoOn
-			patches.ApplyFunc((*BaseExecutor).dataValidationAndGoOn, func(be *BaseExecutor, ctx context.Context, conn *sql.Conn) (bool, error) {
-				return tt.dataValidationPass, nil
+			executor := newMySQLUndoUpdateExecutor(undo.SQLUndoLog{
+				TableName:   tt.beforeImage.TableName,
+				BeforeImage: tt.beforeImage,
+				AfterImage:  afterImage,
 			})
-
-			executor := &mySQLUndoUpdateExecutor{
-				baseExecutor: mockBaseExecutor,
-				sqlUndoLog: undo.SQLUndoLog{
-					TableName:   tt.beforeImage.TableName,
-					BeforeImage: tt.beforeImage,
-				},
-			}
 
 			err = executor.ExecuteOn(ctx, types.DBTypeMySQL, conn)
 

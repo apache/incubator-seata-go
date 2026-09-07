@@ -261,6 +261,46 @@ func newMockXAConn(t *testing.T, ctrl *gomock.Controller, branchID int64) (*XACo
 	}, mockMgr
 }
 
+func TestXAConn_ShouldBeHeld(t *testing.T) {
+	tests := []struct {
+		name         string
+		dbType       types.DBType
+		resourceHold bool
+		want         bool
+	}{
+		{
+			name:         "resource requires owner connection",
+			dbType:       types.DBTypeMySQL,
+			resourceHold: true,
+			want:         true,
+		},
+		{
+			name:         "known database supports detached phase two",
+			dbType:       types.DBTypePostgreSQL,
+			resourceHold: false,
+			want:         false,
+		},
+		{
+			name:         "unknown database falls back to retaining connection",
+			dbType:       types.DBTypeUnknown,
+			resourceHold: false,
+			want:         true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource := &DBResource{
+				dbType:       tt.dbType,
+				shouldBeHeld: tt.resourceHold,
+			}
+			conn := &XAConn{Conn: &Conn{res: resource}}
+
+			assert.Equal(t, tt.want, conn.ShouldBeHeld())
+		})
+	}
+}
+
 func TestXAConn_ExecContext(t *testing.T) {
 
 	ctrl, db, mi, ti := initXAConnTestResource(t)

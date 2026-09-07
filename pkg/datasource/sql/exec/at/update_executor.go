@@ -86,8 +86,9 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 	}
 
-	u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	if err := u.prepareUndoPair(u.execContext, beforeImage, afterImage); err != nil {
+		return nil, err
+	}
 
 	return res, nil
 }
@@ -148,7 +149,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 			}
 
 			// Wrap rows with statement to close both together
-			rowsi = &rowsWithStmt{Rows: rowsi, stmt: stmt}
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
 		}
 
 		defer func() {
@@ -166,9 +167,8 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey(image, *metaData)
-	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	image.SQLType = u.parserCtx.SQLType
+	image.TableMeta = metaData
 
 	return image, nil
 }
@@ -179,7 +179,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, nil
 	}
 	if len(beforeImage.Rows) == 0 {
-		return &types.RecordImage{}, nil
+		return types.NewEmptyRecordImage(beforeImage.TableMeta, types.SQLTypeUpdate), nil
 	}
 
 	dbType := effectiveDBType(u.execContext.DBType)
@@ -228,7 +228,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 			}
 
 			// Wrap rows with statement to close both together
-			rowsi = &rowsWithStmt{Rows: rowsi, stmt: stmt}
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
 		}
 
 		defer func() {
@@ -246,6 +246,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 		return nil, err
 	}
 	afterImage.SQLType = u.parserCtx.SQLType
+	afterImage.TableMeta = metaData
 
 	return afterImage, nil
 }
@@ -265,10 +266,8 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	var selectFields string
 	var separator = ","
 	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, row := range beforeImage.Rows {
-			for _, column := range row.Columns {
-				selectFields += column.ColumnName + separator
-			}
+		for _, column := range beforeImage.Rows[0].Columns {
+			selectFields += column.ColumnName + separator
 		}
 		selectFields = strings.TrimSuffix(selectFields, separator)
 	} else {
@@ -290,28 +289,38 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	dbType := effectiveDBType(u.execContext.DBType)
 	updateStmt := u.parserCtx.UpdateStmt
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
+	tableCache, err := u.getTableCache(dbType)
+	if err != nil {
+		return "", nil, err
+	}
+
+	tableName, _ := u.parserCtx.GetTableName()
+	metaData, err := tableCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
+	if err != nil {
+		return "", nil, err
+	}
+	if dbType == types.DBTypeMySQL {
+		if err := u.validatePrimaryKeyAssignments(metaData); err != nil {
+			return "", nil, err
+		}
+	}
 
 	if undo.UndoConfig.OnlyCareUpdateColumns {
+		selectedColumns := make(map[string]struct{}, len(updateStmt.List))
 		for _, column := range updateStmt.List {
 			fields = append(fields, &ast.SelectField{
 				Expr: &ast.ColumnNameExpr{
 					Name: column.Column,
 				},
 			})
+			selectedColumns[strings.ToLower(column.Column.Name.O)] = struct{}{}
 		}
 
 		// select indexes columns
-		tableCache, err := u.getTableCache(dbType)
-		if err != nil {
-			return "", nil, err
-		}
-
-		tableName, _ := u.parserCtx.GetTableName()
-		metaData, err := tableCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
-		if err != nil {
-			return "", nil, err
-		}
 		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
+			if _, ok := selectedColumns[strings.ToLower(columnName)]; ok {
+				continue
+			}
 			fields = append(fields, &ast.SelectField{
 				Expr: &ast.ColumnNameExpr{
 					Name: &ast.ColumnName{
@@ -359,4 +368,21 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
+}
+
+func (u *updateExecutor) validatePrimaryKeyAssignments(metaData *types.TableMeta) error {
+	for _, assignment := range u.parserCtx.UpdateStmt.List {
+		for _, primaryKey := range metaData.GetPrimaryKeyOnlyName() {
+			if !strings.EqualFold(assignment.Column.Name.O, primaryKey) {
+				continue
+			}
+
+			columnExpr, selfAssignment := assignment.Expr.(*ast.ColumnNameExpr)
+			if selfAssignment && strings.EqualFold(columnExpr.Name.Name.O, primaryKey) {
+				continue
+			}
+			return fmt.Errorf("updating primary key column %q is not supported", assignment.Column.Name.O)
+		}
+	}
+	return nil
 }

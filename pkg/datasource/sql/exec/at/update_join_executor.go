@@ -133,7 +133,7 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
-			if rowerr := rows.Close(); rowerr != nil {
+			if rowerr := rowsi.Close(); rowerr != nil {
 				log.Errorf("rows close fail, err:%v", rowerr)
 				return nil, rowerr
 			}

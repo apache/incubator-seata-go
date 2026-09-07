@@ -66,3 +66,13 @@ type SQLHook interface {
 	Before(ctx context.Context, execCtx *types.ExecContext) error
 	After(ctx context.Context, execCtx *types.ExecContext) error
 }
+
+// HooksForSQLType returns a copy of hooks registered for the given SQL type.
+//
+// Common hooks are intentionally excluded. MultiExecutor owns the common and
+// SQLTypeMulti hook lifecycle, while each sequential child runs only its
+// statement-specific hooks.
+func HooksForSQLType(sqlType types.SQLType) []SQLHook {
+	hooks := hookSolts[sqlType]
+	return append([]SQLHook(nil), hooks...)
+}

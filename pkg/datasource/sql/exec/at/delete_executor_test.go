@@ -18,12 +18,17 @@
 package at
 
 import (
+	"context"
 	"database/sql/driver"
+	"io"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -97,4 +102,132 @@ func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
 	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
 	assert.NotContains(t, query, "SQL_NO_CACHE")
 	assert.NotContains(t, query, "`")
+}
+
+func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName:   "t_order",
+		ColumnNames: []string{"tenant_id", "id", "value"},
+		Columns: map[string]types.ColumnMeta{
+			"tenant_id": {ColumnName: "tenant_id", DatabaseTypeString: "BIGINT"},
+			"id":        {ColumnName: "id", DatabaseTypeString: "BIGINT"},
+			"value":     {ColumnName: "value", DatabaseTypeString: "VARCHAR"},
+		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{
+				{ColumnName: "tenant_id"},
+				{ColumnName: "id"},
+			},
+		}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+
+	ctrl := gomock.NewController(t)
+	conn := mock.NewMockTestDriverConn(ctrl)
+	query := "delete from t_order where tenant_id = ? order by id limit 2"
+	gomock.InOrder(
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames,
+			[]driver.Value{int64(10), int64(1), "a"},
+			[]driver.Value{int64(10), int64(2), "b"},
+		), nil),
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames), nil),
+		conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(newDeleteRows(meta.ColumnNames,
+			[]driver.Value{int64(20), int64(3), "c"},
+		), nil),
+	)
+
+	txCtx := types.NewTxCtx()
+	for _, tenantID := range []driver.Value{int64(10), int64(10), int64(20)} {
+		parserCtx, err := parser.DoParser(query)
+		assert.NoError(t, err)
+		namedValues := util.ValueToNamedValue([]driver.Value{tenantID})
+		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
+		}, nil)
+		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+			return types.NewResult(types.WithResult(driver.ResultNoRows)), nil
+		})
+		assert.NoError(t, err)
+	}
+
+	assert.Len(t, txCtx.RoundImages.BeofreImages(), 2)
+	assert.Len(t, txCtx.RoundImages.AfterImages(), 2)
+	assert.Len(t, txCtx.RoundImages.BeofreImages()[0].Rows, 2)
+	assert.Len(t, txCtx.RoundImages.BeofreImages()[1].Rows, 1)
+	assert.Contains(t, txCtx.LockKeys, "T_ORDER:10_1,10_2")
+	assert.Contains(t, txCtx.LockKeys, "T_ORDER:20_3")
+}
+
+func TestDeleteExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
+	meta := &types.TableMeta{
+		TableName:   "t_user",
+		ColumnNames: []string{"id"},
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id", DatabaseTypeString: "BIGINT"},
+		},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}},
+		}},
+	}
+	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+
+	for _, tt := range []struct {
+		name          string
+		beforeRows    driver.Rows
+		beforeErr     error
+		businessErr   error
+		wantCallbacks int
+	}{
+		{name: "before query fails", beforeErr: assert.AnError},
+		{name: "business delete fails", beforeRows: newDeleteRows(meta.ColumnNames, []driver.Value{int64(1)}), businessErr: assert.AnError, wantCallbacks: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			conn := mock.NewMockTestDriverConn(ctrl)
+			conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(tt.beforeRows, tt.beforeErr)
+
+			query := "delete from t_user where id = ?"
+			parserCtx, err := parser.DoParser(query)
+			assert.NoError(t, err)
+			txCtx := types.NewTxCtx()
+			executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+				Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{int64(1)}), Conn: conn, TxCtx: txCtx,
+			}, nil)
+
+			callbacks := 0
+			_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+				callbacks++
+				return nil, tt.businessErr
+			})
+
+			assert.Error(t, err)
+			assert.Equal(t, tt.wantCallbacks, callbacks)
+			assert.Empty(t, txCtx.RoundImages.BeofreImages())
+			assert.Empty(t, txCtx.RoundImages.AfterImages())
+			assert.Empty(t, txCtx.LockKeys)
+		})
+	}
+}
+
+type deleteRows struct {
+	columns []string
+	rows    [][]driver.Value
+	index   int
+}
+
+func newDeleteRows(columns []string, rows ...[]driver.Value) *deleteRows {
+	return &deleteRows{columns: columns, rows: rows}
+}
+
+func (r *deleteRows) Columns() []string { return r.columns }
+func (r *deleteRows) Close() error      { return nil }
+func (r *deleteRows) Next(dest []driver.Value) error {
+	if r.index == len(r.rows) {
+		return io.EOF
+	}
+	copy(dest, r.rows[r.index])
+	r.index++
+	return nil
 }

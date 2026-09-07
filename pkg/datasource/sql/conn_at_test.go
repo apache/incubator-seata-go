@@ -39,13 +39,145 @@ import (
 	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 func TestMain(m *testing.M) {
 	Init()
 	m.Run()
+}
+
+func TestATConnRejectsPreparedMultiSQL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+
+	conn := &ATConn{Conn: &Conn{targetConn: targetConn, dbType: types.DBTypeMySQL}}
+
+	queries := []string{"INSERT INTO t_user(id) VALUES (?);" + "INSERT INTO t_user(id) VALUES (?)",
+		"UPDATE t_user SET name = ? WHERE id = ?;" + "DELETE FROM t_user_log WHERE user_id = ?",
+	}
+
+	for _, query := range queries {
+		stmt, err := conn.Prepare(query)
+		assert.Nil(t, stmt)
+		assert.ErrorIs(t, err, errATPreparedMultiSQLUnsupported)
+
+		stmt, err = conn.PrepareContext(context.Background(), query)
+		assert.Nil(t, stmt)
+		assert.ErrorIs(t, err, errATPreparedMultiSQLUnsupported)
+	}
+}
+
+func TestRejectATPreparedMultiSQLAllowsSingleStatement(t *testing.T) {
+	err := rejectATPreparedMultiSQL(types.DBTypeMySQL, "UPDATE t_user SET name = ? WHERE id = ?")
+
+	assert.NoError(t, err)
+}
+
+func TestRejectATPreparedMultiSQLSkipsParserWithoutSemicolon(t *testing.T) {
+	originalParseATPreparedSQL := parseATPreparedSQL
+	t.Cleanup(func() { parseATPreparedSQL = originalParseATPreparedSQL })
+
+	parseCalls := 0
+	parseATPreparedSQL = func(string) (*types.ParseContext, error) {
+		parseCalls++
+		return nil, errors.New("unexpected parser call")
+	}
+
+	err := rejectATPreparedMultiSQL(types.DBTypeMySQL, "UPDATE t_user SET name = ? WHERE id = ?")
+
+	assert.NoError(t, err)
+	assert.Zero(t, parseCalls)
+}
+
+func TestRejectATPreparedMultiSQLAllowsParserFailure(t *testing.T) {
+	originalParseATPreparedSQL := parseATPreparedSQL
+	t.Cleanup(func() { parseATPreparedSQL = originalParseATPreparedSQL })
+
+	parserError := errors.New("unsupported SQL syntax")
+	tests := []struct {
+		name     string
+		parseCtx *types.ParseContext
+		err      error
+	}{
+		{
+			name: "parser returns error",
+			err:  parserError,
+		},
+		{
+			name: "parser returns nil context",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCalls := 0
+			parseATPreparedSQL = func(string) (*types.ParseContext, error) {
+				parseCalls++
+				return tt.parseCtx, tt.err
+			}
+
+			err := rejectATPreparedMultiSQL(types.DBTypeMySQL, "UPDATE t_user SET name = ?; unsupported syntax")
+
+			assert.NoError(t, err)
+			assert.Equal(t, 1, parseCalls)
+		})
+	}
+}
+
+func TestATConnAllowsPreparedMultiSQLForPostgreSQL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+	targetStmt := mock.NewMockTestDriverStmt(ctrl)
+	query := "UPDATE t_user SET name = $1 WHERE id = $2;DELETE FROM t_user_log WHERE user_id = $3"
+	conn := &ATConn{Conn: &Conn{targetConn: targetConn, dbType: types.DBTypePostgreSQL}}
+
+	targetConn.EXPECT().Prepare(query).Return(targetStmt, nil)
+	targetConn.EXPECT().PrepareContext(gomock.Any(), query).Return(targetStmt, nil)
+
+	stmt, err := conn.Prepare(query)
+	assert.NotNil(t, stmt)
+	assert.NoError(t, err)
+
+	stmt, err = conn.PrepareContext(context.Background(), query)
+	assert.NotNil(t, stmt)
+	assert.NoError(t, err)
+}
+
+func TestATConnQueryContextPrepareFallbackPreservesCloseErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	targetConn := mock.NewMockTestDriverConn(ctrl)
+	targetStmt := mock.NewMockTestDriverStmt(ctrl)
+	targetRows := mock.NewMockTestDriverRows(ctrl)
+	ctx := context.Background()
+	query := "SELECT id FROM t_user WHERE id = ?"
+	args := []driver.NamedValue{{Ordinal: 1, Value: int64(1)}}
+	rowsCloseErr := errors.New("rows close failed")
+	stmtCloseErr := errors.New("statement close failed")
+
+	targetConn.EXPECT().QueryContext(ctx, query, args).Return(nil, driver.ErrSkip)
+	targetConn.EXPECT().Prepare(query).Return(targetStmt, nil)
+	targetStmt.EXPECT().QueryContext(ctx, args).Return(targetRows, nil)
+	targetRows.EXPECT().Close().Return(rowsCloseErr)
+	targetStmt.EXPECT().Close().Return(stmtCloseErr)
+
+	conn := &ATConn{Conn: &Conn{
+		res:        &DBResource{dbType: types.DBTypeMySQL},
+		txCtx:      types.NewTxCtx(),
+		targetConn: targetConn,
+		dbType:     types.DBTypeMySQL,
+	}}
+
+	rows, err := conn.QueryContext(ctx, query, args)
+	if !assert.NoError(t, err) || !assert.NotNil(t, rows) {
+		return
+	}
+	closeErr := rows.Close()
+	assert.ErrorIs(t, closeErr, rowsCloseErr)
+	assert.ErrorIs(t, closeErr, stmtCloseErr)
 }
 
 type postgresMockRows struct {
@@ -877,4 +1009,213 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 	if mi.beforeRollback != nil {
 		mi.beforeRollback(tx)
 	}
+}
+
+func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
+	for _, failurePoint := range []string{"before commit", "branch registration", "undo manager lookup", "undo log flush"} {
+		t.Run(failurePoint, func(t *testing.T) {
+			CleanTxHooks()
+			t.Cleanup(CleanTxHooks)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			primaryErr := errors.New(failurePoint + " failed")
+			localTx := mock.NewMockTestDriverTx(ctrl)
+			rollbackCall := localTx.EXPECT().Rollback().Times(1).Return(nil)
+			targetConn := mock.NewMockTestDriverConn(ctrl)
+			txCtx := newATCommitFailureContext(types.DBTypeMySQL)
+			expectedOutcome := atCommitOutcomeRolledBack
+			var expectedRollbackErr, expectedReportErr error
+
+			switch failurePoint {
+			case "before commit":
+				RegisterTxHook(&mockTxHook{beforeCommit: func(*Tx) error { return primaryErr }})
+			case "branch registration":
+				manager := newATCommitTestManager(t, ctrl)
+				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Times(1).Return(int64(0), primaryErr)
+			case "undo manager lookup":
+				expectedOutcome = atCommitOutcomeRollbackFailed
+				expectedRollbackErr = errors.New("rollback cleanup failed")
+				expectedReportErr = errors.New("branch failure report failed")
+				rollbackCall.Return(expectedRollbackErr)
+				txCtx.DBType = types.DBTypeOracle
+				manager := newATCommitTestManager(t, ctrl)
+				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Times(1).Return(int64(123), nil)
+				gomock.InOrder(rollbackCall, expectATCommitFailureReport(t, manager, expectedReportErr))
+			case "undo log flush":
+				previousUndoConfig := undo.UndoConfig
+				undo.UndoConfig.LogSerialization = "json"
+				t.Cleanup(func() { undo.UndoConfig = previousUndoConfig })
+
+				manager := newATCommitTestManager(t, ctrl)
+				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Times(1).Return(int64(123), nil)
+				targetConn.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).Times(1).Return(nil, primaryErr)
+				gomock.InOrder(rollbackCall, expectATCommitFailureReport(t, manager, nil))
+			}
+
+			err := (&ATTx{tx: &Tx{
+				conn:    &Conn{targetConn: targetConn},
+				tranCtx: txCtx,
+				target:  localTx,
+			}}).Commit()
+
+			if assert.Error(t, err) {
+				var commitErr *atCommitError
+				if assert.ErrorAs(t, err, &commitErr) {
+					assert.Equal(t, expectedOutcome, commitErr.outcome)
+					assert.Equal(t, expectedRollbackErr, commitErr.rollbackErr)
+					assert.Equal(t, expectedReportErr, commitErr.reportErr)
+				}
+				if failurePoint == "undo manager lookup" {
+					assert.Contains(t, err.Error(), "not found UndoLogManager")
+				} else {
+					assert.ErrorIs(t, err, primaryErr)
+				}
+			}
+		})
+	}
+}
+
+func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
+	for _, rollbackFailure := range []bool{true, false} {
+		name := "local commit failure"
+		if rollbackFailure {
+			name = "rollback failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			CleanTxHooks()
+			t.Cleanup(CleanTxHooks)
+			exec.CleanCommonHook()
+			t.Cleanup(exec.CleanCommonHook)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			var primaryErr error = errors.New(name)
+			localTx := mock.NewMockTestDriverTx(ctrl)
+			var cleanupErr error
+			expectedOutcome := atCommitOutcomeCommitUnknown
+			var commitCall *gomock.Call
+			if rollbackFailure {
+				cleanupErr = errors.New("rollback cleanup failed")
+				expectedOutcome = atCommitOutcomeRollbackFailed
+				RegisterTxHook(&mockTxHook{beforeCommit: func(*Tx) error { return primaryErr }})
+				localTx.EXPECT().Rollback().Times(1).Return(cleanupErr)
+			} else {
+				primaryErr = driver.ErrBadConn
+				RegisterTxHook(&mockTxHook{beforeCommit: func(tx *Tx) error {
+					tx.tranCtx.BranchID = 123
+					return nil
+				}})
+				commitCall = localTx.EXPECT().Commit().Times(1).Return(primaryErr)
+				localTx.EXPECT().Rollback().Times(0)
+			}
+
+			targetConn := mock.NewMockTestDriverConn(ctrl)
+			targetConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).Times(1).Return(localTx, nil)
+			query := "SELECT 1"
+			var args []any
+			if rollbackFailure {
+				previousTableCache := datasource.GetTableCache(types.DBTypeMySQL)
+				t.Cleanup(func() {
+					datasource.RegisterTableCache(types.DBTypeMySQL, previousTableCache)
+				})
+				datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
+
+				query = "UPDATE account SET balance = ? WHERE id = ?"
+				args = []any{int64(110), int64(1)}
+				expectBatchATImageQueries(t, targetConn, [][]driver.Value{
+					{int64(1), int64(100)}, {int64(1), int64(110)},
+				})
+			}
+			targetConn.EXPECT().ExecContext(gomock.Any(), query, gomock.Any()).Times(1).Return(driver.ResultNoRows, nil)
+			var closeCount atomic.Int32
+			targetConn.EXPECT().Close().AnyTimes().DoAndReturn(func() error {
+				closeCount.Add(1)
+				return nil
+			})
+
+			txCtx := types.NewTxCtx()
+			txCtx.XID = "test-xid"
+			txCtx.TransactionMode = types.ATMode
+			txCtx.DBType = types.DBTypeMySQL
+			if !rollbackFailure {
+				manager := newATCommitTestManager(t, ctrl)
+				gomock.InOrder(commitCall, expectATCommitFailureReport(t, manager, nil))
+			}
+			conn := &Conn{
+				res:        &DBResource{dbType: types.DBTypeMySQL, resourceID: "test-resource"},
+				txCtx:      txCtx,
+				targetConn: targetConn,
+				autoCommit: true,
+			}
+			connector := mock.NewMockTestDriverConnector(ctrl)
+			connector.EXPECT().Connect(gomock.Any()).Times(1).Return(&ATConn{Conn: conn}, nil)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+
+			ctx := tm.InitSeataContext(context.Background())
+			tm.SetXID(ctx, "test-xid")
+			_, err := db.ExecContext(ctx, query, args...)
+
+			assert.Contains(t, err.Error(), primaryErr.Error())
+			assert.NotErrorIs(t, err, driver.ErrBadConn)
+			var commitErr *atCommitError
+			if assert.ErrorAs(t, err, &commitErr) {
+				assert.Equal(t, primaryErr, commitErr.cause)
+				assert.Equal(t, expectedOutcome, commitErr.outcome)
+				assert.Equal(t, cleanupErr, commitErr.rollbackErr)
+			}
+			if cleanupErr != nil {
+				assert.Contains(t, err.Error(), cleanupErr.Error())
+			}
+			validator, ok := any(conn).(driver.Validator)
+			assert.True(t, ok)
+			if ok {
+				assert.False(t, validator.IsValid())
+			}
+			assert.Equal(t, int32(1), closeCount.Load())
+		})
+	}
+}
+
+func newATCommitFailureContext(dbType types.DBType) *types.TransactionContext {
+	txCtx := types.NewTxCtx()
+	txCtx.XID = "test-xid"
+	txCtx.ResourceID = "test-resource"
+	txCtx.TransactionMode = types.ATMode
+	txCtx.DBType = dbType
+	txCtx.LockKeys["test_table:1"] = struct{}{}
+	txCtx.RoundImages.AppendBeofreImage(&types.RecordImage{
+		TableName: "test_table",
+		SQLType:   types.SQLTypeUpdate,
+		Rows:      []types.RowImage{{}},
+	})
+	txCtx.RoundImages.AppendAfterImage(&types.RecordImage{
+		TableName: "test_table",
+		SQLType:   types.SQLTypeUpdate,
+		Rows:      []types.RowImage{{}},
+	})
+	return txCtx
+}
+
+func newATCommitTestManager(t *testing.T, ctrl *gomock.Controller) *mock.MockDataSourceManager {
+	manager := mock.NewMockDataSourceManager(ctrl)
+	manager.SetBranchType(branch.BranchTypeAT)
+	registerResourceManagerForTest(t, manager)
+	return manager
+}
+
+func expectATCommitFailureReport(t *testing.T, manager *mock.MockDataSourceManager, reportErr error) *gomock.Call {
+	times := 1
+	if reportErr != nil {
+		times = 5
+	}
+	return manager.EXPECT().BranchReport(gomock.Any(), gomock.Any()).Times(times).DoAndReturn(
+		func(_ context.Context, param rm.BranchReportParam) error {
+			assert.EqualValues(t, branch.BranchStatusPhaseoneFailed, param.Status)
+			return reportErr
+		},
+	)
 }

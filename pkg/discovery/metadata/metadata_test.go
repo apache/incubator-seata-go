@@ -60,3 +60,29 @@ func TestRefreshMetadataGroupsNodesAndTermsByGroup(t *testing.T) {
 	assert.Equal(t, int64(7), m.GetClusterTerm("test-cluster")["group-b"])
 	assert.Equal(t, RAFT, m.storeMode)
 }
+
+func TestRefreshGroupMetadataReplacesRemovedNodes(t *testing.T) {
+	m := NewMetadata()
+	m.RefreshGroupMetadata("test-cluster", "group-a", MetadataResponse{
+		Term: 1,
+		Nodes: []*Node{
+			{Transaction: &Endpoint{Host: "127.0.0.1", Port: 8001}, Group: "group-a", Role: LEADER},
+			{Transaction: &Endpoint{Host: "127.0.0.1", Port: 8002}, Group: "group-a", Role: FOLLOWER},
+		},
+	})
+
+	m.RefreshGroupMetadata("test-cluster", "group-a", MetadataResponse{
+		Term: 2,
+		Nodes: []*Node{
+			{Transaction: &Endpoint{Host: "127.0.0.1", Port: 8003}, Group: "group-a", Role: LEADER},
+		},
+	})
+
+	nodes := m.GetNodes("test-cluster", "group-a")
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, 8003, m.GetLeader("test-cluster").Transaction.Port)
+
+	m.RefreshGroupMetadata("test-cluster", "group-a", MetadataResponse{Term: 3})
+	assert.Empty(t, m.GetNodes("test-cluster", "group-a"))
+	assert.Nil(t, m.GetLeader("test-cluster"))
+}
