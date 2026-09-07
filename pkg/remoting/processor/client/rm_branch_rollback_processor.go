@@ -73,7 +73,18 @@ func (f *rmBranchRollbackProcessor) handleGrpcBranchRollback(ctx context.Context
 		ResourceId:      resourceID,
 		ApplicationData: []byte(applicationData),
 	}
-	status, err := rm.GetRmCacheInstance().GetResourceManager(branchType).BranchRollback(ctx, branchResource)
+	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(branchType)
+	if !ok {
+		errMsg := resourceManagerNotFoundMsg(branchType)
+		log.Errorf("branch rollback error: %s", errMsg)
+		err := grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedGrpcBranchRollbackResponse(xid, branchID, errMsg))
+		if err != nil {
+			log.Errorf("send branch rollback response error: {%#v}", err.Error())
+			return err
+		}
+		return nil
+	}
+	status, err := resourceManager.BranchRollback(ctx, branchResource)
 	if err != nil {
 		log.Errorf("branch rollback error: %s", err.Error())
 		return err
@@ -127,7 +138,18 @@ func (f *rmBranchRollbackProcessor) handleGettyBranchRollback(ctx context.Contex
 		ResourceId:      resourceID,
 		ApplicationData: applicationData,
 	}
-	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchRollback(ctx, branchResource)
+	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(request.BranchType)
+	if !ok {
+		errMsg := resourceManagerNotFoundMsg(request.BranchType)
+		log.Errorf("branch rollback error: %s", errMsg)
+		err := getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedBranchRollbackResponse(xid, branchID, errMsg))
+		if err != nil {
+			log.Errorf("send branch rollback response error: {%#v}", err.Error())
+			return err
+		}
+		return nil
+	}
+	status, err := resourceManager.BranchRollback(ctx, branchResource)
 	if err != nil {
 		log.Errorf("branch rollback error: %s", err.Error())
 		return err
@@ -165,4 +187,34 @@ func (f *rmBranchRollbackProcessor) handleGettyBranchRollback(ctx context.Contex
 	}
 	log.Infof("send branch rollback response success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	return nil
+}
+
+func newFailedBranchRollbackResponse(xid string, branchID int64, errMsg string) message.BranchRollbackResponse {
+	return message.BranchRollbackResponse{
+		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        errMsg,
+				},
+			},
+			Xid:      xid,
+			BranchId: branchID,
+		},
+	}
+}
+
+func newFailedGrpcBranchRollbackResponse(xid string, branchID int64, errMsg string) *pb.BranchRollbackResponseProto {
+	return &pb.BranchRollbackResponseProto{
+		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
+			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+				AbstractResultMessage: &pb.AbstractResultMessageProto{
+					ResultCode: pb.ResultCodeProto_Failed,
+					Msg:        errMsg,
+				},
+			},
+			Xid:      xid,
+			BranchId: branchID,
+		},
+	}
 }
