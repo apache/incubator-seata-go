@@ -49,6 +49,10 @@
   - [[#947](https://github.com/apache/incubator-seata-go/issues/947)] improve test coverage for pkg/discovery/mock
   - [[#948](https://github.com/apache/incubator-seata-go/issues/948)] improve test coverage for pkg/integration	
 
+### docs：
+
+  - [[#1179](https://github.com/apache/incubator-seata-go/issues/1179)] fix README install command to use the `/v2` module path (`go get seata.apache.org/seata-go/v2@latest`) and correct broken release/issue/PR-template links
+
 ### contributors:
 
 Thanks to these contributors for their code commits. Please report an unintended omission.  
