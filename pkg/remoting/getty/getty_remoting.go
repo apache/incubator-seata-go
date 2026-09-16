@@ -33,6 +33,10 @@ const (
 	RpcRequestTimeout = 20 * time.Second
 )
 
+// rpcRequestTimeout is the deadline the client actually waits on. It exists so
+// tests can shorten the wait without changing the exported constant.
+var rpcRequestTimeout = RpcRequestTimeout
+
 type (
 	callbackMethod func(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error)
 	GettyRemoting  struct {
@@ -94,6 +98,10 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 		return nil, fmt.Errorf("session is closed")
 	}
+	// The future is owned by whoever waits for it. sendAsync clears it on every
+	// path that ends here; the callback path is cleared by syncCallback, since
+	// an asynchronous callback returns straight away and the wait happens in
+	// the goroutine it starts.
 	resp := message.NewMessageFuture(msg)
 	g.futures.Store(msg.ID, resp)
 	_, _, err = session.WritePkg(msg, time.Duration(0))
@@ -105,6 +113,9 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 	if callback != nil {
 		return callback(msg, resp)
 	}
+	// Nothing is going to wait for this one, so it would stay in the map for
+	// the lifetime of the process.
+	g.futures.Delete(msg.ID)
 	return nil, nil
 }
 
@@ -133,12 +144,9 @@ func (g *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage
 func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
 	messageFuture := g.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
-		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		// messageFuture.Err = rpcMessage.Err
-		select {
-		case messageFuture.Done <- struct{}{}:
-		default:
+		if !messageFuture.Complete(rpcMessage.Body) {
 			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
 		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)

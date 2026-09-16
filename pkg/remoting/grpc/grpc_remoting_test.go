@@ -53,7 +53,7 @@ func TestGrpcRemoting_GetMessageFuture(t *testing.T) {
 			if test.messageFuture != nil {
 				grpcRemotingClient.grpcRemoting.futures.Store(test.msgID, test.messageFuture)
 				messageFuture := grpcRemotingClient.grpcRemoting.GetMessageFuture(test.msgID)
-				assert.Equal(t, *test.messageFuture, *messageFuture)
+				assert.Same(t, test.messageFuture, messageFuture)
 			} else {
 				messageFuture := grpcRemotingClient.grpcRemoting.GetMessageFuture(test.msgID)
 				assert.Empty(t, messageFuture)
