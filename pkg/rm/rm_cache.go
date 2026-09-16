@@ -18,7 +18,6 @@
 package rm
 
 import (
-	"fmt"
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -53,9 +52,18 @@ func (d *ResourceManagerCache) UnregisterResourceManager(branchType branch.Branc
 }
 
 func (d *ResourceManagerCache) GetResourceManager(branchType branch.BranchType) ResourceManager {
+	rm, _ := d.FindResourceManager(branchType)
+	return rm
+}
+
+func (d *ResourceManagerCache) FindResourceManager(branchType branch.BranchType) (ResourceManager, bool) {
 	rm, ok := d.resourceManagerMap.Load(branchType)
 	if !ok {
-		panic(fmt.Sprintf("No ResourceManagerCache for BranchType: %v", branchType))
+		return nil, false
 	}
-	return rm.(ResourceManager)
+	manager, ok := rm.(ResourceManager)
+	if !ok {
+		return nil, false
+	}
+	return manager, true
 }
