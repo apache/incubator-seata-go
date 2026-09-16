@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
