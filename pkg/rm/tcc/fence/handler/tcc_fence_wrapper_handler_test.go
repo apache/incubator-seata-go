@@ -1342,6 +1342,23 @@ func TestRequeueBatch_AfterDestroyDoesNotStartDrainTask(t *testing.T) {
 	assert.Contains(t, logger.warningText(), "unprocessed=1")
 }
 
+func TestRequeueBatch_EmptyBatchDoesNothing(t *testing.T) {
+	handler := &tccFenceWrapperHandler{}
+
+	handler.requeueBatch(nil)
+
+	assert.Zero(t, handler.logCache.Len())
+	assert.Nil(t, handler.stopDrainCache)
+}
+
+func TestReportUnprocessed_ZeroDoesNothing(t *testing.T) {
+	handler := &tccFenceWrapperHandler{destroyed: true}
+
+	handler.reportUnprocessed(0, "test")
+
+	assert.Zero(t, handler.shutdownPending)
+}
+
 func TestInitLogCleanChannel(t *testing.T) {
 	// Create a test DSN for sqlmock
 	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
@@ -1370,6 +1387,21 @@ func TestInitLogCleanChannel(t *testing.T) {
 		// It's okay if expectations aren't met with invalid DSN
 		t.Logf("Expected behavior with invalid DSN: %v", err)
 	}
+}
+
+func TestInitLogCleanChannel_StoppingDoesNotInitialize(t *testing.T) {
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{},
+		stopping:    true,
+	}
+
+	handler.InitLogCleanChannel("")
+
+	handler.dbMutex.RLock()
+	assert.Nil(t, handler.db)
+	handler.dbMutex.RUnlock()
+	assert.Nil(t, handler.logQueue)
+	assert.Nil(t, handler.stopLogCleanTask)
 }
 
 func TestInitLogCleanChannel_EmptyDSN(t *testing.T) {
