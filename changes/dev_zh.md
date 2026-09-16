@@ -46,6 +46,10 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] 添加xxx的单元测试
 
 
+### docs：
+
+  - [[#1179](https://github.com/apache/incubator-seata-go/issues/1179)] 修复 README 安装命令使用 `/v2` module 路径（`go get seata.apache.org/seata-go/v2@latest`），并修正失效的 release/issue/PR 模板链接
+
 ### contributors:
 
 非常感谢以下 contributors 的代码贡献。若有无意遗漏，请报告。
