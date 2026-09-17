@@ -238,6 +238,37 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 	}
 }
 
+func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
+	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
+	tm.InitTm(tm.TmConfig{CommitRetryCount: 1})
+
+	called := false
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), "SendSyncRequest",
+		func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			called = true
+			req, ok := msg.(*pb.GlobalCommitRequestProto)
+			assert.True(t, ok)
+			assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_COMMIT,
+				req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
+
+			return &pb.GlobalCommitResponseProto{
+				AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+						AbstractResultMessage: &pb.AbstractResultMessageProto{
+							AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
+						},
+					},
+					GlobalStatus: pb.GlobalStatusProto_Committed,
+				},
+			}, nil
+		})
+	defer patches.Reset()
+
+	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
+	assert.NoError(t, tm.GetGlobalTransactionManager().Commit(context.Background(), gtr))
+	assert.True(t, called, "Commit should call SendSyncRequest")
+}
+
 func TestGrpcGlobalTransactionRollback(t *testing.T) {
 	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
