@@ -42,11 +42,11 @@ type CallbackWithCtx func(ctx context.Context) error
 // WithGlobalTx begin a global transaction and make it step into committed or rollbacked status.
 func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) (re error) {
 	if gc == nil {
-		return fmt.Errorf("global transaction config info is required.")
+		return fmt.Errorf("global transaction config info is required")
 	}
 
 	if gc.Name == "" {
-		return fmt.Errorf("global transaction name is required.")
+		return fmt.Errorf("global transaction name is required")
 	}
 
 	// open global transaction for the first time
