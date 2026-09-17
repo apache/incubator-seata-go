@@ -39,7 +39,7 @@ func (tx *XATx) Commit() error {
 	return tx.commitOnXA()
 }
 
-// Rollback executes XA END(TMFAIL), XA ROLLBACK and reports to TC
+// Rollback executes XA END, XA ROLLBACK and reports to TC
 func (tx *XATx) Rollback() error {
 	originTx := tx.tx
 
@@ -57,7 +57,7 @@ func (tx *XATx) Rollback() error {
 	log.Infof("xa branch [%d/%s] executing XA rollback", branchID, xid)
 
 	if err := originTx.xaConn.Rollback(context.Background()); err != nil {
-		log.Errorf("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK failed: %v", branchID, xid, err)
+		log.Errorf("xa branch [%d/%s] XA END + XA ROLLBACK failed: %v", branchID, xid, err)
 		if originTx.tranCtx.IsBranchRegistered() {
 			if reportErr := originTx.report(false); reportErr != nil {
 				log.Errorf("xa branch [%d/%s] failed to report rollback failure to TC: %v", branchID, xid, reportErr)
@@ -65,7 +65,7 @@ func (tx *XATx) Rollback() error {
 		}
 		return err
 	}
-	log.Infof("xa branch [%d/%s] XA END(TMFAIL) + XA ROLLBACK succeeded", branchID, xid)
+	log.Infof("xa branch [%d/%s] XA END + XA ROLLBACK succeeded", branchID, xid)
 
 	if originTx.tranCtx.IsBranchRegistered() {
 		if err := originTx.report(false); err != nil {
