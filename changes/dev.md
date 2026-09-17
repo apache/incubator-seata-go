@@ -38,9 +38,14 @@
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
 
+### breaking change:
+
+  - [[#1104](https://github.com/apache/incubator-seata-go/issues/1104)] Bump minimum Go version from 1.20 to 1.25 (required by upstream `github.com/pingcap/tidb/pkg/parser`). All downstream users must upgrade to Go 1.25+.
+
 ### optimize：
 
   - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
+ - [[#1104](https://github.com/apache/incubator-seata-go/issues/1104)] Replace `github.com/arana-db/parser` with upstream `github.com/pingcap/tidb/pkg/parser` to avoid depending on a possibly-stale fork
 
 ### test:
 

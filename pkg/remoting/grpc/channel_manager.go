@@ -374,7 +374,7 @@ func (g *ChannelManager) getXid(msg interface{}) string {
 	if !msgValue.IsValid() {
 		return ""
 	}
-	if msgValue.Kind() == reflect.Ptr {
+	if msgValue.Kind() == reflect.Pointer {
 		if msgValue.IsNil() {
 			return ""
 		}

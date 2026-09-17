@@ -26,8 +26,8 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"

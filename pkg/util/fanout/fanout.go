@@ -60,6 +60,8 @@ type Fanout struct {
 
 	ctx    context.Context
 	cancel func()
+
+	closeOnce sync.Once
 }
 
 // New new a fanout struct.
@@ -127,10 +129,9 @@ func (c *Fanout) Do(ctx context.Context, f func(ctx context.Context)) error {
 
 // Close close fanout.
 func (c *Fanout) Close() error {
-	if err := c.ctx.Err(); err != nil {
-		return err
-	}
-	c.cancel()
+	c.closeOnce.Do(func() {
+		c.cancel()
+	})
 	c.waiter.Wait()
 	return nil
 }

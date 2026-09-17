@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
@@ -430,7 +430,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 
 	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
 	if len(pkColumnNameList) == 0 {
-		return "", nil, fmt.Errorf("Pk columnName size is zero")
+		return "", nil, fmt.Errorf("pk columnName size is zero")
 	}
 
 	dataTypeMap, err := meta.GetPrimaryKeyTypeStrMap()
@@ -1029,7 +1029,7 @@ func getInsertRows(insertStmt *ast.InsertStmt, pkIndexArray []int) ([][]interfac
 			} else {
 				for _, index := range pkIndexArray {
 					if index == i {
-						return nil, fmt.Errorf("Unknown SQLExpr:%v", node)
+						return nil, fmt.Errorf("unknown SQLExpr: %v", node)
 					}
 				}
 				row = append(row, ast.DefaultExpr{})

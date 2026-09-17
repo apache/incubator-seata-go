@@ -106,7 +106,7 @@ func (t TaskStateRouter) Route(ctx context.Context, processContext process_ctrl.
 				task = s.AbstractTaskState
 			case *sagaState.SubStateMachineImpl:
 				if s.ServiceTaskStateImpl != nil {
-					task = s.ServiceTaskStateImpl.AbstractTaskState
+					task = s.AbstractTaskState
 				}
 			}
 			if task == nil || task.CompensateState() == "" {
@@ -196,7 +196,7 @@ func (t TaskStateRouter) Route(ctx context.Context, processContext process_ctrl.
 				task = s.AbstractTaskState
 			case *sagaState.SubStateMachineImpl:
 				if s.ServiceTaskStateImpl != nil {
-					task = s.ServiceTaskStateImpl.AbstractTaskState
+					task = s.AbstractTaskState
 				}
 			}
 			if task == nil || task.CompensateState() == "" {
@@ -280,7 +280,7 @@ func (t *TaskStateRouter) compensateRoute(ctx context.Context, processContext pr
 			taskState = s.AbstractTaskState
 		case *sagaState.SubStateMachineImpl:
 			if s.ServiceTaskStateImpl != nil {
-				taskState = s.ServiceTaskStateImpl.AbstractTaskState
+				taskState = s.AbstractTaskState
 			}
 		}
 		if taskState != nil {
