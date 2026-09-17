@@ -336,7 +336,7 @@ func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 func (handler *tccFenceWrapperHandler) deleteBatchFence(tx *sql.Tx, batch []model.FenceLogIdentity) error {
 	err := handler.tccFenceDao.DeleteMultipleTCCFenceLogIdentity(tx, batch)
 	if err != nil {
-		return fmt.Errorf("delete batch fence log failed, batch: %v: %w", batch, err)
+		return fmt.Errorf("delete batch fence log failed, batch_size=%d: %w", len(batch), err)
 	}
 	return nil
 }
@@ -478,16 +478,15 @@ func (handler *tccFenceWrapperHandler) drainCacheTask() {
 }
 
 func (handler *tccFenceWrapperHandler) drainCacheOnce() {
-	handler.cacheMutex.Lock()
-	if handler.logCache.Len() == 0 {
-		handler.cacheMutex.Unlock()
-		return
-	}
-
 	handler.dbMutex.RLock()
 	db := handler.db
 	handler.dbMutex.RUnlock()
 	if db == nil {
+		return
+	}
+
+	handler.cacheMutex.Lock()
+	if handler.logCache.Len() == 0 {
 		handler.cacheMutex.Unlock()
 		return
 	}

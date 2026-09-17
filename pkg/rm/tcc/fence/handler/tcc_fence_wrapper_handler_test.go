@@ -815,6 +815,8 @@ func TestDeleteBatchFence_Error(t *testing.T) {
 	err = handler.deleteBatchFence(tx, batch)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "delete batch fence log failed")
+	assert.Contains(t, err.Error(), "batch_size=1")
+	assert.NotContains(t, err.Error(), "xid1")
 }
 
 func TestPushCleanChannel(t *testing.T) {
