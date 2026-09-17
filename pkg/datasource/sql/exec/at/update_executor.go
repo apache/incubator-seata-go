@@ -359,7 +359,7 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	_ = selStmt.Restore(format.NewRestoreCtx(restoreFlagsForDB(dbType), b))
 	sql := u.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
