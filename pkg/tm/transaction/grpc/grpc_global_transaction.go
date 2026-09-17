@@ -87,7 +87,7 @@ func (g *GrpcGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Globa
 	req := &pb.GlobalCommitRequestProto{
 		AbstractGlobalEndRequest: &pb.AbstractGlobalEndRequestProto{
 			AbstractTransactionRequest: &pb.AbstractTransactionRequestProto{
-				AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_BEGIN},
+				AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT},
 			},
 			Xid: gtr.Xid,
 		},
