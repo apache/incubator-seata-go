@@ -20,11 +20,68 @@ package client
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestResolverFilePath(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		wantName   string
+		wantSuffix string
+		skipName   bool
+	}{
+		{name: "single dot yaml", path: "./conf/seatago.yaml", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "single dot yml", path: "../../testdata/conf/seatago.yml", wantName: "seatago", wantSuffix: ymlSuffix},
+		{name: "multiple dots yaml", path: "./conf/seatago.prod.yaml", wantName: "seatago.prod", wantSuffix: yamlSuffix},
+		{name: "versioned yml", path: "app.v2.yml", wantName: "app.v2", wantSuffix: ymlSuffix},
+		{name: "json", path: "seatago.json", wantName: "seatago", wantSuffix: jsonSuffix},
+		{name: "toml", path: "seatago.toml", wantName: "seatago", wantSuffix: tomlSuffix},
+		{name: "upper case yaml", path: "seatago.YAML", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "upper case yml", path: "seatago.YML", wantName: "seatago", wantSuffix: ymlSuffix},
+		{name: "upper case json", path: "config.JSON", wantName: "config", wantSuffix: jsonSuffix},
+		{name: "upper case toml", path: "config.TOML", wantName: "config", wantSuffix: tomlSuffix},
+		{name: "no extension", path: "seatago", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "no extension in dir", path: "./conf/seatago", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "hidden yaml", path: ".seatago.yaml", wantName: ".seatago", wantSuffix: yamlSuffix},
+		{name: "hidden no extra extension", path: ".seatago", wantName: ".seatago", wantSuffix: yamlSuffix},
+		{name: "windows style yaml", path: `C:\conf\seatago.prod.yaml`, wantSuffix: yamlSuffix, skipName: true},
+		{name: "windows style yml", path: `C:\conf\seatago.yml`, wantSuffix: ymlSuffix, skipName: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, gotSuffix := resolverFilePath(tt.path)
+			if !tt.skipName {
+				assert.Equal(t, tt.wantName, gotName)
+			}
+			assert.Equal(t, tt.wantSuffix, gotSuffix)
+		})
+	}
+}
+
+func TestLoadPath_FilenameWithMultipleDots(t *testing.T) {
+	src, err := os.ReadFile("../../testdata/conf/seatago.yml")
+	assert.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "seatago.prod.yaml")
+	assert.NoError(t, os.WriteFile(path, src, 0o600))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("valid .yaml filename panicked: %v", r)
+		}
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	cfg := LoadPath(path)
+	assert.NotNil(t, cfg)
+	assert.Equal(t, "applicationName", cfg.ApplicationID)
+}
 
 func TestLoadPath(t *testing.T) {
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
