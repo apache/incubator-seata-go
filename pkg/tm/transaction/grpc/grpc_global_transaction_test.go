@@ -253,7 +253,7 @@ func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
 	tm.InitTm(tm.TmConfig{CommitRetryCount: 1})
 
 	called := false
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), "SendSyncRequest",
+	armSendSyncRequest(true,
 		func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
 			called = true
 			req, ok := msg.(*pb.GlobalCommitRequestProto)
@@ -266,13 +266,14 @@ func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
 					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 						AbstractResultMessage: &pb.AbstractResultMessageProto{
 							AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
+							ResultCode:      pb.ResultCodeProto_Success,
 						},
 					},
 					GlobalStatus: pb.GlobalStatusProto_Committed,
 				},
 			}, nil
 		})
-	defer patches.Reset()
+	defer armSendSyncRequest(false, nil)
 
 	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
 	assert.NoError(t, tm.GetGlobalTransactionManager().Commit(context.Background(), gtr))
