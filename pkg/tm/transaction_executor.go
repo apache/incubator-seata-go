@@ -55,7 +55,8 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	}
 
 	if IsGlobalTx(ctx) {
-		ClearTxConf(ctx)
+		// derive isolated context to avoid overwriting outer launcher role during nested calls
+		ctx = transferTx(ctx)
 	}
 
 	if re = Begin(ctx, gc); re != nil {
