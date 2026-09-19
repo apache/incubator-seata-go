@@ -51,10 +51,10 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return GetMySQLDeleteUndoLogBuilder().BeforeImage(ctx, execCtx)
 	}
 
-	values := make([]driver.Value, 0, len(execCtx.NamedValues)*2)
-	if execCtx.Values == nil {
-		for n, param := range execCtx.NamedValues {
-			values[n] = param.Value
+	values := execCtx.Values
+	if values == nil {
+		for _, param := range execCtx.NamedValues {
+			values = append(values, param.Value)
 		}
 	}
 
@@ -94,7 +94,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		}
 		records = append(records, record)
 
-		lockKey := u.buildLockKey(rows, meDataMap)
+		lockKey := u.buildLockKey2(record, meDataMap)
 		execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 
