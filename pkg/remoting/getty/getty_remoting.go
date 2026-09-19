@@ -50,6 +50,9 @@ func newGettyRemoting() *GettyRemoting {
 
 func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
+		if sessionManager == nil {
+			return nil, fmt.Errorf("session is closed")
+		}
 		s = sessionManager.selectSession(msg)
 	}
 	if s == nil || s.IsClosed() {
@@ -68,6 +71,9 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 
 func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
+		if sessionManager == nil {
+			return fmt.Errorf("session is closed")
+		}
 		s = sessionManager.selectSession(msg)
 	}
 	if s == nil || s.IsClosed() {
