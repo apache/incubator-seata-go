@@ -19,7 +19,11 @@ package client
 
 import (
 	"context"
+	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/rm/tcc"
 
@@ -27,6 +31,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	remotinggrpc "seata.apache.org/seata-go/v2/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 )
@@ -107,5 +112,36 @@ func TestRmBranchRollbackProcessor(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestRmBranchRollbackProcessorResponseUsesRollbackResultMessageType(t *testing.T) {
+	resourceManager := &testGrpcResourceManager{branchType: model2.BranchTypeTCC}
+	rm.GetRmCacheInstance().RegisterResourceManager(resourceManager)
+	defer rm.GetRmCacheInstance().UnregisterResourceManager(model2.BranchTypeTCC)
+	config.InitTransportConfig(&config.TransportConfig{Protocol: "grpc"})
+
+	var response *pb.BranchRollbackResponseProto
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(remotinggrpc.GetGrpcRemotingClient()), "SendAsyncResponse",
+		func(_ *remotinggrpc.GrpcRemotingClient, _ int32, msg interface{}) error {
+			response = msg.(*pb.BranchRollbackResponseProto)
+			return nil
+		})
+	defer patches.Reset()
+
+	err := (&rmBranchRollbackProcessor{}).Process(context.Background(), message.RpcMessage{
+		ID:   1,
+		Type: message.RequestType(message.MessageTypeBranchRollback),
+		Body: &pb.BranchRollbackRequestProto{AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+			Xid:        "test-xid",
+			BranchId:   1,
+			BranchType: pb.BranchTypeProto_TCC,
+		}},
+	})
+
+	assert.NoError(t, err)
+	if assert.NotNil(t, response) {
+		assert.Equal(t, pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT,
+			response.GetAbstractBranchEndResponse().GetAbstractTransactionResponse().GetAbstractResultMessage().GetAbstractMessage().GetMessageType())
 	}
 }
