@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
@@ -86,6 +88,29 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 	if err != nil {
 		return nil, err
 	}
+	if len(beforeImages) == 0 {
+		var result driver.Result
+		if res != nil {
+			result = res.GetResult()
+		}
+		if result == nil {
+			err := errors.New("cannot determine affected rows for UPDATE JOIN with empty before images: result is unavailable")
+			if res != nil {
+				if rows := res.GetRows(); rows != nil {
+					err = errors.Join(err, rows.Close())
+				}
+			}
+			return nil, err
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return nil, fmt.Errorf("cannot determine affected rows for UPDATE JOIN with empty before images: %w", err)
+		}
+		if rowsAffected != 0 {
+			return nil, fmt.Errorf("UPDATE JOIN affected %d rows with empty before images", rowsAffected)
+		}
+		return res, nil
+	}
 
 	afterImages, err := u.afterImage(ctx, beforeImages)
 	if err != nil {
@@ -94,6 +119,11 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 
 	if len(afterImages) != len(beforeImages) {
 		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+	}
+	for i, beforeImage := range beforeImages {
+		if len(beforeImage.Rows) != len(afterImages[i].Rows) {
+			return nil, fmt.Errorf("before and after image row count mismatch for table %s: %d != %d", beforeImage.TableName, len(beforeImage.Rows), len(afterImages[i].Rows))
+		}
 	}
 
 	u.execContext.TxCtx.RoundImages.AppendBeofreImages(beforeImages)
@@ -130,7 +160,14 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
+			matchedRows := &updateJoinRows{Rows: rowsi}
+			primaryKeys := metaData.GetPrimaryKeyMap()
+			for i, name := range rowsi.Columns() {
+				if _, ok := primaryKeys[util.DelEscape(name, types.DBTypeMySQL)]; ok {
+					matchedRows.pkIndexes = append(matchedRows.pkIndexes, i)
+				}
+			}
+			image, err = u.buildRecordImages(matchedRows, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
 			if rowerr := rowsi.Close(); rowerr != nil {
@@ -143,6 +180,9 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 			return nil, err
 		}
 
+		if len(image.Rows) == 0 {
+			continue
+		}
 		lockKey := u.buildLockKey(image, *metaData)
 		u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 		image.SQLType = u.parserCtx.SQLType
@@ -159,7 +199,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 	}
 
 	if len(beforeImages) == 0 {
-		return nil, errors.New("empty beforeImages")
+		return nil, nil
 	}
 
 	var recordImages []*types.RecordImage
@@ -207,6 +247,21 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta 
 	if len(fields) == 0 {
 		return "", nil, err
 	}
+	if !undo.UndoConfig.OnlyCareUpdateColumns {
+		tableName := tableAliases
+		if tableName == "" {
+			tableName = tableMeta.TableName
+		}
+		fields = make([]*ast.SelectField, 0, len(tableMeta.ColumnNames))
+		for _, columnName := range tableMeta.ColumnNames {
+			fields = append(fields, &ast.SelectField{
+				Expr: &ast.ColumnNameExpr{Name: &ast.ColumnName{
+					Table: model.NewCIStr(tableName),
+					Name:  model.NewCIStr(columnName),
+				}},
+			})
+		}
+	}
 
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
@@ -225,8 +280,12 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta 
 		},
 	}
 
+	restoreFlags := format.RestoreKeyWordUppercase
+	if !undo.UndoConfig.OnlyCareUpdateColumns {
+		restoreFlags |= format.RestoreNameBackQuotes
+	}
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	_ = selStmt.Restore(format.NewRestoreCtx(restoreFlags, b))
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
@@ -246,27 +305,76 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 		return "", nil, err
 	}
 
-	updateStmt := u.parserCtx.UpdateStmt
+	dbType := effectiveDBType(u.execContext.DBType)
+	pkNames := meta.GetPrimaryKeyOnlyName()
+	if len(pkNames) == 0 {
+		return "", nil, fmt.Errorf("primary key metadata is empty for table %s", meta.TableName)
+	}
+	args := u.buildPKParams(beforeImage.Rows, pkNames, dbType)
+	if len(args) != len(beforeImage.Rows)*len(pkNames) {
+		return "", nil, fmt.Errorf("incomplete primary keys in before image for table %s", meta.TableName)
+	}
+	table := findUpdateJoinTable(u.parserCtx.UpdateStmt.TableRefs.TableRefs, meta.TableName, tableAliases)
+	if table == nil {
+		return "", nil, fmt.Errorf("target table %s not found in update join", meta.TableName)
+	}
+
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           updateStmt.TableRefs,
-		Where:          updateStmt.Where,
-		Fields:         &ast.FieldList{Fields: fields},
-		OrderBy:        updateStmt.Order,
-		Limit:          updateStmt.Limit,
-		TableHints:     updateStmt.TableHints,
-		// maybe duplicate row for select join sql.remove duplicate row by 'group by' condition
-		GroupBy: &ast.GroupByClause{
-			Items: u.buildGroupByClause(ctx, meta.TableName, tableAliases, meta.GetPrimaryKeyOnlyName(), fields),
-		},
+		From: &ast.TableRefsClause{TableRefs: &ast.Join{
+			Left: &ast.TableSource{
+				Source: &ast.TableName{Schema: table.Schema, Name: table.Name},
+				AsName: model.NewCIStr(tableAliases),
+			},
+		}},
+		Fields: &ast.FieldList{Fields: fields},
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
+	if err := selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b)); err != nil {
+		return "", nil, err
+	}
+	sql := string(b.Bytes()) + " WHERE " + u.buildWhereConditionByPKs(pkNames, len(beforeImage.Rows), dbType, maxInSize)
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType)), nil
+	return sql, args, nil
+}
+
+// updateJoinRows skips unmatched outer-join targets before scanning can turn NULL keys into zero values.
+type updateJoinRows struct {
+	driver.Rows
+	pkIndexes []int
+}
+
+func (r *updateJoinRows) Next(dest []driver.Value) error {
+nextRow:
+	for {
+		if err := r.Rows.Next(dest); err != nil {
+			return err
+		}
+		for _, i := range r.pkIndexes {
+			value := reflect.ValueOf(dest[i])
+			if !value.IsValid() || (value.Kind() == reflect.Slice && value.IsNil()) {
+				continue nextRow
+			}
+		}
+		return nil
+	}
+}
+
+func findUpdateJoinTable(node ast.ResultSetNode, tableName, tableAlias string) *ast.TableName {
+	switch node := node.(type) {
+	case *ast.Join:
+		if table := findUpdateJoinTable(node.Left, tableName, tableAlias); table != nil {
+			return table
+		}
+		return findUpdateJoinTable(node.Right, tableName, tableAlias)
+	case *ast.TableSource:
+		if table, ok := node.Source.(*ast.TableName); ok && table.Name.O == tableName && node.AsName.O == tableAlias {
+			return table
+		}
+	}
+	return nil
 }
 
 func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) map[string]string {

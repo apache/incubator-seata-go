@@ -224,7 +224,7 @@ func (r *queryResult) GetRows() driver.Rows {
 }
 
 func (r *queryResult) GetResult() driver.Result {
-	panic("writeResult no support")
+	return nil
 }
 
 func (r *writeResult) GetRows() driver.Rows {
