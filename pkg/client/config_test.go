@@ -72,10 +72,10 @@ func TestLoadPath_FilenameWithMultipleDots(t *testing.T) {
 	assert.NoError(t, os.WriteFile(path, src, 0o600))
 
 	defer func() {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 		if r := recover(); r != nil {
 			t.Fatalf("valid .yaml filename panicked: %v", r)
 		}
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}()
 
 	cfg := LoadPath(path)

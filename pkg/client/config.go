@@ -171,9 +171,8 @@ func getJsonConfigResolver(bytes []byte) *koanf.Koanf {
 func resolverFilePath(path string) (name, suffix string) {
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)
-	// filepath.Ext(".seatago") is ".seatago"; treat a leading-dot name with no
-	// extra dot as having no format suffix.
-	if ext == "" || (strings.HasPrefix(base, ".") && !strings.Contains(base[1:], ".")) {
+	// filepath.Ext(".seatago") == ".seatago"; treat that as no format suffix.
+	if ext == "" || ext == base {
 		return base, yamlSuffix
 	}
 	return strings.TrimSuffix(base, ext), strings.ToLower(strings.TrimPrefix(ext, "."))
