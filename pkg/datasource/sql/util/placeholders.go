@@ -262,7 +262,8 @@ func scanPostgreSQLBlockComment(query string, start int) int {
 }
 
 func postgreSQLDollarQuoteDelimiter(query string, start int) (string, bool) {
-	if start+1 >= len(query) || query[start] != '$' {
+	if start+1 >= len(query) || query[start] != '$' ||
+		(start > 0 && isPostgreSQLIdentifierPart(query[start-1])) {
 		return "", false
 	}
 	if query[start+1] == '$' {

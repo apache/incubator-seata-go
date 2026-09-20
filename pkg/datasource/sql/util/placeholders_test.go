@@ -65,6 +65,12 @@ func TestRewritePlaceholders(t *testing.T) {
 			want:   "SELECT $$?$$, $tag$?$tag$ FROM t WHERE id = $1",
 		},
 		{
+			name:   "postgres identifiers containing dollar signs are not dollar quoted strings",
+			query:  "SELECT user$tag$ FROM t WHERE id = ?",
+			dbType: types.DBTypePostgreSQL,
+			want:   "SELECT user$tag$ FROM t WHERE id = $1",
+		},
+		{
 			name:   "postgres placeholders after escaped quotes and nested comments are unchanged",
 			query:  "SELECT 'it''s ?' AS literal, \"column\"\"?\" FROM t /* outer ? /* inner ? */ ? */ WHERE id = ?",
 			dbType: types.DBTypePostgreSQL,
@@ -139,6 +145,21 @@ func TestCompactPostgreSQLPlaceholdersIgnoresDollarSignsInIdentifiers(t *testing
 
 	require.NoError(t, err)
 	assert.Equal(t, "SELECT column$3 FROM t WHERE id = $1", query)
+	assert.Equal(t, []driver.Value{100}, NamedValueToValue(args))
+}
+
+func TestCompactPostgreSQLPlaceholdersDoesNotTreatIdentifierSuffixAsDollarQuote(t *testing.T) {
+	query, args, err := CompactPostgreSQLPlaceholders(
+		"SELECT user$tag$ FROM t WHERE id = $3",
+		[]driver.NamedValue{
+			{Ordinal: 1, Value: "name"},
+			{Ordinal: 2, Value: 18},
+			{Ordinal: 3, Value: 100},
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "SELECT user$tag$ FROM t WHERE id = $1", query)
 	assert.Equal(t, []driver.Value{100}, NamedValueToValue(args))
 }
 
