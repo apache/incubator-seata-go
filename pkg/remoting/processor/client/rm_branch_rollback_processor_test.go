@@ -65,6 +65,7 @@ func TestRmBranchRollbackProcessor_SendsFailureResponse(t *testing.T) {
 		require.NoError(t, err)
 		got := sent.(*pb.BranchRollbackResponseProto)
 		result := got.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage
+		require.Equal(t, pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT, result.GetAbstractMessage().GetMessageType())
 		require.Equal(t, pb.ResultCodeProto_Failed, result.ResultCode)
 		require.Equal(t, bizErr.Error(), result.Msg)
 		require.Equal(t, pb.BranchStatusProto(manager.rollbackStatus), got.AbstractBranchEndResponse.BranchStatus)
@@ -136,6 +137,7 @@ func TestRmBranchRollbackProcessor_SendsSuccessResponse(t *testing.T) {
 		require.NoError(t, err)
 		got := sent.(*pb.BranchRollbackResponseProto)
 		result := got.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage
+		require.Equal(t, pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT, result.GetAbstractMessage().GetMessageType())
 		require.Equal(t, pb.ResultCodeProto_Success, result.ResultCode)
 		require.Empty(t, result.Msg)
 		require.Equal(t, pb.BranchStatusProto(manager.rollbackStatus), got.AbstractBranchEndResponse.BranchStatus)
@@ -184,6 +186,10 @@ func TestRmBranchRollbackProcessor_ProcessRoutesByProtocol(t *testing.T) {
 
 			require.NoError(t, processor.Process(context.Background(), message.RpcMessage{ID: 1, Body: tt.body}))
 			require.IsType(t, tt.wantType, sent)
+			if response, ok := sent.(*pb.BranchRollbackResponseProto); ok {
+				require.Equal(t, pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT,
+					response.GetAbstractBranchEndResponse().GetAbstractTransactionResponse().GetAbstractResultMessage().GetAbstractMessage().GetMessageType())
+			}
 		})
 	}
 }

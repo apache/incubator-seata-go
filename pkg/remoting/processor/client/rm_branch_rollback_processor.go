@@ -88,8 +88,9 @@ func (f *rmBranchRollbackProcessor) handleGrpcBranchRollback(ctx context.Context
 		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
 			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 				AbstractResultMessage: &pb.AbstractResultMessageProto{
-					ResultCode: branchEndResultCodeProto(result.resultCode),
-					Msg:        result.errMsg,
+					AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT},
+					ResultCode:      branchEndResultCodeProto(result.resultCode),
+					Msg:             result.errMsg,
 				},
 			},
 			Xid:          xid,

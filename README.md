@@ -98,9 +98,11 @@ For more details about principle and design, please go to [Seata wiki page](http
 ## How to run？
 
 ```go
-go get seata.apache.org/seata-go@v2.0.0
+go get seata.apache.org/seata-go/v2@latest
 
 ```
+
+> Note: `v2.0.0` cannot be installed as a Go module because its `go.mod` does not declare the `/v2` major-version suffix. Use `v2.1.0` or later.
 
 if you want to know how to use and integrate seata-go, please refer to [apache/seata-go-samples](https://github.com/apache/incubator-seata-go-samples)
 
@@ -108,7 +110,7 @@ if you want to know how to use and integrate seata-go, please refer to [apache/s
 Visit Seata-Go's GitHub Releases page
 
 Open:
-https://github.com/seata/seata-go/releases
+https://github.com/apache/incubator-seata-go/releases
 
 The latest tag / release is the latest stable version.
 
@@ -121,7 +123,7 @@ You can view the full documentation from Seata Official Website: [Seata Website 
 
 ## Reporting bugs
 
-Please follow the [template](.github/ISSUE_TEMPLATE/BUG_REPORT_TEMPLATE.md) for reporting any issues.
+Please follow the [issue chooser](https://github.com/apache/incubator-seata-go/issues/new/choose) for reporting any issues.
 
 ## Security
 
