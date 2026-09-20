@@ -146,9 +146,7 @@ func TestSeataTransactionListenerQueryGlobalStatus_InvalidResponseType(t *testin
 }
 
 func newTransactionMessageExt(xid, branchID string) *primitive.MessageExt {
-	msgExt := &primitive.MessageExt{}
-	msgExt.Topic = "topic-test"
-	msgExt.Body = []byte("hello")
+	msgExt := &primitive.MessageExt{Message: primitive.Message{Topic: "topic-test", Body: []byte("hello")}}
 	if xid != "" {
 		msgExt.WithProperty(constant.PropertySeataXID, xid)
 	}
