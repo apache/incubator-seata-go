@@ -74,7 +74,7 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey2(image, metaData)
+	lockKey := u.buildLockKey(image, metaData)
 	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return []*types.RecordImage{image}, nil

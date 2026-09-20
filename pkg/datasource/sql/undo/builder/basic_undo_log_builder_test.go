@@ -18,11 +18,19 @@
 package builder
 
 import (
+	"context"
+	"database/sql/driver"
+	"errors"
+	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 func TestBuildWhereConditionByPKs(t *testing.T) {
@@ -214,8 +222,133 @@ func TestBuildLockKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lockKeys := builder.buildLockKey2(&tt.records, tt.metaData)
+			lockKeys := builder.buildLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}
+}
+
+// Only database I/O is replaced. Parsing, image building, lock generation
+// and after-image SQL all use production code.
+type legacyBuilderTestConn struct {
+	prepared bool
+	query    string
+	args     []driver.Value
+}
+
+func (c *legacyBuilderTestConn) Prepare(query string) (driver.Stmt, error) {
+	c.prepared, c.query = true, query
+	return &legacyBuilderTestStmt{conn: c}, nil
+}
+func (*legacyBuilderTestConn) Close() error { return nil }
+func (*legacyBuilderTestConn) Begin() (driver.Tx, error) {
+	return nil, errors.New("unexpected Begin")
+}
+
+type legacyBuilderTestStmt struct{ conn *legacyBuilderTestConn }
+
+func (*legacyBuilderTestStmt) Close() error  { return nil }
+func (*legacyBuilderTestStmt) NumInput() int { return -1 }
+func (*legacyBuilderTestStmt) Exec([]driver.Value) (driver.Result, error) {
+	return nil, errors.New("unexpected Exec")
+}
+func (s *legacyBuilderTestStmt) Query(args []driver.Value) (driver.Rows, error) {
+	s.conn.args = append([]driver.Value(nil), args...)
+	return &legacyBuilderTestRows{}, nil
+}
+
+type legacyBuilderTestRows struct{ next int64 }
+
+func (*legacyBuilderTestRows) Columns() []string { return []string{"id"} }
+func (*legacyBuilderTestRows) Close() error      { return nil }
+func (r *legacyBuilderTestRows) Next(dest []driver.Value) error {
+	if r.next == 2 {
+		return io.EOF
+	}
+	if len(dest) != 1 {
+		return fmt.Errorf("unexpected destination length: %d", len(dest))
+	}
+	r.next++
+	dest[0] = r.next
+	return nil
+}
+
+func legacyBuilderTestMeta() types.TableMeta {
+	id := types.ColumnMeta{ColumnName: "id", DatabaseTypeString: "BIGINT"}
+	return types.TableMeta{
+		TableName: "t_user", ColumnNames: []string{"id"},
+		Columns: map[string]types.ColumnMeta{"id": id},
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{id}},
+		},
+	}
+}
+
+func legacyBuilderTestContext(t *testing.T, query string, conn driver.Conn) *types.ExecContext {
+	t.Helper()
+	parsed, err := parser.DoParser(query)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	return &types.ExecContext{
+		Query: query, ParseContext: parsed, Conn: conn, DBType: types.DBTypeMySQL,
+		TxCtx:       &types.TransactionContext{LockKeys: map[string]struct{}{}},
+		MetaDataMap: map[string]types.TableMeta{"t_user": legacyBuilderTestMeta()},
+	}
+}
+
+func testBuilderBeforeImageParameters(t *testing.T, builder undo.UndoLogBuilder, query string, values []driver.Value) {
+	t.Helper()
+	log.Init()
+	for _, named := range []bool{true, false} {
+		mode := "Values"
+		if named {
+			mode = "NamedValues"
+		}
+		t.Run(mode, func(t *testing.T) {
+			conn := &legacyBuilderTestConn{}
+			execCtx := legacyBuilderTestContext(t, query, conn)
+			if len(execCtx.ParseContext.MultiStmt) > 0 {
+				assert.Nil(t, execCtx.ParseContext.UpdateStmt)
+				assert.Nil(t, execCtx.ParseContext.DeleteStmt)
+			}
+			if named {
+				for i, value := range values {
+					execCtx.NamedValues = append(execCtx.NamedValues,
+						driver.NamedValue{Ordinal: i + 1, Value: value})
+				}
+			} else {
+				execCtx.Values = values
+			}
+			images, err := builder.BeforeImage(context.Background(), execCtx)
+			if !assert.NoError(t, err) {
+				return
+			}
+			if assert.Len(t, images, 1) {
+				assert.Equal(t, "t_user", images[0].TableName)
+				assert.Len(t, images[0].Rows, 2)
+			}
+			assert.True(t, conn.prepared)
+			assert.Equal(t, []driver.Value{int64(1), int64(2)}, conn.args)
+		})
+	}
+}
+
+func testBuilderLockPrimaryKeys(t *testing.T, builder undo.UndoLogBuilder, query string) {
+	t.Helper()
+	log.Init()
+	conn := &legacyBuilderTestConn{}
+	execCtx := legacyBuilderTestContext(t, query, conn)
+	images, err := builder.BeforeImage(context.Background(), execCtx)
+	if !assert.NoError(t, err) || !assert.Len(t, images, 1) {
+		return
+	}
+	assert.Len(t, images[0].Rows, 2)
+	for i, row := range images[0].Rows {
+		if assert.Len(t, row.Columns, 1) {
+			assert.Equal(t, int64(i+1), row.Columns[0].Value)
+			assert.Equal(t, types.IndexTypePrimaryKey, row.Columns[0].KeyType)
+		}
+	}
+	assert.Equal(t, map[string]struct{}{"T_USER:1,2": {}}, execCtx.TxCtx.LockKeys)
 }

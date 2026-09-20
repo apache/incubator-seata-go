@@ -92,7 +92,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return nil, err
 	}
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	tableName := updateStmts[0].TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
 
 	image, err := u.buildRecordImages(rows, &metaData)
@@ -106,13 +106,15 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 }
 
 func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	if len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
+	if len(beforeImages) == 0 {
 		return beforeImages, nil
 	}
 	beforeImage := beforeImages[0]
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData := execCtx.MetaDataMap[beforeImage.TableName]
+	if len(beforeImage.Rows) == 0 {
+		return []*types.RecordImage{types.NewEmptyRecordImage(&metaData, execCtx.ParseContext.SQLType)}, nil
+	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
