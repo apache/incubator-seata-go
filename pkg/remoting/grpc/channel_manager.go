@@ -298,6 +298,7 @@ func (g *ChannelManager) registerTm(addr string) error {
 
 	request := &pb.RegisterTMRequestProto{
 		AbstractIdentifyRequest: &pb.AbstractIdentifyRequestProto{
+			AbstractMessage:         &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_REG_CLT},
 			Version:                 constant.SeataVersion,
 			ApplicationId:           conf.ApplicationID,
 			TransactionServiceGroup: conf.TxServiceGroup,
