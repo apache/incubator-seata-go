@@ -245,15 +245,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		log.Errorf("create new resource: %v", err)
 		return nil, err
 	}
-	if dbType == types.DBTypeMySQL {
-		cfg, err := mysql.ParseDSN(dataSourceName)
-		if err != nil {
-			return nil, fmt.Errorf("parse mysql dsn: %w", err)
-		}
-		datasource.RegisterTableCache(types.DBTypeMySQL, mysql2.NewTableMetaInstance(db, cfg))
-	}
-
-	if dbType != types.DBTypeMySQL && d.descriptor.newTableMetaCache != nil {
+	if d.descriptor.newTableMetaCache != nil {
 		datasource.RegisterTableCache(dbType, d.descriptor.newTableMetaCache(db, dbName))
 	}
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
