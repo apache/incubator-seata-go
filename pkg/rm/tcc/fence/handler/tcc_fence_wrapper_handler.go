@@ -293,8 +293,11 @@ func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 		handler.stopping = true
 		handler.lifecycleMutex.Unlock()
 
-		if handler.stopLogCleanTask != nil {
-			close(handler.stopLogCleanTask)
+		handler.lifecycleMutex.Lock()
+		stopLogCleanTask := handler.stopLogCleanTask
+		handler.lifecycleMutex.Unlock()
+		if stopLogCleanTask != nil {
+			close(stopLogCleanTask)
 		}
 		handler.logTaskWg.Wait()
 
