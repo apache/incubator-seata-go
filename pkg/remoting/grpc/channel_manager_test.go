@@ -18,14 +18,17 @@
 package grpc
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/discovery"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
 )
 
@@ -65,6 +68,28 @@ func TestChannelManagerRefreshesServerListFromRegistrySubscription(t *testing.T)
 	startMu.Lock()
 	assert.Equal(t, 2, startCount["127.0.0.1:8091"])
 	startMu.Unlock()
+}
+
+func TestChannelManagerRegisterTMUsesClientRegistrationMessageType(t *testing.T) {
+	config.InitSeataConfig(&config.SeataConfig{
+		ApplicationID:  "test-app",
+		TxServiceGroup: "test-group",
+	})
+
+	var request *pb.RegisterTMRequestProto
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(GetGrpcRemotingClient()), "SendAsyncRequest",
+		func(_ *GrpcRemotingClient, msg interface{}) error {
+			request = msg.(*pb.RegisterTMRequestProto)
+			return nil
+		})
+	defer patches.Reset()
+
+	manager := newTestChannelManager(nil)
+	assert.NoError(t, manager.registerTm("127.0.0.1:8091"))
+	if assert.NotNil(t, request) {
+		assert.Equal(t, pb.MessageTypeProto_TYPE_REG_CLT,
+			request.GetAbstractIdentifyRequest().GetAbstractMessage().GetMessageType())
+	}
 }
 
 func TestChannelManagerFallsBackToLookupWhenRegistryDoesNotSubscribe(t *testing.T) {
