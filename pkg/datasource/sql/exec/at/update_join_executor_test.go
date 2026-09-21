@@ -228,6 +228,115 @@ func TestUpdateJoinBuildBeforeImageSQLAllColumns(t *testing.T) {
 	}
 }
 
+func TestUpdateJoinSelectFieldsUnqualifiedColumns(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })
+	for _, onlyCareUpdateColumns := range []bool{true, false} {
+		undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: onlyCareUpdateColumns})
+		for _, tt := range []struct {
+			name, assignment, metaColumn string
+			wantColumn                   string
+		}{
+			{name: "column exists", assignment: "balance=1", metaColumn: "balance", wantColumn: "balance"},
+			{name: "case insensitive", assignment: "`BaLaNcE`=1", metaColumn: "BALANCE", wantColumn: "BaLaNcE"},
+			{name: "escaped metadata", assignment: "`balance`=1", metaColumn: "`BALANCE`", wantColumn: "balance"},
+			{name: "quote in identifier", assignment: "`display``name`=1", metaColumn: "display`name", wantColumn: "display`name"},
+			{name: "only matching assignment", assignment: "balance=1,enabled=0", metaColumn: "balance", wantColumn: "balance"},
+			{name: "column belongs to another table", assignment: "balance=1", metaColumn: "enabled"},
+			{name: "qualified column belongs to another table", assignment: "d.balance=1", metaColumn: "balance"},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				parsed, err := parser.DoParser("UPDATE account a JOIN detail d ON a.id=d.account_id SET " + tt.assignment)
+				require.NoError(t, err)
+				meta := &types.TableMeta{
+					TableName: "account", ColumnNames: []string{"id", tt.metaColumn},
+					Columns: map[string]types.ColumnMeta{"id": {ColumnName: "id"}, tt.metaColumn: {ColumnName: tt.metaColumn}},
+					Indexs: map[string]types.IndexMeta{"PRIMARY": {
+						IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}},
+					}},
+				}
+				u := NewUpdateJoinExecutor(parsed, &types.ExecContext{DBType: types.DBTypeMySQL, DbVersion: "8.0.36"}, nil).(*updateJoinExecutor)
+				fields, err := u.buildSelectFields(context.Background(), meta, "a", parsed.UpdateStmt.List)
+				require.NoError(t, err)
+				if tt.wantColumn == "" {
+					assert.Empty(t, fields, "an unused table must not become a target just because it has a primary key")
+					query, _, err := u.buildBeforeImageSQL(context.Background(), meta, "a", nil)
+					require.NoError(t, err)
+					assert.Empty(t, query)
+					return
+				}
+				if onlyCareUpdateColumns {
+					require.Len(t, fields, 2)
+					assert.Equal(t, tt.wantColumn, fields[0].Expr.(*ast.ColumnNameExpr).Name.Name.O)
+					assert.Equal(t, "id", fields[1].Expr.(*ast.ColumnNameExpr).Name.Name.O)
+				} else {
+					require.Len(t, fields, 1)
+					assert.Equal(t, "*", fields[0].Expr.(*ast.ColumnNameExpr).Name.Name.O)
+				}
+			})
+		}
+	}
+}
+
+func TestUpdateJoinRejectsSelfJoinsBeforeExecution(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	originalCache := datasource.GetTableCache(types.DBTypeMySQL)
+	t.Cleanup(func() {
+		undo.UndoConfig = originalUndoConfig
+		datasource.RegisterTableCache(types.DBTypeMySQL, originalCache)
+	})
+	for _, onlyCareUpdateColumns := range []bool{true, false} {
+		undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: onlyCareUpdateColumns})
+		for _, tt := range []struct {
+			name, query, dbName, table, aliases string
+		}{
+			{name: "two aliases", query: "UPDATE t a JOIN t b ON a.id=b.id SET a.balance=1", table: "t", aliases: "a and b"},
+			{name: "quoted table", query: "UPDATE `t` a JOIN t b ON a.id=b.id SET a.balance=1", table: "t", aliases: "a and b"},
+			{name: "unaliased table", query: "UPDATE t JOIN t b ON t.id=b.id SET t.balance=1", table: "t", aliases: "t and b"},
+			{name: "nested left join", query: "UPDATE t a JOIN detail d ON a.id=d.id JOIN t b ON a.id=b.id SET d.balance=1", table: "t", aliases: "a and b"},
+			{name: "nested right join", query: "UPDATE detail d JOIN (t a JOIN t b ON a.id=b.id) ON d.id=a.id SET d.balance=1", table: "t", aliases: "a and b"},
+			{name: "same schema", query: "UPDATE db1.t a JOIN db1.t b ON a.id=b.id SET a.balance=1", table: "db1.t", aliases: "a and b"},
+			{name: "default schema", query: "UPDATE t a JOIN db1.t b ON a.id=b.id SET a.balance=1", dbName: "db1", table: "db1.t", aliases: "a and b"},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				parsed, err := parser.DoParser(tt.query)
+				require.NoError(t, err)
+				ctrl := gomock.NewController(t)
+				// No metadata or image-query expectations: rejection must precede beforeImage.
+				datasource.RegisterTableCache(types.DBTypeMySQL, mock.NewMockTableMetaCache(ctrl))
+				txCtx := types.NewTxCtx()
+				u := NewUpdateJoinExecutor(parsed, &types.ExecContext{
+					Query: tt.query, DBName: tt.dbName, DBType: types.DBTypeMySQL,
+					DbVersion: "8.0.36", Conn: mock.NewMockTestDriverConn(ctrl), TxCtx: txCtx,
+				}, nil)
+				called := false
+				result, err := u.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+					called = true
+					return types.NewResult(types.WithResult(driver.RowsAffected(1))), nil
+				})
+				require.EqualError(t, err, "UPDATE JOIN self-joins are not supported: table "+tt.table+" appears as aliases "+tt.aliases)
+				assert.False(t, called, "the business callback must not execute for self-joins")
+				assert.Nil(t, result)
+				assert.True(t, txCtx.RoundImages.IsEmpty())
+				assert.Empty(t, txCtx.LockKeys)
+			})
+		}
+	}
+}
+
+func TestUpdateJoinSelfJoinDetectionDistinguishesSchemas(t *testing.T) {
+	for _, query := range []string{
+		"UPDATE db1.t a JOIN db2.t b ON a.id=b.id SET a.balance=1",
+		"UPDATE t a JOIN db2.t b ON a.id=b.id SET a.balance=1",
+	} {
+		parsed, err := parser.DoParser(query)
+		require.NoError(t, err)
+		u := NewUpdateJoinExecutor(parsed, &types.ExecContext{DBName: "db1"}, nil).(*updateJoinExecutor)
+		_, err = u.parseTableName(parsed.UpdateStmt.TableRefs.TableRefs)
+		require.NoError(t, err, "different schemas must not be reported as a self-join")
+	}
+}
+
 func TestUpdateJoinAfterImages(t *testing.T) {
 	originalUndoConfig := undo.UndoConfig
 	originalCache := datasource.GetTableCache(types.DBTypeMySQL)
@@ -239,6 +348,7 @@ func TestUpdateJoinAfterImages(t *testing.T) {
 	closeErr := errors.New("query rows close failed")
 	for _, tt := range []struct {
 		name, detailPKType              string
+		assignment                      string
 		beforeAccount, beforeDetail     [][]driver.Value
 		afterAccount, afterDetail       [][]driver.Value
 		wantAccountRows, wantDetailRows int
@@ -247,6 +357,21 @@ func TestUpdateJoinAfterImages(t *testing.T) {
 		wantErr                         string
 		wantCause                       error
 	}{
+		{
+			name: "unqualified column belongs to one table", assignment: "balance=balance+1",
+			beforeAccount: [][]driver.Value{{int64(10), int64(42)}},
+			afterAccount:  [][]driver.Value{{int64(11), int64(42)}}, wantAccountRows: 1,
+		},
+		{
+			name: "unqualified column with all columns", assignment: "balance=balance+1", allColumns: true,
+			beforeAccount: [][]driver.Value{{int64(10), int64(42)}},
+			afterAccount:  [][]driver.Value{{int64(11), int64(42)}}, wantAccountRows: 1,
+		},
+		{
+			name: "unused join table with all columns", assignment: "a.balance=a.balance+1", allColumns: true,
+			beforeAccount: [][]driver.Value{{int64(10), int64(42)}},
+			afterAccount:  [][]driver.Value{{int64(11), int64(42)}}, wantAccountRows: 1,
+		},
 		{
 			name:            "multiple targets and reordered rows",
 			beforeAccount:   [][]driver.Value{{int64(10), int64(42)}, {int64(10), int64(43)}},
@@ -366,7 +491,11 @@ func TestUpdateJoinAfterImages(t *testing.T) {
 			cache := mock.NewMockTableMetaCache(ctrl)
 			datasource.RegisterTableCache(types.DBTypeMySQL, cache)
 			const from = "account AS a LEFT JOIN detail AS d ON a.id=d.account_id"
-			const query = "UPDATE account a LEFT JOIN detail d ON a.id=d.account_id SET a.balance=a.balance+1,d.balance=d.balance+1 WHERE a.balance=?"
+			assignment := tt.assignment
+			if assignment == "" {
+				assignment = "a.balance=a.balance+1,d.balance=d.balance+1"
+			}
+			query := "UPDATE account a LEFT JOIN detail d ON a.id=d.account_id SET " + assignment + " WHERE a.balance=?"
 			businessArgs := util.ValueToNamedValue([]driver.Value{int64(10)})
 			updated := false
 			for _, table := range []struct {
@@ -393,7 +522,15 @@ func TestUpdateJoinAfterImages(t *testing.T) {
 					meta.Columns["id"] = id
 				}
 				cache.EXPECT().GetTableMeta(gomock.Any(), gomock.Any(), table.name).Return(meta, nil).AnyTimes()
+				if tt.assignment != "" && table.name == "detail" {
+					delete(meta.Columns, "balance")
+					meta.ColumnNames = []string{"id"}
+					continue // Unused JOIN tables must not trigger either image query.
+				}
 				fields := table.alias + ".balance," + table.alias + ".id"
+				if tt.assignment == "balance=balance+1" {
+					fields = "balance," + table.alias + ".id"
+				}
 				beforeSQL := "SELECT SQL_NO_CACHE " + fields + " FROM " + from + " WHERE a.balance=? GROUP BY " + table.alias + ".id FOR UPDATE"
 				if tt.allColumns {
 					beforeSQL = "SELECT SQL_NO_CACHE `" + table.alias + "`.`balance`,`" + table.alias + "`.`id` FROM `account` AS `a` LEFT JOIN `detail` AS `d` ON `a`.`id`=`d`.`account_id` WHERE `a`.`balance`=? GROUP BY `" + table.alias + "`.`id` FOR UPDATE"
@@ -691,7 +828,8 @@ func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
 			executor := NewUpdateJoinExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
-			tableNames := executor.(*updateJoinExecutor).parseTableName(c.UpdateStmt.TableRefs.TableRefs)
+			tableNames, err := executor.(*updateJoinExecutor).parseTableName(c.UpdateStmt.TableRefs.TableRefs)
+			require.NoError(t, err)
 			for tbName, tableAliases := range tableNames {
 				query, args, err := executor.(*updateJoinExecutor).buildBeforeImageSQL(context.Background(), MetaDataMap[tbName], tableAliases, util.ValueToNamedValue(tt.sourceQueryArgs))
 				assert.Nil(t, err)

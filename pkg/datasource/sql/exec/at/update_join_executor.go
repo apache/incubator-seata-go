@@ -76,7 +76,11 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 	}()
 
 	if u.isAstStmtValid() {
-		u.tableAliasesMap = u.parseTableName(u.parserCtx.UpdateStmt.TableRefs.TableRefs)
+		tableAliases, err := u.parseTableName(u.parserCtx.UpdateStmt.TableRefs.TableRefs)
+		if err != nil {
+			return nil, err
+		}
+		u.tableAliasesMap = tableAliases
 	}
 
 	beforeImages, err := u.beforeImage(ctx)
@@ -377,20 +381,47 @@ func findUpdateJoinTable(node ast.ResultSetNode, tableName, tableAlias string) *
 	return nil
 }
 
-func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) map[string]string {
-	tableNames := make(map[string]string, 0)
-	if item, ok := joinMate.Left.(*ast.Join); ok {
-		tableNames = u.parseTableName(item)
-	} else {
-		leftTableSource := joinMate.Left.(*ast.TableSource)
-		leftName := leftTableSource.Source.(*ast.TableName)
-		tableNames[leftName.Name.O] = leftTableSource.AsName.O
+func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) (map[string]string, error) {
+	tableNames := make(map[string]string)
+	seen := make(map[[2]string]string)
+	var visit func(ast.ResultSetNode) error
+	visit = func(node ast.ResultSetNode) error {
+		switch node := node.(type) {
+		case *ast.Join:
+			if err := visit(node.Left); err != nil {
+				return err
+			}
+			return visit(node.Right)
+		case *ast.TableSource:
+			table, ok := node.Source.(*ast.TableName)
+			if !ok {
+				return visit(node.Source)
+			}
+			schema := table.Schema.O
+			if schema == "" {
+				schema = u.execContext.DBName
+			}
+			key := [2]string{schema, table.Name.O}
+			alias := node.AsName.O
+			if alias == "" {
+				alias = table.Name.O
+			}
+			if previousAlias, exists := seen[key]; exists {
+				name := table.Name.O
+				if schema != "" {
+					name = schema + "." + name
+				}
+				return fmt.Errorf("UPDATE JOIN self-joins are not supported: table %s appears as aliases %s and %s", name, previousAlias, alias)
+			}
+			seen[key] = alias
+			tableNames[table.Name.O] = node.AsName.O
+		}
+		return nil
 	}
-
-	rightTableSource := joinMate.Right.(*ast.TableSource)
-	rightName := rightTableSource.Source.(*ast.TableName)
-	tableNames[rightName.Name.O] = rightTableSource.AsName.O
-	return tableNames
+	if err := visit(joinMate); err != nil {
+		return nil, err
+	}
+	return tableNames, nil
 }
 
 // build group by condition which used for removing duplicate row in select join sql
