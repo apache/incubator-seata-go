@@ -102,11 +102,6 @@ func TestGetBusinessActionContextAllowsEmptyAndValidInput(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, businessActionContext)
 	}
-
-	oversized := append([]byte(`{"actionContext":{"key":"`), bytes.Repeat([]byte("x"), maxTCCApplicationDataSize)...)
-	oversized = append(oversized, []byte(`"}}`)...)
-	_, err := manager.getBusinessActionContext("xid", 1, "action", oversized)
-	assert.Error(t, err)
 }
 
 func FuzzGetBusinessActionContext(f *testing.F) {
@@ -183,6 +178,32 @@ func TestBranchPhaseRejectsMalformedApplicationDataBeforeCallback(t *testing.T) 
 	assert.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoRollbackFailedUnretryable), rollbackStatus)
 	assert.Zero(t, action.commitCalls.Load())
 	assert.Zero(t, action.rollbackCalls.Load())
+}
+
+func TestBranchPhaseAllowsLargeApplicationData(t *testing.T) {
+	action := &malformedInputTCCAction{}
+	resource, err := ParseTCCResource(action)
+	assert.NoError(t, err)
+	manager := GetTCCResourceManagerInstance()
+	manager.resourceManagerMap.Store(resource.GetResourceId(), resource)
+	t.Cleanup(func() { manager.resourceManagerMap.Delete(resource.GetResourceId()) })
+
+	applicationData := append([]byte(`{"actionContext":{"key":"`), bytes.Repeat([]byte("x"), 1<<20)...)
+	applicationData = append(applicationData, []byte(`"}}`)...)
+
+	commitStatus, err := manager.BranchCommit(context.Background(), rm.BranchResource{
+		Xid: "xid", BranchId: 1, ResourceId: resource.GetResourceId(), ApplicationData: applicationData,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoCommitted), commitStatus)
+
+	rollbackStatus, err := manager.BranchRollback(context.Background(), rm.BranchResource{
+		Xid: "xid", BranchId: 1, ResourceId: resource.GetResourceId(), ApplicationData: applicationData,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, branch.BranchStatus(branch.BranchStatusPhasetwoRollbacked), rollbackStatus)
+	assert.EqualValues(t, 1, action.commitCalls.Load())
+	assert.EqualValues(t, 1, action.rollbackCalls.Load())
 }
 
 func TestBranchPhaseMissingResourceReturnsFailureStatus(t *testing.T) {

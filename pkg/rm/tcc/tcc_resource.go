@@ -94,8 +94,6 @@ type TCCResourceManager struct {
 	resourceManagerMap sync.Map
 }
 
-const maxTCCApplicationDataSize = 1 << 20
-
 // BranchRegister register transaction branch
 func (t *TCCResourceManager) BranchRegister(ctx context.Context, param rm.BranchRegisterParam) (int64, error) {
 	return t.rmRemoting.BranchRegister(param)
@@ -158,9 +156,6 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) (*tm.BusinessActionContext, error) {
 	actionContextMap := make(map[string]interface{}, 2)
 	if len(applicationData) > 0 {
-		if len(applicationData) > maxTCCApplicationDataSize {
-			return nil, fmt.Errorf("decode TCC applicationData: size %d exceeds limit %d", len(applicationData), maxTCCApplicationDataSize)
-		}
 		trimmed := bytes.TrimLeft(applicationData, " \t\r\n")
 		var tccContext map[string]interface{}
 		if err := json.Unmarshal(trimmed, &tccContext); err != nil {
