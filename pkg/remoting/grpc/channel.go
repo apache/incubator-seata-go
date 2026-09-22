@@ -26,6 +26,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"google.golang.org/grpc"
@@ -132,6 +133,9 @@ func (c *Channel) reconnect(client pb.SeataServiceClient) error {
 			}
 			c.registered.Store(true)
 		}
+	}
+	if err = rm.GetRmCacheInstance().RegisterCachedResources(); err != nil {
+		return err
 	}
 
 	return nil

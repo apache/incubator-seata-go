@@ -18,6 +18,8 @@
 package rm
 
 import (
+	"errors"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -25,6 +27,45 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 )
+
+func TestResourceManagerCache_RegisterCachedResources(t *testing.T) {
+	ctl := gomock.NewController(t)
+	resourceManager := NewMockResourceManager(ctl)
+	resource1 := NewMockResource(ctl)
+	resource2 := NewMockResource(ctl)
+	resources := &sync.Map{}
+	resources.Store("resource-1", resource1)
+	resources.Store("resource-2", resource2)
+
+	resourceManager.EXPECT().GetCachedResources().Return(resources)
+	resourceManager.EXPECT().RegisterResource(resource1).Return(nil)
+	resourceManager.EXPECT().RegisterResource(resource2).Return(nil)
+
+	cache := &ResourceManagerCache{}
+	cache.resourceManagerMap.Store(branch.BranchTypeTCC, resourceManager)
+
+	assert.NoError(t, cache.RegisterCachedResources())
+}
+
+func TestResourceManagerCache_RegisterCachedResourcesContinuesAfterError(t *testing.T) {
+	ctl := gomock.NewController(t)
+	resourceManager := NewMockResourceManager(ctl)
+	resource1 := NewMockResource(ctl)
+	resource2 := NewMockResource(ctl)
+	resources := &sync.Map{}
+	resources.Store("resource-1", resource1)
+	resources.Store("resource-2", resource2)
+	registrationErr := errors.New("registration failed")
+
+	resourceManager.EXPECT().GetCachedResources().Return(resources)
+	resourceManager.EXPECT().RegisterResource(resource1).Return(registrationErr)
+	resourceManager.EXPECT().RegisterResource(resource2).Return(nil)
+
+	cache := &ResourceManagerCache{}
+	cache.resourceManagerMap.Store(branch.BranchTypeTCC, resourceManager)
+
+	assert.ErrorIs(t, cache.RegisterCachedResources(), registrationErr)
+}
 
 func TestGetRmCacheInstance(t *testing.T) {
 	ctl := gomock.NewController(t)

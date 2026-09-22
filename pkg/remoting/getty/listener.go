@@ -28,6 +28,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/processor"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -68,6 +69,10 @@ func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 			log.Errorf("OnOpen error: {%#v}", err.Error())
 			sessionManager.releaseSession(session)
 			return
+		}
+		if err := rm.GetRmCacheInstance().RegisterCachedResources(); err != nil {
+			log.Errorf("register cached RM resources error: {%#v}", err)
+			sessionManager.releaseSession(session)
 		}
 	}()
 

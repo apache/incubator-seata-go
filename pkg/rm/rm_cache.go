@@ -18,6 +18,7 @@
 package rm
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -58,4 +59,38 @@ func (d *ResourceManagerCache) GetResourceManager(branchType branch.BranchType) 
 		panic(fmt.Sprintf("No ResourceManagerCache for BranchType: %v", branchType))
 	}
 	return rm.(ResourceManager)
+}
+
+// RegisterCachedResources re-registers all resources with their resource managers.
+// It is used after a remoting session is recreated because TC loses the old
+// resource-to-session association when the connection closes.
+func (d *ResourceManagerCache) RegisterCachedResources() error {
+	var registrationErrs []error
+
+	d.resourceManagerMap.Range(func(_, value interface{}) bool {
+		resourceManager, ok := value.(ResourceManager)
+		if !ok || resourceManager == nil {
+			registrationErrs = append(registrationErrs, fmt.Errorf("invalid resource manager cache entry: %T", value))
+			return true
+		}
+
+		resources := resourceManager.GetCachedResources()
+		if resources == nil {
+			return true
+		}
+		resources.Range(func(_, value interface{}) bool {
+			resource, ok := value.(Resource)
+			if !ok || resource == nil {
+				registrationErrs = append(registrationErrs, fmt.Errorf("invalid cached resource: %T", value))
+				return true
+			}
+			if err := resourceManager.RegisterResource(resource); err != nil {
+				registrationErrs = append(registrationErrs, err)
+			}
+			return true
+		})
+		return true
+	})
+
+	return errors.Join(registrationErrs...)
 }

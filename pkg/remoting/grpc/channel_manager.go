@@ -33,6 +33,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"google.golang.org/grpc"
@@ -226,6 +227,11 @@ func (g *ChannelManager) startGrpcChannel(instance *discovery.ServiceInstance, e
 	}
 	if err = g.registerTm(addr); err != nil {
 		log.Errorf("%v", err)
+		g.releaseChannelByAddr(addr)
+		return
+	}
+	if err = rm.GetRmCacheInstance().RegisterCachedResources(); err != nil {
+		log.Errorf("register cached RM resources error: {%v}", err)
 		g.releaseChannelByAddr(addr)
 	}
 }
