@@ -496,6 +496,9 @@ func (c *XAConn) cleanXABranchContext() {
 }
 
 func (c *XAConn) Rollback(ctx context.Context) error {
+	var rollbackErr error
+	var branchID uint64
+
 	if c.autoCommit {
 		return nil
 	}
@@ -503,6 +506,9 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	if !c.xaActive || c.xaBranchXid == nil {
 		return fmt.Errorf("should NOT rollback on an inactive session")
 	}
+
+	// Capture the branch ID before cleanup can clear the branch XID.
+	branchID = c.xaBranchXid.GetBranchId()
 
 	if !c.rollBacked {
 		// First end the XA branch with TMFail
@@ -512,24 +518,31 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 				log.Infof("XA branch already ended, continuing with rollback for xid: %s", c.txCtx.XID)
 				// Already ended, continue with rollback
 			} else {
-				return c.rollbackErrorHandle()
+				rollbackErr = err
 			}
 		}
 
 		// Then perform XA rollback
-		if c.XaRollback(ctx, c.xaBranchXid) != nil {
-			c.cleanXABranchContext()
-			return c.rollbackErrorHandle()
+		if err := c.XaRollback(ctx, c.xaBranchXid); err != nil {
+			if rollbackErr != nil {
+				rollbackErr = errors.Join(rollbackErr, err)
+			} else {
+				rollbackErr = err
+			}
 		}
 		c.rollBacked = true
 	}
 	c.cleanXABranchContext()
 
+	if rollbackErr != nil {
+		return c.rollbackErrorHandle(branchID, rollbackErr)
+	}
+
 	return nil
 }
 
-func (c *XAConn) rollbackErrorHandle() error {
-	return fmt.Errorf("failed to end(TMFAIL) xa branch on [%v] - [%v]", c.txCtx.XID, c.xaBranchXid.GetBranchId())
+func (c *XAConn) rollbackErrorHandle(branchID uint64, cause error) error {
+	return fmt.Errorf("failed to rollback xa branch on [%v] - [%v]: %w", c.txCtx.XID, branchID, cause)
 }
 
 func (c *XAConn) Commit(ctx context.Context) error {

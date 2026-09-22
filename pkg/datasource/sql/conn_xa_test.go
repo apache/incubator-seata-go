@@ -130,6 +130,16 @@ type fakePreparedStmt struct {
 	query string
 }
 
+type closeTrackingDriverConn struct {
+	driver.Conn
+	closes *int32
+}
+
+func (c *closeTrackingDriverConn) Close() error {
+	atomic.AddInt32(c.closes, 1)
+	return c.Conn.Close()
+}
+
 func (s *fakePreparedStmt) Close() error  { return nil }
 func (s *fakePreparedStmt) NumInput() int { return -1 }
 
@@ -299,6 +309,29 @@ func TestXAConn_ShouldBeHeld(t *testing.T) {
 			assert.Equal(t, tt.want, conn.ShouldBeHeld())
 		})
 	}
+}
+
+func TestXAConn_CloseDelegatesPreparedConnectionToPhysicalConnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	baseMockConn(mockConn)
+	var closes int32
+	xaConn := &XAConn{
+		Conn: &Conn{
+			res: &DBResource{dbType: types.DBTypePostgreSQL},
+			targetConn: &closeTrackingDriverConn{
+				Conn:   mockConn,
+				closes: &closes,
+			},
+		},
+		xaBranchXid: XaIdBuild("xid", 123),
+	}
+
+	assert.NoError(t, xaConn.Close())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&closes),
+		"closing an invalidated XA connection must close the physical connection")
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
@@ -603,6 +636,45 @@ func TestXAConn_Rollback_PreparedBranchStillRollsBack(t *testing.T) {
 	assert.Error(t, err, "expected error to trigger rollback path")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&rollbackSeen),
 		"XA ROLLBACK must run so a PREPARED branch releases its locks")
+}
+
+func TestXAConn_RollbackErrorAfterContextCancellationDoesNotPanic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		simulateExecContextError = nil
+		ctrl.Finish()
+		CleanTxHooks()
+	}()
+
+	xaConn, mockMgr := newMockXAConn(t, ctrl, 123)
+	mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+
+	ctx, cancel := context.WithCancel(tm.InitSeataContext(context.Background()))
+	tm.SetXID(ctx, uuid.New().String())
+
+	tx, err := xaConn.BeginTx(ctx, driver.TxOptions{})
+	assert.NoError(t, err)
+	cancel()
+
+	simulateExecContextError = func(query string) error {
+		upper := strings.ToUpper(strings.TrimSpace(query))
+		switch {
+		case strings.HasPrefix(upper, "XA ROLLBACK"):
+			return errors.New("conn closed")
+		case strings.HasPrefix(upper, "XA "):
+			return nil
+		}
+		return nil
+	}
+
+	assert.NotPanics(t, func() {
+		err := tx.Rollback()
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "rollback xa branch")
+			assert.Contains(t, err.Error(), "123")
+		}
+		assert.Error(t, tx.Rollback(), "a repeated rollback must return a terminal state error")
+	})
 }
 
 func TestXAConn_ExecContext_AutoCommitReportsPhaseOneDone(t *testing.T) {
