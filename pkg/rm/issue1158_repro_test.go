@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package sql
+package rm
 
 import (
 	"testing"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
-	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
-func registerResourceManagerForTest(t *testing.T, resourceManager rm.ResourceManager) {
-	t.Helper()
-
-	prevMgr, hasPrevMgr := currentResourceManagerForTest(resourceManager.GetBranchType())
-	rm.GetRmCacheInstance().RegisterResourceManager(resourceManager)
-
-	t.Cleanup(func() {
-		if hasPrevMgr {
-			rm.GetRmCacheInstance().RegisterResourceManager(prevMgr)
-			return
+func TestUnknownBranchTypeReturnsErrorInsteadOfPanicking(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("unknown branch type panicked: %v", r)
 		}
-		rm.GetRmCacheInstance().UnregisterResourceManager(resourceManager.GetBranchType())
-	})
-}
-
-func currentResourceManagerForTest(branchType branch.BranchType) (rm.ResourceManager, bool) {
-	return rm.GetRmCacheInstance().FindResourceManager(branchType)
+	}()
+	if got := GetRmCacheInstance().GetResourceManager(branch.BranchType(99)); got != nil {
+		t.Fatalf("unexpected resource manager: %T", got)
+	}
 }

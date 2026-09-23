@@ -166,12 +166,10 @@ func (r *rmDeleteUndoLogProcessor) batchDeleteByLogCreated(ctx context.Context, 
 	return nil
 }
 
-func safeGetResourceManager(bt branch.BranchType) (mgr rm.ResourceManager, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("resource manager not registered for branch type %v: %v", bt, r)
-		}
-	}()
-	mgr = rm.GetRmCacheInstance().GetResourceManager(bt)
-	return
+func safeGetResourceManager(bt branch.BranchType) (rm.ResourceManager, error) {
+	mgr, ok := rm.GetRmCacheInstance().FindResourceManager(bt)
+	if !ok || mgr == nil {
+		return nil, fmt.Errorf("resource manager not registered for branch type %v", bt)
+	}
+	return mgr, nil
 }

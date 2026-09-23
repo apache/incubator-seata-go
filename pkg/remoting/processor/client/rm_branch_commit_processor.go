@@ -19,6 +19,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -71,7 +72,19 @@ func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rp
 		Xid:             xid,
 	}
 
-	status, err := rm.GetRmCacheInstance().GetResourceManager(branch.BranchType(request.AbstractBranchEndRequest.BranchType)).BranchCommit(ctx, branchResource)
+	branchType := branch.BranchType(request.AbstractBranchEndRequest.BranchType)
+	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(branchType)
+	if !ok {
+		errMsg := resourceManagerNotFoundMsg(branchType)
+		log.Errorf("branch commit error: %s", errMsg)
+		err := grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedGrpcBranchCommitResponse(xid, branchID, errMsg))
+		if err != nil {
+			log.Errorf("send branch commit response error: {%#v}", err.Error())
+			return err
+		}
+		return nil
+	}
+	status, err := resourceManager.BranchCommit(ctx, branchResource)
 	if err != nil {
 		log.Errorf("branch commit error: %s", err.Error())
 		return err
@@ -129,7 +142,18 @@ func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, r
 		Xid:             xid,
 	}
 
-	status, err := rm.GetRmCacheInstance().GetResourceManager(request.BranchType).BranchCommit(ctx, branchResource)
+	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(request.BranchType)
+	if !ok {
+		errMsg := resourceManagerNotFoundMsg(request.BranchType)
+		log.Errorf("branch commit error: %s", errMsg)
+		err := getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedBranchCommitResponse(xid, branchID, errMsg))
+		if err != nil {
+			log.Errorf("send branch commit response error: {%#v}", err.Error())
+			return err
+		}
+		return nil
+	}
+	status, err := resourceManager.BranchCommit(ctx, branchResource)
 	if err != nil {
 		log.Errorf("branch commit error: %s", err.Error())
 		return err
@@ -169,4 +193,38 @@ func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, r
 	}
 	log.Infof("send branch commit success: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
 	return nil
+}
+
+func resourceManagerNotFoundMsg(branchType branch.BranchType) string {
+	return fmt.Sprintf("No ResourceManager for BranchType: %v", branchType)
+}
+
+func newFailedBranchCommitResponse(xid string, branchID int64, errMsg string) message.BranchCommitResponse {
+	return message.BranchCommitResponse{
+		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        errMsg,
+				},
+			},
+			Xid:      xid,
+			BranchId: branchID,
+		},
+	}
+}
+
+func newFailedGrpcBranchCommitResponse(xid string, branchID int64, errMsg string) *pb.BranchCommitResponseProto {
+	return &pb.BranchCommitResponseProto{
+		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
+			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+				AbstractResultMessage: &pb.AbstractResultMessageProto{
+					ResultCode: pb.ResultCodeProto_Failed,
+					Msg:        errMsg,
+				},
+			},
+			Xid:      xid,
+			BranchId: branchID,
+		},
+	}
 }

@@ -55,7 +55,5 @@ func TestResourceManagerCache_UnregisterResourceManager(t *testing.T) {
 
 	cache.UnregisterResourceManager(branch.BranchTypeSAGA)
 
-	assert.Panics(t, func() {
-		cache.GetResourceManager(branch.BranchTypeSAGA)
-	})
+	assert.Nil(t, cache.GetResourceManager(branch.BranchTypeSAGA))
 }
