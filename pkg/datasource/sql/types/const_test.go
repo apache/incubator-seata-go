@@ -190,6 +190,12 @@ func TestMySQLDefCodeConstants(t *testing.T) {
 
 func TestXAErrorCodeConstants(t *testing.T) {
 	// Test XA error code constants
+	assert.Equal(t, 1397, ErrCodeXAER_NOTA)
+	assert.Equal(t, 1398, ErrCodeXAER_INVAL)
 	assert.Equal(t, 1399, ErrCodeXAER_RMFAIL_IDLE)
-	assert.Equal(t, 1400, ErrCodeXAER_INVAL)
+	assert.Equal(t, 1400, ErrCodeXAER_OUTSIDE)
+	assert.Equal(t, 1401, ErrCodeXAER_RMERR)
+	assert.Equal(t, 1402, ErrCodeXA_RBROLLBACK)
+	assert.Equal(t, 1613, ErrCodeXA_RBTIMEOUT)
+	assert.Equal(t, 1614, ErrCodeXA_RBDEADLOCK)
 }

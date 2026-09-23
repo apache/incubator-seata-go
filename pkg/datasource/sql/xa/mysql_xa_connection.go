@@ -79,6 +79,34 @@ func (c *MysqlXAErrorClassifier) IsAlreadyEnded(err error) bool {
 	return false
 }
 
+// ClassifyPhaseTwoError maps MySQL XA errors to operation-aware outcomes.
+// XAER_NOTA is ambiguous for commit because the XID may have committed, rolled
+// back, or never existed. For rollback, an absent XID already satisfies the
+// requested postcondition and is therefore an idempotent success.
+func (c *MysqlXAErrorClassifier) ClassifyPhaseTwoError(
+	operation PhaseTwoOperation,
+	err error,
+) PhaseTwoErrorClassification {
+	var mysqlErr *mysql.MySQLError
+	if !errors.As(err, &mysqlErr) {
+		return PhaseTwoRetryable
+	}
+
+	switch mysqlErr.Number {
+	case types.ErrCodeXA_RBROLLBACK, types.ErrCodeXA_RBTIMEOUT, types.ErrCodeXA_RBDEADLOCK:
+		return PhaseTwoAlreadyRolledBack
+	case types.ErrCodeXAER_NOTA:
+		if operation == PhaseTwoRollback {
+			return PhaseTwoAlreadyRolledBack
+		}
+		return PhaseTwoRetryable
+	case types.ErrCodeXAER_INVAL, types.ErrCodeXAER_OUTSIDE:
+		return PhaseTwoUnretryable
+	default:
+		return PhaseTwoRetryable
+	}
+}
+
 // MysqlXAConn implements XAResource for MySQL using native XA SQL statements.
 type MysqlXAConn struct {
 	driver.Conn
