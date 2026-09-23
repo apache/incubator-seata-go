@@ -200,6 +200,9 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
 				return message.GlobalCommitResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusCommitted,
 					},
 				}, nil
@@ -291,6 +294,9 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
 				return message.GlobalRollbackResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusRollbacked,
 					},
 				}, nil
