@@ -125,6 +125,14 @@ func (db *DBResource) GetResourceGroupId() string {
 }
 
 func (db *DBResource) init() {
+	if db.dbType == types.DBTypeOracle {
+		db.shouldBeHeld = true
+		return
+	}
+	if db.dbType != types.DBTypeMySQL && db.dbType != types.DBTypeMARIADB {
+		return
+	}
+
 	ctx := context.Background()
 	conn, err := db.connector.Connect(ctx)
 	if err != nil {
