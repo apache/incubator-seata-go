@@ -699,7 +699,9 @@ func TestATConn_PostgreSQLSelectForUpdateInTxUsesRealExecutor(t *testing.T) {
 
 	rows, err := tx.QueryContext(context.Background(), "SELECT id,name FROM t_user WHERE id = $1 FOR UPDATE", int64(1))
 	assert.NoError(t, err)
-	assert.NoError(t, rows.Close())
+	defer func() {
+		assert.NoError(t, rows.Close())
+	}()
 	assert.Contains(t, queryLog, "SELECT id,name FROM t_user WHERE id = $1 FOR UPDATE")
 	assert.NoError(t, tx.Rollback())
 }
@@ -1092,7 +1094,7 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			var primaryErr error = errors.New(name)
+			primaryErr := errors.New(name)
 			localTx := mock.NewMockTestDriverTx(ctrl)
 			var cleanupErr error
 			expectedOutcome := atCommitOutcomeCommitUnknown

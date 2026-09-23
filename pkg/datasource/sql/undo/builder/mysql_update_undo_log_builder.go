@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 
@@ -106,7 +106,7 @@ func (u *MySQLUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return []*types.RecordImage{{}}, nil
 	}
 
-	if beforeImages == nil || len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
+	if len(beforeImages) == 0 || len(beforeImages[0].Rows) == 0 {
 		return beforeImages, nil
 	}
 

@@ -964,7 +964,7 @@ func (s *StateLogStore) deserializeStateMachineParamsAndException(stateMachineIn
 	}
 
 	serializedError := stateMachineInstance.SerializedError().([]byte)
-	if serializedError != nil && len(serializedError) > 0 {
+	if len(serializedError) > 0 {
 		deserializedError, err := s.errorSerializer.Deserialize(serializedError)
 		if err != nil {
 			return err

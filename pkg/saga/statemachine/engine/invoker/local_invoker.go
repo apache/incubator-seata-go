@@ -148,7 +148,7 @@ func (l *LocalServiceInvoker) resolveParameters(input []any, methodType reflect.
 }
 
 func (l *LocalServiceInvoker) convertParam(value any, targetType reflect.Type) (any, error) {
-	if targetType.Kind() == reflect.Ptr {
+	if targetType.Kind() == reflect.Pointer {
 		elemType := targetType.Elem()
 		instance := reflect.New(elemType).Interface()
 		jsonData, err := l.jsonParser.Marshal(value)
