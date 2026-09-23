@@ -399,24 +399,36 @@ func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.T
 	if tableAliases == "" {
 		tableName = tableMeta.TableName
 	}
-	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, column := range inUseFields {
-			tn := column.Column.Table.O
-			if tn != "" && tn != tableName {
+	for _, column := range inUseFields {
+		tn := column.Column.Table.O
+		if tn != "" && tn != tableName {
+			continue
+		}
+		if tn == "" {
+			found := false
+			for name := range tableMeta.Columns {
+				if strings.EqualFold(util.DelEscape(name, types.DBTypeMySQL), util.DelEscape(column.Column.Name.O, types.DBTypeMySQL)) {
+					found = true
+					break
+				}
+			}
+			if !found {
 				continue
 			}
-
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: column.Column,
-				},
-			})
 		}
 
-		if len(fields) == 0 {
-			return fields, nil
-		}
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: column.Column,
+			},
+		})
+	}
 
+	if len(fields) == 0 {
+		return fields, nil
+	}
+
+	if undo.UndoConfig.OnlyCareUpdateColumns {
 		// select indexes columns
 		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
 			fields = append(fields, &ast.SelectField{
@@ -435,7 +447,7 @@ func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.T
 			})
 		}
 	} else {
-		fields = append(fields, &ast.SelectField{
+		fields = append(fields[:0], &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: &ast.ColumnName{
 					Name: model.CIStr{
