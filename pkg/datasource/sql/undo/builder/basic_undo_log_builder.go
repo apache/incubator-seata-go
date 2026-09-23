@@ -18,7 +18,6 @@
 package builder
 
 import (
-	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -249,39 +248,6 @@ func (b *BasicUndoLogBuilder) buildPKParams(rows []types.RowImage, pkNameList []
 }
 
 // the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMeta) string {
-	var (
-		lockKeys      bytes.Buffer
-		filedSequence int
-	)
-	lockKeys.WriteString(strings.ToUpper(meta.TableName))
-	lockKeys.WriteString(":")
-
-	pks := b.GetScanSlice(meta.GetPrimaryKeyOnlyName(), &meta)
-	for {
-		err := rows.Next(pks)
-		if err == io.EOF {
-			break
-		}
-
-		if filedSequence > 0 {
-			lockKeys.WriteString(",")
-		}
-
-		pkSplitIndex := 0
-		for _, value := range pks {
-			if pkSplitIndex > 0 {
-				lockKeys.WriteString("_")
-			}
-			lockKeys.WriteString(fmt.Sprintf("%v", value))
-			pkSplitIndex++
-		}
-		filedSequence++
-	}
-	return lockKeys.String()
-}
-
-// the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (b *BasicUndoLogBuilder) buildLockKey2(records *types.RecordImage, meta types.TableMeta) string {
+func (b *BasicUndoLogBuilder) buildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 	return util.BuildLockKey(records, meta)
 }
