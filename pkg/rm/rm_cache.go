@@ -20,6 +20,7 @@ package rm
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -69,7 +70,7 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 
 	d.resourceManagerMap.Range(func(_, value interface{}) bool {
 		resourceManager, ok := value.(ResourceManager)
-		if !ok || resourceManager == nil {
+		if !ok || isNilInterface(resourceManager) {
 			registrationErrs = append(registrationErrs, fmt.Errorf("invalid resource manager cache entry: %T", value))
 			return true
 		}
@@ -78,12 +79,13 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 		if resources == nil {
 			return true
 		}
-		resources.Range(func(_, value interface{}) bool {
-			resource, ok := value.(Resource)
-			if !ok || resource == nil {
-				registrationErrs = append(registrationErrs, fmt.Errorf("invalid cached resource: %T", value))
+		resources.Range(func(_, resourceValue interface{}) bool {
+			resource, ok := resourceValue.(Resource)
+			if !ok || isNilInterface(resource) {
+				registrationErrs = append(registrationErrs, fmt.Errorf("invalid cached resource: %T", resourceValue))
 				return true
 			}
+			// TODO: Merge resource IDs into one RegisterRMRequest to avoid one RPC round-trip per resource.
 			if err := resourceManager.RegisterResource(resource); err != nil {
 				registrationErrs = append(registrationErrs, err)
 			}
@@ -93,4 +95,18 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 	})
 
 	return errors.Join(registrationErrs...)
+}
+
+func isNilInterface(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
