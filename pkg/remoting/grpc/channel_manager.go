@@ -227,6 +227,7 @@ func (g *ChannelManager) startGrpcChannel(instance *discovery.ServiceInstance, e
 	if err = g.registerTm(addr); err != nil {
 		log.Errorf("%v", err)
 		g.releaseChannelByAddr(addr)
+		return
 	}
 }
 
