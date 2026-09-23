@@ -136,7 +136,10 @@ func (g *grpcClientHandler) StartReceiveLoop(ctx context.Context, c *Channel) {
 				return
 			}
 
+			c.wg.Add(1)
 			go func() {
+				defer c.wg.Done()
+
 				rpcMessage, err := Decode(msg)
 				if err != nil {
 					log.Errorf("Decode failed cause %v", err)
