@@ -98,24 +98,24 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 		return nil, fmt.Errorf("session is closed")
 	}
-	// The future is owned by whoever waits for it. sendAsync clears it on every
-	// path that ends here; the callback path is cleared by syncCallback, since
-	// an asynchronous callback returns straight away and the wait happens in
-	// the goroutine it starts.
-	resp := message.NewMessageFuture(msg)
-	g.futures.Store(msg.ID, resp)
+	// Only requests with a callback wait for a response. A callback-less response
+	// may reuse the ID of an in-flight request, so it must not touch futures.
+	var resp *message.MessageFuture
+	if callback != nil {
+		resp = message.NewMessageFuture(msg)
+		g.futures.Store(msg.ID, resp)
+	}
 	_, _, err = session.WritePkg(msg, time.Duration(0))
 	if err != nil {
-		g.futures.Delete(msg.ID)
+		if resp != nil {
+			g.futures.Delete(msg.ID)
+		}
 		log.Errorf("send message: %#v, session: %s", msg, session.Stat())
 		return nil, err
 	}
 	if callback != nil {
 		return callback(msg, resp)
 	}
-	// Nothing is going to wait for this one, so it would stay in the map for
-	// the lifetime of the process.
-	g.futures.Delete(msg.ID)
 	return nil, nil
 }
 

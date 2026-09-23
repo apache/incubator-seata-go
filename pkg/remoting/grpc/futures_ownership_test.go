@@ -128,7 +128,11 @@ func TestSendAsyncRemovesFutureOnEncodeError(t *testing.T) {
 	// sent. It used to panic there instead, with the future already stored.
 	msg := message.RpcMessage{ID: 7, HeadMap: map[string]string{}, Body: "not a proto message"}
 
-	if _, err := remoting.sendAsync(openChannel(t), msg, nil); err == nil {
+	callback := func(message.RpcMessage, *message.MessageFuture) (interface{}, error) {
+		t.Fatal("callback should not run after an encode failure")
+		return nil, nil
+	}
+	if _, err := remoting.sendAsync(openChannel(t), msg, callback); err == nil {
 		t.Fatal("sendAsync() = nil error, want an encode failure")
 	}
 	if got := countFutures(remoting); got != 0 {
@@ -136,9 +140,8 @@ func TestSendAsyncRemovesFutureOnEncodeError(t *testing.T) {
 	}
 }
 
-// SendAsyncResponse sends with no callback, so nothing ever waits on the
-// future it used to leave behind.
-func TestSendAsyncRemovesFutureWhenNoCallbackWaits(t *testing.T) {
+// SendAsyncResponse sends with no callback, so it must not create a future.
+func TestSendAsyncDoesNotStoreFutureWhenNoCallbackWaits(t *testing.T) {
 	remoting := newGrpcRemoting()
 
 	if _, err := remoting.sendAsync(openChannel(t), commitRequest(11), nil); err != nil {
@@ -146,6 +149,36 @@ func TestSendAsyncRemovesFutureWhenNoCallbackWaits(t *testing.T) {
 	}
 	if got := countFutures(remoting); got != 0 {
 		t.Fatalf("futures holds %d entries after a callback-less send, want 0", got)
+	}
+}
+
+func TestSendAsyncWithoutCallbackPreservesInFlightFuture(t *testing.T) {
+	tests := []struct {
+		name    string
+		msg     message.RpcMessage
+		wantErr bool
+	}{
+		{name: "send succeeds", msg: commitRequest(11)},
+		{
+			name:    "encode fails",
+			msg:     message.RpcMessage{ID: 11, HeadMap: map[string]string{}, Body: "not a proto message"},
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			remoting := newGrpcRemoting()
+			pending := message.NewMessageFuture(message.RpcMessage{ID: test.msg.ID})
+			remoting.futures.Store(test.msg.ID, pending)
+
+			_, err := remoting.sendAsync(openChannel(t), test.msg, nil)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("sendAsync() error = %v, wantErr %t", err, test.wantErr)
+			}
+			if got := remoting.GetMessageFuture(test.msg.ID); got != pending {
+				t.Fatalf("callback-less send changed the in-flight future: got %p, want %p", got, pending)
+			}
+		})
 	}
 }
 

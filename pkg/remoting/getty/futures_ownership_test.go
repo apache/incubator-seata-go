@@ -18,6 +18,7 @@
 package getty
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -87,9 +88,8 @@ func TestSyncCallbackRemovesFutureOnResponse(t *testing.T) {
 	}
 }
 
-// SendAsyncResponse sends with no callback, so nothing ever waits on the
-// future it used to leave behind.
-func TestSendAsyncRemovesFutureWhenNoCallbackWaits(t *testing.T) {
+// SendAsyncResponse sends with no callback, so it must not create a future.
+func TestSendAsyncDoesNotStoreFutureWhenNoCallbackWaits(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -103,6 +103,62 @@ func TestSendAsyncRemovesFutureWhenNoCallbackWaits(t *testing.T) {
 	}
 	if got := countFutures(remoting); got != 0 {
 		t.Fatalf("futures holds %d entries after a callback-less send, want 0", got)
+	}
+}
+
+func TestSendAsyncRemovesFutureOnWriteError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	session := mock.NewMockTestSession(ctrl)
+	session.EXPECT().IsClosed().Return(false)
+	session.EXPECT().WritePkg(gomock.Any(), gomock.Any()).Return(0, 0, errors.New("write failed"))
+	session.EXPECT().Stat().Return("mock session")
+
+	remoting := newGettyRemoting()
+	callback := func(message.RpcMessage, *message.MessageFuture) (interface{}, error) {
+		t.Fatal("callback should not run after a write failure")
+		return nil, nil
+	}
+	if _, err := remoting.sendAsync(session, message.RpcMessage{ID: 11}, callback); err == nil {
+		t.Fatal("sendAsync() = nil error, want a write failure")
+	}
+	if got := countFutures(remoting); got != 0 {
+		t.Fatalf("futures holds %d entries after a write failure, want 0", got)
+	}
+}
+
+func TestSendAsyncWithoutCallbackPreservesInFlightFuture(t *testing.T) {
+	tests := []struct {
+		name     string
+		writeErr error
+	}{
+		{name: "write succeeds"},
+		{name: "write fails", writeErr: errors.New("write failed")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			session := mock.NewMockTestSession(ctrl)
+			session.EXPECT().IsClosed().Return(false)
+			session.EXPECT().WritePkg(gomock.Any(), gomock.Any()).Return(0, 0, test.writeErr)
+			if test.writeErr != nil {
+				session.EXPECT().Stat().Return("mock session")
+			}
+
+			remoting := newGettyRemoting()
+			msg := message.RpcMessage{ID: 11}
+			pending := message.NewMessageFuture(msg)
+			remoting.futures.Store(msg.ID, pending)
+
+			_, err := remoting.sendAsync(session, msg, nil)
+			if (err != nil) != (test.writeErr != nil) {
+				t.Fatalf("sendAsync() error = %v, wantErr %t", err, test.writeErr != nil)
+			}
+			if got := remoting.GetMessageFuture(msg.ID); got != pending {
+				t.Fatalf("callback-less send changed the in-flight future: got %p, want %p", got, pending)
+			}
+		})
 	}
 }
 
