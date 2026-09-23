@@ -49,6 +49,9 @@ func newGrpcRemoting() *GrpcRemoting {
 // SendSync sends a request and waits for the response
 func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callback callbackMethod) (interface{}, error) {
 	if channel == nil {
+		if channelManager == nil {
+			return nil, fmt.Errorf("stream is closed")
+		}
 		channel = channelManager.selectChannel(msg)
 	}
 	if channel == nil || channel.IsClosed() {
@@ -68,6 +71,9 @@ func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callba
 // SendAsync sends a request asynchronously
 func (g *GrpcRemoting) SendAsync(msg message.RpcMessage, channel *Channel, callback callbackMethod) error {
 	if channel == nil {
+		if channelManager == nil {
+			return fmt.Errorf("stream is closed")
+		}
 		channel = channelManager.selectChannel(msg)
 	}
 	if channel == nil || channel.IsClosed() {
