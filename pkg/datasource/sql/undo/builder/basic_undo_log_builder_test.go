@@ -18,10 +18,12 @@
 package builder
 
 import (
+	"database/sql/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
@@ -216,6 +218,65 @@ func TestBuildLockKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lockKeys := builder.buildLockKey2(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
+		})
+	}
+}
+
+func TestBasicUndoLogBuilder_BuildSelectArgs_ComplexAST(t *testing.T) {
+	builder := &BasicUndoLogBuilder{}
+
+	tests := []struct {
+		name     string
+		sql      string
+		args     []driver.Value
+		expected []driver.Value
+	}{
+		{
+			name:     "Binary and Between",
+			sql:      "SELECT * FROM t WHERE a = ? AND b BETWEEN ? AND ?",
+			args:     []driver.Value{1, 10, 20},
+			expected: []driver.Value{1, 10, 20},
+		},
+		{
+			name:     "In and Unary and IsNull",
+			sql:      "SELECT * FROM t WHERE id IN (?, ?) AND NOT (status = ?) AND deleted_at IS NULL",
+			args:     []driver.Value{100, 200, 1},
+			expected: []driver.Value{100, 200, 1},
+		},
+		{
+			name:     "FuncCall and Like",
+			sql:      "SELECT * FROM t WHERE name LIKE ? AND age > concat(?, ?)",
+			args:     []driver.Value{"tom%", "1", "8"},
+			expected: []driver.Value{"tom%", "1", "8"},
+		},
+		{
+			name:     "Case When Expression",
+			sql:      "SELECT * FROM t WHERE val = CASE WHEN a = ? THEN ? ELSE ? END",
+			args:     []driver.Value{1, 10, 20},
+			expected: []driver.Value{1, 10, 20},
+		},
+		{
+			name:     "Parentheses and Unary",
+			sql:      "SELECT * FROM t WHERE NOT (a = ?) AND (b = ?)",
+			args:     []driver.Value{1, 2},
+			expected: []driver.Value{1, 2},
+		},
+		{
+			name:     "OrderBy and Limit",
+			sql:      "SELECT * FROM t WHERE a = ? ORDER BY b LIMIT ?, ?",
+			args:     []driver.Value{10, 0, 5},
+			expected: []driver.Value{10, 0, 5},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parseCtx, err := parser.DoParser(tt.sql)
+			assert.NoError(t, err)
+			assert.NotNil(t, parseCtx.SelectStmt)
+
+			actual := builder.buildSelectArgs(parseCtx.SelectStmt, tt.args)
+			assert.Equal(t, tt.expected, actual)
 		})
 	}
 }

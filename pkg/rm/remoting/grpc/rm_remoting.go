@@ -53,7 +53,7 @@ func (r *GrpcRMRemoting) BranchRegister(param rm.BranchRegisterParam) (int64, er
 	}
 	branchResp := resp.(*pb.BranchRegisterResponseProto)
 	if branchResp.AbstractTransactionResponse.AbstractResultMessage.ResultCode == pb.ResultCodeProto_Failed {
-		return 0, fmt.Errorf("Response %s", branchResp.AbstractTransactionResponse.AbstractResultMessage.Msg)
+		return 0, fmt.Errorf("response %s", branchResp.AbstractTransactionResponse.AbstractResultMessage.Msg)
 	}
 	return branchResp.BranchId, nil
 }

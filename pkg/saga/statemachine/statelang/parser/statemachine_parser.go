@@ -225,7 +225,7 @@ type DefaultStateParserFactory struct {
 }
 
 func NewDefaultStateParserFactory() *DefaultStateParserFactory {
-	var stateParserMap map[string]StateParser = make(map[string]StateParser)
+	stateParserMap := make(map[string]StateParser)
 	return &DefaultStateParserFactory{
 		stateParserMap: stateParserMap,
 	}

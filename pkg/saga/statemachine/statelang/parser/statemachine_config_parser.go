@@ -43,7 +43,7 @@ func NewJSONConfigParser() *JSONConfigParser {
 }
 
 func (p *JSONConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
-	if configContent == nil || len(configContent) == 0 {
+	if len(configContent) == 0 {
 		return nil, fmt.Errorf("empty JSON config content")
 	}
 
@@ -67,7 +67,7 @@ func NewYAMLConfigParser() *YAMLConfigParser {
 }
 
 func (p *YAMLConfigParser) Parse(configContent []byte) (*statemachine.StateMachineObject, error) {
-	if configContent == nil || len(configContent) == 0 {
+	if len(configContent) == 0 {
 		return nil, fmt.Errorf("empty YAML config content")
 	}
 

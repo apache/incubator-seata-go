@@ -19,10 +19,12 @@ package parser
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
-	aparser "github.com/arana-db/parser"
-	"github.com/arana-db/parser/format"
+	aparser "github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 
@@ -30,7 +32,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 
-	_ "github.com/arana-db/parser/test_driver"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 )
 
 func TestDoParser(t *testing.T) {
@@ -96,4 +98,163 @@ func TestK(t *testing.T) {
 	stmt[0].Restore(cc)
 
 	fmt.Println(stmt)
+}
+
+func TestAssignParamMarkerOrders(t *testing.T) {
+	p := aparser.New()
+	stmtNodes, _, err := p.Parse("update t set name = ?, age = ? where id = ? and status in (?, ?)", "", "")
+	assert.NoError(t, err)
+
+	assignParamMarkerOrders(stmtNodes)
+
+	assertParamMarkerOrders(t, stmtNodes, []int{0, 1, 2, 3, 4})
+}
+
+func TestDoParserAssignsParamMarkerOrders(t *testing.T) {
+	parseCtx, err := DoParser("update t set name = ? where id = ?; delete from t where status = ? and age between ? and ?")
+	assert.NoError(t, err)
+	assert.Len(t, parseCtx.MultiStmt, 2)
+
+	assertParamMarkerOrders(t, []ast.StmtNode{
+		parseCtx.MultiStmt[0].UpdateStmt,
+		parseCtx.MultiStmt[1].DeleteStmt,
+	}, []int{0, 1, 2, 3, 4})
+}
+
+func assertParamMarkerOrders(t *testing.T, stmtNodes []ast.StmtNode, expected []int) {
+	t.Helper()
+
+	visitor := &paramMarkerOrderVisitor{}
+	for _, node := range stmtNodes {
+		node.Accept(visitor)
+	}
+	sort.Slice(visitor.markers, func(i, j int) bool {
+		return visitor.markers[i].offset < visitor.markers[j].offset
+	})
+
+	orders := make([]int, 0, len(visitor.markers))
+	for _, item := range visitor.markers {
+		order, _ := GetParamMarkerOrder(item.marker)
+		orders = append(orders, order)
+	}
+	assert.Equal(t, expected, orders)
+}
+
+func TestAssignParamMarkerOrdersComplex(t *testing.T) {
+	tests := []struct {
+		name     string
+		sql      string
+		expected []int
+	}{
+		{
+			name:     "IN clause",
+			sql:      "SELECT * FROM t WHERE id IN (?, ?, ?)",
+			expected: []int{0, 1, 2},
+		},
+		{
+			name:     "subquery",
+			sql:      "SELECT * FROM t WHERE id IN (SELECT id FROM t2 WHERE val = ?)",
+			expected: []int{0},
+		},
+		{
+			name:     "subquery with outer",
+			sql:      "SELECT * FROM t WHERE id = ? AND id IN (SELECT id FROM t2 WHERE val = ?)",
+			expected: []int{0, 1},
+		},
+		{
+			name:     "ON DUPLICATE KEY UPDATE",
+			sql:      "INSERT INTO t (a, b) VALUES (?, ?) ON DUPLICATE KEY UPDATE a = VALUES(a), b = ?",
+			expected: []int{0, 1, 2},
+		},
+		{
+			name:     "UPDATE with WHERE and SET",
+			sql:      "UPDATE t SET a = ?, b = ? WHERE c = ? AND d IN (?, ?)",
+			expected: []int{0, 1, 2, 3, 4},
+		},
+		{
+			name:     "BETWEEN",
+			sql:      "SELECT * FROM t WHERE a BETWEEN ? AND ?",
+			expected: []int{0, 1},
+		},
+		{
+			name:     "nested subquery",
+			sql:      "SELECT * FROM t WHERE id = ? AND val IN (SELECT id FROM t2 WHERE x = ? AND y IN (?, ?))",
+			expected: []int{0, 1, 2, 3},
+		},
+		{
+			name:     "multi-statement",
+			sql:      "INSERT INTO t VALUES (?); UPDATE t SET a = ? WHERE b = ?; DELETE FROM t WHERE c = ?",
+			expected: []int{0, 1, 2, 3},
+		},
+		{
+			name:     "JOIN with ON",
+			sql:      "SELECT * FROM t1 JOIN t2 ON t1.id = t2.id WHERE t1.a = ? AND t2.b = ?",
+			expected: []int{0, 1},
+		},
+		{
+			name:     "BETWEEN in UPDATE",
+			sql:      "UPDATE t SET a = ? WHERE b BETWEEN ? AND ? OR c = ?",
+			expected: []int{0, 1, 2, 3},
+		},
+		{
+			name:     "INSERT with multiple VALUES",
+			sql:      "INSERT INTO t (a, b, c) VALUES (?, ?, ?), (?, ?, ?)",
+			expected: []int{0, 1, 2, 3, 4, 5},
+		},
+		{
+			name:     "DELETE with complex WHERE",
+			sql:      "DELETE FROM t WHERE (a = ? OR b = ?) AND c IN (?, ?) AND d BETWEEN ? AND ?",
+			expected: []int{0, 1, 2, 3, 4, 5},
+		},
+	}
+
+	p := aparser.New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmtNodes, _, err := p.Parse(tt.sql, "", "")
+			assert.NoError(t, err)
+			assignParamMarkerOrders(stmtNodes)
+			assertParamMarkerOrders(t, stmtNodes, tt.expected)
+		})
+	}
+}
+
+func TestAssignParamMarkerOrders_EquivalenceMatrix(t *testing.T) {
+	tests := []struct {
+		name     string
+		sql      string
+		expected []int
+	}{
+		{
+			name:     "Case When Expression",
+			sql:      "SELECT CASE WHEN a = ? THEN ? ELSE ? END FROM t WHERE id = ?",
+			expected: []int{0, 1, 2, 3},
+		},
+		{
+			name:     "Join with multi subqueries and parameters",
+			sql:      "SELECT * FROM (SELECT id, val FROM t1 WHERE a = ?) t1 JOIN (SELECT id FROM t2 WHERE b IN (?, ?)) t2 ON t1.id = t2.id WHERE t1.val > ?",
+			expected: []int{0, 1, 2, 3},
+		},
+		{
+			name:     "Insert On Duplicate Update with Param Marker Values",
+			sql:      "INSERT INTO t (id, name, age) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE age = age + ?, name = ?",
+			expected: []int{0, 1, 2, 3, 4},
+		},
+	}
+
+	p := aparser.New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmtNodes, _, err := p.Parse(tt.sql, "", "")
+			assert.NoError(t, err)
+			assignParamMarkerOrders(stmtNodes)
+			assertParamMarkerOrders(t, stmtNodes, tt.expected)
+		})
+	}
+}
+
+func TestGetParamMarkerOrder_NonMarkerNode(t *testing.T) {
+	order, ok := GetParamMarkerOrder(&ast.TableName{})
+	assert.False(t, ok)
+	assert.Equal(t, 0, order)
 }

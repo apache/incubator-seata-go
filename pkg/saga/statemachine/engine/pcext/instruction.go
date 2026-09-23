@@ -97,7 +97,7 @@ func (s *StateInstruction) GetState(context process_ctrl.ProcessContext) (statel
 		return nil, errors.New("get stateMachine in state machine repository error")
 	}
 	if stateMachine == nil {
-		return nil, errors.New(fmt.Sprintf("stateMachine [%s] is not exist", s.stateMachineName))
+		return nil, fmt.Errorf("stateMachine [%s] is not exist", s.stateMachineName)
 	}
 
 	if s.stateName == "" {
@@ -106,7 +106,7 @@ func (s *StateInstruction) GetState(context process_ctrl.ProcessContext) (statel
 
 	state := stateMachine.States()[s.stateName]
 	if state == nil {
-		return nil, errors.New(fmt.Sprintf("state [%s] is not exist", s.stateName))
+		return nil, fmt.Errorf("state [%s] is not exist", s.stateName)
 	}
 
 	return state, nil

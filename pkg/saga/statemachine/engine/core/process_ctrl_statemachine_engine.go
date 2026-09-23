@@ -266,10 +266,8 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 		return nil, err
 	}
 
-	if replaceParams != nil {
-		for k, v := range replaceParams {
-			contextVariables[k] = v
-		}
+	for k, v := range replaceParams {
+		contextVariables[k] = v
 	}
 	p.putBusinesskeyToContextariables(stateMachineInstance, contextVariables)
 
@@ -302,7 +300,7 @@ func (p ProcessCtrlStateMachineEngine) forwardInternal(ctx context.Context, stat
 			next = taskState.Next()
 		}
 		if next == "" {
-			log.Warn(fmt.Sprintf("Last Forward execution StateInstance was succeed, and it has not Next State, skip forward operation"))
+			log.Warn("Last Forward execution StateInstance was succeed, and it has not Next State, skip forward operation")
 			return stateMachineInstance, nil
 		}
 		inst.SetStateName(next)
@@ -464,10 +462,8 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 			"compensate")
 	}
 
-	if replaceParams != nil {
-		for key, value := range replaceParams {
-			stateMachineInstance.EndParams()[key] = value
-		}
+	for key, value := range replaceParams {
+		stateMachineInstance.EndParams()[key] = value
 	}
 
 	contextBuilder := utils.NewProcessContextBuilder().WithProcessType(process.StateLang).
@@ -482,10 +478,8 @@ func (p ProcessCtrlStateMachineEngine) compensateInternal(ctx context.Context, s
 		return nil, err
 	}
 
-	if replaceParams != nil {
-		for key, value := range replaceParams {
-			contextVariables[key] = value
-		}
+	for key, value := range replaceParams {
+		contextVariables[key] = value
 	}
 
 	p.putBusinesskeyToContextariables(stateMachineInstance, contextVariables)
@@ -550,12 +544,12 @@ func (p ProcessCtrlStateMachineEngine) reloadStateMachineInstance(ctx context.Co
 		}
 
 		stateList := instance.StateList()
-		if stateList == nil || len(stateList) == 0 {
+		if len(stateList) == 0 {
 			stateList, err = p.StateMachineConfig.StateLogStore().GetStateInstanceListByMachineInstanceId(instId)
 			if err != nil {
 				return nil, err
 			}
-			if stateList != nil && len(stateList) > 0 {
+			if len(stateList) > 0 {
 				for _, tmpStateInstance := range stateList {
 					instance.PutState(tmpStateInstance.ID(), tmpStateInstance)
 				}
@@ -582,7 +576,7 @@ func (p ProcessCtrlStateMachineEngine) replayContextVariables(ctx context.Contex
 	}
 
 	stateInstanceList := stateMachineInstance.StateList()
-	if stateInstanceList == nil || len(stateInstanceList) == 0 {
+	if len(stateInstanceList) == 0 {
 		return contextVariables, nil
 	}
 
@@ -602,7 +596,7 @@ func (p ProcessCtrlStateMachineEngine) replayContextVariables(ctx context.Contex
 					return nil, exception.NewEngineExecutionException(seataErrors.ObjectNotExists,
 						"Context variable replay failed", err)
 				}
-				if outputVariablesToContext != nil && len(outputVariablesToContext) != 0 {
+				if len(outputVariablesToContext) != 0 {
 					for key, value := range outputVariablesToContext {
 						contextVariables[key] = value
 					}
@@ -641,7 +635,7 @@ func (p ProcessCtrlStateMachineEngine) checkStatus(ctx context.Context, stateMac
 				"] denied", nil)
 	}
 
-	if (denyStatus == nil || len(denyStatus) == 0) && (acceptStatus == nil || len(acceptStatus) == 0) {
+	if len(denyStatus) == 0 && len(acceptStatus) == 0 {
 		return false, exception.NewEngineExecutionException(seataErrors.InvalidParameter,
 			"StateMachineInstance[id:"+stateMachineInstance.ID()+
 				"], acceptable status and deny status must input at least one", nil)
@@ -663,7 +657,7 @@ func (p ProcessCtrlStateMachineEngine) checkStatus(ctx context.Context, stateMac
 		}
 	}
 
-	if acceptStatus == nil || len(acceptStatus) == 0 {
+	if len(acceptStatus) == 0 {
 		return true, nil
 	} else {
 		for _, tempStatus := range acceptStatus {
@@ -682,7 +676,7 @@ func (p ProcessCtrlStateMachineEngine) checkStatus(ctx context.Context, stateMac
 func (p ProcessCtrlStateMachineEngine) getStateMachineContextVariables(ctx context.Context,
 	stateMachineInstance statelang.StateMachineInstance) (map[string]any, error) {
 	contextVariables := stateMachineInstance.EndParams()
-	if contextVariables == nil || len(contextVariables) == 0 {
+	if len(contextVariables) == 0 {
 		return p.replayContextVariables(ctx, stateMachineInstance)
 	}
 	return contextVariables, nil

@@ -168,7 +168,7 @@ func setMachineStatusBasedOnStateListAndException(stateMachineInstance statelang
 	stateList []statelang.StateInstance, exp error) {
 	hasSetStatus := false
 	hasSuccessUpdateService := false
-	if stateList != nil && len(stateList) > 0 {
+	if len(stateList) > 0 {
 		hasUnsuccessService := false
 
 		for i := len(stateList) - 1; i >= 0; i-- {

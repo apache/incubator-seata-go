@@ -25,9 +25,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -105,30 +105,66 @@ func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	if node == nil {
 		return
 	}
-	switch node.(type) {
+	switch expr := node.(type) {
 	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr)
 		b.traversalArgs(expr.L, argsIndex)
 		b.traversalArgs(expr.R, argsIndex)
-		break
 	case *ast.BetweenExpr:
-		expr := node.(*ast.BetweenExpr)
 		b.traversalArgs(expr.Left, argsIndex)
 		b.traversalArgs(expr.Right, argsIndex)
-		break
 	case *ast.PatternInExpr:
-		exprs := node.(*ast.PatternInExpr).List
-		for i := 0; i < len(exprs); i++ {
-			b.traversalArgs(exprs[i], argsIndex)
+		for i := 0; i < len(expr.List); i++ {
+			b.traversalArgs(expr.List[i], argsIndex)
 		}
-		break
 	case *ast.ParenthesesExpr:
-		expr := node.(*ast.ParenthesesExpr)
 		b.traversalArgs(expr.Expr, argsIndex)
-		break
-	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
+	case *ast.Join:
+		b.traversalArgs(expr.Left, argsIndex)
+		if expr.Right != nil {
+			b.traversalArgs(expr.Right, argsIndex)
+		}
+		if expr.On != nil {
+			b.traversalArgs(expr.On.Expr, argsIndex)
+		}
+	case *ast.UnaryOperationExpr:
+		b.traversalArgs(expr.V, argsIndex)
+	case *ast.FuncCallExpr:
+		for _, arg := range expr.Args {
+			b.traversalArgs(arg, argsIndex)
+		}
+	case *ast.SubqueryExpr:
+		if expr.Query != nil {
+			b.traversalArgs(expr.Query, argsIndex)
+		}
+	case *ast.ExistsSubqueryExpr:
+		if expr.Sel != nil {
+			b.traversalArgs(expr.Sel, argsIndex)
+		}
+	case *ast.CompareSubqueryExpr:
+		b.traversalArgs(expr.L, argsIndex)
+		if expr.R != nil {
+			b.traversalArgs(expr.R, argsIndex)
+		}
+	case *ast.PatternLikeOrIlikeExpr:
+		b.traversalArgs(expr.Expr, argsIndex)
+		b.traversalArgs(expr.Pattern, argsIndex)
+	case *ast.IsNullExpr:
+		b.traversalArgs(expr.Expr, argsIndex)
+	case *ast.CaseExpr:
+		if expr.Value != nil {
+			b.traversalArgs(expr.Value, argsIndex)
+		}
+		for _, whenClause := range expr.WhenClauses {
+			b.traversalArgs(whenClause.Expr, argsIndex)
+			b.traversalArgs(whenClause.Result, argsIndex)
+		}
+		if expr.ElseClause != nil {
+			b.traversalArgs(expr.ElseClause, argsIndex)
+		}
+	case ast.ParamMarkerExpr:
+		if order, ok := parser.GetParamMarkerOrder(expr); ok {
+			*argsIndex = append(*argsIndex, int32(order))
+		}
 	}
 }
 
@@ -173,7 +209,7 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowSize int, _ string, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -194,7 +230,7 @@ func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowS
 				whereStr.WriteString(",")
 			}
 			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 		}
 		whereStr.WriteString(") IN (")
 
@@ -273,7 +309,7 @@ func (b *BasicUndoLogBuilder) buildLockKey(rows driver.Rows, meta types.TableMet
 			if pkSplitIndex > 0 {
 				lockKeys.WriteString("_")
 			}
-			lockKeys.WriteString(fmt.Sprintf("%v", value))
+			fmt.Fprintf(&lockKeys, "%v", value)
 			pkSplitIndex++
 		}
 		filedSequence++

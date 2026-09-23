@@ -42,6 +42,7 @@ func GetTableCache(dbType types.DBType) TableMetaCache {
 	return tableMetaCacheMap[dbType]
 }
 
+//nolint:staticcheck
 func GetDataSourceManager(branchType branch.BranchType) DataSourceManager {
 	resourceManager := rm.GetRmCacheInstance().GetResourceManager(branchType)
 	if resourceManager == nil {
