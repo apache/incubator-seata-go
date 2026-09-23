@@ -359,16 +359,14 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		return err
 	}
 
+	defer conn.Close()
 	tx, err := conn.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err != nil {
-			if err = tx.Rollback(); err != nil {
-				log.Errorf("rollback fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
-				return
-			}
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			log.Errorf("rollback fail, xid: %s, branchID:%d err:%v", xid, branchID, rollbackErr)
 		}
 	}()
 
@@ -378,8 +376,8 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		return err
 	}
 	defer func() {
-		if err = stmt.Close(); err != nil {
-			log.Errorf("stmt close fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
+		if closeErr := stmt.Close(); closeErr != nil {
+			log.Errorf("stmt close fail, xid: %s, branchID:%d err:%v", xid, branchID, closeErr)
 			return
 		}
 	}()
@@ -390,8 +388,8 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		return err
 	}
 	defer func() {
-		if err = rows.Close(); err != nil {
-			log.Errorf("rows close fail, xid: %s, branchID:%d err:%v", xid, branchID, err)
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Errorf("rows close fail, xid: %s, branchID:%d err:%v", xid, branchID, closeErr)
 			return
 		}
 	}()
@@ -414,7 +412,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		exists = true
 		if !record.CanUndo() {
 			log.Infof("xid %v branch %v, ignore %v undo_log", record.XID, record.BranchID, record.LogStatus)
-			return nil
+			return tx.Commit()
 		}
 
 		var logCtx map[string]string
@@ -438,7 +436,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 		sqlUndoLogs := branchUndoLog.Logs
 		if len(sqlUndoLogs) == 0 {
-			return nil
+			return tx.Commit()
 		}
 		branchUndoLog.Reverse()
 
