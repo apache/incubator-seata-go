@@ -1185,11 +1185,15 @@ func TestBaseUndoLogManager_deserializeBranchUndoLog_ErrorCases(t *testing.T) {
 
 func TestBaseUndoLogManager_Undo(t *testing.T) {
 	manager := NewBaseUndoLogManager()
+	originalSerialization := undo.UndoConfig.LogSerialization
+	t.Cleanup(func() { undo.UndoConfig.LogSerialization = originalSerialization })
+	undo.UndoConfig.LogSerialization = "json"
 
 	t.Run("no undo log records - should insert global finished", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
 		defer db.Close()
+		db.SetMaxOpenConns(1)
 
 		ctx := context.Background()
 
@@ -1197,13 +1201,13 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 		mock.ExpectBegin()
 
 		// Mock PrepareContext for SELECT
-		mock.ExpectPrepare("SELECT").
+		mock.ExpectPrepare("SELECT").WillBeClosed().
 			ExpectQuery().
 			WithArgs(int64(123), "test-xid").
 			WillReturnRows(sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}))
 
 		// Mock insertUndoLogWithGlobalFinished -> InsertUndoLogWithSqlConn
-		mock.ExpectPrepare("INSERT INTO").
+		mock.ExpectPrepare("INSERT INTO").WillBeClosed().
 			ExpectExec().
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -1211,27 +1215,33 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 
 		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
 		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+		assert.Zero(t, db.Stats().InUse)
 	})
 
 	t.Run("begin transaction error", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
 		defer db.Close()
+		db.SetMaxOpenConns(1)
 
 		ctx := context.Background()
 
 		// Mock BeginTx to return an error
-		mock.ExpectBegin().WillReturnError(errors.New("begin transaction failed"))
+		beginErr := errors.New("begin transaction failed")
+		mock.ExpectBegin().WillReturnError(beginErr)
 
 		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
-		assert.Error(t, err)
+		assert.ErrorIs(t, err, beginErr)
 		assert.NoError(t, mock.ExpectationsWereMet())
+		assert.Zero(t, db.Stats().InUse)
 	})
 
 	t.Run("global finished status - should not undo", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
 		defer db.Close()
+		db.SetMaxOpenConns(1)
 
 		ctx := context.Background()
 
@@ -1241,7 +1251,7 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}).
 			AddRow(int64(123), "test-xid", []byte("{}"), []byte("{}"), int32(UndoLogStatusGlobalFinished))
 
-		mock.ExpectPrepare("SELECT").
+		mock.ExpectPrepare("SELECT").WillBeClosed().
 			ExpectQuery().
 			WithArgs(int64(123), "test-xid").
 			WillReturnRows(rows)
@@ -1251,7 +1261,169 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 
 		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
 		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+		assert.Zero(t, db.Stats().InUse)
 	})
+}
+
+func TestBaseUndoLogManager_Undo_ErrorCleanup(t *testing.T) {
+	manager := NewBaseUndoLogManager()
+	originalSerialization := undo.UndoConfig.LogSerialization
+	t.Cleanup(func() { undo.UndoConfig.LogSerialization = originalSerialization })
+	undo.UndoConfig.LogSerialization = "json"
+
+	failure := errors.New("undo failed")
+	cleanupFailure := errors.New("cleanup failed")
+	columns := []string{"branch_id", "xid", "context", "rollback_info", "log_status"}
+	tests := []struct {
+		name        string
+		setup       func(sqlmock.Sqlmock)
+		wantErr     error
+		wantMessage string
+	}{
+		{
+			name: "prepare error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillReturnError(failure)
+				mock.ExpectRollback()
+			},
+			wantErr: failure,
+		},
+		{
+			name: "rollback error preserves prepare error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillReturnError(failure)
+				mock.ExpectRollback().WillReturnError(cleanupFailure)
+			},
+			wantErr: failure,
+		},
+		{
+			name: "query error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").WillReturnError(failure)
+				mock.ExpectRollback()
+			},
+			wantErr: failure,
+		},
+		{
+			name: "statement close error preserves query error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillBeClosed().WillReturnCloseError(cleanupFailure).
+					ExpectQuery().WithArgs(int64(123), "test-xid").WillReturnError(failure)
+				mock.ExpectRollback()
+			},
+			wantErr: failure,
+		},
+		{
+			name: "scan error",
+			setup: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows(columns).
+					AddRow("invalid-branch-id", "test-xid", nil, nil, int32(0))
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").WillReturnRows(rows).RowsWillBeClosed()
+				mock.ExpectRollback()
+			},
+			wantMessage: "invalid-branch-id",
+		},
+		{
+			name: "rows close error preserves scan error",
+			setup: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows(columns).
+					AddRow("invalid-branch-id", "test-xid", nil, nil, int32(0)).CloseError(cleanupFailure)
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").WillReturnRows(rows).RowsWillBeClosed()
+				mock.ExpectRollback()
+			},
+			wantMessage: "invalid-branch-id",
+		},
+		{
+			name: "rows iteration error",
+			setup: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows(columns).
+					AddRow(int64(123), "test-xid", nil, nil, int32(0)).RowError(0, failure)
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").WillReturnRows(rows).RowsWillBeClosed()
+				mock.ExpectRollback()
+			},
+			wantErr: failure,
+		},
+		{
+			name: "insert error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").
+					WillReturnRows(sqlmock.NewRows(columns)).RowsWillBeClosed()
+				mock.ExpectPrepare("INSERT INTO").WillBeClosed().ExpectExec().WillReturnError(failure)
+				mock.ExpectRollback()
+			},
+			wantErr: failure,
+		},
+		{
+			name: "commit error",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+					WithArgs(int64(123), "test-xid").
+					WillReturnRows(sqlmock.NewRows(columns)).RowsWillBeClosed()
+				mock.ExpectPrepare("INSERT INTO").WillBeClosed().ExpectExec().
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit().WillReturnError(failure)
+			},
+			wantErr: failure,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+			db.SetMaxOpenConns(1)
+
+			mock.ExpectBegin()
+			tt.setup(mock)
+
+			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else {
+				assert.ErrorContains(t, err, tt.wantMessage)
+			}
+			assert.NoError(t, mock.ExpectationsWereMet())
+			assert.Zero(t, db.Stats().InUse)
+		})
+	}
+}
+
+func TestBaseUndoLogManager_Undo_EarlyCommitError(t *testing.T) {
+	manager := NewBaseUndoLogManager()
+	commitErr := errors.New("commit failed")
+	contextBytes := manager.encodeUndoLogCtx(map[string]string{serializerKey: "json"})
+	for _, tt := range []struct {
+		name   string
+		status int32
+	}{
+		{name: "global finished", status: UndoLogStatusGlobalFinished},
+		{name: "empty SQL undo logs", status: UndoLogStatusNormal},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+			db.SetMaxOpenConns(1)
+
+			mock.ExpectBegin()
+			rows := sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}).
+				AddRow(int64(123), "test-xid", contextBytes, []byte(`{"logs":[]}`), tt.status)
+			mock.ExpectPrepare("SELECT").WillBeClosed().ExpectQuery().
+				WithArgs(int64(123), "test-xid").WillReturnRows(rows).RowsWillBeClosed()
+			mock.ExpectCommit().WillReturnError(commitErr)
+
+			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+			assert.ErrorIs(t, err, commitErr)
+			assert.NoError(t, mock.ExpectationsWereMet())
+			assert.Zero(t, db.Stats().InUse)
+		})
+	}
 }
 
 func TestBaseUndoLogManager_insertUndoLogWithGlobalFinished(t *testing.T) {
@@ -1308,10 +1480,11 @@ func TestBaseUndoLogManager_insertUndoLogWithGlobalFinished(t *testing.T) {
 func TestBaseUndoLogManager_Undo_EmptySQLUndoLogs(t *testing.T) {
 	manager := NewBaseUndoLogManager()
 
-	t.Run("empty SQL undo logs - should return nil", func(t *testing.T) {
+	t.Run("empty SQL undo logs - should commit", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
 		defer db.Close()
+		db.SetMaxOpenConns(1)
 
 		ctx := context.Background()
 
@@ -1326,10 +1499,7 @@ func TestBaseUndoLogManager_Undo_EmptySQLUndoLogs(t *testing.T) {
 		contextData := map[string]string{
 			"serializerKey": "json",
 		}
-		var contextBytes []byte
-		for k, v := range contextData {
-			contextBytes = append(contextBytes, []byte(k+"="+v+";")...)
-		}
+		contextBytes := manager.encodeUndoLogCtx(contextData)
 
 		// Valid branch undo log but with empty logs array
 		branchUndoLog := undo.BranchUndoLog{
@@ -1337,19 +1507,22 @@ func TestBaseUndoLogManager_Undo_EmptySQLUndoLogs(t *testing.T) {
 			BranchID: 123,
 			Logs:     []undo.SQLUndoLog{}, // Empty logs
 		}
-		rollbackInfoBytes, _ := json.Marshal(branchUndoLog)
+		rollbackInfoBytes, err := json.Marshal(branchUndoLog)
+		require.NoError(t, err)
 
 		rows := sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}).
 			AddRow(int64(123), "test-xid", contextBytes, rollbackInfoBytes, int32(0))
 
-		mock.ExpectPrepare("SELECT").
+		mock.ExpectPrepare("SELECT").WillBeClosed().
 			ExpectQuery().
 			WithArgs(int64(123), "test-xid").
-			WillReturnRows(rows)
+			WillReturnRows(rows).RowsWillBeClosed()
+		mock.ExpectCommit()
 
 		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
-		// Should return nil for empty logs
 		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+		assert.Zero(t, db.Stats().InUse)
 	})
 }
 
