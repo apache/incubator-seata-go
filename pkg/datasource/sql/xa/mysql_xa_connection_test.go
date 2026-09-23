@@ -311,39 +311,74 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 func TestMysqlXAErrorClassifier_PhaseTwo(t *testing.T) {
 	classifier := &MysqlXAErrorClassifier{}
 
-	rollbackCodes := []uint16{
-		types.ErrCodeXA_RBROLLBACK,
-		types.ErrCodeXA_RBTIMEOUT,
-		types.ErrCodeXA_RBDEADLOCK,
-	}
-	for _, code := range rollbackCodes {
-		err := &mysql.MySQLError{Number: code}
-		if !classifier.IsAlreadyRollbacked(err) {
-			t.Fatalf("error code %d should prove the XA branch rolled back", code)
-		}
-		if classifier.IsAlreadyCommitted(err) {
-			t.Fatalf("error code %d must not be classified as committed", code)
-		}
+	tests := []struct {
+		name      string
+		operation PhaseTwoOperation
+		err       error
+		want      PhaseTwoErrorClassification
+	}{
+		{
+			name:      "commit XA_RBROLLBACK proves rollback",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBROLLBACK},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "rollback XA_RBTIMEOUT proves rollback",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBTIMEOUT},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "commit XA_RBDEADLOCK proves rollback",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBDEADLOCK},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "rollback XAER_NOTA is idempotent success",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "commit XAER_NOTA remains ambiguous",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA},
+			want:      PhaseTwoRetryable,
+		},
+		{
+			name:      "invalid arguments are unretryable",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_INVAL},
+			want:      PhaseTwoUnretryable,
+		},
+		{
+			name:      "outside errors are unretryable",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_OUTSIDE},
+			want:      PhaseTwoUnretryable,
+		},
+		{
+			name:      "unknown MySQL errors remain retryable",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: 9999},
+			want:      PhaseTwoRetryable,
+		},
+		{
+			name:      "non-MySQL errors remain retryable",
+			operation: PhaseTwoRollback,
+			err:       errors.New("temporary network error"),
+			want:      PhaseTwoRetryable,
+		},
 	}
 
-	unretryableCodes := []uint16{
-		types.ErrCodeXAER_INVAL,
-		types.ErrCodeXAER_OUTSIDE,
-	}
-	for _, code := range unretryableCodes {
-		if !classifier.IsUnretryable(&mysql.MySQLError{Number: code}) {
-			t.Fatalf("error code %d should be unretryable", code)
-		}
-	}
-
-	nota := &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA}
-	if classifier.IsAlreadyCommitted(nota) {
-		t.Fatal("XAER_NOTA is ambiguous and must not be classified as committed")
-	}
-	if classifier.IsAlreadyRollbacked(nota) {
-		t.Fatal("XAER_NOTA is ambiguous and must not be classified as rollbacked")
-	}
-	if classifier.IsUnretryable(errors.New("temporary network error")) {
-		t.Fatal("unknown connection errors should remain retryable")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifier.ClassifyPhaseTwoError(tt.operation, tt.err)
+			if got != tt.want {
+				t.Fatalf("ClassifyPhaseTwoError() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

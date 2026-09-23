@@ -28,8 +28,11 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/bluele/gcache"
+	"github.com/go-sql-driver/mysql"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -54,13 +57,13 @@ func (c *phaseTwoTestDriverConn) Begin() (driver.Tx, error) {
 }
 
 type phaseTwoTestXAResource struct {
-	commitErr         error
-	rollbackErr       error
-	alreadyCommitted  bool
-	alreadyRollbacked bool
-	unretryable       bool
-	commitCalls       int
-	rollbackCalls     int
+	commitErr      error
+	rollbackErr    error
+	classification xa.PhaseTwoErrorClassification
+	classifiedAs   xa.PhaseTwoOperation
+	commitCalls    int
+	prepareCalls   int
+	rollbackCalls  int
 }
 
 func (r *phaseTwoTestXAResource) Commit(ctx context.Context, xid string, onePhase bool) error {
@@ -85,6 +88,7 @@ func (r *phaseTwoTestXAResource) IsSameRM(ctx context.Context, resource xa.XARes
 }
 
 func (r *phaseTwoTestXAResource) XAPrepare(ctx context.Context, xid string) error {
+	r.prepareCalls++
 	return nil
 }
 
@@ -109,21 +113,18 @@ func (r *phaseTwoTestXAResource) IsAlreadyEnded(err error) bool {
 	return false
 }
 
-func (r *phaseTwoTestXAResource) IsAlreadyCommitted(err error) bool {
-	return r.alreadyCommitted
-}
-
-func (r *phaseTwoTestXAResource) IsAlreadyRollbacked(err error) bool {
-	return r.alreadyRollbacked
-}
-
-func (r *phaseTwoTestXAResource) IsUnretryable(err error) bool {
-	return r.unretryable
+func (r *phaseTwoTestXAResource) ClassifyPhaseTwoError(
+	operation xa.PhaseTwoOperation,
+	err error,
+) xa.PhaseTwoErrorClassification {
+	r.classifiedAs = operation
+	return r.classification
 }
 
 func newPhaseTwoTestManager(
 	t *testing.T,
 	resource *phaseTwoTestXAResource,
+	classifiers ...xa.XAErrorClassifier,
 ) (*XAResourceManager, rm.BranchResource, string) {
 	t.Helper()
 
@@ -140,6 +141,10 @@ func newPhaseTwoTestManager(
 		dbType:       types.DBTypeMySQL,
 		shouldBeHeld: true,
 	}
+	var classifier xa.XAErrorClassifier = resource
+	if len(classifiers) > 0 {
+		classifier = classifiers[0]
+	}
 	xaID := XaIdBuild(globalXID, uint64(branchID))
 	xaConn := &XAConn{
 		Conn: &Conn{
@@ -148,7 +153,7 @@ func newPhaseTwoTestManager(
 			dbType:     types.DBTypeMySQL,
 		},
 		xaResource:        resource,
-		xaErrorClassifier: resource,
+		xaErrorClassifier: classifier,
 		xaBranchXid:       xaID,
 		shouldBeHeld:      true,
 		isConnKept:        true,
@@ -391,8 +396,8 @@ func TestXAResourceManager_BranchRollback_StatusAndCache(t *testing.T) {
 func TestXAResourceManager_BranchCommit_ClassifiesTerminalErrors(t *testing.T) {
 	t.Run("already committed converges successfully", func(t *testing.T) {
 		manager, resource, xaID := newPhaseTwoTestManager(t, &phaseTwoTestXAResource{
-			commitErr:        errors.New("already committed"),
-			alreadyCommitted: true,
+			commitErr:      errors.New("already committed"),
+			classification: xa.PhaseTwoAlreadyCommitted,
 		})
 
 		status, err := manager.BranchCommit(context.Background(), resource)
@@ -408,8 +413,8 @@ func TestXAResourceManager_BranchCommit_ClassifiesTerminalErrors(t *testing.T) {
 	t.Run("already rollbacked is an unretryable commit failure", func(t *testing.T) {
 		commitErr := errors.New("branch already rollbacked")
 		manager, resource, xaID := newPhaseTwoTestManager(t, &phaseTwoTestXAResource{
-			commitErr:         commitErr,
-			alreadyRollbacked: true,
+			commitErr:      commitErr,
+			classification: xa.PhaseTwoAlreadyRolledBack,
 		})
 
 		status, err := manager.BranchCommit(context.Background(), resource)
@@ -425,8 +430,8 @@ func TestXAResourceManager_BranchCommit_ClassifiesTerminalErrors(t *testing.T) {
 	t.Run("protocol error is unretryable without inventing a terminal outcome", func(t *testing.T) {
 		commitErr := errors.New("invalid XA arguments")
 		manager, resource, xaID := newPhaseTwoTestManager(t, &phaseTwoTestXAResource{
-			commitErr:   commitErr,
-			unretryable: true,
+			commitErr:      commitErr,
+			classification: xa.PhaseTwoUnretryable,
 		})
 
 		status, err := manager.BranchCommit(context.Background(), resource)
@@ -443,8 +448,8 @@ func TestXAResourceManager_BranchCommit_ClassifiesTerminalErrors(t *testing.T) {
 func TestXAResourceManager_BranchRollback_ClassifiesTerminalErrors(t *testing.T) {
 	t.Run("already rollbacked converges successfully", func(t *testing.T) {
 		manager, resource, xaID := newPhaseTwoTestManager(t, &phaseTwoTestXAResource{
-			rollbackErr:       errors.New("already rollbacked"),
-			alreadyRollbacked: true,
+			rollbackErr:    errors.New("already rollbacked"),
+			classification: xa.PhaseTwoAlreadyRolledBack,
 		})
 
 		status, err := manager.BranchRollback(context.Background(), resource)
@@ -460,8 +465,8 @@ func TestXAResourceManager_BranchRollback_ClassifiesTerminalErrors(t *testing.T)
 	t.Run("already committed is an unretryable rollback failure", func(t *testing.T) {
 		rollbackErr := errors.New("branch already committed")
 		manager, resource, xaID := newPhaseTwoTestManager(t, &phaseTwoTestXAResource{
-			rollbackErr:      rollbackErr,
-			alreadyCommitted: true,
+			rollbackErr:    rollbackErr,
+			classification: xa.PhaseTwoAlreadyCommitted,
 		})
 
 		status, err := manager.BranchRollback(context.Background(), resource)
@@ -473,6 +478,150 @@ func TestXAResourceManager_BranchRollback_ClassifiesTerminalErrors(t *testing.T)
 		assert.EqualValues(t, branch.BranchStatusPhasetwoCommitted, cached)
 		assertPhaseTwoConnectionHeld(t, manager, resource, xaID, false)
 	})
+}
+
+func TestXAResourceManager_MySQLXAERNOTAIsDirectionAware(t *testing.T) {
+	t.Run("rollback treats missing XID as idempotent success", func(t *testing.T) {
+		nota := &mysql.MySQLError{
+			Number:  types.ErrCodeXAER_NOTA,
+			Message: "XAER_NOTA: Unknown XID",
+		}
+		xaResource := &phaseTwoTestXAResource{rollbackErr: nota}
+		manager, resource, xaID := newPhaseTwoTestManager(
+			t,
+			xaResource,
+			&xa.MysqlXAErrorClassifier{},
+		)
+
+		status, err := manager.BranchRollback(context.Background(), resource)
+
+		assert.NoError(t, err)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, status)
+		assert.Equal(t, 1, xaResource.rollbackCalls)
+		cached, cacheErr := branchStatus(xaID)
+		assert.NoError(t, cacheErr)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, cached)
+		assertPhaseTwoConnectionHeld(t, manager, resource, xaID, false)
+	})
+
+	t.Run("commit keeps missing XID ambiguous and retryable", func(t *testing.T) {
+		nota := &mysql.MySQLError{
+			Number:  types.ErrCodeXAER_NOTA,
+			Message: "XAER_NOTA: Unknown XID",
+		}
+		xaResource := &phaseTwoTestXAResource{commitErr: nota}
+		manager, resource, xaID := newPhaseTwoTestManager(
+			t,
+			xaResource,
+			&xa.MysqlXAErrorClassifier{},
+		)
+
+		status, err := manager.BranchCommit(context.Background(), resource)
+
+		assert.ErrorIs(t, err, nota)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoCommitFailedRetryable, status)
+		assert.Equal(t, 1, xaResource.commitCalls)
+		cached, cacheErr := branchStatus(xaID)
+		assert.NoError(t, cacheErr)
+		assert.EqualValues(t, branch.BranchStatusUnknown, cached)
+		assertPhaseTwoConnectionHeld(t, manager, resource, xaID, true)
+	})
+}
+
+func TestXAResourceManager_TimeoutRollbackThenTCRollbackTreatsNOTAAsSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	branchStatusCache = gcache.New(16).LRU().Expiration(time.Minute).Build()
+	previousTimeout := xaConnTimeout
+	xaConnTimeout = time.Second
+	defer func() {
+		xaConnTimeout = previousTimeout
+	}()
+
+	const (
+		resourceID = "mysql://127.0.0.1/timeout-test"
+		globalXID  = "127.0.0.1:8091:3001"
+		branchID   = int64(4001)
+	)
+	xaID := XaIdBuild(globalXID, uint64(branchID))
+
+	phaseTwoConn := mock.NewMockTestDriverConn(ctrl)
+	phaseTwoConn.EXPECT().
+		ExecContext(
+			gomock.Any(),
+			"XA ROLLBACK '"+xaID.String()+"'",
+			gomock.Any(),
+		).
+		Return(
+			driver.ResultNoRows,
+			&mysql.MySQLError{
+				Number:  types.ErrCodeXAER_NOTA,
+				Message: "XAER_NOTA: Unknown XID",
+			},
+		).
+		Times(1)
+	phaseTwoConn.EXPECT().Close().Return(nil).Times(1)
+
+	connector := mock.NewMockTestDriverConnector(ctrl)
+	connector.EXPECT().Connect(gomock.Any()).Return(phaseTwoConn, nil).Times(1)
+
+	dbResource := &DBResource{
+		resourceID:   resourceID,
+		connector:    connector,
+		dbType:       types.DBTypeMySQL,
+		keepInKeeper: true,
+		shouldBeHeld: true,
+	}
+	localResource := &phaseTwoTestXAResource{}
+	owner := &XAConn{
+		Conn: &Conn{
+			targetConn: &phaseTwoTestDriverConn{},
+			res:        dbResource,
+			txCtx:      types.NewTxCtx(),
+			autoCommit: false,
+			dbType:     types.DBTypeMySQL,
+		},
+		xaResource:         localResource,
+		xaErrorClassifier:  localResource,
+		xaBranchXid:        xaID,
+		xaActive:           true,
+		branchRegisterTime: time.Now().Add(-2 * time.Second),
+		keepInKeeper:       true,
+		shouldBeHeld:       true,
+		isConnKept:         true,
+	}
+	owner.txCtx.XID = globalXID
+	owner.txCtx.BranchID = uint64(branchID)
+	assert.NoError(t, dbResource.Hold(xaID.String(), owner))
+
+	manager := &XAResourceManager{}
+	manager.resourceCache.Store(resourceID, dbResource)
+	branchResource := rm.BranchResource{
+		BranchType: branch.BranchTypeXA,
+		Xid:        globalXID,
+		BranchId:   branchID,
+		ResourceId: resourceID,
+	}
+
+	timeoutErr := owner.Commit(context.Background())
+
+	if assert.Error(t, timeoutErr) {
+		assert.Contains(t, timeoutErr.Error(), "XA branch timeout error")
+		assert.NotContains(t, timeoutErr.Error(), "XAER_NOTA")
+	}
+	assert.Equal(t, 1, localResource.rollbackCalls)
+	assert.Equal(t, 0, localResource.prepareCalls)
+	_, ownerStillHeld := dbResource.Lookup(xaID.String())
+	assert.False(t, ownerStillHeld)
+
+	status, err := manager.BranchRollback(context.Background(), branchResource)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, status)
+	cached, cacheErr := branchStatus(xaID.String())
+	assert.NoError(t, cacheErr)
+	assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, cached)
 }
 
 func TestXAResourceManager_CachedTerminalStatusMakesPhaseTwoIdempotent(t *testing.T) {

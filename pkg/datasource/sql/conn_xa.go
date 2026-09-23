@@ -606,7 +606,7 @@ func (c *XAConn) Commit(ctx context.Context) error {
 		return c.commitErrorHandle(ctx, err)
 	}
 
-	if err := c.checkTimeout(ctx, now); err != nil {
+	if err := c.checkTimeout(now); err != nil {
 		return c.commitErrorHandle(ctx, err)
 	}
 
@@ -650,9 +650,10 @@ func (c *XAConn) phaseTwoTimeoutSnapshot() (prepared bool, holdUntilPhaseTwo boo
 	return c.preparedForPhaseTwo, c.shouldBeHeld, c.prepareTime
 }
 
-func (c *XAConn) checkTimeout(ctx context.Context, now time.Time) error {
+// checkTimeout only reports expiration. Commit routes the error through
+// commitErrorHandle, which rolls the branch back once and preserves this cause.
+func (c *XAConn) checkTimeout(now time.Time) error {
 	if now.Sub(c.branchRegisterTime) > xaConnTimeout {
-		c.XaRollback(ctx, c.xaBranchXid)
 		return fmt.Errorf("XA branch timeout error xid:%s", c.txCtx.XID)
 	}
 	return nil

@@ -87,14 +87,32 @@ type XAErrorClassifier interface {
 	IsAlreadyEnded(err error) bool
 }
 
+// PhaseTwoOperation identifies the operation that produced a phase-two error.
+// Some database errors, such as MySQL XAER_NOTA, have different semantics for
+// commit and rollback.
+type PhaseTwoOperation uint8
+
+const (
+	PhaseTwoCommit PhaseTwoOperation = iota
+	PhaseTwoRollback
+)
+
+// PhaseTwoErrorClassification describes how the resource manager should handle
+// a database-specific phase-two error.
+type PhaseTwoErrorClassification uint8
+
+const (
+	PhaseTwoRetryable PhaseTwoErrorClassification = iota
+	PhaseTwoAlreadyCommitted
+	PhaseTwoAlreadyRolledBack
+	PhaseTwoUnretryable
+)
+
 // XAPhaseTwoErrorClassifier optionally classifies database-specific phase-two
-// outcomes. Implementations must only report an already-completed outcome when
-// the database error proves that exact direction; ambiguous NOTA errors must
-// remain retryable.
+// errors in the direction of the requested operation. The zero-value
+// classification is retryable so unknown errors retain the XA branch state.
 type XAPhaseTwoErrorClassifier interface {
-	IsAlreadyCommitted(err error) bool
-	IsAlreadyRollbacked(err error) bool
-	IsUnretryable(err error) bool
+	ClassifyPhaseTwoError(operation PhaseTwoOperation, err error) PhaseTwoErrorClassification
 }
 
 // defaultErrorClassifier is a no-op classifier that never matches any error.

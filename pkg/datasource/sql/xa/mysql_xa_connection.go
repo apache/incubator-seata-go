@@ -79,40 +79,31 @@ func (c *MysqlXAErrorClassifier) IsAlreadyEnded(err error) bool {
 	return false
 }
 
-// IsAlreadyCommitted deliberately returns false because MySQL's XAER_NOTA is
-// ambiguous: the XID may have committed, rolled back, or never existed.
-func (c *MysqlXAErrorClassifier) IsAlreadyCommitted(err error) bool {
-	return false
-}
-
-// IsAlreadyRollbacked reports errors that prove the branch was rolled back.
-func (c *MysqlXAErrorClassifier) IsAlreadyRollbacked(err error) bool {
+// ClassifyPhaseTwoError maps MySQL XA errors to operation-aware outcomes.
+// XAER_NOTA is ambiguous for commit because the XID may have committed, rolled
+// back, or never existed. For rollback, an absent XID already satisfies the
+// requested postcondition and is therefore an idempotent success.
+func (c *MysqlXAErrorClassifier) ClassifyPhaseTwoError(
+	operation PhaseTwoOperation,
+	err error,
+) PhaseTwoErrorClassification {
 	var mysqlErr *mysql.MySQLError
 	if !errors.As(err, &mysqlErr) {
-		return false
+		return PhaseTwoRetryable
 	}
 
 	switch mysqlErr.Number {
 	case types.ErrCodeXA_RBROLLBACK, types.ErrCodeXA_RBTIMEOUT, types.ErrCodeXA_RBDEADLOCK:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsUnretryable reports deterministic protocol/argument errors. Other RM and
-// connection failures remain retryable.
-func (c *MysqlXAErrorClassifier) IsUnretryable(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	if !errors.As(err, &mysqlErr) {
-		return false
-	}
-
-	switch mysqlErr.Number {
+		return PhaseTwoAlreadyRolledBack
+	case types.ErrCodeXAER_NOTA:
+		if operation == PhaseTwoRollback {
+			return PhaseTwoAlreadyRolledBack
+		}
+		return PhaseTwoRetryable
 	case types.ErrCodeXAER_INVAL, types.ErrCodeXAER_OUTSIDE:
-		return true
+		return PhaseTwoUnretryable
 	default:
-		return false
+		return PhaseTwoRetryable
 	}
 }
 

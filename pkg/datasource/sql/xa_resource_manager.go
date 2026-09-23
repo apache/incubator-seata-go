@@ -202,18 +202,18 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 	}); err != nil {
 		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
-			switch {
-			case classifier.IsAlreadyCommitted(err):
+			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoCommit, err) {
+			case xa.PhaseTwoAlreadyCommitted:
 				connectionProxyXA.completePhaseTwoWith(func() {
 					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 				})
 				return branch.BranchStatusPhasetwoCommitted, nil
-			case classifier.IsAlreadyRollbacked(err):
+			case xa.PhaseTwoAlreadyRolledBack:
 				connectionProxyXA.completePhaseTwoWith(func() {
 					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
 				})
 				return branch.BranchStatusPhasetwoCommitFailedUnretryable, err
-			case classifier.IsUnretryable(err):
+			case xa.PhaseTwoUnretryable:
 				if closeErr := connectionProxyXA.CloseForce(); closeErr != nil {
 					log.Errorf("close XA connection after unretryable commit failure: %v", closeErr)
 				}
@@ -255,18 +255,18 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 	}); err != nil {
 		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
-			switch {
-			case classifier.IsAlreadyRollbacked(err):
+			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoRollback, err) {
+			case xa.PhaseTwoAlreadyRolledBack:
 				connectionProxyXA.completePhaseTwoWith(func() {
 					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
 				})
 				return branch.BranchStatusPhasetwoRollbacked, nil
-			case classifier.IsAlreadyCommitted(err):
+			case xa.PhaseTwoAlreadyCommitted:
 				connectionProxyXA.completePhaseTwoWith(func() {
 					setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
 				})
 				return branch.BranchStatusPhasetwoRollbackFailedUnretryable, err
-			case classifier.IsUnretryable(err):
+			case xa.PhaseTwoUnretryable:
 				if closeErr := connectionProxyXA.CloseForce(); closeErr != nil {
 					log.Errorf("close XA connection after unretryable rollback failure: %v", closeErr)
 				}
