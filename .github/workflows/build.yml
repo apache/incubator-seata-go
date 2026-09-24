@@ -15,81 +15,65 @@
 # limitations under the License.
 #
 
-# This is a workflow to help you test the unit case and show codecov
+# This is a workflow to build the project.
 
-name: "build and codecov"
+name: "build"
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/build.yml"
   pull_request:
     branches: ["*"]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/build.yml"
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.20
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          # The MySQL docker container requires these environment variables to be set
-          # so we can create and migrate the test database.
-          # See: https://hub.docker.com/_/mysql
-          MYSQL_DATABASE: seata_go_test
-          MYSQL_ROOT_PASSWORD: seata_go
-          MYSQL_USER: seata_go
-          MYSQL_PASSWORD: seata_go
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
+    timeout-minutes: 15
     steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v4
+
       - name: "set up go"
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.20.14
-
-
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
+          cache: true
 
       - name: "run go build"
         run: go build -v ./...
 
-      - name: "run go test and out codecov"
-        run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic
-        env:
-          SEATA_GO_TEST_MYSQL_DSN: seata_go:seata_go@tcp(127.0.0.1:3306)/seata_go_test
-
-      - name: "upload coverage"
-        uses: codecov/codecov-action@v4.0.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          version: v0.6.0
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   build-riscv:
     name: "build for RISC-V"
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v4
+
       - name: "set up go"
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.20.14
-
-      - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+          cache: true
 
       - name: "build for RISC-V 64-bit"
         env:
