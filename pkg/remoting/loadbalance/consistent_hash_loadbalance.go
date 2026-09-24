@@ -23,6 +23,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
@@ -66,9 +68,13 @@ func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection 
 		return c.sortedHashNodes[i] >= hashKey
 	})
 
-	if index == len(c.sortedHashNodes) {
+	if len(c.sortedHashNodes) == 0 {
 		c.RUnlock()
 		return RandomLoadBalance(sessions, key)
+	}
+
+	if index == len(c.sortedHashNodes) {
+		index = 0
 	}
 
 	session, ok := c.hashCircle[c.sortedHashNodes[index]]
@@ -158,6 +164,9 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 }
 
 func ConsistentHashLoadBalance(sessions *sync.Map, xid string) connection.Connection {
+	if xid == "" || xid == "<invalid Value>" {
+		xid = uuid.New().String()
+	}
 	// pick a node
 	return newConsistenceInstance(sessions).pick(sessions, xid)
 }

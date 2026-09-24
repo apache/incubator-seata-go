@@ -55,10 +55,10 @@ func GetStatus(service string) *Status {
 
 // GetActive get active.
 func (s *Status) GetActive() int32 {
-	return s.Active
+	return atomic.LoadInt32(&s.Active)
 }
 
 // GetTotal get total.
 func (s *Status) GetTotal() int32 {
-	return s.Total
+	return atomic.LoadInt32(&s.Total)
 }
