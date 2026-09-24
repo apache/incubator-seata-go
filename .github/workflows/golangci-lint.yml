@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# This is a basic workflow to help you get started with Actions
+# This is a workflow to run golangci-lint on the project.
 
 name: "golang ci lint"
 
@@ -23,39 +23,48 @@ name: "golang ci lint"
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yml"
+      - ".github/workflows/golangci-lint.yml"
   pull_request:
     branches: "*"
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yml"
+      - ".github/workflows/golangci-lint.yml"
 
-  # Allows you to run this workflow manually from the Actions tab
-#  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  lint:
+    name: lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.20.0
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    timeout-minutes: 15
     steps:
-      - name: "set up go"
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.0
-
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "set up go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.20.14
+          cache: true
 
       - name: "golang ci lint"
         uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: v1.51.0
           args: --timeout=10m
-          skip-cache: true
           skip-pkg-cache: true

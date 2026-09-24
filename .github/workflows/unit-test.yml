@@ -15,65 +15,80 @@
 # limitations under the License.
 #
 
-name: "Unit Test"
+# This is a workflow to run unit tests.
+
+name: "unit test"
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/unit-test.yml"
   pull_request:
-    branches: [ "*" ]
-    types: [opened, synchronize, reopened]
+    branches: "*"
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/unit-test.yml"
 
 permissions:
   contents: read
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-test:
-    name: Unit Test
+    name: "unit test"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      matrix:
-        golang:
-          - 1.20.14
-
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: seata_go_test
+          MYSQL_ROOT_PASSWORD: seata_go
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
-    - name: "Set up Go"
-      uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.golang }}
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v4
 
-    - name: "Checkout code"
-      uses: actions/checkout@v3
-      with:
-        submodules: true
+      - name: "set up go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.20.14"
+          cache: true
 
-    - name: "Cache dependencies"
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
-        restore-keys: |
-          "${{ runner.os }}-go-"
+      - name: "run unit tests"
+        run: |
+          set -o pipefail
+          go test -v ./... -race -coverprofile=coverage.out -covermode=atomic -timeout 10m 2>&1 | tee test-output.log
 
-    - name: Shutdown default mysql
-      run: sudo service mysql stop
+      - name: Upload coverage
+        if: success()
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
+          version: v0.6.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-
-    - name: "Run Unit Tests"
-      run: |
-        echo "=== Starting Unit Tests ==="
-        go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
-        if [ $? -ne 0 ]; then
-          echo "❌ Unit tests failed"
-          exit 1
-        fi
-        echo "✅ Unit tests completed successfully"
-
-    - name: "Archive test results"
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: coverage.txt
-        retention-days: 7
-        overwrite: true
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-diagnostics
+          path: |
+            coverage.out
+            test-output.log
+          if-no-files-found: warn
+          retention-days: 7

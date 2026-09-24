@@ -15,69 +15,87 @@
 # limitations under the License.
 #
 
-name: "integrate-test"
+# This is a workflow to run integration tests via integrate_test.sh.
+
+name: "integrate test"
 
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "integrate_test.sh"
+      - ".github/workflows/integrate-test.yml"
   pull_request:
     branches: "*"
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "integrate_test.sh"
+      - ".github/workflows/integrate-test.yml"
 
 permissions:
   contents: read
+  actions: write
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # This workflow contains a single job called "build"
   test:
-    # The type of runner that the job will run on
     name: test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - 1.20
-
+    timeout-minutes: 30
     steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v4
 
-    - name: "set up go"
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.20.14
+      - name: "set up go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.20.14
+          cache: true
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: "checkout ${{ github.ref }}"
-      uses: actions/checkout@v3
+      - name: "set up docker"
+        uses: docker/setup-buildx-action@v3
 
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        # Cache
-        path: ~/go/pkg/mod
-        # Cache key
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: "install docker compose"
+        run: |
+          curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
 
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
+      - name: "run integrate test"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          chmod +x integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
 
-    - name: Install Docker Compose
-      run: |
-        curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        chmod +x /usr/local/bin/docker-compose
-        docker-compose --version
+      - name: "run integrate test"
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          chmod +x integrate_test.sh && ./integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
 
-    # This step only runs when the event type is a pull_request
-    - name: Integrate Test
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        chmod +x integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
+      - name: "collect service logs"
+        if: failure()
+        run: |
+          mkdir -p ci-logs
+          docker ps -a > ci-logs/docker-ps.txt 2>&1 || true
+          if [ -d samples ]; then
+            (cd samples && docker-compose logs --no-color > ../ci-logs/compose.log 2>&1) || true
+          else
+            docker-compose logs --no-color > ci-logs/compose.log 2>&1 || true
+          fi
 
-    # This step only runs when the event type is a push
-    - name: Integrate Test
-      if: ${{ github.event_name == 'push' }}
-      run: |
-        chmod +x integrate_test.sh && ./integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+      - name: "upload diagnostics"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "integrate test diagnostics"
+          path: ci-logs/
+          if-no-files-found: warn
+          retention-days: 7
