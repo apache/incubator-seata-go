@@ -50,6 +50,48 @@ func cloneTestConfig() *NamingServerConfig {
 	return &cfg
 }
 
+func TestGetInstanceRecreatesClosedClient(t *testing.T) {
+	resetInstance()
+	t.Cleanup(resetInstance)
+	cfg := cloneTestConfig()
+	cfg.HeartbeatPeriod = 60000
+
+	first := GetInstance(cfg)
+	if got := GetInstance(cfg); got != first {
+		t.Fatal("GetInstance did not reuse the active client")
+	}
+	first.Close()
+
+	second := GetInstance(cfg)
+	if second == first {
+		t.Fatal("GetInstance returned the closed client")
+	}
+	select {
+	case <-second.closeChan:
+		t.Fatal("replacement client is already closed")
+	default:
+	}
+}
+
+func TestNamingServerRegistryServicesOwnClients(t *testing.T) {
+	cfg := cloneTestConfig()
+	cfg.HeartbeatPeriod = 60000
+	first := newNamingServerRegistryService(nil, cfg).(*NamingServerRegistryService)
+	second := newNamingServerRegistryService(nil, cfg).(*NamingServerRegistryService)
+	t.Cleanup(first.Close)
+	t.Cleanup(second.Close)
+
+	if first.client == second.client {
+		t.Fatal("registry services share a client")
+	}
+	first.Close()
+	select {
+	case <-second.client.closeChan:
+		t.Fatal("closing one registry service closed the other client's connection")
+	default:
+	}
+}
+
 // Test getNamingAddrs splits config.ServerAddr
 func TestGetNamingAddrs(t *testing.T) {
 	cfg := cloneTestConfig()
@@ -696,6 +738,12 @@ func TestInitRegistry_WithNamingServerConfig(t *testing.T) {
 	registryServiceInstance = nil
 	// Reset naming server singleton instance
 	resetInstance()
+	t.Cleanup(func() {
+		if registryServiceInstance != nil {
+			registryServiceInstance.Close()
+			registryServiceInstance = nil
+		}
+	})
 
 	// Create custom configuration
 	customConfig := &RegistryConfig{
