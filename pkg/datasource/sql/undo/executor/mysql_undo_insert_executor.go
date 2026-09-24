@@ -24,6 +24,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mySQLUndoInsertExecutor struct {
@@ -33,18 +34,28 @@ type mySQLUndoInsertExecutor struct {
 
 // newMySQLUndoInsertExecutor init
 func newMySQLUndoInsertExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoInsertExecutor {
-	return &mySQLUndoInsertExecutor{sqlUndoLog: sqlUndoLog}
+	return &mySQLUndoInsertExecutor{
+		sqlUndoLog:   sqlUndoLog,
+		BaseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+	}
 }
 
 // ExecuteOn execute insert undo logic
 func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
-
-	if err := m.BaseExecutor.ExecuteOn(ctx, dbType, conn); err != nil {
+	m.BaseExecutor.dbType = dbType
+	ok, err := m.BaseExecutor.dataValidationAndGoOn(ctx, conn)
+	if err != nil {
 		return err
+	}
+	if !ok {
+		return nil
 	}
 
 	// build delete sql
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
@@ -53,12 +64,15 @@ func (m *mySQLUndoInsertExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	defer stmt.Close()
 	afterImage := m.sqlUndoLog.AfterImage
 	for _, row := range afterImage.Rows {
-		pkValueList := make([]interface{}, 0)
+		pkList, err := util.GetOrderedPkList(afterImage, row, dbType)
+		if err != nil {
+			return fmt.Errorf("UNDO-INSERT-CONTEXT-ERROR [Op: ExecuteOn, Table: %s]: failed to parse ordered primary keys from record image: %w", m.sqlUndoLog.TableName, err)
+		}
 
-		for _, col := range row.Columns {
-			if col.KeyType == types.PrimaryKey.Number() {
-				pkValueList = append(pkValueList, col.Value)
-			}
+		pkValueList := make([]interface{}, 0, len(pkList))
+
+		for _, col := range pkList {
+			pkValueList = append(pkValueList, col.Value)
 		}
 
 		if _, err = stmt.Exec(pkValueList...); err != nil {
@@ -90,7 +104,7 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	image *types.RecordImage, rows []types.RowImage,
 	dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (string, error) {
 
-	colImages, err := GetOrderedPkList(image, rows[0], dbType)
+	colImages, err := util.GetOrderedPkList(image, rows[0], dbType)
 	if err != nil {
 		return "", err
 	}
@@ -100,8 +114,8 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 		pkList = append(pkList, colImages[key].ColumnName)
 	}
 
-	whereSql := BuildWhereConditionByPKs(pkList, dbType)
+	whereSql := util.BuildWhereConditionByPKs(pkList, dbType)
 
 	deleteSqlTemplate := "DELETE FROM %s WHERE %s "
-	return fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), nil
+	return util.RewritePlaceholders(fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), dbType), nil
 }

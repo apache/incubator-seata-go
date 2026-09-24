@@ -22,6 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/arana-db/parser/ast"
@@ -30,6 +32,7 @@ import (
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -41,6 +44,8 @@ import (
 type baseExecutor struct {
 	hooks []exec.SQLHook
 }
+
+var mysqlStringLiteralForPostgresPattern = regexp.MustCompile(`_UTF8MB4([[:alnum:]_]+)`)
 
 func (b *baseExecutor) beforeHooks(ctx context.Context, execCtx *types.ExecContext) error {
 	for _, hook := range b.hooks {
@@ -70,10 +75,10 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 			columnMeta = tableMeta.Columns[columnName]
 		)
 		switch strings.ToUpper(columnMeta.DatabaseTypeString) {
-		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "TINYTEXT":
+		case "VARCHAR", "NVARCHAR", "VARCHAR2", "CHAR", "TEXT", "JSON", "JSONB", "TINYTEXT", "UUID", "BPCHAR", "CHARACTER VARYING", "CHARACTER", "DECIMAL", "NUMERIC":
 			var scanVal sql.NullString
 			scanSlice = append(scanSlice, &scanVal)
-		case "BIT", "INT", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT":
+		case "BIT", "INT", "INTEGER", "INT2", "INT4", "INT8", "LONGBLOB", "SMALLINT", "TINYINT", "BIGINT", "MEDIUMINT", "SERIAL", "BIGSERIAL", "SMALLSERIAL":
 			if columnMeta.IsNullable == 0 {
 				scanVal := int64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -81,10 +86,18 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 				scanVal := sql.NullInt64{}
 				scanSlice = append(scanSlice, &scanVal)
 			}
-		case "DATE", "DATETIME", "TIME", "TIMESTAMP", "YEAR":
+		case "BOOLEAN", "BOOL":
+			if columnMeta.IsNullable == 0 {
+				scanVal := false
+				scanSlice = append(scanSlice, &scanVal)
+			} else {
+				scanVal := sql.NullBool{}
+				scanSlice = append(scanSlice, &scanVal)
+			}
+		case "DATE", "DATETIME", "TIME", "TIME WITH TIME ZONE", "TIME WITHOUT TIME ZONE", "TIMESTAMP", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE", "YEAR":
 			var scanVal sql.NullTime
 			scanSlice = append(scanSlice, &scanVal)
-		case "DECIMAL", "DOUBLE", "FLOAT":
+		case "DOUBLE", "DOUBLE PRECISION", "FLOAT", "REAL":
 			if columnMeta.IsNullable == 0 {
 				scanVal := float64(0)
 				scanSlice = append(scanSlice, &scanVal)
@@ -98,6 +111,71 @@ func (*baseExecutor) GetScanSlice(columnNames []string, tableMeta *types.TableMe
 		}
 	}
 	return scanSlice
+}
+
+func effectiveDBType(dbType types.DBType) types.DBType {
+	if dbType == 0 || dbType == types.DBTypeUnknown {
+		return types.DBTypeMySQL
+	}
+	return dbType
+}
+
+func (b *baseExecutor) getTableCache(dbType types.DBType) (datasource.TableMetaCache, error) {
+	dbType = effectiveDBType(dbType)
+	tableCache := datasource.GetTableCache(dbType)
+	if tableCache == nil {
+		return nil, fmt.Errorf("table meta cache not registered for dbType %s", dbType.String())
+	}
+	return tableCache, nil
+}
+
+func jdbcTypeForDatabaseType(dbType types.DBType, databaseType string) types.JDBCType {
+	dbType = effectiveDBType(dbType)
+	if dbType != types.DBTypePostgreSQL {
+		return types.MySQLStrToJavaType(databaseType)
+	}
+
+	switch strings.ToUpper(databaseType) {
+	case "BOOLEAN", "BOOL":
+		return types.JDBCTypeBoolean
+	case "SMALLINT", "INT2":
+		return types.JDBCTypeSmallInt
+	case "INTEGER", "INT", "INT4", "SERIAL":
+		return types.JDBCTypeInteger
+	case "BIGINT", "INT8", "BIGSERIAL":
+		return types.JDBCTypeBigInt
+	case "REAL":
+		return types.JDBCTypeReal
+	case "DOUBLE PRECISION", "DOUBLE":
+		return types.JDBCTypeDouble
+	case "NUMERIC", "DECIMAL":
+		return types.JDBCTypeDecimal
+	case "CHAR", "BPCHAR":
+		return types.JDBCTypeChar
+	case "VARCHAR", "TEXT", "UUID":
+		return types.JDBCTypeVarchar
+	case "DATE":
+		return types.JDBCTypeDate
+	case "TIME", "TIME WITH TIME ZONE", "TIME WITHOUT TIME ZONE":
+		return types.JDBCTypeTime
+	case "TIMESTAMP", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
+		return types.JDBCTypeTimestamp
+	case "BYTEA":
+		return types.JDBCTypeLongVarBinary
+	case "JSON", "JSONB":
+		return types.JDBCTypeLongVarchar
+	default:
+		return types.JDBCTypeOther
+	}
+}
+
+func (b *baseExecutor) normalizeGeneratedSQL(query string, dbType types.DBType) string {
+	dbType = effectiveDBType(dbType)
+	if dbType == types.DBTypePostgreSQL {
+		query = strings.Replace(query, "SELECT SQL_NO_CACHE ", "SELECT ", 1)
+		query = mysqlStringLiteralForPostgresPattern.ReplaceAllString(query, "'$1'")
+	}
+	return util.RewritePlaceholders(query, dbType)
 }
 
 func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
@@ -224,7 +302,7 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 	}
 }
 
-func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType) (*types.RecordImage, error) {
+func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType, dbType types.DBType) (*types.RecordImage, error) {
 	// select column names
 	columnNames := rowsi.Columns()
 	rowImages := make([]types.RowImage, 0)
@@ -242,13 +320,14 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 		columns := make([]types.ColumnImage, 0)
 		// build record image
 		for i, name := range columnNames {
-			columnMeta := tableMetaData.Columns[name]
+			cleanName := util.DelEscape(name, effectiveDBType(dbType))
+			columnMeta := tableMetaData.Columns[cleanName]
 
 			keyType := types.IndexTypeNull
-			if _, ok := tableMetaData.GetPrimaryKeyMap()[name]; ok {
+			if _, ok := tableMetaData.GetPrimaryKeyMap()[cleanName]; ok {
 				keyType = types.IndexTypePrimaryKey
 			}
-			jdbcType := types.MySQLStrToJavaType(columnMeta.DatabaseTypeString)
+			jdbcType := jdbcTypeForDatabaseType(dbType, columnMeta.DatabaseTypeString)
 
 			columns = append(columns, types.ColumnImage{
 				KeyType:    keyType,
@@ -263,46 +342,54 @@ func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types
 	return &types.RecordImage{TableName: tableMetaData.TableName, Rows: rowImages, SQLType: sqlType}, nil
 }
 
-func (b *baseExecutor) getNeedColumns(meta *types.TableMeta, columns []string, dbType types.DBType) []string {
-	var needUpdateColumns []string
-	if undo.UndoConfig.OnlyCareUpdateColumns && columns != nil && len(columns) > 0 {
-		needUpdateColumns = columns
-		if !b.containsPKByName(meta, columns) {
-			pkNames := meta.GetPrimaryKeyOnlyName()
-			if pkNames != nil && len(pkNames) > 0 {
-				for _, name := range pkNames {
-					needUpdateColumns = append(needUpdateColumns, name)
-				}
-			}
+func buildImageSelectColumns(meta *types.TableMeta, requested []string, dbType types.DBType, onlyCareRequested bool) ([]string, error) {
+	if meta == nil {
+		return nil, fmt.Errorf("table meta is nil")
+	}
+
+	dbType = effectiveDBType(dbType)
+	pkNames := meta.GetPrimaryKeyOnlyName()
+	if len(pkNames) == 0 {
+		return nil, fmt.Errorf("primary key metadata is empty")
+	}
+
+	columns := meta.ColumnNames
+	if onlyCareRequested && len(requested) > 0 {
+		columns = requested
+	}
+	result := append(make([]string, 0, len(columns)+len(pkNames)), columns...)
+	seen := make(map[string]struct{}, len(result)+len(pkNames))
+	for _, column := range result {
+		name := strings.ToLower(util.DelEscape(column, dbType))
+		if name == "" {
+			return nil, fmt.Errorf("image select column name is empty")
 		}
-		// todo If it contains onUpdate columns, add onUpdate columns
-	} else {
-		needUpdateColumns = meta.ColumnNames
+		if _, ok := seen[name]; ok {
+			return nil, fmt.Errorf("image select column %q found more than once", column)
+		}
+		seen[name] = struct{}{}
 	}
 
-	for i := range needUpdateColumns {
-		needUpdateColumns[i] = AddEscape(needUpdateColumns[i], dbType)
-	}
-	return needUpdateColumns
-}
-
-func (b *baseExecutor) containsPKByName(meta *types.TableMeta, columns []string) bool {
-	pkColumnNameList := meta.GetPrimaryKeyOnlyName()
-	if len(pkColumnNameList) == 0 {
-		return false
-	}
-
-	matchCounter := 0
-	for _, column := range columns {
-		for _, pkName := range pkColumnNameList {
-			if strings.EqualFold(pkName, column) ||
-				strings.EqualFold(pkName, strings.ToLower(column)) {
-				matchCounter++
-			}
+	primaryKeys := make(map[string]struct{}, len(pkNames))
+	for _, pkName := range pkNames {
+		name := strings.ToLower(util.DelEscape(pkName, dbType))
+		if name == "" {
+			return nil, fmt.Errorf("primary key column name is empty")
+		}
+		if _, ok := primaryKeys[name]; ok {
+			return nil, fmt.Errorf("primary key %q exists more than once in metadata", pkName)
+		}
+		primaryKeys[name] = struct{}{}
+		if _, ok := seen[name]; !ok {
+			result = append(result, pkName)
+			seen[name] = struct{}{}
 		}
 	}
 
-	return matchCounter == len(pkColumnNameList)
+	for index := range result {
+		result[index] = util.AddEscape(result[index], dbType)
+	}
+	return result, nil
 }
 
 func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
@@ -420,7 +507,7 @@ func getSqlNullValue(value interface{}) interface{} {
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType types.DBType, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -440,8 +527,11 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			if effectiveDBType(dbType) == types.DBTypeMySQL {
+				whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+				continue
+			}
+			whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
 		}
 		whereStr.WriteString(") IN (")
 
@@ -472,17 +562,25 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 		}
 		whereStr.WriteString(")")
 	}
-	return whereStr.String()
+	return b.normalizeGeneratedSQL(whereStr.String(), dbType)
 }
 
-func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string) []driver.NamedValue {
+func (b *baseExecutor) buildPKParams(rows []types.RowImage, pkNameList []string, dbType types.DBType) []driver.NamedValue {
+	dbType = effectiveDBType(dbType)
 	params := make([]driver.NamedValue, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
-		for i, pk := range pkNameList {
-			if col, ok := coumnMap[pk]; ok {
+		// Build a normalized map with escaped characters removed
+		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
+		for k, v := range coumnMap {
+			normalizedMap[util.DelEscape(k, dbType)] = v
+		}
+		for _, pk := range pkNameList {
+			cleanPK := util.DelEscape(pk, dbType)
+			if col, ok := normalizedMap[cleanPK]; ok {
 				params = append(params, driver.NamedValue{
-					Ordinal: i, Value: col.Value,
+					Ordinal: len(params) + 1,
+					Value:   col.Value,
 				})
 			}
 		}
@@ -495,8 +593,108 @@ func (b *baseExecutor) buildLockKey(records *types.RecordImage, meta types.Table
 	return util.BuildLockKey(records, meta)
 }
 
+func rowsByPrimaryKey(image *types.RecordImage, dbType types.DBType) (map[string]types.RowImage, error) {
+	rows := make(map[string]types.RowImage, len(image.Rows))
+	for _, row := range image.Rows {
+		primaryKeys, err := util.GetOrderedPkList(image, row, dbType)
+		if err != nil {
+			return nil, err
+		}
+		var key strings.Builder
+		for _, primaryKey := range primaryKeys {
+			value := primaryKey.GetActualValue()
+			if value == nil {
+				key.WriteByte('n')
+				continue
+			}
+			part := fmt.Sprintf("%v", value)
+			fmt.Fprintf(&key, "v%d:%s", len(part), part)
+		}
+		rowKey := key.String()
+		if _, ok := rows[rowKey]; ok {
+			return nil, fmt.Errorf("primary key %q found more than once in record image", rowKey)
+		}
+		rows[rowKey] = row
+	}
+	return rows, nil
+}
+
+func rowsEqualByPrimaryKey(beforeImage, afterImage *types.RecordImage, dbType types.DBType) (bool, error) {
+	if len(beforeImage.Rows) != len(afterImage.Rows) {
+		return false, nil
+	}
+	beforeRows, err := rowsByPrimaryKey(beforeImage, dbType)
+	if err != nil {
+		return false, err
+	}
+	afterRows, err := rowsByPrimaryKey(afterImage, dbType)
+	if err != nil {
+		return false, err
+	}
+	for key, beforeRow := range beforeRows {
+		afterRow, ok := afterRows[key]
+		if !ok || !reflect.DeepEqual(beforeRow, afterRow) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, afterImage *types.RecordImage) error {
+	if execCtx == nil || execCtx.TxCtx == nil {
+		return fmt.Errorf("transaction context is nil")
+	}
+	if beforeImage == nil || afterImage == nil {
+		return fmt.Errorf("before and after images must not be nil")
+	}
+	if len(beforeImage.Rows) == 0 && len(afterImage.Rows) == 0 {
+		return nil
+	}
+
+	lockImage := afterImage
+	if beforeImage.SQLType == types.SQLTypeDelete {
+		lockImage = beforeImage
+	}
+	if len(lockImage.Rows) == 0 {
+		return fmt.Errorf("lock image rows are empty")
+	}
+	if lockImage.TableMeta == nil {
+		return fmt.Errorf("lock image table meta is nil")
+	}
+	for rowIndex, row := range lockImage.Rows {
+		primaryKeys, err := util.GetOrderedPkList(lockImage, row, effectiveDBType(execCtx.DBType))
+		if err != nil {
+			return fmt.Errorf("invalid lock image row %d: %w", rowIndex, err)
+		}
+		for _, primaryKey := range primaryKeys {
+			if primaryKey.GetActualValue() == nil {
+				return fmt.Errorf("primary key %q is nil in lock image row %d", primaryKey.ColumnName, rowIndex)
+			}
+		}
+	}
+	if beforeImage.SQLType == types.SQLTypeUpdate {
+		equal, err := rowsEqualByPrimaryKey(beforeImage, afterImage, effectiveDBType(execCtx.DBType))
+		if err != nil {
+			return fmt.Errorf("compare update images: %w", err)
+		}
+		if equal {
+			return nil
+		}
+	}
+
+	lockKey := b.buildLockKey(lockImage, *lockImage.TableMeta)
+	if lockKey == "" {
+		return fmt.Errorf("lock key is empty")
+	}
+	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	execCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
+	execCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	return nil
+}
+
 func (b *baseExecutor) rowsPrepare(ctx context.Context, conn driver.Conn, selectSQL string, selectArgs []driver.NamedValue) (driver.Rows, error) {
 	var queryer driver.Queryer
+	var rows driver.Rows
 
 	queryerContext, ok := conn.(driver.QueryerContext)
 	if !ok {

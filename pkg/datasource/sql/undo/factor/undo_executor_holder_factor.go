@@ -34,8 +34,8 @@ func GetUndoExecutorHolder(dbType types.DBType) (undo.UndoExecutorHolder, error)
 	// lazy init
 	if undoExecutorHolderMap == nil {
 		undoExecutorHolderMap = map[types.DBType]undo.UndoExecutorHolder{
-			// todo impl oracle, mariadb, postgresql etc ...
-			types.DBTypeMySQL: executor.NewMySQLUndoExecutorHolder(),
+			types.DBTypeMySQL:      executor.NewMySQLUndoExecutorHolder(),
+			types.DBTypePostgreSQL: executor.NewPostgreSQLUndoExecutorHolder(),
 		}
 	}
 

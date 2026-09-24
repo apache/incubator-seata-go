@@ -20,6 +20,8 @@ package exec
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
+	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -27,6 +29,8 @@ import (
 
 var (
 	atExecutors = make(map[types.DBType]func() SQLExecutor)
+	// ErrATExecutorBuilderNotRegistered indicates the db type has no AT executor root registered.
+	ErrATExecutorBuilderNotRegistered = errors.New("at executor builder not registered")
 )
 
 // RegisterATExecutor AT executor
@@ -51,6 +55,19 @@ type (
 func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, query string) (SQLExecutor, error) {
 	parseContext, err := parser.DoParser(query)
 	if err != nil {
+		// XA mode uses a pass-through executor and never needs the parsed statement:
+		// two-phase commit is managed by the TC and no undo log is generated, so SQL
+		// the shared parser cannot understand must still execute as-is instead of
+		// erroring or falling back to an AT executor. This check must come before the
+		// PostgreSQL fallback so XA mode is never routed to an AT executor.
+		if transactionMode == types.XAMode {
+			return newXAExecutor(commonHook), nil
+		}
+		if dbType == types.DBTypePostgreSQL {
+			// PostgreSQL local execution must remain pass-through even when the
+			// shared parser cannot understand PostgreSQL-only syntax yet.
+			return newATExecutor(dbType, nil)
+		}
 		return nil, err
 	}
 
@@ -58,7 +75,33 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 	hooks = append(hooks, commonHook...)
 	hooks = append(hooks, hookSolts[parseContext.SQLType]...)
 
-	e := atExecutors[dbType]()
+	// For XA mode, use a plain executor without AT-specific hooks: XA transactions
+	// don't need undo logs, they rely on the two-phase commit protocol managed by TC.
+	if transactionMode == types.XAMode {
+		return newXAExecutor(hooks), nil
+	}
+
+	return newATExecutor(dbType, hooks)
+}
+
+// newXAExecutor builds a pass-through executor for XA mode. It applies the given
+// hooks but never wraps an AT executor, so no undo log is generated.
+func newXAExecutor(hooks []SQLHook) SQLExecutor {
+	e := &BaseExecutor{}
+	e.Interceptors(hooks)
+	return e
+}
+
+func newATExecutor(dbType types.DBType, hooks []SQLHook) (SQLExecutor, error) {
+	builder, ok := atExecutors[dbType]
+	if !ok || builder == nil {
+		return nil, fmt.Errorf("%w: dbType=%d", ErrATExecutorBuilderNotRegistered, dbType)
+	}
+
+	e := builder()
+	if e == nil {
+		return nil, fmt.Errorf("%w: dbType=%d", ErrATExecutorBuilderNotRegistered, dbType)
+	}
 	e.Interceptors(hooks)
 	return e, nil
 }
@@ -106,7 +149,7 @@ func (e *BaseExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecCon
 		return e.ex.ExecWithValue(ctx, execCtx, f)
 	}
 
-	nvargs := make([]driver.NamedValue, len(execCtx.Values))
+	nvargs := make([]driver.NamedValue, 0, len(execCtx.Values))
 	for i, value := range execCtx.Values {
 		nvargs = append(nvargs, driver.NamedValue{
 			Value:   value,

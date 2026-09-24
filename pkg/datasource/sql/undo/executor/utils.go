@@ -23,6 +23,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -46,8 +47,14 @@ func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordIma
 }
 
 func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) {
-	oldRowMap := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
-	newRowMap := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+	oldRowMap, err := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
+	if err != nil {
+		return false, err
+	}
+	newRowMap, err := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+	if err != nil {
+		return false, err
+	}
 
 	for key, oldRow := range oldRowMap {
 		newRow := newRowMap[key]
@@ -66,34 +73,51 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 	return true, nil
 }
 
-func rowListToMap(rows []types.RowImage, primaryKeyList []string) map[string]map[string]interface{} {
+func rowListToMap(rows []types.RowImage, primaryKeyList []string) (map[string]map[string]interface{}, error) {
+	if len(primaryKeyList) == 0 {
+		return nil, fmt.Errorf("primary key list is empty")
+	}
 	rowMap := make(map[string]map[string]interface{}, 0)
 	for _, row := range rows {
 		fieldMap := make(map[string]interface{}, 0)
-		var rowKey string
-		var firstUnderline bool
+		columnMap := make(map[string]*types.ColumnImage, len(row.Columns))
 
-		for _, column := range row.Columns {
-			for i, key := range primaryKeyList {
-				if column.ColumnName == key {
-					if firstUnderline && i > 0 {
-						rowKey += "_##$$_"
-					}
-					// todo make value more accurate
-					rowKey = fmt.Sprintf("%v%v", rowKey, column.GetActualValue())
-					firstUnderline = true
-				}
+		for i, column := range row.Columns {
+			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
+			name := strings.ToLower(cleanName)
+			if _, ok := columnMap[name]; ok {
+				return nil, fmt.Errorf("column %q found more than once in row image", cleanName)
 			}
-			fieldMap[strings.ToUpper(column.ColumnName)] = column.Value
+			columnMap[name] = &row.Columns[i]
+			fieldMap[strings.ToUpper(cleanName)] = column.Value
 		}
-		rowMap[rowKey] = fieldMap
+
+		var rowKey strings.Builder
+		for _, primaryKey := range primaryKeyList {
+			column, ok := columnMap[strings.ToLower(util.DelEscape(primaryKey, types.DBTypeMySQL))]
+			if !ok {
+				return nil, fmt.Errorf("primary key %q not found in row image", primaryKey)
+			}
+			value := column.GetActualValue()
+			if value == nil {
+				rowKey.WriteByte('n')
+				continue
+			}
+			keyPart := fmt.Sprintf("%v", value)
+			fmt.Fprintf(&rowKey, "v%d:%s", len(keyPart), keyPart)
+		}
+		key := rowKey.String()
+		if _, ok := rowMap[key]; ok {
+			return nil, fmt.Errorf("primary key %q found more than once in row image", key)
+		}
+		rowMap[key] = fieldMap
 	}
-	return rowMap
+	return rowMap, nil
 }
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) string {
+func buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType types.DBType, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -113,7 +137,10 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 			if i > 0 {
 				whereStr.WriteString(",")
 			}
-			// todo add escape
+			if dbType == types.DBTypePostgreSQL {
+				whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))
+				continue
+			}
 			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
 		}
 		whereStr.WriteString(") IN (")
@@ -145,15 +172,21 @@ func buildWhereConditionByPKs(pkNameList []string, rowSize int, maxInSize int) s
 		}
 		whereStr.WriteString(")")
 	}
-	return whereStr.String()
+	return util.RewritePlaceholders(whereStr.String(), dbType)
 }
 
-func buildPKParams(rows []types.RowImage, pkNameList []string) []interface{} {
+func buildPKParams(rows []types.RowImage, pkNameList []string, dbType types.DBType) []interface{} {
 	params := make([]interface{}, 0)
 	for _, row := range rows {
 		coumnMap := row.GetColumnMap()
+		// Build a normalized map with escaped characters removed
+		normalizedMap := make(map[string]*types.ColumnImage, len(coumnMap))
+		for k, v := range coumnMap {
+			normalizedMap[util.DelEscape(k, dbType)] = v
+		}
 		for _, pk := range pkNameList {
-			col := coumnMap[pk]
+			cleanPK := util.DelEscape(pk, dbType)
+			col := normalizedMap[cleanPK]
 			if col != nil {
 				params = append(params, col.Value)
 			}

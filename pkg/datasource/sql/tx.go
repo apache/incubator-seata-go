@@ -59,6 +59,12 @@ type (
 
 		BeforeRollback(tx *Tx)
 	}
+
+	// XAConnection represents an XA-capable connection that can commit or rollback XA transactions
+	XAConnection interface {
+		Commit(ctx context.Context) error
+		Rollback(ctx context.Context) error
+	}
 )
 
 func newTx(opts ...txOption) (driver.Tx, error) {
@@ -96,11 +102,19 @@ func withTxCtx(ctx *types.TransactionContext) txOption {
 	}
 }
 
+// withXAConn
+func withXAConn(xaConn XAConnection) txOption {
+	return func(t *Tx) {
+		t.xaConn = xaConn
+	}
+}
+
 // Tx
 type Tx struct {
 	conn    *Conn
 	tranCtx *types.TransactionContext
 	target  driver.Tx
+	xaConn  XAConnection
 }
 
 // Commit do commit action
@@ -133,6 +147,17 @@ func (tx *Tx) Rollback() error {
 		for i := range txHooks {
 			txHooks[i].BeforeRollback(tx)
 		}
+	}
+
+	// In XA mode, target might be nil (set with withOriginTx(nil))
+	// Only allow nil target when explicitly in XA mode; otherwise,
+	// treat it as an error to avoid masking unexpected driver/initialization bugs
+	if tx.target == nil {
+		if tx.tranCtx != nil && tx.tranCtx.TransactionMode == types.XAMode {
+			// XA transactions are managed separately
+			return nil
+		}
+		return fmt.Errorf("sql.Tx Rollback: underlying transaction is nil in non-XA mode")
 	}
 
 	return tx.target.Rollback()
@@ -194,9 +219,10 @@ func (tx *Tx) report(success bool) error {
 	}
 	status := getStatus(success)
 	request := rm.BranchReportParam{
-		Xid:      tx.tranCtx.XID,
-		BranchId: int64(tx.tranCtx.BranchID),
-		Status:   status,
+		BranchType: tx.tranCtx.TransactionMode.BranchType(),
+		Xid:        tx.tranCtx.XID,
+		BranchId:   int64(tx.tranCtx.BranchID),
+		Status:     status,
 	}
 	dataSourceManager := datasource.GetDataSourceManager(tx.tranCtx.TransactionMode.BranchType())
 	if dataSourceManager == nil {

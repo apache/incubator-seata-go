@@ -27,7 +27,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -316,7 +316,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildImageParameters(insert *ast.
 			return nil, fmt.Errorf("insert row's column size not equal to insert column size")
 		}
 		for i, col := range insertColumns {
-			columnName := strings.ToLower(executor.DelEscape(col, types.DBTypeMySQL))
+			columnName := strings.ToLower(util.DelEscape(col, types.DBTypeMySQL))
 			val := row[i]
 			if str, ok := val.(string); ok && strings.EqualFold(str, SqlPlaceholder) {
 				if placeHolderIndex >= len(args) {

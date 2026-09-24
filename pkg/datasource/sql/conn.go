@@ -37,6 +37,19 @@ type Conn struct {
 	autoCommit bool
 	dbName     string
 	dbType     types.DBType
+	invalid    bool
+}
+
+func (c *Conn) invalidate() { c.invalid = true }
+
+func (c *Conn) IsValid() bool {
+	if c.invalid {
+		return false
+	}
+	if validator, ok := c.targetConn.(driver.Validator); ok {
+		return validator.IsValid()
+	}
+	return true
 }
 
 // ResetSession is called prior to executing a query on the connection
@@ -78,7 +91,7 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 			return nil, err
 		}
 
-		return &Stmt{stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
+		return &Stmt{conn: c, stmt: stmt, query: query, res: c.res, txCtx: c.txCtx}, nil
 	}
 
 	s, err := conn.PrepareContext(ctx, query)
@@ -114,11 +127,7 @@ func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	targetConn, ok := c.targetConn.(driver.ExecerContext)
 	if !ok {
-		values := make([]driver.Value, 0, len(args))
-		for i := range args {
-			values = append(values, args[i].Value)
-		}
-		return c.Exec(query, values)
+		return c.Exec(query, util.NamedValueToValue(args))
 	}
 
 	ret, err := targetConn.ExecContext(ctx, query, args)
@@ -140,11 +149,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 
-	execCtx := &types.ExecContext{
-		TxCtx:  c.txCtx,
-		Query:  query,
-		Values: args,
-	}
+	execCtx := c.newExecContext(c.txCtx, query, args, nil)
 
 	ret, err := executor.ExecWithValue(context.Background(), execCtx,
 		func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
@@ -166,13 +171,7 @@ func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	conn, ok := c.targetConn.(driver.QueryerContext)
 	if !ok {
-		values := make([]driver.Value, 0, len(args))
-
-		for i := range args {
-			values = append(values, args[i].Value)
-		}
-
-		return c.Query(query, values)
+		return c.Query(query, util.NamedValueToValue(args))
 	}
 
 	ret, err := conn.QueryContext(ctx, query, args)
@@ -246,6 +245,25 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 
 func (c *Conn) GetAutoCommit() bool {
 	return c.autoCommit
+}
+
+func (c *Conn) newExecContext(txCtx *types.TransactionContext, query string, values []driver.Value, namedValues []driver.NamedValue) *types.ExecContext {
+	if txCtx == nil {
+		txCtx = c.txCtx
+	}
+
+	return &types.ExecContext{
+		TxCtx:                txCtx,
+		Query:                query,
+		Values:               values,
+		NamedValues:          namedValues,
+		Conn:                 c.targetConn,
+		DBName:               c.dbName,
+		DBType:               c.dbType,
+		DbVersion:            c.GetDbVersion(),
+		IsSupportsSavepoints: true,
+		IsAutoCommit:         c.GetAutoCommit(),
+	}
 }
 
 func (c *Conn) GetDbVersion() string {

@@ -71,7 +71,7 @@ type SeataV1PackageHeader struct {
 	Version      byte
 	TotalLength  uint32
 	HeadLength   uint16
-	MessageType  message.GettyRequestType
+	MessageType  message.RequestType
 	CodecType    byte
 	CompressType byte
 	RequestID    uint32
@@ -95,7 +95,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	// length of head and body
 	header.TotalLength = bytes.ReadUInt32(in)
 	header.HeadLength = bytes.ReadUInt16(in)
-	header.MessageType = message.GettyRequestType(bytes.ReadByte(in))
+	header.MessageType = message.RequestType(bytes.ReadByte(in))
 	header.CodecType = bytes.ReadByte(in)
 	header.CompressType = bytes.ReadByte(in)
 	header.RequestID = bytes.ReadUInt32(in)
@@ -116,9 +116,9 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		HeadMap:    header.Meta,
 	}
 
-	if header.MessageType == message.GettyRequestTypeHeartbeatRequest {
+	if header.MessageType == message.RequestTypeHeartbeatRequest {
 		rpcMessage.Body = message.HeartBeatMessagePing
-	} else if header.MessageType == message.GettyRequestTypeHeartbeatResponse {
+	} else if header.MessageType == message.RequestTypeHeartbeatResponse {
 		rpcMessage.Body = message.HeartBeatMessagePong
 	} else {
 		if header.BodyLength > 0 {
@@ -130,7 +130,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	return rpcMessage, int(header.TotalLength), nil
 }
 
-// Write write rpc message to binary data
+// Write write rpc format to binary data
 func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, error) {
 	msg, ok := pkg.(message.RpcMessage)
 	if !ok {
@@ -149,8 +149,8 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 	}
 
 	var bodyBytes []byte
-	if msg.Type != message.GettyRequestTypeHeartbeatRequest &&
-		msg.Type != message.GettyRequestTypeHeartbeatResponse {
+	if msg.Type != message.RequestTypeHeartbeatRequest &&
+		msg.Type != message.RequestTypeHeartbeatResponse {
 		bodyBytes = codec.GetCodecManager().Encode(codec.CodecType(msg.Codec), msg.Body)
 		totalLength += len(bodyBytes)
 	}
@@ -212,7 +212,7 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 
 		valueLength := bytes.ReadUInt16(in)
 		if valueLength == 0 {
-			key = ""
+			value = ""
 		} else {
 			valueBytes := make([]byte, valueLength)
 			in.Read(valueBytes)
@@ -221,7 +221,6 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 
 		res[key] = value
 		readedLength += 4 + keyLength + valueLength
-		fmt.Sprintln("done")
 	}
 	return res
 }

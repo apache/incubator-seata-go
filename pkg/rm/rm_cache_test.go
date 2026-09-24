@@ -43,3 +43,19 @@ func TestGetRmCacheInstance(t *testing.T) {
 		assert.Equalf(t, mockResourceManager, actual, "GetRmCacheInstance()")
 	})
 }
+
+func TestResourceManagerCache_UnregisterResourceManager(t *testing.T) {
+	ctl := gomock.NewController(t)
+
+	mockResourceManager := NewMockResourceManager(ctl)
+	mockResourceManager.EXPECT().GetBranchType().Return(branch.BranchTypeSAGA).AnyTimes()
+
+	cache := GetRmCacheInstance()
+	cache.RegisterResourceManager(mockResourceManager)
+
+	cache.UnregisterResourceManager(branch.BranchTypeSAGA)
+
+	assert.Panics(t, func() {
+		cache.GetResourceManager(branch.BranchTypeSAGA)
+	})
+}

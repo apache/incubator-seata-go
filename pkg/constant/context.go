@@ -39,4 +39,8 @@ const (
 	SeataVersion = "1.1.0"
 
 	TccBusinessActionContextParameter = "tccParam"
+
+	// RocketMQ message property keys for XID and BranchId propagation
+	PropertySeataXID      = "SEATA_XID"
+	PropertySeataBranchId = "SEATA_BRANCH_ID"
 )

@@ -41,7 +41,7 @@ func InitAT(cfg undo.Config, asyncCfg AsyncWorkerConfig) {
 	}
 
 	undo.InitUndoConfig(cfg)
-	atSourceManager.worker = NewAsyncWorker(prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
+	atSourceManager.worker = NewAsyncWorker(context.Background(), prometheus.DefaultRegisterer, asyncCfg, atSourceManager)
 	rm.GetRmCacheInstance().RegisterResourceManager(atSourceManager)
 }
 
@@ -49,7 +49,7 @@ type ATSourceManager struct {
 	resourceCache sync.Map
 	worker        *AsyncWorker
 	basic         *datasource.BasicSourceManager
-	rmRemoting    *rm.RMRemoting
+	rmRemoting    rm.RMRemoting
 }
 
 func (a *ATSourceManager) GetBranchType() branch.BranchType {

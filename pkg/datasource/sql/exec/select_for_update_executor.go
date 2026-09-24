@@ -268,8 +268,8 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 	}
 
 	if originalAutoCommit {
-		if err = tx.Commit(); err != nil {
-			return nil, err
+		if tx != nil {
+			execCtx.TxCtx.LocalTx = tx
 		}
 		execCtx.IsAutoCommit = true
 	}

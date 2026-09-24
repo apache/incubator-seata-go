@@ -19,6 +19,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -38,18 +39,25 @@ const (
 type EtcdRegistryService struct {
 	client        *etcd3.Client
 	cfg           etcd3.Config
-	vgroupMapping map[string]string
-	grouplist     map[string][]*ServiceInstance
-	rwLock        sync.RWMutex
+	vgroupMapping map[string]string // copied during construction; read-only afterwards
+	store         *AddressStore
 
-	stopCh chan struct{}
+	stopCh    chan struct{}
+	closeOnce sync.Once
+
+	subscriptionsMu sync.Mutex
+	subscriptions   map[*registryChangeSubscription]struct{}
+	closed          bool
 }
 
-func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) RegistryService {
+var _ RegistrySubscriber = (*EtcdRegistryService)(nil)
 
+func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) (RegistryService, error) {
+	if config == nil {
+		return nil, fmt.Errorf("service config is nil")
+	}
 	if etcd3Config == nil {
-		log.Fatalf("etcd config is nil")
-		panic("etcd config is nil")
+		return nil, fmt.Errorf("etcd config is nil")
 	}
 
 	cfg := etcd3.Config{
@@ -57,23 +65,24 @@ func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) Reg
 	}
 	cli, err := etcd3.New(cfg)
 	if err != nil {
-		log.Fatalf("failed to create etcd3 client")
-		panic("failed to create etcd3 client")
+		return nil, fmt.Errorf("failed to create etcd3 client: %w", err)
 	}
 
-	vgroupMapping := config.VgroupMapping
-	grouplist := make(map[string][]*ServiceInstance, 0)
+	vgroupMapping := make(map[string]string, len(config.VgroupMapping))
+	for key, cluster := range config.VgroupMapping {
+		vgroupMapping[key] = cluster
+	}
 
 	etcdRegistryService := &EtcdRegistryService{
 		client:        cli,
 		cfg:           cfg,
 		vgroupMapping: vgroupMapping,
-		grouplist:     grouplist,
+		store:         NewAddressStore(),
 		stopCh:        make(chan struct{}),
 	}
 	go etcdRegistryService.watch(etcdClusterPrefix)
 
-	return etcdRegistryService
+	return etcdRegistryService, nil
 }
 
 func (s *EtcdRegistryService) watch(key string) {
@@ -100,18 +109,15 @@ func (s *EtcdRegistryService) watch(key string) {
 				log.Errorf("etcd value has an incorrect format: %v", err)
 				return
 			}
-			s.rwLock.Lock()
-			if s.grouplist[clusterName] == nil {
-				s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
-			} else {
-				s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
-			}
-			s.rwLock.Unlock()
+			s.store.upsert(clusterName, serverInstance)
 		}
 
 	}
-	// watch the changes of endpoints
-	watchCh := s.client.Watch(ctx, key, etcd3.WithPrefix())
+	watchOptions := []etcd3.OpOption{etcd3.WithPrefix()}
+	if resp != nil && resp.Header != nil {
+		watchOptions = append(watchOptions, etcd3.WithRev(resp.Header.Revision+1))
+	}
+	watchCh := s.client.Watch(ctx, key, watchOptions...)
 
 	for {
 		select {
@@ -138,18 +144,7 @@ func (s *EtcdRegistryService) watch(key string) {
 						return
 					}
 
-					s.rwLock.Lock()
-					if s.grouplist[clusterName] == nil {
-						s.grouplist[clusterName] = []*ServiceInstance{serverInstance}
-						s.rwLock.Unlock()
-						continue
-					}
-					if ifHaveSameServiceInstances(s.grouplist[clusterName], serverInstance) {
-						s.rwLock.Unlock()
-						continue
-					}
-					s.grouplist[clusterName] = append(s.grouplist[clusterName], serverInstance)
-					s.rwLock.Unlock()
+					s.store.upsert(clusterName, serverInstance)
 
 				case etcd3.EventTypeDelete:
 					log.Infof("Key %s deleted.\n", event.Kv.Key)
@@ -160,15 +155,9 @@ func (s *EtcdRegistryService) watch(key string) {
 						return
 					}
 
-					s.rwLock.Lock()
-					serviceInstances := s.grouplist[cluster]
-					if serviceInstances == nil {
-						log.Warnf("etcd doesnt exit cluster: ", cluster)
-						s.rwLock.Unlock()
-						continue
+					if !s.store.remove(cluster, ip, port) {
+						log.Warnf("etcd instance not found. cluster: %s addr: %s:%d", cluster, ip, port)
 					}
-					s.grouplist[cluster] = removeValueFromList(serviceInstances, ip, port)
-					s.rwLock.Unlock()
 				}
 			}
 		case <-s.stopCh:
@@ -218,41 +207,81 @@ func getClusterAndAddress(key []byte) (string, string, int, error) {
 	return cluster, ip, port, nil
 }
 
-func ifHaveSameServiceInstances(list []*ServiceInstance, value *ServiceInstance) bool {
-	for _, v := range list {
-		if v.Addr == value.Addr && v.Port == value.Port {
-			return true
-		}
-	}
-	return false
-}
-
-func removeValueFromList(list []*ServiceInstance, ip string, port int) []*ServiceInstance {
-	for k, v := range list {
-		if v.Addr == ip && v.Port == port {
-			result := list[:k]
-			if k < len(list)-1 {
-				result = append(result, list[k+1:]...)
-			}
-			return result
-		}
-	}
-
-	return list
-}
-
 func (s *EtcdRegistryService) Lookup(key string) ([]*ServiceInstance, error) {
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
 	cluster := s.vgroupMapping[key]
 	if cluster == "" {
-		return nil, fmt.Errorf("cluster doesnt exit")
+		return nil, fmt.Errorf("cluster doesn't exist")
 	}
 
-	list := s.grouplist[cluster]
-	return list, nil
+	return s.store.Snapshot(cluster), nil
+}
+
+func (s *EtcdRegistryService) Subscribe(key string, listener RegistryChangeListener) (RegistrySubscription, error) {
+	if listener == nil {
+		return nil, fmt.Errorf("registry change listener is nil")
+	}
+
+	cluster := s.vgroupMapping[key]
+	if cluster == "" {
+		return nil, fmt.Errorf("cluster doesn't exist")
+	}
+
+	subscription := newRegistryChangeSubscription(listener)
+	// Register before checking closed so taking the initial snapshot cannot miss
+	// an update. If Close wins the race, the check below removes the callback.
+	initial, unsubscribe := s.store.subscribeWithSnapshot(cluster, func(changedCluster string, instances []*ServiceInstance) {
+		if changedCluster == cluster {
+			subscription.publish(RegistryChangeEvent{Key: key, Instances: instances})
+		}
+	})
+	subscription.initialize(RegistryChangeEvent{Key: key, Instances: initial}, func() {
+		unsubscribe()
+		s.removeSubscription(subscription)
+	})
+
+	s.subscriptionsMu.Lock()
+	if s.closed {
+		s.subscriptionsMu.Unlock()
+		subscription.Unsubscribe()
+		return nil, fmt.Errorf("registry service is closed")
+	}
+	if s.subscriptions == nil {
+		s.subscriptions = make(map[*registryChangeSubscription]struct{})
+	}
+	s.subscriptions[subscription] = struct{}{}
+	s.subscriptionsMu.Unlock()
+
+	subscription.start()
+	return subscription, nil
+}
+
+func (s *EtcdRegistryService) removeSubscription(subscription *registryChangeSubscription) {
+	s.subscriptionsMu.Lock()
+	delete(s.subscriptions, subscription)
+	s.subscriptionsMu.Unlock()
 }
 
 func (s *EtcdRegistryService) Close() {
-	s.stopCh <- struct{}{}
+	s.closeOnce.Do(func() {
+		s.subscriptionsMu.Lock()
+		s.closed = true
+		subscriptions := make([]*registryChangeSubscription, 0, len(s.subscriptions))
+		for subscription := range s.subscriptions {
+			subscriptions = append(subscriptions, subscription)
+		}
+		s.subscriptions = nil
+		s.subscriptionsMu.Unlock()
+
+		for _, subscription := range subscriptions {
+			subscription.Unsubscribe()
+		}
+		if s.stopCh != nil {
+			close(s.stopCh)
+		}
+		if s.client != nil {
+			if err := s.client.Close(); err != nil && !errors.Is(err, context.Canceled) {
+				log.Warnf("close etcd client failed: %v", err)
+			}
+		}
+	})
 }

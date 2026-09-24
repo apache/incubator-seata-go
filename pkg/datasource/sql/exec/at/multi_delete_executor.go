@@ -40,7 +40,9 @@ type multiDeleteExecutor struct {
 }
 
 func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	m.beforeHooks(ctx, m.execContext)
+	if err := m.beforeHooks(ctx, m.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
 	}()
@@ -86,26 +88,20 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		records []*types.RecordImage
 	)
 
-	queryerCtx, ok := m.execContext.Conn.(driver.QueryerContext)
-	var queryer driver.Queryer
-	if !ok {
-		queryer, ok = m.execContext.Conn.(driver.Queryer)
-	}
-	if !ok {
-		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
-		return nil, fmt.Errorf("invalid conn")
-	}
-
-	rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, args)
-	defer func() {
-		if rowsi != nil {
-			rowsi.Close()
-		}
-	}()
+	rowsi, err = util.CtxDriverQueryWithPrepareFallback(ctx, m.execContext.Conn, selectSQL, args)
 	if err != nil {
-		log.Errorf("ctx driver query: %+v", err)
+		log.Errorf("aggregate delete image query failed: %+v", err)
 		return nil, err
 	}
+	defer func() {
+		if rowsi == nil {
+			return
+		}
+
+		if closeErr := rowsi.Close(); closeErr != nil {
+			log.Errorf("rows close fail,err: %v", closeErr)
+		}
+	}()
 
 	tableName, err := m.getFromTableInSQL()
 	if err != nil {
@@ -115,7 +111,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 	if err != nil {
 		return nil, err
 	}
-	image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	image, err = m.buildRecordImages(rowsi, metaData, types.SQLTypeDelete, types.DBTypeMySQL)
 	if err != nil {
 		log.Errorf("record images : %+v", err)
 		return nil, err

@@ -52,26 +52,30 @@ func GetGettyRemotingClient() *GettyRemotingClient {
 }
 
 func (client *GettyRemotingClient) SendAsyncRequest(msg interface{}) error {
-	var msgType message.GettyRequestType
+	rpcMessage := newAsyncRequestMessage(int32(client.idGenerator.Inc()), msg)
+	return client.gettyRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
+}
+
+func newAsyncRequestMessage(id int32, msg interface{}) message.RpcMessage {
+	var msgType message.RequestType
 	if _, ok := msg.(message.HeartBeatMessage); ok {
-		msgType = message.GettyRequestTypeHeartbeatRequest
+		msgType = message.RequestTypeHeartbeatRequest
 	} else {
-		msgType = message.GettyRequestTypeRequestOneway
+		msgType = message.RequestTypeRequestOneway
 	}
-	rpcMessage := message.RpcMessage{
-		ID:         int32(client.idGenerator.Inc()),
+	return message.RpcMessage{
+		ID:         id,
 		Type:       msgType,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
 	}
-	return client.gettyRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
 }
 
 func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{}) error {
 	rpcMessage := message.RpcMessage{
 		ID:         msgID,
-		Type:       message.GettyRequestTypeResponse,
+		Type:       message.RequestTypeResponse,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,
@@ -82,7 +86,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,

@@ -27,7 +27,6 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/constant"
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
-	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/processor"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -57,12 +56,12 @@ func GetGettyClientHandlerInstance() *gettyClientHandler {
 func (g *gettyClientHandler) OnOpen(session getty.Session) error {
 	log.Infof("Open new getty session ")
 	sessionManager.registerSession(session)
-	conf := config.GetSeataConfig()
+	seataConfig := sessionManager.seataConfig
 	go func() {
 		request := message.RegisterTMRequest{AbstractIdentifyRequest: message.AbstractIdentifyRequest{
 			Version:                 constant.SeataVersion,
-			ApplicationId:           conf.ApplicationID,
-			TransactionServiceGroup: conf.TxServiceGroup,
+			ApplicationId:           seataConfig.ApplicationID,
+			TransactionServiceGroup: seataConfig.TxServiceGroup,
 		}}
 		err := GetGettyRemotingClient().SendAsyncRequest(request)
 		if err != nil {
@@ -130,7 +129,7 @@ func (g *gettyClientHandler) OnCron(session getty.Session) {
 func (g *gettyClientHandler) transferHeartBeat(session getty.Session, msg message.HeartBeatMessage) error {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(g.idGenerator.Inc()),
-		Type:       message.GettyRequestTypeHeartbeatRequest,
+		Type:       message.RequestTypeHeartbeatRequest,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: 0,
 		Body:       msg,

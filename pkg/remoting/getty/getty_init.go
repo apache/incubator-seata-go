@@ -23,7 +23,6 @@ import (
 )
 
 func InitGetty(gettyConfig *config.Config, seataConfig *config.SeataConfig) {
-	config.InitConfig(seataConfig)
 	codec.Init()
-	initSessionManager(gettyConfig)
+	initSessionManager(gettyConfig, seataConfig)
 }

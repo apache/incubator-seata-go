@@ -50,6 +50,24 @@ func ClientTransactionInterceptor(ctx context.Context, method string, req, reply
 	return err
 }
 
+func ClientTransactionStreamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
+	method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	// Injects the global transaction XID into the outgoing gRPC metadata for distributed transaction propagation.
+	if tm.IsSeataContext(ctx) {
+		xid := tm.GetXID(ctx)
+		header := make(map[string]string)
+		header[constant.XidKey] = xid
+		ctx = metadata.NewOutgoingContext(ctx, metadata.New(header))
+	}
+
+	start := time.Now()
+	stream, err := streamer(ctx, desc, cc, method, opts...)
+	end := time.Now()
+	log.Infof("STREAM RPC: %s, start time: %s, end time: %s, err: %v",
+		method, start.Format("2006-01-02 15:04:05"), end.Format(time.RFC3339), err)
+	return stream, err
+}
+
 // ServerTransactionInterceptor is server interceptor of grpc
 // it's function is get xid from grpc http header ,and put it
 // into the context.

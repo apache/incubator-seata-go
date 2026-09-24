@@ -121,3 +121,97 @@ func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
 	}
 	return dargs, nil
 }
+
+type rowsWithStmt struct {
+	driver.Rows
+	stmt driver.Stmt
+}
+
+// NewRowsWithStmt wraps rows and closes both rows and stmt when the returned rows are closed.
+func NewRowsWithStmt(rows driver.Rows, stmt driver.Stmt) driver.Rows {
+	return &rowsWithStmt{Rows: rows, stmt: stmt}
+}
+
+func (r *rowsWithStmt) Close() error {
+	var rowsErr error
+	if r.Rows != nil {
+		rowsErr = r.Rows.Close()
+	}
+
+	var stmtErr error
+	if r.stmt != nil {
+		stmtErr = r.stmt.Close()
+	}
+
+	return errors.Join(rowsErr, stmtErr)
+}
+
+// CtxDriverExecWithPrepareFallback first tries the connection-level Exec path.
+// If the driver returns driver.ErrSkip, it prepares and executes the statement
+// directly on the underlying driver connection.
+func CtxDriverExecWithPrepareFallback(ctx context.Context, conn driver.Conn, query string, args []driver.NamedValue) (driver.Result, error) {
+	var execerContext driver.ExecerContext
+	if execer, ok := conn.(driver.ExecerContext); ok {
+		execerContext = execer
+	}
+
+	var execer driver.Execer
+	if e, ok := conn.(driver.Execer); ok {
+		execer = e
+	}
+
+	if execerContext != nil || execer != nil {
+		result, err := ctxDriverExec(ctx, execerContext, execer, query, args)
+		if err == nil {
+			return result, nil
+		}
+
+		if !errors.Is(err, driver.ErrSkip) {
+			return nil, err
+		}
+	}
+
+	stmt, err := ctxDriverPrepare(ctx, conn, query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	return ctxDriverStmtExec(ctx, stmt, args)
+}
+
+func CtxDriverQueryWithPrepareFallback(ctx context.Context, conn driver.Conn, query string, args []driver.NamedValue) (driver.Rows, error) {
+	var queryerContext driver.QueryerContext
+	if queryer, ok := conn.(driver.QueryerContext); ok {
+		queryerContext = queryer
+	}
+
+	var queryer driver.Queryer
+	if q, ok := conn.(driver.Queryer); ok {
+		queryer = q
+	}
+
+	if queryerContext != nil || queryer != nil {
+		rows, err := CtxDriverQuery(ctx, queryerContext, queryer, query, args)
+		if err == nil {
+			return rows, nil
+		}
+
+		if !errors.Is(err, driver.ErrSkip) {
+			return nil, err
+		}
+	}
+
+	stmt, err := ctxDriverPrepare(ctx, conn, query)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := ctxDriverStmtQuery(ctx, stmt, args)
+	if err != nil {
+		_ = stmt.Close()
+		return nil, err
+	}
+
+	return NewRowsWithStmt(rows, stmt), nil
+}

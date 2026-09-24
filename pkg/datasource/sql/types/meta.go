@@ -150,7 +150,11 @@ func (m TableMeta) GetPrimaryKeyTypeStrMap() (map[string]string, error) {
 	for _, index := range m.Indexs {
 		if index.IType == IndexTypePrimaryKey {
 			for i := range index.Columns {
-				pkMap[index.ColumnName] = index.Columns[i].DatabaseTypeString
+				columnName := index.Columns[i].ColumnName
+				if columnName == "" {
+					columnName = index.ColumnName
+				}
+				pkMap[columnName] = index.Columns[i].DatabaseTypeString
 			}
 		}
 	}

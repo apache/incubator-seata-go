@@ -52,6 +52,10 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 	if s == nil {
 		s = sessionManager.selectSession(msg)
 	}
+	if s == nil || s.IsClosed() {
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		return nil, fmt.Errorf("session is closed")
+	}
 	rpc.BeginCount(s.RemoteAddr())
 	result, err := g.sendAsync(s, msg, callback)
 	rpc.EndCount(s.RemoteAddr())
@@ -59,12 +63,16 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 		log.Errorf("send message: %#v, session: %s", msg, s.Stat())
 		return nil, err
 	}
-	return result, err
+	return result, nil
 }
 
 func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
 		s = sessionManager.selectSession(msg)
+	}
+	if s == nil || s.IsClosed() {
+		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
+		return fmt.Errorf("session is closed")
 	}
 	rpc.BeginCount(s.RemoteAddr())
 	_, err := g.sendAsync(s, msg, callback)
@@ -128,7 +136,11 @@ func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) 
 		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		// messageFuture.Err = rpcMessage.Err
-		messageFuture.Done <- struct{}{}
+		select {
+		case messageFuture.Done <- struct{}{}:
+		default:
+			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
+		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)

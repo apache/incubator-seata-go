@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -48,7 +49,9 @@ func NewDeleteExecutor(parserCtx *types.ParseContext, execContent *types.ExecCon
 
 // ExecContext exec SQL, and generate before image and after image
 func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	d.beforeHooks(ctx, d.execContext)
+	if err := d.beforeHooks(ctx, d.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
 	}()
@@ -68,13 +71,15 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	d.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
-	d.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
+	if err := d.prepareUndoPair(d.execContext, beforeImage, afterImage); err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
 // beforeImage build before image
 func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
+	dbType := effectiveDBType(d.execContext.DBType)
 	selectSQL, selectArgs, err := d.buildBeforeImageSQL(d.execContext.Query, d.execContext.NamedValues)
 	if err != nil {
 		return nil, err
@@ -88,45 +93,75 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 	}
 	if ok {
 		rowsi, err = util.CtxDriverQuery(ctx, queryerCtx, queryer, selectSQL, selectArgs)
+		if err != nil && !strings.Contains(err.Error(), "skip fast-path") {
+			log.Errorf("ctx driver query: %+v", err)
+			return nil, err
+		}
+
+		// If skip fast-path error, fallback to prepared statement
+		if err != nil {
+			log.Debugf("direct query not supported, falling back to prepared statement")
+			stmt, prepErr := d.execContext.Conn.Prepare(selectSQL)
+			if prepErr != nil {
+				log.Errorf("prepare statement failed: %+v", prepErr)
+				return nil, prepErr
+			}
+
+			if stmtQueryCtx, ok := stmt.(driver.StmtQueryContext); ok {
+				rowsi, err = stmtQueryCtx.QueryContext(ctx, selectArgs)
+			} else {
+				dargs := make([]driver.Value, len(selectArgs))
+				for i, arg := range selectArgs {
+					dargs[i] = arg.Value
+				}
+				rowsi, err = stmt.Query(dargs)
+			}
+
+			if err != nil {
+				stmt.Close()
+				return nil, err
+			}
+
+			// Wrap rows with statement to close both together
+			rowsi = util.NewRowsWithStmt(rowsi, stmt)
+		}
+
 		defer func() {
 			if rowsi != nil {
 				rowsi.Close()
 			}
 		}()
-		if err != nil {
-			log.Errorf("ctx driver query: %+v", err)
-			return nil, err
-		}
 	} else {
 		log.Errorf("target conn should been driver.QueryerContext or driver.Queryer")
 		return nil, fmt.Errorf("invalid conn")
 	}
 
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, d.execContext.DBName, tableName)
 
 	if err != nil {
 		return nil, err
 	}
 
-	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete)
+	image, err := d.buildRecordImages(rowsi, metaData, types.SQLTypeDelete, dbType)
 	if err != nil {
 		return nil, err
 	}
 	image.SQLType = types.SQLTypeDelete
 	image.TableMeta = metaData
 
-	lockKey := d.buildLockKey(image, *metaData)
-	d.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
-
 	return image, nil
 }
 
 // buildBeforeImageSQL build delete sql from delete sql
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
-	p, err := parser.DoParser(query)
-	if err != nil {
-		return "", nil, err
+	p := d.parserCtx
+	if p == nil || p.DeleteStmt == nil {
+		var err error
+		p, err = parser.DoParser(query)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if p.DeleteStmt == nil {
@@ -149,8 +184,12 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := string(b.Bytes())
+	sql := d.normalizeGeneratedSQL(string(b.Bytes()), d.execContext.DBType)
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
+
+	if effectiveDBType(d.execContext.DBType) == types.DBTypePostgreSQL {
+		return util.CompactPostgreSQLPlaceholders(sql, args)
+	}
 
 	return sql, d.buildSelectArgs(&selStmt, args), nil
 }
@@ -158,7 +197,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
 	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := datasource.GetTableCache(effectiveDBType(d.execContext.DBType)).GetTableMeta(ctx, d.execContext.DBName, tableName)
 	if err != nil {
 		return nil, err
 	}

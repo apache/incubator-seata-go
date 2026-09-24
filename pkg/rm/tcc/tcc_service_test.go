@@ -19,6 +19,7 @@ package tcc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -30,10 +31,13 @@ import (
 
 	gostnet "github.com/dubbogo/gost/net"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/constant"
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 
 	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/rm/remoting/getty"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
@@ -64,7 +68,7 @@ func InitMock() {
 		prepare = func(_ *TCCServiceProxy, ctx context.Context, params interface{}) (interface{}, error) {
 			return nil, nil
 		}
-		branchRegister = func(_ *rm.RMRemoting, param rm.BranchRegisterParam) (int64, error) {
+		branchRegister = func(_ *getty.GettyRMRemoting, param rm.BranchRegisterParam) (int64, error) {
 			return testBranchID, nil
 		}
 	)
@@ -76,6 +80,7 @@ func InitMock() {
 }
 
 func TestMain(m *testing.M) {
+	rm.SetRMRemotingInstance(&getty.GettyRMRemoting{})
 	InitMock()
 	code := m.Run()
 	os.Exit(code)
@@ -332,4 +337,56 @@ func TestTCCGetTransactionInfo(t1 *testing.T) {
 
 func GetTestTwoPhaseService() rm.TwoPhaseInterface {
 	return &testdata2.TestTwoPhaseService{}
+}
+
+func TestReportActionContext(t *testing.T) {
+	var capturedParam rm.BranchReportParam
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchReport", func(_ *getty.GettyRMRemoting, param rm.BranchReportParam) error {
+		capturedParam = param
+		return nil
+	})
+	defer patches.Reset()
+
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-report-1",
+		BranchId: 1001,
+		ActionContext: map[string]interface{}{
+			"msgId": "msg-001",
+			"topic": "test-topic",
+		},
+	}
+
+	err := testTccServiceProxy.reportActionContext(context.Background(), bac)
+	require.NoError(t, err)
+	assert.Equal(t, "xid-report-1", capturedParam.Xid)
+	assert.Equal(t, int64(1001), capturedParam.BranchId)
+	assert.Equal(t, branch.BranchTypeTCC, capturedParam.BranchType)
+	assert.EqualValues(t, branch.BranchStatusRegistered, capturedParam.Status)
+
+	var appData map[string]interface{}
+	err = json.Unmarshal([]byte(capturedParam.ApplicationData), &appData)
+	require.NoError(t, err)
+	actionCtx, ok := appData["actionContext"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "msg-001", actionCtx["msgId"])
+	assert.Equal(t, "test-topic", actionCtx["topic"])
+}
+
+func TestReportActionContext_BranchReportFails(t *testing.T) {
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(rm.GetRMRemotingInstance()), "BranchReport", func(_ *getty.GettyRMRemoting, param rm.BranchReportParam) error {
+		return fmt.Errorf("network error")
+	})
+	defer patches.Reset()
+
+	bac := &tm.BusinessActionContext{
+		Xid:      "xid-report-2",
+		BranchId: 1002,
+		ActionContext: map[string]interface{}{
+			"key": "value",
+		},
+	}
+
+	err := testTccServiceProxy.reportActionContext(context.Background(), bac)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "report updated ActionContext failed")
 }

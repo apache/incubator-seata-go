@@ -26,7 +26,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -78,15 +77,15 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		capity         int32
 		size           int32
 		cache          map[string]*entry
-		cancel         context.CancelFunc
 		trigger        trigger
 		db             *sql.DB
-		cfg            *mysql.Config
+		dbName         string
 	}
 	type args struct {
 		ctx context.Context
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	tests := []struct {
 		name   string
 		fields fields
@@ -105,9 +104,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 						lastAccess: time.Now(),
 					},
 				},
-				cancel:  cancel,
 				trigger: &mockTrigger{},
-				cfg:     &mysql.Config{},
+				dbName:  "test_db",
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("test"),
@@ -124,9 +122,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 						lastAccess: time.Now(),
 					},
 				},
-				cancel:  cancel,
 				trigger: &mockTrigger{},
-				cfg:     &mysql.Config{},
+				dbName:  "test_db",
 			},
 			args: args{ctx: ctx},
 			want: testdata.MockWantTypesMeta("TEST"),
@@ -149,14 +146,14 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			defer loadAllStub.Reset()
 
 			c := &BaseTableMetaCache{
-				expireDuration: tt.fields.expireDuration,
-				capity:         tt.fields.capity,
-				size:           tt.fields.size,
-				cache:          tt.fields.cache,
-				cancel:         tt.fields.cancel,
-				trigger:        tt.fields.trigger,
-				db:             db,
-				cfg:            tt.fields.cfg,
+				expireDuration:  tt.fields.expireDuration,
+				refreshInterval: time.Minute,
+				capity:          tt.fields.capity,
+				size:            tt.fields.size,
+				cache:           tt.fields.cache,
+				trigger:         tt.fields.trigger,
+				db:              db,
+				dbName:          tt.fields.dbName,
 			}
 			go c.refresh(tt.args.ctx)
 			time.Sleep(time.Second * 3)
@@ -176,35 +173,35 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 	tests := []struct {
 		name   string
 		db     *sql.DB
-		cfg    *mysql.Config
+		dbName string
 		cache  map[string]*entry
 		expect string
 	}{
 		{
 			name:   "db_is_nil",
 			db:     nil,
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
 			expect: "should return early when db is nil",
 		},
 		{
-			name:   "cfg_is_nil",
+			name:   "db_name_is_empty",
 			db:     &sql.DB{},
-			cfg:    nil,
+			dbName: "",
 			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
-			expect: "should return early when cfg is nil",
+			expect: "should return early when dbName is empty",
 		},
 		{
 			name:   "cache_is_nil",
 			db:     &sql.DB{},
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  nil,
 			expect: "should return early when cache is nil",
 		},
 		{
 			name:   "cache_is_empty",
 			db:     &sql.DB{},
-			cfg:    &mysql.Config{},
+			dbName: "test_db",
 			cache:  map[string]*entry{},
 			expect: "should return early when cache is empty",
 		},
@@ -220,10 +217,9 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 				capity:         capacity,
 				size:           0,
 				cache:          tt.cache,
-				cancel:         cancel,
 				trigger:        &mockTrigger{},
 				db:             tt.db,
-				cfg:            tt.cfg,
+				dbName:         tt.dbName,
 			}
 
 			// Call refresh once and it should return early without panic
@@ -238,7 +234,7 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 
 				// Call the internal function once
 				c.lock.RLock()
-				if c.db == nil || c.cfg == nil || c.cache == nil || len(c.cache) == 0 {
+				if c.db == nil || c.dbName == "" || c.cache == nil || len(c.cache) == 0 {
 					c.lock.RUnlock()
 					done <- true
 					return
@@ -363,4 +359,30 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
+	// Create context manually as we are bypassing NewBaseCache
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := &BaseTableMetaCache{
+		expireDuration:  1 * time.Millisecond,
+		refreshInterval: 1 * time.Millisecond,
+		cache:           make(map[string]*entry),
+		// db and dbName are unset, so refresh() logic will return early, which is fine for coverage
+	}
+
+	// Init starts the goroutines
+	err := c.Init(ctx)
+	assert.Nil(t, err)
+
+	// Give enough time for tickers to trigger multiple times
+	time.Sleep(20 * time.Millisecond)
+
+	// Cancel context to stop goroutines
+	cancel()
+
+	// Destroy (now a no-op)
+	err = c.Destroy()
+	assert.Nil(t, err)
 }

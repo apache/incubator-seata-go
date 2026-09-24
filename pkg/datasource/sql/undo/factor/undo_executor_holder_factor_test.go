@@ -45,9 +45,9 @@ func TestGetUndoExecutorHolder(t *testing.T) {
 			resetMap:    true,
 		},
 		{
-			name:        "postgresql db type - not implemented",
+			name:        "postgresql db type - success",
 			dbType:      types.DBTypePostgreSQL,
-			expectError: true,
+			expectError: false,
 			resetMap:    false,
 		},
 		{
@@ -120,9 +120,9 @@ func TestGetUndoExecutorHolder_MultipleDBTypes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, mysqlHolder)
 
-	_, err = GetUndoExecutorHolder(types.DBTypePostgreSQL)
-	assert.Error(t, err)
-	assert.Equal(t, ErrNotImplDBType, err)
+	postgresHolder, err := GetUndoExecutorHolder(types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	assert.NotNil(t, postgresHolder)
 
 	mysqlHolder2, err := GetUndoExecutorHolder(types.DBTypeMySQL)
 	assert.NoError(t, err)

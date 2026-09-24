@@ -26,15 +26,62 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
-type MysqlXAConn struct {
-	driver.Conn
+func init() {
+	RegisterXAResourceFactory(types.DBTypeMySQL, &mysqlXAResourceFactory{})
 }
 
-func NewMysqlXaConn(conn driver.Conn) *MysqlXAConn {
+// mysqlXAResourceFactory creates MySQL-specific XA resources and error classifiers.
+type mysqlXAResourceFactory struct{}
+
+func (f *mysqlXAResourceFactory) CreateXAResource(conn driver.Conn) XAResource {
 	return &MysqlXAConn{Conn: conn}
+}
+
+func (f *mysqlXAResourceFactory) CreateErrorClassifier() XAErrorClassifier {
+	return &MysqlXAErrorClassifier{}
+}
+
+// MysqlXAErrorClassifier classifies MySQL-specific XA errors.
+type MysqlXAErrorClassifier struct{}
+
+// IsAlreadyEnded reports whether the XAER_RMFAIL error means the XA branch has
+// already left the ACTIVE state, so a subsequent XA END(TMFAIL) is a no-op and the
+// caller should proceed straight to XA ROLLBACK.
+//
+// Two states qualify, both raised as Error 1399 (XAE07) XAER_RMFAIL:
+//   - IDLE:     "...cannot be executed when global transaction is in the IDLE state"
+//     (branch already ended once, e.g. Commit ran XA END then failed later).
+//   - PREPARED: "...cannot be executed when global transaction is in the PREPARED state"
+//     (branch already ended AND prepared, e.g. Commit did XA END + XA PREPARE at the DB
+//     but the phase-1 report to the TC failed, and Rollback now needs to release locks).
+//
+// Treating the PREPARED case as "already ended" is required so that Rollback does not
+// bail out before XA ROLLBACK - otherwise a prepared branch would keep holding locks.
+// XA ROLLBACK is a legal transition out of the PREPARED state, so it still releases them.
+func (c *MysqlXAErrorClassifier) IsAlreadyEnded(err error) bool {
+	if err == nil {
+		return false
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		if mysqlErr.Number == types.ErrCodeXAER_RMFAIL_IDLE {
+			return strings.Contains(mysqlErr.Message, "IDLE state") ||
+				strings.Contains(mysqlErr.Message, "PREPARED state") ||
+				strings.Contains(mysqlErr.Message, "already ended")
+		}
+	}
+	return false
+}
+
+// MysqlXAConn implements XAResource for MySQL using native XA SQL statements.
+type MysqlXAConn struct {
+	driver.Conn
 }
 
 func (c *MysqlXAConn) Commit(ctx context.Context, xid string, onePhase bool) error {

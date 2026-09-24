@@ -25,6 +25,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mySQLUndoDeleteExecutor struct {
@@ -36,13 +37,24 @@ type mySQLUndoDeleteExecutor struct {
 func newMySQLUndoDeleteExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoDeleteExecutor {
 	return &mySQLUndoDeleteExecutor{
 		sqlUndoLog:   sqlUndoLog,
-		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.AfterImage},
+		baseExecutor: &BaseExecutor{sqlUndoLog: sqlUndoLog, undoImage: sqlUndoLog.BeforeImage},
 	}
 }
 
 func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	m.baseExecutor.dbType = dbType
+	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
 
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
@@ -53,7 +65,7 @@ func (m *mySQLUndoDeleteExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 
 	for _, row := range beforeImage.Rows {
 		undoValues := make([]interface{}, 0)
-		pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+		pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 		if err != nil {
 			return err
 		}
@@ -85,7 +97,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	row := rows[0]
 	fields := row.NonPrimaryKeys(row.Columns)
-	pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+	pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +110,7 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 	)
 
 	for key := range fields {
-		insertColumnSlice = append(insertColumnSlice, AddEscape(fields[key].ColumnName, dbType))
+		insertColumnSlice = append(insertColumnSlice, util.AddEscape(fields[key].ColumnName, dbType))
 		insertValueSlice = append(insertValueSlice, "?")
 	}
 
@@ -107,5 +119,5 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
 	insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
-	return fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), nil
+	return util.RewritePlaceholders(fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), dbType), nil
 }

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -40,24 +41,46 @@ type tccFenceWrapperHandler struct {
 	tccFenceDao       dao.TCCFenceStore
 	logQueue          chan *model.FenceLogIdentity
 	logCache          list.List
+	cacheMutex        sync.Mutex
 	logQueueOnce      sync.Once
 	logQueueCloseOnce sync.Once
+	logCacheOnce      sync.Once
 	logTaskOnce       sync.Once
 	db                *sql.DB
 	dbMutex           sync.RWMutex
+	stopDrainCache    chan struct{}
+	stopLogCleanTask  chan struct{}
+	backgroundWg      sync.WaitGroup
 }
 
 const (
 	maxQueueSize  = 500
 	channelDelete = 5
 	cleanExpired  = 24 * time.Hour
+	// maxFenceLogCacheRetries is how many times a fence log identity may be re-queued to logCache
+	// after a failed drain (Begin/delete/commit). Beyond this, entries are dropped to avoid unbounded retry.
+	maxFenceLogCacheRetries = 3
 )
 
+// fenceLogCacheEntry is the value type stored in logCache (queue-full overflow path).
+type fenceLogCacheEntry struct {
+	identity   model.FenceLogIdentity
+	retryCount int
+}
+
 var (
-	fenceHandler  *tccFenceWrapperHandler
-	fenceOnce     sync.Once
-	cleanInterval = 5 * time.Minute
+	fenceHandler       *tccFenceWrapperHandler
+	fenceOnce          sync.Once
+	cleanIntervalNanos atomic.Int64
 )
+
+func init() {
+	cleanIntervalNanos.Store(int64(5 * time.Minute))
+}
+
+func currentCleanInterval() time.Duration {
+	return time.Duration(cleanIntervalNanos.Load())
+}
 
 func GetFenceHandler() *tccFenceWrapperHandler {
 	if fenceHandler == nil {
@@ -70,8 +93,8 @@ func GetFenceHandler() *tccFenceWrapperHandler {
 	return fenceHandler
 }
 
-func (handler *tccFenceWrapperHandler) InitCleanPeriod(time time.Duration) {
-	cleanInterval = time
+func (handler *tccFenceWrapperHandler) InitCleanPeriod(d time.Duration) {
+	cleanIntervalNanos.Store(int64(d))
 }
 
 func (handler *tccFenceWrapperHandler) PrepareFence(ctx context.Context, tx *sql.Tx) error {
@@ -176,55 +199,85 @@ func (handler *tccFenceWrapperHandler) InitLogCleanChannel(dsn string) {
 	handler.db = db
 	handler.dbMutex.Unlock()
 
+	if handler.logQueue == nil {
+		handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
+	}
+
 	handler.logQueueOnce.Do(func() {
-		go handler.traversalCleanChannel(db)
+		handler.backgroundWg.Add(1)
+		go func() {
+			defer handler.backgroundWg.Done()
+			handler.traversalCleanChannel(db)
+		}()
 	})
 
 	handler.logTaskOnce.Do(func() {
-		go handler.initLogCleanTask(db)
+		handler.stopLogCleanTask = make(chan struct{})
+		handler.backgroundWg.Add(1)
+		go func() {
+			defer handler.backgroundWg.Done()
+			handler.initLogCleanTask(db)
+		}()
 	})
 
 }
 
 func (handler *tccFenceWrapperHandler) initLogCleanTask(db *sql.DB) {
 
-	ticker := time.NewTicker(cleanInterval)
+	ticker := time.NewTicker(currentCleanInterval())
 	defer ticker.Stop()
 
-	for range ticker.C {
-		tx, err := db.Begin()
-		if err != nil {
-			log.Warnf("failed to begin transaction: %v", err)
-			continue
-		}
+	for {
+		select {
+		case <-ticker.C:
+			tx, err := db.Begin()
+			if err != nil {
+				log.Warnf("failed to begin transaction: %v", err)
+				continue
+			}
 
-		expiredTime := time.Now().Add(-cleanExpired)
-		identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
+			expiredTime := time.Now().Add(-cleanExpired)
+			identityList, err := handler.tccFenceDao.QueryTCCFenceLogIdentityByMdDate(tx, expiredTime)
 
-		if err != nil {
-			log.Warnf("failed to delete expired logs: %v", err)
-			tx.Rollback()
-			continue
-		}
+			if err != nil {
+				log.Warnf("failed to delete expired logs: %v", err)
+				tx.Rollback()
+				continue
+			}
 
-		err = tx.Commit()
-		if err != nil {
-			log.Errorf("failed to commit transaction: %v", err)
-		}
+			err = tx.Commit()
+			if err != nil {
+				log.Errorf("failed to commit transaction: %v", err)
+			}
 
-		// push to clean channel
-		for _, identity := range identityList {
-			handler.logQueue <- &identity
+			handler.enqueueFenceLogIdentities(identityList)
+		case <-handler.stopLogCleanTask:
+			return
 		}
+	}
+}
+
+func (handler *tccFenceWrapperHandler) enqueueFenceLogIdentities(identityList []model.FenceLogIdentity) {
+	for i := range identityList {
+		handler.logQueue <- &identityList[i]
 	}
 }
 
 func (handler *tccFenceWrapperHandler) DestroyLogCleanChannel() {
 	handler.logQueueCloseOnce.Do(func() {
-		close(handler.logQueue)
+		if handler.logQueue != nil {
+			close(handler.logQueue)
+		}
+		if handler.stopDrainCache != nil {
+			close(handler.stopDrainCache)
+		}
+		if handler.stopLogCleanTask != nil {
+			close(handler.stopLogCleanTask)
+		}
+		handler.backgroundWg.Wait()
 		handler.dbMutex.Lock()
 		if handler.db != nil {
-			handler.db.Close()
+			_ = handler.db.Close()
 			handler.db = nil
 		}
 		handler.dbMutex.Unlock()
@@ -240,26 +293,30 @@ func (handler *tccFenceWrapperHandler) deleteBatchFence(tx *sql.Tx, batch []mode
 }
 
 func (handler *tccFenceWrapperHandler) pushCleanChannel(xid string, branchId int64) {
-	// todo implement
 	fli := &model.FenceLogIdentity{
 		Xid:      xid,
 		BranchId: branchId,
 	}
 	select {
 	case handler.logQueue <- fli:
-	// todo add batch delete from log cache.
 	default:
-		handler.logCache.PushBack(fli)
+		handler.cacheMutex.Lock()
+		handler.logCache.PushBack(&fenceLogCacheEntry{identity: *fli})
+		handler.cacheMutex.Unlock()
+
+		handler.logCacheOnce.Do(func() {
+			handler.stopDrainCache = make(chan struct{})
+			handler.backgroundWg.Add(1)
+			go func() {
+				defer handler.backgroundWg.Done()
+				handler.drainCacheTask()
+			}()
+		})
 	}
 	log.Infof("add one log to clean queue: %v ", fli)
 }
 
 func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
-
-	if handler.logQueue == nil {
-		handler.logQueue = make(chan *model.FenceLogIdentity, maxQueueSize)
-	}
-
 	counter := 0
 	batch := []model.FenceLogIdentity{}
 
@@ -289,4 +346,88 @@ func (handler *tccFenceWrapperHandler) traversalCleanChannel(db *sql.DB) {
 			tx.Commit()
 		}
 	}
+}
+
+func (handler *tccFenceWrapperHandler) drainCacheTask() {
+	ticker := time.NewTicker(currentCleanInterval())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			handler.cacheMutex.Lock()
+
+			if handler.logCache.Len() == 0 {
+				handler.cacheMutex.Unlock()
+				continue
+			}
+
+			handler.dbMutex.RLock()
+			db := handler.db
+			handler.dbMutex.RUnlock()
+			if db == nil {
+				handler.cacheMutex.Unlock()
+				continue
+			}
+
+			var drained []fenceLogCacheEntry
+			for e := handler.logCache.Front(); e != nil; {
+				next := e.Next()
+
+				ent := e.Value.(*fenceLogCacheEntry)
+				drained = append(drained, *ent)
+				handler.logCache.Remove(e)
+
+				e = next
+			}
+
+			handler.cacheMutex.Unlock()
+
+			batch := make([]model.FenceLogIdentity, len(drained))
+			for i := range drained {
+				batch[i] = drained[i].identity
+			}
+
+			if len(batch) == 0 {
+				continue
+			}
+			requeue := func() {
+				handler.cacheMutex.Lock()
+				for _, it := range drained {
+					if it.retryCount >= maxFenceLogCacheRetries {
+						log.Errorf("max fence log cache retries exceeded, dropping: xid=%s, branchId=%d",
+							it.identity.Xid, it.identity.BranchId)
+						continue
+					}
+					handler.logCache.PushBack(&fenceLogCacheEntry{
+						identity:   it.identity,
+						retryCount: it.retryCount + 1,
+					})
+				}
+				handler.cacheMutex.Unlock()
+			}
+			tx, err := db.Begin()
+			if err != nil {
+				log.Warnf("failed to begin transaction: %v", err)
+				requeue()
+				continue
+			}
+			err = handler.deleteBatchFence(tx, batch)
+			if err != nil {
+				_ = tx.Rollback()
+				log.Errorf("delete batch fence log failed, batch: %v, err: %v", batch, err)
+				requeue()
+				continue
+			}
+			if err = tx.Commit(); err != nil {
+				_ = tx.Rollback()
+				log.Errorf("failed to commit transaction: %v", err)
+				requeue()
+				continue
+			}
+		case <-handler.stopDrainCache:
+			return
+		}
+	}
+
 }

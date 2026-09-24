@@ -60,7 +60,52 @@ func TestColumnImage_UnmarshalJSON(t *testing.T) {
 				ColumnType: JDBCTypeTinyInt,
 				Value:      int8(20),
 			},
-			expectValue: int8(20),
+			expectValue: int64(20),
+		},
+		{
+			name:        "test-unsigned-tiny-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeTinyInt, Value: uint8(255)},
+			expectValue: int64(255),
+		},
+		{
+			name:        "test-unsigned-small-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeSmallInt, Value: uint16(65535)},
+			expectValue: int64(65535),
+		},
+		{
+			name:        "test-unsigned-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeInteger, Value: uint32(4294967295)},
+			expectValue: int64(4294967295),
+		},
+		{
+			name:        "test-exact-decimal",
+			image:       &ColumnImage{ColumnType: JDBCTypeDecimal, Value: "12345678901234567890.12345678901234567890"},
+			expectValue: "12345678901234567890.12345678901234567890",
+		},
+		{
+			name:        "test-legacy-decimal-number",
+			image:       &ColumnImage{ColumnType: JDBCTypeDecimal, Value: float64(13.37)},
+			expectValue: float64(13.37),
+		},
+		{
+			name:        "test-big-int-at-float64-precision-limit",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1 << 53)},
+			expectValue: int64(1 << 53),
+		},
+		{
+			name:        "test-big-int-above-float64-precision",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1<<53 + 1)},
+			expectValue: int64(1<<53 + 1),
+		},
+		{
+			name:        "test-max-big-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: int64(1<<63 - 1)},
+			expectValue: int64(1<<63 - 1),
+		},
+		{
+			name:        "test-unsigned-big-int",
+			image:       &ColumnImage{ColumnType: JDBCTypeBigInt, Value: uint64(1<<64 - 1)},
+			expectValue: uint64(1<<64 - 1),
 		},
 		{
 			name: "test-double",

@@ -30,10 +30,14 @@ import (
 type CodecType byte
 
 const (
-	CodecTypeSeata    = CodecType(0x1)
-	CodecTypeProtobuf = CodecType(0x2)
-	CodecTypeKRYO     = CodecType(0x4)
-	CodecTypeFST      = CodecType(0x8)
+	CodecTypeSeata     = CodecType(0x1)
+	CodecTypeProtobuf  = CodecType(0x2)
+	CodecTypeKRYO      = CodecType(0x4)
+	CodecTypeFST       = CodecType(0x8)
+	CodecTypeHESSIAN   = CodecType(0x16)
+	CodecTypeJACKSON   = CodecType(0x32)
+	CodecTypeFASTJSON2 = CodecType(0x64)
+	CodecTypeGRPC      = CodecType(0x28) // Java version:0×128
 )
 
 type Codec interface {
@@ -140,6 +144,7 @@ func Init() {
 	// RM
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMRequestCodec{})
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterRMResponseCodec{})
+	GetCodecManager().RegisterCodec(CodecTypeSeata, &UndoLogDeleteRequestCodec{})
 
 	// TM
 	GetCodecManager().RegisterCodec(CodecTypeSeata, &RegisterTMRequestCodec{})

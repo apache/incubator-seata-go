@@ -18,10 +18,47 @@
 package sql
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
+
+type localCommitStage uint8
+
+const (
+	localCommitNotStarted localCommitStage = iota
+	localCommitInvoked
+	localCommitSucceeded
+)
+
+type atCommitOutcome uint8
+
+const (
+	atCommitOutcomeRolledBack atCommitOutcome = iota
+	atCommitOutcomeRollbackFailed
+	atCommitOutcomeCommitUnknown
+	atCommitOutcomeCommitted
+)
+
+type atCommitError struct {
+	cause       error
+	rollbackErr error
+	reportErr   error
+	outcome     atCommitOutcome
+}
+
+func (e *atCommitError) Error() string {
+	message := fmt.Sprintf("AT commit failed: %v", e.cause)
+	if e.rollbackErr != nil {
+		message += fmt.Sprintf("; rollback failed: %v", e.rollbackErr)
+	}
+	if e.reportErr != nil {
+		message += fmt.Sprintf("; branch failure report failed: %v", e.reportErr)
+	}
+	return message
+}
+
+func (e *atCommitError) Unwrap() error { return e.cause }
 
 // ATTx
 type ATTx struct {
@@ -33,10 +70,11 @@ type ATTx struct {
 // case 2. not need flush undolog, is XA mode, do local transaction commit
 // case 3. need run AT transaction
 func (tx *ATTx) Commit() error {
-	if err := tx.tx.beforeCommit(); err != nil {
-		return err
+	stage, err := tx.doCommit()
+	if err == nil {
+		return nil
 	}
-	return tx.commitOnAT()
+	return tx.finishCommitFailure(stage, err)
 }
 
 func (tx *ATTx) Rollback() error {
@@ -53,32 +91,57 @@ func (tx *ATTx) Rollback() error {
 	return err
 }
 
-// commitOnAT
-func (tx *ATTx) commitOnAT() error {
+func (tx *ATTx) doCommit() (localCommitStage, error) {
 	originTx := tx.tx
+	stage := localCommitNotStarted
+
+	if err := originTx.beforeCommit(); err != nil {
+		return stage, err
+	}
+
 	if err := originTx.register(originTx.tranCtx); err != nil {
-		return err
+		return stage, err
 	}
 
 	undoLogMgr, err := undo.GetUndoLogManager(originTx.tranCtx.DBType)
 	if err != nil {
-		return err
+		return stage, err
 	}
 
 	if err = undoLogMgr.FlushUndoLog(originTx.tranCtx, originTx.conn.targetConn); err != nil {
-		if rerr := originTx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
+		return stage, err
 	}
 
+	stage = localCommitInvoked
 	if err := originTx.commitOnLocal(); err != nil {
-		if rerr := originTx.report(false); rerr != nil {
-			return errors.WithStack(rerr)
-		}
-		return errors.WithStack(err)
+		return stage, err
 	}
 
+	stage = localCommitSucceeded
 	originTx.report(true)
-	return nil
+	return stage, nil
+}
+
+func (tx *ATTx) finishCommitFailure(stage localCommitStage, cause error) error {
+	originTx := tx.tx
+	commitErr := &atCommitError{cause: cause, outcome: atCommitOutcomeRolledBack}
+
+	switch stage {
+	case localCommitNotStarted:
+		if err := originTx.Rollback(); err != nil {
+			commitErr.rollbackErr = err
+			commitErr.outcome = atCommitOutcomeRollbackFailed
+			originTx.conn.invalidate()
+		}
+	case localCommitInvoked:
+		commitErr.outcome = atCommitOutcomeCommitUnknown
+		originTx.conn.invalidate()
+	case localCommitSucceeded:
+		commitErr.outcome = atCommitOutcomeCommitted
+	}
+	if stage != localCommitSucceeded && originTx.tranCtx.IsBranchRegistered() {
+		commitErr.reportErr = originTx.report(false)
+	}
+
+	return commitErr
 }

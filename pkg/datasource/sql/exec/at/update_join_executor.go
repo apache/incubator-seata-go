@@ -66,7 +66,9 @@ func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.Exe
 
 // ExecContext exec SQL, and generate before image and after image
 func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	u.beforeHooks(ctx, u.execContext)
+	if err := u.beforeHooks(ctx, u.execContext); err != nil {
+		return nil, err
+	}
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
 	}()
@@ -128,10 +130,10 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
-			if rowerr := rows.Close(); rowerr != nil {
+			if rowerr := rowsi.Close(); rowerr != nil {
 				log.Errorf("rows close fail, err:%v", rowerr)
 				return nil, rowerr
 			}
@@ -175,7 +177,7 @@ func (u *updateJoinExecutor) afterImage(ctx context.Context, beforeImages []*typ
 		var image *types.RecordImage
 		rowsi, err := u.rowsPrepare(ctx, u.execContext.Conn, selectSQL, selectArgs)
 		if err == nil {
-			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate)
+			image, err = u.buildRecordImages(rowsi, metaData, types.SQLTypeUpdate, types.DBTypeMySQL)
 		}
 		if rowsi != nil {
 			if rowerr := rowsi.Close(); rowerr != nil {
@@ -264,7 +266,7 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName()), nil
+	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType)), nil
 }
 
 func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) map[string]string {

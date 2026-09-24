@@ -26,11 +26,18 @@
 ### feature：
 
   - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
+  - support XA branch enrollment for autoCommit statements in a global transaction: each autoCommit statement is registered and prepared as its own complete XA branch (note: N autoCommit statements create N branches at the TC); parameterized statements (which the default go-sql-driver DSN answers with `driver.ErrSkip`) are executed via an in-branch Prepare+Exec fallback so they stay inside the branch
+  - support PostgreSQL XA via pgx driver
+  - [[#1130](https://github.com/apache/incubator-seata-go/issues/1130)] support MySQL multi-value INSERT in AT mode for composite and mixed primary keys
 
 ### bugfix：
 
+  - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
+  - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
+  - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
+  - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
 
 ### optimize：
 
@@ -43,6 +50,10 @@
   - [[#955](https://github.com/apache/incubator-seata-go/issues/955)] improve test coverage for pkg/rm/tcc/fence (95.1%)
   - [[#947](https://github.com/apache/incubator-seata-go/issues/947)] improve test coverage for pkg/discovery/mock
   - [[#948](https://github.com/apache/incubator-seata-go/issues/948)] improve test coverage for pkg/integration	
+
+### docs：
+
+  - [[#1179](https://github.com/apache/incubator-seata-go/issues/1179)] fix README install command to use the `/v2` module path (`go get seata.apache.org/seata-go/v2@latest`) and correct broken release/issue/PR-template links
 
 ### contributors:
 

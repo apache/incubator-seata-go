@@ -19,7 +19,7 @@ package message
 
 type RpcMessage struct {
 	ID         int32
-	Type       GettyRequestType
+	Type       RequestType
 	Codec      byte
 	Compressor byte
 	HeadMap    map[string]string
@@ -36,7 +36,7 @@ type MessageFuture struct {
 func NewMessageFuture(message RpcMessage) *MessageFuture {
 	return &MessageFuture{
 		ID:   message.ID,
-		Done: make(chan struct{}),
+		Done: make(chan struct{}, 1), // Buffered channel prevents lost signals in timeout race
 	}
 }
 

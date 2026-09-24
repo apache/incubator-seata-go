@@ -26,37 +26,47 @@ var (
 )
 
 func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) {
-	var registryService RegistryService
-	var err error
-	switch registryConfig.Type {
-	case FILE:
-		//init file registry
-		registryService = newFileRegistryService(serviceConfig)
-	case ETCD:
-		//init etcd registry
-		registryService = newEtcdRegistryService(serviceConfig, &registryConfig.Etcd3)
-	case NACOS:
-		//TODO: init nacos registry
-	case EUREKA:
-		//TODO: init eureka registry
-	case REDIS:
-		//TODO: init redis registry
-	case ZK:
-		//TODO: init zk registry
-	case CONSUL:
-		//TODO: init consul registry
-	case SOFA:
-		//TODO: init sofa registry
-	default:
-		err = fmt.Errorf("service registry not support registry type:%s", registryConfig.Type)
-	}
-
-	if err != nil {
+	if err := InitRegistryWithError(serviceConfig, registryConfig); err != nil {
 		panic(fmt.Errorf("init service registry err:%v", err))
 	}
+}
+
+func InitRegistryWithError(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) error {
+	if registryConfig == nil {
+		return fmt.Errorf("registry config is nil")
+	}
+
+	provider, ok := registryProviderFor(registryConfig.Type)
+	if !ok {
+		return unsupportedRegistryTypeError(registryConfig.Type)
+	}
+
+	registryService, err := provider(serviceConfig, registryConfig)
+	if err != nil {
+		return err
+	}
+	if registryService == nil {
+		return fmt.Errorf("registry provider returned nil for type:%s", registryConfig.Type)
+	}
 	registryServiceInstance = registryService
+	return nil
 }
 
 func GetRegistry() RegistryService {
 	return registryServiceInstance
+}
+
+func GetNamingServerRegistry() (NamingServerRegistry, error) {
+	if registryServiceInstance == nil {
+		return nil, fmt.Errorf("registry service not initialized")
+	}
+	namingReg, ok := registryServiceInstance.(NamingServerRegistry)
+	if !ok {
+		return nil, fmt.Errorf("current registry is not namingserver")
+	}
+	return namingReg, nil
+}
+
+func GetNamingserverRegistry() (NamingServerRegistry, error) {
+	return GetNamingServerRegistry()
 }

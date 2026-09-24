@@ -78,7 +78,7 @@ type XAResourceManager struct {
 	config        XAConfig
 	resourceCache sync.Map
 	basic         *datasource.BasicSourceManager
-	rmRemoting    *rm.RMRemoting
+	rmRemoting    rm.RMRemoting
 }
 
 func (xaManager *XAResourceManager) xaTwoPhaseTimeoutChecker() {
@@ -197,7 +197,7 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 }
 
 func (xaManager *XAResourceManager) LockQuery(ctx context.Context, param rm.LockQueryParam) (bool, error) {
-	return false, nil
+	return xaManager.rmRemoting.LockQuery(param)
 }
 
 func (xaManager *XAResourceManager) BranchRegister(ctx context.Context, req rm.BranchRegisterParam) (int64, error) {

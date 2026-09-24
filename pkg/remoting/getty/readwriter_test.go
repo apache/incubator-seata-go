@@ -30,7 +30,7 @@ import (
 func TestRpcPackageHandler(t *testing.T) {
 	msg := message.RpcMessage{
 		ID:         1123,
-		Type:       message.GettyRequestTypeRequestSync,
+		Type:       message.RequestTypeRequestSync,
 		Codec:      byte(codec.CodecTypeSeata),
 		Compressor: byte(1),
 		HeadMap: map[string]string{
@@ -48,6 +48,56 @@ func TestRpcPackageHandler(t *testing.T) {
 	bytes, err := codec.Write(nil, msg)
 	assert.Nil(t, err)
 	msg2, _, _ := codec.Read(nil, bytes)
+
+	assert.Equal(t, msg, msg2)
+}
+
+func TestRpcPackageHandler_EmptyHeadMapValue(t *testing.T) {
+	msg := message.RpcMessage{
+		ID:         1124,
+		Type:       message.RequestTypeRequestSync,
+		Codec:      byte(codec.CodecTypeSeata),
+		Compressor: byte(1),
+		HeadMap: map[string]string{
+			"name": "Jack",
+			"note": "",
+		},
+		Body: message.GlobalBeginRequest{
+			Timeout:         2 * time.Second,
+			TransactionName: "SeataGoTransaction",
+		},
+	}
+
+	codec := RpcPackageHandler{}
+	bytes, err := codec.Write(nil, msg)
+	assert.Nil(t, err)
+	msg2, _, err := codec.Read(nil, bytes)
+	assert.Nil(t, err)
+
+	assert.Equal(t, msg, msg2)
+}
+
+func TestRpcPackageHandler_EmptyHeadMapKey(t *testing.T) {
+	msg := message.RpcMessage{
+		ID:         1125,
+		Type:       message.RequestTypeRequestSync,
+		Codec:      byte(codec.CodecTypeSeata),
+		Compressor: byte(1),
+		HeadMap: map[string]string{
+			"":     "value",
+			"name": "Jack",
+		},
+		Body: message.GlobalBeginRequest{
+			Timeout:         2 * time.Second,
+			TransactionName: "SeataGoTransaction",
+		},
+	}
+
+	codec := RpcPackageHandler{}
+	bytes, err := codec.Write(nil, msg)
+	assert.Nil(t, err)
+	msg2, _, err := codec.Read(nil, bytes)
+	assert.Nil(t, err)
 
 	assert.Equal(t, msg, msg2)
 }

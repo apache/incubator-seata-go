@@ -25,6 +25,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type mySQLUndoUpdateExecutor struct {
@@ -41,6 +42,7 @@ func newMySQLUndoUpdateExecutor(sqlUndoLog undo.SQLUndoLog) *mySQLUndoUpdateExec
 }
 
 func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DBType, conn *sql.Conn) error {
+	m.baseExecutor.dbType = dbType
 	ok, err := m.baseExecutor.dataValidationAndGoOn(ctx, conn)
 	if err != nil {
 		return err
@@ -49,7 +51,10 @@ func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 		return nil
 	}
 
-	undoSql, _ := m.buildUndoSQL(dbType)
+	undoSql, err := m.buildUndoSQL(dbType)
+	if err != nil {
+		return err
+	}
 	stmt, err := conn.PrepareContext(ctx, undoSql)
 	if err != nil {
 		return err
@@ -59,7 +64,7 @@ func (m *mySQLUndoUpdateExecutor) ExecuteOn(ctx context.Context, dbType types.DB
 	beforeImage := m.sqlUndoLog.BeforeImage
 	for _, row := range beforeImage.Rows {
 		undoValues := make([]interface{}, 0)
-		pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+		pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 		if err != nil {
 			return err
 		}
@@ -95,11 +100,11 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	nonPkFields := row.NonPrimaryKeys(row.Columns)
 	for key := range nonPkFields {
-		updateColumnSlice = append(updateColumnSlice, AddEscape(nonPkFields[key].ColumnName, dbType)+" = ? ")
+		updateColumnSlice = append(updateColumnSlice, util.AddEscape(nonPkFields[key].ColumnName, dbType)+" = ? ")
 	}
 
 	updateColumns = strings.Join(updateColumnSlice, ", ")
-	pkList, err := GetOrderedPkList(beforeImage, row, dbType)
+	pkList, err := util.GetOrderedPkList(beforeImage, row, dbType)
 	if err != nil {
 		return "", err
 	}
@@ -108,9 +113,9 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 		pkNameList = append(pkNameList, pkList[key].ColumnName)
 	}
 
-	whereSql := BuildWhereConditionByPKs(pkNameList, dbType)
+	whereSql := util.BuildWhereConditionByPKs(pkNameList, dbType)
 
 	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
 	updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
-	return fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), nil
+	return util.RewritePlaceholders(fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), dbType), nil
 }

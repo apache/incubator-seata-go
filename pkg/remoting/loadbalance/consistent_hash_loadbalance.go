@@ -23,24 +23,24 @@ import (
 	"sort"
 	"sync"
 
-	getty "github.com/apache/dubbo-getty"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 var (
-	once                     sync.Once
-	defaultVirtualNodeNumber = 10
-	consistentInstance       *Consistent
+	once               sync.Once
+	virtualNodeNumber  int
+	consistentInstance *Consistent
 )
 
 type Consistent struct {
 	sync.RWMutex
 	virtualNodeCount int
 	// consistent hashCircle
-	hashCircle      map[int64]getty.Session
+	hashCircle      map[int64]connection.Connection
 	sortedHashNodes []int64
 }
 
-func (c *Consistent) put(key int64, session getty.Session) {
+func (c *Consistent) put(key int64, session connection.Connection) {
 	c.Lock()
 	defer c.Unlock()
 	c.hashCircle[key] = session
@@ -58,26 +58,27 @@ func (c *Consistent) hash(key string) int64 {
 }
 
 // pick get a  node
-func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
+func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection {
 	hashKey := c.hash(key)
+
+	c.RLock()
 	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
 		return c.sortedHashNodes[i] >= hashKey
 	})
 
 	if index == len(c.sortedHashNodes) {
-		return RandomLoadBalance(sessions, key)
-	}
-
-	c.RLock()
-	session, ok := c.hashCircle[c.sortedHashNodes[index]]
-	if !ok {
 		c.RUnlock()
 		return RandomLoadBalance(sessions, key)
 	}
+
+	session, ok := c.hashCircle[c.sortedHashNodes[index]]
 	c.RUnlock()
+	if !ok {
+		return RandomLoadBalance(sessions, key)
+	}
 
 	if session.IsClosed() {
-		go c.refreshHashCircle(sessions)
+		c.refreshHashCircle(sessions)
 		return c.firstKey()
 	}
 
@@ -87,13 +88,11 @@ func (c *Consistent) pick(sessions *sync.Map, key string) getty.Session {
 // refreshHashCircle refresh hashCircle
 func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 	var sortedHashNodes []int64
-	hashCircle := make(map[int64]getty.Session)
-	var session getty.Session
-	c.RLock()
-	defer c.RUnlock()
+	hashCircle := make(map[int64]connection.Connection)
+	var session connection.Connection
 	sessions.Range(func(key, value interface{}) bool {
-		session = key.(getty.Session)
-		for i := 0; i < defaultVirtualNodeNumber; i++ {
+		session = key.(connection.Connection)
+		for i := 0; i < virtualNodeNumber; i++ {
 			if !session.IsClosed() {
 				position := c.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
 				hashCircle[position] = session
@@ -110,11 +109,13 @@ func (c *Consistent) refreshHashCircle(sessions *sync.Map) {
 		return sortedHashNodes[i] < sortedHashNodes[j]
 	})
 
+	c.Lock()
 	c.sortedHashNodes = sortedHashNodes
 	c.hashCircle = hashCircle
+	c.Unlock()
 }
 
-func (c *Consistent) firstKey() getty.Session {
+func (c *Consistent) firstKey() connection.Connection {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -127,17 +128,17 @@ func (c *Consistent) firstKey() getty.Session {
 
 func newConsistenceInstance(sessions *sync.Map) *Consistent {
 	once.Do(func() {
-		consistentInstance = &Consistent{
-			hashCircle: make(map[int64]getty.Session),
+		instance := &Consistent{
+			hashCircle: make(map[int64]connection.Connection),
 		}
 		// construct hash circle
 		sessions.Range(func(key, value interface{}) bool {
-			session := key.(getty.Session)
-			for i := 0; i < defaultVirtualNodeNumber; i++ {
+			session := key.(connection.Connection)
+			for i := 0; i < virtualNodeNumber; i++ {
 				if !session.IsClosed() {
-					position := consistentInstance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
-					consistentInstance.put(position, session)
-					consistentInstance.sortedHashNodes = append(consistentInstance.sortedHashNodes, position)
+					position := instance.hash(fmt.Sprintf("%s%d", session.RemoteAddr(), i))
+					instance.put(position, session)
+					instance.sortedHashNodes = append(instance.sortedHashNodes, position)
 				} else {
 					sessions.Delete(key)
 				}
@@ -146,19 +147,17 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 		})
 
 		// virtual node sort
-		sort.Slice(consistentInstance.sortedHashNodes, func(i, j int) bool {
-			return consistentInstance.sortedHashNodes[i] < consistentInstance.sortedHashNodes[j]
+		sort.Slice(instance.sortedHashNodes, func(i, j int) bool {
+			return instance.sortedHashNodes[i] < instance.sortedHashNodes[j]
 		})
+
+		consistentInstance = instance
 	})
 
 	return consistentInstance
 }
 
-func ConsistentHashLoadBalance(sessions *sync.Map, xid string) getty.Session {
-	if consistentInstance == nil {
-		newConsistenceInstance(sessions)
-	}
-
+func ConsistentHashLoadBalance(sessions *sync.Map, xid string) connection.Connection {
 	// pick a node
-	return consistentInstance.pick(sessions, xid)
+	return newConsistenceInstance(sessions).pick(sessions, xid)
 }

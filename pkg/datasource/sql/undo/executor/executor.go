@@ -29,6 +29,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	serr "seata.apache.org/seata-go/v2/pkg/util/errors"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -36,13 +37,14 @@ import (
 var _ undo.UndoExecutor = (*BaseExecutor)(nil)
 
 const (
-	checkSQLTemplate = "SELECT * FROM %s WHERE %s FOR UPDATE"
+	checkSQLTemplate = "SELECT %s FROM %s WHERE %s FOR UPDATE"
 	maxInSize        = 1000
 )
 
 type BaseExecutor struct {
 	sqlUndoLog undo.SQLUndoLog
 	undoImage  *types.RecordImage
+	dbType     types.DBType
 }
 
 // ExecuteOn
@@ -109,17 +111,28 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	if b.undoImage == nil {
 		return nil, fmt.Errorf("undo image is nil")
 	}
+	dbType := b.dbType
+	if dbType == types.DBTypeUnknown {
+		dbType = types.DBTypeMySQL
+	}
 	tableMeta := b.undoImage.TableMeta
 	pkNameList := tableMeta.GetPrimaryKeyOnlyName()
-	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList)
+	pkValues := b.parsePkValues(b.undoImage.Rows, pkNameList, dbType)
 
 	if len(pkValues) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("primary key values not found in undo image")
 	}
 
-	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), maxInSize)
-	checkSQL := fmt.Sprintf(checkSQLTemplate, b.undoImage.TableName, where)
-	params := buildPKParams(b.undoImage.Rows, pkNameList)
+	selectColumns := make([]string, 0, len(b.undoImage.Rows[0].Columns))
+	for _, column := range b.undoImage.Rows[0].Columns {
+		selectColumns = append(selectColumns, util.AddEscape(column.ColumnName, dbType))
+	}
+	if len(selectColumns) == 0 {
+		return nil, fmt.Errorf("undo image columns are empty")
+	}
+	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), dbType, maxInSize)
+	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), b.undoImage.TableName, where), dbType)
+	params := buildPKParams(b.undoImage.Rows, pkNameList, dbType)
 
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)
 	if err != nil {
@@ -138,6 +151,18 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 			return nil, err
 		}
 		slice := datasource.GetScanSlice(columnTypes)
+		undoColumns := b.undoImage.Rows[0].Columns
+		for i, column := range undoColumns {
+			if column.ColumnType != types.JDBCTypeDecimal {
+				continue
+			}
+			switch column.GetActualValue().(type) {
+			case float32, float64:
+				slice[i] = &sql.NullFloat64{}
+			default:
+				slice[i] = &sql.NullString{}
+			}
+		}
 		if err = rows.Scan(slice...); err != nil {
 			return nil, err
 		}
@@ -155,6 +180,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 			}
 			columns = append(columns, types.ColumnImage{
 				ColumnName: colNames[i],
+				ColumnType: undoColumns[i].ColumnType,
 				Value:      actualVal,
 			})
 		}
@@ -167,7 +193,7 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	return &image, nil
 }
 
-func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string) map[string][]types.ColumnImage {
+func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string, dbType types.DBType) map[string][]types.ColumnImage {
 	if len(rows) == 0 {
 		return make(map[string][]types.ColumnImage)
 	}
@@ -181,7 +207,8 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			columnNameLower := strings.ToLower(column.ColumnName)
+			cleanName := util.DelEscape(column.ColumnName, dbType)
+			columnNameLower := strings.ToLower(cleanName)
 			if originalPk, exists := pkLookup[columnNameLower]; exists {
 				if pkValues[originalPk] == nil {
 					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))

@@ -18,12 +18,14 @@
 package discovery
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
@@ -133,20 +135,18 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockEtcdClient := mock.NewMockEtcdClient(ctrl)
 		etcdRegistryService := &EtcdRegistryService{
-			client: &clientv3.Client{
-				KV:      mockEtcdClient,
-				Watcher: mockEtcdClient,
-			},
+			client: newTestEtcdClient(mockEtcdClient),
 			vgroupMapping: map[string]string{
 				"default_tx_group": "default",
 			},
-			grouplist: make(map[string][]*ServiceInstance, 0),
-			stopCh:    make(chan struct{}),
+			store:  NewAddressStore(),
+			stopCh: make(chan struct{}),
 		}
 
 		mockEtcdClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(tt.getResp, nil)
 		ch := make(chan clientv3.WatchResponse)
 		mockEtcdClient.EXPECT().Watch(gomock.Any(), gomock.Any(), gomock.Any()).Return(ch)
+		mockEtcdClient.EXPECT().Close().Return(nil)
 
 		go func() {
 			etcdRegistryService.watch("registry-seata")
@@ -174,5 +174,81 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 		assert.True(t, reflect.DeepEqual(serviceInstances, tt.want))
 
 		etcdRegistryService.Close()
+	}
+}
+
+func TestEtcd3RegistryService_CloseIsRepeatable(t *testing.T) {
+	client := clientv3.NewCtxClient(context.Background())
+	etcdRegistryService := &EtcdRegistryService{
+		client: client,
+		stopCh: make(chan struct{}),
+	}
+
+	etcdRegistryService.Close()
+	etcdRegistryService.Close()
+
+	select {
+	case <-etcdRegistryService.stopCh:
+	case <-time.After(time.Second):
+		t.Fatal("stop channel was not closed")
+	}
+
+	select {
+	case <-client.Ctx().Done():
+	case <-time.After(time.Second):
+		t.Fatal("etcd client was not closed")
+	}
+}
+
+func TestEtcd3RegistryService_WatchContinuesAfterSnapshotRevision(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockEtcdClient := mock.NewMockEtcdClient(ctrl)
+	service := &EtcdRegistryService{
+		client: newTestEtcdClient(mockEtcdClient),
+		store:  NewAddressStore(),
+		stopCh: make(chan struct{}),
+	}
+
+	mockEtcdClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(&clientv3.GetResponse{
+		Header: &etcdserverpb.ResponseHeader{Revision: 41},
+	}, nil)
+	watchStarted := make(chan struct{})
+	watchCh := make(chan clientv3.WatchResponse)
+	mockEtcdClient.EXPECT().Watch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, key string, options ...clientv3.OpOption) clientv3.WatchChan {
+			op := clientv3.OpGet(key, options...)
+			assert.Equal(t, int64(42), op.Rev())
+			close(watchStarted)
+			return watchCh
+		})
+	mockEtcdClient.EXPECT().Close().Return(nil)
+
+	watchDone := make(chan struct{})
+	go func() {
+		service.watch(etcdClusterPrefix)
+		close(watchDone)
+	}()
+	waitForSignal(t, watchStarted, "etcd watch to start")
+	service.Close()
+	waitForSignal(t, watchDone, "etcd watch to stop")
+}
+
+func newTestEtcdClient(client mock.EtcdClient) *clientv3.Client {
+	return clientv3.NewCtxClient(
+		context.Background(),
+		func(c *clientv3.Client) {
+			c.KV = client
+			c.Watcher = client
+		},
+	)
+}
+
+func waitForSignal(t *testing.T, signal <-chan struct{}, name string) {
+	t.Helper()
+
+	select {
+	case <-signal:
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for %s", name)
 	}
 }

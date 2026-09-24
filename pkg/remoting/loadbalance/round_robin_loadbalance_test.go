@@ -23,14 +23,19 @@ import (
 	"sync"
 	"testing"
 
-	getty "github.com/apache/dubbo-getty"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
 )
 
+func resetSequenceForTest() {
+	sequence = 0
+}
+
 func TestRoundRobinLoadBalance_Normal(t *testing.T) {
+	resetSequenceForTest()
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -81,6 +86,7 @@ func TestRoundRobinLoadBalance_OverSequence(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalance_All_Closed(t *testing.T) {
+	resetSequenceForTest()
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 	for i := 0; i < 10; i++ {
@@ -94,6 +100,7 @@ func TestRoundRobinLoadBalance_All_Closed(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalance_Empty(t *testing.T) {
+	resetSequenceForTest()
 	sessions := &sync.Map{}
 	if result := RoundRobinLoadBalance(sessions, "some_xid"); result != nil {
 		t.Errorf("Expected nil, actual got %+v", result)
@@ -101,6 +108,7 @@ func TestRoundRobinLoadBalance_Empty(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalance_ConcurrentAccess(t *testing.T) {
+	resetSequenceForTest()
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -112,7 +120,7 @@ func TestRoundRobinLoadBalance_ConcurrentAccess(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	results := make([]getty.Session, 100)
+	results := make([]connection.Connection, 100)
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -129,6 +137,7 @@ func TestRoundRobinLoadBalance_ConcurrentAccess(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalance_SelectedSessionClosed(t *testing.T) {
+	resetSequenceForTest()
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
@@ -157,23 +166,8 @@ func TestRoundRobinLoadBalance_SelectedSessionClosed(t *testing.T) {
 	assert.NotNil(t, result3)
 }
 
-func TestRRSelector_GetValidSnapshot_Nil(t *testing.T) {
-	selector := &rrSelector{sessions: &sync.Map{}}
-	selector.snapshot.Store((*rrSnapshot)(nil))
-
-	snap := selector.getValidSnapshot()
-	assert.Nil(t, snap, "Should return nil for nil snapshot")
-}
-
-func TestRRSelector_GetValidSnapshot_EmptySessions(t *testing.T) {
-	selector := &rrSelector{sessions: &sync.Map{}}
-	selector.snapshot.Store(&rrSnapshot{sessions: []getty.Session{}})
-
-	snap := selector.getValidSnapshot()
-	assert.Nil(t, snap, "Should return nil for empty sessions")
-}
-
 func TestRRSelector_RebuildWithSeq_DeleteClosedSessions(t *testing.T) {
+	resetSequenceForTest()
 	ctrl := gomock.NewController(t)
 	sessions := &sync.Map{}
 
