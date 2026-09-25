@@ -182,6 +182,7 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 	}
 	c.xaActive = true
+	c.rollBacked = false
 
 	return &XATx{tx: tx.(*Tx)}, nil
 }
@@ -496,9 +497,6 @@ func (c *XAConn) cleanXABranchContext() {
 }
 
 func (c *XAConn) Rollback(ctx context.Context) error {
-	var rollbackErr error
-	var branchID uint64
-
 	if c.autoCommit {
 		return nil
 	}
@@ -508,8 +506,9 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 	}
 
 	// Capture the branch ID before cleanup can clear the branch XID.
-	branchID = c.xaBranchXid.GetBranchId()
+	branchID := c.xaBranchXid.GetBranchId()
 
+	var rollbackErr error
 	if !c.rollBacked {
 		// First end the XA branch with TMFail
 		if err := c.xaResource.End(ctx, c.xaBranchXid.String(), xa.TMFail); err != nil {
@@ -524,6 +523,8 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 
 		// Then perform XA rollback
 		if err := c.XaRollback(ctx, c.xaBranchXid); err != nil {
+			// The branch may still be open; do not return this connection to the pool.
+			c.invalidate()
 			if rollbackErr != nil {
 				rollbackErr = errors.Join(rollbackErr, err)
 			} else {
