@@ -18,11 +18,16 @@
 package grpc
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
+	remotinggrpc "seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 )
 
@@ -50,5 +55,33 @@ func TestGetGrpcRMRemotingInstance(t *testing.T) {
 			assert.NotNil(t, got)
 			assert.IsType(t, tt.wantType, got)
 		})
+	}
+}
+
+func TestGrpcRMRemotingBranchReportUsesStatusReportMessageType(t *testing.T) {
+	var request *pb.BranchReportRequestProto
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(remotinggrpc.GetGrpcRemotingClient()), "SendSyncRequest",
+		func(_ *remotinggrpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			request = msg.(*pb.BranchReportRequestProto)
+			return &pb.BranchReportResponseProto{
+				AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+					AbstractResultMessage: &pb.AbstractResultMessageProto{
+						ResultCode: pb.ResultCodeProto_Success,
+					},
+				},
+			}, nil
+		})
+	defer patches.Reset()
+
+	err := (&GrpcRMRemoting{}).BranchReport(rm.BranchReportParam{
+		BranchType: branch.BranchTypeAT,
+		Xid:        "test-xid",
+		BranchId:   1,
+	})
+
+	assert.NoError(t, err)
+	if assert.NotNil(t, request) {
+		assert.Equal(t, pb.MessageTypeProto_TYPE_BRANCH_STATUS_REPORT,
+			request.GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
 	}
 }

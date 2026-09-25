@@ -165,15 +165,17 @@ func getJsonConfigResolver(bytes []byte) *koanf.Koanf {
 	return k
 }
 
-// resolverFilePath resolver file path
-// eg: give a ./conf/seatago.yaml return seatago and yaml
+// resolverFilePath returns the file name without the last extension, and the last
+// extension in lower case. A missing extension defaults to yaml.
+// e.g. ./conf/seatago.prod.yaml -> ("seatago.prod", "yaml")
 func resolverFilePath(path string) (name, suffix string) {
-	paths := strings.Split(path, "/")
-	fileName := strings.Split(paths[len(paths)-1], ".")
-	if len(fileName) < 2 {
-		return fileName[0], yamlSuffix
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	// filepath.Ext(".seatago") == ".seatago"; treat that as no format suffix.
+	if ext == "" || ext == base {
+		return base, yamlSuffix
 	}
-	return fileName[0], fileName[1]
+	return strings.TrimSuffix(base, ext), strings.ToLower(strings.TrimPrefix(ext, "."))
 }
 
 // getConfigResolver get config resolver
