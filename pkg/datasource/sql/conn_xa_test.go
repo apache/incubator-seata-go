@@ -33,6 +33,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
@@ -299,6 +300,39 @@ func TestXAConn_ShouldBeHeld(t *testing.T) {
 			assert.Equal(t, tt.want, conn.ShouldBeHeld())
 		})
 	}
+}
+
+type closeTrackingDriverConn struct {
+	driver.Conn
+	closes *int32
+}
+
+func (c *closeTrackingDriverConn) Close() error {
+	atomic.AddInt32(c.closes, 1)
+	return c.Conn.Close()
+}
+
+func TestXAConn_Close_ClosesPhysicalConnWhenNotHeld(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	baseMockConn(mockConn)
+	var closes int32
+	xaConn := &XAConn{
+		Conn: &Conn{
+			res: &DBResource{dbType: types.DBTypePostgreSQL},
+			targetConn: &closeTrackingDriverConn{
+				Conn:   mockConn,
+				closes: &closes,
+			},
+		},
+		xaBranchXid: XaIdBuild("xid", 123),
+	}
+
+	assert.NoError(t, xaConn.Close())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&closes),
+		"closing a non-held XA connection must close the physical connection")
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
@@ -603,6 +637,191 @@ func TestXAConn_Rollback_PreparedBranchStillRollsBack(t *testing.T) {
 	assert.Error(t, err, "expected error to trigger rollback path")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&rollbackSeen),
 		"XA ROLLBACK must run so a PREPARED branch releases its locks")
+}
+
+func TestXAConn_Rollback_ErrorHandling(t *testing.T) {
+	endErr := &mysql.MySQLError{Number: 1614, Message: "XA_RBDEADLOCK: Transaction branch was rolled back: deadlock was detected"}
+	rollbackErr := errors.New("rollback failed")
+	for _, tt := range []struct {
+		name        string
+		endErr      error
+		rollbackErr error
+	}{
+		{name: "rollback failure", rollbackErr: rollbackErr},
+		{name: "unclassified end failure", endErr: endErr},
+		{name: "end and rollback failures", endErr: endErr, rollbackErr: rollbackErr},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			t.Cleanup(func() { simulateExecContextError = nil })
+
+			xaConn, mockMgr := newMockXAConn(t, ctrl, 123)
+			mockMgr.EXPECT().BranchReport(gomock.Any(), gomock.Any()).Times(2).Return(nil)
+
+			ctx := tm.InitSeataContext(context.Background())
+			tm.SetXID(ctx, "rollback-error-test")
+			tx, err := xaConn.BeginTx(ctx, driver.TxOptions{})
+			require.NoError(t, err)
+
+			var queries []string
+			simulateExecContextError = func(query string) error {
+				switch {
+				case strings.HasPrefix(query, "XA END"):
+					queries = append(queries, "XA END")
+					return tt.endErr
+				case strings.HasPrefix(query, "XA ROLLBACK"):
+					queries = append(queries, "XA ROLLBACK")
+					return tt.rollbackErr
+				}
+				return nil
+			}
+
+			assert.NotPanics(t, func() { err = tx.Rollback() })
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "rollback xa branch on [rollback-error-test] - [123]")
+			if tt.endErr != nil {
+				assert.ErrorIs(t, err, tt.endErr)
+			}
+			if tt.rollbackErr != nil {
+				assert.ErrorIs(t, err, tt.rollbackErr)
+			}
+			assert.Equal(t, tt.rollbackErr == nil, xaConn.IsValid())
+			assert.False(t, xaConn.xaActive)
+			assert.Nil(t, xaConn.xaBranchXid)
+			assert.ErrorContains(t, tx.Rollback(), "inactive session")
+			assert.Equal(t, []string{"XA END", "XA ROLLBACK"}, queries,
+				"rollback must follow an END failure and must not run again after cleanup")
+		})
+	}
+}
+
+// Use real database/sql pooling with per-connection mocks. In particular, a
+// canceled transaction must not rely on the global error injection hooks.
+func newXARollbackTestPool(t *testing.T, ctrl *gomock.Controller, held bool, physicalConns ...driver.Conn) (*sql.DB, *mock.MockDataSourceManager) {
+	t.Helper()
+
+	previousCache := branchStatusCache
+	branchStatusCache = gcache.New(1024).LRU().Build()
+	t.Cleanup(func() { branchStatusCache = previousCache })
+	manager := mock.NewMockDataSourceManager(ctrl)
+	manager.SetBranchType(branch.BranchTypeXA)
+	registerResourceManagerForTest(t, manager)
+
+	resource := &DBResource{resourceID: "rollback-test", dbType: types.DBTypeMySQL, shouldBeHeld: held}
+	connector := mock.NewMockTestDriverConnector(ctrl)
+	var connects []*gomock.Call
+	for _, physicalConn := range physicalConns {
+		conn := &XAConn{Conn: &Conn{
+			res: resource, targetConn: physicalConn, txCtx: types.NewTxCtx(),
+			dbType: types.DBTypeMySQL, autoCommit: true,
+		}}
+		connects = append(connects, connector.EXPECT().Connect(gomock.Any()).Return(conn, nil))
+	}
+	gomock.InOrder(connects...)
+	db := sql.OpenDB(connector)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	return db, manager
+}
+
+func TestXAConn_Rollback_FailureDiscardsPooledConnection(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		cancel bool
+		held   bool
+	}{
+		{name: "explicit rollback"},
+		{name: "explicit rollback held connection", held: true},
+		{name: "context cancellation", cancel: true},
+		{name: "context cancellation held connection", cancel: true, held: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			first := mock.NewMockTestDriverConn(ctrl)
+			second := mock.NewMockTestDriverConn(ctrl)
+			second.EXPECT().Close().Return(nil)
+			db, manager := newXARollbackTestPool(t, ctrl, tt.held, first, second)
+
+			// An ordinary error leaves the driver open. Only invalidation should
+			// make database/sql discard it, including on the cancellation path
+			// (XAConn implements both SessionResetter and Validator).
+			rollbackErr := errors.New("rollback rejected")
+			closed := make(chan struct{})
+			xid := XaIdBuild("pool-rollback", 123).String()
+			gomock.InOrder(
+				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Return(int64(123), nil),
+				first.EXPECT().ExecContext(gomock.Any(), "XA START '"+xid+"'", gomock.Any()).Return(driver.ResultNoRows, nil),
+				first.EXPECT().ExecContext(gomock.Any(), "XA END '"+xid+"'", gomock.Any()).Return(driver.ResultNoRows, nil),
+				first.EXPECT().ExecContext(gomock.Any(), "XA ROLLBACK '"+xid+"'", gomock.Any()).Return(nil, rollbackErr),
+				manager.EXPECT().BranchReport(gomock.Any(), rm.BranchReportParam{
+					BranchType: branch.BranchTypeXA, Xid: "pool-rollback", BranchId: 123,
+					Status: branch.BranchStatusPhaseoneFailed,
+				}).Return(nil),
+				first.EXPECT().Close().DoAndReturn(func() error { close(closed); return nil }),
+			)
+
+			ctx, cancel := context.WithCancel(tm.InitSeataContext(context.Background()))
+			defer cancel()
+			tm.SetXID(ctx, "pool-rollback")
+			tx, err := db.BeginTx(ctx, nil)
+			require.NoError(t, err)
+			if tt.cancel {
+				cancel()
+			} else {
+				assert.ErrorIs(t, tx.Rollback(), rollbackErr)
+			}
+			select {
+			case <-closed:
+			case <-time.After(2 * time.Second):
+				t.Fatal("database/sql did not close the connection after rollback failed")
+			}
+			assert.ErrorIs(t, tx.Rollback(), sql.ErrTxDone)
+
+			next, err := db.Conn(context.Background())
+			require.NoError(t, err)
+			defer next.Close()
+			require.NoError(t, next.Raw(func(conn interface{}) error {
+				assert.Same(t, second, conn.(*XAConn).targetConn)
+				return nil
+			}))
+		})
+	}
+}
+
+func TestXAConn_Rollback_ConsecutivePooledBranches(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	physicalConn := mock.NewMockTestDriverConn(ctrl)
+	physicalConn.EXPECT().Close().Return(nil)
+	db, manager := newXARollbackTestPool(t, ctrl, false, physicalConn)
+
+	var calls []*gomock.Call
+	for _, branchID := range []int64{123, 124} {
+		if branchID == 124 {
+			calls = append(calls, physicalConn.EXPECT().ResetSession(gomock.Any()).Return(nil))
+		}
+		xid := XaIdBuild("pool-reuse", uint64(branchID)).String()
+		calls = append(calls,
+			manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Return(branchID, nil),
+			physicalConn.EXPECT().ExecContext(gomock.Any(), "XA START '"+xid+"'", gomock.Any()).Return(driver.ResultNoRows, nil),
+			physicalConn.EXPECT().ExecContext(gomock.Any(), "XA END '"+xid+"'", gomock.Any()).Return(driver.ResultNoRows, nil),
+			physicalConn.EXPECT().ExecContext(gomock.Any(), "XA ROLLBACK '"+xid+"'", gomock.Any()).Return(driver.ResultNoRows, nil),
+			manager.EXPECT().BranchReport(gomock.Any(), rm.BranchReportParam{
+				BranchType: branch.BranchTypeXA, Xid: "pool-reuse", BranchId: branchID,
+				Status: branch.BranchStatusPhaseoneFailed,
+			}).Return(nil),
+		)
+	}
+	gomock.InOrder(calls...)
+
+	ctx := tm.InitSeataContext(context.Background())
+	tm.SetXID(ctx, "pool-reuse")
+	for i := 0; i < 2; i++ {
+		tx, err := db.BeginTx(ctx, nil)
+		require.NoError(t, err)
+		require.NoError(t, tx.Rollback())
+	}
+	assert.Equal(t, 1, db.Stats().Idle)
 }
 
 func TestXAConn_ExecContext_AutoCommitReportsPhaseOneDone(t *testing.T) {
