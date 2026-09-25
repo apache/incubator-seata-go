@@ -25,6 +25,9 @@ on:
   pull_request:
     branches: ["*"]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     # The type of runner that the job will run on
@@ -32,7 +35,7 @@ jobs:
     strategy:
       matrix:
         golang:
-          - 1.20
+          - "1.27.1"
 
     services:
       mysql:
@@ -50,17 +53,17 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-      - name: "set up go"
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.14
-
-
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 2
+          persist-credentials: false
+
+      - name: "set up go"
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ matrix.golang }}
 
       - name: "run go build"
         run: go build -v ./...
@@ -83,13 +86,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: "set up go"
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.14
-
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "set up go"
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.1"
 
       - name: "build for RISC-V 64-bit"
         env:

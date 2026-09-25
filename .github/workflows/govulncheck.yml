@@ -1,0 +1,127 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Go vulnerability and SBOM
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ "*" ]
+  schedule:
+    - cron: "0 4 * * 1"
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Vulnerability scan and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.1"
+
+      - name: Verify modules
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Install security tools
+        env:
+          GOBIN: ${{ runner.temp }}/go-tools/bin
+        run: |
+          mkdir -p "$GOBIN"
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.12.0
+          echo "$GOBIN" >> "$GITHUB_PATH"
+
+      - name: Generate CycloneDX SBOM
+        run: cyclonedx-gomod mod -licenses -test -type library -json -output sbom.cdx.json .
+
+      - name: Run govulncheck
+        id: vulnerability-scan
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          govulncheck ./... 2>&1 | tee govulncheck.txt
+          text_status=${PIPESTATUS[0]}
+          govulncheck -json ./... > govulncheck.json
+          json_status=$?
+          set -e
+
+          printf 'text=%s\njson=%s\n' "$text_status" "$json_status" > govulncheck.exit-code
+          if [ "$text_status" -ne 0 ] || [ "$json_status" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload security artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: go-security-${{ github.sha }}
+          path: |
+            govulncheck.txt
+            govulncheck.json
+            govulncheck.exit-code
+            sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce vulnerability scan result
+        if: ${{ always() && steps.vulnerability-scan.outcome == 'failure' }}
+        run: exit 1
+
+  release-assets:
+    name: Attach security artifacts to release
+    if: ${{ always() && github.event_name == 'release' && needs.security.result != 'cancelled' }}
+    needs: security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download security artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: go-security-${{ github.sha }}
+          path: release-assets
+
+      - name: Upload security artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            release-assets/sbom.cdx.json \
+            release-assets/govulncheck.txt \
+            release-assets/govulncheck.json \
+            release-assets/govulncheck.exit-code \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
