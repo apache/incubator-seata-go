@@ -58,6 +58,7 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 		ClearTxConf(ctx)
 	}
 
+	// TODO(#277): Revisit explicit dynamic degradation after defining its consistency guarantees and usage constraints.
 	if re = Begin(ctx, gc); re != nil {
 		return
 	}
