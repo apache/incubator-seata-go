@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 	"seata.apache.org/seata-go/v2/pkg/remoting/mock"
@@ -90,7 +91,8 @@ func TestSelect_ConsistentHashLoadBalance(t *testing.T) {
 
 	got := Select(consistentHashLoadBalance, sessions, "test_xid")
 	assert.NotNil(t, got)
-	assert.NotNil(t, consistentInstance,
+	// require, not assert: the ring is dereferenced on the next line.
+	require.NotNil(t, consistentInstance,
 		"Select(%q) must dispatch to ConsistentHashLoadBalance", consistentHashLoadBalance)
 	assert.NotEmpty(t, consistentInstance.sortedHashNodes)
 
@@ -121,4 +123,130 @@ func TestSelect_DeclaredStrategiesAreRoutable(t *testing.T) {
 		assert.NotNil(t, got, "Select(%q) returned no session", strategy)
 		assert.True(t, containsSession(all, got), "Select(%q) returned a foreign session", strategy)
 	}
+}
+
+// TestSelect_LeastActiveLoadBalance_ConcurrentWithCounters reproduces the
+// production interleaving that LeastActiveLoadBalance now takes part in: one
+// goroutine selects while others keep updating the in-flight counters through
+// rpc.BeginCount / rpc.EndCount, exactly like SendSync / SendAsync do. Run with
+// -race it fails whenever Status.GetActive reads the counter without sync/atomic.
+func TestSelect_LeastActiveLoadBalance_ConcurrentWithCounters(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	const sessionCount = 4
+
+	sessions, all := newSelectableSessions(ctrl, sessionCount)
+
+	const (
+		counters = 4
+		rounds   = 2000
+	)
+
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+
+	for i := 0; i < counters; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			addr := all[i].RemoteAddr()
+			for j := 0; j < rounds; j++ {
+				rpc.BeginCount(addr)
+				rpc.EndCount(addr)
+			}
+		}(i)
+	}
+
+	selectorDone := make(chan struct{})
+	go func() {
+		defer close(selectorDone)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				Select(leastActiveLoadBalance, sessions, "test_xid")
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(done)
+	<-selectorDone
+}
+
+// TestSelect_ConsistentHashLoadBalance_RebuildsEmptyCircle covers the case where
+// the very first selection happens before any session is registered. The circle
+// is built through a package level sync.Once, so it used to stay empty forever
+// and every later selection degraded to random.
+func TestSelect_ConsistentHashLoadBalance_RebuildsEmptyCircle(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
+	ctrl := gomock.NewController(t)
+	empty := &sync.Map{}
+
+	assert.Nil(t, Select(consistentHashLoadBalance, empty, "test_xid"))
+	require.NotNil(t, consistentInstance)
+	assert.True(t, consistentInstance.isEmpty(), "no session means the circle stays empty")
+
+	sessions, all := newSelectableSessions(ctrl, 3)
+	got := Select(consistentHashLoadBalance, sessions, "test_xid")
+
+	assert.NotNil(t, got)
+	assert.False(t, consistentInstance.isEmpty(),
+		"the circle must be rebuilt once sessions appear")
+	assert.True(t, containsSession(all, got))
+}
+
+// TestSelect_ConsistentHashLoadBalance_WrapsAroundToFirstNode pins the key that
+// hashes past the last virtual node: it belongs to the first node of the circle.
+// The random fallback would move that key to a different node on every call.
+func TestSelect_ConsistentHashLoadBalance_WrapsAroundToFirstNode(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
+	ctrl := gomock.NewController(t)
+	sessions, _ := newSelectableSessions(ctrl, 3)
+
+	instance := newConsistenceInstance(sessions)
+	require.False(t, instance.isEmpty())
+
+	lastNode := instance.sortedHashNodes[len(instance.sortedHashNodes)-1]
+	key := ""
+	for i := 0; i < 100000 && key == ""; i++ {
+		candidate := fmt.Sprintf("past-last-virtual-node-%d", i)
+		if instance.hash(candidate) > lastNode {
+			key = candidate
+		}
+	}
+	require.NotEmpty(t, key, "no key hashing past the last virtual node was found")
+
+	first := Select(consistentHashLoadBalance, sessions, key)
+	require.NotNil(t, first)
+	for i := 0; i < 50; i++ {
+		assert.True(t, first == Select(consistentHashLoadBalance, sessions, key),
+			"a key past the last virtual node must always wrap to the same node")
+	}
+}
+
+// TestSelect_ConsistentHashLoadBalance_EmptyKeyIsSpread checks the fallback for
+// messages that carry no transaction key at all: they must be spread over the
+// circle instead of being pinned to a single node by an empty hash key.
+func TestSelect_ConsistentHashLoadBalance_EmptyKeyIsSpread(t *testing.T) {
+	resetConsistentHashForTest()
+	defer resetConsistentHashForTest()
+
+	ctrl := gomock.NewController(t)
+	sessions, all := newSelectableSessions(ctrl, 3)
+
+	distinct := map[connection.Connection]struct{}{}
+	for i := 0; i < 200; i++ {
+		got := Select(consistentHashLoadBalance, sessions, "")
+		require.NotNil(t, got)
+		assert.True(t, containsSession(all, got))
+		distinct[got] = struct{}{}
+	}
+
+	assert.Greater(t, len(distinct), 1,
+		"keyless requests must not all be routed to the same node")
 }

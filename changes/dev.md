@@ -39,6 +39,7 @@
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
   - dispatch `ConsistentHashLoadBalance` and `LeastActiveLoadBalance` in `loadbalance.Select()`: both strategies were already implemented and accepted as config values, but missing from the dispatch `switch`, so they silently fell back to random load balancing
+  - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] fix what the two newly reachable load balancing strategies got wrong: the selection key was read from the whole `RpcMessage` instead of its body, so consistent hashing pinned every request to one TC; `rpc.Status.GetActive` / `GetTotal` read the in-flight counters without `sync/atomic`; the hash circle stayed empty when the first selection saw no session and did not wrap around past the last virtual node
 
 ### optimize：
 
