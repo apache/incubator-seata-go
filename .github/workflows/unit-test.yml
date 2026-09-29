@@ -26,6 +26,7 @@ on:
       - "**.go"
       - "go.mod"
       - "go.sum"
+      - "**/testdata/**"
       - ".github/workflows/unit-test.yml"
   pull_request:
     branches: "*"
@@ -33,6 +34,7 @@ on:
       - "**.go"
       - "go.mod"
       - "go.sum"
+      - "**/testdata/**"
       - ".github/workflows/unit-test.yml"
 
 permissions:
