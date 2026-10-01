@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/arana-db/parser/ast"
@@ -110,7 +111,7 @@ func TestMySQLMultiUpdateUndoLogBuilder_AfterImage(t *testing.T) {
 				},
 			},
 		},
-		MetaDataMap: map[string]types.TableMeta{
+		TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 			"t_user": {
 				TableName: "t_user",
 				Indexs: map[string]types.IndexMeta{
@@ -122,7 +123,7 @@ func TestMySQLMultiUpdateUndoLogBuilder_AfterImage(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	beforeImages := []*types.RecordImage{
@@ -184,13 +185,20 @@ func TestMySQLMultiUpdateUndoLogBuilder_buildAfterImageSQL(t *testing.T) {
 		},
 	}
 
-	sql, args := builder.buildAfterImageSQL(beforeImage, meta)
-
-	assert.Contains(t, sql, "SELECT * FROM t_user")
-	// The generated SQL format might be different, let's just check it contains the essential parts
-	assert.Contains(t, sql, "t_user")
-	assert.Len(t, args, 1)
-	assert.Equal(t, 100, args[0])
+	for _, tt := range []struct {
+		name       string
+		tableName  string
+		wantPrefix string
+	}{
+		{name: "unqualified table", tableName: "`t_user`", wantPrefix: "SELECT * FROM `t_user` "},
+		{name: "qualified table", tableName: "`tenant_a`.`t_user`", wantPrefix: "SELECT * FROM `tenant_a`.`t_user` "},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			query, args := builder.buildAfterImageSQL(beforeImage, meta, tt.tableName)
+			assert.True(t, strings.HasPrefix(query, tt.wantPrefix), "query %q must start with %q", query, tt.wantPrefix)
+			assert.Equal(t, []driver.Value{100}, args)
+		})
+	}
 }
 
 func TestUpdateVisitor_Enter(t *testing.T) {

@@ -33,11 +33,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -75,6 +75,70 @@ func TestRejectATPreparedMultiSQLAllowsSingleStatement(t *testing.T) {
 	err := rejectATPreparedMultiSQL(types.DBTypeMySQL, "UPDATE t_user SET name = ? WHERE id = ?")
 
 	assert.NoError(t, err)
+}
+
+func TestATPreparedStatementReturnsBindingErrorBeforeExecution(t *testing.T) {
+	for _, operation := range []string{"Exec", "ExecContext", "Query", "QueryContext"} {
+		t.Run(operation, func(t *testing.T) {
+			const query = "UPDATE account SET balance=1"
+			bindingErr := errors.New("table reference binding failed")
+			// Test propagation of a binding failure without treating valid SQL as invalid.
+			patch := gomonkey.ApplyFuncReturn(parser.BindTableRefs, bindingErr)
+			t.Cleanup(patch.Reset)
+
+			resource := &DBResource{dbType: types.DBTypeMySQL}
+			stmt := &Stmt{
+				conn:  &Conn{res: resource, dbType: types.DBTypeMySQL},
+				res:   resource,
+				txCtx: &types.TransactionContext{TransactionMode: types.ATMode},
+				query: query,
+				stmt:  mock.NewMockTestDriverStmt(gomock.NewController(t)),
+			}
+			assert.ErrorIs(t, executePreparedStatementForBindingTest(stmt, operation), bindingErr)
+		})
+	}
+}
+
+func TestATPreparedStatementBindsSupportedJoinsBeforeMetadataLookup(t *testing.T) {
+	for _, tables := range []string{"a LEFT JOIN b ON a.id=b.id", "{ OJ a LEFT JOIN b ON a.id=b.id }"} {
+		for _, operation := range []string{"Exec", "ExecContext", "Query", "QueryContext"} {
+			t.Run(operation+"/"+tables, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				lookupErr := errors.New("metadata lookup failed")
+				reader := mock.NewMockTableMetaCache(ctrl)
+				reader.EXPECT().ResolveTableMetaKey(gomock.Any(), gomock.Any(), types.TableRef{TableName: "a"}).
+					Return(types.TableMetaKey{}, lookupErr)
+				resource := &DBResource{dbType: types.DBTypeMySQL, metaCache: reader}
+				stmt := &Stmt{
+					conn:  &Conn{res: resource, dbType: types.DBTypeMySQL},
+					res:   resource,
+					txCtx: &types.TransactionContext{TransactionMode: types.ATMode},
+					query: "UPDATE " + tables + " SET a.balance=1",
+					stmt:  mock.NewMockTestDriverStmt(ctrl),
+				}
+				// A supported JOIN must reach metadata resolution through the real
+				// parser and binder. The lookup error must prevent business execution.
+				assert.ErrorIs(t, executePreparedStatementForBindingTest(stmt, operation), lookupErr)
+			})
+		}
+	}
+}
+
+func executePreparedStatementForBindingTest(stmt *Stmt, operation string) error {
+	var err error
+	switch operation {
+	case "Exec":
+		_, err = stmt.Exec(nil)
+	case "ExecContext":
+		_, err = stmt.ExecContext(context.Background(), nil)
+	case "Query":
+		_, err = stmt.Query(nil)
+	case "QueryContext":
+		_, err = stmt.QueryContext(context.Background(), nil)
+	default:
+		panic("unknown prepared statement operation: " + operation)
+	}
+	return err
 }
 
 func TestRejectATPreparedMultiSQLSkipsParserWithoutSemicolon(t *testing.T) {
@@ -210,11 +274,14 @@ func (m *postgresMockRows) Next(dest []driver.Value) error {
 func patchPostgresTableMeta(t *testing.T) *gomonkey.Patches {
 	t.Helper()
 
-	datasource.RegisterTableCache(types.DBTypePostgreSQL, postgres.NewTableMetaInstance(nil, "public"))
-	return gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypePostgreSQL)), "GetTableMeta",
-		func(_ *postgres.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(&postgres.TableMetaCache{}), "ResolveTableMetaKey",
+		func(_ *postgres.TableMetaCache, _ context.Context, _ driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
+			return types.TableMetaKey{DBName: "seata_go_test", Schema: "public", TableName: ref.TableName}, nil
+		})
+	return patch.ApplyMethod(reflect.TypeOf(&postgres.TableMetaCache{}), "GetTableMeta",
+		func(_ *postgres.TableMetaCache, ctx context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
 			return &types.TableMeta{
-				TableName:   tableName,
+				TableName:   key.TableName,
 				ColumnNames: []string{"id", "name", "age"},
 				Columns: map[string]types.ColumnMeta{
 					"id": {
@@ -517,7 +584,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 						columns: []string{"version"},
 						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
 					}, nil
-				case strings.HasPrefix(query, "SELECT * FROM t_user WHERE id=$1"):
+				case strings.HasPrefix(query, `SELECT * FROM "public"."t_user" WHERE id=$1`):
 					return &postgresMockRows{
 						columns: []string{"name", "age", "id"},
 						data:    [][]driver.Value{{"alice", int64(18), int64(1)}},
@@ -548,7 +615,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), "UPDATE t_user SET name = $1, age = $2 WHERE id = $3", "bob", int64(19), int64(1))
 	assert.NoError(t, err)
-	assert.Contains(t, queryLog, "SELECT * FROM t_user WHERE id=$1 FOR UPDATE")
+	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`)
 	assert.Contains(t, queryLog[len(queryLog)-1], `("id") IN (($1))`)
 	assert.Equal(t, []string{"UPDATE t_user SET name = $1, age = $2 WHERE id = $3"}, execLog)
 	assert.NoError(t, tx.Rollback())
@@ -599,7 +666,7 @@ func TestATConn_PostgreSQLGlobalDeleteInTxUsesRealExecutor(t *testing.T) {
 						columns: []string{"version"},
 						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
 					}, nil
-				case "SELECT * FROM t_user WHERE id=$1 FOR UPDATE":
+				case `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`:
 					return &postgresMockRows{
 						columns: []string{"id", "name", "age"},
 						data:    [][]driver.Value{{int64(1), "alice", int64(18)}},
@@ -625,7 +692,7 @@ func TestATConn_PostgreSQLGlobalDeleteInTxUsesRealExecutor(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), "DELETE FROM t_user WHERE id = $1", int64(1))
 	assert.NoError(t, err)
-	assert.Contains(t, queryLog, "SELECT * FROM t_user WHERE id=$1 FOR UPDATE")
+	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`)
 	assert.Equal(t, []string{"DELETE FROM t_user WHERE id = $1"}, execLog)
 	assert.NoError(t, tx.Rollback())
 }
@@ -668,7 +735,7 @@ func TestATConn_PostgreSQLSelectForUpdateInTxUsesRealExecutor(t *testing.T) {
 					}, nil
 				case strings.HasPrefix(query, "savepoint "):
 					return nil, nil
-				case query == "SELECT id FROM t_user WHERE id=$1 FOR UPDATE":
+				case query == `SELECT id FROM "public"."t_user" WHERE id=$1 FOR UPDATE`:
 					return &postgresMockRows{
 						columns: []string{"id"},
 						data:    [][]driver.Value{{int64(1)}},
@@ -1117,12 +1184,6 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 			query := "SELECT 1"
 			var args []any
 			if rollbackFailure {
-				previousTableCache := datasource.GetTableCache(types.DBTypeMySQL)
-				t.Cleanup(func() {
-					datasource.RegisterTableCache(types.DBTypeMySQL, previousTableCache)
-				})
-				datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
-
 				query = "UPDATE account SET balance = ? WHERE id = ?"
 				args = []any{int64(110), int64(1)}
 				expectBatchATImageQueries(t, targetConn, [][]driver.Value{
@@ -1145,7 +1206,7 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 				gomock.InOrder(commitCall, expectATCommitFailureReport(t, manager, nil))
 			}
 			conn := &Conn{
-				res:        &DBResource{dbType: types.DBTypeMySQL, resourceID: "test-resource"},
+				res:        &DBResource{dbType: types.DBTypeMySQL, resourceID: "test-resource", metaCache: batchATTableCache{}},
 				txCtx:      txCtx,
 				targetConn: targetConn,
 				autoCommit: true,

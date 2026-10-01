@@ -117,7 +117,7 @@ func TestUndoLogManager_RunUndo(t *testing.T) {
 
 	manager := NewUndoLogManager()
 	assert.NotPanics(t, func() {
-		manager.RunUndo(context.Background(), "test-xid", 123, nil, "test_db")
+		manager.RunUndo(context.Background(), "test-xid", 123, nil, "test_db", nil)
 	})
 }
 

@@ -34,7 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	datasourcemysql "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	sqlparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -476,9 +475,8 @@ func TestMySQLUndoInsertExecutorDecimalDataValidation(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName)
 
-	previousTableCache := datasource.GetTableCache(types.DBTypeMySQL)
-	datasource.RegisterTableCache(types.DBTypeMySQL, datasourcemysql.NewTableMetaInstance(db, cfg))
-	defer datasource.RegisterTableCache(types.DBTypeMySQL, previousTableCache)
+	metaCache := datasourcemysql.NewTableMetaInstance(db, cfg)
+	defer metaCache.Destroy()
 
 	query := "INSERT INTO " + tableName + " (id, amount) VALUES (?, ?)"
 	parseCtx, err := sqlparser.DoParser(query)
@@ -486,11 +484,12 @@ func TestMySQLUndoInsertExecutorDecimalDataValidation(t *testing.T) {
 	txCtx := types.NewTxCtx()
 	txCtx.TransactionMode = types.ATMode
 	execCtx := &types.ExecContext{
-		TxCtx:       txCtx,
-		Query:       query,
-		NamedValues: []driver.NamedValue{{Ordinal: 1, Value: int64(1)}, {Ordinal: 2, Value: "13.370000"}},
-		DBName:      cfg.DBName,
-		DBType:      types.DBTypeMySQL,
+		TxCtx:           txCtx,
+		Query:           query,
+		NamedValues:     []driver.NamedValue{{Ordinal: 1, Value: int64(1)}, {Ordinal: 2, Value: "13.370000"}},
+		DBName:          cfg.DBName,
+		DBType:          types.DBTypeMySQL,
+		TableMetaReader: metaCache,
 	}
 	err = conn.Raw(func(rawConn interface{}) error {
 		driverConn, ok := rawConn.(driver.Conn)

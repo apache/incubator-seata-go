@@ -79,7 +79,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
@@ -110,7 +110,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{int64(20)},
 		},
 		{
@@ -144,7 +144,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 			mockInsertResult: NewMockInsertResult(100, 1),
-			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs:  []driver.Value{int64(100)},
 		},
 		{
@@ -179,7 +179,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			},
 			mockInsertResult: NewMockInsertResult(100, 2),
 			IncrementStep:    2,
-			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?),(?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`user_id`) IN ((?),(?)) ",
 			expectQueryArgs:  []driver.Value{int64(100), int64(102)},
 		},
 		{
@@ -221,7 +221,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{19},
 		},
 		{
@@ -262,9 +262,9 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?)) ",
+			expectQuery:       "SELECT * FROM `user` WHERE (`id`,`name`) IN ((?,?)) ",
 			expectQueryArgs:   []driver.Value{int64(19), "Tony"},
-			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?)) ",
+			orExpectQuery:     "SELECT * FROM `user` WHERE (`name`,`id`) IN ((?,?)) ",
 			orExpectQueryArgs: []driver.Value{"Tony", int64(19)},
 		},
 		{
@@ -305,9 +305,9 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?),(?,?)) ",
+			expectQuery:       "SELECT * FROM `user` WHERE (`id`,`name`) IN ((?,?),(?,?)) ",
 			expectQueryArgs:   []driver.Value{int64(19), "Tony", int64(20), "Tom"},
-			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
+			orExpectQuery:     "SELECT * FROM `user` WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
 			orExpectQueryArgs: []driver.Value{"Tony", int64(19), "Tom", int64(20)},
 		},
 		{
@@ -333,7 +333,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 			mockInsertResult: NewMockInsertResult(500, 1),
-			expectQuery:      "SELECT * FROM user WHERE (`tenant_id`,`id`) IN ((?,?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`tenant_id`,`id`) IN ((?,?)) ",
 			expectQueryArgs:  []driver.Value{"tenantX", int64(500)},
 		},
 	}
@@ -344,7 +344,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			assert.Nil(t, err)
 			exec := &types.ExecContext{}
 			exec.ParseContext = c
-			exec.MetaDataMap = test.metaDataMap
+			exec.TableMetaReader = testTableMetaReader{metas: test.metaDataMap}
 			exec.Values = test.queryArgs
 			exec.NamedValues = test.NamedValues
 			builder := MySQLInsertUndoLogBuilder{}
@@ -844,7 +844,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
+					TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 						"test": {
 							ColumnNames: []string{"id"},
 							Columns: map[string]types.ColumnMeta{
@@ -861,7 +861,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 								},
 							},
 						},
-					},
+					}},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(1)},
@@ -932,7 +932,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
+					TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 						"test": {
 							ColumnNames: []string{"id", "name"},
 							Indexs: map[string]types.IndexMeta{
@@ -957,7 +957,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 								},
 							},
 						},
-					},
+					}},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(100)},
@@ -1026,7 +1026,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 						},
 					},
 				},
-				MetaDataMap: map[string]types.TableMeta{
+				TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 					"test": {
 						ColumnNames: []string{"id"},
 						Columns: map[string]types.ColumnMeta{
@@ -1043,7 +1043,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			autoColumnName: "id",
 			lastInsetId:    100,

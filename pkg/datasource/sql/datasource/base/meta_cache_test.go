@@ -42,10 +42,10 @@ type mockTrigger struct {
 }
 
 // LoadOne simulates loading table metadata, including id, name, and age columns.
-func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, conn *sql.Conn) (*types.TableMeta, error) {
+func (m *mockTrigger) LoadOne(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) (*types.TableMeta, error) {
 
 	return &types.TableMeta{
-		TableName: table,
+		TableName: key.TableName,
 		Columns: map[string]types.ColumnMeta{
 			"id":   {ColumnName: "id"},
 			"name": {ColumnName: "name"},
@@ -67,7 +67,7 @@ func (m *mockTrigger) LoadOne(ctx context.Context, dbName string, table string, 
 	}, nil
 }
 
-func (m *mockTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error) {
+func (m *mockTrigger) LoadAll(ctx context.Context, conn *sql.Conn, keys ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
 	return nil, nil
 }
 
@@ -76,7 +76,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 		expireDuration time.Duration
 		capity         int32
 		size           int32
-		cache          map[string]*entry
+		cache          map[types.TableMetaKey]*entry
 		trigger        trigger
 		db             *sql.DB
 		dbName         string
@@ -98,8 +98,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				capity:         capacity,
 				size:           0,
 				expireDuration: EexpireTime,
-				cache: map[string]*entry{
-					"test": {
+				cache: map[types.TableMetaKey]*entry{
+					{DBName: "test_db", TableName: "test"}: {
 						value:      types.TableMeta{},
 						lastAccess: time.Now(),
 					},
@@ -116,8 +116,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				capity:         capacity,
 				size:           0,
 				expireDuration: EexpireTime,
-				cache: map[string]*entry{
-					"TEST": {
+				cache: map[types.TableMetaKey]*entry{
+					{DBName: "test_db", TableName: "TEST"}: {
 						value:      types.TableMeta{},
 						lastAccess: time.Now(),
 					},
@@ -139,8 +139,8 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			defer db.Close()
 
 			loadAllStub := gomonkey.ApplyMethodFunc(tt.fields.trigger, "LoadAll",
-				func(_ context.Context, _ string, _ *sql.Conn, _ ...string) ([]types.TableMeta, error) {
-					return []types.TableMeta{tt.want}, nil
+				func(_ context.Context, _ *sql.Conn, keys ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
+					return map[types.TableMetaKey]types.TableMeta{keys[0]: tt.want}, nil
 				})
 
 			defer loadAllStub.Reset()
@@ -159,12 +159,12 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 			time.Sleep(time.Second * 3)
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			assert.Equal(t, c.cache[func() string {
+			assert.Equal(t, c.cache[types.TableMetaKey{DBName: "test_db", TableName: func() string {
 				if tt.name == "test2" {
 					return "TEST"
 				}
 				return "test"
-			}()].value, tt.want)
+			}()}].value, tt.want)
 		})
 	}
 }
@@ -174,22 +174,15 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 		name   string
 		db     *sql.DB
 		dbName string
-		cache  map[string]*entry
+		cache  map[types.TableMetaKey]*entry
 		expect string
 	}{
 		{
 			name:   "db_is_nil",
 			db:     nil,
 			dbName: "test_db",
-			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
+			cache:  map[types.TableMetaKey]*entry{{DBName: "test_db", TableName: "test"}: {value: types.TableMeta{}}},
 			expect: "should return early when db is nil",
-		},
-		{
-			name:   "db_name_is_empty",
-			db:     &sql.DB{},
-			dbName: "",
-			cache:  map[string]*entry{"test": {value: types.TableMeta{}}},
-			expect: "should return early when dbName is empty",
 		},
 		{
 			name:   "cache_is_nil",
@@ -202,7 +195,7 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 			name:   "cache_is_empty",
 			db:     &sql.DB{},
 			dbName: "test_db",
-			cache:  map[string]*entry{},
+			cache:  map[types.TableMetaKey]*entry{},
 			expect: "should return early when cache is empty",
 		},
 	}
@@ -234,7 +227,7 @@ func TestBaseTableMetaCache_refresh_EarlyReturn(t *testing.T) {
 
 				// Call the internal function once
 				c.lock.RLock()
-				if c.db == nil || c.dbName == "" || c.cache == nil || len(c.cache) == 0 {
+				if c.db == nil || c.cache == nil || len(c.cache) == 0 {
 					c.lock.RUnlock()
 					done <- true
 					return
@@ -331,12 +324,12 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 			defer conn.Close()
 			cache := &BaseTableMetaCache{
 				trigger: mockTrigger,
-				cache: map[string]*entry{
-					"t_user1": {
+				cache: map[types.TableMetaKey]*entry{
+					{DBName: "db", TableName: "t_user1"}: {
 						value:      tableMeta1,
 						lastAccess: time.Now(),
 					},
-					"T_USER2": {
+					{DBName: "db", TableName: "T_USER2"}: {
 						value:      tableMeta2,
 						lastAccess: time.Now(),
 					},
@@ -344,14 +337,15 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 				lock: sync.RWMutex{},
 			}
 
-			meta, _ := cache.GetTableMeta(context.Background(), "db", tt.TableName, conn)
+			key := types.TableMetaKey{DBName: "db", TableName: tt.TableName}
+			meta, _ := cache.GetTableMeta(context.Background(), key, conn)
 
 			if meta.TableName != tt.TableName {
 				t.Errorf("GetTableMeta() got TableName = %v, want %v", meta.TableName, tt.TableName)
 			}
 			// Ensure the retrieved table is cached
 			cache.lock.RLock()
-			_, cached := cache.cache[tt.TableName]
+			_, cached := cache.cache[key]
 			cache.lock.RUnlock()
 
 			if !cached {
@@ -368,7 +362,7 @@ func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
 	c := &BaseTableMetaCache{
 		expireDuration:  1 * time.Millisecond,
 		refreshInterval: 1 * time.Millisecond,
-		cache:           make(map[string]*entry),
+		cache:           make(map[types.TableMetaKey]*entry),
 		// db and dbName are unset, so refresh() logic will return early, which is fine for coverage
 	}
 
@@ -385,4 +379,118 @@ func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
 	// Destroy (now a no-op)
 	err = c.Destroy()
 	assert.Nil(t, err)
+}
+
+type identityTrigger struct{}
+
+func (identityTrigger) LoadOne(_ context.Context, key types.TableMetaKey, _ *sql.Conn) (*types.TableMeta, error) {
+	return &types.TableMeta{TableName: key.TableName, Columns: map[string]types.ColumnMeta{"source": {ColumnName: key.DBName + "/" + key.Schema}}}, nil
+}
+
+func (identityTrigger) LoadAll(_ context.Context, _ *sql.Conn, _ ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
+	return nil, nil
+}
+
+func TestBaseTableMetaCache_DistinguishesDatabases(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	cache := &BaseTableMetaCache{cache: make(map[types.TableMetaKey]*entry), trigger: identityTrigger{}}
+	for _, key := range []types.TableMetaKey{
+		{DBName: "first", Schema: "public", TableName: "users"},
+		{DBName: "second", Schema: "public", TableName: "users"},
+		{DBName: "first", Schema: "tenant", TableName: "users"},
+		{DBName: "first", Schema: "public", TableName: "users"},
+	} {
+		conn, err := db.Conn(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		meta, err := cache.GetTableMeta(context.Background(), key, conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := meta.Columns["source"].ColumnName; got != key.DBName+"/"+key.Schema {
+			t.Fatalf("key %+v returned metadata for %q", key, got)
+		}
+	}
+}
+
+type refreshIdentityTrigger struct {
+	loaded chan []types.TableMetaKey
+}
+
+func (r refreshIdentityTrigger) LoadOne(_ context.Context, key types.TableMetaKey, _ *sql.Conn) (*types.TableMeta, error) {
+	return &types.TableMeta{TableName: key.TableName}, nil
+}
+
+func (r refreshIdentityTrigger) LoadAll(_ context.Context, _ *sql.Conn, keys ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
+	refreshed := make(map[types.TableMetaKey]types.TableMeta, len(keys))
+	for _, key := range keys {
+		refreshed[key] = types.TableMeta{TableName: key.TableName, Columns: map[string]types.ColumnMeta{
+			"source": {ColumnName: key.DBName + "/" + key.Schema},
+		}}
+	}
+	r.loaded <- keys
+	return refreshed, nil
+}
+
+func TestBaseTableMetaCache_RefreshPreservesKeysAndAccessTime(t *testing.T) {
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	keys := []types.TableMetaKey{
+		{DBName: "first", Schema: "public", TableName: "users"},
+		{DBName: "second", Schema: "tenant", TableName: "users"},
+	}
+	lastAccess := time.Now().Add(-time.Minute)
+	loaded := make(chan []types.TableMetaKey, 1)
+	cache := &BaseTableMetaCache{
+		cache: map[types.TableMetaKey]*entry{
+			keys[0]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess},
+			keys[1]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess},
+		},
+		trigger:         refreshIdentityTrigger{loaded: loaded},
+		db:              db,
+		refreshInterval: time.Hour,
+		// A resource without a default database can still cache explicitly resolved keys.
+		dbName: "",
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		cache.refresh(ctx)
+		close(done)
+	}()
+	select {
+	case got := <-loaded:
+		assert.ElementsMatch(t, keys, got)
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not load explicit table keys")
+	}
+	if !assert.Eventually(t, func() bool {
+		cache.lock.RLock()
+		defer cache.lock.RUnlock()
+		for _, key := range keys {
+			entry, ok := cache.cache[key]
+			if !ok || entry.value.Columns["source"].ColumnName != key.DBName+"/"+key.Schema || !entry.lastAccess.Equal(lastAccess) {
+				return false
+			}
+		}
+		return true
+	}, time.Second, time.Millisecond) {
+		t.Fatal("refresh replaced or miskeyed cached entries")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not stop after cancellation")
+	}
 }

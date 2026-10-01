@@ -51,7 +51,9 @@ type ATConn struct {
 
 var (
 	errATPreparedMultiSQLUnsupported = errors.New("seata AT: prepared multi-SQL is unsupported; use Exec or ExecContext")
-	parseATPreparedSQL               = sqlparser.DoParser
+	parseATPreparedSQL               = func(query string) (*types.ParseContext, error) {
+		return sqlparser.ParseSQLForDB(query, types.DBTypeMySQL)
+	}
 )
 
 func rejectATPreparedMultiSQL(dbType types.DBType, query string) error {

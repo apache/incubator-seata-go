@@ -19,14 +19,12 @@ package sql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
@@ -87,7 +85,7 @@ func (a *ATSourceManager) BranchRollback(ctx context.Context, branchResource rm.
 		return branch.BranchStatusUnknown, err
 	}
 
-	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName); err != nil {
+	if err := undoMgr.RunUndo(ctx, branchResource.Xid, branchResource.BranchId, dbResource.db, dbResource.dbName, dbResource.metaCache); err != nil {
 		transErr, ok := err.(*serr.SeataError)
 		if !ok {
 			return branch.BranchStatusPhaseoneFailed, err
@@ -121,9 +119,4 @@ func (a *ATSourceManager) BranchRegister(ctx context.Context, req rm.BranchRegis
 // BranchReport Report status of transaction branch
 func (a *ATSourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return a.rmRemoting.BranchReport(param)
-}
-
-func (a *ATSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType,
-	db *sql.DB) (datasource.TableMetaCache, error) {
-	return a.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }

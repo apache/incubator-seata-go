@@ -96,8 +96,10 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
-	dbType := effectiveDBType(s.execContext.DBType)
-	if s.metaData, err = datasource.GetTableCache(dbType).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	if err = s.resolveTableMetaKey(ctx, s.execContext, s.parserCtx); err != nil {
+		return nil, err
+	}
+	if s.metaData, err = s.getTableMeta(ctx, s.execContext, s.parserCtx); err != nil {
 		return nil, err
 	}
 
@@ -254,9 +256,22 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 		})
 	}
 
+	dbType := types.DBTypeMySQL
+	if s.execContext != nil {
+		dbType = effectiveDBType(s.execContext.DBType)
+	}
+	from := stmt.From
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		from, err = postgresAuxiliaryQueryTable(from, s.execContext.TableMetaKey)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           stmt.From,
+		From:           from,
 		Where:          stmt.Where,
 		Fields:         &ast.FieldList{Fields: fields},
 		OrderBy:        stmt.OrderBy,
@@ -269,10 +284,6 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 
 	b := seatabytes.NewByteBuffer([]byte{})
 	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	dbType := types.DBTypeMySQL
-	if s.execContext != nil {
-		dbType = effectiveDBType(s.execContext.DBType)
-	}
 	sql := s.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 

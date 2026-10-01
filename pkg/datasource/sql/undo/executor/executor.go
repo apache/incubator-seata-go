@@ -131,7 +131,11 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		return nil, fmt.Errorf("undo image columns are empty")
 	}
 	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), dbType, maxInSize)
-	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), b.undoImage.TableName, where), dbType)
+	tableName := b.sqlUndoLog.QualifiedTableName(dbType)
+	if tableName == "" {
+		tableName = b.undoImage.TableName
+	}
+	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), tableName, where), dbType)
 	params := buildPKParams(b.undoImage.Rows, pkNameList, dbType)
 
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)
@@ -140,9 +144,10 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	}
 	defer rows.Close()
 	image := types.RecordImage{
-		TableName: b.undoImage.TableName,
-		TableMeta: tableMeta,
-		SQLType:   types.SQLTypeSelect,
+		TableName:    b.undoImage.TableName,
+		TableMetaKey: b.undoImage.TableMetaKey,
+		TableMeta:    tableMeta,
+		SQLType:      types.SQLTypeSelect,
 	}
 	rowImages := make([]types.RowImage, 0)
 	for rows.Next() {

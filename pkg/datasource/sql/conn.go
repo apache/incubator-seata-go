@@ -251,6 +251,10 @@ func (c *Conn) newExecContext(txCtx *types.TransactionContext, query string, val
 	if txCtx == nil {
 		txCtx = c.txCtx
 	}
+	var metaReader types.TableMetaReader
+	if c.res != nil {
+		metaReader = c.res.metaCache
+	}
 
 	return &types.ExecContext{
 		TxCtx:                txCtx,
@@ -258,6 +262,7 @@ func (c *Conn) newExecContext(txCtx *types.TransactionContext, query string, val
 		Values:               values,
 		NamedValues:          namedValues,
 		Conn:                 c.targetConn,
+		TableMetaReader:      metaReader,
 		DBName:               c.dbName,
 		DBType:               c.dbType,
 		DbVersion:            c.GetDbVersion(),

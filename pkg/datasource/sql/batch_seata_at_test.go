@@ -63,15 +63,17 @@ type batchATTableCache struct {
 	tableMeta *types.TableMeta
 }
 
-func (batchATTableCache) Init(context.Context, *gosql.DB) error { return nil }
-func (batchATTableCache) Destroy() error                        { return nil }
-func (c batchATTableCache) GetTableMeta(_ context.Context, _, table string) (*types.TableMeta, error) {
+func (batchATTableCache) Destroy() error { return nil }
+func (batchATTableCache) ResolveTableMetaKey(_ context.Context, _ driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
+	return types.TableMetaKey{DBName: ref.Qualifier, TableName: ref.TableName}, nil
+}
+func (c batchATTableCache) GetTableMeta(_ context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
 	if c.tableMeta != nil {
 		return c.tableMeta, nil
 	}
 	idColumn := types.ColumnMeta{ColumnName: "id", DatabaseTypeString: "BIGINT"}
 	return &types.TableMeta{
-		TableName:   table,
+		TableName:   key.TableName,
 		ColumnNames: []string{"id", "balance"},
 		Columns: map[string]types.ColumnMeta{
 			"id":      idColumn,
@@ -85,6 +87,7 @@ func (c batchATTableCache) GetTableMeta(_ context.Context, _, table string) (*ty
 
 func newBatchSeataATTestDB(t *testing.T,
 	ctrl *gomock.Controller,
+	cache ...datasource.TableMetaCache,
 ) (*gosql.DB, *mock.MockTestDriverConn, *mock.MockTestDriverTx, *mock.MockDataSourceManager) {
 	t.Helper()
 
@@ -118,11 +121,6 @@ func newBatchSeataATTestDB(t *testing.T,
 		_ = targetDB.Close()
 	})
 
-	previousTableCache := datasource.GetTableCache(types.DBTypeMySQL)
-	t.Cleanup(func() {
-		datasource.RegisterTableCache(types.DBTypeMySQL, previousTableCache)
-	})
-
 	proxyConnector, err := (&seataDriver{
 		branchType: branch.BranchTypeAT,
 		transType:  types.ATMode,
@@ -139,6 +137,10 @@ func newBatchSeataATTestDB(t *testing.T,
 
 	baseConnector, ok := proxyConnector.(*seataConnector)
 	require.True(t, ok)
+	baseConnector.res.metaCache = batchATTableCache{}
+	if len(cache) > 0 {
+		baseConnector.res.metaCache = cache[0]
+	}
 	db := gosql.OpenDB(&seataATConnector{seataConnector: baseConnector})
 
 	return db, mockConn, mockTx, mockMgr
@@ -188,7 +190,7 @@ func expectBatchATUndoExecutions(t *testing.T, ctrl *gomock.Controller, mockConn
 	gomock.InOrder(orderedCalls...)
 }
 
-func executeBatchATUndo(t *testing.T, db *gosql.DB, branchUndoLog *undo.BranchUndoLog) {
+func executeBatchATUndo(t *testing.T, db *gosql.DB, branchUndoLog *undo.BranchUndoLog, reader types.TableMetaReader) {
 	t.Helper()
 
 	branchUndoLog.Reverse()
@@ -198,7 +200,11 @@ func executeBatchATUndo(t *testing.T, db *gosql.DB, branchUndoLog *undo.BranchUn
 
 	for index := range branchUndoLog.Logs {
 		log := &branchUndoLog.Logs[index]
-		tableMeta, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(context.Background(), "", log.TableName)
+		key := types.TableMetaKey{TableName: log.TableName}
+		if log.TableMetaKey != nil {
+			key = *log.TableMetaKey
+		}
+		tableMeta, err := reader.GetTableMeta(context.Background(), key)
 		require.NoError(t, err)
 		log.SetTableMeta(tableMeta)
 		executor, err := factor.GetUndoExecutor(types.DBTypeMySQL, *log)
@@ -216,7 +222,6 @@ func TestExecBatchContextWithSeataATDriverUsesSingleBranchLifecycle(t *testing.T
 
 	db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl)
 	defer db.Close()
-	datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
 
 	previousUndoConfig := undo.UndoConfig
 	undo.UndoConfig = undo.Config{LogSerialization: "json", LogTable: "undo_log"}
@@ -315,15 +320,15 @@ func TestExecBatchContextWithSeataATDriverUsesSingleBranchLifecycle(t *testing.T
 
 	expectBatchATUndoExecutions(t, ctrl, mockConn,
 		batchATUndoExpectation{
-			statement: "UPDATE account",
+			statement: "UPDATE `account`",
 			undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(110)}, {Ordinal: 2, Value: int64(1)}},
 		},
 		batchATUndoExpectation{
-			statement: "UPDATE account",
+			statement: "UPDATE `account`",
 			undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(100)}, {Ordinal: 2, Value: int64(1)}},
 		},
 	)
-	executeBatchATUndo(t, db, branchUndoLog)
+	executeBatchATUndo(t, db, branchUndoLog, batchATTableCache{})
 }
 
 func TestExecBatchContextWithSeataATDriverSkipsNoOpDeleteItem(t *testing.T) {
@@ -335,7 +340,6 @@ func TestExecBatchContextWithSeataATDriverSkipsNoOpDeleteItem(t *testing.T) {
 
 	db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl)
 	defer db.Close()
-	datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
 
 	previousUndoConfig := undo.UndoConfig
 	undo.UndoConfig = undo.Config{LogSerialization: "json", LogTable: "undo_log"}
@@ -429,21 +433,19 @@ func TestExecBatchContextWithSeataATDriverSkipsNoOpDeleteItem(t *testing.T) {
 	require.Empty(t, branchUndoLog.Logs[0].AfterImage.Rows)
 
 	expectBatchATUndoExecutions(t, ctrl, mockConn, batchATUndoExpectation{
-		statement: "INSERT INTO account",
+		statement: "INSERT INTO `account`",
 		undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(100)}, {Ordinal: 2, Value: int64(1)}},
 	})
-	executeBatchATUndo(t, db, branchUndoLog)
+	executeBatchATUndo(t, db, branchUndoLog, batchATTableCache{})
 }
 
 func TestExecBatchContextWithSeataATDriverReversesCompositePrimaryKeyInsert(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl)
-	defer db.Close()
 	pk1 := types.ColumnMeta{ColumnName: "pk1", DatabaseTypeString: "BIGINT"}
 	pk2 := types.ColumnMeta{ColumnName: "pk2", DatabaseTypeString: "BIGINT"}
-	datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{tableMeta: &types.TableMeta{
+	cache := batchATTableCache{tableMeta: &types.TableMeta{
 		TableName: "account", ColumnNames: []string{"pk1", "balance", "pk2"},
 		Columns: map[string]types.ColumnMeta{
 			"pk1": pk1, "balance": {ColumnName: "balance", DatabaseTypeString: "BIGINT"}, "pk2": pk2,
@@ -451,7 +453,9 @@ func TestExecBatchContextWithSeataATDriverReversesCompositePrimaryKeyInsert(t *t
 		Indexs: map[string]types.IndexMeta{
 			"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{pk2, pk1}},
 		},
-	}})
+	}}
+	db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl, cache)
+	defer db.Close()
 
 	previousUndoConfig := undo.UndoConfig
 	undo.UndoConfig = undo.Config{LogSerialization: "json", LogTable: "undo_log"}
@@ -513,7 +517,7 @@ func TestExecBatchContextWithSeataATDriverReversesCompositePrimaryKeyInsert(t *t
 			{Ordinal: 1, Value: int64(11)}, {Ordinal: 2, Value: int64(22)},
 		},
 	})
-	executeBatchATUndo(t, db, branchUndoLog)
+	executeBatchATUndo(t, db, branchUndoLog, cache)
 }
 
 func TestExecBatchContextWithSeataATDriverRollsBackOwnedTransactionOnFailure(t *testing.T) {
@@ -522,7 +526,6 @@ func TestExecBatchContextWithSeataATDriverRollsBackOwnedTransactionOnFailure(t *
 
 	db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl)
 	defer db.Close()
-	datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
 
 	ctx := tm.InitSeataContext(context.Background())
 	tm.SetXID(ctx, uuid.NewString())
@@ -578,7 +581,6 @@ func TestExecBatchWithSeataATDriverStopsOnInsertAfterImageValidationFailure(t *t
 			defer ctrl.Finish()
 			db, mockConn, mockTx, mockMgr := newBatchSeataATTestDB(t, ctrl)
 			defer db.Close()
-			datasource.RegisterTableCache(types.DBTypeMySQL, batchATTableCache{})
 
 			ctx := tm.InitSeataContext(context.Background())
 			tm.SetXID(ctx, uuid.NewString())

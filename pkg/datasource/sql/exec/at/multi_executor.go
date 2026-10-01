@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -44,6 +45,10 @@ func NewMultiExecutor(parserCtx *types.ParseContext, execContext *types.ExecCont
 func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	plan, err := buildMultiExecutionPlan(m.parserCtx, m.execContext.DBType)
 	if err != nil {
+		return nil, err
+	}
+	// Validate every child before the first image query or business statement.
+	if err := parser.BindTableRefs(m.parserCtx); err != nil {
 		return nil, err
 	}
 
@@ -97,6 +102,9 @@ func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNa
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
 	}()
+	if err := m.resolveTableMetaKey(ctx, m.execContext, parseCtx.MultiStmt[0]); err != nil {
+		return nil, err
+	}
 
 	beforeImages, err := m.beforeImage(ctx, parseCtx)
 	if err != nil {
@@ -118,6 +126,8 @@ func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNa
 	}
 
 	for index := range beforeImages {
+		beforeImages[index].TableMetaKey = m.execContext.TableMetaKey
+		afterImages[index].TableMetaKey = m.execContext.TableMetaKey
 		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImages[index])
 		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImages[index])
 	}

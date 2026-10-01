@@ -57,8 +57,10 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, nil
 	}
 
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
 	selectSQL, selectArgs, err := u.buildAfterImageSQL(ctx, execCtx)
 	if err != nil {
 		return nil, err
@@ -76,7 +78,7 @@ func (u *MySQLInsertUndoLogBuilder) AfterImage(ctx context.Context, execCtx *typ
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, &metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,12 +93,11 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 		return "", nil, fmt.Errorf("can't found execCtx or ParseContext or InsertStmt")
 	}
 	parseCtx := execCtx.ParseContext
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	if execCtx.MetaDataMap == nil {
-		return "", nil, fmt.Errorf("can't found  MetaDataMap")
+	meta, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return "", nil, err
 	}
-	meta := execCtx.MetaDataMap[tableName]
-	pkValuesMap, err := u.getPkValues(execCtx, parseCtx, meta)
+	pkValuesMap, err := u.getPkValues(execCtx, parseCtx, *meta)
 	if err != nil {
 		return "", nil, err
 	}
@@ -132,7 +133,7 @@ func (u *MySQLInsertUndoLogBuilder) buildAfterImageSQL(ctx context.Context, exec
 	}
 	// build check sql
 	sb := strings.Builder{}
-	sb.WriteString("SELECT * FROM " + tableName)
+	sb.WriteString("SELECT * FROM " + tableNameForExec(execCtx, meta.TableName))
 	whereSQL := u.buildWhereConditionByPKs(pkColumnNameList, len(pkValuesMap[pkColumnNameList[0]]), "mysql", maxInSize)
 	sb.WriteString(" WHERE " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(pkRowImages, pkColumnNameList), nil
@@ -364,9 +365,11 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecConte
 		return nil, nil
 	}
 	parseCtx := execCtx.ParseContext
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	meta := execCtx.MetaDataMap[tableName]
-	pkValuesMap, err := u.parsePkValuesFromStatement(parseCtx.InsertStmt, meta, execCtx.NamedValues)
+	meta, err := tableMetaForExec(context.Background(), execCtx)
+	if err != nil {
+		return nil, err
+	}
+	pkValuesMap, err := u.parsePkValuesFromStatement(parseCtx.InsertStmt, *meta, execCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -399,8 +402,10 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
 		return nil, nil
 	}
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData, err := tableMetaForExec(context.Background(), execCtx)
+	if err != nil {
+		return nil, err
+	}
 	pkValuesMap := make(map[string][]interface{})
 	pkMetaMap := metaData.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {

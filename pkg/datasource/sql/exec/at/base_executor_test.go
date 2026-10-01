@@ -18,13 +18,65 @@
 package at
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
+
+type tableMetaReaderForTest struct {
+	key      types.TableMetaKey
+	meta     *types.TableMeta
+	resolved types.TableRef
+	readKey  types.TableMetaKey
+}
+
+func (r *tableMetaReaderForTest) ResolveTableMetaKey(_ context.Context, _ driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
+	r.resolved = ref
+	return r.key, nil
+}
+
+func (r *tableMetaReaderForTest) GetTableMeta(_ context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
+	r.readKey = key
+	return r.meta, nil
+}
+
+func TestBaseExecutorUsesExecutionReaderAndResolvedKey(t *testing.T) {
+	parsed, err := parser.DoParser("UPDATE shop.orders AS o SET o.id=1")
+	assert.NoError(t, err)
+	reader := &tableMetaReaderForTest{key: types.TableMetaKey{DBName: "shop", TableName: "orders"}, meta: &types.TableMeta{TableName: "orders"}}
+	execCtx := &types.ExecContext{ParseContext: parsed, TableMetaReader: reader}
+	exec := &baseExecutor{}
+	assert.NoError(t, exec.resolveTableMetaKey(context.Background(), execCtx, parsed))
+	meta, err := exec.getTableMeta(context.Background(), execCtx, parsed)
+	assert.NoError(t, err)
+	assert.Same(t, reader.meta, meta)
+	assert.Equal(t, types.TableRef{Qualifier: "shop", TableName: "orders"}, reader.resolved)
+	assert.Equal(t, reader.key, reader.readKey)
+	assert.Equal(t, &reader.key, execCtx.TableMetaKey)
+}
+
+func TestBaseExecutorMissingReaderFailsClearly(t *testing.T) {
+	parsed, err := parser.DoParser("UPDATE orders SET id=1")
+	assert.NoError(t, err)
+	execCtx := &types.ExecContext{ParseContext: parsed}
+	exec := &baseExecutor{}
+	err = exec.resolveTableMetaKey(context.Background(), execCtx, parsed)
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "table meta reader"))
+}
+
+func TestQualifiedTableNameUsesResolvedIdentity(t *testing.T) {
+	assert.Equal(t, "`shop`.`orders`", qualifiedTableName(&types.TableMetaKey{DBName: "shop", TableName: "orders"}, "orders", types.DBTypeMySQL))
+	assert.Equal(t, `"Space"."Users"`, qualifiedTableName(&types.TableMetaKey{Schema: "Space", TableName: "Users"}, "Users", types.DBTypePostgreSQL))
+	assert.Equal(t, "orders", qualifiedTableName(nil, "orders", types.DBTypeMySQL))
+}
 
 func TestGetScanSlicePreservesDecimal(t *testing.T) {
 	executor := baseExecutor{}

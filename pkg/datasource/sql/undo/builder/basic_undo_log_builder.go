@@ -19,6 +19,7 @@ package builder
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -30,11 +31,48 @@ import (
 	gxsort "github.com/dubbogo/gost/sort"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 // todo the executor should be stateful
 type BasicUndoLogBuilder struct{}
+
+func tableMetaForExec(ctx context.Context, execCtx *types.ExecContext) (*types.TableMeta, error) {
+	if execCtx == nil || execCtx.TableMetaReader == nil {
+		return nil, fmt.Errorf("table meta reader is nil")
+	}
+	if execCtx.TableMetaKey == nil {
+		if execCtx.ParseContext == nil {
+			return nil, fmt.Errorf("parse context is nil")
+		}
+		ref, err := execCtx.ParseContext.GetTableRef()
+		if err != nil {
+			return nil, err
+		}
+		key, err := execCtx.TableMetaReader.ResolveTableMetaKey(ctx, execCtx.Conn, ref)
+		if err != nil {
+			return nil, err
+		}
+		execCtx.TableMetaKey = &key
+	}
+	return execCtx.TableMetaReader.GetTableMeta(ctx, *execCtx.TableMetaKey)
+}
+
+func tableNameForExec(execCtx *types.ExecContext, fallback string) string {
+	if execCtx == nil || execCtx.TableMetaKey == nil {
+		return fallback
+	}
+	return (undo.SQLUndoLog{TableMetaKey: execCtx.TableMetaKey}).QualifiedTableName(execCtx.DBType)
+}
+
+func (b *BasicUndoLogBuilder) buildRecordImagesForExec(rows driver.Rows, meta *types.TableMeta, execCtx *types.ExecContext) (*types.RecordImage, error) {
+	image, err := b.buildRecordImages(rows, meta)
+	if err == nil {
+		image.TableMetaKey = execCtx.TableMetaKey
+	}
+	return image, err
+}
 
 // GetScanSlice get the column type for scann
 // todo to use ColumnInfo get slice

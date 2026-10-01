@@ -26,7 +26,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -92,13 +91,14 @@ func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
 	assert.Nil(t, err)
 
 	executor := NewDeleteExecutor(c, &types.ExecContext{
-		DBType:      types.DBTypePostgreSQL,
-		Values:      sourceQueryArgs,
-		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+		DBType:       types.DBTypePostgreSQL,
+		TableMetaKey: &types.TableMetaKey{Schema: "public", TableName: "t_user"},
+		Values:       sourceQueryArgs,
+		NamedValues:  util.ValueToNamedValue(sourceQueryArgs),
 	}, []exec.SQLHook{})
 	query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL("delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3", util.ValueToNamedValue(sourceQueryArgs))
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT * FROM t_user WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, `SELECT * FROM "public"."t_user" WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE`, query)
 	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
 	assert.NotContains(t, query, "SQL_NO_CACHE")
 	assert.NotContains(t, query, "`")
@@ -121,7 +121,7 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 			},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	ctrl := gomock.NewController(t)
 	conn := mock.NewMockTestDriverConn(ctrl)
@@ -142,7 +142,7 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		parserCtx, err := parser.DoParser(query)
 		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue([]driver.Value{tenantID})
-		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
 		}, nil)
 		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
@@ -171,7 +171,7 @@ func TestDeleteExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "id"}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	for _, tt := range []struct {
 		name          string
@@ -192,7 +192,7 @@ func TestDeleteExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			parserCtx, err := parser.DoParser(query)
 			assert.NoError(t, err)
 			txCtx := types.NewTxCtx()
-			executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+			executor := NewDeleteExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 				Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{int64(1)}), Conn: conn, TxCtx: txCtx,
 			}, nil)
 

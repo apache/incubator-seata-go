@@ -19,7 +19,6 @@ package at
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"strings"
 	"testing"
@@ -27,7 +26,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -41,11 +39,11 @@ type stubTableMetaCache struct {
 	meta *types.TableMeta
 }
 
-func (s *stubTableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
-	return nil
+func (s *stubTableMetaCache) ResolveTableMetaKey(_ context.Context, _ driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
+	return types.TableMetaKey{DBName: ref.Qualifier, TableName: ref.TableName}, nil
 }
 
-func (s *stubTableMetaCache) GetTableMeta(ctx context.Context, dbName, table string) (*types.TableMeta, error) {
+func (s *stubTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
 	return s.meta, nil
 }
 
@@ -60,7 +58,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 	})
 
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{
+	reader := &stubTableMetaCache{
 		meta: &types.TableMeta{
 			Indexs: map[string]types.IndexMeta{
 				"id": {
@@ -71,7 +69,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
 
 	tests := []struct {
 		name            string
@@ -115,7 +113,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
-			executor := NewUpdateExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
+			executor := NewUpdateExecutor(c, &types.ExecContext{TableMetaReader: reader, Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
 			query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
@@ -135,7 +133,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		{Columns: []types.ColumnImage{{ColumnName: "name", Value: "A"}, {ColumnName: "id", Value: 1}, {ColumnName: "tenant_id", Value: 10}}},
 		{Columns: []types.ColumnImage{{ColumnName: "name", Value: "B"}, {ColumnName: "id", Value: 2}, {ColumnName: "tenant_id", Value: 20}}},
 	}
-	executor := &updateExecutor{execContext: &types.ExecContext{DBType: types.DBTypeMySQL}}
+	executor := &updateExecutor{execContext: &types.ExecContext{TableMetaReader: reader, DBType: types.DBTypeMySQL}}
 	query, args := executor.buildAfterImageSQL(types.RecordImage{Rows: rows}, compositeMeta)
 	assert.Contains(t, query, "(`tenant_id`,`id`) IN ((?,?),(?,?))")
 	assert.Equal(t, 1, strings.Count(query, "name,id,tenant_id"))
@@ -162,7 +160,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "id"}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	ctrl := gomock.NewController(t)
 	conn := mock.NewMockTestDriverConn(ctrl)
@@ -192,7 +190,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		parserCtx, err := parser.DoParser(query)
 		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue(item.args)
-		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{
+		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
 		}, nil)
 		_, err = executor.ExecContext(context.Background(), func(_ context.Context, businessQuery string, businessArgs []driver.NamedValue) (types.ExecResult, error) {
@@ -229,7 +227,7 @@ func TestUpdateExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "id"}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	for _, tt := range []struct {
 		name          string
@@ -256,7 +254,7 @@ func TestUpdateExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			parserCtx, err := parser.DoParser(query)
 			assert.NoError(t, err)
 			txCtx := types.NewTxCtx()
-			executor := NewUpdateExecutor(parserCtx, &types.ExecContext{
+			executor := NewUpdateExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 				Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{int64(110), int64(1)}), Conn: conn, TxCtx: txCtx,
 			}, nil)
 
@@ -285,7 +283,7 @@ func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
 	})
 
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypePostgreSQL, &stubTableMetaCache{
+	reader := &stubTableMetaCache{
 		meta: &types.TableMeta{
 			Indexs: map[string]types.IndexMeta{
 				"id": {
@@ -296,13 +294,13 @@ func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
 
 	sourceQueryArgs := []driver.Value{"Jack", 1, 100, 18, 28}
 	c, err := parser.DoParser("update t_user set name = $1, age = $2 where id = $3 and name = 'Jack' and age between $4 and $5")
 	assert.Nil(t, err)
 
-	executor := NewUpdateExecutor(c, &types.ExecContext{
+	executor := NewUpdateExecutor(c, &types.ExecContext{TableMetaReader: reader,
 		DBType:      types.DBTypePostgreSQL,
 		DBName:      "public",
 		Values:      sourceQueryArgs,
@@ -311,7 +309,7 @@ func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
 
 	query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(sourceQueryArgs))
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT name,age,id FROM t_user WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, "SELECT name,age,id FROM \"t_user\" WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
 	assert.Equal(t, []driver.Value{100, 18, 28}, util.NamedValueToValue(args))
 
 	meta := &types.TableMeta{
@@ -346,14 +344,14 @@ func TestBuildSelectSQLByUpdateRejectsPrimaryKeyChange(t *testing.T) {
 	t.Cleanup(func() { undo.UndoConfig = originalUndoConfig })
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
 
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &types.TableMeta{
+	reader := &stubTableMetaCache{meta: &types.TableMeta{
 		TableName:   "t_user",
 		ColumnNames: []string{"tenant_id", "id", "name"},
 		Indexs: map[string]types.IndexMeta{"PRIMARY": {
 			IType:   types.IndexTypePrimaryKey,
 			Columns: []types.ColumnMeta{{ColumnName: "tenant_id"}, {ColumnName: "id"}},
 		}},
-	}})
+	}}
 
 	for _, query := range []string{
 		"update t_user set id = ? where tenant_id = ? and id = ?",
@@ -361,7 +359,7 @@ func TestBuildSelectSQLByUpdateRejectsPrimaryKeyChange(t *testing.T) {
 	} {
 		parserCtx, err := parser.DoParser(query)
 		assert.NoError(t, err)
-		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{
+		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 			Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{1, 2, 3}), TxCtx: types.NewTxCtx(), DBType: types.DBTypeMySQL,
 		}, nil)
 		callbacks := 0

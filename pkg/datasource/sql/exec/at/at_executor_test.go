@@ -63,6 +63,27 @@ func TestATExecutor_Interceptors(t *testing.T) {
 	}
 }
 
+func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
+	originalIsGlobalTx := isGlobalTx
+	t.Cleanup(func() { isGlobalTx = originalIsGlobalTx })
+	isGlobalTx = func(context.Context) bool { return true }
+
+	replaceATExecutorFactories(t, &mockExecutor{})
+	newUpdateExecutor = func(parsed *types.ParseContext, _ *types.ExecContext, _ []exec.SQLHook) executor {
+		ref, err := parsed.GetTableRef()
+		assert.NoError(t, err)
+		assert.Equal(t, types.TableRef{Qualifier: "Space", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}, ref)
+		return &mockExecutor{}
+	}
+
+	result, err := (&postgresATExecutor{}).ExecWithNamedValue(context.Background(), &types.ExecContext{
+		DBType: types.DBTypePostgreSQL,
+		Query:  `UPDATE "Space"."Users" SET id=1`,
+	}, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 func replaceATExecutorFactories(t *testing.T, mock executor) {
 	t.Helper()
 
@@ -291,6 +312,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 func TestATExecutor_ExecWithNamedValue_ParserError(t *testing.T) {
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:       "SELECT FROM",
 		NamedValues: []driver.NamedValue{},
 	}
@@ -390,6 +412,7 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:  "SELECT FROM",
 		Values: []driver.Value{"test"},
 	}

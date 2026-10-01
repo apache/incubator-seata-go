@@ -66,10 +66,11 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		// all child statements. Reparse each restored child as standalone SQL to
 		// rebase marker orders to the child-local argument slice expected by the
 		// existing single-statement executors.
-		childParseCtx, err := parser.DoParser(query)
+		childParseCtx, err := parser.DoParserForDB(query, m.execContext.DBType)
 		if err != nil {
 			return nil, fmt.Errorf("parse restored statement %d: %w", index, err)
 		}
+		parser.CopyTableRefs(childParseCtx, statementCtx)
 
 		if childParseCtx.ExecutorType != statementCtx.ExecutorType {
 			return nil, fmt.Errorf(
@@ -125,6 +126,7 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		childExecCtx.ParseContext = childParseCtx
 		childExecCtx.NamedValues = statementArgs
 		childExecCtx.Values = nil
+		childExecCtx.TableMetaKey = nil
 
 		childExecutor, err := newSequentialStatementExecutor(index, childParseCtx, &childExecCtx)
 		if err != nil {
