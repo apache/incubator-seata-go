@@ -99,7 +99,15 @@ func TestParseSQLForDBSeparatesClassificationFromTableBinding(t *testing.T) {
 		want    [][]types.TableRef
 	}{
 		{"table statement", "TABLE t", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "t"}}}},
+		{"qualified table with order and limit", "TABLE `Db`.`Us``ers` ORDER BY id, name LIMIT 2, 3", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Us`ers", QualifierQuoted: true, TableNameQuoted: true}}}},
+		{"parenthesized table", "(TABLE Db.Users)", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Users"}}}},
 		{"odbc join", "SELECT a.id FROM { OJ a LEFT JOIN b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}}}},
+		{"quoted odbc join with comments and strings", "SELECT '{ OJ ignored }' FROM { oj /* } FROM ignored */ `Db`.`Us``ers` a LEFT JOIN `Other`.`Users` b ON a.name='} JOIN ignored' } ORDER BY a.id, b.id LIMIT 3", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Us`ers", QualifierQuoted: true, TableNameQuoted: true}, {Qualifier: "Other", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}}}},
+		{"nested odbc join", "SELECT a.id FROM { OJ a LEFT JOIN ({ OJ b LEFT JOIN c ON b.id=c.id }) ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}, {TableName: "c"}}}},
+		{"odbc join in table list", "SELECT a.id FROM first_table, { OJ a LEFT JOIN b ON a.id=b.id }, last_table", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "first_table"}, {TableName: "a"}, {TableName: "b"}, {TableName: "last_table"}}}},
+		{"odbc join with derived select", "SELECT a.id FROM { OJ a LEFT JOIN (SELECT id FROM hidden) b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}}}},
+		{"odbc join with derived table statement", "SELECT a.id FROM { OJ a LEFT JOIN (TABLE hidden) b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}}}},
+		{"odbc date in join predicate", "SELECT a.id FROM { OJ a LEFT JOIN b ON a.created_at={d '2026-10-01'} }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}}}},
 		{"multi statement", "SELECT id FROM users; TABLE t; SELECT a.id FROM { OJ a LEFT JOIN b ON a.id=b.id }", types.SQLTypeMulti, [][]types.TableRef{{{TableName: "users"}}, {{TableName: "t"}}, {{TableName: "a"}, {TableName: "b"}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -404,6 +412,11 @@ func TestCaptureTableRefsRejectsUnboundAndReorderedSources(t *testing.T) {
 		{"missing source", `SELECT id FROM "Users" FOR UPDATE`, `SELECT Users`},
 		{"extra source", `SELECT id FROM "Users" FOR UPDATE`, `SELECT id FROM "Users", others FOR UPDATE`},
 		{"different source order", `UPDATE "One" JOIN "Two" ON 1=1 SET id=1`, `UPDATE "Two" JOIN "One" ON 1=1 SET id=1`},
+		{"table statement identity mismatch", `TABLE "Users"`, `TABLE "Other"`},
+		{"odbc source order mismatch", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "Two" JOIN "One" ON 1=1 }`},
+		{"odbc missing closing brace", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "One" JOIN "Two" ON 1=1`},
+		{"odbc extra closing brace", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "One" JOIN "Two" ON 1=1 } }`},
+		{"odbc unsupported escape", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { wrong "One" JOIN "Two" ON 1=1 }`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, err := DoParserForDB(tc.query, types.DBTypePostgreSQL)

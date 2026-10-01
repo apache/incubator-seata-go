@@ -273,9 +273,9 @@ func topLevelKeyword(tokens []identifierToken, words ...string) int {
 	for i := 0; i < len(tokens); i++ {
 		token := tokens[i]
 		switch {
-		case token.symbol("("):
+		case token.symbol("(") || token.symbol("{"):
 			depth++
-		case token.symbol(")"):
+		case token.symbol(")") || token.symbol("}"):
 			depth--
 		case depth == 0:
 			if token.symbol(";") {
@@ -302,7 +302,7 @@ func tableReferenceRegion(ctx *types.ParseContext, tokens []identifierToken) ([]
 	for len(tokens) > 0 && tokens[len(tokens)-1].symbol(";") {
 		tokens = tokens[:len(tokens)-1]
 	}
-	for len(tokens) > 1 && tokens[0].symbol("(") && closingParenthesis(tokens, 0) == len(tokens)-1 {
+	for len(tokens) > 1 && tokens[0].symbol("(") && closingDelimiter(tokens, 0) == len(tokens)-1 {
 		tokens = tokens[1 : len(tokens)-1]
 	}
 	start := -1
@@ -320,7 +320,11 @@ func tableReferenceRegion(ctx *types.ParseContext, tokens []identifierToken) ([]
 		}
 		start = topLevelKeyword(tokens, keyword)
 	case ctx.SelectStmt != nil:
-		start = topLevelKeyword(tokens, "FROM")
+		keyword := "FROM"
+		if ctx.SelectStmt.Kind == ast.SelectStmtKindTable {
+			keyword = "TABLE"
+		}
+		start = topLevelKeyword(tokens, keyword)
 	}
 	if start < 0 {
 		return nil, fmt.Errorf("cannot locate table reference region")
@@ -341,12 +345,16 @@ func tableReferenceRegion(ctx *types.ParseContext, tokens []identifierToken) ([]
 	return tokens, nil
 }
 
-func closingParenthesis(tokens []identifierToken, start int) int {
+func closingDelimiter(tokens []identifierToken, start int) int {
+	opening, closing := "(", ")"
+	if tokens[start].symbol("{") {
+		opening, closing = "{", "}"
+	}
 	depth := 0
 	for i := start; i < len(tokens); i++ {
-		if tokens[i].symbol("(") {
+		if tokens[i].symbol(opening) {
 			depth++
-		} else if tokens[i].symbol(")") {
+		} else if tokens[i].symbol(closing) {
 			depth--
 			if depth == 0 {
 				return i
@@ -373,7 +381,7 @@ func indexHintEnd(tokens []identifierToken, start int) int {
 		}
 	}
 	if i < len(tokens) && tokens[i].symbol("(") {
-		return closingParenthesis(tokens, i)
+		return closingDelimiter(tokens, i)
 	}
 	return -1
 }
@@ -395,7 +403,7 @@ func readTableReference(tokens []identifierToken) (types.TableRef, int, error) {
 }
 
 // collectTableReferences only interprets commas within a table-reference region.
-// Parenthesized table groups share that region; derived queries and expressions do not.
+// Parenthesized and ODBC table groups share that region; derived queries and expressions do not.
 func collectTableReferences(tokens []identifierToken) ([]types.TableRef, error) {
 	var refs []types.TableRef
 	expectTable := true
@@ -404,13 +412,22 @@ func collectTableReferences(tokens []identifierToken) ([]types.TableRef, error) 
 		if token.symbol(";") {
 			break
 		}
-		if token.symbol("(") {
-			end := closingParenthesis(tokens, i)
+		if token.symbol(")") || token.symbol("}") {
+			return nil, fmt.Errorf("cannot bind table reference: unexpected %s at byte %d", token.value, token.start)
+		}
+		if token.symbol("(") || token.symbol("{") {
+			end := closingDelimiter(tokens, i)
 			if end < 0 {
-				return nil, fmt.Errorf("cannot bind table reference: unmatched parenthesis at byte %d", token.start)
+				return nil, fmt.Errorf("cannot bind table reference: unmatched %s at byte %d", token.value, token.start)
 			}
 			inner := tokens[i+1 : end]
-			if expectTable && topLevelKeyword(inner, "SELECT", "WITH") < 0 {
+			if expectTable && token.symbol("{") {
+				if len(inner) < 2 || !inner[0].keyword("OJ") {
+					return nil, fmt.Errorf("cannot bind table reference: expected ODBC OJ group at byte %d", token.start)
+				}
+				inner = inner[1:]
+			}
+			if expectTable && topLevelKeyword(inner, "SELECT", "WITH", "TABLE") < 0 {
 				group, err := collectTableReferences(inner)
 				if err != nil {
 					return nil, err
