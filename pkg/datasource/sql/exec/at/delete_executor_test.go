@@ -231,3 +231,27 @@ func (r *deleteRows) Next(dest []driver.Value) error {
 	r.index++
 	return nil
 }
+
+func TestDeleteExecutorWriteDatabaseBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		query      string
+		currentDB  string
+		wantReject bool
+	}{
+		{"delete case overlapping aliases", "DELETE a FROM db_a.account a JOIN db_b.account A ON a.id=A.id", "", true},
+		{"delete right alias", "DELETE b FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete using right alias", "DELETE FROM b USING db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete qualified target", "DELETE db_b.account FROM db_a.account JOIN db_b.account ON db_a.account.id=db_b.account.id", "", true},
+		{"delete reads another database", "DELETE a FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", false},
+		{"delete both targets", "DELETE a,b FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete grouped wildcard target", "DELETE b.* FROM (db_a.account a JOIN db_b.account b ON a.id=b.id)", "", true},
+		{"delete reads first foreign table", "DELETE a FROM db_b.account b JOIN db_a.account a ON a.id=b.id", "", false},
+		{"delete using reads first foreign table", "DELETE FROM a USING (db_b.account b JOIN db_a.account a ON a.id=b.id)", "", false},
+		{"delete derived read", "DELETE a FROM db_a.account a JOIN (SELECT id FROM db_b.account) b ON a.id=b.id", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkWriteDatabaseBoundary(t, tc.query, tc.currentDB, tc.wantReject)
+		})
+	}
+}

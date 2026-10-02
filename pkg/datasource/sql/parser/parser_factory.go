@@ -25,9 +25,11 @@ import (
 
 	aparser "github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 func DoParser(query string) (*types.ParseContext, error) {
@@ -51,12 +53,48 @@ func DoParserForDB(query string, dbType types.DBType) (*types.ParseContext, erro
 // Metadata consumers must call BindTableRefs before resolving table identities.
 func ParseSQLForDB(query string, dbType types.DBType) (*types.ParseContext, error) {
 	p := aparser.New()
+	parserQuery := query
+	var literals postgresDollarLiterals
 	if dbType == types.DBTypePostgreSQL {
 		p.SetSQLMode(mysql.ModeANSIQuotes)
+		// Arana has no dollar-string token. Mask each literal with a same-size
+		// quoted string so all AST source offsets still refer to the original SQL.
+		var masked []byte
+		for _, token := range scanIdentifiers(query, dbType) {
+			if token.kind != identifierString || query[token.start] != '$' {
+				continue
+			}
+			if masked == nil {
+				masked = []byte(query)
+				literals = postgresDollarLiterals{}
+			}
+			literals[token.start] = token.value
+			masked[token.start], masked[token.end-1] = '\'', '\''
+			for i := token.start + 1; i < token.end-1; i++ {
+				masked[i] = ' '
+			}
+		}
+		if masked != nil {
+			parserQuery = string(masked)
+		}
 	}
-	stmtNodes, _, err := p.Parse(query, "", "")
+	stmtNodes, _, err := p.Parse(parserQuery, "", "")
 	if err != nil {
 		return nil, err
+	}
+	if len(literals) > 0 {
+		cursor := 0
+		for _, stmt := range stmtNodes {
+			text := stmt.Text()
+			offset := strings.Index(parserQuery[cursor:], text)
+			if offset < 0 {
+				return nil, fmt.Errorf("cannot locate PostgreSQL statement source")
+			}
+			start := cursor + offset
+			cursor = start + len(text)
+			stmt.SetText(nil, query[start:cursor])
+			stmt.Accept(literals)
+		}
 	}
 
 	if len(stmtNodes) == 1 {
@@ -75,6 +113,103 @@ func ParseSQLForDB(query string, dbType types.DBType) (*types.ParseContext, erro
 	}
 
 	return &parserCtx, nil
+}
+
+type postgresDollarLiterals map[int]string
+
+func (l postgresDollarLiterals) Enter(node ast.Node) (ast.Node, bool) {
+	if value, ok := node.(ast.ValueExpr); ok {
+		if literal, ok := l[value.OriginTextPosition()]; ok {
+			delimiterSize := strings.IndexByte(literal[1:], '$') + 2
+			value.SetValue(literal[delimiterSize : len(literal)-delimiterSize])
+			return &postgresStringLiteral{ValueExpr: value, literal: literal}, true
+		}
+	}
+	return node, false
+}
+
+func (l postgresDollarLiterals) Leave(node ast.Node) (ast.Node, bool) {
+	return node, true
+}
+
+type postgresStringLiteral struct {
+	ast.ValueExpr
+	literal string
+}
+
+func (l *postgresStringLiteral) Restore(ctx *format.RestoreCtx) error {
+	ctx.WritePlain(l.literal)
+	return nil
+}
+
+func (l *postgresStringLiteral) Accept(visitor ast.Visitor) (ast.Node, bool) {
+	node, _ := visitor.Enter(l)
+	return visitor.Leave(node)
+}
+
+// ParsePostgreSQLUpdateForImage makes a separate AST whose unquoted identifiers
+// are folded before restoring image SQL with double-quoted names. The original
+// statement and quoted names (including column qualifiers) remain unchanged.
+func ParsePostgreSQLUpdateForImage(query string) (*ast.UpdateStmt, error) {
+	normalized := []byte(query)
+	parameters := postgresImageParameters{}
+	for _, token := range scanIdentifiers(query, types.DBTypePostgreSQL) {
+		if token.kind != identifierWord || token.quoted {
+			continue
+		}
+		if len(token.value) > 1 && token.value[0] == '$' && strings.Trim(token.value[1:], "0123456789") == "" {
+			parameters[token.start] = token.value
+		}
+		for i := token.start; i < token.end; i++ {
+			if normalized[i] >= 'A' && normalized[i] <= 'Z' {
+				normalized[i] += 'a' - 'A'
+			}
+		}
+	}
+	parsed, err := ParseSQLForDB(string(normalized), types.DBTypePostgreSQL)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.UpdateStmt == nil {
+		return nil, fmt.Errorf("postgres update image requires a single UPDATE statement")
+	}
+	parsed.UpdateStmt.Accept(parameters)
+	return parsed.UpdateStmt, nil
+}
+
+// The MySQL parser represents PostgreSQL $n parameters as column expressions.
+// Keep only the unquoted tokens as parameters when names are restored with quotes.
+type postgresImageParameters map[int]string
+
+func (p postgresImageParameters) Enter(node ast.Node) (ast.Node, bool) {
+	if _, ok := node.(*postgresStringLiteral); ok {
+		return node, true
+	}
+	if value, ok := node.(ast.ValueExpr); ok {
+		if _, ok := value.GetValue().(string); ok {
+			// Arana's value driver restores strings with a MySQL charset prefix.
+			value.GetType().Charset = ""
+		}
+	}
+	if column, ok := node.(*ast.ColumnNameExpr); ok && column.Name.Schema.O == "" && column.Name.Table.O == "" {
+		if name, ok := p[column.OriginTextPosition()]; ok && column.Name.Name.O == name {
+			return &postgresImageParameter{ColumnNameExpr: column}, true
+		}
+	}
+	return node, false
+}
+
+func (p postgresImageParameters) Leave(node ast.Node) (ast.Node, bool) {
+	return node, true
+}
+
+type postgresImageParameter struct {
+	*ast.ColumnNameExpr
+}
+
+func (p *postgresImageParameter) Restore(ctx *format.RestoreCtx) error {
+	ctx.WritePlain(p.Name.Name.O)
+	return nil
 }
 
 // BindTableRefs retains quoted identifiers from each statement's original SQL.
@@ -144,6 +279,12 @@ func (t identifierToken) symbol(value string) bool {
 	return t.kind == identifierSymbol && t.value == value
 }
 
+// Match arana's isIdentChar, including every non-ASCII byte.
+func isIdentifierChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+		(ch >= '0' && ch <= '9') || ch == '_' || ch == '$' || ch >= 0x80
+}
+
 // scanIdentifiers keeps the spelling and quoting that the AST's CIStr drops.
 func scanIdentifiers(sql string, dbType types.DBType) []identifierToken {
 	var tokens []identifierToken
@@ -185,6 +326,13 @@ func scanIdentifiers(sql string, dbType types.DBType) []identifierToken {
 			}
 			continue
 		}
+		if dbType == types.DBTypePostgreSQL && sql[i] == '$' {
+			if end := util.PostgreSQLQuotedTokenEnd(sql, i); end > i {
+				tokens = append(tokens, identifierToken{value: sql[i:end], kind: identifierString, start: i, end: end})
+				i = end
+				continue
+			}
+		}
 		if sql[i] == '\'' || sql[i] == '`' || sql[i] == '"' {
 			start := i
 			quote := sql[i]
@@ -216,20 +364,16 @@ func scanIdentifiers(sql string, dbType types.DBType) []identifierToken {
 			}
 			continue
 		}
-		r, size := utf8.DecodeRuneInString(sql[i:])
-		if r == '_' || r == '$' || unicode.IsLetter(r) || unicode.IsDigit(r) {
+		if isIdentifierChar(sql[i]) {
 			start := i
-			i += size
-			for i < len(sql) {
-				r, size = utf8.DecodeRuneInString(sql[i:])
-				if r != '_' && r != '$' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-					break
-				}
-				i += size
+			i++
+			for i < len(sql) && isIdentifierChar(sql[i]) {
+				i++
 			}
 			tokens = append(tokens, identifierToken{value: sql[start:i], kind: identifierWord, start: start, end: i})
 			continue
 		}
+		r, size := utf8.DecodeRuneInString(sql[i:])
 		if !unicode.IsSpace(r) {
 			tokens = append(tokens, identifierToken{value: sql[i : i+size], kind: identifierSymbol, start: i, end: i + size})
 		}

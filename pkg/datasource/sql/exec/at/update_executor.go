@@ -31,6 +31,7 @@ import (
 	"github.com/arana-db/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
@@ -267,7 +268,11 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	var separator = ","
 	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, column := range beforeImage.Rows[0].Columns {
-			selectFields += column.ColumnName + separator
+			columnName := column.ColumnName
+			if dbType == types.DBTypePostgreSQL {
+				columnName = `"` + strings.ReplaceAll(columnName, `"`, `""`) + `"`
+			}
+			selectFields += columnName + separator
 		}
 		selectFields = strings.TrimSuffix(selectFields, separator)
 	} else {
@@ -288,6 +293,13 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 
 	dbType := effectiveDBType(u.execContext.DBType)
 	updateStmt := u.parserCtx.UpdateStmt
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		updateStmt, err = parser.ParsePostgreSQLUpdateForImage(updateStmt.Text())
+		if err != nil {
+			return "", nil, err
+		}
+	}
 	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
 	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx)
 	if err != nil {
@@ -300,6 +312,12 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	if undo.UndoConfig.OnlyCareUpdateColumns {
+		columnIdentity := func(name string) string {
+			if dbType == types.DBTypePostgreSQL {
+				return name
+			}
+			return strings.ToLower(name)
+		}
 		selectedColumns := make(map[string]struct{}, len(updateStmt.List))
 		for _, column := range updateStmt.List {
 			fields = append(fields, &ast.SelectField{
@@ -307,12 +325,12 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 					Name: column.Column,
 				},
 			})
-			selectedColumns[strings.ToLower(column.Column.Name.O)] = struct{}{}
+			selectedColumns[columnIdentity(column.Column.Name.O)] = struct{}{}
 		}
 
 		// select indexes columns
 		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
-			if _, ok := selectedColumns[strings.ToLower(columnName)]; ok {
+			if _, ok := selectedColumns[columnIdentity(columnName)]; ok {
 				continue
 			}
 			fields = append(fields, &ast.SelectField{
@@ -326,6 +344,8 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 				},
 			})
 		}
+	} else if dbType == types.DBTypePostgreSQL {
+		fields = append(fields, &ast.SelectField{WildCard: &ast.WildCardField{}})
 	} else {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
@@ -361,8 +381,22 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := u.normalizeGeneratedSQL(string(b.Bytes()), dbType)
+	restoreFlags := format.RestoreKeyWordUppercase
+	if dbType == types.DBTypePostgreSQL {
+		restoreFlags |= format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
+	}
+	if err := selStmt.Restore(format.NewRestoreCtx(restoreFlags, b)); err != nil {
+		return "", nil, err
+	}
+	sql := string(b.Bytes())
+	if dbType == types.DBTypePostgreSQL {
+		// Literals are already restored as PostgreSQL SQL. MySQL charset
+		// rewriting would also change matching text inside dollar strings.
+		sql = strings.Replace(sql, "SELECT SQL_NO_CACHE ", "SELECT ", 1)
+		sql = util.RewritePlaceholders(sql, dbType)
+	} else {
+		sql = u.normalizeGeneratedSQL(sql, dbType)
+	}
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	if dbType == types.DBTypePostgreSQL {

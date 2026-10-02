@@ -21,11 +21,18 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
@@ -589,6 +596,142 @@ func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
+		})
+	}
+}
+
+func TestBaseExecutorWriteDatabaseBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		query      string
+		currentDB  string
+		wantReject bool
+	}{
+		{"cross database insert", "INSERT INTO db_b.account (id) VALUES (1)", "", true},
+		{"cross database update", "UPDATE db_b.account SET balance=1 WHERE id=1", "", true},
+		{"cross database delete", "DELETE FROM db_b.account WHERE id=1", "", true},
+		{"cross database upsert", "INSERT INTO db_b.account (id) VALUES (1) ON DUPLICATE KEY UPDATE balance=1", "", true},
+		{"quoted database", "UPDATE `db_b`.`account` SET balance=1", "", true},
+		{"parenthesized table", "UPDATE (db_b.account) SET balance=1", "", true},
+		{"case insensitive write alias", "UPDATE db_b.account A SET a.balance=1", "", true},
+		{"default database changed", "UPDATE account SET balance=1", "db_b", true},
+		{"same database insert", "INSERT INTO db_a.account (id) VALUES (1)", "", false},
+		{"same database update", "UPDATE `db_a`.`account` SET balance=1", "", false},
+		{"same database delete", "DELETE FROM db_a.account WHERE id=1", "", false},
+		{"same database upsert", "INSERT INTO db_a.account (id) VALUES (1) ON DUPLICATE KEY UPDATE balance=1", "", false},
+		{"same default database", "UPDATE account SET balance=1", "db_a", false},
+		{"insert reads another database", "INSERT INTO db_a.account (id) SELECT id FROM db_b.account", "", false},
+		{"predicate reads another database", "UPDATE db_a.account SET balance=1 WHERE id IN (SELECT id FROM db_b.account)", "", false},
+		{"ordinary read", "SELECT * FROM db_b.account", "", false},
+		{"locking read", "SELECT * FROM db_b.account FOR UPDATE", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkWriteDatabaseBoundary(t, tc.query, tc.currentDB, tc.wantReject)
+		})
+	}
+}
+
+func TestBaseExecutorWriteDatabaseCaseSensitivity(t *testing.T) {
+	for _, mode := range []int64{0, 1, 2} {
+		for _, query := range []string{
+			"INSERT INTO DB_A.account (id) VALUES (1)",
+			"UPDATE DB_A.account SET balance=1",
+			"DELETE FROM DB_A.account WHERE id=1",
+			"INSERT INTO DB_A.account (id) VALUES (1) ON DUPLICATE KEY UPDATE balance=1",
+		} {
+			t.Run(fmt.Sprintf("mode_%d/%s", mode, query), func(t *testing.T) {
+				checkWriteDatabaseBoundary(t, query, "", mode == 0, mode)
+			})
+		}
+		t.Run(fmt.Sprintf("mode_%d/default_database", mode), func(t *testing.T) {
+			checkWriteDatabaseBoundary(t, "UPDATE account SET balance=1", "DB_A", mode == 0, mode)
+		})
+	}
+}
+
+// Exercise the real dispatcher and executors. Allowed writes stop at the first
+// image/metadata read; rejected writes must fail before reaching that read.
+func checkWriteDatabaseBoundary(t *testing.T, query, currentDB string, wantReject bool, caseMode ...int64) {
+	t.Helper()
+	db, sqlMock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+	if currentDB != "" {
+		sqlMock.ExpectQuery("SELECT DATABASE").WillReturnRows(sqlmock.NewRows([]string{"DATABASE()"}).AddRow(currentDB))
+	}
+	if len(caseMode) != 0 {
+		sqlMock.ExpectQuery("SELECT @@lower_case_table_names").
+			WillReturnRows(sqlmock.NewRows([]string{"@@lower_case_table_names"}).AddRow(caseMode[0])).RowsWillBeClosed()
+	}
+	stop := errors.New("database boundary passed, image read reached")
+	reader := mock.NewMockTableMetaCache(gomock.NewController(t))
+	resolver := mysql.NewTableMetaInstance(nil, nil)
+	reader.EXPECT().ResolveTableMetaKey(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(resolver.ResolveTableMetaKey).AnyTimes()
+	if !wantReject {
+		reader.EXPECT().GetTableMeta(gomock.Any(), gomock.Any()).Return(nil, stop).AnyTimes()
+		if strings.HasPrefix(query, "DELETE") {
+			sqlMock.ExpectQuery("FOR UPDATE").WillReturnError(stop)
+		}
+	}
+	calls := 0
+	err = conn.Raw(func(raw any) error {
+		_, err := (&ATExecutor{}).ExecWithNamedValue(context.Background(), &types.ExecContext{
+			Query: query, DBType: types.DBTypeMySQL, DBName: "db_a", DbVersion: "8.0.29",
+			Conn: raw.(driver.Conn), TableMetaReader: reader, IsRequireGlobalLock: true,
+			TxCtx: &types.TransactionContext{TransactionMode: types.ATMode},
+		}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+			calls++
+			return &mockExecResult{rowsAffected: 1}, nil
+		})
+		return err
+	})
+	if wantReject {
+		require.ErrorContains(t, err, "AT write target database")
+		require.ErrorContains(t, err, `resource database "db_a"`)
+	} else if query == "SELECT * FROM db_b.account" {
+		require.NoError(t, err)
+		require.Equal(t, 1, calls)
+		return
+	} else {
+		require.ErrorIs(t, err, stop)
+	}
+	require.Zero(t, calls)
+	require.NoError(t, sqlMock.ExpectationsWereMet())
+}
+
+func TestWriteDatabaseCasePolicyReadFailure(t *testing.T) {
+	for _, failure := range []string{"query", "no rows", "scan", "row"} {
+		t.Run(failure, func(t *testing.T) {
+			db, sqlMock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+			conn, err := db.Conn(context.Background())
+			require.NoError(t, err)
+			defer conn.Close()
+			expected := sqlMock.ExpectQuery("SELECT @@lower_case_table_names")
+			switch failure {
+			case "query":
+				expected.WillReturnError(errors.New("policy unavailable"))
+			case "no rows":
+				expected.WillReturnRows(sqlmock.NewRows([]string{"mode"})).RowsWillBeClosed()
+			case "scan":
+				expected.WillReturnRows(sqlmock.NewRows([]string{"mode"}).AddRow(nil)).RowsWillBeClosed()
+			case "row":
+				expected.WillReturnRows(sqlmock.NewRows([]string{"mode"}).AddRow(1).
+					RowError(0, errors.New("policy row unavailable"))).RowsWillBeClosed()
+			}
+			err = conn.Raw(func(raw any) error {
+				return validateWriteDatabase(context.Background(), &types.ExecContext{
+					DBType: types.DBTypeMySQL, DBName: "db_a", Conn: raw.(driver.Conn),
+					TxCtx: &types.TransactionContext{TransactionMode: types.ATMode},
+				}, types.TableMetaKey{DBName: "DB_A", TableName: "account"})
+			})
+			require.ErrorContains(t, err, "read lower_case_table_names")
+			require.NoError(t, sqlMock.ExpectationsWereMet())
 		})
 	}
 }

@@ -79,3 +79,22 @@ func TestCompactPostgreSQLPlaceholders(t *testing.T) {
 	assert.Equal(t, 2, args[1].Ordinal)
 	assert.Equal(t, 3, args[2].Ordinal)
 }
+
+func TestPostgreSQLPlaceholdersLeaveQuotedTokensUnchanged(t *testing.T) {
+	for _, quoted := range []string{
+		`$$literal ? $1$$`,
+		`$Tag$literal ' " ? $9 $tag$ $Tag$`,
+		`'literal '' ? $1'`,
+		`"column "" ? $1"`,
+	} {
+		t.Run(quoted, func(t *testing.T) {
+			require.Equal(t, "SELECT "+quoted+", $1", RewritePlaceholders("SELECT "+quoted+", ?", types.DBTypePostgreSQL))
+			query, args, err := CompactPostgreSQLPlaceholders("SELECT "+quoted+", $2", []driver.NamedValue{
+				{Ordinal: 1, Value: "unused"}, {Ordinal: 2, Value: "selected"},
+			})
+			require.NoError(t, err)
+			require.Equal(t, "SELECT "+quoted+", $1", query)
+			require.Equal(t, []driver.NamedValue{{Ordinal: 1, Value: "selected"}}, args)
+		})
+	}
+}

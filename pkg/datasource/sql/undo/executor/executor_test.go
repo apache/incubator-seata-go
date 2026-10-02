@@ -61,7 +61,7 @@ func (t *testableBaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *
 	beforeImage := t.sqlUndoLog.BeforeImage
 	afterImage := t.sqlUndoLog.AfterImage
 
-	equals, err := IsRecordsEquals(beforeImage, afterImage)
+	equals, err := isRecordsEqualsForDB(beforeImage, afterImage, t.dbType)
 	if err != nil {
 		return false, err
 	}
@@ -75,12 +75,12 @@ func (t *testableBaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *
 		return false, err
 	}
 
-	equals, err = IsRecordsEquals(afterImage, currentImage)
+	equals, err = isRecordsEqualsForDB(afterImage, currentImage, t.dbType)
 	if err != nil {
 		return false, err
 	}
 	if !equals {
-		equals, err = IsRecordsEquals(beforeImage, currentImage)
+		equals, err = isRecordsEqualsForDB(beforeImage, currentImage, t.dbType)
 		if err != nil {
 			return false, err
 		}
@@ -233,8 +233,8 @@ func TestDataValidationAndGoOn(t *testing.T) {
 			cfgPatch := gomonkey.ApplyGlobalVar(&undo.UndoConfig, undo.Config{DataValidation: true})
 			defer cfgPatch.Reset()
 
-			// patch IsRecordsEquals
-			comparePatch := gomonkey.ApplyFunc(IsRecordsEquals, func(a, b *types.RecordImage) (bool, error) {
+			// patch the database-aware comparison used by data validation
+			comparePatch := gomonkey.ApplyFunc(isRecordsEqualsForDB, func(a, b *types.RecordImage, _ types.DBType) (bool, error) {
 				aj, _ := json.Marshal(a.Rows)
 				bj, _ := json.Marshal(b.Rows)
 				return string(aj) == string(bj), nil

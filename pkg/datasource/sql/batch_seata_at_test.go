@@ -65,7 +65,11 @@ type batchATTableCache struct {
 
 func (batchATTableCache) Destroy() error { return nil }
 func (batchATTableCache) ResolveTableMetaKey(_ context.Context, _ driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
-	return types.TableMetaKey{DBName: ref.Qualifier, TableName: ref.TableName}, nil
+	dbName := ref.Qualifier
+	if dbName == "" {
+		dbName = "seata_client"
+	}
+	return types.TableMetaKey{DBName: dbName, TableName: ref.TableName}, nil
 }
 func (c batchATTableCache) GetTableMeta(_ context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
 	if c.tableMeta != nil {
@@ -320,11 +324,11 @@ func TestExecBatchContextWithSeataATDriverUsesSingleBranchLifecycle(t *testing.T
 
 	expectBatchATUndoExecutions(t, ctrl, mockConn,
 		batchATUndoExpectation{
-			statement: "UPDATE `account`",
+			statement: "UPDATE `seata_client`.`account`",
 			undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(110)}, {Ordinal: 2, Value: int64(1)}},
 		},
 		batchATUndoExpectation{
-			statement: "UPDATE `account`",
+			statement: "UPDATE `seata_client`.`account`",
 			undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(100)}, {Ordinal: 2, Value: int64(1)}},
 		},
 	)
@@ -433,7 +437,7 @@ func TestExecBatchContextWithSeataATDriverSkipsNoOpDeleteItem(t *testing.T) {
 	require.Empty(t, branchUndoLog.Logs[0].AfterImage.Rows)
 
 	expectBatchATUndoExecutions(t, ctrl, mockConn, batchATUndoExpectation{
-		statement: "INSERT INTO `account`",
+		statement: "INSERT INTO `seata_client`.`account`",
 		undoArgs:  []driver.NamedValue{{Ordinal: 1, Value: int64(100)}, {Ordinal: 2, Value: int64(1)}},
 	})
 	executeBatchATUndo(t, db, branchUndoLog, batchATTableCache{})

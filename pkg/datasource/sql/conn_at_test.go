@@ -33,6 +33,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
@@ -95,6 +96,27 @@ func TestATPreparedStatementReturnsBindingErrorBeforeExecution(t *testing.T) {
 				stmt:  mock.NewMockTestDriverStmt(gomock.NewController(t)),
 			}
 			assert.ErrorIs(t, executePreparedStatementForBindingTest(stmt, operation), bindingErr)
+		})
+	}
+}
+
+func TestATPreparedStatementRejectsCrossDatabaseWrite(t *testing.T) {
+	for _, operation := range []string{"Exec", "ExecContext", "Query", "QueryContext"} {
+		t.Run(operation, func(t *testing.T) {
+			resource := &DBResource{
+				dbType:    types.DBTypeMySQL,
+				metaCache: mysql.NewTableMetaInstance(nil, nil),
+			}
+			stmt := &Stmt{
+				conn:  &Conn{res: resource, dbType: types.DBTypeMySQL, dbName: "db_a"},
+				res:   resource,
+				txCtx: &types.TransactionContext{TransactionMode: types.ATMode},
+				query: "UPDATE db_b.account SET balance=1",
+				stmt:  mock.NewMockTestDriverStmt(gomock.NewController(t)),
+			}
+			// No driver statement call is allowed when the target belongs to another resource.
+			err := executePreparedStatementForBindingTest(stmt, operation)
+			assert.ErrorContains(t, err, `AT write target database "db_b" does not match resource database "db_a"`)
 		})
 	}
 }
@@ -584,7 +606,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 						columns: []string{"version"},
 						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
 					}, nil
-				case strings.HasPrefix(query, `SELECT * FROM "public"."t_user" WHERE id=$1`):
+				case strings.HasPrefix(query, `SELECT * FROM "public"."t_user" WHERE "id"=$1`):
 					return &postgresMockRows{
 						columns: []string{"name", "age", "id"},
 						data:    [][]driver.Value{{"alice", int64(18), int64(1)}},
@@ -615,7 +637,7 @@ func TestATConn_PostgreSQLGlobalUpdateInTxUsesRealExecutor(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), "UPDATE t_user SET name = $1, age = $2 WHERE id = $3", "bob", int64(19), int64(1))
 	assert.NoError(t, err)
-	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`)
+	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE "id"=$1 FOR UPDATE`)
 	assert.Contains(t, queryLog[len(queryLog)-1], `("id") IN (($1))`)
 	assert.Equal(t, []string{"UPDATE t_user SET name = $1, age = $2 WHERE id = $3"}, execLog)
 	assert.NoError(t, tx.Rollback())
@@ -1207,6 +1229,7 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 			}
 			conn := &Conn{
 				res:        &DBResource{dbType: types.DBTypeMySQL, resourceID: "test-resource", metaCache: batchATTableCache{}},
+				dbName:     "seata_client",
 				txCtx:      txCtx,
 				targetConn: targetConn,
 				autoCommit: true,

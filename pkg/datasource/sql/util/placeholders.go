@@ -37,15 +37,22 @@ func RewritePlaceholders(query string, dbType types.DBType) string {
 	builder.Grow(len(query) + 8)
 
 	ordinal := 1
-	for _, ch := range query {
-		if ch != '?' {
-			builder.WriteRune(ch)
+	for i := 0; i < len(query); {
+		if end := PostgreSQLQuotedTokenEnd(query, i); end > i {
+			builder.WriteString(query[i:end])
+			i = end
+			continue
+		}
+		if query[i] != '?' {
+			builder.WriteByte(query[i])
+			i++
 			continue
 		}
 
 		builder.WriteByte('$')
 		builder.WriteString(strconv.Itoa(ordinal))
 		ordinal++
+		i++
 	}
 
 	return builder.String()
@@ -66,6 +73,11 @@ func CompactPostgreSQLPlaceholders(query string, args []driver.NamedValue) (stri
 	compactedArgs := make([]driver.NamedValue, 0, len(args))
 
 	for i := 0; i < len(query); {
+		if end := PostgreSQLQuotedTokenEnd(query, i); end > i {
+			builder.WriteString(query[i:end])
+			i = end
+			continue
+		}
 		if query[i] != '$' {
 			builder.WriteByte(query[i])
 			i++
@@ -107,4 +119,45 @@ func CompactPostgreSQLPlaceholders(query string, args []driver.NamedValue) (stri
 	}
 
 	return builder.String(), compactedArgs, nil
+}
+
+// PostgreSQLQuotedTokenEnd returns the byte after a quoted string or identifier,
+// or start when no complete quoted token begins there. Dollar tags are case sensitive.
+func PostgreSQLQuotedTokenEnd(query string, start int) int {
+	if query[start] == '\'' || query[start] == '"' {
+		quote := query[start]
+		for i := start + 1; i < len(query); i++ {
+			if query[i] == quote {
+				if i+1 < len(query) && query[i+1] == quote {
+					i++
+					continue
+				}
+				return i + 1
+			}
+		}
+		return start
+	}
+	if query[start] != '$' || (start > 0 && postgresIdentifierByte(query[start-1])) {
+		return start
+	}
+	end := start + 1
+	for end < len(query) && query[end] != '$' {
+		ch := query[end]
+		if !postgresIdentifierByte(ch) || (end == start+1 && ch >= '0' && ch <= '9') {
+			return start
+		}
+		end++
+	}
+	if end == len(query) {
+		return start
+	}
+	delimiter := query[start : end+1]
+	if closing := strings.Index(query[end+1:], delimiter); closing >= 0 {
+		return end + 1 + closing + len(delimiter)
+	}
+	return start
+}
+
+func postgresIdentifierByte(ch byte) bool {
+	return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '_' || ch == '$' || ch >= 0x80
 }

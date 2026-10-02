@@ -31,6 +31,7 @@ import (
 	"github.com/arana-db/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
@@ -58,6 +59,17 @@ type joinTableRef struct {
 	key   types.TableMetaKey
 }
 
+func (t joinTableRef) matchesWriteTarget(schema, table string) bool {
+	name := t.ref.TableName
+	if t.alias != "" {
+		name = t.alias
+	}
+	// Unqualified columns and case-overlapping aliases can name more than one
+	// source. Check every candidate rather than assuming the first one is written.
+	return table == "" || (strings.EqualFold(table, name) &&
+		(schema == "" || strings.EqualFold(schema, t.ref.Qualifier)))
+}
+
 // NewUpdateJoinExecutor get executor
 func NewUpdateJoinExecutor(parserCtx *types.ParseContext, execContent *types.ExecContext, hooks []exec.SQLHook) executor {
 	minimumVersion, _ := util.ConvertDbVersion(LowerSupportGroupByPksVersion)
@@ -79,8 +91,11 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 		u.afterHooks(ctx, u.execContext)
 	}()
 
+	if err := parser.BindTableRefs(u.parserCtx); err != nil {
+		return nil, err
+	}
 	if u.isAstStmtValid() {
-		u.tableRefs = u.parseTableName(u.parserCtx.UpdateStmt.TableRefs.TableRefs)
+		u.tableRefs = parseTableName(u.parserCtx, u.parserCtx.UpdateStmt.TableRefs.TableRefs)
 	}
 	if u.execContext.TableMetaReader == nil {
 		return nil, fmt.Errorf("table meta reader is missing from execution context")
@@ -92,6 +107,30 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 		}
 		u.tableRefs[index].key = key
 	}
+	writeTargets := make([]bool, len(u.tableRefs))
+	for _, assignment := range u.parserCtx.UpdateStmt.List {
+		matched := false
+		for index, table := range u.tableRefs {
+			if table.matchesWriteTarget(assignment.Column.Schema.O, assignment.Column.Table.O) {
+				matched = true
+				if err := validateWriteDatabase(ctx, u.execContext, table.key); err != nil {
+					return nil, err
+				}
+				writeTargets[index] = true
+			}
+		}
+		if !matched {
+			return nil, fmt.Errorf("cannot resolve AT write target %q.%q", assignment.Column.Schema.O, assignment.Column.Table.O)
+		}
+	}
+	// Reading all columns must not create locks or undo images for read-only joins.
+	writeTables := u.tableRefs[:0]
+	for index, table := range u.tableRefs {
+		if writeTargets[index] {
+			writeTables = append(writeTables, table)
+		}
+	}
+	u.tableRefs = writeTables
 
 	beforeImages, err := u.beforeImage(ctx)
 	if err != nil {
@@ -293,7 +332,7 @@ func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage
 	return sql, u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType)), nil
 }
 
-func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) []joinTableRef {
+func parseTableName(parseCtx *types.ParseContext, joinMate *ast.Join) []joinTableRef {
 	var tables []joinTableRef
 	var visit func(ast.ResultSetNode)
 	visit = func(source ast.ResultSetNode) {
@@ -305,11 +344,13 @@ func (u *updateJoinExecutor) parseTableName(joinMate *ast.Join) []joinTableRef {
 			}
 		case *ast.TableSource:
 			if table, ok := node.Source.(*ast.TableName); ok {
-				ref, found := u.parserCtx.TableRefs[table]
+				ref, found := parseCtx.TableRefs[table]
 				if !found {
 					ref = types.TableRef{Qualifier: table.Schema.O, TableName: table.Name.O}
 				}
 				tables = append(tables, joinTableRef{ref: ref, alias: node.AsName.O})
+			} else {
+				visit(node.Source)
 			}
 		}
 	}

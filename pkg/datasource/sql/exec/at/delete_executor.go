@@ -54,6 +54,9 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
 	}()
+	if err := d.validateTargetDatabases(ctx); err != nil {
+		return nil, err
+	}
 	if err := d.resolveTableMetaKey(ctx, d.execContext, d.parserCtx); err != nil {
 		return nil, err
 	}
@@ -77,6 +80,40 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 	return res, nil
+}
+
+func (d *deleteExecutor) validateTargetDatabases(ctx context.Context) error {
+	if effectiveDBType(d.execContext.DBType) != types.DBTypeMySQL ||
+		d.parserCtx == nil || d.parserCtx.DeleteStmt == nil || !d.parserCtx.DeleteStmt.IsMultiTable {
+		return nil
+	}
+	if err := parser.BindTableRefs(d.parserCtx); err != nil {
+		return err
+	}
+	if d.execContext.TableMetaReader == nil {
+		return fmt.Errorf("table meta reader is missing from execution context")
+	}
+	sources := parseTableName(d.parserCtx, d.parserCtx.DeleteStmt.TableRefs.TableRefs)
+	for _, target := range d.parserCtx.DeleteStmt.Tables.Tables {
+		matched := false
+		for _, source := range sources {
+			if !source.matchesWriteTarget(target.Schema.O, target.Name.O) {
+				continue
+			}
+			matched = true
+			key, err := d.execContext.TableMetaReader.ResolveTableMetaKey(ctx, d.execContext.Conn, source.ref)
+			if err != nil {
+				return err
+			}
+			if err := validateWriteDatabase(ctx, d.execContext, key); err != nil {
+				return err
+			}
+		}
+		if !matched {
+			return fmt.Errorf("cannot resolve AT write target %q.%q", target.Schema.O, target.Name.O)
+		}
+	}
+	return nil
 }
 
 // beforeImage build before image

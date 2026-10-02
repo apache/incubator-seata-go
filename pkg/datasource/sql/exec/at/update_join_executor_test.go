@@ -224,7 +224,7 @@ func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
 			executor := NewUpdateJoinExecutor(c, &types.ExecContext{Values: tt.sourceQueryArgs, NamedValues: util.ValueToNamedValue(tt.sourceQueryArgs)}, []exec.SQLHook{})
-			tableNames := executor.(*updateJoinExecutor).parseTableName(c.UpdateStmt.TableRefs.TableRefs)
+			tableNames := parseTableName(c, c.UpdateStmt.TableRefs.TableRefs)
 			for _, table := range tableNames {
 				tbName := table.ref.TableName
 				query, args, err := executor.(*updateJoinExecutor).buildBeforeImageSQL(context.Background(), tableMetas[tbName], table, util.ValueToNamedValue(tt.sourceQueryArgs))
@@ -242,8 +242,7 @@ func TestBuildSelectSQLByUpdateJoin(t *testing.T) {
 func TestUpdateJoinKeepsSameNamedTablesSeparate(t *testing.T) {
 	parsed, err := parser.DoParser("UPDATE one.users a JOIN two.users b ON a.id=b.id SET a.id=1")
 	assert.NoError(t, err)
-	executor := NewUpdateJoinExecutor(parsed, &types.ExecContext{}, nil).(*updateJoinExecutor)
-	tables := executor.parseTableName(parsed.UpdateStmt.TableRefs.TableRefs)
+	tables := parseTableName(parsed, parsed.UpdateStmt.TableRefs.TableRefs)
 	assert.Equal(t, []joinTableRef{
 		{ref: types.TableRef{Qualifier: "one", TableName: "users"}, alias: "a"},
 		{ref: types.TableRef{Qualifier: "two", TableName: "users"}, alias: "b"},
@@ -259,7 +258,7 @@ func TestUpdateJoinSameNamedTablesWithoutAliasesUsesQualifiedColumns(t *testing.
 		return
 	}
 	executor := NewUpdateJoinExecutor(parsed, &types.ExecContext{}, nil).(*updateJoinExecutor)
-	tables := executor.parseTableName(parsed.UpdateStmt.TableRefs.TableRefs)
+	tables := parseTableName(parsed, parsed.UpdateStmt.TableRefs.TableRefs)
 	assert.Len(t, tables, 2)
 	meta := &types.TableMeta{TableName: "users", Indexs: map[string]types.IndexMeta{
 		"id": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}},
@@ -410,5 +409,39 @@ func TestUpdateJoinCaseSensitiveIdentityKeepsImagesAndUndoSeparate(t *testing.T)
 				require.NoError(t, sqlMock.ExpectationsWereMet())
 			})
 		}
+	}
+}
+
+func TestJoinExecutorWriteDatabaseBoundary(t *testing.T) {
+	previous := undo.UndoConfig
+	t.Cleanup(func() { undo.UndoConfig = previous })
+	for _, onlyCareUpdateColumns := range []bool{true, false} {
+		undo.UndoConfig.OnlyCareUpdateColumns = onlyCareUpdateColumns
+		for _, tc := range []struct {
+			name       string
+			query      string
+			currentDB  string
+			wantReject bool
+		}{
+			{"parenthesized join", "UPDATE (db_a.account a JOIN db_b.account b ON a.id=b.id) SET b.balance=1", "", true},
+			{"joined write on right", "UPDATE db_a.account a JOIN db_b.account b ON a.id=b.id SET b.balance=1", "", true},
+			{"case distinct write alias", "UPDATE db_a.account a JOIN db_b.account A ON a.id=A.id SET A.balance=1", "", true},
+			{"case overlapping write aliases", "UPDATE db_a.account a JOIN db_b.other A ON TRUE SET a.only_b=1", "", true},
+			{"case overlapping read alias", "UPDATE db_a.account a JOIN db_b.account A ON a.id=A.id SET a.balance=A.balance", "", true},
+			{"joined writes on both sides", "UPDATE db_a.account a JOIN db_b.account b ON a.id=b.id SET a.balance=1,b.balance=2", "", true},
+			{"qualified joined write", "UPDATE db_a.account JOIN db_b.account ON db_a.account.id=db_b.account.id SET db_b.account.balance=1", "", true},
+			{"unqualified joined write", "UPDATE db_a.account a JOIN db_b.other b ON a.id=b.id SET balance=1", "", true},
+			{"join reads another database", "UPDATE db_a.account a JOIN db_b.account b ON a.id=b.id SET a.balance=b.balance", "", false},
+			{"join reads first foreign table", "UPDATE db_b.account b JOIN db_a.account a ON a.id=b.id SET a.balance=b.balance", "", false},
+			{"derived join read", "UPDATE db_a.account a JOIN (SELECT id FROM db_b.account) b ON a.id=b.id SET a.balance=1", "", false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				checkWriteDatabaseBoundary(t, tc.query, tc.currentDB, tc.wantReject)
+			})
+		}
+		t.Run("case overlapping database qualifier", func(t *testing.T) {
+			checkWriteDatabaseBoundary(t,
+				"UPDATE db_a.account JOIN DB_A.account ON db_a.account.id=DB_A.account.id SET db_a.account.balance=1", "", true, 0)
+		})
 	}
 }

@@ -51,6 +51,18 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	if err := parser.BindTableRefs(m.parserCtx); err != nil {
 		return nil, err
 	}
+	isATMode := isGlobalTx(ctx)
+	if m.execContext.TxCtx != nil {
+		isATMode = m.execContext.TxCtx.TransactionMode == types.ATMode
+	}
+	if isATMode {
+		for index, statement := range plan.statements {
+			statementCtx := *m.execContext
+			if err := m.resolveTableMetaKey(ctx, &statementCtx, statement); err != nil {
+				return nil, fmt.Errorf("validate statement %d: %w", index, err)
+			}
+		}
+	}
 
 	if plan.useAggregatePath {
 		if hasStatementSpecificHooks(plan) {

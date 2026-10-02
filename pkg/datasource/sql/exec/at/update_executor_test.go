@@ -160,7 +160,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "id"}},
 		}},
 	}
-	reader := &stubTableMetaCache{meta: meta}
+	reader := &tableMetaReaderForTest{key: types.TableMetaKey{DBName: "app", TableName: "account"}, meta: meta}
 
 	ctrl := gomock.NewController(t)
 	conn := mock.NewMockTestDriverConn(ctrl)
@@ -191,7 +191,7 @@ func TestUpdateExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue(item.args)
 		executor := NewUpdateExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
-			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
+			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL, DBName: "app",
 		}, nil)
 		_, err = executor.ExecContext(context.Background(), func(_ context.Context, businessQuery string, businessArgs []driver.NamedValue) (types.ExecResult, error) {
 			callbacks++
@@ -309,7 +309,7 @@ func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
 
 	query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(sourceQueryArgs))
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT name,age,id FROM \"t_user\" WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, `SELECT "name","age","id" FROM "t_user" WHERE "id"=$1 AND "name"='Jack' AND "age" BETWEEN $2 AND $3 FOR UPDATE`, query)
 	assert.Equal(t, []driver.Value{100, 18, 28}, util.NamedValueToValue(args))
 
 	meta := &types.TableMeta{
@@ -331,7 +331,7 @@ func TestBuildSelectSQLByUpdate_PostgreSQL(t *testing.T) {
 	assert.NotContains(t, afterSQL, "SQL_NO_CACHE")
 	assert.NotContains(t, afterSQL, "`")
 	assert.Contains(t, afterSQL, `("id") IN (($1),($2))`)
-	assert.Equal(t, 1, strings.Count(afterSQL, "name,age,id"))
+	assert.Equal(t, 1, strings.Count(afterSQL, `"name","age","id"`))
 	assert.Equal(t, []driver.Value{100, 101}, util.NamedValueToValue(afterArgs))
 
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: false})

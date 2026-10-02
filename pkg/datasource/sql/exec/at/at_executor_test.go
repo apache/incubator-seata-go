@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -702,4 +703,25 @@ func (m *mockResult) LastInsertId() (int64, error) {
 
 func (m *mockResult) RowsAffected() (int64, error) {
 	return m.rowsAffected, nil
+}
+
+func TestNonATWritesKeepCrossDatabaseExecution(t *testing.T) {
+	Init()
+	for _, mode := range []types.TransactionMode{types.Local, types.XAMode} {
+		t.Run(fmt.Sprint(mode), func(t *testing.T) {
+			const query = "UPDATE db_b.account SET balance=1"
+			e, err := exec.BuildExecutor(types.DBTypeMySQL, mode, query)
+			require.NoError(t, err)
+			calls := 0
+			_, err = e.ExecWithNamedValue(context.Background(), &types.ExecContext{
+				DBType: types.DBTypeMySQL, DBName: "db_a", Query: query,
+				TxCtx: &types.TransactionContext{TransactionMode: mode},
+			}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+				calls++
+				return &mockExecResult{rowsAffected: 1}, nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, 1, calls)
+		})
+	}
 }

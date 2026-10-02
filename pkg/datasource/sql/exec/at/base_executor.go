@@ -135,8 +135,52 @@ func (b *baseExecutor) resolveTableMetaKey(ctx context.Context, execCtx *types.E
 	if err != nil {
 		return err
 	}
+	// Multi-table DELETE checks its explicit targets in the delete executor;
+	// GetTableRef only identifies the first source table.
+	if parseCtx.HasValidStmt() && (parseCtx.DeleteStmt == nil || !parseCtx.DeleteStmt.IsMultiTable) {
+		if err := validateWriteDatabase(ctx, execCtx, key); err != nil {
+			return err
+		}
+	}
 	execCtx.TableMetaKey = &key
 	return nil
+}
+
+func validateWriteDatabase(ctx context.Context, execCtx *types.ExecContext, key types.TableMetaKey) error {
+	if effectiveDBType(execCtx.DBType) != types.DBTypeMySQL {
+		return nil
+	}
+	isATMode := isGlobalTx(ctx)
+	if execCtx.TxCtx != nil {
+		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
+	}
+	if !isATMode || (execCtx.DBName != "" && key.DBName == execCtx.DBName) {
+		return nil
+	}
+	if execCtx.DBName != "" && key.DBName != "" && strings.EqualFold(key.DBName, execCtx.DBName) {
+		// Only a case-only difference needs the server's identifier policy.
+		// lower_case_table_names=0 can represent two distinct databases.
+		rows, err := util.CtxDriverQueryWithPrepareFallback(ctx, execCtx.Conn, "SELECT @@lower_case_table_names", nil)
+		if err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		defer rows.Close()
+		values := make([]driver.Value, 1)
+		if err := rows.Next(values); err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		var lowerCaseTableNames sql.NullInt64
+		if err := lowerCaseTableNames.Scan(values[0]); err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		if !lowerCaseTableNames.Valid {
+			return fmt.Errorf("read lower_case_table_names: no value returned")
+		}
+		if lowerCaseTableNames.Int64 == 1 || lowerCaseTableNames.Int64 == 2 {
+			return nil
+		}
+	}
+	return fmt.Errorf("AT write target database %q does not match resource database %q", key.DBName, execCtx.DBName)
 }
 
 func (b *baseExecutor) getTableMeta(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext) (*types.TableMeta, error) {

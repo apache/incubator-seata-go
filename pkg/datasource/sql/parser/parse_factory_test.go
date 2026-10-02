@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -267,6 +268,48 @@ func TestDoParserForDBPreservesTableIdentifierQuotes(t *testing.T) {
 	}
 }
 
+func TestDoParserForDBPreservesUnquotedIdentifiers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want types.TableRef
+	}{
+		{"table symbol suffix", types.TableRef{TableName: "a£b"}},
+		{"table symbol prefix", types.TableRef{TableName: "£ab"}},
+		{"database symbol suffix", types.TableRef{Qualifier: "a£b", TableName: "users"}},
+		{"database symbol prefix", types.TableRef{Qualifier: "£ab", TableName: "users"}},
+		{"combining characters", types.TableRef{Qualifier: "\u0301db", TableName: "a\u0301b"}},
+		{"non-ASCII spaces", types.TableRef{Qualifier: "\u00a0db", TableName: "a\u00a0b"}},
+		{"non-ASCII letters", types.TableRef{Qualifier: "库", TableName: "表"}},
+		{"ASCII identifier characters", types.TableRef{Qualifier: "1Db_$", TableName: "$Ta0_b"}},
+	} {
+		for _, dbType := range []types.DBType{types.DBTypeMySQL, types.DBTypePostgreSQL} {
+			for _, queryFormat := range []string{
+				"UPDATE %s SET id=1",
+				"INSERT INTO %s (id) VALUES (1)",
+				"DELETE FROM %s WHERE id=1",
+				"SELECT id FROM %s FOR UPDATE",
+			} {
+				t.Run(fmt.Sprintf("%s/%s/%s", tc.name, dbType, queryFormat), func(t *testing.T) {
+					table := tc.want.TableName
+					if tc.want.Qualifier != "" {
+						table = tc.want.Qualifier + "." + table
+					}
+					parsed, err := ParseSQLForDB(fmt.Sprintf(queryFormat, table), dbType)
+					if !assert.NoError(t, err, "the existing lexer must accept the identifier") {
+						return
+					}
+					if !assert.NoError(t, BindTableRefs(parsed)) {
+						return
+					}
+					ref, err := parsed.GetTableRef()
+					assert.NoError(t, err)
+					assert.Equal(t, tc.want, ref)
+				})
+			}
+		}
+	}
+}
+
 func TestDoParserForDBUsesEachStatementTableRef(t *testing.T) {
 	parsed, err := DoParserForDB(`UPDATE "One" SET id=1; UPDATE "Two" SET id=2`, types.DBTypePostgreSQL)
 	assert.NoError(t, err)
@@ -280,6 +323,30 @@ func TestDoParserForDBUsesEachStatementTableRef(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, types.TableRef{TableName: "One", TableNameQuoted: true}, first)
 	assert.Equal(t, types.TableRef{TableName: "Two", TableNameQuoted: true}, second)
+}
+
+func TestPostgresDollarLiteralsPreserveStatementSourcesAndOffsets(t *testing.T) {
+	first := `/* leading comment */ UPDATE "Users" SET name=$Tag$ALICE; ' $9$Tag$ WHERE ID=$1;`
+	second := ` /* second comment */ UPDATE users SET name=$$中文; " $1$$ WHERE ID=$2`
+	parsed, err := DoParserForDB("\n"+first+"\n"+second, types.DBTypePostgreSQL)
+	if !assert.NoError(t, err) || !assert.Len(t, parsed.MultiStmt, 2) {
+		return
+	}
+	for i, source := range []string{first, second} {
+		statement := parsed.MultiStmt[i].UpdateStmt
+		assert.Equal(t, source, statement.Text())
+		image, err := ParsePostgreSQLUpdateForImage(statement.Text())
+		if !assert.NoError(t, err) {
+			continue
+		}
+		var restored strings.Builder
+		assert.NoError(t, image.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase|format.RestoreNameDoubleQuotes, &restored)))
+		if i == 0 {
+			assert.Equal(t, `UPDATE "Users" SET "name"=$Tag$ALICE; ' $9$Tag$ WHERE "id"=$1`, restored.String())
+		} else {
+			assert.Equal(t, `UPDATE "users" SET "name"=$$中文; " $1$$ WHERE "id"=$2`, restored.String())
+		}
+	}
 }
 
 func TestDoParserForDBBindsMySQLExecutableComments(t *testing.T) {

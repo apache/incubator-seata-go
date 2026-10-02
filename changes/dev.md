@@ -32,6 +32,10 @@
 
 ### bugfix：
 
+  - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] fix metadata cache overwrites across multiple data sources of the same database type and retain schema-qualified PostgreSQL table identities.
+
+    **action required:** PostgreSQL AT global lock keys now include the schema, for example `ACCOUNT:1` becomes `PUBLIC.ACCOUNT:1`. The old and new formats are incompatible. Before upgrading, pause incoming requests, message consumers, and business scheduled jobs. Keep the current RMs, TC, and recovery components online until all affected global transactions and branches have committed or rolled back, including phase-two retries and undo-log cleanup, and all related global locks have been released. Then stop the old RMs, upgrade every RM sharing the affected database resources, including other services and background jobs, and resume business traffic only after validation. Do not process business transactions with mixed lock-key formats. Downgrades require the same traffic pause and transaction drain. Completed requests or a fixed waiting period do not prove that transactions have drained.
+
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed

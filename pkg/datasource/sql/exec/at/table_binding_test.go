@@ -292,7 +292,7 @@ func TestATExecutionAcceptsMySQLExecutableComments(t *testing.T) {
 			).Times(2)
 			txCtx := types.NewTxCtx()
 			txCtx.TransactionMode = types.ATMode
-			execCtx := &types.ExecContext{Query: query, DBType: types.DBTypeMySQL, TableMetaReader: reader, Conn: conn, TxCtx: txCtx}
+			execCtx := &types.ExecContext{Query: query, DBType: types.DBTypeMySQL, DBName: "app", TableMetaReader: reader, Conn: conn, TxCtx: txCtx}
 			called := false
 			_, err := (&ATExecutor{}).ExecWithNamedValue(context.Background(), execCtx, func(_ context.Context, got string, _ []driver.NamedValue) (types.ExecResult, error) {
 				called = true
