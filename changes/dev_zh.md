@@ -36,6 +36,8 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] 升级 Go 依赖以修复可达安全漏洞，并将最低 Go 版本提升至 1.26.8
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
+- 修复 `loadbalance.Select()` 在 `load-balance.type` 配置为 `ConsistentHashLoadBalance` / `LeastActiveLoadBalance` 时静默回退为随机负载均衡的问题：两个策略均已实现且配置层已接受，仅分发 `switch` 缺少对应分支
+- [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] 修复上述两个策略在真正可达之后暴露出的问题：负载均衡 key 从整个 `RpcMessage` 而非其 body 中提取，导致一致性哈希把所有请求固定到同一台 TC；`rpc.Status.GetActive` / `GetTotal` 未用 `sync/atomic` 读取在途计数；首次选择时若还没有 session，哈希环会一直为空，且 key 越过最后一个虚拟节点时不会环绕到环首
 
 ### optimize：
 
