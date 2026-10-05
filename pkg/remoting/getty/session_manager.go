@@ -385,24 +385,48 @@ func (g *SessionManager) isServerAddressAvailable(address string) bool {
 }
 
 func (g *SessionManager) getXid(msg interface{}) string {
-	var xid string
-	if tmpMsg, ok := msg.(message.AbstractGlobalEndRequest); ok {
-		xid = tmpMsg.Xid
-	} else if tmpMsg, ok := msg.(message.GlobalBeginRequest); ok {
-		xid = tmpMsg.TransactionName
-	} else if tmpMsg, ok := msg.(message.BranchRegisterRequest); ok {
-		xid = tmpMsg.Xid
-	} else if tmpMsg, ok := msg.(message.BranchReportRequest); ok {
-		xid = tmpMsg.Xid
-	} else {
-		msgType := reflect.TypeOf(msg)
-		msgValue := reflect.ValueOf(msg)
-		if msgType.Kind() == reflect.Ptr {
-			msgValue = msgValue.Elem()
-		}
-		xid = msgValue.FieldByName("Xid").String()
+	// SendSync / SendAsync hand over the whole message.RpcMessage, while the
+	// selection key lives in the body. Unwrap it so consistent hashing sees the
+	// real transaction key instead of a value shared by every request.
+	if rpcMsg, ok := msg.(message.RpcMessage); ok {
+		msg = rpcMsg.Body
 	}
-	return xid
+	if msg == nil {
+		return ""
+	}
+
+	switch tmpMsg := msg.(type) {
+	case message.AbstractGlobalEndRequest:
+		return tmpMsg.Xid
+	case message.GlobalBeginRequest:
+		return tmpMsg.TransactionName
+	case message.BranchRegisterRequest:
+		return tmpMsg.Xid
+	case message.BranchReportRequest:
+		return tmpMsg.Xid
+	}
+
+	// Some messages only expose the key through a field, so fall back to
+	// reflection. Every step is guarded: a missing field used to yield the
+	// literal string "<invalid Value>", which then became the hash key for
+	// every request. An empty result now degrades to a per-request random key.
+	msgValue := reflect.ValueOf(msg)
+	if msgValue.Kind() == reflect.Ptr {
+		if msgValue.IsNil() {
+			return ""
+		}
+		msgValue = msgValue.Elem()
+	}
+	if msgValue.Kind() != reflect.Struct {
+		return ""
+	}
+	if field := msgValue.FieldByName("Xid"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	if field := msgValue.FieldByName("TransactionName"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	return ""
 }
 
 func (g *SessionManager) releaseSession(session getty.Session) {
