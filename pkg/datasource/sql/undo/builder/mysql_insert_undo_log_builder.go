@@ -147,18 +147,18 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 	if len(pkColumnNameList) == 1 {
 		if u.containsPK(meta, parseCtx) {
 			// the insert sql contain pk value
-			pkValuesMap, err = u.getPkValuesByColumn(execCtx)
+			pkValuesMap, err = u.getPkValuesByColumn(execCtx, meta)
 			if err != nil {
 				return nil, err
 			}
 		} else if containsColumns(parseCtx) {
 			// the insert table pk auto generated
-			pkValuesMap, err = u.getPkValuesByAuto(execCtx)
+			pkValuesMap, err = u.getPkValuesByAuto(execCtx, meta)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			pkValuesMap, err = u.getPkValuesByColumn(execCtx)
+			pkValuesMap, err = u.getPkValuesByColumn(execCtx, meta)
 			if err != nil {
 				return nil, err
 			}
@@ -167,13 +167,13 @@ func (u *MySQLInsertUndoLogBuilder) getPkValues(execCtx *types.ExecContext, pars
 		//when there is multiple pk in the table
 		//1,all pk columns are filled value.
 		//2,the auto increment pk column value is null, and other pk value are not null.
-		pkValuesMap, err = u.getPkValuesByColumn(execCtx)
+		pkValuesMap, err = u.getPkValuesByColumn(execCtx, meta)
 		if err != nil {
 			return nil, err
 		}
 		for _, columnName := range pkColumnNameList {
 			if _, ok := pkValuesMap[columnName]; !ok {
-				curPkValuesMap, err := u.getPkValuesByAuto(execCtx)
+				curPkValuesMap, err := u.getPkValuesByAuto(execCtx, meta)
 				if err != nil {
 					return nil, err
 				}
@@ -360,16 +360,12 @@ func (u *MySQLInsertUndoLogBuilder) parsePkValuesFromStatement(insertStmt *ast.I
 }
 
 // getPkValuesByColumn get pk value by column.
-func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecContext) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecContext, meta types.TableMeta) (map[string][]interface{}, error) {
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
 		return nil, nil
 	}
 	parseCtx := execCtx.ParseContext
-	meta, err := tableMetaForExec(context.Background(), execCtx)
-	if err != nil {
-		return nil, err
-	}
-	pkValuesMap, err := u.parsePkValuesFromStatement(parseCtx.InsertStmt, *meta, execCtx.NamedValues)
+	pkValuesMap, err := u.parsePkValuesFromStatement(parseCtx.InsertStmt, meta, execCtx.NamedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +376,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecConte
 		if len(tmpV) == 1 {
 			// pk auto generated while single insert primary key is expression
 			if _, ok := tmpV[0].(*ast.FuncCallExpr); ok {
-				curPkValueMap, err := u.getPkValuesByAuto(execCtx)
+				curPkValueMap, err := u.getPkValuesByAuto(execCtx, meta)
 				if err != nil {
 					return nil, err
 				}
@@ -388,7 +384,7 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecConte
 			}
 		} else if len(tmpV) > 0 && tmpV[0] == nil {
 			// pk auto generated while column exists and value is null
-			curPkValueMap, err := u.getPkValuesByAuto(execCtx)
+			curPkValueMap, err := u.getPkValuesByAuto(execCtx, meta)
 			if err != nil {
 				return nil, err
 			}
@@ -398,16 +394,12 @@ func (u *MySQLInsertUndoLogBuilder) getPkValuesByColumn(execCtx *types.ExecConte
 	return pkValuesMap, nil
 }
 
-func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext) (map[string][]interface{}, error) {
+func (u *MySQLInsertUndoLogBuilder) getPkValuesByAuto(execCtx *types.ExecContext, meta types.TableMeta) (map[string][]interface{}, error) {
 	if execCtx == nil || execCtx.ParseContext == nil || execCtx.ParseContext.InsertStmt == nil {
 		return nil, nil
 	}
-	metaData, err := tableMetaForExec(context.Background(), execCtx)
-	if err != nil {
-		return nil, err
-	}
 	pkValuesMap := make(map[string][]interface{})
-	pkMetaMap := metaData.GetPrimaryKeyMap()
+	pkMetaMap := meta.GetPrimaryKeyMap()
 	if len(pkMetaMap) == 0 {
 		return nil, fmt.Errorf("pk map is empty")
 	}

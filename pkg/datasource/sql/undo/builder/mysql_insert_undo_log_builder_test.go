@@ -37,6 +37,16 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
+type countingInsertTableMetaReader struct {
+	testTableMetaReader
+	reads int
+}
+
+func (r *countingInsertTableMetaReader) GetTableMeta(ctx context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
+	r.reads++
+	return r.testTableMetaReader.GetTableMeta(ctx, key)
+}
+
 func TestBuildSelectSQLByInsert(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -344,7 +354,8 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			assert.Nil(t, err)
 			exec := &types.ExecContext{}
 			exec.ParseContext = c
-			exec.TableMetaReader = testTableMetaReader{metas: test.metaDataMap}
+			reader := &countingInsertTableMetaReader{testTableMetaReader: testTableMetaReader{metas: test.metaDataMap}}
+			exec.TableMetaReader = reader
 			exec.Values = test.queryArgs
 			exec.NamedValues = test.NamedValues
 			builder := MySQLInsertUndoLogBuilder{}
@@ -352,6 +363,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			builder.IncrementStep = test.IncrementStep
 			sql, values, err := builder.buildAfterImageSQL(context.Background(), exec)
 			assert.Nil(t, err)
+			assert.Equal(t, 1, reader.reads)
 			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
 				if test.orExpectQuery == sql {
 					assert.Equal(t, test.orExpectQueryArgs, values)
@@ -875,7 +887,9 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 				InsertResult:        tt.fields.InsertResult,
 				IncrementStep:       tt.fields.IncrementStep,
 			}
-			got, err := u.getPkValuesByColumn(tt.args.execCtx)
+			meta := tt.args.execCtx.TableMetaReader.(testTableMetaReader).metas["test"]
+			tt.args.execCtx.TableMetaReader = nil
+			got, err := u.getPkValuesByColumn(tt.args.execCtx, meta)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
 		})
@@ -971,11 +985,41 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 				InsertResult:        tt.fields.InsertResult,
 				IncrementStep:       tt.fields.IncrementStep,
 			}
-			got, err := u.getPkValuesByAuto(tt.args.execCtx)
+			meta := tt.args.execCtx.TableMetaReader.(testTableMetaReader).metas["test"]
+			tt.args.execCtx.TableMetaReader = nil
+			got, err := u.getPkValuesByAuto(tt.args.execCtx, meta)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
 		})
 	}
+}
+
+func TestMySQLInsertUndoLogBuilder_getPkValuesReusesMetaForAutoFallback(t *testing.T) {
+	parseCtx, err := parser.DoParser("insert into test(id) values (NULL),(NULL)")
+	assert.NoError(t, err)
+	meta := types.TableMeta{
+		ColumnNames: []string{"id"},
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id", Autoincrement: true},
+		},
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id", Autoincrement: true},
+				},
+			},
+		},
+	}
+	u := &MySQLInsertUndoLogBuilder{
+		InsertResult:  &mockInsertResult{lastInsertID: 100, rowsAffected: 2},
+		IncrementStep: 1,
+	}
+	execCtx := &types.ExecContext{ParseContext: parseCtx}
+	got, err := u.getPkValues(execCtx, parseCtx, meta)
+	assert.NoError(t, err)
+	assert.Contains(t, got["id"], int64(100))
+	assert.Contains(t, got["id"], int64(101))
 }
 
 func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {

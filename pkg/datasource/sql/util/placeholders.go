@@ -123,10 +123,17 @@ func CompactPostgreSQLPlaceholders(query string, args []driver.NamedValue) (stri
 
 // PostgreSQLQuotedTokenEnd returns the byte after a quoted string or identifier,
 // or start when no complete quoted token begins there. Dollar tags are case sensitive.
+// E-prefixed strings support backslash escapes.
 func PostgreSQLQuotedTokenEnd(query string, start int) int {
 	if query[start] == '\'' || query[start] == '"' {
 		quote := query[start]
+		escapeString := quote == '\'' && start > 0 && (query[start-1] == 'E' || query[start-1] == 'e') &&
+			(start == 1 || !postgresIdentifierByte(query[start-2]))
 		for i := start + 1; i < len(query); i++ {
+			if escapeString && query[i] == '\\' {
+				i++
+				continue
+			}
 			if query[i] == quote {
 				if i+1 < len(query) && query[i+1] == quote {
 					i++
