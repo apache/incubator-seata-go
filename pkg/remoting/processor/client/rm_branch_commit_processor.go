@@ -65,63 +65,24 @@ func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rp
 	resourceID := request.AbstractBranchEndRequest.ResourceId
 	applicationData := request.AbstractBranchEndRequest.ApplicationData
 	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
-	branchResource := rm.BranchResource{
+
+	status, err := commitWithResourceManager(ctx, int32(request.AbstractBranchEndRequest.BranchType), rm.BranchResource{
 		ResourceId:      resourceID,
 		BranchId:        branchID,
 		ApplicationData: []byte(applicationData),
 		Xid:             xid,
-	}
-
-	branchType := branch.BranchType(request.AbstractBranchEndRequest.BranchType)
-	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(branchType)
-	if !ok {
-		errMsg := resourceManagerNotFoundMsg(branchType)
-		log.Errorf("branch commit error: %s", errMsg)
-		err := grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedGrpcBranchCommitResponse(xid, branchID, errMsg))
-		if err != nil {
-			log.Errorf("send branch commit response error: {%#v}", err.Error())
-			return err
-		}
-		return nil
-	}
-	status, err := resourceManager.BranchCommit(ctx, branchResource)
+	})
 	if err != nil {
 		log.Errorf("branch commit error: %s", err.Error())
-		return err
-	}
-	log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
-
-	var (
-		resultCode pb.ResultCodeProto
-		errMsg     string
-	)
-	if err != nil {
-		resultCode = pb.ResultCodeProto_Failed
-		errMsg = err.Error()
 	} else {
-		resultCode = pb.ResultCodeProto_Success
+		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	}
 
-	// reply commit response to tc server
 	// todo add TransactionErrorCode
 	response := &pb.BranchCommitResponseProto{
-		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
-			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
-				AbstractResultMessage: &pb.AbstractResultMessageProto{
-					AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_COMMIT_RESULT},
-					ResultCode:      resultCode,
-					Msg:             errMsg,
-				},
-			},
-			Xid:          xid,
-			BranchId:     branchID,
-			BranchStatus: pb.BranchStatusProto(status),
-		},
+		AbstractBranchEndResponse: grpcBranchEndResponse(xid, branchID, status, err, pb.MessageTypeProto_TYPE_BRANCH_COMMIT_RESULT),
 	}
-
-	err = grpc.GetGrpcRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
-	if err != nil {
-		log.Errorf("send branch commit response error: {%#v}", err.Error())
+	if err := replyGrpc(rpcMessage.ID, response); err != nil {
 		return err
 	}
 	log.Infof("send branch commit success: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
@@ -135,96 +96,137 @@ func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, r
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
 	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
-	branchResource := rm.BranchResource{
+
+	status, err := commitWithResourceManager(ctx, int32(request.BranchType), rm.BranchResource{
 		ResourceId:      resourceID,
 		BranchId:        branchID,
 		ApplicationData: applicationData,
 		Xid:             xid,
-	}
-
-	resourceManager, ok := rm.GetRmCacheInstance().FindResourceManager(request.BranchType)
-	if !ok {
-		errMsg := resourceManagerNotFoundMsg(request.BranchType)
-		log.Errorf("branch commit error: %s", errMsg)
-		err := getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, newFailedBranchCommitResponse(xid, branchID, errMsg))
-		if err != nil {
-			log.Errorf("send branch commit response error: {%#v}", err.Error())
-			return err
-		}
-		return nil
-	}
-	status, err := resourceManager.BranchCommit(ctx, branchResource)
+	})
 	if err != nil {
 		log.Errorf("branch commit error: %s", err.Error())
-		return err
-	}
-	log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
-
-	var (
-		resultCode message.ResultCode
-		errMsg     string
-	)
-	if err != nil {
-		resultCode = message.ResultCodeFailed
-		errMsg = err.Error()
 	} else {
-		resultCode = message.ResultCodeSuccess
+		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
 	}
 
-	// reply commit response to tc server
 	// todo add TransactionErrorCode
 	response := message.BranchCommitResponse{
-		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
-			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				AbstractResultMessage: message.AbstractResultMessage{
-					ResultCode: resultCode,
-					Msg:        errMsg,
-				},
-			},
-			Xid:          xid,
-			BranchId:     branchID,
-			BranchStatus: status,
-		},
+		AbstractBranchEndResponse: gettyBranchEndResponse(xid, branchID, status, err),
 	}
-	err = getty.GetGettyRemotingClient().SendAsyncResponse(rpcMessage.ID, response)
-	if err != nil {
-		log.Errorf("send branch commit response error: {%#v}", err.Error())
+	if err := replyGetty(rpcMessage.ID, response); err != nil {
 		return err
 	}
 	log.Infof("send branch commit success: xid %v, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
 	return nil
 }
 
+func commitWithResourceManager(ctx context.Context, rawBranchType int32, branchResource rm.BranchResource) (branch.BranchStatus, error) {
+	resourceManager, err := lookupResourceManager(rawBranchType)
+	if err != nil {
+		return 0, err
+	}
+	return resourceManager.BranchCommit(ctx, branchResource)
+}
+
+var (
+	sendGettyAsyncResponse = func(msgID int32, msg interface{}) error {
+		return getty.GetGettyRemotingClient().SendAsyncResponse(msgID, msg)
+	}
+	sendGrpcAsyncResponse = func(msgID int32, msg interface{}) error {
+		return grpc.GetGrpcRemotingClient().SendAsyncResponse(msgID, msg)
+	}
+)
+
+func parseKnownBranchType(raw int32) (branch.BranchType, bool) {
+	switch raw {
+	case int32(branch.BranchTypeAT), int32(branch.BranchTypeTCC), int32(branch.BranchTypeSAGA), int32(branch.BranchTypeXA):
+		return branch.BranchType(raw), true
+	default:
+		return 0, false
+	}
+}
+
 func resourceManagerNotFoundMsg(branchType branch.BranchType) string {
 	return fmt.Sprintf("No ResourceManager for BranchType: %v", branchType)
 }
 
-func newFailedBranchCommitResponse(xid string, branchID int64, errMsg string) message.BranchCommitResponse {
-	return message.BranchCommitResponse{
-		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
-			AbstractTransactionResponse: message.AbstractTransactionResponse{
-				AbstractResultMessage: message.AbstractResultMessage{
-					ResultCode: message.ResultCodeFailed,
-					Msg:        errMsg,
-				},
+func lookupResourceManager(raw int32) (rm.ResourceManager, error) {
+	branchType, ok := parseKnownBranchType(raw)
+	if !ok {
+		return nil, fmt.Errorf("unsupported BranchType: %d", raw)
+	}
+	resourceManager, found := rm.GetRmCacheInstance().FindResourceManager(branchType)
+	if !found || resourceManager == nil {
+		return nil, fmt.Errorf("%s", resourceManagerNotFoundMsg(branchType))
+	}
+	return resourceManager, nil
+}
+
+func gettyBranchEndResponse(xid string, branchID int64, status branch.BranchStatus, err error) message.AbstractBranchEndResponse {
+	resultCode := message.ResultCodeSuccess
+	errMsg := ""
+	if err != nil {
+		resultCode = message.ResultCodeFailed
+		errMsg = err.Error()
+	}
+	return message.AbstractBranchEndResponse{
+		AbstractTransactionResponse: message.AbstractTransactionResponse{
+			AbstractResultMessage: message.AbstractResultMessage{
+				ResultCode: resultCode,
+				Msg:        errMsg,
 			},
-			Xid:      xid,
-			BranchId: branchID,
 		},
+		Xid:          xid,
+		BranchId:     branchID,
+		BranchStatus: status,
 	}
 }
 
-func newFailedGrpcBranchCommitResponse(xid string, branchID int64, errMsg string) *pb.BranchCommitResponseProto {
-	return &pb.BranchCommitResponseProto{
-		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
-			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
-				AbstractResultMessage: &pb.AbstractResultMessageProto{
-					ResultCode: pb.ResultCodeProto_Failed,
-					Msg:        errMsg,
-				},
-			},
-			Xid:      xid,
-			BranchId: branchID,
-		},
+func grpcBranchEndResponse(xid string, branchID int64, status branch.BranchStatus, err error, msgType pb.MessageTypeProto) *pb.AbstractBranchEndResponseProto {
+	resultCode := pb.ResultCodeProto_Success
+	errMsg := ""
+	if err != nil {
+		resultCode = pb.ResultCodeProto_Failed
+		errMsg = err.Error()
 	}
+	return &pb.AbstractBranchEndResponseProto{
+		AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+			AbstractResultMessage: &pb.AbstractResultMessageProto{
+				AbstractMessage: &pb.AbstractMessageProto{MessageType: msgType},
+				ResultCode:      resultCode,
+				Msg:             errMsg,
+			},
+		},
+		Xid:          xid,
+		BranchId:     branchID,
+		BranchStatus: pb.BranchStatusProto(status),
+	}
+}
+
+func replyGetty(msgID int32, msg interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("send branch response panic: %v", r)
+			log.Errorf("send branch response error: {%#v}", err.Error())
+		}
+	}()
+	err = sendGettyAsyncResponse(msgID, msg)
+	if err != nil {
+		log.Errorf("send branch response error: {%#v}", err.Error())
+	}
+	return err
+}
+
+func replyGrpc(msgID int32, msg interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("send branch response panic: %v", r)
+			log.Errorf("send branch response error: {%#v}", err.Error())
+		}
+	}()
+	err = sendGrpcAsyncResponse(msgID, msg)
+	if err != nil {
+		log.Errorf("send branch response error: {%#v}", err.Error())
+	}
+	return err
 }

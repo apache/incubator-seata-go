@@ -38,7 +38,7 @@
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
-  - [[#1158](https://github.com/apache/incubator-seata-go/issues/1158)] return a failed branch response instead of panicking when BranchType has no ResourceManager
+  - [[#1158](https://github.com/apache/incubator-seata-go/issues/1158)] return a failed branch response instead of panicking when BranchType has no ResourceManager; GetResourceManager now returns nil for a missing type (use FindResourceManager)
 
 ### optimize：
 

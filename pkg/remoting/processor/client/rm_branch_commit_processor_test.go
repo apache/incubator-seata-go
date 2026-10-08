@@ -162,3 +162,155 @@ func (m *testGrpcResourceManager) BranchCommit(context.Context, rm.BranchResourc
 func (m *testGrpcResourceManager) BranchRollback(context.Context, rm.BranchResource) (model2.BranchStatus, error) {
 	return model2.BranchStatusPhaseoneDone, nil
 }
+
+func TestRmBranchCommitProcessorUnknownBranchTypeSendsFailedResponse(t *testing.T) {
+	xid := "xid-unknown-commit"
+	branchID := int64(1158)
+
+	t.Run("getty", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "seata"})
+		err := (&rmBranchCommitProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 42,
+			Body: message.BranchCommitRequest{
+				AbstractBranchEndRequest: message.AbstractBranchEndRequest{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: model2.BranchType(99),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		if captured.id != 42 {
+			t.Fatalf("want msg id 42, got %d", captured.id)
+		}
+		assertFailedGettyBranchEnd(t, captured.msg, xid, branchID)
+	})
+
+	t.Run("grpc", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "grpc"})
+		err := (&rmBranchCommitProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 43,
+			Body: &pb.BranchCommitRequestProto{
+				AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: pb.BranchTypeProto(99),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		if captured.id != 43 {
+			t.Fatalf("want msg id 43, got %d", captured.id)
+		}
+		assertFailedGrpcBranchEnd(t, captured.msg, xid, branchID)
+	})
+
+	t.Run("grpc-truncation", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "grpc"})
+		err := (&rmBranchCommitProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 44,
+			Body: &pb.BranchCommitRequestProto{
+				AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: pb.BranchTypeProto(257),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		assertFailedGrpcBranchEnd(t, captured.msg, xid, branchID)
+		resp := captured.msg.(*pb.BranchCommitResponseProto)
+		if resp.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage.Msg != "unsupported BranchType: 257" {
+			t.Fatalf("want truncation rejected as 257, got %q", resp.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage.Msg)
+		}
+	})
+}
+
+func TestParseKnownBranchTypeRejectsTruncatingValues(t *testing.T) {
+	if _, ok := parseKnownBranchType(257); ok {
+		t.Fatal("257 must not be accepted; int8 conversion would truncate it to TCC")
+	}
+	if bt, ok := parseKnownBranchType(int32(model2.BranchTypeTCC)); !ok || bt != model2.BranchTypeTCC {
+		t.Fatalf("TCC should be accepted, got %v ok=%v", bt, ok)
+	}
+	if bt, ok := parseKnownBranchType(int32(model2.BranchTypeXA)); !ok || bt != model2.BranchTypeXA {
+		t.Fatalf("XA should be accepted, got %v ok=%v", bt, ok)
+	}
+}
+
+func stubAsyncResponses(t *testing.T) *capturedBranchResponse {
+	t.Helper()
+	origGetty := sendGettyAsyncResponse
+	origGrpc := sendGrpcAsyncResponse
+	captured := &capturedBranchResponse{}
+	sendGettyAsyncResponse = func(msgID int32, msg interface{}) error {
+		captured.id = msgID
+		captured.msg = msg
+		return nil
+	}
+	sendGrpcAsyncResponse = func(msgID int32, msg interface{}) error {
+		captured.id = msgID
+		captured.msg = msg
+		return nil
+	}
+	t.Cleanup(func() {
+		sendGettyAsyncResponse = origGetty
+		sendGrpcAsyncResponse = origGrpc
+	})
+	return captured
+}
+
+type capturedBranchResponse struct {
+	id  int32
+	msg interface{}
+}
+
+func assertFailedGettyBranchEnd(t *testing.T, sent interface{}, xid string, branchID int64) {
+	t.Helper()
+	switch resp := sent.(type) {
+	case message.BranchCommitResponse:
+		if resp.ResultCode != message.ResultCodeFailed {
+			t.Fatalf("want ResultCodeFailed, got %v", resp.ResultCode)
+		}
+		if resp.Xid != xid || resp.BranchId != branchID {
+			t.Fatalf("want xid=%s branchId=%d, got xid=%s branchId=%d", xid, branchID, resp.Xid, resp.BranchId)
+		}
+	case message.BranchRollbackResponse:
+		if resp.ResultCode != message.ResultCodeFailed {
+			t.Fatalf("want ResultCodeFailed, got %v", resp.ResultCode)
+		}
+		if resp.Xid != xid || resp.BranchId != branchID {
+			t.Fatalf("want xid=%s branchId=%d, got xid=%s branchId=%d", xid, branchID, resp.Xid, resp.BranchId)
+		}
+	default:
+		t.Fatalf("unexpected getty response type %T", sent)
+	}
+}
+
+func assertFailedGrpcBranchEnd(t *testing.T, sent interface{}, xid string, branchID int64) {
+	t.Helper()
+	var end *pb.AbstractBranchEndResponseProto
+	switch resp := sent.(type) {
+	case *pb.BranchCommitResponseProto:
+		end = resp.AbstractBranchEndResponse
+	case *pb.BranchRollbackResponseProto:
+		end = resp.AbstractBranchEndResponse
+	default:
+		t.Fatalf("unexpected grpc response type %T", sent)
+	}
+	if end.AbstractTransactionResponse.AbstractResultMessage.ResultCode != pb.ResultCodeProto_Failed {
+		t.Fatalf("want grpc Failed, got %v", end.AbstractTransactionResponse.AbstractResultMessage.ResultCode)
+	}
+	if end.Xid != xid || end.BranchId != branchID {
+		t.Fatalf("want xid=%s branchId=%d, got xid=%s branchId=%d", xid, branchID, end.Xid, end.BranchId)
+	}
+}
