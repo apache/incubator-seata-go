@@ -107,7 +107,7 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 // the advantage of this is that the suspend and resume operations of xid need not to be considered.
 func Begin(ctx context.Context, gc *GtxConfig) error {
 	// record time
-	ti := TimeInfo{createTime: time.Duration(time.Now().Unix()), timeout: gc.Timeout}
+	ti := TimeInfo{createTime: now(), timeout: gc.Timeout}
 	SetTimeInfo(ctx, ti)
 
 	switch pg := gc.Propagation; pg {

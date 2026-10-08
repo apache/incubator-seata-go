@@ -82,7 +82,7 @@ func TestIsTimeout(t *testing.T) {
 	t.Run("expired time info", func(t *testing.T) {
 		ctx := InitSeataContext(context.Background())
 		SetTimeInfo(ctx, TimeInfo{
-			createTime: time.Duration(time.Now().Add(-3 * time.Second).Unix()),
+			createTime: now().Add(-3 * time.Second),
 			timeout:    time.Second,
 		})
 
@@ -92,10 +92,70 @@ func TestIsTimeout(t *testing.T) {
 	t.Run("active time info", func(t *testing.T) {
 		ctx := InitSeataContext(context.Background())
 		SetTimeInfo(ctx, TimeInfo{
-			createTime: time.Duration(time.Now().Unix()),
+			createTime: now(),
 			timeout:    5 * time.Second,
 		})
 
 		assert.False(t, IsTimeout(ctx))
 	})
+}
+
+func TestIsTimeoutWithFakeClock(t *testing.T) {
+	restoreNow := now
+	t.Cleanup(func() { now = restoreNow })
+
+	// 700ms into a Unix second: the old second-precision path would already count
+	// this as expired for any timeout below 1s.
+	start := time.Unix(1_700_000_000, 700_000_000)
+
+	tests := []struct {
+		name    string
+		timeout time.Duration
+		elapsed time.Duration
+		want    bool
+	}{
+		{name: "1ms not elapsed", timeout: time.Millisecond, elapsed: 0, want: false},
+		{name: "1ms elapsed", timeout: time.Millisecond, elapsed: 2 * time.Millisecond, want: true},
+		{name: "500ms not elapsed across second boundary", timeout: 500 * time.Millisecond, elapsed: 0, want: false},
+		{name: "500ms still running after crossing the next Unix second", timeout: 500 * time.Millisecond, elapsed: 300 * time.Millisecond, want: false},
+		{name: "exactly 500ms is not timeout", timeout: 500 * time.Millisecond, elapsed: 500 * time.Millisecond, want: false},
+		{name: "500ms elapsed", timeout: 500 * time.Millisecond, elapsed: 501 * time.Millisecond, want: true},
+		{name: "1s not elapsed", timeout: time.Second, elapsed: 0, want: false},
+		{name: "1s elapsed", timeout: time.Second, elapsed: time.Second + time.Millisecond, want: true},
+		{name: "default zero timeout never expires", timeout: 0, elapsed: time.Hour, want: false},
+		{name: "explicit zero timeout never expires", timeout: 0, elapsed: time.Hour, want: false},
+		{name: "negative timeout never expires", timeout: -time.Second, elapsed: time.Hour, want: false},
+		{name: "very large timeout still running", timeout: 24 * time.Hour, elapsed: time.Second, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			now = func() time.Time { return start }
+			ctx := InitSeataContext(context.Background())
+			SetTimeInfo(ctx, TimeInfo{createTime: now(), timeout: tc.timeout})
+			now = func() time.Time { return start.Add(tc.elapsed) }
+			assert.Equal(t, tc.want, IsTimeout(ctx))
+		})
+	}
+}
+
+func TestBeginSubsecondTimeoutIsNotImmediatelyExpired(t *testing.T) {
+	restoreNow := now
+	t.Cleanup(func() { now = restoreNow })
+
+	frozen := time.Unix(1_700_000_000, 700_000_000)
+	now = func() time.Time { return frozen }
+
+	ctx := InitSeataContext(context.Background())
+	err := Begin(ctx, &GtxConfig{
+		Name:        "subsecond",
+		Propagation: Supports,
+		Timeout:     500 * time.Millisecond,
+	})
+	assert.NoError(t, err)
+
+	ti := GetTimeInfo(ctx)
+	assert.True(t, ti.createTime.Equal(frozen))
+	assert.Equal(t, 700_000_000, ti.createTime.Nanosecond())
+	assert.False(t, IsTimeout(ctx))
 }
