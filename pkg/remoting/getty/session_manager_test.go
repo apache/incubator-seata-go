@@ -234,3 +234,28 @@ func (c *fakeServerClient) Close() {
 		}
 	})
 }
+
+// TestGetXidUnwrapsRpcMessage covers the key ConsistentHashLoadBalance hashes on.
+// SendSync / SendAsync hand over the whole message.RpcMessage, so getXid has to
+// unwrap the body: reflecting over RpcMessage itself used to yield the literal
+// "<invalid Value>" for every request, which pinned them all to one TC.
+func TestGetXidUnwrapsRpcMessage(t *testing.T) {
+	manager := &SessionManager{}
+
+	assert.Equal(t, "tx-1", manager.getXid(message.RpcMessage{
+		ID:   1,
+		Body: message.GlobalBeginRequest{TransactionName: "tx-1"},
+	}))
+	assert.Equal(t, "tx-2", manager.getXid(message.RpcMessage{
+		ID:   2,
+		Body: message.BranchRegisterRequest{Xid: "tx-2"},
+	}))
+	// Passing the body directly keeps working, which is what selectSession did
+	// in the existing tests.
+	assert.Equal(t, "tx-3", manager.getXid(message.GlobalBeginRequest{TransactionName: "tx-3"}))
+
+	// No transaction key at all: an empty key, never the placeholder string.
+	assert.Equal(t, "", manager.getXid(message.RpcMessage{ID: 4}))
+	assert.Equal(t, "", manager.getXid(nil))
+	assert.Equal(t, "", manager.getXid(message.HeartBeatMessage{Ping: true}))
+}

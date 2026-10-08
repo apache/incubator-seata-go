@@ -54,7 +54,7 @@ func newGettyRemoting() *GettyRemoting {
 
 func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
-		s = sessionManager.selectSession(msg)
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -72,7 +72,7 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 
 func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
-		s = sessionManager.selectSession(msg)
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
