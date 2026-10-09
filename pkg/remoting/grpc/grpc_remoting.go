@@ -30,6 +30,10 @@ import (
 
 const RpcRequestTimeout = 20 * time.Second
 
+// rpcRequestTimeout is the deadline the client actually waits on. It exists so
+// tests can shorten the wait without changing the exported constant.
+var rpcRequestTimeout = RpcRequestTimeout
+
 type (
 	callbackMethod func(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error)
 
@@ -93,15 +97,26 @@ func (g *GrpcRemoting) sendAsync(channel *Channel, msg message.RpcMessage, callb
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 		return nil, fmt.Errorf("stream is closed")
 	}
-	resp := message.NewMessageFuture(msg)
-	g.futures.Store(msg.ID, resp)
+	// Only requests with a callback wait for a response. A callback-less response
+	// may reuse the ID of an in-flight request, so it must not touch futures.
+	var resp *message.MessageFuture
+	if callback != nil {
+		resp = message.NewMessageFuture(msg)
+		g.futures.Store(msg.ID, resp)
+	}
 	request, err := Encode(msg)
 	if err != nil {
+		if resp != nil {
+			g.futures.Delete(msg.ID)
+		}
+		log.Errorf("encode message: %#v", msg)
 		return nil, err
 	}
 
 	if err := channel.Send(request); err != nil {
-		g.futures.Delete(msg.ID)
+		if resp != nil {
+			g.futures.Delete(msg.ID)
+		}
 		log.Errorf("send message: %#v", msg)
 		return nil, err
 	}
@@ -136,11 +151,12 @@ func (g *GrpcRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage 
 func (g *GrpcRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
 	messageFuture := g.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
-		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		// messageFuture.Err = rpcMessage.Err
-		messageFuture.Done <- struct{}{}
-		// client.msgFutures.Delete(rpcMessage.RequestID)
+		if !messageFuture.Complete(rpcMessage.Body) {
+			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
+		}
+		// The waiter removes the future once it stops waiting.
 	} else {
 		log.Infof("msg: {} is not found in msgFutures.", rpcMessage.ID)
 	}

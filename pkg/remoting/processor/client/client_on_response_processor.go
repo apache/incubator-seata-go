@@ -97,8 +97,9 @@ func (f *clientOnResponseProcessor) handleGrpcOnResponse(rpcMessage message.RpcM
 				msgID := mergedMessage.MsgIds[i]
 				response := grpcRemotingClient.GetMessageFuture(msgID)
 				if response != nil {
-					response.Response = mergedResult.Msgs[i]
-					response.Done <- struct{}{}
+					if !response.Complete(mergedResult.Msgs[i]) {
+						log.Warnf("merged response dropped for msg ID: %d because the future was already signaled", msgID)
+					}
 					grpcRemotingClient.RemoveMessageFuture(msgID)
 				}
 			}
@@ -129,8 +130,9 @@ func (f *clientOnResponseProcessor) handleSeataOnResponse(rpcMessage message.Rpc
 				msgID := mergedMessage.MsgIds[i]
 				response := gettyRemotingClient.GetMessageFuture(msgID)
 				if response != nil {
-					response.Response = mergedResult.Msgs[i]
-					response.Done <- struct{}{}
+					if !response.Complete(mergedResult.Msgs[i]) {
+						log.Warnf("merged response dropped for msg ID: %d because the future was already signaled", msgID)
+					}
 					gettyRemotingClient.RemoveMessageFuture(msgID)
 				}
 			}

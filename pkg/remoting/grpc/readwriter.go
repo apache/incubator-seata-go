@@ -41,7 +41,13 @@ func Encode(msg message.RpcMessage) (*pb.GrpcMessageProto, error) {
 	}
 	rpcMessage.HeadMap[string(grpc.CodecType)] = strconv.Itoa(int(msg.Codec))
 	rpcMessage.HeadMap[string(grpc.CompressType)] = strconv.Itoa(int(msg.Compressor))
-	anyMsg, err := anypb.New(msg.Body.(proto.Message))
+	body, ok := msg.Body.(proto.Message)
+	if !ok {
+		// A bare assertion here used to panic inside sendAsync, after the
+		// message future had already been stored.
+		return nil, fmt.Errorf("cannot encode body of type %T, want a proto.Message", msg.Body)
+	}
+	anyMsg, err := anypb.New(body)
 	if err != nil {
 		return nil, fmt.Errorf("could not new any msg: %v", err)
 	}

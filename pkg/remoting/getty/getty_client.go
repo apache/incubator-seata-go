@@ -100,9 +100,12 @@ func (g *GettyRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *
 }
 
 func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
+	// The future lives in futures, not mergeMsgMap, and nothing else removes
+	// it. Once this returns nobody waits for the response any more, on either
+	// branch, so this is the one place that owns the cleanup.
+	defer g.gettyRemoting.RemoveMessageFuture(reqMsg.ID)
 	select {
-	case <-gxtime.GetDefaultTimerWheel().After(RpcRequestTimeout):
-		g.gettyRemoting.RemoveMergedMessageFuture(reqMsg.ID)
+	case <-gxtime.GetDefaultTimerWheel().After(rpcRequestTimeout):
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:

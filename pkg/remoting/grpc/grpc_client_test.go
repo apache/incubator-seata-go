@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
@@ -103,6 +104,8 @@ func TestGrpcRemotingClient_SendAsyncRequest(t *testing.T) {
 func Test_syncCallback(t *testing.T) {
 	codec.Init()
 	log.Init()
+	// The timeout case used to sit on the real 20s deadline.
+	shortenRequestTimeout(t, 50*time.Millisecond)
 	tests := []struct {
 		name    string
 		respMsg *message.MessageFuture
