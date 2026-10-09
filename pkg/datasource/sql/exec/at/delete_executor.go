@@ -26,7 +26,6 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -55,6 +54,12 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	defer func() {
 		d.afterHooks(ctx, d.execContext)
 	}()
+	if err := d.validateTargetDatabases(ctx); err != nil {
+		return nil, err
+	}
+	if err := d.resolveTableMetaKey(ctx, d.execContext, d.parserCtx); err != nil {
+		return nil, err
+	}
 
 	beforeImage, err := d.beforeImage(ctx)
 	if err != nil {
@@ -75,6 +80,40 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 	return res, nil
+}
+
+func (d *deleteExecutor) validateTargetDatabases(ctx context.Context) error {
+	if effectiveDBType(d.execContext.DBType) != types.DBTypeMySQL ||
+		d.parserCtx == nil || d.parserCtx.DeleteStmt == nil || !d.parserCtx.DeleteStmt.IsMultiTable {
+		return nil
+	}
+	if err := parser.BindTableRefs(d.parserCtx); err != nil {
+		return err
+	}
+	if d.execContext.TableMetaReader == nil {
+		return fmt.Errorf("table meta reader is missing from execution context")
+	}
+	sources := parseTableName(d.parserCtx, d.parserCtx.DeleteStmt.TableRefs.TableRefs)
+	for _, target := range d.parserCtx.DeleteStmt.Tables.Tables {
+		matched := false
+		for _, source := range sources {
+			if !source.matchesWriteTarget(target.Schema.O, target.Name.O) {
+				continue
+			}
+			matched = true
+			key, err := d.execContext.TableMetaReader.ResolveTableMetaKey(ctx, d.execContext.Conn, source.ref)
+			if err != nil {
+				return err
+			}
+			if err := validateWriteDatabase(ctx, d.execContext, key); err != nil {
+				return err
+			}
+		}
+		if !matched {
+			return fmt.Errorf("cannot resolve AT write target %q.%q", target.Schema.O, target.Name.O)
+		}
+	}
+	return nil
 }
 
 // beforeImage build before image
@@ -136,8 +175,7 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, fmt.Errorf("invalid conn")
 	}
 
-	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := d.getTableMeta(ctx, d.execContext, d.parserCtx)
 
 	if err != nil {
 		return nil, err
@@ -155,10 +193,11 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 
 // buildBeforeImageSQL build delete sql from delete sql
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
+	dbType := effectiveDBType(d.execContext.DBType)
 	p := d.parserCtx
 	if p == nil || p.DeleteStmt == nil {
 		var err error
-		p, err = parser.DoParser(query)
+		p, err = parser.DoParserForDB(query, dbType)
 		if err != nil {
 			return "", nil, err
 		}
@@ -169,9 +208,18 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 		return "", nil, fmt.Errorf("invalid delete stmt")
 	}
 
+	from := p.DeleteStmt.TableRefs
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		from, err = postgresAuxiliaryQueryTable(from, d.execContext.TableMetaKey)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           p.DeleteStmt.TableRefs,
+		From:           from,
 		Where:          p.DeleteStmt.Where,
 		Fields:         &ast.FieldList{Fields: []*ast.SelectField{{WildCard: &ast.WildCardField{}}}},
 		OrderBy:        p.DeleteStmt.Order,
@@ -184,10 +232,10 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 	b := bytes.NewByteBuffer([]byte{})
 	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := d.normalizeGeneratedSQL(string(b.Bytes()), d.execContext.DBType)
+	sql := d.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 
-	if effectiveDBType(d.execContext.DBType) == types.DBTypePostgreSQL {
+	if dbType == types.DBTypePostgreSQL {
 		return util.CompactPostgreSQLPlaceholders(sql, args)
 	}
 
@@ -196,8 +244,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 
 // afterImage build after image
 func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
-	tableName, _ := d.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(effectiveDBType(d.execContext.DBType)).GetTableMeta(ctx, d.execContext.DBName, tableName)
+	metaData, err := d.getTableMeta(ctx, d.execContext, d.parserCtx)
 	if err != nil {
 		return nil, err
 	}

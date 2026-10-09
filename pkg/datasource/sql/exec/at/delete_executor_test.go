@@ -26,7 +26,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -92,13 +91,14 @@ func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
 	assert.Nil(t, err)
 
 	executor := NewDeleteExecutor(c, &types.ExecContext{
-		DBType:      types.DBTypePostgreSQL,
-		Values:      sourceQueryArgs,
-		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+		DBType:       types.DBTypePostgreSQL,
+		TableMetaKey: &types.TableMetaKey{Schema: "public", TableName: "t_user"},
+		Values:       sourceQueryArgs,
+		NamedValues:  util.ValueToNamedValue(sourceQueryArgs),
 	}, []exec.SQLHook{})
 	query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL("delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3", util.ValueToNamedValue(sourceQueryArgs))
 	assert.Nil(t, err)
-	assert.Equal(t, "SELECT * FROM t_user WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE", query)
+	assert.Equal(t, `SELECT * FROM "public"."t_user" WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE`, query)
 	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
 	assert.NotContains(t, query, "SQL_NO_CACHE")
 	assert.NotContains(t, query, "`")
@@ -121,7 +121,7 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 			},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	ctrl := gomock.NewController(t)
 	conn := mock.NewMockTestDriverConn(ctrl)
@@ -142,7 +142,7 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 		parserCtx, err := parser.DoParser(query)
 		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue([]driver.Value{tenantID})
-		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
 		}, nil)
 		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
@@ -171,7 +171,7 @@ func TestDeleteExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "id"}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	for _, tt := range []struct {
 		name          string
@@ -192,7 +192,7 @@ func TestDeleteExecutorDoesNotAppendArtifactsOnFailure(t *testing.T) {
 			parserCtx, err := parser.DoParser(query)
 			assert.NoError(t, err)
 			txCtx := types.NewTxCtx()
-			executor := NewDeleteExecutor(parserCtx, &types.ExecContext{
+			executor := NewDeleteExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
 				Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{int64(1)}), Conn: conn, TxCtx: txCtx,
 			}, nil)
 
@@ -230,4 +230,28 @@ func (r *deleteRows) Next(dest []driver.Value) error {
 	copy(dest, r.rows[r.index])
 	r.index++
 	return nil
+}
+
+func TestDeleteExecutorWriteDatabaseBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		query      string
+		currentDB  string
+		wantReject bool
+	}{
+		{"delete case overlapping aliases", "DELETE a FROM db_a.account a JOIN db_b.account A ON a.id=A.id", "", true},
+		{"delete right alias", "DELETE b FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete using right alias", "DELETE FROM b USING db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete qualified target", "DELETE db_b.account FROM db_a.account JOIN db_b.account ON db_a.account.id=db_b.account.id", "", true},
+		{"delete reads another database", "DELETE a FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", false},
+		{"delete both targets", "DELETE a,b FROM db_a.account a JOIN db_b.account b ON a.id=b.id", "", true},
+		{"delete grouped wildcard target", "DELETE b.* FROM (db_a.account a JOIN db_b.account b ON a.id=b.id)", "", true},
+		{"delete reads first foreign table", "DELETE a FROM db_b.account b JOIN db_a.account a ON a.id=b.id", "", false},
+		{"delete using reads first foreign table", "DELETE FROM a USING (db_b.account b JOIN db_a.account a ON a.id=b.id)", "", false},
+		{"delete derived read", "DELETE a FROM db_a.account a JOIN (SELECT id FROM db_b.account) b ON a.id=b.id", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkWriteDatabaseBoundary(t, tc.query, tc.currentDB, tc.wantReject)
+		})
+	}
 }

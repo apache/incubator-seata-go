@@ -25,7 +25,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
@@ -84,7 +83,9 @@ func TestBuildSelectPKSQL(t *testing.T) {
 
 func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 	e := selectForUpdateExecutor{
-		execContext: &types.ExecContext{DBType: types.DBTypePostgreSQL},
+		execContext: &types.ExecContext{
+			DBType: types.DBTypePostgreSQL, TableMetaKey: &types.TableMetaKey{Schema: "public", TableName: "t_user"},
+		},
 	}
 	sql := "select name, order_id from t_user where age > $1 for update"
 
@@ -114,8 +115,8 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
 	assert.Nil(t, err)
 	assert.Contains(t, []string{
-		"SELECT id,order_id FROM t_user WHERE age>$1 FOR UPDATE",
-		"SELECT order_id,id FROM t_user WHERE age>$1 FOR UPDATE",
+		`SELECT id,order_id FROM "public"."t_user" WHERE age>$1 FOR UPDATE`,
+		`SELECT order_id,id FROM "public"."t_user" WHERE age>$1 FOR UPDATE`,
 	}, selSQL)
 	assert.NotContains(t, selSQL, "SQL_NO_CACHE")
 }
@@ -193,7 +194,7 @@ func TestPrepareFallbackRowsCloseStatement(t *testing.T) {
 			},
 		},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 	updateArgs := []driver.NamedValue{{Ordinal: 1, Value: "updated"}, {Ordinal: 2, Value: int64(1)}}
 	deleteArgs := []driver.NamedValue{{Ordinal: 1, Value: int64(1)}}
 	beforeImage := types.RecordImage{Rows: []types.RowImage{{Columns: []types.ColumnImage{{ColumnName: "id", Value: int64(1)}}}}}
@@ -203,33 +204,33 @@ func TestPrepareFallbackRowsCloseStatement(t *testing.T) {
 		run  func(*prepareFallbackConn) error
 	}{
 		{name: "insert query", run: func(conn *prepareFallbackConn) error {
-			rows, err := (&insertExecutor{execContext: &types.ExecContext{Conn: conn}}).queryRows(ctx, "SELECT 1", nil)
+			rows, err := (&insertExecutor{execContext: &types.ExecContext{TableMetaReader: reader, Conn: conn}}).queryRows(ctx, "SELECT 1", nil)
 			if err != nil {
 				return err
 			}
 			return rows.Close()
 		}},
 		{name: "select for update", run: func(conn *prepareFallbackConn) error {
-			rows, err := (&selectForUpdateExecutor{execContext: &types.ExecContext{Conn: conn}}).exec(ctx, "SELECT 1 FOR UPDATE", nil, nil)
+			rows, err := (&selectForUpdateExecutor{execContext: &types.ExecContext{TableMetaReader: reader, Conn: conn}}).exec(ctx, "SELECT 1 FOR UPDATE", nil, nil)
 			if err != nil {
 				return err
 			}
 			return rows.Close()
 		}},
 		{name: "update before image", run: func(conn *prepareFallbackConn) error {
-			executor := &updateExecutor{parserCtx: updateParser, execContext: &types.ExecContext{
+			executor := &updateExecutor{parserCtx: updateParser, execContext: &types.ExecContext{TableMetaReader: reader,
 				Conn: conn, Query: updateSQL, NamedValues: updateArgs, TxCtx: types.NewTxCtx(),
 			}}
 			_, err := executor.beforeImage(ctx)
 			return err
 		}},
 		{name: "update after image", run: func(conn *prepareFallbackConn) error {
-			executor := &updateExecutor{parserCtx: updateParser, execContext: &types.ExecContext{Conn: conn}}
+			executor := &updateExecutor{parserCtx: updateParser, execContext: &types.ExecContext{TableMetaReader: reader, Conn: conn}}
 			_, err := executor.afterImage(ctx, beforeImage)
 			return err
 		}},
 		{name: "delete before image", run: func(conn *prepareFallbackConn) error {
-			executor := &deleteExecutor{parserCtx: deleteParser, execContext: &types.ExecContext{
+			executor := &deleteExecutor{parserCtx: deleteParser, execContext: &types.ExecContext{TableMetaReader: reader,
 				Conn: conn, Query: deleteSQL, NamedValues: deleteArgs, TxCtx: types.NewTxCtx(),
 			}}
 			_, err := executor.beforeImage(ctx)

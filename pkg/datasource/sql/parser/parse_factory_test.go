@@ -18,16 +18,22 @@
 package parser
 
 import (
+	"context"
+	"database/sql/driver"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	aparser "github.com/arana-db/parser"
+	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 
 	"github.com/stretchr/testify/assert"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 
 	_ "github.com/arana-db/parser/test_driver"
@@ -84,6 +90,483 @@ func TestDoParser(t *testing.T) {
 		assert.Equal(t, parser.ExecutorType, t2.types)
 		assert.Equal(t, parser.SQLType, t2.sqlType)
 	}
+}
+
+func TestParseSQLForDBSeparatesClassificationFromTableBinding(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		query   string
+		sqlType types.SQLType
+		want    [][]types.TableRef
+	}{
+		{"table statement", "TABLE t", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "t"}}}},
+		{"qualified table with order and limit", "TABLE `Db`.`Us``ers` ORDER BY id, name LIMIT 2, 3", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Us`ers", QualifierQuoted: true, TableNameQuoted: true}}}},
+		{"parenthesized table", "(TABLE Db.Users)", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Users"}}}},
+		{"odbc join", "SELECT a.id FROM { OJ a LEFT JOIN b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}}}},
+		{"quoted odbc join with comments and strings", "SELECT '{ OJ ignored }' FROM { oj /* } FROM ignored */ `Db`.`Us``ers` a LEFT JOIN `Other`.`Users` b ON a.name='} JOIN ignored' } ORDER BY a.id, b.id LIMIT 3", types.SQLTypeSelect, [][]types.TableRef{{{Qualifier: "Db", TableName: "Us`ers", QualifierQuoted: true, TableNameQuoted: true}, {Qualifier: "Other", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}}}},
+		{"nested odbc join", "SELECT a.id FROM { OJ a LEFT JOIN ({ OJ b LEFT JOIN c ON b.id=c.id }) ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}, {TableName: "c"}}}},
+		{"odbc join in table list", "SELECT a.id FROM first_table, { OJ a LEFT JOIN b ON a.id=b.id }, last_table", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "first_table"}, {TableName: "a"}, {TableName: "b"}, {TableName: "last_table"}}}},
+		{"odbc join with derived select", "SELECT a.id FROM { OJ a LEFT JOIN (SELECT id FROM hidden) b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}}}},
+		{"odbc join with derived table statement", "SELECT a.id FROM { OJ a LEFT JOIN (TABLE hidden) b ON a.id=b.id }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}}}},
+		{"odbc date in join predicate", "SELECT a.id FROM { OJ a LEFT JOIN b ON a.created_at={d '2026-10-01'} }", types.SQLTypeSelect, [][]types.TableRef{{{TableName: "a"}, {TableName: "b"}}}},
+		{"multi statement", "SELECT id FROM users; TABLE t; SELECT a.id FROM { OJ a LEFT JOIN b ON a.id=b.id }", types.SQLTypeMulti, [][]types.TableRef{{{TableName: "users"}}, {{TableName: "t"}}, {{TableName: "a"}, {TableName: "b"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := ParseSQLForDB(tc.query, types.DBTypeMySQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, tc.sqlType, parsed.SQLType)
+			statements := parsed.MultiStmt
+			if len(statements) == 0 {
+				statements = []*types.ParseContext{parsed}
+			}
+			if !assert.Len(t, statements, len(tc.want)) {
+				return
+			}
+			for _, statement := range statements {
+				assert.Equal(t, types.SelectExecutor, statement.ExecutorType)
+				assert.Nil(t, statement.TableRefs)
+			}
+
+			checkBindings := func(parsed *types.ParseContext) {
+				statements := parsed.MultiStmt
+				if len(statements) == 0 {
+					statements = []*types.ParseContext{parsed}
+				}
+				if !assert.Len(t, statements, len(tc.want)) {
+					return
+				}
+				for i, statement := range statements {
+					tables := tableNames(statement)
+					if !assert.Len(t, tables, len(tc.want[i])) {
+						continue
+					}
+					assert.Len(t, statement.TableRefs, len(tc.want[i]))
+					for j, table := range tables {
+						ref, ok := statement.TableRefs[table]
+						assert.True(t, ok, "every source AST table must have a bound reference")
+						assert.Equal(t, tc.want[i][j], ref)
+					}
+				}
+			}
+			if assert.NoError(t, BindTableRefs(parsed)) {
+				checkBindings(parsed)
+			}
+			strict, err := DoParserForDB(tc.query, types.DBTypeMySQL)
+			if assert.NoError(t, err) && assert.NotNil(t, strict) {
+				checkBindings(strict)
+			}
+		})
+	}
+}
+
+func TestBindTableRefsRejectsMismatchedStatementSource(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		query      string
+		mismatchAt int
+	}{
+		{"single statement", "SELECT id FROM users", 0},
+		{"later statement", "SELECT id FROM first_table; SELECT id FROM users; SELECT id FROM last_table", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := ParseSQLForDB(tc.query, types.DBTypeMySQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			statements := parsed.MultiStmt
+			if len(statements) == 0 {
+				statements = []*types.ParseContext{parsed}
+			}
+			statements[tc.mismatchAt].SelectStmt.SetText(nil, "SELECT id FROM other_table")
+			assert.ErrorContains(t, BindTableRefs(parsed), "does not match AST table")
+			for _, statement := range statements[tc.mismatchAt:] {
+				assert.Nil(t, statement.TableRefs, "failed and unvisited statements must not expose unverified bindings")
+			}
+		})
+	}
+}
+
+func TestParseSQLForDBStillRejectsInvalidSQL(t *testing.T) {
+	parsed, err := ParseSQLForDB("SELECT FROM", types.DBTypeMySQL)
+	assert.Error(t, err)
+	assert.Nil(t, parsed)
+}
+
+func TestBindTableRefsUsesEachStatementSource(t *testing.T) {
+	parsed, err := ParseSQLForDB(`UPDATE Space.Users SET id=1; SELECT id, users FROM "Users" FOR UPDATE`, types.DBTypePostgreSQL)
+	if !assert.NoError(t, err) || !assert.Len(t, parsed.MultiStmt, 2) {
+		return
+	}
+	for _, statement := range parsed.MultiStmt {
+		assert.Nil(t, statement.TableRefs)
+	}
+	if !assert.NoError(t, BindTableRefs(parsed)) {
+		return
+	}
+	first, err := parsed.MultiStmt[0].GetTableRef()
+	assert.NoError(t, err)
+	second, err := parsed.MultiStmt[1].GetTableRef()
+	assert.NoError(t, err)
+	assert.Equal(t, types.TableRef{Qualifier: "Space", TableName: "Users"}, first)
+	assert.Equal(t, types.TableRef{TableName: "Users", TableNameQuoted: true}, second)
+}
+
+func TestBindTableRefsRejectsIncompleteExistingBindings(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*types.ParseContext, []*ast.TableName)
+	}{
+		{"missing table", func(parsed *types.ParseContext, tables []*ast.TableName) {
+			delete(parsed.TableRefs, tables[0])
+		}},
+		{"different node", func(parsed *types.ParseContext, tables []*ast.TableName) {
+			parsed.TableRefs[&ast.TableName{}] = parsed.TableRefs[tables[0]]
+			delete(parsed.TableRefs, tables[0])
+		}},
+		{"different identity", func(parsed *types.ParseContext, tables []*ast.TableName) {
+			parsed.TableRefs[tables[0]] = types.TableRef{TableName: "Other"}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := DoParserForDB(`UPDATE "One" JOIN "Two" ON 1=1 SET id=1`, types.DBTypePostgreSQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			tc.mutate(parsed, tableNames(parsed))
+			assert.ErrorContains(t, BindTableRefs(parsed), "cannot bind")
+		})
+	}
+	assert.ErrorContains(t, BindTableRefs(nil), "nil parse context")
+}
+
+func TestDoParserForDBPreservesTableIdentifierQuotes(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		dbType types.DBType
+		query  string
+		want   types.TableRef
+	}{
+		{"postgres quoted", types.DBTypePostgreSQL, `UPDATE "Space"."Users" AS u SET id = 1`, types.TableRef{Qualifier: "Space", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}},
+		{"postgres quoted after tab comment", types.DBTypePostgreSQL, "UPDATE --\tUsers\n \"Users\" SET id = 1", types.TableRef{TableName: "Users", TableNameQuoted: true}},
+		{"postgres unquoted", types.DBTypePostgreSQL, `UPDATE Space.Users AS u SET id = 1`, types.TableRef{Qualifier: "Space", TableName: "Users"}},
+		{"mysql quoted", types.DBTypeMySQL, "INSERT INTO `shop`.`orders` (id) VALUES (1)", types.TableRef{Qualifier: "shop", TableName: "orders", QualifierQuoted: true, TableNameQuoted: true}},
+		{"delete alias", types.DBTypeMySQL, "DELETE FROM shop.orders AS o WHERE o.id=1", types.TableRef{Qualifier: "shop", TableName: "orders"}},
+		{"delete target alias before table", types.DBTypeMySQL, "DELETE t FROM `t` AS t WHERE t.id=1", types.TableRef{TableName: "t", TableNameQuoted: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := DoParserForDB(tc.query, tc.dbType)
+			assert.NoError(t, err)
+			if err != nil {
+				return
+			}
+			got, err := parsed.GetTableRef()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDoParserForDBPreservesUnquotedIdentifiers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want types.TableRef
+	}{
+		{"table symbol suffix", types.TableRef{TableName: "a£b"}},
+		{"table symbol prefix", types.TableRef{TableName: "£ab"}},
+		{"database symbol suffix", types.TableRef{Qualifier: "a£b", TableName: "users"}},
+		{"database symbol prefix", types.TableRef{Qualifier: "£ab", TableName: "users"}},
+		{"combining characters", types.TableRef{Qualifier: "\u0301db", TableName: "a\u0301b"}},
+		{"non-ASCII spaces", types.TableRef{Qualifier: "\u00a0db", TableName: "a\u00a0b"}},
+		{"non-ASCII letters", types.TableRef{Qualifier: "库", TableName: "表"}},
+		{"ASCII identifier characters", types.TableRef{Qualifier: "1Db_$", TableName: "$Ta0_b"}},
+	} {
+		for _, dbType := range []types.DBType{types.DBTypeMySQL, types.DBTypePostgreSQL} {
+			for _, queryFormat := range []string{
+				"UPDATE %s SET id=1",
+				"INSERT INTO %s (id) VALUES (1)",
+				"DELETE FROM %s WHERE id=1",
+				"SELECT id FROM %s FOR UPDATE",
+			} {
+				t.Run(fmt.Sprintf("%s/%s/%s", tc.name, dbType, queryFormat), func(t *testing.T) {
+					table := tc.want.TableName
+					if tc.want.Qualifier != "" {
+						table = tc.want.Qualifier + "." + table
+					}
+					parsed, err := ParseSQLForDB(fmt.Sprintf(queryFormat, table), dbType)
+					if !assert.NoError(t, err, "the existing lexer must accept the identifier") {
+						return
+					}
+					if !assert.NoError(t, BindTableRefs(parsed)) {
+						return
+					}
+					ref, err := parsed.GetTableRef()
+					assert.NoError(t, err)
+					assert.Equal(t, tc.want, ref)
+				})
+			}
+		}
+	}
+}
+
+func TestDoParserForDBUsesEachStatementTableRef(t *testing.T) {
+	parsed, err := DoParserForDB(`UPDATE "One" SET id=1; UPDATE "Two" SET id=2`, types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+	assert.Len(t, parsed.MultiStmt, 2)
+	first, err := parsed.MultiStmt[0].GetTableRef()
+	assert.NoError(t, err)
+	second, err := parsed.MultiStmt[1].GetTableRef()
+	assert.NoError(t, err)
+	assert.Equal(t, types.TableRef{TableName: "One", TableNameQuoted: true}, first)
+	assert.Equal(t, types.TableRef{TableName: "Two", TableNameQuoted: true}, second)
+}
+
+func TestPostgresDollarLiteralsPreserveStatementSourcesAndOffsets(t *testing.T) {
+	first := `/* leading comment */ UPDATE "Users" SET name=$Tag$ALICE; ' $9$Tag$ WHERE ID=$1;`
+	second := ` /* second comment */ UPDATE users SET name=$$中文; " $1$$ WHERE ID=$2`
+	parsed, err := DoParserForDB("\n"+first+"\n"+second, types.DBTypePostgreSQL)
+	if !assert.NoError(t, err) || !assert.Len(t, parsed.MultiStmt, 2) {
+		return
+	}
+	for i, source := range []string{first, second} {
+		statement := parsed.MultiStmt[i].UpdateStmt
+		assert.Equal(t, source, statement.Text())
+		image, err := ParsePostgreSQLUpdateForImage(statement.Text())
+		if !assert.NoError(t, err) {
+			continue
+		}
+		var restored strings.Builder
+		assert.NoError(t, image.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase|format.RestoreNameDoubleQuotes, &restored)))
+		if i == 0 {
+			assert.Equal(t, `UPDATE "Users" SET "name"=$Tag$ALICE; ' $9$Tag$ WHERE "id"=$1`, restored.String())
+		} else {
+			assert.Equal(t, `UPDATE "users" SET "name"=$$中文; " $1$$ WHERE "id"=$2`, restored.String())
+		}
+	}
+}
+
+func TestDoParserForDBBindsMySQLExecutableComments(t *testing.T) {
+	qualified := types.TableRef{Qualifier: "shop", TableName: "Orders", QualifierQuoted: true, TableNameQuoted: true}
+	for _, tc := range []struct {
+		name  string
+		query string
+		want  types.TableRef
+	}{
+		{"complete versioned statement", "/*!40101 UPDATE t SET balance=2 WHERE id=1 */", types.TableRef{TableName: "t"}},
+		{"complete unversioned statement", "/*! UPDATE `shop`.`Orders` SET balance=2 WHERE id=1 */", qualified},
+		{"versioned table reference", "UPDATE /*!40101 `shop`.`Orders` */ SET balance=2 WHERE id=1", qualified},
+		{"unversioned table reference", "UPDATE /*! `shop`.`Orders` */ SET balance=2 WHERE id=1", qualified},
+		{"version is not filtered by parser", "UPDATE /*!99999 `shop`.`Orders` */ SET balance=2 WHERE id=1", qualified},
+		{"short digits belong to identifier", "UPDATE /*!1234t*/ SET balance=2 WHERE id=1", types.TableRef{TableName: "1234t"}},
+		{"five digit prefix before identifier", "UPDATE /*!401011234t*/ SET balance=2 WHERE id=1", types.TableRef{TableName: "1234t"}},
+		{"split qualified reference", "UPDATE /*!40101 `shop`. */ `Orders` SET balance=2 WHERE id=1", qualified},
+		{"ordinary comment remains ignored", "UPDATE /* other.table */ `shop`.`Orders` SET balance=2 WHERE id=1", qualified},
+		{"comment terminator in string", "/*! UPDATE `shop`.`Orders` SET name='*/' WHERE id=1 */", qualified},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := DoParserForDB(tc.query, types.DBTypeMySQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			ref, err := parsed.GetTableRef()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, ref)
+		})
+	}
+}
+
+func TestBindTableRefsDefaultsToMySQLCommentSyntax(t *testing.T) {
+	for _, dbType := range []types.DBType{0, types.DBTypeUnknown} {
+		parsed, err := DoParserForDB("/*! UPDATE t SET balance=1 */", dbType)
+		if !assert.NoError(t, err) {
+			continue
+		}
+		ref, err := parsed.GetTableRef()
+		assert.NoError(t, err)
+		assert.Equal(t, types.TableRef{TableName: "t"}, ref)
+	}
+}
+
+func TestDoParserForDBKeepsExecutableCommentsWithinEachStatement(t *testing.T) {
+	parsed, err := DoParserForDB("/*!40101 UPDATE `one`.`Users` SET balance=1 */; UPDATE /*! `two`.`Users` */ SET balance=2", types.DBTypeMySQL)
+	if !assert.NoError(t, err) || !assert.Len(t, parsed.MultiStmt, 2) {
+		return
+	}
+	for i, qualifier := range []string{"one", "two"} {
+		ref, err := parsed.MultiStmt[i].GetTableRef()
+		assert.NoError(t, err)
+		assert.Equal(t, types.TableRef{Qualifier: qualifier, TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}, ref)
+	}
+}
+
+func TestBindTableRefsDoesNotExpandPostgresExecutableComments(t *testing.T) {
+	for _, query := range []string{
+		`/*!40101 UPDATE "Users" SET id=1 */`,
+		`UPDATE /*! "public". */ "Users" SET id=1`,
+		`UPDATE "Users" SET id=1; UPDATE /*! "public". */ "Users" SET id=2`,
+	} {
+		t.Run(query, func(t *testing.T) {
+			// The shared parser expands MySQL comments even in ANSI_QUOTES mode.
+			// PostgreSQL treats them as ordinary comments, so binding must still fail.
+			parsed, err := ParseSQLForDB(query, types.DBTypePostgreSQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Error(t, BindTableRefs(parsed))
+			strict, err := DoParserForDB(query, types.DBTypePostgreSQL)
+			assert.Error(t, err)
+			assert.Nil(t, strict, "strict parsing must not expose a context after binding fails")
+		})
+	}
+}
+
+func TestDoParserForDBBindsOnlyStatementTableReferences(t *testing.T) {
+	quotedUsers := types.TableRef{TableName: "Users", TableNameQuoted: true}
+	plainUsers := types.TableRef{TableName: "users"}
+	for _, tc := range []struct {
+		name  string
+		query string
+		want  []types.TableRef
+	}{
+		{"projection comma", `SELECT id, users FROM "Users" FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"function arguments and strings", `SELECT COALESCE(id, users), 'FROM users, users' FROM "Users" FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"projection subquery", `SELECT (SELECT users FROM users), users FROM "Users" FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"predicate subquery", `SELECT id FROM "Users" WHERE id IN (SELECT id FROM users) FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"derived query", `SELECT u.id FROM (SELECT id FROM users) x JOIN "Users" u ON x.id=u.id FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"cte query", `WITH x AS (SELECT id FROM users) SELECT users FROM "Users" FOR UPDATE`, []types.TableRef{quotedUsers}},
+		{"table list", `SELECT id, users FROM users u, "Users" v WHERE u.id=v.id FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"grouped join", `SELECT u.id FROM (users u JOIN "Users" v ON u.id=COALESCE(v.id, u.id)) FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"join subquery", `SELECT u.id FROM users u JOIN "Users" v ON u.id IN (SELECT id FROM users) FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"join index hint", `SELECT u.id FROM users u USE INDEX FOR JOIN (idx) JOIN "Users" v ON u.id=v.id FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"order index hint", `SELECT u.id FROM users u FORCE INDEX FOR ORDER BY (idx) JOIN "Users" v ON u.id=v.id FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"group index hint", `SELECT u.id FROM users u IGNORE KEY FOR GROUP BY (idx), "Users" v WHERE u.id=v.id FOR UPDATE`, []types.TableRef{plainUsers, quotedUsers}},
+		{"update modifiers", `UPDATE LOW_PRIORITY IGNORE "Users" SET id=COALESCE(id, users)`, []types.TableRef{quotedUsers}},
+		{"update joined table list", `UPDATE users u, "Users" v SET u.id=v.id`, []types.TableRef{plainUsers, quotedUsers}},
+		{"insert without into", `INSERT "Users" (id, users) VALUES (1, 2)`, []types.TableRef{quotedUsers}},
+		{"insert select", `INSERT INTO "Users" (id) SELECT id FROM users`, []types.TableRef{quotedUsers}},
+		{"delete target aliases", `DELETE users, u FROM "Users" AS users JOIN users AS u ON users.id=u.id`, []types.TableRef{quotedUsers, plainUsers}},
+		{"delete using source", `DELETE FROM users USING "Users" AS users WHERE users.id=1`, []types.TableRef{quotedUsers}},
+		{"quoted punctuation", `SELECT id, users FROM "Space.with.dot"."Semi;colon" FOR UPDATE`, []types.TableRef{{Qualifier: "Space.with.dot", TableName: "Semi;colon", QualifierQuoted: true, TableNameQuoted: true}}},
+		{"escaped identifier quote", `SELECT id FROM "Us""ers" FOR UPDATE`, []types.TableRef{{TableName: `Us"ers`, TableNameQuoted: true}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := DoParserForDB(tc.query, types.DBTypePostgreSQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			var got []types.TableRef
+			for _, table := range tableNames(parsed) {
+				ref, ok := parsed.TableRefs[table]
+				assert.True(t, ok, "every source AST table must have a bound reference")
+				got = append(got, ref)
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestCaptureTableRefsRejectsUnboundAndReorderedSources(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		query string
+		sql   string
+	}{
+		{"projection is not a source", `SELECT id FROM "Users" FOR UPDATE`, `SELECT id, Users FROM others FOR UPDATE`},
+		{"missing source", `SELECT id FROM "Users" FOR UPDATE`, `SELECT Users`},
+		{"extra source", `SELECT id FROM "Users" FOR UPDATE`, `SELECT id FROM "Users", others FOR UPDATE`},
+		{"different source order", `UPDATE "One" JOIN "Two" ON 1=1 SET id=1`, `UPDATE "Two" JOIN "One" ON 1=1 SET id=1`},
+		{"table statement identity mismatch", `TABLE "Users"`, `TABLE "Other"`},
+		{"odbc source order mismatch", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "Two" JOIN "One" ON 1=1 }`},
+		{"odbc missing closing brace", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "One" JOIN "Two" ON 1=1`},
+		{"odbc extra closing brace", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { OJ "One" JOIN "Two" ON 1=1 } }`},
+		{"odbc unsupported escape", `SELECT * FROM "One" JOIN "Two" ON 1=1`, `SELECT * FROM { wrong "One" JOIN "Two" ON 1=1 }`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := DoParserForDB(tc.query, types.DBTypePostgreSQL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			parsed.TableRefs = nil
+			assert.ErrorContains(t, captureTableRefs(parsed, tc.sql), "cannot")
+			assert.Nil(t, parsed.TableRefs, "failed binding must not expose default unquoted references")
+		})
+	}
+}
+
+func TestDoParserForDBKeepsQueryScopesWithinEachStatement(t *testing.T) {
+	parsed, err := DoParserForDB(`SELECT id, users FROM "Users" FOR UPDATE; SELECT (SELECT id FROM "Users"), Users FROM users FOR UPDATE`, types.DBTypePostgreSQL)
+	if !assert.NoError(t, err) || !assert.Len(t, parsed.MultiStmt, 2) {
+		return
+	}
+	first, err := parsed.MultiStmt[0].GetTableRef()
+	assert.NoError(t, err)
+	second, err := parsed.MultiStmt[1].GetTableRef()
+	assert.NoError(t, err)
+	assert.Equal(t, types.TableRef{TableName: "Users", TableNameQuoted: true}, first)
+	assert.Equal(t, types.TableRef{TableName: "users"}, second)
+}
+
+func TestQuotedSelectTableResolvesWithPostgresQuotedName(t *testing.T) {
+	parsed, err := DoParserForDB(`SELECT id, users FROM "Users" FOR UPDATE`, types.DBTypePostgreSQL)
+	if !assert.NoError(t, err) {
+		return
+	}
+	ref, err := parsed.GetTableRef()
+	if !assert.NoError(t, err) {
+		return
+	}
+	db, mock, err := sqlmock.New()
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer conn.Close()
+	mock.ExpectQuery("to_regclass").WithArgs(`"Users"`).WillReturnRows(
+		sqlmock.NewRows([]string{"database", "schema", "table"}).AddRow("app", "public", "Users"),
+	)
+	cache := &postgres.TableMetaCache{}
+	err = conn.Raw(func(raw any) error {
+		key, err := cache.ResolveTableMetaKey(context.Background(), raw.(driver.Conn), ref)
+		assert.Equal(t, types.TableMetaKey{DBName: "app", Schema: "public", TableName: "Users"}, key)
+		return err
+	})
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDoParserForDBKeepsJoinTableReferencesSeparate(t *testing.T) {
+	parsed, err := DoParserForDB(`UPDATE "one"."Users" u JOIN "two"."Users" v ON u.id=v.id SET u.id=1`, types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+	left := parsed.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName)
+	right := parsed.UpdateStmt.TableRefs.TableRefs.Right.(*ast.TableSource).Source.(*ast.TableName)
+	assert.Equal(t, types.TableRef{Qualifier: "one", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}, parsed.TableRefs[left])
+	assert.Equal(t, types.TableRef{Qualifier: "two", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}, parsed.TableRefs[right])
+	primary, err := parsed.GetTableRef()
+	assert.NoError(t, err)
+	assert.Equal(t, parsed.TableRefs[left], primary)
+}
+
+func TestCopyTableRefsKeepsOriginalQuotingAfterReparse(t *testing.T) {
+	original, err := DoParserForDB(`UPDATE Space.Users SET id=1`, types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	reparsed, err := DoParserForDB("UPDATE `Space`.`Users` SET id=1", types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	CopyTableRefs(reparsed, original)
+	assert.NoError(t, BindTableRefs(reparsed))
+	ref, err := reparsed.GetTableRef()
+	assert.NoError(t, err)
+	assert.Equal(t, types.TableRef{Qualifier: "Space", TableName: "Users"}, ref)
 }
 
 func TestK(t *testing.T) {

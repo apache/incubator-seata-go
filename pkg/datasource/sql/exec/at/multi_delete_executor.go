@@ -25,8 +25,8 @@ import (
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
+	"github.com/arana-db/parser/model"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -46,6 +46,12 @@ func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
 	}()
+	if len(m.parserCtx.MultiStmt) == 0 {
+		return nil, fmt.Errorf("aggregate delete has no statements")
+	}
+	if err := m.resolveTableMetaKey(ctx, m.execContext, m.parserCtx.MultiStmt[0]); err != nil {
+		return nil, err
+	}
 
 	beforeImage, err := m.beforeImage(ctx)
 	if err != nil {
@@ -62,6 +68,12 @@ func (m *multiDeleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 		return nil, err
 	}
 
+	for _, image := range beforeImage {
+		image.TableMetaKey = m.execContext.TableMetaKey
+	}
+	for _, image := range afterImage {
+		image.TableMetaKey = m.execContext.TableMetaKey
+	}
 	m.execContext.TxCtx.RoundImages.AppendBeofreImages(beforeImage)
 	m.execContext.TxCtx.RoundImages.AppendAfterImages(afterImage)
 	return res, nil
@@ -103,11 +115,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		}
 	}()
 
-	tableName, err := m.getFromTableInSQL()
-	if err != nil {
-		return nil, err
-	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	metaData, err := m.getTableMeta(ctx, m.execContext, m.parserCtx.MultiStmt[0])
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +132,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 }
 
 func (m *multiDeleteExecutor) afterImage(ctx context.Context) ([]*types.RecordImage, error) {
-	tableName, _ := m.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, m.execContext.DBName, tableName)
+	metaData, err := m.getTableMeta(ctx, m.execContext, m.parserCtx.MultiStmt[0])
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +204,37 @@ func (m *multiDeleteExecutor) buildBeforeImageSQL() (string, []driver.NamedValue
 func (m *multiDeleteExecutor) getFromTableInSQL() (string, error) {
 	for _, parser := range m.parserCtx.MultiStmt {
 		if parser != nil {
-			return parser.GetTableName()
+			if m.execContext.TableMetaKey == nil {
+				return parser.GetTableName()
+			}
+			if parser.DeleteStmt == nil || parser.DeleteStmt.TableRefs == nil || parser.DeleteStmt.TableRefs.TableRefs == nil {
+				return "", fmt.Errorf("multi delete sql has no table reference")
+			}
+			refs := *parser.DeleteStmt.TableRefs
+			join := *refs.TableRefs
+			source, ok := join.Left.(*ast.TableSource)
+			if !ok || join.Right != nil {
+				return "", fmt.Errorf("multi delete sql requires a single table source")
+			}
+			table, ok := source.Source.(*ast.TableName)
+			if !ok {
+				return "", fmt.Errorf("multi delete sql requires a table name")
+			}
+
+			// Qualify only the table identity, retaining partitions, aliases and hints
+			// without changing the AST used to execute the original DELETE statements.
+			qualifiedTable := *table
+			qualifiedTable.Schema = model.NewCIStr(m.execContext.TableMetaKey.DBName)
+			qualifiedTable.Name = model.NewCIStr(m.execContext.TableMetaKey.TableName)
+			qualifiedSource := *source
+			qualifiedSource.Source = &qualifiedTable
+			join.Left = &qualifiedSource
+			refs.TableRefs = &join
+			var buffer bytes.Buffer
+			if err := refs.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase|format.RestoreNameBackQuotes, &buffer)); err != nil {
+				return "", err
+			}
+			return buffer.String(), nil
 		}
 	}
 	return "", fmt.Errorf("multi delete sql has no table name")

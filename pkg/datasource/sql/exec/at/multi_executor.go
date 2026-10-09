@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
@@ -45,6 +46,22 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	plan, err := buildMultiExecutionPlan(m.parserCtx, m.execContext.DBType)
 	if err != nil {
 		return nil, err
+	}
+	// Validate every child before the first image query or business statement.
+	if err := parser.BindTableRefs(m.parserCtx); err != nil {
+		return nil, err
+	}
+	isATMode := isGlobalTx(ctx)
+	if m.execContext.TxCtx != nil {
+		isATMode = m.execContext.TxCtx.TransactionMode == types.ATMode
+	}
+	if isATMode {
+		for index, statement := range plan.statements {
+			statementCtx := *m.execContext
+			if err := m.resolveTableMetaKey(ctx, &statementCtx, statement); err != nil {
+				return nil, fmt.Errorf("validate statement %d: %w", index, err)
+			}
+		}
 	}
 
 	if plan.useAggregatePath {
@@ -97,6 +114,9 @@ func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNa
 	defer func() {
 		m.afterHooks(ctx, m.execContext)
 	}()
+	if err := m.resolveTableMetaKey(ctx, m.execContext, parseCtx.MultiStmt[0]); err != nil {
+		return nil, err
+	}
 
 	beforeImages, err := m.beforeImage(ctx, parseCtx)
 	if err != nil {
@@ -118,6 +138,8 @@ func (m *multiExecutor) execAggregate(ctx context.Context, f exec.CallbackWithNa
 	}
 
 	for index := range beforeImages {
+		beforeImages[index].TableMetaKey = m.execContext.TableMetaKey
+		afterImages[index].TableMetaKey = m.execContext.TableMetaKey
 		m.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImages[index])
 		m.execContext.TxCtx.RoundImages.AppendAfterImage(afterImages[index])
 	}

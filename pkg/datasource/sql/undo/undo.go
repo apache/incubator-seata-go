@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -72,7 +73,7 @@ type UndoLogManager interface {
 	//FlushUndoLog
 	FlushUndoLog(tranCtx *types.TransactionContext, conn driver.Conn) error
 	// RunUndo
-	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error
+	RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string, metaReader types.TableMetaReader) error
 	// DBType
 	DBType() types.DBType
 	// HasUndoLogTable
@@ -146,21 +147,54 @@ func (b *BranchUndoLog) Reverse() {
 
 // SQLUndoLog
 type SQLUndoLog struct {
-	SQLType     types.SQLType      `json:"sqlType"`
-	TableName   string             `json:"tableName"`
-	BeforeImage *types.RecordImage `json:"beforeImage"`
-	AfterImage  *types.RecordImage `json:"afterImage"`
+	SQLType      types.SQLType       `json:"sqlType"`
+	TableName    string              `json:"tableName"`
+	TableMetaKey *types.TableMetaKey `json:"tableMetaKey,omitempty"`
+	BeforeImage  *types.RecordImage  `json:"beforeImage"`
+	AfterImage   *types.RecordImage  `json:"afterImage"`
 }
 
 func (s SQLUndoLog) SetTableMeta(tableMeta *types.TableMeta) {
 	if s.BeforeImage != nil {
 		s.BeforeImage.TableMeta = tableMeta
-		s.BeforeImage.TableName = tableMeta.TableName
+		if s.TableMetaKey != nil {
+			s.BeforeImage.TableMetaKey = s.TableMetaKey
+		}
+		if s.BeforeImage.TableName == "" {
+			s.BeforeImage.TableName = tableMeta.TableName
+		}
 	}
 	if s.AfterImage != nil {
 		s.AfterImage.TableMeta = tableMeta
-		s.AfterImage.TableName = tableMeta.TableName
+		if s.TableMetaKey != nil {
+			s.AfterImage.TableMetaKey = s.TableMetaKey
+		}
+		if s.AfterImage.TableName == "" {
+			s.AfterImage.TableName = tableMeta.TableName
+		}
 	}
+}
+
+// QualifiedTableName returns the table identity captured during phase one.
+// Logs written before TableMetaKey was introduced retain their stored table name.
+func (s SQLUndoLog) QualifiedTableName(dbType types.DBType) string {
+	if s.TableMetaKey == nil {
+		return s.TableName
+	}
+	quote := "`"
+	qualifier := s.TableMetaKey.DBName
+	if dbType == types.DBTypePostgreSQL {
+		quote = `"`
+		qualifier = s.TableMetaKey.Schema
+	}
+	escape := func(name string) string {
+		return quote + strings.ReplaceAll(name, quote, quote+quote) + quote
+	}
+	table := escape(s.TableMetaKey.TableName)
+	if qualifier == "" {
+		return table
+	}
+	return escape(qualifier) + "." + table
 }
 
 type UndoLogBuilder interface {

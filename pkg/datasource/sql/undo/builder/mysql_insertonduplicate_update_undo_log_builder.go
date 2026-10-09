@@ -62,9 +62,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 			vals[n] = param.Value
 		}
 	}
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.ParseContext.InsertStmt, metaData, vals)
+	metaData, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
+	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.ParseContext.InsertStmt, *metaData, vals, tableNameForExec(execCtx, metaData.TableName))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 		log.Errorf("stmt query: %+v", err)
 		return nil, err
 	}
-	image, err := u.buildRecordImages(rows, &metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) BeforeImage(ctx context.Context, 
 }
 
 // buildBeforeImageSQL build select sql from insert on duplicate update sql
-func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.Value) (string, []driver.Value, error) {
+func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *ast.InsertStmt, metaData types.TableMeta, args []driver.Value, tableNames ...string) (string, []driver.Value, error) {
 	if err := checkDuplicateKeyUpdate(insertStmt, metaData); err != nil {
 		return "", nil, err
 	}
@@ -143,7 +145,11 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) buildBeforeImageSQL(insertStmt *a
 		}
 	}
 	var sql strings.Builder
-	sql.WriteString("SELECT * FROM " + metaData.TableName + "  ")
+	tableName := metaData.TableName
+	if len(tableNames) > 0 {
+		tableName = tableNames[0]
+	}
+	sql.WriteString("SELECT * FROM " + tableName + "  ")
 	var selectArgs []driver.Value
 	isContainWhere := false
 	hasConditions := false
@@ -209,14 +215,16 @@ func (u *MySQLInsertOnDuplicateUndoLogBuilder) AfterImage(ctx context.Context, e
 		return nil, err
 	}
 	defer stmt.Close()
-	tableName := execCtx.ParseContext.InsertStmt.Table.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := stmt.Query(selectArgs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	image, err := u.buildRecordImages(rows, &metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
 	if err != nil {
 		return nil, err
 	}

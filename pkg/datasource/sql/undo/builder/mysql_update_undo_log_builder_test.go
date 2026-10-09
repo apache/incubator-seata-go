@@ -20,14 +20,8 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
-
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -44,21 +38,16 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
 
-	datasource.RegisterTableCache(types.DBTypeMySQL, &mysql.TableMetaCache{})
-
-	stub := gomonkey.ApplyMethod(reflect.TypeOf(datasource.GetTableCache(types.DBTypeMySQL)), "GetTableMeta", func(_ *mysql.TableMetaCache, ctx context.Context, dbName, tableName string) (*types.TableMeta, error) {
-		return &types.TableMeta{
-			Indexs: map[string]types.IndexMeta{
-				"id": {
-					IType: types.IndexTypePrimaryKey,
-					Columns: []types.ColumnMeta{
-						{ColumnName: "id"},
-					},
+	reader := testTableMetaReader{metas: map[string]types.TableMeta{"t_user": {
+		Indexs: map[string]types.IndexMeta{
+			"id": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id"},
 				},
 			},
-		}, nil
-	})
-	defer stub.Reset()
+		},
+	}}}
 
 	tests := []struct {
 		name            string
@@ -102,7 +91,7 @@ func TestBuildSelectSQLByUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := parser.DoParser(tt.sourceQuery)
 			assert.Nil(t, err)
-			query, args, err := builder.buildBeforeImageSQL(context.Background(), &types.ExecContext{ParseContext: c}, tt.sourceQueryArgs)
+			query, args, err := builder.buildBeforeImageSQL(context.Background(), &types.ExecContext{ParseContext: c, TableMetaReader: reader}, tt.sourceQueryArgs)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectQuery, query)
 			assert.Equal(t, tt.expectQueryArgs, args)
