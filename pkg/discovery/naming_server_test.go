@@ -435,6 +435,30 @@ func TestRefreshToken_Success(t *testing.T) {
 	}
 }
 
+func TestDoRefreshToken_AuthenticationFailure(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/auth/login", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "401",
+			"msg":     "invalid credentials",
+			"success": false,
+		})
+	}))
+	defer mockServer.Close()
+
+	client := &NamingServerClient{
+		config:     cloneTestConfig(),
+		httpClient: mockServer.Client(),
+		logger:     zap.NewNop(),
+	}
+
+	err := client.doRefreshToken(mockServer.Listener.Addr().String())
+
+	assert.EqualError(t, err, "authentication failed: success=false, msg=invalid credentials")
+}
+
 func TestRefreshToken_RetryMechanism(t *testing.T) {
 	resetInstance()
 	attemptCount := 0

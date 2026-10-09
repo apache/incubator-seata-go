@@ -107,14 +107,20 @@ func TestGRPCInvokerInvokeFailedInRetry(t *testing.T) {
 }
 
 func TestGRPCInvokerInvokeE2E(t *testing.T) {
-	go func() {
-		pb.StartProductServer()
-	}()
-	time.Sleep(3000 * time.Millisecond)
-	conn, err := grpc.Dial("localhost:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	address, server, err := pb.StartProductServer()
+	if err != nil {
+		t.Fatalf("start product server: %v", err)
+	}
+	defer server.Stop()
+
+	dialCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(dialCtx, address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
 	}
+	defer conn.Close()
 	c := pb.NewProductInfoClient(conn)
 	grpcClient := NewGRPCClient("product", c, conn)
 

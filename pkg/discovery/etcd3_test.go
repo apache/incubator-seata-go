@@ -166,7 +166,7 @@ func TestEtcd3RegistryService_Lookup(t *testing.T) {
 		if err != nil {
 			t.Errorf("error happen when look up . err = %e", err)
 		}
-		t.Logf(tt.name)
+		t.Log(tt.name)
 		for i := range serviceInstances {
 			t.Log(serviceInstances[i].Addr)
 			t.Log(serviceInstances[i].Port)

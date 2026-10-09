@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
@@ -13,8 +15,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-#!/bin/bash
 
 set -e
 set -x
@@ -35,14 +35,37 @@ echo "github pull request repo param -> $1"
 echo "github pull request base branch -> $3"
 echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
 
-echo "use seata-go-samples $3 branch for integration testing"
+# ensure docker-compose is available (newer Docker uses 'docker compose')
+if ! command -v docker-compose &> /dev/null && docker compose version >/dev/null 2>&1; then
+    mkdir -p /tmp/docker-shims
+    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
+    chmod +x /tmp/docker-shims/docker-compose
+    export PATH="/tmp/docker-shims:$PATH"
+fi
+
+if ! command -v docker-compose &> /dev/null; then
+    echo "docker-compose is required for integration tests (install Docker Compose v2 or standalone docker-compose)" >&2
+    exit 1
+fi
+
+SAMPLES_REF="${SAMPLES_REF:-}"
+echo "use seata-go-samples ref ${SAMPLES_REF:-remote default} for integration testing"
 SAMPLES_DIR=$(mktemp -d "${ROOT_DIR}/.seata-go-samples.XXXXXX")
 cleanup_samples() {
     rm -rf "${SAMPLES_DIR}"
 }
 trap cleanup_samples EXIT
 
-git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}" && cd "${SAMPLES_DIR}"
+if ! git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}"; then
+    echo "failed to clone incubator-seata-go-samples" >&2
+    exit 1
+fi
+cd "${SAMPLES_DIR}"
+if [[ -n "${SAMPLES_REF}" ]]; then
+    git fetch --depth 1 origin "${SAMPLES_REF}"
+    git checkout --detach FETCH_HEAD
+fi
+echo "seata-go-samples commit -> $(git rev-parse HEAD)"
 
 adapt_samples_to_seata_go_v2() {
     find . -type f -name '*.go' -print0 | while IFS= read -r -d '' file; do
@@ -51,6 +74,11 @@ adapt_samples_to_seata_go_v2() {
 
     go mod edit -droprequire=seata.apache.org/seata-go || true
     go mod edit -require=seata.apache.org/seata-go/v2@v2.0.0
+
+    if grep -R -n --exclude-dir=.git --include='*.go' 'seata\.apache\.org/seata-go/pkg' .; then
+        echo "old seata-go v1 imports remain after v2 migration"
+        exit 1
+    fi
 }
 
 cleanup_saga_e2e() {
@@ -59,7 +87,7 @@ cleanup_saga_e2e() {
 
 run_saga_e2e_test() {
     set +e
-    ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
+    WAIT_READY_MARGIN="${WAIT_READY_MARGIN:-30}" ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
     local result=$?
     set -e
 
@@ -72,14 +100,6 @@ adapt_samples_to_seata_go_v2
 go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
 
 go mod tidy
-
-# ensure docker-compose is available (newer Docker uses 'docker compose')
-if ! command -v docker-compose &> /dev/null; then
-    mkdir -p /tmp/docker-shims
-    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
-    chmod +x /tmp/docker-shims/docker-compose
-    export PATH="/tmp/docker-shims:$PATH"
-fi
 
 # start integrate test
 ./start_integrate_test.sh

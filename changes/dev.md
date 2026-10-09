@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies to remediate reachable security vulnerabilities and require Go 1.26.8
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed

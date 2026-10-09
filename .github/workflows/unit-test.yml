@@ -33,28 +33,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         golang:
-          - 1.20.14
+          - "1.26.8"
+          - "1.27.1"
 
     steps:
-    - name: "Set up Go"
-      uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.golang }}
-
     - name: "Checkout code"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7.0.1
       with:
         submodules: true
+        persist-credentials: false
+
+    - name: "Set up Go"
+      uses: actions/setup-go@v7.0.0
+      with:
+        go-version: ${{ matrix.golang }}
+        cache: false
 
     - name: "Cache dependencies"
-      uses: actions/cache@v3
+      uses: actions/cache@v6.1.0
       with:
         path: ~/go/pkg/mod
         key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
         restore-keys: |
-          "${{ runner.os }}-go-"
+          ${{ runner.os }}-go-
 
     - name: Shutdown default mysql
       run: sudo service mysql stop
@@ -71,9 +75,9 @@ jobs:
         echo "✅ Unit tests completed successfully"
 
     - name: "Archive test results"
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7.0.1
       with:
-        name: test-results
+        name: test-results-go-${{ matrix.golang }}
         path: coverage.txt
         retention-days: 7
         overwrite: true
