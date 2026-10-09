@@ -20,6 +20,7 @@ package tcc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -29,9 +30,98 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
 	"seata.apache.org/seata-go/v2/pkg/rm"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type phaseTwoResultService struct {
+	commitResult   bool
+	commitErr      error
+	rollbackResult bool
+	rollbackErr    error
+}
+
+func (*phaseTwoResultService) Prepare(context.Context, interface{}) (bool, error) {
+	return true, nil
+}
+
+func (s *phaseTwoResultService) Commit(context.Context, *tm.BusinessActionContext) (bool, error) {
+	return s.commitResult, s.commitErr
+}
+
+func (s *phaseTwoResultService) Rollback(context.Context, *tm.BusinessActionContext) (bool, error) {
+	return s.rollbackResult, s.rollbackErr
+}
+
+func (*phaseTwoResultService) GetActionName() string {
+	return "phase-two-result-service"
+}
+
+func newPhaseTwoResultManager(t *testing.T, service *phaseTwoResultService) (*TCCResourceManager, rm.BranchResource) {
+	t.Helper()
+	resource, err := ParseTCCResource(service)
+	require.NoError(t, err)
+
+	manager := &TCCResourceManager{}
+	manager.resourceManagerMap.Store(resource.GetResourceId(), resource)
+	return manager, rm.BranchResource{ResourceId: resource.GetResourceId(), Xid: "xid-1", BranchId: 1}
+}
+
+func TestBranchCommitUsesActionResult(t *testing.T) {
+	actionErr := errors.New("commit failed")
+	tests := []struct {
+		name       string
+		result     bool
+		err        error
+		wantStatus branch.BranchStatus
+	}{
+		{"success", true, nil, branch.BranchStatusPhasetwoCommitted},
+		{"false_without_error", false, nil, branch.BranchStatusPhasetwoCommitFailedRetryable},
+		{"error", true, actionErr, branch.BranchStatusPhasetwoCommitFailedRetryable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager, resource := newPhaseTwoResultManager(t, &phaseTwoResultService{commitResult: tt.result, commitErr: tt.err})
+			status, err := manager.BranchCommit(context.Background(), resource)
+			assert.Equal(t, tt.wantStatus, status)
+			if tt.err == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tt.err)
+			}
+		})
+	}
+}
+
+func TestBranchRollbackUsesActionResult(t *testing.T) {
+	actionErr := errors.New("rollback failed")
+	tests := []struct {
+		name       string
+		result     bool
+		err        error
+		wantStatus branch.BranchStatus
+	}{
+		{"success", true, nil, branch.BranchStatusPhasetwoRollbacked},
+		{"false_without_error", false, nil, branch.BranchStatusPhasetwoRollbackFailedRetryable},
+		{"error", true, actionErr, branch.BranchStatusPhasetwoRollbackFailedRetryable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager, resource := newPhaseTwoResultManager(t, &phaseTwoResultService{rollbackResult: tt.result, rollbackErr: tt.err})
+			status, err := manager.BranchRollback(context.Background(), resource)
+			assert.Equal(t, tt.wantStatus, status)
+			if tt.err == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tt.err)
+			}
+		})
+	}
+}
 
 type mockTCCManagedResource struct{}
 
