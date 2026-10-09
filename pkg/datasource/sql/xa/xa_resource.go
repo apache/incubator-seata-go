@@ -20,11 +20,15 @@ package xa
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
+
+// ErrXAReadOnly indicates prepare found a read-only branch that needs no phase-two work.
+var ErrXAReadOnly = errors.New("xa branch is read-only")
 
 const (
 	// TMEndRScan ends a recovery scan.
@@ -85,6 +89,16 @@ type XAErrorClassifier interface {
 	// For PostgreSQL: transaction already committed/rolled back.
 	// For Oracle: ORA-24756 (transaction does not exist).
 	IsAlreadyEnded(err error) bool
+}
+
+// XACommitErrorClassifier optionally distinguishes idempotent commit success from other terminal outcomes.
+type XACommitErrorClassifier interface {
+	IsAlreadyCommitted(err error) bool
+}
+
+// XARollbackErrorClassifier optionally distinguishes idempotent rollback success from other terminal outcomes.
+type XARollbackErrorClassifier interface {
+	IsAlreadyRollbacked(err error) bool
 }
 
 // defaultErrorClassifier is a no-op classifier that never matches any error.
