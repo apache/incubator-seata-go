@@ -64,8 +64,8 @@ func GetMySQLMultiUpdateUndoLogBuilder() undo.UndoLogBuilder {
 func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
-		for n, param := range execCtx.NamedValues {
-			vals[n] = param.Value
+		for _, param := range execCtx.NamedValues {
+			vals = append(vals, param.Value)
 		}
 	}
 
@@ -92,7 +92,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return nil, err
 	}
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
+	tableName := updateStmts[0].TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
 	metaData := execCtx.MetaDataMap[tableName]
 
 	image, err := u.buildRecordImages(rows, &metaData)
@@ -106,13 +106,15 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 }
 
 func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	var beforeImage *types.RecordImage
-	if len(beforeImages) > 0 {
-		beforeImage = beforeImages[0]
+	if len(beforeImages) == 0 {
+		return beforeImages, nil
 	}
+	beforeImage := beforeImages[0]
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData := execCtx.MetaDataMap[beforeImage.TableName]
+	if len(beforeImage.Rows) == 0 {
+		return []*types.RecordImage{types.NewEmptyRecordImage(&metaData, execCtx.ParseContext.SQLType)}, nil
+	}
 	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
@@ -139,7 +141,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
 	sb := strings.Builder{}
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.TableName + " ")
+	sb.WriteString("SELECT * FROM " + meta.TableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())

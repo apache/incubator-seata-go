@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"context"
 	"database/sql/driver"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	_ "seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -85,4 +87,93 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 	_, _, err = builder.buildBeforeImageSQL(updateStmts, sourceQueryArgs)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "multi update SQL with orderBy condition is not support yet")
+}
+
+func TestMySQLMultiUpdateUndoLogBuilder_BeforeImageParameters(t *testing.T) {
+	testBuilderBeforeImageParameters(t, &MySQLMultiUpdateUndoLogBuilder{},
+		"UPDATE t_user SET id=? WHERE id=?; UPDATE t_user SET id=? WHERE id=?",
+		[]driver.Value{int64(11), int64(1), int64(22), int64(2)})
+}
+
+func TestMySQLMultiUpdateUndoLogBuilder_AfterImageSQL(t *testing.T) {
+	b := &MySQLMultiUpdateUndoLogBuilder{}
+	cases := []struct {
+		name  string
+		ids   []driver.Value
+		query string
+	}{
+		{"single_row", []driver.Value{int64(100)}, "SELECT * FROM t_user WHERE  (`id`) IN ((?)) "},
+		{"multiple_rows", []driver.Value{int64(1), int64(2)}, "SELECT * FROM t_user WHERE  (`id`) IN ((?),(?)) "},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			before := &types.RecordImage{TableName: "t_user"}
+			for _, id := range tc.ids {
+				before.Rows = append(before.Rows, types.RowImage{Columns: []types.ColumnImage{
+					{ColumnName: "id", Value: id, KeyType: types.IndexTypePrimaryKey},
+				}})
+			}
+			query, args := b.buildAfterImageSQL(before, legacyBuilderTestMeta())
+			assert.Equal(t, tc.query, query)
+			assert.Equal(t, tc.ids, args)
+			_, err := parser.DoParser(query)
+			assert.NoError(t, err)
+
+			for _, source := range []string{
+				"UPDATE t_user SET id=11 WHERE id=1",
+				"UPDATE t_user SET id=11 WHERE id=1; UPDATE t_user SET id=22 WHERE id=2",
+			} {
+				t.Run(source, func(t *testing.T) {
+					conn := &legacyBuilderTestConn{}
+					execCtx := legacyBuilderTestContext(t, source, conn)
+					images, err := b.AfterImage(context.Background(), execCtx, []*types.RecordImage{before})
+					if !assert.NoError(t, err) {
+						return
+					}
+					assert.True(t, conn.prepared)
+					assert.Equal(t, tc.query, conn.query)
+					assert.Equal(t, tc.ids, conn.args)
+					if assert.Len(t, images, 1) {
+						assert.Equal(t, "t_user", images[0].TableName)
+						assert.Equal(t, execCtx.ParseContext.SQLType, images[0].SQLType)
+						assert.Len(t, images[0].Rows, 2)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestMySQLMultiUpdateUndoLogBuilder_AfterImageEmpty(t *testing.T) {
+	cases := []struct {
+		name   string
+		before []*types.RecordImage
+	}{
+		{"nil_images", nil},
+		{"empty_images", []*types.RecordImage{}},
+		{"no_rows", []*types.RecordImage{{
+			TableName: "t_user", SQLType: types.SQLTypeUpdate, Rows: []types.RowImage{},
+		}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := &legacyBuilderTestConn{}
+			execCtx := legacyBuilderTestContext(t, "UPDATE t_user SET id=11 WHERE id=1", conn)
+			images, err := (&MySQLMultiUpdateUndoLogBuilder{}).AfterImage(context.Background(), execCtx, tc.before)
+			assert.NoError(t, err)
+			assert.False(t, conn.prepared, "empty before image must not query the database")
+			if len(tc.before) == 0 {
+				assert.Equal(t, tc.before, images)
+			} else if assert.Len(t, images, 1) {
+				assert.NotSame(t, tc.before[0], images[0])
+				assert.Empty(t, images[0].Rows)
+				assert.Equal(t, "t_user", images[0].TableName)
+				assert.Equal(t, execCtx.ParseContext.SQLType, images[0].SQLType)
+				metaData := execCtx.MetaDataMap["t_user"]
+				assert.Equal(t, &metaData, images[0].TableMeta)
+				assert.NotNil(t, images[0].PrimaryKeyMap)
+				assert.Empty(t, images[0].PrimaryKeyMap)
+			}
+		})
+	}
 }

@@ -39,7 +39,6 @@ import (
 )
 
 func TestBuildSelectSQLByUpdate(t *testing.T) {
-	//t.SkipNow()
 	var (
 		builder = MySQLUpdateUndoLogBuilder{}
 	)
