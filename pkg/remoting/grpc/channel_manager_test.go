@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/discovery"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
@@ -227,4 +228,28 @@ func cloneTestServiceInstances(instances []*discovery.ServiceInstance) []*discov
 		clones = append(clones, &clone)
 	}
 	return clones
+}
+
+// TestGetXidUnwrapsRpcMessage covers the key ConsistentHashLoadBalance hashes on.
+// SendSync / SendAsync hand over the whole message.RpcMessage, so getXid has to
+// unwrap the body: before that it returned an empty key for every request, which
+// pinned them all to one TC.
+func TestGetXidUnwrapsRpcMessage(t *testing.T) {
+	manager := &ChannelManager{}
+
+	assert.Equal(t, "tx-1", manager.getXid(message.RpcMessage{
+		ID:   1,
+		Body: &pb.GlobalBeginRequestProto{TransactionName: "tx-1"},
+	}))
+	assert.Equal(t, "tx-2", manager.getXid(message.RpcMessage{
+		ID:   2,
+		Body: &pb.BranchRegisterRequestProto{Xid: "tx-2"},
+	}))
+	// Passing the body directly keeps working, which is what selectChannel did
+	// in the existing tests.
+	assert.Equal(t, "tx-3", manager.getXid(&pb.GlobalBeginRequestProto{TransactionName: "tx-3"}))
+
+	// No transaction key at all: an empty key instead of a shared one.
+	assert.Equal(t, "", manager.getXid(message.RpcMessage{ID: 3}))
+	assert.Equal(t, "", manager.getXid(nil))
 }
