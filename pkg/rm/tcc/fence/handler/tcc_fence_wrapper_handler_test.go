@@ -21,6 +21,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,6 +30,7 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/rm/tcc/fence/enum"
@@ -35,6 +38,71 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
+
+type captureTestLogger struct {
+	mu       sync.Mutex
+	warnings []string
+	errors   []string
+}
+
+func (logger *captureTestLogger) Debug(v ...interface{})                 {}
+func (logger *captureTestLogger) Debugf(format string, v ...interface{}) {}
+func (logger *captureTestLogger) Info(v ...interface{})                  {}
+func (logger *captureTestLogger) Infof(format string, v ...interface{})  {}
+func (logger *captureTestLogger) Warn(v ...interface{}) {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	logger.warnings = append(logger.warnings, fmt.Sprint(v...))
+}
+func (logger *captureTestLogger) Warnf(format string, v ...interface{}) {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	logger.warnings = append(logger.warnings, fmt.Sprintf(format, v...))
+}
+func (logger *captureTestLogger) Error(v ...interface{}) {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	logger.errors = append(logger.errors, fmt.Sprint(v...))
+}
+func (logger *captureTestLogger) Errorf(format string, v ...interface{}) {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	logger.errors = append(logger.errors, fmt.Sprintf(format, v...))
+}
+func (logger *captureTestLogger) Panic(v ...interface{})                 {}
+func (logger *captureTestLogger) Panicf(format string, v ...interface{}) {}
+func (logger *captureTestLogger) Fatal(v ...interface{})                 {}
+func (logger *captureTestLogger) Fatalf(format string, v ...interface{}) {}
+
+func (logger *captureTestLogger) warningText() string {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	return strings.Join(logger.warnings, "\n")
+}
+
+func (logger *captureTestLogger) errorText() string {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	return strings.Join(logger.errors, "\n")
+}
+
+func installCaptureTestLogger(t *testing.T) *captureTestLogger {
+	t.Helper()
+	logger := &captureTestLogger{}
+	previous := log.GetLogger()
+	log.SetLogger(logger)
+	t.Cleanup(func() {
+		log.SetLogger(previous)
+	})
+	return logger
+}
+
+func stopTestDrainTask(handler *tccFenceWrapperHandler) {
+	if handler.stopDrainCache != nil {
+		close(handler.stopDrainCache)
+		handler.drainWg.Wait()
+	}
+}
 
 // mockTCCFenceStore is a mock implementation of TCCFenceStore for testing
 type mockTCCFenceStore struct {
@@ -747,6 +815,8 @@ func TestDeleteBatchFence_Error(t *testing.T) {
 	err = handler.deleteBatchFence(tx, batch)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "delete batch fence log failed")
+	assert.Contains(t, err.Error(), "batch_size=1")
+	assert.NotContains(t, err.Error(), "xid1")
 }
 
 func TestPushCleanChannel(t *testing.T) {
@@ -967,11 +1037,12 @@ func TestTraversalCleanChannel_DeleteError(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	// Expect Begin but delete will fail
 	mock.ExpectBegin()
+	mock.ExpectRollback()
 
 	mockDao := &mockTCCFenceStore{
 		deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+			assert.NotNil(t, tx)
 			return errors.New("delete failed")
 		},
 	}
@@ -981,32 +1052,313 @@ func TestTraversalCleanChannel_DeleteError(t *testing.T) {
 		logQueue:    make(chan *model.FenceLogIdentity, maxQueueSize),
 	}
 
-	// Use WaitGroup to ensure goroutine completes
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	// Start the goroutine
-	go func() {
-		defer wg.Done()
-		handler.traversalCleanChannel(db)
-	}()
-
-	// Push channelDelete items to trigger batch delete
 	for i := 0; i < channelDelete; i++ {
 		handler.logQueue <- &model.FenceLogIdentity{
 			Xid:      "test-xid",
 			BranchId: int64(i),
 		}
 	}
-
-	// Give it time to process
-	time.Sleep(100 * time.Millisecond)
-
-	// Close the channel
 	close(handler.logQueue)
 
-	// Wait for goroutine to finish
-	wg.Wait()
+	handler.traversalCleanChannel(db)
+	stopTestDrainTask(handler)
+
+	handler.cacheMutex.Lock()
+	cacheLen := handler.logCache.Len()
+	handler.cacheMutex.Unlock()
+	assert.Equal(t, channelDelete, cacheLen)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTraversalCleanChannel_BeginErrorDoesNotCallDAO(t *testing.T) {
+	for _, batchSize := range []int{channelDelete, channelDelete - 2} {
+		t.Run(fmt.Sprintf("batch-size-%d", batchSize), func(t *testing.T) {
+			logger := installCaptureTestLogger(t)
+			db, mock, err := sqlmock.New()
+			assert.NoError(t, err)
+			defer db.Close()
+
+			mock.ExpectBegin().WillReturnError(errors.New("database unavailable"))
+
+			var daoCalls atomic.Int32
+			handler := &tccFenceWrapperHandler{
+				tccFenceDao: &mockTCCFenceStore{
+					deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+						daoCalls.Add(1)
+						assert.NotNil(t, tx)
+						return nil
+					},
+				},
+				logQueue: make(chan *model.FenceLogIdentity, channelDelete),
+			}
+
+			for i := 0; i < batchSize; i++ {
+				handler.logQueue <- &model.FenceLogIdentity{Xid: "xid-1", BranchId: int64(i)}
+			}
+			close(handler.logQueue)
+
+			assert.NotPanics(t, func() {
+				handler.traversalCleanChannel(db)
+			})
+			stopTestDrainTask(handler)
+
+			assert.Zero(t, daoCalls.Load(), "DAO must not be called when Begin fails")
+			handler.cacheMutex.Lock()
+			cacheLen := handler.logCache.Len()
+			handler.cacheMutex.Unlock()
+			assert.Equal(t, batchSize, cacheLen)
+			assert.Contains(t, logger.errorText(), "event=tcc_fence_log_clean_requeued")
+			assert.Contains(t, logger.errorText(), "database unavailable")
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestFlushBatch_RollbackErrorRequeuesBatch(t *testing.T) {
+	logger := installCaptureTestLogger(t)
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	deleteErr := errors.New("delete failed")
+	rollbackErr := errors.New("rollback failed")
+	mock.ExpectBegin()
+	mock.ExpectRollback().WillReturnError(rollbackErr)
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{
+			deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+				return deleteErr
+			},
+		},
+	}
+	batch := []model.FenceLogIdentity{{Xid: "xid-1", BranchId: 1}}
+
+	handler.flushBatch(db, batch)
+	stopTestDrainTask(handler)
+
+	assert.Equal(t, 1, handler.logCache.Len())
+	assert.Contains(t, logger.errorText(), deleteErr.Error())
+	assert.Contains(t, logger.errorText(), rollbackErr.Error())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTraversalCleanChannel_CommitErrorRequeuesBatch(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
+
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{
+			deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+				assert.NotNil(t, tx)
+				return nil
+			},
+		},
+		logQueue: make(chan *model.FenceLogIdentity, channelDelete),
+	}
+	for i := 0; i < channelDelete; i++ {
+		handler.logQueue <- &model.FenceLogIdentity{Xid: "xid-1", BranchId: int64(i)}
+	}
+	close(handler.logQueue)
+
+	handler.traversalCleanChannel(db)
+	stopTestDrainTask(handler)
+
+	handler.cacheMutex.Lock()
+	cacheLen := handler.logCache.Len()
+	handler.cacheMutex.Unlock()
+	assert.Equal(t, channelDelete, cacheLen)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDrainCacheOnce_RetryExhaustedIsReported(t *testing.T) {
+	logger := installCaptureTestLogger(t)
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectRollback()
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{
+			deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+				return errors.New("delete failed")
+			},
+		},
+		db: db,
+	}
+	handler.logCache.PushBack(&fenceLogCacheEntry{
+		identity:   model.FenceLogIdentity{Xid: "xid-exhausted", BranchId: 9},
+		retryCount: maxFenceLogCacheRetries,
+	})
+
+	before := testutil.ToFloat64(fenceLogCleanRetryExhaustedTotal)
+	handler.drainCacheOnce()
+	after := testutil.ToFloat64(fenceLogCleanRetryExhaustedTotal)
+
+	assert.Equal(t, before+1, after)
+	assert.Zero(t, handler.logCache.Len())
+	assert.Contains(t, logger.errorText(), "event=tcc_fence_log_clean_retry_exhausted")
+	assert.Contains(t, logger.errorText(), "retry_count=3")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDrainCacheOnce_BeginErrorRequeuesWithoutDAO(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin().WillReturnError(errors.New("database unavailable"))
+	var daoCalls atomic.Int32
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{
+			deleteMultipleFunc: func(tx *sql.Tx, identity []model.FenceLogIdentity) error {
+				daoCalls.Add(1)
+				return nil
+			},
+		},
+		db: db,
+	}
+	handler.logCache.PushBack(&fenceLogCacheEntry{
+		identity: model.FenceLogIdentity{Xid: "xid-retry", BranchId: 1},
+	})
+
+	handler.drainCacheOnce()
+
+	assert.Zero(t, daoCalls.Load())
+	assert.Equal(t, 1, handler.logCache.Len())
+	entry := handler.logCache.Front().Value.(*fenceLogCacheEntry)
+	assert.Equal(t, 1, entry.retryCount)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDestroyLogCleanChannel_DrainsPartialBatch(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{},
+		logQueue:    make(chan *model.FenceLogIdentity, channelDelete),
+	}
+	handler.cleanerWg.Add(1)
+	go func() {
+		defer handler.cleanerWg.Done()
+		handler.traversalCleanChannel(db)
+	}()
+
+	for i := 0; i < channelDelete-2; i++ {
+		handler.logQueue <- &model.FenceLogIdentity{Xid: "xid-shutdown", BranchId: int64(i)}
+	}
+
+	handler.DestroyLogCleanChannel()
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDestroyLogCleanChannel_ReportsUnprocessedCache(t *testing.T) {
+	logger := installCaptureTestLogger(t)
+	handler := &tccFenceWrapperHandler{
+		logQueue: make(chan *model.FenceLogIdentity, 1),
+	}
+	handler.logCache.PushBack(&fenceLogCacheEntry{
+		identity: model.FenceLogIdentity{Xid: "xid-pending", BranchId: 1},
+	})
+
+	handler.DestroyLogCleanChannel()
+
+	assert.Contains(t, logger.warningText(), "event=tcc_fence_log_clean_shutdown")
+	assert.Contains(t, logger.warningText(), "unprocessed=1")
+}
+
+func TestEnqueueFenceLogIdentities_ReportsRemainingOnShutdown(t *testing.T) {
+	stopLogCleanTask := make(chan struct{})
+	close(stopLogCleanTask)
+	handler := &tccFenceWrapperHandler{
+		logQueue:         make(chan *model.FenceLogIdentity),
+		stopLogCleanTask: stopLogCleanTask,
+	}
+	identities := []model.FenceLogIdentity{
+		{Xid: "xid-1", BranchId: 1},
+		{Xid: "xid-2", BranchId: 2},
+		{Xid: "xid-3", BranchId: 3},
+	}
+
+	handler.enqueueFenceLogIdentities(identities)
+
+	handler.lifecycleMutex.Lock()
+	pending := handler.shutdownPending
+	handler.lifecycleMutex.Unlock()
+	assert.Equal(t, len(identities), pending)
+}
+
+func TestPushCleanChannel_DuringDestroyDoesNotPanic(t *testing.T) {
+	installCaptureTestLogger(t)
+	handler := &tccFenceWrapperHandler{
+		logQueue: make(chan *model.FenceLogIdentity, maxQueueSize),
+	}
+
+	start := make(chan struct{})
+	var pushWg sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		pushWg.Add(1)
+		go func(worker int) {
+			defer pushWg.Done()
+			<-start
+			for i := 0; i < maxQueueSize; i++ {
+				handler.pushCleanChannel(fmt.Sprintf("xid-%d", worker), int64(i))
+			}
+		}(worker)
+	}
+
+	close(start)
+	handler.DestroyLogCleanChannel()
+	pushWg.Wait()
+
+	assert.NotPanics(t, func() {
+		handler.pushCleanChannel("xid-after-destroy", 1)
+	})
+}
+
+func TestRequeueBatch_AfterDestroyDoesNotStartDrainTask(t *testing.T) {
+	logger := installCaptureTestLogger(t)
+	handler := &tccFenceWrapperHandler{
+		logQueue: make(chan *model.FenceLogIdentity, 1),
+	}
+	handler.DestroyLogCleanChannel()
+
+	handler.requeueBatch([]model.FenceLogIdentity{{Xid: "xid-after-destroy", BranchId: 1}})
+
+	assert.Nil(t, handler.stopDrainCache)
+	assert.Zero(t, handler.logCache.Len())
+	handler.lifecycleMutex.Lock()
+	pending := handler.shutdownPending
+	handler.lifecycleMutex.Unlock()
+	assert.Equal(t, 1, pending)
+	assert.Contains(t, logger.warningText(), "event=tcc_fence_log_clean_rejected")
+	assert.Contains(t, logger.warningText(), "unprocessed=1")
+}
+
+func TestRequeueBatch_EmptyBatchDoesNothing(t *testing.T) {
+	handler := &tccFenceWrapperHandler{}
+
+	handler.requeueBatch(nil)
+
+	assert.Zero(t, handler.logCache.Len())
+	assert.Nil(t, handler.stopDrainCache)
+}
+
+func TestReportUnprocessed_ZeroDoesNothing(t *testing.T) {
+	handler := &tccFenceWrapperHandler{destroyed: true}
+
+	handler.reportUnprocessed(0, "test")
+
+	assert.Zero(t, handler.shutdownPending)
 }
 
 func TestInitLogCleanChannel(t *testing.T) {
@@ -1037,6 +1389,21 @@ func TestInitLogCleanChannel(t *testing.T) {
 		// It's okay if expectations aren't met with invalid DSN
 		t.Logf("Expected behavior with invalid DSN: %v", err)
 	}
+}
+
+func TestInitLogCleanChannel_StoppingDoesNotInitialize(t *testing.T) {
+	handler := &tccFenceWrapperHandler{
+		tccFenceDao: &mockTCCFenceStore{},
+		stopping:    true,
+	}
+
+	handler.InitLogCleanChannel("")
+
+	handler.dbMutex.RLock()
+	assert.Nil(t, handler.db)
+	handler.dbMutex.RUnlock()
+	assert.Nil(t, handler.logQueue)
+	assert.Nil(t, handler.stopLogCleanTask)
 }
 
 func TestInitLogCleanChannel_EmptyDSN(t *testing.T) {
