@@ -373,3 +373,41 @@ func TestBuildSelectSQLByUpdateRejectsPrimaryKeyChange(t *testing.T) {
 		assert.Zero(t, callbacks)
 	}
 }
+
+func TestBuildSelectSQLByUpdate_PostgreSQLPlaceholderInLiteral(t *testing.T) {
+	originalUndoConfig := undo.UndoConfig
+	t.Cleanup(func() {
+		undo.UndoConfig = originalUndoConfig
+	})
+
+	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
+	datasource.RegisterTableCache(types.DBTypePostgreSQL, &stubTableMetaCache{
+		meta: &types.TableMeta{
+			Indexs: map[string]types.IndexMeta{
+				"id": {
+					IType: types.IndexTypePrimaryKey,
+					Columns: []types.ColumnMeta{
+						{ColumnName: "id"},
+					},
+				},
+			},
+		},
+	})
+
+	sourceQuery := "update t_user set name = $1, age = $2 where id = $3 and note = '$99'"
+	sourceQueryArgs := []driver.Value{"Jack", 1, 100}
+	c, err := parser.DoParser(sourceQuery)
+	assert.NoError(t, err)
+
+	executor := NewUpdateExecutor(c, &types.ExecContext{
+		DBType:      types.DBTypePostgreSQL,
+		DBName:      "public",
+		Values:      sourceQueryArgs,
+		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+	}, []exec.SQLHook{})
+
+	query, args, err := executor.(*updateExecutor).buildBeforeImageSQL(context.Background(), util.ValueToNamedValue(sourceQueryArgs))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT name,age,id FROM t_user WHERE id=$1 AND note='$99' FOR UPDATE", query)
+	assert.Equal(t, []driver.Value{100}, util.NamedValueToValue(args))
+}

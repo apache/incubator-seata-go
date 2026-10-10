@@ -104,6 +104,23 @@ func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
 	assert.NotContains(t, query, "`")
 }
 
+func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQLPlaceholderInLiteral(t *testing.T) {
+	sourceQuery := "delete from t_user where id = $1 and note = '$2'"
+	sourceQueryArgs := []driver.Value{100}
+	c, err := parser.DoParser(sourceQuery)
+	assert.NoError(t, err)
+
+	executor := NewDeleteExecutor(c, &types.ExecContext{
+		DBType:      types.DBTypePostgreSQL,
+		Values:      sourceQueryArgs,
+		NamedValues: util.ValueToNamedValue(sourceQueryArgs),
+	}, []exec.SQLHook{})
+	query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL(sourceQuery, util.ValueToNamedValue(sourceQueryArgs))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT * FROM t_user WHERE id=$1 AND note='$2' FOR UPDATE", query)
+	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
+}
+
 func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 	meta := &types.TableMeta{
 		TableName:   "t_order",
