@@ -26,9 +26,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
 func TestMysqlXAConn_Commit(t *testing.T) {
@@ -304,4 +306,79 @@ func (m *mysqlMockRows) Next(dest []driver.Value) error {
 	}
 	m.idx++
 	return nil
+}
+
+func TestMysqlXAErrorClassifier_PhaseTwo(t *testing.T) {
+	classifier := &MysqlXAErrorClassifier{}
+
+	tests := []struct {
+		name      string
+		operation PhaseTwoOperation
+		err       error
+		want      PhaseTwoErrorClassification
+	}{
+		{
+			name:      "commit XA_RBROLLBACK proves rollback",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBROLLBACK},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "rollback XA_RBTIMEOUT proves rollback",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBTIMEOUT},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "commit XA_RBDEADLOCK proves rollback",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXA_RBDEADLOCK},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "rollback XAER_NOTA is idempotent success",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA},
+			want:      PhaseTwoAlreadyRolledBack,
+		},
+		{
+			name:      "commit XAER_NOTA remains ambiguous",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_NOTA},
+			want:      PhaseTwoRetryable,
+		},
+		{
+			name:      "invalid arguments are unretryable",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_INVAL},
+			want:      PhaseTwoUnretryable,
+		},
+		{
+			name:      "outside errors are unretryable",
+			operation: PhaseTwoRollback,
+			err:       &mysql.MySQLError{Number: types.ErrCodeXAER_OUTSIDE},
+			want:      PhaseTwoUnretryable,
+		},
+		{
+			name:      "unknown MySQL errors remain retryable",
+			operation: PhaseTwoCommit,
+			err:       &mysql.MySQLError{Number: 9999},
+			want:      PhaseTwoRetryable,
+		},
+		{
+			name:      "non-MySQL errors remain retryable",
+			operation: PhaseTwoRollback,
+			err:       errors.New("temporary network error"),
+			want:      PhaseTwoRetryable,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifier.ClassifyPhaseTwoError(tt.operation, tt.err)
+			if got != tt.want {
+				t.Fatalf("ClassifyPhaseTwoError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
