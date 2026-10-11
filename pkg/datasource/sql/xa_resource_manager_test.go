@@ -94,3 +94,49 @@ func TestXAResourceManager_LockQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestXAResourceManager_FinishBranchErrors(t *testing.T) {
+	const resourceID = "jdbc:mysql://test/resource"
+	branchResource := rm.BranchResource{ResourceId: resourceID}
+	xaID := XaIdBuild("test-xid", 1)
+
+	t.Run("resource does not exist", func(t *testing.T) {
+		xaManager := &XAResourceManager{}
+
+		conn, err := xaManager.finishBranch(context.Background(), xaID, branchResource)
+
+		assert.Nil(t, conn)
+		assert.ErrorContains(t, err, "unknown resource for xa branch")
+		assert.ErrorContains(t, err, resourceID)
+	})
+
+	t.Run("resource has unexpected type", func(t *testing.T) {
+		xaManager := &XAResourceManager{}
+		xaManager.resourceCache.Store(resourceID, struct{}{})
+
+		conn, err := xaManager.finishBranch(context.Background(), xaID, branchResource)
+
+		assert.Nil(t, conn)
+		assert.ErrorContains(t, err, "unknown resource for xa branch")
+		assert.ErrorContains(t, err, resourceID)
+	})
+
+	t.Run("connection error is wrapped", func(t *testing.T) {
+		connectionErr := errors.New("connection failed")
+		patches := gomonkey.ApplyMethod(reflect.TypeOf(&DBResource{}), "ConnectionForXA",
+			func(_ *DBResource, _ context.Context, _ XAXid) (*XAConn, error) {
+				return nil, connectionErr
+			})
+		defer patches.Reset()
+
+		xaManager := &XAResourceManager{}
+		xaManager.resourceCache.Store(resourceID, &DBResource{})
+
+		conn, err := xaManager.finishBranch(context.Background(), xaID, branchResource)
+
+		assert.Nil(t, conn)
+		assert.ErrorIs(t, err, connectionErr)
+		assert.ErrorContains(t, err, "get connection for xa branch")
+		assert.ErrorContains(t, err, resourceID)
+	})
+}
