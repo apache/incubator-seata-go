@@ -95,8 +95,9 @@ func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rp
 		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
 			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 				AbstractResultMessage: &pb.AbstractResultMessageProto{
-					ResultCode: resultCode,
-					Msg:        errMsg,
+					AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_COMMIT_RESULT},
+					ResultCode:      resultCode,
+					Msg:             errMsg,
 				},
 			},
 			Xid:          xid,

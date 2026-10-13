@@ -400,9 +400,18 @@ func (g *SessionManager) getXid(msg interface{}) string {
 		if msgType.Kind() == reflect.Pointer {
 			msgValue = msgValue.Elem()
 		}
-		xid = msgValue.FieldByName("Xid").String()
+		msgValue = msgValue.Elem()
 	}
-	return xid
+	if msgValue.Kind() != reflect.Struct {
+		return ""
+	}
+	if field := msgValue.FieldByName("Xid"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	if field := msgValue.FieldByName("TransactionName"); field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	return ""
 }
 
 func (g *SessionManager) releaseSession(session getty.Session) {

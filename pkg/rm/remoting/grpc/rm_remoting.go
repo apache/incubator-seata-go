@@ -62,7 +62,7 @@ func (r *GrpcRMRemoting) BranchRegister(param rm.BranchRegisterParam) (int64, er
 func (r *GrpcRMRemoting) BranchReport(param rm.BranchReportParam) error {
 	request := &pb.BranchReportRequestProto{
 		AbstractTransactionRequest: &pb.AbstractTransactionRequestProto{
-			AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_COMMIT},
+			AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_STATUS_REPORT},
 		},
 		Xid:             param.Xid,
 		BranchId:        param.BranchId,
