@@ -73,7 +73,7 @@ func TestGettyGlobalTransactionBegin(t *testing.T) {
 				TxName: "DefaultTx",
 			},
 			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
+			wantErrString:      "global begin request result is empty or result code is failed",
 			wantHasMock:        true,
 			wantMockTargetName: "SendSyncRequest",
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
@@ -85,7 +85,7 @@ func TestGettyGlobalTransactionBegin(t *testing.T) {
 				TxName: "DefaultTx",
 			},
 			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
+			wantErrString:      "global begin request result is empty or result code is failed",
 			wantHasMock:        true,
 			wantMockTargetName: "SendSyncRequest",
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {

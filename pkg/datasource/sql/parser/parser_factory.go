@@ -18,8 +18,11 @@
 package parser
 
 import (
-	aparser "github.com/arana-db/parser"
-	"github.com/arana-db/parser/ast"
+	"sort"
+
+	aparser "github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/test_driver"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
@@ -30,6 +33,8 @@ func DoParser(query string) (*types.ParseContext, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	assignParamMarkerOrders(stmtNodes)
 
 	if len(stmtNodes) == 1 {
 		return parseParseContext(stmtNodes[0]), err
@@ -46,6 +51,35 @@ func DoParser(query string) (*types.ParseContext, error) {
 	}
 
 	return &parserCtx, nil
+}
+
+type paramMarkerOrderVisitor struct {
+	markers []*test_driver.ParamMarkerExpr
+}
+
+func (v *paramMarkerOrderVisitor) Enter(node ast.Node) (ast.Node, bool) {
+	if marker, ok := node.(*test_driver.ParamMarkerExpr); ok {
+		v.markers = append(v.markers, marker)
+	}
+	return node, false
+}
+
+func (v *paramMarkerOrderVisitor) Leave(node ast.Node) (ast.Node, bool) {
+	return node, true
+}
+
+func assignParamMarkerOrders(stmtNodes []ast.StmtNode) {
+	visitor := &paramMarkerOrderVisitor{}
+	for _, node := range stmtNodes {
+		node.Accept(visitor)
+	}
+
+	sort.Slice(visitor.markers, func(i, j int) bool {
+		return visitor.markers[i].Offset < visitor.markers[j].Offset
+	})
+	for i, marker := range visitor.markers {
+		marker.SetOrder(i)
+	}
 }
 
 func parseParseContext(stmtNode ast.StmtNode) *types.ParseContext {

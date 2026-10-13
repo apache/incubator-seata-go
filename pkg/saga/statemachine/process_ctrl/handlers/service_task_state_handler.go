@@ -237,7 +237,7 @@ func (s *ServiceTaskStateHandler) compensateSubStateMachine(ctx context.Context,
 		return nil, err
 	}
 
-	if subInst == nil || len(subInst) == 0 {
+	if len(subInst) == 0 {
 		return nil, exception.NewEngineExecutionException(seataErrors.ObjectNotExists,
 			"cannot find sub statemachine instance by parentId:"+subStateMachineParentId, nil)
 	}

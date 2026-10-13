@@ -428,13 +428,13 @@ func TestWithGlobalTx(t *testing.T) {
 		{
 			GtxConfig:  &tm.GtxConfig{},
 			occurError: true,
-			errMessage: "global transaction name is required.",
+			errMessage: "global transaction name is required",
 		},
 
 		// case tm.GtxConfig is nil
 		{
 			occurError: true,
-			errMessage: "global transaction config info is required.",
+			errMessage: "global transaction config info is required",
 		},
 
 		// case mock begin return error

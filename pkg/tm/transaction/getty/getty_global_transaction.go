@@ -46,7 +46,7 @@ func (g *GettyGlobalTransactionManager) Begin(ctx context.Context, timeout time.
 	}
 	if res == nil || res.(message.GlobalBeginResponse).ResultCode == message.ResultCodeFailed {
 		log.Errorf("GlobalBeginRequest result is empty or result code is failed, res %v", res)
-		return fmt.Errorf("GlobalBeginRequest result is empty or result code is failed.")
+		return fmt.Errorf("global begin request result is empty or result code is failed")
 	}
 	log.Infof("GlobalBeginRequest success, res %v", res)
 

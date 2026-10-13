@@ -69,7 +69,7 @@ func BuildLockKey(records *types.RecordImage, meta types.TableMeta) string {
 				if pkVal == nil {
 					continue
 				}
-				lockKeys.WriteString(fmt.Sprintf("%v", pkVal))
+				fmt.Fprintf(&lockKeys, "%v", pkVal)
 			}
 		}
 	}

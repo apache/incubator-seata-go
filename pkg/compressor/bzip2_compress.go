@@ -19,7 +19,7 @@ package compressor
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 
 	"github.com/dsnet/compress/bzip2"
 )
@@ -55,7 +55,7 @@ func (g *Bzip2) Decompress(in []byte) ([]byte, error) {
 	if err = reader.Close(); err != nil {
 		return nil, err
 	}
-	output, err := ioutil.ReadAll(reader)
+	output, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

@@ -38,9 +38,14 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - 修复 `loadbalance.Select()` 在 `load-balance.type` 配置为 `ConsistentHashLoadBalance` / `LeastActiveLoadBalance` 时静默回退为随机负载均衡的问题：两个策略均已实现且配置层已接受，仅分发 `switch` 缺少对应分支
 - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] 修复上述两个策略在真正可达之后暴露出的问题：负载均衡 key 从整个 `RpcMessage` 而非其 body 中提取，导致一致性哈希把所有请求固定到同一台 TC；`rpc.Status.GetActive` / `GetTotal` 未用 `sync/atomic` 读取在途计数；首次选择时若还没有 session，哈希环会一直为空，且 key 越过最后一个虚拟节点时不会环绕到环首
 
+### 破坏性变更：
+
+- 将最低 Go 版本从 1.20 升级到 1.25（上游 `github.com/pingcap/tidb/pkg/parser` 要求）。所有下游用户需升级到 Go 1.25+。
+
 ### optimize：
 
 - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
+- 将 `github.com/arana-db/parser` 替换为上游 `github.com/pingcap/tidb/pkg/parser`，避免依赖可能停更的 fork
 
 ### test:
 

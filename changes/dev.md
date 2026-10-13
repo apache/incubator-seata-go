@@ -41,9 +41,14 @@
   - dispatch `ConsistentHashLoadBalance` and `LeastActiveLoadBalance` in `loadbalance.Select()`: both strategies were already implemented and accepted as config values, but missing from the dispatch `switch`, so they silently fell back to random load balancing
   - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] fix what the two newly reachable load balancing strategies got wrong: the selection key was read from the whole `RpcMessage` instead of its body, so consistent hashing pinned every request to one TC; `rpc.Status.GetActive` / `GetTotal` read the in-flight counters without `sync/atomic`; the hash circle stayed empty when the first selection saw no session and did not wrap around past the last virtual node
 
+### breaking change:
+
+  - Bump minimum Go version from 1.20 to 1.25 (required by upstream `github.com/pingcap/tidb/pkg/parser`). All downstream users must upgrade to Go 1.25+.
+
 ### optimize：
 
   - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
+  - Replace `github.com/arana-db/parser` with upstream `github.com/pingcap/tidb/pkg/parser` to avoid depending on a possibly-stale fork
 
 ### test:
 

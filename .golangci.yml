@@ -14,79 +14,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-linters-settings:
-  govet:
-    shadow: true
-  golint:
-    min-confidence: 0
-  gocyclo:
-    min-complexity: 10
-  maligned:
-    suggest-new: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  depguard:
-    list-type: blacklist
-    packages:
-      # logging is allowed only by logutils.Log, logrus
-      # is allowed to use only in logutils package
-      - github.com/sirupsen/logrus
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-  gocritic:
-    enabled-tags:
-      - performance
-      - style
-      - experimental
-    disabled-checks:
-      - wrapperFunc
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - govet
-    - staticcheck
-    - ineffassign
-    - misspell
     - asciicheck
     - bodyclose
-    - rowserrcheck
-    - gofmt
     - durationcheck
+    - govet
+    - ineffassign
+    - misspell
+    - rowserrcheck
     - sqlclosecheck
-
-run:
-
-issues:
-  exclude-dirs:
-    - test/testdata_etc
-    - pkg/golinters/goanalysis/(checker|passes)
-  exclude-rules:
-    - text: "weak cryptographic primitive"
-      linters:
-        - gosec
-    - linters:
-        - staticcheck
-      text: "SA1019:"
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - rowserrcheck
-        - govet
-
+    - staticcheck
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - wrapperFunc
+      enabled-tags:
+        - performance
+        - style
+        - experimental
+    gocyclo:
+      min-complexity: 10
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+        text: weak cryptographic primitive
+      - linters:
+          - staticcheck
+        text: 'SA1019:'
+      - linters:
+          - errcheck
+          - gosec
+          - govet
+          - rowserrcheck
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+formatters:
+  enable:
+    - gofmt
+  settings:
+    goimports:
+      local-prefixes:
+        - seata.apache.org/seata-go
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
-service:
-  golangci-lint-version: 1.57.x # use the fixed version to not introduce new linters unexpectedly
-  prepare:
-    - echo "here I can run custom commands, but no preparation needed for this repo"
-

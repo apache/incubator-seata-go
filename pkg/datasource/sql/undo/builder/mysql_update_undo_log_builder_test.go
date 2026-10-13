@@ -32,7 +32,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 
-	_ "github.com/arana-db/parser/test_driver"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/stretchr/testify/assert"
 
 	_ "seata.apache.org/seata-go/v2/pkg/util/log"

@@ -70,4 +70,26 @@ func TestDayValueYAML(t *testing.T) {
 		assert.Equal(t, testStruct, actualStruct)
 		assert.Equal(t, "1985-06-02T00:00:00Z", testStruct.Day.String())
 	}
+	// Test UTC-stable string and YAML serialization.
+	// DayValue.String() and DayValue.MarshalYAML() both use .UTC(),
+	// so serialization is independent of time.Local.
+	{
+		type TestStruct struct {
+			Day *DayValue `yaml:"day"`
+		}
+		var testStruct TestStruct
+		testStruct.Day = &DayValue{}
+		require.NoError(t, testStruct.Day.Set("1985-06-02"))
+		expected := []byte(`day: "1985-06-02"
+`)
+
+		actual, err := yaml.Marshal(testStruct)
+		require.NoError(t, err)
+		assert.Equal(t, expected, actual)
+
+		var actualStruct TestStruct
+		err = yaml.Unmarshal(expected, &actualStruct)
+		require.NoError(t, err)
+		assert.Equal(t, testStruct, actualStruct)
+	}
 }
