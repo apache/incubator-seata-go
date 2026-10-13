@@ -20,6 +20,7 @@ package tm
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/pkg/errors"
@@ -65,6 +66,9 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	defer func() {
 		var err error
 		deferErr := recover()
+		if deferErr != nil {
+			log.Errorf("global transaction xid %s, name %s business panic: %v\n%s", GetXID(ctx), GetTxName(ctx), deferErr, debug.Stack())
+		}
 		if IsGlobalTx(ctx) {
 			if err = CommitOrRollback(ctx, deferErr == nil && re == nil); err != nil {
 				log.Errorf("global transaction xid %s, name %s second phase error: %v", GetXID(ctx), GetTxName(ctx), err)
