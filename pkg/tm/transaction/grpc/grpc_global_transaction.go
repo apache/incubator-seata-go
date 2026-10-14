@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
-	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
+	remotinggrpc "seata.apache.org/seata-go/v2/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	"seata.apache.org/seata-go/v2/pkg/util/backoff"
@@ -32,7 +32,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-type GrpcGlobalTransactionManager struct{}
+// RemotingClient is the part of the gRPC remoting client used by the global
+// transaction manager. Keeping this boundary small lets tests use a fake
+// without rewriting methods on the process-wide remoting singleton.
+type RemotingClient interface {
+	SendSyncRequest(msg interface{}) (interface{}, error)
+}
+
+type GrpcGlobalTransactionManager struct {
+	remotingClient RemotingClient
+}
+
+// NewGrpcGlobalTransactionManager creates a manager backed by remotingClient.
+// A nil client retains the zero-value manager's production behavior.
+func NewGrpcGlobalTransactionManager(remotingClient RemotingClient) *GrpcGlobalTransactionManager {
+	return &GrpcGlobalTransactionManager{remotingClient: remotingClient}
+}
+
+func (g *GrpcGlobalTransactionManager) client() RemotingClient {
+	if g.remotingClient != nil {
+		return g.remotingClient
+	}
+	return remotinggrpc.GetGrpcRemotingClient()
+}
 
 // Begin a global transaction with given timeout and given name.
 func (g *GrpcGlobalTransactionManager) Begin(ctx context.Context, timeout time.Duration) error {
@@ -43,7 +65,7 @@ func (g *GrpcGlobalTransactionManager) Begin(ctx context.Context, timeout time.D
 		Timeout:         int32(timeout.Milliseconds()),
 		TransactionName: tm.GetTxName(ctx),
 	}
-	res, err := grpc.GetGrpcRemotingClient().SendSyncRequest(req)
+	res, err := g.client().SendSyncRequest(req)
 	if err != nil {
 		log.Errorf("GlobalBeginRequest  error %v", err)
 		return err
@@ -95,7 +117,7 @@ func (g *GrpcGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Globa
 	var res interface{}
 	var err error
 	for bf.Ongoing() {
-		if res, err = grpc.GetGrpcRemotingClient().SendSyncRequest(req); err == nil {
+		if res, err = g.client().SendSyncRequest(req); err == nil {
 			break
 		}
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, err)
@@ -142,7 +164,7 @@ func (g *GrpcGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Glo
 
 	var err error
 	for bf.Ongoing() {
-		if res, err = grpc.GetGrpcRemotingClient().SendSyncRequest(req); err == nil {
+		if res, err = g.client().SendSyncRequest(req); err == nil {
 			break
 		}
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)

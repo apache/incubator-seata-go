@@ -19,24 +19,37 @@ package grpc_test
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
-	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	grpc2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
+type remotingClientFunc func(msg interface{}) (interface{}, error)
+
+func (f remotingClientFunc) SendSyncRequest(msg interface{}) (interface{}, error) {
+	return f(msg)
+}
+
+func newGrpcManager(t *testing.T, send remotingClientFunc) *grpc2.GrpcGlobalTransactionManager {
+	t.Helper()
+	if send == nil {
+		send = func(msg interface{}) (interface{}, error) {
+			t.Fatalf("unexpected SendSyncRequest call with %T", msg)
+			return nil, nil
+		}
+	}
+	return grpc2.NewGrpcGlobalTransactionManager(send)
+}
+
 func TestGrpcGlobalTransactionBegin(t *testing.T) {
 	log.Init()
-	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -46,48 +59,40 @@ func TestGrpcGlobalTransactionBegin(t *testing.T) {
 		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
-	gts := []struct {
-		gtx                tm.GlobalTransaction
-		protocol           string
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+	tests := []struct {
+		name    string
+		gtx     tm.GlobalTransaction
+		send    remotingClientFunc
+		wantErr string
+		wantXID string
 	}{
 		{
+			name: "transport error",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock Begin return",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantErr: "mock Begin return",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock Begin return")
 			},
 		},
 		{
+			name: "empty response",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantErr: "GlobalBeginRequest result is empty or result code is failed.",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, nil
 			},
 		},
 		{
+			name: "failed response",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantErr: "GlobalBeginRequest result is empty or result code is failed.",
+			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalBeginResponseProto{
 					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 						AbstractResultMessage: &pb.AbstractResultMessageProto{
@@ -100,13 +105,12 @@ func TestGrpcGlobalTransactionBegin(t *testing.T) {
 			},
 		},
 		{
+			name: "success",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantXID: "test-xid",
+			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalBeginResponseProto{
 					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 						AbstractResultMessage: &pb.AbstractResultMessageProto{
@@ -115,35 +119,29 @@ func TestGrpcGlobalTransactionBegin(t *testing.T) {
 						},
 						TransactionExceptionCode: 0,
 					},
+					Xid: "test-xid",
 				}, nil
 			},
 		},
 	}
-	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-		ctx := tm.InitSeataContext(context.Background())
-		tm.SetTx(ctx, &v.gtx)
-		err := tm.GetGlobalTransactionManager().Begin(ctx, time.Second*30)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// reset up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manager := newGrpcManager(t, test.send)
+			ctx := tm.InitSeataContext(context.Background())
+			tm.SetTx(ctx, &test.gtx)
+			err := manager.Begin(ctx, 30*time.Second)
+			if test.wantErr != "" {
+				assert.Error(t, err)
+				assert.Regexp(t, test.wantErr, err.Error())
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.wantXID, tm.GetXID(ctx))
+		})
 	}
 }
 
 func TestGrpcGlobalTransactionCommit(t *testing.T) {
-	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -153,54 +151,48 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
-	gts := []struct {
-		gtx                tm.GlobalTransaction
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+	tests := []struct {
+		name    string
+		gtx     tm.GlobalTransaction
+		send    remotingClientFunc
+		wantErr string
 	}{
 		{
+			name: "participant",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Participant,
 				Xid:    "123456",
 			},
-			wantHasError: false,
 		},
 		{
+			name: "empty xid",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 			},
-			wantHasError:  true,
-			wantErrString: "Commit xid should not be empty",
+			wantErr: "Commit xid should not be empty",
 		},
 		{
+			name: "transport error",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock error retry",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantErr: "mock error retry",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
 		},
 		{
+			name: "success",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalCommitResponseProto{
 					AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
 						AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
@@ -214,63 +206,51 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 			},
 		},
 	}
-	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-
-		ctx := context.Background()
-		tm.SetTx(ctx, &v.gtx)
-		err := tm.GetGlobalTransactionManager().Commit(ctx, &v.gtx)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// rest up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manager := newGrpcManager(t, test.send)
+			ctx := context.Background()
+			tm.SetTx(ctx, &test.gtx)
+			err := manager.Commit(ctx, &test.gtx)
+			if test.wantErr != "" {
+				assert.Error(t, err)
+				assert.Regexp(t, test.wantErr, err.Error())
+				return
+			}
+			assert.NoError(t, err)
+		})
 	}
 }
 
 func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
-	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{CommitRetryCount: 1})
 
 	called := false
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), "SendSyncRequest",
-		func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
-			called = true
-			req, ok := msg.(*pb.GlobalCommitRequestProto)
-			assert.True(t, ok)
-			assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_COMMIT,
-				req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
+	manager := newGrpcManager(t, func(msg interface{}) (interface{}, error) {
+		called = true
+		req, ok := msg.(*pb.GlobalCommitRequestProto)
+		assert.True(t, ok)
+		assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_COMMIT,
+			req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
 
-			return &pb.GlobalCommitResponseProto{
-				AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
-					AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
-						AbstractResultMessage: &pb.AbstractResultMessageProto{
-							AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
-						},
+		return &pb.GlobalCommitResponseProto{
+			AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+				AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+					AbstractResultMessage: &pb.AbstractResultMessageProto{
+						AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
 					},
-					GlobalStatus: pb.GlobalStatusProto_Committed,
 				},
-			}, nil
-		})
-	defer patches.Reset()
+				GlobalStatus: pb.GlobalStatusProto_Committed,
+			},
+		}, nil
+	})
 
 	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
-	assert.NoError(t, tm.GetGlobalTransactionManager().Commit(context.Background(), gtr))
+	assert.NoError(t, manager.Commit(context.Background(), gtr))
 	assert.True(t, called, "Commit should call SendSyncRequest")
 }
 
 func TestGrpcGlobalTransactionRollback(t *testing.T) {
-	tm.SetGlobalTransactionManager(&grpc2.GrpcGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -280,54 +260,48 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
-	gts := []struct {
-		globalTransaction  tm.GlobalTransaction
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+	tests := []struct {
+		name              string
+		globalTransaction tm.GlobalTransaction
+		send              remotingClientFunc
+		wantErr           string
 	}{
 		{
+			name: "participant",
 			globalTransaction: tm.GlobalTransaction{
 				TxRole: tm.Participant,
 				TxName: "DefaultTx",
 				Xid:    "123456",
 			},
-			wantHasError: false,
 		},
 		{
+			name: "empty xid",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 			},
-			wantHasError:  true,
-			wantErrString: "Rollback xid should not be empty",
+			wantErr: "Rollback xid should not be empty",
 		},
 		{
+			name: "transport error",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock error retry",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			wantErr: "mock error retry",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
 		},
 		{
+			name: "success",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *grpc.GrpcRemotingClient, msg interface{}) (interface{}, error) {
+			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalRollbackResponseProto{
 					AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
 						AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
@@ -341,24 +315,16 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 			},
 		},
 	}
-	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(grpc.GetGrpcRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-
-		err := tm.GetGlobalTransactionManager().Rollback(context.Background(), &v.globalTransaction)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// rest up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manager := newGrpcManager(t, test.send)
+			err := manager.Rollback(context.Background(), &test.globalTransaction)
+			if test.wantErr != "" {
+				assert.Error(t, err)
+				assert.Regexp(t, test.wantErr, err.Error())
+				return
+			}
+			assert.NoError(t, err)
+		})
 	}
 }

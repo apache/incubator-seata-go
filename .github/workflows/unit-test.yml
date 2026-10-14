@@ -29,51 +29,40 @@ permissions:
 
 jobs:
   unit-test:
-    name: Unit Test
+    name: Unit Test (${{ matrix.golang }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         golang:
-          - 1.20.14
+          - '1.20.x'
+          - oldstable
+          - stable
 
     steps:
-    - name: "Set up Go"
-      uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.golang }}
-
     - name: "Checkout code"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         submodules: true
 
-    - name: "Cache dependencies"
-      uses: actions/cache@v3
+    - name: "Set up Go"
+      uses: actions/setup-go@v7
       with:
-        path: ~/go/pkg/mod
-        key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
-        restore-keys: |
-          "${{ runner.os }}-go-"
+        go-version: ${{ matrix.golang }}
+        cache-dependency-path: go.sum
 
     - name: Shutdown default mysql
       run: sudo service mysql stop
 
 
     - name: "Run Unit Tests"
-      run: |
-        echo "=== Starting Unit Tests ==="
-        go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
-        if [ $? -ne 0 ]; then
-          echo "❌ Unit tests failed"
-          exit 1
-        fi
-        echo "✅ Unit tests completed successfully"
+      run: go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
 
     - name: "Archive test results"
       uses: actions/upload-artifact@v4
       with:
-        name: test-results
+        name: test-results-${{ matrix.golang }}
         path: coverage.txt
         retention-days: 7
         overwrite: true
