@@ -49,7 +49,7 @@ func newGrpcRemoting() *GrpcRemoting {
 // SendSync sends a request and waits for the response
 func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callback callbackMethod) (interface{}, error) {
 	if channel == nil {
-		channel = channelManager.selectChannel(msg)
+		channel = channelManager.selectChannel(msg.Body)
 	}
 	if channel == nil || channel.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -68,7 +68,7 @@ func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callba
 // SendAsync sends a request asynchronously
 func (g *GrpcRemoting) SendAsync(msg message.RpcMessage, channel *Channel, callback callbackMethod) error {
 	if channel == nil {
-		channel = channelManager.selectChannel(msg)
+		channel = channelManager.selectChannel(msg.Body)
 	}
 	if channel == nil || channel.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
