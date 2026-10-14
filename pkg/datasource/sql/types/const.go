@@ -357,11 +357,28 @@ func MySQLStrToJavaType(mysqlType string) JDBCType {
 
 // XA transaction related error code constants (based on MySQL/MariaDB specifications)
 const (
+	// ErrCodeXAER_NOTA 1397: XAER_NOTA - Unknown XID.
+	ErrCodeXAER_NOTA = 1397
+
+	// ErrCodeXAER_INVAL 1398: XAER_INVAL - Invalid arguments.
+	ErrCodeXAER_INVAL = 1398
+
 	// ErrCodeXAER_RMFAIL_IDLE 1399: XAER_RMFAIL - The command cannot be executed when global transaction is in the IDLE state
 	// Typically occurs when trying to perform operations on an XA transaction that's in idle state
 	ErrCodeXAER_RMFAIL_IDLE = 1399
 
-	// ErrCodeXAER_INVAL 1400: XAER_INVAL - Invalid XA transaction ID format
-	// Triggered by malformed XID (e.g., invalid gtrid/branchid format or excessive length)
-	ErrCodeXAER_INVAL = 1400
+	// ErrCodeXAER_OUTSIDE 1400: XAER_OUTSIDE - Work is being done outside the global transaction.
+	ErrCodeXAER_OUTSIDE = 1400
+
+	// ErrCodeXAER_RMERR 1401: XAER_RMERR - A resource manager error occurred.
+	ErrCodeXAER_RMERR = 1401
+
+	// ErrCodeXA_RBROLLBACK 1402: The XA branch was rolled back.
+	ErrCodeXA_RBROLLBACK = 1402
+
+	// ErrCodeXA_RBTIMEOUT 1613: The XA branch was rolled back because of a timeout.
+	ErrCodeXA_RBTIMEOUT = 1613
+
+	// ErrCodeXA_RBDEADLOCK 1614: The XA branch was rolled back because of a deadlock.
+	ErrCodeXA_RBDEADLOCK = 1614
 )
