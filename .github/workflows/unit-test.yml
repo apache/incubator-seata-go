@@ -29,7 +29,36 @@ permissions:
 
 jobs:
   unit-test:
-    name: Unit Test (${{ matrix.golang }})
+    name: Unit Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: "Checkout code"
+      uses: actions/checkout@v7
+      with:
+        submodules: true
+
+    - name: "Set up Go"
+      uses: actions/setup-go@v7
+      with:
+        go-version: '1.20.x'
+        cache-dependency-path: go.sum
+
+    - name: Shutdown default mysql
+      run: sudo service mysql stop
+
+    - name: "Run full unit suite"
+      run: go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
+
+    - name: "Archive test results"
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: coverage.txt
+        retention-days: 7
+
+  grpc-transaction:
+    name: gRPC Transaction (${{ matrix.golang }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -52,17 +81,8 @@ jobs:
         go-version: ${{ matrix.golang }}
         cache-dependency-path: go.sum
 
-    - name: Shutdown default mysql
-      run: sudo service mysql stop
-
-
-    - name: "Run Unit Tests"
-      run: go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic -timeout 10m
-
-    - name: "Archive test results"
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.golang }}
-        path: coverage.txt
-        retention-days: 7
-        overwrite: true
+    - name: "Check gRPC transaction tests"
+      run: |
+        go test -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+        go test -race -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+        go test -race -count=1 ./pkg/tm/transaction/grpc

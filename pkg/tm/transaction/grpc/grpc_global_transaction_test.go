@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/tm"
 	grpc2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/grpc"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type remotingClientFunc func(msg interface{}) (interface{}, error)
@@ -126,16 +128,23 @@ func TestGrpcGlobalTransactionBegin(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			manager := newGrpcManager(t, test.send)
+			manager := newGrpcManager(t, func(msg interface{}) (interface{}, error) {
+				req, ok := msg.(*pb.GlobalBeginRequestProto)
+				require.True(t, ok)
+				assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_BEGIN, req.GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
+				assert.Equal(t, int32(30000), req.GetTimeout())
+				assert.Equal(t, test.gtx.TxName, req.GetTransactionName())
+				return test.send(msg)
+			})
 			ctx := tm.InitSeataContext(context.Background())
 			tm.SetTx(ctx, &test.gtx)
 			err := manager.Begin(ctx, 30*time.Second)
 			if test.wantErr != "" {
-				assert.Error(t, err)
-				assert.Regexp(t, test.wantErr, err.Error())
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.wantErr)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, test.wantXID, tm.GetXID(ctx))
 		})
 	}
@@ -152,10 +161,12 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	tests := []struct {
-		name    string
-		gtx     tm.GlobalTransaction
-		send    remotingClientFunc
-		wantErr string
+		name       string
+		gtx        tm.GlobalTransaction
+		send       remotingClientFunc
+		wantErr    string
+		wantCalls  int
+		wantStatus message.GlobalStatus
 	}{
 		{
 			name: "participant",
@@ -180,7 +191,8 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantErr: "mock error retry",
+			wantErr:   "mock error retry",
+			wantCalls: 5,
 			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
@@ -192,6 +204,8 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
+			wantCalls:  1,
+			wantStatus: message.GlobalStatusCommitted,
 			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalCommitResponseProto{
 					AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
@@ -208,16 +222,28 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			manager := newGrpcManager(t, test.send)
-			ctx := context.Background()
-			tm.SetTx(ctx, &test.gtx)
-			err := manager.Commit(ctx, &test.gtx)
+			calls := 0
+			var send remotingClientFunc
+			if test.send != nil {
+				send = func(msg interface{}) (interface{}, error) {
+					calls++
+					req, ok := msg.(*pb.GlobalCommitRequestProto)
+					require.True(t, ok)
+					assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_COMMIT, req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
+					assert.Equal(t, test.gtx.Xid, req.GetAbstractGlobalEndRequest().GetXid())
+					return test.send(msg)
+				}
+			}
+			manager := newGrpcManager(t, send)
+			err := manager.Commit(context.Background(), &test.gtx)
+			assert.Equal(t, test.wantCalls, calls)
+			assert.Equal(t, test.wantStatus, test.gtx.TxStatus)
 			if test.wantErr != "" {
-				assert.Error(t, err)
-				assert.Regexp(t, test.wantErr, err.Error())
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.wantErr)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -229,7 +255,7 @@ func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
 	manager := newGrpcManager(t, func(msg interface{}) (interface{}, error) {
 		called = true
 		req, ok := msg.(*pb.GlobalCommitRequestProto)
-		assert.True(t, ok)
+		require.True(t, ok)
 		assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_COMMIT,
 			req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
 
@@ -246,8 +272,35 @@ func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
 	})
 
 	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
-	assert.NoError(t, manager.Commit(context.Background(), gtr))
+	require.NoError(t, manager.Commit(context.Background(), gtr))
 	assert.True(t, called, "Commit should call SendSyncRequest")
+	assert.Equal(t, message.GlobalStatusCommitted, gtr.TxStatus)
+}
+
+func TestGrpcGlobalTransactionCommitTimeoutUsesInjectedClient(t *testing.T) {
+	tm.InitTm(tm.TmConfig{RollbackRetryCount: 1})
+	ctx := tm.InitSeataContext(context.Background())
+	// NotSupported records the timeout without calling the global manager.
+	require.NoError(t, tm.Begin(ctx, &tm.GtxConfig{Propagation: tm.NotSupported, Timeout: time.Nanosecond}))
+	require.True(t, tm.IsTimeout(ctx))
+
+	calls := 0
+	manager := newGrpcManager(t, func(msg interface{}) (interface{}, error) {
+		calls++
+		req, ok := msg.(*pb.GlobalRollbackRequestProto)
+		require.True(t, ok)
+		assert.Equal(t, "test-xid", req.GetAbstractGlobalEndRequest().GetXid())
+		return &pb.GlobalRollbackResponseProto{
+			AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+				GlobalStatus: pb.GlobalStatusProto_Rollbacked,
+			},
+		}, nil
+	})
+
+	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
+	require.NoError(t, manager.Commit(ctx, gtr))
+	assert.Equal(t, 1, calls)
+	assert.Equal(t, message.GlobalStatusRollbacked, gtr.TxStatus)
 }
 
 func TestGrpcGlobalTransactionRollback(t *testing.T) {
@@ -265,6 +318,8 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 		globalTransaction tm.GlobalTransaction
 		send              remotingClientFunc
 		wantErr           string
+		wantCalls         int
+		wantStatus        message.GlobalStatus
 	}{
 		{
 			name: "participant",
@@ -289,7 +344,8 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantErr: "mock error retry",
+			wantErr:   "mock error retry",
+			wantCalls: 5,
 			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
@@ -301,6 +357,8 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
+			wantCalls:  1,
+			wantStatus: message.GlobalStatusRollbacked,
 			send: func(msg interface{}) (interface{}, error) {
 				return &pb.GlobalRollbackResponseProto{
 					AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
@@ -317,14 +375,28 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			manager := newGrpcManager(t, test.send)
+			calls := 0
+			var send remotingClientFunc
+			if test.send != nil {
+				send = func(msg interface{}) (interface{}, error) {
+					calls++
+					req, ok := msg.(*pb.GlobalRollbackRequestProto)
+					require.True(t, ok)
+					assert.Equal(t, pb.MessageTypeProto_TYPE_GLOBAL_ROLLBACK, req.GetAbstractGlobalEndRequest().GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
+					assert.Equal(t, test.globalTransaction.Xid, req.GetAbstractGlobalEndRequest().GetXid())
+					return test.send(msg)
+				}
+			}
+			manager := newGrpcManager(t, send)
 			err := manager.Rollback(context.Background(), &test.globalTransaction)
+			assert.Equal(t, test.wantCalls, calls)
+			assert.Equal(t, test.wantStatus, test.globalTransaction.TxStatus)
 			if test.wantErr != "" {
-				assert.Error(t, err)
-				assert.Regexp(t, test.wantErr, err.Error())
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.wantErr)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
