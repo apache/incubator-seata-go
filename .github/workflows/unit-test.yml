@@ -28,6 +28,9 @@ permissions:
   contents: read
 
 jobs:
+  # Getty transaction tests still patch methods with gomonkey on newer Go.
+  # Keep the full-suite race gate on the declared minimum toolchain while
+  # exercising the migrated gRPC transaction tests on current Go below.
   unit-test:
     name: Unit Test
     runs-on: ubuntu-latest
