@@ -606,8 +606,7 @@ func (s *StateLogStore) generateCompensateStateInstanceId(stateInstance statelan
 }
 
 func safeGetSagaRM() (rm.ResourceManager, bool) {
-	defer func() { recover() }()
-	return rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA), true
+	return rm.GetRmCacheInstance().FindResourceManager(branch.BranchTypeSAGA)
 }
 
 func (s *StateLogStore) branchRegister(ctx context.Context, stateInstance statelang.StateInstance, context process_ctrl.ProcessContext) error {

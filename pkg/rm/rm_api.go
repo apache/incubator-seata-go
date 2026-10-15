@@ -101,6 +101,7 @@ type ResourceManager interface {
 }
 
 type ResourceManagerGetter interface {
+	// GetResourceManager returns the ResourceManager for branchType, or nil if none is registered.
 	GetResourceManager(branchType branch.BranchType) ResourceManager
 }
 
