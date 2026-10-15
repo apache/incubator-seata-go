@@ -25,14 +25,13 @@ import (
 	"reflect"
 	"testing"
 
-	"seata.apache.org/seata-go/v2/pkg/rm"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 )
 
@@ -150,4 +149,91 @@ func Test_seataXADriver_OpenConnector(t *testing.T) {
 
 	_, ok := fieldVal.(*seataXAConnector)
 	assert.True(t, ok, "need return seata xa connector")
+}
+
+func TestDriverDescriptorTableMetaCache(t *testing.T) {
+	assert.NotNil(t, mySQLDriverDescriptor.newTableMetaCache)
+	assert.NotNil(t, postgresDriverDescriptor.newTableMetaCache)
+	assert.Nil(t, oracleDriverDescriptor.newTableMetaCache)
+}
+
+func TestParseResourceIDOracleIncludesServiceName(t *testing.T) {
+	serviceOne := parseResourceID("oracle://system:pass@localhost:1521/?service name=FREEPDB1", types.DBTypeOracle)
+	serviceTwo := parseResourceID("oracle://system:pass@localhost:1521/?SERVICE_NAME=FREEPDB2", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB1", serviceOne)
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB2", serviceTwo)
+	assert.NotEqual(t, serviceOne, serviceTwo)
+}
+
+func TestParseResourceIDOracleIncludesSID(t *testing.T) {
+	sidOne := parseResourceID("oracle://system:pass@localhost:1521/?SID=ORCL1", types.DBTypeOracle)
+	sidTwo := parseResourceID("oracle://system:pass@localhost:1521/?sid=ORCL2", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/ORCL1", sidOne)
+	assert.Equal(t, "oracle://system:pass@localhost:1521/ORCL2", sidTwo)
+	assert.NotEqual(t, sidOne, sidTwo)
+}
+
+func TestParseResourceIDOracleMatchesGoOraQueryPrecedence(t *testing.T) {
+	queryService := parseResourceID("oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB", types.DBTypeOracle)
+	sid := parseResourceID("oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB&SID=SIDDB", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/QUERYDB", queryService)
+	assert.Equal(t, "oracle://system:pass@localhost:1521/SIDDB", sid)
+}
+
+func TestParseResourceIDOracleIncludesConnStrServiceName(t *testing.T) {
+	serviceOne := parseResourceID("oracle://system:pass@localhost:1521/?connStr=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))", types.DBTypeOracle)
+	serviceTwo := parseResourceID("oracle://system:pass@localhost:1521/?connStr=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=FREEPDB2)))", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB1", serviceOne)
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB2", serviceTwo)
+	assert.NotEqual(t, serviceOne, serviceTwo)
+}
+
+func TestParseResourceIDOracleIncludesConnStrJDBCServiceName(t *testing.T) {
+	resourceID := parseResourceID("oracle://system:pass@localhost:1521/?connStr=jdbc:oracle:thin:@//localhost:1521/FREEPDB1", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB1", resourceID)
+}
+
+func TestParseResourceIDOracleIncludesServerQueryIdentity(t *testing.T) {
+	serverOne := parseResourceID("oracle://system:pass@placeholder:1521/?SERVER=db1:1521&SERVICE%20NAME=XE", types.DBTypeOracle)
+	serverTwo := parseResourceID("oracle://system:pass@placeholder:1521/?SERVER=db2:1521&SERVICE%20NAME=XE", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@db1:1521/XE", serverOne)
+	assert.Equal(t, "oracle://system:pass@db2:1521/XE", serverTwo)
+	assert.NotEqual(t, serverOne, serverTwo)
+}
+
+func TestParseResourceIDOracleIncludesConnStrServerIdentity(t *testing.T) {
+	serverOne := parseResourceID("oracle://system:pass@placeholder:1521/?connStr=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=db1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=XE)))", types.DBTypeOracle)
+	serverTwo := parseResourceID("oracle://system:pass@placeholder:1521/?connStr=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=db2)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=XE)))", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@db1:1521/XE", serverOne)
+	assert.Equal(t, "oracle://system:pass@db2:1521/XE", serverTwo)
+	assert.NotEqual(t, serverOne, serverTwo)
+}
+
+func TestParseResourceIDOracleStripsNonIdentityQuery(t *testing.T) {
+	resourceID := parseResourceID("oracle://system:pass@localhost:1521/FREEPDB1?TRACE FILE=trace.log", types.DBTypeOracle)
+
+	assert.Equal(t, "oracle://system:pass@localhost:1521/FREEPDB1", resourceID)
+}
+
+func TestParseOracleDBNameUsesQueryIdentity(t *testing.T) {
+	cases := map[string]string{
+		"oracle://system:pass@localhost:1521/?service name=FREEPDB1":                                        "FREEPDB1",
+		"oracle://system:pass@localhost:1521/?SID=ORCL1":                                                    "ORCL1",
+		"oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB":                                   "QUERYDB",
+		"oracle://system:pass@localhost:1521/PATHDB?SERVICE NAME=QUERYDB&SID=SIDDB":                         "SIDDB",
+		"oracle://system:pass@localhost:1521/?connStr=(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))": "FREEPDB1",
+	}
+
+	for dsn, expected := range cases {
+		dbName, err := parseOracleDBName(dsn)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, dbName)
+	}
 }
