@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -46,15 +45,19 @@ func GetMySQLMultiDeleteUndoLogBuilder() undo.UndoLogBuilder {
 }
 
 func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
-	deletes := strings.Split(execCtx.Query, ";")
-	if len(deletes) == 1 {
+	deleteContexts := execCtx.ParseContext.MultiStmt
+	if len(deleteContexts) == 0 {
 		return GetMySQLDeleteUndoLogBuilder().BeforeImage(ctx, execCtx)
 	}
+	deletes := make([]string, 0, len(deleteContexts))
+	for _, parseContext := range deleteContexts {
+		deletes = append(deletes, parseContext.DeleteStmt.OriginalText())
+	}
 
-	values := make([]driver.Value, 0, len(execCtx.NamedValues)*2)
-	if execCtx.Values == nil {
-		for n, param := range execCtx.NamedValues {
-			values[n] = param.Value
+	values := execCtx.Values
+	if values == nil {
+		for _, param := range execCtx.NamedValues {
+			values = append(values, param.Value)
 		}
 	}
 
@@ -70,7 +73,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		record  *types.RecordImage
 		records []*types.RecordImage
 
-		meDataMap = execCtx.MetaDataMap[execCtx.ParseContext.DeleteStmt.
+		meDataMap = execCtx.MetaDataMap[deleteContexts[0].DeleteStmt.
 				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O]
 	)
 
@@ -94,7 +97,7 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		}
 		records = append(records, record)
 
-		lockKey := u.buildLockKey(rows, meDataMap)
+		lockKey := u.buildLockKey(record, meDataMap)
 		execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 
