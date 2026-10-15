@@ -244,14 +244,12 @@ func TestInitRegistryWithErrorSupportedProviders(t *testing.T) {
 				tt.cleanup()
 			}
 			t.Cleanup(func() {
-				if tt.cleanup != nil {
-					tt.cleanup()
-					registryServiceInstance = nil
-					return
-				}
 				if registryServiceInstance != nil {
 					registryServiceInstance.Close()
 					registryServiceInstance = nil
+				}
+				if tt.cleanup != nil {
+					tt.cleanup()
 				}
 			})
 
