@@ -18,6 +18,9 @@
 package codec
 
 import (
+	"encoding/binary"
+	"math"
+	"strings"
 	"testing"
 
 	serror "seata.apache.org/seata-go/v2/pkg/util/errors"
@@ -46,8 +49,29 @@ func TestBranchRollbackResponseCodec(t *testing.T) {
 	}
 
 	codec := BranchRollbackResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
+	encoded := codec.Encode(msg)
+	assert.Equal(t, uint16(len(msg.Msg)), binary.BigEndian.Uint16(encoded[1:3]))
+	assert.Equal(t, msg.Msg, string(encoded[3:3+len(msg.Msg)]))
+	msg2 := codec.Decode(encoded)
 
 	assert.Equal(t, msg, msg2)
+}
+
+func TestBranchRollbackResponseCodecTruncatesLongMessage(t *testing.T) {
+	msg := message.BranchRollbackResponse{
+		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        strings.Repeat("x", math.MaxInt16+1),
+				},
+			},
+		},
+	}
+
+	codec := BranchRollbackResponseCodec{}
+	encoded := codec.Encode(msg)
+	assert.Equal(t, uint16(math.MaxInt16), binary.BigEndian.Uint16(encoded[1:3]))
+	decoded := codec.Decode(encoded).(message.BranchRollbackResponse)
+	assert.Len(t, decoded.Msg, math.MaxInt16)
 }
