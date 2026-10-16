@@ -52,7 +52,7 @@ func (g *GrpcRemoting) SendSync(msg message.RpcMessage, channel *Channel, callba
 		if channelManager == nil {
 			return nil, fmt.Errorf("stream is closed")
 		}
-		channel = channelManager.selectChannel(msg)
+		channel = channelManager.selectChannel(msg.Body)
 	}
 	if channel == nil || channel.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -74,7 +74,7 @@ func (g *GrpcRemoting) SendAsync(msg message.RpcMessage, channel *Channel, callb
 		if channelManager == nil {
 			return fmt.Errorf("stream is closed")
 		}
-		channel = channelManager.selectChannel(msg)
+		channel = channelManager.selectChannel(msg.Body)
 	}
 	if channel == nil || channel.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")

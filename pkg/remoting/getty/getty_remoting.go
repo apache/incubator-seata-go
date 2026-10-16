@@ -53,7 +53,7 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 		if sessionManager == nil {
 			return nil, fmt.Errorf("session is closed")
 		}
-		s = sessionManager.selectSession(msg)
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -74,7 +74,7 @@ func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callb
 		if sessionManager == nil {
 			return fmt.Errorf("session is closed")
 		}
-		s = sessionManager.selectSession(msg)
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
