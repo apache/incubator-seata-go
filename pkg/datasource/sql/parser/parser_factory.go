@@ -147,10 +147,10 @@ func (l *postgresStringLiteral) Accept(visitor ast.Visitor) (ast.Node, bool) {
 	return visitor.Leave(node)
 }
 
-// ParsePostgreSQLUpdateForImage makes a separate AST whose unquoted identifiers
+// ParsePostgreSQLForImage makes a separate AST whose unquoted identifiers
 // are folded before restoring image SQL with double-quoted names. The original
 // statement and quoted names (including column qualifiers) remain unchanged.
-func ParsePostgreSQLUpdateForImage(query string) (*ast.UpdateStmt, error) {
+func ParsePostgreSQLForImage(query string) (*types.ParseContext, error) {
 	normalized := []byte(query)
 	parameters := postgresImageParameters{}
 	for _, token := range scanIdentifiers(query, types.DBTypePostgreSQL) {
@@ -170,10 +170,30 @@ func ParsePostgreSQLUpdateForImage(query string) (*ast.UpdateStmt, error) {
 	if err != nil {
 		return nil, err
 	}
+	var stmt ast.Node
+	switch {
+	case parsed.UpdateStmt != nil:
+		stmt = parsed.UpdateStmt
+	case parsed.DeleteStmt != nil:
+		stmt = parsed.DeleteStmt
+	case parsed.SelectStmt != nil:
+		stmt = parsed.SelectStmt
+	default:
+		return nil, fmt.Errorf("postgres image requires a single UPDATE, DELETE or SELECT statement")
+	}
+	stmt.Accept(parameters)
+	return parsed, nil
+}
+
+// ParsePostgreSQLUpdateForImage prepares an UPDATE for quote-preserving image SQL.
+func ParsePostgreSQLUpdateForImage(query string) (*ast.UpdateStmt, error) {
+	parsed, err := ParsePostgreSQLForImage(query)
+	if err != nil {
+		return nil, err
+	}
 	if parsed.UpdateStmt == nil {
 		return nil, fmt.Errorf("postgres update image requires a single UPDATE statement")
 	}
-	parsed.UpdateStmt.Accept(parameters)
 	return parsed.UpdateStmt, nil
 }
 

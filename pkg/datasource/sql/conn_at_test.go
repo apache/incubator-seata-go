@@ -688,7 +688,7 @@ func TestATConn_PostgreSQLGlobalDeleteInTxUsesRealExecutor(t *testing.T) {
 						columns: []string{"version"},
 						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
 					}, nil
-				case `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`:
+				case `SELECT * FROM "public"."t_user" WHERE "id"=$1 FOR UPDATE`:
 					return &postgresMockRows{
 						columns: []string{"id", "name", "age"},
 						data:    [][]driver.Value{{int64(1), "alice", int64(18)}},
@@ -714,7 +714,7 @@ func TestATConn_PostgreSQLGlobalDeleteInTxUsesRealExecutor(t *testing.T) {
 
 	_, err = tx.ExecContext(context.Background(), "DELETE FROM t_user WHERE id = $1", int64(1))
 	assert.NoError(t, err)
-	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE id=$1 FOR UPDATE`)
+	assert.Contains(t, queryLog, `SELECT * FROM "public"."t_user" WHERE "id"=$1 FOR UPDATE`)
 	assert.Equal(t, []string{"DELETE FROM t_user WHERE id = $1"}, execLog)
 	assert.NoError(t, tx.Rollback())
 }
@@ -757,7 +757,7 @@ func TestATConn_PostgreSQLSelectForUpdateInTxUsesRealExecutor(t *testing.T) {
 					}, nil
 				case strings.HasPrefix(query, "savepoint "):
 					return nil, nil
-				case query == `SELECT id FROM "public"."t_user" WHERE id=$1 FOR UPDATE`:
+				case query == `SELECT "id" FROM "public"."t_user" WHERE "id"=$1 FOR UPDATE`:
 					return &postgresMockRows{
 						columns: []string{"id"},
 						data:    [][]driver.Value{{int64(1)}},

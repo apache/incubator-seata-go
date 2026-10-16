@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
@@ -261,6 +262,26 @@ func (b *baseExecutor) normalizeGeneratedSQL(query string, dbType types.DBType) 
 		query = mysqlStringLiteralForPostgresPattern.ReplaceAllString(query, "'$1'")
 	}
 	return util.RewritePlaceholders(query, dbType)
+}
+
+// restoreImageSelectSQL preserves the identifiers and literals prepared by
+// ParsePostgreSQLForImage when building PostgreSQL auxiliary queries.
+func (b *baseExecutor) restoreImageSelectSQL(stmt *ast.SelectStmt, dbType types.DBType) (string, error) {
+	var sql strings.Builder
+	flags := format.RestoreKeyWordUppercase
+	if dbType == types.DBTypePostgreSQL {
+		flags |= format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
+	}
+	if err := stmt.Restore(format.NewRestoreCtx(flags, &sql)); err != nil {
+		return "", err
+	}
+	if dbType == types.DBTypePostgreSQL {
+		// Literals are already PostgreSQL SQL. MySQL charset rewriting would
+		// also change matching text inside dollar strings.
+		query := strings.Replace(sql.String(), "SELECT SQL_NO_CACHE ", "SELECT ", 1)
+		return util.RewritePlaceholders(query, dbType), nil
+	}
+	return b.normalizeGeneratedSQL(sql.String(), dbType), nil
 }
 
 func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {

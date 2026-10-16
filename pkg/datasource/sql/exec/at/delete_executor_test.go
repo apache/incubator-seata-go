@@ -98,7 +98,7 @@ func Test_deleteExecutor_buildBeforeImageSQL_PostgreSQL(t *testing.T) {
 	}, []exec.SQLHook{})
 	query, args, err := executor.(*deleteExecutor).buildBeforeImageSQL("delete from t_user where id = $1 and name = 'Jack' and age between $2 and $3", util.ValueToNamedValue(sourceQueryArgs))
 	assert.Nil(t, err)
-	assert.Equal(t, `SELECT * FROM "public"."t_user" WHERE id=$1 AND name='Jack' AND age BETWEEN $2 AND $3 FOR UPDATE`, query)
+	assert.Equal(t, `SELECT * FROM "public"."t_user" WHERE "id"=$1 AND "name"='Jack' AND "age" BETWEEN $2 AND $3 FOR UPDATE`, query)
 	assert.Equal(t, sourceQueryArgs, util.NamedValueToValue(args))
 	assert.NotContains(t, query, "SQL_NO_CACHE")
 	assert.NotContains(t, query, "`")

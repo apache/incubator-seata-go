@@ -41,9 +41,9 @@ func TestPostgresDeleteAndLockQueriesUseResolvedTableIdentity(t *testing.T) {
 		want string
 	}{
 		{"quoted table", `"Users"`, types.TableMetaKey{Schema: "public", TableName: "Users"}, `"public"."Users"`},
-		{"unquoted table still folds", "Users AS U", types.TableMetaKey{Schema: "public", TableName: "users"}, `"public"."users" AS U`},
+		{"unquoted table still folds", "Users AS U", types.TableMetaKey{Schema: "public", TableName: "users"}, `"public"."users" AS "u"`},
 		{"resolved search path", "users", types.TableMetaKey{Schema: "tenant", TableName: "users"}, `"tenant"."users"`},
-		{"escaped names and alias", `"S""ales"."Us""ers" AS u`, types.TableMetaKey{Schema: `S"ales`, TableName: `Us"ers`}, `"S""ales"."Us""ers" AS u`},
+		{"escaped names and alias", `"S""ales"."Us""ers" AS u`, types.TableMetaKey{Schema: `S"ales`, TableName: `Us"ers`}, `"S""ales"."Us""ers" AS "u"`},
 	} {
 		for _, statement := range []string{"delete", "select for update"} {
 			t.Run(test.name+"/"+statement, func(t *testing.T) {
@@ -72,10 +72,10 @@ func TestPostgresDeleteAndLockQueriesUseResolvedTableIdentity(t *testing.T) {
 					fields = "*"
 				} else {
 					got, err = (&selectForUpdateExecutor{execContext: execCtx}).buildSelectPKSQL(parsed.SelectStmt, postgresUpdateImageMeta())
-					fields = "id"
+					fields = `"id"`
 				}
 				require.NoError(t, err)
-				require.Equal(t, "SELECT "+fields+" FROM "+test.want+" WHERE id=$1 FOR UPDATE", got)
+				require.Equal(t, "SELECT "+fields+" FROM "+test.want+` WHERE "id"=$1 FOR UPDATE`, got)
 				require.Same(t, originalSource, from.TableRefs.Left)
 				require.Same(t, originalTable, originalSource.Source)
 				require.Equal(t, originalSchema, originalTable.Schema)
@@ -96,7 +96,7 @@ func TestPostgresDeleteDoesNotCaptureBeforeImageFromLowercaseTable(t *testing.T)
 	conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), args).DoAndReturn(
 		func(_ context.Context, sql string, _ []driver.NamedValue) (driver.Rows, error) {
 			balance := int64(100) // The lowercase users table has a different row with the same PK.
-			if sql == `SELECT * FROM "public"."Users" WHERE id=$1 FOR UPDATE` {
+			if sql == `SELECT * FROM "public"."Users" WHERE "id"=$1 FOR UPDATE` {
 				balance = 200
 			}
 			return newDeleteRows([]string{"id", "balance"}, []driver.Value{int64(1), balance}), nil
@@ -140,7 +140,7 @@ func TestPostgresLockQueryPreservesNestedJoins(t *testing.T) {
 	got, err := executor.buildSelectPKSQL(parsed.SelectStmt, postgresUpdateImageMeta())
 
 	require.NoError(t, err)
-	require.Equal(t, `SELECT id FROM ("public"."Users" AS u JOIN b ON u.id=b.bid) JOIN c ON b.bid=c.cid WHERE u.id=$1 FOR UPDATE`, got)
+	require.Equal(t, `SELECT "id" FROM ("public"."Users" AS "u" JOIN "b" ON "u"."id"="b"."bid") JOIN "c" ON "b"."bid"="c"."cid" WHERE "u"."id"=$1 FOR UPDATE`, got)
 	var unchangedSQL strings.Builder
 	require.NoError(t, parsed.SelectStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, &unchangedSQL)))
 	require.Equal(t, originalSQL.String(), unchangedSQL.String())

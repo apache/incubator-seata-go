@@ -31,17 +31,16 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/backoff"
-	seatabytes "seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -260,6 +259,16 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 	if s.execContext != nil {
 		dbType = effectiveDBType(s.execContext.DBType)
 	}
+	if dbType == types.DBTypePostgreSQL {
+		parsed, err := parser.ParsePostgreSQLForImage(stmt.Text())
+		if err != nil {
+			return "", err
+		}
+		stmt = parsed.SelectStmt
+		if stmt == nil {
+			return "", fmt.Errorf("postgres lock query source is not a select statement")
+		}
+	}
 	from := stmt.From
 	if dbType == types.DBTypePostgreSQL {
 		var err error
@@ -282,9 +291,10 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 		},
 	}
 
-	b := seatabytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := s.normalizeGeneratedSQL(string(b.Bytes()), dbType)
+	sql, err := s.restoreImageSelectSQL(&selStmt, dbType)
+	if err != nil {
+		return "", err
+	}
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil

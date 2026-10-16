@@ -34,7 +34,6 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -380,22 +379,9 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		},
 	}
 
-	b := bytes.NewByteBuffer([]byte{})
-	restoreFlags := format.RestoreKeyWordUppercase
-	if dbType == types.DBTypePostgreSQL {
-		restoreFlags |= format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
-	}
-	if err := selStmt.Restore(format.NewRestoreCtx(restoreFlags, b)); err != nil {
+	sql, err := u.restoreImageSelectSQL(&selStmt, dbType)
+	if err != nil {
 		return "", nil, err
-	}
-	sql := string(b.Bytes())
-	if dbType == types.DBTypePostgreSQL {
-		// Literals are already restored as PostgreSQL SQL. MySQL charset
-		// rewriting would also change matching text inside dollar strings.
-		sql = strings.Replace(sql, "SELECT SQL_NO_CACHE ", "SELECT ", 1)
-		sql = util.RewritePlaceholders(sql, dbType)
-	} else {
-		sql = u.normalizeGeneratedSQL(sql, dbType)
 	}
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 

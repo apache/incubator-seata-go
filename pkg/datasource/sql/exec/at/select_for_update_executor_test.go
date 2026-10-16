@@ -115,8 +115,8 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
 	assert.Nil(t, err)
 	assert.Contains(t, []string{
-		`SELECT id,order_id FROM "public"."t_user" WHERE age>$1 FOR UPDATE`,
-		`SELECT order_id,id FROM "public"."t_user" WHERE age>$1 FOR UPDATE`,
+		`SELECT "id","order_id" FROM "public"."t_user" WHERE "age">$1 FOR UPDATE`,
+		`SELECT "order_id","id" FROM "public"."t_user" WHERE "age">$1 FOR UPDATE`,
 	}, selSQL)
 	assert.NotContains(t, selSQL, "SQL_NO_CACHE")
 }

@@ -24,13 +24,11 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
-	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -195,7 +193,13 @@ func (d *deleteExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
 	dbType := effectiveDBType(d.execContext.DBType)
 	p := d.parserCtx
-	if p == nil || p.DeleteStmt == nil {
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		p, err = parser.ParsePostgreSQLForImage(query)
+		if err != nil {
+			return "", nil, err
+		}
+	} else if p == nil || p.DeleteStmt == nil {
 		var err error
 		p, err = parser.DoParserForDB(query, dbType)
 		if err != nil {
@@ -230,9 +234,10 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 		},
 	}
 
-	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := d.normalizeGeneratedSQL(string(b.Bytes()), dbType)
+	sql, err := d.restoreImageSelectSQL(&selStmt, dbType)
+	if err != nil {
+		return "", nil, err
+	}
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 
 	if dbType == types.DBTypePostgreSQL {
