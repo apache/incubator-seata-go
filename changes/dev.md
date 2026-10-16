@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
