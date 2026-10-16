@@ -86,6 +86,13 @@ func TestPostgresLockQueryPreservesColumnIdentity(t *testing.T) {
 			want:  `SELECT "id" FROM "public"."account" WHERE "$1"=$1 AND "id"=$2 FOR UPDATE`,
 		},
 		{
+			name:  "untagged dollar string bypasses charset rewriting",
+			query: `SELECT id FROM users WHERE name=$$prefix _UTF8MB4foo suffix$$ FOR UPDATE`,
+			pk:    "id",
+			key:   types.TableMetaKey{Schema: "public", TableName: "users"},
+			want:  `SELECT "id" FROM "public"."users" WHERE "name"=$$prefix _UTF8MB4foo suffix$$ FOR UPDATE`,
+		},
+		{
 			name:  "ordinary and dollar strings preserve their contents",
 			query: `SELECT balance FROM account WHERE NAME='Dianne''s "horse"' AND NAME=$Tag$Dianne's "horse" $1 ? _UTF8MB4ALICE$Tag$ AND "ID"=$1 FOR UPDATE`,
 			pk:    "id",

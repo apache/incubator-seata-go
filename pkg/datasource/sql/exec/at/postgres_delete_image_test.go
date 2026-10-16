@@ -101,6 +101,74 @@ func TestPostgresDeleteColumnIdentityProducesUndoAndLock(t *testing.T) {
 	}
 }
 
+func TestPostgresDeleteDollarStringProducesUndoAndLock(t *testing.T) {
+	const name = "prefix _UTF8MB4foo suffix"
+	for _, literal := range []string{`$$` + name + `$$`, `$Tag$` + name + `$Tag$`} {
+		t.Run(literal, func(t *testing.T) {
+			query := "DELETE FROM users WHERE name=" + literal
+			wantImageSQL := `SELECT * FROM "public"."users" WHERE "name"=` + literal + ` FOR UPDATE`
+			key := types.TableMetaKey{DBName: "app", Schema: "public", TableName: "users"}
+			meta := &types.TableMeta{
+				TableName: "public.users", ColumnNames: []string{"id", "name"},
+				Columns: map[string]types.ColumnMeta{
+					"id":   {ColumnName: "id", DatabaseTypeString: "BIGINT"},
+					"name": {ColumnName: "name", DatabaseTypeString: "VARCHAR"},
+				},
+				Indexs: map[string]types.IndexMeta{"PRIMARY": {
+					IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}},
+				}},
+			}
+			conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+			var imageSQL string
+			deleted := false
+			conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, sql string, args []driver.NamedValue) (driver.Rows, error) {
+					require.False(t, deleted)
+					require.Empty(t, args)
+					imageSQL = sql
+					// Rewriting the literal changes the predicate, so the image
+					// query finds no row even though the original DELETE does.
+					if sql != wantImageSQL {
+						return newDeleteRows(meta.ColumnNames), nil
+					}
+					return newDeleteRows(meta.ColumnNames, []driver.Value{int64(1), name}), nil
+				},
+			)
+			txCtx := types.NewTxCtx()
+			txCtx.TransactionMode = types.ATMode
+			execCtx := &types.ExecContext{
+				Query: query, DBType: types.DBTypePostgreSQL, Conn: conn, TxCtx: txCtx,
+				TableMetaReader: &tableMetaReaderForTest{key: key, meta: meta},
+			}
+			result, err := (&postgresATExecutor{}).ExecWithNamedValue(context.Background(), execCtx,
+				func(_ context.Context, sql string, args []driver.NamedValue) (types.ExecResult, error) {
+					require.NotEmpty(t, imageSQL)
+					require.Equal(t, query, sql)
+					require.Empty(t, args)
+					deleted = true
+					return types.NewResult(types.WithResult(driver.RowsAffected(1))), nil
+				})
+			require.NoError(t, err)
+			require.True(t, deleted)
+			affected, err := result.GetResult().RowsAffected()
+			require.NoError(t, err)
+			require.Equal(t, int64(1), affected)
+			require.True(t, txCtx.HasUndoLog(), "before-image query: %s", imageSQL)
+			before, after := txCtx.RoundImages.BeofreImages(), txCtx.RoundImages.AfterImages()
+			require.Len(t, before, 1)
+			require.Len(t, before[0].Rows, 1)
+			require.Equal(t, int64(1), before[0].Rows[0].GetColumnMap()["id"].GetActualValue())
+			require.Equal(t, name, before[0].Rows[0].GetColumnMap()["name"].GetActualValue())
+			require.Len(t, after, 1)
+			require.Empty(t, after[0].Rows)
+			require.Equal(t, &key, before[0].TableMetaKey)
+			require.Equal(t, &key, after[0].TableMetaKey)
+			require.Equal(t, map[string]struct{}{"PUBLIC.USERS:1": {}}, txCtx.LockKeys)
+			require.Equal(t, wantImageSQL, imageSQL)
+		})
+	}
+}
+
 func TestPostgresDeleteBeforeImagePreservesIdentifiersAndLiterals(t *testing.T) {
 	for _, test := range []struct {
 		query string
