@@ -268,6 +268,34 @@ func TestDoParserForDBPreservesTableIdentifierQuotes(t *testing.T) {
 	}
 }
 
+func TestBindTableRefsPreservesMySQLBacktickBackslashes(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		query string
+		want  types.TableRef
+	}{
+		{"projection ends in backslash", "SELECT `a\\` FROM t FOR UPDATE", types.TableRef{TableName: "t"}},
+		{"table ends in backslash", "SELECT id FROM `t\\` FOR UPDATE", types.TableRef{TableName: "t\\", TableNameQuoted: true}},
+		{"backslash inside table name", "SELECT id FROM `t\\name` FOR UPDATE", types.TableRef{TableName: "t\\name", TableNameQuoted: true}},
+		{"qualified name with doubled backtick after backslash", "SELECT id FROM `db\\`.`t\\``name` FOR UPDATE", types.TableRef{Qualifier: "db\\", TableName: "t\\`name", QualifierQuoted: true, TableNameQuoted: true}},
+		{"strings still escape quotes with backslashes", "SELECT 'it\\'s FROM ignored', \"it\\\"s FROM ignored\" FROM t FOR UPDATE", types.TableRef{TableName: "t"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := ParseSQLForDB(tc.query, types.DBTypeMySQL)
+			if !assert.NoError(t, err, "the existing parser must accept the locking read") {
+				return
+			}
+			assert.Equal(t, types.SQLType(types.SQLTypeSelectForUpdate), parsed.SQLType)
+			if !assert.NoError(t, BindTableRefs(parsed)) {
+				return
+			}
+			got, err := parsed.GetTableRef()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestDoParserForDBPreservesUnquotedIdentifiers(t *testing.T) {
 	for _, tc := range []struct {
 		name string

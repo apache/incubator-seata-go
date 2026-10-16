@@ -368,7 +368,8 @@ func scanIdentifiers(sql string, dbType types.DBType) []identifierToken {
 					i++
 					break
 				}
-				if sql[i] == '\\' && i+1 < len(sql) {
+				// Backtick identifiers use doubled delimiters; backslashes are literal.
+				if quote != '`' && sql[i] == '\\' && i+1 < len(sql) {
 					i++
 					value.WriteByte(sql[i])
 					i++
