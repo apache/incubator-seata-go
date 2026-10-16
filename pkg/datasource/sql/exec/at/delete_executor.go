@@ -183,7 +183,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 	}
 
 	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
+	_ = selStmt.Restore(format.NewRestoreCtx(restoreFlagsForDB(d.execContext.DBType), b))
 	sql := d.normalizeGeneratedSQL(string(b.Bytes()), d.execContext.DBType)
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 

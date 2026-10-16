@@ -86,7 +86,7 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 	e := selectForUpdateExecutor{
 		execContext: &types.ExecContext{DBType: types.DBTypePostgreSQL},
 	}
-	sql := "select name, order_id from t_user where age > $1 for update"
+	sql := "select name, order_id from t_user where name = 'Jack' and id = $1 for update"
 
 	ctx, err := parser.DoParser(sql)
 	assert.Nil(t, err)
@@ -114,10 +114,11 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 	selSQL, err := e.buildSelectPKSQL(ctx.SelectStmt, &metaData)
 	assert.Nil(t, err)
 	assert.Contains(t, []string{
-		"SELECT id,order_id FROM t_user WHERE age>$1 FOR UPDATE",
-		"SELECT order_id,id FROM t_user WHERE age>$1 FOR UPDATE",
+		"SELECT id,order_id FROM t_user WHERE name='Jack' AND id=$1 FOR UPDATE",
+		"SELECT order_id,id FROM t_user WHERE name='Jack' AND id=$1 FOR UPDATE",
 	}, selSQL)
 	assert.NotContains(t, selSQL, "SQL_NO_CACHE")
+	assert.NotContains(t, selSQL, "_UTF8MB4")
 }
 
 func TestBuildLockKey(t *testing.T) {
