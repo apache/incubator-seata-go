@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# This is a basic workflow to help you get started with Actions
+# This is a workflow to run golangci-lint on the project.
 
 name: "golang ci lint"
 
@@ -23,36 +23,49 @@ name: "golang ci lint"
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yml"
+      - ".github/workflows/golangci-lint.yml"
   pull_request:
     branches: "*"
-
-  # Allows you to run this workflow manually from the Actions tab
-#  workflow_dispatch:
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yml"
+      - ".github/workflows/golangci-lint.yml"
 
 permissions:
   contents: read
   pull-requests: read
+  actions: write
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  lint:
+    name: lint
     runs-on: ubuntu-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    timeout-minutes: 15
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: "checkout ${{ github.ref }}"
         uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
+          fetch-depth: 0
 
       - name: "set up go"
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.2"
+          # golangci-lint v2.13.2 cannot read Go 1.27 export data.
+          go-version: "1.26.9"
+          cache: true
 
       - name: "check gofmt"
         shell: bash

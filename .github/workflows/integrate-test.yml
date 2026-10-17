@@ -15,62 +15,74 @@
 # limitations under the License.
 #
 
-name: "integrate-test"
+# This is a workflow to run integration tests via integrate_test.sh.
+
+name: "integrate test"
 
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "integrate_test.sh"
+      - ".github/workflows/integrate-test.yml"
   pull_request:
     branches: "*"
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "integrate_test.sh"
+      - ".github/workflows/integrate-test.yml"
 
 permissions:
   contents: read
+  actions: write
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # This workflow contains a single job called "build"
   test:
-    # The type of runner that the job will run on
     name: test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        golang:
-          - "1.27.2"
-
+    timeout-minutes: 30
+    env:
+      SAMPLES_REF: 8c7214f476f83a16622fd2c5911aa8d85bdc6ee0
+      CI_LOG_DIR: ${{ github.workspace }}/ci-logs
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: "checkout ${{ github.ref }}"
-      uses: actions/checkout@v7.0.1
-      with:
-        persist-credentials: false
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
-    - name: "set up go"
-      uses: actions/setup-go@v7.0.0
-      with:
-        go-version: ${{ matrix.golang }}
-        cache: false
+      - name: "set up go"
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache: true
 
-    - name: Cache dependencies
-      uses: actions/cache@v6.1.0
-      with:
-        # Cache
-        path: ~/go/pkg/mod
-        # Cache key
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: "check Docker and Compose"
+        run: |
+          docker version
+          docker compose version
 
-    # This step only runs when the event type is a pull_request
-    - name: Integrate Test
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        chmod +x integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
+      - name: "run integrate test"
+        env:
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_REF: ${{ github.base_ref || github.ref_name }}
+        run: ./integrate_test.sh "$HEAD_REPOSITORY" "$HEAD_SHA" "$BASE_REF"
 
-    # This step only runs when the event type is a push
-    - name: Integrate Test
-      if: ${{ github.event_name == 'push' }}
-      run: |
-        chmod +x integrate_test.sh && ./integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+      - name: "upload diagnostics"
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: "integrate test diagnostics"
+          path: ci-logs/
+          if-no-files-found: warn
+          retention-days: 7

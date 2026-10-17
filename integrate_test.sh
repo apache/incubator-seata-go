@@ -16,56 +16,75 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set -e
-set -x
+set -euo pipefail
 
-echo 'start integrate-test'
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+CI_LOG_DIR="${CI_LOG_DIR:-${ROOT_DIR}/ci-logs}"
+mkdir -p "${CI_LOG_DIR}"
+CI_LOG_DIR=$(cd "${CI_LOG_DIR}" && pwd)
+export CI_LOG_DIR
+exec > >(tee "${CI_LOG_DIR}/integrate.log") 2>&1
 
-# set root workspace
-ROOT_DIR=$(pwd)
-echo "integrate-test root work-space -> ${ROOT_DIR}"
+echo "integrate-test source -> ${1:-local} ${2:-local} ${3:-local}"
+SAMPLES_REF="${SAMPLES_REF:-8c7214f476f83a16622fd2c5911aa8d85bdc6ee0}"
+echo "seata-go-samples requested revision -> ${SAMPLES_REF}"
 
-# show all github-env
-echo "github current commit id  -> $2"
-echo "github pull request branch -> ${GITHUB_REF}"
-echo "github pull request slug -> ${GITHUB_REPOSITORY}"
-echo "github pull request repo slug -> ${GITHUB_REPOSITORY}"
-echo "github pull request actor -> ${GITHUB_ACTOR}"
-echo "github pull request repo param -> $1"
-echo "github pull request base branch -> $3"
-echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
-
-# ensure docker-compose is available (newer Docker uses 'docker compose')
-if ! command -v docker-compose &> /dev/null && docker compose version >/dev/null 2>&1; then
-    mkdir -p /tmp/docker-shims
-    printf '#!/bin/sh\nexec docker compose "$@"\n' > /tmp/docker-shims/docker-compose
-    chmod +x /tmp/docker-shims/docker-compose
-    export PATH="/tmp/docker-shims:$PATH"
-fi
-
-if ! command -v docker-compose &> /dev/null; then
-    echo "docker-compose is required for integration tests (install Docker Compose v2 or standalone docker-compose)" >&2
+SEATA_COMPOSE_BIN=$(command -v docker-compose || true)
+export SEATA_COMPOSE_BIN
+if [[ -z "${SEATA_COMPOSE_BIN}" ]] && ! docker compose version; then
+    echo "Docker Compose is required for integration tests" >&2
     exit 1
 fi
 
-SAMPLES_REF="${SAMPLES_REF:-}"
-echo "use seata-go-samples ref ${SAMPLES_REF:-remote default} for integration testing"
 SAMPLES_DIR=$(mktemp -d "${ROOT_DIR}/.seata-go-samples.XXXXXX")
 cleanup_samples() {
+    local result=$?
+    trap - EXIT
+    set +e
+    printf '%s\n' "${result}" > "${CI_LOG_DIR}/exit-code.txt"
+    docker ps -a > "${CI_LOG_DIR}/docker-ps.txt" 2>&1
+    mkdir -p "${CI_LOG_DIR}/samples"
+    (cd "${SAMPLES_DIR}" && find . -type f -name '*.log' -exec cp --parents '{}' "${CI_LOG_DIR}/samples/" \;)
+    for compose_file in dockercompose/docker-compose.yml saga/e2e/docker-compose.yml; do
+        if [[ -f "${SAMPLES_DIR}/${compose_file}" ]]; then
+            docker-compose -f "${SAMPLES_DIR}/${compose_file}" down -v --remove-orphans
+        fi
+    done
     rm -rf "${SAMPLES_DIR}"
+    exit "${result}"
 }
 trap cleanup_samples EXIT
 
-if ! git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}"; then
-    echo "failed to clone incubator-seata-go-samples" >&2
-    exit 1
-fi
+git clone https://github.com/apache/incubator-seata-go-samples "${SAMPLES_DIR}"
 cd "${SAMPLES_DIR}"
-if [[ -n "${SAMPLES_REF}" ]]; then
-    git fetch --depth 1 origin "${SAMPLES_REF}"
-    git checkout --detach FETCH_HEAD
+git fetch --depth 1 origin "${SAMPLES_REF}"
+git checkout --detach FETCH_HEAD
+git rev-parse HEAD | tee "${CI_LOG_DIR}/samples-revision.txt"
+
+# Samples tear down their own services; capture logs before every Compose down.
+mkdir -p .ci-bin
+cat > .ci-bin/docker-compose <<'COMPOSE'
+#!/usr/bin/env bash
+compose=(docker compose)
+if [[ -n "${SEATA_COMPOSE_BIN:-}" ]]; then
+    compose=("${SEATA_COMPOSE_BIN}")
 fi
-echo "seata-go-samples commit -> $(git rev-parse HEAD)"
+prefix=()
+for arg in "$@"; do
+    if [[ "$arg" == down ]]; then
+        {
+            printf '\n=== Before Compose down: %s ===\n' "${prefix[*]}"
+            "${compose[@]}" "${prefix[@]}" ps -a
+            "${compose[@]}" "${prefix[@]}" logs --no-color
+        } >> "${CI_LOG_DIR}/compose.log" 2>&1 || true
+        break
+    fi
+    prefix+=("$arg")
+done
+exec "${compose[@]}" "$@"
+COMPOSE
+chmod +x .ci-bin/docker-compose
+export PATH="${SAMPLES_DIR}/.ci-bin:$PATH"
 
 adapt_samples_to_seata_go_v2() {
     find . -type f -name '*.go' -print0 | while IFS= read -r -d '' file; do
@@ -81,28 +100,10 @@ adapt_samples_to_seata_go_v2() {
     fi
 }
 
-cleanup_saga_e2e() {
-    docker-compose -f saga/e2e/docker-compose.yml down -v --remove-orphans || true
-}
-
-run_saga_e2e_test() {
-    set +e
-    WAIT_READY_MARGIN="${WAIT_READY_MARGIN:-30}" ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
-    local result=$?
-    set -e
-
-    cleanup_saga_e2e
-    return $result
-}
-
-# update seata-go to current dir
+# Compile and run the pinned samples against this checkout.
 adapt_samples_to_seata_go_v2
 go mod edit -replace=seata.apache.org/seata-go/v2="${ROOT_DIR}"
-
 go mod tidy
 
-# start integrate test
 ./start_integrate_test.sh
-
-# start saga e2e test
-run_saga_e2e_test
+WAIT_READY_MARGIN="${WAIT_READY_MARGIN:-30}" ./saga/e2e/run_all.sh --up --seata saga/e2e/seatago.yaml --engine saga/e2e/config.yaml
