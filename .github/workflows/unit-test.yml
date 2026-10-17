@@ -50,6 +50,10 @@ jobs:
     name: "unit test"
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        golang: ["1.26.9", "1.27.2"]
     services:
       mysql:
         image: mysql:8.0
@@ -63,12 +67,14 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: "set up go"
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.20.14"
+          go-version: ${{ matrix.golang }}
           cache: true
 
       - name: "run unit tests"
@@ -90,9 +96,9 @@ jobs:
 
       - name: Upload diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
-          name: unit-test-diagnostics
+          name: unit-test-diagnostics-go-${{ matrix.golang }}
           path: |
             coverage.out
             test-output.log
