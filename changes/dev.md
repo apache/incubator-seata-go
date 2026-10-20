@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
   - [[#1175](https://github.com/apache/incubator-seata-go/issues/1175)] replace runtime method patching in gRPC global transaction tests with an injected remoting client, and run the gRPC regression tests on the minimum, oldstable, and stable Go toolchains
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
