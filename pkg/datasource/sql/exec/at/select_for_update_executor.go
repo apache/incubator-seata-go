@@ -267,12 +267,12 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 		},
 	}
 
-	b := seatabytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
 	dbType := types.DBTypeMySQL
 	if s.execContext != nil {
 		dbType = effectiveDBType(s.execContext.DBType)
 	}
+	b := seatabytes.NewByteBuffer([]byte{})
+	selStmt.Restore(format.NewRestoreCtx(restoreFlagsForDB(dbType), b))
 	sql := s.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
