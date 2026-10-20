@@ -46,9 +46,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Getty transaction tests still patch methods with gomonkey on newer Go.
-  # Keep the full-suite race gate on the declared minimum toolchain while
-  # exercising the migrated gRPC transaction tests on current Go below.
+  # Other packages still use runtime method patches. Keep the full-suite race
+  # gate on the declared minimum toolchain while exercising both migrated
+  # transaction packages on current Go below.
   unit-test:
     name: "unit test"
     runs-on: ubuntu-latest
@@ -103,8 +103,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  grpc-transaction:
-    name: gRPC Transaction (${{ matrix.golang }})
+  transaction:
+    name: Transaction (Go ${{ matrix.golang }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -126,8 +126,10 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: "check gRPC transaction tests"
+      - name: "check transaction tests"
         run: |
           go test -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
           go test -race -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
-          go test -race -count=1 ./pkg/tm/transaction/grpc
+          go test -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -count=1 ./pkg/tm/transaction/...
