@@ -28,9 +28,10 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/mysql"
+	_ "github.com/arana-db/parser/test_driver"
 
 	"seata.apache.org/seata-go/v2/pkg/compressor"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	sqlparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/factor"
@@ -291,17 +292,20 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 
 	for i := 0; i < size; i++ {
 		var (
-			tableName   string
-			sqlType     types.SQLType
-			beforeImage *types.RecordImage
-			afterImage  *types.RecordImage
+			tableName    string
+			tableMetaKey *types.TableMetaKey
+			sqlType      types.SQLType
+			beforeImage  *types.RecordImage
+			afterImage   *types.RecordImage
 		)
 
 		if i < len(beforeImages) && beforeImages[i] != nil {
 			tableName = beforeImages[i].TableName
+			tableMetaKey = beforeImages[i].TableMetaKey
 			sqlType = beforeImages[i].SQLType
 		} else if i < len(afterImages) && afterImages[i] != nil {
 			tableName = afterImages[i].TableName
+			tableMetaKey = afterImages[i].TableMetaKey
 			sqlType = afterImages[i].SQLType
 		} else {
 			continue
@@ -313,12 +317,16 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 		if i < len(afterImages) {
 			afterImage = afterImages[i]
 		}
+		if tableMetaKey == nil && afterImage != nil {
+			tableMetaKey = afterImage.TableMetaKey
+		}
 
 		undoLog := undo.SQLUndoLog{
-			SQLType:     sqlType,
-			TableName:   tableName,
-			BeforeImage: beforeImage,
-			AfterImage:  afterImage,
+			SQLType:      sqlType,
+			TableName:    tableName,
+			TableMetaKey: tableMetaKey,
+			BeforeImage:  beforeImage,
+			AfterImage:   afterImage,
 		}
 		sqlUndoLogs = append(sqlUndoLogs, undoLog)
 	}
@@ -348,12 +356,15 @@ func (m *BaseUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 }
 
 // RunUndo undo sql
-func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
+func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string, metaReader types.TableMetaReader) error {
 	return nil
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string) (err error) {
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string, metaReader types.TableMetaReader) (err error) {
+	if metaReader == nil {
+		return fmt.Errorf("table meta reader is nil")
+	}
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
@@ -441,7 +452,31 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 		branchUndoLog.Reverse()
 
 		for _, undoLog := range sqlUndoLogs {
-			tableMeta, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, dbName, undoLog.TableName)
+			key := undoLog.TableMetaKey
+			if key == nil {
+				parsed, err := sqlparser.DoParserForDB("SELECT 1 FROM "+undoLog.TableName, dbType)
+				if err != nil {
+					return fmt.Errorf("parse legacy undo table %q: %w", undoLog.TableName, err)
+				}
+				ref, err := parsed.GetTableRef()
+				if err != nil {
+					return err
+				}
+				var resolved types.TableMetaKey
+				if err := conn.Raw(func(rawConn any) error {
+					driverConn, ok := rawConn.(driver.Conn)
+					if !ok {
+						return fmt.Errorf("rollback connection does not implement driver.Conn")
+					}
+					var resolveErr error
+					resolved, resolveErr = metaReader.ResolveTableMetaKey(ctx, driverConn, ref)
+					return resolveErr
+				}); err != nil {
+					return err
+				}
+				key = &resolved
+			}
+			tableMeta, err := metaReader.GetTableMeta(ctx, *key)
 			if err != nil {
 				log.Errorf("get table meta fail, err: %v", err)
 				return err

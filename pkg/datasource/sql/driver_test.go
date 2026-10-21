@@ -42,7 +42,6 @@ func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controll
 	mockResourceMgr.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).AnyTimes().Return(int64(0), nil)
 	rm.GetRmCacheInstance().RegisterResourceManager(mockResourceMgr)
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
-	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
 	return mockResourceMgr
 }

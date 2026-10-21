@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -61,6 +62,27 @@ func TestATExecutor_Interceptors(t *testing.T) {
 			assert.Equal(t, len(tt.interceptors), len(executor.hooks), "hooks count should match")
 		})
 	}
+}
+
+func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
+	originalIsGlobalTx := isGlobalTx
+	t.Cleanup(func() { isGlobalTx = originalIsGlobalTx })
+	isGlobalTx = func(context.Context) bool { return true }
+
+	replaceATExecutorFactories(t, &mockExecutor{})
+	newUpdateExecutor = func(parsed *types.ParseContext, _ *types.ExecContext, _ []exec.SQLHook) executor {
+		ref, err := parsed.GetTableRef()
+		assert.NoError(t, err)
+		assert.Equal(t, types.TableRef{Qualifier: "Space", TableName: "Users", QualifierQuoted: true, TableNameQuoted: true}, ref)
+		return &mockExecutor{}
+	}
+
+	result, err := (&postgresATExecutor{}).ExecWithNamedValue(context.Background(), &types.ExecContext{
+		DBType: types.DBTypePostgreSQL,
+		Query:  `UPDATE "Space"."Users" SET id=1`,
+	}, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
 }
 
 func replaceATExecutorFactories(t *testing.T, mock executor) {
@@ -291,6 +313,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 func TestATExecutor_ExecWithNamedValue_ParserError(t *testing.T) {
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:       "SELECT FROM",
 		NamedValues: []driver.NamedValue{},
 	}
@@ -390,6 +413,7 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 func TestATExecutor_ExecWithValue_ParserError(t *testing.T) {
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:  "SELECT FROM",
 		Values: []driver.Value{"test"},
 	}
@@ -679,4 +703,25 @@ func (m *mockResult) LastInsertId() (int64, error) {
 
 func (m *mockResult) RowsAffected() (int64, error) {
 	return m.rowsAffected, nil
+}
+
+func TestNonATWritesKeepCrossDatabaseExecution(t *testing.T) {
+	Init()
+	for _, mode := range []types.TransactionMode{types.Local, types.XAMode} {
+		t.Run(fmt.Sprint(mode), func(t *testing.T) {
+			const query = "UPDATE db_b.account SET balance=1"
+			e, err := exec.BuildExecutor(types.DBTypeMySQL, mode, query)
+			require.NoError(t, err)
+			calls := 0
+			_, err = e.ExecWithNamedValue(context.Background(), &types.ExecContext{
+				DBType: types.DBTypeMySQL, DBName: "db_a", Query: query,
+				TxCtx: &types.TransactionContext{TransactionMode: mode},
+			}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+				calls++
+				return &mockExecResult{rowsAffected: 1}, nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, 1, calls)
+		})
+	}
 }
