@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
@@ -40,13 +41,23 @@ func (e *postgresATExecutor) Interceptors(hooks []exec.SQLHook) {
 }
 
 func (e *postgresATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	if !isGlobalATExecution(ctx, execCtx) {
+	globalAT := isGlobalATExecution(ctx, execCtx)
+	if !globalAT && !execCtx.IsRequireGlobalLock {
 		return newPlainExecutor(nil, execCtx).ExecContext(ctx, f)
 	}
 
-	queryParser, err := parseSQLQuery(execCtx.Query)
+	queryParser, err := parser.ParseSQLForDB(execCtx.Query, types.DBTypePostgreSQL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPostgreSQLATUnsupported, err)
+	}
+	if queryParser.SQLType == types.SQLTypeSelect || (!globalAT && queryParser.SQLType != types.SQLTypeSelectForUpdate) {
+		return newPlainExecutor(queryParser, execCtx).ExecContext(ctx, f)
+	}
+	switch queryParser.SQLType {
+	case types.SQLTypeInsert, types.SQLTypeUpdate, types.SQLTypeDelete, types.SQLTypeSelectForUpdate:
+		if err := parser.BindTableRefs(queryParser); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrPostgreSQLATUnsupported, err)
+		}
 	}
 
 	var executor executor

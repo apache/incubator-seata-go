@@ -33,6 +33,10 @@
 ### bugfix：
 
   - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies and toolchains for security fixes including CVE-2026-111943; require Go 1.26.10 (Go 1.27.x: >=1.27.3)
+  - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] fix metadata cache overwrites across multiple data sources of the same database type and retain schema-qualified PostgreSQL table identities.
+
+    **action required:** PostgreSQL AT global lock keys now include the schema, for example `ACCOUNT:1` becomes `PUBLIC.ACCOUNT:1`. The old and new formats are incompatible. Before upgrading, pause incoming requests, message consumers, and business scheduled jobs. Keep the current RMs, TC, and recovery components online until all affected global transactions and branches have committed or rolled back, including phase-two retries and undo-log cleanup, and all related global locks have been released. Then stop the old RMs, upgrade every RM sharing the affected database resources, including other services and background jobs, and resume business traffic only after validation. Do not process business transactions with mixed lock-key formats. Downgrades require the same traffic pause and transaction drain. Completed requests or a fixed waiting period do not prove that transactions have drained.
+
   - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
