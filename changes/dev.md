@@ -32,7 +32,7 @@
 
 ### bugfix：
 
-  - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies to remediate reachable security vulnerabilities and require Go 1.26.9
+  - [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] upgrade Go dependencies and toolchains for security fixes including CVE-2026-111943; require Go 1.26.10 (Go 1.27.x: >=1.27.3)
   - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type

@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        golang: ["1.26.9", "1.27.2"]
+        golang: ["1.26.10", "1.27.3"]
     services:
       mysql:
         image: mysql:8.0

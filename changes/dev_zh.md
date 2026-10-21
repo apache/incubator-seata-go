@@ -33,7 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
-- [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] 升级 Go 依赖以修复可达安全漏洞，并将最低 Go 版本提升至 1.26.9
+- [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] 升级 Go 依赖及工具链以修复安全漏洞（含 CVE-2026-111943），最低要求 Go 1.26.10（Go 1.27.x 需 >=1.27.3）
 - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] TCC 二阶段方法返回 false 时报告可重试的分支失败状态
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
