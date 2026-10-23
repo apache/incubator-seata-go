@@ -72,9 +72,6 @@ func TestGrpcGlobalTransactionBegin(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
@@ -167,9 +164,6 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
@@ -286,9 +280,6 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {

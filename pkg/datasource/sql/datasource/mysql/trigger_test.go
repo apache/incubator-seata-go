@@ -110,7 +110,7 @@ func Test_mysqlTrigger_LoadOne(t *testing.T) {
 			initGetColumnMetasStub(m, tt.columnMeta)
 			initGetIndexesStub(m, tt.indexMeta)
 
-			got, err := m.LoadOne(tt.args.ctx, tt.args.dbName, tt.args.tableName, tt.args.conn)
+			got, err := m.LoadOne(tt.args.ctx, types.TableMetaKey{DBName: tt.args.dbName, TableName: tt.args.tableName}, tt.args.conn)
 			if err != nil {
 				t.Errorf("LoadOne() error = %v", err)
 				return
@@ -127,7 +127,6 @@ func initMockResourceManager(branchType branch.BranchType, ctrl *gomock.Controll
 	mockResourceMgr.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).AnyTimes().Return(int64(0), nil)
 	rm.GetRmCacheInstance().RegisterResourceManager(mockResourceMgr)
 	mockResourceMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
-	mockResourceMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 	return mockResourceMgr
 }
 
@@ -152,7 +151,7 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 		args       args
 		columnMeta []types.ColumnMeta
 		indexMeta  []types.IndexMeta
-		want       []types.TableMeta
+		want       map[types.TableMetaKey]types.TableMeta
 	}{
 		{
 			name: "test-01",
@@ -167,7 +166,10 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 			},
 			indexMeta:  initMockIndexMeta(),
 			columnMeta: initMockColumnMeta(),
-			want:       []types.TableMeta{testdata.MockWantTypesMeta("test_01"), testdata.MockWantTypesMeta("test_02")},
+			want: map[types.TableMetaKey]types.TableMeta{
+				{DBName: "dbName", TableName: "test_01"}: testdata.MockWantTypesMeta("test_01"),
+				{DBName: "dbName", TableName: "test_02"}: testdata.MockWantTypesMeta("test_02"),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -177,7 +179,11 @@ func Test_mysqlTrigger_LoadAll(t *testing.T) {
 			initGetColumnMetasStub(m, tt.columnMeta)
 			initGetIndexesStub(m, tt.indexMeta)
 
-			got, err := m.LoadAll(tt.args.ctx, tt.args.dbName, tt.args.conn, tt.args.tables...)
+			keys := make([]types.TableMetaKey, len(tt.args.tables))
+			for i, table := range tt.args.tables {
+				keys[i] = types.TableMetaKey{DBName: tt.args.dbName, TableName: table}
+			}
+			got, err := m.LoadAll(tt.args.ctx, tt.args.conn, keys...)
 			if err != nil {
 				t.Errorf("LoadAll() error = %v", err)
 				return
@@ -245,7 +251,7 @@ func Test_mysqlTrigger_LoadOne_ErrorCases(t *testing.T) {
 				initGetIndexesStub(m, tt.indexMeta)
 			}
 
-			_, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
+			_, err := m.LoadOne(context.Background(), types.TableMetaKey{DBName: "testdb", TableName: "testtable"}, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -293,7 +299,7 @@ func Test_mysqlTrigger_LoadOne_ComplexIndexes(t *testing.T) {
 	initGetColumnMetasStub(m, columnMeta)
 	initGetIndexesStub(m, indexMeta)
 
-	tableMeta, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
+	tableMeta, err := m.LoadOne(context.Background(), types.TableMetaKey{DBName: "testdb", TableName: "testtable"}, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, tableMeta)
@@ -626,7 +632,10 @@ func Test_mysqlTrigger_LoadAll_ErrorHandling(t *testing.T) {
 	initGetIndexesStub(m, indexMeta)
 
 	// LoadAll should continue even if one table fails
-	result, err := m.LoadAll(context.Background(), "testdb", nil, "table1", "table2", "table3")
+	result, err := m.LoadAll(context.Background(), nil,
+		types.TableMetaKey{DBName: "testdb", TableName: "table1"},
+		types.TableMetaKey{DBName: "testdb", TableName: "table2"},
+		types.TableMetaKey{DBName: "testdb", TableName: "table3"})
 
 	assert.NoError(t, err)
 	// Should have 2 tables (table1 and table3), table2 failed
@@ -668,7 +677,7 @@ func Test_mysqlTrigger_LoadOne_MultipleIndexesOnSameColumn(t *testing.T) {
 	initGetColumnMetasStub(m, columnMeta)
 	initGetIndexesStub(m, indexMeta)
 
-	tableMeta, err := m.LoadOne(context.Background(), "testdb", "testtable", nil)
+	tableMeta, err := m.LoadOne(context.Background(), types.TableMetaKey{DBName: "testdb", TableName: "testtable"}, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, tableMeta)
@@ -728,5 +737,34 @@ func Test_mysqlTrigger_getColumnMetas_DataTypes(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unfulfilled expectations: %v", err)
+	}
+}
+
+func TestMysqlTrigger_UsesResolvedIdentifierWithoutStrippingBackticks(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	key := types.TableMetaKey{DBName: "other", TableName: "user`name"}
+	mock.ExpectPrepare("FROM INFORMATION_SCHEMA.COLUMNS").ExpectQuery().WithArgs(key.DBName, key.TableName).
+		WillReturnRows(sqlmock.NewRows([]string{"TABLE_NAME", "TABLE_SCHEMA", "COLUMN_NAME", "DATA_TYPE", "COLUMN_TYPE", "COLUMN_KEY", "IS_NULLABLE", "COLUMN_DEFAULT", "EXTRA"}).
+			AddRow(key.TableName, key.DBName, "id", "BIGINT", "BIGINT", "PRI", "NO", nil, ""))
+	mock.ExpectPrepare("FROM `INFORMATION_SCHEMA`.`STATISTICS`").ExpectQuery().WithArgs(key.DBName, key.TableName).
+		WillReturnRows(sqlmock.NewRows([]string{"INDEX_NAME", "COLUMN_NAME", "NON_UNIQUE"}).AddRow("PRIMARY", "id", 0))
+
+	meta, err := NewMysqlTrigger().LoadOne(context.Background(), key, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, key.TableName, meta.TableName)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }

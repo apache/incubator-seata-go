@@ -43,6 +43,7 @@ const (
 )
 
 type ParseContext struct {
+	DBType       DBType
 	SQLType      SQLType
 	ExecutorType ExecutorType
 	InsertStmt   *ast.InsertStmt
@@ -50,6 +51,47 @@ type ParseContext struct {
 	SelectStmt   *ast.SelectStmt
 	DeleteStmt   *ast.DeleteStmt
 	MultiStmt    []*ParseContext
+	TableRefs    map[*ast.TableName]TableRef
+}
+
+// GetTableRef returns the identity of the first table in a single statement.
+// Multi-statement execution must use the corresponding child ParseContext.
+func (p *ParseContext) GetTableRef() (TableRef, error) {
+	if p == nil {
+		return TableRef{}, fmt.Errorf("nil parse context")
+	}
+	var refs *ast.TableRefsClause
+	switch {
+	case p.InsertStmt != nil:
+		refs = p.InsertStmt.Table
+	case p.UpdateStmt != nil:
+		refs = p.UpdateStmt.TableRefs
+	case p.DeleteStmt != nil:
+		refs = p.DeleteStmt.TableRefs
+	case p.SelectStmt != nil:
+		refs = p.SelectStmt.From
+	default:
+		return TableRef{}, fmt.Errorf("statement has no table reference")
+	}
+	if refs == nil || refs.TableRefs == nil {
+		return TableRef{}, fmt.Errorf("statement has no table reference")
+	}
+	var source ast.ResultSetNode = refs.TableRefs
+	for {
+		switch node := source.(type) {
+		case *ast.Join:
+			source = node.Left
+		case *ast.TableSource:
+			source = node.Source
+		case *ast.TableName:
+			if ref, ok := p.TableRefs[node]; ok {
+				return ref, nil
+			}
+			return TableRef{Qualifier: node.Schema.O, TableName: node.Name.O}, nil
+		default:
+			return TableRef{}, fmt.Errorf("table reference is not a table name")
+		}
+	}
 }
 
 func (p *ParseContext) HasValidStmt() bool {

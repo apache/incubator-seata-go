@@ -79,3 +79,56 @@ func TestCompactPostgreSQLPlaceholders(t *testing.T) {
 	assert.Equal(t, 2, args[1].Ordinal)
 	assert.Equal(t, 3, args[2].Ordinal)
 }
+
+func TestPostgreSQLPlaceholdersLeaveQuotedTokensUnchanged(t *testing.T) {
+	for _, quoted := range []string{
+		`$$literal ? $1$$`,
+		`$Tag$literal ' " ? $9 $tag$ $Tag$`,
+		`'literal '' ? $1'`,
+		`"column "" ? $1"`,
+		`E'it\'s ? $9'`,
+		`e'it\'s ? $9'`,
+		`E'it''s ? $9'`,
+		`E'backslash\\'`,
+		`E'it\\\'s ? $9'`,
+		`'backslash\'`,
+		`"column\"`,
+	} {
+		t.Run(quoted, func(t *testing.T) {
+			require.Equal(t, "SELECT "+quoted+", $1", RewritePlaceholders("SELECT "+quoted+", ?", types.DBTypePostgreSQL))
+			query, args, err := CompactPostgreSQLPlaceholders("SELECT "+quoted+", $2", []driver.NamedValue{
+				{Ordinal: 1, Value: "unused"}, {Ordinal: 2, Value: "selected"},
+			})
+			require.NoError(t, err)
+			require.Equal(t, "SELECT "+quoted+", $1", query)
+			require.Equal(t, []driver.NamedValue{{Ordinal: 1, Value: "selected"}}, args)
+		})
+	}
+}
+
+func TestPostgreSQLQuotedTokenEndEscapeStringPrefix(t *testing.T) {
+	for _, tt := range []struct {
+		prefix string
+		escape bool
+	}{
+		{prefix: "E", escape: true},
+		{prefix: "e", escape: true},
+		{prefix: " E", escape: true},
+		{prefix: "(e", escape: true},
+		{prefix: "nameE"},
+		{prefix: "1e"},
+		{prefix: "_E"},
+		{prefix: "$e"},
+		{prefix: "\u540dE"},
+		{prefix: "E "},
+	} {
+		t.Run(tt.prefix, func(t *testing.T) {
+			query := tt.prefix + `'it\'s ? $1'`
+			want := len(tt.prefix) + len(`'it\'`)
+			if tt.escape {
+				want = len(query)
+			}
+			require.Equal(t, want, PostgreSQLQuotedTokenEnd(query, len(tt.prefix)))
+		})
+	}
+}
