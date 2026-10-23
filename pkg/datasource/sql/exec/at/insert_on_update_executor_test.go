@@ -115,8 +115,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 	}{
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+				Query:           "insert into t_user(id, name, age) values(?,?,?) on duplicate key update name = ?,age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, "Link", 18},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
@@ -126,8 +126,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		},
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(id, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+				Query:           "insert into t_user(id, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{81, "Link"},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
@@ -137,8 +137,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		},
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(ID, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+				Query:           "insert into t_user(ID, name, age) values(1,'Jack1',?) on duplicate key update name = 'Michael',age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{81, "Link"},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (name = ?  and age = ? ) ",
@@ -148,8 +148,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		},
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(ID, capitalized_id) values(1, 11) on duplicate key update name = 'Michael',age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta1},
+				Query:           "insert into t_user(ID, capitalized_id) values(1, 11) on duplicate key update name = 'Michael',age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta1},
 			},
 			sourceQueryArgs:  []driver.Value{"Jack1"},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (id = ? )  OR (CAPITALIZED_ID = ? ) ",
@@ -160,8 +160,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		// multi insert one index
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(id, name, age) values(?,?,?),(?,?,?) on duplicate key update name = ?,age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
+				Query:           "insert into t_user(id, name, age) values(?,?,?),(?,?,?) on duplicate key update name = ?,age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta2},
 			},
 			sourceQueryArgs:  []driver.Value{1, "Jack1", 81, 2, "Michal", 35, "Link", 18},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (name = ?  and age = ? ) ",
@@ -169,8 +169,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 		},
 		{
 			execCtx: &types.ExecContext{
-				Query:       "insert into t_user(id, name, age) values(?,'Jack1',?),(?,?,35) on duplicate key update name = 'Faker',age = ?",
-				MetaDataMap: map[string]types.TableMeta{"t_user": tableMeta2},
+				Query:           "insert into t_user(id, name, age) values(?,'Jack1',?),(?,?,35) on duplicate key update name = 'Faker',age = ?",
+				TableMetaReader: &stubTableMetaCache{meta: &tableMeta2},
 			},
 			sourceQueryArgs:  []driver.Value{1, 81, 2, "Michal", 26},
 			expectQuery1:     "SELECT * FROM t_user  WHERE (name = ?  and age = ? )  OR (name = ?  and age = ? ) ",
@@ -182,7 +182,8 @@ func TestInsertOnUpdateBeforeImageSQL(t *testing.T) {
 			c, err := parser.DoParser(tt.execCtx.Query)
 			assert.Nil(t, err)
 			tt.execCtx.ParseContext = c
-			query, args, err := ioe.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, tt.execCtx.MetaDataMap["t_user"], util.ValueToNamedValue(tt.sourceQueryArgs))
+			ioe.execContext = tt.execCtx
+			query, args, err := ioe.buildBeforeImageSQL(tt.execCtx.ParseContext.InsertStmt, *tt.execCtx.TableMetaReader.(*stubTableMetaCache).meta, util.ValueToNamedValue(tt.sourceQueryArgs))
 			assert.Nil(t, err)
 			if query == tt.expectQuery1 {
 				assert.Equal(t, tt.expectQuery1, query)

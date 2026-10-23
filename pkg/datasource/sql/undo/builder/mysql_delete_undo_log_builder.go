@@ -66,15 +66,17 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	tableName := execCtx.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-
-	image, err := u.buildRecordImages(rows, &metaData)
+	metaData, err := tableMetaForExec(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey(rows, metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	lockKey := u.buildLockKey(rows, *metaData)
 	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return []*types.RecordImage{image}, nil

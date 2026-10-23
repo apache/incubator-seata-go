@@ -92,10 +92,12 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return nil, err
 	}
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
+	metaData, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
 
-	image, err := u.buildRecordImages(rows, &metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +113,11 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 		beforeImage = beforeImages[0]
 	}
 
-	tableName := execCtx.ParseContext.UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, metaData)
+	metaData, err := tableMetaForExec(ctx, execCtx)
+	if err != nil {
+		return nil, err
+	}
+	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData, tableNameForExec(execCtx, metaData.TableName))
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
 	if err != nil {
@@ -127,7 +131,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 		return nil, err
 	}
 
-	image, err := u.buildRecordImages(rows, &metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +140,14 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 	return []*types.RecordImage{image}, nil
 }
 
-func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta) (string, []driver.Value) {
+func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.RecordImage, meta types.TableMeta, tableNames ...string) (string, []driver.Value) {
 	sb := strings.Builder{}
 	// todo use ONLY_CARE_UPDATE_COLUMNS to judge select all columns or not
-	sb.WriteString("SELECT * FROM " + meta.TableName + " ")
+	tableName := meta.TableName
+	if len(tableNames) > 0 {
+		tableName = tableNames[0]
+	}
+	sb.WriteString("SELECT * FROM " + tableName + " ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
