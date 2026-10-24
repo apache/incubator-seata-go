@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1154](https://github.com/apache/incubator-seata-go/issues/1154)] 升级 Go 依赖及工具链以修复安全漏洞（含 CVE-2026-111943），最低要求 Go 1.26.10（Go 1.27.x 需 >=1.27.3）
 - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] 修复 remoting session 重连后未重新注册缓存 RM 资源的问题
 - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表
 - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] 修复同类型多数据源的元数据缓存覆盖问题，并保留 PostgreSQL 表身份中的 schema。
