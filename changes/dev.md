@@ -43,6 +43,7 @@
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
+  - [[#1159](https://github.com/apache/incubator-seata-go/issues/1159)] stop leaking message futures when a synchronous request times out or when a message is sent with nobody waiting for a reply, and stop a duplicate response from blocking the transport receive loop
   - [[#1153](https://github.com/apache/incubator-seata-go/issues/1153)] fix a done context making the global transaction second phase report a commit that never reached the TC as success, and panic on rollback
   - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] read the xid of `XA RECOVER` as the `[]byte` the MySQL driver actually returns, and close the result set
   - dispatch `ConsistentHashLoadBalance` and `LeastActiveLoadBalance` in `loadbalance.Select()`: both strategies were already implemented and accepted as config values, but missing from the dispatch `switch`, so they silently fell back to random load balancing
