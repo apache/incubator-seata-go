@@ -189,6 +189,24 @@ func TestGettyRemoting_SendAsync_NoSession(t *testing.T) {
 	assert.EqualError(t, err, "session is closed")
 }
 
+func TestGettyRemoting_SendSync_NotInitialized(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = nil
+	t.Cleanup(func() { sessionManager = originalSessionManager })
+
+	_, err := newGettyRemoting().SendSync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}
+
+func TestGettyRemoting_SendAsync_NotInitialized(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = nil
+	t.Cleanup(func() { sessionManager = originalSessionManager })
+
+	err := newGettyRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}
+
 func TestGettyRemoting_NotifyRpcMessageResponseSignalsWaitingFuture(t *testing.T) {
 	gettyRemoting := newGettyRemoting()
 	request := message.RpcMessage{ID: 1}

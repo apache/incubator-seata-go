@@ -51,7 +51,7 @@ type rmBranchCommitProcessor struct {
 }
 
 func (f *rmBranchCommitProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
-	log.Infof("the rm client received  rmBranchCommit rpcMessage %#v from tc server.", rpcMessage)
+	log.Infof("the rm client received rmBranchCommit message: id=%d, type=%d", rpcMessage.ID, rpcMessage.Type)
 	switch protocol.Protocol(config.GetTransportConfig().Protocol) {
 	case protocol.ProtocolGRPC:
 		return f.handleGrpcBranchCommit(ctx, rpcMessage)
@@ -66,19 +66,24 @@ func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rp
 	branchID := request.AbstractBranchEndRequest.BranchId
 	resourceID := request.AbstractBranchEndRequest.ResourceId
 	applicationData := request.AbstractBranchEndRequest.ApplicationData
-	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	branchResource := rm.BranchResource{
+		BranchType:      branch.BranchType(request.AbstractBranchEndRequest.BranchType),
 		ResourceId:      resourceID,
 		BranchId:        branchID,
 		ApplicationData: []byte(applicationData),
 		Xid:             xid,
 	}
 
-	status, bizErr := branchEndResourceManager(f.getResourceManager, branch.BranchType(request.AbstractBranchEndRequest.BranchType)).BranchCommit(ctx, branchResource)
+	manager, bizErr := branchEndResourceManager(f.getResourceManager, branchResource.BranchType)
+	status := branch.BranchStatus(branch.BranchStatusPhasetwoCommitFailedUnretryable)
+	if bizErr == nil {
+		status, bizErr = manager.BranchCommit(ctx, branchResource)
+	}
 	if bizErr != nil {
 		log.Errorf("branch commit error: xid %s, branchID %d: %s", xid, branchID, bizErr.Error())
 	} else {
-		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
 	result := newBranchEndResult(status, bizErr)
 
@@ -104,7 +109,7 @@ func (f *rmBranchCommitProcessor) handleGrpcBranchCommit(ctx context.Context, rp
 	if sendErr != nil {
 		log.Errorf("send branch commit response error: xid %s, branchID %d: %v", xid, branchID, sendErr)
 	} else {
-		log.Infof("send branch commit response success: xid %s, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
+		log.Infof("send branch commit response success: xid %s, branchID %v, resourceID %v, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
 	return branchEndProcessError(bizErr, sendErr)
 }
@@ -115,19 +120,24 @@ func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, r
 	branchID := request.BranchId
 	resourceID := request.ResourceId
 	applicationData := request.ApplicationData
-	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+	log.Infof("Branch committing: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	branchResource := rm.BranchResource{
+		BranchType:      request.BranchType,
 		ResourceId:      resourceID,
 		BranchId:        branchID,
 		ApplicationData: applicationData,
 		Xid:             xid,
 	}
 
-	status, bizErr := branchEndResourceManager(f.getResourceManager, request.BranchType).BranchCommit(ctx, branchResource)
+	manager, bizErr := branchEndResourceManager(f.getResourceManager, branchResource.BranchType)
+	status := branch.BranchStatus(branch.BranchStatusPhasetwoCommitFailedUnretryable)
+	if bizErr == nil {
+		status, bizErr = manager.BranchCommit(ctx, branchResource)
+	}
 	if bizErr != nil {
 		log.Errorf("branch commit error: xid %s, branchID %d: %s", xid, branchID, bizErr.Error())
 	} else {
-		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationData %s", xid, branchID, resourceID, applicationData)
+		log.Infof("branch commit success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
 	result := newBranchEndResult(status, bizErr)
 
@@ -151,7 +161,7 @@ func (f *rmBranchCommitProcessor) handleGettyBranchCommit(ctx context.Context, r
 	if sendErr != nil {
 		log.Errorf("send branch commit response error: xid %s, branchID %d: %v", xid, branchID, sendErr)
 	} else {
-		log.Infof("send branch commit response success: xid %s, branchID %v, resourceID %v, applicationData %v", xid, branchID, resourceID, applicationData)
+		log.Infof("send branch commit response success: xid %s, branchID %v, resourceID %v, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
 	return branchEndProcessError(bizErr, sendErr)
 }
