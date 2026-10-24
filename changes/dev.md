@@ -33,12 +33,15 @@
 ### bugfix：
 
   - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
+  - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] fix metadata cache overwrites across multiple data sources of the same database type and retain schema-qualified PostgreSQL table identities.
+  - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
+  - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] read the xid of `XA RECOVER` as the `[]byte` the MySQL driver actually returns, and close the result set
   - dispatch `ConsistentHashLoadBalance` and `LeastActiveLoadBalance` in `loadbalance.Select()`: both strategies were already implemented and accepted as config values, but missing from the dispatch `switch`, so they silently fell back to random load balancing
   - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] fix what the two newly reachable load balancing strategies got wrong: the selection key was read from the whole `RpcMessage` instead of its body, so consistent hashing pinned every request to one TC; `rpc.Status.GetActive` / `GetTotal` read the in-flight counters without `sync/atomic`; the hash circle stayed empty when the first selection saw no session and did not wrap around past the last virtual node
 

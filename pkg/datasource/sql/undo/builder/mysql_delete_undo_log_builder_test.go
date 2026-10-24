@@ -20,8 +20,6 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -89,39 +87,6 @@ func TestMySQLDeleteUndoLogBuilder_GetExecutorType(t *testing.T) {
 	assert.Equal(t, types.DeleteExecutor, executorType)
 }
 
-func TestMySQLDeleteUndoLogBuilder_BeforeImage(t *testing.T) {
-	log.Init()
-	builder := &MySQLDeleteUndoLogBuilder{}
-
-	// Test with nil values - should handle NamedValues
-	execCtx := &types.ExecContext{
-		Values: nil,
-		NamedValues: []driver.NamedValue{
-			{Name: "0", Value: 100},
-		},
-		Query: "DELETE FROM t_user WHERE id = ?",
-		Conn:  nil,
-	}
-
-	// Since conn is nil, this should panic or return error, let's catch the panic
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected panic due to nil conn or index error
-			panicStr := fmt.Sprintf("%v", r)
-			assert.True(t,
-				strings.Contains(panicStr, "nil pointer") ||
-					strings.Contains(panicStr, "index out of range"),
-				"Expected panic related to nil pointer or index error, got: %s", panicStr)
-		}
-	}()
-
-	_, err := builder.BeforeImage(context.Background(), execCtx)
-	// If we reach here, there should be an error
-	if err == nil {
-		t.Error("Expected error or panic when conn is nil")
-	}
-}
-
 func TestMySQLDeleteUndoLogBuilder_AfterImage(t *testing.T) {
 	builder := &MySQLDeleteUndoLogBuilder{}
 
@@ -132,4 +97,13 @@ func TestMySQLDeleteUndoLogBuilder_AfterImage(t *testing.T) {
 	// AfterImage for DELETE should return nil
 	assert.NoError(t, err)
 	assert.Nil(t, images)
+}
+
+func TestMySQLDeleteUndoLogBuilder_BeforeImageParameters(t *testing.T) {
+	testBuilderBeforeImageParameters(t, &MySQLDeleteUndoLogBuilder{},
+		"DELETE FROM t_user WHERE id IN (?,?)", []driver.Value{int64(1), int64(2)})
+}
+
+func TestMySQLDeleteUndoLogBuilder_LockPrimaryKeys(t *testing.T) {
+	testBuilderLockPrimaryKeys(t, &MySQLDeleteUndoLogBuilder{}, "DELETE FROM t_user WHERE id IN (1,2)")
 }
