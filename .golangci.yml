@@ -50,6 +50,7 @@ linters:
       checks:
         - "all"
         - "-QF*"
+        - "-ST*"
   exclusions:
     generated: lax
     presets:
