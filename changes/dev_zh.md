@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表
 - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] 修复同类型多数据源的元数据缓存覆盖问题，并保留 PostgreSQL 表身份中的 schema。
 
   **action required：** PostgreSQL AT 全局锁键增加 schema 前缀，例如 `ACCOUNT:1` 变为 `PUBLIC.ACCOUNT:1`，新旧格式不兼容。升级前暂停相关请求、消息消费和业务定时任务；保持当前 RM、TC 及恢复组件在线，等待相关全局事务及全部分支完成提交或回滚，包括二阶段重试和 Undo 清理，并确认全局锁已释放。随后停止旧 RM，全量升级所有共同访问受影响数据库资源的 RM，包括其他服务和后台任务，验证通过后恢复业务。不得混用新旧格式处理业务；降级也需执行相同的停流量、排空流程。请求结束或固定等待时长不能作为排空依据。
@@ -41,6 +42,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
 - [[#1159](https://github.com/apache/incubator-seata-go/issues/1159)] 修复同步请求超时、以及无人等待回复的消息发送后 message future 泄漏，并避免重复响应阻塞传输层接收循环
+- [[#1153](https://github.com/apache/incubator-seata-go/issues/1153)] 修复 context 已取消时全局事务二阶段的处理：提交请求从未发出却返回成功，回滚则对空响应做类型断言而 panic
 - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] 按 MySQL 驱动实际返回的 `[]byte` 读取 `XA RECOVER` 的 xid，并关闭结果集
 - 修复 `loadbalance.Select()` 在 `load-balance.type` 配置为 `ConsistentHashLoadBalance` / `LeastActiveLoadBalance` 时静默回退为随机负载均衡的问题：两个策略均已实现且配置层已接受，仅分发 `switch` 缺少对应分支
 - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] 修复上述两个策略在真正可达之后暴露出的问题：负载均衡 key 从整个 `RpcMessage` 而非其 body 中提取，导致一致性哈希把所有请求固定到同一台 TC；`rpc.Status.GetActive` / `GetTotal` 未用 `sync/atomic` 读取在途计数；首次选择时若还没有 session，哈希环会一直为空，且 key 越过最后一个虚拟节点时不会环绕到环首
