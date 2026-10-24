@@ -27,13 +27,14 @@ import (
 	"strings"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -120,13 +121,98 @@ func effectiveDBType(dbType types.DBType) types.DBType {
 	return dbType
 }
 
-func (b *baseExecutor) getTableCache(dbType types.DBType) (datasource.TableMetaCache, error) {
-	dbType = effectiveDBType(dbType)
-	tableCache := datasource.GetTableCache(dbType)
-	if tableCache == nil {
-		return nil, fmt.Errorf("table meta cache not registered for dbType %s", dbType.String())
+func (b *baseExecutor) resolveTableMetaKey(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext) error {
+	if execCtx == nil || execCtx.TableMetaReader == nil {
+		return fmt.Errorf("table meta reader is missing from execution context")
 	}
-	return tableCache, nil
+	if err := parser.BindTableRefs(parseCtx); err != nil {
+		return err
+	}
+	ref, err := parseCtx.GetTableRef()
+	if err != nil {
+		return err
+	}
+	key, err := execCtx.TableMetaReader.ResolveTableMetaKey(ctx, execCtx.Conn, ref)
+	if err != nil {
+		return err
+	}
+	// Multi-table DELETE checks its explicit targets in the delete executor;
+	// GetTableRef only identifies the first source table.
+	if parseCtx.HasValidStmt() && (parseCtx.DeleteStmt == nil || !parseCtx.DeleteStmt.IsMultiTable) {
+		if err := validateWriteDatabase(ctx, execCtx, key); err != nil {
+			return err
+		}
+	}
+	execCtx.TableMetaKey = &key
+	return nil
+}
+
+func validateWriteDatabase(ctx context.Context, execCtx *types.ExecContext, key types.TableMetaKey) error {
+	if effectiveDBType(execCtx.DBType) != types.DBTypeMySQL {
+		return nil
+	}
+	isATMode := isGlobalTx(ctx)
+	if execCtx.TxCtx != nil {
+		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
+	}
+	if !isATMode || (execCtx.DBName != "" && key.DBName == execCtx.DBName) {
+		return nil
+	}
+	if execCtx.DBName != "" && key.DBName != "" && strings.EqualFold(key.DBName, execCtx.DBName) {
+		// Only a case-only difference needs the server's identifier policy.
+		// lower_case_table_names=0 can represent two distinct databases.
+		rows, err := util.CtxDriverQueryWithPrepareFallback(ctx, execCtx.Conn, "SELECT @@lower_case_table_names", nil)
+		if err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		defer rows.Close()
+		values := make([]driver.Value, 1)
+		if err := rows.Next(values); err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		var lowerCaseTableNames sql.NullInt64
+		if err := lowerCaseTableNames.Scan(values[0]); err != nil {
+			return fmt.Errorf("read lower_case_table_names: %w", err)
+		}
+		if !lowerCaseTableNames.Valid {
+			return fmt.Errorf("read lower_case_table_names: no value returned")
+		}
+		if lowerCaseTableNames.Int64 == 1 || lowerCaseTableNames.Int64 == 2 {
+			return nil
+		}
+	}
+	return fmt.Errorf("AT write target database %q does not match resource database %q", key.DBName, execCtx.DBName)
+}
+
+func (b *baseExecutor) getTableMeta(ctx context.Context, execCtx *types.ExecContext, parseCtx *types.ParseContext) (*types.TableMeta, error) {
+	if execCtx == nil || execCtx.TableMetaReader == nil {
+		return nil, fmt.Errorf("table meta reader is missing from execution context")
+	}
+	if execCtx.TableMetaKey == nil {
+		if err := b.resolveTableMetaKey(ctx, execCtx, parseCtx); err != nil {
+			return nil, err
+		}
+	}
+	return execCtx.TableMetaReader.GetTableMeta(ctx, *execCtx.TableMetaKey)
+}
+
+func qualifiedTableName(key *types.TableMetaKey, fallback string, dbType types.DBType) string {
+	if key == nil {
+		return fallback
+	}
+	qualifier := key.DBName
+	quote := "`"
+	if effectiveDBType(dbType) == types.DBTypePostgreSQL {
+		qualifier = key.Schema
+		quote = `"`
+	}
+	if qualifier == "" || key.TableName == "" {
+		return fallback
+	}
+	escape := func(name string) string {
+		return quote + strings.ReplaceAll(name, quote, quote+quote) + quote
+	}
+	return escape(qualifier) + "." + escape(key.TableName)
 }
 
 func jdbcTypeForDatabaseType(dbType types.DBType, databaseType string) types.JDBCType {
@@ -176,6 +262,26 @@ func (b *baseExecutor) normalizeGeneratedSQL(query string, dbType types.DBType) 
 		query = mysqlStringLiteralForPostgresPattern.ReplaceAllString(query, "'$1'")
 	}
 	return util.RewritePlaceholders(query, dbType)
+}
+
+// restoreImageSelectSQL preserves the identifiers and literals prepared by
+// ParsePostgreSQLForImage when building PostgreSQL auxiliary queries.
+func (b *baseExecutor) restoreImageSelectSQL(stmt *ast.SelectStmt, dbType types.DBType) (string, error) {
+	var sql strings.Builder
+	flags := format.RestoreKeyWordUppercase
+	if dbType == types.DBTypePostgreSQL {
+		flags |= format.RestoreNameDoubleQuotes | format.RestoreStringSingleQuotes
+	}
+	if err := stmt.Restore(format.NewRestoreCtx(flags, &sql)); err != nil {
+		return "", err
+	}
+	if dbType == types.DBTypePostgreSQL {
+		// Literals are already PostgreSQL SQL. MySQL charset rewriting would
+		// also change matching text inside dollar strings.
+		query := strings.Replace(sql.String(), "SELECT SQL_NO_CACHE ", "SELECT ", 1)
+		return util.RewritePlaceholders(query, dbType), nil
+	}
+	return b.normalizeGeneratedSQL(sql.String(), dbType), nil
 }
 
 func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
@@ -392,36 +498,54 @@ func buildImageSelectColumns(meta *types.TableMeta, requested []string, dbType t
 	return result, nil
 }
 
-func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableAliases string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
+func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.TableMeta, tableRef types.TableRef, tableAlias string, inUseFields []*ast.Assignment) ([]*ast.SelectField, error) {
 	fields := make([]*ast.SelectField, 0, len(inUseFields))
 
-	tableName := tableAliases
-	if tableAliases == "" {
-		tableName = tableMeta.TableName
+	tableName := tableRef.TableName
+	schemaName := tableRef.Qualifier
+	if tableAlias != "" {
+		tableName = tableAlias
+		schemaName = ""
 	}
-	if undo.UndoConfig.OnlyCareUpdateColumns {
-		for _, column := range inUseFields {
-			tn := column.Column.Table.O
-			if tn != "" && tn != tableName {
+	for _, column := range inUseFields {
+		tn := column.Column.Table.O
+		if tn != "" && tn != tableName {
+			continue
+		}
+		if tableAlias == "" && column.Column.Schema.O != "" && column.Column.Schema.O != tableRef.Qualifier {
+			continue
+		}
+		if tn == "" {
+			found := false
+			for name := range tableMeta.Columns {
+				if strings.EqualFold(util.DelEscape(name, types.DBTypeMySQL), util.DelEscape(column.Column.Name.O, types.DBTypeMySQL)) {
+					found = true
+					break
+				}
+			}
+			if !found {
 				continue
 			}
-
-			fields = append(fields, &ast.SelectField{
-				Expr: &ast.ColumnNameExpr{
-					Name: column.Column,
-				},
-			})
 		}
 
-		if len(fields) == 0 {
-			return fields, nil
-		}
+		fields = append(fields, &ast.SelectField{
+			Expr: &ast.ColumnNameExpr{
+				Name: column.Column,
+			},
+		})
+	}
 
+	if len(fields) == 0 {
+		return fields, nil
+	}
+
+	if undo.UndoConfig.OnlyCareUpdateColumns {
 		// select indexes columns
 		for _, columnName := range tableMeta.GetPrimaryKeyOnlyName() {
 			fields = append(fields, &ast.SelectField{
 				Expr: &ast.ColumnNameExpr{
 					Name: &ast.ColumnName{
+						Schema: model.CIStr{O: schemaName, L: strings.ToLower(schemaName)},
 						Table: model.CIStr{
 							O: tableName,
 							L: tableName,
@@ -435,9 +559,11 @@ func (u *baseExecutor) buildSelectFields(ctx context.Context, tableMeta *types.T
 			})
 		}
 	} else {
-		fields = append(fields, &ast.SelectField{
+		fields = append(fields[:0], &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
 				Name: &ast.ColumnName{
+					Schema: model.CIStr{O: schemaName, L: strings.ToLower(schemaName)},
+					Table:  model.CIStr{O: tableName, L: strings.ToLower(tableName)},
 					Name: model.CIStr{
 						O: "*",
 						L: "*",
@@ -687,6 +813,8 @@ func (b *baseExecutor) prepareUndoPair(execCtx *types.ExecContext, beforeImage, 
 		return fmt.Errorf("lock key is empty")
 	}
 	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
+	beforeImage.TableMetaKey = execCtx.TableMetaKey
+	afterImage.TableMetaKey = execCtx.TableMetaKey
 	execCtx.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	execCtx.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return nil

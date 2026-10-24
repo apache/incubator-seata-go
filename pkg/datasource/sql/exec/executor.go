@@ -53,7 +53,9 @@ type (
 // BuildExecutor use db type and transaction type to build an executor. the executor can
 // add custom hook, and intercept the user's business sql to generate the undo log.
 func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, query string) (SQLExecutor, error) {
-	parseContext, err := parser.DoParser(query)
+	// Hook selection only needs the statement type. Table identities are bound
+	// by the AT execution path before it reads metadata or builds images.
+	parseContext, err := parser.ParseSQLForDB(query, dbType)
 	if err != nil {
 		// XA mode uses a pass-through executor and never needs the parsed statement:
 		// two-phase commit is managed by the TC and no undo log is generated, so SQL
@@ -62,6 +64,11 @@ func BuildExecutor(dbType types.DBType, transactionMode types.TransactionMode, q
 		// PostgreSQL fallback so XA mode is never routed to an AT executor.
 		if transactionMode == types.XAMode {
 			return newXAExecutor(commonHook), nil
+		}
+		if transactionMode == types.Local {
+			// The executor has the context needed to decide whether global-lock
+			// handling is required. Ordinary local SQL can execute unchanged.
+			return newATExecutor(dbType, commonHook)
 		}
 		if dbType == types.DBTypePostgreSQL {
 			// PostgreSQL local execution must remain pass-through even when the

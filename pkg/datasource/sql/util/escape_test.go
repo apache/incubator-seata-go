@@ -337,6 +337,26 @@ func TestGetOrderedPkListRejectsInexactOrDuplicatePK(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGetOrderedPkListPostgresKeepsCaseDistinctPrimaryKeys(t *testing.T) {
+	image := &types.RecordImage{TableMeta: &types.TableMeta{
+		ColumnNames: []string{"id", "ID"},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType:   types.IndexTypePrimaryKey,
+			Columns: []types.ColumnMeta{{ColumnName: "id"}, {ColumnName: "ID"}},
+		}},
+	}}
+	row := types.RowImage{Columns: []types.ColumnImage{
+		{ColumnName: "ID", KeyType: types.IndexTypePrimaryKey, Value: 2},
+		{ColumnName: "id", KeyType: types.IndexTypePrimaryKey, Value: 1},
+	}}
+	keys, err := GetOrderedPkList(image, row, types.DBTypePostgreSQL)
+	assert.NoError(t, err)
+	assert.Equal(t, []types.ColumnImage{row.Columns[1], row.Columns[0]}, keys)
+
+	_, err = GetOrderedPkList(image, row, types.DBTypeMySQL)
+	assert.ErrorContains(t, err, "found more than once")
+}
+
 func TestGetOrderedPkListNilGuards(t *testing.T) {
 	row := types.RowImage{
 		Columns: []types.ColumnImage{
