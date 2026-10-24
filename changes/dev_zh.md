@@ -41,6 +41,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] TCC 二阶段方法返回 false 时报告可重试的分支失败状态
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
+- [[#1158](https://github.com/apache/incubator-seata-go/issues/1158)] 未知或未注册的 BranchType 不再 panic，改为向 TC 返回失败响应并保留 xid 与 branch id；GetResourceManager 在找不到时改为返回 nil（请使用 FindResourceManager）
 - [[#1153](https://github.com/apache/incubator-seata-go/issues/1153)] 修复 context 已取消时全局事务二阶段的处理：提交请求从未发出却返回成功，回滚则对空响应做类型断言而 panic
 - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] 按 MySQL 驱动实际返回的 `[]byte` 读取 `XA RECOVER` 的 xid，并关闭结果集
 - 修复 `loadbalance.Select()` 在 `load-balance.type` 配置为 `ConsistentHashLoadBalance` / `LeastActiveLoadBalance` 时静默回退为随机负载均衡的问题：两个策略均已实现且配置层已接受，仅分发 `switch` 缺少对应分支

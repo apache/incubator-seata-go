@@ -145,3 +145,72 @@ func TestRmBranchRollbackProcessorResponseUsesRollbackResultMessageType(t *testi
 			response.GetAbstractBranchEndResponse().GetAbstractTransactionResponse().GetAbstractResultMessage().GetAbstractMessage().GetMessageType())
 	}
 }
+
+func TestRmBranchRollbackProcessorUnknownBranchTypeSendsFailedResponse(t *testing.T) {
+	xid := "xid-unknown-rollback"
+	branchID := int64(1158)
+
+	t.Run("getty", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "seata"})
+		err := (&rmBranchRollbackProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 52,
+			Body: message.BranchRollbackRequest{
+				AbstractBranchEndRequest: message.AbstractBranchEndRequest{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: model2.BranchType(99),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		if captured.id != 52 {
+			t.Fatalf("want msg id 52, got %d", captured.id)
+		}
+		assertFailedGettyBranchEnd(t, captured.msg, xid, branchID)
+	})
+
+	t.Run("grpc", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "grpc"})
+		err := (&rmBranchRollbackProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 53,
+			Body: &pb.BranchRollbackRequestProto{
+				AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: pb.BranchTypeProto(99),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		assertFailedGrpcBranchEnd(t, captured.msg, xid, branchID)
+	})
+
+	t.Run("grpc-truncation", func(t *testing.T) {
+		captured := stubAsyncResponses(t)
+		config.InitTransportConfig(&config.TransportConfig{Protocol: "grpc"})
+		err := (&rmBranchRollbackProcessor{}).Process(context.Background(), message.RpcMessage{
+			ID: 54,
+			Body: &pb.BranchRollbackRequestProto{
+				AbstractBranchEndRequest: &pb.AbstractBranchEndRequestProto{
+					Xid:        xid,
+					BranchId:   branchID,
+					BranchType: pb.BranchTypeProto(257),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Process returned error: %v", err)
+		}
+		assertFailedGrpcBranchEnd(t, captured.msg, xid, branchID)
+		resp := captured.msg.(*pb.BranchRollbackResponseProto)
+		if resp.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage.Msg != "unsupported BranchType: 257" {
+			t.Fatalf("want truncation rejected as 257, got %q", resp.AbstractBranchEndResponse.AbstractTransactionResponse.AbstractResultMessage.Msg)
+		}
+	})
+}

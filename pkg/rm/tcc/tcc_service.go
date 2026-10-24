@@ -58,7 +58,13 @@ func NewTCCServiceProxy(service interface{}) (*TCCServiceProxy, error) {
 func (t *TCCServiceProxy) RegisterResource() error {
 	var err error
 	t.registerResourceOnce.Do(func() {
-		err = rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC).RegisterResource(t.TCCResource)
+		mgr := rm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeTCC)
+		if mgr == nil {
+			err = fmt.Errorf("no ResourceManager for BranchType: %v", branch.BranchTypeTCC)
+			log.Errorf("NewTCCServiceProxy RegisterResource error: %#v", err.Error())
+			return
+		}
+		err = mgr.RegisterResource(t.TCCResource)
 		if err != nil {
 			log.Errorf("NewTCCServiceProxy RegisterResource error: %#v", err.Error())
 		}

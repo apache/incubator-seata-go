@@ -55,7 +55,20 @@ func TestResourceManagerCache_UnregisterResourceManager(t *testing.T) {
 
 	cache.UnregisterResourceManager(branch.BranchTypeSAGA)
 
-	assert.Panics(t, func() {
-		cache.GetResourceManager(branch.BranchTypeSAGA)
-	})
+	assert.Nil(t, cache.GetResourceManager(branch.BranchTypeSAGA))
+}
+
+func TestUnknownBranchTypeReturnsErrorInsteadOfPanicking(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("unknown branch type panicked: %v", r)
+		}
+	}()
+	if got := GetRmCacheInstance().GetResourceManager(branch.BranchType(99)); got != nil {
+		t.Fatalf("unexpected resource manager: %T", got)
+	}
+
+	actual, ok := GetRmCacheInstance().FindResourceManager(branch.BranchType(99))
+	assert.False(t, ok)
+	assert.Nil(t, actual)
 }

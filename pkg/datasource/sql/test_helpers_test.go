@@ -39,14 +39,6 @@ func registerResourceManagerForTest(t *testing.T, resourceManager rm.ResourceMan
 	})
 }
 
-func currentResourceManagerForTest(branchType branch.BranchType) (manager rm.ResourceManager, ok bool) {
-	defer func() {
-		if recover() != nil {
-			manager = nil
-			ok = false
-		}
-	}()
-
-	manager = rm.GetRmCacheInstance().GetResourceManager(branchType)
-	return manager, true
+func currentResourceManagerForTest(branchType branch.BranchType) (rm.ResourceManager, bool) {
+	return rm.GetRmCacheInstance().FindResourceManager(branchType)
 }
