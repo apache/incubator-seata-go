@@ -64,8 +64,8 @@ func GetMySQLMultiUpdateUndoLogBuilder() undo.UndoLogBuilder {
 func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
-		for n, param := range execCtx.NamedValues {
-			vals[n] = param.Value
+		for _, param := range execCtx.NamedValues {
+			vals = append(vals, param.Value)
 		}
 	}
 
@@ -92,12 +92,15 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 		return nil, err
 	}
 
-	metaData, err := tableMetaForExec(ctx, execCtx)
+	metaCtx := *execCtx
+	metaCtx.ParseContext = execCtx.ParseContext.MultiStmt[0]
+	metaCtx.TableMetaKey = nil
+	metaData, err := tableMetaForExec(ctx, &metaCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
+	image, err := u.buildRecordImagesForExec(rows, metaData, &metaCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +111,29 @@ func (u *MySQLMultiUpdateUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 }
 
 func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx *types.ExecContext, beforeImages []*types.RecordImage) ([]*types.RecordImage, error) {
-	var beforeImage *types.RecordImage
-	if len(beforeImages) > 0 {
-		beforeImage = beforeImages[0]
+	if len(beforeImages) == 0 {
+		return beforeImages, nil
 	}
+	beforeImage := beforeImages[0]
 
-	metaData, err := tableMetaForExec(ctx, execCtx)
+	metaCtx := *execCtx
+	if len(execCtx.ParseContext.MultiStmt) > 0 {
+		metaCtx.ParseContext = execCtx.ParseContext.MultiStmt[0]
+		metaCtx.TableMetaKey = nil
+	}
+	if beforeImage.TableMetaKey != nil {
+		metaCtx.TableMetaKey = beforeImage.TableMetaKey
+	}
+	metaData, err := tableMetaForExec(ctx, &metaCtx)
 	if err != nil {
 		return nil, err
 	}
-	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData, tableNameForExec(execCtx, metaData.TableName))
+	if len(beforeImage.Rows) == 0 {
+		image := types.NewEmptyRecordImage(metaData, execCtx.ParseContext.SQLType)
+		image.TableMetaKey = metaCtx.TableMetaKey
+		return []*types.RecordImage{image}, nil
+	}
+	selectSQL, selectArgs := u.buildAfterImageSQL(beforeImage, *metaData, tableNameForExec(&metaCtx, metaData.TableName))
 
 	stmt, err := execCtx.Conn.Prepare(selectSQL)
 	if err != nil {
@@ -131,7 +147,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) AfterImage(ctx context.Context, execCtx
 		return nil, err
 	}
 
-	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
+	image, err := u.buildRecordImagesForExec(rows, metaData, &metaCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +163,7 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildAfterImageSQL(beforeImage *types.R
 	if len(tableNames) > 0 {
 		tableName = tableNames[0]
 	}
-	sb.WriteString("SELECT * FROM " + tableName + " ")
+	sb.WriteString("SELECT * FROM " + tableName + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), "mysql", maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return sb.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName())
