@@ -20,7 +20,6 @@ package client
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -223,7 +222,7 @@ func newLoaderConf(configFilePath string) *loaderConf {
 	}
 
 	if len(conf.bytes) <= 0 {
-		if bytes, err := ioutil.ReadFile(conf.path); err != nil {
+		if bytes, err := os.ReadFile(conf.path); err != nil {
 			panic(err)
 		} else {
 			conf.bytes = bytes

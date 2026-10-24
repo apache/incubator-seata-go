@@ -457,7 +457,8 @@ func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
 		body, _ := io.ReadAll(resp.Body)
 		var mr metadata.MetadataResponse
 		if err = json.Unmarshal(body, &mr); err != nil {
@@ -468,7 +469,7 @@ func (r *RaftRegistryService) acquireClusterMetaData(clusterName, group string) 
 		r.publishClusterSnapshotLocked(clusterName)
 		r.stateMu.Unlock()
 		return nil
-	} else if resp.StatusCode == http.StatusUnauthorized {
+	case http.StatusUnauthorized:
 		if err = r.refreshToken(); err != nil {
 			return err
 		}

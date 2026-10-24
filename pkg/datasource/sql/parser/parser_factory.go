@@ -19,15 +19,19 @@ package parser
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	aparser "github.com/arana-db/parser"
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/mysql"
-
+	aparser "github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
+	// Import test_driver to register the parser driver required by TiDB parser to instantiate ParamMarkerExpr.
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
+	
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
@@ -97,6 +101,8 @@ func ParseSQLForDB(query string, dbType types.DBType) (*types.ParseContext, erro
 		}
 	}
 
+	assignParamMarkerOrders(stmtNodes)
+
 	if len(stmtNodes) == 1 {
 		return parseParseContext(stmtNodes[0], dbType), nil
 	}
@@ -113,6 +119,77 @@ func ParseSQLForDB(query string, dbType types.DBType) (*types.ParseContext, erro
 	}
 
 	return &parserCtx, nil
+}
+
+type markerOffset struct {
+	marker ast.ParamMarkerExpr
+	offset int
+}
+
+type paramMarkerOrderVisitor struct {
+	markers []markerOffset
+}
+
+func (v *paramMarkerOrderVisitor) Enter(node ast.Node) (ast.Node, bool) {
+	if marker, ok := node.(ast.ParamMarkerExpr); ok {
+		offset := getParamMarkerOffset(node)
+		v.markers = append(v.markers, markerOffset{marker: marker, offset: offset})
+	}
+	return node, false
+}
+
+func getParamMarkerOffset(node ast.Node) int {
+	if getter, ok := node.(interface{ GetOffset() int }); ok {
+		return getter.GetOffset()
+	}
+	val := reflect.ValueOf(node)
+	if val.Kind() == reflect.Pointer {
+		val = val.Elem()
+	}
+	if val.IsValid() && val.Kind() == reflect.Struct {
+		if field := val.FieldByName("Offset"); field.IsValid() && field.CanInt() {
+			return int(field.Int())
+		}
+	}
+	return node.OriginTextPosition()
+}
+
+func (v *paramMarkerOrderVisitor) Leave(node ast.Node) (ast.Node, bool) {
+	return node, true
+}
+
+func assignParamMarkerOrders(stmtNodes []ast.StmtNode) {
+	visitor := &paramMarkerOrderVisitor{
+		markers: make([]markerOffset, 0, len(stmtNodes)*4),
+	}
+	for _, node := range stmtNodes {
+		node.Accept(visitor)
+	}
+
+	sort.SliceStable(visitor.markers, func(i, j int) bool {
+		return visitor.markers[i].offset < visitor.markers[j].offset
+	})
+	for i, item := range visitor.markers {
+		item.marker.SetOrder(i)
+	}
+}
+
+func GetParamMarkerOrder(node ast.Node) (int, bool) {
+	if marker, ok := node.(ast.ParamMarkerExpr); ok {
+		if getter, ok := marker.(interface{ GetOrder() int }); ok {
+			return getter.GetOrder(), true
+		}
+		val := reflect.ValueOf(marker)
+		if val.Kind() == reflect.Pointer {
+			val = val.Elem()
+		}
+		if val.IsValid() && val.Kind() == reflect.Struct {
+			if field := val.FieldByName("Order"); field.IsValid() && field.CanInt() {
+				return int(field.Int()), true
+			}
+		}
+	}
+	return 0, false
 }
 
 type postgresDollarLiterals map[int]string
@@ -208,7 +285,7 @@ func (p postgresImageParameters) Enter(node ast.Node) (ast.Node, bool) {
 	if value, ok := node.(ast.ValueExpr); ok {
 		if _, ok := value.GetValue().(string); ok {
 			// Arana's value driver restores strings with a MySQL charset prefix.
-			value.GetType().Charset = ""
+			value.GetType().SetCharset("")
 		}
 	}
 	if column, ok := node.(*ast.ColumnNameExpr); ok && column.Name.Schema.O == "" && column.Name.Table.O == "" {

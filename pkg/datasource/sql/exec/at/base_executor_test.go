@@ -35,6 +35,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
 
 type tableMetaReaderForTest struct {
@@ -598,6 +599,22 @@ func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}
+}
+
+func TestBaseExecutorBuildSelectArgs(t *testing.T) {
+	exec := &baseExecutor{}
+
+	sql := "SELECT * FROM t_user WHERE id = ? AND age BETWEEN ? AND ? AND name IN (?, ?) ORDER BY id LIMIT ?, ?"
+	ctx, err := parser.DoParser(sql)
+	assert.NoError(t, err)
+	assert.NotNil(t, ctx)
+	assert.NotNil(t, ctx.SelectStmt)
+
+	rawArgs := []driver.Value{int64(1), 18, 30, "Alice", "Bob", 0, 10}
+	namedArgs := util.ValueToNamedValue(rawArgs)
+
+	selectArgs := exec.buildSelectArgs(ctx.SelectStmt, namedArgs)
+	assert.Equal(t, rawArgs, util.NamedValueToValue(selectArgs))
 }
 
 func TestBaseExecutorWriteDatabaseBoundary(t *testing.T) {

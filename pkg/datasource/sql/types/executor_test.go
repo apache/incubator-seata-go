@@ -20,7 +20,7 @@ package types
 import (
 	"testing"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/stretchr/testify/assert"
 )
 

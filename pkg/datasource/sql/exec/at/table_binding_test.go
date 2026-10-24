@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 

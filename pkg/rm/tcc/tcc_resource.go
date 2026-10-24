@@ -64,7 +64,7 @@ func (t *TCCResource) GetResourceGroupId() string {
 }
 
 func (t *TCCResource) GetResourceId() string {
-	return t.TwoPhaseAction.GetActionName()
+	return t.GetActionName()
 }
 
 func (t *TCCResource) GetBranchType() branch.BranchType {

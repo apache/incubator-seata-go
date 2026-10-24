@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 

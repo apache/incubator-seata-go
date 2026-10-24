@@ -27,8 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/arana-db/parser/mysql"
-	_ "github.com/arana-db/parser/test_driver"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
 
 	"seata.apache.org/seata-go/v2/pkg/compressor"
 	sqlparser "seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -570,6 +569,9 @@ func (m *BaseUndoLogManager) HasUndoLogTable(ctx context.Context, conn *sql.Conn
 
 	if rows != nil {
 		defer rows.Close()
+		if err = rows.Err(); err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
@@ -662,7 +664,7 @@ func (m *BaseUndoLogManager) getSerializer(undoLogContext map[string]string) (se
 	if undoLogContext == nil {
 		return
 	}
-	serializer, _ = undoLogContext[serializerKey]
+	serializer = undoLogContext[serializerKey]
 	return
 }
 
