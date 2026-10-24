@@ -56,9 +56,12 @@ func WithGlobalTx(ctx context.Context, gc *GtxConfig, business CallbackWithCtx) 
 	}
 
 	if IsGlobalTx(ctx) {
-		ClearTxConf(ctx)
+		// derive isolated context to prevent inner calls from mutating outer role,
+		// unbinding outer xid in RequiresNew/NotSupported, or overwriting name, status, and timeInfo
+		ctx = transferTx(ctx)
 	}
 
+	// TODO(#277): Revisit explicit dynamic degradation after defining its consistency guarantees and usage constraints.
 	if re = Begin(ctx, gc); re != nil {
 		return
 	}
@@ -217,11 +220,6 @@ func UseExistGtx(ctx context.Context, gc *GtxConfig) {
 			TxName:   gc.Name,
 		})
 	}
-}
-
-// ClearTxConf When using global transactions in local mode, you need to clear tx config to use the propagation of global transactions.
-func ClearTxConf(ctx context.Context) {
-	SetTx(ctx, &GlobalTransaction{Xid: GetXID(ctx)})
 }
 
 // transferTx transfer the gtx into a new ctx from old ctx.

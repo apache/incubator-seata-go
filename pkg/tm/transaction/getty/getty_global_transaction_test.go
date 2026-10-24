@@ -43,9 +43,6 @@ func TestGettyGlobalTransactionBegin(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
@@ -145,9 +142,6 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
@@ -200,6 +194,9 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
 				return message.GlobalCommitResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusCommitted,
 					},
 				}, nil
@@ -236,9 +233,6 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
 		DefaultGlobalTransactionTimeout: 60 * time.Second,
-		DegradeCheck:                    false,
-		DegradeCheckPeriod:              2000,
-		DegradeCheckAllowTimes:          10 * time.Second,
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
@@ -291,6 +285,9 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
 				return message.GlobalRollbackResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusRollbacked,
 					},
 				}, nil

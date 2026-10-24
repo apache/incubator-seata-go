@@ -29,7 +29,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -357,12 +356,12 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &test.metaData})
+			reader := &stubTableMetaCache{meta: &test.metaData}
 
 			c, err := parser.DoParser(test.query)
 			assert.Nil(t, err)
 
-			executor := NewInsertExecutor(c, &types.ExecContext{
+			executor := NewInsertExecutor(c, &types.ExecContext{TableMetaReader: reader,
 				Values:      test.queryArgs,
 				NamedValues: test.NamedValues,
 			}, []exec.SQLHook{})
@@ -398,7 +397,7 @@ func TestInsertKeyPlanUsesParamMarkerOrder(t *testing.T) {
 			}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	for _, tt := range []struct {
 		name    string
@@ -415,7 +414,7 @@ func TestInsertKeyPlanUsesParamMarkerOrder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parseCtx, err := parser.DoParser(tt.query)
 			assert.NoError(t, err)
-			executor := NewInsertExecutor(parseCtx, &types.ExecContext{NamedValues: util.ValueToNamedValue(tt.args)}, nil).(*insertExecutor)
+			executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader, NamedValues: util.ValueToNamedValue(tt.args)}, nil).(*insertExecutor)
 
 			_, values, err := executor.buildAfterImageSQL(context.Background())
 			if tt.wantErr != "" {
@@ -431,10 +430,10 @@ func TestInsertKeyPlanUsesParamMarkerOrder(t *testing.T) {
 	autoMeta.Indexs = map[string]types.IndexMeta{"PRIMARY": {
 		IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id", DatabaseTypeString: "BIGINT", Autoincrement: true}},
 	}}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &autoMeta})
+	reader = &stubTableMetaCache{meta: &autoMeta}
 	parseCtx, err := parser.DoParser("insert into user(id,name) values (default,?)")
 	assert.NoError(t, err)
-	executor := NewInsertExecutor(parseCtx, &types.ExecContext{NamedValues: util.ValueToNamedValue([]driver.Value{"generated"})}, nil).(*insertExecutor)
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader, NamedValues: util.ValueToNamedValue([]driver.Value{"generated"})}, nil).(*insertExecutor)
 	executor.businesSQLResult = &mockInsertResult{lastInsertID: 42, rowsAffected: 1}
 	_, values, err := executor.buildAfterImageSQL(context.Background())
 	assert.NoError(t, err)
@@ -562,10 +561,10 @@ func TestBuildSelectSQLByInsertAddsOnlyMissingCompositePKs(t *testing.T) {
 			},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 	parseCtx, err := parser.DoParser("insert into user(tenant_id,name) values (100,'Tony')")
 	assert.NoError(t, err)
-	executor := NewInsertExecutor(parseCtx, &types.ExecContext{}, nil).(*insertExecutor)
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader}, nil).(*insertExecutor)
 	executor.businesSQLResult = &mockInsertResult{lastInsertID: 19, rowsAffected: 1}
 
 	sql, values, err := executor.buildAfterImageSQL(context.Background())
@@ -581,7 +580,7 @@ func TestInsertExecutorRejectsUnsafeSourcesBeforeBusinessSQL(t *testing.T) {
 		Columns: map[string]types.ColumnMeta{"id": {ColumnName: "id"}, "name": {ColumnName: "name"}},
 		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	for _, query := range []string{
 		"insert ignore into user(id,name) values (1,'a'),(2,'b')",
@@ -591,7 +590,7 @@ func TestInsertExecutorRejectsUnsafeSourcesBeforeBusinessSQL(t *testing.T) {
 		parseCtx, err := parser.DoParser(query)
 		assert.NoError(t, err)
 		called := false
-		executor := NewInsertExecutor(parseCtx, &types.ExecContext{Query: query, TxCtx: types.NewTxCtx()}, nil)
+		executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader, Query: query, TxCtx: types.NewTxCtx()}, nil)
 		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
 			called = true
 			return mockInsertResult{rowsAffected: 1}, nil
@@ -682,7 +681,7 @@ func executeInsertWithAfterRows(t *testing.T, query string, rows [][]driver.Valu
 			}},
 		}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 
 	parseCtx, err := parser.DoParser(query)
 	assert.NoError(t, err)
@@ -692,7 +691,7 @@ func executeInsertWithAfterRows(t *testing.T, query string, rows [][]driver.Valu
 		rows:    rows,
 	}, nil)
 	txCtx := types.NewTxCtx()
-	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader,
 		Query: query,
 		TxCtx: txCtx,
 		Conn:  conn,
@@ -710,12 +709,12 @@ func TestInsertIgnoreNoOpSkipsAfterImage(t *testing.T) {
 		Columns: map[string]types.ColumnMeta{"id": {ColumnName: "id"}, "name": {ColumnName: "name"}},
 		Indexs:  map[string]types.IndexMeta{"PRIMARY": {IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}}}},
 	}
-	datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: meta})
+	reader := &stubTableMetaCache{meta: meta}
 	query := "insert ignore into user(id,name) values (?,?)"
 	parseCtx, err := parser.DoParser(query)
 	assert.NoError(t, err)
 	txCtx := types.NewTxCtx()
-	executor := NewInsertExecutor(parseCtx, &types.ExecContext{
+	executor := NewInsertExecutor(parseCtx, &types.ExecContext{TableMetaReader: reader,
 		Query: query, NamedValues: util.ValueToNamedValue([]driver.Value{1, "existing"}), TxCtx: txCtx,
 	}, nil)
 
@@ -1314,9 +1313,10 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
+			tt.args.execCtx.ParseContext.InsertStmt.SetText(nil, "INSERT INTO test (id) VALUES (1)")
+			reader := &stubTableMetaCache{meta: &tt.args.meta}
 
-			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(tt.args.execCtx.ParseContext, &types.ExecContext{TableMetaReader: reader}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
@@ -1411,8 +1411,9 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			tt.args.execCtx.ParseContext.InsertStmt.SetText(nil, "INSERT INTO test (name) VALUES ('Tom')")
+			reader := &stubTableMetaCache{meta: &tt.args.meta}
+			executor := NewInsertExecutor(nil, &types.ExecContext{TableMetaReader: reader}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 			executor.(*insertExecutor).parserCtx = tt.args.execCtx.ParseContext
@@ -1511,9 +1512,9 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			datasource.RegisterTableCache(types.DBTypeMySQL, &stubTableMetaCache{meta: &tt.args.meta})
+			reader := &stubTableMetaCache{meta: &tt.args.meta}
 
-			executor := NewInsertExecutor(nil, &types.ExecContext{}, []exec.SQLHook{})
+			executor := NewInsertExecutor(nil, &types.ExecContext{TableMetaReader: reader}, []exec.SQLHook{})
 			executor.(*insertExecutor).businesSQLResult = tt.fields.InsertResult
 			executor.(*insertExecutor).incrementStep = tt.fields.IncrementStep
 
