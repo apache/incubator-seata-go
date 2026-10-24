@@ -39,6 +39,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] TCC 二阶段方法返回 false 时报告可重试的分支失败状态
 - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] 修复 XA autoCommit 下 `SELECT ... FOR UPDATE` 后紧接其他语句导致的 "busy buffer" / "driver: bad connection"：将分支提交（XA END + XA PREPARE）延迟到查询结果集关闭之后再执行
 - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] 修复getty session自动关闭的bug
+- [[#1157](https://github.com/apache/incubator-seata-go/issues/1157)] 修复 TCC 分支提交和回滚处理 malformed applicationData 时 RM panic 的问题
 - [[#1159](https://github.com/apache/incubator-seata-go/issues/1159)] 修复同步请求超时、以及无人等待回复的消息发送后 message future 泄漏，并避免重复响应阻塞传输层接收循环
 - [[#1153](https://github.com/apache/incubator-seata-go/issues/1153)] 修复 context 已取消时全局事务二阶段的处理：提交请求从未发出却返回成功，回滚则对空响应做类型断言而 panic
 - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] 按 MySQL 驱动实际返回的 `[]byte` 读取 `XA RECOVER` 的 xid，并关闭结果集
