@@ -163,13 +163,13 @@ type ExecContext struct {
 	ParseContext *ParseContext
 	NamedValues  []driver.NamedValue
 	// todo delete
-	Values []driver.Value
-	// todo delete
-	MetaDataMap map[string]TableMeta
-	Conn        driver.Conn
-	DBName      string
-	DBType      DBType
-	DbVersion   string
+	Values          []driver.Value
+	TableMetaReader TableMetaReader
+	TableMetaKey    *TableMetaKey
+	Conn            driver.Conn
+	DBName          string
+	DBType          DBType
+	DbVersion       string
 	// todo set values for these 4 param
 	IsAutoCommit         bool
 	IsSupportsSavepoints bool
