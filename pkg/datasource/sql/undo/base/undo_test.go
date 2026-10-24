@@ -1213,7 +1213,7 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 
 		mock.ExpectCommit()
 
-		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 		assert.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 		assert.Zero(t, db.Stats().InUse)
@@ -1231,7 +1231,7 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 		beginErr := errors.New("begin transaction failed")
 		mock.ExpectBegin().WillReturnError(beginErr)
 
-		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 		assert.ErrorIs(t, err, beginErr)
 		assert.NoError(t, mock.ExpectationsWereMet())
 		assert.Zero(t, db.Stats().InUse)
@@ -1259,7 +1259,7 @@ func TestBaseUndoLogManager_Undo(t *testing.T) {
 		// Should commit the transaction and return
 		mock.ExpectCommit()
 
-		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 		assert.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 		assert.Zero(t, db.Stats().InUse)
@@ -1382,7 +1382,7 @@ func TestBaseUndoLogManager_Undo_ErrorCleanup(t *testing.T) {
 			mock.ExpectBegin()
 			tt.setup(mock)
 
-			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
@@ -1418,7 +1418,7 @@ func TestBaseUndoLogManager_Undo_EarlyCommitError(t *testing.T) {
 				WithArgs(int64(123), "test-xid").WillReturnRows(rows).RowsWillBeClosed()
 			mock.ExpectCommit().WillReturnError(commitErr)
 
-			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+			err = manager.Undo(context.Background(), types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 			assert.ErrorIs(t, err, commitErr)
 			assert.NoError(t, mock.ExpectationsWereMet())
 			assert.Zero(t, db.Stats().InUse)
@@ -1519,7 +1519,7 @@ func TestBaseUndoLogManager_Undo_EmptySQLUndoLogs(t *testing.T) {
 			WillReturnRows(rows).RowsWillBeClosed()
 		mock.ExpectCommit()
 
-		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db")
+		err = manager.Undo(ctx, types.DBTypeMySQL, "test-xid", 123, db, "test_db", &tableMetaReaderStub{})
 		assert.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 		assert.Zero(t, db.Stats().InUse)

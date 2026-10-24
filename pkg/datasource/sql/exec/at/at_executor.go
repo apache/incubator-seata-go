@@ -29,7 +29,9 @@ import (
 )
 
 var (
-	parseSQLQuery              = parser.DoParser
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		return parser.ParseSQLForDB(query, types.DBTypeMySQL)
+	}
 	isGlobalTx                 = tm.IsGlobalTx
 	hooksForSQLType            = exec.HooksForSQLType
 	newPlainExecutor           = NewPlainExecutor
@@ -60,22 +62,31 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 
 // ExecWithNamedValue find the executor by sql type
 func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	isATMode := isGlobalTx(ctx)
+	if execCtx.TxCtx != nil {
+		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
+	}
+	if !isATMode && !execCtx.IsRequireGlobalLock {
+		return newPlainExecutor(nil, execCtx).ExecContext(ctx, f)
+	}
 	queryParser, err := parseSQLQuery(execCtx.Query)
 	if err != nil {
 		return nil, err
 	}
 
 	var executor executor
-	isATMode := isGlobalTx(ctx)
-	if execCtx.TxCtx != nil {
-		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
-	}
-
-	if !isATMode {
+	if !isATMode && queryParser.SQLType != types.SQLTypeSelectForUpdate {
 		executor = newPlainExecutor(queryParser, execCtx)
 	} else {
 		if queryParser.ExecutorType == types.ReplaceIntoExecutor {
 			return nil, errors.New("NotSupportYetException: AT mode currently does not support REPLACE INTO statement")
+		}
+		switch queryParser.SQLType {
+		case types.SQLTypeInsert, types.SQLTypeUpdate, types.SQLTypeDelete,
+			types.SQLTypeSelectForUpdate, types.SQLTypeInsertOnDuplicateUpdate, types.SQLTypeMulti:
+			if err := parser.BindTableRefs(queryParser); err != nil {
+				return nil, err
+			}
 		}
 		switch queryParser.SQLType {
 		case types.SQLTypeInsert:
