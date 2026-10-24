@@ -72,52 +72,52 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 				channelManager.releaseChannel(channel)
 				return
 			}
-		err := g.transferHeartBeat(channel, &pb.HeartbeatMessageProto{Ping: true})
-		if err != nil {
-			heartBeatRetryTimes++
-			log.Warnf("failed to send heart beat: {%#v}", err.Error())
-			if heartBeatRetryTimes >= maxHeartBeatRetryTimes {
-				log.Warnf("heartbeat retry times exceed default max retry times{%d}", maxHeartBeatRetryTimes)
-				channel.close()
-				if channelManager.getAllChannelIsClosedByAddr(channel.addr) {
-					channel.registered.Store(false)
-				}
-
-				flag := false
-				var reconnectErr error
-				for !flag {
-					if !channelManager.isServerAddressAvailable(channel.addr) {
-						channelManager.releaseChannel(channel)
-						return
-					}
-					state := channel.conn.GetState()
-					switch state {
-					case connectivity.Shutdown:
-						reconnectErr = channel.hardReconnect()
-						if reconnectErr != nil {
-							log.Errorf("reconnect error cause {%v}", reconnectErr)
-							channelManager.releaseChannelByAddr(channel.addr)
-						}
-					case connectivity.Ready:
-						reconnectErr = channel.softReconnect()
-						if reconnectErr != nil {
-							log.Errorf("reconnect error cause {%v}", reconnectErr)
-						}
-					default:
-						channel.conn.Connect()
-						channel.conn.WaitForStateChange(ctx, state)
-						continue
-					}
-					if !channelManager.registerChannel(channel) {
-						return
+			err := g.transferHeartBeat(channel, &pb.HeartbeatMessageProto{Ping: true})
+			if err != nil {
+				heartBeatRetryTimes++
+				log.Warnf("failed to send heart beat: {%#v}", err.Error())
+				if heartBeatRetryTimes >= maxHeartBeatRetryTimes {
+					log.Warnf("heartbeat retry times exceed default max retry times{%d}", maxHeartBeatRetryTimes)
+					channel.close()
+					if channelManager.getAllChannelIsClosedByAddr(channel.addr) {
+						channel.registered.Store(false)
 					}
 
-					flag = true
+					flag := false
+					var reconnectErr error
+					for !flag {
+						if !channelManager.isServerAddressAvailable(channel.addr) {
+							channelManager.releaseChannel(channel)
+							return
+						}
+						state := channel.conn.GetState()
+						switch state {
+						case connectivity.Shutdown:
+							reconnectErr = channel.hardReconnect()
+							if reconnectErr != nil {
+								log.Errorf("reconnect error cause {%v}", reconnectErr)
+								channelManager.releaseChannelByAddr(channel.addr)
+							}
+						case connectivity.Ready:
+							reconnectErr = channel.softReconnect()
+							if reconnectErr != nil {
+								log.Errorf("reconnect error cause {%v}", reconnectErr)
+							}
+						default:
+							channel.conn.Connect()
+							channel.conn.WaitForStateChange(ctx, state)
+							continue
+						}
+						if !channelManager.registerChannel(channel) {
+							return
+						}
+
+						flag = true
+					}
 				}
+			} else {
+				heartBeatRetryTimes = 0
 			}
-		} else {
-			heartBeatRetryTimes = 0
-		}
 		}
 	}
 }
