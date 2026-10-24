@@ -207,6 +207,9 @@ func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Named
 	// sort selectArgs index array
 	gxsort.Int32(selectArgsIndexs)
 	for _, index := range selectArgsIndexs {
+		if index < 0 || int(index) >= len(args) {
+			continue
+		}
 		selectArgs = append(selectArgs, args[index])
 	}
 
@@ -229,6 +232,8 @@ func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
 		for i := 0; i < len(expr.List); i++ {
 			b.traversalArgs(expr.List[i], argsIndex)
 		}
+	case *ast.ParenthesesExpr:
+		b.traversalArgs(expr.Expr, argsIndex)
 	case *ast.Join:
 		b.traversalArgs(expr.Left, argsIndex)
 		if expr.Right != nil {

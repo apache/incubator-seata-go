@@ -63,11 +63,15 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 
 	heartBeatRetryTimes := 0
 
-	for range ticker.C {
-		if !channelManager.isServerAddressAvailable(channel.addr) {
-			channelManager.releaseChannel(channel)
+	for {
+		select {
+		case <-ctx.Done():
 			return
-		}
+		case <-ticker.C:
+			if !channelManager.isServerAddressAvailable(channel.addr) {
+				channelManager.releaseChannel(channel)
+				return
+			}
 		err := g.transferHeartBeat(channel, &pb.HeartbeatMessageProto{Ping: true})
 		if err != nil {
 			heartBeatRetryTimes++
@@ -113,6 +117,7 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 			}
 		} else {
 			heartBeatRetryTimes = 0
+		}
 		}
 	}
 }

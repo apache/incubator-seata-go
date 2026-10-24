@@ -94,6 +94,9 @@ func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []drive
 	// sort selectArgs index array
 	gxsort.Int32(selectArgsIndexs)
 	for _, index := range selectArgsIndexs {
+		if index < 0 || int(index) >= len(args) {
+			continue
+		}
 		selectArgs = append(selectArgs, args[index])
 	}
 

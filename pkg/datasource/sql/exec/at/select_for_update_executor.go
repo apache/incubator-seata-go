@@ -317,6 +317,9 @@ func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.Tab
 			}
 		}
 	}
+	if idx == 0 {
+		return ""
+	}
 	return lockKeys.String()
 }
 
