@@ -29,8 +29,8 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/golang/mock/gomock"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

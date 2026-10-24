@@ -18,10 +18,10 @@
 package parser
 
 import (
-	"sort"
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 

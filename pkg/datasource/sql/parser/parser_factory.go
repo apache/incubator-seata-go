@@ -31,7 +31,7 @@ import (
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	// Import test_driver to register the parser driver required by TiDB parser to instantiate ParamMarkerExpr.
 	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
-	
+
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 )
