@@ -20,6 +20,7 @@ package builder
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"testing"
 
 	"github.com/arana-db/parser/ast"
@@ -98,12 +99,16 @@ func TestMySQLMultiUpdateUndoLogBuilder_BeforeImageParameters(t *testing.T) {
 func TestMySQLMultiUpdateUndoLogBuilder_AfterImageSQL(t *testing.T) {
 	b := &MySQLMultiUpdateUndoLogBuilder{}
 	cases := []struct {
-		name  string
-		ids   []driver.Value
-		query string
+		name      string
+		ids       []driver.Value
+		dbName    string
+		tableName string
+		query     string
 	}{
-		{"single_row", []driver.Value{int64(100)}, "SELECT * FROM t_user WHERE  (`id`) IN ((?)) "},
-		{"multiple_rows", []driver.Value{int64(1), int64(2)}, "SELECT * FROM t_user WHERE  (`id`) IN ((?),(?)) "},
+		{"single_row", []driver.Value{int64(100)}, "", "`t_user`", "SELECT * FROM `t_user` WHERE  (`id`) IN ((?)) "},
+		{"multiple_rows", []driver.Value{int64(1), int64(2)}, "", "`t_user`", "SELECT * FROM `t_user` WHERE  (`id`) IN ((?),(?)) "},
+		{"qualified_single_row", []driver.Value{int64(100)}, "tenant_a", "`tenant_a`.`t_user`", "SELECT * FROM `tenant_a`.`t_user` WHERE  (`id`) IN ((?)) "},
+		{"qualified_multiple_rows", []driver.Value{int64(1), int64(2)}, "tenant_a", "`tenant_a`.`t_user`", "SELECT * FROM `tenant_a`.`t_user` WHERE  (`id`) IN ((?),(?)) "},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -113,19 +118,20 @@ func TestMySQLMultiUpdateUndoLogBuilder_AfterImageSQL(t *testing.T) {
 					{ColumnName: "id", Value: id, KeyType: types.IndexTypePrimaryKey},
 				}})
 			}
-			query, args := b.buildAfterImageSQL(before, legacyBuilderTestMeta())
+			query, args := b.buildAfterImageSQL(before, legacyBuilderTestMeta(), tc.tableName)
 			assert.Equal(t, tc.query, query)
 			assert.Equal(t, tc.ids, args)
 			_, err := parser.DoParser(query)
 			assert.NoError(t, err)
 
 			for _, source := range []string{
-				"UPDATE t_user SET id=11 WHERE id=1",
-				"UPDATE t_user SET id=11 WHERE id=1; UPDATE t_user SET id=22 WHERE id=2",
+				fmt.Sprintf("UPDATE %s SET id=11 WHERE id=1", tc.tableName),
+				fmt.Sprintf("UPDATE %s SET id=11 WHERE id=1; UPDATE %s SET id=22 WHERE id=2", tc.tableName, tc.tableName),
 			} {
 				t.Run(source, func(t *testing.T) {
 					conn := &legacyBuilderTestConn{}
 					execCtx := legacyBuilderTestContext(t, source, conn)
+					parseContext := execCtx.ParseContext
 					images, err := b.AfterImage(context.Background(), execCtx, []*types.RecordImage{before})
 					if !assert.NoError(t, err) {
 						return
@@ -133,8 +139,14 @@ func TestMySQLMultiUpdateUndoLogBuilder_AfterImageSQL(t *testing.T) {
 					assert.True(t, conn.prepared)
 					assert.Equal(t, tc.query, conn.query)
 					assert.Equal(t, tc.ids, conn.args)
+					assert.Same(t, parseContext, execCtx.ParseContext)
+					assert.Nil(t, execCtx.TableMetaKey)
+					if len(parseContext.MultiStmt) > 0 {
+						assert.Nil(t, parseContext.UpdateStmt)
+					}
 					if assert.Len(t, images, 1) {
 						assert.Equal(t, "t_user", images[0].TableName)
+						assert.Equal(t, &types.TableMetaKey{DBName: tc.dbName, TableName: "t_user"}, images[0].TableMetaKey)
 						assert.Equal(t, execCtx.ParseContext.SQLType, images[0].SQLType)
 						assert.Len(t, images[0].Rows, 2)
 					}
@@ -168,11 +180,46 @@ func TestMySQLMultiUpdateUndoLogBuilder_AfterImageEmpty(t *testing.T) {
 				assert.NotSame(t, tc.before[0], images[0])
 				assert.Empty(t, images[0].Rows)
 				assert.Equal(t, "t_user", images[0].TableName)
+				assert.Equal(t, &types.TableMetaKey{TableName: "t_user"}, images[0].TableMetaKey)
 				assert.Equal(t, execCtx.ParseContext.SQLType, images[0].SQLType)
-				metaData := execCtx.MetaDataMap["t_user"]
+				metaData := legacyBuilderTestMeta()
 				assert.Equal(t, &metaData, images[0].TableMeta)
 				assert.NotNil(t, images[0].PrimaryKeyMap)
 				assert.Empty(t, images[0].PrimaryKeyMap)
+			}
+		})
+	}
+}
+
+func TestMySQLMultiUpdateUndoLogBuilder_AfterImageReusesTableMetaKey(t *testing.T) {
+	for _, empty := range []bool{false, true} {
+		t.Run(fmt.Sprintf("empty_%t", empty), func(t *testing.T) {
+			conn := &legacyBuilderTestConn{}
+			execCtx := legacyBuilderTestContext(t,
+				"UPDATE tenant_b.t_user SET id=11 WHERE id=1; UPDATE tenant_b.t_user SET id=22 WHERE id=2", conn)
+			execCtx.TableMetaKey = &types.TableMetaKey{DBName: "tenant_b", TableName: "t_user"}
+			before := &types.RecordImage{
+				TableName: "t_user", TableMetaKey: &types.TableMetaKey{DBName: "tenant_a", TableName: "t_user"},
+			}
+			if !empty {
+				before.Rows = []types.RowImage{{Columns: []types.ColumnImage{
+					{ColumnName: "id", Value: int64(100), KeyType: types.IndexTypePrimaryKey},
+				}}}
+			}
+
+			images, err := (&MySQLMultiUpdateUndoLogBuilder{}).AfterImage(context.Background(), execCtx, []*types.RecordImage{before})
+			if !assert.NoError(t, err) || !assert.Len(t, images, 1) {
+				return
+			}
+			assert.Equal(t, &types.TableMetaKey{DBName: "tenant_a", TableName: "t_user"}, images[0].TableMetaKey)
+			assert.Equal(t, &types.TableMetaKey{DBName: "tenant_b", TableName: "t_user"}, execCtx.TableMetaKey)
+			assert.Nil(t, execCtx.ParseContext.UpdateStmt)
+			assert.Equal(t, !empty, conn.prepared)
+			if empty {
+				assert.Empty(t, images[0].Rows)
+			} else {
+				assert.Equal(t, "SELECT * FROM `tenant_a`.`t_user` WHERE  (`id`) IN ((?)) ", conn.query)
+				assert.Equal(t, []driver.Value{int64(100)}, conn.args)
 			}
 		})
 	}

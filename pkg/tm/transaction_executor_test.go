@@ -30,6 +30,7 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/tm"
+	utilLog "seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
 type testGlobalTransactionManager struct {
@@ -553,4 +554,52 @@ func TestWithGlobalTx(t *testing.T) {
 			assert.Regexp(t, v.errMessage, err.Error())
 		}
 	}
+}
+
+type panicRecordingLogger struct {
+	utilLog.Logger
+	messages []string
+}
+
+func (l *panicRecordingLogger) Errorf(format string, v ...interface{}) {
+	l.messages = append(l.messages, fmt.Sprintf(format, v...))
+}
+
+func TestWithGlobalTxBusinessPanic(t *testing.T) {
+	previousLogger := utilLog.GetLogger()
+	recorder := &panicRecordingLogger{}
+	utilLog.SetLogger(recorder)
+	defer utilLog.SetLogger(previousLogger)
+
+	for _, panicValue := range []interface{}{
+		"business panic",
+		errors.New("business error panic"),
+	} {
+		t.Run(fmt.Sprintf("%T", panicValue), func(t *testing.T) {
+			globalTransactionManagerStub.reset()
+			rollbackCalled := false
+			globalTransactionManagerStub.beginFunc = func(ctx context.Context, timeout time.Duration) error {
+				tm.SetXID(ctx, "panic-test-xid")
+				return nil
+			}
+			globalTransactionManagerStub.rollbackFunc = func(ctx context.Context, gtr *tm.GlobalTransaction) error {
+				rollbackCalled = true
+				return nil
+			}
+			recorder.messages = nil
+
+			err := tm.WithGlobalTx(context.Background(), &tm.GtxConfig{Name: "panic-test"}, func(context.Context) error {
+				panic(panicValue)
+			})
+
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprint(panicValue))
+			assert.True(t, rollbackCalled, "transaction should be rolled back after panic")
+			assert.Len(t, recorder.messages, 1)
+			assert.Contains(t, recorder.messages[0], fmt.Sprint(panicValue))
+			assert.Contains(t, recorder.messages[0], "goroutine")
+			assert.Contains(t, recorder.messages[0], "TestWithGlobalTxBusinessPanic")
+		})
+	}
+	globalTransactionManagerStub.reset()
 }

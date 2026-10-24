@@ -292,8 +292,10 @@ func legacyBuilderTestContext(t *testing.T, query string, conn driver.Conn) *typ
 	}
 	return &types.ExecContext{
 		Query: query, ParseContext: parsed, Conn: conn, DBType: types.DBTypeMySQL,
-		TxCtx:       &types.TransactionContext{LockKeys: map[string]struct{}{}},
-		MetaDataMap: map[string]types.TableMeta{"t_user": legacyBuilderTestMeta()},
+		TxCtx: &types.TransactionContext{LockKeys: map[string]struct{}{}},
+		TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
+			"t_user": legacyBuilderTestMeta(),
+		}},
 	}
 }
 
@@ -308,6 +310,7 @@ func testBuilderBeforeImageParameters(t *testing.T, builder undo.UndoLogBuilder,
 		t.Run(mode, func(t *testing.T) {
 			conn := &legacyBuilderTestConn{}
 			execCtx := legacyBuilderTestContext(t, query, conn)
+			parseContext := execCtx.ParseContext
 			if len(execCtx.ParseContext.MultiStmt) > 0 {
 				assert.Nil(t, execCtx.ParseContext.UpdateStmt)
 				assert.Nil(t, execCtx.ParseContext.DeleteStmt)
@@ -324,8 +327,15 @@ func testBuilderBeforeImageParameters(t *testing.T, builder undo.UndoLogBuilder,
 			if !assert.NoError(t, err) {
 				return
 			}
+			assert.Same(t, parseContext, execCtx.ParseContext)
+			if len(parseContext.MultiStmt) > 0 {
+				assert.Nil(t, parseContext.UpdateStmt)
+				assert.Nil(t, parseContext.DeleteStmt)
+				assert.Nil(t, execCtx.TableMetaKey)
+			}
 			if assert.Len(t, images, 1) {
 				assert.Equal(t, "t_user", images[0].TableName)
+				assert.Equal(t, &types.TableMetaKey{TableName: "t_user"}, images[0].TableMetaKey)
 				assert.Len(t, images[0].Rows, 2)
 			}
 			assert.True(t, conn.prepared)

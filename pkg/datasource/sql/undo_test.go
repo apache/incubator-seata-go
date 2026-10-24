@@ -118,7 +118,7 @@ func TestUndo(t *testing.T) {
 			_ = sqlConn.Close()
 		}()
 
-		if err = manager.RunUndo(ctx, "36375516866494489", 28, db, "seata_order"); err != nil {
+		if err = manager.RunUndo(ctx, "36375516866494489", 28, db, "seata_order", nil); err != nil {
 			t.Logf("%+v", err)
 		}
 

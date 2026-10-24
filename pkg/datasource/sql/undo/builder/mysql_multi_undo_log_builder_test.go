@@ -69,6 +69,7 @@ func TestMySQLMultiDeleteUndoLogBuilder_BeforeImage_SingleDelete(t *testing.T) {
 			assert.Equal(t, "SELECT SQL_NO_CACHE * FROM t_user WHERE id IN (?,?) FOR UPDATE", conn.query)
 			assert.Equal(t, execCtx.Values, conn.args)
 			assert.Equal(t, "t_user", images[0].TableName)
+			assert.Equal(t, &types.TableMetaKey{TableName: "t_user"}, images[0].TableMetaKey)
 			if assert.Len(t, images[0].Rows, 2) {
 				for i, row := range images[0].Rows {
 					if assert.Len(t, row.Columns, 1) {

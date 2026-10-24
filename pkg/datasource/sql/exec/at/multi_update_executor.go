@@ -29,7 +29,6 @@ import (
 	"github.com/arana-db/parser/model"
 	"github.com/pkg/errors"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -63,8 +62,13 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 
 	//single update sql handler
 	if len(u.parserCtx.MultiStmt) == 1 {
-		u.parserCtx.UpdateStmt = u.parserCtx.MultiStmt[0].UpdateStmt
-		return NewUpdateExecutor(u.parserCtx, u.execContext, u.hooks).ExecContext(ctx, f)
+		return NewUpdateExecutor(u.parserCtx.MultiStmt[0], u.execContext, u.hooks).ExecContext(ctx, f)
+	}
+	if len(u.parserCtx.MultiStmt) == 0 {
+		return nil, fmt.Errorf("aggregate update has no statements")
+	}
+	if err := u.resolveTableMetaKey(ctx, u.execContext, u.parserCtx.MultiStmt[0]); err != nil {
+		return nil, err
 	}
 	beforeImages, err := u.beforeImage(ctx)
 	if err != nil {
@@ -91,6 +95,8 @@ func (u *multiUpdateExecutor) ExecContext(ctx context.Context, f exec.CallbackWi
 			return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
 		}
 
+		beforeImage.TableMetaKey = u.execContext.TableMetaKey
+		afterImage.TableMetaKey = u.execContext.TableMetaKey
 		u.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 		u.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	}
@@ -103,8 +109,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, nil
 	}
 
-	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx.MultiStmt[0])
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +160,7 @@ func (u *multiUpdateExecutor) afterImage(ctx context.Context, beforeImages []*ty
 		return nil, errors.New("aggregate update before image is nil")
 	}
 
-	tableName := u.parserCtx.MultiStmt[0].UpdateStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx.MultiStmt[0])
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +233,7 @@ func (u *multiUpdateExecutor) buildAfterImageSQL(beforeImage *types.RecordImage,
 	} else {
 		selectFieldsStr = strings.Join(meta.ColumnNames, comma)
 	}
-	selectSql.WriteString("SELECT " + selectFieldsStr + " FROM " + meta.TableName + " WHERE ")
+	selectSql.WriteString("SELECT " + selectFieldsStr + " FROM " + qualifiedTableName(u.execContext.TableMetaKey, meta.TableName, types.DBTypeMySQL) + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), types.DBTypeMySQL, maxInSize)
 	selectSql.WriteString(" " + whereSQL + " ")
 	return selectSql.String(), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), effectiveDBType(u.execContext.DBType))

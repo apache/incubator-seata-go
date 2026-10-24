@@ -72,10 +72,14 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 
 		record  *types.RecordImage
 		records []*types.RecordImage
-
-		meDataMap = execCtx.MetaDataMap[deleteContexts[0].DeleteStmt.
-				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O]
 	)
+	metaCtx := *execCtx
+	metaCtx.ParseContext = deleteContexts[0]
+	metaCtx.TableMetaKey = nil
+	metaData, err := tableMetaForExec(ctx, &metaCtx)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, sql := range multiQuery {
 		stmt, err = execCtx.Conn.Prepare(sql)
@@ -90,14 +94,14 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 			return nil, err
 		}
 
-		record, err = u.buildRecordImages(rows, &meDataMap)
+		record, err = u.buildRecordImagesForExec(rows, metaData, &metaCtx)
 		if err != nil {
 			log.Errorf("record images : %+v", err)
 			return nil, err
 		}
 		records = append(records, record)
 
-		lockKey := u.buildLockKey(record, meDataMap)
+		lockKey := u.buildLockKey(record, *metaData)
 		execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 

@@ -142,11 +142,11 @@ func (t *TCCResourceManager) BranchCommit(ctx context.Context, branchResource rm
 	tm.SetFencePhase(ctx, enum.FencePhaseCommit)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Commit(ctx, businessActionContext)
-	if err != nil {
+	committed, err := tccResource.TwoPhaseAction.Commit(ctx, businessActionContext)
+	if err != nil || !committed {
 		return branch.BranchStatusPhasetwoCommitFailedRetryable, err
 	}
-	return branch.BranchStatusPhasetwoCommitted, err
+	return branch.BranchStatusPhasetwoCommitted, nil
 }
 
 func (t *TCCResourceManager) getBusinessActionContext(xid string, branchID int64, resourceID string, applicationData []byte) *tm.BusinessActionContext {
@@ -187,11 +187,11 @@ func (t *TCCResourceManager) BranchRollback(ctx context.Context, branchResource 
 	tm.SetFencePhase(ctx, enum.FencePhaseRollback)
 	tm.SetBusinessActionContext(ctx, businessActionContext)
 
-	_, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)
-	if err != nil {
+	rolledBack, err := tccResource.TwoPhaseAction.Rollback(ctx, businessActionContext)
+	if err != nil || !rolledBack {
 		return branch.BranchStatusPhasetwoRollbackFailedRetryable, err
 	}
-	return branch.BranchStatusPhasetwoRollbacked, err
+	return branch.BranchStatusPhasetwoRollbacked, nil
 }
 
 func (t *TCCResourceManager) GetBranchType() branch.BranchType {
