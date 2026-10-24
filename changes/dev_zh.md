@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表
 - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] 修复同类型多数据源的元数据缓存覆盖问题，并保留 PostgreSQL 表身份中的 schema。
 
   **action required：** PostgreSQL AT 全局锁键增加 schema 前缀，例如 `ACCOUNT:1` 变为 `PUBLIC.ACCOUNT:1`，新旧格式不兼容。升级前暂停相关请求、消息消费和业务定时任务；保持当前 RM、TC 及恢复组件在线，等待相关全局事务及全部分支完成提交或回滚，包括二阶段重试和 Undo 清理，并确认全局锁已释放。随后停止旧 RM，全量升级所有共同访问受影响数据库资源的 RM，包括其他服务和后台任务，验证通过后恢复业务。不得混用新旧格式处理业务；降级也需执行相同的停流量、排空流程。请求结束或固定等待时长不能作为排空依据。
