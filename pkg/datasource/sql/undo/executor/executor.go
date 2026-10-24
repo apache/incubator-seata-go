@@ -65,7 +65,7 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 	beforeImage := b.sqlUndoLog.BeforeImage
 	afterImage := b.sqlUndoLog.AfterImage
 
-	equals, err := IsRecordsEquals(beforeImage, afterImage)
+	equals, err := isRecordsEqualsForDB(beforeImage, afterImage, b.dbType)
 	if err != nil {
 		return false, err
 	}
@@ -80,14 +80,14 @@ func (b *BaseExecutor) dataValidationAndGoOn(ctx context.Context, conn *sql.Conn
 		return false, err
 	}
 	// compare with current data and after image.
-	equals, err = IsRecordsEquals(afterImage, currentImage)
+	equals, err = isRecordsEqualsForDB(afterImage, currentImage, b.dbType)
 	if err != nil {
 		return false, err
 	}
 	if !equals {
 		// If current data is not equivalent to the after data, then compare the current data with the before
 		// data, too. No need continue to undo if current data is equivalent to the before data snapshot
-		equals, err = IsRecordsEquals(beforeImage, currentImage)
+		equals, err = isRecordsEqualsForDB(beforeImage, currentImage, b.dbType)
 		if err != nil {
 			return false, err
 		}
@@ -131,7 +131,11 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 		return nil, fmt.Errorf("undo image columns are empty")
 	}
 	where := buildWhereConditionByPKs(pkNameList, len(b.undoImage.Rows), dbType, maxInSize)
-	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), b.undoImage.TableName, where), dbType)
+	tableName := b.sqlUndoLog.QualifiedTableName(dbType)
+	if tableName == "" {
+		tableName = b.undoImage.TableName
+	}
+	checkSQL := util.RewritePlaceholders(fmt.Sprintf(checkSQLTemplate, strings.Join(selectColumns, ", "), tableName, where), dbType)
 	params := buildPKParams(b.undoImage.Rows, pkNameList, dbType)
 
 	rows, err := conn.QueryContext(ctx, checkSQL, params...)
@@ -140,9 +144,10 @@ func (b *BaseExecutor) queryCurrentRecords(ctx context.Context, conn *sql.Conn) 
 	}
 	defer rows.Close()
 	image := types.RecordImage{
-		TableName: b.undoImage.TableName,
-		TableMeta: tableMeta,
-		SQLType:   types.SQLTypeSelect,
+		TableName:    b.undoImage.TableName,
+		TableMetaKey: b.undoImage.TableMetaKey,
+		TableMeta:    tableMeta,
+		SQLType:      types.SQLTypeSelect,
 	}
 	rowImages := make([]types.RowImage, 0)
 	for rows.Next() {
@@ -200,16 +205,15 @@ func (b *BaseExecutor) parsePkValues(rows []types.RowImage, pkNameList []string,
 
 	pkLookup := make(map[string]string, len(pkNameList))
 	for _, pk := range pkNameList {
-		pkLookup[strings.ToLower(pk)] = pk
+		pkLookup[comparisonColumnName(pk, dbType)] = pk
 	}
 
 	pkValues := make(map[string][]types.ColumnImage)
 
 	for _, row := range rows {
 		for _, column := range row.Columns {
-			cleanName := util.DelEscape(column.ColumnName, dbType)
-			columnNameLower := strings.ToLower(cleanName)
-			if originalPk, exists := pkLookup[columnNameLower]; exists {
+			name := comparisonColumnName(column.ColumnName, dbType)
+			if originalPk, exists := pkLookup[name]; exists {
 				if pkValues[originalPk] == nil {
 					pkValues[originalPk] = make([]types.ColumnImage, 0, len(rows))
 				}
