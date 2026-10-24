@@ -19,7 +19,6 @@ package sql
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -290,10 +289,6 @@ func (xaManager *XAResourceManager) BranchRegister(ctx context.Context, req rm.B
 
 func (xaManager *XAResourceManager) BranchReport(ctx context.Context, param rm.BranchReportParam) error {
 	return xaManager.rmRemoting.BranchReport(param)
-}
-
-func (xaManager *XAResourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
-	return xaManager.basic.CreateTableMetaCache(ctx, resID, dbType, db)
 }
 
 func branchStatus(xaBranchXid string) (branch.BranchStatus, error) {

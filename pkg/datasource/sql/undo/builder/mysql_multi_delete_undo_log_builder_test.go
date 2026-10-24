@@ -65,3 +65,13 @@ func TestBuildSelectSQLByMultiDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestMySQLMultiDeleteUndoLogBuilder_BeforeImageParameters(t *testing.T) {
+	testBuilderBeforeImageParameters(t, &MySQLMultiDeleteUndoLogBuilder{},
+		"DELETE FROM t_user WHERE id=?; DELETE FROM t_user WHERE id=?", []driver.Value{int64(1), int64(2)})
+}
+
+func TestMySQLMultiDeleteUndoLogBuilder_LockPrimaryKeys(t *testing.T) {
+	testBuilderLockPrimaryKeys(t, &MySQLMultiDeleteUndoLogBuilder{},
+		"DELETE FROM t_user WHERE id=1; DELETE FROM t_user WHERE id=2")
+}
