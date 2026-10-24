@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"strings"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
@@ -46,15 +45,19 @@ func GetMySQLMultiDeleteUndoLogBuilder() undo.UndoLogBuilder {
 }
 
 func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
-	deletes := strings.Split(execCtx.Query, ";")
-	if len(deletes) == 1 {
+	deleteContexts := execCtx.ParseContext.MultiStmt
+	if len(deleteContexts) == 0 {
 		return GetMySQLDeleteUndoLogBuilder().BeforeImage(ctx, execCtx)
 	}
+	deletes := make([]string, 0, len(deleteContexts))
+	for _, parseContext := range deleteContexts {
+		deletes = append(deletes, parseContext.DeleteStmt.OriginalText())
+	}
 
-	values := make([]driver.Value, 0, len(execCtx.NamedValues)*2)
-	if execCtx.Values == nil {
-		for n, param := range execCtx.NamedValues {
-			values[n] = param.Value
+	values := execCtx.Values
+	if values == nil {
+		for _, param := range execCtx.NamedValues {
+			values = append(values, param.Value)
 		}
 	}
 
@@ -69,10 +72,14 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 
 		record  *types.RecordImage
 		records []*types.RecordImage
-
-		meDataMap = execCtx.MetaDataMap[execCtx.ParseContext.DeleteStmt.
-				TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O]
 	)
+	metaCtx := *execCtx
+	metaCtx.ParseContext = deleteContexts[0]
+	metaCtx.TableMetaKey = nil
+	metaData, err := tableMetaForExec(ctx, &metaCtx)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, sql := range multiQuery {
 		stmt, err = execCtx.Conn.Prepare(sql)
@@ -87,14 +94,14 @@ func (u *MySQLMultiDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCt
 			return nil, err
 		}
 
-		record, err = u.buildRecordImages(rows, &meDataMap)
+		record, err = u.buildRecordImagesForExec(rows, metaData, &metaCtx)
 		if err != nil {
 			log.Errorf("record images : %+v", err)
 			return nil, err
 		}
 		records = append(records, record)
 
-		lockKey := u.buildLockKey(rows, meDataMap)
+		lockKey := u.buildLockKey(record, *metaData)
 		execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 	}
 

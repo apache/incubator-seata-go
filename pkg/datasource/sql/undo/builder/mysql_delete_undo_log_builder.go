@@ -45,8 +45,8 @@ func GetMySQLDeleteUndoLogBuilder() undo.UndoLogBuilder {
 func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *types.ExecContext) ([]*types.RecordImage, error) {
 	vals := execCtx.Values
 	if vals == nil {
-		for n, param := range execCtx.NamedValues {
-			vals[n] = param.Value
+		for _, param := range execCtx.NamedValues {
+			vals = append(vals, param.Value)
 		}
 	}
 	selectSQL, selectArgs, err := u.buildBeforeImageSQL(execCtx.Query, vals)
@@ -66,15 +66,17 @@ func (u *MySQLDeleteUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *ty
 		return nil, err
 	}
 
-	tableName := execCtx.ParseContext.DeleteStmt.TableRefs.TableRefs.Left.(*ast.TableSource).Source.(*ast.TableName).Name.O
-	metaData := execCtx.MetaDataMap[tableName]
-
-	image, err := u.buildRecordImages(rows, &metaData)
+	metaData, err := tableMetaForExec(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey(rows, metaData)
+	image, err := u.buildRecordImagesForExec(rows, metaData, execCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	lockKey := u.buildLockKey(image, *metaData)
 	execCtx.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return []*types.RecordImage{image}, nil
