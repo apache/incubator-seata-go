@@ -46,6 +46,10 @@ linters:
       line-length: 140
     misspell:
       locale: US
+    staticcheck:
+      checks:
+        - "all"
+        - "-QF*"
   exclusions:
     generated: lax
     presets:
@@ -60,6 +64,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019:'
+      - linters:
+          - staticcheck
+        text: 'QF'
       - linters:
           - errcheck
           - gosec

@@ -22,9 +22,9 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/model"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

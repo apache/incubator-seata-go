@@ -26,10 +26,10 @@ import (
 	"regexp"
 	"strings"
 
+	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/format"
 	"github.com/pingcap/tidb/pkg/parser/model"
-	gxsort "github.com/dubbogo/gost/sort"
 	"github.com/pkg/errors"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
