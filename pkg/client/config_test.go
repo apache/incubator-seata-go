@@ -20,11 +20,68 @@ package client
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestResolverFilePath(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		wantName   string
+		wantSuffix string
+		skipName   bool
+	}{
+		{name: "single dot yaml", path: "./conf/seatago.yaml", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "single dot yml", path: "../../testdata/conf/seatago.yml", wantName: "seatago", wantSuffix: ymlSuffix},
+		{name: "multiple dots yaml", path: "./conf/seatago.prod.yaml", wantName: "seatago.prod", wantSuffix: yamlSuffix},
+		{name: "versioned yml", path: "app.v2.yml", wantName: "app.v2", wantSuffix: ymlSuffix},
+		{name: "json", path: "seatago.json", wantName: "seatago", wantSuffix: jsonSuffix},
+		{name: "toml", path: "seatago.toml", wantName: "seatago", wantSuffix: tomlSuffix},
+		{name: "upper case yaml", path: "seatago.YAML", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "upper case yml", path: "seatago.YML", wantName: "seatago", wantSuffix: ymlSuffix},
+		{name: "upper case json", path: "config.JSON", wantName: "config", wantSuffix: jsonSuffix},
+		{name: "upper case toml", path: "config.TOML", wantName: "config", wantSuffix: tomlSuffix},
+		{name: "no extension", path: "seatago", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "no extension in dir", path: "./conf/seatago", wantName: "seatago", wantSuffix: yamlSuffix},
+		{name: "hidden yaml", path: ".seatago.yaml", wantName: ".seatago", wantSuffix: yamlSuffix},
+		{name: "hidden no extra extension", path: ".seatago", wantName: ".seatago", wantSuffix: yamlSuffix},
+		{name: "windows style yaml", path: `C:\conf\seatago.prod.yaml`, wantSuffix: yamlSuffix, skipName: true},
+		{name: "windows style yml", path: `C:\conf\seatago.yml`, wantSuffix: ymlSuffix, skipName: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, gotSuffix := resolverFilePath(tt.path)
+			if !tt.skipName {
+				assert.Equal(t, tt.wantName, gotName)
+			}
+			assert.Equal(t, tt.wantSuffix, gotSuffix)
+		})
+	}
+}
+
+func TestLoadPath_FilenameWithMultipleDots(t *testing.T) {
+	src, err := os.ReadFile("../../testdata/conf/seatago.yml")
+	assert.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "seatago.prod.yaml")
+	assert.NoError(t, os.WriteFile(path, src, 0o600))
+
+	defer func() {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+		if r := recover(); r != nil {
+			t.Fatalf("valid .yaml filename panicked: %v", r)
+		}
+	}()
+
+	cfg := LoadPath(path)
+	assert.NotNil(t, cfg)
+	assert.Equal(t, "applicationName", cfg.ApplicationID)
+}
 
 func TestLoadPath(t *testing.T) {
 	cfg := LoadPath("../../testdata/conf/seatago.yml")
@@ -49,9 +106,6 @@ func TestLoadPath(t *testing.T) {
 	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.CommitRetryCount)
 	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.RollbackRetryCount)
 	assert.Equal(t, time.Second*60, cfg.ClientConfig.TmConfig.DefaultGlobalTransactionTimeout)
-	assert.Equal(t, false, cfg.ClientConfig.TmConfig.DegradeCheck)
-	assert.Equal(t, 2000, cfg.ClientConfig.TmConfig.DegradeCheckPeriod)
-	assert.Equal(t, time.Second*10, cfg.ClientConfig.TmConfig.DegradeCheckAllowTimes)
 	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
 
 	assert.Equal(t, 10000, cfg.ClientConfig.RmConfig.AsyncCommitBufferLimit)
@@ -137,7 +191,7 @@ func TestLoadPath(t *testing.T) {
 }
 
 func TestLoadJson(t *testing.T) {
-	confJson := `{"enabled":false,"application-id":"application_test","tx-service-group":"default_tx_group","access-key":"test","secret-key":"test","enable-auto-data-source-proxy":false,"data-source-proxy-mode":"AT","client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":"30s","retry-times":10,"retry-policy-branch-rollback-on-conflict":true}},"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","degrade-check":false,"degrade-check-period":2000,"degrade-check-allow-times":"10s","interceptor-order":-2147482648},"undo":{"data-validation":false,"log-serialization":"jackson222","only-care-update-columns":false,"log-table":"undo_log333","compress":{"enable":false,"type":"zip111","threshold":"128k"}},"load-balance":{"type":"XID","virtual-nodes":1}},"tcc":{"fence":{"enable":false,"url":"root:12345678@tcp(127.0.0.1:3306)/seata_client1?charset=utf8&parseTime=True","log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},"remoting":{"reconnect-interval":1,"connection-num":10,"session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"},"stream":{"max-recv-msg-size":1048576,"max-send-msg-size":1048576,"keep-alive-time":"3s","keep-alive-timeout":"1s","permit-without-stream":false,"heartbeat-interval":"10s","dial-timeout":"50s"}},"transport":{"shutdown":{"wait":"3s"},"type":"TCP","protocol":"seata","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none","enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"},"service":{"enable-degrade":true,"disable-global-transaction":true,"vgroup-mapping":{"default_tx_group":"default_test"},"grouplist":{"default":"127.0.0.1:8092"}}}`
+	confJson := `{"enabled":false,"application-id":"application_test","tx-service-group":"default_tx_group","access-key":"test","secret-key":"test","enable-auto-data-source-proxy":false,"data-source-proxy-mode":"AT","client":{"rm":{"async-commit-buffer-limit":10000,"report-retry-count":5,"table-meta-check-enable":false,"report-success-enable":false,"saga-branch-register-enable":false,"saga-json-parser":"fastjson","saga-retry-persist-mode-update":false,"saga-compensate-persist-mode-update":false,"tcc-action-interceptor-order":-2147482648,"sql-parser-type":"druid","lock":{"retry-interval":"30s","retry-times":10,"retry-policy-branch-rollback-on-conflict":true}},"tm":{"commit-retry-count":5,"rollback-retry-count":5,"default-global-transaction-timeout":"60s","interceptor-order":-2147482648},"undo":{"data-validation":false,"log-serialization":"jackson222","only-care-update-columns":false,"log-table":"undo_log333","compress":{"enable":false,"type":"zip111","threshold":"128k"}},"load-balance":{"type":"XID","virtual-nodes":1}},"tcc":{"fence":{"enable":false,"url":"root:12345678@tcp(127.0.0.1:3306)/seata_client1?charset=utf8&parseTime=True","log-table-name":"tcc_fence_log_test2","clean-period":80000000000}},"remoting":{"reconnect-interval":1,"connection-num":10,"session":{"compress-encoding":true,"tcp-no-delay":false,"tcp-keep-alive":false,"keep-alive-period":"120s","tcp-r-buf-size":261120,"tcp-w-buf-size":32768,"tcp-read-timeout":"2s","tcp-write-timeout":"8s","wait-timeout":"2s","max-msg-len":261120,"session-name":"client_test","cron-period":"2s"},"stream":{"max-recv-msg-size":1048576,"max-send-msg-size":1048576,"keep-alive-time":"3s","keep-alive-timeout":"1s","permit-without-stream":false,"heartbeat-interval":"10s","dial-timeout":"50s"}},"transport":{"shutdown":{"wait":"3s"},"type":"TCP","protocol":"seata","server":"NIO","heartbeat":true,"serialization":"seata","compressor":"none","enable-tm-client-batch-send-request":false,"enable-rm-client-batch-send-request":true,"rpc-rm-request-timeout":"30s","rpc-tm-request-timeout":"30s"},"service":{"enable-degrade":true,"disable-global-transaction":true,"vgroup-mapping":{"default_tx_group":"default_test"},"grouplist":{"default":"127.0.0.1:8092"}}}`
 	cfg := LoadJson([]byte(confJson))
 	assert.NotNil(t, cfg)
 	assert.Equal(t, false, cfg.Enabled)
@@ -184,9 +238,6 @@ func TestLoadJson(t *testing.T) {
 	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.CommitRetryCount)
 	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.RollbackRetryCount)
 	assert.Equal(t, time.Second*60, cfg.ClientConfig.TmConfig.DefaultGlobalTransactionTimeout)
-	assert.Equal(t, false, cfg.ClientConfig.TmConfig.DegradeCheck)
-	assert.Equal(t, 2000, cfg.ClientConfig.TmConfig.DegradeCheckPeriod)
-	assert.Equal(t, time.Second*10, cfg.ClientConfig.TmConfig.DegradeCheckAllowTimes)
 	assert.Equal(t, -2147482648, cfg.ClientConfig.TmConfig.InterceptorOrder)
 
 	assert.NotNil(t, cfg.ClientConfig.LoadBalanceConfig)

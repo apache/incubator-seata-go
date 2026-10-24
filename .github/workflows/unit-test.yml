@@ -15,21 +15,39 @@
 # limitations under the License.
 #
 
-name: "Unit Test"
+# This is a workflow to run unit tests.
+
+name: "unit test"
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "**/testdata/**"
+      - ".github/workflows/unit-test.yml"
   pull_request:
-    branches: [ "*" ]
-    types: [opened, synchronize, reopened]
+    branches: "*"
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "**/testdata/**"
+      - ".github/workflows/unit-test.yml"
 
 permissions:
   contents: read
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-test:
-    name: Unit Test
+    name: "unit test"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:

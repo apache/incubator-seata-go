@@ -30,6 +30,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/constant"
 	"seata.apache.org/seata-go/v2/pkg/discovery"
 	grpc2 "seata.apache.org/seata-go/v2/pkg/integration/grpc"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
 	"seata.apache.org/seata-go/v2/pkg/remoting/loadbalance"
@@ -227,6 +228,7 @@ func (g *ChannelManager) startGrpcChannel(instance *discovery.ServiceInstance, e
 	if err = g.registerTm(addr); err != nil {
 		log.Errorf("%v", err)
 		g.releaseChannelByAddr(addr)
+		return
 	}
 }
 
@@ -298,6 +300,7 @@ func (g *ChannelManager) registerTm(addr string) error {
 
 	request := &pb.RegisterTMRequestProto{
 		AbstractIdentifyRequest: &pb.AbstractIdentifyRequestProto{
+			AbstractMessage:         &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_REG_CLT},
 			Version:                 constant.SeataVersion,
 			ApplicationId:           conf.ApplicationID,
 			TransactionServiceGroup: conf.TxServiceGroup,
@@ -359,6 +362,16 @@ func (g *ChannelManager) isChannelSelectable(channels *sync.Map, channel *Channe
 }
 
 func (g *ChannelManager) getXid(msg interface{}) string {
+	// SendSync / SendAsync hand over the whole message.RpcMessage, while the
+	// selection key lives in the body. Unwrap it so consistent hashing sees the
+	// real transaction key instead of a value shared by every request.
+	if rpcMsg, ok := msg.(message.RpcMessage); ok {
+		msg = rpcMsg.Body
+	}
+	if msg == nil {
+		return ""
+	}
+
 	switch tmpMsg := msg.(type) {
 	case *pb.AbstractGlobalEndRequestProto:
 		return tmpMsg.Xid

@@ -35,7 +35,7 @@ func (g *BranchCommitResponseCodec) Decode(in []byte) interface{} {
 
 	data.ResultCode = message.ResultCode(bytes.ReadByte(buf))
 	if data.ResultCode == message.ResultCodeFailed {
-		data.Msg = bytes.ReadString8Length(buf)
+		data.Msg = bytes.ReadString16Length(buf)
 	}
 	data.TransactionErrorCode = serror.TransactionErrorCode(bytes.ReadByte(buf))
 	data.Xid = bytes.ReadString16Length(buf)
@@ -52,10 +52,10 @@ func (g *BranchCommitResponseCodec) Encode(in interface{}) []byte {
 	buf.WriteByte(byte(data.ResultCode))
 	if data.ResultCode == message.ResultCodeFailed {
 		msg := data.Msg
-		if len(data.Msg) > math.MaxInt8 {
-			msg = data.Msg[:math.MaxInt8]
+		if len(data.Msg) > math.MaxInt16 {
+			msg = data.Msg[:math.MaxInt16]
 		}
-		bytes.WriteString8Length(msg, buf)
+		bytes.WriteString16Length(msg, buf)
 	}
 	buf.WriteByte(byte(data.TransactionErrorCode))
 	bytes.WriteString16Length(data.Xid, buf)

@@ -33,6 +33,10 @@ const (
 	RpcRequestTimeout = 20 * time.Second
 )
 
+// rpcRequestTimeout is the deadline the client actually waits on. It exists so
+// tests can shorten the wait without changing the exported constant.
+var rpcRequestTimeout = RpcRequestTimeout
+
 type (
 	callbackMethod func(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error)
 	GettyRemoting  struct {
@@ -50,7 +54,10 @@ func newGettyRemoting() *GettyRemoting {
 
 func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callback callbackMethod) (interface{}, error) {
 	if s == nil {
-		s = sessionManager.selectSession(msg)
+		if sessionManager == nil {
+			return nil, fmt.Errorf("session is closed")
+		}
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -68,7 +75,10 @@ func (g *GettyRemoting) SendSync(msg message.RpcMessage, s getty.Session, callba
 
 func (g *GettyRemoting) SendAsync(msg message.RpcMessage, s getty.Session, callback callbackMethod) error {
 	if s == nil {
-		s = sessionManager.selectSession(msg)
+		if sessionManager == nil {
+			return fmt.Errorf("session is closed")
+		}
+		s = sessionManager.selectSession(msg.Body)
 	}
 	if s == nil || s.IsClosed() {
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
@@ -94,11 +104,18 @@ func (g *GettyRemoting) sendAsync(session getty.Session, msg message.RpcMessage,
 		log.Warn("sendAsyncRequestWithResponse nothing, caused by null channel.")
 		return nil, fmt.Errorf("session is closed")
 	}
-	resp := message.NewMessageFuture(msg)
-	g.futures.Store(msg.ID, resp)
+	// Only requests with a callback wait for a response. A callback-less response
+	// may reuse the ID of an in-flight request, so it must not touch futures.
+	var resp *message.MessageFuture
+	if callback != nil {
+		resp = message.NewMessageFuture(msg)
+		g.futures.Store(msg.ID, resp)
+	}
 	_, _, err = session.WritePkg(msg, time.Duration(0))
 	if err != nil {
-		g.futures.Delete(msg.ID)
+		if resp != nil {
+			g.futures.Delete(msg.ID)
+		}
 		log.Errorf("send message: %#v, session: %s", msg, session.Stat())
 		return nil, err
 	}
@@ -133,12 +150,9 @@ func (g *GettyRemoting) GetMergedMessage(msgID int32) *message.MergedWarpMessage
 func (g *GettyRemoting) NotifyRpcMessageResponse(rpcMessage message.RpcMessage) {
 	messageFuture := g.GetMessageFuture(rpcMessage.ID)
 	if messageFuture != nil {
-		messageFuture.Response = rpcMessage.Body
 		// todo add messageFuture.Err
 		// messageFuture.Err = rpcMessage.Err
-		select {
-		case messageFuture.Done <- struct{}{}:
-		default:
+		if !messageFuture.Complete(rpcMessage.Body) {
 			log.Warnf("response notification dropped for msg ID: %d because the future was already signaled", rpcMessage.ID)
 		}
 		// client.msgFutures.Delete(rpcMessage.RequestID)

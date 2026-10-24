@@ -29,17 +29,16 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/tm"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/parser/format"
 	"github.com/pingcap/tidb/pkg/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/util/backoff"
-	seatabytes "seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 	"seata.apache.org/seata-go/v2/pkg/util/reflectx"
 )
@@ -95,8 +94,10 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		return nil, err
 	}
 
-	dbType := effectiveDBType(s.execContext.DBType)
-	if s.metaData, err = datasource.GetTableCache(dbType).GetTableMeta(ctx, s.execContext.DBName, s.tableName); err != nil {
+	if err = s.resolveTableMetaKey(ctx, s.execContext, s.parserCtx); err != nil {
+		return nil, err
+	}
+	if s.metaData, err = s.getTableMeta(ctx, s.execContext, s.parserCtx); err != nil {
 		return nil, err
 	}
 
@@ -253,9 +254,32 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 		})
 	}
 
+	dbType := types.DBTypeMySQL
+	if s.execContext != nil {
+		dbType = effectiveDBType(s.execContext.DBType)
+	}
+	if dbType == types.DBTypePostgreSQL {
+		parsed, err := parser.ParsePostgreSQLForImage(stmt.Text())
+		if err != nil {
+			return "", err
+		}
+		stmt = parsed.SelectStmt
+		if stmt == nil {
+			return "", fmt.Errorf("postgres lock query source is not a select statement")
+		}
+	}
+	from := stmt.From
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		from, err = postgresAuxiliaryQueryTable(from, s.execContext.TableMetaKey)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           stmt.From,
+		From:           from,
 		Where:          stmt.Where,
 		Fields:         &ast.FieldList{Fields: fields},
 		OrderBy:        stmt.OrderBy,
@@ -266,13 +290,10 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 		},
 	}
 
-	b := seatabytes.NewByteBuffer([]byte{})
-	selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	dbType := types.DBTypeMySQL
-	if s.execContext != nil {
-		dbType = effectiveDBType(s.execContext.DBType)
+	sql, err := s.restoreImageSelectSQL(&selStmt, dbType)
+	if err != nil {
+		return "", err
 	}
-	sql := s.normalizeGeneratedSQL(string(b.Bytes()), dbType)
 	log.Infof("build select sql by update sourceQuery, sql {}", sql)
 
 	return sql, nil

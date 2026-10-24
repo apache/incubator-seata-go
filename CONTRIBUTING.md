@@ -176,7 +176,7 @@ sh goimports.sh
 
 ### PR Description
 
-PR is the only way to make change to seata-go project files. To help reviewers better get your purpose, PR description could not be too detailed. We encourage contributors to follow the [PR template](./.github/pull-request-template.md) to finish the pull request.
+PR is the only way to make change to seata-go project files. To help reviewers better get your purpose, PR description could not be too detailed. We encourage contributors to follow the [PR template](./.github/PULL_REQUEST_TEMPLATE.md) to finish the pull request.
 
 ## Test case contribution
 
