@@ -55,13 +55,17 @@ func TestBranchCommitResponseCodec(t *testing.T) {
 	assert.Equal(t, msg, msg2)
 }
 
-func TestBranchCommitResponseCodecTruncatesLongMessage(t *testing.T) {
+func TestBranchCommitResponseCodec_TruncatesLongMessageWithoutShiftingFields(t *testing.T) {
 	msg := message.BranchCommitResponse{
 		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			Xid:          "xid",
+			BranchId:     123,
+			BranchStatus: model2.BranchStatusPhasetwoCommitFailedRetryable,
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				TransactionErrorCode: serror.TransactionErrorCodeFailedToSendBranchCommitRequest,
 				AbstractResultMessage: message.AbstractResultMessage{
 					ResultCode: message.ResultCodeFailed,
-					Msg:        strings.Repeat("x", math.MaxInt16+1),
+					Msg:        strings.Repeat("x", math.MaxInt16+100),
 				},
 			},
 		},
@@ -71,5 +75,44 @@ func TestBranchCommitResponseCodecTruncatesLongMessage(t *testing.T) {
 	encoded := codec.Encode(msg)
 	assert.Equal(t, uint16(math.MaxInt16), binary.BigEndian.Uint16(encoded[1:3]))
 	decoded := codec.Decode(encoded).(message.BranchCommitResponse)
-	assert.Len(t, decoded.Msg, math.MaxInt16)
+
+	assert.Equal(t, message.ResultCodeFailed, decoded.ResultCode)
+	assert.Equal(t, strings.Repeat("x", math.MaxInt16), decoded.Msg)
+	assert.Equal(t, msg.TransactionErrorCode, decoded.TransactionErrorCode)
+	assert.Equal(t, msg.Xid, decoded.Xid)
+	assert.Equal(t, msg.BranchId, decoded.BranchId)
+	assert.Equal(t, msg.BranchStatus, decoded.BranchStatus)
+}
+
+// Byte vector derived from Java AbstractResultMessageCodec,
+// AbstractTransactionResponseCodec, and AbstractBranchEndResponseCodec.
+func TestBranchCommitResponseCodec_JavaWireFormat(t *testing.T) {
+	msg := message.BranchCommitResponse{
+		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
+			Xid:          "192.168.0.1:8091:1234",
+			BranchId:     5678,
+			BranchStatus: model2.BranchStatusPhasetwoCommitFailedRetryable,
+			AbstractTransactionResponse: message.AbstractTransactionResponse{
+				TransactionErrorCode: serror.TransactionErrorCodeUnknown,
+				AbstractResultMessage: message.AbstractResultMessage{
+					ResultCode: message.ResultCodeFailed,
+					Msg:        "storage failed",
+				},
+			},
+		},
+	}
+	want := []byte{
+		0x00,
+		0x00, 0x0e,
+		's', 't', 'o', 'r', 'a', 'g', 'e', ' ', 'f', 'a', 'i', 'l', 'e', 'd',
+		0x00,
+		0x00, 0x15,
+		'1', '9', '2', '.', '1', '6', '8', '.', '0', '.', '1', ':', '8', '0', '9', '1', ':', '1', '2', '3', '4',
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x2e,
+		0x06,
+	}
+
+	codec := BranchCommitResponseCodec{}
+	assert.Equal(t, want, codec.Encode(msg), "encode must reproduce the Java bytes exactly")
+	assert.Equal(t, msg, codec.Decode(want))
 }

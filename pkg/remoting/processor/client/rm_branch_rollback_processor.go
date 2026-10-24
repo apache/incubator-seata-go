@@ -46,22 +46,8 @@ func initBranchRollback() {
 }
 
 type rmBranchRollbackProcessor struct {
-	sendGettyResponse func(int32, interface{}) error
-	sendGrpcResponse  func(int32, interface{}) error
-}
-
-func (f *rmBranchRollbackProcessor) sendGetty(msgID int32, response interface{}) error {
-	if f.sendGettyResponse != nil {
-		return f.sendGettyResponse(msgID, response)
-	}
-	return getty.GetGettyRemotingClient().SendAsyncResponse(msgID, response)
-}
-
-func (f *rmBranchRollbackProcessor) sendGrpc(msgID int32, response interface{}) error {
-	if f.sendGrpcResponse != nil {
-		return f.sendGrpcResponse(msgID, response)
-	}
-	return grpc.GetGrpcRemotingClient().SendAsyncResponse(msgID, response)
+	getResourceManager func(branch.BranchType) rm.ResourceManager
+	sendResponse       func(int32, interface{}) error
 }
 
 func (f *rmBranchRollbackProcessor) Process(ctx context.Context, rpcMessage message.RpcMessage) error {
@@ -90,52 +76,40 @@ func (f *rmBranchRollbackProcessor) handleGrpcBranchRollback(ctx context.Context
 		ResourceId:      resourceID,
 		ApplicationData: []byte(applicationData),
 	}
-	manager, err := safeGetResourceManager(branchType)
-	var status branch.BranchStatus
-	if err == nil {
-		status, err = manager.BranchRollback(ctx, branchResource)
+	manager, bizErr := branchEndResourceManager(f.getResourceManager, branchType)
+	status := branch.BranchStatus(branch.BranchStatusPhasetwoRollbackFailedUnretryable)
+	if bizErr == nil {
+		status, bizErr = manager.BranchRollback(ctx, branchResource)
 	}
-	if err != nil {
-		log.Errorf("branch rollback error: %s", err.Error())
-		if manager == nil {
-			status = branch.BranchStatusPhasetwoRollbackFailedUnretryable
-		}
+	if bizErr != nil {
+		log.Errorf("branch rollback error: xid %s, branchID %d: %s", xid, branchID, bizErr.Error())
 	} else {
 		log.Infof("branch rollback success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
-
-	var (
-		resultCode pb.ResultCodeProto
-		errMsg     string
-	)
-	if err != nil {
-		resultCode = pb.ResultCodeProto_Failed
-		errMsg = err.Error()
-	} else {
-		resultCode = pb.ResultCodeProto_Success
-	}
-	// reply commit response to tc server
+	result := newBranchEndResult(status, bizErr)
+	// reply rollback response to tc server
 	response := &pb.BranchRollbackResponseProto{
 		AbstractBranchEndResponse: &pb.AbstractBranchEndResponseProto{
 			AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 				AbstractResultMessage: &pb.AbstractResultMessageProto{
 					AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_BRANCH_ROLLBACK_RESULT},
-					ResultCode:      resultCode,
-					Msg:             errMsg,
+					ResultCode:      branchEndResultCodeProto(result.resultCode),
+					Msg:             result.errMsg,
 				},
 			},
 			Xid:          xid,
 			BranchId:     branchID,
-			BranchStatus: pb.BranchStatusProto(status),
+			BranchStatus: pb.BranchStatusProto(result.status),
 		},
 	}
-	err = f.sendGrpc(rpcMessage.ID, response)
-	if err != nil {
-		log.Errorf("send branch rollback response error: {%#v}", err.Error())
-		return err
+	sendResponse := branchEndSendResponse(f.sendResponse, grpc.GetGrpcRemotingClient().SendAsyncResponse)
+	sendErr := sendResponse(rpcMessage.ID, response)
+	if sendErr != nil {
+		log.Errorf("send branch rollback response error: xid %s, branchID %d: %v", xid, branchID, sendErr)
+	} else {
+		log.Infof("send branch rollback response success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
-	log.Infof("send branch rollback response: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
-	return nil
+	return branchEndProcessError(bizErr, sendErr)
 }
 
 func (f *rmBranchRollbackProcessor) handleGettyBranchRollback(ctx context.Context, rpcMessage message.RpcMessage) error {
@@ -152,49 +126,37 @@ func (f *rmBranchRollbackProcessor) handleGettyBranchRollback(ctx context.Contex
 		ResourceId:      resourceID,
 		ApplicationData: applicationData,
 	}
-	manager, err := safeGetResourceManager(request.BranchType)
-	var status branch.BranchStatus
-	if err == nil {
-		status, err = manager.BranchRollback(ctx, branchResource)
+	manager, bizErr := branchEndResourceManager(f.getResourceManager, branchResource.BranchType)
+	status := branch.BranchStatus(branch.BranchStatusPhasetwoRollbackFailedUnretryable)
+	if bizErr == nil {
+		status, bizErr = manager.BranchRollback(ctx, branchResource)
 	}
-	if err != nil {
-		log.Errorf("branch rollback error: %s", err.Error())
-		if manager == nil {
-			status = branch.BranchStatusPhasetwoRollbackFailedUnretryable
-		}
+	if bizErr != nil {
+		log.Errorf("branch rollback error: xid %s, branchID %d: %s", xid, branchID, bizErr.Error())
 	} else {
 		log.Infof("branch rollback success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
-
-	var (
-		resultCode message.ResultCode
-		errMsg     string
-	)
-	if err != nil {
-		resultCode = message.ResultCodeFailed
-		errMsg = err.Error()
-	} else {
-		resultCode = message.ResultCodeSuccess
-	}
-	// reply commit response to tc server
+	result := newBranchEndResult(status, bizErr)
+	// reply rollback response to tc server
 	response := message.BranchRollbackResponse{
 		AbstractBranchEndResponse: message.AbstractBranchEndResponse{
 			AbstractTransactionResponse: message.AbstractTransactionResponse{
 				AbstractResultMessage: message.AbstractResultMessage{
-					ResultCode: resultCode,
-					Msg:        errMsg,
+					ResultCode: result.resultCode,
+					Msg:        result.errMsg,
 				},
 			},
 			Xid:          xid,
 			BranchId:     branchID,
-			BranchStatus: status,
+			BranchStatus: result.status,
 		},
 	}
-	err = f.sendGetty(rpcMessage.ID, response)
-	if err != nil {
-		log.Errorf("send branch rollback response error: {%#v}", err.Error())
-		return err
+	sendResponse := branchEndSendResponse(f.sendResponse, getty.GetGettyRemotingClient().SendAsyncResponse)
+	sendErr := sendResponse(rpcMessage.ID, response)
+	if sendErr != nil {
+		log.Errorf("send branch rollback response error: xid %s, branchID %d: %v", xid, branchID, sendErr)
+	} else {
+		log.Infof("send branch rollback response success: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
 	}
-	log.Infof("send branch rollback response: xid %s, branchID %d, resourceID %s, applicationDataSize %d", xid, branchID, resourceID, len(applicationData))
-	return nil
+	return branchEndProcessError(bizErr, sendErr)
 }

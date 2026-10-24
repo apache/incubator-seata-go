@@ -67,8 +67,7 @@ func TestBranchCommitProcessorsReturnMalformedDataFailure(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchCommitProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			var rpcMessage message.RpcMessage
 			if protocol == "grpc" {
@@ -109,8 +108,7 @@ func TestBranchRollbackProcessorsReturnMalformedDataFailure(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchRollbackProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			var rpcMessage message.RpcMessage
 			if protocol == "grpc" {
@@ -162,15 +160,13 @@ func TestBranchProcessorsPropagateResponseSendError(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: tc.protocol})
 			if tc.rollback {
 				processor := &rmBranchRollbackProcessor{
-					sendGettyResponse: func(int32, interface{}) error { return sendErr },
-					sendGrpcResponse:  func(int32, interface{}) error { return sendErr },
+					sendResponse: func(int32, interface{}) error { return sendErr },
 				}
 				require.ErrorIs(t, processor.Process(context.Background(), branchRollbackMessage(protocolMessageConfig{protocol: tc.protocol}, resourceID)), sendErr)
 				return
 			}
 			processor := &rmBranchCommitProcessor{
-				sendGettyResponse: func(int32, interface{}) error { return sendErr },
-				sendGrpcResponse:  func(int32, interface{}) error { return sendErr },
+				sendResponse: func(int32, interface{}) error { return sendErr },
 			}
 			require.ErrorIs(t, processor.Process(context.Background(), branchCommitMessage(protocolMessageConfig{protocol: tc.protocol}, resourceID)), sendErr)
 		})
@@ -184,8 +180,7 @@ func TestBranchProcessorsRejectUnknownBranchType(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchCommitProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			request := branchCommitMessage(protocolMessageConfig{protocol: protocol}, resourceID)
 			setUnknownBranchType(&request)
@@ -197,8 +192,7 @@ func TestBranchProcessorsRejectUnknownBranchType(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchRollbackProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			request := branchRollbackMessage(protocolMessageConfig{protocol: protocol}, resourceID)
 			setUnknownBranchType(&request)
@@ -215,8 +209,7 @@ func TestBranchCommitProcessorsReturnSuccess(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchCommitProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			request := branchCommitMessage(protocolMessageConfig{protocol: protocol}, resourceID)
 			setValidApplicationData(&request, protocol, true)
@@ -241,8 +234,7 @@ func TestBranchRollbackProcessorsReturnSuccess(t *testing.T) {
 			config.InitTransportConfig(&config.TransportConfig{Protocol: protocol})
 			var captured interface{}
 			processor := &rmBranchRollbackProcessor{
-				sendGettyResponse: func(_ int32, response interface{}) error { captured = response; return nil },
-				sendGrpcResponse:  func(_ int32, response interface{}) error { captured = response; return nil },
+				sendResponse: func(_ int32, response interface{}) error { captured = response; return nil },
 			}
 			request := branchRollbackMessage(protocolMessageConfig{protocol: protocol}, resourceID)
 			setValidApplicationData(&request, protocol, false)
