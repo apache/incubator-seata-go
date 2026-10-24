@@ -112,12 +112,18 @@ func TestUpdateJoinRecordsOnlyWriteTargets(t *testing.T) {
 					if onlyCareUpdateColumns {
 						fields = table.alias + ".balance," + table.alias + ".id"
 					}
-					query := "^" + regexp.QuoteMeta("SELECT SQL_NO_CACHE "+fields+" FROM ") +
-						".* GROUP BY " + regexp.QuoteMeta(table.alias+".id")
 					if before {
-						query += " FOR UPDATE"
+						groupBy := table.alias + ".id"
+						if !onlyCareUpdateColumns {
+							fields = "`" + table.alias + "`.`id`,`" + table.alias + "`.`balance`"
+							groupBy = "`" + table.alias + "`.`id`"
+						}
+						return "^" + regexp.QuoteMeta("SELECT SQL_NO_CACHE "+fields+" FROM ") +
+							".* GROUP BY " + regexp.QuoteMeta(groupBy) + " FOR UPDATE$"
 					}
-					return query + "$"
+					query := "SELECT SQL_NO_CACHE " + fields + " FROM " + table.database + "." + table.table +
+						" AS " + table.alias + " WHERE (`id`) IN ((?))"
+					return "^" + regexp.QuoteMeta(query) + "$"
 				}
 				imageRows := func(balance int64) *sqlmock.Rows {
 					if onlyCareUpdateColumns {
