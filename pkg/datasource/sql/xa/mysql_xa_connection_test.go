@@ -272,19 +272,49 @@ func TestMysqlXAConn_Recover(t *testing.T) {
 	}
 }
 
+// TestMysqlXAConn_RecoverDriverValues feeds Recover the value shape a real
+// connection produces. The MySQL driver reads a text-protocol result set with
+// readLengthEncodedString and leaves every column as []byte, so this is what
+// "XA RECOVER" hands back in production, whatever the column type is.
+func TestMysqlXAConn_RecoverDriverValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rows := &mysqlMockRows{
+		data: [][]interface{}{
+			{[]byte("1"), []byte("3"), []byte("0"), []byte("xid")},
+			{[]byte("1"), []byte("11"), []byte("0"), []byte("another_xid")},
+		},
+	}
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	mockConn.EXPECT().QueryContext(gomock.Any(), "XA RECOVER", gomock.Any()).AnyTimes().Return(rows, nil)
+
+	c := &MysqlXAConn{Conn: mockConn}
+	got, err := c.Recover(context.Background(), TMStartRScan|TMEndRScan)
+	if err != nil {
+		t.Fatalf("Recover() error = %v, want nil", err)
+	}
+	if want := []string{"xid", "another_xid"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Recover() got = %v, want %v", got, want)
+	}
+	if !rows.closed {
+		t.Error("Recover() left the result set open, which strands the connection")
+	}
+}
+
 type mysqlMockRows struct {
-	idx  int
-	data [][]interface{}
+	idx    int
+	closed bool
+	data   [][]interface{}
 }
 
 func (m *mysqlMockRows) Columns() []string {
-	//TODO implement me
-	panic("implement me")
+	return []string{"formatID", "gtrid_length", "bqual_length", "data"}
 }
 
 func (m *mysqlMockRows) Close() error {
-	//TODO implement me
-	panic("implement me")
+	m.closed = true
+	return nil
 }
 
 func (m *mysqlMockRows) Next(dest []driver.Value) error {

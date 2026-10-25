@@ -33,14 +33,24 @@
 ### bugfix：
 
   - [[#1198](https://github.com/apache/incubator-seata-go/issues/1198)] recreate a closed NamingServer client and give each registry service its own client
+  - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect
+  - [[#1156](https://github.com/apache/incubator-seata-go/issues/1156)] send RM branch failure responses to TC and align their message encoding with the Java wire format
+  - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] fix UPDATE JOIN after-image queries to use primary keys from before images and correctly handle unmatched outer-join targets
+  - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] fix metadata cache overwrites across multiple data sources of the same database type and retain schema-qualified PostgreSQL table identities.
+  - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
   - [[#130](https://github.com/apache/incubator-seata-go/pull/130)] getty session auto close bug
   - [[#991](https://github.com/apache/incubator-seata-go/issues/991)] fix connection leaks and prevent nil pointer panic in async worker
   - [[#887](https://github.com/apache/incubator-seata-go/issues/887)] make DayValue serialization timezone-stable
+  - [[#1157](https://github.com/apache/incubator-seata-go/issues/1157)] prevent TCC RM panic on malformed applicationData during branch commit and rollback
+  - [[#1159](https://github.com/apache/incubator-seata-go/issues/1159)] stop leaking message futures when a synchronous request times out or when a message is sent with nobody waiting for a reply, and stop a duplicate response from blocking the transport receive loop
+  - [[#1153](https://github.com/apache/incubator-seata-go/issues/1153)] fix a done context making the global transaction second phase report a commit that never reached the TC as success, and panic on rollback
+  - [[#1143](https://github.com/apache/incubator-seata-go/issues/1143)] read the xid of `XA RECOVER` as the `[]byte` the MySQL driver actually returns, and close the result set
   - dispatch `ConsistentHashLoadBalance` and `LeastActiveLoadBalance` in `loadbalance.Select()`: both strategies were already implemented and accepted as config values, but missing from the dispatch `switch`, so they silently fell back to random load balancing
   - [[#1073](https://github.com/apache/incubator-seata-go/issues/1073)] fix what the two newly reachable load balancing strategies got wrong: the selection key was read from the whole `RpcMessage` instead of its body, so consistent hashing pinned every request to one TC; `rpc.Status.GetActive` / `GetTotal` read the in-flight counters without `sync/atomic`; the hash circle stayed empty when the first selection saw no session and did not wrap around past the last virtual node
+  - [[#1161](https://github.com/apache/incubator-seata-go/pull/1161)] fix context isolation in nested transaction to restore outer launcher commit
 
 ### optimize：
 
