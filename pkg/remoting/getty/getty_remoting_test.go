@@ -54,7 +54,7 @@ func TestGettyRemoting_GetMessageFuture(t *testing.T) {
 			if test.messageFuture != nil {
 				gettyRemotingClient.gettyRemoting.futures.Store(test.msgID, test.messageFuture)
 				messageFuture := gettyRemotingClient.gettyRemoting.GetMessageFuture(test.msgID)
-				assert.Equal(t, *test.messageFuture, *messageFuture)
+				assert.Same(t, test.messageFuture, messageFuture)
 			} else {
 				messageFuture := gettyRemotingClient.gettyRemoting.GetMessageFuture(test.msgID)
 				assert.Empty(t, messageFuture)
@@ -189,6 +189,24 @@ func TestGettyRemoting_SendAsync_NoSession(t *testing.T) {
 	assert.EqualError(t, err, "session is closed")
 }
 
+func TestGettyRemoting_SendSync_NotInitialized(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = nil
+	t.Cleanup(func() { sessionManager = originalSessionManager })
+
+	_, err := newGettyRemoting().SendSync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}
+
+func TestGettyRemoting_SendAsync_NotInitialized(t *testing.T) {
+	originalSessionManager := sessionManager
+	sessionManager = nil
+	t.Cleanup(func() { sessionManager = originalSessionManager })
+
+	err := newGettyRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "session is closed")
+}
+
 func TestGettyRemoting_NotifyRpcMessageResponseSignalsWaitingFuture(t *testing.T) {
 	gettyRemoting := newGettyRemoting()
 	request := message.RpcMessage{ID: 1}
@@ -212,7 +230,7 @@ func TestGettyRemoting_NotifyRpcMessageResponseDoesNotBlockWhenAlreadySignaled(t
 	gettyRemoting := newGettyRemoting()
 	request := message.RpcMessage{ID: 1}
 	messageFuture := message.NewMessageFuture(request)
-	messageFuture.Done <- struct{}{}
+	messageFuture.Complete("first") // fills Done the same way production code does
 	gettyRemoting.futures.Store(request.ID, messageFuture)
 
 	done := make(chan struct{})
@@ -230,6 +248,8 @@ func TestGettyRemoting_NotifyRpcMessageResponseDoesNotBlockWhenAlreadySignaled(t
 		t.Fatal("NotifyRpcMessageResponse blocked when the future was already signaled")
 	}
 
-	assert.Equal(t, "late-response", messageFuture.Response)
+	// The dropped duplicate must not overwrite the response the first call
+	// already recorded, or a slow reader could observe either value.
+	assert.Equal(t, "first", messageFuture.Response)
 	assert.Len(t, messageFuture.Done, 1)
 }

@@ -206,6 +206,7 @@ func TestGrpcGlobalTransactionCommit(t *testing.T) {
 						AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 							AbstractResultMessage: &pb.AbstractResultMessageProto{
 								AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
+								ResultCode:      pb.ResultCodeProto_Success,
 							},
 						},
 						GlobalStatus: pb.GlobalStatusProto_Committed,
@@ -258,6 +259,7 @@ func TestGrpcGlobalTransactionCommitSendsGlobalCommitMessageType(t *testing.T) {
 				AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 					AbstractResultMessage: &pb.AbstractResultMessageProto{
 						AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_COMMIT_RESULT},
+						ResultCode:      pb.ResultCodeProto_Success,
 					},
 				},
 				GlobalStatus: pb.GlobalStatusProto_Committed,
@@ -286,6 +288,12 @@ func TestGrpcGlobalTransactionCommitTimeoutUsesInjectedClient(t *testing.T) {
 		assert.Equal(t, "test-xid", req.GetAbstractGlobalEndRequest().GetXid())
 		return &pb.GlobalRollbackResponseProto{
 			AbstractGlobalEndResponse: &pb.AbstractGlobalEndResponseProto{
+				AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+					AbstractResultMessage: &pb.AbstractResultMessageProto{
+						AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_ROLLBACK_RESULT},
+						ResultCode:      pb.ResultCodeProto_Success,
+					},
+				},
 				GlobalStatus: pb.GlobalStatusProto_Rollbacked,
 			},
 		}, nil
@@ -356,6 +364,7 @@ func TestGrpcGlobalTransactionRollback(t *testing.T) {
 						AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
 							AbstractResultMessage: &pb.AbstractResultMessageProto{
 								AbstractMessage: &pb.AbstractMessageProto{MessageType: pb.MessageTypeProto_TYPE_GLOBAL_ROLLBACK_RESULT},
+								ResultCode:      pb.ResultCodeProto_Success,
 							},
 						},
 						GlobalStatus: pb.GlobalStatusProto_Rollbacked,

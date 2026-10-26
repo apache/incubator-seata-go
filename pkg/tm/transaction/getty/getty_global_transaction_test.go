@@ -200,6 +200,9 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalCommitResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusCommitted,
 					},
 				}, nil
@@ -248,6 +251,9 @@ func TestGettyGlobalTransactionCommitTimeoutUsesInjectedClient(t *testing.T) {
 		assert.Equal(t, "test-xid", req.Xid)
 		return message.GlobalRollbackResponse{
 			AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+				AbstractTransactionResponse: message.AbstractTransactionResponse{
+					AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+				},
 				GlobalStatus: message.GlobalStatusRollbacked,
 			},
 		}, nil
@@ -315,6 +321,9 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalRollbackResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusRollbacked,
 					},
 				}, nil
