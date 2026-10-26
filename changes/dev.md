@@ -62,6 +62,7 @@
   - [[#955](https://github.com/apache/incubator-seata-go/issues/955)] improve test coverage for pkg/rm/tcc/fence (95.1%)
   - [[#947](https://github.com/apache/incubator-seata-go/issues/947)] improve test coverage for pkg/discovery/mock
   - [[#948](https://github.com/apache/incubator-seata-go/issues/948)] improve test coverage for pkg/integration	
+  - [[#852](https://github.com/apache/incubator-seata-go/issues/852)] improve the integration testing for the XA mode
 
 ### docs：
 
