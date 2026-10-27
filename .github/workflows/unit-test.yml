@@ -46,6 +46,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Keep the full-suite race gate on both supported security-patched toolchains.
+  # Exercise the migrated transaction packages repeatedly on the minimum and
+  # current supported Go releases below.
   unit-test:
     name: "unit test"
     runs-on: ubuntu-latest
@@ -76,6 +79,7 @@ jobs:
         with:
           go-version: ${{ matrix.golang }}
           cache: true
+          cache-dependency-path: go.sum
 
       - name: "run unit tests"
         env:
@@ -104,3 +108,36 @@ jobs:
             test-output.log
           if-no-files-found: warn
           retention-days: 7
+
+  transaction:
+    name: Transaction (Go ${{ matrix.golang }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        golang:
+          - "1.26.10"
+          - oldstable
+          - stable
+
+    steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "set up go"
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ matrix.golang }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: "check transaction tests"
+        run: |
+          go test -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+          go test -race -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+          go test -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -count=1 ./pkg/tm/transaction/...

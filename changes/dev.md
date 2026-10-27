@@ -38,6 +38,7 @@
   - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] fix UPDATE JOIN after-image queries to use primary keys from before images and correctly handle unmatched outer-join targets
   - [[#1207](https://github.com/apache/incubator-seata-go/pull/1207)] fix metadata cache overwrites across multiple data sources of the same database type and retain schema-qualified PostgreSQL table identities.
   - [[#1201](https://github.com/apache/incubator-seata-go/issues/1201)] report a retryable TCC branch failure when a phase-two action returns false
+  - [[#1175](https://github.com/apache/incubator-seata-go/issues/1175)] replace runtime method patching in gRPC and Getty global transaction tests with injected remoting clients, and run the transaction regression tests on the minimum, oldstable, and stable Go toolchains
   - [[#1169](https://github.com/apache/incubator-seata-go/issues/1169)] align gRPC protobuf message types with the Seata protocol
   - [[#1165](https://github.com/apache/incubator-seata-go/issues/1165)] fix incorrect gRPC global commit request message type
   - [[#904](https://github.com/apache/incubator-seata-go/issues/904)] fix "busy buffer" / "driver: bad connection" when a `SELECT ... FOR UPDATE` is followed by another statement under XA autoCommit, by deferring the branch commit (XA END + XA PREPARE) until the query rows are closed
