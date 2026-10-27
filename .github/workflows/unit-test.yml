@@ -46,13 +46,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Other packages still use runtime method patches. Keep the full-suite race
-  # gate on the declared minimum toolchain while exercising both migrated
-  # transaction packages on current Go below.
+  # Keep the full-suite race gate on both supported security-patched toolchains.
+  # Exercise the migrated transaction packages repeatedly on the minimum and
+  # current supported Go releases below.
   unit-test:
     name: "unit test"
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        golang: ["1.26.10", "1.27.3"]
     services:
       mysql:
         image: mysql:8.0
@@ -66,12 +70,14 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: "set up go"
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.20.x"
+          go-version: ${{ matrix.golang }}
           cache: true
           cache-dependency-path: go.sum
 
@@ -94,9 +100,9 @@ jobs:
 
       - name: Upload diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
-          name: unit-test-diagnostics
+          name: unit-test-diagnostics-go-${{ matrix.golang }}
           path: |
             coverage.out
             test-output.log
@@ -111,16 +117,18 @@ jobs:
       fail-fast: false
       matrix:
         golang:
-          - "1.20.x"
+          - "1.26.10"
           - oldstable
           - stable
 
     steps:
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: "set up go"
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ matrix.golang }}
           cache: true

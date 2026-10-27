@@ -292,3 +292,25 @@ func TestLoadJson(t *testing.T) {
 	// reset flag.CommandLine
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 }
+
+// Older samples still contain the removed, unsupported TM options.
+func TestLoadPath_LegacyDegradeOptions(t *testing.T) {
+	previousFlags := flag.CommandLine
+	flag.CommandLine = flag.NewFlagSet(t.Name(), flag.ContinueOnError)
+	defer func() { flag.CommandLine = previousFlags }()
+	path := filepath.Join(t.TempDir(), "seatago.yaml")
+	config := `seata:
+  application-id: legacy-sample
+  client:
+    tm:
+      commit-retry-count: 7
+      degrade-check: false
+      degrade-check-period: 2000
+      degrade-check-allow-times: 10s
+`
+	assert.NoError(t, os.WriteFile(path, []byte(config), 0o600))
+	cfg := LoadPath(path)
+	assert.Equal(t, "legacy-sample", cfg.ApplicationID)
+	assert.Equal(t, 7, cfg.ClientConfig.TmConfig.CommitRetryCount)
+	assert.Equal(t, 5, cfg.ClientConfig.TmConfig.RollbackRetryCount)
+}

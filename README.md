@@ -97,7 +97,7 @@ For more details about principle and design, please go to [Seata wiki page](http
 
 ## How to run？
 
-Seata-go v2 requires Go 1.20 or later.
+Seata-go v2 requires Go 1.26.10 or later. On the Go 1.27 line, use Go 1.27.3 or later for the security fixes.
 
 ```go
 go get seata.apache.org/seata-go/v2@latest
