@@ -246,43 +246,55 @@ func (n *NamingServerRegistryService) isClosed() bool {
 }
 
 func newNamingServerRegistryService(_ *ServiceConfig, cfg *NamingServerConfig) RegistryService {
-	client := GetInstance(cfg)
 	return &NamingServerRegistryService{
-		client: client,
+		client: newNamingServerClient(cfg),
 	}
 }
 
 var (
 	namingServerInstance *NamingServerClient
-	namingServerOnce     sync.Once
+	namingServerMu       sync.Mutex
 )
 
 func GetInstance(config *NamingServerConfig) *NamingServerClient {
-	namingServerOnce.Do(func() {
-		namingServerInstance = &NamingServerClient{
-			config:            config,
-			logger:            zap.L().Named("naming-server-client"),
-			closeChan:         make(chan struct{}),
-			healthCheckTicker: time.NewTicker(time.Duration(config.HeartbeatPeriod) * time.Millisecond),
-			httpClient:        &http.Client{Timeout: 3 * time.Second},
-			longPollClient:    &http.Client{Timeout: 30 * time.Second},
+	namingServerMu.Lock()
+	defer namingServerMu.Unlock()
+	if namingServerInstance != nil {
+		select {
+		case <-namingServerInstance.closeChan:
+		default:
+			return namingServerInstance
 		}
-		// Initialize available naming server addresses from config
-		namingServerInstance.initNamingAddrs()
-		namingServerInstance.initHealthCheck()
-	})
+	}
+	namingServerInstance = newNamingServerClient(config)
 	return namingServerInstance
 }
 
-func resetInstance() {
-	if namingServerInstance != nil {
-		namingServerInstance.Close()
-		namingServerInstance.mu.Lock()
-		namingServerInstance.clearNamingAddrCache()
-		namingServerInstance.mu.Unlock()
+func newNamingServerClient(config *NamingServerConfig) *NamingServerClient {
+	client := &NamingServerClient{
+		config:            config,
+		logger:            zap.L().Named("naming-server-client"),
+		closeChan:         make(chan struct{}),
+		healthCheckTicker: time.NewTicker(time.Duration(config.HeartbeatPeriod) * time.Millisecond),
+		httpClient:        &http.Client{Timeout: 3 * time.Second},
+		longPollClient:    &http.Client{Timeout: 30 * time.Second},
 	}
+	client.initNamingAddrs()
+	client.initHealthCheck()
+	return client
+}
+
+func resetInstance() {
+	namingServerMu.Lock()
+	client := namingServerInstance
 	namingServerInstance = nil
-	namingServerOnce = sync.Once{}
+	namingServerMu.Unlock()
+	if client != nil {
+		client.Close()
+		client.mu.Lock()
+		client.clearNamingAddrCache()
+		client.mu.Unlock()
+	}
 }
 
 func (c *NamingServerClient) initNamingAddrs() {

@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1198](https://github.com/apache/incubator-seata-go/issues/1198)] recreate a closed NamingServer client and give each registry service its own client
   - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect
   - [[#1156](https://github.com/apache/incubator-seata-go/issues/1156)] send RM branch failure responses to TC and align their message encoding with the Java wire format
   - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] fix UPDATE JOIN after-image queries to use primary keys from before images and correctly handle unmatched outer-join targets
