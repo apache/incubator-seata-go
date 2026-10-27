@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
 	"github.com/golang/mock/gomock"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"

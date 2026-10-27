@@ -488,6 +488,7 @@ func (c *DefaultStateMachineConfig) Init() error {
 		sagarm.InitSaga()
 		app, group := baserm.GetRmAppAndGroup()
 		if app != "" && group != "" {
+			//nolint:staticcheck
 			if mgr := baserm.GetRmCacheInstance().GetResourceManager(branch.BranchTypeSAGA); mgr != nil {
 				resource := &sagarm.SagaResource{}
 				resource.SetApplicationId(app)

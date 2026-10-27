@@ -26,9 +26,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/model"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
@@ -185,7 +185,7 @@ func (u *updateJoinExecutor) ExecContext(ctx context.Context, f exec.CallbackWit
 	}
 
 	if len(afterImages) != len(beforeImages) {
-		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		return nil, errors.New("Before image size is not equaled to after image size, probably because you updated the primary keys")
 	}
 	for i, beforeImage := range beforeImages {
 		if len(beforeImage.Rows) != len(afterImages[i].Rows) {

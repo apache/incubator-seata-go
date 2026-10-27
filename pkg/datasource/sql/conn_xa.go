@@ -331,7 +331,7 @@ func (c *XAConn) createNewTxOnExecIfNeed(ctx context.Context, isQuery bool, quer
 // connection outside the branch. Unlike the direct path this never returns
 // driver.ErrSkip: it either produces a concrete result or a concrete error.
 func (c *XAConn) execPreparedInBranch(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-	preparer, ok := c.Conn.targetConn.(driver.ConnPrepareContext)
+	preparer, ok := c.targetConn.(driver.ConnPrepareContext)
 	if !ok {
 		return nil, fmt.Errorf("xa branch %s: driver connection does not support PrepareContext, cannot recover from ErrSkip", c.txCtx.XID)
 	}
@@ -358,7 +358,7 @@ func (c *XAConn) execPreparedInBranch(ctx context.Context, query string, args []
 // with RowsCommitOnClose: draining the rows closes both the driver rows and the
 // statement and then runs the deferred XA END + XA PREPARE).
 func (c *XAConn) queryPreparedInBranch(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-	preparer, ok := c.Conn.targetConn.(driver.ConnPrepareContext)
+	preparer, ok := c.targetConn.(driver.ConnPrepareContext)
 	if !ok {
 		return nil, fmt.Errorf("xa branch %s: driver connection does not support PrepareContext, cannot recover from ErrSkip", c.txCtx.XID)
 	}
@@ -445,7 +445,7 @@ func (c *XAConn) releaseIfNecessary() {
 }
 
 func (c *XAConn) start(ctx context.Context) error {
-	xaResource, err := xa.CreateXAResource(c.Conn.targetConn, c.dbType)
+	xaResource, err := xa.CreateXAResource(c.targetConn, c.dbType)
 	if err != nil {
 		return fmt.Errorf("create xa xid:%s resoruce err:%w", c.txCtx.XID, err)
 	}

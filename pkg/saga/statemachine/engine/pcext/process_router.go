@@ -113,7 +113,7 @@ func (s *StateMachineProcessRouter) Route(ctx context.Context, processContext pr
 }
 
 func (s *StateMachineProcessRouter) InitDefaultStateRouters() {
-	if s.stateRouters == nil || len(s.stateRouters) == 0 {
+	if len(s.stateRouters) == 0 {
 		s.stateRouters = make(map[string]process_ctrl.StateRouter)
 		taskStateRouter := &TaskStateRouter{}
 		s.stateRouters[constant.StateTypeServiceTask] = taskStateRouter

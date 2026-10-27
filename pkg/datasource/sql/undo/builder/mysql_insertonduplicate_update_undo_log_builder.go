@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
