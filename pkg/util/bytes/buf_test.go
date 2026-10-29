@@ -18,6 +18,7 @@
 package bytes
 
 import (
+	"io"
 	"math"
 	"testing"
 
@@ -198,4 +199,41 @@ func TestUInt16ToBytes(t *testing.T) {
 func TestUInt64ToBytes(t *testing.T) {
 	bytes := UInt64ToBytes(math.MaxUint64)
 	assert.Equal(t, bytes, []byte{255, 255, 255, 255, 255, 255, 255, 255})
+}
+
+func TestReadUint32ShortBuffer(t *testing.T) {
+	// A 4-byte field must not be reported as successfully read when only 3
+	// bytes are left: the guard compared the short read against 2 instead of
+	// 4, so the truncated value was returned with a nil error.
+	byteBuffer := NewByteBuffer([]byte{0x01, 0x02, 0x03})
+	value, err := byteBuffer.ReadUint32()
+	assert.Equal(t, io.ErrShortBuffer, err)
+	assert.Equal(t, uint32(0), value)
+}
+
+func TestReadUint64ShortBuffer(t *testing.T) {
+	byteBuffer := NewByteBuffer([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07})
+	value, err := byteBuffer.ReadUint64()
+	assert.Equal(t, io.ErrShortBuffer, err)
+	assert.Equal(t, uint64(0), value)
+}
+
+func TestReadUint32ExactBuffer(t *testing.T) {
+	byteBuffer := NewByteBuffer([]byte{0x01, 0x02, 0x03, 0x04})
+	value, err := byteBuffer.ReadUint32()
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(0x01020304), value)
+}
+
+func TestReadUint64ExactBuffer(t *testing.T) {
+	byteBuffer := NewByteBuffer([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08})
+	value, err := byteBuffer.ReadUint64()
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0x0102030405060708), value)
+}
+
+func TestReadUint32EmptyBuffer(t *testing.T) {
+	byteBuffer := NewByteBuffer([]byte{})
+	_, err := byteBuffer.ReadUint32()
+	assert.Equal(t, io.EOF, err)
 }
