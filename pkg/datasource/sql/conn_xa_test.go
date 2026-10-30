@@ -686,6 +686,8 @@ func TestXAConn_Rollback_ErrorHandling(t *testing.T) {
 				assert.ErrorIs(t, err, tt.rollbackErr)
 			}
 			assert.Equal(t, tt.rollbackErr == nil, xaConn.IsValid())
+			assert.Equal(t, tt.rollbackErr == nil, xaConn.rollBacked,
+				"only a successful XA ROLLBACK marks the branch as rolled back")
 			assert.False(t, xaConn.xaActive)
 			assert.Nil(t, xaConn.xaBranchXid)
 			assert.ErrorContains(t, tx.Rollback(), "inactive session")

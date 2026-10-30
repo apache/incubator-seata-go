@@ -530,8 +530,9 @@ func (c *XAConn) Rollback(ctx context.Context) error {
 			} else {
 				rollbackErr = err
 			}
+		} else {
+			c.rollBacked = true
 		}
-		c.rollBacked = true
 	}
 	c.cleanXABranchContext()
 
