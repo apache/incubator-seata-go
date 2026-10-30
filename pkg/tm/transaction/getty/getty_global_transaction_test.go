@@ -19,26 +19,38 @@ package getty_test
 
 import (
 	"context"
-	"reflect"
-	"seata.apache.org/seata-go/v2/pkg/tm"
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
+	"seata.apache.org/seata-go/v2/pkg/tm"
+	getty2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
+	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-
-	"seata.apache.org/seata-go/v2/pkg/util/log"
-
-	"seata.apache.org/seata-go/v2/pkg/protocol/message"
-	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
-	getty2 "seata.apache.org/seata-go/v2/pkg/tm/transaction/getty"
+	"github.com/stretchr/testify/require"
 )
+
+type remotingClientFunc func(msg interface{}) (interface{}, error)
+
+func (f remotingClientFunc) SendSyncRequest(msg interface{}) (interface{}, error) {
+	return f(msg)
+}
+
+func newGettyManager(t *testing.T, send remotingClientFunc) *getty2.GettyGlobalTransactionManager {
+	t.Helper()
+	if send == nil {
+		send = func(msg interface{}) (interface{}, error) {
+			t.Fatalf("unexpected SendSyncRequest call with %T", msg)
+			return nil, nil
+		}
+	}
+	return getty2.NewGettyGlobalTransactionManager(send)
+}
 
 func TestGettyGlobalTransactionBegin(t *testing.T) {
 	log.Init()
-	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -46,46 +58,39 @@ func TestGettyGlobalTransactionBegin(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		gtx                tm.GlobalTransaction
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+		name          string
+		gtx           tm.GlobalTransaction
+		wantErrString string
+		wantXID       string
+		send          remotingClientFunc
 	}{
 		{
+			name: "transport error",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock Begin return",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantErrString: "mock Begin return",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock Begin return")
 			},
 		},
 		{
+			name: "empty response",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantErrString: "GlobalBeginRequest result is empty or result code is failed.",
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, nil
 			},
 		},
 		{
+			name: "failed response",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       true,
-			wantErrString:      "GlobalBeginRequest result is empty or result code is failed.",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantErrString: "GlobalBeginRequest result is empty or result code is failed.",
+			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalBeginResponse{
 					AbstractTransactionResponse: message.AbstractTransactionResponse{
 						AbstractResultMessage: message.AbstractResultMessage{
@@ -96,48 +101,50 @@ func TestGettyGlobalTransactionBegin(t *testing.T) {
 			},
 		},
 		{
+			name: "success",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantXID: "test-xid",
+			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalBeginResponse{
 					AbstractTransactionResponse: message.AbstractTransactionResponse{
 						AbstractResultMessage: message.AbstractResultMessage{
 							ResultCode: message.ResultCodeSuccess,
 						},
 					},
+					Xid: "test-xid",
 				}, nil
 			},
 		},
 	}
 	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-		ctx := tm.InitSeataContext(context.Background())
-		tm.SetTx(ctx, &v.gtx)
-		err := tm.GetGlobalTransactionManager().Begin(ctx, time.Second*30)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// reset up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+		t.Run(v.name, func(t *testing.T) {
+			calls := 0
+			manager := newGettyManager(t, func(msg interface{}) (interface{}, error) {
+				calls++
+				req, ok := msg.(message.GlobalBeginRequest)
+				require.True(t, ok)
+				assert.Equal(t, v.gtx.TxName, req.TransactionName)
+				assert.Equal(t, 30*time.Second, req.Timeout)
+				return v.send(msg)
+			})
+			ctx := tm.InitSeataContext(context.Background())
+			tm.SetTx(ctx, &v.gtx)
+			err := manager.Begin(ctx, 30*time.Second)
+			assert.Equal(t, 1, calls)
+			if v.wantErrString != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), v.wantErrString)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, v.wantXID, tm.GetXID(ctx))
+		})
 	}
 }
 
 func TestGettyGlobalTransactionCommit(t *testing.T) {
-	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -145,55 +152,57 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		gtx                tm.GlobalTransaction
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+		name          string
+		gtx           tm.GlobalTransaction
+		wantErrString string
+		wantCalls     int
+		wantStatus    message.GlobalStatus
+		send          remotingClientFunc
 	}{
 		{
+			name: "participant",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Participant,
 				Xid:    "123456",
 			},
-			wantHasError: false,
 		},
 		{
+			name: "empty xid",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 			},
-			wantHasError:  true,
 			wantErrString: "Commit xid should not be empty",
 		},
 		{
+			name: "transport error",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock error retry",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantErrString: "mock error retry",
+			wantCalls:     5,
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
 		},
 		{
+			name: "success",
 			gtx: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantCalls:  1,
+			wantStatus: message.GlobalStatusCommitted,
+			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalCommitResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusCommitted,
 					},
 				}, nil
@@ -201,31 +210,62 @@ func TestGettyGlobalTransactionCommit(t *testing.T) {
 		},
 	}
 	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-
-		ctx := context.Background()
-		tm.SetTx(ctx, &v.gtx)
-		err := tm.GetGlobalTransactionManager().Commit(ctx, &v.gtx)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// rest up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+		t.Run(v.name, func(t *testing.T) {
+			calls := 0
+			var send remotingClientFunc
+			if v.send != nil {
+				send = func(msg interface{}) (interface{}, error) {
+					calls++
+					req, ok := msg.(message.GlobalCommitRequest)
+					require.True(t, ok)
+					assert.Equal(t, v.gtx.Xid, req.Xid)
+					return v.send(msg)
+				}
+			}
+			manager := newGettyManager(t, send)
+			err := manager.Commit(context.Background(), &v.gtx)
+			assert.Equal(t, v.wantCalls, calls)
+			assert.Equal(t, v.wantStatus, v.gtx.TxStatus)
+			if v.wantErrString != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), v.wantErrString)
+				return
+			}
+			require.NoError(t, err)
+		})
 	}
 }
 
+func TestGettyGlobalTransactionCommitTimeoutUsesInjectedClient(t *testing.T) {
+	tm.InitTm(tm.TmConfig{RollbackRetryCount: 1})
+	ctx := tm.InitSeataContext(context.Background())
+	// NotSupported records the timeout without calling the global manager.
+	require.NoError(t, tm.Begin(ctx, &tm.GtxConfig{Propagation: tm.NotSupported, Timeout: time.Nanosecond}))
+	require.True(t, tm.IsTimeout(ctx))
+
+	calls := 0
+	manager := newGettyManager(t, func(msg interface{}) (interface{}, error) {
+		calls++
+		req, ok := msg.(message.GlobalRollbackRequest)
+		require.True(t, ok)
+		assert.Equal(t, "test-xid", req.Xid)
+		return message.GlobalRollbackResponse{
+			AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+				AbstractTransactionResponse: message.AbstractTransactionResponse{
+					AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+				},
+				GlobalStatus: message.GlobalStatusRollbacked,
+			},
+		}, nil
+	})
+
+	gtr := &tm.GlobalTransaction{TxRole: tm.Launcher, Xid: "test-xid"}
+	require.NoError(t, manager.Commit(ctx, gtr))
+	assert.Equal(t, 1, calls)
+	assert.Equal(t, message.GlobalStatusRollbacked, gtr.TxStatus)
+}
+
 func TestGettyGlobalTransactionRollback(t *testing.T) {
-	tm.SetGlobalTransactionManager(&getty2.GettyGlobalTransactionManager{})
 	tm.InitTm(tm.TmConfig{
 		CommitRetryCount:                5,
 		RollbackRetryCount:              5,
@@ -233,55 +273,57 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 		InterceptorOrder:                -2147482648,
 	})
 	gts := []struct {
-		globalTransaction  tm.GlobalTransaction
-		wantHasError       bool
-		wantErrString      string
-		wantHasMock        bool
-		wantMockTargetName string
-		wantMockFunction   interface{}
+		name              string
+		globalTransaction tm.GlobalTransaction
+		wantErrString     string
+		wantCalls         int
+		wantStatus        message.GlobalStatus
+		send              remotingClientFunc
 	}{
 		{
+			name: "participant",
 			globalTransaction: tm.GlobalTransaction{
 				TxRole: tm.Participant,
 				TxName: "DefaultTx",
 				Xid:    "123456",
 			},
-			wantHasError: false,
 		},
 		{
+			name: "empty xid",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 			},
-			wantHasError:  true,
 			wantErrString: "Rollback xid should not be empty",
 		},
 		{
+			name: "transport error",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       true,
-			wantErrString:      "mock error retry",
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantErrString: "mock error retry",
+			wantCalls:     5,
+			send: func(msg interface{}) (interface{}, error) {
 				return nil, errors.New("mock error retry")
 			},
 		},
 		{
+			name: "success",
 			globalTransaction: tm.GlobalTransaction{
 				TxName: "DefaultTx",
 				TxRole: tm.Launcher,
 				Xid:    "123456",
 			},
-			wantHasError:       false,
-			wantHasMock:        true,
-			wantMockTargetName: "SendSyncRequest",
-			wantMockFunction: func(_ *getty.GettyRemotingClient, msg interface{}) (interface{}, error) {
+			wantCalls:  1,
+			wantStatus: message.GlobalStatusRollbacked,
+			send: func(msg interface{}) (interface{}, error) {
 				return message.GlobalRollbackResponse{
 					AbstractGlobalEndResponse: message.AbstractGlobalEndResponse{
+						AbstractTransactionResponse: message.AbstractTransactionResponse{
+							AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+						},
 						GlobalStatus: message.GlobalStatusRollbacked,
 					},
 				}, nil
@@ -289,23 +331,28 @@ func TestGettyGlobalTransactionRollback(t *testing.T) {
 		},
 	}
 	for _, v := range gts {
-		var stub *gomonkey.Patches
-		// set up stub
-		if v.wantHasMock {
-			stub = gomonkey.ApplyMethod(reflect.TypeOf(getty.GetGettyRemotingClient()), v.wantMockTargetName, v.wantMockFunction)
-		}
-
-		err := tm.GetGlobalTransactionManager().Rollback(context.Background(), &v.globalTransaction)
-		if v.wantHasError {
-			assert.NotNil(t, err)
-			assert.Regexp(t, v.wantErrString, err.Error())
-		} else {
-			assert.Nil(t, err)
-		}
-
-		// rest up stub
-		if v.wantHasMock {
-			stub.Reset()
-		}
+		t.Run(v.name, func(t *testing.T) {
+			calls := 0
+			var send remotingClientFunc
+			if v.send != nil {
+				send = func(msg interface{}) (interface{}, error) {
+					calls++
+					req, ok := msg.(message.GlobalRollbackRequest)
+					require.True(t, ok)
+					assert.Equal(t, v.globalTransaction.Xid, req.Xid)
+					return v.send(msg)
+				}
+			}
+			manager := newGettyManager(t, send)
+			err := manager.Rollback(context.Background(), &v.globalTransaction)
+			assert.Equal(t, v.wantCalls, calls)
+			assert.Equal(t, v.wantStatus, v.globalTransaction.TxStatus)
+			if v.wantErrString != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), v.wantErrString)
+				return
+			}
+			require.NoError(t, err)
+		})
 	}
 }

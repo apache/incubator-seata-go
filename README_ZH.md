@@ -101,6 +101,9 @@ Seata-go 分布式事务的典型生命周期如下：
 - **Seata**：简单可扩展的自主事务架构。蚂蚁金服加入 Fescar，使其成为一个更加中立开放的社区，Fescar 更名为 Seata。
 
 ## 如何运行？
+
+Seata-go v2 需要 Go 1.20 或更高版本。
+
 ```go
 
 go get seata.apache.org/seata-go/v2@latest
