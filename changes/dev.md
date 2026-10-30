@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
   - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect
   - [[#1156](https://github.com/apache/incubator-seata-go/issues/1156)] send RM branch failure responses to TC and align their message encoding with the Java wire format
   - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] fix UPDATE JOIN after-image queries to use primary keys from before images and correctly handle unmatched outer-join targets
