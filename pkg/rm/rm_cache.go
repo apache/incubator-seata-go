@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 var (
@@ -65,8 +66,13 @@ func (d *ResourceManagerCache) GetResourceManager(branchType branch.BranchType) 
 // RegisterCachedResources re-registers all resources with their resource managers.
 // It is used after a remoting session is recreated because TC loses the old
 // resource-to-session association when the connection closes.
-func (d *ResourceManagerCache) RegisterCachedResources() error {
+func (d *ResourceManagerCache) RegisterCachedResources(conn connection.Connection) error {
 	var registrationErrs []error
+
+	rmRemoting, ok := GetRMRemotingInstance().(ConnectionAwareRMRemoting)
+	if !ok {
+		return fmt.Errorf("RM remoting %T does not support connection-scoped registration", GetRMRemotingInstance())
+	}
 
 	d.resourceManagerMap.Range(func(_, value interface{}) bool {
 		resourceManager, ok := value.(ResourceManager)
@@ -86,7 +92,7 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 				return true
 			}
 			// TODO: Merge resource IDs into one RegisterRMRequest to avoid one RPC round-trip per resource.
-			if err := resourceManager.RegisterResource(resource); err != nil {
+			if err := rmRemoting.RegisterResourceOnConnection(resource, conn); err != nil {
 				registrationErrs = append(registrationErrs, err)
 			}
 			return true

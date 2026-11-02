@@ -53,6 +53,18 @@ func GetGrpcRemotingClient() *GrpcRemotingClient {
 }
 
 func (client *GrpcRemotingClient) SendAsyncRequest(msg interface{}) error {
+	return client.sendAsyncRequest(msg, nil)
+}
+
+// SendAsyncRequestOnChannel sends an async request through a specific gRPC channel.
+func (client *GrpcRemotingClient) SendAsyncRequestOnChannel(msg interface{}, channel *Channel) error {
+	if channel == nil {
+		return fmt.Errorf("stream is closed")
+	}
+	return client.sendAsyncRequest(msg, channel)
+}
+
+func (client *GrpcRemotingClient) sendAsyncRequest(msg interface{}, channel *Channel) error {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       asyncRequestType(msg),
@@ -61,7 +73,7 @@ func (client *GrpcRemotingClient) SendAsyncRequest(msg interface{}) error {
 		HeadMap:    make(map[string]string),
 		Body:       msg,
 	}
-	return client.grpcRemoting.SendAsync(rpcMessage, nil, client.asyncCallback)
+	return client.grpcRemoting.SendAsync(rpcMessage, channel, client.asyncCallback)
 }
 
 func asyncRequestType(msg interface{}) message.RequestType {
@@ -92,7 +104,21 @@ func (client *GrpcRemotingClient) SendAsyncResponse(msgID int32, msg interface{}
 	return client.grpcRemoting.SendAsync(rpcMessage, nil, nil)
 }
 
+// Keep this method out of line because existing remoting tests replace it with gomonkey.
+//go:noinline
 func (client *GrpcRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
+	return client.sendSyncRequest(msg, nil)
+}
+
+// SendSyncRequestOnChannel sends a sync request through a specific gRPC channel.
+func (client *GrpcRemotingClient) SendSyncRequestOnChannel(msg interface{}, channel *Channel) (interface{}, error) {
+	if channel == nil {
+		return nil, fmt.Errorf("stream is closed")
+	}
+	return client.sendSyncRequest(msg, channel)
+}
+
+func (client *GrpcRemotingClient) sendSyncRequest(msg interface{}, channel *Channel) (interface{}, error) {
 	rpcMessage := message.RpcMessage{
 		ID:         int32(client.idGenerator.Inc()),
 		Type:       message.RequestTypeRequestSync,
@@ -101,7 +127,7 @@ func (client *GrpcRemotingClient) SendSyncRequest(msg interface{}) (interface{},
 		HeadMap:    make(map[string]string),
 		Body:       msg,
 	}
-	return client.grpcRemoting.SendSync(rpcMessage, nil, client.syncCallback)
+	return client.grpcRemoting.SendSync(rpcMessage, channel, client.syncCallback)
 }
 
 func (client *GrpcRemotingClient) asyncCallback(reqMsg message.RpcMessage, respMsg *message.MessageFuture) (interface{}, error) {
