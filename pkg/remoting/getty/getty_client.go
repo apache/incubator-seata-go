@@ -97,6 +97,7 @@ func (client *GettyRemotingClient) SendAsyncResponse(msgID int32, msg interface{
 }
 
 // Keep this method out of line because existing remoting tests replace it with gomonkey.
+//
 //go:noinline
 func (client *GettyRemotingClient) SendSyncRequest(msg interface{}) (interface{}, error) {
 	return client.sendSyncRequest(msg, nil)
