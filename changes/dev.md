@@ -58,6 +58,7 @@
 
 ### test:
 
+  - [[#693](https://github.com/apache/incubator-seata-go/issues/693)] add an opt-in TCC throughput benchmark with independent concurrency and GOMAXPROCS settings, callback validation, latency histograms, and JSON results
   - [[#958](https://github.com/apache/incubator-seata-go/issues/958)] improve test coverage for pkg/rm/tcc/fence/store/db/sql (100%)
   - [[#957](https://github.com/apache/incubator-seata-go/issues/957)] improve test coverage for pkg/rm/tcc/fence/handler (84.5%)
   - [[#955](https://github.com/apache/incubator-seata-go/issues/955)] improve test coverage for pkg/rm/tcc/fence (95.1%)

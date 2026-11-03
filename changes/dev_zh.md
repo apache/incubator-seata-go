@@ -54,6 +54,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### test:
 
+- [[#693](https://github.com/apache/incubator-seata-go/issues/693)] 添加按需启用的 TCC 吞吐压测，支持独立设置并发数与 GOMAXPROCS、校验回调、统计延迟直方图并输出 JSON 结果
 - [[#xxx](https://github.com/apache/incubator-seata-go/pull/xxx)] 添加xxx的单元测试
 
 
