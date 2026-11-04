@@ -358,7 +358,6 @@ func initXAConnTestResourceWithBranchReport(
 		},
 	)
 	mockMgr.EXPECT().RegisterResource(gomock.Any()).AnyTimes().Return(nil)
-	mockMgr.EXPECT().CreateTableMetaCache(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 	rm.GetRmCacheInstance().RegisterResourceManager(mockMgr)
 
 	db := initXAConnTestDB(t, ctrl)

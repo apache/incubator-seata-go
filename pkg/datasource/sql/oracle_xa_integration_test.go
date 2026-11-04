@@ -30,8 +30,6 @@ import (
 	"github.com/bluele/gcache"
 	"github.com/stretchr/testify/require"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 	"seata.apache.org/seata-go/v2/pkg/tm"
@@ -82,10 +80,6 @@ func (m *oracleXAIntegrationManager) GetCachedResources() *sync.Map {
 
 func (m *oracleXAIntegrationManager) GetBranchType() branch.BranchType {
 	return branch.BranchTypeXA
-}
-
-func (m *oracleXAIntegrationManager) CreateTableMetaCache(context.Context, string, types.DBType, *sql.DB) (datasource.TableMetaCache, error) {
-	return nil, nil
 }
 
 func setupOracleXAIntegrationState(t *testing.T, manager rm.ResourceManager) {

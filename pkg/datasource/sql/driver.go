@@ -239,15 +239,14 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		withDBName(dbName),
 		withDBName(meta.dbName),
 		withConnector(connector),
-		withTableMetaCache(d.descriptor.newTableMetaCache(db, dbName)),
+	}
+	if d.descriptor.newTableMetaCache != nil {
+		options = append(options, withTableMetaCache(d.descriptor.newTableMetaCache(db, dbName)))
 	}
 	res, err := newResource(options...)
 	if err != nil {
 		log.Errorf("create new resource: %v", err)
 		return nil, err
-	}
-	if d.descriptor.newTableMetaCache != nil {
-		datasource.RegisterTableCache(dbType, d.descriptor.newTableMetaCache(db, dbName))
 	}
 
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
