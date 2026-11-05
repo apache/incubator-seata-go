@@ -28,6 +28,7 @@
   - [[#123](https://github.com/apache/incubator-seata-go/pull/123)] add two phase and dubbo
   - support XA branch enrollment for autoCommit statements in a global transaction: each autoCommit statement is registered and prepared as its own complete XA branch (note: N autoCommit statements create N branches at the TC); parameterized statements (which the default go-sql-driver DSN answers with `driver.ErrSkip`) are executed via an in-branch Prepare+Exec fallback so they stay inside the branch
   - support PostgreSQL XA via pgx driver
+  - [[#1116](https://github.com/apache/incubator-seata-go/issues/1116)] first-stage Oracle XA support via DBMS_XA (`seata-xa-oracle` driver, go-ora); XA recover not supported yet — in-doubt branches must be resolved manually via DBA_XA_TRANSACTIONS
   - [[#1130](https://github.com/apache/incubator-seata-go/issues/1130)] support MySQL multi-value INSERT in AT mode for composite and mixed primary keys
 
 ### bugfix：
