@@ -187,3 +187,21 @@ func TestGrpcRemoting_SendAsync_NoChannel(t *testing.T) {
 	err := newGrpcRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
 	assert.EqualError(t, err, "stream is closed")
 }
+
+func TestGrpcRemoting_SendSync_NotInitialized(t *testing.T) {
+	originalChannelManager := channelManager
+	channelManager = nil
+	t.Cleanup(func() { channelManager = originalChannelManager })
+
+	_, err := newGrpcRemoting().SendSync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "stream is closed")
+}
+
+func TestGrpcRemoting_SendAsync_NotInitialized(t *testing.T) {
+	originalChannelManager := channelManager
+	channelManager = nil
+	t.Cleanup(func() { channelManager = originalChannelManager })
+
+	err := newGrpcRemoting().SendAsync(message.RpcMessage{ID: 1}, nil, nil)
+	assert.EqualError(t, err, "stream is closed")
+}

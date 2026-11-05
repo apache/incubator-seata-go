@@ -100,17 +100,21 @@ func TestBranchEndResult(t *testing.T) {
 	require.ErrorIs(t, combined, sendErr)
 
 	injectedManager := &testResourceManager{}
-	require.Same(t, injectedManager, branchEndResourceManager(
+	manager, err := branchEndResourceManager(
 		func(branch.BranchType) rm.ResourceManager { return injectedManager },
 		branch.BranchTypeTCC,
-	))
+	)
+	require.NoError(t, err)
+	require.Same(t, injectedManager, manager)
 
 	fallbackType := branch.BranchType(99)
 	fallbackManager := &testResourceManager{branchType: fallbackType}
 	rmCache := rm.GetRmCacheInstance()
 	rmCache.RegisterResourceManager(fallbackManager)
 	t.Cleanup(func() { rmCache.UnregisterResourceManager(fallbackType) })
-	require.Same(t, fallbackManager, branchEndResourceManager(nil, fallbackType))
+	manager, err = branchEndResourceManager(nil, fallbackType)
+	require.NoError(t, err)
+	require.Same(t, fallbackManager, manager)
 }
 
 func TestRmBranchCommitProcessor_SendsFailureResponse(t *testing.T) {

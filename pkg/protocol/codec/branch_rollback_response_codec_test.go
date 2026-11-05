@@ -18,6 +18,7 @@
 package codec
 
 import (
+	"encoding/binary"
 	"math"
 	"strings"
 	"testing"
@@ -48,8 +49,10 @@ func TestBranchRollbackResponseCodec(t *testing.T) {
 	}
 
 	codec := BranchRollbackResponseCodec{}
-	bytes := codec.Encode(msg)
-	msg2 := codec.Decode(bytes)
+	encoded := codec.Encode(msg)
+	assert.Equal(t, uint16(len(msg.Msg)), binary.BigEndian.Uint16(encoded[1:3]))
+	assert.Equal(t, msg.Msg, string(encoded[3:3+len(msg.Msg)]))
+	msg2 := codec.Decode(encoded)
 
 	assert.Equal(t, msg, msg2)
 }
@@ -71,7 +74,9 @@ func TestBranchRollbackResponseCodec_TruncatesLongMessageWithoutShiftingFields(t
 	}
 
 	codec := BranchRollbackResponseCodec{}
-	decoded := codec.Decode(codec.Encode(msg)).(message.BranchRollbackResponse)
+	encoded := codec.Encode(msg)
+	assert.Equal(t, uint16(math.MaxInt16), binary.BigEndian.Uint16(encoded[1:3]))
+	decoded := codec.Decode(encoded).(message.BranchRollbackResponse)
 
 	assert.Equal(t, message.ResultCodeFailed, decoded.ResultCode)
 	assert.Equal(t, strings.Repeat("x", math.MaxInt16), decoded.Msg)

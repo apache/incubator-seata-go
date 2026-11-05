@@ -72,9 +72,9 @@ func branchEndProcessError(bizErr, sendErr error) error {
 func branchEndResourceManager(
 	getResourceManager func(branch.BranchType) rm.ResourceManager,
 	branchType branch.BranchType,
-) rm.ResourceManager {
+) (rm.ResourceManager, error) {
 	if getResourceManager != nil {
-		return getResourceManager(branchType)
+		return getResourceManager(branchType), nil
 	}
-	return rm.GetRmCacheInstance().GetResourceManager(branchType)
+	return safeGetResourceManager(branchType)
 }
