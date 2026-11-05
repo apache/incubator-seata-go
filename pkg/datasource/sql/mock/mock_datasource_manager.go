@@ -23,13 +23,12 @@ package mock
 
 import (
 	context "context"
-	sql "database/sql"
+	driver "database/sql/driver"
 	reflect "reflect"
 	sync "sync"
 
 	gomock "github.com/golang/mock/gomock"
 
-	datasource "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	types "seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	branch "seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	rm "seata.apache.org/seata-go/v2/pkg/rm"
@@ -116,21 +115,6 @@ func (m *MockDataSourceManager) BranchRollback(ctx context.Context, resource rm.
 func (mr *MockDataSourceManagerMockRecorder) BranchRollback(ctx, resource interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BranchRollback", reflect.TypeOf((*MockDataSourceManager)(nil).BranchRollback), ctx, resource)
-}
-
-// CreateTableMetaCache mocks base method.
-func (m *MockDataSourceManager) CreateTableMetaCache(ctx context.Context, resID string, dbType types.DBType, db *sql.DB) (datasource.TableMetaCache, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateTableMetaCache", ctx, resID, dbType, db)
-	ret0, _ := ret[0].(datasource.TableMetaCache)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateTableMetaCache indicates an expected call of CreateTableMetaCache.
-func (mr *MockDataSourceManagerMockRecorder) CreateTableMetaCache(ctx, resID, dbType, db interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTableMetaCache", reflect.TypeOf((*MockDataSourceManager)(nil).CreateTableMetaCache), ctx, resID, dbType, db)
 }
 
 func (m *MockDataSourceManager) SetBranchType(branchType branch.BranchType) {
@@ -243,30 +227,31 @@ func (mr *MockTableMetaCacheMockRecorder) Destroy() *gomock.Call {
 }
 
 // GetTableMeta mocks base method.
-func (m *MockTableMetaCache) GetTableMeta(ctx context.Context, dbName, table string) (*types.TableMeta, error) {
+func (m *MockTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTableMeta", ctx, dbName, table)
+	ret := m.ctrl.Call(m, "GetTableMeta", ctx, key)
 	ret0, _ := ret[0].(*types.TableMeta)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTableMeta indicates an expected call of GetTableMeta.
-func (mr *MockTableMetaCacheMockRecorder) GetTableMeta(ctx, dbName, table interface{}) *gomock.Call {
+func (mr *MockTableMetaCacheMockRecorder) GetTableMeta(ctx, key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTableMeta", reflect.TypeOf((*MockTableMetaCache)(nil).GetTableMeta), ctx, dbName, table)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTableMeta", reflect.TypeOf((*MockTableMetaCache)(nil).GetTableMeta), ctx, key)
 }
 
-// Init mocks base method.
-func (m *MockTableMetaCache) Init(ctx context.Context, conn *sql.DB) error {
+// ResolveTableMetaKey mocks base method.
+func (m *MockTableMetaCache) ResolveTableMetaKey(ctx context.Context, conn driver.Conn, ref types.TableRef) (types.TableMetaKey, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Init", ctx, conn)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "ResolveTableMetaKey", ctx, conn, ref)
+	ret0, _ := ret[0].(types.TableMetaKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Init indicates an expected call of Init.
-func (mr *MockTableMetaCacheMockRecorder) Init(ctx, conn interface{}) *gomock.Call {
+// ResolveTableMetaKey indicates an expected call of ResolveTableMetaKey.
+func (mr *MockTableMetaCacheMockRecorder) ResolveTableMetaKey(ctx, conn, ref interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockTableMetaCache)(nil).Init), ctx, conn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveTableMetaKey", reflect.TypeOf((*MockTableMetaCache)(nil).ResolveTableMetaKey), ctx, conn, ref)
 }

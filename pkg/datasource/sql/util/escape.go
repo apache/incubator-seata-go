@@ -198,11 +198,17 @@ func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types
 	if len(pkColumnNameListByOrder) == 0 {
 		return nil, fmt.Errorf("primary key metadata is empty")
 	}
+	columnIdentity := func(name string) string {
+		if dbType == types.DBTypePostgreSQL {
+			return name
+		}
+		return strings.ToLower(name)
+	}
 
 	pkByName := make(map[string]types.ColumnImage, len(pkColumnNameListByOrder))
 	for _, column := range row.PrimaryKeys(row.Columns) {
 		column.ColumnName = DelEscape(column.ColumnName, dbType)
-		name := strings.ToLower(column.ColumnName)
+		name := columnIdentity(column.ColumnName)
 		if _, ok := pkByName[name]; ok {
 			return nil, fmt.Errorf("primary key %q found more than once", column.ColumnName)
 		}
@@ -212,7 +218,7 @@ func GetOrderedPkList(image *types.RecordImage, row types.RowImage, dbType types
 	pkFields := make([]types.ColumnImage, 0, len(pkColumnNameListByOrder))
 	seen := make(map[string]struct{}, len(pkColumnNameListByOrder))
 	for _, pkName := range pkColumnNameListByOrder {
-		name := strings.ToLower(DelEscape(pkName, dbType))
+		name := columnIdentity(DelEscape(pkName, dbType))
 		if _, ok := seen[name]; ok {
 			return nil, fmt.Errorf("primary key %q exists more than once in metadata", pkName)
 		}

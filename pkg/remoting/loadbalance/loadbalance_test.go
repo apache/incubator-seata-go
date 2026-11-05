@@ -73,7 +73,7 @@ func TestSelect_RoundRobinLoadBalance(t *testing.T) {
 	assert.NotEqual(t, conn1.RemoteAddr(), conn2.RemoteAddr())
 }
 
-func TestSelect_ConsistentHashLoadBalance(t *testing.T) {
+func TestSelect_ConsistentHashLoadBalance_StableXID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions, _ := setupSessions(ctrl, 3, false)
 
@@ -88,7 +88,7 @@ func TestSelect_ConsistentHashLoadBalance(t *testing.T) {
 	}
 }
 
-func TestSelect_LeastActiveLoadBalance(t *testing.T) {
+func TestSelect_LeastActiveLoadBalance_PrefersIdle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sessions, addrs := setupSessions(ctrl, 3, false)
 

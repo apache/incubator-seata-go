@@ -49,22 +49,17 @@ func (u *MySQLMultiUndoLogBuilder) BeforeImage(ctx context.Context, execCtx *typ
 
 	resultImages = make([]*types.RecordImage, 0)
 	for _, parseContext := range execCtx.ParseContext.MultiStmt {
-		execCtx = &types.ExecContext{
-			TxCtx:        execCtx.TxCtx,
-			ParseContext: parseContext,
-			NamedValues:  execCtx.NamedValues,
-			Values:       execCtx.Values,
-			MetaDataMap:  execCtx.MetaDataMap,
-			Conn:         execCtx.Conn,
-		}
+		childCtx := *execCtx
+		childCtx.ParseContext = parseContext
+		childCtx.TableMetaKey = nil
 		switch parseContext.ExecutorType {
 		case types.UpdateExecutor:
 			// todo change to use MultiUpdateExecutor
-			tmpImages, err = GetMySQLUpdateUndoLogBuilder().BeforeImage(ctx, execCtx)
+			tmpImages, err = GetMySQLUpdateUndoLogBuilder().BeforeImage(ctx, &childCtx)
 			break
 		case types.DeleteExecutor:
 			// todo use MultiDeleteExecutor
-			tmpImages, err = GetMySQLMultiDeleteUndoLogBuilder().BeforeImage(ctx, execCtx)
+			tmpImages, err = GetMySQLMultiDeleteUndoLogBuilder().BeforeImage(ctx, &childCtx)
 			break
 		}
 
@@ -90,18 +85,13 @@ func (u *MySQLMultiUndoLogBuilder) AfterImage(ctx context.Context, execCtx *type
 	)
 
 	for i, parseContext := range execCtx.ParseContext.MultiStmt {
-		execCtx = &types.ExecContext{
-			TxCtx:        execCtx.TxCtx,
-			ParseContext: parseContext,
-			NamedValues:  execCtx.NamedValues,
-			Values:       execCtx.Values,
-			MetaDataMap:  execCtx.MetaDataMap,
-			Conn:         execCtx.Conn,
-		}
+		childCtx := *execCtx
+		childCtx.ParseContext = parseContext
+		childCtx.TableMetaKey = nil
 
 		switch parseContext.ExecutorType {
 		case types.UpdateExecutor:
-			tmpImages, err = GetMySQLMultiUpdateUndoLogBuilder().AfterImage(ctx, execCtx, []*types.RecordImage{u.beforeImages[i]})
+			tmpImages, err = GetMySQLMultiUpdateUndoLogBuilder().AfterImage(ctx, &childCtx, []*types.RecordImage{u.beforeImages[i]})
 			break
 		case types.DeleteExecutor:
 			// todo use MultiDeleteExecutor

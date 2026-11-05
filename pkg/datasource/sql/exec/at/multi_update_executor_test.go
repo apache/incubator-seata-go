@@ -23,8 +23,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -34,7 +32,6 @@ import (
 
 func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: true})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 
 	tests := []struct {
 		name            string
@@ -101,7 +98,6 @@ func TestBuildSelectSQLByMultiUpdate(t *testing.T) {
 
 func TestBuildSelectSQLByMultiUpdateAllColumns(t *testing.T) {
 	undo.InitUndoConfig(undo.Config{OnlyCareUpdateColumns: false})
-	datasource.RegisterTableCache(types.DBTypeMySQL, mysql.NewTableMetaInstance(nil, nil))
 
 	tests := []struct {
 		name            string

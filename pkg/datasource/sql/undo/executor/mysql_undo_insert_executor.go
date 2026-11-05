@@ -117,5 +117,5 @@ func (m *mySQLUndoInsertExecutor) generateDeleteSql(
 	whereSql := util.BuildWhereConditionByPKs(pkList, dbType)
 
 	deleteSqlTemplate := "DELETE FROM %s WHERE %s "
-	return util.RewritePlaceholders(fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.TableName, whereSql), dbType), nil
+	return util.RewritePlaceholders(fmt.Sprintf(deleteSqlTemplate, sqlUndoLog.QualifiedTableName(dbType), whereSql), dbType), nil
 }

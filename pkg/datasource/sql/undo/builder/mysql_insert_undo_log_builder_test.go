@@ -37,6 +37,16 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
+type countingInsertTableMetaReader struct {
+	testTableMetaReader
+	reads int
+}
+
+func (r *countingInsertTableMetaReader) GetTableMeta(ctx context.Context, key types.TableMetaKey) (*types.TableMeta, error) {
+	r.reads++
+	return r.testTableMetaReader.GetTableMeta(ctx, key)
+}
+
 func TestBuildSelectSQLByInsert(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -79,7 +89,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?),(?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`id`) IN ((?),(?)) ",
 			expectQueryArgs: []driver.Value{int64(19), int64(21)},
 		},
 		{
@@ -110,7 +120,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{int64(20)},
 		},
 		{
@@ -144,7 +154,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 			mockInsertResult: NewMockInsertResult(100, 1),
-			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`user_id`) IN ((?)) ",
 			expectQueryArgs:  []driver.Value{int64(100)},
 		},
 		{
@@ -179,7 +189,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			},
 			mockInsertResult: NewMockInsertResult(100, 2),
 			IncrementStep:    2,
-			expectQuery:      "SELECT * FROM user WHERE (`user_id`) IN ((?),(?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`user_id`) IN ((?),(?)) ",
 			expectQueryArgs:  []driver.Value{int64(100), int64(102)},
 		},
 		{
@@ -221,7 +231,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:     "SELECT * FROM user WHERE (`id`) IN ((?)) ",
+			expectQuery:     "SELECT * FROM `user` WHERE (`id`) IN ((?)) ",
 			expectQueryArgs: []driver.Value{19},
 		},
 		{
@@ -262,9 +272,9 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?)) ",
+			expectQuery:       "SELECT * FROM `user` WHERE (`id`,`name`) IN ((?,?)) ",
 			expectQueryArgs:   []driver.Value{int64(19), "Tony"},
-			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?)) ",
+			orExpectQuery:     "SELECT * FROM `user` WHERE (`name`,`id`) IN ((?,?)) ",
 			orExpectQueryArgs: []driver.Value{"Tony", int64(19)},
 		},
 		{
@@ -305,9 +315,9 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 					},
 				},
 			},
-			expectQuery:       "SELECT * FROM user WHERE (`id`,`name`) IN ((?,?),(?,?)) ",
+			expectQuery:       "SELECT * FROM `user` WHERE (`id`,`name`) IN ((?,?),(?,?)) ",
 			expectQueryArgs:   []driver.Value{int64(19), "Tony", int64(20), "Tom"},
-			orExpectQuery:     "SELECT * FROM user WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
+			orExpectQuery:     "SELECT * FROM `user` WHERE (`name`,`id`) IN ((?,?),(?,?)) ",
 			orExpectQueryArgs: []driver.Value{"Tony", int64(19), "Tom", int64(20)},
 		},
 		{
@@ -333,7 +343,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 				},
 			},
 			mockInsertResult: NewMockInsertResult(500, 1),
-			expectQuery:      "SELECT * FROM user WHERE (`tenant_id`,`id`) IN ((?,?)) ",
+			expectQuery:      "SELECT * FROM `user` WHERE (`tenant_id`,`id`) IN ((?,?)) ",
 			expectQueryArgs:  []driver.Value{"tenantX", int64(500)},
 		},
 	}
@@ -344,7 +354,8 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			assert.Nil(t, err)
 			exec := &types.ExecContext{}
 			exec.ParseContext = c
-			exec.MetaDataMap = test.metaDataMap
+			reader := &countingInsertTableMetaReader{testTableMetaReader: testTableMetaReader{metas: test.metaDataMap}}
+			exec.TableMetaReader = reader
 			exec.Values = test.queryArgs
 			exec.NamedValues = test.NamedValues
 			builder := MySQLInsertUndoLogBuilder{}
@@ -352,6 +363,7 @@ func TestBuildSelectSQLByInsert(t *testing.T) {
 			builder.IncrementStep = test.IncrementStep
 			sql, values, err := builder.buildAfterImageSQL(context.Background(), exec)
 			assert.Nil(t, err)
+			assert.Equal(t, 1, reader.reads)
 			if test.orExpectQuery != "" && test.orExpectQueryArgs != nil {
 				if test.orExpectQuery == sql {
 					assert.Equal(t, test.orExpectQueryArgs, values)
@@ -844,7 +856,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
+					TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 						"test": {
 							ColumnNames: []string{"id"},
 							Columns: map[string]types.ColumnMeta{
@@ -861,7 +873,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 								},
 							},
 						},
-					},
+					}},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(1)},
@@ -875,7 +887,9 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByColumn(t *testing.T) {
 				InsertResult:        tt.fields.InsertResult,
 				IncrementStep:       tt.fields.IncrementStep,
 			}
-			got, err := u.getPkValuesByColumn(tt.args.execCtx)
+			meta := tt.args.execCtx.TableMetaReader.(testTableMetaReader).metas["test"]
+			tt.args.execCtx.TableMetaReader = nil
+			got, err := u.getPkValuesByColumn(tt.args.execCtx, meta)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByColumn(%v)", tt.args.execCtx)
 		})
@@ -932,7 +946,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 							},
 						},
 					},
-					MetaDataMap: map[string]types.TableMeta{
+					TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 						"test": {
 							ColumnNames: []string{"id", "name"},
 							Indexs: map[string]types.IndexMeta{
@@ -957,7 +971,7 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 								},
 							},
 						},
-					},
+					}},
 				}},
 			want: map[string][]interface{}{
 				"id": {int64(100)},
@@ -971,11 +985,41 @@ func TestMySQLInsertUndoLogBuilder_getPkValuesByAuto(t *testing.T) {
 				InsertResult:        tt.fields.InsertResult,
 				IncrementStep:       tt.fields.IncrementStep,
 			}
-			got, err := u.getPkValuesByAuto(tt.args.execCtx)
+			meta := tt.args.execCtx.TableMetaReader.(testTableMetaReader).metas["test"]
+			tt.args.execCtx.TableMetaReader = nil
+			got, err := u.getPkValuesByAuto(tt.args.execCtx, meta)
 			assert.Nil(t, err)
 			assert.Equalf(t, tt.want, got, "getPkValuesByAuto(%v)", tt.args.execCtx)
 		})
 	}
+}
+
+func TestMySQLInsertUndoLogBuilder_getPkValuesReusesMetaForAutoFallback(t *testing.T) {
+	parseCtx, err := parser.DoParser("insert into test(id) values (NULL),(NULL)")
+	assert.NoError(t, err)
+	meta := types.TableMeta{
+		ColumnNames: []string{"id"},
+		Columns: map[string]types.ColumnMeta{
+			"id": {ColumnName: "id", Autoincrement: true},
+		},
+		Indexs: map[string]types.IndexMeta{
+			"PRIMARY": {
+				IType: types.IndexTypePrimaryKey,
+				Columns: []types.ColumnMeta{
+					{ColumnName: "id", Autoincrement: true},
+				},
+			},
+		},
+	}
+	u := &MySQLInsertUndoLogBuilder{
+		InsertResult:  &mockInsertResult{lastInsertID: 100, rowsAffected: 2},
+		IncrementStep: 1,
+	}
+	execCtx := &types.ExecContext{ParseContext: parseCtx}
+	got, err := u.getPkValues(execCtx, parseCtx, meta)
+	assert.NoError(t, err)
+	assert.Contains(t, got["id"], int64(100))
+	assert.Contains(t, got["id"], int64(101))
 }
 
 func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
@@ -1026,7 +1070,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 						},
 					},
 				},
-				MetaDataMap: map[string]types.TableMeta{
+				TableMetaReader: testTableMetaReader{metas: map[string]types.TableMeta{
 					"test": {
 						ColumnNames: []string{"id"},
 						Columns: map[string]types.ColumnMeta{
@@ -1043,7 +1087,7 @@ func TestMySQLInsertUndoLogBuilder_autoGeneratePks(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			autoColumnName: "id",
 			lastInsetId:    100,

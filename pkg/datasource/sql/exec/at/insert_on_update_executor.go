@@ -25,7 +25,6 @@ import (
 
 	"github.com/arana-db/parser/ast"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -60,6 +59,9 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 	defer func() {
 		i.afterHooks(ctx, i.execContext)
 	}()
+	if err := i.resolveTableMetaKey(ctx, i.execContext, i.parserCtx); err != nil {
+		return nil, err
+	}
 
 	beforeImage, err := i.beforeImage(ctx)
 	if err != nil {
@@ -84,6 +86,8 @@ func (i *insertOnUpdateExecutor) ExecContext(ctx context.Context, f exec.Callbac
 		afterImage.SQLType = types.SQLTypeInsert
 	}
 
+	beforeImage.TableMetaKey = i.execContext.TableMetaKey
+	afterImage.TableMetaKey = i.execContext.TableMetaKey
 	i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 	i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 	return res, nil
@@ -99,7 +103,7 @@ func (i *insertOnUpdateExecutor) beforeImage(ctx context.Context) (*types.Record
 	if err != nil {
 		return nil, err
 	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +159,7 @@ func (i *insertOnUpdateExecutor) buildBeforeImageSQL(insertStmt *ast.InsertStmt,
 		return "", nil, err
 	}
 	sql := strings.Builder{}
-	sql.WriteString("SELECT * FROM " + metaData.TableName + " ")
+	sql.WriteString("SELECT * FROM " + qualifiedTableName(i.execContext.TableMetaKey, metaData.TableName, types.DBTypeMySQL) + " ")
 	isContainWhere := false
 	var selectArgs []driver.NamedValue
 	for j := 0; j < insertNum; j++ {
@@ -262,11 +266,7 @@ func (i *insertOnUpdateExecutor) afterImage(ctx context.Context, beforeImages *t
 		log.Errorf("ctx driver query: %+v", err)
 		return nil, err
 	}
-	tableName, err := i.parserCtx.GetTableName()
-	if err != nil {
-		return nil, err
-	}
-	metaData, err := datasource.GetTableCache(types.DBTypeMySQL).GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}

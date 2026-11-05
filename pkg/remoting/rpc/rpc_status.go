@@ -54,6 +54,9 @@ func GetStatus(service string) *Status {
 }
 
 // GetActive get active.
+// Status.Active is written by BeginCount / EndCount through sync/atomic, so the
+// read must be atomic too: LeastActiveLoadBalance reads it while other
+// goroutines are counting in-flight requests for the same service.
 func (s *Status) GetActive() int32 {
 	return atomic.LoadInt32(&s.Active)
 }

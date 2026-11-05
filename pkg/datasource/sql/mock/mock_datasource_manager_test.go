@@ -19,15 +19,12 @@ package mock
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 )
@@ -117,24 +114,6 @@ func TestMockDataSourceManager_BranchReport(t *testing.T) {
 
 	err := mockDSM.BranchReport(ctx, param)
 	assert.NoError(t, err)
-}
-
-func TestMockDataSourceManager_CreateTableMetaCache(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockDSM := NewMockDataSourceManager(ctrl)
-	ctx := context.Background()
-	resID := "test-resource"
-	dbType := types.DBTypeMySQL
-	db := &sql.DB{}
-
-	expectedCache := datasource.TableMetaCache(nil)
-	mockDSM.EXPECT().CreateTableMetaCache(ctx, resID, dbType, db).Return(expectedCache, nil)
-
-	cache, err := mockDSM.CreateTableMetaCache(ctx, resID, dbType, db)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedCache, cache)
 }
 
 func TestMockDataSourceManager_GetSetBranchType(t *testing.T) {

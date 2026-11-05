@@ -82,6 +82,9 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) (*BranchUndoLog, error) {
 			SQLType:   SQLType(undolog.SQLType),
 			TableName: undolog.TableName,
 		}
+		if undolog.TableMetaKey != nil {
+			protolog.TableMetaKey = toProtoTableMetaKey(undolog.TableMetaKey)
+		}
 
 		if undolog.BeforeImage != nil {
 			protolog.BeforeImage = &RecordImage{
@@ -89,6 +92,7 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) (*BranchUndoLog, error) {
 				SQLType:   SQLType(undolog.BeforeImage.SQLType),
 				Rows:      []*RowImage{},
 			}
+			protolog.BeforeImage.TableMetaKey = toProtoTableMetaKey(undolog.BeforeImage.TableMetaKey)
 
 			for _, row := range undolog.BeforeImage.Rows {
 				protoRow := &RowImage{
@@ -121,6 +125,7 @@ func ConvertToProto(intreeLog *undo.BranchUndoLog) (*BranchUndoLog, error) {
 				SQLType:   SQLType(undolog.AfterImage.SQLType),
 				Rows:      []*RowImage{},
 			}
+			protolog.AfterImage.TableMetaKey = toProtoTableMetaKey(undolog.AfterImage.TableMetaKey)
 
 			for _, row := range undolog.AfterImage.Rows {
 				protoRow := &RowImage{
@@ -161,15 +166,17 @@ func ConvertToIntree(protoLog *BranchUndoLog) (*undo.BranchUndoLog, error) {
 
 	for _, pbSqlLog := range protoLog.Logs {
 		undoSqlLog := undo.SQLUndoLog{
-			SQLType:   types.SQLType(pbSqlLog.SQLType),
-			TableName: pbSqlLog.TableName,
+			SQLType:      types.SQLType(pbSqlLog.SQLType),
+			TableName:    pbSqlLog.TableName,
+			TableMetaKey: fromProtoTableMetaKey(pbSqlLog.TableMetaKey),
 		}
 
 		if pbSqlLog.BeforeImage != nil {
 			undoSqlLog.BeforeImage = &types.RecordImage{
-				TableName: pbSqlLog.BeforeImage.TableName,
-				SQLType:   types.SQLType(pbSqlLog.BeforeImage.SQLType),
-				Rows:      []types.RowImage{},
+				TableName:    pbSqlLog.BeforeImage.TableName,
+				SQLType:      types.SQLType(pbSqlLog.BeforeImage.SQLType),
+				Rows:         []types.RowImage{},
+				TableMetaKey: fromProtoTableMetaKey(pbSqlLog.BeforeImage.TableMetaKey),
 			}
 
 			for _, pbRow := range pbSqlLog.BeforeImage.Rows {
@@ -199,9 +206,10 @@ func ConvertToIntree(protoLog *BranchUndoLog) (*undo.BranchUndoLog, error) {
 
 		if pbSqlLog.AfterImage != nil {
 			undoSqlLog.AfterImage = &types.RecordImage{
-				TableName: pbSqlLog.AfterImage.TableName,
-				SQLType:   types.SQLType(pbSqlLog.AfterImage.SQLType),
-				Rows:      []types.RowImage{},
+				TableName:    pbSqlLog.AfterImage.TableName,
+				SQLType:      types.SQLType(pbSqlLog.AfterImage.SQLType),
+				Rows:         []types.RowImage{},
+				TableMetaKey: fromProtoTableMetaKey(pbSqlLog.AfterImage.TableMetaKey),
 			}
 
 			for _, pbRow := range pbSqlLog.AfterImage.Rows {
@@ -233,6 +241,20 @@ func ConvertToIntree(protoLog *BranchUndoLog) (*undo.BranchUndoLog, error) {
 	}
 
 	return intreeLog, nil
+}
+
+func toProtoTableMetaKey(key *types.TableMetaKey) *TableMetaKey {
+	if key == nil {
+		return nil
+	}
+	return &TableMetaKey{DBName: key.DBName, Schema: key.Schema, TableName: key.TableName}
+}
+
+func fromProtoTableMetaKey(key *TableMetaKey) *types.TableMetaKey {
+	if key == nil {
+		return nil
+	}
+	return &types.TableMetaKey{DBName: key.DBName, Schema: key.Schema, TableName: key.TableName}
 }
 
 func convertAnyToInterface(anyValue *any.Any) (interface{}, error) {

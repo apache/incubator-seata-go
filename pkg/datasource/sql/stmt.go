@@ -141,8 +141,11 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 			return types.NewResult(types.WithResult(ret)), nil
 		})
+	if err != nil {
+		return nil, err
+	}
 
-	return ret.GetResult(), err
+	return ret.GetResult(), nil
 }
 
 // ExecContext executes a query that doesn't return rows, such

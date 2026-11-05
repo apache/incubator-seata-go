@@ -36,9 +36,6 @@ func TestInitTm(t *testing.T) {
 		CommitRetryCount:                5,
 		RollbackRetryCount:              3,
 		DefaultGlobalTransactionTimeout: 30 * time.Second,
-		DegradeCheck:                    true,
-		DegradeCheckPeriod:              1000,
-		DegradeCheckAllowTimes:          5 * time.Second,
 		InterceptorOrder:                100,
 	}
 
@@ -47,9 +44,6 @@ func TestInitTm(t *testing.T) {
 	assert.Equal(t, testConfig.CommitRetryCount, config.CommitRetryCount)
 	assert.Equal(t, testConfig.RollbackRetryCount, config.RollbackRetryCount)
 	assert.Equal(t, testConfig.DefaultGlobalTransactionTimeout, config.DefaultGlobalTransactionTimeout)
-	assert.Equal(t, testConfig.DegradeCheck, config.DegradeCheck)
-	assert.Equal(t, testConfig.DegradeCheckPeriod, config.DegradeCheckPeriod)
-	assert.Equal(t, testConfig.DegradeCheckAllowTimes, config.DegradeCheckAllowTimes)
 	assert.Equal(t, testConfig.InterceptorOrder, config.InterceptorOrder)
 }
 
@@ -68,9 +62,6 @@ func TestInitTm_ZeroConfig(t *testing.T) {
 	assert.Equal(t, 0, config.CommitRetryCount)
 	assert.Equal(t, 0, config.RollbackRetryCount)
 	assert.Equal(t, time.Duration(0), config.DefaultGlobalTransactionTimeout)
-	assert.False(t, config.DegradeCheck)
-	assert.Equal(t, 0, config.DegradeCheckPeriod)
-	assert.Equal(t, time.Duration(0), config.DegradeCheckAllowTimes)
 	assert.Equal(t, 0, config.InterceptorOrder)
 }
 
@@ -85,26 +76,22 @@ func TestInitTm_MultipleInits(t *testing.T) {
 	firstConfig := TmConfig{
 		CommitRetryCount:   10,
 		RollbackRetryCount: 5,
-		DegradeCheck:       true,
 	}
 
 	secondConfig := TmConfig{
 		CommitRetryCount:   20,
 		RollbackRetryCount: 15,
-		DegradeCheck:       false,
 	}
 
 	// First initialization
 	InitTm(firstConfig)
 	assert.Equal(t, 10, config.CommitRetryCount)
 	assert.Equal(t, 5, config.RollbackRetryCount)
-	assert.True(t, config.DegradeCheck)
 
 	// Second initialization should override
 	InitTm(secondConfig)
 	assert.Equal(t, 20, config.CommitRetryCount)
 	assert.Equal(t, 15, config.RollbackRetryCount)
-	assert.False(t, config.DegradeCheck)
 }
 
 func TestInitTm_ConfigIsolation(t *testing.T) {
@@ -141,9 +128,6 @@ func TestInitTm_ExtremeValues(t *testing.T) {
 		CommitRetryCount:                2147483647,     // Max int32
 		RollbackRetryCount:              -2147483648,    // Min int32
 		DefaultGlobalTransactionTimeout: 24 * time.Hour, // Large duration
-		DegradeCheck:                    true,
-		DegradeCheckPeriod:              0,
-		DegradeCheckAllowTimes:          time.Nanosecond, // Small duration
 		InterceptorOrder:                -1000000,
 	}
 
@@ -152,9 +136,6 @@ func TestInitTm_ExtremeValues(t *testing.T) {
 	assert.Equal(t, 2147483647, config.CommitRetryCount)
 	assert.Equal(t, -2147483648, config.RollbackRetryCount)
 	assert.Equal(t, 24*time.Hour, config.DefaultGlobalTransactionTimeout)
-	assert.True(t, config.DegradeCheck)
-	assert.Equal(t, 0, config.DegradeCheckPeriod)
-	assert.Equal(t, time.Nanosecond, config.DegradeCheckAllowTimes)
 	assert.Equal(t, -1000000, config.InterceptorOrder)
 }
 

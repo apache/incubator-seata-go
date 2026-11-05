@@ -19,7 +19,6 @@ package mock
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -43,8 +42,8 @@ func TestMockTableMetaCache_GetTableMeta(t *testing.T) {
 
 	mockCache := NewMockTableMetaCache(ctrl)
 	ctx := context.Background()
-	dbName := "test_db"
 	tableName := "test_table"
+	key := types.TableMetaKey{DBName: "test_db", TableName: tableName}
 
 	expectedTableMeta := &types.TableMeta{
 		TableName: tableName,
@@ -56,26 +55,28 @@ func TestMockTableMetaCache_GetTableMeta(t *testing.T) {
 		},
 	}
 
-	mockCache.EXPECT().GetTableMeta(ctx, dbName, tableName).Return(expectedTableMeta, nil)
+	mockCache.EXPECT().GetTableMeta(ctx, key).Return(expectedTableMeta, nil)
 
-	tableMeta, err := mockCache.GetTableMeta(ctx, dbName, tableName)
+	tableMeta, err := mockCache.GetTableMeta(ctx, key)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTableMeta, tableMeta)
 	assert.Equal(t, tableName, tableMeta.TableName)
 }
 
-func TestMockTableMetaCache_Init(t *testing.T) {
+func TestMockTableMetaCache_ResolveTableMetaKey(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCache := NewMockTableMetaCache(ctrl)
 	ctx := context.Background()
-	db := &sql.DB{}
+	ref := types.TableRef{TableName: "test_table"}
+	key := types.TableMetaKey{DBName: "test_db", TableName: "test_table"}
 
-	mockCache.EXPECT().Init(ctx, db).Return(nil)
+	mockCache.EXPECT().ResolveTableMetaKey(ctx, nil, ref).Return(key, nil)
 
-	err := mockCache.Init(ctx, db)
+	got, err := mockCache.ResolveTableMetaKey(ctx, nil, ref)
 	assert.NoError(t, err)
+	assert.Equal(t, key, got)
 }
 
 func TestMockTableMetaCache_Destroy(t *testing.T) {

@@ -32,6 +32,13 @@ message SQLUndoLog {
 	string TableName = 2;
 	RecordImage BeforeImage = 3;
 	RecordImage AfterImage = 4;
+	TableMetaKey TableMetaKey = 5;
+}
+
+message TableMetaKey {
+	string DBName = 1;
+	string Schema = 2;
+	string TableName = 3;
 }
 
 message RecordImage {
@@ -40,6 +47,7 @@ message RecordImage {
 	SQLType SQLType = 3;
 	repeated RowImage Rows = 4;
 	TableMeta TableMeta = 5;
+	TableMetaKey TableMetaKey = 6;
 }
 
 message RowImage {

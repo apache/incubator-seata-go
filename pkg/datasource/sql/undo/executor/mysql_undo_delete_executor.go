@@ -119,5 +119,5 @@ func (m *mySQLUndoDeleteExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	// InsertSqlTemplate INSERT INTO a (x, y, z, pk) VALUES (?, ?, ?, ?)
 	insertSqlTemplate := "INSERT INTO %s (%s) VALUES (%s)"
-	return util.RewritePlaceholders(fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.TableName, insertColumns, insertValues), dbType), nil
+	return util.RewritePlaceholders(fmt.Sprintf(insertSqlTemplate, m.sqlUndoLog.QualifiedTableName(dbType), insertColumns, insertValues), dbType), nil
 }

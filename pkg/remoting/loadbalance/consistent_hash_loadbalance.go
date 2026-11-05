@@ -64,15 +64,18 @@ func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection 
 	hashKey := c.hash(key)
 
 	c.RLock()
-	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
-		return c.sortedHashNodes[i] >= hashKey
-	})
-
 	if len(c.sortedHashNodes) == 0 {
 		c.RUnlock()
 		return RandomLoadBalance(sessions, key)
 	}
 
+	index := sort.Search(len(c.sortedHashNodes), func(i int) bool {
+		return c.sortedHashNodes[i] >= hashKey
+	})
+
+	// A key that hashes past the last virtual node belongs to the first node of
+	// the circle. Falling back to random here would send the same key to a
+	// different node on every call, which defeats consistent hashing.
 	if index == len(c.sortedHashNodes) {
 		index = 0
 	}
@@ -89,6 +92,13 @@ func (c *Consistent) pick(sessions *sync.Map, key string) connection.Connection 
 	}
 
 	return session
+}
+
+// isEmpty reports whether the hash circle holds no virtual node yet.
+func (c *Consistent) isEmpty() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return len(c.sortedHashNodes) == 0
 }
 
 // refreshHashCircle refresh hashCircle
@@ -164,9 +174,21 @@ func newConsistenceInstance(sessions *sync.Map) *Consistent {
 }
 
 func ConsistentHashLoadBalance(sessions *sync.Map, xid string) connection.Connection {
-	if xid == "" || xid == "<invalid Value>" {
-		xid = uuid.New().String()
+	if xid == "" {
+		// No transaction key to hash on: spread the request over the circle
+		// instead of pinning every keyless request to the same node.
+		xid = uuid.NewString()
 	}
+
+	instance := newConsistenceInstance(sessions)
+	// The circle is built once through sync.Once, so a first selection that saw
+	// no sessions would otherwise keep an empty circle and silently degrade to
+	// random selection forever. Rebuild it from the current snapshot while it is
+	// still empty.
+	if instance.isEmpty() {
+		instance.refreshHashCircle(sessions)
+	}
+
 	// pick a node
-	return newConsistenceInstance(sessions).pick(sessions, xid)
+	return instance.pick(sessions, xid)
 }

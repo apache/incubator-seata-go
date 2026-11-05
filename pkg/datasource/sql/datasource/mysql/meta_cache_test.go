@@ -19,13 +19,60 @@ package mysql
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
+
+func TestResolveTableMetaKeyMySQL(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	cache := &TableMetaCache{db: db}
+	err = conn.Raw(func(raw any) error {
+		first, err := cache.ResolveTableMetaKey(context.Background(), raw.(driver.Conn), types.TableRef{Qualifier: "first", TableName: "users"})
+		if err != nil {
+			return err
+		}
+		second, err := cache.ResolveTableMetaKey(context.Background(), raw.(driver.Conn), types.TableRef{Qualifier: "second", TableName: "users"})
+		if err != nil {
+			return err
+		}
+		if first != (types.TableMetaKey{DBName: "first", TableName: "users"}) || second != (types.TableMetaKey{DBName: "second", TableName: "users"}) {
+			t.Fatalf("explicit database keys: %+v, %+v", first, second)
+		}
+
+		mock.ExpectQuery("SELECT DATABASE").WillReturnRows(sqlmock.NewRows([]string{"DATABASE()"}).AddRow("current"))
+		current, err := cache.ResolveTableMetaKey(context.Background(), raw.(driver.Conn), types.TableRef{TableName: "users"})
+		if err != nil {
+			return err
+		}
+		if current != (types.TableMetaKey{DBName: "current", TableName: "users"}) {
+			t.Fatalf("current database key: %+v", current)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestNewTableMetaInstance(t *testing.T) {
 	db, _, err := sqlmock.New()
@@ -45,26 +92,6 @@ func TestNewTableMetaInstance(t *testing.T) {
 	assert.NotNil(t, cache)
 	assert.NotNil(t, cache.tableMetaCache)
 	assert.Equal(t, db, cache.db)
-}
-
-func TestTableMetaCache_Init(t *testing.T) {
-	db, _, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("failed to open sqlmock database: %v", err)
-	}
-	defer db.Close()
-
-	cfg := &mysql.Config{
-		User:   "test",
-		Passwd: "test",
-		DBName: "test_db",
-	}
-
-	cache := NewTableMetaInstance(db, cfg)
-	ctx := context.Background()
-
-	err = cache.Init(ctx, db)
-	assert.NoError(t, err)
 }
 
 func TestTableMetaCache_Destroy(t *testing.T) {
@@ -102,7 +129,7 @@ func TestTableMetaCache_GetTableMeta_EmptyTableName(t *testing.T) {
 	cache := NewTableMetaInstance(db, cfg)
 	ctx := context.Background()
 
-	tableMeta, err := cache.GetTableMeta(ctx, "test_db", "")
+	tableMeta, err := cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db"})
 	assert.Error(t, err)
 	assert.Nil(t, tableMeta)
 	assert.Contains(t, err.Error(), "table name is empty")
@@ -146,7 +173,7 @@ func TestTableMetaCache_GetTableMeta_Success(t *testing.T) {
 	cache := NewTableMetaInstance(db, cfg)
 	ctx := context.Background()
 
-	tableMeta, err := cache.GetTableMeta(ctx, "test_db", "users")
+	tableMeta, err := cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "users"})
 
 	if err != nil {
 		assert.Contains(t, err.Error(), "")
@@ -174,7 +201,7 @@ func TestTableMetaCache_GetTableMeta_DBConnectionError(t *testing.T) {
 	cache := NewTableMetaInstance(db, cfg)
 	ctx := context.Background()
 
-	tableMeta, err := cache.GetTableMeta(ctx, "test_db", "users")
+	tableMeta, err := cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "users"})
 	assert.Error(t, err)
 	assert.Nil(t, tableMeta)
 }
@@ -214,7 +241,7 @@ func TestTableMetaCache_GetTableMeta_CacheHit(t *testing.T) {
 		WithArgs("test_db", "test_table").
 		WillReturnRows(indexRows)
 
-	_, err = cache.GetTableMeta(ctx, "test_db", "test_table")
+	_, err = cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "test_table"})
 
 	if err == nil {
 		t.Log("Successfully tested GetTableMeta code path")
@@ -295,7 +322,7 @@ func TestTableMetaCache_ConcurrentAccess(t *testing.T) {
 	done := make(chan bool, 3)
 	for i := 0; i < 3; i++ {
 		go func() {
-			_, _ = cache.GetTableMeta(ctx, "test_db", "test_table")
+			_, _ = cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "test_table"})
 			done <- true
 		}()
 	}
@@ -337,7 +364,7 @@ func TestTableMetaCache_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err = cache.GetTableMeta(ctx, "test_db", "test_table")
+	_, err = cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "test_table"})
 	assert.Error(t, err)
 }
 
@@ -362,6 +389,6 @@ func TestTableMetaCache_ErrorFromBaseCache(t *testing.T) {
 	cache := NewTableMetaInstance(db, cfg)
 	ctx := context.Background()
 
-	_, err = cache.GetTableMeta(ctx, "test_db", "error_table")
+	_, err = cache.GetTableMeta(ctx, types.TableMetaKey{DBName: "test_db", TableName: "error_table"})
 	assert.Error(t, err)
 }

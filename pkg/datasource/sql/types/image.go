@@ -114,7 +114,8 @@ type RecordImage struct {
 	// index
 	index int32 `json:"-"`
 	// TableName table name
-	TableName string `json:"tableName"`
+	TableName    string        `json:"tableName"`
+	TableMetaKey *TableMetaKey `json:"tableMetaKey,omitempty"`
 	// SQLType sql type
 	SQLType SQLType `json:"sqlType"`
 	// Rows data row

@@ -29,6 +29,10 @@ import (
 
 // IsRecordsEquals check before record and after record if equal
 func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordImage) (bool, error) {
+	return isRecordsEqualsForDB(beforeImage, afterImage, types.DBTypeMySQL)
+}
+
+func isRecordsEqualsForDB(beforeImage *types.RecordImage, afterImage *types.RecordImage, dbType types.DBType) (bool, error) {
 	if beforeImage == nil && afterImage == nil {
 		return true, nil
 	}
@@ -43,15 +47,15 @@ func IsRecordsEquals(beforeImage *types.RecordImage, afterImage *types.RecordIma
 		return true, nil
 	}
 
-	return compareRows(*beforeImage.TableMeta, beforeImage.Rows, afterImage.Rows)
+	return compareRows(*beforeImage.TableMeta, beforeImage.Rows, afterImage.Rows, dbType)
 }
 
-func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage) (bool, error) {
-	oldRowMap, err := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName())
+func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []types.RowImage, dbType types.DBType) (bool, error) {
+	oldRowMap, err := rowListToMap(oldRows, tableMeta.GetPrimaryKeyOnlyName(), dbType)
 	if err != nil {
 		return false, err
 	}
-	newRowMap, err := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName())
+	newRowMap, err := rowListToMap(newRows, tableMeta.GetPrimaryKeyOnlyName(), dbType)
 	if err != nil {
 		return false, err
 	}
@@ -73,7 +77,17 @@ func compareRows(tableMeta types.TableMeta, oldRows []types.RowImage, newRows []
 	return true, nil
 }
 
-func rowListToMap(rows []types.RowImage, primaryKeyList []string) (map[string]map[string]interface{}, error) {
+func comparisonColumnName(name string, dbType types.DBType) string {
+	if dbType == types.DBTypePostgreSQL {
+		return util.DelEscape(name, dbType)
+	}
+	return strings.ToLower(util.DelEscape(name, types.DBTypeMySQL))
+}
+
+func rowListToMap(rows []types.RowImage, primaryKeyList []string, dbType types.DBType) (map[string]map[string]interface{}, error) {
+	if dbType != types.DBTypePostgreSQL {
+		dbType = types.DBTypeMySQL
+	}
 	if len(primaryKeyList) == 0 {
 		return nil, fmt.Errorf("primary key list is empty")
 	}
@@ -83,18 +97,22 @@ func rowListToMap(rows []types.RowImage, primaryKeyList []string) (map[string]ma
 		columnMap := make(map[string]*types.ColumnImage, len(row.Columns))
 
 		for i, column := range row.Columns {
-			cleanName := util.DelEscape(column.ColumnName, types.DBTypeMySQL)
-			name := strings.ToLower(cleanName)
+			cleanName := util.DelEscape(column.ColumnName, dbType)
+			name := comparisonColumnName(column.ColumnName, dbType)
 			if _, ok := columnMap[name]; ok {
 				return nil, fmt.Errorf("column %q found more than once in row image", cleanName)
 			}
 			columnMap[name] = &row.Columns[i]
-			fieldMap[strings.ToUpper(cleanName)] = column.Value
+			fieldName := cleanName
+			if dbType != types.DBTypePostgreSQL {
+				fieldName = strings.ToUpper(cleanName)
+			}
+			fieldMap[fieldName] = column.Value
 		}
 
 		var rowKey strings.Builder
 		for _, primaryKey := range primaryKeyList {
-			column, ok := columnMap[strings.ToLower(util.DelEscape(primaryKey, types.DBTypeMySQL))]
+			column, ok := columnMap[comparisonColumnName(primaryKey, dbType)]
 			if !ok {
 				return nil, fmt.Errorf("primary key %q not found in row image", primaryKey)
 			}

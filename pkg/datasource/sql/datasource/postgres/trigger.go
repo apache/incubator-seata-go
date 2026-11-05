@@ -28,24 +28,24 @@ import (
 )
 
 type postgresTrigger struct {
-	getColumnMetasFn func(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error)
-	getIndexesFn     func(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error)
+	getColumnMetasFn func(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) ([]types.ColumnMeta, error)
+	getIndexesFn     func(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) ([]types.IndexMeta, error)
 }
 
 func NewPostgresTrigger() *postgresTrigger {
 	return &postgresTrigger{}
 }
 
-func (p *postgresTrigger) LoadOne(ctx context.Context, dbName string, tableName string, conn *sql.Conn) (*types.TableMeta, error) {
+func (p *postgresTrigger) LoadOne(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) (*types.TableMeta, error) {
 	tableMeta := types.TableMeta{
-		TableName: tableName,
+		TableName: key.Schema + "." + key.TableName,
 		Columns:   make(map[string]types.ColumnMeta),
 		Indexs:    make(map[string]types.IndexMeta),
 	}
 
-	columnMetas, err := p.getColumnMetas(ctx, dbName, tableName, conn)
+	columnMetas, err := p.getColumnMetas(ctx, key, conn)
 	if err != nil {
-		return nil, fmt.Errorf("load postgres column metadata for table %s: %w", tableName, err)
+		return nil, fmt.Errorf("load postgres column metadata for table %s: %w", key.TableName, err)
 	}
 
 	columns := make([]string, 0, len(columnMetas))
@@ -55,9 +55,9 @@ func (p *postgresTrigger) LoadOne(ctx context.Context, dbName string, tableName 
 	}
 	tableMeta.ColumnNames = columns
 
-	indexes, err := p.getIndexes(ctx, dbName, tableName, conn)
+	indexes, err := p.getIndexes(ctx, key, conn)
 	if err != nil {
-		return nil, fmt.Errorf("load postgres index metadata for table %s: %w", tableName, err)
+		return nil, fmt.Errorf("load postgres index metadata for table %s: %w", key.TableName, err)
 	}
 
 	for _, index := range indexes {
@@ -74,36 +74,34 @@ func (p *postgresTrigger) LoadOne(ctx context.Context, dbName string, tableName 
 	}
 
 	if len(tableMeta.Indexs) == 0 {
-		return nil, fmt.Errorf("could not find any index in the table: %s", tableName)
+		return nil, fmt.Errorf("could not find any index in the table: %s", key.TableName)
 	}
 
 	return &tableMeta, nil
 }
 
-func (p *postgresTrigger) LoadAll(ctx context.Context, dbName string, conn *sql.Conn, tables ...string) ([]types.TableMeta, error) {
-	tableMetas := make([]types.TableMeta, 0, len(tables))
-	for _, tableName := range tables {
-		tableMeta, err := p.LoadOne(ctx, dbName, tableName, conn)
+func (p *postgresTrigger) LoadAll(ctx context.Context, conn *sql.Conn, keys ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
+	tableMetas := make(map[types.TableMetaKey]types.TableMeta, len(keys))
+	for _, key := range keys {
+		tableMeta, err := p.LoadOne(ctx, key, conn)
 		if err != nil {
 			continue
 		}
 
-		tableMetas = append(tableMetas, *tableMeta)
+		tableMetas[key] = *tableMeta
 	}
 
 	return tableMetas, nil
 }
 
-func (p *postgresTrigger) getColumnMetas(ctx context.Context, dbName string, table string, conn *sql.Conn) ([]types.ColumnMeta, error) {
+func (p *postgresTrigger) getColumnMetas(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) ([]types.ColumnMeta, error) {
 	if p.getColumnMetasFn != nil {
-		return p.getColumnMetasFn(ctx, dbName, table, conn)
+		return p.getColumnMetasFn(ctx, key, conn)
 	}
 
-	_ = dbName
-	schemaName, tableName := splitSchemaAndTable(table)
 	query := util.RewritePlaceholders(
 		"SELECT table_name, table_schema, column_name, data_type, udt_name, is_nullable, column_default, is_identity "+
-			"FROM information_schema.columns WHERE table_schema = COALESCE(NULLIF(?, ''), current_schema()) AND table_name = ? ORDER BY ordinal_position",
+			"FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
 		types.DBTypePostgreSQL,
 	)
 
@@ -113,7 +111,7 @@ func (p *postgresTrigger) getColumnMetas(ctx context.Context, dbName string, tab
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(schemaName, tableName)
+	rows, err := stmt.Query(key.Schema, key.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +174,11 @@ func (p *postgresTrigger) getColumnMetas(ctx context.Context, dbName string, tab
 	return columnMetas, nil
 }
 
-func (p *postgresTrigger) getIndexes(ctx context.Context, dbName string, tableName string, conn *sql.Conn) ([]types.IndexMeta, error) {
+func (p *postgresTrigger) getIndexes(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) ([]types.IndexMeta, error) {
 	if p.getIndexesFn != nil {
-		return p.getIndexesFn(ctx, dbName, tableName, conn)
+		return p.getIndexesFn(ctx, key, conn)
 	}
 
-	_ = dbName
-	schemaName, tableName := splitSchemaAndTable(tableName)
 	query := util.RewritePlaceholders(
 		"SELECT ic.relname AS index_name, a.attname AS column_name, ix.indisprimary, ix.indisunique "+
 			"FROM pg_class tc "+
@@ -191,7 +187,7 @@ func (p *postgresTrigger) getIndexes(ctx context.Context, dbName string, tableNa
 			"JOIN pg_class ic ON ic.oid = ix.indexrelid "+
 			"JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS cols(attnum, ordinality) ON TRUE "+
 			"JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = cols.attnum "+
-			"WHERE ns.nspname = COALESCE(NULLIF(?, ''), current_schema()) AND tc.relname = ? ORDER BY ic.relname, cols.ordinality",
+			"WHERE ns.nspname = ? AND tc.relname = ? ORDER BY ic.relname, cols.ordinality",
 		types.DBTypePostgreSQL,
 	)
 
@@ -201,7 +197,7 @@ func (p *postgresTrigger) getIndexes(ctx context.Context, dbName string, tableNa
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(schemaName, tableName)
+	rows, err := stmt.Query(key.Schema, key.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -221,8 +217,8 @@ func (p *postgresTrigger) getIndexes(ctx context.Context, dbName string, tableNa
 		}
 
 		index := types.IndexMeta{
-			Schema:     dbName,
-			Table:      tableName,
+			Schema:     key.Schema,
+			Table:      key.TableName,
 			Name:       indexName,
 			ColumnName: columnName,
 			Columns:    make([]types.ColumnMeta, 0),
@@ -245,13 +241,4 @@ func (p *postgresTrigger) getIndexes(ctx context.Context, dbName string, tableNa
 	}
 
 	return result, nil
-}
-
-func splitSchemaAndTable(tableName string) (string, string) {
-	cleanTableName := util.DelEscape(tableName, types.DBTypePostgreSQL)
-	parts := strings.SplitN(cleanTableName, ".", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return "", cleanTableName
 }

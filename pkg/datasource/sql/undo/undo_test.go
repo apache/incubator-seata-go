@@ -52,7 +52,7 @@ func (m *mockUndoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, con
 	return args.Error(0)
 }
 
-func (m *mockUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string) error {
+func (m *mockUndoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, conn *sql.DB, dbName string, metaReader types.TableMetaReader) error {
 	args := m.Called(ctx, xid, branchID, conn, dbName)
 	return args.Error(0)
 }
@@ -364,4 +364,29 @@ func TestSQLUndoLog_SetTableMeta(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSQLUndoLog_SetTableMetaPreservesQualifiedNames(t *testing.T) {
+	key := &types.TableMetaKey{DBName: "tenant_a", TableName: "orders"}
+	before := &types.RecordImage{TableName: "`tenant_a`.`orders`"}
+	after := &types.RecordImage{TableName: "`tenant_a`.`orders`"}
+	log := SQLUndoLog{TableMetaKey: key, TableName: "`tenant_a`.`orders`", BeforeImage: before, AfterImage: after}
+	meta := &types.TableMeta{TableName: "orders"}
+
+	log.SetTableMeta(meta)
+
+	assert.Equal(t, "`tenant_a`.`orders`", before.TableName)
+	assert.Equal(t, "`tenant_a`.`orders`", after.TableName)
+	assert.Same(t, meta, before.TableMeta)
+	assert.Same(t, meta, after.TableMeta)
+	assert.Same(t, key, before.TableMetaKey)
+	assert.Same(t, key, after.TableMetaKey)
+}
+
+func TestSQLUndoLog_QualifiedTableName(t *testing.T) {
+	log := SQLUndoLog{TableName: "orders", TableMetaKey: &types.TableMetaKey{DBName: "tenant_a", Schema: "Sales", TableName: "Orders"}}
+	assert.Equal(t, "`tenant_a`.`Orders`", log.QualifiedTableName(types.DBTypeMySQL))
+	assert.Equal(t, `"Sales"."Orders"`, log.QualifiedTableName(types.DBTypePostgreSQL))
+	log.TableMetaKey = nil
+	assert.Equal(t, "orders", log.QualifiedTableName(types.DBTypeMySQL))
 }
