@@ -50,6 +50,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### optimize：
 
+- [[#693](https://github.com/apache/incubator-seata-go/issues/693)] 只有一个可用连接时跳过随机数源初始化，并在 Getty 请求响应等待结束后停止超时定时器
 - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] 优化resourceManagerApi和tccResource功能
 
 ### test:

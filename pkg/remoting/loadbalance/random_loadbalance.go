@@ -42,6 +42,9 @@ func RandomLoadBalance(sessions *sync.Map, xid string) connection.Connection {
 	if len(keys) == 0 {
 		return nil
 	}
+	if len(keys) == 1 {
+		return keys[0]
+	}
 	//random in keys
 	randomIndex := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(keys))
 	return keys[randomIndex]

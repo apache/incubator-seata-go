@@ -20,8 +20,8 @@ package getty
 import (
 	"fmt"
 	"sync"
+	"time"
 
-	gxtime "github.com/dubbogo/gost/time"
 	"go.uber.org/atomic"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/codec"
@@ -104,8 +104,10 @@ func (g *GettyRemotingClient) syncCallback(reqMsg message.RpcMessage, respMsg *m
 	// it. Once this returns nobody waits for the response any more, on either
 	// branch, so this is the one place that owns the cleanup.
 	defer g.gettyRemoting.RemoveMessageFuture(reqMsg.ID)
+	timer := time.NewTimer(rpcRequestTimeout)
+	defer timer.Stop()
 	select {
-	case <-gxtime.GetDefaultTimerWheel().After(rpcRequestTimeout):
+	case <-timer.C:
 		log.Errorf("wait resp timeout: %#v", reqMsg)
 		return nil, fmt.Errorf("wait response timeout, request: %#v", reqMsg)
 	case <-respMsg.Done:
