@@ -28,7 +28,6 @@ import (
 	"github.com/bluele/gcache"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/xa"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/rm"

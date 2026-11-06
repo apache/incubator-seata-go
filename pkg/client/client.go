@@ -26,6 +26,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/discovery"
 	"seata.apache.org/seata-go/v2/pkg/integration"
 	"seata.apache.org/seata-go/v2/pkg/protocol"
+	"seata.apache.org/seata-go/v2/pkg/remoting"
 	remoteConfig "seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc"
@@ -113,6 +114,7 @@ func initRmClient(cfg *Config) {
 		default:
 			rm.SetRMRemotingInstance(&gettyRM.GettyRMRemoting{})
 		}
+		remoting.RegisterSessionOpenHook(rm.GetRmCacheInstance().RegisterCachedResources)
 		client.RegisterProcessor()
 		integration.Init()
 		tcc.InitTCC(cfg.TCCConfig.FenceConfig)

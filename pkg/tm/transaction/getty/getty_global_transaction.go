@@ -23,15 +23,35 @@ import (
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
-	"seata.apache.org/seata-go/v2/pkg/remoting/getty"
+	remotinggetty "seata.apache.org/seata-go/v2/pkg/remoting/getty"
 	"seata.apache.org/seata-go/v2/pkg/tm"
+	"seata.apache.org/seata-go/v2/pkg/tm/transaction/endphase"
 	"seata.apache.org/seata-go/v2/pkg/util/backoff"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
-
-	"github.com/pkg/errors"
 )
 
-type GettyGlobalTransactionManager struct{}
+// RemotingClient is the part of the Getty remoting client used by the global
+// transaction manager.
+type RemotingClient interface {
+	SendSyncRequest(msg interface{}) (interface{}, error)
+}
+
+type GettyGlobalTransactionManager struct {
+	remotingClient RemotingClient
+}
+
+// NewGettyGlobalTransactionManager creates a manager backed by remotingClient.
+// A nil client retains the zero-value manager's production behavior.
+func NewGettyGlobalTransactionManager(remotingClient RemotingClient) *GettyGlobalTransactionManager {
+	return &GettyGlobalTransactionManager{remotingClient: remotingClient}
+}
+
+func (g *GettyGlobalTransactionManager) client() RemotingClient {
+	if g.remotingClient != nil {
+		return g.remotingClient
+	}
+	return remotinggetty.GetGettyRemotingClient()
+}
 
 // Begin a global transaction with given timeout and given name.
 func (g *GettyGlobalTransactionManager) Begin(ctx context.Context, timeout time.Duration) error {
@@ -39,7 +59,7 @@ func (g *GettyGlobalTransactionManager) Begin(ctx context.Context, timeout time.
 		TransactionName: tm.GetTxName(ctx),
 		Timeout:         timeout,
 	}
-	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
+	res, err := g.client().SendSyncRequest(req)
 	if err != nil {
 		log.Errorf("GlobalBeginRequest  error %v", err)
 		return err
@@ -58,7 +78,11 @@ func (g *GettyGlobalTransactionManager) Begin(ctx context.Context, timeout time.
 func (g *GettyGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.GlobalTransaction) error {
 	if tm.IsTimeout(ctx) {
 		log.Infof("Rollback: tm detected timeout in global gtr %s", gtr.Xid)
-		if err := tm.GetGlobalTransactionManager().Rollback(ctx, gtr); err != nil {
+		rollbackManager := tm.GetGlobalTransactionManager()
+		if g.remotingClient != nil {
+			rollbackManager = g
+		}
+		if err := rollbackManager.Rollback(ctx, gtr); err != nil {
 			log.Errorf("Rollback transaction failed, error: %v in global gtr % s", err, gtr.Xid)
 			return err
 		}
@@ -84,21 +108,33 @@ func (g *GettyGlobalTransactionManager) Commit(ctx context.Context, gtr *tm.Glob
 	var res interface{}
 	var err error
 	for bf.Ongoing() {
-		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
+		if res, err = g.client().SendSyncRequest(req); err == nil {
 			break
 		}
 		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, err)
 		bf.Wait()
 	}
 
-	if err != nil || bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
-		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, lastErr)
-		return lastErr
+	if endErr := endphase.Err(ctx, err, bf.Err(), res); endErr != nil {
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	resp, ok := res.(message.GlobalCommitResponse)
+	if !ok {
+		endErr := endphase.UnexpectedResponse("global commit", res)
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	if resp.ResultCode != message.ResultCodeSuccess {
+		endErr := endphase.RejectedResponse("global commit", resp.Msg)
+		log.Warnf("send global commit request failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
 	}
 
 	log.Infof("send global commit request success, xid %s", gtr.Xid)
-	gtr.TxStatus = res.(message.GlobalCommitResponse).GlobalStatus
+	gtr.TxStatus = resp.GlobalStatus
 
 	return nil
 }
@@ -126,21 +162,33 @@ func (g *GettyGlobalTransactionManager) Rollback(ctx context.Context, gtr *tm.Gl
 
 	var err error
 	for bf.Ongoing() {
-		if res, err = getty.GetGettyRemotingClient().SendSyncRequest(req); err == nil {
+		if res, err = g.client().SendSyncRequest(req); err == nil {
 			break
 		}
 		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, err)
 		bf.Wait()
 	}
 
-	if err != nil && bf.Err() != nil {
-		lastErr := errors.Wrap(err, bf.Err().Error())
-		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, lastErr)
-		return lastErr
+	if endErr := endphase.Err(ctx, err, bf.Err(), res); endErr != nil {
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	resp, ok := res.(message.GlobalRollbackResponse)
+	if !ok {
+		endErr := endphase.UnexpectedResponse("global rollback", res)
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
+	}
+
+	if resp.ResultCode != message.ResultCodeSuccess {
+		endErr := endphase.RejectedResponse("global rollback", resp.Msg)
+		log.Errorf("GlobalRollbackRequest rollback failed, xid %s, error %v", gtr.Xid, endErr)
+		return endErr
 	}
 
 	log.Infof("GlobalRollbackRequest rollback success, xid %s,", gtr.Xid)
-	gtr.TxStatus = res.(message.GlobalRollbackResponse).GlobalStatus
+	gtr.TxStatus = resp.GlobalStatus
 
 	return nil
 }

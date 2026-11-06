@@ -46,6 +46,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Other packages still use runtime method patches. Keep the full-suite race
+  # gate on the declared minimum toolchain while exercising both migrated
+  # transaction packages on current Go below.
   unit-test:
     name: "unit test"
     runs-on: ubuntu-latest
@@ -63,13 +66,14 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
       - name: "checkout ${{ github.ref }}"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "set up go"
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: "1.20.14"
+          go-version: "1.20.x"
           cache: true
+          cache-dependency-path: go.sum
 
       - name: "run unit tests"
         env:
@@ -98,3 +102,34 @@ jobs:
             test-output.log
           if-no-files-found: warn
           retention-days: 7
+
+  transaction:
+    name: Transaction (Go ${{ matrix.golang }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        golang:
+          - "1.20.x"
+          - oldstable
+          - stable
+
+    steps:
+      - name: "checkout ${{ github.ref }}"
+        uses: actions/checkout@v7
+
+      - name: "set up go"
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.golang }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: "check transaction tests"
+        run: |
+          go test -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+          go test -race -run '^TestGrpcGlobalTransactionBegin$' -count=20 ./pkg/tm/transaction/grpc
+          go test -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -run '^TestGettyGlobalTransaction' -count=20 ./pkg/tm/transaction/getty
+          go test -race -count=1 ./pkg/tm/transaction/...
