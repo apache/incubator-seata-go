@@ -61,8 +61,10 @@ jobs:
           go-version: 1.20.14
           cache: true
 
-      - name: "set up docker"
-        uses: docker/setup-buildx-action@v3
+      - name: "verify runner docker"
+        run: |
+          docker version
+          docker info
 
       - name: "install docker compose"
         run: |
