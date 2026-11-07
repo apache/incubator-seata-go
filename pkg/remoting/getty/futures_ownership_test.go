@@ -34,6 +34,8 @@ func newTestClient() *GettyRemotingClient {
 }
 
 // shortenRequestTimeout keeps the tests off the real 20s wait.
+// It changes a package-level variable: callers and other tests using that
+// variable must not run in parallel, and all waiters must finish before cleanup.
 func shortenRequestTimeout(t *testing.T, d time.Duration) {
 	t.Helper()
 	original := rpcRequestTimeout

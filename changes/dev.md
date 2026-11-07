@@ -55,6 +55,7 @@
 
 ### optimize：
 
+  - [[#693](https://github.com/apache/incubator-seata-go/issues/693)] skip random-source initialization for a single available connection and stop Getty request timeout timers when the response wait ends
   - [[#125](https://github.com/apache/incubator-seata-go/pull/125)] optimize named for the resource manager api and tcc resource
 
 ### test:
