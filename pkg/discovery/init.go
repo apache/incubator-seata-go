@@ -25,12 +25,18 @@ var (
 	registryServiceInstance RegistryService
 )
 
+// InitRegistry initializes the process-wide registry and panics on failure.
+// It has the same lifecycle requirements as InitRegistryWithError.
 func InitRegistry(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) {
 	if err := InitRegistryWithError(serviceConfig, registryConfig); err != nil {
 		panic(fmt.Errorf("init service registry err:%v", err))
 	}
 }
 
+// InitRegistryWithError initializes the process-wide registry for application startup.
+// It does not manage runtime registry replacement. Before initializing again, callers
+// must stop using and close the previous registry. Initialization and registry access
+// must not run concurrently. A failed initialization leaves the existing registry intact.
 func InitRegistryWithError(serviceConfig *ServiceConfig, registryConfig *RegistryConfig) error {
 	if registryConfig == nil {
 		return fmt.Errorf("registry config is nil")

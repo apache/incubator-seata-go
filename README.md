@@ -97,6 +97,8 @@ For more details about principle and design, please go to [Seata wiki page](http
 
 ## How to run？
 
+Seata-go v2 requires Go 1.20 or later.
+
 ```go
 go get seata.apache.org/seata-go/v2@latest
 

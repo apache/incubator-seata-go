@@ -52,15 +52,45 @@ func cloneTestConfig() *NamingServerConfig {
 
 func TestGetInstanceRecreatesClosedClient(t *testing.T) {
 	resetInstance()
+	healthChecks := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/naming/v1/health" {
+			http.NotFound(w, r)
+			return
+		}
+		select {
+		case healthChecks <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
 	t.Cleanup(resetInstance)
 	cfg := cloneTestConfig()
-	cfg.HeartbeatPeriod = 60000
+	cfg.ServerAddr = server.URL
+	cfg.HeartbeatPeriod = 10
+
+	awaitHealthCheck := func() {
+		t.Helper()
+		select {
+		case <-healthChecks:
+		case <-time.After(3 * time.Second):
+			t.Fatal("client did not perform a background health check")
+		}
+	}
 
 	first := GetInstance(cfg)
 	if got := GetInstance(cfg); got != first {
 		t.Fatal("GetInstance did not reuse the active client")
 	}
+	awaitHealthCheck()
 	first.Close()
+	// Close waits for the health-check goroutine. Discard its buffered request so
+	// only a request from the replacement client can satisfy the next assertion.
+	select {
+	case <-healthChecks:
+	default:
+	}
 
 	second := GetInstance(cfg)
 	if second == first {
@@ -71,6 +101,7 @@ func TestGetInstanceRecreatesClosedClient(t *testing.T) {
 		t.Fatal("replacement client is already closed")
 	default:
 	}
+	awaitHealthCheck()
 }
 
 func TestNamingServerRegistryServicesOwnClients(t *testing.T) {
