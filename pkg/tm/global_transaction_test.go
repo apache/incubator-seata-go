@@ -122,9 +122,8 @@ func TestIsTimeoutWithFakeClock(t *testing.T) {
 		{name: "500ms elapsed", timeout: 500 * time.Millisecond, elapsed: 501 * time.Millisecond, want: true},
 		{name: "1s not elapsed", timeout: time.Second, elapsed: 0, want: false},
 		{name: "1s elapsed", timeout: time.Second, elapsed: time.Second + time.Millisecond, want: true},
-		{name: "default zero timeout never expires", timeout: 0, elapsed: time.Hour, want: false},
-		{name: "explicit zero timeout never expires", timeout: 0, elapsed: time.Hour, want: false},
-		{name: "negative timeout never expires", timeout: -time.Second, elapsed: time.Hour, want: false},
+		{name: "zero timeout never expires", timeout: 0, elapsed: time.Hour, want: false},
+		{name: "negative timeout expires immediately", timeout: -time.Second, elapsed: 0, want: true},
 		{name: "very large timeout still running", timeout: 24 * time.Hour, elapsed: time.Second, want: false},
 	}
 

@@ -42,7 +42,7 @@ func SetGlobalTransactionManager(tm GlobalTransactionManager) {
 
 func IsTimeout(ctx context.Context) bool {
 	ti := GetTimeInfo(ctx)
-	if ti == nil || ti.createTime.IsZero() || ti.timeout <= 0 {
+	if ti == nil || ti.createTime.IsZero() || ti.timeout == 0 {
 		return false
 	}
 	return now().Sub(ti.createTime) > ti.timeout
