@@ -95,6 +95,9 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	defer func() {
 		i.afterHooks(ctx, i.execContext)
 	}()
+	if err := i.resolveTableMetaKey(ctx, i.execContext, i.parserCtx); err != nil {
+		return nil, err
+	}
 
 	beforeImage, err := i.beforeImage(ctx)
 	if err != nil {
@@ -107,6 +110,8 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 			return nil, err
 		}
 
+		beforeImage.TableMetaKey = i.execContext.TableMetaKey
+		afterImage.TableMetaKey = i.execContext.TableMetaKey
 		i.execContext.TxCtx.RoundImages.AppendBeofreImage(beforeImage)
 		i.execContext.TxCtx.RoundImages.AppendAfterImage(afterImage)
 		return res, nil
@@ -153,13 +158,7 @@ func (i *insertExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 
 // beforeImage build before image
 func (i *insertExecutor) beforeImage(ctx context.Context) (*types.RecordImage, error) {
-	tableCache, err := i.getTableCache(i.dbType())
-	if err != nil {
-		return nil, err
-	}
-
-	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -173,13 +172,7 @@ func (i *insertExecutor) afterImage(ctx context.Context) (*types.RecordImage, er
 	}
 
 	dbType := i.dbType()
-	tableCache, err := i.getTableCache(dbType)
-	if err != nil {
-		return nil, err
-	}
-
-	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -274,13 +267,7 @@ func primaryKeyValues(row types.RowImage) []interface{} {
 }
 
 func (i *insertExecutor) execPostgreSQLInsert(ctx context.Context) (types.ExecResult, *types.RecordImage, error) {
-	tableCache, err := i.getTableCache(types.DBTypePostgreSQL)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -413,13 +400,8 @@ func trimTrailingSemicolon(query string) string {
 func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driver.NamedValue, error) {
 	// get all pk value
 	dbType := i.dbType()
-	tableCache, err := i.getTableCache(dbType)
-	if err != nil {
-		return "", nil, err
-	}
-
 	tableName, _ := i.parserCtx.GetTableName()
-	meta, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -475,7 +457,7 @@ func (i *insertExecutor) buildAfterImageSQL(ctx context.Context) (string, []driv
 		return "", nil, err
 	}
 	sb.WriteString("SELECT " + strings.Join(selectColumns, ", "))
-	suffix.WriteString(" FROM " + tableName)
+	suffix.WriteString(" FROM " + qualifiedTableName(i.execContext.TableMetaKey, tableName, dbType))
 	whereSQL := i.buildWhereConditionByPKs(pkColumnNameList, rowSize, dbType, maxInSize)
 	suffix.WriteString(" WHERE " + whereSQL + " ")
 	sb.WriteString(suffix.String())
@@ -812,13 +794,7 @@ func (i *insertExecutor) getPkValuesByColumn(ctx context.Context, execCtx *types
 		return nil, nil
 	}
 
-	tableCache, err := i.getTableCache(i.dbType())
-	if err != nil {
-		return nil, err
-	}
-
-	tableName, _ := i.parserCtx.GetTableName()
-	meta, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	meta, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -860,13 +836,7 @@ func (i *insertExecutor) getPkValuesByAuto(ctx context.Context, execCtx *types.E
 		return nil, fmt.Errorf("postgresql auto generated pk retrieval should use RETURNING path")
 	}
 
-	tableCache, err := i.getTableCache(i.dbType())
-	if err != nil {
-		return nil, err
-	}
-
-	tableName, _ := i.parserCtx.GetTableName()
-	metaData, err := tableCache.GetTableMeta(ctx, i.execContext.DBName, tableName)
+	metaData, err := i.getTableMeta(ctx, i.execContext, i.parserCtx)
 	if err != nil {
 		return nil, err
 	}

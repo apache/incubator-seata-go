@@ -66,12 +66,12 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
-	table, err := execCtx.ParseContext.GetTableName()
+	meta, err := selectForUpdateMeta(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
 	// build query primary key sql
-	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, execCtx.MetaDataMap[table])
+	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s SelectForUpdateExecutor) ExecWithNamedValue(ctx context.Context, execCtx
 			return nil, err
 		}
 
-		lockKey := s.buildLockKey(rows, execCtx.MetaDataMap[table])
+		lockKey := s.buildLockKey(rows, meta)
 		if lockKey == "" {
 			break
 		}
@@ -180,12 +180,12 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		originalAutoCommit = execCtx.IsAutoCommit
 	)
 
-	table, err := execCtx.ParseContext.GetTableName()
+	meta, err := selectForUpdateMeta(ctx, execCtx)
 	if err != nil {
 		return nil, err
 	}
 	// build query primary key sql
-	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, execCtx.MetaDataMap[table])
+	selectPKSQL, err := s.buildSelectPKSQL(execCtx.ParseContext.SelectStmt, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 			return nil, err
 		}
 
-		lockKey := s.buildLockKey(rows, execCtx.MetaDataMap[table])
+		lockKey := s.buildLockKey(rows, meta)
 		if lockKey == "" {
 			break
 		}
@@ -274,6 +274,31 @@ func (s SelectForUpdateExecutor) ExecWithValue(ctx context.Context, execCtx *typ
 		execCtx.IsAutoCommit = true
 	}
 	return result, nil
+}
+
+func selectForUpdateMeta(ctx context.Context, execCtx *types.ExecContext) (types.TableMeta, error) {
+	if execCtx.TableMetaReader == nil {
+		return types.TableMeta{}, fmt.Errorf("table metadata reader is nil")
+	}
+	if execCtx.TableMetaKey == nil {
+		ref, err := execCtx.ParseContext.GetTableRef()
+		if err != nil {
+			return types.TableMeta{}, err
+		}
+		key, err := execCtx.TableMetaReader.ResolveTableMetaKey(ctx, execCtx.Conn, ref)
+		if err != nil {
+			return types.TableMeta{}, err
+		}
+		execCtx.TableMetaKey = &key
+	}
+	meta, err := execCtx.TableMetaReader.GetTableMeta(ctx, *execCtx.TableMetaKey)
+	if err != nil {
+		return types.TableMeta{}, err
+	}
+	if meta == nil {
+		return types.TableMeta{}, fmt.Errorf("table metadata is nil")
+	}
+	return *meta, nil
 }
 
 // buildSelectSQLByUpdate build select sql from update sql

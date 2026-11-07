@@ -271,7 +271,7 @@ func TestCompareRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := compareRows(tt.tableMeta, tt.oldRows, tt.newRows)
+			result, err := compareRows(tt.tableMeta, tt.oldRows, tt.newRows, types.DBTypeMySQL)
 
 			assert.Equal(t, tt.expectResult, result)
 			if tt.expectErr {
@@ -299,29 +299,47 @@ func TestCompareRowsUsesMetadataPrimaryKeyOrder(t *testing.T) {
 		{ColumnName: "value", Value: "same"}, {ColumnName: "pk1", Value: 1}, {ColumnName: "pk2", Value: "B"},
 	}}}
 
-	equal, err := compareRows(meta, oldRows, newRows)
+	equal, err := compareRows(meta, oldRows, newRows, types.DBTypeMySQL)
 
 	assert.NoError(t, err)
 	assert.True(t, equal)
 }
 
+func TestCompareRowsColumnCaseFollowsDatabase(t *testing.T) {
+	meta := types.TableMeta{Indexs: map[string]types.IndexMeta{"PRIMARY": {
+		IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{{ColumnName: "id"}},
+	}}}
+	oldRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "id", Value: 1}, {ColumnName: "balance", Value: 10},
+	}}}
+	newRows := []types.RowImage{{Columns: []types.ColumnImage{
+		{ColumnName: "ID", Value: 1}, {ColumnName: "BALANCE", Value: 10},
+	}}}
+	equal, err := compareRows(meta, oldRows, newRows, types.DBTypeMySQL)
+	assert.NoError(t, err)
+	assert.True(t, equal)
+
+	_, err = compareRows(meta, oldRows, newRows, types.DBTypePostgreSQL)
+	assert.ErrorContains(t, err, `primary key "id" not found`)
+}
+
 func TestRowListToMapRejectsInvalidPrimaryKeyProjection(t *testing.T) {
-	_, err := rowListToMap(nil, nil)
+	_, err := rowListToMap(nil, nil, types.DBTypeMySQL)
 	assert.ErrorContains(t, err, "primary key list is empty")
 
 	_, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{
 		{ColumnName: "value", Value: "missing pk"},
-	}}}, []string{"id"})
+	}}}, []string{"id"}, types.DBTypeMySQL)
 	assert.ErrorContains(t, err, "primary key \"id\" not found")
 
 	_, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{
 		{ColumnName: "id", Value: 1},
 		{ColumnName: "ID", Value: 1},
-	}}}, []string{"id"})
+	}}}, []string{"id"}, types.DBTypeMySQL)
 	assert.ErrorContains(t, err, "column \"ID\" found more than once")
 
 	duplicate := types.RowImage{Columns: []types.ColumnImage{{ColumnName: "id", Value: 1}}}
-	_, err = rowListToMap([]types.RowImage{duplicate, duplicate}, []string{"id"})
+	_, err = rowListToMap([]types.RowImage{duplicate, duplicate}, []string{"id"}, types.DBTypeMySQL)
 	assert.ErrorContains(t, err, "primary key")
 }
 
@@ -338,7 +356,7 @@ func TestCompositePrimaryKeyEncoding(t *testing.T) {
 	second := row("a"+delimiter+"b", "c", "same")
 	primaryKeys := []string{"pk1", "pk2"}
 
-	rows, err := rowListToMap([]types.RowImage{first, second}, primaryKeys)
+	rows, err := rowListToMap([]types.RowImage{first, second}, primaryKeys, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 2)
 
@@ -349,19 +367,19 @@ func TestCompositePrimaryKeyEncoding(t *testing.T) {
 			Columns: []types.ColumnMeta{{ColumnName: "pk1"}, {ColumnName: "pk2"}},
 		}},
 	}
-	equal, err := compareRows(meta, []types.RowImage{first, second}, []types.RowImage{second, first})
+	equal, err := compareRows(meta, []types.RowImage{first, second}, []types.RowImage{second, first}, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	assert.True(t, equal)
 
-	equal, err = compareRows(meta, []types.RowImage{first, second}, []types.RowImage{row("a"+delimiter+"b", "c", "changed"), first})
+	equal, err = compareRows(meta, []types.RowImage{first, second}, []types.RowImage{row("a"+delimiter+"b", "c", "changed"), first}, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	assert.False(t, equal)
 
-	rows, err = rowListToMap([]types.RowImage{row(nil, "x", nil), row("<nil>", "x", nil)}, primaryKeys)
+	rows, err = rowListToMap([]types.RowImage{row(nil, "x", nil), row("<nil>", "x", nil)}, primaryKeys, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 2)
 
-	rows, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{{ColumnName: "id", Value: delimiter}}}}, []string{"id"})
+	rows, err = rowListToMap([]types.RowImage{{Columns: []types.ColumnImage{{ColumnName: "id", Value: delimiter}}}}, []string{"id"}, types.DBTypeMySQL)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 1)
 }
@@ -416,7 +434,7 @@ func TestRowListToMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := rowListToMap(tt.rows, tt.primaryKeyList)
+			result, err := rowListToMap(tt.rows, tt.primaryKeyList, types.DBTypeMySQL)
 
 			assert.NoError(t, err)
 			assert.Len(t, result, tt.expectedCount)
@@ -590,7 +608,7 @@ func TestRowListToMap_EscapedColumnNames(t *testing.T) {
 	}
 	primaryKeyList := []string{"id"}
 
-	result, err := rowListToMap(rows, primaryKeyList)
+	result, err := rowListToMap(rows, primaryKeyList, types.DBTypeMySQL)
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -665,7 +683,7 @@ func TestRowListToMap_CompositePK_ColumnOrderIndependent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotMap, err := rowListToMap(tt.rows, primaryKeyList)
+			gotMap, err := rowListToMap(tt.rows, primaryKeyList, types.DBTypeMySQL)
 
 			assert.NoError(t, err)
 			assert.Len(t, gotMap, 1)
@@ -687,7 +705,7 @@ func TestRowListToMap_MissingPKReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := rowListToMap(rows, primaryKeyList)
+	_, err := rowListToMap(rows, primaryKeyList, types.DBTypeMySQL)
 	assert.ErrorContains(t, err, "primary key \"tenant_id\" not found")
 }
 
@@ -711,9 +729,9 @@ func TestRowListToMap_CollisionPrevention(t *testing.T) {
 		},
 	}
 
-	mapA, err := rowListToMap(rowsA, primaryKeyList)
+	mapA, err := rowListToMap(rowsA, primaryKeyList, types.DBTypeMySQL)
 	assert.NoError(t, err)
-	mapB, err := rowListToMap(rowsB, primaryKeyList)
+	mapB, err := rowListToMap(rowsB, primaryKeyList, types.DBTypeMySQL)
 	assert.NoError(t, err)
 
 	var keyA, keyB string

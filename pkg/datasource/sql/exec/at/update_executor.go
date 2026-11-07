@@ -30,11 +30,10 @@ import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
 
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/util/bytes"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
@@ -66,6 +65,9 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 	defer func() {
 		u.afterHooks(ctx, u.execContext)
 	}()
+	if err := u.resolveTableMetaKey(ctx, u.execContext, u.parserCtx); err != nil {
+		return nil, err
+	}
 
 	beforeImage, err := u.beforeImage(ctx)
 	if err != nil {
@@ -105,8 +107,7 @@ func (u *updateExecutor) beforeImage(ctx context.Context) (*types.RecordImage, e
 		return nil, err
 	}
 
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +184,7 @@ func (u *updateExecutor) afterImage(ctx context.Context, beforeImage types.Recor
 	}
 
 	dbType := effectiveDBType(u.execContext.DBType)
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := datasource.GetTableCache(dbType).GetTableMeta(ctx, u.execContext.DBName, tableName)
+	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -267,13 +267,17 @@ func (u *updateExecutor) buildAfterImageSQL(beforeImage types.RecordImage, meta 
 	var separator = ","
 	if undo.UndoConfig.OnlyCareUpdateColumns {
 		for _, column := range beforeImage.Rows[0].Columns {
-			selectFields += column.ColumnName + separator
+			columnName := column.ColumnName
+			if dbType == types.DBTypePostgreSQL {
+				columnName = `"` + strings.ReplaceAll(columnName, `"`, `""`) + `"`
+			}
+			selectFields += columnName + separator
 		}
 		selectFields = strings.TrimSuffix(selectFields, separator)
 	} else {
 		selectFields = "*"
 	}
-	sb.WriteString("SELECT " + selectFields + " FROM " + util.AddEscape(meta.TableName, dbType) + " WHERE ")
+	sb.WriteString("SELECT " + selectFields + " FROM " + qualifiedTableName(u.execContext.TableMetaKey, util.AddEscape(meta.TableName, dbType), dbType) + " WHERE ")
 	whereSQL := u.buildWhereConditionByPKs(meta.GetPrimaryKeyOnlyName(), len(beforeImage.Rows), dbType, maxInSize)
 	sb.WriteString(" " + whereSQL + " ")
 	return u.normalizeGeneratedSQL(sb.String(), dbType), u.buildPKParams(beforeImage.Rows, meta.GetPrimaryKeyOnlyName(), dbType)
@@ -288,14 +292,15 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 
 	dbType := effectiveDBType(u.execContext.DBType)
 	updateStmt := u.parserCtx.UpdateStmt
-	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
-	tableCache, err := u.getTableCache(dbType)
-	if err != nil {
-		return "", nil, err
+	if dbType == types.DBTypePostgreSQL {
+		var err error
+		updateStmt, err = parser.ParsePostgreSQLUpdateForImage(updateStmt.Text())
+		if err != nil {
+			return "", nil, err
+		}
 	}
-
-	tableName, _ := u.parserCtx.GetTableName()
-	metaData, err := tableCache.GetTableMeta(ctx, u.execContext.DBName, tableName)
+	fields := make([]*ast.SelectField, 0, len(updateStmt.List))
+	metaData, err := u.getTableMeta(ctx, u.execContext, u.parserCtx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -306,6 +311,12 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	if undo.UndoConfig.OnlyCareUpdateColumns {
+		columnIdentity := func(name string) string {
+			if dbType == types.DBTypePostgreSQL {
+				return name
+			}
+			return strings.ToLower(name)
+		}
 		selectedColumns := make(map[string]struct{}, len(updateStmt.List))
 		for _, column := range updateStmt.List {
 			fields = append(fields, &ast.SelectField{
@@ -313,12 +324,12 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 					Name: column.Column,
 				},
 			})
-			selectedColumns[strings.ToLower(column.Column.Name.O)] = struct{}{}
+			selectedColumns[columnIdentity(column.Column.Name.O)] = struct{}{}
 		}
 
 		// select indexes columns
 		for _, columnName := range metaData.GetPrimaryKeyOnlyName() {
-			if _, ok := selectedColumns[strings.ToLower(columnName)]; ok {
+			if _, ok := selectedColumns[columnIdentity(columnName)]; ok {
 				continue
 			}
 			fields = append(fields, &ast.SelectField{
@@ -332,6 +343,8 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 				},
 			})
 		}
+	} else if dbType == types.DBTypePostgreSQL {
+		fields = append(fields, &ast.SelectField{WildCard: &ast.WildCardField{}})
 	} else {
 		fields = append(fields, &ast.SelectField{
 			Expr: &ast.ColumnNameExpr{
@@ -345,9 +358,17 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		})
 	}
 
+	from := updateStmt.TableRefs
+	if dbType == types.DBTypePostgreSQL {
+		from, err = postgresAuxiliaryQueryTable(from, u.execContext.TableMetaKey)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	selStmt := ast.SelectStmt{
 		SelectStmtOpts: &ast.SelectStmtOpts{},
-		From:           updateStmt.TableRefs,
+		From:           from,
 		Where:          updateStmt.Where,
 		Fields:         &ast.FieldList{Fields: fields},
 		OrderBy:        updateStmt.Order,
@@ -358,9 +379,10 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		},
 	}
 
-	b := bytes.NewByteBuffer([]byte{})
-	_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, b))
-	sql := u.normalizeGeneratedSQL(string(b.Bytes()), dbType)
+	sql, err := u.restoreImageSelectSQL(&selStmt, dbType)
+	if err != nil {
+		return "", nil, err
+	}
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
 	if dbType == types.DBTypePostgreSQL {
@@ -368,6 +390,62 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 	}
 
 	return sql, u.buildSelectArgs(&selStmt, args), nil
+}
+
+// postgresAuxiliaryQueryTable changes only the auxiliary query's table identity. Other
+// identifiers retain their original restore behavior, including case folding.
+func postgresAuxiliaryQueryTable(from *ast.TableRefsClause, key *types.TableMetaKey) (*ast.TableRefsClause, error) {
+	if from == nil || from.TableRefs == nil || key == nil {
+		return nil, fmt.Errorf("postgres auxiliary query table identity is missing")
+	}
+	// Follow GetTableRef's path to the first table, copying each enclosing node.
+	var qualify func(ast.ResultSetNode) (ast.ResultSetNode, error)
+	qualify = func(node ast.ResultSetNode) (ast.ResultSetNode, error) {
+		switch source := node.(type) {
+		case *ast.Join:
+			left, err := qualify(source.Left)
+			if err != nil {
+				return nil, err
+			}
+			qualified := *source
+			qualified.Left = left
+			return &qualified, nil
+		case *ast.TableSource:
+			table, err := qualify(source.Source)
+			if err != nil {
+				return nil, err
+			}
+			qualified := *source
+			qualified.Source = table
+			return &qualified, nil
+		case *ast.TableName:
+			qualified := *source
+			qualified.Schema = model.NewCIStr(key.Schema)
+			qualified.Name = model.NewCIStr(key.TableName)
+			return &postgresAuxiliaryQueryTableName{TableName: &qualified}, nil
+		default:
+			return nil, fmt.Errorf("postgres auxiliary query source is not a table name")
+		}
+	}
+	qualifiedSource, err := qualify(from.TableRefs.Left)
+	if err != nil {
+		return nil, err
+	}
+	qualifiedJoin := *from.TableRefs
+	qualifiedJoin.Left = qualifiedSource
+	qualifiedFrom := *from
+	qualifiedFrom.TableRefs = &qualifiedJoin
+	return &qualifiedFrom, nil
+}
+
+type postgresAuxiliaryQueryTableName struct {
+	*ast.TableName
+}
+
+func (t *postgresAuxiliaryQueryTableName) Restore(ctx *format.RestoreCtx) error {
+	tableCtx := *ctx
+	tableCtx.Flags |= format.RestoreNameDoubleQuotes
+	return t.TableName.Restore(&tableCtx)
 }
 
 func (u *updateExecutor) validatePrimaryKeyAssignments(metaData *types.TableMeta) error {

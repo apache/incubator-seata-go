@@ -83,3 +83,20 @@ func TestMultiExecutorFallsBackToSequentialWhenStatementSpecificHookExists(t *te
 	assert.Equal(t, 2, updateHook.beforeCount)
 	assert.Equal(t, 2, updateHook.afterCount)
 }
+
+func TestMultiExecutorWriteDatabaseBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		query      string
+		currentDB  string
+		wantReject bool
+	}{
+		{"later write in batch", "UPDATE db_a.account SET balance=1 WHERE id=1; DELETE FROM db_b.account WHERE id=2", "", true},
+		{"aggregate writes", "UPDATE db_b.account SET balance=1 WHERE id=1; UPDATE db_b.account SET balance=2 WHERE id=2", "", true},
+		{"same database batch", "INSERT INTO db_a.account (id) VALUES (1); UPDATE db_a.account SET balance=2", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkWriteDatabaseBoundary(t, tc.query, tc.currentDB, tc.wantReject)
+		})
+	}
+}

@@ -117,5 +117,5 @@ func (m *mySQLUndoUpdateExecutor) buildUndoSQL(dbType types.DBType) (string, err
 
 	// UpdateSqlTemplate UPDATE a SET x = ?, y = ?, z = ? WHERE pk1 in (?) pk2 in (?)
 	updateSqlTemplate := "UPDATE %s SET %s WHERE %s "
-	return util.RewritePlaceholders(fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.TableName, updateColumns, whereSql), dbType), nil
+	return util.RewritePlaceholders(fmt.Sprintf(updateSqlTemplate, m.sqlUndoLog.QualifiedTableName(dbType), updateColumns, whereSql), dbType), nil
 }

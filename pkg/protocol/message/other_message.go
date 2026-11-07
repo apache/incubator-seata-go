@@ -17,6 +17,8 @@
 
 package message
 
+import "sync/atomic"
+
 type RpcMessage struct {
 	ID         int32
 	Type       RequestType
@@ -31,6 +33,12 @@ type MessageFuture struct {
 	Err      error
 	Response interface{}
 	Done     chan struct{}
+
+	// completed guards Response so at most one caller ever writes it. Complete
+	// can be called from more than one goroutine for the same future: both
+	// transports decode each incoming message in its own goroutine, so two
+	// responses for the same ID race to complete the same future.
+	completed atomic.Bool
 }
 
 func NewMessageFuture(message RpcMessage) *MessageFuture {
@@ -38,6 +46,20 @@ func NewMessageFuture(message RpcMessage) *MessageFuture {
 		ID:   message.ID,
 		Done: make(chan struct{}, 1), // Buffered channel prevents lost signals in timeout race
 	}
+}
+
+// Complete records the response and wakes the waiter, reporting whether it
+// signaled. Only the caller that wins the completed flag writes Response,
+// which is what makes a concurrent duplicate call safe: a loser returns
+// false without touching Response, rather than racing the winner's write or
+// clobbering it after the waiter has already read it.
+func (f *MessageFuture) Complete(response interface{}) bool {
+	if !f.completed.CompareAndSwap(false, true) {
+		return false
+	}
+	f.Response = response
+	f.Done <- struct{}{}
+	return true
 }
 
 type HeartBeatMessage struct {

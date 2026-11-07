@@ -300,9 +300,7 @@ func TestQueryResult(t *testing.T) {
 	result := &queryResult{Rows: rows}
 
 	assert.Equal(t, rows, result.GetRows())
-	assert.Panics(t, func() {
-		result.GetResult()
-	})
+	assert.Nil(t, result.GetResult())
 }
 
 func TestWriteResult(t *testing.T) {

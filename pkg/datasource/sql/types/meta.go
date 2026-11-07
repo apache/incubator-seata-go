@@ -18,10 +18,33 @@
 package types
 
 import (
+	"context"
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"sort"
 )
+
+// TableMetaKey identifies a table within a database resource.
+type TableMetaKey struct {
+	DBName    string `json:"dbName"`
+	Schema    string `json:"schema"`
+	TableName string `json:"tableName"`
+}
+
+// TableRef is the table identity as written in a SQL statement.
+type TableRef struct {
+	Qualifier       string
+	TableName       string
+	QualifierQuoted bool
+	TableNameQuoted bool
+}
+
+// TableMetaReader resolves table references and reads their metadata.
+type TableMetaReader interface {
+	ResolveTableMetaKey(ctx context.Context, conn driver.Conn, ref TableRef) (TableMetaKey, error)
+	GetTableMeta(ctx context.Context, key TableMetaKey) (*TableMeta, error)
+}
 
 // ColumnMeta
 type ColumnMeta struct {
