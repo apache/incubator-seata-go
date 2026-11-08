@@ -27,7 +27,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	google.golang.org/grpc v1.83.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -110,7 +110,7 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -119,14 +119,14 @@ require (
 
 require (
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
-	github.com/klauspost/compress v1.15.11
+	github.com/klauspost/compress v1.20.3
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pingcap/log v0.0.0-20210906054005-afc726e70354 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
