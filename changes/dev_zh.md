@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] 修复 XA 回滚失败后清理分支状态导致的 panic，丢弃回滚失败的连接，并在池连接启动新分支时重置回滚状态
 - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] 修复 remoting session 重连后未重新注册缓存 RM 资源的问题
 - [[#1203](https://github.com/apache/incubator-seata-go/issues/1203)] 修复多 TC 集群中 TM、RM 注册请求可能被发送到其他 TC 的问题，改为通过刚重连的 Getty session 或 gRPC channel 发送
 - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表
