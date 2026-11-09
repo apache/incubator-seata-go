@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
+	"seata.apache.org/seata-go/v2/pkg/protocol/connection"
 )
 
 // Resource that can be managed by Resource Manager and involved into global transaction
@@ -109,4 +110,11 @@ type RMRemoting interface {
 	BranchReport(param BranchReportParam) error
 	LockQuery(param LockQueryParam) (bool, error)
 	RegisterResource(resource Resource) error
+}
+
+// ConnectionAwareRMRemoting can send a resource registration through a specific remoting
+// connection. It is an optional extension to keep existing RMRemoting implementations compatible.
+type ConnectionAwareRMRemoting interface {
+	RMRemoting
+	RegisterResourceOnConnection(resource Resource, conn connection.Connection) error
 }
