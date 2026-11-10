@@ -16,56 +16,68 @@
 #
 
 coding:
-  - 'pkg/**/*'
-  - 'sample/**/*'
-  - 'test/**/*'
-  - 'cmd/**/*'
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/**/*', 'sample/**/*', 'test/**/*', 'cmd/**/*']
 
 # directory .github
 ci/cd:
-  - any: ['.github/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**/*']
 
 # directory sample
 sample:
-  - any: ['sample/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['sample/**/*']
 
 test:
-  - any: ['test/**/*','testdata/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['test/**/*','testdata/**/*']
 
 # directory cmd
 cmd:
-  - any: ['cmd/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['cmd/**/*']
 
 # directory changes
 milestone:
-  - any: ['changes/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['changes/**/*']
 
 
 # directory pkg
 common:
-  - any: ['pkg/common/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/common/**/*']
 
 config:
-  - any: ['pkg/config/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/config/**/*']
 
 imports:
-  - any: ['pkg/imports/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/imports/**/*']
 
 integration:
-  - any: ['pkg/integration/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/integration/**/*']
 
 protocol:
-  - any: ['pkg/protocol/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/protocol/**/*']
 
 remoting:
-  - any: ['pkg/remoting/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/remoting/**/*']
 
 rm:
-  - any: ['pkg/rm/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/rm/**/*']
 
 tc:
-  - any: ['pkg/tc/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/tc/**/*']
 
 tm:
-  - any: ['pkg/tm/**/*']
+  - changed-files:
+      - any-glob-to-any-file: ['pkg/tm/**/*']
 
