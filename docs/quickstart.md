@@ -21,7 +21,7 @@
 
 - Go >= 1.26.10. For Go 1.27.x, use 1.27.3 or newer.
 
-  These patch baselines include the crypto/x509 security fix for CVE-2026-111943. Rebuild and redeploy consumer binaries and images with a patched toolchain; the module's minimum Go version alone does not exclude unpatched Go 1.27.0–1.27.2.
+  **Breaking change:** The minimum Go version is raised from 1.20 to 1.26.10. Rebuild and redeploy applications with a supported toolchain.
 - Java >= 8
 - MySQL >= 8.0
 
