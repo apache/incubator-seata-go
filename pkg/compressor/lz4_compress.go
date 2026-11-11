@@ -27,9 +27,11 @@ type Lz4 struct {
 }
 
 const (
-	// lz4DecompressMaxBufferSize is the absolute ceiling for one block so that a
-	// corrupted or hostile payload cannot make the decoder allocate without bound.
-	lz4DecompressMaxBufferSize = 0x40000000
+	// lz4DecompressMaxBufferSize caps one decoded block so a hostile payload cannot
+	// trick us into multi-MiB (or worse) allocations before the integrity check.
+	// 64 MiB comfortably exceeds any realistic undo row while keeping the ceiling
+	// tight enough to bound worst-case memory in a corrupted-input path.
+	lz4DecompressMaxBufferSize = 0x04000000
 )
 
 func (l *Lz4) Compress(data []byte) ([]byte, error) {
@@ -110,8 +112,11 @@ func lz4DecodedSize(in []byte) (int, error) {
 		if len(in)-si < 2 {
 			return 0, lz4.ErrInvalidSourceShortBuffer
 		}
-		if in[si] == 0 && in[si+1] == 0 {
-			// A match offset of 0 cannot refer to earlier output.
+		// The 16-bit match offset must point into already-produced output.
+		offset := int(in[si]) | int(in[si+1])<<8
+		if offset == 0 || offset > size {
+			// Offset zero cannot refer to earlier output; offset past the
+			// currently produced bytes is impossible in a valid block.
 			return 0, lz4.ErrInvalidSourceShortBuffer
 		}
 		si += 2
