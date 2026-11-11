@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -62,6 +63,7 @@ type phaseTwoTestXAResource struct {
 	classification xa.PhaseTwoErrorClassification
 	classifiedAs   xa.PhaseTwoOperation
 	commitCalls    int
+	endCalls       int
 	prepareCalls   int
 	rollbackCalls  int
 }
@@ -72,6 +74,7 @@ func (r *phaseTwoTestXAResource) Commit(ctx context.Context, xid string, onePhas
 }
 
 func (r *phaseTwoTestXAResource) End(ctx context.Context, xid string, flags int) error {
+	r.endCalls++
 	return nil
 }
 
@@ -121,9 +124,43 @@ func (r *phaseTwoTestXAResource) ClassifyPhaseTwoError(
 	return r.classification
 }
 
+// blockingPhaseTwoTestXAResource lets a test hold the first phase-two call
+// while a duplicate callback reaches the same keeper entry. This makes the
+// second callback exercise the lock-protected terminal-cache check instead of
+// merely taking the fast path before it opens a connection.
+type blockingPhaseTwoTestXAResource struct {
+	phaseTwoTestXAResource
+	commitEntered   chan struct{}
+	releaseCommit   chan struct{}
+	commitOnce      sync.Once
+	rollbackEntered chan struct{}
+	releaseRollback chan struct{}
+	rollbackOnce    sync.Once
+}
+
+func (r *blockingPhaseTwoTestXAResource) Commit(ctx context.Context, xid string, onePhase bool) error {
+	r.commitCalls++
+	r.commitOnce.Do(func() { close(r.commitEntered) })
+	<-r.releaseCommit
+	return r.commitErr
+}
+
+func (r *blockingPhaseTwoTestXAResource) Rollback(ctx context.Context, xid string) error {
+	r.rollbackCalls++
+	if r.rollbackEntered == nil {
+		return r.rollbackErr
+	}
+	r.rollbackOnce.Do(func() { close(r.rollbackEntered) })
+	<-r.releaseRollback
+	return r.rollbackErr
+}
+
 func newPhaseTwoTestManager(
 	t *testing.T,
-	resource *phaseTwoTestXAResource,
+	resource interface {
+		xa.XAResource
+		xa.XAErrorClassifier
+	},
 	classifiers ...xa.XAErrorClassifier,
 ) (*XAResourceManager, rm.BranchResource, string) {
 	t.Helper()
@@ -651,6 +688,107 @@ func TestXAResourceManager_CachedTerminalStatusMakesPhaseTwoIdempotent(t *testin
 		rollbackStatus, rollbackErr := manager.BranchRollback(context.Background(), resource)
 		assert.Error(t, rollbackErr)
 		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbackFailedUnretryable, rollbackStatus)
+		assert.Equal(t, 0, xaResource.rollbackCalls)
+	})
+}
+
+func TestXAResourceManager_ConcurrentPhaseTwoCallbacksAreIdempotent(t *testing.T) {
+	t.Run("same-direction commit executes once", func(t *testing.T) {
+		xaResource := &blockingPhaseTwoTestXAResource{
+			commitEntered:  make(chan struct{}),
+			releaseCommit: make(chan struct{}),
+		}
+		manager, resource, _ := newPhaseTwoTestManager(t, xaResource)
+
+		type result struct {
+			status branch.BranchStatus
+			err    error
+		}
+		results := make(chan result, 2)
+		go func() {
+			status, err := manager.BranchCommit(context.Background(), resource)
+			results <- result{status: status, err: err}
+		}()
+		<-xaResource.commitEntered
+		go func() {
+			status, err := manager.BranchCommit(context.Background(), resource)
+			results <- result{status: status, err: err}
+		}()
+
+		close(xaResource.releaseCommit)
+		first := <-results
+		second := <-results
+		assert.NoError(t, first.err)
+		assert.NoError(t, second.err)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoCommitted, first.status)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoCommitted, second.status)
+		assert.Equal(t, 1, xaResource.commitCalls)
+	})
+
+	t.Run("same-direction rollback executes once", func(t *testing.T) {
+		xaResource := &blockingPhaseTwoTestXAResource{
+			rollbackEntered: make(chan struct{}),
+			releaseRollback: make(chan struct{}),
+		}
+		manager, resource, _ := newPhaseTwoTestManager(t, xaResource)
+
+		type result struct {
+			status branch.BranchStatus
+			err    error
+		}
+		results := make(chan result, 2)
+		go func() {
+			status, err := manager.BranchRollback(context.Background(), resource)
+			results <- result{status: status, err: err}
+		}()
+		<-xaResource.rollbackEntered
+		go func() {
+			status, err := manager.BranchRollback(context.Background(), resource)
+			results <- result{status: status, err: err}
+		}()
+
+		close(xaResource.releaseRollback)
+		first := <-results
+		second := <-results
+		assert.NoError(t, first.err)
+		assert.NoError(t, second.err)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, first.status)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbacked, second.status)
+		assert.Equal(t, 1, xaResource.rollbackCalls)
+	})
+
+	t.Run("opposite-direction callback observes committed terminal state", func(t *testing.T) {
+		xaResource := &blockingPhaseTwoTestXAResource{
+			commitEntered:  make(chan struct{}),
+			releaseCommit: make(chan struct{}),
+		}
+		manager, resource, _ := newPhaseTwoTestManager(t, xaResource)
+
+		type commitResult struct {
+			status branch.BranchStatus
+			err    error
+		}
+		commitDone := make(chan commitResult, 1)
+		go func() {
+			status, err := manager.BranchCommit(context.Background(), resource)
+			commitDone <- commitResult{status: status, err: err}
+		}()
+		<-xaResource.commitEntered
+
+		rollbackDone := make(chan commitResult, 1)
+		go func() {
+			status, err := manager.BranchRollback(context.Background(), resource)
+			rollbackDone <- commitResult{status: status, err: err}
+		}()
+		close(xaResource.releaseCommit)
+
+		commit := <-commitDone
+		rollback := <-rollbackDone
+		assert.NoError(t, commit.err)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoCommitted, commit.status)
+		assert.Error(t, rollback.err)
+		assert.EqualValues(t, branch.BranchStatusPhasetwoRollbackFailedUnretryable, rollback.status)
+		assert.Equal(t, 1, xaResource.commitCalls)
 		assert.Equal(t, 0, xaResource.rollbackCalls)
 	})
 }

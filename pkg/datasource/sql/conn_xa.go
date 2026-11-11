@@ -54,6 +54,8 @@ type XAConn struct {
 	keeperMu            sync.Mutex
 	keepInKeeper        bool
 	shouldBeHeld        bool
+	detachOnPrepareKnown bool
+	detachOnPrepare      bool
 	isConnKept          bool
 	preparedForPhaseTwo bool
 	poolDiscarded       bool
@@ -165,9 +167,15 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		return nil, err
 	}
 
+	c.keeperMu.Lock()
 	if c.xaActive {
+		c.keeperMu.Unlock()
 		return nil, errors.New("should NEVER happen: setAutoCommit from true to false while xa branch is active")
 	}
+	// rollBacked belongs to the active XA branch. A pooled XAConn can be
+	// reused for a different branch after the previous branch was rolled back.
+	c.rollBacked = false
+	c.keeperMu.Unlock()
 
 	baseTx, ok := tx.(*Tx)
 	if !ok {
@@ -191,7 +199,9 @@ func (c *XAConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx,
 		c.cleanXABranchContext()
 		return nil, fmt.Errorf("failed to start xa branch xid:%s err:%w", c.txCtx.XID, err)
 	}
+	c.keeperMu.Lock()
 	c.xaActive = true
+	c.keeperMu.Unlock()
 
 	return &XATx{tx: tx.(*Tx)}, nil
 }
@@ -424,6 +434,10 @@ func (t xaDeferredCommitTx) Rollback() error {
 func (c *XAConn) ResetSession(ctx context.Context) error {
 	c.keeperMu.Lock()
 	c.xaActive = false
+	c.rollBacked = false
+	// ResetSession may restore session variables on the physical connection;
+	// require the next XA branch to probe the effective value again.
+	c.detachOnPrepareKnown = false
 	if c.physicalClosed || c.isConnKept {
 		c.poolDiscarded = true
 		c.keeperMu.Unlock()
@@ -441,20 +455,36 @@ func (c *XAConn) isKept() bool {
 }
 
 func (c *XAConn) configureConnectionHold(ctx context.Context) {
+	c.keeperMu.Lock()
 	c.keepInKeeper = c.res.keepInKeeper
 	c.shouldBeHeld = c.res.IsShouldBeHeld()
-	if !c.res.probeXADetachOnPrepare {
+	probeXADetachOnPrepare := c.res.probeXADetachOnPrepare
+	detachOnPrepareKnown := c.detachOnPrepareKnown
+	detachOnPrepare := c.detachOnPrepare
+	c.keeperMu.Unlock()
+	if !probeXADetachOnPrepare {
+		return
+	}
+	if detachOnPrepareKnown {
+		c.keeperMu.Lock()
+		c.shouldBeHeld = !detachOnPrepare
+		c.keeperMu.Unlock()
 		return
 	}
 
-	detachOnPrepare, err := selectMySQLXADetachOnPrepare(ctx, c.Conn.targetConn)
+	probedDetachOnPrepare, err := selectMySQLXADetachOnPrepare(ctx, c.Conn.targetConn)
+	c.keeperMu.Lock()
+	c.detachOnPrepareKnown = true
+	c.detachOnPrepare = probedDetachOnPrepare
 	if err != nil {
 		// The safe fallback is to retain the actual owner connection.
 		c.shouldBeHeld = true
+		c.keeperMu.Unlock()
 		log.Errorf("probe xa_detach_on_prepare on XA connection: %v", err)
 		return
 	}
-	c.shouldBeHeld = !detachOnPrepare
+	c.shouldBeHeld = !probedDetachOnPrepare
+	c.keeperMu.Unlock()
 }
 
 func (c *XAConn) keepIfNecessary() {
@@ -464,7 +494,11 @@ func (c *XAConn) keepIfNecessary() {
 	if c.xaBranchXid == nil {
 		return
 	}
-	if c.keepInKeeper {
+	// Keep the owner whenever the resource explicitly requires it or when the
+	// database type is unknown. Unknown/custom XA resources must use the
+	// conservative ShouldBeHeld fallback even though DBResource.checkDbVersion
+	// cannot set keepInKeeper for them.
+	if c.keepInKeeper || c.ShouldBeHeld() {
 		if err := c.res.Hold(c.xaBranchXid.String(), c); err == nil {
 			c.isConnKept = true
 		}

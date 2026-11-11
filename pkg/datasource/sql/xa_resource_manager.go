@@ -19,6 +19,7 @@ package sql
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"flag"
 	"fmt"
@@ -172,6 +173,70 @@ func phaseTwoErrorClassifier(connection *XAConn) (xa.XAPhaseTwoErrorClassifier, 
 	return classifier, ok
 }
 
+// xaCommitPhaseTwo serializes the terminal-cache check with the phase-two
+// operation on the physical XA connection. The fast cache check in
+// BranchCommit avoids opening a connection for the common retry case, but it
+// cannot by itself prevent two callbacks that race before the first one has
+// published the terminal status from both reaching the resource. Keep this
+// second check under keeperMu so the callback that acquires ownership second
+// observes the status published by the first callback and remains idempotent.
+func (c *XAConn) xaCommitPhaseTwo(ctx context.Context, xaXid XAXid, beforeRelease func()) (branch.BranchStatus, error) {
+	c.keeperMu.Lock()
+	defer c.keeperMu.Unlock()
+
+	if status, err := branchStatus(xaXid.String()); err == nil {
+		switch status {
+		case branch.BranchStatusPhasetwoCommitted, branch.BranchStatusPhasetwoRollbacked:
+			// A terminal result may have been published by an earlier callback
+			// while the keeper entry was still present. Drop any stale ownership
+			// before returning the idempotent result.
+			c.completePhaseTwoLocked()
+			return status, nil
+		}
+	}
+
+	if c.physicalClosed {
+		return branch.BranchStatusUnknown, driver.ErrBadConn
+	}
+	err := c.xaResource.Commit(ctx, xaXid.String(), false)
+	if err == nil {
+		if beforeRelease != nil {
+			beforeRelease()
+		}
+		c.completePhaseTwoLocked()
+	}
+	return branch.BranchStatusUnknown, err
+}
+
+// xaRollbackPhaseTwo is the rollback counterpart of xaCommitPhaseTwo. The
+// cache check and the resource operation share keeperMu for the same reason:
+// a duplicate callback must not issue a second XA ROLLBACK after the first
+// callback has published a terminal outcome.
+func (c *XAConn) xaRollbackPhaseTwo(ctx context.Context, xaXid XAXid, beforeRelease func()) (branch.BranchStatus, error) {
+	c.keeperMu.Lock()
+	defer c.keeperMu.Unlock()
+
+	if status, err := branchStatus(xaXid.String()); err == nil {
+		switch status {
+		case branch.BranchStatusPhasetwoCommitted, branch.BranchStatusPhasetwoRollbacked:
+			c.completePhaseTwoLocked()
+			return status, nil
+		}
+	}
+
+	if c.physicalClosed {
+		return branch.BranchStatusUnknown, driver.ErrBadConn
+	}
+	err := c.xaResource.Rollback(ctx, xaXid.String())
+	if err == nil {
+		if beforeRelease != nil {
+			beforeRelease()
+		}
+		c.completePhaseTwoLocked()
+	}
+	return branch.BranchStatusUnknown, err
+}
+
 func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchResource rm.BranchResource) (branch.BranchStatus, error) {
 	xaID := xaManager.xaIDBuilder(branchResource.Xid, uint64(branchResource.BranchId))
 	if status, err := branchStatus(xaID.String()); err == nil {
@@ -195,9 +260,21 @@ func (xaManager *XAResourceManager) BranchCommit(ctx context.Context, branchReso
 		defer connectionProxyXA.Close()
 	}
 
-	if err := connectionProxyXA.xaCommit(ctx, xaID, func() {
+	phaseTwoStatus, err := connectionProxyXA.xaCommitPhaseTwo(ctx, xaID, func() {
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoCommitted)
-	}); err != nil {
+	})
+	if err == nil && phaseTwoStatus != branch.BranchStatusUnknown {
+		switch phaseTwoStatus {
+		case branch.BranchStatusPhasetwoCommitted:
+			return branch.BranchStatusPhasetwoCommitted, nil
+		case branch.BranchStatusPhasetwoRollbacked:
+			return branch.BranchStatusPhasetwoCommitFailedUnretryable, fmt.Errorf(
+				"XA branch %s was already rolled back",
+				xaID.String(),
+			)
+		}
+	}
+	if err != nil {
 		log.Errorf("commit xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
 			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoCommit, err) {
@@ -248,9 +325,21 @@ func (xaManager *XAResourceManager) BranchRollback(ctx context.Context, branchRe
 		defer connectionProxyXA.Close()
 	}
 
-	if err = connectionProxyXA.xaRollback(ctx, xaID, func() {
+	phaseTwoStatus, err := connectionProxyXA.xaRollbackPhaseTwo(ctx, xaID, func() {
 		setBranchStatus(xaID.String(), branch.BranchStatusPhasetwoRollbacked)
-	}); err != nil {
+	})
+	if err == nil && phaseTwoStatus != branch.BranchStatusUnknown {
+		switch phaseTwoStatus {
+		case branch.BranchStatusPhasetwoRollbacked:
+			return branch.BranchStatusPhasetwoRollbacked, nil
+		case branch.BranchStatusPhasetwoCommitted:
+			return branch.BranchStatusPhasetwoRollbackFailedUnretryable, fmt.Errorf(
+				"XA branch %s was already committed",
+				xaID.String(),
+			)
+		}
+	}
+	if err != nil {
 		log.Errorf("rollback xa, resourceId: %s, err %v", branchResource.ResourceId, err)
 		if classifier, ok := phaseTwoErrorClassifier(connectionProxyXA); ok {
 			switch classifier.ClassifyPhaseTwoError(xa.PhaseTwoRollback, err) {

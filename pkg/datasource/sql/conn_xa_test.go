@@ -375,6 +375,87 @@ func TestXAConn_ConfigureConnectionHoldUsesActualSessionSetting(t *testing.T) {
 	}
 }
 
+func TestXAConn_ConfigureConnectionHoldCachesSessionSettingPerConnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConn := mock.NewMockTestDriverConn(ctrl)
+	mockConn.EXPECT().QueryContext(
+		gomock.Any(),
+		"SELECT @@session.xa_detach_on_prepare",
+		gomock.Any(),
+	).Return(&mysqlMockRows{data: [][]interface{}{{int64(1)}}}, nil).Times(2)
+	mockConn.EXPECT().ResetSession(gomock.Any()).Return(nil).Times(1)
+
+	resource := &DBResource{
+		dbType:                 types.DBTypeMySQL,
+		probeXADetachOnPrepare: true,
+	}
+	xaConn := &XAConn{
+		Conn: &Conn{
+			targetConn: mockConn,
+			res:        resource,
+			dbType:     types.DBTypeMySQL,
+		},
+	}
+
+	// The same physical connection is reused for two branches. The session
+	// setting is stable, so only the first branch should issue the probe.
+	xaConn.configureConnectionHold(context.Background())
+	xaConn.configureConnectionHold(context.Background())
+	assert.False(t, xaConn.ShouldBeHeld())
+	assert.True(t, xaConn.detachOnPrepareKnown)
+
+	// ResetSession invalidates the per-session cache. A later checkout probes
+	// the effective value again in case the driver reset session variables.
+	assert.NoError(t, xaConn.ResetSession(context.Background()))
+	xaConn.configureConnectionHold(context.Background())
+	assert.False(t, xaConn.ShouldBeHeld())
+}
+
+func TestXAConn_RollbackStateResetsForPooledReuse(t *testing.T) {
+	underlying := &closeErrorDriverConn{}
+	resource := &DBResource{dbType: types.DBTypeMySQL}
+	xaResource := &phaseTwoTestXAResource{}
+	xaConn := &XAConn{
+		Conn: &Conn{
+			targetConn: underlying,
+			res:        resource,
+			txCtx:      types.NewTxCtx(),
+			autoCommit: false,
+			dbType:     types.DBTypeMySQL,
+		},
+		xaResource:        xaResource,
+		xaErrorClassifier: xaResource,
+		xaBranchXid:       XaIdBuild("xid-1", 1),
+		xaActive:          true,
+	}
+	xaConn.txCtx.XID = "xid-1"
+	xaConn.txCtx.BranchID = 1
+
+	assert.NoError(t, xaConn.Rollback(context.Background()))
+	assert.Equal(t, 1, xaResource.endCalls)
+	assert.Equal(t, 1, xaResource.rollbackCalls)
+	assert.True(t, xaConn.rollBacked)
+
+	// database/sql returns the wrapper to the pool. ResetSession must clear the
+	// branch-local rollback marker before the wrapper is reused.
+	assert.NoError(t, xaConn.ResetSession(context.Background()))
+	assert.False(t, xaConn.rollBacked)
+
+	// Simulate the next XA branch on the same physical wrapper.
+	xaConn.autoCommit = false
+	xaConn.txCtx = types.NewTxCtx()
+	xaConn.txCtx.XID = "xid-2"
+	xaConn.txCtx.BranchID = 2
+	xaConn.xaBranchXid = XaIdBuild("xid-2", 2)
+	xaConn.xaActive = true
+
+	assert.NoError(t, xaConn.Rollback(context.Background()))
+	assert.Equal(t, 2, xaResource.endCalls, "the reused branch must issue XA END(TMFAIL)")
+	assert.Equal(t, 2, xaResource.rollbackCalls, "the reused branch must issue XA ROLLBACK")
+}
+
 func initXAConnTestResource(t *testing.T) (*gomock.Controller, *sql.DB, *mockSQLInterceptor, *mockTxHook) {
 	ctrl := gomock.NewController(t)
 
@@ -694,6 +775,24 @@ func TestXAConn_ShouldBeHeld(t *testing.T) {
 			assert.Equal(t, tt.want, conn.ShouldBeHeld())
 		})
 	}
+}
+
+func TestXAConn_KeepIfNecessaryRetainsUnknownDatabaseOwner(t *testing.T) {
+	resource := &DBResource{dbType: types.DBTypeUnknown}
+	xaID := XaIdBuild("xid", 1)
+	conn := &XAConn{
+		Conn: &Conn{res: resource},
+		xaBranchXid: xaID,
+	}
+
+	conn.configureConnectionHold(context.Background())
+	assert.True(t, conn.ShouldBeHeld(), "unknown XA resources must conservatively retain their owner")
+	conn.keepIfNecessary()
+
+	kept, ok := resource.Lookup(xaID.String())
+	assert.True(t, ok, "unknown XA resources must enter the keeper")
+	assert.Same(t, conn, kept)
+	assert.True(t, conn.isKept())
 }
 
 func TestXAConn_ExecContext(t *testing.T) {
