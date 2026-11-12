@@ -282,110 +282,147 @@ func (b *baseExecutor) restoreImageSelectSQL(stmt *ast.SelectStmt, dbType types.
 	return b.normalizeGeneratedSQL(sql.String(), dbType), nil
 }
 
-func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
+func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) ([]driver.NamedValue, error) {
 	var (
 		selectArgsIndexs = make([]int32, 0)
 		selectArgs       = make([]driver.NamedValue, 0)
 	)
 
-	b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs)
-	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if err := b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs); err != nil {
+		return nil, err
+	}
+	if err := b.traversalArgs(stmt.Where, &selectArgsIndexs); err != nil {
+		return nil, err
+	}
 	if stmt.GroupBy != nil {
 		for _, item := range stmt.GroupBy.Items {
-			b.traversalArgs(item, &selectArgsIndexs)
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
-			b.traversalArgs(item, &selectArgsIndexs)
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if stmt.Limit != nil {
 		if stmt.Limit.Offset != nil {
-			b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 		if stmt.Limit.Count != nil {
-			b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	// sort selectArgs index array
 	gxsort.Int32(selectArgsIndexs)
 	for _, index := range selectArgsIndexs {
 		if index < 0 || int(index) >= len(args) {
-			continue
+			return nil, fmt.Errorf("parameter index %d out of range (args count %d)", index, len(args))
 		}
 		selectArgs = append(selectArgs, args[index])
 	}
 
-	return selectArgs
+	return selectArgs, nil
 }
 
 // todo perfect all sql operation
-func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
+func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) error {
 	if node == nil {
-		return
+		return nil
 	}
 	switch expr := node.(type) {
 	case *ast.BinaryOperationExpr:
-		b.traversalArgs(expr.L, argsIndex)
-		b.traversalArgs(expr.R, argsIndex)
+		if err := b.traversalArgs(expr.L, argsIndex); err != nil {
+			return err
+		}
+		return b.traversalArgs(expr.R, argsIndex)
 	case *ast.BetweenExpr:
-		b.traversalArgs(expr.Left, argsIndex)
-		b.traversalArgs(expr.Right, argsIndex)
+		if err := b.traversalArgs(expr.Left, argsIndex); err != nil {
+			return err
+		}
+		return b.traversalArgs(expr.Right, argsIndex)
 	case *ast.PatternInExpr:
 		for i := 0; i < len(expr.List); i++ {
-			b.traversalArgs(expr.List[i], argsIndex)
+			if err := b.traversalArgs(expr.List[i], argsIndex); err != nil {
+				return err
+			}
 		}
 	case *ast.ParenthesesExpr:
-		b.traversalArgs(expr.Expr, argsIndex)
+		return b.traversalArgs(expr.Expr, argsIndex)
 	case *ast.Join:
-		b.traversalArgs(expr.Left, argsIndex)
+		if err := b.traversalArgs(expr.Left, argsIndex); err != nil {
+			return err
+		}
 		if expr.Right != nil {
-			b.traversalArgs(expr.Right, argsIndex)
+			if err := b.traversalArgs(expr.Right, argsIndex); err != nil {
+				return err
+			}
 		}
 		if expr.On != nil {
-			b.traversalArgs(expr.On.Expr, argsIndex)
+			return b.traversalArgs(expr.On.Expr, argsIndex)
 		}
 	case *ast.UnaryOperationExpr:
-		b.traversalArgs(expr.V, argsIndex)
+		return b.traversalArgs(expr.V, argsIndex)
 	case *ast.FuncCallExpr:
 		for _, arg := range expr.Args {
-			b.traversalArgs(arg, argsIndex)
+			if err := b.traversalArgs(arg, argsIndex); err != nil {
+				return err
+			}
 		}
 	case *ast.SubqueryExpr:
 		if expr.Query != nil {
-			b.traversalArgs(expr.Query, argsIndex)
+			return b.traversalArgs(expr.Query, argsIndex)
 		}
 	case *ast.ExistsSubqueryExpr:
 		if expr.Sel != nil {
-			b.traversalArgs(expr.Sel, argsIndex)
+			return b.traversalArgs(expr.Sel, argsIndex)
 		}
 	case *ast.CompareSubqueryExpr:
-		b.traversalArgs(expr.L, argsIndex)
+		if err := b.traversalArgs(expr.L, argsIndex); err != nil {
+			return err
+		}
 		if expr.R != nil {
-			b.traversalArgs(expr.R, argsIndex)
+			return b.traversalArgs(expr.R, argsIndex)
 		}
 	case *ast.PatternLikeOrIlikeExpr:
-		b.traversalArgs(expr.Expr, argsIndex)
-		b.traversalArgs(expr.Pattern, argsIndex)
+		if err := b.traversalArgs(expr.Expr, argsIndex); err != nil {
+			return err
+		}
+		return b.traversalArgs(expr.Pattern, argsIndex)
 	case *ast.IsNullExpr:
-		b.traversalArgs(expr.Expr, argsIndex)
+		return b.traversalArgs(expr.Expr, argsIndex)
 	case *ast.CaseExpr:
 		if expr.Value != nil {
-			b.traversalArgs(expr.Value, argsIndex)
+			if err := b.traversalArgs(expr.Value, argsIndex); err != nil {
+				return err
+			}
 		}
 		for _, whenClause := range expr.WhenClauses {
-			b.traversalArgs(whenClause.Expr, argsIndex)
-			b.traversalArgs(whenClause.Result, argsIndex)
+			if err := b.traversalArgs(whenClause.Expr, argsIndex); err != nil {
+				return err
+			}
+			if err := b.traversalArgs(whenClause.Result, argsIndex); err != nil {
+				return err
+			}
 		}
 		if expr.ElseClause != nil {
-			b.traversalArgs(expr.ElseClause, argsIndex)
+			return b.traversalArgs(expr.ElseClause, argsIndex)
 		}
 	case ast.ParamMarkerExpr:
-		if order, ok := parser.GetParamMarkerOrder(expr); ok {
-			*argsIndex = append(*argsIndex, int32(order))
+		order, ok := parser.GetParamMarkerOrder(expr)
+		if !ok {
+			return fmt.Errorf("param marker order missing for expression %v", expr)
 		}
+		*argsIndex = append(*argsIndex, int32(order))
 	}
+	return nil
 }
 
 func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType, dbType types.DBType) (*types.RecordImage, error) {

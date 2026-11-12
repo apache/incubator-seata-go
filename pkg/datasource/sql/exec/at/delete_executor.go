@@ -244,7 +244,11 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 		return util.CompactPostgreSQLPlaceholders(sql, args)
 	}
 
-	return sql, d.buildSelectArgs(&selStmt, args), nil
+	selectArgs, err := d.buildSelectArgs(&selStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, selectArgs, nil
 }
 
 // afterImage build after image

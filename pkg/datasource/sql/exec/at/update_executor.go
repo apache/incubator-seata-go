@@ -389,7 +389,11 @@ func (u *updateExecutor) buildBeforeImageSQL(ctx context.Context, args []driver.
 		return util.CompactPostgreSQLPlaceholders(sql, args)
 	}
 
-	return sql, u.buildSelectArgs(&selStmt, args), nil
+	selectArgs, err := u.buildSelectArgs(&selStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, selectArgs, nil
 }
 
 // postgresAuxiliaryQueryTable changes only the auxiliary query's table identity. Other

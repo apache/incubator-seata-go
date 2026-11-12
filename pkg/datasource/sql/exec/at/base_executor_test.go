@@ -613,7 +613,8 @@ func TestBaseExecutorBuildSelectArgs(t *testing.T) {
 	rawArgs := []driver.Value{int64(1), 18, 30, "Alice", "Bob", 0, 10}
 	namedArgs := util.ValueToNamedValue(rawArgs)
 
-	selectArgs := exec.buildSelectArgs(ctx.SelectStmt, namedArgs)
+	selectArgs, err := exec.buildSelectArgs(ctx.SelectStmt, namedArgs)
+	assert.NoError(t, err)
 	assert.Equal(t, rawArgs, util.NamedValueToValue(selectArgs))
 }
 

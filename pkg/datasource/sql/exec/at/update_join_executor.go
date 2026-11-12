@@ -367,7 +367,11 @@ func (u *updateJoinExecutor) buildBeforeImageSQL(ctx context.Context, tableMeta 
 	sql := string(b.Bytes())
 	log.Infof("build select sql by update sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildSelectArgs(&selStmt, args), nil
+	selectArgs, err := u.buildSelectArgs(&selStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, selectArgs, nil
 }
 
 func (u *updateJoinExecutor) buildAfterImageSQL(ctx context.Context, beforeImage types.RecordImage, meta *types.TableMeta, table joinTableRef) (string, []driver.NamedValue, error) {
