@@ -281,7 +281,8 @@ func TestBasicUndoLogBuilder_BuildSelectArgs_ComplexAST(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, parseCtx.SelectStmt)
 
-			actual := builder.buildSelectArgs(parseCtx.SelectStmt, tt.args)
+			actual, err := builder.buildSelectArgs(parseCtx.SelectStmt, tt.args)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, actual)
 		})
 	}

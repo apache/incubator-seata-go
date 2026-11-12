@@ -186,11 +186,17 @@ func (u *MySQLMultiDeleteUndoLogBuilder) buildBeforeImageSQL(multiQuery []string
 		_ = selStmt.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, &buf))
 		items = append(items, buf.String())
 		buf.Reset()
+		var selArgs []driver.Value
+		var err error
 		if table.clear {
-			values = append(values, u.buildSelectArgs(&selStmt, nil)...)
+			selArgs, err = u.buildSelectArgs(&selStmt, nil)
 		} else {
-			values = append(values, u.buildSelectArgs(&selStmt, args)...)
+			selArgs, err = u.buildSelectArgs(&selStmt, args)
 		}
+		if err != nil {
+			return nil, nil, err
+		}
+		values = append(values, selArgs...)
 	}
 
 	return items, values, nil

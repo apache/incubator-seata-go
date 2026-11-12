@@ -213,7 +213,11 @@ func (u *MySQLMultiUpdateUndoLogBuilder) buildBeforeImageSQL(updateStmts []*ast.
 				LockType: ast.SelectLockForUpdate,
 			},
 		}
-		newArgs = append(newArgs, u.buildSelectArgs(&tmpSelectStmt, args)...)
+		selArgs, err := u.buildSelectArgs(&tmpSelectStmt, args)
+		if err != nil {
+			return "", nil, err
+		}
+		newArgs = append(newArgs, selArgs...)
 
 		in := bytes.NewByteBuffer([]byte{})
 		updateStmt.Where.Restore(format.NewRestoreCtx(format.RestoreKeyWordUppercase, in))

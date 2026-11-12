@@ -116,7 +116,11 @@ func (u *MySQLDeleteUndoLogBuilder) buildBeforeImageSQL(query string, args []dri
 	sql := string(b.Bytes())
 	log.Infof("build select sql by delete sourceQuery, sql {%s}", sql)
 
-	return sql, u.buildSelectArgs(&selStmt, args), nil
+	selectArgs, err := u.buildSelectArgs(&selStmt, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, selectArgs, nil
 }
 
 func (u *MySQLDeleteUndoLogBuilder) GetExecutorType() types.ExecutorType {
