@@ -750,6 +750,13 @@ func TestAssignParamMarkerOrders_EquivalenceMatrix(t *testing.T) {
 			sql:      "INSERT INTO t (id, name, age) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE age = age + ?, name = ?",
 			expected: []int{0, 1, 2, 3, 4},
 		},
+		{
+			name: "Composite complex SQL with CASE WHEN, LIKE, IN, and subquery",
+			sql: "SELECT CASE WHEN status = ? THEN ? ELSE ? END FROM t " +
+				"WHERE name LIKE ? AND category IN (?, ?) " +
+				"AND id IN (SELECT target_id FROM rel WHERE score > ?)",
+			expected: []int{0, 1, 2, 3, 4, 5, 6},
+		},
 	}
 
 	p := aparser.New()
