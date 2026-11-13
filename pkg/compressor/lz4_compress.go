@@ -89,6 +89,13 @@ func lz4DecodedSize(in []byte) (int, error) {
 				b := in[si]
 				si++
 				literals += int(b)
+				// Guard against int overflow on 32-bit platforms: a long run of
+				// 0xFF extension bytes can push literals past MaxInt, after which
+				// the negative value would bypass the length check below and walk
+				// si backwards. Mirror the upstream decoder's overflow guard.
+				if literals < 0 || literals > len(in) {
+					return 0, lz4.ErrInvalidSourceShortBuffer
+				}
 				if b != 0xFF {
 					break
 				}
@@ -130,6 +137,10 @@ func lz4DecodedSize(in []byte) (int, error) {
 				b := in[si]
 				si++
 				match += int(b)
+				// Same 32-bit overflow guard as the literals accumulation above.
+				if match < 0 || match > lz4DecompressMaxBufferSize {
+					return 0, lz4.ErrInvalidSourceShortBuffer
+				}
 				if b != 0xFF {
 					break
 				}

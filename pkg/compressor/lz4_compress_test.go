@@ -116,3 +116,34 @@ func TestLz4DecompressEmptyInput(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, decompressed)
 }
+
+
+func TestLz4DecompressOverflowLiteralLength(t *testing.T) {
+	// A 0xF literal token followed by a long run of 0xFF extension bytes can
+	// overflow the int accumulator on 32-bit platforms. The overflow guard in
+	// lz4DecodedSize must reject such a block with an error instead of panicking
+	// on a negative index or a negative make() length.
+	lz4 := Lz4{}
+
+	// 0xF0: literal nibble = 0xF (extended), match nibble = 0.
+	data := append([]byte{0xF0}, bytes.Repeat([]byte{0xFF}, 1<<24)...)
+
+	out, err := lz4.Decompress(data)
+	assert.Error(t, err, "overflowing literal length must be rejected")
+	assert.Nil(t, out)
+}
+
+func TestLz4DecompressOverflowMatchLength(t *testing.T) {
+	// Same overflow scenario for the match-length extension bytes. The token
+	// carries a literal of 1 byte so the block reaches the match section.
+	lz4 := Lz4{}
+
+	// 0x1F: literal nibble = 1, match nibble = 0xF (extended).
+	// One literal byte, then a 2-byte offset (1), then the 0xFF run.
+	data := []byte{0x1F, 0x00, 0x01, 0x00}
+	data = append(data, bytes.Repeat([]byte{0xFF}, 1<<24)...)
+
+	out, err := lz4.Decompress(data)
+	assert.Error(t, err, "overflowing match length must be rejected")
+	assert.Nil(t, out)
+}
