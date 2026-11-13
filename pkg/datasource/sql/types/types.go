@@ -185,6 +185,11 @@ func NewTxCtx() *TransactionContext {
 	}
 }
 
+// IsATMode reports whether the connection transaction uses AT mode.
+func (t *TransactionContext) IsATMode() bool {
+	return t != nil && t.TransactionMode == ATMode
+}
+
 // HasUndoLog
 func (t *TransactionContext) HasUndoLog() bool {
 	return t.TransactionMode == ATMode && !t.RoundImages.IsEmpty()

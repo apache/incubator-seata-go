@@ -77,7 +77,8 @@ func CtxDriverQuery(ctx context.Context, queryerCtx driver.QueryerContext, query
 	return queryer.Query(query, dargs)
 }
 
-func ctxDriverStmtExec(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Result, error) {
+// CtxDriverStmtExec executes a prepared driver statement with the given context.
+func CtxDriverStmtExec(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Result, error) {
 	if siCtx, is := si.(driver.StmtExecContext); is {
 		return siCtx.ExecContext(ctx, nvdargs)
 	}
@@ -94,7 +95,8 @@ func ctxDriverStmtExec(ctx context.Context, si driver.Stmt, nvdargs []driver.Nam
 	return si.Exec(dargs)
 }
 
-func ctxDriverStmtQuery(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Rows, error) {
+// CtxDriverStmtQuery queries a prepared driver statement with the given context.
+func CtxDriverStmtQuery(ctx context.Context, si driver.Stmt, nvdargs []driver.NamedValue) (driver.Rows, error) {
 	if siCtx, is := si.(driver.StmtQueryContext); is {
 		return siCtx.QueryContext(ctx, nvdargs)
 	}
@@ -177,7 +179,7 @@ func CtxDriverExecWithPrepareFallback(ctx context.Context, conn driver.Conn, que
 	}
 	defer stmt.Close()
 
-	return ctxDriverStmtExec(ctx, stmt, args)
+	return CtxDriverStmtExec(ctx, stmt, args)
 }
 
 func CtxDriverQueryWithPrepareFallback(ctx context.Context, conn driver.Conn, query string, args []driver.NamedValue) (driver.Rows, error) {
@@ -207,7 +209,7 @@ func CtxDriverQueryWithPrepareFallback(ctx context.Context, conn driver.Conn, qu
 		return nil, err
 	}
 
-	rows, err := ctxDriverStmtQuery(ctx, stmt, args)
+	rows, err := CtxDriverStmtQuery(ctx, stmt, args)
 	if err != nil {
 		_ = stmt.Close()
 		return nil, err

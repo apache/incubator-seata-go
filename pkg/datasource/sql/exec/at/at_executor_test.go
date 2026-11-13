@@ -65,10 +65,6 @@ func TestATExecutor_Interceptors(t *testing.T) {
 }
 
 func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
-	t.Cleanup(func() { isGlobalTx = originalIsGlobalTx })
-	isGlobalTx = func(context.Context) bool { return true }
-
 	replaceATExecutorFactories(t, &mockExecutor{})
 	newUpdateExecutor = func(parsed *types.ParseContext, _ *types.ExecContext, _ []exec.SQLHook) executor {
 		ref, err := parsed.GetTableRef()
@@ -80,6 +76,7 @@ func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
 	result, err := (&postgresATExecutor{}).ExecWithNamedValue(context.Background(), &types.ExecContext{
 		DBType: types.DBTypePostgreSQL,
 		Query:  `UPDATE "Space"."Users" SET id=1`,
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 	}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -133,35 +130,30 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 	tests := []struct {
 		name      string
 		query     string
-		sqlType   types.SQLType
 		wantErr   bool
 		callCount int
 	}{
 		{
 			name:      "non-global transaction - INSERT",
 			query:     "INSERT INTO users (name, age) VALUES (?, ?)",
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - UPDATE",
 			query:     "UPDATE users SET age = ? WHERE name = ?",
-			sqlType:   types.SQLTypeUpdate,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - DELETE",
 			query:     "DELETE FROM users WHERE name = ?",
-			sqlType:   types.SQLTypeDelete,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - SELECT",
 			query:     "SELECT * FROM users WHERE name = ?",
-			sqlType:   types.SQLTypeSelect,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -169,25 +161,9 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return false
-			}
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
-
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				TxCtx:       types.NewTxCtx(),
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -264,16 +240,8 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
 			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return true
-			}
+			t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 			replaceATExecutorFactories(t, &mockExecutor{})
 
 			parseSQLQuery = func(query string) (*types.ParseContext, error) {
@@ -288,6 +256,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 				},
 			}
 			execCtx := &types.ExecContext{
+				TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -333,7 +302,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 		name      string
 		query     string
 		values    []driver.Value
-		sqlType   types.SQLType
 		wantErr   bool
 		callCount int
 	}{
@@ -341,7 +309,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with values - converts to NamedValues",
 			query:     "INSERT INTO users (name, age) VALUES (?, ?)",
 			values:    []driver.Value{"Alice", 30},
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -349,7 +316,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with empty values",
 			query:     "INSERT INTO users (name, age) VALUES ('Bob', 25)",
 			values:    []driver.Value{},
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -357,7 +323,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with multiple values",
 			query:     "UPDATE users SET name = ?, age = ?, city = ? WHERE id = ?",
 			values:    []driver.Value{"Charlie", 35, "NYC", 1},
-			sqlType:   types.SQLTypeUpdate,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -365,25 +330,9 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return false
-			}
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
-
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				TxCtx:  types.NewTxCtx(),
 				Query:  tt.query,
 				Values: tt.values,
 			}
@@ -520,16 +469,9 @@ func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
 	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 
-	isGlobalTx = func(ctx context.Context) bool {
-		return true
-	}
 	parseSQLQuery = func(query string) (*types.ParseContext, error) {
 		return &types.ParseContext{
 			SQLType:      types.SQLTypeInsert,
@@ -539,6 +481,7 @@ func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",
 		NamedValues: []driver.NamedValue{{Name: "", Value: 1}, {Name: "", Value: "new"}},
 	}
@@ -560,16 +503,9 @@ func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
 	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 
-	isGlobalTx = func(ctx context.Context) bool {
-		return true
-	}
 	parseSQLQuery = func(query string) (*types.ParseContext, error) {
 		return &types.ParseContext{
 			SQLType:      types.SQLTypeInsert,
@@ -579,6 +515,7 @@ func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:  "REPLACE INTO users (id, name) VALUES (?, ?)",
 		Values: []driver.Value{1, "new"},
 	}
@@ -600,29 +537,6 @@ func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithNamedValue_ReplaceInto_NonGlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
-	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
-
-	isGlobalTx = func(ctx context.Context) bool {
-		return false
-	}
-	parseSQLQuery = func(query string) (*types.ParseContext, error) {
-		return &types.ParseContext{
-			SQLType:      types.SQLTypeInsert,
-			ExecutorType: types.ReplaceIntoExecutor,
-		}, nil
-	}
-
-	replaceATExecutorFactories(t, &mockExecutor{
-		execContextFunc: func(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-			return f(ctx, "", nil)
-		},
-	})
-
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
 		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",

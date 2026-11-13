@@ -22,6 +22,7 @@ import (
 	gosql "database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strings"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
@@ -43,11 +44,14 @@ func (e nonRetryableATError) Is(target error) bool {
 
 func (e nonRetryableATError) As(target any) bool { return errors.As(e.cause, target) }
 
-// ATConn Database connection proxy object under XA transaction model
+// ATConn is a database connection proxy for AT transactions.
 // Conn is assumed to be stateful.
 type ATConn struct {
 	*Conn
 }
+
+// ErrATTransactionContextConflict indicates an XID incompatible with an active AT-driver transaction.
+var ErrATTransactionContextConflict = errors.New("seata AT: transaction context conflict")
 
 var (
 	errATPreparedMultiSQLUnsupported = errors.New("seata AT: prepared multi-SQL is unsupported; use Exec or ExecContext")
@@ -78,56 +82,50 @@ func rejectATPreparedMultiSQL(dbType types.DBType, query string) error {
 }
 
 func (c *ATConn) Prepare(query string) (driver.Stmt, error) {
+	if c.invalid {
+		return nil, driver.ErrBadConn
+	}
 	if err := rejectATPreparedMultiSQL(c.dbType, query); err != nil {
 		return nil, err
 	}
 
-	return c.Conn.Prepare(query)
+	stmt, err := c.Conn.Prepare(query)
+	return c.attachStatement(stmt, err, false)
 }
 
 func (c *ATConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if c.invalid {
+		return nil, driver.ErrBadConn
+	}
 	if err := rejectATPreparedMultiSQL(c.dbType, query); err != nil {
 		return nil, err
 	}
 
-	if c.createOnceTxContext(ctx) {
-		defer func() {
-			c.txCtx = types.NewTxCtx()
-		}()
-	}
-	return c.Conn.PrepareContext(ctx, query)
+	stmt, err := c.Conn.PrepareContext(ctx, query)
+	return c.attachStatement(stmt, err, c.autoCommit && tm.IsGlobalTx(ctx))
 }
 
-// ExecContext
-func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if c.createOnceTxContext(ctx) {
-		defer func() {
-			c.txCtx = types.NewTxCtx()
-		}()
+func (c *ATConn) attachStatement(stmt driver.Stmt, err error, preparedWithXID bool) (driver.Stmt, error) {
+	if err != nil {
+		return nil, err
 	}
+	atStmt := stmt.(*Stmt)
+	atStmt.atConn = c
+	atStmt.preparedWithXID = preparedWithXID
+	atStmt.txCtx = nil
+	return atStmt, nil
+}
 
+func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	ret, err := c.createTxAndExecIfNeeded(ctx, func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := c.newExecContext(c.txCtx, query, nil, args)
-
-		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+		return c.execute(ctx, query, args,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 				result, err := util.CtxDriverExecWithPrepareFallback(ctx, c.targetConn, query, args)
 				if err != nil {
 					return nil, err
 				}
-
 				return types.NewResult(types.WithResult(result)), nil
 			})
-
-		if err != nil {
-			return nil, err
-		}
-		return ret, nil
 	})
 	if err != nil {
 		return nil, err
@@ -135,63 +133,16 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 	return ret.GetResult(), nil
 }
 
-// QueryContext
 func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if c.createOnceTxContext(ctx) {
-		defer func() {
-			c.txCtx = types.NewTxCtx()
-		}()
-	}
-
 	ret, err := c.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
-		executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
-		if err != nil {
-			return nil, err
-		}
-
-		execCtx := c.newExecContext(c.txCtx, query, nil, args)
-
-		ret, err := executor.ExecWithNamedValue(ctx, execCtx,
+		return c.execute(ctx, query, args,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
-				rows, err := c.Conn.QueryContext(ctx, query, args)
-				if err == nil {
-					return types.NewResult(types.WithRows(rows)), nil
+				rows, err := util.CtxDriverQueryWithPrepareFallback(ctx, c.targetConn, query, args)
+				if err != nil {
+					return nil, err
 				}
-
-				// If skip fast-path error, fallback to prepared statement
-				if strings.Contains(err.Error(), "skip fast-path") {
-					stmt, prepErr := c.Conn.Prepare(query)
-					if prepErr != nil {
-						return nil, prepErr
-					}
-
-					if stmtQueryCtx, ok := stmt.(driver.StmtQueryContext); ok {
-						rows, err = stmtQueryCtx.QueryContext(ctx, args)
-					} else {
-						dargs := make([]driver.Value, len(args))
-						for i, arg := range args {
-							dargs[i] = arg.Value
-						}
-						rows, err = stmt.Query(dargs)
-					}
-
-					if err != nil {
-						stmt.Close()
-						return nil, err
-					}
-
-					// Wrap rows with statement to close both together
-					wrappedRows := util.NewRowsWithStmt(rows, stmt)
-					return types.NewResult(types.WithRows(wrappedRows)), nil
-				}
-
-				return nil, err
+				return types.NewResult(types.WithRows(rows)), nil
 			})
-
-		if err != nil {
-			return nil, err
-		}
-		return ret, nil
 	})
 	if err != nil {
 		return nil, err
@@ -199,70 +150,92 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 	return ret.GetRows(), nil
 }
 
-// BeginTx
-func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	c.autoCommit = false
-
-	// Only create new txCtx if not already in a global transaction (auto-commit case)
-	if c.txCtx.XID == "" {
-		c.txCtx = types.NewTxCtx()
-		c.txCtx.DBType = c.res.dbType
-		c.txCtx.TxOpt = opts
-		c.txCtx.ResourceID = c.res.resourceID
-
-		if tm.IsGlobalTx(ctx) {
-			c.txCtx.XID = tm.GetXID(ctx)
-			c.txCtx.TransactionMode = types.ATMode
-		}
-	}
-
-	tx, err := c.Conn.BeginTx(ctx, opts)
+func (c *ATConn) execute(ctx context.Context, query string, args []driver.NamedValue, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
 	if err != nil {
 		return nil, err
 	}
+	execCtx := c.newExecContext(c.txCtx, query, nil, args)
+	return executor.ExecWithNamedValue(ctx, execCtx, run)
+}
 
+// Begin starts a local transaction with the same connection state as BeginTx.
+func (c *ATConn) Begin() (driver.Tx, error) {
+	return c.beginTx(context.Background(), driver.TxOptions{}, c.Conn.Begin)
+}
+
+func (c *ATConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return c.beginTx(ctx, opts, func() (driver.Tx, error) {
+		return c.Conn.BeginTx(ctx, opts)
+	})
+}
+
+func (c *ATConn) beginTx(ctx context.Context, opts driver.TxOptions, begin func() (driver.Tx, error)) (driver.Tx, error) {
+	if c.invalid {
+		return nil, driver.ErrBadConn
+	}
+	if !c.autoCommit {
+		return nil, errors.New("seata AT: a transaction is already active on this connection")
+	}
+
+	previousCtx := c.txCtx
+	c.autoCommit = false
+	c.txCtx = types.NewTxCtx()
+	c.txCtx.DBType = c.res.dbType
+	c.txCtx.TxOpt = opts
+	c.txCtx.ResourceID = c.res.resourceID
+	if tm.IsGlobalTx(ctx) {
+		c.txCtx.XID = tm.GetXID(ctx)
+		c.txCtx.TransactionMode = types.ATMode
+	}
+
+	tx, err := begin()
+	if err != nil {
+		c.txCtx, c.autoCommit = previousCtx, true
+		return nil, err
+	}
 	return &ATTx{tx: tx.(*Tx)}, nil
 }
 
-func (c *ATConn) createOnceTxContext(ctx context.Context) bool {
-	onceTx := tm.IsGlobalTx(ctx) && c.autoCommit
-
-	if onceTx {
-		c.txCtx = types.NewTxCtx()
-		c.txCtx.DBType = c.res.dbType
-		c.txCtx.ResourceID = c.res.resourceID
-		c.txCtx.XID = tm.GetXID(ctx)
-		c.txCtx.TransactionMode = types.ATMode
-		c.txCtx.GlobalLockRequire = true
+func (c *ATConn) validateATExecutionContext(ctx context.Context) error {
+	if c.invalid {
+		return driver.ErrBadConn
 	}
+	if c.autoCommit || !tm.IsGlobalTx(ctx) {
+		return nil
+	}
+	if c.txCtx.TransactionMode == types.Local {
+		return fmt.Errorf("%w: SQL context carries an XID but the transaction began in local mode", ErrATTransactionContextConflict)
+	}
+	if tm.GetXID(ctx) != c.txCtx.XID {
+		return fmt.Errorf("%w: SQL context XID differs from the XID bound at BeginTx", ErrATTransactionContextConflict)
+	}
+	return nil
+}
 
-	return onceTx
+func (c *ATConn) beginATExecution(ctx context.Context) (driver.Tx, error) {
+	if err := c.validateATExecutionContext(ctx); err != nil {
+		return nil, err
+	}
+	if c.autoCommit && tm.IsGlobalTx(ctx) {
+		tx, err := c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
+		if err != nil {
+			return nil, err
+		}
+		c.txCtx.GlobalLockRequire = true
+		return tx, nil
+	}
+	return nil, nil
 }
 
 // createTxAndExecIfNeeded creates a transaction for execution context and commits it after execution
 func (c *ATConn) createTxAndExecIfNeeded(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
-	var (
-		tx  driver.Tx
-		err error
-	)
-
-	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			recoverErr := recover()
-			if recoverErr != nil {
-				log.Errorf("at exec panic, recoverErr:%v", recoverErr)
-				if tx != nil {
-					rollbackErr := tx.Rollback()
-					if rollbackErr != nil {
-						log.Errorf("conn at rollback error:%v", rollbackErr)
-					}
-				}
-			}
-		}()
+	tx, err := c.beginATExecution(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if tx != nil {
+		defer c.rollbackOnPanic(tx)
 	}
 
 	ret, err := f()
@@ -285,28 +258,12 @@ func (c *ATConn) createTxAndExecIfNeeded(ctx context.Context, f func() (types.Ex
 
 // createTxAndQueryIfNeeded creates a transaction for query context and wraps the rows to commit on close
 func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
-	var (
-		tx  driver.Tx
-		err error
-	)
-
-	if c.txCtx.TransactionMode != types.Local && tm.IsGlobalTx(ctx) && c.autoCommit {
-		tx, err = c.BeginTx(ctx, driver.TxOptions{Isolation: driver.IsolationLevel(gosql.LevelDefault)})
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			recoverErr := recover()
-			if recoverErr != nil {
-				log.Errorf("at exec panic, recoverErr:%v", recoverErr)
-				if tx != nil {
-					rollbackErr := tx.Rollback()
-					if rollbackErr != nil {
-						log.Errorf("conn at rollback error:%v", rollbackErr)
-					}
-				}
-			}
-		}()
+	tx, err := c.beginATExecution(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if tx != nil {
+		defer c.rollbackOnPanic(tx)
 	}
 
 	ret, err := f()
@@ -314,24 +271,22 @@ func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.E
 		return nil, c.rollbackCreatedTx(tx, err)
 	}
 
-	// For QueryContext, wrap rows to commit on close
-	var activeTx driver.Tx
-	if c.txCtx.LocalTx != nil {
-		activeTx = c.txCtx.LocalTx
-	} else if tx != nil {
-		activeTx = tx
+	if tx != nil {
+		rows := &RowsCommitOnClose{rows: ret.GetRows(), tx: tx}
+		return types.NewResult(types.WithRows(rows)), nil
 	}
+	return ret, nil
+}
 
-	if activeTx != nil {
-		if rows, ok := ret.(types.ExecResult); ok {
-			if dr := rows.GetRows(); dr != nil {
-				wrappedRows := &RowsCommitOnClose{rows: dr, tx: activeTx}
-				return types.NewResult(types.WithRows(wrappedRows)), nil
+func (c *ATConn) rollbackOnPanic(tx driver.Tx) {
+	if recovered := recover(); recovered != nil {
+		if !c.autoCommit {
+			if err := tx.Rollback(); err != nil {
+				log.Errorf("conn at rollback error:%v", err)
 			}
 		}
+		panic(recovered)
 	}
-
-	return ret, nil
 }
 
 func (c *ATConn) rollbackCreatedTx(tx driver.Tx, execErr error) error {
