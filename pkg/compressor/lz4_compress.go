@@ -113,6 +113,12 @@ func lz4DecodedSize(in []byte) (int, error) {
 			if token&0xF != 0 {
 				return 0, lz4.ErrInvalidSourceShortBuffer
 			}
+			// The trailing literal run counts towards the decoded size too, so
+			// the ceiling has to be enforced before this early return as well;
+			// otherwise the real allocation bound is the ceiling plus len(in).
+			if size > lz4DecompressMaxBufferSize {
+				return 0, fmt.Errorf("lz4: decoded size exceeds %d bytes", lz4DecompressMaxBufferSize)
+			}
 			return size, nil
 		}
 

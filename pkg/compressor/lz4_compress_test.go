@@ -117,7 +117,6 @@ func TestLz4DecompressEmptyInput(t *testing.T) {
 	assert.Empty(t, decompressed)
 }
 
-
 func TestLz4DecompressOverflowLiteralLength(t *testing.T) {
 	// A 0xF literal token followed by a long run of 0xFF extension bytes can
 	// overflow the int accumulator on 32-bit platforms. The overflow guard in
@@ -145,5 +144,36 @@ func TestLz4DecompressOverflowMatchLength(t *testing.T) {
 
 	out, err := lz4.Decompress(data)
 	assert.Error(t, err, "overflowing match length must be rejected")
+	assert.Nil(t, out)
+}
+
+func TestLz4DecompressTrailingLiteralsRespectCeiling(t *testing.T) {
+	// A block can end on a literal run, and that path used to return before the
+	// decoded-size ceiling was checked, so the effective allocation ceiling was
+	// lz4DecompressMaxBufferSize + len(in). Fill the match section up to just
+	// below the ceiling and let the trailing literals push it over.
+	lz4 := Lz4{}
+
+	// 0x10: one literal byte 0x61, then a match with offset 1 and length 0.
+	// Decoding it yields five bytes and leaves a valid offset for the next
+	// sequence.
+	data := []byte{0x10, 0x61, 0x01, 0x00}
+
+	// 0x0F: extended match with offset 1. The extension run declares a match
+	// that ends just below the ceiling.
+	const trailing = 402
+	match := lz4DecompressMaxBufferSize - trailing - 8
+	fill := match - 15
+	data = append(data, 0x0F, 0x01, 0x00)
+	data = append(data, bytes.Repeat([]byte{0xFF}, fill/255)...)
+	data = append(data, byte(fill%255))
+
+	// 0xF0: extended literal run with no match, carrying exactly `trailing`
+	// literal bytes after the extension bytes.
+	data = append(data, 0xF0, 0xFF, byte(trailing-15-255))
+	data = append(data, bytes.Repeat([]byte{0x62}, trailing)...)
+
+	out, err := lz4.Decompress(data)
+	assert.Error(t, err, "trailing literals must not bypass the size ceiling")
 	assert.Nil(t, out)
 }
