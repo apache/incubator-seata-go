@@ -1002,7 +1002,7 @@ func TestATConn_CreateTxHelpersRollbackOnError(t *testing.T) {
 		tm.SetXID(ctx, uuid.NewString())
 		expectedErr := errors.New("query failed")
 
-		ret, err := atConn.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
+		ret, err := atConn.createTxAndQueryIfNeeded(ctx, false, func() (types.ExecResult, error) {
 			return nil, expectedErr
 		})
 

@@ -22,6 +22,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -271,6 +273,142 @@ func TestATContextSelectForUpdateUsesBoundXID(t *testing.T) {
 		})
 	}
 }
+
+func TestATContextIdlePreparedSelectForUpdate(t *testing.T) {
+	for _, dbType := range []types.DBType{types.DBTypeMySQL, types.DBTypePostgreSQL} {
+		t.Run(dbType.String(), func(t *testing.T) {
+			for _, scenario := range []string{"matching XID", "different XID", "execution XID only", "prepare XID only", "lock table list", "no table", "lock conflict"} {
+				t.Run(scenario, func(t *testing.T) {
+					ctrl := gomock.NewController(t)
+					db, targetConn, manager, meta := newATContextTestDB(t, ctrl, dbType)
+					prepareCtx := atContextWithXID("prepare-xid")
+					execCtx := atContextWithXID("exec-xid")
+					xid := "exec-xid"
+					switch scenario {
+					case "matching XID":
+						execCtx = prepareCtx
+						xid = "prepare-xid"
+					case "prepare XID only":
+						execCtx = context.Background()
+					case "execution XID only":
+						prepareCtx = context.Background()
+					}
+
+					placeholder := "?"
+					if dbType == types.DBTypePostgreSQL {
+						placeholder = "$1"
+					}
+					query := "SELECT balance FROM account WHERE id = " + placeholder + " FOR UPDATE"
+					if scenario == "lock table list" {
+						query += " OF account"
+					}
+					if scenario == "no table" {
+						query = "SELECT " + placeholder + " FOR UPDATE"
+					}
+					targetStmt := mock.NewMockTestDriverStmt(ctrl)
+					targetConn.EXPECT().PrepareContext(prepareCtx, query).Return(targetStmt, nil)
+					targetStmt.EXPECT().NumInput().Return(1)
+					targetStmt.EXPECT().Close().Return(nil)
+					stmt, err := db.PrepareContext(prepareCtx, query)
+					require.NoError(t, err)
+					defer stmt.Close()
+
+					if scenario == "prepare XID only" || scenario == "lock table list" || scenario == "no table" {
+						rows, err := stmt.QueryContext(execCtx, int64(1))
+						require.ErrorContains(t, err, "transaction started with BeginTx")
+						require.Nil(t, rows)
+						return
+					}
+
+					expectATContextTable(t, meta, dbType, targetConn)
+					targetTx := mock.NewMockTestDriverTx(ctrl)
+					targetRows := mock.NewMockTestDriverRows(ctrl)
+					args := []driver.NamedValue{{Ordinal: 1, Value: int64(1)}}
+					lockable := scenario != "lock conflict"
+					lockQuery := manager.EXPECT().LockQuery(execCtx, rm.LockQueryParam{
+						Xid: xid, BranchType: branch.BranchTypeAT, ResourceId: atContextTestResourceID, LockKeys: "account:1",
+					}).Return(lockable, nil)
+					closeRows := targetRows.EXPECT().Close().Return(nil)
+					gomock.InOrder(
+						targetConn.EXPECT().BeginTx(execCtx, gomock.Any()).Return(targetTx, nil),
+						targetConn.EXPECT().ExecContext(execCtx, gomock.Any(), nil).DoAndReturn(
+							func(_ context.Context, sql string, _ []driver.NamedValue) (driver.Result, error) {
+								require.True(t, strings.HasPrefix(sql, "SAVEPOINT "), sql)
+								return driver.ResultNoRows, nil
+							},
+						),
+						targetConn.EXPECT().QueryContext(execCtx, gomock.Not(query), args).
+							Return(&batchATRows{columns: []string{"id"}, data: [][]driver.Value{{int64(1)}}}, nil),
+						targetStmt.EXPECT().QueryContext(execCtx, args).Return(&atContextLockingRows{targetRows}, nil),
+						lockQuery,
+						closeRows,
+					)
+
+					if !lockable {
+						gomock.InOrder(
+							targetConn.EXPECT().ExecContext(execCtx, gomock.Any(), nil).DoAndReturn(
+								func(_ context.Context, sql string, _ []driver.NamedValue) (driver.Result, error) {
+									require.True(t, strings.HasPrefix(sql, "ROLLBACK TO SAVEPOINT "), sql)
+									return driver.ResultNoRows, nil
+								},
+							).After(closeRows),
+							targetTx.EXPECT().Rollback().Return(nil),
+						)
+						rows, err := stmt.QueryContext(execCtx, int64(1))
+						require.ErrorContains(t, err, "lock conflict")
+						require.Nil(t, rows)
+						return
+					}
+
+					targetRows.EXPECT().Columns().Return([]string{"balance"}).Times(2)
+					targetRows.EXPECT().Next(gomock.Any()).DoAndReturn(func(dest []driver.Value) error {
+						dest[0] = "100.00"
+						return nil
+					})
+					rows, err := stmt.QueryContext(execCtx, int64(1))
+					require.NoError(t, err)
+					defer rows.Close()
+					columnTypes, err := rows.ColumnTypes()
+					require.NoError(t, err)
+					require.Len(t, columnTypes, 1)
+					column := columnTypes[0]
+					require.Equal(t, "DECIMAL", column.DatabaseTypeName())
+					require.Equal(t, reflect.TypeOf(""), column.ScanType())
+					length, ok := column.Length()
+					require.True(t, ok)
+					require.EqualValues(t, 12, length)
+					nullable, ok := column.Nullable()
+					require.True(t, ok)
+					require.True(t, nullable)
+					precision, scale, ok := column.DecimalSize()
+					require.True(t, ok)
+					require.EqualValues(t, 10, precision)
+					require.EqualValues(t, 2, scale)
+					require.True(t, rows.Next())
+					var balance string
+					require.NoError(t, rows.Scan(&balance))
+					require.Equal(t, "100.00", balance)
+
+					targetTx.EXPECT().Commit().After(closeRows).Return(nil)
+					if scenario == "matching XID" {
+						targetRows.EXPECT().Next(gomock.Any()).Return(io.EOF)
+						require.False(t, rows.Next())
+						require.NoError(t, rows.Err())
+					}
+					require.NoError(t, rows.Close())
+				})
+			}
+		})
+	}
+}
+
+type atContextLockingRows struct{ driver.Rows }
+
+func (*atContextLockingRows) ColumnTypeScanType(int) reflect.Type               { return reflect.TypeOf("") }
+func (*atContextLockingRows) ColumnTypeDatabaseTypeName(int) string             { return "DECIMAL" }
+func (*atContextLockingRows) ColumnTypeLength(int) (int64, bool)                { return 12, true }
+func (*atContextLockingRows) ColumnTypeNullable(int) (bool, bool)               { return true, true }
+func (*atContextLockingRows) ColumnTypePrecisionScale(int) (int64, int64, bool) { return 10, 2, true }
 
 func TestATContextUpdateWithoutXIDRegistersAndFlushesBoundBranch(t *testing.T) {
 	for _, dbType := range []types.DBType{types.DBTypeMySQL, types.DBTypePostgreSQL} {

@@ -39,27 +39,44 @@ type Stmt struct {
 	stmt            driver.Stmt
 }
 
-func (s *Stmt) executeAT(ctx context.Context, args []driver.NamedValue, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+func (s *Stmt) executeAT(ctx context.Context, args []driver.NamedValue, returnsRows bool, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	if err := s.atConn.validateATExecutionContext(ctx); err != nil {
 		return nil, err
 	}
-	if s.atConn.autoCommit {
-		// The old PostgreSQL executor could enter AT from the execution XID
-		// alone. Keep those statements from silently executing in local mode.
-		hadATIntent := s.preparedWithXID || (s.res.dbType == types.DBTypePostgreSQL && tm.IsGlobalTx(ctx))
-		if hadATIntent {
-			return s.executeWithoutTransaction(ctx, args, run)
+	if !s.atConn.autoCommit {
+		return s.atConn.execute(ctx, s.query, args, run)
+	}
+
+	hasXID := tm.IsGlobalTx(ctx)
+	// The old PostgreSQL executor could enter AT from the execution XID
+	// alone. Keep those statements from silently executing in local mode.
+	hadATIntent := s.preparedWithXID || (s.res.dbType == types.DBTypePostgreSQL && hasXID)
+	if !hadATIntent && !(returnsRows && hasXID) {
+		return s.atConn.execute(ctx, s.query, args, run)
+	}
+
+	parsed, err := parser.ParseSQLForDB(s.query, s.res.dbType)
+	if returnsRows && hasXID && err == nil && isPlainSelectForUpdate(parsed) {
+		return s.atConn.createTxAndQueryIfNeeded(ctx, true, func() (types.ExecResult, error) {
+			return s.atConn.execute(ctx, s.query, args, run)
+		})
+	}
+	if hadATIntent {
+		if err != nil || parsed == nil || parsed.SelectStmt == nil || parsed.SQLType != types.SQLTypeSelect {
+			return nil, errors.New("seata AT: execute this prepared statement in a transaction started with BeginTx")
 		}
+		return run(ctx, s.query, args)
 	}
 	return s.atConn.execute(ctx, s.query, args, run)
 }
 
-func (s *Stmt) executeWithoutTransaction(ctx context.Context, args []driver.NamedValue, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	parsed, err := parser.ParseSQLForDB(s.query, s.res.dbType)
-	if err != nil || parsed == nil || parsed.SelectStmt == nil || parsed.SQLType != types.SQLTypeSelect {
-		return nil, errors.New("seata AT: execute this prepared statement in a transaction started with BeginTx")
+func isPlainSelectForUpdate(parsed *types.ParseContext) bool {
+	if parsed == nil || parsed.SQLType != types.SQLTypeSelectForUpdate || parsed.SelectStmt == nil {
+		return false
 	}
-	return run(ctx, s.query, args)
+	stmt := parsed.SelectStmt
+	// The auxiliary query needs a table and does not preserve INTO or OF.
+	return stmt.From != nil && stmt.SelectIntoOpt == nil && stmt.LockInfo != nil && len(stmt.LockInfo.Tables) == 0
 }
 
 // Close closes the statement.
@@ -123,7 +140,7 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 // QueryContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	if s.atConn != nil {
-		ret, err := s.executeAT(ctx, args, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
+		ret, err := s.executeAT(ctx, args, true, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
 			rows, err := util.CtxDriverStmtQuery(ctx, s.stmt, args)
 			if err != nil {
 				return nil, err
@@ -201,7 +218,7 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 // ExecContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	if s.atConn != nil {
-		ret, err := s.executeAT(ctx, args, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
+		ret, err := s.executeAT(ctx, args, false, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
 			result, err := util.CtxDriverStmtExec(ctx, s.stmt, args)
 			if err != nil {
 				return nil, err

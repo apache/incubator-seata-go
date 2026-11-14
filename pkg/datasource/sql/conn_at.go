@@ -134,7 +134,7 @@ func (c *ATConn) ExecContext(ctx context.Context, query string, args []driver.Na
 }
 
 func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	ret, err := c.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
+	ret, err := c.createTxAndQueryIfNeeded(ctx, false, func() (types.ExecResult, error) {
 		return c.execute(ctx, query, args,
 			func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 				rows, err := util.CtxDriverQueryWithPrepareFallback(ctx, c.targetConn, query, args)
@@ -257,7 +257,7 @@ func (c *ATConn) createTxAndExecIfNeeded(ctx context.Context, f func() (types.Ex
 }
 
 // createTxAndQueryIfNeeded creates a transaction for query context and wraps the rows to commit on close
-func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.ExecResult, error)) (types.ExecResult, error) {
+func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, prepared bool, f func() (types.ExecResult, error)) (types.ExecResult, error) {
 	tx, err := c.beginATExecution(ctx)
 	if err != nil {
 		return nil, err
@@ -273,6 +273,9 @@ func (c *ATConn) createTxAndQueryIfNeeded(ctx context.Context, f func() (types.E
 
 	if tx != nil {
 		rows := &RowsCommitOnClose{rows: ret.GetRows(), tx: tx}
+		if prepared {
+			return types.NewResult(types.WithRows(&preparedRowsCommitOnClose{rows})), nil
+		}
 		return types.NewResult(types.WithRows(rows)), nil
 	}
 	return ret, nil
