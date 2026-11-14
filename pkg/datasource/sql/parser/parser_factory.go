@@ -192,6 +192,39 @@ func GetParamMarkerOrder(node ast.Node) (int, bool) {
 	return 0, false
 }
 
+type traversalArgsVisitor struct {
+	argsIndex *[]int32
+	err       error
+}
+
+func (v *traversalArgsVisitor) Enter(node ast.Node) (ast.Node, bool) {
+	if v.err != nil {
+		return node, true
+	}
+	if expr, ok := node.(ast.ParamMarkerExpr); ok {
+		order, ok := GetParamMarkerOrder(expr)
+		if !ok {
+			v.err = fmt.Errorf("param marker order missing for expression %v", expr)
+			return node, true
+		}
+		*v.argsIndex = append(*v.argsIndex, int32(order))
+	}
+	return node, false
+}
+
+func (v *traversalArgsVisitor) Leave(node ast.Node) (ast.Node, bool) {
+	return node, true
+}
+
+func TraversalArgs(node ast.Node, argsIndex *[]int32) error {
+	if node == nil {
+		return nil
+	}
+	v := &traversalArgsVisitor{argsIndex: argsIndex}
+	node.Accept(v)
+	return v.err
+}
+
 type postgresDollarLiterals map[int]string
 
 func (l postgresDollarLiterals) Enter(node ast.Node) (ast.Node, bool) {

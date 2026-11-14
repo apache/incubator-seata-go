@@ -114,8 +114,22 @@ func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []drive
 		selectArgs       = make([]driver.Value, 0)
 	)
 
-	if err := b.traversalArgs(stmt.Where, &selectArgsIndexs); err != nil {
-		return nil, err
+	if stmt.From != nil && stmt.From.TableRefs != nil {
+		if err := b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs); err != nil {
+			return nil, err
+		}
+	}
+	if stmt.Where != nil {
+		if err := b.traversalArgs(stmt.Where, &selectArgsIndexs); err != nil {
+			return nil, err
+		}
+	}
+	if stmt.GroupBy != nil {
+		for _, item := range stmt.GroupBy.Items {
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
@@ -150,95 +164,7 @@ func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []drive
 
 // todo perfect all sql operation
 func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) error {
-	if node == nil {
-		return nil
-	}
-	switch expr := node.(type) {
-	case *ast.BinaryOperationExpr:
-		if err := b.traversalArgs(expr.L, argsIndex); err != nil {
-			return err
-		}
-		return b.traversalArgs(expr.R, argsIndex)
-	case *ast.BetweenExpr:
-		if err := b.traversalArgs(expr.Left, argsIndex); err != nil {
-			return err
-		}
-		return b.traversalArgs(expr.Right, argsIndex)
-	case *ast.PatternInExpr:
-		for i := 0; i < len(expr.List); i++ {
-			if err := b.traversalArgs(expr.List[i], argsIndex); err != nil {
-				return err
-			}
-		}
-	case *ast.ParenthesesExpr:
-		return b.traversalArgs(expr.Expr, argsIndex)
-	case *ast.Join:
-		if err := b.traversalArgs(expr.Left, argsIndex); err != nil {
-			return err
-		}
-		if expr.Right != nil {
-			if err := b.traversalArgs(expr.Right, argsIndex); err != nil {
-				return err
-			}
-		}
-		if expr.On != nil {
-			return b.traversalArgs(expr.On.Expr, argsIndex)
-		}
-	case *ast.UnaryOperationExpr:
-		return b.traversalArgs(expr.V, argsIndex)
-	case *ast.FuncCallExpr:
-		for _, arg := range expr.Args {
-			if err := b.traversalArgs(arg, argsIndex); err != nil {
-				return err
-			}
-		}
-	case *ast.SubqueryExpr:
-		if expr.Query != nil {
-			return b.traversalArgs(expr.Query, argsIndex)
-		}
-	case *ast.ExistsSubqueryExpr:
-		if expr.Sel != nil {
-			return b.traversalArgs(expr.Sel, argsIndex)
-		}
-	case *ast.CompareSubqueryExpr:
-		if err := b.traversalArgs(expr.L, argsIndex); err != nil {
-			return err
-		}
-		if expr.R != nil {
-			return b.traversalArgs(expr.R, argsIndex)
-		}
-	case *ast.PatternLikeOrIlikeExpr:
-		if err := b.traversalArgs(expr.Expr, argsIndex); err != nil {
-			return err
-		}
-		return b.traversalArgs(expr.Pattern, argsIndex)
-	case *ast.IsNullExpr:
-		return b.traversalArgs(expr.Expr, argsIndex)
-	case *ast.CaseExpr:
-		if expr.Value != nil {
-			if err := b.traversalArgs(expr.Value, argsIndex); err != nil {
-				return err
-			}
-		}
-		for _, whenClause := range expr.WhenClauses {
-			if err := b.traversalArgs(whenClause.Expr, argsIndex); err != nil {
-				return err
-			}
-			if err := b.traversalArgs(whenClause.Result, argsIndex); err != nil {
-				return err
-			}
-		}
-		if expr.ElseClause != nil {
-			return b.traversalArgs(expr.ElseClause, argsIndex)
-		}
-	case ast.ParamMarkerExpr:
-		order, ok := parser.GetParamMarkerOrder(expr)
-		if !ok {
-			return fmt.Errorf("param marker order missing for expression %v", expr)
-		}
-		*argsIndex = append(*argsIndex, int32(order))
-	}
-	return nil
+	return parser.TraversalArgs(node, argsIndex)
 }
 
 func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta) (*types.RecordImage, error) {

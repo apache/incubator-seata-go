@@ -616,6 +616,19 @@ func TestBaseExecutorBuildSelectArgs(t *testing.T) {
 	selectArgs, err := exec.buildSelectArgs(ctx.SelectStmt, namedArgs)
 	assert.NoError(t, err)
 	assert.Equal(t, rawArgs, util.NamedValueToValue(selectArgs))
+
+	// Test subquery and derived table in FROM clause
+	sqlComplex := "SELECT * FROM (SELECT id FROM t1 WHERE status = ?) AS tmp WHERE tmp.id IN (SELECT target_id FROM rel WHERE score > ?)"
+	ctxComplex, err := parser.DoParser(sqlComplex)
+	assert.NoError(t, err)
+	assert.NotNil(t, ctxComplex)
+	assert.NotNil(t, ctxComplex.SelectStmt)
+
+	rawArgsComplex := []driver.Value{1, 90}
+	namedArgsComplex := util.ValueToNamedValue(rawArgsComplex)
+	selectArgsComplex, err := exec.buildSelectArgs(ctxComplex.SelectStmt, namedArgsComplex)
+	assert.NoError(t, err)
+	assert.Equal(t, rawArgsComplex, util.NamedValueToValue(selectArgsComplex))
 }
 
 func TestBaseExecutorWriteDatabaseBoundary(t *testing.T) {

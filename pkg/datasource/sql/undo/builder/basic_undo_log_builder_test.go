@@ -268,6 +268,24 @@ func TestBasicUndoLogBuilder_BuildSelectArgs_ComplexAST(t *testing.T) {
 			expected: []driver.Value{1, 2},
 		},
 		{
+			name:     "Subquery in IN and Exists",
+			sql:      "SELECT * FROM t WHERE id IN (SELECT target_id FROM rel WHERE score > ?) AND EXISTS (SELECT 1 FROM t3 WHERE y = ?)",
+			args:     []driver.Value{90, 1},
+			expected: []driver.Value{90, 1},
+		},
+		{
+			name:     "From Derived Table Subquery",
+			sql:      "SELECT * FROM (SELECT id, status FROM t1 WHERE status = ?) AS tmp WHERE tmp.id = ?",
+			args:     []driver.Value{1, 100},
+			expected: []driver.Value{1, 100},
+		},
+		{
+			name:     "Pattern In with Left Parameter",
+			sql:      "SELECT * FROM t WHERE ? IN (1, 2) AND name = ?",
+			args:     []driver.Value{10, "alice"},
+			expected: []driver.Value{10, "alice"},
+		},
+		{
 			name:     "OrderBy and Limit",
 			sql:      "SELECT * FROM t WHERE a = ? ORDER BY b LIMIT ?, ?",
 			args:     []driver.Value{10, 0, 5},
