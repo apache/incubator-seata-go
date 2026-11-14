@@ -42,11 +42,25 @@ func (r *GettyRMRemoting) BranchRegister(param rm.BranchRegisterParam) (int64, e
 		ApplicationData: []byte(param.ApplicationData),
 	}
 	resp, err := getty.GetGettyRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil {
-		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
+	if err != nil {
+		log.Errorf("BranchRegister error: %v", err)
 		return 0, err
 	}
-	branchResp := resp.(message.BranchRegisterResponse)
+	return decodeBranchRegisterResponse(resp)
+}
+
+// decodeBranchRegisterResponse validates a BranchRegisterResponse: nil and
+// wrongly typed responses are rejected with an error instead of panicking on
+// a bare type assertion (the historic code also logged err.Error() with a
+// possibly nil err here).
+func decodeBranchRegisterResponse(resp interface{}) (int64, error) {
+	if resp == nil {
+		return 0, errors.New("BranchRegister received nil response")
+	}
+	branchResp, ok := resp.(message.BranchRegisterResponse)
+	if !ok {
+		return 0, fmt.Errorf("BranchRegister received unexpected response type %T", resp)
+	}
 	if branchResp.ResultCode == message.ResultCodeFailed {
 		return 0, fmt.Errorf("Response %s", branchResp.Msg)
 	}
@@ -112,16 +126,30 @@ func (r *GettyRMRemoting) RegisterResource(resource rm.Resource) error {
 	}
 	res, err := getty.GetGettyRemotingClient().SendSyncRequest(req)
 	if err != nil {
-		log.Errorf("RegisterResourceManager error: {%#v}", err.Error())
+		log.Errorf("RegisterResourceManager error: {%#v}", err)
 		return err
 	}
+	return handleRegisterRMResponse(res, r.onRegisterRMSuccess, r.onRegisterRMFailure)
+}
 
-	if isRegisterSuccess(res) {
-		r.onRegisterRMSuccess(res.(message.RegisterRMResponse))
-	} else {
-		r.onRegisterRMFailure(res.(message.RegisterRMResponse))
+// handleRegisterRMResponse validates a RegisterRMResponse and reports a
+// TC-side rejection (Identified=false, e.g. auth SPI or version check) as an
+// error: swallowing it made data sources and TCC proxies report a healthy
+// startup while every later branch operation failed (aligned with the Java
+// client, which throws FrameworkException here).
+func handleRegisterRMResponse(res interface{}, onSuccess func(message.RegisterRMResponse), onFailure func(message.RegisterRMResponse)) error {
+	if res == nil {
+		return errors.New("RegisterResource received nil response")
 	}
-
+	registerResp, ok := res.(message.RegisterRMResponse)
+	if !ok {
+		return fmt.Errorf("RegisterResource received unexpected response type %T", res)
+	}
+	if !registerResp.Identified {
+		onFailure(registerResp)
+		return fmt.Errorf("register RM failed: %s", registerResp.Msg)
+	}
+	onSuccess(registerResp)
 	return nil
 }
 
@@ -156,7 +184,7 @@ func (r *GettyRMRemoting) onRegisterRMSuccess(response message.RegisterRMRespons
 }
 
 func (r *GettyRMRemoting) onRegisterRMFailure(response message.RegisterRMResponse) {
-	log.Infof("register RM failure. response: %#v", response)
+	log.Errorf("register RM failure. response: %#v", response)
 }
 
 func (r *GettyRMRemoting) onRegisterTMSuccess(response message.RegisterTMResponse) {

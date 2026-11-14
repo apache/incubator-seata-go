@@ -85,3 +85,65 @@ func TestGrpcRMRemotingBranchReportUsesStatusReportMessageType(t *testing.T) {
 			request.GetAbstractTransactionRequest().GetAbstractMessage().GetMessageType())
 	}
 }
+
+// TestDecodeBranchRegisterResponse covers the nil / wrong-type / failure /
+// success paths of the getty-parity decoder; the historic code bare-asserted
+// resp.(*pb.BranchRegisterResponseProto) and logged err.Error() with a
+// possibly nil err.
+func TestDecodeBranchRegisterResponse(t *testing.T) {
+	success := &pb.BranchRegisterResponseProto{
+		AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+			AbstractResultMessage: &pb.AbstractResultMessageProto{ResultCode: pb.ResultCodeProto_Success},
+		},
+		BranchId: 42,
+	}
+	failed := &pb.BranchRegisterResponseProto{
+		AbstractTransactionResponse: &pb.AbstractTransactionResponseProto{
+			AbstractResultMessage: &pb.AbstractResultMessageProto{ResultCode: pb.ResultCodeProto_Failed, Msg: "boom"},
+		},
+	}
+
+	branchId, err := decodeBranchRegisterResponse(success)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(42), branchId)
+
+	_, err = decodeBranchRegisterResponse(failed)
+	assert.Error(t, err)
+
+	_, err = decodeBranchRegisterResponse(nil)
+	assert.Error(t, err)
+
+	_, err = decodeBranchRegisterResponse("not-a-response")
+	assert.Error(t, err)
+}
+
+// TestDecodeRegisterRMResponse covers the nil / wrong-type / accepted paths of
+// the register-RM response decoder; the historic code bare-asserted
+// resp.(*pb.RegisterRMResponseProto).
+func TestDecodeRegisterRMResponse(t *testing.T) {
+	accepted := &pb.RegisterRMResponseProto{
+		AbstractIdentifyResponse: &pb.AbstractIdentifyResponseProto{Identified: true},
+	}
+	rejected := &pb.RegisterRMResponseProto{
+		AbstractIdentifyResponse: &pb.AbstractIdentifyResponseProto{
+			Identified:            false,
+			AbstractResultMessage: &pb.AbstractResultMessageProto{Msg: "auth failed"},
+		},
+	}
+
+	decoded, err := decodeRegisterRMResponse(accepted)
+	assert.NoError(t, err)
+	assert.True(t, decoded.AbstractIdentifyResponse.Identified)
+
+	// Type validation only: the Identified=false rejection is decided by the
+	// caller (RegisterResource) so that onRegisterRMFailure still fires.
+	decoded, err = decodeRegisterRMResponse(rejected)
+	assert.NoError(t, err)
+	assert.False(t, decoded.AbstractIdentifyResponse.Identified)
+
+	_, err = decodeRegisterRMResponse(nil)
+	assert.Error(t, err)
+
+	_, err = decodeRegisterRMResponse("wrong-type")
+	assert.Error(t, err)
+}

@@ -25,6 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestEncodeDecode(t *testing.T) {
@@ -72,4 +73,47 @@ func TestEncodeDecode(t *testing.T) {
 			assert.True(t, proto.Equal(expectedBody, actualBody), "proto body not equal")
 		})
 	}
+}
+
+// TestDecodeMalformedAnyPb verifies that Decode returns an error (instead of
+// silently producing a nil Body that would panic downstream) when the wire
+// body carries an unknown or corrupt Any typeUrl.
+func TestDecodeMalformedAnyPb(t *testing.T) {
+	cases := []struct {
+		name string
+		body []byte
+	}{
+		{
+			name: "unknown type url",
+			body: mustMarshalAny(t, "type.googleapis.com/com.example.NotRegistered", []byte("x")),
+		},
+		{
+			name: "empty type url",
+			body: mustMarshalAny(t, "", []byte("x")),
+		},
+		{
+			name: "corrupt wire bytes",
+			body: []byte{0xff, 0xfe, 0x01},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := &pb.GrpcMessageProto{
+				Id:          1,
+				MessageType: int32(message.RequestTypeRequestSync),
+				Body:        tc.body,
+			}
+			rpcMessage, err := Decode(msg)
+			assert.Error(t, err)
+			assert.Nil(t, rpcMessage.Body)
+		})
+	}
+}
+
+func mustMarshalAny(t *testing.T, typeURL string, value []byte) []byte {
+	t.Helper()
+	anyMsg := &anypb.Any{TypeUrl: typeURL, Value: value}
+	data, err := proto.Marshal(anyMsg)
+	assert.NoError(t, err)
+	return data
 }
