@@ -28,7 +28,7 @@ import (
 
 type seataATConnector struct {
 	*seataConnector
-	transType types.TransactionMode
+	driverName string
 }
 
 func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
@@ -45,9 +45,7 @@ func (c *seataATConnector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 func (c *seataATConnector) Driver() driver.Driver {
-	return &seataATDriver{
-		seataDriver: c.seataConnector.Driver().(*seataDriver),
-	}
+	return &seataATDriver{name: c.driverName}
 }
 
 type seataXAConnector struct {

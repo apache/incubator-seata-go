@@ -19,10 +19,17 @@ package sql
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
+
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
 func TestAsyncWorker_Lifecycle(t *testing.T) {
@@ -47,4 +54,50 @@ func TestAsyncWorker_Lifecycle(t *testing.T) {
 
 	// Give it some time to exit (though we can't verify it easily without exposing internal state)
 	time.Sleep(50 * time.Millisecond)
+}
+
+type deleteUndoManager struct {
+	undo.UndoLogManager
+	query string
+}
+
+func (m *deleteUndoManager) BatchDeleteUndoLog(xids []string, branchIDs []int64, conn *sql.Conn) error {
+	_, err := conn.ExecContext(context.Background(), m.query, xids[0], branchIDs[0])
+	return err
+}
+
+func TestAsyncWorkerUsesResourceUndoManagerAndRetriesDeletion(t *testing.T) {
+	manager := &ATSourceManager{}
+	worker := &AsyncWorker{
+		resourceMgr:      manager,
+		commitQueue:      make(chan phaseTwoContext, 2),
+		rePutBackToQueue: prometheus.NewCounter(prometheus.CounterOpts{Name: "undo_retry_test"}),
+	}
+	addResource := func(id, query string) sqlmock.Sqlmock {
+		t.Helper()
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		manager.resourceCache.Store(id, &DBResource{
+			db: db, dbType: types.DBTypeMySQL, undoLogMgr: &deleteUndoManager{query: query},
+		})
+		return mock
+	}
+	mockA := addResource("a", "DELETE FROM undo_a")
+	mockB := addResource("b", "DELETE FROM undo_b")
+	a := phaseTwoContext{ResourceID: "a", Xid: "xid-a", BranchID: 1}
+	b := phaseTwoContext{ResourceID: "b", Xid: "xid-b", BranchID: 2}
+	mockA.ExpectExec("DELETE FROM undo_a").WithArgs(a.Xid, a.BranchID).WillReturnError(errors.New("delete failed"))
+	mockB.ExpectExec("DELETE FROM undo_b").WithArgs(b.Xid, b.BranchID).WillReturnResult(sqlmock.NewResult(0, 1))
+	mockA.ExpectExec("DELETE FROM undo_a").WithArgs(a.Xid, a.BranchID).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	worker.dealWithGroupedContexts(a.ResourceID, []phaseTwoContext{a})
+	worker.dealWithGroupedContexts(b.ResourceID, []phaseTwoContext{b})
+	require.Len(t, worker.commitQueue, 1)
+	retry := <-worker.commitQueue
+	require.Equal(t, a, retry)
+	worker.dealWithGroupedContexts(retry.ResourceID, []phaseTwoContext{retry})
+	require.Empty(t, worker.commitQueue)
+	require.NoError(t, mockA.ExpectationsWereMet())
+	require.NoError(t, mockB.ExpectationsWereMet())
 }
