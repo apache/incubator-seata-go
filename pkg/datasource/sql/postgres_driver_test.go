@@ -28,10 +28,10 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 )
 
-func TestParseConnectorMetadataPostgres(t *testing.T) {
-	meta, err := parseConnectorMetadata("postgres://postgres:password@127.0.0.1:5432/seata_demo?sslmode=disable", types.DBTypePostgreSQL)
+func TestParsePostgresDBName(t *testing.T) {
+	dbName, err := parsePostgresDBName("postgres://postgres:password@127.0.0.1:5432/seata_demo?sslmode=disable")
 	assert.NoError(t, err)
-	assert.Equal(t, "seata_demo", meta.dbName)
+	assert.Equal(t, "seata_demo", dbName)
 }
 
 func TestSeataConnectorConnectPostgres(t *testing.T) {

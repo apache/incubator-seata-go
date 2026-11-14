@@ -28,7 +28,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/util/fanout"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
@@ -179,8 +178,9 @@ func (aw *AsyncWorker) doBranchCommit(phaseCtxs *[]phaseTwoContext) {
 }
 
 func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTwoContext) {
-	val, ok := aw.resourceMgr.GetCachedResources().Load(resID)
-	if !ok {
+	val, _ := aw.resourceMgr.GetCachedResources().Load(resID)
+	res, ok := val.(*DBResource)
+	if !ok || res == nil || res.undoLogMgr == nil {
 		for i := range phaseCtxs {
 			aw.rePutBackToQueue.Add(1)
 			aw.commitQueue <- phaseCtxs[i]
@@ -188,7 +188,6 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 		return
 	}
 
-	res := val.(*DBResource)
 	conn, err := res.db.Conn(context.Background())
 	if err != nil {
 		for i := range phaseCtxs {
@@ -199,18 +198,9 @@ func (aw *AsyncWorker) dealWithGroupedContexts(resID string, phaseCtxs []phaseTw
 
 	defer conn.Close()
 
-	undoMgr, err := undo.GetUndoLogManager(res.dbType)
-	if err != nil {
-		for i := range phaseCtxs {
-			aw.rePutBackToQueue.Add(1)
-			aw.commitQueue <- phaseCtxs[i]
-		}
-		return
-	}
-
 	for i := range phaseCtxs {
 		phaseCtx := phaseCtxs[i]
-		if err := undoMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
+		if err := res.undoLogMgr.BatchDeleteUndoLog([]string{phaseCtx.Xid}, []int64{phaseCtx.BranchID}, conn); err != nil {
 			aw.rePutBackToQueue.Add(1)
 			aw.commitQueue <- phaseCtx
 		}

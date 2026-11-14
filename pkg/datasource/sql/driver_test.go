@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -29,7 +30,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -93,8 +96,12 @@ func Test_seataATDriver_OpenConnector(t *testing.T) {
 	field := v.FieldByName("connector")
 	fieldVal := reflectx.GetUnexportedField(field)
 
-	_, ok := fieldVal.(*seataATConnector)
-	assert.True(t, ok, "need return seata at connector")
+	connector, ok := fieldVal.(*seataATConnector)
+	require.True(t, ok, "need return seata at connector")
+	assert.Equal(t, types.DBTypeMySQL, connector.res.dbType)
+	require.NotNil(t, connector.res.undoLogMgr)
+	assert.Equal(t, types.DBTypeMySQL, connector.res.undoLogMgr.DBType())
+	assert.Equal(t, SeataATMySQLDriver, db.Driver().(*seataATDriver).name)
 }
 
 func Test_seataATPostgresDriver_OpenConnector(t *testing.T) {
@@ -120,9 +127,88 @@ func Test_seataATPostgresDriver_OpenConnector(t *testing.T) {
 	fieldVal := reflectx.GetUnexportedField(field)
 
 	connector, ok := fieldVal.(*seataATConnector)
-	assert.True(t, ok, "need return seata at connector")
+	require.True(t, ok, "need return seata at connector")
 	assert.Equal(t, types.DBTypePostgreSQL, connector.dbType)
 	assert.Equal(t, "seata_go_test", connector.dbName)
+	require.NotNil(t, connector.res.undoLogMgr)
+	assert.Equal(t, types.DBTypePostgreSQL, connector.res.undoLogMgr.DBType())
+	assert.Equal(t, SeataATPostgresDriver, db.Driver().(*seataATDriver).name)
+}
+
+func TestATOpenConnectorRejectsUnknownDriverAndBadDSN(t *testing.T) {
+	manager := &ATSourceManager{rmRemoting: &registrationRemoting{register: func(rm.Resource) error {
+		t.Fatal("invalid connector must not register a resource")
+		return nil
+	}}}
+	registerResourceManagerForTest(t, manager)
+
+	connector, err := (&seataATDriver{name: "unknown"}).OpenConnector("")
+	require.ErrorContains(t, err, "unknown AT driver")
+	require.Nil(t, connector)
+
+	db, err := sql.Open(SeataATMySQLDriver, "invalid dsn")
+	require.Error(t, err)
+	require.Nil(t, db)
+}
+
+type closeTrackingMetaCache struct {
+	resourceTestMetaReader
+	destroyed bool
+}
+
+func (c *closeTrackingMetaCache) Destroy() error {
+	c.destroyed = true
+	return nil
+}
+
+func TestATOpenConnectorRegistrationFailureClosesUnpublishedResource(t *testing.T) {
+	dsn := "root:pass@tcp(mock:3306)/test"
+	registerErr := errors.New("TC unavailable")
+	var published *DBResource
+	manager := &ATSourceManager{}
+	manager.rmRemoting = &registrationRemoting{register: func(resource rm.Resource) error {
+		cached, exists := manager.resourceCache.Load(resource.GetResourceId())
+		require.Equal(t, published != nil, exists)
+		if exists {
+			require.Same(t, published, cached)
+		}
+		return registerErr
+	}}
+	registerResourceManagerForTest(t, manager)
+
+	d := &seataDriver{branchType: branch.BranchTypeAT, transType: types.ATMode, descriptor: mySQLDriverDescriptor}
+	metaCache := &closeTrackingMetaCache{}
+	d.descriptor.newTableMetaCache = func(*sql.DB, string) datasource.TableMetaCache { return metaCache }
+	target := disconnectedTestConnector{}
+	for _, replace := range []bool{false, true} {
+		if replace {
+			published = &DBResource{resourceID: parseResourceID(dsn)}
+			manager.resourceCache.Store(published.resourceID, published)
+		}
+		pool := sql.OpenDB(target)
+		metaCache.destroyed = false
+		connector, err := d.getOpenConnectorProxy(target, types.DBTypeMySQL, pool, dsn)
+		require.ErrorIs(t, err, registerErr)
+		require.Nil(t, connector)
+		require.True(t, metaCache.destroyed)
+		require.ErrorContains(t, pool.Ping(), "database is closed")
+		cached, exists := manager.resourceCache.Load(parseResourceID(dsn))
+		require.Equal(t, replace, exists)
+		if exists {
+			require.Same(t, published, cached)
+		}
+	}
+}
+
+func TestATOpenConnectorRequiresUndoManager(t *testing.T) {
+	d := &seataDriver{branchType: branch.BranchTypeAT}
+	target := disconnectedTestConnector{}
+	pool := sql.OpenDB(target)
+	t.Cleanup(func() { _ = pool.Close() })
+	connector, err := d.getOpenConnectorProxy(target, types.DBTypeOracle, pool, "")
+	require.ErrorContains(t, err, "resolve AT undo log manager for DBTypeOracle")
+	require.Nil(t, connector)
+	require.ErrorContains(t, pool.Ping(), "database is closed")
 }
 
 func Test_seataXADriver_OpenConnector(t *testing.T) {
