@@ -41,7 +41,7 @@ func (e *postgresATExecutor) Interceptors(hooks []exec.SQLHook) {
 }
 
 func (e *postgresATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	globalAT := isGlobalATExecution(ctx, execCtx)
+	globalAT := execCtx.TxCtx.IsATMode()
 	if !globalAT && !execCtx.IsRequireGlobalLock {
 		return newPlainExecutor(nil, execCtx).ExecContext(ctx, f)
 	}
@@ -80,12 +80,4 @@ func (e *postgresATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *ty
 func (e *postgresATExecutor) ExecWithValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	execCtx.NamedValues = util.ValueToNamedValue(execCtx.Values)
 	return e.ExecWithNamedValue(ctx, execCtx, f)
-}
-
-func isGlobalATExecution(ctx context.Context, execCtx *types.ExecContext) bool {
-	if execCtx != nil && execCtx.TxCtx != nil && execCtx.TxCtx.OpenGlobalTransaction() {
-		return true
-	}
-
-	return isGlobalTx(ctx)
 }

@@ -20,6 +20,7 @@ package sql
 import (
 	"fmt"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
@@ -71,29 +72,54 @@ type ATTx struct {
 // case 3. need run AT transaction
 func (tx *ATTx) Commit() error {
 	stage, err := tx.doCommit()
-	if err == nil {
-		return nil
+	defer tx.releaseConnection()
+	if err != nil {
+		return tx.finishCommitFailure(stage, err)
 	}
-	return tx.finishCommitFailure(stage, err)
+	return nil
 }
 
 func (tx *ATTx) Rollback() error {
-	err := tx.tx.Rollback()
-	if err != nil {
-
-		originTx := tx.tx
-
-		if originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
-			originTx.report(false)
-		}
+	defer tx.releaseConnection()
+	originTx := tx.tx
+	err := tx.rollbackLocal()
+	if err != nil && originTx.tranCtx.OpenGlobalTransaction() && originTx.tranCtx.IsBranchRegistered() {
+		originTx.report(false)
 	}
 
 	return err
 }
 
+func (tx *ATTx) rollbackLocal() error {
+	rolledBack := false
+	defer func() {
+		if !rolledBack && tx.tx.conn.txCtx == tx.tx.tranCtx {
+			tx.tx.conn.invalidate()
+		}
+	}()
+	err := tx.tx.Rollback()
+	rolledBack = err == nil
+	return err
+}
+
+func (tx *ATTx) releaseConnection() {
+	conn := tx.tx.conn
+	if conn.txCtx == tx.tx.tranCtx {
+		conn.txCtx = types.NewTxCtx()
+		conn.autoCommit = true
+	}
+}
+
 func (tx *ATTx) doCommit() (localCommitStage, error) {
 	originTx := tx.tx
 	stage := localCommitNotStarted
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			defer tx.releaseConnection()
+			_ = tx.finishCommitFailure(stage, fmt.Errorf("panic during AT commit: %v", recovered))
+			panic(recovered)
+		}
+	}()
 
 	if err := originTx.beforeCommit(); err != nil {
 		return stage, err
@@ -128,14 +154,15 @@ func (tx *ATTx) finishCommitFailure(stage localCommitStage, cause error) error {
 
 	switch stage {
 	case localCommitNotStarted:
-		if err := originTx.Rollback(); err != nil {
+		if err := tx.rollbackLocal(); err != nil {
 			commitErr.rollbackErr = err
 			commitErr.outcome = atCommitOutcomeRollbackFailed
-			originTx.conn.invalidate()
 		}
 	case localCommitInvoked:
 		commitErr.outcome = atCommitOutcomeCommitUnknown
-		originTx.conn.invalidate()
+		if originTx.conn.txCtx == originTx.tranCtx {
+			originTx.conn.invalidate()
+		}
 	case localCommitSucceeded:
 		commitErr.outcome = atCommitOutcomeCommitted
 	}

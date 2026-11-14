@@ -151,11 +151,7 @@ func validateWriteDatabase(ctx context.Context, execCtx *types.ExecContext, key 
 	if effectiveDBType(execCtx.DBType) != types.DBTypeMySQL {
 		return nil
 	}
-	isATMode := isGlobalTx(ctx)
-	if execCtx.TxCtx != nil {
-		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
-	}
-	if !isATMode || (execCtx.DBName != "" && key.DBName == execCtx.DBName) {
+	if !execCtx.TxCtx.IsATMode() || (execCtx.DBName != "" && key.DBName == execCtx.DBName) {
 		return nil
 	}
 	if execCtx.DBName != "" && key.DBName != "" && strings.EqualFold(key.DBName, execCtx.DBName) {

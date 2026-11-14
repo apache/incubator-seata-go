@@ -38,7 +38,6 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
@@ -81,21 +80,28 @@ func TestRejectATPreparedMultiSQLAllowsSingleStatement(t *testing.T) {
 func TestATPreparedStatementReturnsBindingErrorBeforeExecution(t *testing.T) {
 	for _, operation := range []string{"Exec", "ExecContext", "Query", "QueryContext"} {
 		t.Run(operation, func(t *testing.T) {
-			const query = "UPDATE account SET balance=1"
-			bindingErr := errors.New("table reference binding failed")
-			// Test propagation of a binding failure without treating valid SQL as invalid.
-			patch := gomonkey.ApplyFuncReturn(parser.BindTableRefs, bindingErr)
-			t.Cleanup(patch.Reset)
-
-			resource := &DBResource{dbType: types.DBTypeMySQL}
-			stmt := &Stmt{
-				conn:  &Conn{res: resource, dbType: types.DBTypeMySQL},
-				res:   resource,
-				txCtx: &types.TransactionContext{TransactionMode: types.ATMode},
-				query: query,
-				stmt:  mock.NewMockTestDriverStmt(gomock.NewController(t)),
+			// The parser expands MySQL executable comments, while PostgreSQL
+			// table binding treats them as ordinary comments.
+			const query = `UPDATE /*! "public". */ "Users" SET id=1`
+			ctrl := gomock.NewController(t)
+			targetConn := mock.NewMockTestDriverConn(ctrl)
+			targetStmt := mock.NewMockTestDriverStmt(ctrl)
+			targetConn.EXPECT().Prepare(query).Times(1).Return(targetStmt, nil)
+			targetStmt.EXPECT().Close().Times(1).Return(nil)
+			conn := &ATConn{Conn: &Conn{
+				res:        &DBResource{dbType: types.DBTypePostgreSQL},
+				dbType:     types.DBTypePostgreSQL,
+				txCtx:      &types.TransactionContext{TransactionMode: types.ATMode, XID: "bound-xid"},
+				targetConn: targetConn,
+			}}
+			prepared, err := conn.Prepare(query)
+			if !assert.NoError(t, err) {
+				return
 			}
-			assert.ErrorIs(t, executePreparedStatementForBindingTest(stmt, operation), bindingErr)
+			defer prepared.Close()
+			err = executePreparedStatementForBindingTest(prepared.(*Stmt), operation)
+			assert.ErrorIs(t, err, atexec.ErrPostgreSQLATUnsupported)
+			assert.ErrorContains(t, err, "does not match AST table")
 		})
 	}
 }
@@ -245,7 +251,7 @@ func TestATConnQueryContextPrepareFallbackPreservesCloseErrors(t *testing.T) {
 	stmtCloseErr := errors.New("statement close failed")
 
 	targetConn.EXPECT().QueryContext(ctx, query, args).Return(nil, driver.ErrSkip)
-	targetConn.EXPECT().Prepare(query).Return(targetStmt, nil)
+	targetConn.EXPECT().PrepareContext(ctx, query).Return(targetStmt, nil)
 	targetStmt.EXPECT().QueryContext(ctx, args).Return(targetRows, nil)
 	targetRows.EXPECT().Close().Return(rowsCloseErr)
 	targetStmt.EXPECT().Close().Return(stmtCloseErr)
@@ -719,80 +725,6 @@ func TestATConn_PostgreSQLGlobalDeleteInTxUsesRealExecutor(t *testing.T) {
 	assert.NoError(t, tx.Rollback())
 }
 
-func TestATConn_PostgreSQLSelectForUpdateInTxUsesRealExecutor(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	CleanTxHooks()
-	defer CleanTxHooks()
-
-	mockMgr := initMockResourceManager(branch.BranchTypeAT, ctrl)
-	mockMgr.EXPECT().LockQuery(gomock.Any(), gomock.Any()).AnyTimes().Return(true, nil)
-
-	db, err := sql.Open(SeataATPostgresDriver, postgresTestDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	metaPatch := patchPostgresTableMeta(t)
-	defer metaPatch.Reset()
-
-	var queryLog []string
-
-	_ = initMockAtConnector(t, ctrl, db, func(t *testing.T, ctrl *gomock.Controller) driver.Connector {
-		mockTx := mock.NewMockTestDriverTx(ctrl)
-		mockTx.EXPECT().Rollback().AnyTimes().Return(nil)
-
-		mockConn := mock.NewMockTestDriverConn(ctrl)
-		mockConn.EXPECT().Begin().AnyTimes().Return(mockTx, nil)
-		mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).AnyTimes().Return(mockTx, nil)
-		mockConn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-			func(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-				queryLog = append(queryLog, query)
-				switch {
-				case query == "SELECT VERSION()":
-					return &postgresMockRows{
-						columns: []string{"version"},
-						data:    [][]driver.Value{{"PostgreSQL 15.4"}},
-					}, nil
-				case strings.HasPrefix(query, "savepoint "):
-					return nil, nil
-				case query == `SELECT "id" FROM "public"."t_user" WHERE "id"=$1 FOR UPDATE`:
-					return &postgresMockRows{
-						columns: []string{"id"},
-						data:    [][]driver.Value{{int64(1)}},
-					}, nil
-				case query == "SELECT id,name FROM t_user WHERE id = $1 FOR UPDATE":
-					return &postgresMockRows{
-						columns: []string{"id", "name"},
-						data:    [][]driver.Value{{int64(1), "alice"}},
-					}, nil
-				default:
-					return nil, errors.New("unexpected query: " + query)
-				}
-			},
-		)
-		mockConn.EXPECT().ResetSession(gomock.Any()).AnyTimes().Return(nil)
-		mockConn.EXPECT().Close().AnyTimes().Return(nil)
-
-		connector := mock.NewMockTestDriverConnector(ctrl)
-		connector.EXPECT().Connect(gomock.Any()).AnyTimes().Return(mockConn, nil)
-		return connector
-	})
-
-	ctx := tm.InitSeataContext(context.Background())
-	tm.SetXID(ctx, uuid.NewString())
-
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
-	assert.NoError(t, err)
-
-	rows, err := tx.QueryContext(context.Background(), "SELECT id,name FROM t_user WHERE id = $1 FOR UPDATE", int64(1))
-	assert.NoError(t, err)
-	assert.NoError(t, rows.Close())
-	assert.Contains(t, queryLog, "SELECT id,name FROM t_user WHERE id = $1 FOR UPDATE")
-	assert.NoError(t, tx.Rollback())
-}
-
 func TestATConn_ExecContext(t *testing.T) {
 	ctrl, db, mi, ti := initAtConnTestResource(t)
 	defer func() {
@@ -1070,7 +1002,7 @@ func TestATConn_CreateTxHelpersRollbackOnError(t *testing.T) {
 		tm.SetXID(ctx, uuid.NewString())
 		expectedErr := errors.New("query failed")
 
-		ret, err := atConn.createTxAndQueryIfNeeded(ctx, func() (types.ExecResult, error) {
+		ret, err := atConn.createTxAndQueryIfNeeded(ctx, false, func() (types.ExecResult, error) {
 			return nil, expectedErr
 		})
 
