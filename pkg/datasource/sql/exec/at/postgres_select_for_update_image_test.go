@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/format"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"

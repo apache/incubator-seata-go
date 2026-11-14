@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"

@@ -81,7 +81,7 @@ func TestFuncInvokerInvokeSucceed(t *testing.T) {
 				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
 			}
 
-			if values == nil || len(values) == 0 {
+			if len(values) == 0 {
 				t.Fatal("no value in values")
 			}
 

@@ -65,7 +65,7 @@ func MapToStruct(stateName string, obj interface{}, stateMap map[string]interfac
 				return errors.New(fmt.Sprintf("State [%s] [%s] field not support setMethod", stateName, key))
 			}
 			setMethodType := setMethod.Type()
-			if !(setMethodType.NumIn() == 1 && setMethodType.In(0) == fieldVal.Type()) {
+			if setMethodType.NumIn() != 1 || setMethodType.In(0) != fieldVal.Type() {
 				return errors.New(fmt.Sprintf("State [%s] [%s] field setMethod illegal", stateName, key))
 			}
 		}

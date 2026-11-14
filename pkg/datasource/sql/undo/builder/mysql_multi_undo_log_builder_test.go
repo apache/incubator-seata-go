@@ -22,7 +22,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"

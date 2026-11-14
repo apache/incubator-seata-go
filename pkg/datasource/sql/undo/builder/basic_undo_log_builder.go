@@ -25,9 +25,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -108,65 +108,63 @@ func (*BasicUndoLogBuilder) GetScanSlice(columnNames []string, tableMeta *types.
 	return scanSlice
 }
 
-func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Value) []driver.Value {
+func (b *BasicUndoLogBuilder) buildSelectArgs(stmt *ast.SelectStmt, args []driver.Value) ([]driver.Value, error) {
 	var (
 		selectArgsIndexs = make([]int32, 0)
 		selectArgs       = make([]driver.Value, 0)
 	)
 
-	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if stmt.From != nil && stmt.From.TableRefs != nil {
+		if err := b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs); err != nil {
+			return nil, err
+		}
+	}
+	if stmt.Where != nil {
+		if err := b.traversalArgs(stmt.Where, &selectArgsIndexs); err != nil {
+			return nil, err
+		}
+	}
+	if stmt.GroupBy != nil {
+		for _, item := range stmt.GroupBy.Items {
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
-			b.traversalArgs(item, &selectArgsIndexs)
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if stmt.Limit != nil {
 		if stmt.Limit.Offset != nil {
-			b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 		if stmt.Limit.Count != nil {
-			b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	// sort selectArgs index array
 	gxsort.Int32(selectArgsIndexs)
 	for _, index := range selectArgsIndexs {
+		if index < 0 || int(index) >= len(args) {
+			return nil, fmt.Errorf("parameter index %d out of range (args count %d)", index, len(args))
+		}
 		selectArgs = append(selectArgs, args[index])
 	}
 
-	return selectArgs
+	return selectArgs, nil
 }
 
 // todo perfect all sql operation
-func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) {
-	if node == nil {
-		return
-	}
-	switch node.(type) {
-	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr)
-		b.traversalArgs(expr.L, argsIndex)
-		b.traversalArgs(expr.R, argsIndex)
-		break
-	case *ast.BetweenExpr:
-		expr := node.(*ast.BetweenExpr)
-		b.traversalArgs(expr.Left, argsIndex)
-		b.traversalArgs(expr.Right, argsIndex)
-		break
-	case *ast.PatternInExpr:
-		exprs := node.(*ast.PatternInExpr).List
-		for i := 0; i < len(exprs); i++ {
-			b.traversalArgs(exprs[i], argsIndex)
-		}
-		break
-	case *ast.ParenthesesExpr:
-		expr := node.(*ast.ParenthesesExpr)
-		b.traversalArgs(expr.Expr, argsIndex)
-		break
-	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
-	}
+func (b *BasicUndoLogBuilder) traversalArgs(node ast.Node, argsIndex *[]int32) error {
+	return parser.TraversalArgs(node, argsIndex)
 }
 
 func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta) (*types.RecordImage, error) {
@@ -210,7 +208,7 @@ func (b *BasicUndoLogBuilder) buildRecordImages(rowsi driver.Rows, tableMetaData
 
 // buildWhereConditionByPKs build where condition by primary keys
 // each pk is a condition.the result will like :" (id,userCode) in ((?,?),(?,?)) or (id,userCode) in ((?,?),(?,?) ) or (id,userCode) in ((?,?))"
-func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowSize int, dbType string, maxInSize int) string {
+func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowSize int, _ string, maxInSize int) string {
 	var (
 		whereStr  = &strings.Builder{}
 		batchSize = rowSize/maxInSize + 1
@@ -231,7 +229,7 @@ func (b *BasicUndoLogBuilder) buildWhereConditionByPKs(pkNameList []string, rowS
 				whereStr.WriteString(",")
 			}
 			// todo add escape
-			whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+			fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 		}
 		whereStr.WriteString(") IN (")
 

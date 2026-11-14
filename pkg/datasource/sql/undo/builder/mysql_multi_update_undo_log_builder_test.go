@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arana-db/parser/ast"
-	_ "github.com/arana-db/parser/test_driver"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/stretchr/testify/assert"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"

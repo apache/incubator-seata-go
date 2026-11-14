@@ -74,7 +74,7 @@ func (g *GRPCInvoker) Invoke(ctx context.Context, input []any, service state.Ser
 	serviceTaskStateImpl := service.(*state.ServiceTaskStateImpl)
 	client := g.GetClient(serviceTaskStateImpl.ServiceName())
 	if client == nil {
-		return nil, errors.New(fmt.Sprintf("no grpc client %s for service task state", serviceTaskStateImpl.ServiceName()))
+		return nil, fmt.Errorf("no grpc client %s for service task state", serviceTaskStateImpl.ServiceName())
 	}
 
 	// context is the first arg in grpc client method
@@ -185,8 +185,8 @@ func (g *GPRCClientImpl) CallMethod(serviceTaskStateImpl *state.ServiceTaskState
 
 		if !shouldRetry {
 			if err != nil {
-				return nil, errors.New(fmt.Sprintf("invoke Service[%s] failed, not satisfy retry config, the last err is %s",
-					serviceTaskStateImpl.ServiceName(), err))
+				return nil, fmt.Errorf("invoke Service[%s] failed, not satisfy retry config, the last err is %s",
+					serviceTaskStateImpl.ServiceName(), err)
 			}
 			return res, nil
 		}
@@ -209,12 +209,12 @@ func (g *GPRCClientImpl) initMethod(serviceTaskStateImpl *state.ServiceTaskState
 	defer g.methodLock.Unlock()
 	clientValue := reflect.ValueOf(g.client)
 	if clientValue.IsZero() {
-		return errors.New(fmt.Sprintf("invalid client value when grpc client call, serviceName: %s", g.serviceName))
+		return fmt.Errorf("invalid client value when grpc client call, serviceName: %s", g.serviceName)
 	}
 	method := clientValue.MethodByName(methodName)
 	if method.IsZero() {
-		return errors.New(fmt.Sprintf("invalid client method when grpc client call, serviceName: %s, serviceMethod: %s",
-			g.serviceName, methodName))
+		return fmt.Errorf("invalid client method when grpc client call, serviceName: %s, serviceMethod: %s",
+			g.serviceName, methodName)
 	}
 	serviceTaskStateImpl.SetMethod(&method)
 	return nil

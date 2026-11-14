@@ -41,7 +41,7 @@ func GetLoopConfig(ctx context.Context, processContext process_ctrl.ProcessConte
 		task = s.AbstractTaskState
 	case *state.SubStateMachineImpl:
 		if s.ServiceTaskStateImpl != nil {
-			task = s.ServiceTaskStateImpl.AbstractTaskState
+			task = s.AbstractTaskState
 		}
 	default:
 		return nil

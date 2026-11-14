@@ -26,13 +26,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/arana-db/parser/ast"
-	"github.com/arana-db/parser/format"
-	"github.com/arana-db/parser/model"
-	"github.com/arana-db/parser/test_driver"
 	gxsort "github.com/dubbogo/gost/sort"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/format"
+	"github.com/pingcap/tidb/pkg/parser/model"
 	"github.com/pkg/errors"
-
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -284,128 +282,61 @@ func (b *baseExecutor) restoreImageSelectSQL(stmt *ast.SelectStmt, dbType types.
 	return b.normalizeGeneratedSQL(sql.String(), dbType), nil
 }
 
-func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) []driver.NamedValue {
+func (b *baseExecutor) buildSelectArgs(stmt *ast.SelectStmt, args []driver.NamedValue) ([]driver.NamedValue, error) {
 	var (
 		selectArgsIndexs = make([]int32, 0)
 		selectArgs       = make([]driver.NamedValue, 0)
 	)
 
-	b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs)
-	b.traversalArgs(stmt.Where, &selectArgsIndexs)
+	if stmt.From != nil && stmt.From.TableRefs != nil {
+		if err := b.traversalArgs(stmt.From.TableRefs, &selectArgsIndexs); err != nil {
+			return nil, err
+		}
+	}
+	if err := b.traversalArgs(stmt.Where, &selectArgsIndexs); err != nil {
+		return nil, err
+	}
 	if stmt.GroupBy != nil {
 		for _, item := range stmt.GroupBy.Items {
-			b.traversalArgs(item, &selectArgsIndexs)
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if stmt.OrderBy != nil {
 		for _, item := range stmt.OrderBy.Items {
-			b.traversalArgs(item, &selectArgsIndexs)
+			if err := b.traversalArgs(item, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if stmt.Limit != nil {
 		if stmt.Limit.Offset != nil {
-			b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Offset, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 		if stmt.Limit.Count != nil {
-			b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs)
+			if err := b.traversalArgs(stmt.Limit.Count, &selectArgsIndexs); err != nil {
+				return nil, err
+			}
 		}
 	}
 	// sort selectArgs index array
 	gxsort.Int32(selectArgsIndexs)
 	for _, index := range selectArgsIndexs {
+		if index < 0 || int(index) >= len(args) {
+			return nil, fmt.Errorf("parameter index %d out of range (args count %d)", index, len(args))
+		}
 		selectArgs = append(selectArgs, args[index])
 	}
 
-	return selectArgs
+	return selectArgs, nil
 }
 
 // todo perfect all sql operation
-func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) {
-	if node == nil {
-		return
-	}
-	switch node.(type) {
-	case *ast.BinaryOperationExpr:
-		expr := node.(*ast.BinaryOperationExpr)
-		b.traversalArgs(expr.L, argsIndex)
-		b.traversalArgs(expr.R, argsIndex)
-		break
-	case *ast.BetweenExpr:
-		expr := node.(*ast.BetweenExpr)
-		b.traversalArgs(expr.Left, argsIndex)
-		b.traversalArgs(expr.Right, argsIndex)
-		break
-	case *ast.PatternInExpr:
-		exprs := node.(*ast.PatternInExpr).List
-		for i := 0; i < len(exprs); i++ {
-			b.traversalArgs(exprs[i], argsIndex)
-		}
-		break
-	case *ast.Join:
-		exprs := node.(*ast.Join)
-		b.traversalArgs(exprs.Left, argsIndex)
-		if exprs.Right != nil {
-			b.traversalArgs(exprs.Right, argsIndex)
-		}
-		if exprs.On != nil {
-			b.traversalArgs(exprs.On.Expr, argsIndex)
-		}
-		break
-	case *ast.UnaryOperationExpr:
-		expr := node.(*ast.UnaryOperationExpr)
-		b.traversalArgs(expr.V, argsIndex)
-		break
-	case *ast.FuncCallExpr:
-		expr := node.(*ast.FuncCallExpr)
-		for _, arg := range expr.Args {
-			b.traversalArgs(arg, argsIndex)
-		}
-		break
-	case *ast.SubqueryExpr:
-		expr := node.(*ast.SubqueryExpr)
-		if expr.Query != nil {
-			b.traversalArgs(expr.Query, argsIndex)
-		}
-		break
-	case *ast.ExistsSubqueryExpr:
-		expr := node.(*ast.ExistsSubqueryExpr)
-		if expr.Sel != nil {
-			b.traversalArgs(expr.Sel, argsIndex)
-		}
-		break
-	case *ast.CompareSubqueryExpr:
-		expr := node.(*ast.CompareSubqueryExpr)
-		b.traversalArgs(expr.L, argsIndex)
-		if expr.R != nil {
-			b.traversalArgs(expr.R, argsIndex)
-		}
-		break
-	case *ast.PatternLikeExpr:
-		expr := node.(*ast.PatternLikeExpr)
-		b.traversalArgs(expr.Expr, argsIndex)
-		b.traversalArgs(expr.Pattern, argsIndex)
-		break
-	case *ast.IsNullExpr:
-		expr := node.(*ast.IsNullExpr)
-		b.traversalArgs(expr.Expr, argsIndex)
-		break
-	case *ast.CaseExpr:
-		expr := node.(*ast.CaseExpr)
-		if expr.Value != nil {
-			b.traversalArgs(expr.Value, argsIndex)
-		}
-		for _, whenClause := range expr.WhenClauses {
-			b.traversalArgs(whenClause.Expr, argsIndex)
-			b.traversalArgs(whenClause.Result, argsIndex)
-		}
-		if expr.ElseClause != nil {
-			b.traversalArgs(expr.ElseClause, argsIndex)
-		}
-		break
-	case *test_driver.ParamMarkerExpr:
-		*argsIndex = append(*argsIndex, int32(node.(*test_driver.ParamMarkerExpr).Order))
-		break
-	}
+func (b *baseExecutor) traversalArgs(node ast.Node, argsIndex *[]int32) error {
+	return parser.TraversalArgs(node, argsIndex)
 }
 
 func (b *baseExecutor) buildRecordImages(rowsi driver.Rows, tableMetaData *types.TableMeta, sqlType types.SQLType, dbType types.DBType) (*types.RecordImage, error) {
@@ -654,7 +585,7 @@ func (b *baseExecutor) buildWhereConditionByPKs(pkNameList []string, rowSize int
 				whereStr.WriteString(",")
 			}
 			if effectiveDBType(dbType) == types.DBTypeMySQL {
-				whereStr.WriteString(fmt.Sprintf("`%s`", pkNameList[i]))
+				fmt.Fprintf(whereStr, "`%s`", pkNameList[i])
 				continue
 			}
 			whereStr.WriteString(util.AddEscape(pkNameList[i], dbType))

@@ -65,6 +65,8 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case <-ticker.C:
 			if !channelManager.isServerAddressAvailable(channel.addr) {
 				channelManager.releaseChannel(channel)
@@ -111,7 +113,6 @@ func (g *grpcClientHandler) monitorStreamHealth(ctx context.Context, channel *Ch
 						}
 
 						flag = true
-
 					}
 				}
 			} else {
