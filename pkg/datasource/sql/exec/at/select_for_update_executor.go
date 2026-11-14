@@ -23,12 +23,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
-	"strings"
 	"time"
-
-	"seata.apache.org/seata-go/v2/pkg/tm"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/model"
@@ -80,8 +76,7 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		s.afterHooks(ctx, s.execContext)
 	}()
 
-	// todo fix IsRequireGlobalLock
-	if !tm.IsGlobalTx(ctx) && !s.execContext.IsRequireGlobalLock {
+	if !s.execContext.TxCtx.IsATMode() && !s.execContext.IsRequireGlobalLock {
 		return f(ctx, s.execContext.Query, s.execContext.NamedValues)
 	}
 
@@ -131,11 +126,11 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 		}
 		// if there is an err in doExecContext, we should rollback first
 		if s.savepointName != "" {
-			if _, rollerr := s.exec(ctx, fmt.Sprintf("rollback to %s;", s.savepointName), nil, nil); rollerr != nil {
+			if _, rollerr := util.CtxDriverExecWithPrepareFallback(ctx, s.execContext.Conn, "ROLLBACK TO SAVEPOINT "+s.savepointName, nil); rollerr != nil {
 				log.Error("rollback to %s failed, err %s", s.savepointName, rollerr.Error())
 				return nil, err
 			}
-		} else {
+		} else if s.tx != nil {
 			if rollerr := s.tx.Rollback(); rollerr != nil {
 				log.Error("rollback failed, err %s", rollerr.Error())
 				return nil, err
@@ -157,7 +152,6 @@ func (s *selectForUpdateExecutor) ExecContext(ctx context.Context, f exec.Callba
 func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
 	var (
 		now                = time.Now().Unix()
-		result             types.ExecResult
 		originalAutoCommit = s.execContext.IsAutoCommit
 		err                error
 	)
@@ -179,9 +173,9 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		// create a save point if original auto commit was false, then use the save point here to release db
 		// lock during global lock checking if necessary
 		log.Infof("originalAutoCommit is false, creating savepoint")
-		savepointName := fmt.Sprintf("seatago%dpoint;", now)
+		savepointName := fmt.Sprintf("seatago%dpoint", now)
 		log.Infof("calling exec for savepoint: %s", savepointName)
-		if _, err = s.exec(ctx, fmt.Sprintf("savepoint %s;", savepointName), nil, nil); err != nil {
+		if _, err = util.CtxDriverExecWithPrepareFallback(ctx, s.execContext.Conn, "SAVEPOINT "+savepointName, nil); err != nil {
 			log.Errorf("savepoint exec failed: %v", err)
 			return nil, err
 		}
@@ -192,30 +186,24 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 	}
 
 	// query primary key values
-	var lockKey string
 	log.Infof("querying primary key values with SQL: %s", s.selectPKSQL)
-	_, err = s.exec(ctx, s.selectPKSQL, s.execContext.NamedValues, func(rows driver.Rows) {
-		lockKey = s.buildLockKey(rows, s.metaData)
-	})
+	keyRows, err := util.CtxDriverQueryWithPrepareFallback(ctx, s.execContext.Conn, s.selectPKSQL, s.execContext.NamedValues)
+	if err != nil {
+		return nil, err
+	}
+	lockKey, err := s.buildLockKey(keyRows, s.metaData)
+	err = errors.Join(err, keyRows.Close())
 	log.Infof("primary key query completed, lockKey: %s, err: %v", lockKey, err)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if lockKey == "" {
-		return nil, nil
+	result, err := f(ctx, s.execContext.Query, s.execContext.NamedValues)
+	if err != nil || lockKey == "" {
+		return result, err
 	}
 
-	// execute business SQL, try to get local lock
-	log.Infof("executing business SQL, query: %s", s.execContext.Query)
-	result, err = f(ctx, s.execContext.Query, s.execContext.NamedValues)
-	log.Infof("business SQL executed, err: %v", err)
-	if err != nil {
-		return nil, err
-	}
-
-	// check global lock
 	log.Infof("checking global lock for lockKey: %s", lockKey)
 	lockable, err := datasource.GetDataSourceManager(branch.BranchTypeAT).LockQuery(ctx, rm.LockQueryParam{
 		Xid:        s.execContext.TxCtx.XID,
@@ -223,15 +211,17 @@ func (s *selectForUpdateExecutor) doExecContext(ctx context.Context, f exec.Call
 		ResourceId: s.execContext.TxCtx.ResourceID,
 		LockKeys:   lockKey,
 	})
-	if err != nil {
-		return nil, err
+	if err == nil && lockable {
+		return result, nil
 	}
-
-	if !lockable {
-		return nil, lockConflictError
+	if err == nil {
+		err = lockConflictError
 	}
-
-	return result, nil
+	// A query result must be closed before rolling back to the savepoint.
+	if result.GetResult() == nil {
+		err = errors.Join(err, result.GetRows().Close())
+	}
+	return nil, err
 }
 
 // buildSelectSQLByUpdate build select sql from update sql
@@ -300,127 +290,39 @@ func (s *selectForUpdateExecutor) buildSelectPKSQL(stmt *ast.SelectStmt, meta *t
 	return sql, nil
 }
 
-// the string as local key. the local key example(multi pk): "t_user:1_a,2_b"
-func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) string {
-	var (
-		lockKeys    bytes.Buffer
-		idx         int
-		columnNames []string
-	)
-	lockKeys.WriteString(meta.TableName)
-	lockKeys.WriteString(":")
-
-	columnNames = meta.GetPrimaryKeyOnlyName()
+func (s *selectForUpdateExecutor) buildLockKey(rows driver.Rows, meta *types.TableMeta) (string, error) {
+	var lockKeys bytes.Buffer
+	columnNames := meta.GetPrimaryKeyOnlyName()
 	sqlRows := util.NewScanRows(rows)
 	for sqlRows.Next() {
-		ss := s.GetScanSlice(columnNames, meta)
-		if err := sqlRows.Scan(ss...); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return ""
+		values := s.GetScanSlice(columnNames, meta)
+		if err := sqlRows.Scan(values...); err != nil {
+			return "", err
 		}
-
-		if idx > 0 {
-			lockKeys.WriteString(",")
+		if lockKeys.Len() == 0 {
+			lockKeys.WriteString(meta.TableName)
+			lockKeys.WriteByte(':')
+		} else {
+			lockKeys.WriteByte(',')
 		}
-		idx++
-
-		for i, value := range ss {
+		for i, value := range values {
 			if i > 0 {
-				lockKeys.WriteString("_")
+				lockKeys.WriteByte('_')
 			}
-
-			// if the value is NullInt64 or NullString etc. then call its Value()
+			// Nullable scan destinations expose their underlying value via Value.
 			ty := reflect.TypeOf(value)
-			if f, ok := ty.MethodByName("Value"); ok {
-				res := f.Func.Call([]reflect.Value{reflect.ValueOf(value)})
-				if res[1].IsNil() { // res[0]: driver.Value, [1]: error
-					lockKeys.WriteString(res[0].Elem().String())
+			if method, ok := ty.MethodByName("Value"); ok {
+				result := method.Func.Call([]reflect.Value{reflect.ValueOf(value)})
+				if result[1].IsNil() {
+					lockKeys.WriteString(result[0].Elem().String())
 				}
 				continue
 			}
-
-			// if the value type is *int64, *string etc. then get the true value
-			lockKeys.WriteString(fmt.Sprintf("%v", reflect.ValueOf(value).Elem()))
+			fmt.Fprint(&lockKeys, reflect.ValueOf(value).Elem())
 		}
 	}
-	return lockKeys.String()
-}
-
-func (s *selectForUpdateExecutor) exec(ctx context.Context, sql string, nvdargs []driver.NamedValue, f func(rows driver.Rows)) (driver.Rows, error) {
-	var (
-		querierContext                  driver.QueryerContext
-		querier                         driver.Queryer
-		queryerCtxExists, queryerExists bool
-		rows                            driver.Rows
-		err                             error
-	)
-
-	log.Debugf("exec called with sql: %s", sql)
-
-	// Try direct query first
-	if querierContext, queryerCtxExists = s.execContext.Conn.(driver.QueryerContext); queryerCtxExists ||
-		func() bool { querier, queryerExists = s.execContext.Conn.(driver.Queryer); return queryerExists }() {
-		log.Debugf("attempting direct query")
-		rows, err = util.CtxDriverQuery(ctx, querierContext, querier, sql, nvdargs)
-		log.Debugf("direct query returned, err: %v", err)
-		if err == nil {
-			if f != nil {
-				defer func() {
-					if rows != nil {
-						_ = rows.Close()
-					}
-				}()
-				f(rows)
-				return nil, nil
-			}
-			return rows, nil
-		}
-		// If not skip-fast-path error, return the error
-		if !strings.Contains(err.Error(), "skip fast-path") {
-			return nil, err
-		}
-		// skip-fast-path error, fallback to prepared statement
-		log.Debugf("direct query not supported, falling back to prepared statement")
+	if err := sqlRows.Err(); err != nil {
+		return "", err
 	}
-
-	// Fallback: use PrepareContext + QueryContext
-	log.Debugf("preparing statement for sql: %s", sql)
-	stmt, err := s.execContext.Conn.Prepare(sql)
-	if err != nil {
-		log.Errorf("prepare statement failed: %+v", err)
-		return nil, err
-	}
-
-	log.Debugf("executing prepared statement query")
-	if stmtQueryCtx, ok := stmt.(driver.StmtQueryContext); ok {
-		rows, err = stmtQueryCtx.QueryContext(ctx, nvdargs)
-	} else {
-		dargs, convErr := namedValuesToValues(nvdargs)
-		if convErr != nil {
-			stmt.Close()
-			return nil, convErr
-		}
-		rows, err = stmt.Query(dargs)
-	}
-	log.Debugf("prepared statement query completed, err: %v", err)
-
-	if err != nil {
-		stmt.Close()
-		return nil, err
-	}
-
-	if f != nil {
-		defer func() {
-			if rows != nil {
-				_ = rows.Close()
-			}
-			stmt.Close()
-		}()
-		f(rows)
-		return nil, nil
-	}
-
-	return util.NewRowsWithStmt(rows, stmt), nil
+	return lockKeys.String(), nil
 }

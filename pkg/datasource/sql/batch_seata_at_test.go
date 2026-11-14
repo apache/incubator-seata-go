@@ -752,7 +752,7 @@ func TestExecBatchInTxContextKeepsATModeSelectedAtBegin(t *testing.T) {
 	require.NoError(t, tx.Rollback())
 }
 
-func TestExecBatchInTxContextKeepsLocalModeSelectedAtBegin(t *testing.T) {
+func TestExecBatchInTxContextRejectsXIDInLocalTransaction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -764,23 +764,17 @@ func TestExecBatchInTxContextKeepsLocalModeSelectedAtBegin(t *testing.T) {
 	const query = "REPLACE INTO account (id, balance) VALUES (?, ?)"
 
 	mockConn.EXPECT().BeginTx(gomock.Any(), gomock.Any()).Times(1).Return(mockTx, nil)
-	mockConn.EXPECT().ExecContext(gomock.Any(), query, gomock.Any()).Times(1).DoAndReturn(
-		func(_ context.Context, _ string, args []driver.NamedValue) (driver.Result, error) {
-			require.Equal(t, []driver.NamedValue{
-				{Ordinal: 1, Value: int64(1)},
-				{Ordinal: 2, Value: int64(100)},
-			}, args)
-			return driver.RowsAffected(1), nil
-		},
-	)
+	mockConn.EXPECT().ExecContext(gomock.Any(), query, gomock.Any()).Times(0)
 	mockTx.EXPECT().Rollback().Times(1).Return(nil)
 
 	tx, err := db.BeginTx(context.Background(), nil)
 	require.NoError(t, err)
 	result, err := ExecBatchInTxContext(execCtx, tx, query, [][]any{{int64(1), int64(100)}})
 
-	require.NoError(t, err)
-	require.Equal(t, BatchItemExecuted, result.Items[0].State)
+	require.ErrorIs(t, err, ErrATTransactionContextConflict)
+	require.Equal(t, BatchItemFailed, result.Items[0].State)
+	require.Equal(t, BatchPhaseExecute, result.Outcome.FailurePhase)
+	require.Equal(t, 0, result.Outcome.FailedIndex)
 	require.Equal(t, BatchTransactionPending, result.Outcome.TransactionState)
 	require.NoError(t, tx.Rollback())
 }

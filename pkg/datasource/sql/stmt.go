@@ -20,18 +20,63 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
+	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 type Stmt struct {
-	conn  *Conn
-	res   *DBResource
-	txCtx *types.TransactionContext
-	query string
-	stmt  driver.Stmt
+	conn            *Conn
+	atConn          *ATConn
+	preparedWithXID bool
+	res             *DBResource
+	txCtx           *types.TransactionContext
+	query           string
+	stmt            driver.Stmt
+}
+
+func (s *Stmt) executeAT(ctx context.Context, args []driver.NamedValue, returnsRows bool, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	if err := s.atConn.validateATExecutionContext(ctx); err != nil {
+		return nil, err
+	}
+	if !s.atConn.autoCommit {
+		return s.atConn.execute(ctx, s.query, args, run)
+	}
+
+	hasXID := tm.IsGlobalTx(ctx)
+	// The old PostgreSQL executor could enter AT from the execution XID
+	// alone. Keep those statements from silently executing in local mode.
+	hadATIntent := s.preparedWithXID || (s.res.dbType == types.DBTypePostgreSQL && hasXID)
+	if !hadATIntent && !(returnsRows && hasXID) {
+		return s.atConn.execute(ctx, s.query, args, run)
+	}
+
+	parsed, err := parser.ParseSQLForDB(s.query, s.res.dbType)
+	if returnsRows && hasXID && err == nil && isPlainSelectForUpdate(parsed) {
+		return s.atConn.createTxAndQueryIfNeeded(ctx, true, func() (types.ExecResult, error) {
+			return s.atConn.execute(ctx, s.query, args, run)
+		})
+	}
+	if hadATIntent {
+		if err != nil || parsed == nil || parsed.SelectStmt == nil || parsed.SQLType != types.SQLTypeSelect {
+			return nil, errors.New("seata AT: execute this prepared statement in a transaction started with BeginTx")
+		}
+		return run(ctx, s.query, args)
+	}
+	return s.atConn.execute(ctx, s.query, args, run)
+}
+
+func isPlainSelectForUpdate(parsed *types.ParseContext) bool {
+	if parsed == nil || parsed.SQLType != types.SQLTypeSelectForUpdate || parsed.SelectStmt == nil {
+		return false
+	}
+	stmt := parsed.SelectStmt
+	// The auxiliary query needs a table and does not preserve INTO or OF.
+	return stmt.From != nil && stmt.SelectIntoOpt == nil && stmt.LockInfo != nil && len(stmt.LockInfo.Tables) == 0
 }
 
 // Close closes the statement.
@@ -64,6 +109,9 @@ func (s *Stmt) NumInput() int {
 //
 // Deprecated: Drivers should implement StmtQueryContext instead (or additionally).
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	if s.atConn != nil {
+		return s.QueryContext(context.Background(), util.ValueToNamedValue(args))
+	}
 	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
 		return nil, err
@@ -91,6 +139,19 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 // QueryContext executes a query that may return rows, such as a  SELECT.
 // QueryContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if s.atConn != nil {
+		ret, err := s.executeAT(ctx, args, true, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
+			rows, err := util.CtxDriverStmtQuery(ctx, s.stmt, args)
+			if err != nil {
+				return nil, err
+			}
+			return types.NewResult(types.WithRows(rows)), nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return ret.GetRows(), nil
+	}
 	stmt, ok := s.stmt.(driver.StmtQueryContext)
 	if !ok {
 		return nil, driver.ErrSkip
@@ -124,6 +185,9 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 //
 // Deprecated: Drivers should implement StmtExecContext instead (or additionally).
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
+	if s.atConn != nil {
+		return s.ExecContext(context.Background(), util.ValueToNamedValue(args))
+	}
 	// in transaction, need run Executor
 	executor, err := exec.BuildExecutor(s.res.dbType, s.txCtx.TransactionMode, s.query)
 	if err != nil {
@@ -153,6 +217,19 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 //
 // ExecContext must honor the context timeout and return when it is canceled.
 func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if s.atConn != nil {
+		ret, err := s.executeAT(ctx, args, false, func(ctx context.Context, _ string, args []driver.NamedValue) (types.ExecResult, error) {
+			result, err := util.CtxDriverStmtExec(ctx, s.stmt, args)
+			if err != nil {
+				return nil, err
+			}
+			return types.NewResult(types.WithResult(result)), nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return ret.GetResult(), nil
+	}
 	stmt, ok := s.stmt.(driver.StmtExecContext)
 	if !ok {
 		return nil, driver.ErrSkip

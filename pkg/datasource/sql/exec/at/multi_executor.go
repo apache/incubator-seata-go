@@ -51,11 +51,7 @@ func (m *multiExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 	if err := parser.BindTableRefs(m.parserCtx); err != nil {
 		return nil, err
 	}
-	isATMode := isGlobalTx(ctx)
-	if m.execContext.TxCtx != nil {
-		isATMode = m.execContext.TxCtx.TransactionMode == types.ATMode
-	}
-	if isATMode {
+	if m.execContext.TxCtx.IsATMode() {
 		for index, statement := range plan.statements {
 			statementCtx := *m.execContext
 			if err := m.resolveTableMetaKey(ctx, &statementCtx, statement); err != nil {
