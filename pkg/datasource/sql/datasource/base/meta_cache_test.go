@@ -357,15 +357,15 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 
 type shutdownTrigger struct {
 	mockTrigger
-	started   chan struct{}
-	cancelled chan struct{}
-	release   chan struct{}
+	started  chan struct{}
+	canceled chan struct{}
+	release  chan struct{}
 }
 
 func (s *shutdownTrigger) LoadAll(ctx context.Context, _ *sql.Conn, _ ...types.TableMetaKey) (map[types.TableMetaKey]types.TableMeta, error) {
 	close(s.started)
 	<-ctx.Done()
-	close(s.cancelled)
+	close(s.canceled)
 	<-s.release
 	return nil, ctx.Err()
 }
@@ -378,9 +378,9 @@ func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
 	defer db.Close()
 
 	trigger := &shutdownTrigger{
-		started:   make(chan struct{}),
-		cancelled: make(chan struct{}),
-		release:   make(chan struct{}),
+		started:  make(chan struct{}),
+		canceled: make(chan struct{}),
+		release:  make(chan struct{}),
 	}
 	var releaseOnce sync.Once
 	release := func() { releaseOnce.Do(func() { close(trigger.release) }) }
@@ -408,7 +408,7 @@ func TestBaseTableMetaCache_GracefulShutdown(t *testing.T) {
 	destroyed := make(chan error, 1)
 	go func() { destroyed <- c.Destroy() }()
 	select {
-	case <-trigger.cancelled:
+	case <-trigger.canceled:
 	case <-timeout.C:
 		t.Fatal("Destroy did not cancel the refresh")
 	}
