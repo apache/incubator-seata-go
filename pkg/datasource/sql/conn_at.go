@@ -69,8 +69,8 @@ func rejectATPreparedMultiSQL(dbType types.DBType, query string) error {
 	if err != nil || parseCtx == nil {
 		// This is a best-effort Prepare guard, not the AT execution-time
 		// validation boundary. Preserve Prepare compatibility for SQL that
-		// the parser cannot handle; BuildExecutor parses it again before
-		// AT execution.
+		// the parser cannot handle. The executor builder parses it again
+		// before AT execution.
 		return nil
 	}
 
@@ -151,12 +151,8 @@ func (c *ATConn) QueryContext(ctx context.Context, query string, args []driver.N
 }
 
 func (c *ATConn) execute(ctx context.Context, query string, args []driver.NamedValue, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	executor, err := exec.BuildExecutor(c.res.dbType, c.txCtx.TransactionMode, query)
-	if err != nil {
-		return nil, err
-	}
 	execCtx := c.newExecContext(c.txCtx, query, nil, args)
-	return executor.ExecWithNamedValue(ctx, execCtx, run)
+	return c.res.executeAT(ctx, execCtx, run)
 }
 
 // Begin starts a local transaction with the same connection state as BeginTx.

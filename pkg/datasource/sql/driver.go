@@ -34,6 +34,7 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
 	mysql2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	postgres2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -196,6 +197,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	db *sql.DB, dataSourceName string) (_ driver.Connector, err error) {
 	var metaCache datasource.TableMetaCache
 	var undoMgr undo.UndoLogManager
+	var atExecutorBuilder exec.ATExecutorBuilder
 	if d.branchType == branch.BranchTypeAT {
 		defer func() {
 			if err == nil {
@@ -212,6 +214,10 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		undoMgr, err = undo.GetUndoLogManager(dbType)
 		if err != nil {
 			return nil, fmt.Errorf("resolve AT undo log manager for %s: %w", dbType, err)
+		}
+		atExecutorBuilder = exec.GetATExecutorBuilder(dbType)
+		if atExecutorBuilder == nil {
+			return nil, fmt.Errorf("resolve AT executor builder for %s: %w", dbType, exec.ErrATExecutorBuilderNotRegistered)
 		}
 	}
 	dbName, err := d.descriptor.parseDBName(dataSourceName)
@@ -235,6 +241,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 	}
 
 	res.undoLogMgr = undoMgr
+	res.atExecutorBuilder = atExecutorBuilder
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("register resource: %v", err)
 		return nil, err

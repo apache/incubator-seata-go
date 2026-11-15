@@ -32,7 +32,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -239,8 +238,6 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 	manager := &ATSourceManager{}
 	manager.resourceCache.Store(a.res.GetResourceId(), a.res)
 	manager.resourceCache.Store(b.res.GetResourceId(), b.res)
-	undoManager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
-	require.NoError(t, err)
 
 	const query = "UPDATE account SET balance = ? WHERE id = ?"
 	for i, step := range []struct {
@@ -292,7 +289,7 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 			execCtx := conn.newExecContext(txCtx, query, nil, []driver.NamedValue{
 				{Ordinal: 1, Value: step.newValue}, {Ordinal: 2, Value: id},
 			})
-			_, err := (&atexec.ATExecutor{}).ExecWithNamedValue(context.Background(), execCtx,
+			_, err := state.res.executeAT(context.Background(), execCtx,
 				func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 					result, err := driverConn.(driver.ExecerContext).ExecContext(ctx, query, args)
 					if err != nil {
@@ -307,7 +304,7 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 			if execCtx.TableMetaKey == nil || *execCtx.TableMetaKey != wantKey {
 				return fmt.Errorf("AT execution table metadata key = %v, want %v", execCtx.TableMetaKey, wantKey)
 			}
-			return undoManager.FlushUndoLog(txCtx, driverConn)
+			return state.res.undoLogMgr.FlushUndoLog(txCtx, driverConn)
 		})
 		require.NoError(t, err)
 		require.NoError(t, sqlConn.Close())

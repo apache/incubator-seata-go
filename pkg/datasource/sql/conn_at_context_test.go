@@ -30,6 +30,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -47,7 +48,7 @@ func atContextWithXID(xid string) context.Context {
 	return ctx
 }
 
-func newATContextTestDB(t *testing.T, ctrl *gomock.Controller, dbType types.DBType) (
+func newATContextTestDB(t *testing.T, ctrl *gomock.Controller, dbType types.DBType, configureResource ...func(*DBResource)) (
 	*sql.DB, *mock.MockTestDriverConn, *mock.MockDataSourceManager, *mock.MockTableMetaCache,
 ) {
 	t.Helper()
@@ -63,11 +64,21 @@ func newATContextTestDB(t *testing.T, ctrl *gomock.Controller, dbType types.DBTy
 	registerResourceManagerForTest(t, manager)
 
 	meta := mock.NewMockTableMetaCache(ctrl)
+	undoManager, err := undo.GetUndoLogManager(dbType)
+	require.NoError(t, err)
+	res := &DBResource{
+		dbType:            dbType,
+		resourceID:        atContextTestResourceID,
+		metaCache:         meta,
+		atExecutorBuilder: exec.GetATExecutorBuilder(dbType),
+		undoLogMgr:        undoManager,
+	}
+	for _, setup := range configureResource {
+		setup(res)
+	}
 	db := sql.OpenDB(&seataATConnector{seataConnector: &seataConnector{
 		target: target,
-		res: &DBResource{
-			dbType: dbType, resourceID: atContextTestResourceID, metaCache: meta,
-		},
+		res:    res,
 		dbType: dbType,
 		dbName: "seata_client",
 	}})
@@ -410,11 +421,37 @@ func (*atContextLockingRows) ColumnTypeLength(int) (int64, bool)                
 func (*atContextLockingRows) ColumnTypeNullable(int) (bool, bool)               { return true, true }
 func (*atContextLockingRows) ColumnTypePrecisionScale(int) (int64, int64, bool) { return 10, 2, true }
 
+type atContextUndoManager struct {
+	undo.UndoLogManager
+	flush func(*types.TransactionContext, driver.Conn) error
+}
+
+func (m atContextUndoManager) FlushUndoLog(txCtx *types.TransactionContext, conn driver.Conn) error {
+	return m.flush(txCtx, conn)
+}
+
 func TestATContextUpdateWithoutXIDRegistersAndFlushesBoundBranch(t *testing.T) {
 	for _, dbType := range []types.DBType{types.DBTypeMySQL, types.DBTypePostgreSQL} {
 		t.Run(dbType.String(), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			db, targetConn, manager, meta := newATContextTestDB(t, ctrl, dbType)
+			var executorBuilds, undoFlushes int
+			var undoConn driver.Conn
+			db, targetConn, manager, meta := newATContextTestDB(t, ctrl, dbType, func(res *DBResource) {
+				builder := res.atExecutorBuilder
+				res.atExecutorBuilder = func() exec.SQLExecutor {
+					executorBuilds++
+					return builder()
+				}
+				undoManager := res.undoLogMgr
+				res.undoLogMgr = atContextUndoManager{
+					UndoLogManager: undoManager,
+					flush: func(txCtx *types.TransactionContext, conn driver.Conn) error {
+						undoFlushes++
+						undoConn = conn
+						return undoManager.FlushUndoLog(txCtx, conn)
+					},
+				}
+			})
 			targetTx := mock.NewMockTestDriverTx(ctrl)
 
 			previousUndoConfig := undo.UndoConfig
@@ -483,9 +520,16 @@ func TestATContextUpdateWithoutXIDRegistersAndFlushesBoundBranch(t *testing.T) {
 			tx, err := db.BeginTx(beginCtx, nil)
 			require.NoError(t, err)
 			defer tx.Rollback()
-			_, err = tx.ExecContext(execCtx, businessSQL)
+			result, err := tx.ExecContext(execCtx, businessSQL)
 			require.NoError(t, err)
+			affected, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, affected)
+			require.Equal(t, 1, executorBuilds)
+			require.Zero(t, undoFlushes)
 			require.NoError(t, tx.Commit())
+			require.Equal(t, 1, undoFlushes)
+			require.Same(t, targetConn, undoConn)
 		})
 	}
 }

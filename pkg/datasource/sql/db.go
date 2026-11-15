@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
@@ -111,13 +112,23 @@ type DBResource struct {
 	connector  driver.Connector
 	dbName     string
 	dbType     types.DBType
-	undoLogMgr undo.UndoLogManager
 	branchType branch.BranchType
+
+	undoLogMgr        undo.UndoLogManager
+	atExecutorBuilder exec.ATExecutorBuilder
 
 	// for xa
 	metaCache    datasource.TableMetaCache
 	shouldBeHeld bool
 	keeper       sync.Map // xaBranchID -> *XAConn
+}
+
+func (db *DBResource) executeAT(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	executor, err := exec.BuildExecutorWithATBuilder(db.dbType, execCtx.TxCtx.TransactionMode, execCtx.Query, db.atExecutorBuilder)
+	if err != nil {
+		return nil, err
+	}
+	return executor.ExecWithNamedValue(ctx, execCtx, run)
 }
 
 func (db *DBResource) GetResourceGroupId() string {
