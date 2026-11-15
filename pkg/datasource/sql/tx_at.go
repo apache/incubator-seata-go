@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 )
 
 type localCommitStage uint8
@@ -129,12 +128,12 @@ func (tx *ATTx) doCommit() (localCommitStage, error) {
 		return stage, err
 	}
 
-	undoLogMgr, err := undo.GetUndoLogManager(originTx.tranCtx.DBType)
-	if err != nil {
-		return stage, err
+	res := originTx.conn.res
+	if res == nil || res.undoLogMgr == nil {
+		return stage, fmt.Errorf("no Undo Log Manager for AT resource, resourceId: %s", originTx.tranCtx.ResourceID)
 	}
 
-	if err = undoLogMgr.FlushUndoLog(originTx.tranCtx, originTx.conn.targetConn); err != nil {
+	if err := res.undoLogMgr.FlushUndoLog(originTx.tranCtx, originTx.conn.targetConn); err != nil {
 		return stage, err
 	}
 

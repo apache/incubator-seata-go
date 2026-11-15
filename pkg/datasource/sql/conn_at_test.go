@@ -32,6 +32,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
@@ -89,7 +90,10 @@ func TestATPreparedStatementReturnsBindingErrorBeforeExecution(t *testing.T) {
 			targetConn.EXPECT().Prepare(query).Times(1).Return(targetStmt, nil)
 			targetStmt.EXPECT().Close().Times(1).Return(nil)
 			conn := &ATConn{Conn: &Conn{
-				res:        &DBResource{dbType: types.DBTypePostgreSQL},
+				res: &DBResource{
+					dbType:            types.DBTypePostgreSQL,
+					atExecutorBuilder: exec.GetATExecutorBuilder(types.DBTypePostgreSQL),
+				},
 				dbType:     types.DBTypePostgreSQL,
 				txCtx:      &types.TransactionContext{TransactionMode: types.ATMode, XID: "bound-xid"},
 				targetConn: targetConn,
@@ -257,7 +261,10 @@ func TestATConnQueryContextPrepareFallbackPreservesCloseErrors(t *testing.T) {
 	targetStmt.EXPECT().Close().Return(stmtCloseErr)
 
 	conn := &ATConn{Conn: &Conn{
-		res:        &DBResource{dbType: types.DBTypeMySQL},
+		res: &DBResource{
+			dbType:            types.DBTypeMySQL,
+			atExecutorBuilder: exec.GetATExecutorBuilder(types.DBTypeMySQL),
+		},
 		txCtx:      types.NewTxCtx(),
 		targetConn: targetConn,
 		dbType:     types.DBTypeMySQL,
@@ -1033,7 +1040,7 @@ func (mi *mockTxHook) BeforeRollback(tx *Tx) {
 }
 
 func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
-	for _, failurePoint := range []string{"before commit", "branch registration", "undo manager lookup", "undo log flush"} {
+	for _, failurePoint := range []string{"before commit", "branch registration", "missing undo manager", "undo log flush"} {
 		t.Run(failurePoint, func(t *testing.T) {
 			CleanTxHooks()
 			t.Cleanup(CleanTxHooks)
@@ -1046,6 +1053,7 @@ func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
 			rollbackCall := localTx.EXPECT().Rollback().Times(1).Return(nil)
 			targetConn := mock.NewMockTestDriverConn(ctrl)
 			txCtx := newATCommitFailureContext(types.DBTypeMySQL)
+			res := &DBResource{}
 			expectedOutcome := atCommitOutcomeRolledBack
 			var expectedRollbackErr, expectedReportErr error
 
@@ -1055,16 +1063,18 @@ func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
 			case "branch registration":
 				manager := newATCommitTestManager(t, ctrl)
 				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Times(1).Return(int64(0), primaryErr)
-			case "undo manager lookup":
+			case "missing undo manager":
 				expectedOutcome = atCommitOutcomeRollbackFailed
 				expectedRollbackErr = errors.New("rollback cleanup failed")
 				expectedReportErr = errors.New("branch failure report failed")
 				rollbackCall.Return(expectedRollbackErr)
-				txCtx.DBType = types.DBTypeOracle
 				manager := newATCommitTestManager(t, ctrl)
 				manager.EXPECT().BranchRegister(gomock.Any(), gomock.Any()).Times(1).Return(int64(123), nil)
 				gomock.InOrder(rollbackCall, expectATCommitFailureReport(t, manager, expectedReportErr))
 			case "undo log flush":
+				undoManager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
+				require.NoError(t, err)
+				res.undoLogMgr = undoManager
 				previousUndoConfig := undo.UndoConfig
 				undo.UndoConfig.LogSerialization = "json"
 				t.Cleanup(func() { undo.UndoConfig = previousUndoConfig })
@@ -1076,7 +1086,7 @@ func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
 			}
 
 			err := (&ATTx{tx: &Tx{
-				conn:    &Conn{targetConn: targetConn},
+				conn:    &Conn{targetConn: targetConn, res: res},
 				tranCtx: txCtx,
 				target:  localTx,
 			}}).Commit()
@@ -1088,8 +1098,8 @@ func TestATTxCommitFailuresBeforeLocalCommitRollback(t *testing.T) {
 					assert.Equal(t, expectedRollbackErr, commitErr.rollbackErr)
 					assert.Equal(t, expectedReportErr, commitErr.reportErr)
 				}
-				if failurePoint == "undo manager lookup" {
-					assert.Contains(t, err.Error(), "not found UndoLogManager")
+				if failurePoint == "missing undo manager" {
+					assert.ErrorContains(t, err, "no Undo Log Manager for AT resource, resourceId: test-resource")
 				} else {
 					assert.ErrorIs(t, err, primaryErr)
 				}
@@ -1159,8 +1169,16 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 				manager := newATCommitTestManager(t, ctrl)
 				gomock.InOrder(commitCall, expectATCommitFailureReport(t, manager, nil))
 			}
+			undoManager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
+			require.NoError(t, err)
 			conn := &Conn{
-				res:        &DBResource{dbType: types.DBTypeMySQL, resourceID: "test-resource", metaCache: batchATTableCache{}},
+				res: &DBResource{
+					dbType:            types.DBTypeMySQL,
+					resourceID:        "test-resource",
+					metaCache:         batchATTableCache{},
+					atExecutorBuilder: exec.GetATExecutorBuilder(types.DBTypeMySQL),
+					undoLogMgr:        undoManager,
+				},
 				dbName:     "seata_client",
 				txCtx:      txCtx,
 				targetConn: targetConn,
@@ -1173,7 +1191,7 @@ func TestATTxCommitFailureDiscardsConnection(t *testing.T) {
 
 			ctx := tm.InitSeataContext(context.Background())
 			tm.SetXID(ctx, "test-xid")
-			_, err := db.ExecContext(ctx, query, args...)
+			_, err = db.ExecContext(ctx, query, args...)
 
 			assert.Contains(t, err.Error(), primaryErr.Error())
 			assert.NotErrorIs(t, err, driver.ErrBadConn)
