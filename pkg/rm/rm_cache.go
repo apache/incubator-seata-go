@@ -69,10 +69,7 @@ func (d *ResourceManagerCache) GetResourceManager(branchType branch.BranchType) 
 func (d *ResourceManagerCache) RegisterCachedResources(conn connection.Connection) error {
 	var registrationErrs []error
 
-	rmRemoting, ok := GetRMRemotingInstance().(ConnectionAwareRMRemoting)
-	if !ok {
-		return fmt.Errorf("RM remoting %T does not support connection-scoped registration", GetRMRemotingInstance())
-	}
+	rmRemoting, connectionAware := GetRMRemotingInstance().(ConnectionAwareRMRemoting)
 
 	d.resourceManagerMap.Range(func(_, value interface{}) bool {
 		resourceManager, ok := value.(ResourceManager)
@@ -92,7 +89,13 @@ func (d *ResourceManagerCache) RegisterCachedResources(conn connection.Connectio
 				return true
 			}
 			// TODO: Merge resource IDs into one RegisterRMRequest to avoid one RPC round-trip per resource.
-			if err := rmRemoting.RegisterResourceOnConnection(resource, conn); err != nil {
+			register := resourceManager.RegisterResource
+			if connectionAware {
+				register = func(resource Resource) error {
+					return rmRemoting.RegisterResourceOnConnection(resource, conn)
+				}
+			}
+			if err := register(resource); err != nil {
 				registrationErrs = append(registrationErrs, err)
 			}
 			return true

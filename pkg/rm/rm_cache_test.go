@@ -69,6 +69,13 @@ type fakeConnectionAwareRMRemoting struct {
 	errs       map[Resource]error
 }
 
+type fakeRMRemoting struct{}
+
+func (*fakeRMRemoting) BranchRegister(_ BranchRegisterParam) (int64, error) { return 0, nil }
+func (*fakeRMRemoting) BranchReport(_ BranchReportParam) error              { return nil }
+func (*fakeRMRemoting) LockQuery(_ LockQueryParam) (bool, error)            { return false, nil }
+func (*fakeRMRemoting) RegisterResource(_ Resource) error                   { return nil }
+
 func (f *fakeConnectionAwareRMRemoting) BranchRegister(_ BranchRegisterParam) (int64, error) {
 	return 0, nil
 }
@@ -113,6 +120,26 @@ func TestResourceManagerCache_RegisterCachedResources(t *testing.T) {
 	assert.NoError(t, cache.RegisterCachedResources(conn))
 	assert.Equal(t, conn, remoting.registered[resource1])
 	assert.Equal(t, conn, remoting.registered[resource2])
+}
+
+func TestResourceManagerCache_RegisterCachedResourcesFallsBackForLegacyRMRemoting(t *testing.T) {
+	ctl := gomock.NewController(t)
+	resourceManager := NewMockResourceManager(ctl)
+	resource1 := NewMockResource(ctl)
+	resource2 := NewMockResource(ctl)
+	resources := &sync.Map{}
+	resources.Store("resource-1", resource1)
+	resources.Store("resource-2", resource2)
+
+	resourceManager.EXPECT().GetCachedResources().Return(resources)
+	resourceManager.EXPECT().RegisterResource(resource1).Return(nil)
+	resourceManager.EXPECT().RegisterResource(resource2).Return(nil)
+	useRMRemotingForTest(t, &fakeRMRemoting{})
+
+	cache := &ResourceManagerCache{}
+	cache.resourceManagerMap.Store(branch.BranchTypeTCC, resourceManager)
+
+	assert.NoError(t, cache.RegisterCachedResources(testConnection{}))
 }
 
 func TestResourceManagerCache_RegisterCachedResourcesContinuesAfterError(t *testing.T) {
