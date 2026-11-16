@@ -83,6 +83,38 @@ func TestRegistryLastDuplicateTagWins(t *testing.T) {
 	require.Same(t, first, second)
 }
 
+func TestRegistryDistinguishesTagKeys(t *testing.T) {
+	registry := NewRegistry()
+
+	zone := registry.Counter(metrics.Id{
+		Name: "tag.keys",
+		Tags: []metrics.Tag{{Key: "zone", Value: "a"}},
+	})
+	region := registry.Counter(metrics.Id{
+		Name: "tag.keys",
+		Tags: []metrics.Tag{{Key: "region", Value: "a"}},
+	})
+	require.NotSame(t, zone, region)
+
+	zone.Add(1)
+	region.Add(2)
+
+	measurements := registry.Measure()
+	require.Len(t, measurements, 2)
+
+	var zoneValue, regionValue float64
+	for _, measurement := range measurements {
+		if _, ok := tagValue(measurement.Id, "zone"); ok {
+			zoneValue = measurement.Value
+		}
+		if _, ok := tagValue(measurement.Id, "region"); ok {
+			regionValue = measurement.Value
+		}
+	}
+	require.Equal(t, float64(1), zoneValue)
+	require.Equal(t, float64(2), regionValue)
+}
+
 func TestRegistryCopiesTags(t *testing.T) {
 	registry := NewRegistry()
 	tags := []metrics.Tag{{Key: "zone", Value: "a"}}

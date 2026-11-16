@@ -19,13 +19,14 @@ package metrics
 
 import "time"
 
-// NoopRegistry is a Registry that discards all measurements.
+// NoopRegistry is a Registry implementation that discards all measurements.
 //
-// It is safe to use without nil checks and returns an empty slice from
-// Measure.
-var NoopRegistry Registry = noopRegistry{}
+// It is safe to use without nil checks and Measure returns no measurements.
+var NoopRegistry = noopRegistry{}
 
 type noopRegistry struct{}
+
+var _ Registry = noopRegistry{}
 
 func (noopRegistry) Counter(Id) Counter {
 	return noopCounter{}

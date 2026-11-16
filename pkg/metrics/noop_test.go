@@ -25,14 +25,15 @@ import (
 )
 
 func TestNoopRegistry(t *testing.T) {
-	require.NotNil(t, NoopRegistry)
+	var registry Registry = NoopRegistry
+	require.NotNil(t, registry)
 
 	id := Id{Name: "test.meter"}
-	NoopRegistry.Counter(id).Add(1)
-	NoopRegistry.Gauge(id).Set(1)
-	NoopRegistry.Gauge(id).Add(1)
-	NoopRegistry.Gauge(id).Sub(1)
-	NoopRegistry.Timer(id).Record(time.Second)
+	registry.Counter(id).Add(1)
+	registry.Gauge(id).Set(1)
+	registry.Gauge(id).Add(1)
+	registry.Gauge(id).Sub(1)
+	registry.Timer(id).Record(time.Second)
 
-	require.Empty(t, NoopRegistry.Measure())
+	require.Empty(t, registry.Measure())
 }

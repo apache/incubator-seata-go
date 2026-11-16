@@ -33,7 +33,8 @@ func newCounter(id metrics.Id) *counter {
 	return &counter{id: id}
 }
 
-// Add increases the counter by delta. A negative delta decreases it.
+// Add increases the counter by delta. A negative delta decreases it, matching
+// Java's Counter.decrease; use Gauge for values that rise and fall.
 func (c *counter) Add(delta float64) {
 	for {
 		oldBits := c.value.Load()
