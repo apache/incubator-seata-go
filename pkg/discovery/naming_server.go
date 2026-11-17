@@ -256,6 +256,12 @@ var (
 	namingServerMu       sync.Mutex
 )
 
+// GetInstance returns the process-wide NamingServer client for direct callers.
+// It is retained for API compatibility; registry initialization does not use this
+// singleton. Each NamingServerRegistryService owns and closes a separate client.
+// An active singleton is reused (including its original configuration). After it
+// is closed, the next call creates a client using the supplied configuration.
+// Callers sharing this client must coordinate Close with all other users.
 func GetInstance(config *NamingServerConfig) *NamingServerClient {
 	namingServerMu.Lock()
 	defer namingServerMu.Unlock()
@@ -284,6 +290,8 @@ func newNamingServerClient(config *NamingServerConfig) *NamingServerClient {
 	return client
 }
 
+// resetInstance resets only the direct-call singleton for tests. It does not
+// close registry-owned clients or clear their address caches.
 func resetInstance() {
 	namingServerMu.Lock()
 	client := namingServerInstance
