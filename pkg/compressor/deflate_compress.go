@@ -34,9 +34,11 @@ func (*DeflateCompress) Compress(data []byte) ([]byte, error) {
 		log.Error(err)
 		return nil, err
 	}
-	defer fw.Close()
 	fw.Write(data)
 	fw.Flush()
+	if err := fw.Close(); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
