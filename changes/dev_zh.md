@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1234](https://github.com/apache/incubator-seata-go/pull/1234)] 修复表元数据缓存在缓存命中时泄漏池化连接、且所有查询在 information_schema 查询期间串行化于写锁之后的问题；移除泄漏 prepared statement 的死代码 select-for-update 执行器
 - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] 修复 XA 回滚失败后清理分支状态导致的 panic，丢弃回滚失败的连接，并在池连接启动新分支时重置回滚状态
 - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] 修复 remoting session 重连后未重新注册缓存 RM 资源的问题
 - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表

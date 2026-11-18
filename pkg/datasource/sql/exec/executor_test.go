@@ -23,6 +23,11 @@ import (
 	"fmt"
 	"testing"
 
+	// Register the arana parser driver for aparser.New(): without this
+	// import the exec test binary has no transitive path to the
+	// registration and TestBuildExecutor panics with 'no parser driver'.
+	_ "github.com/arana-db/parser/test_driver"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 
