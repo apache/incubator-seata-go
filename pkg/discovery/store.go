@@ -119,6 +119,57 @@ func (s *AddressStore) remove(cluster, addr string, port int) bool {
 	return true
 }
 
+// ReplaceAll reconciles the whole store against a full prefix snapshot:
+// clusters absent from the snapshot are dropped, present clusters are
+// replaced, and subscribers are notified only for clusters whose list
+// changed. Used when the etcd watch is re-established so instances deleted
+// during the rebuild window do not linger forever.
+func (s *AddressStore) ReplaceAll(instancesByCluster map[string][]*ServiceInstance) {
+	s.mu.Lock()
+	changed := make(map[string][]*ServiceInstance)
+
+	for cluster := range s.clusters {
+		if _, ok := instancesByCluster[cluster]; !ok {
+			snapshot := s.saveLocked(cluster, nil)
+			changed[cluster] = snapshot
+		}
+	}
+	for cluster, instances := range instancesByCluster {
+		current := s.clusters[cluster]
+		if !sameInstanceList(current, instances) {
+			snapshot := s.saveLocked(cluster, instances)
+			changed[cluster] = snapshot
+		}
+	}
+	subscribers := s.subscribersLocked()
+	s.mu.Unlock()
+
+	for cluster, snapshot := range changed {
+		notifyAddressStoreSubscribers(subscribers, cluster, snapshot)
+	}
+}
+
+func sameInstanceList(a, b []*ServiceInstance) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	// Multiset compare: the previous set-based version reported
+	// sameInstanceList([X,X], [X,Y]) == true, silently dropping Y when a
+	// duplicate X existed on the a side.
+	counts := make(map[string]int, len(b))
+	for _, instance := range b {
+		counts[serviceInstanceKey(instance)]++
+	}
+	for _, instance := range a {
+		key := serviceInstanceKey(instance)
+		if counts[key] == 0 {
+			return false
+		}
+		counts[key]--
+	}
+	return true
+}
+
 func (s *AddressStore) saveAndNotify(cluster string, instances []*ServiceInstance) {
 	s.mu.Lock()
 	snapshot := s.saveLocked(cluster, instances)
