@@ -19,6 +19,8 @@ package fanout
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -51,5 +53,84 @@ func TestFanout_Close(t *testing.T) {
 	err := ca.Do(context.Background(), func(c context.Context) {})
 	if err == nil {
 		t.Fatal("expect get err")
+	}
+}
+
+// enqueueContext signals after Do passes its closed check and evaluates the
+// caller cancellation case, so shutdown cannot win before Do starts waiting.
+type enqueueContext struct {
+	context.Context
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (ctx *enqueueContext) Done() <-chan struct{} {
+	ctx.once.Do(func() { close(ctx.waiting) })
+	return ctx.Context.Done()
+}
+
+func TestFanoutDoUnblocksOnCancellation(t *testing.T) {
+	for _, buffer := range []int{0, 1} {
+		for _, shutdown := range []bool{false, true} {
+			name := "caller"
+			if shutdown {
+				name = "fanout"
+			}
+			t.Run(fmt.Sprintf("%s/buffer_%d", name, buffer), func(t *testing.T) {
+				pool := New("cancel-test", WithWorker(1), WithBuffer(buffer))
+				running := make(chan struct{})
+				release := make(chan struct{})
+				if err := pool.Do(context.Background(), func(context.Context) {
+					close(running)
+					<-release
+				}); err != nil {
+					t.Fatal(err)
+				}
+				<-running
+				if buffer > 0 {
+					if err := pool.Do(context.Background(), func(context.Context) {}); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				caller, cancel := context.WithCancel(context.Background())
+				ctx := &enqueueContext{Context: caller, waiting: make(chan struct{})}
+				result := make(chan error, 1)
+				closed := make(chan error, 1)
+				go func() { result <- pool.Do(ctx, func(context.Context) {}) }()
+				<-ctx.waiting
+
+				defer func() {
+					cancel()
+					close(release)
+					if !shutdown {
+						go func() { closed <- pool.Close() }()
+					}
+					select {
+					case err := <-closed:
+						if err != nil {
+							t.Errorf("Close() = %v", err)
+						}
+					case <-time.After(time.Second):
+						t.Error("Close did not finish after releasing the active callback")
+					}
+				}()
+
+				if shutdown {
+					go func() { closed <- pool.Close() }()
+					<-pool.ctx.Done()
+				} else {
+					cancel()
+				}
+				select {
+				case err := <-result:
+					if !errors.Is(err, context.Canceled) {
+						t.Errorf("Do() = %v, want context.Canceled", err)
+					}
+				case <-time.After(time.Second):
+					t.Error("Do stayed blocked after cancellation with no queue capacity")
+				}
+			})
+		}
 	}
 }

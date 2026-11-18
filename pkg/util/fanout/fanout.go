@@ -121,6 +121,8 @@ func (c *Fanout) Do(ctx context.Context, f func(ctx context.Context)) error {
 	case c.ch <- item{f: f, ctx: ctx}:
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
 	}
 	return nil
 }
