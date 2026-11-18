@@ -32,6 +32,7 @@
 
 ### bugfix：
 
+  - [[#1234](https://github.com/apache/incubator-seata-go/pull/1234)] fix table meta cache leaking the pooled connection on cache-hit returns and serializing all lookups behind a write lock held across information_schema queries; remove a dead select-for-update executor that leaked prepared statements
   - route transactions to their IPv6 coordinator when the transaction ID and connection use different IPv6 address formats
   - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] prevent XA rollback errors from panicking after branch cleanup, discard connections after failed rollback, and reset rollback state when a pooled connection starts a new branch
   - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] re-register cached RM resources after remoting sessions reconnect

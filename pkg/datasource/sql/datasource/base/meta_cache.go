@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
@@ -36,14 +37,19 @@ type (
 	}
 
 	entry struct {
-		value      types.TableMeta
-		lastAccess time.Time
+		value types.TableMeta
+		// lastAccess is unix nanoseconds and must only be accessed through
+		// sync/atomic: the cache-hit fast path in GetTableMeta updates it
+		// while holding no lock at all, so a plain field would race against
+		// scanExpire and concurrent readers.
+		lastAccess int64
 	}
 )
 
 // BaseTableMetaCache
 type BaseTableMetaCache struct {
 	lock            sync.RWMutex
+	cancel          context.CancelFunc
 	expireDuration  time.Duration
 	refreshInterval time.Duration
 	capity          int32
@@ -56,6 +62,10 @@ type BaseTableMetaCache struct {
 
 // NewBaseCache
 func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duration, trigger trigger, db *sql.DB, dbName string) *BaseTableMetaCache {
+	// WithCancel derives a cancellable child even from context.Background(),
+	// so Destroy() can always stop the background goroutines; nothing in
+	// production calls Destroy yet, which is the remaining lifetime gap.
+	ctx, cancel := context.WithCancel(ctx)
 	c := &BaseTableMetaCache{
 		lock:            sync.RWMutex{},
 		capity:          capity,
@@ -66,6 +76,7 @@ func NewBaseCache(ctx context.Context, capity int32, expireDuration time.Duratio
 		trigger:         trigger,
 		dbName:          dbName,
 		db:              db,
+		cancel:          cancel,
 	}
 
 	c.Init(ctx)
@@ -151,7 +162,10 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 				for k := range c.cache {
 					entry := c.cache[k]
 
-					if cur.Sub(entry.lastAccess) > c.expireDuration {
+					// lastAccess is unix nanos (atomic, see the entry comment);
+					// a wall-clock jump can only make expiry marginally early or
+					// late, which is acceptable for a cache heuristic.
+					if cur.UnixNano()-atomic.LoadInt64(&entry.lastAccess) > c.expireDuration.Nanoseconds() {
 						delete(c.cache, k)
 					}
 				}
@@ -166,11 +180,34 @@ func (c *BaseTableMetaCache) scanExpire(ctx context.Context) {
 
 // GetTableMeta
 func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMetaKey, conn *sql.Conn) (types.TableMeta, error) {
+	// The caller hands over a wrapper-opened conn it never closes, so this
+	// method owns it on every return path — including the cache-hit fast
+	// path below (a hit-path early return used to leak the pooled
+	// *sql.Conn until the pool ran dry).
+	defer conn.Close()
+
+	// Read path: serve cache hits under the read lock instead of queueing
+	// behind the write lock, which could be held across information_schema
+	// I/O — previously even hits serialized behind a cold load.
+	c.lock.RLock()
+	v, ok := c.cache[key]
+	var cached types.TableMeta
+	if ok {
+		// Copy the payload while still holding the read lock: refresh()
+		// replaces entry.value under the write lock, so an unlocked read
+		// could observe a torn TableMeta.
+		cached = v.value
+	}
+	c.lock.RUnlock()
+	if ok {
+		// Lock-free touch: lastAccess is atomic, see the entry comment.
+		atomic.StoreInt64(&v.lastAccess, time.Now().UnixNano())
+		return cached, nil
+	}
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
-	defer conn.Close()
-	v, ok := c.cache[key]
+	v, ok = c.cache[key]
 	if !ok {
 		meta, err := c.trigger.LoadOne(ctx, key, conn)
 		if err != nil {
@@ -178,10 +215,9 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMe
 		}
 
 		if meta != nil && !meta.IsEmpty() {
-			c.cache[key] = &entry{
-				value:      *meta,
-				lastAccess: time.Now(),
-			}
+			e := &entry{value: *meta}
+			atomic.StoreInt64(&e.lastAccess, time.Now().UnixNano())
+			c.cache[key] = e
 
 			return *meta, nil
 		}
@@ -189,12 +225,19 @@ func (c *BaseTableMetaCache) GetTableMeta(ctx context.Context, key types.TableMe
 		return types.TableMeta{}, fmt.Errorf("not found table metadata")
 	}
 
-	v.lastAccess = time.Now()
-	c.cache[key] = v
+	atomic.StoreInt64(&v.lastAccess, time.Now().UnixNano())
 
 	return v.value, nil
 }
 
+// Destroy stops the refresh and scanExpire goroutines. The derived context
+// is cancellable regardless of the parent passed to NewBaseCache, so calling
+// Destroy always works; note that no production wiring invokes it today
+// (datasource managers never call cache Destroy), so in practice the
+// goroutines live for the process lifetime.
 func (c *BaseTableMetaCache) Destroy() error {
+	if c.cancel != nil {
+		c.cancel()
+	}
 	return nil
 }

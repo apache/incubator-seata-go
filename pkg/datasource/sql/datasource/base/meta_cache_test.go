@@ -20,7 +20,9 @@ package base
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -101,7 +103,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cache: map[types.TableMetaKey]*entry{
 					{DBName: "test_db", TableName: "test"}: {
 						value:      types.TableMeta{},
-						lastAccess: time.Now(),
+						lastAccess: time.Now().UnixNano(),
 					},
 				},
 				trigger: &mockTrigger{},
@@ -119,7 +121,7 @@ func TestBaseTableMetaCache_refresh(t *testing.T) {
 				cache: map[types.TableMetaKey]*entry{
 					{DBName: "test_db", TableName: "TEST"}: {
 						value:      types.TableMeta{},
-						lastAccess: time.Now(),
+						lastAccess: time.Now().UnixNano(),
 					},
 				},
 				trigger: &mockTrigger{},
@@ -327,11 +329,11 @@ func TestBaseTableMetaCache_GetTableMeta(t *testing.T) {
 				cache: map[types.TableMetaKey]*entry{
 					{DBName: "db", TableName: "t_user1"}: {
 						value:      tableMeta1,
-						lastAccess: time.Now(),
+						lastAccess: time.Now().UnixNano(),
 					},
 					{DBName: "db", TableName: "T_USER2"}: {
 						value:      tableMeta2,
-						lastAccess: time.Now(),
+						lastAccess: time.Now().UnixNano(),
 					},
 				},
 				lock: sync.RWMutex{},
@@ -453,8 +455,8 @@ func TestBaseTableMetaCache_RefreshPreservesKeysAndAccessTime(t *testing.T) {
 	loaded := make(chan []types.TableMetaKey, 1)
 	cache := &BaseTableMetaCache{
 		cache: map[types.TableMetaKey]*entry{
-			keys[0]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess},
-			keys[1]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess},
+			keys[0]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess.UnixNano()},
+			keys[1]: {value: types.TableMeta{TableName: "stale"}, lastAccess: lastAccess.UnixNano()},
 		},
 		trigger:         refreshIdentityTrigger{loaded: loaded},
 		db:              db,
@@ -479,7 +481,7 @@ func TestBaseTableMetaCache_RefreshPreservesKeysAndAccessTime(t *testing.T) {
 		defer cache.lock.RUnlock()
 		for _, key := range keys {
 			entry, ok := cache.cache[key]
-			if !ok || entry.value.Columns["source"].ColumnName != key.DBName+"/"+key.Schema || !entry.lastAccess.Equal(lastAccess) {
+			if !ok || entry.value.Columns["source"].ColumnName != key.DBName+"/"+key.Schema || entry.lastAccess != lastAccess.UnixNano() {
 				return false
 			}
 		}
@@ -493,4 +495,101 @@ func TestBaseTableMetaCache_RefreshPreservesKeysAndAccessTime(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("refresh did not stop after cancellation")
 	}
+}
+
+func newTestEntry(v types.TableMeta) *entry {
+	e := &entry{value: v}
+	atomic.StoreInt64(&e.lastAccess, time.Now().UnixNano())
+	return e
+}
+
+// TestBaseTableMetaCache_GetTableMeta_ReturnsConnOnHitAndMiss pins the conn
+// ownership contract: the caller hands over a pooled conn it never closes,
+// so GetTableMeta must return it to the pool on every return path. An early
+// return on cache hits used to skip the close and leak the checked-out conn
+// (pool exhaustion under steady-state traffic).
+func TestBaseTableMetaCache_GetTableMeta_ReturnsConnOnHitAndMiss(t *testing.T) {
+	db, _, err := sqlmock.New()
+	assert.Nil(t, err)
+	defer db.Close()
+
+	cache := &BaseTableMetaCache{
+		cache: map[types.TableMetaKey]*entry{
+			{DBName: "db", TableName: "users"}: newTestEntry(types.TableMeta{TableName: "users"}),
+		},
+		trigger: identityTrigger{},
+	}
+
+	// Hit path: conn must be returned to the pool.
+	conn, err := db.Conn(context.Background())
+	assert.Nil(t, err)
+	meta, err := cache.GetTableMeta(context.Background(), types.TableMetaKey{DBName: "db", TableName: "users"}, conn)
+	assert.Nil(t, err)
+	assert.Equal(t, "users", meta.TableName)
+	assert.Equal(t, 0, db.Stats().InUse, "hit path must return the handed-over conn to the pool")
+
+	// Miss path: conn returned as well (pre-existing behaviour).
+	conn, err = db.Conn(context.Background())
+	assert.Nil(t, err)
+	meta, err = cache.GetTableMeta(context.Background(), types.TableMetaKey{DBName: "db", TableName: "orders"}, conn)
+	assert.Nil(t, err)
+	assert.Equal(t, "orders", meta.TableName)
+	assert.Equal(t, 0, db.Stats().InUse, "miss path must return the handed-over conn to the pool")
+}
+
+// TestBaseTableMetaCache_GetTableMeta_ConcurrentHitAndExpire hammers the
+// read fast path concurrently with misses and the expiry scanner. With the
+// pre-fix read path this pattern raced: unlocked entry.lastAccess writes
+// against scanExpire and concurrent readers, and an unlocked read of
+// entry.value against refresh(). The atomic lastAccess plus the read-lock
+// guarded value copy make the pattern safe; the test also pins that hits
+// return the cached payload intact and no conn is left checked out.
+func TestBaseTableMetaCache_GetTableMeta_ConcurrentHitAndExpire(t *testing.T) {
+	db, _, err := sqlmock.New()
+	assert.Nil(t, err)
+	defer db.Close()
+
+	cache := NewBaseCache(context.Background(), 1024, 2*time.Millisecond, identityTrigger{}, db, "db")
+	defer func() { _ = cache.Destroy() }()
+
+	hot := types.TableMetaKey{DBName: "db", TableName: "users"}
+	cache.lock.Lock()
+	cache.cache[hot] = newTestEntry(types.TableMeta{TableName: "users"})
+	cache.lock.Unlock()
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 64)
+	for w := 0; w < 16; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			key := hot
+			if w%4 == 3 {
+				// cold key: exercise miss + insert under write lock
+				key = types.TableMetaKey{DBName: "db", TableName: fmt.Sprintf("t%d", w)}
+			}
+			for i := 0; i < 200; i++ {
+				conn, err := db.Conn(context.Background())
+				if err != nil {
+					errCh <- err
+					return
+				}
+				meta, err := cache.GetTableMeta(context.Background(), key, conn)
+				if err != nil {
+					errCh <- err
+					return
+				}
+				if meta.TableName != key.TableName {
+					errCh <- fmt.Errorf("torn metadata: got %q want %q", meta.TableName, key.TableName)
+					return
+				}
+			}
+		}(w)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		t.Fatal(err)
+	}
+	assert.Equal(t, 0, db.Stats().InUse, "no conn may stay checked out after the hammering")
 }
