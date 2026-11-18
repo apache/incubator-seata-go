@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	etcd3 "go.etcd.io/etcd/client/v3"
 
@@ -86,7 +87,28 @@ func newEtcdRegistryService(config *ServiceConfig, etcd3Config *Etcd3Config) (Re
 }
 
 func (s *EtcdRegistryService) watch(key string) {
+	// The watch goroutine is the only writer of the address store: exiting
+	// it froze service discovery until process restart. The loop is
+	// therefore self-healing — malformed events are skipped, and a closed
+	// watch channel is re-established with backoff. Only stopCh ends it.
+	for {
+		if !s.watchOnce(key) {
+			return
+		}
+		select {
+		case <-s.stopCh:
+			log.Warn("stop etcd watch")
+			return
+		case <-time.After(time.Second):
+			// brief backoff before re-establishing the watch
+		}
+	}
+}
 
+// watchOnce establishes one watch and processes events until the channel
+// closes or the registry stops. It returns false when the goroutine must
+// exit (stopCh closed).
+func (s *EtcdRegistryService) watchOnce(key string) bool {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -96,22 +118,28 @@ func (s *EtcdRegistryService) watch(key string) {
 	}
 
 	if resp != nil {
+		// The prefix Get is a full snapshot: collect it and reconcile the
+		// whole store against it, so instances deleted while a watch was
+		// being rebuilt do not linger forever. Malformed
+		// or foreign entries are skipped — a cluster whose only entry is
+		// malformed is treated as having no instances.
+		snapshot := make(map[string][]*ServiceInstance)
 		for _, kv := range resp.Kvs {
 			k := kv.Key
 			v := kv.Value
 			clusterName, err := getClusterName(k)
 			if err != nil {
-				log.Errorf("etcd key has an incorrect format: %v", err)
-				return
+				log.Warnf("etcd key has an incorrect format, skipping: %v", err)
+				continue
 			}
 			serverInstance, err := getServerInstance(v)
 			if err != nil {
-				log.Errorf("etcd value has an incorrect format: %v", err)
-				return
+				log.Warnf("etcd value has an incorrect format, skipping: %v", err)
+				continue
 			}
-			s.store.upsert(clusterName, serverInstance)
+			snapshot[clusterName] = append(snapshot[clusterName], serverInstance)
 		}
-
+		s.store.ReplaceAll(snapshot)
 	}
 	watchOptions := []etcd3.OpOption{etcd3.WithPrefix()}
 	if resp != nil && resp.Header != nil {
@@ -123,8 +151,8 @@ func (s *EtcdRegistryService) watch(key string) {
 		select {
 		case watchResp, ok := <-watchCh:
 			if !ok {
-				log.Warnf("Watch channel closed")
-				return
+				log.Warnf("Watch channel closed, re-establishing")
+				return true
 			}
 			for _, event := range watchResp.Events {
 				switch event.Type {
@@ -133,15 +161,18 @@ func (s *EtcdRegistryService) watch(key string) {
 
 					k := event.Kv.Key
 					v := event.Kv.Value
+					// Foreign or malformed entries are skipped: returning here
+					// permanently killed the watch goroutine and froze the
+					// address list until process restart.
 					clusterName, err := getClusterName(k)
 					if err != nil {
-						log.Errorf("etcd key err: %v", err)
-						return
+						log.Warnf("etcd key err: %v, event skipped", err)
+						continue
 					}
 					serverInstance, err := getServerInstance(v)
 					if err != nil {
-						log.Errorf("etcd value err: %v", err)
-						return
+						log.Warnf("etcd value err: %v, event skipped", err)
+						continue
 					}
 
 					s.store.upsert(clusterName, serverInstance)
@@ -151,8 +182,8 @@ func (s *EtcdRegistryService) watch(key string) {
 
 					cluster, ip, port, err := getClusterAndAddress(event.Kv.Key)
 					if err != nil {
-						log.Errorf("etcd key err: %v", err)
-						return
+						log.Warnf("etcd key err: %v, event skipped", err)
+						continue
 					}
 
 					if !s.store.remove(cluster, ip, port) {
@@ -162,7 +193,7 @@ func (s *EtcdRegistryService) watch(key string) {
 			}
 		case <-s.stopCh:
 			log.Warn("stop etcd watch")
-			return
+			return false
 		}
 	}
 }
@@ -170,11 +201,22 @@ func (s *EtcdRegistryService) watch(key string) {
 func getClusterName(key []byte) (string, error) {
 	stringKey := string(key)
 	keySplit := strings.Split(stringKey, clusterNameSplitChar)
-	if len(keySplit) != 4 {
+	// The key is registry-seata-{cluster}-{ip}:{port}. The cluster name may
+	// itself contain "-", so everything between the fixed prefix segments and
+	// the trailing ip:port segment is the cluster (previously a hyphenated
+	// cluster name made len!=4 and the key was permanently ignored — the
+	// initial snapshot abort scenario for hyphenated cluster names).
+	// The trailing segment must be a parseable ip:port: a key without one
+	// could be upserted but never deregistered (Put/Delete asymmetry, P3).
+	tail := keySplit[len(keySplit)-1]
+	if _, _, err := net.SplitIPPortStr(tail); err != nil {
+		return "", fmt.Errorf("etcd key has an incorrect tail segment. key: %s", stringKey)
+	}
+	if len(keySplit) < 4 {
 		return "", fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
 	}
 
-	cluster := keySplit[2]
+	cluster := strings.Join(keySplit[2:len(keySplit)-1], clusterNameSplitChar)
 	return cluster, nil
 }
 
@@ -195,11 +237,14 @@ func getServerInstance(value []byte) (*ServiceInstance, error) {
 func getClusterAndAddress(key []byte) (string, string, int, error) {
 	stringKey := string(key)
 	keySplit := strings.Split(stringKey, clusterNameSplitChar)
-	if len(keySplit) != 4 {
+	// Same hyphenated-cluster rule as getClusterName: everything between the
+	// fixed prefix segments and the trailing ip:port is the cluster name, so
+	// deregistration works for cluster names containing "-" too.
+	if len(keySplit) < 4 {
 		return "", "", 0, fmt.Errorf("etcd key has an incorrect format. key: %s", stringKey)
 	}
-	cluster := keySplit[2]
-	ip, port, err := net.SplitIPPortStr(keySplit[3])
+	cluster := strings.Join(keySplit[2:len(keySplit)-1], clusterNameSplitChar)
+	ip, port, err := net.SplitIPPortStr(keySplit[len(keySplit)-1])
 	if err != nil {
 		return "", "", 0, fmt.Errorf("etcd port has an incorrect format. err: %w", err)
 	}
