@@ -33,6 +33,7 @@ Seata-go 是一款开源的分布式事务解决方案，提供高性能和简�
 
 ### bugfix：
 
+- [[#1232](https://github.com/apache/incubator-seata-go/pull/1232)] 修复畸形 getty 帧、畸形 grpc 消息、畸形 raft 认证响应及 RM 响应空指针引发的进程崩溃；修复 saga 状态机仓库的并发 map 访问与缓存查询用错 map 的问题；TC 注册被拒绝或传输层出错时向调用方上抛错误而非仅打日志
 - [[#1197](https://github.com/apache/incubator-seata-go/pull/1197)] 修复 XA 回滚失败后清理分支状态导致的 panic，丢弃回滚失败的连接，并在池连接启动新分支时重置回滚状态
 - [[#128](https://github.com/apache/incubator-seata-go/issues/128)] 修复 remoting session 重连后未重新注册缓存 RM 资源的问题
 - [[#1190](https://github.com/apache/incubator-seata-go/issues/1190)] 修复 UPDATE JOIN 后镜像查询，使用前镜像主键定位更新记录，并正确处理外连接中未匹配的目标表

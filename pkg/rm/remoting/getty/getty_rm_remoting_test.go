@@ -20,6 +20,7 @@ package getty
 import (
 	"testing"
 
+	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/config"
 	"seata.apache.org/seata-go/v2/pkg/rm"
 
@@ -51,4 +52,62 @@ func TestGetGettyRMRemotingInstance(t *testing.T) {
 			assert.IsType(t, tt.wantType, got)
 		})
 	}
+}
+
+// TestDecodeBranchRegisterResponse covers the nil / wrong-type / failure /
+// success paths; the historic code logged err.Error() with a possibly nil
+// err (panic) and bare-asserted the response type.
+func TestDecodeBranchRegisterResponse(t *testing.T) {
+	success := message.BranchRegisterResponse{
+		AbstractTransactionResponse: message.AbstractTransactionResponse{
+			AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeSuccess},
+		},
+		BranchId: 42,
+	}
+	failed := message.BranchRegisterResponse{AbstractTransactionResponse: message.AbstractTransactionResponse{AbstractResultMessage: message.AbstractResultMessage{ResultCode: message.ResultCodeFailed, Msg: "boom"}}}
+
+	branchId, err := decodeBranchRegisterResponse(success)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(42), branchId)
+
+	_, err = decodeBranchRegisterResponse(failed)
+	assert.Error(t, err)
+
+	_, err = decodeBranchRegisterResponse(nil)
+	assert.Error(t, err)
+
+	_, err = decodeBranchRegisterResponse("not-a-response")
+	assert.Error(t, err)
+}
+
+// TestHandleRegisterRMResponse verifies that a TC-side rejection
+// (Identified=false) is surfaced as an error instead of being swallowed with
+// only an info log (which made registrations report a healthy startup).
+func TestHandleRegisterRMResponse(t *testing.T) {
+	rejected := message.RegisterRMResponse{AbstractIdentifyResponse: message.AbstractIdentifyResponse{Identified: false, AbstractResultMessage: message.AbstractResultMessage{Msg: "auth failed"}}}
+	accepted := message.RegisterRMResponse{AbstractIdentifyResponse: message.AbstractIdentifyResponse{Identified: true}}
+
+	var successSeen, failureSeen bool
+	err := handleRegisterRMResponse(accepted,
+		func(message.RegisterRMResponse) { successSeen = true },
+		func(message.RegisterRMResponse) { failureSeen = true })
+	assert.NoError(t, err)
+	assert.True(t, successSeen)
+
+	err = handleRegisterRMResponse(rejected,
+		func(message.RegisterRMResponse) { successSeen = true },
+		func(message.RegisterRMResponse) { failureSeen = true })
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "register RM failed")
+	assert.True(t, failureSeen)
+
+	err = handleRegisterRMResponse(nil,
+		func(message.RegisterRMResponse) {},
+		func(message.RegisterRMResponse) {})
+	assert.Error(t, err)
+
+	err = handleRegisterRMResponse("wrong-type",
+		func(message.RegisterRMResponse) {},
+		func(message.RegisterRMResponse) {})
+	assert.Error(t, err)
 }

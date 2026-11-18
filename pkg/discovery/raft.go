@@ -541,17 +541,35 @@ func (r *RaftRegistryService) refreshToken() error {
 		return errors.New("authentication failed when refresh token")
 	}
 	respBody, _ := io.ReadAll(resp.Body)
-	var node map[string]interface{}
-	if err = json.Unmarshal(respBody, &node); err != nil {
+	// Decode into a struct instead of a map: the auth endpoint may return
+	// wrapper JSON (gateways, custom naming servers) whose "code"/"data"
+	// fields are absent, null or non-string. A bare map assertion on
+	// node["data"] panicked the whole process in that case.
+	var authResp struct {
+		Code    interface{} `json:"code"`
+		Data    *string     `json:"data"`
+		Message string      `json:"message"`
+	}
+	if err = json.Unmarshal(respBody, &authResp); err != nil {
 		return fmt.Errorf("invalid auth response: %w", err)
 	}
-	code, _ := node["code"].(string)
-	if code != "" && code != "200" {
-		return errors.New("authentication failed! you should configure the correct username and password")
+	switch code := authResp.Code.(type) {
+	case nil, string:
+		if s, _ := code.(string); s != "" && s != "200" {
+			return errors.New("authentication failed! you should configure the correct username and password")
+		}
+	default:
+		// Numeric or other code types are normalized through their text form
+		// so that {"code":200,...} is treated the same as {"code":"200",...}.
+		if fmt.Sprintf("%v", authResp.Code) != "200" {
+			return errors.New("authentication failed! you should configure the correct username and password")
+		}
 	}
-	dataVal := node["data"].(string)
+	if authResp.Data == nil || *authResp.Data == "" {
+		return fmt.Errorf("auth response carries no token data (message=%q)", authResp.Message)
+	}
 	r.mu.Lock()
-	r.jwtToken = dataVal
+	r.jwtToken = *authResp.Data
 	r.tokenTimestamp = time.Now().UnixMilli()
 	r.mu.Unlock()
 	return nil

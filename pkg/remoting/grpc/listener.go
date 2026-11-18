@@ -139,6 +139,13 @@ func (g *grpcClientHandler) StartReceiveLoop(ctx context.Context, c *Channel) {
 			c.wg.Add(1)
 			go func() {
 				defer c.wg.Done()
+				// Defense in depth: a panic here must not take down the
+				// whole client process (mirrors getty's per-session recover).
+				defer func() {
+					if r := recover(); r != nil {
+						log.Errorf("recovered from panic while processing message id=%d type=%d: %v", msg.Id, msg.MessageType, r)
+					}
+				}()
 
 				rpcMessage, err := Decode(msg)
 				if err != nil {
@@ -146,7 +153,11 @@ func (g *grpcClientHandler) StartReceiveLoop(ctx context.Context, c *Channel) {
 					return
 				}
 
-				body := rpcMessage.Body.(proto.Message)
+				body, ok := rpcMessage.Body.(proto.Message)
+				if !ok {
+					log.Errorf("rpc message body is not a proto.Message but %T, dropping it.", rpcMessage.Body)
+					return
+				}
 				if t, ok := g.typeMap[string(proto.MessageName(body).Name())]; ok {
 					processor := g.processorMap[t]
 					if processor != nil {

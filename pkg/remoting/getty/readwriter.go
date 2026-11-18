@@ -81,6 +81,14 @@ type SeataV1PackageHeader struct {
 }
 
 func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
+	// Wait for the full fixed header before decoding it: the buffer helpers
+	// zero-fill short reads, so decoding a partial header used to fabricate
+	// TotalLength/HeadLength values of 0 and could spin the read loop
+	// forever on a non-nil package that consumed no bytes.
+	if len(data) < Seatav1HeaderLength {
+		return nil, 0, nil
+	}
+
 	in := bytes.NewByteBuffer(data)
 
 	header := SeataV1PackageHeader{}
@@ -99,6 +107,14 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 	header.CodecType = bytes.ReadByte(in)
 	header.CompressType = bytes.ReadByte(in)
 	header.RequestID = bytes.ReadUInt32(in)
+
+	// Structural sanity: a malformed or hostile frame must be rejected with
+	// an error (getty then closes the connection) instead of underflowing
+	// the length arithmetic and slicing data out of bounds.
+	if header.HeadLength < Seatav1HeaderLength || header.TotalLength < Seatav1HeaderLength || uint32(header.HeadLength) > header.TotalLength {
+		return nil, 0, fmt.Errorf("invalid seata v1 frame header: totalLength=%d headLength=%d", header.TotalLength, header.HeadLength)
+	}
+
 	headMapLength := header.HeadLength - Seatav1HeaderLength
 	header.Meta = decodeHeapMap(in, headMapLength)
 	header.BodyLength = header.TotalLength - uint32(header.HeadLength)
@@ -122,7 +138,7 @@ func (p *RpcPackageHandler) Read(ss getty.Session, data []byte) (interface{}, in
 		rpcMessage.Body = message.HeartBeatMessagePong
 	} else {
 		if header.BodyLength > 0 {
-			msg := codec.GetCodecManager().Decode(codec.CodecType(header.CodecType), data[header.HeadLength:])
+			msg := codec.GetCodecManager().Decode(codec.CodecType(header.CodecType), data[header.HeadLength:header.TotalLength])
 			rpcMessage.Body = msg
 		}
 	}
@@ -146,6 +162,12 @@ func (p *RpcPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, er
 		headMapBytes = hb
 		headLength += headMapLength
 		totalLength += headMapLength
+	}
+	// The wire format stores HeadLength in a uint16 field. Truncating it
+	// silently would emit a frame whose declared head length differs from the
+	// real one, so the receiver (including our own Read) would misparse it.
+	if headLength > int(^uint16(0)) {
+		return nil, fmt.Errorf("head map too large: head length %d exceeds the uint16 wire field", headLength)
 	}
 
 	var bodyBytes []byte
@@ -198,29 +220,48 @@ func decodeHeapMap(in *bytes.ByteBuffer, length uint16) map[string]string {
 		return res
 	}
 
-	readedLength := uint16(0)
-	for readedLength < length {
+	// readedLength is uint32 on purpose: 4+keyLength+valueLength can exceed
+	// math.MaxUint16, and uint16 accumulation would wrap around to a small
+	// value and corrupt the loop's progress condition.
+	readedLength := uint32(0)
+	for readedLength < uint32(length) {
 		var key, value string
-		keyLength := bytes.ReadUInt16(in)
+		keyLength, err := in.ReadUint16()
+		if err != nil {
+			return res
+		}
 		if keyLength == 0 {
 			key = ""
 		} else {
 			keyBytes := make([]byte, keyLength)
-			in.Read(keyBytes)
+			// The underlying buffer reports short reads as (n<len(p), nil),
+			// so err alone is not enough: a declared length larger than the
+			// remaining bytes would otherwise be filled with zero padding
+			// and silently become garbage map data.
+			n, err := in.Read(keyBytes)
+			if err != nil || n < len(keyBytes) {
+				return res
+			}
 			key = string(keyBytes)
 		}
 
-		valueLength := bytes.ReadUInt16(in)
+		valueLength, err := in.ReadUint16()
+		if err != nil {
+			return res
+		}
 		if valueLength == 0 {
 			value = ""
 		} else {
 			valueBytes := make([]byte, valueLength)
-			in.Read(valueBytes)
+			n, err := in.Read(valueBytes)
+			if err != nil || n < len(valueBytes) {
+				return res
+			}
 			value = string(valueBytes)
 		}
 
 		res[key] = value
-		readedLength += 4 + keyLength + valueLength
+		readedLength += 4 + uint32(keyLength) + uint32(valueLength)
 	}
 	return res
 }

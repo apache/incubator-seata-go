@@ -566,3 +566,52 @@ func TestTypeAssertionSafety(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, address)
 }
+
+// TestRefreshToken_MalformedResponses verifies that refreshToken treats
+// wrapper/malformed auth payloads as errors instead of panicking on the bare
+// node["data"].(string) assertion.
+func TestRefreshToken_MalformedResponses(t *testing.T) {
+	cases := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantErr    bool
+		wantToken  string
+	}{
+		{"happy path", 200, `{"code":"200","data":"token-1"}`, false, "token-1"},
+		{"empty object", 200, `{}`, true, ""},
+		{"null body", 200, `null`, true, ""},
+		{"numeric code 200", 200, `{"code":200,"data":"token-2"}`, false, "token-2"},
+		{"code 200 data null", 200, `{"code":"200","data":null}`, true, ""},
+		{"code 200 data number", 200, `{"code":"200","data":123}`, true, ""},
+		{"spring error json", 200, `{"timestamp":1,"error":"Internal Server Error"}`, true, ""},
+		{"code 401", 200, `{"code":"401","message":"Login failed","data":null}`, true, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v1/auth/login" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(tc.statusCode)
+					_, _ = w.Write([]byte(tc.body))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer srv.Close()
+
+			registryConfig := newTestRegistryConfig(srv.URL)
+			registryConfig.NamingServer.ServerAddr = srv.Listener.Addr().String()
+			service := NewRaftRegistryService(newTestServiceConfig(), registryConfig)
+			service.namingserverAddress = srv.Listener.Addr().String()
+
+			err := service.refreshToken()
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantToken, service.jwtToken)
+			}
+		})
+	}
+}

@@ -49,24 +49,26 @@ type StateMachineRepositoryImpl struct {
 	defaultTenantId string
 	jsonParserName  string
 	charset         string
-	mutex           *sync.Mutex
+	// mutex guards both maps: every read and every write must hold it
+	// (RLock for lookups, Lock for fills and registry writes). The maps are
+	// read and written from concurrent engine/request goroutines; the
+	// previous code read them outside the lock, which could fatal the whole
+	// process with "concurrent map read and map write".
+	mutex sync.RWMutex
 }
 
 func GetStateMachineRepositoryImpl() *StateMachineRepositoryImpl {
-	if stateMachineRepositoryImpl == nil {
-		onceStateMachineRepositoryImpl.Do(func() {
-			//TODO charset is not use
-			//TODO using json parser
-			stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
-				stateMachineMapById:            make(map[string]statelang.StateMachine),
-				stateMachineMapByNameAndTenant: make(map[string]statelang.StateMachine),
-				seqGenerator:                   sequence.NewUUIDSeqGenerator(),
-				jsonParserName:                 DefaultJsonParser,
-				charset:                        "UTF-8",
-				mutex:                          &sync.Mutex{},
-			}
-		})
-	}
+	onceStateMachineRepositoryImpl.Do(func() {
+		//TODO charset is not use
+		//TODO using json parser
+		stateMachineRepositoryImpl = &StateMachineRepositoryImpl{
+			stateMachineMapById:            make(map[string]statelang.StateMachine),
+			stateMachineMapByNameAndTenant: make(map[string]statelang.StateMachine),
+			seqGenerator:                   sequence.NewUUIDSeqGenerator(),
+			jsonParserName:                 DefaultJsonParser,
+			charset:                        "UTF-8",
+		}
+	})
 
 	return stateMachineRepositoryImpl
 }
@@ -80,7 +82,9 @@ func (s *StateMachineRepositoryImpl) GetDefaultTenantId() string {
 }
 
 func (s *StateMachineRepositoryImpl) GetStateMachineById(stateMachineId string) (statelang.StateMachine, error) {
+	s.mutex.RLock()
 	stateMachine := s.stateMachineMapById[stateMachineId]
+	s.mutex.RUnlock()
 	if stateMachine == nil && s.stateLangStore != nil {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -126,12 +130,17 @@ func (s *StateMachineRepositoryImpl) GetStateMachineByNameAndTenantId(stateMachi
 
 func (s *StateMachineRepositoryImpl) GetLastVersionStateMachine(stateMachineName string, tenantId string) (statelang.StateMachine, error) {
 	key := stateMachineName + "_" + tenantId
+	s.mutex.RLock()
 	stateMachine := s.stateMachineMapByNameAndTenant[key]
+	s.mutex.RUnlock()
 	if stateMachine == nil && s.stateLangStore != nil {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		stateMachine = s.stateMachineMapById[key]
+		// The cache is keyed by name_tenant in stateMachineMapByNameAndTenant;
+		// the previous lookup against stateMachineMapById (whose keys are
+		// machine IDs) always missed and defeated the double check.
+		stateMachine = s.stateMachineMapByNameAndTenant[key]
 		if stateMachine == nil {
 			oldStateMachine, err := s.stateLangStore.GetLastVersionStateMachine(stateMachineName, tenantId)
 			if err != nil {
@@ -179,8 +188,10 @@ func (s *StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.Stat
 				machine.SetID(oldStateMachine.ID())
 				machine.SetCreateTime(oldStateMachine.CreateTime())
 
+				s.mutex.Lock()
 				s.stateMachineMapById[machine.ID()] = machine
 				s.stateMachineMapByNameAndTenant[machine.Name()+"_"+machine.TenantId()] = machine
+				s.mutex.Unlock()
 				return nil
 			}
 		}
@@ -201,8 +212,10 @@ func (s *StateMachineRepositoryImpl) RegistryStateMachine(machine statelang.Stat
 		machine.SetID(s.seqGenerator.GenerateId(constant.SeqEntityStateMachine, ""))
 	}
 
+	s.mutex.Lock()
 	s.stateMachineMapById[machine.ID()] = machine
 	s.stateMachineMapByNameAndTenant[machine.Name()+"_"+machine.TenantId()] = machine
+	s.mutex.Unlock()
 	return nil
 }
 

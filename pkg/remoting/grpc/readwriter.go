@@ -24,7 +24,6 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/protocol/grpc"
 	"seata.apache.org/seata-go/v2/pkg/protocol/message"
 	"seata.apache.org/seata-go/v2/pkg/remoting/grpc/pb"
-	"seata.apache.org/seata-go/v2/pkg/util/log"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -91,11 +90,14 @@ func Decode(msg *pb.GrpcMessageProto) (message.RpcMessage, error) {
 	}
 	var anyMsg anypb.Any
 	if err := proto.Unmarshal(msg.Body, &anyMsg); err != nil {
-		log.Errorf("failed to unmarshal to any: %v", err)
+		return rpcMessage, fmt.Errorf("failed to unmarshal to any: %w", err)
 	}
 	body, err := anyMsg.UnmarshalNew()
 	if err != nil {
-		log.Errorf("failed to unmarshal to msg: %v", err)
+		// A nil Body here would panic downstream on the proto.Message type
+		// assertion (see listener.go), so surface the failure as an error
+		// instead of logging and continuing.
+		return rpcMessage, fmt.Errorf("failed to unmarshal message body (typeUrl=%q): %w", anyMsg.GetTypeUrl(), err)
 	}
 	rpcMessage.Body = body
 	return rpcMessage, nil

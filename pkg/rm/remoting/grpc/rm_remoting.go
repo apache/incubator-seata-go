@@ -47,11 +47,25 @@ func (r *GrpcRMRemoting) BranchRegister(param rm.BranchRegisterParam) (int64, er
 		ApplicationData: param.ApplicationData,
 	}
 	resp, err := grpc.GetGrpcRemotingClient().SendSyncRequest(request)
-	if err != nil || resp == nil {
-		log.Errorf("BranchRegister error: %v, res %v", err.Error(), resp)
+	if err != nil {
+		log.Errorf("BranchRegister error: %v", err)
 		return 0, err
 	}
-	branchResp := resp.(*pb.BranchRegisterResponseProto)
+	return decodeBranchRegisterResponse(resp)
+}
+
+// decodeBranchRegisterResponse validates a BranchRegisterResponse: nil and
+// wrongly typed responses are rejected with an error instead of panicking on
+// a bare type assertion (the historic code also logged err.Error() with a
+// possibly nil err here).
+func decodeBranchRegisterResponse(resp interface{}) (int64, error) {
+	if resp == nil {
+		return 0, errors.New("BranchRegister received nil response")
+	}
+	branchResp, ok := resp.(*pb.BranchRegisterResponseProto)
+	if !ok {
+		return 0, fmt.Errorf("BranchRegister received unexpected response type %T", resp)
+	}
 	if branchResp.AbstractTransactionResponse.AbstractResultMessage.ResultCode == pb.ResultCodeProto_Failed {
 		return 0, fmt.Errorf("Response %s", branchResp.AbstractTransactionResponse.AbstractResultMessage.Msg)
 	}
@@ -125,17 +139,36 @@ func (r *GrpcRMRemoting) RegisterResource(resource rm.Resource) error {
 	}
 	res, err := grpc.GetGrpcRemotingClient().SendSyncRequest(req)
 	if err != nil {
-		log.Errorf("RegisterResourceManager error: {%#v}", err.Error())
+		log.Errorf("RegisterResourceManager error: {%#v}", err)
 		return err
 	}
-
-	if isRegisterSuccess(res) {
-		r.onRegisterRMSuccess(res.(*pb.RegisterRMResponseProto))
-	} else {
-		r.onRegisterRMFailure(res.(*pb.RegisterRMResponseProto))
+	registerResp, err := decodeRegisterRMResponse(res)
+	if err != nil {
+		return err
 	}
-
+	if !registerResp.AbstractIdentifyResponse.Identified {
+		r.onRegisterRMFailure(registerResp)
+		return fmt.Errorf("register RM failed: %s", registerResp.AbstractIdentifyResponse.AbstractResultMessage.Msg)
+	}
+	r.onRegisterRMSuccess(registerResp)
 	return nil
+}
+
+// decodeRegisterRMResponse validates a RegisterRMResponse: nil and wrongly
+// typed responses are rejected with an error instead of panicking on a bare
+// type assertion. A TC-side rejection (Identified=false, e.g. auth SPI or
+// version check) must reach the caller: swallowing it made data sources and
+// TCC proxies report a healthy startup while every later branch operation
+// failed (aligned with the Java client, which throws FrameworkException).
+func decodeRegisterRMResponse(res interface{}) (*pb.RegisterRMResponseProto, error) {
+	if res == nil {
+		return nil, errors.New("RegisterResource received nil response")
+	}
+	registerResp, ok := res.(*pb.RegisterRMResponseProto)
+	if !ok {
+		return nil, fmt.Errorf("RegisterResource received unexpected response type %T", res)
+	}
+	return registerResp, nil
 }
 
 func isQueryLockSuccess(response interface{}) bool {
@@ -169,7 +202,7 @@ func (r *GrpcRMRemoting) onRegisterRMSuccess(response *pb.RegisterRMResponseProt
 }
 
 func (r *GrpcRMRemoting) onRegisterRMFailure(response *pb.RegisterRMResponseProto) {
-	log.Infof("register RM failure. response: %#v", response)
+	log.Errorf("register RM failure. response: %#v", response)
 }
 
 func (r *GrpcRMRemoting) onRegisterTMSuccess(response *pb.RegisterTMResponseProto) {
