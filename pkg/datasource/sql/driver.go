@@ -35,6 +35,7 @@ import (
 	mysql2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/mysql"
 	postgres2 "seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource/postgres"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
 	"seata.apache.org/seata-go/v2/pkg/protocol/branch"
 	"seata.apache.org/seata-go/v2/pkg/util/log"
@@ -75,26 +76,17 @@ var (
 			return postgres2.NewTableMetaInstance(db, dbName)
 		},
 	}
+	// Built-in AT dialects are fixed at initialization.
+	atDialects = map[string]driverDescriptor{
+		SeataATMySQLDriver:    mySQLDriverDescriptor,
+		SeataATPostgresDriver: postgresDriverDescriptor,
+	}
 )
 
 func initDriver() {
-	sql.Register(SeataATMySQLDriver, &seataATDriver{
-		seataDriver: &seataDriver{
-			branchType: branch.BranchTypeAT,
-			transType:  types.ATMode,
-			target:     mysql.MySQLDriver{},
-			targetName: "mysql",
-			descriptor: mySQLDriverDescriptor,
-		},
-	})
-
-	sql.Register(SeataATPostgresDriver, &seataATDriver{
-		seataDriver: &seataDriver{
-			branchType: branch.BranchTypeAT,
-			transType:  types.ATMode,
-			descriptor: postgresDriverDescriptor,
-		},
-	})
+	for name := range atDialects {
+		sql.Register(name, &seataATDriver{name: name})
+	}
 
 	sql.Register(SeataXAMySQLDriver, &seataXADriver{
 		seataDriver: &seataDriver{
@@ -118,20 +110,32 @@ func initDriver() {
 }
 
 type seataATDriver struct {
-	*seataDriver
+	name string
 }
 
-func (d *seataATDriver) OpenConnector(name string) (c driver.Connector, err error) {
-	connector, err := d.seataDriver.OpenConnector(name)
+func (d *seataATDriver) Open(string) (driver.Conn, error) {
+	return nil, errDriverOpenUnsupported
+}
+
+func (d *seataATDriver) OpenConnector(dsn string) (driver.Connector, error) {
+	dialect, ok := atDialects[d.name]
+	if !ok {
+		return nil, fmt.Errorf("unknown AT driver %q", d.name)
+	}
+
+	baseDriver := &seataDriver{
+		branchType: branch.BranchTypeAT,
+		transType:  types.ATMode,
+		descriptor: dialect,
+	}
+	connector, err := baseDriver.OpenConnector(dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	_connector, _ := connector.(*seataConnector)
-	_connector.transType = types.ATMode
-
 	return &seataATConnector{
-		seataConnector: _connector,
+		seataConnector: connector.(*seataConnector),
+		driverName:     d.name,
 	}, nil
 }
 
@@ -161,57 +165,68 @@ type seataDriver struct {
 	targetName string
 }
 
+var errDriverOpenUnsupported = errors.New("operation unsupport.")
+
 // Open never be called, because seataDriver implemented dri.DriverContext interface.
 // reference package: datasource/sql [https://cs.opensource.google/go/go/+/master:src/database/sql/sql.go;l=813]
 // and maybe the sql.BD will be call Driver() method, but it obtain the Driver is fron Connector that is proxed by seataConnector.
 func (d *seataDriver) Open(name string) (driver.Conn, error) {
-	return nil, errors.New(("operation unsupport."))
+	return nil, errDriverOpenUnsupported
 }
 
-func (d *seataDriver) OpenConnector(name string) (c driver.Connector, err error) {
-	c = &dsnConnector{dsn: name, driver: d.descriptor.target}
+func (d *seataDriver) OpenConnector(name string) (driver.Connector, error) {
+	dbType := d.descriptor.dbType
+	if d.descriptor.target == nil || dbType == types.DBTypeUnknown {
+		return nil, fmt.Errorf("unsupport conn type %d", dbType)
+	}
+	var connector driver.Connector = &dsnConnector{dsn: name, driver: d.descriptor.target}
 	if driverCtx, ok := d.descriptor.target.(driver.DriverContext); ok {
-		c, err = driverCtx.OpenConnector(name)
+		target, err := driverCtx.OpenConnector(name)
 		if err != nil {
 			log.Errorf("open connector: %v", err)
 			return nil, err
 		}
+		connector = target
 	}
 
-	dbType := d.descriptor.dbType
-	if dbType == types.DBTypeUnknown {
-		return nil, fmt.Errorf("unsupport conn type %d", dbType)
-	}
-
-	proxy, err := d.getOpenConnectorProxy(c, dbType, sql.OpenDB(c), name)
-	if err != nil {
-		log.Errorf("register resource: %v", err)
-		return nil, err
-	}
-
-	return proxy, nil
+	return d.getOpenConnectorProxy(connector, dbType, sql.OpenDB(connector), name)
 }
 
 func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType types.DBType,
-	db *sql.DB, dataSourceName string) (driver.Connector, error) {
-	meta, err := parseConnectorMetadata(dataSourceName, dbType)
-	if err != nil {
-		return nil, err
+	db *sql.DB, dataSourceName string) (_ driver.Connector, err error) {
+	var metaCache datasource.TableMetaCache
+	var undoMgr undo.UndoLogManager
+	if d.branchType == branch.BranchTypeAT {
+		defer func() {
+			if err == nil {
+				return
+			}
+			var cacheErr error
+			if metaCache != nil {
+				cacheErr = metaCache.Destroy()
+			}
+			if closeErr := db.Close(); cacheErr != nil || closeErr != nil {
+				err = errors.Join(err, cacheErr, closeErr)
+			}
+		}()
+		undoMgr, err = undo.GetUndoLogManager(dbType)
+		if err != nil {
+			return nil, fmt.Errorf("resolve AT undo log manager for %s: %w", dbType, err)
+		}
 	}
-
 	dbName, err := d.descriptor.parseDBName(dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("parse db name: %w", err)
 	}
+	metaCache = d.descriptor.newTableMetaCache(db, dbName)
 	options := []dbOption{
 		withResourceID(parseResourceID(dataSourceName)),
 		withTarget(db),
 		withBranchType(d.branchType),
 		withDBType(dbType),
 		withDBName(dbName),
-		withDBName(meta.dbName),
 		withConnector(connector),
-		withTableMetaCache(d.descriptor.newTableMetaCache(db, dbName)),
+		withTableMetaCache(metaCache),
 	}
 	res, err := newResource(options...)
 	if err != nil {
@@ -219,6 +234,7 @@ func (d *seataDriver) getOpenConnectorProxy(connector driver.Connector, dbType t
 		return nil, err
 	}
 
+	res.undoLogMgr = undoMgr
 	if err = datasource.GetDataSourceManager(d.branchType).RegisterResource(res); err != nil {
 		log.Errorf("register resource: %v", err)
 		return nil, err
@@ -254,29 +270,6 @@ func parsePostgresDBName(dsn string) (string, error) {
 
 func (d *seataDriver) getTargetDriverName() string {
 	return d.targetName
-}
-
-type connectorMetadata struct {
-	dbName string
-}
-
-func parseConnectorMetadata(dataSourceName string, dbType types.DBType) (*connectorMetadata, error) {
-	switch dbType {
-	case types.DBTypeMySQL:
-		cfg, err := mysql.ParseDSN(dataSourceName)
-		if err != nil {
-			return nil, fmt.Errorf("parse mysql dsn: %w", err)
-		}
-		return &connectorMetadata{dbName: cfg.DBName}, nil
-	case types.DBTypePostgreSQL:
-		cfg, err := pgx.ParseConfig(dataSourceName)
-		if err != nil {
-			return nil, fmt.Errorf("parse postgres dsn: %w", err)
-		}
-		return &connectorMetadata{dbName: cfg.Database}, nil
-	default:
-		return nil, fmt.Errorf("unsupported connector metadata for db type %s", dbType.String())
-	}
 }
 
 type dsnConnector struct {

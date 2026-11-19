@@ -75,6 +75,14 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 			return true
 		}
 
+		replayer, replayAware := resourceManager.(interface {
+			PrepareResourceReplay()
+			ReregisterResource(Resource) error
+		})
+		if replayAware {
+			replayer.PrepareResourceReplay()
+		}
+
 		resources := resourceManager.GetCachedResources()
 		if resources == nil {
 			return true
@@ -86,7 +94,11 @@ func (d *ResourceManagerCache) RegisterCachedResources() error {
 				return true
 			}
 			// TODO: Merge resource IDs into one RegisterRMRequest to avoid one RPC round-trip per resource.
-			if err := resourceManager.RegisterResource(resource); err != nil {
+			register := resourceManager.RegisterResource
+			if replayAware {
+				register = replayer.ReregisterResource
+			}
+			if err := register(resource); err != nil {
 				registrationErrs = append(registrationErrs, err)
 			}
 			return true

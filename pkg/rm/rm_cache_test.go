@@ -20,6 +20,7 @@ package rm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -75,6 +76,59 @@ func TestResourceManagerCache_RegisterCachedResources(t *testing.T) {
 	cache.resourceManagerMap.Store(branch.BranchTypeTCC, resourceManager)
 
 	assert.NoError(t, cache.RegisterCachedResources())
+}
+
+type replayResourceManager struct {
+	*MockResourceManager
+	prepare    func()
+	reregister func(Resource) error
+}
+
+func (m *replayResourceManager) PrepareResourceReplay() {
+	m.prepare()
+}
+
+func (m *replayResourceManager) ReregisterResource(resource Resource) error {
+	return m.reregister(resource)
+}
+
+func TestResourceManagerCache_PreparesReplayBeforeReadingResources(t *testing.T) {
+	for _, populated := range []bool{false, true} {
+		t.Run(fmt.Sprintf("populated=%t", populated), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			resources := &sync.Map{}
+			resource := NewMockResource(ctrl)
+			registrationErr := errors.New("replay registration failed")
+			if populated {
+				resources.Store("resource", resource)
+			}
+			prepared, registered := false, false
+			manager := &replayResourceManager{
+				MockResourceManager: NewMockResourceManager(ctrl),
+				prepare:             func() { prepared = true },
+				reregister: func(actual Resource) error {
+					assert.True(t, prepared)
+					assert.Same(t, resource, actual)
+					registered = true
+					return registrationErr
+				},
+			}
+			manager.EXPECT().GetCachedResources().DoAndReturn(func() *sync.Map {
+				assert.True(t, prepared, "prepare replay before scanning even an empty cache")
+				return resources
+			})
+			cache := &ResourceManagerCache{}
+			cache.resourceManagerMap.Store(branch.BranchTypeAT, manager)
+
+			err := cache.RegisterCachedResources()
+			if populated {
+				assert.ErrorIs(t, err, registrationErr)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, populated, registered)
+		})
+	}
 }
 
 func TestResourceManagerCache_RegisterCachedResourcesContinuesAfterError(t *testing.T) {
