@@ -69,30 +69,16 @@ func (u *updateExecutor) ExecContext(ctx context.Context, f exec.CallbackWithNam
 		return nil, err
 	}
 
-	beforeImage, err := u.beforeImage(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := f(ctx, u.execContext.Query, u.execContext.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
-	afterImage, err := u.afterImage(ctx, *beforeImage)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(beforeImage.Rows) != len(afterImage.Rows) {
-		return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
-	}
-
-	if err := u.prepareUndoPair(u.execContext, beforeImage, afterImage); err != nil {
-		return nil, err
-	}
-
-	return res, nil
+	return u.execWithImages(ctx, u.execContext, f, u.beforeImage, func(ctx context.Context, beforeImage types.RecordImage) (*types.RecordImage, error) {
+		afterImage, err := u.afterImage(ctx, beforeImage)
+		if err != nil {
+			return nil, err
+		}
+		if len(beforeImage.Rows) != len(afterImage.Rows) {
+			return nil, fmt.Errorf("Before image size is not equaled to after image size, probably because you updated the primary keys.")
+		}
+		return afterImage, nil
+	})
 }
 
 // beforeImage build before image

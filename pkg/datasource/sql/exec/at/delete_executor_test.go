@@ -121,7 +121,7 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 			},
 		}},
 	}
-	reader := &stubTableMetaCache{meta: meta}
+	reader := &tableMetaReaderForTest{key: types.TableMetaKey{DBName: "app", TableName: meta.TableName}, meta: meta}
 
 	ctrl := gomock.NewController(t)
 	conn := mock.NewMockTestDriverConn(ctrl)
@@ -138,21 +138,30 @@ func TestDeleteExecutorAccumulatesOnlyEffectiveBatchItems(t *testing.T) {
 	)
 
 	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	callbacks := 0
 	for _, tenantID := range []driver.Value{int64(10), int64(10), int64(20)} {
-		parserCtx, err := parser.DoParser(query)
-		assert.NoError(t, err)
 		namedValues := util.ValueToNamedValue([]driver.Value{tenantID})
-		executor := NewDeleteExecutor(parserCtx, &types.ExecContext{TableMetaReader: reader,
-			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx, DBType: types.DBTypeMySQL,
-		}, nil)
-		_, err = executor.ExecContext(context.Background(), func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
-			return types.NewResult(types.WithResult(driver.ResultNoRows)), nil
+		execCtx := &types.ExecContext{TableMetaReader: reader, DBName: "app",
+			Query: query, NamedValues: namedValues, Conn: conn, TxCtx: txCtx,
+		}
+		businessResult := types.NewResult(types.WithResult(driver.ResultNoRows))
+		result, err := (&ATExecutor{}).ExecWithNamedValue(context.Background(), execCtx, func(_ context.Context, sql string, args []driver.NamedValue) (types.ExecResult, error) {
+			callbacks++
+			assert.Equal(t, query, sql)
+			assert.Equal(t, namedValues, args)
+			return businessResult, nil
 		})
 		assert.NoError(t, err)
+		assert.Same(t, businessResult, result)
 	}
+	assert.Equal(t, 3, callbacks)
 
 	assert.Len(t, txCtx.RoundImages.BeofreImages(), 2)
 	assert.Len(t, txCtx.RoundImages.AfterImages(), 2)
+	for _, afterImage := range txCtx.RoundImages.AfterImages() {
+		assert.Empty(t, afterImage.Rows)
+	}
 	assert.Len(t, txCtx.RoundImages.BeofreImages()[0].Rows, 2)
 	assert.Len(t, txCtx.RoundImages.BeofreImages()[1].Rows, 1)
 	assert.Contains(t, txCtx.LockKeys, "T_ORDER:10_1,10_2")

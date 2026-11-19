@@ -109,5 +109,5 @@ func (c *TableMetaCache) GetTableMeta(ctx context.Context, key types.TableMetaKe
 
 // Destroy
 func (c *TableMetaCache) Destroy() error {
-	return nil
+	return c.tableMetaCache.Destroy()
 }

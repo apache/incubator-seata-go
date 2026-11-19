@@ -86,18 +86,16 @@ func TestQualifiedTableNameUsesResolvedIdentity(t *testing.T) {
 }
 
 func TestGetScanSlicePreservesDecimal(t *testing.T) {
-	executor := baseExecutor{}
 	meta := &types.TableMeta{Columns: map[string]types.ColumnMeta{
 		"amount": {ColumnName: "amount", DatabaseTypeString: "DECIMAL"},
 	}}
 
-	scanSlice := executor.GetScanSlice([]string{"amount"}, meta)
+	scanSlice := getScanSlice([]string{"amount"}, meta)
 
 	assert.IsType(t, &sql.NullString{}, scanSlice[0])
 }
 
 func TestBaseExecBuildLockKey(t *testing.T) {
-	var exec baseExecutor
 
 	columnID := types.ColumnMeta{
 		ColumnName: "id",
@@ -277,7 +275,7 @@ func TestBaseExecBuildLockKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
+			lockKeys := (mysqlAdapter{}).buildDMLLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}
@@ -324,7 +322,7 @@ func TestBaseExecutorPrepareUndoPair(t *testing.T) {
 			beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: tt.sqlType, Rows: tt.beforeRows}
 			afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: tt.sqlType, Rows: tt.afterRows}
 
-			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage, (mysqlAdapter{}).buildDMLLockKey)
 
 			assert.NoError(t, err)
 			assert.Len(t, txCtx.RoundImages.BeofreImages(), tt.wantPairs)
@@ -361,7 +359,7 @@ func TestBaseExecutorPrepareUndoPairKeepsCompositeLockKeyFormat(t *testing.T) {
 	beforeImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: beforeRows}
 	afterImage := &types.RecordImage{TableName: meta.TableName, TableMeta: meta, SQLType: types.SQLTypeUpdate, Rows: afterRows}
 
-	err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+	err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage, (mysqlAdapter{}).buildDMLLockKey)
 
 	assert.NoError(t, err)
 	assert.Contains(t, txCtx.LockKeys, "TEST_TABLE:1_2")
@@ -400,7 +398,7 @@ func TestBaseExecutorPrepareUndoPairRejectsInvalidLockImage(t *testing.T) {
 			beforeImage := &types.RecordImage{TableName: "test_table", TableMeta: tt.meta, SQLType: types.SQLTypeUpdate, Rows: validRows}
 			afterImage := &types.RecordImage{TableName: "test_table", TableMeta: tt.meta, SQLType: types.SQLTypeUpdate, Rows: tt.afterRows}
 
-			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage)
+			err := (&baseExecutor{}).prepareUndoPair(execCtx, beforeImage, afterImage, (mysqlAdapter{}).buildDMLLockKey)
 
 			assert.ErrorContains(t, err, tt.wantErr)
 			assert.Empty(t, txCtx.LockKeys)
@@ -543,7 +541,6 @@ func TestBuildImageSelectColumnsDoesNotMutateInput(t *testing.T) {
 }
 
 func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
-	var exec baseExecutor
 
 	getColumnImage := func(columnName string, value interface{}) types.ColumnImage {
 		return types.ColumnImage{KeyType: types.IndexTypePrimaryKey, ColumnName: columnName, Value: value}
@@ -594,7 +591,7 @@ func TestBaseExecBuildLockKey_EscapedColumnNames(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lockKeys := exec.buildLockKey(&tt.records, tt.metaData)
+			lockKeys := (mysqlAdapter{}).buildDMLLockKey(&tt.records, tt.metaData)
 			assert.Equal(t, tt.expected, lockKeys)
 		})
 	}

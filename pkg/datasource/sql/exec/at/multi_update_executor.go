@@ -140,7 +140,7 @@ func (u *multiUpdateExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, err
 	}
 
-	lockKey := u.buildLockKey(image, *metaData)
+	lockKey := (mysqlAdapter{}).buildDMLLockKey(image, *metaData)
 	u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 	image.SQLType = u.parserCtx.SQLType
 

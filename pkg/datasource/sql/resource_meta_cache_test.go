@@ -27,13 +27,11 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/go-sql-driver/mysql"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/datasource"
-	atexec "seata.apache.org/seata-go/v2/pkg/datasource/sql/exec/at"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/mock"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
@@ -157,24 +155,28 @@ func TestOpenConnectorKeepsSeparateCachesForSameDBType(t *testing.T) {
 type recordingUndoManager struct {
 	undo.UndoLogManager
 	readers []types.TableMetaReader
+	pools   []*sql.DB
+	dbNames []string
 }
 
-func (m *recordingUndoManager) RunUndo(_ context.Context, _ string, _ int64, _ *sql.DB, _ string, reader types.TableMetaReader) error {
+func (m *recordingUndoManager) RunUndo(_ context.Context, _ string, _ int64, db *sql.DB, dbName string, reader types.TableMetaReader) error {
 	m.readers = append(m.readers, reader)
+	m.pools = append(m.pools, db)
+	m.dbNames = append(m.dbNames, dbName)
 	return nil
 }
 
 func TestBranchRollbackUsesItsResourceMetaReader(t *testing.T) {
 	readerA := &resourceTestMetaReader{id: "source_a"}
 	readerB := &resourceTestMetaReader{id: "source_b"}
+	poolA := sql.OpenDB(disconnectedTestConnector{})
+	defer poolA.Close()
+	poolB := sql.OpenDB(disconnectedTestConnector{})
+	defer poolB.Close()
+	undoA, undoB := &recordingUndoManager{}, &recordingUndoManager{}
 	manager := &ATSourceManager{}
-	manager.resourceCache.Store("source_a", &DBResource{dbType: types.DBTypeMySQL, metaCache: readerA})
-	manager.resourceCache.Store("source_b", &DBResource{dbType: types.DBTypeMySQL, metaCache: readerB})
-	undoManager := &recordingUndoManager{}
-	patch := gomonkey.ApplyFunc(undo.GetUndoLogManager, func(types.DBType) (undo.UndoLogManager, error) {
-		return undoManager, nil
-	})
-	defer patch.Reset()
+	manager.resourceCache.Store("source_a", &DBResource{db: poolA, dbName: "source_a", dbType: types.DBTypeMySQL, metaCache: readerA, undoLogMgr: undoA})
+	manager.resourceCache.Store("source_b", &DBResource{db: poolB, dbName: "source_b", dbType: types.DBTypeMySQL, metaCache: readerB, undoLogMgr: undoB})
 
 	for _, resourceID := range []string{"source_a", "source_b", "source_a"} {
 		status, err := manager.BranchRollback(context.Background(), rm.BranchResource{ResourceId: resourceID})
@@ -182,9 +184,12 @@ func TestBranchRollbackUsesItsResourceMetaReader(t *testing.T) {
 			t.Fatalf("rollback %s returned status %v, error %v", resourceID, status, err)
 		}
 	}
-	if len(undoManager.readers) != 3 || undoManager.readers[0] != readerA || undoManager.readers[1] != readerB || undoManager.readers[2] != readerA {
-		t.Fatalf("rollback readers = %v, want A, B, A", undoManager.readers)
-	}
+	require.Equal(t, []types.TableMetaReader{readerA, readerA}, undoA.readers)
+	require.Equal(t, []types.TableMetaReader{readerB}, undoB.readers)
+	require.Equal(t, []*sql.DB{poolA, poolA}, undoA.pools)
+	require.Equal(t, []*sql.DB{poolB}, undoB.pools)
+	require.Equal(t, []string{"source_a", "source_a"}, undoA.dbNames)
+	require.Equal(t, []string{"source_b"}, undoB.dbNames)
 }
 
 type capturedSQLBytes struct{ value *[]byte }
@@ -223,7 +228,9 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 		proxy, err := d.getOpenConnectorProxy(disconnectedTestConnector{}, types.DBTypeMySQL, db,
 			"root:pass@tcp(127.0.0.1:3306)/"+name)
 		require.NoError(t, err)
-		return &testResource{name: name, db: db, mock: sqlMock, res: proxy.(*seataConnector).res}
+		res := proxy.(*seataConnector).res
+		t.Cleanup(func() { require.NoError(t, res.metaCache.Destroy()) })
+		return &testResource{name: name, db: db, mock: sqlMock, res: res}
 	}
 	a, b := open("source_a"), open("source_b")
 	require.NotSame(t, a.res.metaCache, b.res.metaCache)
@@ -231,8 +238,6 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 	manager := &ATSourceManager{}
 	manager.resourceCache.Store(a.res.GetResourceId(), a.res)
 	manager.resourceCache.Store(b.res.GetResourceId(), b.res)
-	undoManager, err := undo.GetUndoLogManager(types.DBTypeMySQL)
-	require.NoError(t, err)
 
 	const query = "UPDATE account SET balance = ? WHERE id = ?"
 	for i, step := range []struct {
@@ -284,7 +289,7 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 			execCtx := conn.newExecContext(txCtx, query, nil, []driver.NamedValue{
 				{Ordinal: 1, Value: step.newValue}, {Ordinal: 2, Value: id},
 			})
-			_, err := (&atexec.ATExecutor{}).ExecWithNamedValue(context.Background(), execCtx,
+			_, err := state.res.executeAT(context.Background(), execCtx,
 				func(ctx context.Context, query string, args []driver.NamedValue) (types.ExecResult, error) {
 					result, err := driverConn.(driver.ExecerContext).ExecContext(ctx, query, args)
 					if err != nil {
@@ -299,7 +304,7 @@ func TestATExecutionAndRollbackKeepProductionCachesOnTheirResources(t *testing.T
 			if execCtx.TableMetaKey == nil || *execCtx.TableMetaKey != wantKey {
 				return fmt.Errorf("AT execution table metadata key = %v, want %v", execCtx.TableMetaKey, wantKey)
 			}
-			return undoManager.FlushUndoLog(txCtx, driverConn)
+			return state.res.undoLogMgr.FlushUndoLog(txCtx, driverConn)
 		})
 		require.NoError(t, err)
 		require.NoError(t, sqlConn.Close())

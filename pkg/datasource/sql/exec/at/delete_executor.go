@@ -59,25 +59,7 @@ func (d deleteExecutor) ExecContext(ctx context.Context, f exec.CallbackWithName
 		return nil, err
 	}
 
-	beforeImage, err := d.beforeImage(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := f(ctx, d.execContext.Query, d.execContext.NamedValues)
-	if err != nil {
-		return nil, err
-	}
-
-	afterImage, err := d.afterImage(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := d.prepareUndoPair(d.execContext, beforeImage, afterImage); err != nil {
-		return nil, err
-	}
-	return res, nil
+	return d.execWithImages(ctx, d.execContext, f, d.beforeImage, d.afterImage)
 }
 
 func (d *deleteExecutor) validateTargetDatabases(ctx context.Context) error {
@@ -248,7 +230,7 @@ func (d *deleteExecutor) buildBeforeImageSQL(query string, args []driver.NamedVa
 }
 
 // afterImage build after image
-func (d *deleteExecutor) afterImage(ctx context.Context) (*types.RecordImage, error) {
+func (d *deleteExecutor) afterImage(ctx context.Context, _ types.RecordImage) (*types.RecordImage, error) {
 	metaData, err := d.getTableMeta(ctx, d.execContext, d.parserCtx)
 	if err != nil {
 		return nil, err

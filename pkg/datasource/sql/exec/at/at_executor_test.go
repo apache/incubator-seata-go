@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -64,11 +65,103 @@ func TestATExecutor_Interceptors(t *testing.T) {
 	}
 }
 
-func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
-	t.Cleanup(func() { isGlobalTx = originalIsGlobalTx })
-	isGlobalTx = func(context.Context) bool { return true }
+type wrappedATExecutor struct {
+	*ATExecutor
+	execute func(context.Context, *types.ExecContext, exec.CallbackWithNamedValue) (types.ExecResult, error)
+}
 
+func (*wrappedATExecutor) Interceptors([]exec.SQLHook) {}
+
+func (e *wrappedATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+	return e.execute(ctx, execCtx, run)
+}
+
+func TestExecuteATWithBuilderHonorsWrappedExecutor(t *testing.T) {
+	blocked := errors.New("resource executor rejected SQL")
+	execCtx := &types.ExecContext{Query: "SELECT 1", TxCtx: types.NewTxCtx()}
+	_, err := exec.ExecuteATWithBuilder(context.Background(), types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		return &wrappedATExecutor{
+			ATExecutor: &ATExecutor{},
+			execute: func(context.Context, *types.ExecContext, exec.CallbackWithNamedValue) (types.ExecResult, error) {
+				return nil, blocked
+			},
+		}
+	}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		t.Error("business callback ran despite the resource executor's rejection")
+		return &mockExecResult{}, nil
+	})
+	require.ErrorIs(t, err, blocked)
+}
+
+func TestExecuteATWithBuilderReusesOnlyMatchingParse(t *testing.T) {
+	originalParseSQLQuery := parseSQLQuery
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
+	var reparsed []string
+	parseSQLQuery = func(query string) (*types.ParseContext, error) {
+		reparsed = append(reparsed, query)
+		return originalParseSQLQuery(query)
+	}
+
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	execCtx := &types.ExecContext{Query: "SELECT 1", TxCtx: txCtx}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result, err := exec.ExecuteATWithBuilder(ctx, types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		return &ATExecutor{}
+	}, func(callbackCtx context.Context, query string, _ []driver.NamedValue) (types.ExecResult, error) {
+		require.Same(t, ctx, callbackCtx)
+		require.Equal(t, "SELECT 1", query)
+		return &mockExecResult{}, nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Empty(t, reparsed)
+	require.Nil(t, execCtx.ATParseContext())
+
+	const rewritten = "CREATE TABLE account (id INT)"
+	_, err = exec.ExecuteATWithBuilder(ctx, types.DBTypeMySQL, execCtx, func() exec.SQLExecutor {
+		root := &ATExecutor{}
+		return &wrappedATExecutor{
+			ATExecutor: root,
+			execute: func(ctx context.Context, execCtx *types.ExecContext, run exec.CallbackWithNamedValue) (types.ExecResult, error) {
+				execCtx.Query = rewritten
+				return root.ExecWithNamedValue(ctx, execCtx, run)
+			},
+		}
+	}, func(context.Context, string, []driver.NamedValue) (types.ExecResult, error) {
+		t.Error("business callback ran after rewriting the read to DDL")
+		return &mockExecResult{}, nil
+	})
+	require.ErrorIs(t, err, errMySQLATUnsupportedStatement)
+	require.Equal(t, []string{rewritten}, reparsed)
+	require.Nil(t, execCtx.ATParseContext())
+}
+
+func TestExecuteATWithBuilderKeepsParseStateOffSharedDelegate(t *testing.T) {
+	delegate := &ATExecutor{}
+	builder := func() exec.SQLExecutor {
+		return &wrappedATExecutor{ATExecutor: delegate, execute: delegate.ExecWithNamedValue}
+	}
+	for _, query := range []string{"SELECT 1", "SELECT 2"} {
+		query := query
+		t.Run(query, func(t *testing.T) {
+			t.Parallel()
+			txCtx := types.NewTxCtx()
+			txCtx.TransactionMode = types.ATMode
+			execCtx := &types.ExecContext{Query: query, TxCtx: txCtx}
+			result, err := exec.ExecuteATWithBuilder(context.Background(), types.DBTypeMySQL, execCtx, builder,
+				func(_ context.Context, sql string, _ []driver.NamedValue) (types.ExecResult, error) {
+					require.Equal(t, query, sql)
+					return &mockExecResult{}, nil
+				})
+			require.NoError(t, err)
+			require.NotNil(t, result)
+		})
+	}
+}
+
+func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
 	replaceATExecutorFactories(t, &mockExecutor{})
 	newUpdateExecutor = func(parsed *types.ParseContext, _ *types.ExecContext, _ []exec.SQLHook) executor {
 		ref, err := parsed.GetTableRef()
@@ -80,6 +173,7 @@ func TestPostgreSQLATExecutorUsesQuotedTableRef(t *testing.T) {
 	result, err := (&postgresATExecutor{}).ExecWithNamedValue(context.Background(), &types.ExecContext{
 		DBType: types.DBTypePostgreSQL,
 		Query:  `UPDATE "Space"."Users" SET id=1`,
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 	}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -133,35 +227,30 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 	tests := []struct {
 		name      string
 		query     string
-		sqlType   types.SQLType
 		wantErr   bool
 		callCount int
 	}{
 		{
 			name:      "non-global transaction - INSERT",
 			query:     "INSERT INTO users (name, age) VALUES (?, ?)",
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - UPDATE",
 			query:     "UPDATE users SET age = ? WHERE name = ?",
-			sqlType:   types.SQLTypeUpdate,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - DELETE",
 			query:     "DELETE FROM users WHERE name = ?",
-			sqlType:   types.SQLTypeDelete,
 			wantErr:   false,
 			callCount: 1,
 		},
 		{
 			name:      "non-global transaction - SELECT",
 			query:     "SELECT * FROM users WHERE name = ?",
-			sqlType:   types.SQLTypeSelect,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -169,25 +258,9 @@ func TestATExecutor_ExecWithNamedValue_NonGlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return false
-			}
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
-
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				TxCtx:       types.NewTxCtx(),
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -250,7 +323,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 		},
 		{
 			name:    "global transaction - MULTI",
-			query:   "UPDATE users SET age = ? WHERE id IN (?, ?)",
+			query:   "UPDATE users SET age = 1 WHERE id = 2; DELETE FROM users WHERE id = 3",
 			sqlType: types.SQLTypeMulti,
 			wantErr: false,
 		},
@@ -264,23 +337,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return true
-			}
 			replaceATExecutorFactories(t, &mockExecutor{})
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
 
 			executor := &ATExecutor{
 				hooks: []exec.SQLHook{
@@ -288,6 +345,7 @@ func TestATExecutor_ExecWithNamedValue_GlobalTx(t *testing.T) {
 				},
 			}
 			execCtx := &types.ExecContext{
+				TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 				Query:       tt.query,
 				NamedValues: []driver.NamedValue{{Value: "test"}},
 			}
@@ -333,7 +391,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 		name      string
 		query     string
 		values    []driver.Value
-		sqlType   types.SQLType
 		wantErr   bool
 		callCount int
 	}{
@@ -341,7 +398,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with values - converts to NamedValues",
 			query:     "INSERT INTO users (name, age) VALUES (?, ?)",
 			values:    []driver.Value{"Alice", 30},
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -349,7 +405,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with empty values",
 			query:     "INSERT INTO users (name, age) VALUES ('Bob', 25)",
 			values:    []driver.Value{},
-			sqlType:   types.SQLTypeInsert,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -357,7 +412,6 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 			name:      "execute with multiple values",
 			query:     "UPDATE users SET name = ?, age = ?, city = ? WHERE id = ?",
 			values:    []driver.Value{"Charlie", 35, "NYC", 1},
-			sqlType:   types.SQLTypeUpdate,
 			wantErr:   false,
 			callCount: 1,
 		},
@@ -365,25 +419,9 @@ func TestATExecutor_ExecWithValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalIsGlobalTx := isGlobalTx
-			originalParseSQLQuery := parseSQLQuery
-			t.Cleanup(func() {
-				isGlobalTx = originalIsGlobalTx
-				parseSQLQuery = originalParseSQLQuery
-			})
-
-			isGlobalTx = func(ctx context.Context) bool {
-				return false
-			}
-
-			parseSQLQuery = func(query string) (*types.ParseContext, error) {
-				return &types.ParseContext{
-					SQLType: tt.sqlType,
-				}, nil
-			}
-
 			executor := &ATExecutor{}
 			execCtx := &types.ExecContext{
+				TxCtx:  types.NewTxCtx(),
 				Query:  tt.query,
 				Values: tt.values,
 			}
@@ -520,16 +558,9 @@ func TestATExecutors_ExecContext_BeforeHookError(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
 	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 
-	isGlobalTx = func(ctx context.Context) bool {
-		return true
-	}
 	parseSQLQuery = func(query string) (*types.ParseContext, error) {
 		return &types.ParseContext{
 			SQLType:      types.SQLTypeInsert,
@@ -539,6 +570,7 @@ func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:       &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",
 		NamedValues: []driver.NamedValue{{Name: "", Value: 1}, {Name: "", Value: "new"}},
 	}
@@ -560,16 +592,9 @@ func TestATExecutor_ExecWithNamedValue_ReplaceInto_GlobalTx(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
 	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
+	t.Cleanup(func() { parseSQLQuery = originalParseSQLQuery })
 
-	isGlobalTx = func(ctx context.Context) bool {
-		return true
-	}
 	parseSQLQuery = func(query string) (*types.ParseContext, error) {
 		return &types.ParseContext{
 			SQLType:      types.SQLTypeInsert,
@@ -579,6 +604,7 @@ func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
 
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
+		TxCtx:  &types.TransactionContext{TransactionMode: types.ATMode},
 		Query:  "REPLACE INTO users (id, name) VALUES (?, ?)",
 		Values: []driver.Value{1, "new"},
 	}
@@ -600,29 +626,6 @@ func TestATExecutor_ExecWithValue_ReplaceInto_GlobalTx(t *testing.T) {
 }
 
 func TestATExecutor_ExecWithNamedValue_ReplaceInto_NonGlobalTx(t *testing.T) {
-	originalIsGlobalTx := isGlobalTx
-	originalParseSQLQuery := parseSQLQuery
-	t.Cleanup(func() {
-		isGlobalTx = originalIsGlobalTx
-		parseSQLQuery = originalParseSQLQuery
-	})
-
-	isGlobalTx = func(ctx context.Context) bool {
-		return false
-	}
-	parseSQLQuery = func(query string) (*types.ParseContext, error) {
-		return &types.ParseContext{
-			SQLType:      types.SQLTypeInsert,
-			ExecutorType: types.ReplaceIntoExecutor,
-		}, nil
-	}
-
-	replaceATExecutorFactories(t, &mockExecutor{
-		execContextFunc: func(ctx context.Context, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-			return f(ctx, "", nil)
-		},
-	})
-
 	executor := &ATExecutor{}
 	execCtx := &types.ExecContext{
 		Query:       "REPLACE INTO users (id, name) VALUES (?, ?)",

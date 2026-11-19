@@ -263,3 +263,40 @@ func TestRowsCommitOnClose_Next_EOF_Close(t *testing.T) {
 	assert.Equal(t, int32(stateClosed), r.state)
 	assert.Nil(t, r.tx)
 }
+
+type twoResultSetRows struct {
+	driver.Rows
+	advanced bool
+}
+
+func (r *twoResultSetRows) HasNextResultSet() bool { return !r.advanced }
+
+func (r *twoResultSetRows) NextResultSet() error {
+	if r.advanced {
+		return io.EOF
+	}
+	r.advanced = true
+	return nil
+}
+
+func TestPreparedRowsCommitOnCloseKeepsNextResultSet(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	target := mock.NewMockTestDriverRows(ctrl)
+	tx := mock.NewMockTestDriverTx(ctrl)
+	rows := &preparedRowsCommitOnClose{&RowsCommitOnClose{
+		rows: &twoResultSetRows{Rows: target}, tx: tx,
+	}}
+	target.EXPECT().Next(nil).Return(io.EOF)
+	assert.ErrorIs(t, rows.Next(nil), io.EOF)
+	assert.True(t, rows.HasNextResultSet())
+	assert.NoError(t, rows.NextResultSet())
+
+	gomock.InOrder(
+		target.EXPECT().Next(nil).Return(io.EOF),
+		target.EXPECT().Close().Return(nil),
+		tx.EXPECT().Commit().Return(nil),
+	)
+	assert.ErrorIs(t, rows.Next(nil), io.EOF)
+	assert.False(t, rows.HasNextResultSet())
+	assert.NoError(t, rows.Close())
+}

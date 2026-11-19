@@ -251,7 +251,7 @@ func (u *updateJoinExecutor) beforeImage(ctx context.Context) ([]*types.RecordIm
 		if len(image.Rows) == 0 {
 			continue
 		}
-		lockKey := u.buildLockKey(image, *metaData)
+		lockKey := (mysqlAdapter{}).buildDMLLockKey(image, *metaData)
 		u.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 		image.SQLType = u.parserCtx.SQLType
 		key := table.key

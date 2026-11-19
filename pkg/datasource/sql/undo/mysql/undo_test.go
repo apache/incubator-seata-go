@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -28,6 +29,8 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/base"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/parser"
+	"seata.apache.org/seata-go/v2/pkg/util/collection"
 )
 
 func TestNewUndoLogManager(t *testing.T) {
@@ -111,14 +114,99 @@ func TestUndoLogManager_FlushUndoLog(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUndoLogManager_RunUndo(t *testing.T) {
-	// Skip test since it requires a real database connection
-	t.Skip("Skipping test that requires database connection")
+type recordingUpdateUndoHolder struct {
+	undo.UndoExecutorHolder
+	logs     []undo.SQLUndoLog
+	executor *recordingUndoExecutor
+}
 
-	manager := NewUndoLogManager()
-	assert.NotPanics(t, func() {
-		manager.RunUndo(context.Background(), "test-xid", 123, nil, "test_db", nil)
-	})
+func (h *recordingUpdateUndoHolder) GetUpdateExecutor(log undo.SQLUndoLog) undo.UndoExecutor {
+	h.logs = append(h.logs, log)
+	return h.executor
+}
+
+type recordingUndoExecutor struct {
+	dbTypes []types.DBType
+}
+
+func (e *recordingUndoExecutor) ExecuteOn(_ context.Context, dbType types.DBType, _ *sql.Conn) error {
+	e.dbTypes = append(e.dbTypes, dbType)
+	return nil
+}
+
+type undoTableMetaReader struct {
+	types.TableMetaReader
+	meta *types.TableMeta
+}
+
+func (r undoTableMetaReader) GetTableMeta(context.Context, types.TableMetaKey) (*types.TableMeta, error) {
+	return r.meta, nil
+}
+
+func TestUndoLogManager_RunUndoWithBoundHolder(t *testing.T) {
+	InitUndoLogManager()
+	registered, err := undo.GetUndoLogManager(types.DBTypeMySQL)
+	require.NoError(t, err)
+	require.IsType(t, &undoLogManager{}, registered)
+	require.NotNil(t, registered.(*undoLogManager).executorHolder)
+
+	for _, tc := range []struct {
+		name    string
+		sqlType types.SQLType
+		wantErr string
+	}{
+		{name: "update", sqlType: types.SQLTypeUpdate},
+		{name: "unknown", sqlType: types.SQLType(999), wantErr: "sql type: 999 not support"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+
+			const xid = "test-xid"
+			const branchID = 123
+			key := types.TableMetaKey{DBName: "test_db", TableName: "orders"}
+			meta := &types.TableMeta{TableName: key.TableName}
+			logParser := &parser.ProtobufParser{}
+			rollbackInfo, err := logParser.Encode(&undo.BranchUndoLog{
+				Xid: xid, BranchID: branchID,
+				Logs: []undo.SQLUndoLog{{
+					SQLType: tc.sqlType, TableName: key.TableName, TableMetaKey: &key,
+					BeforeImage: &types.RecordImage{TableName: key.TableName},
+				}},
+			})
+			require.NoError(t, err)
+			logContext := collection.EncodeMap(map[string]string{"serializerKey": logParser.GetName()})
+			mock.ExpectBegin()
+			mock.ExpectPrepare("SELECT .+ FOR UPDATE").WillBeClosed().ExpectQuery().WithArgs(int64(branchID), xid).
+				WillReturnRows(sqlmock.NewRows([]string{"branch_id", "xid", "context", "rollback_info", "log_status"}).
+					AddRow(branchID, xid, logContext, rollbackInfo, int64(undo.UndoLogStatusNormal)))
+			if tc.wantErr == "" {
+				mock.ExpectPrepare("DELETE FROM .+ WHERE").ExpectExec().WithArgs(int64(branchID), xid).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+			} else {
+				mock.ExpectRollback()
+			}
+
+			// Keep the registered manager untouched while recording which executor is used.
+			manager := *registered.(*undoLogManager)
+			holder := &recordingUpdateUndoHolder{executor: &recordingUndoExecutor{}}
+			manager.executorHolder = holder
+			err = manager.RunUndo(context.Background(), xid, branchID, db, key.DBName, undoTableMetaReader{meta: meta})
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				require.Len(t, holder.logs, 1)
+				require.Same(t, meta, holder.logs[0].BeforeImage.TableMeta)
+				require.Equal(t, []types.DBType{types.DBTypeMySQL}, holder.executor.dbTypes)
+			} else {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Empty(t, holder.logs)
+				require.Empty(t, holder.executor.dbTypes)
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestUndoLogManager_HasUndoLogTable(t *testing.T) {

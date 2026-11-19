@@ -174,6 +174,31 @@ type ExecContext struct {
 	IsAutoCommit         bool
 	IsSupportsSavepoints bool
 	IsRequireGlobalLock  bool
+
+	atParse *atExecutionParse
+}
+
+type atExecutionParse struct {
+	owner  *ExecContext
+	query  string
+	parsed *ParseContext
+}
+
+// BindATParse attaches the parser result used for hook selection to one
+// execution. The returned function restores the prior binding on exit.
+func (e *ExecContext) BindATParse(query string, parsed *ParseContext) func() {
+	previous := e.atParse
+	e.atParse = &atExecutionParse{owner: e, query: query, parsed: parsed}
+	return func() { e.atParse = previous }
+}
+
+// ATParseContext returns the parse for this execution and its current SQL.
+// A copied context or rewritten query needs its own parse.
+func (e *ExecContext) ATParseContext() *ParseContext {
+	if parse := e.atParse; parse != nil && parse.owner == e && parse.query == e.Query {
+		return parse.parsed
+	}
+	return nil
 }
 
 func NewTxCtx() *TransactionContext {
@@ -183,6 +208,11 @@ func NewTxCtx() *TransactionContext {
 		LocalTransID:    uuid.New().String(),
 		RoundImages:     &RoundRecordImage{},
 	}
+}
+
+// IsATMode reports whether the connection transaction uses AT mode.
+func (t *TransactionContext) IsATMode() bool {
+	return t != nil && t.TransactionMode == ATMode
 }
 
 // HasUndoLog

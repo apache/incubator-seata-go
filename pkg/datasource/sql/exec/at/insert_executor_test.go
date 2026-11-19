@@ -703,6 +703,42 @@ func executeInsertWithAfterRows(t *testing.T, query string, rows [][]driver.Valu
 	return txCtx, err
 }
 
+func TestMySQLAdapterPreservesGeneratedInsertResult(t *testing.T) {
+	const query = "INSERT INTO orders (tenant_id) VALUES (?)"
+	id := types.ColumnMeta{ColumnName: "id", DatabaseTypeString: "BIGINT", Autoincrement: true}
+	tenantID := types.ColumnMeta{ColumnName: "tenant_id", DatabaseTypeString: "BIGINT"}
+	meta := &types.TableMeta{
+		TableName: "orders", ColumnNames: []string{"id", "tenant_id"},
+		Columns: map[string]types.ColumnMeta{"id": id, "tenant_id": tenantID},
+		Indexs: map[string]types.IndexMeta{"PRIMARY": {
+			IType: types.IndexTypePrimaryKey, Columns: []types.ColumnMeta{id, tenantID},
+		}},
+	}
+	reader := &tableMetaReaderForTest{key: types.TableMetaKey{DBName: "app", TableName: meta.TableName}, meta: meta}
+	conn := mock.NewMockTestDriverConn(gomock.NewController(t))
+	conn.EXPECT().QueryContext(gomock.Any(), gomock.Any(), []driver.NamedValue{{Ordinal: 1, Value: int64(42)}, {Ordinal: 2, Value: int64(5)}}).
+		Return(newDeleteRows(meta.ColumnNames, []driver.Value{int64(42), int64(5)}), nil)
+	txCtx := types.NewTxCtx()
+	txCtx.TransactionMode = types.ATMode
+	args := util.ValueToNamedValue([]driver.Value{int64(5)})
+	execCtx := &types.ExecContext{Query: query, NamedValues: args, DBName: "app", Conn: conn, TxCtx: txCtx, TableMetaReader: reader}
+	businessResult := types.NewResult(types.WithResult(NewMockInsertResult(42, 1).GetResult()))
+	callbacks := 0
+	result, err := (&ATExecutor{}).ExecWithNamedValue(context.Background(), execCtx, func(_ context.Context, sql string, values []driver.NamedValue) (types.ExecResult, error) {
+		callbacks++
+		assert.Equal(t, query, sql)
+		assert.Equal(t, args, values)
+		return businessResult, nil
+	})
+
+	assert.NoError(t, err)
+	assert.Same(t, businessResult, result)
+	assert.Equal(t, 1, callbacks)
+	assert.Len(t, txCtx.RoundImages.BeofreImages(), 1)
+	assert.Len(t, txCtx.RoundImages.AfterImages(), 1)
+	assert.Equal(t, map[string]struct{}{"ORDERS:42_5": {}}, txCtx.LockKeys)
+}
+
 func TestInsertIgnoreNoOpSkipsAfterImage(t *testing.T) {
 	meta := &types.TableMeta{
 		TableName: "user", ColumnNames: []string{"id", "name"},

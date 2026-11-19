@@ -361,7 +361,17 @@ func (m *BaseUndoLogManager) RunUndo(ctx context.Context, xid string, branchID i
 }
 
 // Undo undo sql
-func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string, metaReader types.TableMetaReader) (err error) {
+func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, dbName string, metaReader types.TableMetaReader) error {
+	return m.UndoWithExecutorFactory(ctx, dbType, xid, branchID, db, metaReader, func(undoLog undo.SQLUndoLog) (undo.UndoExecutor, error) {
+		return factor.GetUndoExecutor(dbType, undoLog)
+	})
+}
+
+// UndoWithExecutorFactory replays the branch's undo logs using the supplied executor factory.
+func (m *BaseUndoLogManager) UndoWithExecutorFactory(
+	ctx context.Context, dbType types.DBType, xid string, branchID int64, db *sql.DB, metaReader types.TableMetaReader,
+	newExecutor func(undo.SQLUndoLog) (undo.UndoExecutor, error),
+) (err error) {
 	if metaReader == nil {
 		return fmt.Errorf("table meta reader is nil")
 	}
@@ -484,7 +494,7 @@ func (m *BaseUndoLogManager) Undo(ctx context.Context, dbType types.DBType, xid 
 
 			undoLog.SetTableMeta(tableMeta)
 
-			undoExecutor, err := factor.GetUndoExecutor(dbType, undoLog)
+			undoExecutor, err := newExecutor(undoLog)
 			if err != nil {
 				log.Errorf("get undo executor, err: %v", err)
 				return err

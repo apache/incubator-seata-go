@@ -25,23 +25,25 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/util/log"
 )
 
-func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (res undo.UndoExecutor, err error) {
+func GetUndoExecutor(dbType types.DBType, sqlUndoLog undo.SQLUndoLog) (undo.UndoExecutor, error) {
 	undoExecutorHolder, err := GetUndoExecutorHolder(dbType)
 	if err != nil {
 		log.Errorf("[GetUndoExecutor] get undo executor holder fail, err: %v", err)
 		return nil, err
 	}
+	return GetUndoExecutorFromHolder(undoExecutorHolder, sqlUndoLog)
+}
 
+// GetUndoExecutorFromHolder selects an executor by SQL type from a bound holder.
+func GetUndoExecutorFromHolder(holder undo.UndoExecutorHolder, sqlUndoLog undo.SQLUndoLog) (undo.UndoExecutor, error) {
 	switch sqlUndoLog.SQLType {
 	case types.SQLTypeInsert:
-		res = undoExecutorHolder.GetInsertExecutor(sqlUndoLog)
+		return holder.GetInsertExecutor(sqlUndoLog), nil
 	case types.SQLTypeDelete:
-		res = undoExecutorHolder.GetDeleteExecutor(sqlUndoLog)
+		return holder.GetDeleteExecutor(sqlUndoLog), nil
 	case types.SQLTypeUpdate:
-		res = undoExecutorHolder.GetUpdateExecutor(sqlUndoLog)
+		return holder.GetUpdateExecutor(sqlUndoLog), nil
 	default:
 		return nil, fmt.Errorf("sql type: %d not support", sqlUndoLog.SQLType)
 	}
-
-	return
 }

@@ -66,7 +66,7 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		// all child statements. Reparse each restored child as standalone SQL to
 		// rebase marker orders to the child-local argument slice expected by the
 		// existing single-statement executors.
-		childParseCtx, err := parser.DoParserForDB(query, m.execContext.DBType)
+		childParseCtx, err := parser.DoParserForDB(query, types.DBTypeMySQL)
 		if err != nil {
 			return nil, fmt.Errorf("parse restored statement %d: %w", index, err)
 		}
@@ -128,10 +128,8 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 		childExecCtx.Values = nil
 		childExecCtx.TableMetaKey = nil
 
-		childExecutor, err := newSequentialStatementExecutor(index, childParseCtx, &childExecCtx)
-		if err != nil {
-			return nil, err
-		}
+		childHooks := hooksForSQLType(childParseCtx.SQLType)
+		childExecutor := (mysqlAdapter{}).newStatementExecutor(childParseCtx, &childExecCtx, childHooks)
 
 		result, err := childExecutor.ExecContext(ctx, f)
 		if err != nil {
@@ -146,29 +144,6 @@ func (m *multiExecutor) execSequential(ctx context.Context, f exec.CallbackWithN
 	}
 
 	return lastResult, nil
-}
-
-// newSequentialStatementExecutor reuses the existing single-statement executors.
-//
-// Parent common and SQLTypeMulti hooks are owned by execSequential.
-// Each child executor receives only hooks registered for its own SQL type.
-func newSequentialStatementExecutor(index int, parseCtx *types.ParseContext, execCtx *types.ExecContext) (executor, error) {
-	childHooks := hooksForSQLType(parseCtx.SQLType)
-	switch parseCtx.ExecutorType {
-	case types.InsertExecutor:
-		return newInsertExecutor(parseCtx, execCtx, childHooks), nil
-
-	case types.UpdateExecutor:
-		return newUpdateExecutor(parseCtx, execCtx, childHooks), nil
-
-	case types.DeleteExecutor:
-		return newDeleteExecutor(parseCtx, execCtx, childHooks), nil
-
-	default:
-		return nil, fmt.Errorf("%w: statement %d uses executor type %v",
-			errUnsupportedMultiSQL, index, parseCtx.ExecutorType,
-		)
-	}
 }
 
 // getStatementNode gets the concrete AST node from ParseContext.

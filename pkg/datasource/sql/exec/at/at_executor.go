@@ -20,19 +20,12 @@ package at
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/exec"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/util"
-	"seata.apache.org/seata-go/v2/pkg/tm"
 )
 
 var (
-	parseSQLQuery = func(query string) (*types.ParseContext, error) {
-		return parser.ParseSQLForDB(query, types.DBTypeMySQL)
-	}
-	isGlobalTx                 = tm.IsGlobalTx
 	hooksForSQLType            = exec.HooksForSQLType
 	newPlainExecutor           = NewPlainExecutor
 	newInsertExecutor          = NewInsertExecutor
@@ -62,51 +55,7 @@ func (e *ATExecutor) Interceptors(hooks []exec.SQLHook) {
 
 // ExecWithNamedValue find the executor by sql type
 func (e *ATExecutor) ExecWithNamedValue(ctx context.Context, execCtx *types.ExecContext, f exec.CallbackWithNamedValue) (types.ExecResult, error) {
-	isATMode := isGlobalTx(ctx)
-	if execCtx.TxCtx != nil {
-		isATMode = execCtx.TxCtx.TransactionMode == types.ATMode
-	}
-	if !isATMode && !execCtx.IsRequireGlobalLock {
-		return newPlainExecutor(nil, execCtx).ExecContext(ctx, f)
-	}
-	queryParser, err := parseSQLQuery(execCtx.Query)
-	if err != nil {
-		return nil, err
-	}
-
-	var executor executor
-	if !isATMode && queryParser.SQLType != types.SQLTypeSelectForUpdate {
-		executor = newPlainExecutor(queryParser, execCtx)
-	} else {
-		if queryParser.ExecutorType == types.ReplaceIntoExecutor {
-			return nil, errors.New("NotSupportYetException: AT mode currently does not support REPLACE INTO statement")
-		}
-		switch queryParser.SQLType {
-		case types.SQLTypeInsert, types.SQLTypeUpdate, types.SQLTypeDelete,
-			types.SQLTypeSelectForUpdate, types.SQLTypeInsertOnDuplicateUpdate, types.SQLTypeMulti:
-			if err := parser.BindTableRefs(queryParser); err != nil {
-				return nil, err
-			}
-		}
-		switch queryParser.SQLType {
-		case types.SQLTypeInsert:
-			executor = newInsertExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeUpdate:
-			executor = newUpdateExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeDelete:
-			executor = newDeleteExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeSelectForUpdate:
-			executor = newSelectForUpdateExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeInsertOnDuplicateUpdate:
-			executor = newInsertOnUpdateExecutor(queryParser, execCtx, e.hooks)
-		case types.SQLTypeMulti:
-			executor = newMultiExecutor(queryParser, execCtx, e.hooks)
-		default:
-			executor = newPlainExecutor(queryParser, execCtx)
-		}
-	}
-
-	return executor.ExecContext(ctx, f)
+	return (mysqlAdapter{}).execute(ctx, execCtx, execCtx.ATParseContext(), e.hooks, f)
 }
 
 // ExecWithValue transfer value to nameValue execute

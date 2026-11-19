@@ -25,16 +25,22 @@ import (
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/base"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/executor"
+	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/factor"
 )
 
 var _ undo.UndoLogManager = (*undoLogManager)(nil)
 
 type undoLogManager struct {
-	Base *base.BaseUndoLogManager
+	Base           *base.BaseUndoLogManager
+	executorHolder undo.UndoExecutorHolder
 }
 
 func NewUndoLogManager() *undoLogManager {
-	return &undoLogManager{Base: base.NewBaseUndoLogManager()}
+	return &undoLogManager{
+		Base:           base.NewBaseUndoLogManager(types.DBTypeMySQL),
+		executorHolder: executor.NewMySQLUndoExecutorHolder(),
+	}
 }
 
 // Init init
@@ -58,7 +64,9 @@ func (m *undoLogManager) FlushUndoLog(tranCtx *types.TransactionContext, conn dr
 
 // RunUndo undo sql
 func (m *undoLogManager) RunUndo(ctx context.Context, xid string, branchID int64, db *sql.DB, dbName string, metaReader types.TableMetaReader) error {
-	return m.Base.Undo(ctx, m.DBType(), xid, branchID, db, dbName, metaReader)
+	return m.Base.UndoWithExecutorFactory(ctx, m.DBType(), xid, branchID, db, metaReader, func(undoLog undo.SQLUndoLog) (undo.UndoExecutor, error) {
+		return factor.GetUndoExecutorFromHolder(m.executorHolder, undoLog)
+	})
 }
 
 // DBType

@@ -21,11 +21,10 @@ import (
 	"github.com/pkg/errors"
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo"
-	"seata.apache.org/seata-go/v2/pkg/datasource/sql/undo/base"
 )
 
 func InitUndoLogManager() {
-	if err := undo.RegisterUndoLogManager(&undoLogManager{Base: base.NewBaseUndoLogManager()}); err != nil {
+	if err := undo.RegisterUndoLogManager(NewUndoLogManager()); err != nil {
 		panic(errors.WithStack(err))
 	}
 }

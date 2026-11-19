@@ -20,6 +20,7 @@ package at
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"io"
 	"testing"
 
@@ -27,15 +28,6 @@ import (
 
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/parser"
 	"seata.apache.org/seata-go/v2/pkg/datasource/sql/types"
-)
-
-var (
-	index     = 0
-	rowValues = [][]interface{}{
-		{1, "oid11"},
-		{2, "oid22"},
-		{3, "oid33"},
-	}
 )
 
 func TestBuildSelectPKSQL(t *testing.T) {
@@ -122,8 +114,6 @@ func TestBuildSelectPKSQL_PostgreSQL(t *testing.T) {
 }
 
 func TestBuildLockKey(t *testing.T) {
-	e := selectForUpdateExecutor{}
-
 	metaData := types.TableMeta{
 		TableName: "t_user",
 		Indexs: map[string]types.IndexMeta{
@@ -165,10 +155,27 @@ func TestBuildLockKey(t *testing.T) {
 		},
 		ColumnNames: []string{"id", "order_id", "age"},
 	}
-	rows := mockRows{}
-	lockKey := e.buildLockKey(rows, &metaData)
+	rows := &mockRows{values: [][]driver.Value{{1, "oid11"}, {2, "oid22"}, {3, "oid33"}}}
+	lockKey, err := (mysqlAdapter{}).buildSelectLockKey(rows, &metaData)
+	assert.NoError(t, err)
 	assert.Equal(t, "t_user:1_oid11,2_oid22,3_oid33", lockKey)
+
+	emptyKey, err := (mysqlAdapter{}).buildSelectLockKey(lockKeyRows{nextErr: io.EOF}, &metaData)
+	assert.NoError(t, err)
+	assert.Empty(t, emptyKey)
+
+	readErr := errors.New("primary key read failed")
+	_, err = (mysqlAdapter{}).buildSelectLockKey(lockKeyRows{nextErr: readErr}, &metaData)
+	assert.ErrorIs(t, err, readErr)
 }
+
+type lockKeyRows struct {
+	nextErr error
+}
+
+func (lockKeyRows) Columns() []string           { return []string{"id", "order_id"} }
+func (lockKeyRows) Close() error                { return nil }
+func (r lockKeyRows) Next([]driver.Value) error { return r.nextErr }
 
 func TestPrepareFallbackRowsCloseStatement(t *testing.T) {
 	ctx := context.Background()
@@ -205,13 +212,6 @@ func TestPrepareFallbackRowsCloseStatement(t *testing.T) {
 	}{
 		{name: "insert query", run: func(conn *prepareFallbackConn) error {
 			rows, err := (&insertExecutor{execContext: &types.ExecContext{TableMetaReader: reader, Conn: conn}}).queryRows(ctx, "SELECT 1", nil)
-			if err != nil {
-				return err
-			}
-			return rows.Close()
-		}},
-		{name: "select for update", run: func(conn *prepareFallbackConn) error {
-			rows, err := (&selectForUpdateExecutor{execContext: &types.ExecContext{TableMetaReader: reader, Conn: conn}}).exec(ctx, "SELECT 1 FOR UPDATE", nil, nil)
 			if err != nil {
 				return err
 			}
@@ -283,27 +283,23 @@ func (*prepareFallbackRows) Columns() []string         { return nil }
 func (r *prepareFallbackRows) Close() error            { r.conn.rowsClosed = true; return nil }
 func (*prepareFallbackRows) Next([]driver.Value) error { return io.EOF }
 
-type mockRows struct{}
+type mockRows struct {
+	values [][]driver.Value
+}
 
 func (m mockRows) Columns() []string {
 	return []string{"id", "order_id"}
 }
 
 func (m mockRows) Close() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
-func (m mockRows) Next(dest []driver.Value) error {
-	if index == len(rowValues) {
+func (m *mockRows) Next(dest []driver.Value) error {
+	if len(m.values) == 0 {
 		return io.EOF
 	}
-
-	if len(dest) >= 1 {
-		dest[0] = rowValues[index][0]
-		dest[1] = rowValues[index][1]
-		index++
-	}
-
+	copy(dest, m.values[0])
+	m.values = m.values[1:]
 	return nil
 }

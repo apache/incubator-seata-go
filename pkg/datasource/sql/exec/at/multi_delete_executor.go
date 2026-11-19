@@ -125,7 +125,7 @@ func (m *multiDeleteExecutor) beforeImage(ctx context.Context) ([]*types.RecordI
 		return nil, err
 	}
 	records = append(records, image)
-	lockKey := m.buildLockKey(image, *metaData)
+	lockKey := (mysqlAdapter{}).buildDMLLockKey(image, *metaData)
 	m.execContext.TxCtx.LockKeys[lockKey] = struct{}{}
 
 	return records, err
